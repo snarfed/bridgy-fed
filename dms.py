@@ -60,7 +60,7 @@ def maybe_send(*, from_proto, to_user, text, type=None, in_reply_to=None):
     id = f'{bot.profile_id()}#{type or "?"}-dm-{to_user.key.id()}-{util.now().isoformat()}'
     target_uri = to_user.target_for(to_user.obj, shared=False)
     target = models.Target(protocol=to_user.LABEL, uri=target_uri)
-    models.Object(id=id, source_protocol='web', undelivered=[target], our_as1={
+    models.Object(id=id, source_protocol='web', our_as1={
         'objectType': 'activity',
         'verb': 'post',
         'id': f'{id}-create',

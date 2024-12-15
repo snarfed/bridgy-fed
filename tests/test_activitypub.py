@@ -627,8 +627,7 @@ class ActivityPubTest(TestCase):
 
         expected_id = 'https://mas.to/users/swentel#Create-http://mas.to/note/id-2022-01-02T03:04:05+00:00'
         self.assert_object(expected_id, source_protocol='activitypub',
-                           as2=note, status='ignored', users=[user.key],
-                           ignore=['our_as1'])
+                           as2=note, users=[user.key], ignore=['our_as1'])
 
     def test_inbox_bad_id(self, *_):
         user = self.make_user(ACTOR['id'], cls=ActivityPub, obj_as2=ACTOR)
@@ -705,8 +704,6 @@ class ActivityPubTest(TestCase):
             'http://mas.to/reply/id#bridgy-fed-create',
             source_protocol='activitypub',
             our_as1=expected_as1,
-            status='complete',
-            delivered=['https://user.com/post'],
             type='post',
             notify=[self.user.key],
             users=[self.swentel_key],
@@ -733,8 +730,6 @@ class ActivityPubTest(TestCase):
             'http://mas.to/reply/id#bridgy-fed-create',
             source_protocol='activitypub',
             our_as1=expected_as1,
-            status='complete',
-            delivered=['https://user.com/post'],
             type='post',
             notify=[self.user.key],
             users=[self.swentel_key],
@@ -756,8 +751,6 @@ class ActivityPubTest(TestCase):
             'http://mas.to/reply/as2',
             source_protocol='activitypub',
             as2=create,
-            status='complete',
-            delivered=['https://user.com/post'],
             type='post',
             notify=[self.user.key],
             users=[self.swentel_key],
@@ -906,8 +899,6 @@ class ActivityPubTest(TestCase):
                            our_as1=expected_create,
                            users=[ndb.Key(ActivityPub, ACTOR['id'])],
                            type='post',
-                           status='complete',
-                           delivered=['fake:shared:target'],
                            delivered_protocol='fake')
 
     def test_repost_of_indieweb(self, mock_head, mock_get, mock_post):
@@ -943,14 +934,12 @@ class ActivityPubTest(TestCase):
 
         self.assert_object(REPOST_FULL['id'],
                            source_protocol='activitypub',
-                           status='complete',
                            as2={
                                **REPOST,
                                'actor': ACTOR,
                                'object': repost['object'],
                            },
                            users=[self.swentel_key],
-                           delivered=['https://user.com/orig'],
                            type='share',
                            )
     def test_shared_inbox_repost_of_fediverse(self, mock_head, mock_get, mock_post):
@@ -977,12 +966,10 @@ class ActivityPubTest(TestCase):
                       uri='fake:o:ap:https://mas.to/users/alice/statuses/654/activity')
         self.assert_object(REPOST['id'],
                            source_protocol='activitypub',
-                           status='complete',
                            as2=REPOST,
                            copies=[copy],
                            users=[self.swentel_key],
                            feed=[baz.key, self.user.key],
-                           delivered=['fake:shared:target'],
                            delivered_protocol='fake',
                            type='share',
                            ignore=['our_as1'])
@@ -1008,7 +995,6 @@ class ActivityPubTest(TestCase):
         self.assert_object('http://mas.to/like#ok',
                            # no nope.com Web user key since it didn't exist
                            source_protocol='activitypub',
-                           status='ignored',
                            our_as1=as2.to_as1({
                                **LIKE_WITH_ACTOR,
                                'object': 'http://nope.com/post',
@@ -1133,9 +1119,7 @@ class ActivityPubTest(TestCase):
                            notify=[self.user.key],
                            users=[self.masto_actor_key],
                            source_protocol='activitypub',
-                           status='complete',
                            our_as1=as2.to_as1(LIKE_WITH_ACTOR),
-                           delivered=['https://user.com/post'],
                            type='like',
                            )
 
@@ -1171,9 +1155,7 @@ class ActivityPubTest(TestCase):
                            users=[self.swentel_key],
                            notify=[self.user.key],
                            source_protocol='activitypub',
-                           status='complete',
                            our_as1=as2.to_as1(follow),
-                           delivered=['https://user.com/'],
                            type='follow',
                            )
 
@@ -1198,9 +1180,7 @@ class ActivityPubTest(TestCase):
                            users=[self.swentel_key],
                            notify=[self.user.key],
                            source_protocol='activitypub',
-                           status='complete',
                            our_as1=as2.to_as1(follow),
-                           delivered=['https://user.com/'],
                            type='follow',
                            )
 
@@ -1245,9 +1225,7 @@ class ActivityPubTest(TestCase):
                            users=[self.swentel_key],
                            notify=[self.user.key],
                            source_protocol='activitypub',
-                           status='complete',
                            our_as1=as2.to_as1(follow),
-                           delivered=['https://user.com/'],
                            type='follow',
                            )
 
@@ -1270,10 +1248,7 @@ class ActivityPubTest(TestCase):
                            users=[self.swentel_key],
                            notify=[self.user.key],
                            source_protocol='activitypub',
-                           status='failed',
                            our_as1=as2.to_as1(follow),
-                           delivered=[],
-                           failed=['https://user.com/'],
                            type='follow',
                            )
 
@@ -1521,7 +1496,6 @@ class ActivityPubTest(TestCase):
                            our_as1=expected,
                            users=[self.swentel_key],
                            source_protocol='activitypub',
-                           status='ignored',
                            )
         self.assertIsNone(Object.get_by_id(bad_url))
 
@@ -1735,7 +1709,6 @@ class ActivityPubTest(TestCase):
                            as2=delete,
                            type='delete',
                            source_protocol='activitypub',
-                           status='ignored',
                            users=[ActivityPub(id='https://mas.to/users/swentel').key])
 
     def test_update_note(self, *mocks):
@@ -1771,7 +1744,6 @@ class ActivityPubTest(TestCase):
         self.assert_object(UPDATE_NOTE['id'],
                            source_protocol='activitypub',
                            type='update',
-                           status='ignored',
                            our_as1=update_as1,
                            users=[self.swentel_key])
 
@@ -1810,7 +1782,6 @@ class ActivityPubTest(TestCase):
                            notify=[self.user.key],
                            users=[self.masto_actor_key],
                            source_protocol='activitypub',
-                           status='ignored',
                            our_as1=as2.to_as1(LIKE_WITH_ACTOR),
                            type='like',
                            )

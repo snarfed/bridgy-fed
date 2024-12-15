@@ -34,29 +34,6 @@
   <div class="col-xs-2">
     {{ logs.maybe_link(obj.created, obj.key.id(), path=['/queue/webmention','/inbox'])|safe }}
   </div>
-
-  <div class="col-xs-2">
-    <ul class="deliveries">
-    {% if obj.delivered %}
-      <li title="Delivered sucessfully">
-        <span class="glyphicon glyphicon-ok-sign"></span>
-        {{ obj.delivered|length }}
-      </li>
-    {% endif %}
-    {% if obj.undelivered %}
-      <li title="Remaining to be delivered">
-        <span class="glyphicon glyphicon-transfer"></span>
-        {{ obj.undelivered|length }}
-      </li>
-    {% endif %}
-    {% if obj.failed %}
-      <li title="Failed delivery">
-        <span class="glyphicon glyphicon-exclamation-sign"></span>
-        {{ obj.failed|length }}
-      </li>
-    {% endif %}
-    <ul>
-  </div>
 </li>
 {% else %}
   <span class="big">No activity yet. Check back soon!</span>

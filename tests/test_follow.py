@@ -379,10 +379,8 @@ class FollowTest(TestCase):
                            users=[self.user.key],
                            notify=[followee],
                            labels=['user', 'activity'],
-                           status='complete',
                            source_protocol='ui',
                            our_as1=expected_follow_as1,
-                           delivered=['http://ba.r/inbox'],
                            delivered_protocol='activitypub')
 
         self.assertEqual('https://alice.com', session['indieauthed-me'])
@@ -427,18 +425,15 @@ class FollowTest(TestCase):
         followee = ActivityPub(id='https://ba.r/id').key
         follow_obj = self.assert_object(id, users=[user.key],
                                         notify=[followee],
-                                        status='complete',
                                         labels=['user', 'activity'],
                                         source_protocol='ui',
                                         our_as1=expected_follow_as1,
-                                        delivered=['http://ba.r/inbox'],
                                         delivered_protocol='activitypub')
 
         followers = Follower.query().fetch()
-        self.assert_entities_equal(
-            Follower(from_=user.key, to=followee, follow=follow_obj.key, status='active'),
-            followers,
-            ignore=['created', 'updated'])
+        expected = Follower(from_=user.key, to=followee, follow=follow_obj.key,
+                            status='active')
+        self.assert_entities_equal(expected, followers, ignore=['created', 'updated'])
 
     def test_callback_url_composite_url(self, mock_get, mock_post):
         followee = {
@@ -618,11 +613,9 @@ class UnfollowTest(TestCase):
             'https://alice.com/#unfollow-2022-01-02T03:04:05-https://ba.r/id',
             users=[self.user.key],
             notify=[ActivityPub(id='https://ba.r/id').key],
-            status='complete',
             source_protocol='ui',
             labels=['user', 'activity'],
             our_as1=expected_undo_as1,
-            delivered=['http://ba.r/inbox'],
             delivered_protocol='activitypub')
 
         self.assertEqual('https://alice.com', session['indieauthed-me'])
@@ -685,11 +678,9 @@ class UnfollowTest(TestCase):
             'https://www.alice.com/#unfollow-2022-01-02T03:04:05-https://ba.r/id',
             users=[user.key],
             notify=[ActivityPub(id='https://ba.r/id').key],
-            status='complete',
             source_protocol='ui',
             labels=['user', 'activity'],
             our_as1=expected_undo_as1,
-            delivered=['http://ba.r/inbox'],
             delivered_protocol='activitypub')
 
     def test_callback_composite_url(self, mock_get, mock_post):

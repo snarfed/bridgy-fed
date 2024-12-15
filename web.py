@@ -973,11 +973,11 @@ def webmention_task():
         create_id = f'{source}#bridgy-fed-create'
         logger.info(f'Interpreting as Delete. Looking for {create_id}')
         create = Object.get_by_id(create_id)
-        if not create or create.status != 'complete':
-            error(f"Bridgy Fed hasn't successfully published {source}", status=304)
+        if not create:
+            error(f"Bridgy Fed hasn't published {source}", status=304)
 
         id = f'{source}#bridgy-fed-delete'
-        obj = Object(id=id, status='new', our_as1={
+        obj = Object(id=id, our_as1={
             'id': id,
             'objectType': 'activity',
             'verb': 'delete',

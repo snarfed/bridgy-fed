@@ -1138,7 +1138,6 @@ class Protocol:
         # send accept. note that this is one accept for the whole
         # follow, even if it has multiple followees!
         id = f'{followee.key.id()}/followers#accept-{follow.key.id()}'
-        undelivered = [Target(protocol=follower.LABEL, uri=target)]
         accept = {
             'id': id,
             'objectType': 'activity',
@@ -1146,8 +1145,7 @@ class Protocol:
             'actor': followee.key.id(),
             'object': follow.as1,
         }
-        Object.get_or_create(id, authed_as=followee.key.id(),
-                             undelivered=undelivered, our_as1=accept)
+        Object.get_or_create(id, authed_as=followee.key.id(), our_as1=accept)
 
         common.create_task(queue='send', obj_id=id, url=target,
                            protocol=follower.LABEL, user=followee.key.urlsafe())
@@ -1174,7 +1172,6 @@ class Protocol:
         target = user.target_for(user.obj)
         follow_back_id = f'https://{bot.key.id()}/#follow-back-{user.key.id()}-{now}'
         Object(id=follow_back_id, source_protocol='web',
-               undelivered=[Target(protocol=user.LABEL, uri=target)],
                our_as1={
                    'objectType': 'activity',
                    'verb': 'follow',
@@ -1234,11 +1231,11 @@ class Protocol:
 
         create_id = f'{obj.key.id()}#bridgy-fed-create'
         create = cls.load(create_id, remote=False)
-        if (obj.new or not create or create.status != 'complete'
+        if (obj.new or not create
                 # HACK: force query param here is specific to webmention
                 or 'force' in request.form):
             if create:
-                logger.info(f'Existing create {create.key.id()} status {create.status}')
+                logger.info(f'Existing create {create.key.id()}')
             else:
                 logger.info(f'No existing create activity')
             create_as1 = {
@@ -1276,21 +1273,15 @@ class Protocol:
         # find delivery targets. maps Target to Object or None
         targets = from_cls.targets(obj, from_user=from_user)
 
+        # TODO: this would be clearer if it was at the end of receive(), which
+        # that *should* be equivalent, but oddly tests fail if it's moved there
+        obj.put()
         if not targets:
-            obj.status = 'ignored'
-            obj.put()
             return r'No targets, nothing to do ¯\_(ツ)_/¯', 204
 
         # sort targets so order is deterministic for tests, debugging, etc
         sorted_targets = sorted(targets.items(), key=lambda t: t[0].uri)
-        obj.populate(
-            status='in progress',
-            delivered=[],
-            failed=[],
-            undelivered=[t for t, _ in sorted_targets],
-        )
-        obj.put()
-        logger.info(f'Delivering to: {obj.undelivered}')
+        logger.info(f'Delivering to: {[t for t, _ in sorted_targets]}')
 
         # enqueue send task for each targets
         user = from_user.key.urlsafe()
@@ -1749,11 +1740,6 @@ def send_task():
     PROTOCOLS[protocol].check_supported(obj)
     allow_opt_out = (obj.type == 'delete')
 
-    if (target not in obj.undelivered and target not in obj.failed
-            and 'force' not in request.values):
-        logger.info(f"{url} not in {obj.key.id()} undelivered or failed, giving up")
-        return r'¯\_(ツ)_/¯', 204
-
     user = None
     if user_key := form.get('user'):
         key = ndb.Key(urlsafe=user_key)
@@ -1779,32 +1765,5 @@ def send_task():
 
     if sent is False:
         logger.info(f'Failed sending!')
-
-    # write results to Object
-    #
-    # retry aggressively because this has high contention during inbox delivery.
-    # (ndb does exponential backoff.)
-    # https://console.cloud.google.com/errors/detail/CJm_4sDv9O-iKg;time=P7D?project=bridgy-federated
-    @ndb.transactional(retries=10)
-    def update_object(obj_key):
-        obj = obj_key.get()
-        if target in obj.undelivered:
-            obj.remove('undelivered', target)
-
-        if sent is None:
-            obj.add('failed', target)
-        else:
-            if target in obj.failed:
-                obj.remove('failed', target)
-            if sent:
-                obj.add('delivered', target)
-
-        if not obj.undelivered:
-            obj.status = ('complete' if obj.delivered
-                          else 'failed' if obj.failed
-                          else 'ignored')
-        obj.put()
-
-    update_object(obj.key)
 
     return '', 200 if sent else 204 if sent is False else 304

@@ -875,7 +875,6 @@ class Object(StringIdModel):
 
     Key name is the id. We synthesize ids if necessary.
     """
-    STATUSES = ('new', 'in progress', 'complete', 'failed', 'ignored')
     LABELS = ('activity',
               # DEPRECATED, replaced by users, notify, feed
               'feed', 'notification', 'user')
@@ -893,7 +892,6 @@ class Object(StringIdModel):
     # with old Objects in the datastore that we haven't bothered migrating.
     domains = ndb.StringProperty(repeated=True)
 
-    status = ndb.StringProperty(choices=STATUSES)
     # choices is populated in reset_protocol_properties, after all User
     # subclasses are created, so that PROTOCOLS is fully populated.
     # TODO: nail down whether this is ABBREV or LABEL
@@ -918,10 +916,6 @@ class Object(StringIdModel):
 
     deleted = ndb.BooleanProperty()
 
-    delivered = ndb.StructuredProperty(Target, repeated=True)
-    undelivered = ndb.StructuredProperty(Target, repeated=True)
-    failed = ndb.StructuredProperty(Target, repeated=True)
-
     # Copies of this object elsewhere, eg at:// URIs for ATProto records and
     # nevent etc bech32-encoded Nostr ids, where this object is the original.
     # Similar to u-syndication links in microformats2 and
@@ -943,6 +937,14 @@ class Object(StringIdModel):
 
     lock = None
     """Initialized in __init__, synchronizes :meth:`add` and :meth:`remove`."""
+
+    # these were used for delivery tracking, but they were too expensive,
+    # so we stopped: https://github.com/snarfed/bridgy-fed/issues/1501
+    STATUSES = ('new', 'in progress', 'complete', 'failed', 'ignored')
+    status = ndb.StringProperty(choices=STATUSES)
+    delivered = ndb.StructuredProperty(Target, repeated=True)
+    undelivered = ndb.StructuredProperty(Target, repeated=True)
+    failed = ndb.StructuredProperty(Target, repeated=True)
 
     @property
     def as1(self):

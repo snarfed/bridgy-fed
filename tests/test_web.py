@@ -786,7 +786,6 @@ class WebTest(TestCase):
                            type='post',
                            labels=['activity', 'user'],
                            ignore=['our_as1'],
-                           status='ignored',
                            users=[self.user.key],
                            )
 
@@ -880,9 +879,7 @@ class WebTest(TestCase):
                            users=[self.user.key],
                            notify=[author],
                            source_protocol='web',
-                           status='complete',
                            our_as1=CREATE_REPLY_AS1,
-                           delivered=['https://mas.to/inbox'],
                            type='post',
                            )
 
@@ -894,7 +891,7 @@ class WebTest(TestCase):
                 'content': ['other'],
             },
         }
-        Object(id='https://user.com/reply', status='complete', mf2=mf2).put()
+        Object(id='https://user.com/reply', mf2=mf2).put()
 
         mock_get.side_effect = ACTIVITYPUB_GETS
         mock_post.return_value = requests_response('abc xyz')
@@ -912,7 +909,7 @@ class WebTest(TestCase):
 
     def test_redo_repost_isnt_update(self, mock_get, mock_post):
         """Like and Announce shouldn't use Update, they should just resend as is."""
-        Object(id='https://user.com/repost', mf2={}, status='complete').put()
+        Object(id='https://user.com/repost', mf2={}).put()
 
         mock_get.side_effect = [REPOST, TOOT_AS2, ACTOR]
         mock_post.return_value = requests_response('abc xyz')
@@ -928,8 +925,7 @@ class WebTest(TestCase):
     def test_skip_update_if_content_unchanged(self, mock_get, mock_post):
         """https://github.com/snarfed/bridgy-fed/issues/78"""
         self.store_object(id='https://user.com/reply', mf2=REPLY_MF2)
-        self.store_object(id='https://user.com/reply#bridgy-fed-create',
-                          status='complete')
+        self.store_object(id='https://user.com/reply#bridgy-fed-create')
 
         mock_get.side_effect = ACTIVITYPUB_GETS
 
@@ -1047,9 +1043,7 @@ class WebTest(TestCase):
                            notify=[author_key],
                            feed=self.followers,
                            source_protocol='web',
-                           status='complete',
                            mf2=mf2,
-                           delivered=inboxes,
                            type='share',
                            labels=['user', 'activity', 'notification', 'feed'],
                            ignore=['our_as1'],
@@ -1110,7 +1104,6 @@ class WebTest(TestCase):
                            mf2=LIKE_MF2,
                            type='like',
                            labels=['activity', 'user'],
-                           status='ignored',
                            ignore=['our_as1'],
                            )
 
@@ -1257,8 +1250,6 @@ class WebTest(TestCase):
                            type='share',
                            labels=['activity', 'user'],
                            notify=[ndb.Key('ActivityPub', 'https://mas.to/author')],
-                           delivered=['https://mas.to/inbox'],
-                           status='complete',
                            ignore=['our_as1'],
                            )
 
@@ -1282,15 +1273,12 @@ class WebTest(TestCase):
         })
         self.assertEqual(202, got.status_code)
 
-        inboxes = ['https://inbox', 'https://public/inbox', 'https://shared/inbox']
         self.assert_object('https://user.com/post#bridgy-fed-create',
                            users=[self.user.key],
                            source_protocol='web',
                            our_as1=CREATE_AS1,
                            type='post',
                            labels=['activity', 'user'],
-                           delivered=inboxes,
-                           status='complete',
                            )
 
     def test_create_post_use_instead_strip_www(self, mock_get, mock_post):
@@ -1356,9 +1344,7 @@ class WebTest(TestCase):
         self.assert_object('https://user.com/post#bridgy-fed-create',
                            users=[self.user.key],
                            source_protocol='web',
-                           status='complete',
                            our_as1=CREATE_AS1,
-                           delivered=inboxes,
                            type='post',
                            )
 
@@ -1398,9 +1384,7 @@ class WebTest(TestCase):
             f'https://user.com/post#bridgy-fed-update-2022-01-02T03:04:05+00:00',
             users=[self.user.key],
             source_protocol='web',
-            status='complete',
             our_as1=update_as1,
-            delivered=inboxes,
             type='update',
             labels=['user', 'activity'],
         )
@@ -1456,9 +1440,7 @@ class WebTest(TestCase):
                                  users=[self.user.key],
                                  notify=[self.mrs_foo],
                                  source_protocol='web',
-                                 status='complete',
                                  our_as1=follow_as1,
-                                 delivered=['https://mas.to/inbox'],
                                  type='follow',
                                  labels=['user', 'activity', 'notification'],
                                  ignore=['our_as1'],
@@ -1559,9 +1541,7 @@ class WebTest(TestCase):
                            users=[self.user.key],
                            notify=[self.mrs_foo],
                            source_protocol='web',
-                           status='complete',
                            mf2=FOLLOW_FRAGMENT_MF2,
-                           delivered=['https://mas.to/inbox'],
                            type='follow',
                            labels=['user', 'activity', 'notification'],
                            ignore=['our_as1'],
@@ -1626,14 +1606,11 @@ class WebTest(TestCase):
                                  users=[self.user.key],
                                  notify=[self.mrs_foo, mr_biff],
                                  source_protocol='web',
-                                 status='complete',
                                  mf2=mf2,
-                                 delivered=['https://mas.to/inbox',
-                                            'https://mas.to/inbox/biff'],
                                  type='follow',
                                  labels=['user', 'activity', 'notification',],
                                  ignore=['our_as1'],
-                                  )
+                                 )
 
         followers = Follower.query().fetch()
         self.assertEqual(2, len(followers))
@@ -1666,8 +1643,7 @@ class WebTest(TestCase):
         mock_get.return_value = requests_response('"unused"', status=410,
                                                   url='http://final/delete')
         mock_post.return_value = requests_response('unused', status=200)
-        Object(id='https://user.com/post#bridgy-fed-create',
-               mf2=NOTE_MF2, status='complete').put()
+        Object(id='https://user.com/post#bridgy-fed-create', mf2=NOTE_MF2).put()
 
         self.make_followers()
 
@@ -1683,12 +1659,10 @@ class WebTest(TestCase):
         self.assert_object('https://user.com/post#bridgy-fed-delete',
                            users=[self.user.key],
                            source_protocol='web',
-                           status='complete',
                            our_as1={
                                **DELETE_AS1,
                                'actor': 'user.com',
                            },
-                           delivered=inboxes,
                            type='delete',
                            labels=['user', 'activity'],
                            )
@@ -1708,8 +1682,7 @@ class WebTest(TestCase):
         mock_get.return_value = requests_response('"unused"', status=410,
                                                   url='http://final/delete')
 
-        Object(id='https://user.com/post#bridgy-fed-create',
-               mf2=NOTE_MF2, status='in progress')
+        Object(id='https://user.com/post#bridgy-fed-create', mf2=NOTE_MF2)
 
         got = self.post('/queue/webmention', data={
             'source': 'https://user.com/post',
@@ -1759,9 +1732,7 @@ class WebTest(TestCase):
                            users=[self.user.key],
                            notify=[self.mrs_foo],
                            source_protocol='web',
-                           status='failed',
                            mf2=FOLLOW_MF2,
-                           failed=['https://mas.to/inbox'],
                            type='follow',
                            labels=['user', 'activity', 'notification',],
                            ignore=['our_as1'],
@@ -1878,9 +1849,7 @@ class WebTest(TestCase):
         self.assert_object(id,
                            users=[self.user.key],
                            source_protocol='web',
-                           status='complete',
                            our_as1=expected_as1,
-                           delivered=['https://inbox', 'https://shared/inbox'],
                            type='update',
                            labels=['user', 'activity'],
                            )

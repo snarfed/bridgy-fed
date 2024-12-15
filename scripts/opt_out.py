@@ -194,9 +194,6 @@ def delete_ap_targets(*, from_proto=None, user=None, user_id=None):
         targets += AP_BASE_TARGETS
     targets = [Target(protocol='activitypub', uri=t) for t in targets]
 
-    obj.undelivered = targets
-    obj.put()
-
     for target in targets:
         assert util.is_web(target.uri), f'Non-URL target: {target.uri}'
         params = {
