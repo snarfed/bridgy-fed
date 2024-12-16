@@ -13,7 +13,7 @@ git+https://github.com/snarfed/oauth-dropins.git#egg=oauth_dropins
 # that includes https://github.com/pinterest/pymemcache/pull/471
 git+https://github.com/pinterest/pymemcache.git#egg=pymemcache
 
-attrs==24.2.0
+attrs==24.3.0
 bases==0.3.0
 beautifulsoup4==4.12.3
 bech32==1.2.0
