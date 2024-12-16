@@ -19,7 +19,7 @@ beautifulsoup4==4.12.3
 bech32==1.2.0
 cachetools==5.3.0
 cbor2==5.6.5
-certifi==2024.8.30
+certifi==2024.12.14
 cffi==1.17.1
 charset-normalizer==3.4.0
 click==8.1.7
