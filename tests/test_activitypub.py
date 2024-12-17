@@ -2413,6 +2413,7 @@ class ActivityPubUtilsTest(TestCase):
             'tag': [
                 {'type': 'Hashtag', 'name': '#bar', 'href': 'bar'},
                 {'type': 'Hashtag', 'name': '#baz', 'href': '/hashtag/baz'},
+                {'type': 'Hashtag', 'name': '#biff', 'href': 'http://foo/tag/biff'},
                 {'type': 'Mention', 'href': 'foo'},
             ],
             'to': [as2.PUBLIC_AUDIENCE],
@@ -2421,7 +2422,9 @@ class ActivityPubUtilsTest(TestCase):
             'tag': [
                 {'name': 'bar', 'href': 'bar'},
                 {'type': 'Tag', 'name': '#baz'},
-                # should leave alone
+                # should leave href alone
+                {'type': 'Tag', 'name': '#biff', 'href': 'http://foo/tag/biff'},
+                # should leave alone entirely
                 {'type': 'Mention', 'href': 'foo'},
             ],
         }))

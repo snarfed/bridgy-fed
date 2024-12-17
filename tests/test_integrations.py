@@ -852,3 +852,33 @@ class IntegrationTests(TestCase):
                     'cid': 'alice+sidd',
                 },
             }, data=None, headers=ANY)
+
+
+    def test_atproto_convert_hashtag_to_activitypub_preserves_bsky_app_link(self):
+        obj = Object(id='at://xyz', bsky={
+            '$type': 'app.bsky.feed.post',
+            'text': 'My #original post',
+            'facets': [{
+                '$type': 'app.bsky.richtext.facet',
+                'features': [{
+                    '$type': 'app.bsky.richtext.facet#tag',
+                    'tag': 'original',
+                }],
+                'index': {
+                    'byteStart': 3,
+                    'byteEnd': 12,
+                },
+            }],
+        })
+        self.assert_equals({
+            'type': 'Note',
+            'id': 'https://bsky.brid.gy/convert/ap/at://xyz',
+            'content': '<p>My <a href="https://bsky.app/search?q=%23original">#original</a> post</p>',
+            'url': 'http://localhost/r/https://bsky.app/profile/xyz',
+            'tag': [{
+                'type': 'Hashtag',
+                'name': '#original',
+                'href': 'https://bsky.app/search?q=%23original',
+            }],
+        }, ActivityPub.convert(obj),
+        ignore=['@context', 'attributedTo', 'contentMap', 'to'])
