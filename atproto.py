@@ -58,7 +58,8 @@ import web
 
 logger = logging.getLogger(__name__)
 
-arroba.server.storage = DatastoreStorage(ndb_client=ndb_client)
+arroba.server.storage = DatastoreStorage(ndb_client=ndb_client,
+                                         ndb_context_kwargs=common.NDB_CONTEXT_KWARGS)
 
 appview = Client(f'https://{os.environ["APPVIEW_HOST"]}',
                  headers={'User-Agent': USER_AGENT})
