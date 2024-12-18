@@ -99,6 +99,9 @@ RUN_TASKS_INLINE = False  # overridden by unit tests
 # for Protocol.REQUIRES_OLD_ACCOUNT, how old is old enough
 OLD_ACCOUNT_AGE = timedelta(days=14)
 
+# populated later in this file
+NDB_CONTEXT_KWARGS = None
+
 # https://github.com/memcached/memcached/wiki/Commands#standard-protocol
 MEMCACHE_KEY_MAX_LEN = 250
 
@@ -470,6 +473,16 @@ def global_cache_timeout_policy(key):
         return int(timedelta(hours=2).total_seconds())
 
     return int(timedelta(minutes=30).total_seconds())
+
+
+NDB_CONTEXT_KWARGS = {
+    # limited context-local cache. avoid full one due to this bug:
+    # https://github.com/googleapis/python-ndb/issues/888
+    'cache_policy': cache_policy,
+    'global_cache': global_cache,
+    'global_cache_policy': global_cache_policy,
+    'global_cache_timeout_policy': global_cache_timeout_policy,
+}
 
 
 def memcache_key(key):

@@ -31,6 +31,7 @@ from common import (
     global_cache,
     global_cache_policy,
     global_cache_timeout_policy,
+    NDB_CONTEXT_KWARGS,
     PROTOCOL_DOMAINS,
     report_error,
     report_exception,
@@ -79,9 +80,7 @@ def load_dids():
 def _load_dids():
     global atproto_dids, atproto_loaded_at, bridged_dids, bridged_loaded_at
 
-    with ndb_client.context(cache_policy=cache_policy, global_cache=global_cache,
-                            global_cache_policy=global_cache_policy,
-                            global_cache_timeout_policy=global_cache_timeout_policy):
+    with ndb_client.context(**NDB_CONTEXT_KWARGS):
         if not DEBUG:
             Timer(STORE_CURSOR_FREQ.total_seconds(), _load_dids).start()
 
@@ -121,10 +120,7 @@ def subscriber():
     logger.info(f'started thread to subscribe to {os.environ["BGS_HOST"]} firehose')
     load_dids()
 
-    with ndb_client.context(
-            cache_policy=cache_policy, global_cache=global_cache,
-            global_cache_policy=global_cache_policy,
-            global_cache_timeout_policy=global_cache_timeout_policy):
+    with ndb_client.context(**NDB_CONTEXT_KWARGS):
          while True:
             try:
                 subscribe()
@@ -282,10 +278,7 @@ def handler():
     logger.info(f'started handle thread to store objects and enqueue receive tasks')
 
     while True:
-        with ndb_client.context(
-                cache_policy=cache_policy, global_cache=global_cache,
-                global_cache_policy=global_cache_policy,
-                global_cache_timeout_policy=global_cache_timeout_policy):
+        with ndb_client.context(**NDB_CONTEXT_KWARGS):
             try:
                 handle()
                 # if we return cleanly, that means we hit the limit
