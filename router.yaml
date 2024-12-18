@@ -26,6 +26,8 @@ env_variables:
   CHAT_HOST: api.bsky.chat
   CHAT_DID: did:web:api.bsky.chat
   MEMCACHE_HOST: '10.126.144.3'
+  # https://github.com/googleapis/python-ndb/blob/c55ec62b5153787404488b046c4bf6ffa02fee64/google/cloud/ndb/utils.py#L78-L81
+  NDB_DEBUG: true
 
 automatic_scaling:
   min_num_instances: 2
