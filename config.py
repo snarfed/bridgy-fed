@@ -23,6 +23,7 @@ if appengine_info.DEBUG:
     ENV = 'development'
     CACHE_TYPE = 'NullCache'
     SECRET_KEY = 'sooper seekret'
+
 else:
     ENV = 'production'
     CACHE_TYPE = 'SimpleCache'
@@ -34,6 +35,11 @@ else:
 
     for logger in ('oauth_dropins.webutil.webmention', 'lexrpc'):
         logging.getLogger(logger).setLevel(logging.DEBUG)
+
+# for debugging ndb. also needs NDB_DEBUG env var.
+# https://github.com/googleapis/python-ndb/blob/c55ec62b5153787404488b046c4bf6ffa02fee64/google/cloud/ndb/utils.py#L78-L81
+# logging.getLogger('google.cloud.ndb').setLevel(logging.DEBUG)
+# logging.getLogger('google.cloud.ndb._cache').setLevel(logging.DEBUG)
 
 os.environ.setdefault('APPVIEW_HOST', 'api.bsky.local')
 os.environ.setdefault('BGS_HOST', 'bgs.bsky.local')
