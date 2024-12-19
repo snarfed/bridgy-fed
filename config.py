@@ -33,7 +33,7 @@ else:
     if logging_client := getattr(appengine_config, 'logging_client'):
         logging_client.setup_logging(log_level=logging.INFO)
 
-    for logger in ('oauth_dropins.webutil.webmention', 'lexrpc'):
+    for logger in ('atproto_firehose', 'lexrpc', 'oauth_dropins.webutil.webmention'):
         logging.getLogger(logger).setLevel(logging.DEBUG)
 
 # for debugging ndb. also needs NDB_DEBUG env var.
