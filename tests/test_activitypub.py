@@ -2470,11 +2470,11 @@ class ActivityPubUtilsTest(TestCase):
             'type': 'Note',
             'attachment': [{
                 'type': 'Link',
-                'url': 'http://a/link',
+                'href': 'http://a/link',
                 'name': 'check it out',
             }, {
                 'type': 'Link',
-                'url': 'http://another/link',
+                'href': 'http://another/link',
             }],
         }), ignore=['to'])
 
@@ -2491,7 +2491,7 @@ class ActivityPubUtilsTest(TestCase):
             'content': 'original',
             'attachment': [{
                 'type': 'Link',
-                'url': 'http://a/link',
+                'href': 'http://a/link',
             }],
         }), ignore=['to'])
 
@@ -2932,6 +2932,28 @@ class ActivityPubUtilsTest(TestCase):
                 'name': 'RE: https://bsky.app/profile/did:bob/post/456',
             }],
         }, ActivityPub.convert(obj), ignore=['contentMap', 'to'])
+
+    @patch('requests.get', return_value=requests_response())
+    def test_convert_bluesky_external_embed_to_link_in_content(self, _):
+        # https://github.com/snarfed/bridgy-fed/issues/1637
+        self.assert_equals({
+            'type': 'Note',
+            'id': 'https://bsky.brid.gy/convert/ap/at://did:bob/app.bsky.feed.post/456',
+            'url': 'http://localhost/r/https://bsky.app/profile/did:bob/post/456',
+            'attributedTo': 'did:bob',
+            'content': '<p>foo bar<br><br><a href="http://a.li/nc">a linc</a></p>',
+        }, ActivityPub.convert(Object(id='at://did:bob/app.bsky.feed.post/456', bsky={
+            "$type": "app.bsky.feed.post",
+            "text": "foo bar",
+            "embed": {
+                "$type": "app.bsky.embed.external",
+                "external": {
+                    "description": "baz biff",
+                    "title": "a linc",
+                    "uri": "http://a.li/nc",
+                },
+            },
+        })), ignore=['@context', 'contentMap', 'to'])
 
     def test_send_convert_mention_non_bridged_id_uses_profile_url(self):
         self.store_object(id='did:plc:5zspv27pk4iqtrl2ql2nykjh', raw={'foo': 'bar'})

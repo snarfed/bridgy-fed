@@ -779,7 +779,7 @@ def postprocess_as2(activity, orig_obj=None, wrap=True):
     link_atts = [a for a in atts if a.get('type') == 'Link']
 
     for link in link_atts:
-        for url in util.get_list(link, 'url'):
+        for url in util.get_list(link, 'href'):
             if obj_or_activity.setdefault('content', ''):
                 obj_or_activity['content'] += '<br><br>'
             obj_or_activity['content'] += util.pretty_link(url, text=link.get('name'))
