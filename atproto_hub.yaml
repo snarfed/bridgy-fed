@@ -12,8 +12,8 @@ runtime_config:
     runtime_version: "3.12"
 
 resources:
-  cpu: 1
-  # steady state memory usage is only .5-1G, but spikes when we're working
+  cpu: 2
+  # steady state memory usage is only .5-2G, but spikes when we're working
   # through a backlog of commits
   # https://github.com/snarfed/bridgy-fed/issues/1266#issuecomment-2321863960
   memory_gb: 6.0
