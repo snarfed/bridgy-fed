@@ -367,7 +367,11 @@ class TestCase(unittest.TestCase, testutil.Asserts):
         super().tearDown()
 
         # this breaks if it's before super().tearDown(). why?!
-        self.request_context.pop()
+        try:
+            self.request_context.pop()
+        except LookupError as e:
+            # the test probably popped this already
+            logger.warning('', exc_info=e)
 
     def run(self, result=None):
         """Override to hide stdlib and virtualenv lines in tracebacks.

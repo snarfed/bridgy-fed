@@ -358,7 +358,10 @@ def create_task(queue, delay=None, **params):
         # return app.view_functions[endpoint](**args)
 
     body = urllib.parse.urlencode(sorted(params.items())).encode()
-    traceparent = request.headers.get('traceparent', '')
+    try:
+        traceparent = request.headers.get('traceparent', '')
+    except RuntimeError:  # not currently in a request context
+        traceparent = ''
     task = {
         'app_engine_http_request': {
             'http_method': 'POST',

@@ -274,3 +274,10 @@ class CommonTest(TestCase):
                   app.test_request_context('/', headers={'Accept': accept})):
                 self.assertEqual(expected, common.as2_request_type())
 
+
+    @patch('oauth_dropins.webutil.appengine_config.tasks_client.create_task')
+    def test_create_task_no_request_context(self, mock_create_task):
+        common.RUN_TASKS_INLINE = False
+        self.request_context.pop()
+        common.create_task('foo')
+        mock_create_task.assert_called()
