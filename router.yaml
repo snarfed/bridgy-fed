@@ -15,6 +15,13 @@ resources:
   cpu: 1
   memory_gb: 1.6
 
+# run in default VPC for this project
+# https://cloud.google.com/appengine/docs/flexible/using-shared-vpc
+# https://cloud.google.com/appengine/docs/flexible/reference/app-yaml#network_settings
+# https://cloud.google.com/vpc/docs/serverless-vpc-access#supported_services
+network:
+  name: projects/bridgy-federated/global/networks/default
+
 env_variables:
   PDS_HOST: atproto.brid.gy
   PLC_HOST: plc.directory

@@ -18,9 +18,14 @@ resources:
   # https://github.com/snarfed/bridgy-fed/issues/1266#issuecomment-2321863960
   memory_gb: 6.0
 
-# can't be internal because Bluesky relay(s) need to be able to connect to us
-# over websocket for subscribeRepos
 network:
+  # run in default VPC for this project
+  # https://cloud.google.com/appengine/docs/flexible/using-shared-vpc
+  # https://cloud.google.com/appengine/docs/flexible/reference/app-yaml#network_settings
+  # https://cloud.google.com/vpc/docs/serverless-vpc-access#supported_services
+  name: projects/bridgy-federated/global/networks/default
+  # can't be internal because Bluesky relay(s) need to be able to connect to us
+  # over websocket for subscribeRepos
   instance_ip_mode: external
 
 env_variables:

@@ -21,7 +21,8 @@ automatic_scaling:
 inbound_services:
 - warmup
 
-# for memorystore memcache
+# Serverless VPC Access for Memorystore memcache
+# https://cloud.google.com/vpc/docs/serverless-vpc-access
 vpc_access_connector:
   name: projects/bridgy-federated/locations/us-central1/connectors/bridgy-fed
 
