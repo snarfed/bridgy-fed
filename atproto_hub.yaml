@@ -41,7 +41,7 @@ env_variables:
   SUBSCRIBE_REPOS_BATCH_DELAY: 10
 
   # https://github.com/googleapis/python-ndb/blob/c55ec62b5153787404488b046c4bf6ffa02fee64/google/cloud/ndb/utils.py#L78-L81
-  # NDB_DEBUG: true
+  NDB_DEBUG: true
 
 # need only one instance so that new commits can be delivered to subscribeRepos
 # subscribers in memory
