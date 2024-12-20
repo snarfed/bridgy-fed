@@ -9,6 +9,7 @@ git+https://github.com/snarfed/lexrpc.git#egg=lexrpc
 git+https://github.com/snarfed/mox3.git#egg=mox3
 git+https://github.com/snarfed/negotiator.git@py3#egg=negotiator
 git+https://github.com/snarfed/oauth-dropins.git#egg=oauth_dropins
+git+https://github.com/snarfed/python-ndb.git@global-cache-logging#egg=google-cloud-ndb
 # TODO: switch back to pypi as soon as a new release is cut after 4.0.0
 # that includes https://github.com/pinterest/pymemcache/pull/471
 git+https://github.com/pinterest/pymemcache.git#egg=pymemcache
@@ -49,7 +50,7 @@ google-cloud-datastore==2.20.1
 google-cloud-dns==0.35.0
 google-cloud-error-reporting==1.11.1
 google-cloud-logging==3.11.3
-google-cloud-ndb==2.3.2
+# google-cloud-ndb==2.3.2
 google-cloud-tasks==2.18.0
 googleapis-common-protos==1.66.0
 grapheme==0.6.0

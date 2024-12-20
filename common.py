@@ -105,20 +105,23 @@ NDB_CONTEXT_KWARGS = None
 # https://github.com/memcached/memcached/wiki/Commands#standard-protocol
 MEMCACHE_KEY_MAX_LEN = 250
 
-if appengine_info.DEBUG or appengine_info.LOCAL_SERVER:
+if memcache_host := os.environ.get('MEMCACHE_HOST'):
+    logger.info(f'Using real memcache at {memcache_host}')
+    memcache = pymemcache.client.base.PooledClient(
+        memcache_host, timeout=10, connect_timeout=10,  # seconds
+        allow_unicode_keys=True)
+    pickle_memcache = pymemcache.client.base.PooledClient(
+        memcache_host, timeout=10, connect_timeout=10,  # seconds
+        serde=PickleSerde(), allow_unicode_keys=True)
+    # ideally we'd use MemcacheCache.from_environment, but it doesn't let us
+    # pass kwargs like serde to the pymemcache client constructor
+    global_cache = MemcacheCache(memcache, strict_read=True)
+else:
+    assert appengine_info.DEBUG or appengine_info.LOCAL_SERVER
     logger.info('Using in memory mock memcache')
     memcache = MockMemcacheClient(allow_unicode_keys=True)
     pickle_memcache = MockMemcacheClient(allow_unicode_keys=True, serde=PickleSerde())
     global_cache = _InProcessGlobalCache()
-else:
-    logger.info('Using production Memorystore memcache')
-    memcache = pymemcache.client.base.PooledClient(
-        os.environ['MEMCACHE_HOST'], timeout=10, connect_timeout=10,  # seconds
-        allow_unicode_keys=True)
-    pickle_memcache = pymemcache.client.base.PooledClient(
-        os.environ['MEMCACHE_HOST'], timeout=10, connect_timeout=10,  # seconds
-        serde=PickleSerde(), allow_unicode_keys=True)
-    global_cache = MemcacheCache(memcache)
 
 _negotiator = ContentNegotiator(acceptable=[
     AcceptParameters(ContentType(CONTENT_TYPE_HTML)),
@@ -506,7 +509,7 @@ def memcache_memoize_key(fn, *args, **kwargs):
 
 NONE = ()  # empty tuple
 
-def memcache_memoize(expire=None, key=None):
+def memcache_memoize(expire=0, key=None):
     """Memoize function decorator that stores the cached value in memcache.
 
     Args:

@@ -35,7 +35,7 @@ import requests
 
 # other modules are imported _after_ Fake etc classes is defined so that it's in
 # PROTOCOLS when URL routes are registered.
-from common import long_to_base64, TASKS_LOCATION
+from common import long_to_base64, NDB_CONTEXT_KWARGS, TASKS_LOCATION
 import ids
 import models
 from models import KEY_BITS, Object, PROTOCOLS, Target, User
@@ -320,21 +320,16 @@ class TestCase(unittest.TestCase, testutil.Asserts):
 
         self.router_client = router.app.test_client()
 
-        memcache.clear()
-        pickle_memcache.clear()
+        memcache.flush_all()
+        pickle_memcache.flush_all()
         global_cache.clear()
         models.get_original_object_key.cache_clear()
         models.get_original_user_key.cache_clear()
-        common.pickle_memcache.clear()
         activitypub.WEB_OPT_OUT_DOMAINS = set()
 
         # clear datastore
         requests.post(f'http://{ndb_client.host}/reset')
-        self.ndb_context = ndb_client.context(
-            cache_policy=common.cache_policy,
-            global_cache=_InProcessGlobalCache(),
-            global_cache_policy=common.global_cache_policy,
-            global_cache_timeout_policy=common.global_cache_timeout_policy)
+        self.ndb_context = ndb_client.context(**NDB_CONTEXT_KWARGS)
         self.ndb_context.__enter__()
 
         util.now = lambda **kwargs: testutil.NOW

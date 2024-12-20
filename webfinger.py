@@ -74,7 +74,7 @@ class Webfinger(flask_util.XrdOrJrd):
             cls = Protocol.for_request(fed='web')
 
         if not cls:
-            error(f"Couldn't determine protocol for f{resource}")
+            error(f"Couldn't determine protocol for {resource}")
 
         # is this a handle?
         if cls.owns_id(id) is False:

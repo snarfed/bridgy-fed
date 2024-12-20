@@ -2757,10 +2757,10 @@ class ProtocolReceiveTest(TestCase):
         self.alice.copies = [Target(uri='fake:alice', protocol='fake')]
         self.alice.put()
 
-        common.memcache.clear()
+        common.memcache.flush_all()
         models.get_original_user_key.cache_clear()
         models.get_original_object_key.cache_clear()
-        common.pickle_memcache.clear()
+        common.pickle_memcache.flush_all()
 
         obj.new = True
         Fake.fetchable = {
@@ -2792,10 +2792,10 @@ class ProtocolReceiveTest(TestCase):
         self.store_object(id='other:post',
                           copies=[Target(uri='fake:post', protocol='fake')])
 
-        common.memcache.clear()
+        common.memcache.flush_all()
         models.get_original_user_key.cache_clear()
         models.get_original_object_key.cache_clear()
-        common.pickle_memcache.clear()
+        common.pickle_memcache.flush_all()
         obj.new = True
 
         _, code = Fake.receive(obj, authed_as='fake:user')
@@ -2847,7 +2847,7 @@ class ProtocolReceiveTest(TestCase):
 
         models.get_original_user_key.cache_clear()
         models.get_original_object_key.cache_clear()
-        common.pickle_memcache.clear()
+        common.pickle_memcache.flush_all()
 
         obj.new = True
         self.assertEqual(('OK', 202), Fake.receive(obj, authed_as='fake:user'))
@@ -3149,10 +3149,7 @@ class ProtocolReceiveTest(TestCase):
 
         def receive():
             with app.test_request_context('/'), \
-                 ndb_client.context(
-                     cache_policy=common.cache_policy,
-                     global_cache=_InProcessGlobalCache(),
-                     global_cache_timeout_policy=common.global_cache_timeout_policy):
+                 ndb_client.context(**common.NDB_CONTEXT_KWARGS):
                 try:
                     Fake.receive_as1(post_as1)
                 except NoContent:  # raised by the second thread
