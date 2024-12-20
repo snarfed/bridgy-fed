@@ -488,7 +488,6 @@ class PagesTest(TestCase):
         self.assert_equals(200, got.status_code)
         self.assert_equals([], microformats2.html_to_activities(got.text))
 
-    @skip
     def test_feed_html(self):
         self.add_objects()
 
@@ -525,7 +524,6 @@ class PagesTest(TestCase):
         self.user.put()
         self.test_feed_atom_empty()
 
-    @skip
     def test_feed_atom(self):
         self.add_objects()
         got = self.client.get('/web/user.com/feed?format=atom')
@@ -549,7 +547,6 @@ class PagesTest(TestCase):
         self.assert_equals(rss.CONTENT_TYPE, got.headers['Content-Type'])
         self.assert_equals([], rss.to_activities(got.text))
 
-    @skip
     def test_feed_rss(self):
         self.add_objects()
         got = self.client.get('/web/user.com/feed?format=rss')

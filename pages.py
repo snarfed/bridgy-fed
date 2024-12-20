@@ -260,34 +260,33 @@ def serve_feed(*, objects, format, user, title, as_snippets=False, quiet=False):
     else:
         activities = [obj.as1 for obj in objects]
 
-    # TODO: bring back?
-    # # hydrate authors, actors, objects from stored Objects
-    # fields = 'author', 'actor', 'object'
-    # gets = []
-    # for a in activities:
-    #     for field in fields:
-    #         val = as1.get_object(a, field)
-    #         if val and val.keys() <= set(['id']):
-    #             def hydrate(a, f):
-    #                 def maybe_set(future):
-    #                     if future.result() and future.result().as1:
-    #                         a[f] = future.result().as1
-    #                 return maybe_set
+    # hydrate authors, actors, objects from stored Objects
+    fields = 'author', 'actor', 'object'
+    gets = []
+    for a in activities:
+        for field in fields:
+            val = as1.get_object(a, field)
+            if val and val.keys() <= set(['id']):
+                def hydrate(a, f):
+                    def maybe_set(future):
+                        if future.result() and future.result().as1:
+                            a[f] = future.result().as1
+                    return maybe_set
 
-    #             # TODO: extract a Protocol class method out of User.profile_id,
-    #             # then use that here instead. the catch is that we'd need to
-    #             # determine Protocol for every id, which is expensive.
-    #             #
-    #             # same TODO is in models.fetch_objects
-    #             id = val['id']
-    #             if id.startswith('did:'):
-    #                 id = f'at://{id}/app.bsky.actor.profile/self'
+                # TODO: extract a Protocol class method out of User.profile_id,
+                # then use that here instead. the catch is that we'd need to
+                # determine Protocol for every id, which is expensive.
+                #
+                # same TODO is in models.fetch_objects
+                id = val['id']
+                if id.startswith('did:'):
+                    id = f'at://{id}/app.bsky.actor.profile/self'
 
-    #             future = Object.get_by_id_async(id)
-    #             future.add_done_callback(hydrate(a, field))
-    #             gets.append(future)
+                future = Object.get_by_id_async(id)
+                future.add_done_callback(hydrate(a, field))
+                gets.append(future)
 
-    # tasklets.wait_all(gets)
+    tasklets.wait_all(gets)
 
     actor = (user.obj.as1 if user.obj and user.obj.as1
              else {'displayName': user.readable_id, 'url': user.web_url()})
