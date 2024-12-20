@@ -2697,3 +2697,16 @@ Sed tortor neque, aliquet quis posuere aliquam […]
                          received_at='1900-04-04T00:04:04Z')
 
         self.assertEqual('dunn', fa.key.get().atproto_last_chat_log_cursor)
+
+    def test_hashtag_redirect(self):
+        resp = self.get('/hashtag/foo', base_url='https://bsky.brid.gy')
+        self.assert_equals(302, resp.status_code)
+        self.assert_equals('https://bsky.app/search?q=%23foo',
+                           resp.headers['Location'])
+
+        # only on bsky subdomain
+        resp = self.get('/hashtag/foo')
+        self.assert_equals(404, resp.status_code)
+
+        resp = self.get('/hashtag/foo', base_url='https://web.brid.gy')
+        self.assert_equals(404, resp.status_code)

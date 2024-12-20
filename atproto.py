@@ -23,7 +23,7 @@ from arroba.util import (
 )
 import brevity
 import dag_json
-from flask import abort, request
+from flask import abort, redirect, request
 from google.cloud import dns
 from google.cloud.dns.resource_record_set import ResourceRecordSet
 from google.cloud import ndb
@@ -36,9 +36,11 @@ from requests import RequestException
 from oauth_dropins.webutil import util
 from oauth_dropins.webutil.appengine_config import ndb_client
 from oauth_dropins.webutil.appengine_info import DEBUG
-from oauth_dropins.webutil.flask_util import cloud_tasks_only, get_required_param
+from oauth_dropins.webutil import flask_util
+from oauth_dropins.webutil.flask_util import get_required_param
 from oauth_dropins.webutil.models import StringIdModel
 from oauth_dropins.webutil.util import add, json_dumps, json_loads
+from werkzeug.exceptions import NotFound
 
 import common
 from common import (
@@ -50,7 +52,7 @@ from common import (
     SUPERDOMAIN,
     USER_AGENT,
 )
-import flask_app
+from flask_app import app
 import ids
 from models import Follower, Object, PROTOCOLS, Target, User
 from protocol import Protocol
@@ -1054,7 +1056,7 @@ def send_chat(*, msg, from_repo, to_did):
     return True
 
 
-@cloud_tasks_only(log=False)
+@flask_util.cloud_tasks_only(log=False)
 def poll_chat_task():
     """Polls for incoming chat messages for our protocol bot users.
 
@@ -1106,3 +1108,13 @@ def poll_chat_task():
     # done!
     bot.put()
     return 'OK'
+
+
+@app.get(f'/hashtag/<hashtag>')
+@flask_util.headers(common.CACHE_CONTROL)
+def hashtag_redirect(hashtag):
+    if (util.domain_from_link(request.host_url) ==
+            f'{ATProto.ABBREV}{common.SUPERDOMAIN}'):
+        return redirect(f'https://bsky.app/search?q=%23{hashtag}')
+
+    raise NotFound()
