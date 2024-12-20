@@ -204,6 +204,9 @@ def update_profile(protocol, id):
 @canonicalize_request_domain(common.PROTOCOL_DOMAINS, common.PRIMARY_DOMAIN)
 def followers_or_following(protocol, id, collection):
     user = load_user(protocol, id)
+    id = user.key.id()
+    handle = user.handle
+
     followers, before, after = Follower.fetch_page(collection, user)
     num_followers, num_following = user.count_followers()
     return render_template(

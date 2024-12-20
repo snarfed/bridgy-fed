@@ -32,10 +32,10 @@ def remote_follow():
     if not cls:
         error(f'Unknown protocol {request.values["protocol"]}')
 
-    domain = request.values['domain']
-    user = cls.get_by_id(domain)
+    id = request.values['id']
+    user = cls.get_by_id(id)
     if not user:
-        error(f'No web user found for domain {domain}')
+        error(f'No {cls.LABEL} user found for {id}')
 
     addr = request.values['address']
     resp = webfinger.fetch(addr)
