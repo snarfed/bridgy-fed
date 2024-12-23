@@ -555,10 +555,11 @@ class PagesTest(TestCase):
         self.assert_equals(self.EXPECTED, contents(rss.to_activities(got.text)))
 
         # NOTE's and MENTION's authors; check for two instances
-        bob = '<author>- (Bob)</author>'
-        assert got.text.index(bob) != got.text.rindex(bob)
+        bob = '<author>_@_._ (Bob)</author>'
+        self.assertIn(bob, got.text)
+        self.assertNotEqual(got.text.index(bob), got.text.rindex(bob), got.text)
         # COMMENT's author
-        self.assertIn('Dr. Eve', got.text)
+        self.assertIn('<author>_@_._ (Dr. Eve)</author>', got.text, got.text)
 
     def test_nodeinfo(self):
         # just check that it doesn't crash

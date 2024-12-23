@@ -300,11 +300,21 @@ def serve_feed(*, objects, format, user, title, as_snippets=False, quiet=False):
     if format == 'html':
         entries = [microformats2.object_to_html(a) for a in activities]
         return render_template('feed.html', **TEMPLATE_VARS, **locals())
+
     elif format == 'atom':
         body = atom.activities_to_atom(activities, actor=actor, title=title,
                                        request_url=request.url)
         return body, {'Content-Type': atom.CONTENT_TYPE}
+
     elif format == 'rss':
+        # RSS requires email to generate an author element, so fill in blank one
+        # where necessary
+        for a in activities:
+            for field in fields:
+                if val := as1.get_object(a, field):
+                    if as1.object_type(val) in as1.ACTOR_TYPES:
+                        val.setdefault('email', '_@_._')
+
         body = rss.from_activities(activities, actor=actor, title=title,
                                    feed_url=request.url)
         return body, {'Content-Type': rss.CONTENT_TYPE}
