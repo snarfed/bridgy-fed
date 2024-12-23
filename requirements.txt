@@ -111,7 +111,7 @@ typing-validation==1.2.11.post4
 ujson==5.10.0
 update-checker==0.18.0
 uritemplate==4.1.1
-urllib3==2.2.3
+urllib3==2.3.0
 webencodings==0.5.1
 WebOb==1.8.9
 websocket-client==1.8.0
