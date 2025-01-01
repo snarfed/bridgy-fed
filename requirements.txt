@@ -89,7 +89,7 @@ pyasn1-modules==0.4.1
 pycparser==2.22
 pycryptodome==3.21.0
 pyjwt==2.10.1
-pyparsing==3.2.0
+pyparsing==3.2.1
 pyrsistent==0.20.0
 python-dateutil==2.9.0.post0
 python-tumblpy==1.1.4
