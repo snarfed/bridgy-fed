@@ -1982,6 +1982,52 @@ class WebTest(TestCase):
                          last_polled=NOW.isoformat(), eta_seconds=expected_eta)
 
     @patch('oauth_dropins.webutil.appengine_config.tasks_client.create_task')
+    def test_poll_feed_atom_bad_published_timestamps(self, mock_create_task,
+                                                     mock_get, _):
+        common.RUN_TASKS_INLINE = False
+        self.user.last_polled_feed = NOW
+        self.user.put()
+        self.user.obj.mf2 = ACTOR_MF2_REL_FEED_URL
+        self.user.obj.put()
+
+        feed = """\
+<?xml version="1.0" encoding="UTF-8"?>
+<feed xmlns="http://www.w3.org/2005/Atom">
+<entry>
+  <link rel="alternate" type="text/html" href="https://user.com/a" />
+  <content>I hereby ☕ post</content>
+  <published>2024-12-02 00:00.0</published>
+</entry>
+<entry>
+  <link rel="alternate" type="text/html" href="https://user.com/b" />
+  <content>ok then</content>
+  <published>2024-12-30 01:02.1</published>
+</entry>
+</feed>
+"""
+        # mock_get.return_value = requests_response()
+        mock_get.side_effect = [
+            requests_response(feed, headers={'Content-Type': atom.CONTENT_TYPE}),
+            # fetch post to look for image
+            WEBMENTION_NO_REL_LINK,
+            WEBMENTION_NO_REL_LINK,
+        ]
+
+        got = self.post('/queue/poll-feed', data={
+            'domain': 'user.com',
+            'last_polled': NOW.isoformat(),
+        })
+        self.assertEqual(200, got.status_code)
+
+        user = self.user.key.get()
+        self.assertEqual(NOW, user.last_polled_feed)
+        self.assertEqual('https://user.com/a', user.feed_last_item)
+
+        expected_eta = NOW_SECONDS + web.MIN_FEED_POLL_PERIOD.total_seconds()
+        self.assert_task(mock_create_task, 'poll-feed', domain='user.com',
+                         last_polled=NOW.isoformat(), eta_seconds=expected_eta)
+
+    @patch('oauth_dropins.webutil.appengine_config.tasks_client.create_task')
     def test_poll_feed_rss(self, mock_create_task, mock_get, _):
         common.RUN_TASKS_INLINE = False
         self.user.last_polled_feed = NOW

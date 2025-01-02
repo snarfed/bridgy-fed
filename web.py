@@ -911,11 +911,13 @@ def poll_feed_task():
     published_last = None
     published_deltas = []  # timedeltas between entry published times
     for activity in activities:
-        published = activity['object'].get('published')
-        if published and published_last:
-            published_deltas.append(
-                abs(util.parse_iso8601(published) -
-                    util.parse_iso8601(published_last)))
+        try:
+            published = util.parse_iso8601(activity['object']['published'])
+        except (KeyError, ValueError):
+            continue
+
+        if published_last:
+            published_deltas.append(abs(published - published_last))
         published_last = published
 
     # create next poll task
