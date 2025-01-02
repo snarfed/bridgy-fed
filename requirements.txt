@@ -78,7 +78,7 @@ multiformats-config==0.3.1
 oauthlib==3.2.2
 packaging==24.2
 pbr==6.1.0
-Pillow==11.0.0
+Pillow==11.1.0
 pkce==1.0.3
 praw==7.8.1
 prawcore==2.4.0
