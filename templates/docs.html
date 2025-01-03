@@ -1007,7 +1007,7 @@ I'm <a href="https://snarfed.org/">Ryan Barrett</a>. I'm just a guy who likes <a
 <p><strong>Bridgy Fed is more network infrastructure than content platform.</strong> Bridgy Fed is not a social network, nor is it an instance in one. It's a relay: it copies and translates content and interactions between existing networks and platforms. It stores some content for a moderate period of time, in order to do its job, but not forever, and it doesn't host images or media at all.</p>
 </li>
 <li>
-<p><strong><a href="https://snarfed.org/2023-11-27_re-introducing-bridgy-fed">I build run Bridgy Fed largely alone, as a side project.</a></strong> It's open source, and <a href="https://github.com/snarfed/bridgy-fed/graphs/contributors">other people contribute occasionally</a>, which is great! But so far, there isn't a robust community building it. It's just me, sometimes full time, usually alongside a day job. I can't hire a dedicated trust and safety team, I don't expect to recruit volunteer moderators, and I'm unlikely to become an expert myself. I'm just doing my best as an amateur, with the support of organizations like <a href="https://about.iftas.org/">IFTAS</a>.</p>
+<p><strong><a href="https://snarfed.org/2023-11-27_re-introducing-bridgy-fed">I build run Bridgy Fed largely alone, as a side project.</a></strong> It's open source, and <a href="https://github.com/snarfed/bridgy-fed/graphs/contributors">other people contribute occasionally</a>, which is great! But so far, there isn't a robust community building it. <a href="https://www.anew.social/hello-social-web/">We're working on building one!</a> But mostly, right now, it's just me, sometimes full time, usually alongside a day job. I can't hire a dedicated trust and safety team, I don't expect to recruit volunteer moderators, and I'm unlikely to become an expert myself. I'm just doing my best as an amateur, with the support of organizations like <a href="https://about.iftas.org/">IFTAS</a>.</p>
 </li>
 <li>
 <p>Having said all that, <strong>I don't plan to run a <a href="https://en.wiktionary.org/wiki/Nazi_bar">Nazi bar</a>.</strong> I have no interest in enabling harmful behavior like harassment or incitements to violence, whether knowingly or unknowingly. I reserve the right to remove content and accounts from Bridgy Fed for any reason, or no reason at all.</p>
@@ -1050,15 +1050,15 @@ I'm <a href="https://snarfed.org/">Ryan Barrett</a>. I'm just a guy who likes <a
 <li class="answer">
 <p>What's important to Bridgy Fed and its development? How do we make technical and design decisions and prioritize work? One way to do this is to explicitly enumerate its product and engineering <em>values</em>, along with their priorities. <a href="https://archive.org/details/vimeo-230142234">Bryan Cantrill describes this well.</a></p>
 
-<p>As far as I can tell, Bridgy Fed's top product and engineering values are:</p>
+<p>Bridgy Fed's top product and engineering values are:</p>
 <ul>
 <li><b>Quality</b>: expected functionality works consistently, with minimal bugs, <a href="https://en.wikipedia.org/wiki/Principle_of_least_astonishment">surprises</a>, or outages.</li>
 <li><b>Functionality</b>: common features and use cases are supported as broadly and comprehensively as possible.</li>
+<li><b>Safety and security</b>: Bridgy Fed minimizes harm to its users. The primary way this currently manifests is that it only bridges fully public data, and it <a href="#moderation-policy">enables and supports the networks' own moderation features</a> (blocking, reporting, etc). It also uses modern secure coding and ops practices to <a href="#vulnerability">minimize vulnerabilities</a> that could expose private keys or other sensitive information.</li>
 </ul>
 
 <p>Bridgy Fed's second tier of product and engineering values are:</p>
 <ul>
-<li><b>Safety and security</b>: Bridgy Fed minimizes harm to its users. The primary way this currently manifests is that it only bridges fully public data, and it enables and supports the networks' own moderation features (blocking, reporting, etc). It also uses modern secure coding and ops practices to <a href="#vulnerability">minimize vulnerabilities</a> that could expose private keys or other sensitive information.</li>
 <li><b>Accessibility</b>: users should mostly fall into a <a href="https://blog.codinghorror.com/falling-into-the-pit-of-success/">"pit of success"</a> with minimal work on their end. Discovering and following users on other networks should be as easy as possible. After that, all interactions should work automatically, transparently.</li>
 <li><b>Transparency</b>: it should be easy for users to understand what Bridgy Fed is doing. This includes per-user dashboard pages in the web UI, verbose public logs, and comprehensive documentation.</li>
 <li><b>Scalability</b>: we want to handle as much usage as we receive, as automatically as possible. This doesn't mean that Bridgy Fed is designed to handle millions of users today, just that it could be, and that we'd prioritize it.</li>
