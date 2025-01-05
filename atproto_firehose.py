@@ -299,6 +299,10 @@ def handler():
 
 
 def handle(limit=None):
+    def _handle_account(op):
+        # reload DID doc to fetch new changes
+        ATProto.load(op.repo, did_doc=True, remote=True)
+
     def _handle(op):
         at_uri = f'at://{op.repo}/{op.path}'
 
@@ -345,7 +349,12 @@ def handle(limit=None):
 
     seen = 0
     while op := commits.get():
-        _handle(op)
+        match op.action:
+            case 'account':
+                _handle_account(op)
+            case _:
+                _handle(op)
+
         seen += 1
         if limit is not None and seen >= limit:
             return

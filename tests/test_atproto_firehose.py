@@ -21,7 +21,7 @@ from granary.tests.test_bluesky import (
 from multiformats import CID
 from oauth_dropins.webutil import util
 from oauth_dropins.webutil.appengine_config import tasks_client
-from oauth_dropins.webutil.testutil import NOW
+from oauth_dropins.webutil.testutil import NOW, requests_response
 import simple_websocket
 
 from atproto import ATProto, Cursor
@@ -538,6 +538,12 @@ class ATProtoFirehoseHandleTest(ATProtoTestCase):
                          our_as1=expected_as1, source_protocol='atproto',
                          authed_as='did:plc:user', received_at='1900-02-04',
                          eta_seconds=delayed_eta)
+
+    @patch('requests.get', return_value=requests_response({**DID_DOC, 'new': 'stuff'}))
+    def test_account(self, _, __):
+        commits.put(Op(repo='did:plc:user', action='account', seq=789))
+        handle(limit=1)
+        self.assertEqual('stuff', Object.get_by_id('did:plc:user').raw['new'])
 
     def test_unsupported_type(self, mock_create_task):
         orig_objs = Object.query().count()
