@@ -1173,8 +1173,9 @@ Sed tortor neque, aliquet quis posuere aliquam […]
     @patch('google.cloud.dns.client.ManagedZone', autospec=True)
     @patch.object(tasks_client, 'create_task', return_value=Task(name='my task'))
     @patch('requests.post', return_value=requests_response('OK'))  # create DID on PLC
-    def test_create_for_tombstoned(self, mock_post, mock_create_task, mock_zone,
-                                   mock_rrsets):
+    @patch('requests.get', return_value=requests_response(status=404))  # profile pic
+    def test_create_for_tombstoned(self, mock_get, mock_post, mock_create_task,
+                                   mock_zone, mock_rrsets):
         """Should wipe existing copies and start from scratch with a new DID."""
         mock_zone.return_value = zone = MagicMock()
         zone.resource_record_set = MagicMock()
