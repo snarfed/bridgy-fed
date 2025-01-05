@@ -349,6 +349,26 @@ class ATProtoFirehoseSubscribeTest(ATProtoTestCase):
             'subject': {'uri': 'at://did:alice/app.bsky.feed.post/tid'},
         })
 
+    def test_account_identity_events(self):
+        time = NOW.isoformat()
+
+        for type in '#account', '#identity':
+            with self.subTest(type=type):
+                FakeWebsocketClient.to_receive = [({
+                    'op': 1,
+                    't': '#account',
+                }, {
+                    'seq': 789,
+                    'did': 'did:plc:user',
+                    'time': time,
+                })]
+
+                self.subscribe()
+
+                self.assertEqual(('account', 'did:plc:user', None, 789, None, time),
+                                 commits.get())
+                self.assertTrue(commits.empty())
+
     def test_uncaught_exception_skips_commit(self):
         self.cursor.cursor = 1
         self.cursor.put()

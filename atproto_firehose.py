@@ -47,8 +47,8 @@ STORE_CURSOR_FREQ = timedelta(seconds=10)
 
 # a commit operation. similar to arroba.repo.Write. record is None for deletes.
 Op = namedtuple('Op', ['action', 'repo', 'path', 'seq', 'record', 'time'],
-                # record is optional
-                defaults=[None, None])
+                # last four fields are optional
+                defaults=[None, None, None, None])
 
 # contains Ops
 #
@@ -162,14 +162,14 @@ def subscribe():
             continue
 
         t = header.get('t')
-        if t != '#commit':
-            if t not in ('#account', '#identity', '#handle', '#tombstone'):
-                logger.info(f'Got {t} from relay')
+
+        if t not in ('#commit', '#account', '#identity'):
+            logger.info(f'Got {t} from relay')
             continue
 
         # parse payload
         _, payload = libipld.decode_dag_cbor_multi(frame)
-        repo = payload.get('repo')
+        repo = payload.get('repo') or payload.get('did')
         if not repo:
             logger.warning(f'Payload missing repo! {payload}')
             continue
@@ -201,6 +201,14 @@ def subscribe():
             # when running locally, comment out put above and uncomment this
             # cursor.updated = util.now().replace(tzinfo=None)
 
+        if t in ('#account', '#identity'):
+            if repo in atproto_dids or repo in bridged_dids:
+                logger.debug(f'Got {t[1:]} {repo}')
+                commits.put(Op(action='account', repo=repo, seq=seq,
+                               time=cur_timestamp))
+                continue
+
+        assert t == '#commit'
         blocks = {}  # maps base32 str CID to dict block
         if block_bytes := payload.get('blocks'):
             _, blocks = libipld.decode_car(block_bytes)
@@ -269,7 +277,7 @@ def subscribe():
                     if not is_ours(reply['parent'], also_atproto_users=True):
                         continue
 
-            logger.debug(f'Got one: {op.action} {op.repo} {op.path}')
+            logger.debug(f'Got {op.action} {op.repo} {op.path}')
             commits.put(op)
 
 
