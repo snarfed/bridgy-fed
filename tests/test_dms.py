@@ -26,7 +26,7 @@ DM_EFAKE_ALICE_REQUESTS_OTHER_BOB = {
 }
 ALICE_CONFIRMATION_CONTENT = """Got it! We'll send <a class="h-card u-author" rel="me" href="web:other:bob" title="other:handle:bob">other:handle:bob</a> a message and say that you hope they'll enable the bridge. Fingers crossed!"""
 ALICE_REQUEST_CONTENT = """\
-<p>Hi! <a class="h-card u-author" rel="me" href="web:other:efake:alice" title="efake:handle:alice &middot; other:handle:efake:handle:alice">efake:handle:alice &middot; other:handle:efake:handle:alice</a> is using Bridgy Fed to bridge their account from efake-phrase into other-phrase, and they'd like to follow you. You can bridge your account into efake-phrase by following this account. <a href="https://fed.brid.gy/docs">See the docs</a> for more information.
+<p>Hi! <a class="h-card u-author" rel="me" href="web:other:efake:alice" title="efake:handle:alice &middot; other:handle:efake:handle:alice"><span style="unicode-bidi: isolate">efake:handle:alice</span> &middot; other:handle:efake:handle:alice</a> is using Bridgy Fed to bridge their account from efake-phrase into other-phrase, and they'd like to follow you. You can bridge your account into efake-phrase by following this account. <a href="https://fed.brid.gy/docs">See the docs</a> for more information.
 <p>If you do nothing, your account won't be bridged, and users on efake-phrase won't be able to see or interact with you.
 <p>Bridgy Fed will only send you this message once."""
 
@@ -305,7 +305,7 @@ class DmsTest(TestCase):
 
         obj = Object(our_as1=DM_EFAKE_ALICE_REQUESTS_OTHER_BOB)
         self.assertEqual(('OK', 200), receive(from_user=alice, obj=obj))
-        self.assert_replied(OtherFake, alice, '?', """<a class="h-card u-author" rel="me" href="web:efake:other:bob" title="other:handle:bob &middot; efake:handle:other:handle:bob">other:handle:bob &middot; efake:handle:other:handle:bob</a> is already bridged into efake-phrase.""")
+        self.assert_replied(OtherFake, alice, '?', """<a class="h-card u-author" rel="me" href="web:efake:other:bob" title="other:handle:bob &middot; efake:handle:other:handle:bob"><span style="unicode-bidi: isolate">other:handle:bob</span> &middot; efake:handle:other:handle:bob</a> is already bridged into efake-phrase.""")
         self.assertEqual([], OtherFake.sent)
 
     def test_receive_prompt_already_requested(self):

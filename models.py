@@ -841,7 +841,8 @@ Welcome to Bridgy Fed! Your account will soon be bridged to {to_proto.PHRASE} at
             a_open = f'<a class="h-card u-author" rel="me" href="{url}" title="{name_str}{dot}{handle_str}">'
             a_close = '</a>'
 
-        return f'{logo}{a_open}{img}{ellipsize(name_str, chars=40)}{dot}{ellipsize(handle_str, chars=40)}{a_close}'
+        name_html = f'<span style="unicode-bidi: isolate">{ellipsize(name_str, chars=40)}</span>' if name_str else ''
+        return f'{logo}{a_open}{img}{name_html}{dot}{ellipsize(handle_str, chars=40)}{a_close}'
 
     def profile_picture(self):
         """Returns the user's profile picture image URL, if available, or None."""
@@ -1209,7 +1210,7 @@ class Object(StringIdModel):
         {logo}
         <a class="h-card u-author" href="{url}" title="{name}">
           <img class="profile" src="{img_url}" {'width="32"' if sized else ''}/>
-          {util.ellipsize(name, chars=40)}
+          <span style="unicode-bidi: isolate">{util.ellipsize(name, chars=40)}</span>
         </a>"""
 
     def get_copy(self, proto):

@@ -191,24 +191,24 @@ class UserTest(TestCase):
 
     def test_user_link_pictures_true(self):
         self.assert_multiline_equals(
-            '<span class="logo" title="Web">🌐</span> <a class="h-card u-author" rel="me" href="https://y.za/" title="y.za">y.za</a>',
+            '<span class="logo" title="Web">🌐</span> <a class="h-card u-author" rel="me" href="https://y.za/" title="y.za"><span style="unicode-bidi: isolate">y.za</span></a>',
             self.user.user_link(pictures=True, handle=False))
 
         self.user.obj = Object(id='a', as2=ACTOR)
         self.assert_multiline_equals(
-            '<span class="logo" title="Web">🌐</span> <a class="h-card u-author" rel="me" href="https://y.za/" title="Mrs. ☕ Foo"><img src="https://user.com/me.jpg" class="profile"> Mrs. ☕ Foo</a>',
+            '<span class="logo" title="Web">🌐</span> <a class="h-card u-author" rel="me" href="https://y.za/" title="Mrs. ☕ Foo"><img src="https://user.com/me.jpg" class="profile"> <span style="unicode-bidi: isolate">Mrs. ☕ Foo</span></a>',
             self.user.user_link(pictures=True, handle=False))
 
     def test_user_link_pictures_false(self):
         self.user.obj = Object(id='a', as2=ACTOR)
         self.assert_multiline_equals(
-            '<a class="h-card u-author" rel="me" href="https://y.za/" title="Mrs. ☕ Foo">Mrs. ☕ Foo</a>',
+            '<a class="h-card u-author" rel="me" href="https://y.za/" title="Mrs. ☕ Foo"><span style="unicode-bidi: isolate">Mrs. ☕ Foo</span></a>',
             self.user.user_link(pictures=False, handle=False))
 
     def test_user_link_handle_true(self):
         self.user.obj = Object(id='a', as2=ACTOR)
         self.assert_multiline_equals(
-            '<a class="h-card u-author" rel="me" href="https://y.za/" title="Mrs. ☕ Foo &middot; y.za">Mrs. ☕ Foo &middot; y.za</a>',
+            '<a class="h-card u-author" rel="me" href="https://y.za/" title="Mrs. ☕ Foo &middot; y.za"><span style="unicode-bidi: isolate">Mrs. ☕ Foo</span> &middot; y.za</a>',
             self.user.user_link(pictures=False, handle=True))
 
     def test_user_link_name_false(self):
@@ -225,13 +225,13 @@ class UserTest(TestCase):
     def test_user_link_proto(self):
         self.user.obj = Object(id='y.za', as2=ACTOR)
         self.assert_multiline_equals(
-            '<a class="h-card u-author" rel="me" href="web:fake:y.za" title="Mrs. ☕ Foo &middot; fake:handle:y.za">Mrs. ☕ Foo &middot; fake:handle:y.za</a>',
+            '<a class="h-card u-author" rel="me" href="web:fake:y.za" title="Mrs. ☕ Foo &middot; fake:handle:y.za"><span style="unicode-bidi: isolate">Mrs. ☕ Foo</span> &middot; fake:handle:y.za</a>',
             self.user.user_link(proto=Fake, handle=True))
 
     def test_user_link_proto_fallback(self):
         self.user.obj = Object(id='y.za', as2=ACTOR)
         self.assert_multiline_equals(
-            '<a class="h-card u-author" rel="me" href="https://y.za/" title="Mrs. ☕ Foo &middot; @y.za@web.brid.gy">Mrs. ☕ Foo &middot; @y.za@web.brid.gy</a>',
+            '<a class="h-card u-author" rel="me" href="https://y.za/" title="Mrs. ☕ Foo &middot; @y.za@web.brid.gy"><span style="unicode-bidi: isolate">Mrs. ☕ Foo</span> &middot; @y.za@web.brid.gy</a>',
             self.user.user_link(proto=ActivityPub, proto_fallback=True, handle=True))
 
     def test_user_link_proto_not_enabled(self):
@@ -714,7 +714,7 @@ class ObjectTest(TestCase):
                 ("""\
         title="Alice">
           <img class="profile" src="http://pic/" />
-          Alice""", {'actor': {
+          <span style="unicode-bidi: isolate">Alice</span>""", {'actor': {
               'name': 'Alice',
               'icon': {'type': 'Image', 'url': 'http://pic'},
           }}),
@@ -763,7 +763,7 @@ class ObjectTest(TestCase):
         self.assert_multiline_equals("""\
 <a class="h-card u-author" href="" title="Alice">
   <img class="profile" src="foo.jpg" width="32"/>
-  Alice
+  <span style="unicode-bidi: isolate">Alice</span>
 </a>""", obj.actor_link(sized=True), ignore_blanks=True)
 
     def test_actor_link_composite_url(self):

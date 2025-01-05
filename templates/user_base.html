@@ -49,7 +49,7 @@
       <nobr title="{{ proto.__name__ }} (bridged): {{ handle }}">
       {% if url %} <a rel="me" href="{{ url }}"> {% endif %}
         <span class="logo">{{ proto.LOGO_HTML|safe }}</span>
-        {{ util.ellipsize(handle, chars=40) }}
+        <span style="unicode-bidi: isolate">{{ util.ellipsize(handle, chars=40) }}</span>
       {% if url %}
         </a>
       {% else %}
