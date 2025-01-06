@@ -206,9 +206,8 @@ def subscribe():
                 logger.debug(f'Got {t[1:]} {repo}')
                 commits.put(Op(action='account', repo=repo, seq=seq,
                                time=cur_timestamp))
-                continue
+            continue
 
-        assert t == '#commit'
         blocks = {}  # maps base32 str CID to dict block
         if block_bytes := payload.get('blocks'):
             _, blocks = libipld.decode_car(block_bytes)

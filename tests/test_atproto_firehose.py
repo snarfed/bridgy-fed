@@ -369,6 +369,22 @@ class ATProtoFirehoseSubscribeTest(ATProtoTestCase):
                                  commits.get())
                 self.assertTrue(commits.empty())
 
+    def test_account_event_user_not_bridged(self):
+        time = NOW.isoformat()
+
+        FakeWebsocketClient.to_receive = [({
+            'op': 1,
+            't': '#account',
+        }, {
+            'seq': 789,
+            'did': 'did:plc:nope',
+            'time': time,
+        })]
+
+        self.subscribe()
+
+        self.assertTrue(commits.empty())
+
     def test_uncaught_exception_skips_commit(self):
         self.cursor.cursor = 1
         self.cursor.put()
