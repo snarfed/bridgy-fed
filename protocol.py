@@ -847,11 +847,7 @@ class Protocol:
         if (obj.as1.get('objectType') == 'activity'
             and 'force' not in request.values
             and (not leased
-                 or (obj.new is False and obj.changed is False)
-                 # TODO: how does this make sense? won't these two lines
-                 # always be true?!
-                 or (obj.new is None and obj.changed is None
-                     and from_cls.load(id, remote=False)))):
+                 or (obj.new is False and obj.changed is False))):
             error(f'Already seen this activity {id}', status=204)
 
         pruned = {k: v for k, v in obj.as1.items()
