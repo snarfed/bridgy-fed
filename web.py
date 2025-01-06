@@ -244,7 +244,7 @@ class Web(User, Protocol):
         """
         id = self.key.id()
 
-        if self.obj and self.obj.as1 and self.direct:
+        if self.obj and self.obj.as1:
             for url in (util.get_list(self.obj.as1, 'url') +
                         util.get_list(self.obj.as1, 'urls')):
                 url = url.get('value') if isinstance(url, dict) else url
@@ -296,9 +296,8 @@ class Web(User, Protocol):
                 if resp.ok and self.is_web_url(resp.url):
                     logger.info(f'{root_site} serves ok ; using {root} instead')
                     root_user = Web.get_or_create(
-                        root,
-                        enabled_protocols=self.enabled_protocols,
-                        allow_opt_out=True, direct=self.direct)
+                        root, enabled_protocols=self.enabled_protocols,
+                        allow_opt_out=True)
                     self.use_instead = root_user.key
                     self.put()
                     return root_user.verify()
@@ -705,7 +704,7 @@ def check_web_site():
 
     try:
         user = Web.get_or_create(domain, enabled_protocols=['atproto'],
-                                 propagate=True, direct=True, reload=True, verify=True)
+                                 propagate=True, reload=True, verify=True)
     except BaseException as e:
         code, body = util.interpret_http_exception(e)
         if code:

@@ -55,7 +55,6 @@ class Webfinger(flask_util.XrdOrJrd):
         if resource in ('', '/', f'acct:{host}', f'acct:@{host}'):
             error('Expected other domain, not *.brid.gy')
 
-        allow_indirect = False
         cls = None
         try:
             username, server = util.parse_acct_uri(resource)
@@ -63,13 +62,11 @@ class Webfinger(flask_util.XrdOrJrd):
             cls = Protocol.for_bridgy_subdomain(id, fed='web')
             if cls:
                 id = username
-                allow_indirect = True
         except ValueError:
             id = username = server = urlparse(resource).netloc or resource
 
         if id == PRIMARY_DOMAIN or id in PROTOCOL_DOMAINS:
             cls = Web
-            allow_indirect = True
         elif not cls:
             cls = Protocol.for_request(fed='web')
 
@@ -91,19 +88,10 @@ class Webfinger(flask_util.XrdOrJrd):
 
         logger.info(f'Protocol {cls.LABEL}, user id {id}')
 
-        # only allow indirect/no-redirects users if this id is "on" a brid.gy
-        # subdomain, eg user.com@bsky.brid.gy but not user.com@user.com
-        if allow_indirect:
-            user = cls.get_or_create(id)
-        else:
-            user = cls.get_by_id(id)
-            if user and not user.direct:
-                error(f"{user.key.id()} hasn't signed up yet", status=404)
-
+        user = cls.get_by_id(id)
         if (not user
                 or not user.is_enabled(activitypub.ActivityPub)
-                or (cls == Web and username not in (user.key.id(), user.username()))
-                or (cls == Web and not allow_indirect and not user.has_redirects)):
+                or (cls == Web and username not in (user.key.id(), user.username()))):
             error(f'No {cls.LABEL} user found for {id}', status=404)
 
         ap_handle = user.handle_as('activitypub')

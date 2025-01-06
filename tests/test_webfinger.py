@@ -238,19 +238,6 @@ class WebfingerTest(TestCase):
         self.assertEqual('application/jrd+json', got.headers['Content-Type'])
         self.assert_equals(WEBFINGER_FAKE_FA_BRID_GY, got.json)
 
-    @patch.object(Fake, 'DEFAULT_ENABLED_PROTOCOLS', ['activitypub'])
-    def test_handle_new_user(self):
-        self.assertIsNone(Fake.get_by_id('fake:user'))
-
-        Fake.fetchable['fake:user'] = {'id': 'fake:user'}
-
-        got = self.client.get(
-            '/.well-known/webfinger?resource=acct:fake:handle:user@fake.brid.gy',
-            base_url='https://fed.brid.gy/',
-            headers={'Accept': 'application/json'})
-        self.assertEqual(200, got.status_code, got.get_data(as_text=True))
-        self.assert_equals(WEBFINGER_FAKE_FA_BRID_GY, got.json)
-
     def test_urlencoded(self):
         """https://github.com/snarfed/bridgy-fed/issues/535"""
         got = self.client.get(
@@ -301,29 +288,24 @@ class WebfingerTest(TestCase):
                 }, got.json)
 
     def test_missing_user(self):
-        got = self.client.get(f'/.well-known/webfinger?resource=acct:nope.com@nope.com')
-        self.assertEqual(404, got.status_code)
-
-        got = self.client.get(f'/.well-known/webfinger?resource=acct:nope.com')
-        self.assertEqual(404, got.status_code)
-
-    def test_indirect_user_not_on_bridgy_fed_subdomain(self):
-        self.user.direct = False
-        self.user.put()
-        got = self.client.get(f'/.well-known/webfinger?resource=acct:user.com@user.com')
-        self.assertEqual(404, got.status_code)
+        for acct in ('nope.com', 'nope.com@nope.com', 'nope.com@web.brid.gy',
+                     'nope.com@fed.brid.gy', 'fake:handle:user@fake.brid.gy'):
+            got = self.client.get(f'/.well-known/webfinger?resource=acct:{acct}')
+            self.assertEqual(404, got.status_code)
 
     def test_no_redirects_user_not_on_bridgy_fed_subdomain(self):
         self.user.has_redirects = False
         self.user.put()
 
-        got = self.client.get(
-            f'/.well-known/webfinger?resource=acct:user.com@user.com')
-        self.assertEqual(404, got.status_code)
-
-        got = self.client.get(
+        subdomain = self.client.get(
             f'/.well-known/webfinger?resource=acct:user.com@web.brid.gy')
-        self.assertEqual(200, got.status_code)
+        self.assertEqual(200, subdomain.status_code)
+
+        user_domain = self.client.get(
+            f'/.well-known/webfinger?resource=acct:user.com@user.com')
+        self.assertEqual(200, user_domain.status_code)
+        self.assertEqual(subdomain.get_data(as_text=True),
+                         user_domain.get_data(as_text=True))
 
     def test_user_not_custom_username(self):
         for base_url in (None, 'https://web.brid.gy/', 'https://fed.brid.gy/'):
@@ -332,12 +314,6 @@ class WebfingerTest(TestCase):
                     f'/.well-known/webfinger?resource=acct:foo@user.com',
                     base_url=base_url)
                 self.assertEqual(404, got.status_code)
-
-    def test_missing_user_web_subdomain(self):
-        self.user.direct = False
-        self.user.put()
-        got = self.client.get(f'/.well-known/webfinger?resource=acct:foo@bar.com')
-        self.assertEqual(404, got.status_code)
 
     def test_protocol_not_enabled(self):
         self.make_user('efake:user', cls=ExplicitFake)
@@ -378,31 +354,6 @@ class WebfingerTest(TestCase):
             self.assertEqual(404, got.status_code)
         finally:
             PROTOCOLS.pop('nohandle')
-
-    @patch('requests.get')
-    def test_create_user(self, mock_get):
-        self.user.key.delete()
-        self.user.obj_key.delete()
-
-        hcard = return_value = requests_response(test_web.ACTOR_HTML,
-                                                 url='https://user.com/')
-        mock_get.side_effect = [
-            hcard,
-            requests_response(status=404),
-            hcard,
-        ]
-        expected = copy.deepcopy(WEBFINGER_NO_HCARD)
-        expected['subject'] = 'acct:user.com@web.brid.gy'
-
-        got = self.client.get(
-            '/.well-known/webfinger?resource=acct:user.com@web.brid.gy',
-            headers={'Accept': 'application/json'},
-            base_url='https://web.brid.gy/')
-        self.assertEqual(200, got.status_code)
-        self.assertEqual(expected, got.json)
-
-        user = Web.get_by_id('user.com')
-        assert not user.direct
 
     # skip _pre_put_hook since it doesn't allow internal domains
     @patch.object(Web, '_pre_put_hook', new=lambda self: None)

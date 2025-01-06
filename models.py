@@ -191,12 +191,6 @@ class User(StringIdModel, metaclass=ProtocolUserMeta):
     # TODO: switch to using Object.copies on the user profile object?
     copies = ndb.StructuredProperty(Target, repeated=True)
 
-    # whether this user signed up or otherwise explicitly, deliberately
-    # interacted with Bridgy Fed. For example, if fediverse user @a@b.com looks
-    # up @foo.com@fed.brid.gy via WebFinger, we'll create Users for both,
-    # @a@b.com will be direct, foo.com will not.
-    direct = ndb.BooleanProperty(default=False)
-
     # these are for ActivityPub HTTP Signatures
     public_exponent = ndb.StringProperty()
     private_exponent = ndb.StringProperty()
@@ -219,6 +213,7 @@ class User(StringIdModel, metaclass=ProtocolUserMeta):
     # `existing` attr is set by get_or_create
 
     # OLD. some stored entities still have these; do not reuse.
+    # direct = ndb.BooleanProperty(default=False)
     # actor_as2 = JsonProperty()
     # protocol-specific state
     # atproto_notifs_indexed_at = ndb.TextProperty()
@@ -310,11 +305,10 @@ class User(StringIdModel, metaclass=ProtocolUserMeta):
 
                 # TODO: propagate more fields?
                 changed = False
-                for field in ['direct', 'obj', 'obj_key']:
+                for field in ['obj', 'obj_key']:
                     old_val = getattr(user, field, None)
                     new_val = kwargs.get(field)
-                    if ((old_val is None and new_val is not None)
-                            or (field == 'direct' and not old_val and new_val)):
+                    if old_val is None and new_val is not None:
                         setattr(user, field, new_val)
                         changed = True
 

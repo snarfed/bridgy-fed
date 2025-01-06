@@ -84,8 +84,8 @@ def load_user(protocol, id):
     elif user and id != user.key.id():  # use_instead redirect
         error('', status=302, location=user.user_page_path())
 
-    if (user and not user.status
-            and (user.direct or user.enabled_protocols or cls.ABBREV == 'web')):
+    if user and not user.status and (user.enabled_protocols
+                                     or user.DEFAULT_ENABLED_PROTOCOLS):
         assert not user.use_instead
         return user
 

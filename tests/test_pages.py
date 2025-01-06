@@ -117,14 +117,6 @@ class PagesTest(TestCase):
         got = self.client.get('/web/bar.com')
         self.assert_equals(404, got.status_code)
 
-    def test_user_not_direct(self):
-        got = self.client.get('/web/user.com')
-        self.assert_equals(200, got.status_code)
-
-        fake = self.make_user('http://fo/o', cls=ActivityPub, direct=False)
-        got = self.client.get('/ap/@o@fo')
-        self.assert_equals(404, got.status_code)
-
     def test_user_opted_out(self):
         self.user.obj.our_as1 = {'summary': '#nobridge'}
         self.user.obj.put()

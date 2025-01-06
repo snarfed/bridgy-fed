@@ -109,11 +109,8 @@ def redir(to):
     if not obj or obj.deleted:
         return f'Object not found: {to}', 404
 
-    # TODO: do this for other protocols too?
     if proto == Web and not web_user:
-        web_user = Web.get_or_create(util.domain_from_link(to), direct=False, obj=obj)
-        if not web_user:
-            return f'Object not found: {to}', 404
+        return f'Object not found: {to}', 404
 
     ret = ActivityPub.convert(obj, from_user=web_user)
     # logger.info(f'Returning: {json_dumps(ret, indent=2)}')

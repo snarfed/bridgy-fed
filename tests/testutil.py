@@ -415,7 +415,6 @@ class TestCase(unittest.TestCase, testutil.Asserts):
         obj_mf2 = copy.deepcopy(kwargs.pop('obj_mf2', None))
         obj_id = copy.deepcopy(kwargs.pop('obj_id', None))
 
-        kwargs.setdefault('direct', True)
         if cls == Web and not obj_mf2:
             kwargs.setdefault('last_webmention_in', testutil.NOW)
 

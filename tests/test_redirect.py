@@ -109,11 +109,7 @@ class RedirectTest(testutil.TestCase):
     def test_as2_ld(self):
         self._test_as2(as2.CONTENT_TYPE_LD_PROFILE)
 
-    @patch('requests.get', side_effect=[
-        ACTOR_HTML_RESP,  # h-card fetch
-        requests_response(status=404),  # webfinger
-    ])
-    def test_as2_creates_user(self, _):
+    def test_as2_missing_user(self):
         Object(id='https://user.com/repost', source_protocol='web',
                as2=REPOST_AS2).put()
 
@@ -121,12 +117,8 @@ class RedirectTest(testutil.TestCase):
 
         resp = self.client.get('/r/https://user.com/repost',
                                headers={'Accept': as2.CONTENT_TYPE_LD_PROFILE})
-        self.assertEqual(200, resp.status_code, resp.get_data(as_text=True))
-        self.assert_equals(REPOST_AS2, resp.json)
+        self.assertEqual(404, resp.status_code, resp.get_data(as_text=True))
         self.assertEqual('Accept', resp.headers['Vary'])
-
-        self.assert_user(Web, 'user.com', has_hcard=True, has_redirects=False,
-                         direct=False, ignore=['redirects_error'])
 
     @patch('requests.get')
     def test_as2_fetch_post(self, mock_get):
@@ -141,39 +133,15 @@ class RedirectTest(testutil.TestCase):
     @patch('requests.get', side_effect=[
         requests_response(ACTOR_HTML, url='https://user.com/'),  # AS2 fetch
         requests_response(ACTOR_HTML, url='https://user.com/'),  # web fetch
-        requests_response(ACTOR_HTML, url='https://user.com/'),  # h-card fetch
-        requests_response(status=404),  # webfinger
     ])
-    def test_as2_no_user_fetch_homepage(self, mock_get):
+    def test_as2_no_user(self, _):
         self.user.key.delete()
         self.user.obj_key.delete()
 
         resp = self.client.get('/r/https://user.com/',
                                headers={'Accept': as2.CONTENT_TYPE_LD_PROFILE})
-        self.assertEqual(200, resp.status_code, resp.get_data(as_text=True))
+        self.assertEqual(404, resp.status_code, resp.get_data(as_text=True))
         self.assertEqual('Accept', resp.headers['Vary'])
-
-        self.assert_equals({
-            **ACTOR_BASE_FULL,
-            'discoverable': True,
-            'indexable': True,
-        }, resp.json, ignore=['@context', 'alsoKnownAs', 'endpoints', 'followers',
-                              'following', 'publicKey', 'summary'])
-
-        self.assert_user(Web, 'user.com', has_hcard=True, has_redirects=False,
-                         direct=False, obj_as2={
-            'type': 'Person',
-            'id': 'https://user.com/',
-            'url': 'https://user.com/',
-            'name': 'Ms. ☕ Baz',
-            'discoverable': True,
-            'indexable': True,
-            'attachment': [{
-                'type': 'PropertyValue',
-                'name': 'Ms. ☕ Baz',
-                'value': '<a rel="me" href="https://user.com"><span class="invisible">https://</span>user.com</a>',
-            }],
-        }, ignore=['@context', 'redirects_error'])
 
     # TODO: is this test still useful?
     def test_accept_header_across_requests(self):

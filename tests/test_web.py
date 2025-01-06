@@ -673,7 +673,6 @@ class WebTest(TestCase):
             'url': ['bar'],
             'preferredUsername': 'baz',
         })
-        self.user.direct = True
         self.assertEqual('user.com', self.user.username())
 
         # bad acct: URI, util.parse_acct_uri raises ValueError
@@ -686,9 +685,6 @@ class WebTest(TestCase):
 
         self.user.obj.as2['url'].append('acct:alice@user.com')
         self.assertEqual('alice', self.user.username())
-
-        self.user.direct = False
-        self.assertEqual('user.com', self.user.username())
 
     @patch('oauth_dropins.webutil.appengine_config.tasks_client.create_task')
     def test_make_task(self, mock_create_task, mock_get, mock_post):
@@ -1820,7 +1816,7 @@ class WebTest(TestCase):
             'discoverable': True,
             'indexable': True,
         }
-        self.assert_user(Web, 'user.com', obj_as2=expected_actor_as2, direct=True,
+        self.assert_user(Web, 'user.com', obj_as2=expected_actor_as2,
                          has_redirects=True)
 
         # homepage object
@@ -1896,7 +1892,7 @@ class WebTest(TestCase):
         self.assert_deliveries(mock_post, ('https://inbox',), update_as2)
 
         # updated Web user
-        self.assert_user(Web, 'user.com', direct=True, has_redirects=True, obj_as2={
+        self.assert_user(Web, 'user.com', has_redirects=True, obj_as2={
             '@context': [
                 'https://www.w3.org/ns/activitystreams',
                 as2.DISCOVERABLE_INDEXABLE_CONTEXT,

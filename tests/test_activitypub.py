@@ -1123,12 +1123,8 @@ class ActivityPubTest(TestCase):
                            type='like',
                            )
 
-    def test_inbox_like_indirect_user_creates_user(self, mock_get, *_):
-        self.user.direct = False
-        self.user.put()
-
+    def test_inbox_like_creates_user(self, mock_get, *_):
         mock_get.return_value = self.as2_resp(LIKE_ACTOR)
-
         self.test_inbox_like()
         self.assert_user(ActivityPub, 'https://mas.to/me', obj_as2=LIKE_ACTOR)
 
@@ -1254,10 +1250,6 @@ class ActivityPubTest(TestCase):
 
     def _test_inbox_follow_accept(self, follow_as2, accept_as2, mock_head,
                                   mock_get, mock_post, inbox_path='/user.com/inbox'):
-        # this should makes us make the follower ActivityPub as direct=True
-        self.user.direct = False
-        self.user.put()
-
         mock_head.return_value = requests_response(url='https://user.com/')
         mock_get.side_effect = [
             self.as2_resp(ACTOR),  # source actor
@@ -1297,9 +1289,8 @@ class ActivityPubTest(TestCase):
             Follower.query().fetch(),
             ignore=['created', 'updated'])
 
-        self.assert_user(ActivityPub, 'https://mas.to/users/swentel',
-                         obj_as2=ACTOR, direct=False)
-        self.assert_user(Web, 'user.com', direct=False, last_webmention_in=NOW,
+        self.assert_user(ActivityPub, 'https://mas.to/users/swentel', obj_as2=ACTOR)
+        self.assert_user(Web, 'user.com', last_webmention_in=NOW,
                          has_hcard=True, has_redirects=True)
 
     def test_inbox_follow_use_instead_strip_www(self, mock_head, mock_get, mock_post):

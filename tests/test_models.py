@@ -53,7 +53,6 @@ class UserTest(TestCase):
     def test_get_or_create(self):
         user = Fake.get_or_create('fake:user')
 
-        assert not user.direct
         assert not user.existing
         assert user.mod
         assert user.public_exponent
@@ -62,12 +61,6 @@ class UserTest(TestCase):
         # check that we can load the keys
         assert user.public_pem()
         assert user.private_pem()
-
-        # direct should get set even if the user exists
-        same = Fake.get_or_create('fake:user', direct=True)
-        assert same.existing
-        user.direct = True
-        self.assert_entities_equal(same, user, ignore=['updated'])
 
     def test_get_or_create_existing_merge_enabled_protocols(self):
         self.user.enabled_protocols = ['fake']
