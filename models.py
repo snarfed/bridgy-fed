@@ -829,10 +829,10 @@ Welcome to Bridgy Fed! Your account will soon be bridged to {to_proto.PHRASE} at
                 img = f'<img src="{pic}" class="profile"> '
 
         if handle:
-            handle_str = self.handle_as(proto)
+            handle_str = self.handle_as(proto) or ''
 
         if name and self.name() != handle_str:
-            name_str = self.name()
+            name_str = self.name() or ''
 
         if handle_str and name_str:
             dot = ' &middot; '
