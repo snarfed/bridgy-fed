@@ -164,7 +164,8 @@ def subscribe():
         t = header.get('t')
 
         if t not in ('#commit', '#account', '#identity'):
-            logger.info(f'Got {t} from relay')
+            if t not in ('#handle', '#tombstone'):
+                logger.info(f'Got {t} from relay')
             continue
 
         # parse payload
