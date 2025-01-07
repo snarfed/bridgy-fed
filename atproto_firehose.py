@@ -319,9 +319,10 @@ def handle(limit=None):
             }
             obj_id = at_uri
         elif op.action == 'delete':
-            verb = ('delete'
-                    if type in ('app.bsky.actor.profile', 'app.bsky.feed.post')
-                    else 'undo')
+            verb = (
+                'delete' if type in ('app.bsky.actor.profile', 'app.bsky.feed.post')
+                else 'stop-following' if type == 'app.bsky.graph.follow'
+                else 'undo')
             obj_id = f'{at_uri}#{verb}'
             record_kwarg = {
                 'our_as1': {

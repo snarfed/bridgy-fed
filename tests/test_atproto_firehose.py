@@ -544,27 +544,30 @@ class ATProtoFirehoseHandleTest(ATProtoTestCase):
                          authed_as='did:plc:user', received_at='1900-02-04',
                          eta_seconds=delayed_eta)
 
-    def test_delete_block_is_undo(self, mock_create_task):
-        commits.put(Op(repo='did:plc:user', action='delete', seq=789,
-                       path='app.bsky.graph.block/123', time='1900-02-04'))
-        handle(limit=1)
+    def test_delete_other_verbs(self, mock_create_task):
+        for type, verb in ('block', 'undo'), ('follow', 'stop-following'):
+            with self.subTest(type=type):
+                commits.put(Op(repo='did:plc:user', action='delete', seq=789,
+                               path=f'app.bsky.graph.{type}/123', time='1900-02-04'))
+                handle(limit=1)
 
-        obj_id = 'at://did:plc:user/app.bsky.graph.block/123'
-        undo_id = f'{obj_id}#undo'
-        user_key = ATProto(id='did:plc:user').key
+                obj_id = f'at://did:plc:user/app.bsky.graph.{type}/123'
+                activity_id = f'{obj_id}#{verb}'
+                user_key = ATProto(id='did:plc:user').key
 
-        expected_as1 = {
-            'objectType': 'activity',
-            'verb': 'undo',
-            'id': undo_id,
-            'actor': 'did:plc:user',
-            'object': obj_id,
-        }
-        delayed_eta = util.to_utc_timestamp(NOW) + DELETE_TASK_DELAY.total_seconds()
-        self.assert_task(mock_create_task, 'receive', id=undo_id,
-                         our_as1=expected_as1, source_protocol='atproto',
-                         authed_as='did:plc:user', received_at='1900-02-04',
-                         eta_seconds=delayed_eta)
+                expected_as1 = {
+                    'objectType': 'activity',
+                    'verb': verb,
+                    'id': activity_id,
+                    'actor': 'did:plc:user',
+                    'object': obj_id,
+                }
+                delayed_eta = (util.to_utc_timestamp(NOW)
+                               + DELETE_TASK_DELAY.total_seconds())
+                self.assert_task(mock_create_task, 'receive', id=activity_id,
+                                 our_as1=expected_as1, source_protocol='atproto',
+                                 authed_as='did:plc:user', received_at='1900-02-04',
+                                 eta_seconds=delayed_eta)
 
     @patch('requests.get', return_value=requests_response({**DID_DOC, 'new': 'stuff'}))
     def test_account(self, _, __):
