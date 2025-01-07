@@ -84,7 +84,8 @@ def _load_dids():
         if not DEBUG:
             Timer(STORE_CURSOR_FREQ.total_seconds(), _load_dids).start()
 
-        atproto_query = ATProto.query(ATProto.enabled_protocols != None,
+        atproto_query = ATProto.query(ATProto.status == None,
+                                      ATProto.enabled_protocols != None,
                                       ATProto.updated > atproto_loaded_at)
         loaded_at = ATProto.query().order(-ATProto.updated).get().updated
         new_atproto = [key.id() for key in atproto_query.iter(keys_only=True)]

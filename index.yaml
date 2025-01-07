@@ -85,6 +85,12 @@ indexes:
   - name: updated
   - name: enabled_protocols
 
+- kind: ATProto
+  properties:
+  - name: status
+  - name: enabled_protocols
+  - name: updated
+
 - kind: AtpRepo
   properties:
     - name: status

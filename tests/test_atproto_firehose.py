@@ -430,6 +430,17 @@ class ATProtoFirehoseSubscribeTest(ATProtoTestCase):
         self.assert_enqueues({'$type': 'app.bsky.feed.post'}, repo='did:plc:eve')
         self.assertIn('did:plc:eve', atproto_firehose.atproto_dids)
 
+    def test_load_dids_disabled_atproto_user(self):
+        self.cursor.cursor = 1
+        self.cursor.put()
+
+        self.store_object(id='did:plc:eve', raw=DID_DOC)
+        eve = self.make_user('did:plc:eve', cls=ATProto, enabled_protocols=['efake'],
+                             manual_opt_out=True)
+
+        self.subscribe()
+        self.assertNotIn('did:plc:eve', atproto_firehose.atproto_dids)
+
     def test_load_dids_atprepo(self):
         FakeWebsocketClient.to_receive = [({'op': 1, 't': '#info'}, {})]
         self.subscribe()
