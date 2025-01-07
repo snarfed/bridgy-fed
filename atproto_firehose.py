@@ -313,6 +313,7 @@ def handle(limit=None):
             return
 
         # store object, enqueue receive task
+        verb = None
         if op.action in ('create', 'update'):
             record_kwarg = {
                 'bsky': op.record,
@@ -335,6 +336,9 @@ def handle(limit=None):
             }
         else:
             logger.error(f'Unknown action {action} for {op.repo} {op.path}')
+            return
+
+        if verb and verb not in ATProto.SUPPORTED_AS1_TYPES:
             return
 
         delay = DELETE_TASK_DELAY if op.action == 'delete' else None

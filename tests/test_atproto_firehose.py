@@ -545,7 +545,7 @@ class ATProtoFirehoseHandleTest(ATProtoTestCase):
                          eta_seconds=delayed_eta)
 
     def test_delete_other_verbs(self, mock_create_task):
-        for type, verb in ('block', 'undo'), ('follow', 'stop-following'):
+        for type, verb in [('block', 'undo')]: #('follow', 'stop-following'):
             with self.subTest(type=type):
                 commits.put(Op(repo='did:plc:user', action='delete', seq=789,
                                path=f'app.bsky.graph.{type}/123', time='1900-02-04'))
@@ -568,6 +568,14 @@ class ATProtoFirehoseHandleTest(ATProtoTestCase):
                                  our_as1=expected_as1, source_protocol='atproto',
                                  authed_as='did:plc:user', received_at='1900-02-04',
                                  eta_seconds=delayed_eta)
+
+    # temporary! TODO: revisit once we handle follow spammers and allow this again
+    # https://github.com/snarfed/bridgy-fed/issues/1669
+    def test_unsupported_as1_verb(self, mock_create_task):
+        commits.put(Op(repo='did:plc:user', action='delete', seq=789,
+                       path=f'app.bsky.graph.follow/123', time='1900-02-04'))
+        handle(limit=1)
+        mock_create_task.assert_not_called()
 
     @patch('requests.get', return_value=requests_response({**DID_DOC, 'new': 'stuff'}))
     def test_account(self, _, __):
