@@ -1,6 +1,7 @@
 """Unit tests for atproto.py."""
 import base64
 import copy
+from pathlib import Path
 from unittest import skip
 from unittest.mock import ANY, call, MagicMock, patch
 
@@ -735,6 +736,38 @@ class ATProtoTest(TestCase):
 
         self.assertEqual(0, AtpRemoteBlob.query().count())
         mock_get.assert_has_calls([self.req('https://my/vid')])
+
+    @patch('requests.get', return_value=requests_response(
+        Path(__file__).with_name('activitypub_logo.png').read_bytes(),
+        content_type='image/png'))
+    def test_convert_fetch_blobs_true_image_aspect_ratio(self, mock_get):
+        cid = CID.decode('bafkreiefedbx7vctqxskqog5o3x2s4hnkchx7ml5aqwdbccgkzuis2ptya')
+        self.assertEqual({
+            '$type': 'app.bsky.feed.post',
+            'text': '',
+            'createdAt': '2022-01-02T03:04:05.000Z',
+            'embed': {
+                '$type': 'app.bsky.embed.images',
+                'images': [{
+                    '$type': 'app.bsky.embed.images#image',
+                    'alt': '',
+                    'image': {
+                        '$type': 'blob',
+                        'mimeType': 'image/png',
+                        'ref': cid,
+                        'size': 8644,
+                    },
+                    'aspectRatio': {
+                        'width': 260,
+                        'height': 164,
+                    },
+                }],
+            },
+        }, ATProto.convert(Object(our_as1={
+            'objectType': 'note',
+            'image': [{'url': 'http://my/pic/1'}],
+        }), fetch_blobs=True))
+        mock_get.assert_has_calls([self.req('http://my/pic/1')])
 
     @patch('requests.get', side_effect=[
         requests_response(status=404),

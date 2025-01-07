@@ -833,6 +833,8 @@ class ATProto(User, Protocol):
             return {}
 
         obj_as1 = obj.as1
+        blobs = {}  # maps str URL to dict blob object
+        aspect_ratios = {}  # maps str URL to (int width, int height) tuple
 
         def fetch_blob(url, blob_field, name, check_size=True, check_type=True):
             if url and url not in blobs:
@@ -843,10 +845,11 @@ class ATProto(User, Protocol):
                         url=url, get_fn=util.requests_get, max_size=max_size,
                         accept_types=accept)
                     blobs[url] = blob.as_object()
+                    if blob.width and blob.height:
+                        aspect_ratios[url] = (blob.width, blob.height)
                 except (RequestException, ValidationError) as e:
                     logger.info(f'failed, skipping {url} : {e}')
 
-        blobs = {}  # maps str URL to dict blob object
         if fetch_blobs:
             for o in obj.as1, as1.get_object(obj.as1):
                 for url in util.get_urls(o, 'image'):
@@ -878,8 +881,8 @@ class ATProto(User, Protocol):
         as_embed = obj.atom or obj.rss
         try:
             ret = bluesky.from_as1(cls.translate_ids(obj.as1), blobs=blobs,
-                                   client=client, original_fields_prefix='bridgy',
-                                   as_embed=as_embed)
+                                   aspects=aspect_ratios, client=client,
+                                   original_fields_prefix='bridgy', as_embed=as_embed)
         except (ValueError, RequestException):
             logger.info(f"Couldn't convert to ATProto", exc_info=True)
             return {}
