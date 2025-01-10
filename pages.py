@@ -20,6 +20,7 @@ from oauth_dropins.webutil.flask_util import (
 )
 import requests
 import werkzeug.exceptions
+from werkzeug.exceptions import NotFound
 
 from activitypub import ActivityPub, instance_actor
 from atproto import ATProto
@@ -71,6 +72,9 @@ def load_user(protocol, id):
 
     if cls.ABBREV == 'ap' and not id.startswith('@'):
         id = '@' + id
+    elif cls.ABBREV == 'bsky':
+        id = id.removeprefix('@')
+
     user = cls.get_by_id(id)
 
     if not user and cls.ABBREV != 'web':
@@ -161,6 +165,34 @@ def notifications(protocol, id):
 
     # notifications tab UI page
     return render_template('notifications.html', **TEMPLATE_VARS, **locals())
+
+
+@app.get(f'/user-page')
+@flask_util.headers(CACHE_CONTROL)
+def find_user_page_form():
+    return render_template('find_user_page.html')
+
+
+@app.post(f'/user-page')
+def find_user_page():
+    id = request.form['id']
+
+    proto = Protocol.for_id(id)
+
+    resolved_id = None
+    if not proto:
+        proto, resolved_id = Protocol.for_handle(id)
+        if not proto:
+            flash(f"Couldn't determine network for {id}.")
+            return render_template('find_user_page.html'), 404
+
+    try:
+        user = load_user(proto.LABEL, resolved_id or id)
+    except NotFound:
+        flash(f"User {id} on {proto.PHRASE} isn't signed up.")
+        return render_template('find_user_page.html'), 404
+
+    return redirect(user.user_page_path(), code=302)
 
 
 @app.post(f'/<any({",".join(PROTOCOLS)}):protocol>/<id>/update-profile')

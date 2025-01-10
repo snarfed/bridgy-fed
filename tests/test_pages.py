@@ -32,6 +32,7 @@ from models import Object, Follower, Target
 from web import Web
 
 from granary.tests.test_bluesky import ACTOR_AS, ACTOR_PROFILE_BSKY
+from .test_atproto import DID_DOC
 from .test_web import (
     ACTOR_AS1_UNWRAPPED_URLS,
     ACTOR_AS2,
@@ -77,7 +78,7 @@ class PagesTest(TestCase):
         got = self.client.get('/fake/fake:foo')
         self.assert_equals(200, got.status_code)
 
-    def test_user_page_handle(self):
+    def test_user_page_handle_activitypub(self):
         user = self.make_user('http://fo/o', cls=ActivityPub,
                               enabled_protocols=['fake'],
                               obj_as1=ACTOR_WITH_PREFERRED_USERNAME)
@@ -90,6 +91,19 @@ class PagesTest(TestCase):
         # got = self.client.get('/ap/http%3A//foo')
         # self.assert_equals(302, got.status_code)
         # self.assert_equals('/ap/@me@plus.google.com', got.headers['Location'])
+
+    def test_user_page_handle_atproto(self):
+        self.store_object(id='did:plc:user', raw={
+            **DID_DOC,
+            'alsoKnownAs': ['at://han.dull'],
+        })
+        user = self.make_user('did:plc:user', cls=ATProto, enabled_protocols=['fake'])
+
+        got = self.client.get('/bsky/@han.dull')
+        self.assert_equals(200, got.status_code)
+
+        got = self.client.get('/bsky/han.dull')
+        self.assert_equals(200, got.status_code)
 
     def test_user_web_custom_username_doesnt_redirect(self):
         """https://github.com/snarfed/bridgy-fed/issues/534"""
@@ -586,3 +600,40 @@ class PagesTest(TestCase):
         got = self.client.get('/', base_url='https://ap.brid.gy/')
         self.assert_equals(301, got.status_code)
         self.assert_equals('https://fed.brid.gy/', got.headers['Location'])
+
+    def test_find_user_page_web_domain(self):
+        got = self.client.post('/user-page', data={'id': 'user.com'})
+        self.assert_equals(302, got.status_code)
+        self.assert_equals('/web/user.com', got.headers['Location'])
+
+    def test_find_user_page_fake_id(self):
+        self.make_user('fake:foo', cls=Fake)
+        got = self.client.post('/user-page', data={'id': 'fake:foo'})
+        self.assert_equals(302, got.status_code)
+        self.assert_equals('/fa/fake:handle:foo', got.headers['Location'])
+
+    def test_find_user_page_fake_handle(self):
+        self.make_user('fake:foo', cls=Fake)
+        got = self.client.post('/user-page', data={'id': 'fake:handle:foo'})
+        self.assert_equals(302, got.status_code)
+        self.assert_equals('/fa/fake:handle:foo', got.headers['Location'])
+
+    def test_find_user_page_unknown_protocol(self):
+        self.make_user('fake:foo', cls=Fake)
+        got = self.client.post('/user-page', data={'id': 'un:kn:own'})
+        self.assert_equals(404, got.status_code)
+        self.assertEqual(["Couldn't determine network for un:kn:own."],
+                         get_flashed_messages())
+
+    def test_find_user_page_fake_not_found(self):
+        got = self.client.post('/user-page', data={'id': 'fake:foo'})
+        self.assert_equals(404, got.status_code)
+        self.assertEqual(["User fake:foo on fake-phrase isn't signed up."],
+                         get_flashed_messages())
+
+    def test_find_user_page_other_not_enabled(self):
+        self.make_user('other:foo', cls=OtherFake)
+        got = self.client.post('/user-page', data={'id': 'other:foo'})
+        self.assert_equals(404, got.status_code)
+        self.assertEqual(["User other:foo on other-phrase isn't signed up."],
+                         get_flashed_messages())

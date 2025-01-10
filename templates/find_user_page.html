@@ -1,0 +1,14 @@
+{% extends "base.html" %}
+
+{% block content %}
+
+<p class="row big">Enter your handle, user id, or web site:</p>
+
+<div class="row big">
+<form method="post" action="">  <!-- empty action means post to same URL -->
+  <input required name="id" id="id" />
+  <input type="submit" class="btn btn-default" value="OK" />
+</form>
+</div>
+
+{% endblock %}
