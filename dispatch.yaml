@@ -7,14 +7,17 @@ dispatch:
   - url: "*/queue/atproto-commit"
     service: atproto-hub
 
+  - url: "*/hub/*"
+    service: atproto-hub
+
   - url: "*/queue/*"
     service: router
 
   - url: "*/cron/*"
     service: router
 
+  - url: "*/router/*"
+    service: router
+
   - url: "*/xrpc/com.atproto.sync.subscribeRepos"
     service: atproto-hub
-
-  # - url: "*/xrpc/com.atproto.sync.getRepo"
-  #   service: atproto-sync

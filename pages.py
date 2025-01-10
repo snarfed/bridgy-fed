@@ -449,3 +449,25 @@ def memcache_command():
     resp = memcache.memcache.raw_command(request.get_data(as_text=True),
                                          end_tokens='END\r\n')
     return resp.decode(), {'Content-Type': 'text/plain'}
+
+
+@app.post('/eval/<any(app,hub,router):which>')
+def python_eval(which=None):
+    if request.headers.get('Authorization') != app.config['SECRET_KEY']:
+        return '', 401
+
+    import contextlib, io, traceback
+
+    input = request.get_data(as_text=True)
+    logger.info(f'python_eval got: {input}')
+
+    out = io.StringIO()
+    with contextlib.redirect_stdout(out), contextlib.redirect_stderr(out):
+        try:
+            exec(input)
+        except BaseException as e:
+            traceback.print_exception(e, file=out)
+        finally:
+            output = out.getvalue()
+            logger.info(f'python_eval out: {output}')
+            return output, {'Content-Type': 'text/plain'}

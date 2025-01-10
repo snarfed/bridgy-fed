@@ -13,6 +13,7 @@ from oauth_dropins.webutil import (
 import activitypub, atproto, web
 import common
 import models
+import pages
 import protocol
 
 models.reset_protocol_properties()

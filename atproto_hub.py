@@ -22,6 +22,7 @@ import activitypub, atproto, web
 import atproto_firehose
 import common
 import models
+import pages
 
 # as of 2024-07-10
 BSKY_TEAM_CIDRS = (
