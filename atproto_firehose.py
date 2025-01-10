@@ -171,9 +171,6 @@ def subscribe():
         if not repo:
             logger.warning(f'Payload missing repo! {payload}')
             continue
-        # TODO: remove
-        elif repo in atproto_dids and not ATProto.get_by_id(repo, use_datastore=False):
-            report_error('ATProto user missing from memcache', user=repo)
 
         seq = payload.get('seq')
         if not seq:
