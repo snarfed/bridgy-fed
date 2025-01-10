@@ -104,6 +104,7 @@ class Web(User, Protocol):
     LOGO_HTML = '🌐'  # used to be 🕸️
     CONTENT_TYPE = common.CONTENT_TYPE_HTML
     DEFAULT_ENABLED_PROTOCOLS = ('activitypub',)
+    DEFAULT_SERVE_USER_PAGES = True
     SUPPORTED_AS1_TYPES = (
         tuple(as1.ACTOR_TYPES)
         + tuple(as1.POST_TYPES)

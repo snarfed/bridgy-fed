@@ -14,7 +14,16 @@ from oauth_dropins.webutil.testutil import requests_response
 from requests import ConnectionError
 
 # import first so that Fake is defined before URL routes are registered
-from .testutil import Fake, OtherFake, TestCase, ACTOR, COMMENT, MENTION, NOTE
+from .testutil import (
+    Fake,
+    ExplicitFake,
+    OtherFake,
+    TestCase,
+    ACTOR,
+    COMMENT,
+    MENTION,
+    NOTE,
+)
 
 from activitypub import ActivityPub
 from atproto import ATProto
@@ -70,6 +79,7 @@ class PagesTest(TestCase):
 
     def test_user_page_handle(self):
         user = self.make_user('http://fo/o', cls=ActivityPub,
+                              enabled_protocols=['fake'],
                               obj_as1=ACTOR_WITH_PREFERRED_USERNAME)
         self.assertEqual('@me@fo', user.handle_as(ActivityPub))
 
@@ -127,6 +137,16 @@ class PagesTest(TestCase):
         user = self.make_user('fake:user', cls=Fake, manual_opt_out=True)
         got = self.client.get('/fa/fake:handle:user')
         self.assert_equals(404, got.status_code)
+
+    def test_user_default_serve_false_no_enabled_protocols(self):
+        self.make_user('other:foo', cls=OtherFake)
+        got = self.client.get('/other/other:foo')
+        self.assert_equals(404, got.status_code)
+
+    def test_user_default_serve_false_enabled_protocols(self):
+        self.make_user('other:foo', cls=OtherFake, enabled_protocols=['fake'])
+        got = self.client.get('/other/other:foo')
+        self.assert_equals(200, got.status_code)
 
     def test_user_web_redirect(self):
         got = self.client.get('/user/user.com')
@@ -394,6 +414,7 @@ class PagesTest(TestCase):
 
     def test_followers_activitypub(self):
         user = self.make_user('https://inst/user', cls=ActivityPub,
+                              enabled_protocols=['fake'],
                               obj_as1=ACTOR_WITH_PREFERRED_USERNAME)
 
         got = self.client.get('/ap/@me@inst/followers')

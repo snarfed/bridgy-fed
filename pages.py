@@ -73,20 +73,18 @@ def load_user(protocol, id):
         id = '@' + id
     user = cls.get_by_id(id)
 
-    if cls.ABBREV != 'web':
-        if not user:
-            user = cls.query(cls.handle == id, cls.status == None).get()
-            if user and user.use_instead:
-                user = user.use_instead.get()
+    if not user and cls.ABBREV != 'web':
+        # query by handle, except for web. Web.handle is custom username, which
+        # isn't unique
+        user = cls.query(cls.handle == id, cls.status == None).get()
+        if user and user.use_instead:
+            user = user.use_instead.get()
 
-        if user and id not in (user.key.id(), user.handle):
-            error('', status=302, location=user.user_page_path())
-
-    elif user and id != user.key.id():  # use_instead redirect
+    if user and id not in (user.key.id(), user.handle):
         error('', status=302, location=user.user_page_path())
 
     if user and not user.status and (user.enabled_protocols
-                                     or user.DEFAULT_ENABLED_PROTOCOLS):
+                                     or user.DEFAULT_SERVE_USER_PAGES):
         assert not user.use_instead
         return user
 
@@ -195,7 +193,7 @@ def update_profile(protocol, id):
             for label in list(user.DEFAULT_ENABLED_PROTOCOLS) + user.enabled_protocols:
                 try:
                     PROTOCOLS[label].set_username(user, id)
-                except (ValueError, RuntimeError, NotImplementedError) as e:
+                except (AssertionError, ValueError, RuntimeError, NotImplementedError):
                     pass
 
     return redir

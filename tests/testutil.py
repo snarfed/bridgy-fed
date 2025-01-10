@@ -75,6 +75,7 @@ class Fake(User, protocol.Protocol):
     DEFAULT_ENABLED_PROTOCOLS = ('other',)
     HAS_COPIES = True
     LOGO_HTML = '<img src="fake-logo">'
+    DEFAULT_SERVE_USER_PAGES = True
     SUPPORTED_AS1_TYPES = frozenset(
         tuple(as1.ACTOR_TYPES)
         + tuple(as1.POST_TYPES)
@@ -214,6 +215,7 @@ class OtherFake(Fake):
     PHRASE = 'other-phrase'
     CONTENT_TYPE = 'ot/her'
     DEFAULT_ENABLED_PROTOCOLS = ('fake',)
+    DEFAULT_SERVE_USER_PAGES = False
     SUPPORTED_AS1_TYPES = Fake.SUPPORTED_AS1_TYPES - set(('accept',))
     SUPPORTS_DMS = True
 
@@ -240,6 +242,7 @@ class ExplicitFake(Fake):
     PHRASE = 'efake-phrase'
     CONTENT_TYPE = 'un/known'
     DEFAULT_ENABLED_PROTOCOLS = ()
+    DEFAULT_SERVE_USER_PAGES = False
     SUPPORTS_DMS = True
 
     fetchable = {}
