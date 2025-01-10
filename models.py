@@ -267,8 +267,9 @@ class User(StringIdModel, metaclass=ProtocolUserMeta):
             return None
         elif user.use_instead:
             logger.info(f'{user.key} use_instead => {user.use_instead}')
-            return user.use_instead.get()
-        elif user.status and not allow_opt_out:
+            user = user.use_instead.get()
+
+        if user.status and not allow_opt_out:
             logger.info(f'{user.key} is {user.status}')
             return None
 

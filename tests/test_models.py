@@ -49,7 +49,22 @@ class UserTest(TestCase):
         self.user.obj.our_as1 = {'summary': '#nobridge'}
         self.user.obj.put()
         self.user.put()
+
         self.assertIsNone(Web.get_by_id('y.za'))
+        self.assert_entities_equal(self.user, Web.get_by_id('y.za', allow_opt_out=True))
+
+    def test_get_by_id_use_instead_opted_out(self):
+        self.user.obj.our_as1 = {'summary': '#nobridge'}
+        self.user.obj.put()
+        self.user.put()
+
+        user = Fake.get_or_create('fake:a')
+        user.use_instead = self.user.key
+        user.put()
+
+        self.assertIsNone(Fake.get_by_id('fake:a'))
+        self.assert_entities_equal(self.user,
+                                   Fake.get_by_id('fake:a', allow_opt_out=True))
 
     def test_get_or_create(self):
         user = Fake.get_or_create('fake:user')
