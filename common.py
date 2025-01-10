@@ -10,12 +10,10 @@ import threading
 import urllib.parse
 from urllib.parse import urljoin, urlparse
 
-import cachetools
 from Crypto.Util import number
 from flask import abort, g, has_request_context, make_response, request
 from google.cloud.error_reporting.util import build_flask_context
 from google.cloud import ndb
-from google.cloud.ndb.global_cache import _InProcessGlobalCache, MemcacheCache
 from google.cloud.ndb.key import Key
 from google.protobuf.timestamp_pb2 import Timestamp
 from granary import as2
@@ -26,9 +24,8 @@ from oauth_dropins.webutil.appengine_info import DEBUG
 from oauth_dropins.webutil import flask_util
 from oauth_dropins.webutil.util import json_dumps
 from negotiator import ContentNegotiator, AcceptParameters, ContentType
-import pymemcache.client.base
-from pymemcache.serde import PickleSerde
-from pymemcache.test.utils import MockMemcacheClient
+
+import memcache
 
 logger = logging.getLogger(__name__)
 
@@ -101,24 +98,6 @@ OLD_ACCOUNT_AGE = timedelta(days=14)
 
 # populated later in this file
 NDB_CONTEXT_KWARGS = None
-
-# https://github.com/memcached/memcached/wiki/Commands#standard-protocol
-MEMCACHE_KEY_MAX_LEN = 250
-
-if appengine_info.DEBUG or appengine_info.LOCAL_SERVER:
-    logger.info('Using in memory mock memcache')
-    memcache = MockMemcacheClient(allow_unicode_keys=True)
-    pickle_memcache = MockMemcacheClient(allow_unicode_keys=True, serde=PickleSerde())
-    global_cache = _InProcessGlobalCache()
-else:
-    logger.info('Using production Memorystore memcache')
-    memcache = pymemcache.client.base.PooledClient(
-        os.environ['MEMCACHE_HOST'], timeout=10, connect_timeout=10,  # seconds
-        allow_unicode_keys=True)
-    pickle_memcache = pymemcache.client.base.PooledClient(
-        os.environ['MEMCACHE_HOST'], timeout=10, connect_timeout=10,  # seconds
-        serde=PickleSerde(), allow_unicode_keys=True)
-    global_cache = MemcacheCache(memcache)
 
 _negotiator = ContentNegotiator(acceptable=[
     AcceptParameters(ContentType(CONTENT_TYPE_HTML)),
@@ -289,37 +268,6 @@ def unwrap(val, field=None):
     return val
 
 
-def webmention_endpoint_cache_key(url):
-    """Returns cache key for a cached webmention endpoint for a given URL.
-
-    Just the domain by default. If the URL is the home page, ie path is ``/``,
-    the key includes a ``/`` at the end, so that we cache webmention endpoints
-    for home pages separate from other pages.
-    https://github.com/snarfed/bridgy/issues/701
-
-    Example: ``snarfed.org /``
-
-    https://github.com/snarfed/bridgy-fed/issues/423
-
-    Adapted from ``bridgy/util.py``.
-    """
-    parsed = urllib.parse.urlparse(url)
-    key = parsed.netloc
-    if parsed.path in ('', '/'):
-        key += ' /'
-
-    logger.debug(f'wm cache key {key}')
-    return key
-
-
-@cachetools.cached(cachetools.TTLCache(50000, 60 * 60 * 2),  # 2h expiration
-                   key=webmention_endpoint_cache_key,
-                   lock=threading.Lock())
-def webmention_discover(url, **kwargs):
-    """Thin caching wrapper around :func:`oauth_dropins.webutil.webmention.discover`."""
-    return webmention.discover(url, **kwargs)
-
-
 def create_task(queue, delay=None, **params):
     """Adds a Cloud Tasks task.
 
@@ -482,62 +430,11 @@ NDB_CONTEXT_KWARGS = {
     # limited context-local cache. avoid full one due to this bug:
     # https://github.com/googleapis/python-ndb/issues/888
     'cache_policy': cache_policy,
-    'global_cache': global_cache,
+    'global_cache': memcache.global_cache,
     'global_cache_policy': global_cache_policy,
     'global_cache_timeout_policy': global_cache_timeout_policy,
 }
 
-
-def memcache_key(key):
-    """Preprocesses a memcache key. Right now just truncates it to 250 chars.
-
-    https://pymemcache.readthedocs.io/en/latest/apidoc/pymemcache.client.base.html
-    https://github.com/memcached/memcached/wiki/Commands#standard-protocol
-
-    TODO: truncate to 250 *UTF-8* chars, to handle Unicode chars in URLs. Related:
-    pymemcache Client's allow_unicode_keys constructor kwarg.
-    """
-    return key[:MEMCACHE_KEY_MAX_LEN].replace(' ', '%20').encode()
-
-
-def memcache_memoize_key(fn, *args, **kwargs):
-    return memcache_key(f'{fn.__name__}-2-{repr(args)}-{repr(kwargs)}')
-
-
-NONE = ()  # empty tuple
-
-def memcache_memoize(expire=None, key=None):
-    """Memoize function decorator that stores the cached value in memcache.
-
-    Args:
-      expire (timedelta): optional, expiration
-      key (callable): function that takes the function's (*args, **kwargs) and
-        returns the cache key to use
-    """
-    if expire:
-        expire = int(expire.total_seconds())
-
-    def decorator(fn):
-        @functools.wraps(fn)
-        def wrapped(*args, **kwargs):
-            if key:
-                cache_key = memcache_memoize_key(fn, key(*args, **kwargs))
-            else:
-                cache_key = memcache_memoize_key(fn, *args, **kwargs)
-
-            val = pickle_memcache.get(cache_key)
-            if val is not None:
-                # logger.debug(f'cache hit {cache_key}')
-                return None if val == NONE else val
-
-            # logger.debug(f'cache miss {cache_key}')
-            val = fn(*args, **kwargs)
-            pickle_memcache.set(cache_key, NONE if val is None else val, expire=expire)
-            return val
-
-        return wrapped
-
-    return decorator
 
 
 def as2_request_type():

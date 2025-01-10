@@ -33,7 +33,6 @@ from common import (
     error,
     host_url,
     LOCAL_DOMAINS,
-    memcache,
     PRIMARY_DOMAIN,
     PROTOCOL_DOMAINS,
     redirect_wrap,
@@ -42,6 +41,7 @@ from common import (
     unwrap,
 )
 from ids import BOT_ACTOR_AP_IDS
+import memcache
 from models import fetch_objects, Follower, Object, PROTOCOLS, User
 from protocol import activity_id_memcache_key, DELETE_TASK_DELAY, Protocol
 import webfinger
@@ -1113,7 +1113,7 @@ def inbox(protocol=None, id=None):
             logger.info(f'{domain} is opted out')
             return '', 204
 
-        if memcache.get(activity_id_memcache_key(id)):
+        if memcache.memcache.get(activity_id_memcache_key(id)):
             logger.info(f'Already seen {id}')
             return '', 204
 

@@ -41,6 +41,7 @@ from ids import (
     translate_object_id,
     translate_user_id,
 )
+import memcache
 from models import (
     DM,
     Follower,
@@ -77,7 +78,7 @@ werkzeug.exceptions._aborter.mapping.setdefault(299, ErrorButDoNotRetryTask)
 
 
 def activity_id_memcache_key(id):
-    return common.memcache_key(f'receive-{id}')
+    return memcache.key(f'receive-{id}')
 
 
 class Protocol:
@@ -839,7 +840,7 @@ class Protocol:
 
         # lease this object, atomically
         memcache_key = activity_id_memcache_key(id)
-        leased = common.memcache.add(memcache_key, 'leased', noreply=False,
+        leased = memcache.memcache.add(memcache_key, 'leased', noreply=False,
                                      expire=5 * 60)  # 5 min
         # short circuit if we've already seen this activity id.
         # (don't do this for bare objects since we need to check further down
@@ -1037,7 +1038,7 @@ class Protocol:
                         f.status = 'inactive'
                     ndb.put_multi(followers)
 
-        common.memcache.set(memcache_key, 'done', expire=7 * 24 * 60 * 60)  # 1w
+        memcache.memcache.set(memcache_key, 'done', expire=7 * 24 * 60 * 60)  # 1w
         return resp
 
     @classmethod

@@ -1,4 +1,4 @@
-"""Main Flask application."""
+"""Flask application for frontend ("default") service."""
 import json
 import logging
 from pathlib import Path

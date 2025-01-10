@@ -26,6 +26,7 @@ from activitypub import ActivityPub
 from app import app
 from atproto import ATProto
 import common
+import memcache
 import models
 from models import DM, Follower, Object, PROTOCOLS, Target, User
 import protocol
@@ -2757,10 +2758,10 @@ class ProtocolReceiveTest(TestCase):
         self.alice.copies = [Target(uri='fake:alice', protocol='fake')]
         self.alice.put()
 
-        common.memcache.clear()
         models.get_original_user_key.cache_clear()
         models.get_original_object_key.cache_clear()
-        common.pickle_memcache.clear()
+        memcache.memcache.clear()
+        memcache.pickle_memcache.clear()
 
         obj.new = True
         Fake.fetchable = {
@@ -2792,10 +2793,10 @@ class ProtocolReceiveTest(TestCase):
         self.store_object(id='other:post',
                           copies=[Target(uri='fake:post', protocol='fake')])
 
-        common.memcache.clear()
         models.get_original_user_key.cache_clear()
         models.get_original_object_key.cache_clear()
-        common.pickle_memcache.clear()
+        memcache.memcache.clear()
+        memcache.pickle_memcache.clear()
         obj.new = True
 
         _, code = Fake.receive(obj, authed_as='fake:user')
@@ -2847,7 +2848,7 @@ class ProtocolReceiveTest(TestCase):
 
         models.get_original_user_key.cache_clear()
         models.get_original_object_key.cache_clear()
-        common.pickle_memcache.clear()
+        memcache.pickle_memcache.clear()
 
         obj.new = True
         self.assertEqual(('OK', 202), Fake.receive(obj, authed_as='fake:user'))

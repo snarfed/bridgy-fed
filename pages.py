@@ -28,6 +28,7 @@ from common import CACHE_CONTROL, DOMAIN_RE
 from flask_app import app
 from flask import redirect
 import ids
+import memcache
 from models import fetch_objects, fetch_page, Follower, Object, PAGE_SIZE, PROTOCOLS
 from protocol import Protocol
 
@@ -445,6 +446,6 @@ def memcache_command():
     if request.headers.get('Authorization') != app.config['SECRET_KEY']:
         return '', 401
 
-    resp = common.memcache.raw_command(request.get_data(as_text=True),
-                                       end_tokens='END\r\n')
+    resp = memcache.memcache.raw_command(request.get_data(as_text=True),
+                                         end_tokens='END\r\n')
     return resp.decode(), {'Content-Type': 'text/plain'}

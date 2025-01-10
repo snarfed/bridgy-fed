@@ -30,12 +30,12 @@ from common import (
     base64_to_long,
     DOMAIN_RE,
     long_to_base64,
-    memcache_memoize,
     OLD_ACCOUNT_AGE,
     report_error,
     unwrap,
 )
 import ids
+import memcache
 
 # maps string label to Protocol subclass. values are populated by ProtocolUserMeta.
 # (we used to wait for ProtocolUserMeta to populate the keys as well, but that was
@@ -253,7 +253,7 @@ class User(StringIdModel, metaclass=ProtocolUserMeta):
             util.add(getattr(self, prop), val)
 
         if prop == 'copies':
-            common.pickle_memcache.set(common.memcache_memoize_key(
+            memcache.pickle_memcache.set(memcache.memoize_key(
                 get_original_user_key, val.uri), self.key)
 
     @classmethod
@@ -848,7 +848,7 @@ Welcome to Bridgy Fed! Your account will soon be bridged to {to_proto.PHRASE} at
     @cachetools.cached(
         cachetools.TTLCache(50000, FOLLOWERS_CACHE_EXPIRATION.total_seconds()),
         key=lambda user: user.key.id(), lock=Lock())
-    @memcache_memoize(key=lambda self: self.key.id(),
+    @memcache.memoize(key=lambda self: self.key.id(),
                       expire=FOLLOWERS_CACHE_EXPIRATION)
     def count_followers(self):
         """Counts this user's followers and followings.
@@ -1120,7 +1120,7 @@ class Object(StringIdModel):
             util.add(getattr(self, prop), val)
 
         if prop == 'copies':
-            common.pickle_memcache.set(common.memcache_memoize_key(
+            memcache.pickle_memcache.set(memcache.memoize_key(
                 get_original_object_key, val.uri), self.key)
 
     def remove(self, prop, val):
@@ -1684,12 +1684,12 @@ def fetch_page(query, model_class, by=None):
 
 
 @lru_cache(maxsize=100000)
-@memcache_memoize(expire=GET_ORIGINALS_CACHE_EXPIRATION)
+@memcache.memoize(expire=GET_ORIGINALS_CACHE_EXPIRATION)
 def get_original_object_key(copy_id):
     """Finds the :class:`Object` with a given copy id, if any.
 
     Note that :meth:`Object.add` also updates this function's
-    :func:`memcache_memoize` cache.
+    :func:`memcache.memoize` cache.
 
     Args:
       copy_id (str)
@@ -1703,12 +1703,12 @@ def get_original_object_key(copy_id):
 
 
 @lru_cache(maxsize=100000)
-@memcache_memoize(expire=GET_ORIGINALS_CACHE_EXPIRATION)
+@memcache.memoize(expire=GET_ORIGINALS_CACHE_EXPIRATION)
 def get_original_user_key(copy_id):
     """Finds the user with a given copy id, if any.
 
     Note that :meth:`User.add` also updates this function's
-    :func:`memcache_memoize` cache.
+    :func:`memcache.memoize` cache.
 
     Args:
       copy_id (str)
@@ -1723,4 +1723,3 @@ def get_original_user_key(copy_id):
         if proto and proto.LABEL != 'ui' and not proto.owns_id(copy_id):
             if orig := proto.query(proto.copies.uri == copy_id).get(keys_only=True):
                 return orig
-            

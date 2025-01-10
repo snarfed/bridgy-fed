@@ -2,10 +2,10 @@
 from unittest import mock
 
 from atproto import ATProto
-from common import memcache
 import dms
 from dms import maybe_send, receive
 import ids
+from common import memcache
 from models import DM, Follower, Object, Target
 from web import Web
 
@@ -336,7 +336,8 @@ class DmsTest(TestCase):
 
         self.assert_sent(ExplicitFake, [bob, eve], 'request_bridging',
                          ALICE_REQUEST_CONTENT)
-        self.assertEqual(2, memcache.get('dm-user-requests-efake-efake:alice'))
+        self.assertEqual(2, memcache.memcache.get(
+            'dm-user-requests-efake-efake:alice'))
 
         # over the limit
         OtherFake.sent = []
@@ -348,7 +349,8 @@ class DmsTest(TestCase):
         self.assertEqual(('OK', 200), receive(from_user=alice, obj=obj))
         self.assertEqual([], OtherFake.sent)
         self.assert_replied(OtherFake, alice, '?', "Sorry, you've hit your limit of 2 requests per day. Try again tomorrow!")
-        self.assertEqual(3, memcache.get('dm-user-requests-efake-efake:alice'))
+        self.assertEqual(3, memcache.memcache.get(
+            'dm-user-requests-efake-efake:alice'))
 
     def test_receive_prompt_wrong_protocol(self):
         self.make_user(id='other.brid.gy', cls=Web)

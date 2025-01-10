@@ -2,7 +2,6 @@
 from unittest.mock import Mock, patch
 
 import flask
-from google.cloud.ndb import Key
 from granary import as2
 from oauth_dropins.webutil.appengine_config import error_reporting_client
 
@@ -164,100 +163,6 @@ class CommonTest(TestCase):
             self.request_context.push()
 
         mock_client.report.assert_called_with('foo', http_context=None, bar='baz')
-
-    @patch('common.MEMCACHE_KEY_MAX_LEN', new=10)
-    def test_memcache_key(self):
-        for input, expected in (
-                ('foo', b'foo'),
-                ('foo-bar-baz', b'foo-bar-ba'),
-                ('foo bar', b'foo%20bar'),
-                ('☃.net', b'\xe2\x98\x83.net'),
-        ):
-            self.assertEqual(expected, common.memcache_key(input))
-
-    def test_memcache_memoize_int(self):
-        calls = []
-
-        @common.memcache_memoize()
-        def foo(x, y, z=None):
-            calls.append((x, y, z))
-            return len(calls)
-
-        self.assertEqual(1, foo(1, 'a', z=1))
-        self.assertEqual([(1, 'a', 1)], calls)
-        self.assertEqual(1, foo(1, 'a', z=1))
-        self.assertEqual([(1, 'a', 1)], calls)
-
-        self.assertEqual(2, foo(2, 'b', z=2))
-        self.assertEqual([(1, 'a', 1), (2, 'b', 2)], calls)
-        self.assertEqual(1, foo(1, 'a', z=1))
-        self.assertEqual(2, foo(2, 'b', z=2))
-        self.assertEqual([(1, 'a', 1), (2, 'b', 2)], calls)
-
-    def test_memcache_memoize_str(self):
-        calls = []
-
-        @common.memcache_memoize()
-        def foo(x):
-            calls.append(x)
-            return str(x)
-
-        self.assertEqual('1', foo(1))
-        self.assertEqual([1], calls)
-        self.assertEqual('1', foo(1))
-        self.assertEqual([1], calls)
-
-    def test_memcache_memoize_Key(self):
-        calls = []
-
-        @common.memcache_memoize()
-        def foo(x):
-            calls.append(x)
-            return Key(Object, x)
-
-        a = Key(Object, 'a')
-        self.assertEqual(a, foo('a'))
-        self.assertEqual(['a'], calls)
-        self.assertEqual(a, foo('a'))
-        self.assertEqual(['a'], calls)
-
-        b = Key(Object, 'b')
-        self.assertEqual(b, foo('b'))
-        self.assertEqual(['a', 'b'], calls)
-        self.assertEqual(a, foo('a'))
-        self.assertEqual(['a', 'b'], calls)
-        self.assertEqual(b, foo('b'))
-        self.assertEqual(['a', 'b'], calls)
-
-    def test_memcache_memoize_None(self):
-        calls = []
-
-        @common.memcache_memoize()
-        def foo(x):
-            calls.append(x)
-            return None
-
-        self.assertIsNone(foo('a'))
-        self.assertEqual(['a'], calls)
-        self.assertIsNone(foo('a'))
-        self.assertEqual(['a'], calls)
-
-    def test_memcache_memoize_key_fn(self):
-        calls = []
-
-        @common.memcache_memoize(key=lambda x: x + 1)
-        def foo(x):
-            calls.append(x)
-            return str(x)
-
-        self.assertEqual('5', foo(5))
-        self.assertEqual([5], calls)
-
-        self.assertIsNone(common.pickle_memcache.get(b'foo-2-(5,)-{}'))
-        self.assertEqual('5', common.pickle_memcache.get('foo-2-(6,)-{}'))
-
-        self.assertEqual('5', foo(5))
-        self.assertEqual([5], calls)
 
     def test_as2_request_type(self):
         for accept, expected in (

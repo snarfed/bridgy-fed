@@ -6,8 +6,9 @@ from granary import as1
 from oauth_dropins.webutil.flask_util import error
 from oauth_dropins.webutil import util
 
-from common import create_task, DOMAINS, memcache, memcache_key
+from common import create_task, DOMAINS
 import ids
+import memcache
 import models
 from models import PROTOCOLS
 import protocol
@@ -221,10 +222,11 @@ def receive(*, from_user, obj):
             attempts_key = f'dm-user-requests-{from_user.LABEL}-{from_user.key.id()}'
             # incr leaves existing expiration as is, doesn't change it
             # https://stackoverflow.com/a/4084043/186123
-            attempts = memcache.incr(attempts_key, 1)
+            attempts = memcache.memcache.incr(attempts_key, 1)
             if not attempts:
-                memcache.add(attempts_key, 1,
-                             expire=int(REQUESTS_LIMIT_EXPIRE.total_seconds()))
+                memcache.memcache.add(
+                    attempts_key, 1,
+                    expire=int(REQUESTS_LIMIT_EXPIRE.total_seconds()))
             elif attempts > REQUESTS_LIMIT_USER:
                 return reply(f"Sorry, you've hit your limit of {REQUESTS_LIMIT_USER} requests per day. Try again tomorrow!")
 

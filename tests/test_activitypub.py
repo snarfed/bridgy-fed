@@ -34,6 +34,7 @@ from activitypub import (
 from atproto import ATProto
 import common
 from flask_app import app
+import memcache
 from models import Follower, Object, Target
 import protocol
 from protocol import DELETE_TASK_DELAY
@@ -1612,7 +1613,7 @@ class ActivityPubTest(TestCase):
         self.assertEqual(202, got.status_code, got.text)
         self.assertIn('Ignoring LD Signature', got.text)
         self.assertIsNone(Object.get_by_id('http://inst/post'))
-        self.assertIsNone(common.memcache.get('receive-http://inst/post'))
+        self.assertIsNone(memcache.memcache.get('receive-http://inst/post'))
 
 
     def test_inbox_http_sig_is_not_actor_author(self, mock_head, mock_get, mock_post):

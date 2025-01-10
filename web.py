@@ -35,6 +35,7 @@ from common import (
 )
 from flask_app import app
 from ids import normalize_user_id, translate_object_id, translate_user_id
+import memcache
 from models import Follower, Object, PROTOCOLS, Target, User
 from protocol import Protocol
 
@@ -485,7 +486,7 @@ class Web(User, Protocol):
         # we only send webmentions for responses. for sending normal posts etc
         # to followers, we just update our stored objects (elsewhere) and web
         # users consume them via feeds.
-        endpoint = common.webmention_discover(url).endpoint
+        endpoint = webmention_discover(url).endpoint
         if not endpoint:
             return False
 
@@ -1005,3 +1006,32 @@ def webmention_task():
     except ValueError as e:
         logger.warning(e, exc_info=True)
         error(e, status=304)
+
+
+def webmention_endpoint_cache_key(url):
+    """Returns cache key for a cached webmention endpoint for a given URL.
+
+    Just the domain by default. If the URL is the home page, ie path is ``/``,
+    the key includes a ``/`` at the end, so that we cache webmention endpoints
+    for home pages separate from other pages.
+    https://github.com/snarfed/bridgy/issues/701
+
+    Example: ``snarfed.org /``
+
+    https://github.com/snarfed/bridgy-fed/issues/423
+
+    Adapted from ``bridgy/util.py``.
+    """
+    parsed = urllib.parse.urlparse(url)
+    key = parsed.netloc
+    if parsed.path in ('', '/'):
+        key += ' /'
+
+    logger.debug(f'wm cache key {key}')
+    return key
+
+
+@memcache.memoize(expire=timedelta(hours=2), key=webmention_endpoint_cache_key)
+def webmention_discover(url, **kwargs):
+    """Thin caching wrapper around :func:`oauth_dropins.webutil.webmention.discover`."""
+    return webmention.discover(url, **kwargs)

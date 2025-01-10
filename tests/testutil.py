@@ -259,13 +259,15 @@ import atproto
 from atproto import ATProto
 import common
 from common import (
-    global_cache,
     LOCAL_DOMAINS,
-    memcache,
-    pickle_memcache,
     OTHER_DOMAINS,
     PRIMARY_DOMAIN,
     PROTOCOL_DOMAINS,
+)
+from memcache import (
+    global_cache,
+    memcache,
+    pickle_memcache,
 )
 from web import Web
 from flask_app import app
@@ -293,7 +295,6 @@ class TestCase(unittest.TestCase, testutil.Asserts):
         common.RUN_TASKS_INLINE = True
         app.testing = True
 
-        common.webmention_discover.cache.clear()
         did.resolve_handle.cache.clear()
         did.resolve_plc.cache.clear()
         did.resolve_web.cache.clear()
@@ -325,7 +326,6 @@ class TestCase(unittest.TestCase, testutil.Asserts):
         global_cache.clear()
         models.get_original_object_key.cache_clear()
         models.get_original_user_key.cache_clear()
-        common.pickle_memcache.clear()
         activitypub.WEB_OPT_OUT_DOMAINS = set()
 
         # clear datastore

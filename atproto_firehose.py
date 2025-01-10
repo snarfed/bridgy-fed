@@ -26,11 +26,7 @@ from oauth_dropins.webutil.util import json_dumps, json_loads
 
 from atproto import ATProto, Cursor
 from common import (
-    cache_policy,
     create_task,
-    global_cache,
-    global_cache_policy,
-    global_cache_timeout_policy,
     NDB_CONTEXT_KWARGS,
     PROTOCOL_DOMAINS,
     report_error,
