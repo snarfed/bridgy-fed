@@ -1,11 +1,12 @@
 """Utilities for caching data in memcache."""
 import functools
 import logging
+import os
 
 from google.cloud.ndb.global_cache import _InProcessGlobalCache, MemcacheCache
 from oauth_dropins.webutil import appengine_info
 
-import pymemcache.client.base
+from pymemcache.client.base import PooledClient
 from pymemcache.serde import PickleSerde
 from pymemcache.test.utils import MockMemcacheClient
 
@@ -22,12 +23,11 @@ if appengine_info.DEBUG or appengine_info.LOCAL_SERVER:
     global_cache = _InProcessGlobalCache()
 else:
     logger.info('Using production Memorystore memcache')
-    memcache = pymemcache.client.base.PooledClient(
-        os.environ['MEMCACHE_HOST'], timeout=10, connect_timeout=10,  # seconds
-        allow_unicode_keys=True)
-    pickle_memcache = pymemcache.client.base.PooledClient(
-        os.environ['MEMCACHE_HOST'], timeout=10, connect_timeout=10,  # seconds
-        serde=PickleSerde(), allow_unicode_keys=True)
+    memcache = PooledClient(os.environ['MEMCACHE_HOST'], allow_unicode_keys=True,
+                            timeout=10, connect_timeout=10) # seconds
+    pickle_memcache = PooledClient(os.environ['MEMCACHE_HOST'],
+                                   serde=PickleSerde(), allow_unicode_keys=True,
+                                   timeout=10, connect_timeout=10)  # seconds
     global_cache = MemcacheCache(memcache)
 
 
