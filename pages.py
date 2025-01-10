@@ -451,7 +451,7 @@ def memcache_command():
     return resp.decode(), {'Content-Type': 'text/plain'}
 
 
-@app.post('/eval/<any(app,hub,router):which>')
+@app.post('/app/eval')
 def python_eval(which=None):
     if request.headers.get('Authorization') != app.config['SECRET_KEY']:
         return '', 401
