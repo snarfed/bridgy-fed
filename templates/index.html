@@ -54,7 +54,16 @@
 <!-- <p><a href="https://en.wikipedia.org/wiki/Nostr">Nostr</a> and <a href="https://www.farcaster.xyz/">Farcaster</a> are under consideration for the future.</p> -->
 <!-- </div> -->
 
-<div class="row big front-light">
+<div id="find-user-page" class="row big front-light">
+<p>Already bridged? Enter your handle, user id, or domain here to find your user page:
+<form method="post" action="/user-page">
+  <input required name="id" id="id" />
+  <input type="submit" class="btn btn-default" value="Go" />
+</form>
+</p>
+</div>
+
+<div class="row big front-dark">
 <p>Bridgy Fed is a free, non-commercial, <a href="https://github.com/snarfed/bridgy-fed">open source</a> service. <a href="https://snarfed.org/2023-11-27_re-introducing-bridgy-fed">More background here.</a> <a href="https://github.com/snarfed/bridgy-fed/issues">Bug reports, feature requests, and other feedback</a> are welcome!</a></p>
 </div>
 
