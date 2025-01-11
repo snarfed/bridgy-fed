@@ -109,7 +109,7 @@ def receive(*, from_user, obj):
                  else obj.as1)
     logger.info(f'got DM from {from_user.key.id()} to {to_proto.LABEL}: {inner_obj.get("content")}')
 
-    # parse and handle message
+    # parse message
     soup = util.parse_html(inner_obj.get('content', ''))
     content = soup.get_text().strip().lower()
     tokens = content.split()
@@ -119,7 +119,7 @@ def receive(*, from_user, obj):
     bot_handles = (DOMAINS + ids.BOT_ACTOR_AP_IDS
                    + tuple(h.lstrip('@') for h in ids.BOT_ACTOR_AP_HANDLES))
     if tokens and tokens[0].lstrip('@') in bot_handles:
-        logger.info(f'  first token is bot mention, removing')
+        logger.debug(f'  first token is bot mention, removing')
         tokens = tokens[1:]
 
     if not tokens:

@@ -72,9 +72,9 @@ def web_opt_out_domains():
         _WEB_OPT_OUT_DOMAINS = {
             key.id() for key in Query(
                 'MagicKey',
-                # don't add status to this! we use status=blocked for Web users
-                # that are fediverse servers - see Web.status - but we don't
-                # want that to extend to ActivityPub users on those domains
+                # don't add status to this! we use status=owns-webfinger for Web
+                # users that are fediverse servers - see Web.status - but we
+                # don't want that to extend to ActivityPub users on those domains
                 filters=FilterNode('manual_opt_out', '=', True)
             ).fetch(keys_only=True)
         }
