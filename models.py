@@ -68,18 +68,10 @@ PROTOCOLS_BY_KIND = {}
 KEY_BITS = 1024 if DEBUG else 2048
 PAGE_SIZE = 20
 
-# auto delete old objects of these types via the Object.expire property
+# auto delete most old objects via the Object.expire property
 # https://cloud.google.com/datastore/docs/ttl
-OBJECT_EXPIRE_TYPES = (
-    'accept',
-    'block',
-    'delete',
-    'post',
-    'reject',
-    'undo',
-    'update',
-    None,
-)
+DONT_EXPIRE_OBJECT_TYPES = \
+    as1.ACTOR_TYPES | as1.POST_TYPES | set(('event', 'question'))
 OBJECT_EXPIRE_AGE = timedelta(days=90)
 
 GET_ORIGINALS_CACHE_EXPIRATION = timedelta(days=1)
@@ -1011,7 +1003,7 @@ class Object(StringIdModel):
         They recommend not indexing TTL properties:
         https://cloud.google.com/datastore/docs/ttl#ttl_properties_and_indexes
         """
-        if self.type in OBJECT_EXPIRE_TYPES:
+        if self.type not in DONT_EXPIRE_OBJECT_TYPES:
             return (self.updated or util.now()) + OBJECT_EXPIRE_AGE
 
     expire = ndb.ComputedProperty(_expire, indexed=False)
