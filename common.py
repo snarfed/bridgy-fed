@@ -377,6 +377,10 @@ def cache_policy(key):
 
     https://github.com/snarfed/bridgy-fed/issues/1149#issuecomment-2261383697
 
+    Avoid caching much more due to this bug where unstored in-memory
+    modifications get returned by later gets:
+    https://github.com/googleapis/python-ndb/issues/888
+
     Args:
       key (google.cloud.datastore.key.Key or google.cloud.ndb.key.Key):
         see https://github.com/googleapis/python-ndb/issues/987
@@ -405,7 +409,7 @@ PROFILE_ID_RE = re.compile(
     """, re.VERBOSE)
 
 def global_cache_timeout_policy(key):
-    """Cache users and profile objects longer than other objects.
+    """Cache users and profile objects indefinitely, everything else 2h.
 
     Args:
       key (google.cloud.datastore.key.Key or google.cloud.ndb.key.Key):
@@ -419,16 +423,14 @@ def global_cache_timeout_policy(key):
         # https://github.com/googleapis/python-ndb/issues/987
         key = key._key
 
-    if (key and (key.kind in ('ActivityPub', 'ATProto', 'Follower', 'MagicKey')
+    if (key and (key.kind in ('ActivityPub', 'ATProto', 'MagicKey')
                  or key.kind == 'Object' and PROFILE_ID_RE.search(key.name))):
-        return int(timedelta(hours=2).total_seconds())
+        return None
 
-    return int(timedelta(minutes=30).total_seconds())
+    return int(timedelta(hours=2).total_seconds())
 
 
 NDB_CONTEXT_KWARGS = {
-    # limited context-local cache. avoid full one due to this bug:
-    # https://github.com/googleapis/python-ndb/issues/888
     'cache_policy': cache_policy,
     'global_cache': memcache.global_cache,
     'global_cache_policy': global_cache_policy,

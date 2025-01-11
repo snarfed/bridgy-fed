@@ -127,7 +127,7 @@ class CommonTest(TestCase):
             self.assertFalse(common.cache_policy(obj.key))
 
     def test_global_cache_timeout_policy(self):
-        for good in (
+        for obj in (
             ATProto(id='alice'),
             ActivityPub(id='alice'),
             Web(id='alice'),
@@ -136,18 +136,18 @@ class CommonTest(TestCase):
             Object(id='did:plc:foo'),
             Object(id='did:web:foo.com'),
             Object(id='at://did:plc:user/app.bsky.actor.profile/self'),
-            Follower(id='abc'),
         ):
-            self.assertEqual(7200, common.global_cache_timeout_policy(good.key._key))
+            self.assertIsNone(common.global_cache_timeout_policy(obj.key._key))
 
-        for bad in (
+        for obj in (
+            Follower(id='abc'),
             Object(id='abc'),
             Object(id='https://mastodon.social/users/alice/statuses/123'),
             Object(id='at://did:plc:user/app.bsky.feed.post/abc'),
             Object(id='https://web.site/post'),
             AtpBlock(id='abc123'),
         ):
-            self.assertEqual(1800, common.global_cache_timeout_policy(bad.key._key))
+            self.assertEqual(7200, common.global_cache_timeout_policy(obj.key._key))
 
     @patch('common.DEBUG', new=False)
     @patch('common.error_reporting_client')
