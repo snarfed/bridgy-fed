@@ -75,6 +75,8 @@ DOMAIN_BLOCKLIST = (
     'tiktok.com',
     'twitter.com',
     'x.com',
+    'youtu.be',
+    'youtube.com',
 )
 
 SMTP_HOST = 'smtp.gmail.com'
