@@ -390,12 +390,14 @@ def cache_policy(key):
     Returns:
       bool: whether to cache this object
     """
-    if isinstance(key, Key):
-        # use internal google.cloud.datastore.key.Key
-        # https://github.com/googleapis/python-ndb/issues/987
-        key = key._key
+    return True
 
-    return key and key.kind == 'Object' and key.name.startswith('did:')
+    # if isinstance(key, Key):
+    #     # use internal google.cloud.datastore.key.Key
+    #     # https://github.com/googleapis/python-ndb/issues/987
+    #     key = key._key
+
+    # return key and key.kind == 'Object' and key.name.startswith('did:')
 
 
 def global_cache_policy(key):
