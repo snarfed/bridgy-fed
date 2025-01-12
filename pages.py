@@ -496,6 +496,7 @@ def python_eval(which=None):
         try:
             exec(input)
         except BaseException as e:
+            logger.info(f'python_eval error! {e}')
             traceback.print_exception(e, file=out)
         finally:
             output = out.getvalue()

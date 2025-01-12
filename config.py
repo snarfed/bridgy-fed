@@ -72,7 +72,7 @@ def only_lookups(record):
 
 api_logger = logging.getLogger('google.cloud.ndb._datastore_api')
 api_logger.setLevel(logging.DEBUG)
-api_logger.addFilter(only_lookups)
+# api_logger.addFilter(only_lookups)
 
 os.environ.setdefault('APPVIEW_HOST', 'api.bsky.local')
 os.environ.setdefault('BGS_HOST', 'bgs.bsky.local')
