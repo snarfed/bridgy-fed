@@ -31,6 +31,7 @@ from common import (
     DOMAIN_RE,
     long_to_base64,
     OLD_ACCOUNT_AGE,
+    PROTOCOL_DOMAINS,
     report_error,
     unwrap,
 )
@@ -849,6 +850,11 @@ Welcome to Bridgy Fed! Your account will soon be bridged to {to_proto.PHRASE} at
         Returns:
           (int, int) tuple: (number of followers, number following)
         """
+        if self.key.id() in PROTOCOL_DOMAINS:
+            # we don't store Followers for protocol bot users any more, so
+            # follower counts are inaccurate, so don't return them
+            return (0, 0)
+
         num_followers = Follower.query(Follower.to == self.key,
                                        Follower.status == 'active')\
                                 .count_async()

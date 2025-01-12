@@ -217,6 +217,11 @@ class PagesTest(TestCase):
         got = self.client.get('/web/user.com?before=2024-01-01+01:01:01&after=2023-01-01+01:01:01')
         self.assert_equals(400, got.status_code)
 
+    def test_user_protocol_bot_user(self):
+        bot = self.make_user(id='fa.brid.gy', cls=Web)
+        got = self.client.get(f'/web/fa.brid.gy')
+        self.assert_equals(404, got.status_code)
+
     def test_update_profile(self):
         self.make_user('fake:user', cls=Fake)
 

@@ -25,7 +25,7 @@ from werkzeug.exceptions import NotFound
 from activitypub import ActivityPub, instance_actor
 from atproto import ATProto
 import common
-from common import CACHE_CONTROL, DOMAIN_RE
+from common import CACHE_CONTROL, DOMAIN_RE, PROTOCOL_DOMAINS
 from flask_app import app
 from flask import redirect
 import ids
@@ -67,6 +67,9 @@ def load_user(protocol, id):
       :class:`werkzeug.exceptions.HTTPException` on error or redirect
     """
     assert id
+
+    if id in PROTOCOL_DOMAINS:
+        error(f'{protocol} user {id} not found', status=404)
 
     cls = PROTOCOLS[protocol]
 

@@ -453,6 +453,12 @@ class UserTest(TestCase):
         user.count_followers.cache.clear()
         self.assertEqual((1, 2), user.count_followers())
 
+    def test_count_followers_protocol_bot_user(self):
+        bot = self.make_user(id='fa.brid.gy', cls=Web)
+        Follower(from_=bot.key, to=Fake(id='b').key).put()
+        Follower(from_=Fake(id='c').key, to=bot.key).put()
+        self.assertEqual((0, 0), bot.count_followers())
+
     def test_is_enabled_default_enabled_protocols(self):
         web = self.make_user('a.com', cls=Web)
 
