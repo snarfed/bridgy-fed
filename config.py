@@ -40,11 +40,13 @@ else:
     for logger in ('atproto_firehose', 'lexrpc', 'oauth_dropins.webutil.webmention'):
         logging.getLogger(logger).setLevel(logging.DEBUG)
 
-# for debugging ndb. also needs NDB_DEBUG env var.
+logging.getLogger('google.cloud').propagate = True
+
+# for debugging ndb. also needs NDB_DEBUG env var, set in *.yaml.
 # https://github.com/googleapis/python-ndb/blob/c55ec62b5153787404488b046c4bf6ffa02fee64/google/cloud/ndb/utils.py#L78-L81
 # logging.getLogger('google.cloud.ndb').setLevel(logging.DEBUG)
-logging.getLogger('google.cloud.ndb._cache').setLevel(logging.DEBUG)
-logging.getLogger('google.cloud.ndb.global_cache').setLevel(logging.DEBUG)
+# logging.getLogger('google.cloud.ndb._cache').setLevel(logging.DEBUG)
+# logging.getLogger('google.cloud.ndb.global_cache').setLevel(logging.DEBUG)
 
 KEYS_ID_RE = re.compile(f'name: "([^"]+)"')
 
@@ -70,8 +72,8 @@ def only_lookups(record):
 
     return False
 
-api_logger = logging.getLogger('google.cloud.ndb._datastore_api')
-api_logger.setLevel(logging.DEBUG)
+# api_logger = logging.getLogger('google.cloud.ndb._datastore_api')
+# api_logger.setLevel(logging.DEBUG)
 # api_logger.addFilter(only_lookups)
 
 os.environ.setdefault('APPVIEW_HOST', 'api.bsky.local')
