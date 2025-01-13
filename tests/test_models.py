@@ -66,6 +66,11 @@ class UserTest(TestCase):
         self.assert_entities_equal(self.user,
                                    Fake.get_by_id('fake:a', allow_opt_out=True))
 
+    def test_get_by_id_use_instead_doesnt_exist(self):
+        self.user.use_instead = Fake(id='fake:a').key
+        self.user.put()
+        self.assertIsNone(Web.get_by_id('y.za'))
+
     def test_get_or_create(self):
         user = Fake.get_or_create('fake:user')
 

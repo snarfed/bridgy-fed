@@ -256,11 +256,12 @@ class User(StringIdModel, metaclass=ProtocolUserMeta):
         Returns None if the user is opted out.
         """
         user = cls._get_by_id(id, **kwargs)
-        if not user:
-            return None
-        elif user.use_instead:
+        if user and user.use_instead:
             logger.info(f'{user.key} use_instead => {user.use_instead}')
             user = user.use_instead.get()
+
+        if not user:
+            return None
 
         if user.status and not allow_opt_out:
             logger.info(f'{user.key} is {user.status}')
