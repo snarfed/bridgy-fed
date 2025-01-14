@@ -1634,7 +1634,9 @@ class WebTest(TestCase):
         mock_get.return_value = requests_response('"unused"', status=410,
                                                   url='http://final/delete')
         mock_post.return_value = requests_response('unused', status=200)
-        Object(id='https://user.com/post#bridgy-fed-create', mf2=NOTE_MF2).put()
+
+        Object(id='https://user.com/post', mf2=NOTE_MF2, source_protocol='web').put()
+        Object(id='https://user.com/post#bridgy-fed-create', our_as1=CREATE_AS1).put()
 
         self.make_followers()
 

@@ -2046,8 +2046,6 @@ class ProtocolReceiveTest(TestCase):
         _, status = Fake.receive_as1(delete_as1, authed_as='fake:user')
         self.assertEqual(204, status)
 
-        self.assert_object('fake:post', source_protocol=None, deleted=True)
-
         obj = self.assert_object('fake:delete',
                                  our_as1=delete_as1,
                                  type='delete',
@@ -2066,12 +2064,7 @@ class ProtocolReceiveTest(TestCase):
         _, code = Fake.receive_as1(delete_as1)
         self.assertEqual(204, code)
 
-        self.assert_object('fake:post',
-                           deleted=True,
-                           source_protocol=None,
-                           feed=[],
-                           )
-
+        self.assertIsNone(Object.get_by_id('fake:post'))
         self.assert_object('fake:delete',
                            our_as1=delete_as1,
                            type='delete',

@@ -966,8 +966,14 @@ class Protocol:
 
         elif obj.type in ('delete', 'undo'):
             assert inner_obj_id
+            inner_obj = Object.get_by_id(inner_obj_id, authed_as=authed_as)
+            if not inner_obj:
+                logger.info(f"Ignoring, we don't have {inner_obj_id} stored")
+                return 'OK', 204
+
             logger.info(f'Marking Object {inner_obj_id} deleted')
-            Object.get_or_create(inner_obj_id, deleted=True, authed_as=authed_as)
+            inner_obj.deleted = True
+            inner_obj.put()
 
             # if this is an actor, handle deleting it later so that
             # in case it's from_user, user.enabled_protocols is still populated
