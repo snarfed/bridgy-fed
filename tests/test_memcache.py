@@ -88,8 +88,10 @@ class MemcacheTest(TestCase):
         self.assertEqual('5', foo(5))
         self.assertEqual([5], calls)
 
-        self.assertIsNone(pickle_memcache.get(b'foo-2-(5,)-{}'))
-        self.assertEqual('5', pickle_memcache.get('foo-2-(6,)-{}'))
+        self.assertIsNone(pickle_memcache.get(
+            b'MemcacheTest.test_memoize_key_fn.<locals>.foo-2-(5,)-{}'))
+        self.assertEqual('5', pickle_memcache.get(
+            'MemcacheTest.test_memoize_key_fn.<locals>.foo-2-(6,)-{}'))
 
         self.assertEqual('5', foo(5))
         self.assertEqual([5], calls)

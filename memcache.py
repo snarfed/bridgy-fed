@@ -45,7 +45,7 @@ def key(key):
 
 
 def memoize_key(fn, *args, **kwargs):
-    return key(f'{fn.__name__}-2-{repr(args)}-{repr(kwargs)}')
+    return key(f'{fn.__qualname__}-2-{repr(args)}-{repr(kwargs)}')
 
 
 NONE = ()  # empty tuple
