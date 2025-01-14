@@ -32,7 +32,7 @@ app.add_url_rule('/queue/send', view_func=protocol.send_task, methods=['POST'])
 app.add_url_rule('/queue/webmention', view_func=web.webmention_task, methods=['POST'])
 app.add_url_rule('/cron/atproto-poll-chat', view_func=atproto.poll_chat_task,
                  methods=['GET'])
-app.add_url_rule('/router/eval', view_func=pages.python_eval, methods=['POST'])
+# app.add_url_rule('/router/eval', view_func=pages.python_eval, methods=['POST'])
 
 
 @app.get('/liveness_check')

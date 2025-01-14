@@ -58,7 +58,7 @@ app.wsgi_app = flask_util.ndb_context_middleware(
     app.wsgi_app, client=appengine_config.ndb_client, **common.NDB_CONTEXT_KWARGS)
 
 
-app.add_url_rule('/hub/eval', view_func=pages.python_eval, methods=['POST'])
+# app.add_url_rule('/hub/eval', view_func=pages.python_eval, methods=['POST'])
 
 @app.get('/liveness_check')
 @app.get('/readiness_check')
