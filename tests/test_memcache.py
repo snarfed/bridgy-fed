@@ -94,6 +94,22 @@ class MemcacheTest(TestCase):
         self.assertEqual('5', foo(5))
         self.assertEqual([5], calls)
 
+    def test_memoize_key_fn_returns_None(self):
+        calls = []
+
+        @memoize(key=lambda x: None)
+        def foo(x):
+            calls.append(x)
+            return str(x)
+
+        self.assertEqual('5', foo(5))
+        self.assertEqual([5], calls)
+        self.assertEqual(0, len(pickle_memcache._contents))
+
+        self.assertEqual('5', foo(5))
+        self.assertEqual([5, 5], calls)
+        self.assertEqual(0, len(pickle_memcache._contents))
+
     @patch('memcache.KEY_MAX_LEN', new=10)
     def test_key(self):
         for input, expected in (

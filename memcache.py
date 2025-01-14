@@ -40,6 +40,7 @@ def key(key):
     TODO: truncate to 250 *UTF-8* chars, to handle Unicode chars in URLs. Related:
     pymemcache Client's allow_unicode_keys constructor kwarg.
     """
+    assert isinstance(key, str), repr(key)
     return key[:KEY_MAX_LEN].replace(' ', '%20').encode()
 
 
@@ -55,7 +56,7 @@ def memoize(expire=None, key=None):
     Args:
       expire (timedelta): optional, expiration
       key (callable): function that takes the function's (*args, **kwargs) and
-        returns the cache key to use
+        returns the cache key to use. If it returns None, memcache won't be used.
     """
     if expire:
         expire = int(expire.total_seconds())
@@ -63,19 +64,28 @@ def memoize(expire=None, key=None):
     def decorator(fn):
         @functools.wraps(fn)
         def wrapped(*args, **kwargs):
+            cache_key = None
             if key:
-                cache_key = memoize_key(fn, key(*args, **kwargs))
+                key_val = key(*args, **kwargs)
+                if key_val:
+                    cache_key = memoize_key(fn, key_val)
             else:
                 cache_key = memoize_key(fn, *args, **kwargs)
 
-            val = pickle_memcache.get(cache_key)
-            if val is not None:
-                # logger.debug(f'cache hit {cache_key}')
-                return None if val == NONE else val
+            if cache_key:
+                val = pickle_memcache.get(cache_key)
+                if val is not None:
+                    logger.debug(f'cache hit {cache_key}')
+                    return None if val == NONE else val
+                else:
+                    logger.debug(f'cache miss {cache_key}')
 
-            # logger.debug(f'cache miss {cache_key}')
             val = fn(*args, **kwargs)
-            pickle_memcache.set(cache_key, NONE if val is None else val, expire=expire)
+
+            if cache_key:
+                pickle_memcache.set(cache_key, NONE if val is None else val,
+                                    expire=expire)
+
             return val
 
         return wrapped
