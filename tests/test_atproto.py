@@ -13,6 +13,7 @@ import arroba.util
 from dns.resolver import NXDOMAIN
 import google.cloud.dns.client
 from google.cloud.dns.zone import ManagedZone
+from google.cloud import ndb
 from google.cloud.tasks_v2.types import Task
 from granary import bluesky
 from granary.tests.test_bluesky import (
@@ -1781,6 +1782,7 @@ Sed tortor neque, aliquet quis posuere aliquam […]
         _, _, rkey = arroba.util.parse_at_uri(orig.copies[0].uri)
         orig.copies[0].uri = orig.copies[0].uri.replace('did:plc:user', 'did:plc:eve')
         orig.put()
+        ndb.context.get_context().cache.clear()
 
         update = Object(id='fake:update', source_protocol='fake', our_as1={
             'objectType': 'activity',

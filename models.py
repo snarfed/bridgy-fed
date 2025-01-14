@@ -1095,13 +1095,19 @@ class Object(StringIdModel):
             obj = Object(id=id)
             obj.new = True
 
+        obj.changed = None
+        for field in 'new', 'changed':
+            val = props.pop(field, None)
+            if val is not None:
+                setattr(obj, field, val)
+
         if set(props.keys()) & set(('as2', 'bsky', 'mf2', 'raw')):
             obj.clear()
         obj.populate(**{
             k: v for k, v in props.items()
             if v and not isinstance(getattr(Object, k), ndb.ComputedProperty)
         })
-        if not obj.new:
+        if not obj.new and obj.changed is None:
             obj.changed = obj.activity_changed(orig_as1)
 
         obj.put()

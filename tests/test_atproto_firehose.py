@@ -9,6 +9,7 @@ import arroba.util
 from carbox import read_car, write_car
 from carbox.car import Block
 import dag_cbor
+from google.cloud import ndb
 from google.cloud.tasks_v2.types import Task
 from granary.tests.test_bluesky import (
     ACTOR_PROFILE_BSKY,
@@ -484,6 +485,7 @@ class ATProtoFirehoseSubscribeTest(ATProtoTestCase):
                + STORE_CURSOR_FREQ - timedelta(seconds=1))
         FakeWebsocketClient.setup_receive(op)
         self.subscribe()
+        ndb.context.get_context().cache.clear()
         self.assertEqual(444, self.cursor.key.get().cursor)
 
         # now it's been long enough

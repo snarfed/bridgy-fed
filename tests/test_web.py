@@ -412,7 +412,6 @@ ACTIVITYPUB_GETS = [
 def web_user_gets(domain='user.com'):
     return [
         requests_response(ACTOR_HTML, url=f'https://{domain}/'),
-        requests_response(ACTOR_HTML, url=f'https://{domain}/'),
         requests_response(status=404),  # webfinger
     ]
 
@@ -597,8 +596,6 @@ class WebTest(TestCase):
         mock_get.side_effect = web_user_gets('new.com')
         html = requests_response(ACTOR_HTML, url='https://new.com/')
         mock_get.side_effect = [
-            html,
-            html,
             html,
             requests_response(status=404),  # webfinger
         ]
@@ -1315,7 +1312,7 @@ class WebTest(TestCase):
         self.assert_deliveries(mock_post, inboxes, create_as2)
 
     def test_create_post(self, mock_get, mock_post):
-        mock_get.side_effect = [NOTE, ACTOR]
+        mock_get.return_value = NOTE
         mock_post.return_value = requests_response('abc xyz')
         self.make_followers()
 
@@ -1345,11 +1342,11 @@ class WebTest(TestCase):
                            )
 
     def test_update_post(self, mock_get, mock_post):
-        mock_get.side_effect = [NOTE, ACTOR]
+        mock_get.return_value = NOTE
         mock_post.return_value = requests_response('abc xyz')
 
         mf2 = copy.deepcopy(NOTE_MF2)
-        mf2['properties']['content'] = 'different'
+        mf2['properties']['content'] = ['different']
         Object(id='https://user.com/post', users=[self.user.key], mf2=mf2).put()
 
         self.make_followers()
@@ -1414,7 +1411,7 @@ class WebTest(TestCase):
         self.assert_equals(create, json_loads(mock_post.call_args[1]['data']))
 
     def test_follow(self, mock_get, mock_post):
-        mock_get.side_effect = [FOLLOW, ACTOR, WEBMENTION_REL_LINK]
+        mock_get.side_effect = [FOLLOW, ACTOR, ACTOR, WEBMENTION_REL_LINK]
         mock_post.return_value = requests_response('abc xyz')
 
         got = self.post('/queue/webmention', data={
@@ -1513,9 +1510,7 @@ class WebTest(TestCase):
         mock_get.side_effect = [
             FOLLOW_FRAGMENT,
             ACTOR,
-            FOLLOW_FRAGMENT,  # protocol detection: AS2
-            FOLLOW_FRAGMENT,  # protocol detection: HTML
-            ACTOR,  # authorship
+            ACTOR,
         ]
         mock_post.return_value = requests_response('abc xyz')
 
@@ -1797,6 +1792,7 @@ class WebTest(TestCase):
                                expected_as2)
 
         # updated Web user
+        ndb.context.get_context().cache.clear()
         expected_actor_as2 = {
             '@context': [
                 'https://www.w3.org/ns/activitystreams',
@@ -2890,8 +2886,6 @@ Current vs expected:<pre>- http://this/404s
 
     def test_check_web_site_lower_cases_domain(self, mock_get, _):
         gets = [
-            requests_response(ACTOR_HTML, url='https://abc.org/'),
-            requests_response(ACTOR_HTML, url='https://abc.org/'),
             requests_response(ACTOR_HTML, url='https://abc.org/'),
             requests_response(status=404),  # webfinger
         ]

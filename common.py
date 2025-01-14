@@ -375,12 +375,12 @@ def report_error(msg, *, exception=False, **kwargs):
 
 
 def cache_policy(key):
-    """In memory ndb cache, only DID docs right now.
+    """In memory ndb cache. Cache everything!
 
     https://github.com/snarfed/bridgy-fed/issues/1149#issuecomment-2261383697
 
-    Avoid caching much more due to this bug where unstored in-memory
-    modifications get returned by later gets:
+    Keep an eye on this in case we start seeing problems due to this ndb bug
+    where unstored in-memory modifications get returned by later gets:
     https://github.com/googleapis/python-ndb/issues/888
 
     Args:

@@ -330,7 +330,7 @@ class UserTest(TestCase):
         bob = Fake(id='bob.com', obj_key=Object(id='bob').key)
         bob.put()
 
-        user = self.user.key.get()
+        user = self.user.key.get(use_cache=False)
         self.assertFalse(hasattr(user, '_obj'))
         self.assertFalse(hasattr(alice, '_obj'))
         self.assertIsNone(bob._obj)
@@ -579,26 +579,6 @@ class ObjectTest(TestCase):
 
         # just check that these don't crash
         assert isinstance(id(target), int)
-
-    def test_ndb_in_memory_cache_off(self):
-        """It has a weird bug that we want to avoid.
-
-        https://github.com/googleapis/python-ndb/issues/888
-        """
-        from google.cloud.ndb import Model, StringProperty
-        class Foo(Model):
-            a = StringProperty()
-
-        f = Foo(id='x', a='asdf')
-        f.put()
-        # print(id(f))
-
-        f.a = 'qwert'
-
-        got = Foo.get_by_id('x')
-        # print(got)
-        # print(id(got))
-        self.assertEqual('asdf', got.a)
 
     def test_get_or_create(self):
         def check(obj1, obj2):

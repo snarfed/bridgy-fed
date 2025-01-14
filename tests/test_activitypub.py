@@ -1301,6 +1301,7 @@ class ActivityPubTest(TestCase):
         mock_get.side_effect = [
             # source actor
             self.as2_resp(ACTOR),
+            self.as2_resp(ACTOR),
             # target user
             test_web.ACTOR_HTML_RESP,
             # target post webmention discovery
@@ -1332,6 +1333,7 @@ class ActivityPubTest(TestCase):
         mock_head.return_value = requests_response(url='https://user.com/')
         mock_get.side_effect = [
             # source actor
+            self.as2_resp(ACTOR),
             self.as2_resp(ACTOR),
             # target user
             test_web.ACTOR_HTML_RESP,
@@ -1781,9 +1783,9 @@ class ActivityPubTest(TestCase):
     def test_inbox_id_already_seen(self, mock_head, mock_get, mock_post):
         mock_get.side_effect = [
             self.as2_resp(ACTOR),
+            self.as2_resp(ACTOR),
             HTML,
         ]
-
 
         obj_key = Object(id=FOLLOW_WRAPPED['id'], as2={}).put()
 
