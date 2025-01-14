@@ -1094,6 +1094,11 @@ def inbox(protocol=None, id=None):
         logger.info(f'{actor_domain} is opted out')
         return '', 204
 
+    # temporary, see emails w/Michael et al, and
+    # https://github.com/snarfed/bridgy-fed/issues/1686
+    if actor_domain == 'newsmast.community' and type == 'Undo':
+        return ':(', 204
+
     id = activity.get('id')
     obj_id = obj.get('id')
     if id and actor_domain != util.domain_from_link(id):
