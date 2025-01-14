@@ -1051,6 +1051,44 @@ class Object(StringIdModel):
         logger.debug(f'Wrote {self.key}')
 
     @classmethod
+    def get_by_id(cls, id, authed_as=None, **kwargs):
+        """Fetches the :class:`Object` with the given id, if it exists.
+
+        Args:
+          id (str)
+          authed_as (str): optional; if provided, and a matching :class:`Object`
+            already exists, its ``author`` or ``actor`` must contain this actor
+            id. Implements basic authorization for updates and deletes.
+
+        Returns:
+          Object:
+
+        Raises:
+          :class:`werkzeug.exceptions.Forbidden` if ``authed_as`` doesn't match
+            the existing object
+        """
+        obj = super().get_by_id(id, **kwargs)
+
+        if obj and obj.as1 and authed_as:
+            # authorization: check that the authed user is allowed to modify
+            # this object
+            # https://www.w3.org/wiki/ActivityPub/Primer/Authentication_Authorization
+            proto = PROTOCOLS.get(obj.source_protocol)
+            assert proto, obj.source_protocol
+            owners = [ids.normalize_user_id(id=owner, proto=proto)
+                      for owner in (as1.get_ids(obj.as1, 'author')
+                                    + as1.get_ids(obj.as1, 'actor'))
+                                    + [id]]
+            if (ids.normalize_user_id(id=authed_as, proto=proto) not in owners
+                    and ids.profile_id(id=authed_as, proto=proto) not in owners):
+                report_error("Auth: Object: authed_as doesn't match owner",
+                             user=f'{id} authed_as {authed_as} owners {owners}')
+                error(f"authed user {authed_as} isn't object owner {owners}",
+                      status=403)
+
+        return obj
+
+    @classmethod
     def get_or_create(cls, id, authed_as=None, **props):
         """Returns an :class:`Object` with the given property values.
 
@@ -1063,34 +1101,22 @@ class Object(StringIdModel):
         writer wins is pretty much always fine.
 
         Args:
-          authed_as (str): if a matching :class:`Object` already exists, its
-            `author` or `actor` must contain this actor id. Implements basic
-            authorization for updates and deletes.
+          authed_as (str): optional; if provided, and a matching :class:`Object`
+            already exists, its ``author`` or ``actor`` must contain this actor
+            id. Implements basic authorization for updates and deletes.
 
         Returns:
           Object:
+
+        Raises:
+          :class:`werkzeug.exceptions.Forbidden` if ``authed_as`` doesn't match
+            the existing object
         """
-        obj = cls.get_by_id(id)
+        obj = cls.get_by_id(id, authed_as=authed_as)
         if obj:
             obj.new = False
-            orig_as1 = obj.as1
-            if orig_as1:
-                # authorization: check that the authed user is allowed to modify
-                # this object
-                # https://www.w3.org/wiki/ActivityPub/Primer/Authentication_Authorization
+            if orig_as1 := obj.as1:
                 assert authed_as
-                proto = PROTOCOLS.get(obj.source_protocol)
-                assert proto, obj.source_protocol
-                owners = [ids.normalize_user_id(id=owner, proto=proto)
-                          for owner in (as1.get_ids(orig_as1, 'author')
-                                        + as1.get_ids(orig_as1, 'actor'))
-                                        + [id]]
-                if (ids.normalize_user_id(id=authed_as, proto=proto) not in owners
-                        and ids.profile_id(id=authed_as, proto=proto) not in owners):
-                    report_error("Auth: Object: authed_as doesn't match owner",
-                                 user=f'{id} authed_as {authed_as} owners {owners}')
-                    error(f"authed user {authed_as} isn't object owner {owners}",
-                          status=403)
         else:
             obj = Object(id=id)
             obj.new = True
