@@ -353,12 +353,15 @@ class User(StringIdModel, metaclass=ProtocolUserMeta):
         #
         # these can use urandom() and do nontrivial math, so they can take time
         # depending on the amount of randomness available and compute needed.
-        if not user.existing and cls.LABEL != 'activitypub':
-            key = RSA.generate(KEY_BITS,
-                               randfunc=random.randbytes if DEBUG else None)
-            user.mod = long_to_base64(key.n)
-            user.public_exponent = long_to_base64(key.e)
-            user.private_exponent = long_to_base64(key.d)
+        if cls.LABEL != 'activitypub':
+            if (not user.public_exponent or not user.private_exponent or not user.mod):
+                assert (not user.public_exponent and not user.private_exponent
+                        and not user.mod), id
+                key = RSA.generate(KEY_BITS,
+                                   randfunc=random.randbytes if DEBUG else None)
+                user.mod = long_to_base64(key.n)
+                user.public_exponent = long_to_base64(key.e)
+                user.private_exponent = long_to_base64(key.d)
 
         try:
             user.put()

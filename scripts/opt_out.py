@@ -134,7 +134,7 @@ def run():
 
     if not user:
         print(f"user {kind} {user_id} doesn't exist. Creating new and marking as opted out.")
-        from_proto(id=user_id, manual_opt_out=True).put()
+        from_proto.get_or_create(user_id, manual_opt_out=True)
         return
 
     if user.manual_opt_out:
