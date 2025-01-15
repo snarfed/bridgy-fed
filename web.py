@@ -555,6 +555,10 @@ class Web(User, Protocol):
             error(str(e))
 
         if parsed is None or not parsed.get('items'):
+            if parsed:
+                # we got valid HTML. save the Object so that we know this URL is web
+                obj.source_protocol = 'web'
+                obj.put()
             logger.info(f'No microformats2 found in {url}')
             return False
 

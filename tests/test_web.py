@@ -732,8 +732,6 @@ class WebTest(TestCase):
             'target': 'https://fed.brid.gy/',
         })
         self.assertEqual(304, got.status_code)
-        self.assertEqual(orig_count, Object.query().count())
-
         mock_get.assert_has_calls((self.req('https://user.com/post'),))
 
     def test_no_targets(self, mock_get, mock_post):
@@ -3287,11 +3285,13 @@ class WebUtilTest(TestCase):
         obj = Object(id='https://user.com/post')
         self.assertFalse(Web.fetch(obj))
         self.assertIsNone(obj.as1)
+        self.assertIsNone(Object.get_by_id('https://user.com/post'))
 
     def test_fetch_non_url(self, mock_get, __):
         obj = Object(id='x y z')
         self.assertFalse(Web.fetch(obj))
         self.assertIsNone(obj.as1)
+        self.assertIsNone(Object.get_by_id('x y z'))
 
     def test_fetch_no_mf2(self, mock_get, __):
         mock_get.return_value = requests_response(
@@ -3300,6 +3300,10 @@ class WebUtilTest(TestCase):
         obj = Object(id='https://user.com/post')
         self.assertFalse(Web.fetch(obj))
         self.assertIsNone(obj.as1)
+
+        stored = self.assert_object('https://user.com/post', source_protocol='web')
+        self.assertIsNone(stored.mf2)
+        self.assertIsNone(stored.as1)
 
     def test_fetch_metaformats_not_homepage_default_off(self, mock_get, __):
         mock_get.return_value = requests_response(

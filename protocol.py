@@ -358,7 +358,18 @@ class Protocol:
         for protocol in candidates:
             logger.debug(f'Trying {protocol.LABEL}')
             try:
-                if protocol.load(id, local=False, remote=True):
+                obj = protocol.load(id, local=False, remote=True)
+
+                if protocol.ABBREV == 'web':
+                    # for web, if we fetch and get HTML without microformats,
+                    # load returns False but the object will be stored in the
+                    # datastore with source_protocol web, and in cache. load it
+                    # again manually to check for that.
+                    obj = Object.get_by_id(id)
+                    if obj and obj.source_protocol != 'web':
+                        obj = None
+
+                if obj:
                     logger.debug(f'  {protocol.LABEL} owns id {id}')
                     return protocol
             except BadGateway:

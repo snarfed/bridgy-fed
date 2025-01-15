@@ -155,10 +155,22 @@ class ProtocolTest(TestCase):
         self.assertIn(self.req('http://web.site/'), mock_get.mock_calls)
 
     @patch('requests.get')
+    def test_for_id_web_fetch_not_html(self, mock_get):
+        mock_get.return_value = requests_response('not html', content_type='text/abc')
+        self.assertIsNone(Protocol.for_id('http://web.site/xyz'))
+        self.assertIsNone(Object.get_by_id('http://web.site/xyz'))
+        self.assertIn(self.req('http://web.site/xyz'), mock_get.mock_calls)
+
+    @patch('requests.get')
     def test_for_id_web_fetch_no_mf2(self, mock_get):
         mock_get.return_value = requests_response('<html></html>')
-        self.assertIsNone(Protocol.for_id('http://web.site/'))
-        self.assertIn(self.req('http://web.site/'), mock_get.mock_calls)
+        self.assertEqual(Web, Protocol.for_id('http://web.site/xyz'))
+
+        obj = self.assert_object('http://web.site/xyz', source_protocol='web')
+        self.assertIsNone(obj.mf2)
+        self.assertIsNone(obj.as1)
+
+        self.assertIn(self.req('http://web.site/xyz'), mock_get.mock_calls)
 
     @patch('requests.get')
     def test_for_id_web_remote_false(self, mock_get):
