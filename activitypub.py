@@ -63,6 +63,10 @@ AKA_CONTEXT = {'alsoKnownAs': {'@id': 'as:alsoKnownAs', '@type': '@id'}}
 # https://seb.jambor.dev/posts/understanding-activitypub-part-4-threads/#the-instance-actor
 _INSTANCE_ACTOR = None
 
+OLD_ACCOUNT_EXEMPT_DOMAINS = (
+    'pixelfed.social',
+)
+
 # populated in User.status
 _WEB_OPT_OUT_DOMAINS = None
 
@@ -112,7 +116,6 @@ class ActivityPub(User, Protocol):
     CONTENT_TYPE = as2.CONTENT_TYPE_LD_PROFILE
     REQUIRES_AVATAR = True
     REQUIRES_NAME = False
-    REQUIRES_OLD_ACCOUNT = True
     DEFAULT_ENABLED_PROTOCOLS = ('web',)
     SUPPORTED_AS1_TYPES = (
         tuple(as1.ACTOR_TYPES)
@@ -125,6 +128,10 @@ class ActivityPub(User, Protocol):
         as2.OBJECT_TYPE_TO_TYPE.get(t) or as2.VERB_TO_TYPE.get(t)
         for t in SUPPORTED_AS1_TYPES)
     SUPPORTS_DMS = True
+
+    @property
+    def REQUIRES_OLD_ACCOUNT(self):
+        return util.domain_from_link(self.key.id()) not in OLD_ACCOUNT_EXEMPT_DOMAINS
 
     def _pre_put_hook(self):
         r"""Validate id, require URL, don't allow Bridgy Fed domains.
