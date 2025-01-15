@@ -283,7 +283,21 @@ class Protocol:
 
         return cls(id=id).key
 
+    @staticmethod
+    def _for_id_memcache_key(id, remote=None):
+        """If id is a URL, uses its domain, otherwise returns None.
+
+        Args:
+          id (str)
+
+        Returns:
+          (str domain, bool remote) or None
+        """
+        if remote and util.is_web(id):
+            return util.domain_from_link(id)
+
     @cached(LRUCache(20000), lock=Lock())
+    @memcache.memoize(key=_for_id_memcache_key, write=lambda id, remote: remote)
     @staticmethod
     def for_id(id, remote=True):
         """Returns the protocol for a given id.
