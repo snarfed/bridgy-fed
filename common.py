@@ -96,7 +96,7 @@ TASKS_LOCATION = 'us-central1'
 RUN_TASKS_INLINE = False  # overridden by unit tests
 
 # for Protocol.REQUIRES_OLD_ACCOUNT, how old is old enough
-OLD_ACCOUNT_AGE = timedelta(days=14)
+OLD_ACCOUNT_AGE = timedelta(days=7)
 
 # populated later in this file
 NDB_CONTEXT_KWARGS = None
