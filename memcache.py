@@ -15,6 +15,8 @@ logger = logging.getLogger(__name__)
 # https://github.com/memcached/memcached/wiki/Commands#standard-protocol
 KEY_MAX_LEN = 250
 
+MEMOIZE_VERSION = 2
+
 
 if appengine_info.DEBUG or appengine_info.LOCAL_SERVER:
     logger.info('Using in memory mock memcache')
@@ -44,13 +46,13 @@ def key(key):
     return key[:KEY_MAX_LEN].replace(' ', '%20').encode()
 
 
-def memoize_key(fn, *args, **kwargs):
-    return key(f'{fn.__qualname__}-2-{repr(args)}-{repr(kwargs)}')
+def memoize_key(fn, *args, _version=MEMOIZE_VERSION, **kwargs):
+    return key(f'{fn.__qualname__}-{_version}-{repr(args)}-{repr(kwargs)}')
 
 
 NONE = ()  # empty tuple
 
-def memoize(expire=None, key=None, write=True):
+def memoize(expire=None, key=None, write=True, version=MEMOIZE_VERSION):
     """Memoize function decorator that stores the cached value in memcache.
 
     Args:
@@ -60,6 +62,9 @@ def memoize(expire=None, key=None, write=True):
       write (bool or callable): whether to write to memcache. If this is a
         callable, it will be called with the function's (*args, **kwargs) and should
         return True or False.
+      version (int): overrides our default version number in the memcache key.
+        Bumping this version can have the same effect as clearing the cache for
+        just the affected function.
     """
     if expire:
         expire = int(expire.total_seconds())
@@ -71,9 +76,9 @@ def memoize(expire=None, key=None, write=True):
             if key:
                 key_val = key(*args, **kwargs)
                 if key_val:
-                    cache_key = memoize_key(fn, key_val)
+                    cache_key = memoize_key(fn, key_val, _version=version)
             else:
-                cache_key = memoize_key(fn, *args, **kwargs)
+                cache_key = memoize_key(fn, *args, _version=version, **kwargs)
 
             if cache_key:
                 val = pickle_memcache.get(cache_key)

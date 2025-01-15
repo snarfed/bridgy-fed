@@ -150,6 +150,22 @@ class MemcacheTest(TestCase):
         self.assertEqual('6', foo(6))
         self.assertEqual([5, 6, 6], calls)
 
+    def test_memoize_version_callable(self):
+        calls = []
+
+        @memoize(version='x')
+        def foo(x):
+            calls.append(x)
+            return str(x)
+
+        self.assertEqual('5', foo(5))
+        self.assertEqual([5], calls)
+        self.assertEqual('5', pickle_memcache.get(
+            b'MemcacheTest.test_memoize_version_callable.<locals>.foo-x-(5,)-{}'))
+
+        self.assertEqual('5', foo(5))
+        self.assertEqual([5], calls)
+
     @patch('memcache.KEY_MAX_LEN', new=10)
     def test_key(self):
         for input, expected in (
