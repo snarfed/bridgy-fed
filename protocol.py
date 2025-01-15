@@ -297,7 +297,8 @@ class Protocol:
             return util.domain_from_link(id)
 
     @cached(LRUCache(20000), lock=Lock())
-    @memcache.memoize(key=_for_id_memcache_key, write=lambda id, remote: remote)
+    @memcache.memoize(key=_for_id_memcache_key, write=lambda id, remote: remote,
+                      version=3)
     @staticmethod
     def for_id(id, remote=True):
         """Returns the protocol for a given id.
