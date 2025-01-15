@@ -50,13 +50,16 @@ def memoize_key(fn, *args, **kwargs):
 
 NONE = ()  # empty tuple
 
-def memoize(expire=None, key=None):
+def memoize(expire=None, key=None, write=True):
     """Memoize function decorator that stores the cached value in memcache.
 
     Args:
       expire (timedelta): optional, expiration
       key (callable): function that takes the function's (*args, **kwargs) and
         returns the cache key to use. If it returns None, memcache won't be used.
+      write (bool or callable): whether to write to memcache. If this is a
+        callable, it will be called with the function's (*args, **kwargs) and should
+        return True or False.
     """
     if expire:
         expire = int(expire.total_seconds())
@@ -75,7 +78,7 @@ def memoize(expire=None, key=None):
             if cache_key:
                 val = pickle_memcache.get(cache_key)
                 if val is not None:
-                    logger.debug(f'cache hit {cache_key}')
+                    logger.debug(f'cache hit {cache_key} {repr(val)[:100]}')
                     return None if val == NONE else val
                 else:
                     logger.debug(f'cache miss {cache_key}')
@@ -83,8 +86,12 @@ def memoize(expire=None, key=None):
             val = fn(*args, **kwargs)
 
             if cache_key:
-                pickle_memcache.set(cache_key, NONE if val is None else val,
-                                    expire=expire)
+                write_cache = (write if isinstance(write, bool)
+                               else write(*args, **kwargs))
+                if write_cache:
+                    logger.debug(f'cache set {cache_key} {repr(val)[:100]}')
+                    pickle_memcache.set(cache_key, NONE if val is None else val,
+                                        expire=expire)
 
             return val
 

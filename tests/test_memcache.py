@@ -112,6 +112,44 @@ class MemcacheTest(TestCase):
         self.assertEqual([5, 5], calls)
         self.assertEqual(0, len(pickle_memcache._contents))
 
+    def test_memoize_write_false(self):
+        calls = []
+
+        @memoize(write=False)
+        def foo(x):
+            calls.append(x)
+            return str(x)
+
+        self.assertEqual('5', foo(5))
+        self.assertEqual([5], calls)
+        self.assertIsNone(pickle_memcache.get(
+            b'MemcacheTest.test_memoize_key_fn.<locals>.foo-2-(5,)-{}'))
+
+        self.assertEqual('5', foo(5))
+        self.assertEqual([5, 5], calls)
+        self.assertIsNone(pickle_memcache.get(
+            b'MemcacheTest.test_memoize_key_fn.<locals>.foo-2-(5,)-{}'))
+
+    def test_memoize_write_callable(self):
+        calls = []
+
+        @memoize(write=lambda x: x == 5)
+        def foo(x):
+            calls.append(x)
+            return str(x)
+
+        self.assertEqual('5', foo(5))
+        self.assertEqual([5], calls)
+
+        self.assertEqual('5', foo(5))
+        self.assertEqual([5], calls)
+
+        self.assertEqual('6', foo(6))
+        self.assertEqual([5, 6], calls)
+
+        self.assertEqual('6', foo(6))
+        self.assertEqual([5, 6, 6], calls)
+
     @patch('memcache.KEY_MAX_LEN', new=10)
     def test_key(self):
         for input, expected in (
