@@ -933,7 +933,11 @@ class Protocol:
             error(f'Actor {actor} is opted out or blocked', status=204)
 
         # write Object to datastore
-        orig_props = obj.to_dict()
+        orig_props = {
+            **obj.to_dict(),
+            # structured properties
+            'copies': obj.copies,
+        }
         obj = Object.get_or_create(id, new=obj.new, changed=obj.changed,
                                    authed_as=actor, **orig_props)
 

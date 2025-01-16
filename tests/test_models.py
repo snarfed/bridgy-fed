@@ -637,10 +637,22 @@ class ObjectTest(TestCase):
         obj7 = Object.get_or_create('http://b.ee/ff', as2={'a': 'b'}, mf2={'c': 'd'},
                                     source_protocol='web')
         Object.get_or_create('http://b.ee/ff', authed_as='http://b.ee/ff',
-                             users=[ndb.Key(Web, 'me')])
+                             users=[ndb.Key(Web, 'me')], labels=['feed'],
+                             copies=[Target(protocol='ui', uri='http://foo')])
         self.assert_object('http://b.ee/ff', as2={'a': 'b'}, mf2={'c': 'd'},
-                           users=[ndb.Key(Web, 'me')],
+                           users=[ndb.Key(Web, 'me')], labels=['feed'],
+                           copies=[Target(protocol='ui', uri='http://foo')],
                            source_protocol='web')
+
+        # repeated properties should merge, not overwrite
+        Object.get_or_create('http://b.ee/ff', authed_as='http://b.ee/ff',
+                             users=[ndb.Key(Web, 'you')], labels=['user'],
+                             copies=[Target(protocol='ui', uri='http://bar')])
+        self.assert_object('http://b.ee/ff', as2={'a': 'b'}, mf2={'c': 'd'},
+                           users=[ndb.Key(Web, 'me'), ndb.Key(Web, 'you')],
+                           labels=['feed', 'user'], source_protocol='web',
+                           copies=[Target(protocol='ui', uri='http://foo'),
+                                   Target(protocol='ui', uri='http://bar')])
 
     def test_get_or_create_auth_check(self):
         Object(id='fake:foo', our_as1={'author': 'fake:alice'},

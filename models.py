@@ -1132,6 +1132,11 @@ class Object(StringIdModel):
 
         if set(props.keys()) & set(('as2', 'bsky', 'mf2', 'raw')):
             obj.clear()
+
+        # merge repeated fields
+        for field in 'feed', 'copies', 'labels', 'notify', 'users':
+            getattr(obj, field).extend(props.pop(field, []))
+
         obj.populate(**{
             k: v for k, v in props.items()
             if v and not isinstance(getattr(Object, k), ndb.ComputedProperty)
