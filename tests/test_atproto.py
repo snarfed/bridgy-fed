@@ -1575,7 +1575,7 @@ Sed tortor neque, aliquet quis posuere aliquam […]
   <meta property="og:title" content="Titull" />
   <meta property="og:description" content="Descrypshun" />
 </head>
-</html>""", url='http://orig.co/inal'),
+</html>""", url='http://orig.co/post'),
         requests_response('blob contents', content_type='image/png'),
     ])
     def test_send_note_first_link_preview_embed(self, _, __):
@@ -1583,7 +1583,7 @@ Sed tortor neque, aliquet quis posuere aliquam […]
 
         obj = Object(id='fake:post', source_protocol='fake', our_as1={
             **NOTE_AS,
-            'content': 'My <a href="http://orig.co/inal">original</a> post',
+            'content': 'My <a href="http://orig.co/post">original</a> post',
         })
         self.assertTrue(ATProto.send(obj, 'https://bsky.brid.gy'))
 
@@ -1593,14 +1593,14 @@ Sed tortor neque, aliquet quis posuere aliquam […]
         last_tid = arroba.util.int_to_tid(arroba.util._tid_ts_last)
         self.assert_equals({
             **NOTE_BSKY,
-            'bridgyOriginalText': 'My <a href="http://orig.co/inal">original</a> post',
+            'bridgyOriginalText': 'My <a href="http://orig.co/post">original</a> post',
             'embed': {
                 '$type': 'app.bsky.embed.external',
                 'external': {
                     '$type': 'app.bsky.embed.external#external',
                     'description': 'Descrypshun',
                     'title': 'Titull',
-                    'uri': 'http://orig.co/inal',
+                    'uri': 'http://orig.co/post',
                     'thumb': {
                         '$type': 'blob',
                         'mimeType': 'image/png',
@@ -1612,9 +1612,31 @@ Sed tortor neque, aliquet quis posuere aliquam […]
         }, repo.get_record('app.bsky.feed.post', last_tid), ignore=['facets'])
 
     @patch.object(tasks_client, 'create_task', return_value=Task(name='my task'))
+    def test_send_note_link_preview_existing_object_no_data(self, _):
+        user = self.make_user_and_repo()
+
+        # no data!
+        Object(id='http://orig.co/post', source_protocol='web').put()
+
+        obj = Object(id='fake:post', source_protocol='fake', our_as1={
+            **NOTE_AS,
+            'content': 'My <a href="http://orig.co/post">original</a> post',
+        })
+        self.assertTrue(ATProto.send(obj, 'https://bsky.brid.gy'))
+
+        # check repo, record
+        did = user.key.get().get_copy(ATProto)
+        repo = self.storage.load_repo(did)
+        last_tid = arroba.util.int_to_tid(arroba.util._tid_ts_last)
+        self.assert_equals({
+            **NOTE_BSKY,
+            'bridgyOriginalText': 'My <a href="http://orig.co/post">original</a> post',
+        }, repo.get_record('app.bsky.feed.post', last_tid), ignore=['facets'])
+
+    @patch.object(tasks_client, 'create_task', return_value=Task(name='my task'))
     @patch('requests.get', side_effect=[
         requests_response(f'<html><head><title>A poast</title></head></html>',
-                          url='http://orig.co/inal'),
+                          url='http://orig.co/post'),
     ])
     def test_send_note_link_preview_non_web_url(self, mock_get, mock_create_task):
         user = self.make_user_and_repo()
@@ -1664,7 +1686,7 @@ Sed tortor neque, aliquet quis posuere aliquam […]
   <meta property="og:title" content="Titull" />
   <meta property="og:description" content="Descrypshun" />
 </head>
-</html>""", url='http://orig.co/inal'),
+</html>""", url='http://orig.co/post'),
         requests_response('blob contents', content_type='image/png'),
     ])
     @patch.dict(
@@ -1676,7 +1698,7 @@ Sed tortor neque, aliquet quis posuere aliquam […]
 
         obj = Object(id='fake:post', source_protocol='fake', our_as1={
             **NOTE_AS,
-            'content': 'My <a href="http://orig.co/inal">original</a> poaaast',
+            'content': 'My <a href="http://orig.co/post">original</a> poaaast',
         })
         self.assertTrue(ATProto.send(obj, 'https://bsky.brid.gy'))
 
@@ -1687,7 +1709,7 @@ Sed tortor neque, aliquet quis posuere aliquam […]
         self.assert_equals({
             **NOTE_BSKY,
             'text': 'My original […]',
-            'bridgyOriginalText': 'My <a href="http://orig.co/inal">original</a> poaaast',
+            'bridgyOriginalText': 'My <a href="http://orig.co/post">original</a> poaaast',
             'embed': {
                 '$type': 'app.bsky.embed.external',
                 'external': {

@@ -906,7 +906,7 @@ class ATProto(User, Protocol):
                             logger.warning(e)
                             continue
 
-                        if link:
+                        if link and link.as1:
                             if img := util.get_url(link.as1, 'image'):
                                 props = appview.defs['app.bsky.embed.external#external']['properties']
                                 fetch_blob(img, props, name='thumb',
