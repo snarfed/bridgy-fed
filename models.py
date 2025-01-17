@@ -1175,6 +1175,49 @@ class Object(StringIdModel):
         """Clears the :attr:`Object.our_as1` property."""
         self.our_as1 = None
 
+    @staticmethod
+    def from_request():
+        """Creates and returns an :class:`Object` from form-encoded JSON parameters.
+
+        Parameters:
+          obj_id (str): id of :class:`models.Object` to handle
+          *: If ``obj_id`` is unset, all other parameters are properties for a
+            new :class:`models.Object` to handle
+        """
+        if obj_id := request.form.get('obj_id'):
+            return Object.get_by_id(obj_id)
+
+        props = {field: request.form.get(field)
+                 for field in ('id', 'atom', 'rss', 'source_protocol')}
+
+        for json_prop in 'as2', 'bsky', 'mf2', 'our_as1', 'raw':
+            if val := request.form.get(json_prop):
+                props[json_prop] = json_loads(val)
+
+        obj = Object(**props)
+        if not obj.key and obj.as1:
+            if id := obj.as1.get('id'):
+                obj.key = ndb.Key(Object, id)
+
+        return obj
+
+    def to_request(self):
+        """Returns a query parameter dict representing this :class:`Object`."""
+        form = {}
+
+        for json_prop in 'as2', 'bsky', 'mf2', 'our_as1', 'raw':
+            if val := getattr(self, json_prop, None):
+                form[json_prop] = json_dumps(val, sort_keys=True)
+
+        for prop in 'atom', 'rss', 'source_protocol':
+            if val := getattr(self, prop):
+                form[prop] = val
+
+        if self.key:
+            form['id'] = self.key.id()
+
+        return form
+
     def activity_changed(self, other_as1):
         """Returns True if this activity is meaningfully changed from ``other_as1``.
 

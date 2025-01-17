@@ -1832,7 +1832,7 @@ class WebTest(TestCase):
             'objectType': 'activity',
             'verb': 'update',
             'id': id,
-            'actor': actor,
+            'actor': 'https://user.com/',
             'object': actor,
         }
         self.assert_object(id,

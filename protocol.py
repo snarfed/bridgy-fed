@@ -60,6 +60,15 @@ DELETE_TASK_DELAY = timedelta(minutes=2)
 LIMITED_DOMAINS = (os.getenv('LIMITED_DOMAINS', '').split()
                    or util.load_file_lines('limited_domains'))
 
+DONT_STORE_AS1_TYPES = as1.CRUD_VERBS | set((
+    'accept',
+    'reject',
+    'stop-following',
+    'undo',
+))
+STORE_AS1_TYPES = (as1.ACTOR_TYPES | as1.POST_TYPES | as1.VERBS_WITH_OBJECT
+                   - DONT_STORE_AS1_TYPES)
+
 logger = logging.getLogger(__name__)
 
 
@@ -1177,9 +1186,7 @@ class Protocol:
             'actor': followee.key.id(),
             'object': follow.as1,
         }
-        Object.get_or_create(id, authed_as=followee.key.id(), our_as1=accept)
-
-        common.create_task(queue='send', obj_id=id, url=target,
+        common.create_task(queue='send', id=id, our_as1=accept, url=target,
                            protocol=follower.LABEL, user=followee.key.urlsafe())
 
     @classmethod
@@ -1203,17 +1210,17 @@ class Protocol:
 
         target = user.target_for(user.obj)
         follow_back_id = f'https://{bot.key.id()}/#follow-back-{user.key.id()}-{now}'
-        Object(id=follow_back_id, source_protocol='web',
-               our_as1={
-                   'objectType': 'activity',
-                   'verb': 'follow',
-                   'id': follow_back_id,
-                   'actor': bot.key.id(),
-                   'object': user.key.id(),
-               }).put()
-
-        common.create_task(queue='send', obj_id=follow_back_id, url=target,
-                           protocol=user.LABEL, user=bot.key.urlsafe())
+        follow_back_as1 = {
+            'objectType': 'activity',
+            'verb': 'follow',
+            'id': follow_back_id,
+            'actor': bot.key.id(),
+            'object': user.key.id(),
+        }
+        common.create_task(queue='send', id=follow_back_id,
+                           our_as1=follow_back_as1, url=target,
+                           source_protocol='web', protocol=user.LABEL,
+                           user=bot.key.urlsafe())
 
     @classmethod
     def handle_bare_object(cls, obj, authed_as=None):
@@ -1307,9 +1314,15 @@ class Protocol:
 
         # TODO: this would be clearer if it was at the end of receive(), which
         # that *should* be equivalent, but oddly tests fail if it's moved there
-        obj.put()
         if not targets:
             return r'No targets, nothing to do ¯\_(ツ)_/¯', 204
+
+        if obj.type in STORE_AS1_TYPES:
+            obj.put()
+            obj_params = {'obj_id': obj.key.id()}
+        else:
+            assert obj.type in DONT_STORE_AS1_TYPES
+            obj_params = obj.to_request()
 
         # sort targets so order is deterministic for tests, debugging, etc
         sorted_targets = sorted(targets.items(), key=lambda t: t[0].uri)
@@ -1320,10 +1333,9 @@ class Protocol:
         for i, (target, orig_obj) in enumerate(sorted_targets):
             if to_proto and target.protocol != to_proto.LABEL:
                 continue
-            orig_obj_id = orig_obj.key.id() if orig_obj else ''
-            common.create_task(queue='send', obj_id=obj.key.id(),
-                               url=target.uri, protocol=target.protocol,
-                               orig_obj_id=orig_obj_id, user=user)
+            orig_obj_id = orig_obj.key.id() if orig_obj else None
+            common.create_task(queue='send', url=target.uri, protocol=target.protocol,
+                               orig_obj_id=orig_obj_id, user=user, **obj_params)
 
         return 'OK', 202
 
@@ -1438,7 +1450,7 @@ Hi! You <a href="{inner_obj_as1.get('url') or inner_obj_id}">recently replied</a
                 continue
 
             logger.debug(f'Target for {id} is {target}')
-            # only use orig_obj for inReplyTos and repost objects
+            # only use orig_obj for inReplyTos, like/repost objects, etc
             # https://github.com/snarfed/bridgy-fed/issues/1237
             targets[Target(protocol=target_proto.LABEL, uri=target)] = (
                 orig_obj if id in in_reply_tos or id in as1.get_ids(obj.as1, 'object')
@@ -1712,20 +1724,14 @@ def receive_task():
     authed_as = form.pop('authed_as', None)
     internal = (authed_as == common.PRIMARY_DOMAIN
                 or authed_as in common.PROTOCOL_DOMAINS)
-    if received_at := form.pop('received_at', None):
-        received_at = datetime.fromisoformat(received_at)
 
-    if obj_id := form.get('obj_id'):
-        obj = Object.get_by_id(obj_id)
-    else:
-        for json_prop in 'as2', 'bsky', 'mf2', 'our_as1', 'raw':
-            if val := form.get(json_prop):
-                form[json_prop] = json_loads(val)
-        obj = Object(**form)
-
+    obj = Object.from_request()
     assert obj
     assert obj.source_protocol
     obj.new = True
+
+    if received_at := form.pop('received_at', None):
+        received_at = datetime.fromisoformat(received_at)
 
     try:
         return PROTOCOLS[obj.source_protocol].receive(
@@ -1753,6 +1759,8 @@ def send_task():
         or likes
       user (url-safe google.cloud.ndb.key.Key): :class:`models.User` (actor)
         this activity is from
+      *: If ``obj_id`` is unset, all other parameters are properties for a new
+        :class:`models.Object` to handle
     """
     form = request.form.to_dict()
     logger.info(f'Params: {list(form.items())}')
@@ -1765,9 +1773,8 @@ def send_task():
         return '', 204
 
     target = Target(uri=url, protocol=protocol)
-
-    obj = Object.get_by_id(form['obj_id'])
-    assert obj
+    obj = Object.from_request()
+    assert obj and obj.key and obj.key.id()
 
     PROTOCOLS[protocol].check_supported(obj)
     allow_opt_out = (obj.type == 'delete')

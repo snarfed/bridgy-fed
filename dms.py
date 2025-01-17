@@ -10,7 +10,7 @@ from common import create_task, DOMAINS
 import ids
 import memcache
 import models
-from models import PROTOCOLS
+from models import Object, PROTOCOLS
 import protocol
 
 logger = logging.getLogger(__name__)
@@ -58,31 +58,35 @@ def maybe_send(*, from_proto, to_user, text, type=None, in_reply_to=None):
         logger.info("  can't send DM, recipient has no profile obj")
         return
 
-    id = f'{bot.profile_id()}#{type or "?"}-dm-{to_user.key.id()}-{util.now().isoformat()}'
-    target_uri = to_user.target_for(to_user.obj, shared=False)
-    target = models.Target(protocol=to_user.LABEL, uri=target_uri)
-    models.Object(id=id, source_protocol='web', our_as1={
+    dm_id = f'{bot.profile_id()}#{type or "?"}-dm-{to_user.key.id()}-{util.now().isoformat()}'
+    dm_as1 = {
+        'objectType': 'note',
+        'id': dm_id,
+        'author': bot.key.id(),
+        'content': text,
+        'inReplyTo': in_reply_to,
+        'tags': [{
+            'objectType': 'mention',
+            'url': to_user.key.id(),
+        }],
+        'to': [to_user.key.id()],
+    }
+    Object(id=dm_id, our_as1=dm_as1, source_protocol='web').put()
+
+    create_id = f'{dm_id}-create'
+    create_as1 = {
         'objectType': 'activity',
         'verb': 'post',
-        'id': f'{id}-create',
+        'id': create_id,
         'actor': bot.key.id(),
-        'object': {
-            'objectType': 'note',
-            'id': id,
-            'author': bot.key.id(),
-            'content': text,
-            'inReplyTo': in_reply_to,
-            'tags': [{
-                'objectType': 'mention',
-                'url': to_user.key.id(),
-            }],
-            'to': [to_user.key.id()],
-        },
+        'object': dm_as1,
         'to': [to_user.key.id()],
-    }).put()
+    }
 
-    create_task(queue='send', obj_id=id, protocol=to_user.LABEL,
-                url=target.uri, user=bot.key.urlsafe())
+    target_uri = to_user.target_for(to_user.obj, shared=False)
+    target = models.Target(protocol=to_user.LABEL, uri=target_uri)
+    create_task(queue='send', id=create_id, our_as1=create_as1, source_protocol='web',
+                protocol=to_user.LABEL, url=target.uri, user=bot.key.urlsafe())
 
     if type:
         to_user.sent_dms.append(dm)
