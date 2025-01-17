@@ -292,8 +292,11 @@ def create_task(queue, delay=None, **params):
     # removed from "Added X task ..." log messae below to cut logging costs
     # https://github.com/snarfed/bridgy-fed/issues/1149#issuecomment-2265861956
     # loggable = {k: '{...}' if isinstance(v, dict) else v for k, v in params.items()}
-    params = {k: json_dumps(v, sort_keys=True) if isinstance(v, dict) else v
-              for k, v in params.items()}
+    params = {
+        k: json_dumps(v, sort_keys=True) if isinstance(v, dict) else v
+        for k, v in params.items()
+        if v is not None
+    }
 
     if RUN_TASKS_INLINE or appengine_info.LOCAL_SERVER:
         logger.info(f'Running task inline: {queue} {params}')
