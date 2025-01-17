@@ -1591,23 +1591,23 @@ Hi! You <a href="{inner_obj_as1.get('url') or inner_obj_id}">recently replied</a
         """
         assert id
         assert local or remote is not False
-        logger.debug(f'Loading Object {id} local={local} remote={remote}')
+        # logger.debug(f'Loading Object {id} local={local} remote={remote}')
 
         obj = orig_as1 = None
         if local:
             obj = Object.get_by_id(id)
             if not obj:
-                logger.debug(f' {id} not in datastore')
+                # logger.debug(f' {id} not in datastore')
                 pass
             elif obj.as1 or obj.raw or obj.deleted:
-                logger.debug(f'  {id} got from datastore')
+                # logger.debug(f'  {id} got from datastore')
                 obj.new = False
 
         if remote is False:
             return obj
         elif remote is None and obj:
             if obj.updated < util.as_utc(util.now() - OBJECT_REFRESH_AGE):
-                logger.debug(f'  last updated {obj.updated}, refreshing')
+                # logger.debug(f'  last updated {obj.updated}, refreshing')
                 pass
             else:
                 return obj
@@ -1619,7 +1619,7 @@ Hi! You <a href="{inner_obj_as1.get('url') or inner_obj_id}">recently replied</a
         else:
             obj = Object(id=id)
             if local:
-                logger.debug(f'  {id} not in datastore')
+                # logger.debug(f'  {id} not in datastore')
                 obj.new = True
                 obj.changed = False
 
