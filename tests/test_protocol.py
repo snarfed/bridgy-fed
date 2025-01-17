@@ -947,7 +947,6 @@ class ProtocolReceiveTest(TestCase):
 
     def assert_object(self, id, **props):
         props.setdefault('source_protocol', 'fake')
-        props.setdefault('delivered_protocol', 'fake')
         return super().assert_object(id, **props)
 
     def make_followers(self):
@@ -981,7 +980,6 @@ class ProtocolReceiveTest(TestCase):
                            )
         obj = self.assert_object('fake:create',
                                  our_as1=create_as1,
-                                 delivered_protocol='other',
                                  type='post',
                                  users=[self.user.key],
                                  notify=[],
@@ -1038,7 +1036,6 @@ class ProtocolReceiveTest(TestCase):
                                      'object': post_as1,
                                      'published': '2022-01-02T03:04:05+00:00',
                                  },
-                                 delivered_protocol='other',
                                  type='post',
                                  users=[Fake(id='fake:user').key],
                                  notify=[],
@@ -1061,7 +1058,6 @@ class ProtocolReceiveTest(TestCase):
         self.assertEqual(('OK', 202), Fake.receive_as1(post_as1))
 
         obj = self.assert_object('fake:post#bridgy-fed-create',
-                                 delivered_protocol='other',
                                  type='post',
                                  users=[self.user.key],
                                  ignore=['our_as1'],
@@ -1599,7 +1595,6 @@ class ProtocolReceiveTest(TestCase):
                            )
         obj = self.assert_object('fake:update',
                                  our_as1=update_as1,
-                                 delivered_protocol='other',
                                  type='update',
                                  users=[self.user.key],
                                  notify=[],
@@ -1682,7 +1677,6 @@ class ProtocolReceiveTest(TestCase):
         )
         obj = self.assert_object('fake:create',
                                  our_as1=create_as1,
-                                 delivered_protocol='other',
                                  type='post',
                                  users=[self.user.key],
                                  notify=[eve.key],
@@ -1724,7 +1718,6 @@ class ProtocolReceiveTest(TestCase):
         }
         obj = self.assert_object('fake:reply#bridgy-fed-create',
                                  our_as1=create_as1,
-                                 delivered_protocol='other',
                                  type='post',
                                  users=[self.user.key],
                                  notify=[eve.key],
@@ -1900,7 +1893,6 @@ class ProtocolReceiveTest(TestCase):
                            )
         obj = self.assert_object('fake:update',
                                  our_as1=update_as1,
-                                 delivered_protocol='other',
                                  type='update',
                                  users=[self.user.key],
                                  notify=[eve.key],
@@ -1927,7 +1919,6 @@ class ProtocolReceiveTest(TestCase):
                                  our_as1=repost_as1,
                                  copies=[Target(protocol='other',
                                                 uri='other:o:fa:fake:repost')],
-                                 delivered_protocol='other',
                                  type='share',
                                  users=[self.user.key],
                                  notify=[self.bob.key],
@@ -1989,7 +1980,6 @@ class ProtocolReceiveTest(TestCase):
                                                      uri='other:o:fa:fake:like')],
                                       users=[self.user.key],
                                       notify=[self.bob.key],
-                                      delivered_protocol='other',
                                       type='like',
                                       )
 
@@ -2035,7 +2025,6 @@ class ProtocolReceiveTest(TestCase):
 
         obj = self.assert_object('fake:delete',
                                  our_as1=delete_as1,
-                                 delivered_protocol='other',
                                  type='delete',
                                  users=[self.user.key],
                                  notify=[],
@@ -2171,7 +2160,6 @@ class ProtocolReceiveTest(TestCase):
                            )
         obj = self.assert_object('fake:create',
                                  our_as1=create_as1,
-                                 delivered_protocol='other',
                                  type='post',
                                  users=[self.user.key],
                                  )
@@ -2213,7 +2201,6 @@ class ProtocolReceiveTest(TestCase):
             id,
             users=[self.user.key, Fake(id='fake:profile:user').key],
             our_as1=update_as1,
-            delivered_protocol='other',
             type='update',
         )
         self.assertEqual([
@@ -2336,7 +2323,6 @@ class ProtocolReceiveTest(TestCase):
                                      'object': mention_as1,
                                      'published': '2022-01-02T03:04:05+00:00',
                                  },
-                                 delivered_protocol='other',
                                  type='post',
                                  users=[self.user.key],
                                  notify=[self.alice.key, self.bob.key],
@@ -2378,7 +2364,6 @@ class ProtocolReceiveTest(TestCase):
             users=[self.user.key],
             notify=[self.alice.key],
             feed=[],
-            delivered_protocol='other',
         )
 
         accept_id = 'other:alice/followers#accept-fake:follow'
@@ -2428,7 +2413,6 @@ class ProtocolReceiveTest(TestCase):
             copies=[Target(protocol='fake', uri='fake:o:other:other:follow')],
             users=[OtherFake(id='other:eve').key],
             notify=[self.user.key],
-            delivered_protocol='fake',
         )
 
         self.assertEqual(0, Object.query(Object.type == 'accept').count())

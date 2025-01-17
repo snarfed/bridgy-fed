@@ -446,9 +446,6 @@ class WebTest(TestCase):
             as1.get_object(got).pop('publicKey', None)
             self.assert_equals(data, got, inbox, ignore=ignore)
 
-    def assert_object(self, id, **props):
-        return super().assert_object(id, delivered_protocol='activitypub', **props)
-
     def make_followers(self):
         self.followers = []
 

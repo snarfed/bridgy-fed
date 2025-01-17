@@ -537,7 +537,7 @@ class TestCase(unittest.TestCase, testutil.Asserts):
         kwargs.setdefault('timeout', util.HTTP_TIMEOUT)
         mock.assert_any_call(url, **kwargs)
 
-    def assert_object(self, id, delivered_protocol=None, **props):
+    def assert_object(self, id, **props):
         ignore = props.pop('ignore', [])
         got = Object.get_by_id(id)
         assert got, id

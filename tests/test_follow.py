@@ -395,7 +395,7 @@ class FollowTest(TestCase):
                            labels=['user', 'activity'],
                            source_protocol='ui',
                            our_as1=expected_follow_as1,
-                           delivered_protocol='activitypub')
+                           )
 
         self.assertEqual('https://alice.com', session['indieauthed-me'])
 
@@ -442,7 +442,7 @@ class FollowTest(TestCase):
                                         labels=['user', 'activity'],
                                         source_protocol='ui',
                                         our_as1=expected_follow_as1,
-                                        delivered_protocol='activitypub')
+                                        )
 
         followers = Follower.query().fetch()
         expected = Follower(from_=user.key, to=followee, follow=follow_obj.key,
@@ -630,7 +630,7 @@ class UnfollowTest(TestCase):
             source_protocol='ui',
             labels=['user', 'activity'],
             our_as1=expected_undo_as1,
-            delivered_protocol='activitypub')
+        )
 
         self.assertEqual('https://alice.com', session['indieauthed-me'])
 
@@ -695,7 +695,7 @@ class UnfollowTest(TestCase):
             source_protocol='ui',
             labels=['user', 'activity'],
             our_as1=expected_undo_as1,
-            delivered_protocol='activitypub')
+        )
 
     def test_callback_composite_url(self, mock_get, mock_post):
         follower = self.follower.to.get().obj

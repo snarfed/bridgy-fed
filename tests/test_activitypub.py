@@ -364,10 +364,6 @@ class ActivityPubTest(TestCase):
         for obj in ACTOR, ACTOR_BASE, ACTOR_FAKE, LIKE_ACTOR, self.key_id_obj.as2:
             add_key(obj)
 
-    def assert_object(self, id, **props):
-        props.setdefault('delivered_protocol', 'web')
-        return super().assert_object(id, **props)
-
     def post(self, path, json=None, base_url=None, **kwargs):
         """Wrapper around self.client.post that adds signature."""
         body = json_dumps(json)
@@ -900,7 +896,7 @@ class ActivityPubTest(TestCase):
                            our_as1=expected_create,
                            users=[ndb.Key(ActivityPub, ACTOR['id'])],
                            type='post',
-                           delivered_protocol='fake')
+                           )
 
     def test_repost_of_indieweb(self, mock_head, mock_get, mock_post):
         self.make_user(ACTOR['id'], cls=ActivityPub, obj_as2=ACTOR)
@@ -971,7 +967,6 @@ class ActivityPubTest(TestCase):
                            copies=[copy],
                            users=[self.swentel_key],
                            feed=[baz.key, self.user.key],
-                           delivered_protocol='fake',
                            type='share',
                            ignore=['our_as1'])
 
