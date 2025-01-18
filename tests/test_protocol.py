@@ -177,6 +177,17 @@ class ProtocolTest(TestCase):
         self.assertIsNone(Protocol.for_id('http://web.site/', remote=False))
         mock_get.assert_not_called()
 
+    @patch('requests.get')
+    def test_for_id_synthetic(self, mock_get):
+        self.assertEqual(ATProto, Protocol.for_id('at://did/coll/rkey#bridgy-fed-xyz'))
+        self.assertEqual(Fake, Protocol.for_id('fake:post#bridgy-fed-delete-abc'))
+
+        Object(id='http://in.st/post', source_protocol='activitypub').put()
+        self.assertEqual(ActivityPub,
+                         Protocol.for_id('http://in.st/post#bridgy-fed-a'))
+
+        mock_get.assert_not_called()
+
     def test_for_handle_deterministic(self):
         for handle, expected in [
             (None, (None, None)),

@@ -325,6 +325,13 @@ class Protocol:
         if not id:
             return None
 
+        # remove our synthetic id fragment, if any
+        #
+        # will this eventually cause false positives for other services that
+        # include our full ids inside their own ids, non-URL-encoded? guess
+        # we'll figure that out if/when it happens.
+        id = id.partition('#bridgy-fed-')[0]
+
         if util.is_web(id):
             # step 1: check for our per-protocol subdomains
             try:
