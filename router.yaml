@@ -41,7 +41,7 @@ automatic_scaling:
   min_num_instances: 2
   max_num_instances: 10
   cpu_utilization:
-    target_utilization: 0.9
+    target_utilization: 0.95
 
 liveness_check:
   # default 300; does lowering this speed up deploy? seems like maybe, a bit?
