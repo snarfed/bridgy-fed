@@ -243,9 +243,9 @@ class User(StringIdModel, metaclass=ProtocolUserMeta):
           val
         """
         with self.lock:
-            util.add(getattr(self, prop), val)
+            added = util.add(getattr(self, prop), val)
 
-        if prop == 'copies':
+        if prop == 'copies' and added:
             memcache.pickle_memcache.set(memcache.memoize_key(
                 get_original_user_key, val.uri), self.key)
 
@@ -1155,9 +1155,9 @@ class Object(StringIdModel):
           val
         """
         with self.lock:
-            util.add(getattr(self, prop), val)
+            added = util.add(getattr(self, prop), val)
 
-        if prop == 'copies':
+        if prop == 'copies' and added:
             memcache.pickle_memcache.set(memcache.memoize_key(
                 get_original_object_key, val.uri), self.key)
 

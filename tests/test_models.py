@@ -568,6 +568,15 @@ class UserTest(TestCase):
 
         self.assertEqual(user.key, memcache.pickle_memcache.get(cache_key))
 
+    def test_add_to_copies_doesnt_update_if_already_there(self):
+        copy = Target(protocol='other', uri='other:x')
+        user = Fake(id='fake:x', copies=[copy])
+        user.add('copies', copy)
+
+        cache_key = memcache.memoize_key(
+            models.get_original_user_key, 'other:x')
+        self.assertIsNone(memcache.pickle_memcache.get(cache_key))
+
 
 class ObjectTest(TestCase):
     def setUp(self):
@@ -1269,6 +1278,15 @@ class ObjectTest(TestCase):
         obj.add('copies', copy)
 
         self.assertEqual(obj.key, memcache.pickle_memcache.get(cache_key))
+
+    def test_add_to_copies_doesnt_update_if_already_there(self):
+        copy = Target(protocol='other', uri='other:x')
+        user = Object(id='x', copies=[copy])
+        user.add('copies', copy)
+
+        cache_key = memcache.memoize_key(
+            models.get_original_object_key, 'other:x')
+        self.assertIsNone(memcache.pickle_memcache.get(cache_key))
 
 
 class FollowerTest(TestCase):
