@@ -63,11 +63,11 @@ class DmsTest(TestCase):
             self.assertEqual({
                 'objectType': 'activity',
                 'verb': 'post',
-                'id': f'https://{from_id}/#{type}-dm-{id}-2022-01-02T03:04:05+00:00-create',
+                'id': f'https://{from_id}/#bridgy-fed-dm-{type}-{id}-2022-01-02T03:04:05+00:00-create',
                 'actor': from_id,
                 'object': {
                     'objectType': 'note',
-                    'id': f'https://{from_id}/#{type}-dm-{id}-2022-01-02T03:04:05+00:00',
+                    'id': f'https://{from_id}/#bridgy-fed-dm-{type}-{id}-2022-01-02T03:04:05+00:00',
                     'author': from_id,
                     'inReplyTo': in_reply_to,
                     'tags': [{'objectType': 'mention', 'url': id}],
@@ -210,7 +210,7 @@ class DmsTest(TestCase):
         self.assertEqual([('fake:shared:target', {
             'objectType': 'activity',
             'verb': 'delete',
-            'id': 'efake:user#delete-user-fake-2022-01-02T03:04:05+00:00',
+            'id': 'efake:user#bridgy-fed-delete-user-fake-2022-01-02T03:04:05+00:00',
             'actor': 'efake:user',
             'object': 'efake:user',
         })], Fake.sent)

@@ -357,7 +357,7 @@ class PagesTest(TestCase):
         self.assertEqual([('fake:shared:target', {
             'objectType': 'activity',
             'verb': 'delete',
-            'id': 'https://user.com/#delete-user-all-2022-01-02T03:04:05+00:00',
+            'id': 'https://user.com/#bridgy-fed-delete-user-all-2022-01-02T03:04:05+00:00',
             'actor': 'user.com',
             'object': 'user.com',
         })], Fake.sent)

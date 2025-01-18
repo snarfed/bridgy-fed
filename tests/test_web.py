@@ -1864,12 +1864,10 @@ class WebTest(TestCase):
             self.req('https://user.com/'),
         ))
 
-        id = 'https://user.com/#bridgy-fed-update-2022-01-02T03:04:05+00:00'
-        wrapped_id = f'http://localhost/r/{id}'
         update_as2 = {
             '@context': 'https://www.w3.org/ns/activitystreams',
             'type': 'Update',
-            'id': wrapped_id,
+            'id': f'http://localhost/r/https://user.com/#bridgy-fed-update-2022-01-02T03:04:05+00:00',
             'actor': 'http://localhost/user.com',
             'object': {
                 **ACTOR_AS2_FULL,

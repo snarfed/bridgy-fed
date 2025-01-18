@@ -204,7 +204,7 @@ class UnfollowCallback(indieauth.Callback):
 
         # TODO(#529): generalize
         timestamp = util.now().replace(microsecond=0, tzinfo=None).isoformat()
-        unfollow_id = f'{user.web_url()}#unfollow-{timestamp}-{followee_id}'
+        unfollow_id = f'{user.web_url()}#bridgy-fed-unfollow-{timestamp}-{followee_id}'
         unfollow_as1 = {
             'objectType': 'activity',
             'verb': 'stop-following',

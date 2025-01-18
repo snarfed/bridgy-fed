@@ -397,7 +397,7 @@ class User(StringIdModel, metaclass=ProtocolUserMeta):
         """
         now = util.now().isoformat()
         proto_label = proto.LABEL if proto else 'all'
-        delete_id = f'{self.profile_id()}#delete-user-{proto_label}-{now}'
+        delete_id = f'{self.profile_id()}#bridgy-fed-delete-user-{proto_label}-{now}'
         delete = Object(id=delete_id, source_protocol=self.LABEL, our_as1={
             'id': delete_id,
             'objectType': 'activity',

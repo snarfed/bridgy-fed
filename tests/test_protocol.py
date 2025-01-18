@@ -2928,7 +2928,7 @@ class ProtocolReceiveTest(TestCase):
         self.assertFalse(user.is_enabled(Fake))
 
         # ...and delete copy actor
-        id = 'efake:user#delete-user-fake-2022-01-02T03:04:05+00:00'
+        id = 'efake:user#bridgy-fed-delete-user-fake-2022-01-02T03:04:05+00:00'
         delete_efake = {
             'objectType': 'activity',
             'verb': 'delete',

@@ -416,11 +416,11 @@ class IntegrationTests(TestCase):
 <p>Welcome to Bridgy Fed! Your account will soon be bridged to Bluesky at <a class="h-card u-author" rel="me" href="https://bsky.app/profile/alice.inst.ap.brid.gy" title="alice.inst.ap.brid.gy">alice.inst.ap.brid.gy</a>. <a href="https://fed.brid.gy/docs">See the docs</a> and <a href="https://fed.brid.gy/ap/@alice@inst">your user page</a> for more information. To disable this and delete your bridged profile, block this account.</p>"""
         self.assert_equals({
             'type': 'Create',
-            'id': 'https://bsky.brid.gy/r/https://bsky.brid.gy/#welcome-dm-https://inst/alice-2022-01-02T03:04:05+00:00-create',
+            'id': 'https://bsky.brid.gy/r/https://bsky.brid.gy/#bridgy-fed-dm-welcome-https://inst/alice-2022-01-02T03:04:05+00:00-create',
             'actor': 'https://bsky.brid.gy/bsky.brid.gy',
             'object': {
                 'type': 'Note',
-                'id': 'https://bsky.brid.gy/r/https://bsky.brid.gy/#welcome-dm-https://inst/alice-2022-01-02T03:04:05+00:00',
+                'id': 'https://bsky.brid.gy/r/https://bsky.brid.gy/#bridgy-fed-dm-welcome-https://inst/alice-2022-01-02T03:04:05+00:00',
                 'attributedTo': 'https://bsky.brid.gy/bsky.brid.gy',
                 'content': message,
                 'contentMap': {'en': message},
@@ -571,7 +571,7 @@ class IntegrationTests(TestCase):
                     }],
                     'createdAt': '2022-01-02T03:04:05.000Z',
                     'bridgyOriginalText': 'Welcome to Bridgy Fed! Your account will soon be bridged to the fediverse at @alice.com@bsky.brid.gy. <a href="https://fed.brid.gy/docs">See the docs</a> and <a href="https://fed.brid.gy/bsky/alice.com">your user page</a> for more information. To disable this and delete your bridged profile, block this account.',
-                    'bridgyOriginalUrl': 'https://ap.brid.gy/#welcome-dm-did:plc:alice-2022-01-02T03:04:05+00:00',
+                    'bridgyOriginalUrl': 'https://ap.brid.gy/#bridgy-fed-dm-welcome-did:plc:alice-2022-01-02T03:04:05+00:00',
                 },
             }, data=None, headers=headers)
 
@@ -606,7 +606,7 @@ class IntegrationTests(TestCase):
             self.assert_equals({
                 '@context': 'https://www.w3.org/ns/activitystreams',
                 'type': 'Delete',
-                'id': 'https://bsky.brid.gy/convert/ap/at://did:plc:alice/app.bsky.actor.profile/self#delete-user-activitypub-2022-01-02T03:04:05+00:00',
+                'id': 'https://bsky.brid.gy/convert/ap/at://did:plc:alice/app.bsky.actor.profile/self#bridgy-fed-delete-user-activitypub-2022-01-02T03:04:05+00:00',
                 'actor': 'https://bsky.brid.gy/ap/did:plc:alice',
                 'object': 'https://bsky.brid.gy/ap/did:plc:alice',
                 'to': ['https://www.w3.org/ns/activitystreams#Public'],
@@ -709,7 +709,7 @@ class IntegrationTests(TestCase):
         self.assert_equals({
             '@context': 'https://www.w3.org/ns/activitystreams',
             'type': 'Delete',
-            'id': 'http://localhost/r/https://alice.com/#delete-user-all-2022-01-02T03:04:05+00:00',
+            'id': 'http://localhost/r/https://alice.com/#bridgy-fed-delete-user-all-2022-01-02T03:04:05+00:00',
             'actor': 'http://localhost/alice.com',
             'object': 'http://localhost/alice.com',
         }, json_loads(kwargs['data']), ignore=['@context', 'contentMap', 'to', 'cc'])

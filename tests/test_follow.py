@@ -56,7 +56,7 @@ FOLLOW_URL['id'] = f'http://localhost/r/https://alice.com/#follow-2022-01-02T03:
 UNDO_FOLLOW = {
     '@context': 'https://www.w3.org/ns/activitystreams',
     'type': 'Undo',
-    'id': f'http://localhost/r/https://alice.com/#unfollow-2022-01-02T03:04:05-https://ba.r/id',
+    'id': 'http://localhost/r/https://alice.com/#bridgy-fed-unfollow-2022-01-02T03:04:05-https://ba.r/id',
     'actor': 'http://localhost/alice.com',
     'object': copy.deepcopy(FOLLOW_ADDRESS),
 }
@@ -624,7 +624,7 @@ class UnfollowTest(TestCase):
         expected_undo_as1['actor'] = ids.translate_user_id(
             id=expected_undo_as1['actor'], from_=Web, to=Web)
         self.assert_object(
-            'https://alice.com/#unfollow-2022-01-02T03:04:05-https://ba.r/id',
+            'https://alice.com/#bridgy-fed-unfollow-2022-01-02T03:04:05-https://ba.r/id',
             users=[self.user.key],
             notify=[ActivityPub(id='https://ba.r/id').key],
             source_protocol='ui',
@@ -661,11 +661,10 @@ class UnfollowTest(TestCase):
         self.assertEqual(302, resp.status_code)
         self.assertEqual('/web/www.alice.com/following', resp.headers['Location'])
 
-        id = 'http://localhost/r/https://www.alice.com/#unfollow-2022-01-02T03:04:05-https://ba.r/id'
         expected_undo = {
             '@context': 'https://www.w3.org/ns/activitystreams',
             'type': 'Undo',
-            'id': id,
+            'id': 'http://localhost/r/https://www.alice.com/#bridgy-fed-unfollow-2022-01-02T03:04:05-https://ba.r/id',
             'actor': 'http://localhost/www.alice.com',
             'object': {
                 **FOLLOW_ADDRESS,
@@ -689,7 +688,7 @@ class UnfollowTest(TestCase):
             id=expected_undo_as1['actor'], from_=Web, to=Web)
 
         self.assert_object(
-            'https://www.alice.com/#unfollow-2022-01-02T03:04:05-https://ba.r/id',
+            'https://www.alice.com/#bridgy-fed-unfollow-2022-01-02T03:04:05-https://ba.r/id',
             users=[user.key],
             notify=[ActivityPub(id='https://ba.r/id').key],
             source_protocol='ui',
