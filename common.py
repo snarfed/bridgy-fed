@@ -71,6 +71,7 @@ DOMAIN_BLOCKLIST = (
     'fb.com',
     'instagram.com',
     'reddit.com',
+    'rumble.com',  # serves infinite HTTP 307 redirects to GCP
     't.co',
     'tiktok.com',
     'twitter.com',
