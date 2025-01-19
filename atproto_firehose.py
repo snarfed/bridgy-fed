@@ -1,4 +1,8 @@
-"""ATProto firehose client. Enqueues receive tasks for events for bridged users."""
+"""ATProto firehose client. Enqueues receive tasks for events for bridged users.
+
+https://atproto.com/specs/event-stream
+https://atproto.com/specs/sync#firehose
+"""
 from collections import namedtuple
 from datetime import datetime, timedelta
 from io import BytesIO
@@ -220,7 +224,7 @@ def subscribe():
                 continue
 
             if op.repo in atproto_dids and op.action == 'delete':
-                logger.debug(f'Got delete from our ATProto user: {op}')
+                logger.debug(f'Got delete {op.repo} {op.path}')
                 # TODO: also detect deletes of records that *reference* our bridged
                 # users, eg a delete of a follow or like or repost of them.
                 # not easy because we need to getRecord the record to check
