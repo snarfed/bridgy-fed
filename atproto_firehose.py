@@ -224,7 +224,6 @@ def subscribe():
                 continue
 
             if op.repo in atproto_dids and op.action == 'delete':
-                logger.debug(f'Got delete {op.repo} {op.path}')
                 # TODO: also detect deletes of records that *reference* our bridged
                 # users, eg a delete of a follow or like or repost of them.
                 # not easy because we need to getRecord the record to check
@@ -278,7 +277,6 @@ def subscribe():
                     if not is_ours(reply['parent'], also_atproto_users=True):
                         continue
 
-            logger.debug(f'Got {op.action} {op.repo} {op.path}')
             commits.put(op)
 
 
@@ -335,12 +333,13 @@ def handle(limit=None):
                 },
             }
         else:
-            logger.error(f'Unknown action {action} for {op.repo} {op.path}')
+            logger.error(f'Unknown action {op.action} for {op.repo} {op.path}')
             return
 
         if verb and verb not in ATProto.SUPPORTED_AS1_TYPES:
             return
 
+        logger.debug(f'Got {op.action} {op.repo} {op.path}')
         delay = DELETE_TASK_DELAY if op.action == 'delete' else None
         try:
             create_task(queue='receive', id=obj_id, source_protocol=ATProto.LABEL,
