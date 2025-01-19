@@ -1124,12 +1124,6 @@ class Object(StringIdModel):
             obj = Object(id=id)
             obj.new = True
 
-        obj.changed = None
-        for field in 'new', 'changed':
-            val = props.pop(field, None)
-            if val is not None:
-                setattr(obj, field, val)
-
         if set(props.keys()) & set(('as2', 'bsky', 'mf2', 'raw')):
             obj.clear()
 
@@ -1142,9 +1136,12 @@ class Object(StringIdModel):
             k: v for k, v in props.items()
             if v and not isinstance(getattr(Object, k), ndb.ComputedProperty)
         })
-        if not obj.new and obj.changed is None:
+
+        obj.changed = None
+        if not obj.new:
             obj.changed = obj.activity_changed(orig_as1)
 
+        # TODO: check if we changed any properties. if not, don't write.
         obj.put()
         return obj
 
