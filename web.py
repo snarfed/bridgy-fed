@@ -64,6 +64,7 @@ OWNS_WEBFINGER = 'This site serves its own Webfinger, and likely ActivityPub too
 # in addition to common.DOMAIN_BLOCKLIST
 FETCH_BLOCKLIST = (
     'bsky.app',
+    'rumble.com',  # serves infinite HTTP 307 redirects
 )
 
 
