@@ -988,16 +988,12 @@ class ProtocolReceiveTest(TestCase):
                            copies=[Target(protocol='other',
                                           uri='other:o:fa:fake:post')],
                            feed=[self.alice.key, self.bob.key],
+                           users=[self.user.key],
                            )
-        obj = self.assert_object('fake:create',
-                                 our_as1=create_as1,
-                                 type='post',
-                                 users=[self.user.key],
-                                 notify=[],
-                                 )
+        self.assertIsNone(Object.get_by_id('fake:create'))
         self.assertEqual([
-            ('other:alice:target', obj.as1),
-            ('other:bob:target', obj.as1),
+            ('other:alice:target', create_as1),
+            ('other:bob:target', create_as1),
         ], OtherFake.sent)
 
     def test_create_post_object_missing_id(self):
@@ -1036,47 +1032,14 @@ class ProtocolReceiveTest(TestCase):
             type='note',
             copies=[Target(protocol='other', uri='other:o:fa:fake:post')],
             feed=[self.alice.key, self.bob.key],
+            users=[Fake(id='fake:user').key],
         )
 
-        obj = self.assert_object('fake:post#bridgy-fed-create',
-                                 our_as1={
-                                     'objectType': 'activity',
-                                     'verb': 'post',
-                                     'id': 'fake:post#bridgy-fed-create',
-                                     'actor': 'fake:user',
-                                     'object': post_as1,
-                                     'published': '2022-01-02T03:04:05+00:00',
-                                 },
-                                 type='post',
-                                 users=[Fake(id='fake:user').key],
-                                 notify=[],
-                                 )
-        self.assertEqual([
-            ('other:alice:target', obj.as1),
-            ('other:bob:target', obj.as1),
-        ], OtherFake.sent)
-
-    def test_create_post_bare_object_no_existing_create(self):
-        self.make_followers()
-
-        post_as1 = {
-            'id': 'fake:post',
-            'objectType': 'note',
-            'author': 'fake:user',
-        }
-        self.store_object(id='fake:post', our_as1=post_as1, source_protocol='fake')
-
-        self.assertEqual(('OK', 202), Fake.receive_as1(post_as1))
-
-        obj = self.assert_object('fake:post#bridgy-fed-create',
-                                 type='post',
-                                 users=[self.user.key],
-                                 ignore=['our_as1'],
-                                 )
-        self.assertEqual([
-            ('other:alice:target', obj.as1),
-            ('other:bob:target', obj.as1),
-        ], OtherFake.sent)
+        self.assertIsNone(Object.get_by_id('fake:post#bridgy-fed-create'))
+        self.assertEqual('other:alice:target', OtherFake.sent[0][0])
+        self.assertEqual('other:bob:target', OtherFake.sent[1][0])
+        self.assertEqual('fake:post#bridgy-fed-create', OtherFake.sent[0][1]['id'])
+        self.assertEqual('fake:post#bridgy-fed-create', OtherFake.sent[1][1]['id'])
 
     @patch.object(ATProto, 'send', return_value=True)
     def test_post_by_user_enabled_atproto_adds_pds_target(self, mock_send):
@@ -1602,18 +1565,14 @@ class ProtocolReceiveTest(TestCase):
                            our_as1=post_as1,
                            type='note',
                            feed=[self.alice.key, self.bob.key],
+                           users=[self.user.key],
                            copies=[Target(uri='other:post', protocol='other')],
                            )
-        obj = self.assert_object('fake:update',
-                                 our_as1=update_as1,
-                                 type='update',
-                                 users=[self.user.key],
-                                 notify=[],
-                                 )
+        self.assertIsNone(Object.get_by_id('fake:update'))
 
         self.assertEqual([
-            ('other:alice:target', obj.as1),
-            ('other:bob:target', obj.as1),
+            ('other:alice:target', update_as1),
+            ('other:bob:target', update_as1),
         ], OtherFake.sent)
 
     def test_update_post_bare_object(self):
@@ -1625,35 +1584,28 @@ class ProtocolReceiveTest(TestCase):
             'author': 'fake:user',
             'content': 'first',
         }
-        self.store_object(id='fake:post', our_as1=post_as1, source_protocol='fake')
-        existing = Object.get_by_id('fake:post')
+        copy = Target(uri='other:post', protocol='other')
+        self.store_object(id='fake:post', our_as1=post_as1,
+                          source_protocol='fake',
+                          copies=[copy])
 
         post_as1['content'] = 'second'
-        _, code = Fake.receive_as1(post_as1)
-        self.assertEqual(204, code)
+        _, code = Fake.receive_as1(post_as1, new=False, changed=True)
+        self.assertEqual(202, code)
 
-        post_as1['updated'] = '2022-01-02T03:04:05+00:00'
         self.assert_object('fake:post',
-                           our_as1=post_as1,
+                           our_as1={
+                               **post_as1,
+                               'updated': '2022-01-02T03:04:05+00:00',
+                           },
                            type='note',
-                           feed=[],
+                           feed=[self.bob.key, self.alice.key],
+                           users=[self.user.key],
+                           copies=[copy],
                            )
 
-        update_id = 'fake:post#bridgy-fed-update-2022-01-02T03:04:05+00:00'
-        obj = self.assert_object(update_id,
-                                 our_as1={
-                                     'objectType': 'activity',
-                                     'verb': 'update',
-                                     'id': update_id,
-                                     'actor': 'fake:user',
-                                     'object': post_as1,
-                                 },
-                                 delivered=[],
-                                 type='update',
-                                 users=[Fake(id='fake:user').key],
-                                 notify=[],
-                                 )
-
+        self.assertIsNone(Object.get_by_id(
+            'fake:post#bridgy-fed-update-2022-01-02T03:04:05+00:00'))
         self.assertEqual([], Fake.sent)
 
     def test_create_reply(self):
@@ -1684,17 +1636,12 @@ class ProtocolReceiveTest(TestCase):
             'fake:reply',
             our_as1=reply_as1,
             type='note',
+            users=[self.user.key],
             copies=[Target(protocol='other', uri='other:o:fa:fake:reply')],
         )
-        obj = self.assert_object('fake:create',
-                                 our_as1=create_as1,
-                                 type='post',
-                                 users=[self.user.key],
-                                 notify=[eve.key],
-                                 )
-
+        self.assertIsNone(Object.get_by_id('fake:create'))
         # not a self reply, shouldn't deliver to follower frank
-        self.assertEqual([('other:post:target', obj.as1)], OtherFake.sent)
+        self.assertEqual([('other:post:target', create_as1)], OtherFake.sent)
 
     def test_create_reply_bare_object(self):
         eve = self.make_user('other:eve', cls=OtherFake, obj_id='other:eve')
@@ -1716,6 +1663,7 @@ class ProtocolReceiveTest(TestCase):
             'fake:reply',
             our_as1=reply_as1,
             type='note',
+            users=[self.user.key],
             copies=[Target(protocol='other', uri='other:o:fa:fake:reply')],
         )
 
@@ -1727,14 +1675,8 @@ class ProtocolReceiveTest(TestCase):
             'object': reply_as1,
             'published': '2022-01-02T03:04:05+00:00',
         }
-        obj = self.assert_object('fake:reply#bridgy-fed-create',
-                                 our_as1=create_as1,
-                                 type='post',
-                                 users=[self.user.key],
-                                 notify=[eve.key],
-                                 )
-
-        self.assertEqual([('other:post:target', obj.as1)], OtherFake.sent)
+        self.assertIsNone(Object.get_by_id('fake:reply#bridgy-fed-create'))
+        self.assertEqual([('other:post:target', create_as1)], OtherFake.sent)
 
     def test_create_reply_to_self_delivers_to_followers(self):
         eve = self.make_user('other:eve', cls=OtherFake, obj_id='other:eve')
@@ -1760,14 +1702,12 @@ class ProtocolReceiveTest(TestCase):
             our_as1=reply_as1,
             type='note',
             feed=[eve.key],
+            users=[self.user.key],
             copies=[Target(protocol='other', uri='other:o:fa:fake:reply')],
         )
 
-        obj = Object.get_by_id(id='fake:reply#bridgy-fed-create')
+        self.assertIsNone(Object.get_by_id('fake:reply#bridgy-fed-create'))
         self.assertEqual([], Fake.sent)
-        self.assertEqual([('other:eve:target', obj.as1),
-                          ('other:post:target', obj.as1),
-                          ], OtherFake.sent)
 
     def test_create_reply_to_other_protocol(self):
         eve = self.make_user('fake:eve', cls=Fake, obj_id='fake:eve')
@@ -1795,7 +1735,7 @@ class ProtocolReceiveTest(TestCase):
 
         copy = Target(protocol='other', uri='other:o:fa:fake:reply')
         reply = self.assert_object('fake:reply', our_as1=reply_as1, type='note',
-                                   copies=[copy])
+                                   users=[self.user.key], copies=[copy])
         self.assertEqual([('other:post:target', {
             'objectType': 'activity',
             'verb': 'post',
@@ -1859,6 +1799,7 @@ class ProtocolReceiveTest(TestCase):
                                    type='note',
                                    source_protocol='efake',
                                    our_as1=reply_as1,
+                                   users=[user.key],
                                    copies=[copy],
                                    feed=[eve.key])
         expected_create = {
@@ -1901,14 +1842,10 @@ class ProtocolReceiveTest(TestCase):
         self.assert_object('fake:reply',
                            our_as1=reply_as1,
                            type='note',
+                           users=[self.user.key],
                            )
-        obj = self.assert_object('fake:update',
-                                 our_as1=update_as1,
-                                 type='update',
-                                 users=[self.user.key],
-                                 notify=[eve.key],
-                                 )
-        self.assertEqual([('other:post:target', obj.as1)], OtherFake.sent)
+        self.assertIsNone(Object.get_by_id('fake:update'))
+        self.assertEqual([('other:post:target', update_as1)], OtherFake.sent)
 
     def test_repost(self):
         self.make_followers()
@@ -2034,16 +1971,11 @@ class ProtocolReceiveTest(TestCase):
                            copies=[Target(protocol='other', uri='other:post')],
                            )
 
-        obj = self.assert_object('fake:delete',
-                                 our_as1=delete_as1,
-                                 type='delete',
-                                 users=[self.user.key],
-                                 notify=[],
-                                 )
-        self.assertEqual([
-            ('other:alice:target', obj.as1),
-            ('other:bob:target', obj.as1),
-        ], OtherFake.sent)
+        self.assertIsNone(Object.get_by_id('fake:delete'))
+        self.assertEqual('other:alice:target', OtherFake.sent[0][0])
+        self.assertEqual('other:bob:target', OtherFake.sent[1][0])
+        self.assertEqual('fake:delete', OtherFake.sent[0][1]['id'])
+        self.assertEqual('fake:delete', OtherFake.sent[1][1]['id'])
 
     def test_delete_doesnt_fetch_author(self):
         self.user.obj_key.delete()
@@ -2058,11 +1990,7 @@ class ProtocolReceiveTest(TestCase):
         _, status = Fake.receive_as1(delete_as1, authed_as='fake:user')
         self.assertEqual(204, status)
 
-        obj = self.assert_object('fake:delete',
-                                 our_as1=delete_as1,
-                                 type='delete',
-                                 users=[self.user.key],
-                                 )
+        self.assertIsNone(Object.get_by_id('fake:delete'))
         self.assertEqual([], Fake.fetched)
 
     def test_delete_no_followers_no_stored_object(self):
@@ -2077,12 +2005,7 @@ class ProtocolReceiveTest(TestCase):
         self.assertEqual(204, code)
 
         self.assertIsNone(Object.get_by_id('fake:post'))
-        self.assert_object('fake:delete',
-                           our_as1=delete_as1,
-                           type='delete',
-                           users=[self.user.key],
-                           notify=[],
-                           )
+        self.assertIsNone(Object.get_by_id('fake:delete'))
         self.assertEqual([], Fake.sent)
 
     def test_delete_not_authed_as_object_owner(self):
@@ -2168,13 +2091,9 @@ class ProtocolReceiveTest(TestCase):
                            our_as1=post_as1,
                            type='note',
                            feed=[self.alice.key, self.bob.key],
+                           users=[self.user.key],
                            )
-        obj = self.assert_object('fake:create',
-                                 our_as1=create_as1,
-                                 type='post',
-                                 users=[self.user.key],
-                                 )
-
+        self.assertIsNone(Object.get_by_id('fake:create'))
         self.assertEqual(['fail', 'sent'], sent)
 
     def test_update_profile(self):
@@ -2182,6 +2101,7 @@ class ProtocolReceiveTest(TestCase):
             id='fake:profile:user',
             copies = [Target(protocol='other', uri='other:profile:fake:user')])
         self.user.put()
+
         self.make_followers()
 
         id = 'fake:user#update-2022-01-02T03:04:05+00:00'
@@ -2204,19 +2124,14 @@ class ProtocolReceiveTest(TestCase):
         self.assert_object('fake:profile:user',
                            our_as1=update_as1['object'],
                            copies=self.user.obj.copies,
-                           feed=[],
+                           users=[self.user.key],
                            )
 
         # update activity
-        update_obj = self.assert_object(
-            id,
-            users=[self.user.key, Fake(id='fake:profile:user').key],
-            our_as1=update_as1,
-            type='update',
-        )
+        self.assertIsNone(Object.get_by_id(id))
         self.assertEqual([
-            ('other:alice:target', update_obj.as1),
-            ('other:bob:target', update_obj.as1),
+            ('other:alice:target', update_as1),
+            ('other:bob:target', update_as1),
         ], OtherFake.sent)
 
     def test_update_profile_bare_object(self):
@@ -2241,27 +2156,18 @@ class ProtocolReceiveTest(TestCase):
         profile['updated'] = '2022-01-02T03:04:05+00:00'
         self.assert_object('other:alice',
                            our_as1=profile,
+                           users=[self.alice.key],
                            copies=[Target(protocol='fake',
                                           uri='fake:profile:other:alice')],
                            source_protocol='other',
                            )
-
-        # update activity
-        id = 'other:alice#bridgy-fed-update-2022-01-02T03:04:05+00:00'
-        update_obj = self.assert_object(
-            id,
-            users=[self.alice.key],
-            our_as1={
-                'objectType': 'activity',
-                'verb': 'update',
-                'id': id,
-                'actor': profile,
-                'object': profile,
-            },
-            type='update',
-            source_protocol='other',
-        )
-        self.assertEqual([('fake:shared:target', update_obj.as1)], Fake.sent)
+        self.assertEqual([('fake:shared:target', {
+            'objectType': 'activity',
+            'verb': 'update',
+            'id': 'other:alice#bridgy-fed-update-2022-01-02T03:04:05+00:00',
+            'actor': profile,
+            'object': profile,
+        })], Fake.sent)
 
     def test_update_profile_use_instead(self):
         user_instead = self.make_user('fake:user-instead', cls=Fake,
@@ -2276,26 +2182,16 @@ class ProtocolReceiveTest(TestCase):
         Fake.receive(obj)
 
         # profile object
-        self.assert_object('fake:profile:user', our_as1=profile,
-                           source_protocol='fake')
-
-        # update activity
-        id = 'fake:profile:user#bridgy-fed-update-2022-01-02T03:04:05+00:00'
-        profile['updated'] = '2022-01-02T03:04:05+00:00'
-        self.assert_object(
-            id,
-            # TODO: fix this
-            users=[Fake(id='fake:profile:user-instead').key],
-            our_as1={
-                'objectType': 'activity',
-                'verb': 'update',
-                'id': id,
-                'actor': profile,
-                'object': profile,
-            },
-            type='update',
-            source_protocol='fake',
-        )
+        self.assert_object('fake:profile:user',
+                           our_as1={
+                               **profile,
+                               'updated': '2022-01-02T03:04:05+00:00',
+                           },
+                           source_protocol='fake',
+                           users=[self.user.key],
+                           )
+        self.assertIsNone(Object.get_by_id(
+            'fake:profile:user#bridgy-fed-update-2022-01-02T03:04:05+00:00'))
 
     def test_mention_object(self, *mocks):
         self.alice.obj.our_as1 = {'id': 'other:alice', 'objectType': 'person'}
@@ -2321,28 +2217,16 @@ class ProtocolReceiveTest(TestCase):
         self.assert_object('fake:mention',
                            our_as1=mention_as1,
                            type='note',
+                           users=[self.user.key],
                            copies=[Target(protocol='other',
                                           uri='other:o:fa:fake:mention')],
                            )
 
-        obj = self.assert_object('fake:mention#bridgy-fed-create',
-                                 our_as1={
-                                     'objectType': 'activity',
-                                     'verb': 'post',
-                                     'id': 'fake:mention#bridgy-fed-create',
-                                     'actor': 'fake:user',
-                                     'object': mention_as1,
-                                     'published': '2022-01-02T03:04:05+00:00',
-                                 },
-                                 type='post',
-                                 users=[self.user.key],
-                                 notify=[self.alice.key, self.bob.key],
-                                 )
-
-        self.assertEqual([
-            ('other:alice:target', obj.as1),
-            ('other:bob:target', obj.as1),
-        ], OtherFake.sent)
+        self.assertIsNone(Object.get_by_id('fake:post#bridgy-fed-create'))
+        self.assertEqual('other:alice:target', OtherFake.sent[0][0])
+        self.assertEqual('other:bob:target', OtherFake.sent[1][0])
+        self.assertEqual('fake:mention#bridgy-fed-create', OtherFake.sent[0][1]['id'])
+        self.assertEqual('fake:mention#bridgy-fed-create', OtherFake.sent[1][1]['id'])
 
     def test_follow(self):
         self._test_follow()
@@ -2810,10 +2694,9 @@ class ProtocolReceiveTest(TestCase):
         }
 
         # no matching copies
-        obj = Object(id='fake:reply', our_as1=reply, source_protocol='fake')
-        _, code = Fake.receive(obj, authed_as='fake:user')
+        _, code = Fake.receive_as1(reply)
         self.assertEqual(204, code)
-        self.assert_equals(reply, obj.our_as1)
+        self.assert_equals(reply, Object.get_by_id('fake:reply').our_as1)
 
         # matching copies
         self.alice.copies=[Target(uri='fake:alice', protocol='fake')]
@@ -2831,8 +2714,7 @@ class ProtocolReceiveTest(TestCase):
         models.get_original_object_key.cache_clear()
         memcache.pickle_memcache.clear()
 
-        obj.new = True
-        self.assertEqual(('OK', 202), Fake.receive(obj, authed_as='fake:user'))
+        self.assertEqual(('OK', 202), Fake.receive_as1(reply, new=True))
         self.assertEqual({
             'id': 'fake:reply',
             'objectType': 'note',
@@ -2848,7 +2730,7 @@ class ProtocolReceiveTest(TestCase):
                 'objectType': 'mention',
                 'url': 'other:bob',
             }],
-        }, obj.key.get().our_as1)
+        }, Object.get_by_id('fake:reply').our_as1)
 
     def test_follow_and_block_protocol_user_sets_enabled_protocols(self):
         # bot user
@@ -2948,9 +2830,7 @@ class ProtocolReceiveTest(TestCase):
             'object': 'efake:user',
         }
         self.assertEqual([('fake:shared:target', delete_efake)], Fake.sent)
-        self.assert_object(id,
-                           our_as1=delete_efake,
-                           source_protocol='efake')
+        self.assertIsNone(Object.get_by_id(id))
 
     def test_follow_bot_user_refreshes_profile(self):
         # bot user
@@ -3178,7 +3058,9 @@ class ProtocolReceiveTest(TestCase):
 
         self.assert_object('https://lim.it/alice',
                            source_protocol='activitypub',
-                           our_as1=actor)
+                           our_as1=actor,
+                           users=[ActivityPub(id='https://lim.it/alice').key],
+                           )
 
     @patch('protocol.LIMITED_DOMAINS', ['lim.it'])
     @patch.object(ATProto, 'send')
@@ -3248,12 +3130,7 @@ class ProtocolReceiveTest(TestCase):
 
         obj = Object.get_by_id('fake:post')
         self.assertEqual(note, obj.our_as1)
-
-        obj = Object.get_by_id('fake:post#bridgy-fed-create')
-        self.assertEqual({
-            **create,
-            'published': '2022-01-02T03:04:05+00:00',
-        }, obj.our_as1)
+        self.assertIsNone(Object.get_by_id('fake:post#bridgy-fed-create'))
 
     @patch.object(Fake, 'receive', side_effect=requests.ConnectionError('foo'))
     def test_receive_task_handler_connection_error(self, _):
@@ -3479,6 +3356,7 @@ class ProtocolReceiveTest(TestCase):
         self.assert_object('fake:reply',
                            our_as1=reply_as1,
                            type='note',
+                           users=[self.user.key],
                            )
 
         create_as1 = {

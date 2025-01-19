@@ -203,9 +203,10 @@ class Fake(User, protocol.Protocol):
     @classmethod
     def receive_as1(cls, our_as1, **kwargs):
         assert isinstance(our_as1, dict)
-        return cls.receive(Object(id=our_as1['id'], our_as1=our_as1,
-                                  source_protocol=cls.LABEL),
-                           **kwargs)
+        obj = Object(id=our_as1['id'], our_as1=our_as1, source_protocol=cls.LABEL)
+        obj.new = kwargs.pop('new', True)
+        obj.changed = kwargs.pop('changed', None)
+        return cls.receive(obj, **kwargs)
 
 
 class OtherFake(Fake):

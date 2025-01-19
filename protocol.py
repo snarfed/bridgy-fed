@@ -911,7 +911,7 @@ class Protocol:
         # does this protocol support this activity/object type?
         from_cls.check_supported(obj)
 
-        # load actor user, check authorization
+        # check authorization
         # https://www.w3.org/wiki/ActivityPub/Primer/Authentication_Authorization
         actor = as1.get_owner(obj.as1)
         if not actor:
@@ -948,37 +948,32 @@ class Protocol:
                              or (from_user.status and from_user.status != 'opt-out')):
             error(f'Actor {actor} is opted out or blocked', status=204)
 
-        # write Object to datastore
-        orig_props = {
-            **obj.to_dict(),
-            # structured properties
-            'copies': obj.copies,
-        }
-        obj = Object.get_or_create(id, new=obj.new, changed=obj.changed,
-                                   authed_as=actor, **orig_props)
-
         # if this is an object, ie not an activity, wrap it in a create or update
         obj = from_cls.handle_bare_object(obj, authed_as=authed_as)
         obj.add('users', from_user.key)
 
         inner_obj_as1 = as1.get_object(obj.as1)
         inner_obj_id = inner_obj_as1.get('id')
-        if obj.type in as1.CRUD_VERBS | set(('like', 'share')):
+        if obj.type in as1.CRUD_VERBS | as1.VERBS_WITH_OBJECT:
             if not inner_obj_id:
                 error(f'{obj.type} object has no id!')
 
-        if obj.type in as1.CRUD_VERBS:
-            if inner_owner := as1.get_owner(inner_obj_as1):
-                if inner_owner_key := from_cls.key_for(inner_owner):
-                    obj.add('users', inner_owner_key)
-
+        # write Object to datastore
         obj.source_protocol = from_cls.LABEL
-        obj.put()
+        if obj.type in STORE_AS1_TYPES:
+            # this is a new activity, it shouldn't have any copies yet, but check to
+            # be sure, since Object.to_dict flattens StructuredProperties so they
+            # won't work when passed to the Object constructor as kwargs
+            assert not obj.copies
+            obj = Object.get_or_create(id, authed_as=actor, **obj.to_dict())
 
         # store inner object
+        # TODO: unify with big obj.type conditional below. would have to merge
+        # this with the DM handling block lower down.
         if obj.type in ('post', 'update') and inner_obj_as1.keys() > set(['id']):
             Object.get_or_create(inner_obj_id, our_as1=inner_obj_as1,
-                                 source_protocol=from_cls.LABEL, authed_as=actor)
+                                 source_protocol=from_cls.LABEL, authed_as=actor,
+                                 users=[from_user.key])
 
         actor = as1.get_object(obj.as1, 'actor')
         actor_id = actor.get('id')
@@ -1017,6 +1012,7 @@ class Protocol:
                 logger.info(f"Ignoring, we don't have {inner_obj_id} stored")
                 return 'OK', 204
 
+            # TODO: just delete altogether!
             logger.info(f'Marking Object {inner_obj_id} deleted')
             inner_obj.deleted = True
             inner_obj.put()
@@ -1108,6 +1104,7 @@ class Protocol:
         logger.debug('Got follow. Loading users, storing Follow(s), sending accept(s)')
 
         # Prepare follower (from) users' data
+        # TODO: remove all of this and just use from_user
         from_as1 = as1.get_object(obj.as1, 'actor')
         from_id = from_as1.get('id')
         if not from_id:
@@ -1249,6 +1246,15 @@ class Protocol:
         obj_actor = as1.get_owner(obj.as1)
         now = util.now().isoformat()
 
+        # occasionally we override the object, eg if this is a profile object
+        # coming in via a user with use_instead set
+        obj_as1 = obj.as1
+        if obj_id := obj.key.id():
+            if obj_as1_id := obj_as1.get('id'):
+                if obj_id != obj_as1_id:
+                    logger.info(f'Overriding AS1 object id {obj_as1_id} with Object id {obj_id}')
+                    obj_as1['id'] = obj_id
+
         # this is a raw post; wrap it in a create or update activity
         if obj.changed or is_actor:
             if obj.changed:
@@ -1268,35 +1274,29 @@ class Protocol:
                     # https://socialhub.activitypub.rocks/t/what-could-be-the-reason-that-my-update-activity-does-not-work/2893/4
                     # https://github.com/mastodon/documentation/pull/1150
                     'updated': now,
-                    **obj.as1,
+                    **obj_as1,
                 },
             }
             logger.debug(f'  AS1: {json_dumps(update_as1, indent=2)}')
             return Object(id=id, our_as1=update_as1,
                           source_protocol=obj.source_protocol)
 
-        create_id = f'{obj.key.id()}#bridgy-fed-create'
-        create = cls.load(create_id, remote=False)
-        if (obj.new or not create
+        if (obj.new
                 # HACK: force query param here is specific to webmention
                 or 'force' in request.form):
-            if create:
-                logger.info(f'Existing create {create.key.id()}')
-            else:
-                logger.info(f'No existing create activity')
+            create_id = f'{obj.key.id()}#bridgy-fed-create'
             create_as1 = {
                 'objectType': 'activity',
                 'verb': 'post',
                 'id': create_id,
                 'actor': obj_actor,
-                'object': obj.as1,
+                'object': obj_as1,
                 'published': now,
             }
             logger.info(f'Wrapping in post')
             logger.debug(f'  AS1: {json_dumps(create_as1, indent=2)}')
-            return Object.get_or_create(create_id, our_as1=create_as1,
-                                        source_protocol=obj.source_protocol,
-                                        authed_as=authed_as)
+            return Object(id=create_id, our_as1=create_as1,
+                          source_protocol=obj.source_protocol)
 
         error(f'{obj.key.id()} is unchanged, nothing to do', status=204)
 
@@ -1317,10 +1317,9 @@ class Protocol:
             logger.info(f'Only delivering to {to_proto.LABEL}')
 
         # find delivery targets. maps Target to Object or None
+        # NOTE: this has a side effect of setting inner_obj.notify,
+        # inner_obj.feed, etc!
         targets = from_cls.targets(obj, from_user=from_user)
-
-        # TODO: this would be clearer if it was at the end of receive(), which
-        # that *should* be equivalent, but oddly tests fail if it's moved there
         if not targets:
             return r'No targets, nothing to do ¯\_(ツ)_/¯', 204
 
@@ -1398,7 +1397,7 @@ class Protocol:
                             logger.info(f'Allowing {label}, original post {id} was bridged there')
                             break
                 else:
-                    logger.info(f"Skipping {label}, original posts {original_ids} weren't bridged there")
+                    logger.info(f"Skipping {label}, original objects {original_ids} weren't bridged there")
                     continue
 
             util.add(to_protocols, proto)

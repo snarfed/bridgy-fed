@@ -977,12 +977,6 @@ def webmention_task():
         if code not in ('410', '404') or user.is_web_url(source):
             error(f'{e} ; {e.response.text if e.response else ""}', status=502)
 
-        create_id = f'{source}#bridgy-fed-create'
-        logger.info(f'Interpreting as Delete. Looking for {create_id}')
-        create = Object.get_by_id(create_id)
-        if not create:
-            error(f"Bridgy Fed hasn't published {source}", status=304)
-
         id = f'{source}#bridgy-fed-delete'
         obj = Object(id=id, our_as1={
             'id': id,

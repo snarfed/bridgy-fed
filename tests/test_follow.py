@@ -619,19 +619,6 @@ class UnfollowTest(TestCase):
 
         follower = Follower.query().get()
         self.assertEqual('inactive', follower.status)
-
-        expected_undo_as1 = as2.to_as1(unwrap(expected_undo))
-        expected_undo_as1['actor'] = ids.translate_user_id(
-            id=expected_undo_as1['actor'], from_=Web, to=Web)
-        self.assert_object(
-            'https://alice.com/#bridgy-fed-unfollow-2022-01-02T03:04:05-https://ba.r/id',
-            users=[self.user.key],
-            notify=[ActivityPub(id='https://ba.r/id').key],
-            source_protocol='ui',
-            labels=['user', 'activity'],
-            our_as1=expected_undo_as1,
-        )
-
         self.assertEqual('https://alice.com', session['indieauthed-me'])
 
     def test_callback_user_use_instead(self, mock_get, mock_post):
@@ -686,15 +673,6 @@ class UnfollowTest(TestCase):
         expected_undo_as1 = as2.to_as1(unwrap(expected_undo))
         expected_undo_as1['actor'] = ids.translate_user_id(
             id=expected_undo_as1['actor'], from_=Web, to=Web)
-
-        self.assert_object(
-            'https://www.alice.com/#bridgy-fed-unfollow-2022-01-02T03:04:05-https://ba.r/id',
-            users=[user.key],
-            notify=[ActivityPub(id='https://ba.r/id').key],
-            source_protocol='ui',
-            labels=['user', 'activity'],
-            our_as1=expected_undo_as1,
-        )
 
     def test_callback_composite_url(self, mock_get, mock_post):
         follower = self.follower.to.get().obj

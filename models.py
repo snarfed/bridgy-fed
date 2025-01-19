@@ -405,7 +405,6 @@ class User(StringIdModel, metaclass=ProtocolUserMeta):
             'actor': self.key.id(),
             'object': self.key.id(),
         })
-        delete.put()
         self.deliver(delete, from_user=self, to_proto=proto)
 
     @classmethod
@@ -907,6 +906,7 @@ class Object(StringIdModel):
     atom = ndb.TextProperty() # Atom XML
     rss = ndb.TextProperty()  # RSS XML
 
+    # TODO: remove and actually delete Objects instead!
     deleted = ndb.BooleanProperty()
 
     # Copies of this object elsewhere, eg at:// URIs for ATProto records and
@@ -1135,7 +1135,8 @@ class Object(StringIdModel):
 
         # merge repeated fields
         for field in 'feed', 'copies', 'labels', 'notify', 'users':
-            getattr(obj, field).extend(props.pop(field, []))
+            for val in props.pop(field, []):
+                obj.add(field, val)
 
         obj.populate(**{
             k: v for k, v in props.items()

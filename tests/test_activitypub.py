@@ -622,9 +622,10 @@ class ActivityPubTest(TestCase):
         resp = self.post('/ap/sharedInbox', json=note)
         self.assertEqual(204, resp.status_code)
 
-        expected_id = 'https://mas.to/users/swentel#Create-http://mas.to/note/id-2022-01-02T03:04:05+00:00'
-        self.assert_object(expected_id, source_protocol='activitypub',
-                           as2=note, users=[user.key], ignore=['our_as1'])
+        self.assert_object('http://mas.to/note/id',
+                           source_protocol='activitypub',
+                           users=[user.key],
+                           ignore=['our_as1'])
 
     def test_inbox_bad_id(self, *_):
         user = self.make_user(ACTOR['id'], cls=ActivityPub, obj_as2=ACTOR)
@@ -686,25 +687,9 @@ class ActivityPubTest(TestCase):
         self.assert_object('http://mas.to/reply/id',
                            source_protocol='activitypub',
                            our_as1=as2.to_as1(REPLY_OBJECT),
-                           type='comment')
-
-        # auto-generated post activity
-        expected_as1 = as2.to_as1({
-            **REPLY,
-            'id': 'http://mas.to/reply/id#bridgy-fed-create',
-            'published': '2022-01-02T03:04:05+00:00',
-            'actor': ACTOR,
-        })
-        expected_as1['object']['author'] = {'id': ACTOR['id']}
-
-        self.assert_object(
-            'http://mas.to/reply/id#bridgy-fed-create',
-            source_protocol='activitypub',
-            our_as1=expected_as1,
-            type='post',
-            notify=[self.user.key],
-            users=[self.swentel_key],
-        )
+                           type='comment',
+                           users=[self.swentel_key],
+                           )
 
     def test_inbox_reply_object_wrapped(self, mock_head, mock_get, mock_post):
         self._test_inbox_reply(REPLY_OBJECT_WRAPPED, mock_head, mock_get, mock_post)
@@ -712,25 +697,10 @@ class ActivityPubTest(TestCase):
         self.assert_object('http://mas.to/reply/id',
                            source_protocol='activitypub',
                            our_as1=as2.to_as1(REPLY_OBJECT),
-                           type='comment')
-
-        # auto-generated post activity
-        expected_as1 = as2.to_as1({
-            **REPLY,
-            'id': 'http://mas.to/reply/id#bridgy-fed-create',
-            'published': '2022-01-02T03:04:05+00:00',
-            'actor': ACTOR,
-        })
-        expected_as1['object']['author'] = {'id': ACTOR['id']}
-
-        self.assert_object(
-            'http://mas.to/reply/id#bridgy-fed-create',
-            source_protocol='activitypub',
-            our_as1=expected_as1,
-            type='post',
-            notify=[self.user.key],
-            users=[self.swentel_key],
-        )
+                           type='comment',
+                           notify=[self.user.key],
+                           users=[self.swentel_key],
+                           )
 
     def test_inbox_reply_create_activity(self, mock_head, mock_get, mock_post):
         create = {
@@ -742,17 +712,10 @@ class ActivityPubTest(TestCase):
         self.assert_object('http://mas.to/reply/id',
                            source_protocol='activitypub',
                            our_as1=as2.to_as1(REPLY_OBJECT),
-                           type='comment')
-        # sent activity
-        self.assert_object(
-            'http://mas.to/reply/as2',
-            source_protocol='activitypub',
-            as2=create,
-            type='post',
-            notify=[self.user.key],
-            users=[self.swentel_key],
-            ignore=['our_as1'],
-        )
+                           type='comment',
+                           notify=[self.user.key],
+                           users=[self.swentel_key],
+                           )
 
     def _test_inbox_reply(self, reply, mock_head, mock_get, mock_post):
         mock_head.return_value = requests_response(url='https://user.com/post')
@@ -884,19 +847,8 @@ class ActivityPubTest(TestCase):
             our_as1=expected_obj,
             type='note',
             copies=[Target(protocol='fake', uri='fake:o:ap:http://mas.to/note/id')],
+            users=[ndb.Key(ActivityPub, ACTOR['id'])],
             feed=[self.user.key, baz.key])
-
-        expected_create = as2.to_as1(common.unwrap(NOTE))
-        expected_create.update({
-            'actor': as2.to_as1(ACTOR),
-            'object': expected_obj,
-        })
-        self.assert_object('http://mas.to/note/as2',
-                           source_protocol='activitypub',
-                           our_as1=expected_create,
-                           users=[ndb.Key(ActivityPub, ACTOR['id'])],
-                           type='post',
-                           )
 
     def test_repost_of_indieweb(self, mock_head, mock_get, mock_post):
         self.make_user(ACTOR['id'], cls=ActivityPub, obj_as2=ACTOR)
@@ -1694,11 +1646,6 @@ class ActivityPubTest(TestCase):
         resp = self.post('/ap/sharedInbox', json=delete)
         self.assertEqual(204, resp.status_code)
         self.assertTrue(obj.key.get().deleted)
-        self.assert_object(delete['id'],
-                           as2=delete,
-                           type='delete',
-                           source_protocol='activitypub',
-                           users=[ActivityPub(id='https://mas.to/users/swentel').key])
 
     def test_update_note(self, *mocks):
         Object(id='https://mas.to/note', as2={}).put()
@@ -1723,18 +1670,8 @@ class ActivityPubTest(TestCase):
         self.assert_object('https://mas.to/note',
                            type='note',
                            our_as1=note_as1,
+                           users=[self.swentel_key],
                            source_protocol='activitypub')
-
-        update_as1 = {
-            **as2.to_as1(UPDATE_NOTE),
-            'object': note_as1,
-            'actor': as2.to_as1(ACTOR),
-        }
-        self.assert_object(UPDATE_NOTE['id'],
-                           source_protocol='activitypub',
-                           type='update',
-                           our_as1=update_as1,
-                           users=[self.swentel_key])
 
     def test_inbox_webmention_discovery_connection_fails(self, mock_head,
                                                          mock_get, mock_post):

@@ -765,16 +765,9 @@ class WebTest(TestCase):
         self.assert_object('https://user.com/reply',
                            source_protocol='web',
                            type='comment',
+                           users=[self.user.key],
                            labels=[],
                            ignore=['mf2', 'our_as1'],
-                           )
-        self.assert_object('https://user.com/reply#bridgy-fed-create',
-                           source_protocol='web',
-                           our_as1=CREATE_REPLY_AS1,
-                           type='post',
-                           labels=['activity', 'user'],
-                           ignore=['our_as1'],
-                           users=[self.user.key],
                            )
 
     def test_target_fetch_fails(self, mock_get, mock_post):
@@ -857,18 +850,12 @@ class WebTest(TestCase):
 
         self.assert_deliveries(mock_post, ['https://mas.to/inbox'], AS2_CREATE)
 
+        author = ndb.Key(ActivityPub, 'https://mas.to/author')
         self.assert_object('https://user.com/reply',
                            source_protocol='web',
                            our_as1=REPLY_AS1,
-                           type='comment',
-                           )
-        author = ndb.Key(ActivityPub, 'https://mas.to/author')
-        self.assert_object('https://user.com/reply#bridgy-fed-create',
                            users=[self.user.key],
-                           notify=[author],
-                           source_protocol='web',
-                           our_as1=CREATE_REPLY_AS1,
-                           type='post',
+                           type='comment',
                            )
 
     def test_update_reply(self, mock_get, mock_post):
@@ -1261,12 +1248,13 @@ class WebTest(TestCase):
         })
         self.assertEqual(202, got.status_code)
 
-        self.assert_object('https://user.com/post#bridgy-fed-create',
-                           users=[self.user.key],
+        self.assert_object('https://user.com/post',
                            source_protocol='web',
-                           our_as1=CREATE_AS1,
-                           type='post',
+                           our_as1=NOTE_AS1,
+                           type='note',
+                           users=[self.user.key],
                            labels=['activity', 'user'],
+                           ignore=['feed'],
                            )
 
     def test_create_post_use_instead_strip_www(self, mock_get, mock_post):
@@ -1328,12 +1316,7 @@ class WebTest(TestCase):
                            feed=self.followers,
                            type='note',
                            source_protocol='web',
-                           )
-        self.assert_object('https://user.com/post#bridgy-fed-create',
                            users=[self.user.key],
-                           source_protocol='web',
-                           our_as1=CREATE_AS1,
-                           type='post',
                            )
 
     def test_update_post(self, mock_get, mock_post):
@@ -1357,24 +1340,17 @@ class WebTest(TestCase):
         ))
         inboxes = ('https://inbox', 'https://public/inbox', 'https://shared/inbox')
         self.assert_deliveries(mock_post, inboxes, UPDATE_AS2)
-
-        update_as1 = {
-            'objectType': 'activity',
-            'verb': 'update',
-            'id': 'https://user.com/post#bridgy-fed-update-2022-01-02T03:04:05+00:00',
-            'actor': ACTOR_AS1_UNWRAPPED,
-            'object': {
+        self.assert_object(
+            'https://user.com/post',
+            source_protocol='web',
+            our_as1={
                 **NOTE_AS1,
                 'updated': '2022-01-02T03:04:05+00:00',
             },
-        }
-        self.assert_object(
-            f'https://user.com/post#bridgy-fed-update-2022-01-02T03:04:05+00:00',
+            type='note',
             users=[self.user.key],
-            source_protocol='web',
-            our_as1=update_as1,
-            type='update',
-            labels=['user', 'activity'],
+            labels=['user'],
+            ignore=['feed'],
         )
 
     def test_create_with_image(self, mock_get, mock_post):
@@ -1629,9 +1605,7 @@ class WebTest(TestCase):
         mock_get.return_value = requests_response('"unused"', status=410,
                                                   url='http://final/delete')
         mock_post.return_value = requests_response('unused', status=200)
-
         Object(id='https://user.com/post', mf2=NOTE_MF2, source_protocol='web').put()
-        Object(id='https://user.com/post#bridgy-fed-create', our_as1=CREATE_AS1).put()
 
         self.make_followers()
 
@@ -1643,40 +1617,17 @@ class WebTest(TestCase):
 
         inboxes = ('https://inbox', 'https://public/inbox', 'https://shared/inbox')
         self.assert_deliveries(mock_post, inboxes, DELETE_AS2)
-
-        self.assert_object('https://user.com/post#bridgy-fed-delete',
-                           users=[self.user.key],
-                           source_protocol='web',
-                           our_as1={
-                               **DELETE_AS1,
-                               'actor': 'user.com',
-                           },
-                           type='delete',
-                           labels=['user', 'activity'],
-                           )
+        self.assertTrue(Object.get_by_id('https://user.com/post').deleted)
 
     def test_delete_no_object(self, mock_get, mock_post):
-        mock_get.side_effect = [
-            requests_response('"unused"', status=410, url='http://final/delete'),
-        ]
-        got = self.post('/queue/webmention', data={
-            'source': 'https://user.com/post',
-            'target': 'https://fed.brid.gy/',
-        })
-        self.assertEqual(304, got.status_code, got.text)
-        mock_post.assert_not_called()
-
-    def test_delete_incomplete_response(self, mock_get, mock_post):
         mock_get.return_value = requests_response('"unused"', status=410,
                                                   url='http://final/delete')
 
-        Object(id='https://user.com/post#bridgy-fed-create', mf2=NOTE_MF2)
-
         got = self.post('/queue/webmention', data={
             'source': 'https://user.com/post',
             'target': 'https://fed.brid.gy/',
         })
-        self.assertEqual(304, got.status_code, got.text)
+        self.assertEqual(204, got.status_code, got.text)
         mock_post.assert_not_called()
 
     def test_webmention_home_page_404_doesnt_delete_user(self, mock_get, mock_post):
@@ -1825,22 +1776,7 @@ class WebTest(TestCase):
                            source_protocol='web',
                            our_as1=actor,
                            type='person',
-                           )
-
-        # update activity
-        expected_as1 = {
-            'objectType': 'activity',
-            'verb': 'update',
-            'id': id,
-            'actor': 'https://user.com/',
-            'object': actor,
-        }
-        self.assert_object(id,
                            users=[self.user.key],
-                           source_protocol='web',
-                           our_as1=expected_as1,
-                           type='update',
-                           labels=['user', 'activity'],
                            )
 
     def test_update_profile_homepage_no_mf2_or_metaformats(self, mock_get, mock_post):

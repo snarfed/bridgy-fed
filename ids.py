@@ -122,6 +122,10 @@ def translate_user_id(*, id, from_, to):
                 return None
 
     if from_ == to:
+        # XXX TODO
+        if from_.LABEL in ('fake', 'efake', 'other'):
+            # profile id => user id
+            id = id.replace(':profile:', ':')
         return id
 
     # follow use_instead
@@ -191,6 +195,8 @@ def normalize_user_id(*, id, proto):
     return normalized
 
 
+# TODO: do we need a profile_id_to_user_id? right now we kind of half-ass it
+# in normalize_user_id -> translate_user_id for web and fake etc
 def profile_id(*, id, proto):
     """Returns the profile object id for a given user id.
 

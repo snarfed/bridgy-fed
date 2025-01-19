@@ -216,16 +216,12 @@ class UnfollowCallback(indieauth.Callback):
         # don't include the followee User who's being unfollowed in the users
         # property, since we don't want to notify or show them. (standard social
         # network etiquette.)
-        follow_obj = Object(id=unfollow_id, users=[user.key], labels=['user'],
-                            source_protocol='ui', our_as1=unfollow_as1)
-        resp = Web.receive(follow_obj, authed_as=domain, internal=True)
+        unfollow_obj = Object(id=unfollow_id, users=[user.key], labels=['user'],
+                              source_protocol='ui', our_as1=unfollow_as1)
+        resp = Web.receive(unfollow_obj, authed_as=domain, internal=True)
 
         follower.status = 'inactive'
         follower.put()
-
-        follow_obj = follow_obj.key.get()
-        follow_obj.source_protocol = 'ui'
-        follow_obj.put()
 
         link = common.pretty_link(as1.get_url(followee.obj.as1) or followee_id)
         flash(f'Unfollowed {link}.')

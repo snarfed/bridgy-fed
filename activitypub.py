@@ -529,7 +529,6 @@ class ActivityPub(User, Protocol):
                 key_actor = Object.get_or_create(
                     id=key_id, authed_as=key_id, source_protocol='activitypub',
                     deleted=True)
-                key_actor.put()
             else:
                 raise
 
