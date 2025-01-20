@@ -122,10 +122,6 @@ def translate_user_id(*, id, from_, to):
                 return None
 
     if from_ == to:
-        # XXX TODO
-        if from_.LABEL in ('fake', 'efake', 'other'):
-            # profile id => user id
-            id = id.replace(':profile:', ':')
         return id
 
     # follow use_instead

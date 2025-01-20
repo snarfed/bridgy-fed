@@ -855,6 +855,7 @@ class WebTest(TestCase):
                            source_protocol='web',
                            our_as1=REPLY_AS1,
                            users=[self.user.key],
+                           notify=[author],
                            type='comment',
                            )
 

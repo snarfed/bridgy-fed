@@ -970,10 +970,11 @@ class Protocol:
         # store inner object
         # TODO: unify with big obj.type conditional below. would have to merge
         # this with the DM handling block lower down.
+        crud_obj = None
         if obj.type in ('post', 'update') and inner_obj_as1.keys() > set(['id']):
-            Object.get_or_create(inner_obj_id, our_as1=inner_obj_as1,
-                                 source_protocol=from_cls.LABEL, authed_as=actor,
-                                 users=[from_user.key])
+            crud_obj = Object.get_or_create(inner_obj_id, our_as1=inner_obj_as1,
+                                            source_protocol=from_cls.LABEL,
+                                            authed_as=actor, users=[from_user.key])
 
         actor = as1.get_object(obj.as1, 'actor')
         actor_id = actor.get('id')
@@ -1070,7 +1071,7 @@ class Protocol:
             from_cls.handle_follow(obj)
 
         # deliver to targets
-        resp = from_cls.deliver(obj, from_user=from_user)
+        resp = from_cls.deliver(obj, from_user=from_user, crud_obj=crud_obj)
 
         # if this is a user, deactivate its followers/followings
         # https://github.com/snarfed/bridgy-fed/issues/1304
@@ -1301,12 +1302,15 @@ class Protocol:
         error(f'{obj.key.id()} is unchanged, nothing to do', status=204)
 
     @classmethod
-    def deliver(from_cls, obj, from_user, to_proto=None):
+    def deliver(from_cls, obj, from_user, crud_obj=None, to_proto=None):
         """Delivers an activity to its external recipients.
 
         Args:
           obj (models.Object): activity to deliver
           from_user (models.User): user (actor) this activity is from
+          crud_obj (models.Object): if this is a create, update, or delete/undo
+            activity, the inner object that's being written, otherwise None.
+            (This object's ``notify`` and ``feed`` properties may be updated.)
           to_proto (protocol.Protocol): optional; if provided, only deliver to
             targets on this protocol
 
@@ -1317,24 +1321,28 @@ class Protocol:
             logger.info(f'Only delivering to {to_proto.LABEL}')
 
         # find delivery targets. maps Target to Object or None
-        # NOTE: this has a side effect of setting inner_obj.notify,
-        # inner_obj.feed, etc!
-        targets = from_cls.targets(obj, from_user=from_user)
+        #
+        # ...then write the relevant object, since targets() has a side effect of
+        # setting the notify and feed properties
+        targets = from_cls.targets(obj, from_user=from_user, crud_obj=crud_obj)
         if not targets:
             return r'No targets, nothing to do ¯\_(ツ)_/¯', 204
 
-        if obj.type in STORE_AS1_TYPES:
+        # store object that targets() updated
+        # TODO: only if it's dirty
+        if crud_obj:
+            crud_obj.put()
+        elif obj.type in STORE_AS1_TYPES:
             obj.put()
-            obj_params = {'obj_id': obj.key.id()}
-        else:
-            assert obj.type in DONT_STORE_AS1_TYPES
-            obj_params = obj.to_request()
+
+        obj_params = ({'obj_id': obj.key.id()} if obj.type in STORE_AS1_TYPES
+                      else obj.to_request())
 
         # sort targets so order is deterministic for tests, debugging, etc
         sorted_targets = sorted(targets.items(), key=lambda t: t[0].uri)
-        logger.info(f'Delivering to: {[t for t, _ in sorted_targets]}')
 
         # enqueue send task for each targets
+        logger.info(f'Delivering to: {[t for t, _ in sorted_targets]}')
         user = from_user.key.urlsafe()
         for i, (target, orig_obj) in enumerate(sorted_targets):
             if to_proto and target.protocol != to_proto.LABEL:
@@ -1346,7 +1354,7 @@ class Protocol:
         return 'OK', 202
 
     @classmethod
-    def targets(from_cls, obj, from_user, internal=False):
+    def targets(from_cls, obj, from_user, crud_obj=None, internal=False):
         """Collects the targets to send a :class:`models.Object` to.
 
         Targets are both objects - original posts, events, etc - and actors.
@@ -1354,6 +1362,9 @@ class Protocol:
         Args:
           obj (models.Object)
           from_user (User)
+          crud_obj (models.Object): if this is a create, update, or delete/undo
+            activity, the inner object that's being written, otherwise None.
+            (This object's ``notify`` and ``feed`` properties may be updated.)
           internal (bool): whether this is a recursive internal call
 
         Returns:
@@ -1361,6 +1372,9 @@ class Protocol:
           :class:`models.Object`, if any, otherwise None
         """
         logger.debug('Finding recipients and their targets')
+
+        # we should only have crud_obj iff this is a create or update
+        assert (crud_obj is not None) == (obj.type in ('post', 'update')), obj.type
 
         target_uris = sorted(set(as1.targets(obj.as1)))
         logger.info(f'Raw targets: {target_uris}')
@@ -1464,7 +1478,7 @@ Hi! You <a href="{inner_obj_as1.get('url') or inner_obj_id}">recently replied</a
 
             if target_author_key:
                 logger.debug(f'Recipient is {target_author_key}')
-                obj.add('notify', target_author_key)
+                (crud_obj or obj).add('notify', target_author_key)
 
         if obj.type == 'undo':
             logger.debug('Object is an undo; adding targets for inner object')
@@ -1485,7 +1499,7 @@ Hi! You <a href="{inner_obj_as1.get('url') or inner_obj_id}">recently replied</a
             return targets
 
         followers = []
-        if (obj.type in ('post', 'update', 'delete', 'share')
+        if (obj.type in ('post', 'update', 'delete', 'share', 'undo')
                 and (not is_reply or is_self_reply)):
             logger.info(f'Delivering to followers of {user_key}')
             followers = [
@@ -1508,24 +1522,14 @@ Hi! You <a href="{inner_obj_as1.get('url') or inner_obj_id}">recently replied</a
                 logger.info(f'skipping, {from_user.key.id()} is on a limited domain and has no followers')
                 return {}
 
-            # which object should we add to followers' feeds, if any
-            feed_obj = None
-            if not internal:
-                if obj.type == 'share':
-                    feed_obj = obj
-                elif obj.type not in ('delete', 'undo', 'stop-following'):
-                    inner = as1.get_object(obj.as1)
-                    # don't add profile updates to feeds
-                    if not (obj.type == 'update'
-                            and inner.get('objectType') in as1.ACTOR_TYPES):
-                        inner_id = inner.get('id')
-                        if inner_id:
-                            feed_obj = from_cls.load(inner_id, raise_=False)
+            # add to followers' feeds, if any
+            if not internal and obj.type in ('post', 'update', 'share'):
+                feed_obj = crud_obj or obj
+                if feed_obj.type not in as1.ACTOR_TYPES:
+                    feed_obj.feed = [u.key for u in users]
 
+            # collect targets for followers
             for user in users:
-                if feed_obj:
-                    feed_obj.add('feed', user.key)
-
                 # TODO: should we pass remote=False through here to Protocol.load?
                 target = user.target_for(user.obj, shared=True) if user.obj else None
                 if not target:
@@ -1540,9 +1544,6 @@ Hi! You <a href="{inner_obj_as1.get('url') or inner_obj_id}">recently replied</a
 
                 targets[Target(protocol=user.LABEL, uri=target)] = \
                     Object.get_by_id(inner_obj_id) if obj.type == 'share' else None
-
-            if feed_obj:
-                feed_obj.put()
 
         # deliver to enabled HAS_COPIES protocols proactively
         # TODO: abstract for other protocols

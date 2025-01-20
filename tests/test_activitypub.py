@@ -689,6 +689,7 @@ class ActivityPubTest(TestCase):
                            our_as1=as2.to_as1(REPLY_OBJECT),
                            type='comment',
                            users=[self.swentel_key],
+                           notify=[self.user.key],
                            )
 
     def test_inbox_reply_object_wrapped(self, mock_head, mock_get, mock_post):

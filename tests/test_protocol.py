@@ -500,7 +500,7 @@ class ProtocolTest(TestCase):
         }
         Fake.fetchable['fake:share'] = share
 
-        obj = Object(our_as1={
+        obj = Object(id='fake:undo', our_as1={
             'objectType': 'activity',
             'verb': 'undo',
             'actor': 'fake:user',
@@ -515,21 +515,23 @@ class ProtocolTest(TestCase):
             'objectType': 'note',
         }
 
-        obj = Object(our_as1={
-            'objectType': 'activity',
-            'verb': 'post',
-            'object': {
-                'id': 'other:reply',
-                'objectType': 'note',
-                'inReplyTo': {
-                    'id': 'fake:post',
-                    'url': 'http://foo',
-                },
+        reply = Object(our_as1={
+            'id': 'other:reply',
+            'objectType': 'note',
+            'inReplyTo': {
+                'id': 'fake:post',
+                'url': 'http://foo',
             },
         })
+        create = Object(our_as1={
+            'objectType': 'activity',
+            'verb': 'post',
+            'object': reply.as1,
+        })
 
-        self.assertEqual({Target(protocol='fake', uri='fake:post:target')},
-                         OtherFake.targets(obj, from_user=self.user).keys())
+        self.assertEqual(
+            {Target(protocol='fake', uri='fake:post:target')},
+            OtherFake.targets(create, crud_obj=reply, from_user=self.user).keys())
 
     def test_targets_link_tag_has_no_orig_obj(self):
         # https://github.com/snarfed/bridgy-fed/issues/1237
@@ -537,17 +539,19 @@ class ProtocolTest(TestCase):
             'objectType': 'note',
         }
 
-        obj = Object(our_as1={
+        note = Object(our_as1={
+            'objectType': 'note',
+            'id': 'fake:post',
+            'tags': [{'url': 'fake:linked-post'}],
+        })
+        create = Object(our_as1={
             'objectType': 'activity',
             'verb': 'post',
-            'object': {
-                'objectType': 'note',
-                'id': 'fake:post',
-                'tags': [{'url': 'fake:linked-post'}],
-            },
+            'object': note.as1,
         })
-        self.assertEqual({Target(protocol='fake', uri='fake:linked-post:target'): None},
-                         OtherFake.targets(obj, from_user=self.user))
+        self.assertEqual(
+            {Target(protocol='fake', uri='fake:linked-post:target'): None},
+            OtherFake.targets(create, crud_obj=note, from_user=self.user))
 
     @patch.object(Fake, 'fetch')
     def test_targets_continues_on_fetch_error(self, mock_fetch):
@@ -564,22 +568,24 @@ class ProtocolTest(TestCase):
 
         mock_fetch.side_effect = fetch
 
-        obj = Object(source_protocol='other', our_as1={
+        reply = Object(source_protocol='other', our_as1={
+            'id': 'other:reply',
+            'objectType': 'note',
+            'author': 'other:user',
+            'inReplyTo': [
+                'fake:post-1',
+                'fake:post-2',
+            ],
+        })
+        create = Object(source_protocol='other', our_as1={
             'objectType': 'activity',
             'verb': 'post',
-            'object': {
-                'id': 'other:reply',
-                'objectType': 'note',
-                'author': 'other:user',
-                'inReplyTo': [
-                    'fake:post-1',
-                    'fake:post-2',
-                ],
-            },
+            'object': reply.as1,
         })
 
-        self.assertEqual({Target(protocol='fake', uri='fake:post-2:target')},
-                         OtherFake.targets(obj, from_user=self.user).keys())
+        self.assertEqual(
+            {Target(protocol='fake', uri='fake:post-2:target')},
+            OtherFake.targets(create, crud_obj=reply, from_user=self.user).keys())
 
     def test_translate_ids_follow(self):
         self.assert_equals({
@@ -1318,7 +1324,7 @@ class ProtocolReceiveTest(TestCase):
         self.bob.obj.our_as1 = {'foo': 'bar'}
         self.bob.obj.put()
 
-        undo = {
+        obj = Object(id='other:undo', our_as1={
             'objectType': 'activity',
             'verb': 'undo',
             'id': 'other:undo',
@@ -1330,10 +1336,10 @@ class ProtocolReceiveTest(TestCase):
                 'actor': 'fake:user',
                 'object': 'other:bob',
             },
-        }
+        })
         self.assertEqual(
             [Target(uri='other:bob:target', protocol='other')],
-            list(Fake.targets(Object(our_as1=undo), from_user=self.user).keys()))
+            list(Fake.targets(obj, from_user=self.user).keys()))
 
     def test_targets_undo_block_id(self):
         self.bob.obj.our_as1 = {'foo': 'bar'}
@@ -1347,16 +1353,16 @@ class ProtocolReceiveTest(TestCase):
             'object': 'other:bob',
         })
 
-        undo = {
+        obj = Object(id='fake:undo', our_as1={
             'objectType': 'activity',
             'verb': 'undo',
             'id': 'fake:undo',
             'actor': 'fake:user',
             'object': 'fake:block',
-        }
+        })
         self.assertEqual(
             [Target(uri='other:bob:target', protocol='other')],
-            list(Fake.targets(Object(our_as1=undo), from_user=self.user).keys()))
+            list(Fake.targets(obj, from_user=self.user).keys()))
 
     def test_targets_undo_share_composite(self):
         self.make_followers()
@@ -1375,7 +1381,7 @@ class ProtocolReceiveTest(TestCase):
         }
         Fake.fetchable['fake:share'] = share
 
-        obj = Object(our_as1={
+        obj = Object(id='fake:undo', our_as1={
             'objectType': 'activity',
             'verb': 'undo',
             'actor': 'fake:user',
@@ -1452,18 +1458,19 @@ class ProtocolReceiveTest(TestCase):
         eve = self.make_user('did:plc:eve', cls=ATProto, obj_key=obj.key)
         Follower.get_or_create(from_=eve, to=self.user)
 
-        obj = Object(id='fake:post', our_as1={
+        note = Object(our_as1={
+            'id': 'fake:post',
+            'objectType': 'note',
+            'author': 'fake:user',
+        })
+        create = Object(id='fake:post', our_as1={
             'objectType': 'activity',
             'verb': 'post',
-            'object': {
-                'id': 'fake:post',
-                'objectType': 'note',
-                'author': 'fake:user',
-            },
+            'object': note.as1,
         })
         self.assertEqual({
             Target(uri='https://atproto.brid.gy', protocol='atproto'): None,
-        }, Fake.targets(obj, from_user=self.user))
+        }, Fake.targets(create, crud_obj=note, from_user=self.user))
 
     def test_create_post_dont_deliver_to_follower_if_protocol_isnt_enabled(self):
         # user who hasn't enabled either Fake or OtherFake, so we shouldn't
@@ -1638,6 +1645,7 @@ class ProtocolReceiveTest(TestCase):
             type='note',
             users=[self.user.key],
             copies=[Target(protocol='other', uri='other:o:fa:fake:reply')],
+            notify=[eve.key],
         )
         self.assertIsNone(Object.get_by_id('fake:create'))
         # not a self reply, shouldn't deliver to follower frank
@@ -1664,6 +1672,7 @@ class ProtocolReceiveTest(TestCase):
             our_as1=reply_as1,
             type='note',
             users=[self.user.key],
+            notify=[eve.key],
             copies=[Target(protocol='other', uri='other:o:fa:fake:reply')],
         )
 
@@ -1843,6 +1852,7 @@ class ProtocolReceiveTest(TestCase):
                            our_as1=reply_as1,
                            type='note',
                            users=[self.user.key],
+                           notify=[eve.key],
                            )
         self.assertIsNone(Object.get_by_id('fake:update'))
         self.assertEqual([('other:post:target', update_as1)], OtherFake.sent)
@@ -2218,6 +2228,7 @@ class ProtocolReceiveTest(TestCase):
                            our_as1=mention_as1,
                            type='note',
                            users=[self.user.key],
+                           notify=[self.alice.key, self.bob.key],
                            copies=[Target(protocol='other',
                                           uri='other:o:fa:fake:mention')],
                            )
@@ -3357,6 +3368,7 @@ class ProtocolReceiveTest(TestCase):
                            our_as1=reply_as1,
                            type='note',
                            users=[self.user.key],
+                           notify=[eve.key],
                            )
 
         create_as1 = {
