@@ -1046,12 +1046,15 @@ class Protocol:
             if actor_obj and actor_obj.as1:
                 obj.our_as1 = {**obj.as1, 'actor': actor_obj.as1}
 
-        # fetch object if necessary so we can render it in feeds
-        if (obj.type == 'share'
+        # fetch object if necessary
+        if (obj.type in ('post', 'update', 'share')
                 and inner_obj_as1.keys() == set(['id'])
                 and from_cls.owns_id(inner_obj_id)):
-            logger.debug('Fetching object so we can render it in feeds')
-            inner_obj = from_cls.load(inner_obj_id, raise_=False)
+            logger.debug('Fetching inner object')
+            inner_obj = from_cls.load(inner_obj_id, raise_=False,
+                                      remote=(obj.type in ('post', 'update')))
+            if obj.type in ('post', 'update'):
+                crud_obj = inner_obj
             if inner_obj and inner_obj.as1:
                 obj.our_as1 = {
                     **obj.as1,
@@ -1060,6 +1063,8 @@ class Protocol:
                         **inner_obj.as1,
                     }
                 }
+            elif obj.type in ('post', 'update'):
+                error("Need object {inner_obj_id} but couldn't fetch, giving up")
 
         if obj.type == 'follow':
             if proto := Protocol.for_bridgy_subdomain(inner_obj_id):

@@ -1615,6 +1615,49 @@ class ProtocolReceiveTest(TestCase):
             'fake:post#bridgy-fed-update-2022-01-02T03:04:05+00:00'))
         self.assertEqual([], Fake.sent)
 
+    def test_update_post_fetch_object(self):
+        post = {
+            'id': 'fake:post',
+            'objectType': 'note',
+            'author': 'fake:user',
+        }
+        Fake.fetchable['fake:post'] = post
+
+        self.store_object(id='fake:post', source_protocol='fake')
+
+        update = {
+            'id': 'fake:update',
+            'objectType': 'activity',
+            'verb': 'update',
+            'actor': 'fake:user',
+            'object': 'fake:post',
+        }
+        _, status = Fake.receive_as1(update)
+        self.assertEqual(204, status)
+
+        self.assertEqual(['fake:post'], Fake.fetched)
+        self.assert_object('fake:post',
+                           our_as1=post,
+                           type='note',
+                           )
+        self.assertIsNone(Object.get_by_id('fake:update'))
+
+    def test_update_post_fetch_object_fails(self):
+        self.store_object(id='fake:post', source_protocol='fake')
+
+        update = {
+            'id': 'fake:update',
+            'objectType': 'activity',
+            'verb': 'update',
+            'actor': 'fake:user',
+            'object': 'fake:post',
+        }
+        with self.assertRaises(ErrorButDoNotRetryTask):
+            Fake.receive_as1(update)
+
+        self.assertEqual(['fake:post'], Fake.fetched)
+        self.assertIsNone(Object.get_by_id('fake:update'))
+
     def test_create_reply(self):
         eve = self.make_user('other:eve', cls=OtherFake, obj_id='other:eve')
         frank = self.make_user('other:frank', cls=OtherFake, obj_id='other:frank')
