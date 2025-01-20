@@ -8,6 +8,7 @@ import re
 from threading import Lock
 from urllib.parse import urljoin, urlparse
 
+from arroba.util import parse_at_uri
 from cachetools import cached, LRUCache
 from flask import request
 from google.cloud.ndb.query import FilterNode, Query
@@ -176,6 +177,9 @@ def normalize_user_id(*, id, proto):
       * did:plc:123 => did:plc:123
       * https://bsky.app/profile/did:plc:123 => did:plc:123
 
+    Note that :func:`profile_id` is a narrower inverse of this; it converts
+    user ids to profile ids.
+
     Args:
       id (str)
       proto (protocol.Protocol)
@@ -187,12 +191,14 @@ def normalize_user_id(*, id, proto):
 
     if proto.LABEL == 'web':
         normalized = util.domain_from_link(normalized)
+    elif proto.LABEL == 'atproto' and id.startswith('at://'):
+        normalized, _, _ = parse_at_uri(id)
+    elif proto.LABEL in ('fake', 'efake', 'other'):
+        normalized = normalized.replace(':profile:', ':')
 
     return normalized
 
 
-# TODO: do we need a profile_id_to_user_id? right now we kind of half-ass it
-# in normalize_user_id -> translate_user_id for web and fake etc
 def profile_id(*, id, proto):
     """Returns the profile object id for a given user id.
 
@@ -201,6 +207,9 @@ def profile_id(*, id, proto):
     * Web: user.com => https://user.com/
     * ActivityPub: https://inst.ance/alice => https://inst.ance/alice
     * ATProto: did:plc:123 => at://did:plc:123/app.bsky.actor.profile/self
+
+    Note that :func:`normalize_user_id` does the inverse of this, ie converts
+    profile ids to user ids.
 
     Args:
       id (str)
