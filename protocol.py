@@ -961,11 +961,7 @@ class Protocol:
         # write Object to datastore
         obj.source_protocol = from_cls.LABEL
         if obj.type in STORE_AS1_TYPES:
-            # this is a new activity, it shouldn't have any copies yet, but check to
-            # be sure, since Object.to_dict flattens StructuredProperties so they
-            # won't work when passed to the Object constructor as kwargs
-            assert not obj.copies
-            obj = Object.get_or_create(id, authed_as=actor, **obj.to_dict())
+            obj.put()
 
         # store inner object
         # TODO: unify with big obj.type conditional below. would have to merge
