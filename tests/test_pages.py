@@ -223,11 +223,11 @@ class PagesTest(TestCase):
         self.assert_equals(404, got.status_code)
 
     def test_update_profile(self):
-        self.make_user('fake:user', cls=Fake)
+        user = self.make_user('fake:user', cls=Fake)
 
         actor = {
             'objectType': 'person',
-            'id': 'fake:user',
+            'id': 'fake:profile:user',
             'displayName': 'Ms User',
         }
         Fake.fetchable = {'fake:profile:user': actor}
@@ -241,7 +241,8 @@ class PagesTest(TestCase):
         self.assertEqual(['fake:profile:user'], Fake.fetched)
 
         actor['updated'] = '2022-01-02T03:04:05+00:00'
-        self.assert_object('fake:user', source_protocol='fake', our_as1=actor)
+        self.assert_object('fake:profile:user', source_protocol='fake', our_as1=actor,
+                           users=[user.key])
 
     @patch.object(Fake, 'fetch', side_effect=ConnectionError('foo'))
     def test_update_profile_load_fails(self, _):
