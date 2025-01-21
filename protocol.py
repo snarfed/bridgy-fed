@@ -1324,16 +1324,15 @@ class Protocol:
         # find delivery targets. maps Target to Object or None
         #
         # ...then write the relevant object, since targets() has a side effect of
-        # setting the notify and feed properties
+        # setting the notify and feed properties (and dirty attribute)
         targets = from_cls.targets(obj, from_user=from_user, crud_obj=crud_obj)
         if not targets:
             return r'No targets, nothing to do ¯\_(ツ)_/¯', 204
 
         # store object that targets() updated
-        # TODO: only if it's dirty
-        if crud_obj:
+        if crud_obj and crud_obj.dirty:
             crud_obj.put()
-        elif obj.type in STORE_AS1_TYPES:
+        elif obj.type in STORE_AS1_TYPES and obj.dirty:
             obj.put()
 
         obj_params = ({'obj_id': obj.key.id()} if obj.type in STORE_AS1_TYPES
@@ -1376,6 +1375,8 @@ class Protocol:
 
         # we should only have crud_obj iff this is a create or update
         assert (crud_obj is not None) == (obj.type in ('post', 'update')), obj.type
+        write_obj = crud_obj or obj
+        write_obj.dirty = False
 
         target_uris = sorted(set(as1.targets(obj.as1)))
         logger.info(f'Raw targets: {target_uris}')
@@ -1479,7 +1480,8 @@ Hi! You <a href="{inner_obj_as1.get('url') or inner_obj_id}">recently replied</a
 
             if target_author_key:
                 logger.debug(f'Recipient is {target_author_key}')
-                (crud_obj or obj).add('notify', target_author_key)
+                if write_obj.add('notify', target_author_key):
+                    write_obj.dirty = True
 
         if obj.type == 'undo':
             logger.debug('Object is an undo; adding targets for inner object')
@@ -1525,9 +1527,10 @@ Hi! You <a href="{inner_obj_as1.get('url') or inner_obj_id}">recently replied</a
 
             # add to followers' feeds, if any
             if not internal and obj.type in ('post', 'update', 'share'):
-                feed_obj = crud_obj or obj
-                if feed_obj.type not in as1.ACTOR_TYPES:
-                    feed_obj.feed = [u.key for u in users]
+                if write_obj.type not in as1.ACTOR_TYPES:
+                    write_obj.feed = [u.key for u in users]
+                    if write_obj.feed:
+                        write_obj.dirty = True
 
             # collect targets for followers
             for user in users:
