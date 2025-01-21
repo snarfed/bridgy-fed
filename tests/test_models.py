@@ -600,7 +600,7 @@ class ObjectTest(TestCase):
                                    source_protocol='fake', notify=[user])
         check([obj], Object.query().fetch())
         self.assertTrue(obj.new)
-        self.assertIsNone(obj.changed)
+        self.assertFalse(obj.changed)
         self.assertEqual('fake:foo', obj.key.id())
         self.assertEqual({'content': 'foo', 'id': 'fake:foo'}, obj.as1)
         self.assertEqual('fake', obj.source_protocol)
@@ -634,11 +634,11 @@ class ObjectTest(TestCase):
 
         obj5 = Object.get_or_create('bar')
         self.assertTrue(obj5.new)
-        self.assertIsNone(obj5.changed)
+        self.assertFalse(obj5.changed)
 
         obj6 = Object.get_or_create('baz', notify=[ndb.Key(Web, 'other')])
         self.assertTrue(obj6.new)
-        self.assertIsNone(obj6.changed)
+        self.assertFalse(obj6.changed)
 
         self.assertEqual(3, Object.query().count())
 

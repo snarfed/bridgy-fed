@@ -1116,33 +1116,37 @@ class Object(StringIdModel):
             the existing object
         """
         obj = cls.get_by_id(id, authed_as=authed_as)
-        if obj:
-            obj.new = False
-            if orig_as1 := obj.as1:
-                assert authed_as
-        else:
-            obj = Object(id=id)
+
+        if not obj:
+            obj = Object(id=id, **props)
             obj.new = True
+            obj.changed = False
+            obj.put()
+            return obj
 
-        if set(props.keys()) & set(('as2', 'bsky', 'mf2', 'raw')):
-            obj.clear()
+        if orig_as1 := obj.as1:
+            # get_by_id() checks authorization if authed_as is set. make sure
+            # it's always set for existing objects.
+            assert authed_as
 
-        # merge repeated fields
-        for field in 'feed', 'copies', 'labels', 'notify', 'users':
-            for val in props.pop(field, []):
-                obj.add(field, val)
+        dirty = False
+        for prop, val in props.items():
+            assert not isinstance(getattr(Object, prop), ndb.ComputedProperty)
+            if prop in ('feed', 'copies', 'labels', 'notify', 'users'):
+                # merge repeated fields
+                for elem in val:
+                    if obj.add(prop, elem):
+                        dirty = True
+            elif val and val != getattr(obj, prop):
+                setattr(obj, prop, val)
+                if prop in ('as2', 'bsky', 'mf2', 'raw'):
+                    obj.clear()  # just unsets our_as1
+                dirty = True
 
-        obj.populate(**{
-            k: v for k, v in props.items()
-            if v and not isinstance(getattr(Object, k), ndb.ComputedProperty)
-        })
-
-        obj.changed = None
-        if not obj.new:
-            obj.changed = obj.activity_changed(orig_as1)
-
-        # TODO: check if we changed any properties. if not, don't write.
-        obj.put()
+        obj.new = False
+        obj.changed = obj.activity_changed(orig_as1)
+        if dirty:
+            obj.put()
         return obj
 
     def add(self, prop, val):
@@ -1151,6 +1155,9 @@ class Object(StringIdModel):
         Args:
           prop (str)
           val
+
+        Returns:
+          True if val was added, ie it wasn't already in prop, False otherwise
         """
         with self.lock:
             added = util.add(getattr(self, prop), val)
@@ -1158,6 +1165,8 @@ class Object(StringIdModel):
         if prop == 'copies' and added:
             memcache.pickle_memcache.set(memcache.memoize_key(
                 get_original_object_key, val.uri), self.key)
+
+        return added
 
     def remove(self, prop, val):
         """Removes a value from a multiply-valued property. Uses ``self.lock``.
