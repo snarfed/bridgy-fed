@@ -71,8 +71,7 @@ PAGE_SIZE = 20
 
 # auto delete most old objects via the Object.expire property
 # https://cloud.google.com/datastore/docs/ttl
-DONT_EXPIRE_OBJECT_TYPES = \
-    as1.ACTOR_TYPES | as1.POST_TYPES | set(('event', 'question'))
+DONT_EXPIRE_OBJECT_TYPES = as1.ACTOR_TYPES
 OBJECT_EXPIRE_AGE = timedelta(days=90)
 
 GET_ORIGINALS_CACHE_EXPIRATION = timedelta(days=1)
@@ -1001,14 +1000,14 @@ class Object(StringIdModel):
         self.lock = Lock()
 
     def _expire(self):
-        """Maybe automatically delete this Object after 90d using a TTL policy.
+        """Automatically delete most Objects after a while using a TTL policy.
 
         https://cloud.google.com/datastore/docs/ttl
 
         They recommend not indexing TTL properties:
         https://cloud.google.com/datastore/docs/ttl#ttl_properties_and_indexes
         """
-        if self.type not in DONT_EXPIRE_OBJECT_TYPES:
+        if self.deleted or self.type not in DONT_EXPIRE_OBJECT_TYPES:
             return (self.updated or util.now()) + OBJECT_EXPIRE_AGE
 
     expire = ndb.ComputedProperty(_expire, indexed=False)

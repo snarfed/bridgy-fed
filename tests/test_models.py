@@ -806,6 +806,15 @@ class ObjectTest(TestCase):
         obj = Object(id='a', our_as1={'objectType': 'activity', 'verb': 'update'})
         self.assertEqual(NOW + OBJECT_EXPIRE_AGE, obj.expire)
 
+        obj.our_as1['objectType'] = 'note'
+        self.assertEqual(NOW + OBJECT_EXPIRE_AGE, obj.expire)
+
+        obj.our_as1['objectType'] = 'person'
+        self.assertIsNone(obj.expire)
+
+        obj.deleted = True
+        self.assertEqual(NOW + OBJECT_EXPIRE_AGE, obj.expire)
+
     def test_put_adds_removes_activity_label(self):
         obj = Object(id='x#y', our_as1={})
         obj.put()
