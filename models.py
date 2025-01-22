@@ -71,7 +71,10 @@ PAGE_SIZE = 20
 
 # auto delete most old objects via the Object.expire property
 # https://cloud.google.com/datastore/docs/ttl
-DONT_EXPIRE_OBJECT_TYPES = as1.ACTOR_TYPES
+#
+# need to keep follows because we attach them to Followers and use them for
+# unfollows
+DONT_EXPIRE_OBJECT_TYPES = as1.ACTOR_TYPES | set(['follow'])
 OBJECT_EXPIRE_AGE = timedelta(days=90)
 
 GET_ORIGINALS_CACHE_EXPIRATION = timedelta(days=1)
