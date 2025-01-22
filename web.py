@@ -883,7 +883,7 @@ def poll_feed_task():
     logger.info(f'Last poll: {user.last_polled_feed}')
     last_polled = request.form.get('last_polled')
     if (last_polled and user.last_polled_feed
-            and last_polled != user.last_polled_feed.isoformat()):
+            and last_polled < user.last_polled_feed.isoformat()):
         logger.warning('duplicate poll feed task! deferring to other task')
         return '', 204
 

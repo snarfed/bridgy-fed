@@ -2493,7 +2493,7 @@ class WebTest(TestCase):
 
         got = self.post('/queue/poll-feed', data={
             'domain': 'user.com',
-            'last_polled': (NOW + timedelta(minutes=1)).isoformat(),
+            'last_polled': (NOW - timedelta(minutes=1)).isoformat(),
         })
         self.assertEqual(204, got.status_code)
         self.assertEqual(NOW, self.user.key.get().last_polled_feed)
