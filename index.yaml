@@ -39,6 +39,11 @@ indexes:
   - name: created
     direction: desc
 
+- kind: Object
+  properties:
+  - name: type
+  - name: updated
+
 - kind: Follower
   properties:
   - name: from
