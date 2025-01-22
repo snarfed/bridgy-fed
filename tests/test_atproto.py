@@ -74,7 +74,14 @@ NOTE_BSKY = {
   'bridgyOriginalUrl': 'fake:post',
   'createdAt': '2007-07-07T03:04:05.000Z',
 }
-
+NOTE_BSKY_RECORD = {
+    'uri': 'at://did:plc:user/co.l.l/post',
+    'cid': 'my++sidd',
+    'value': {
+        **NOTE_BSKY,
+        'cid': 'my++sidd',
+    },
+}
 
 @patch('ids.COPIES_PROTOCOLS', ['atproto'])
 class ATProtoTest(TestCase):
@@ -2468,30 +2475,29 @@ Sed tortor neque, aliquet quis posuere aliquam […]
         }, client.com.atproto.repo.getRecord(repo='did:plc:user',
                                              collection='co.l.l', rkey='post'))
 
-    @patch('requests.get', return_value=requests_response({
-        'uri': 'at://did:plc:user/co.l.l/tid',
-        'cid': 'my++sidd',
-        'value': {
-            '$type': 'app.bsky.feed.post',
-            'text': 'baz',
-            'createdAt': NOW.isoformat(),
-        },
-    }))
+    @patch('requests.get', return_value=requests_response(NOTE_BSKY_RECORD))
     def test_datastore_client_get_record_pass_through(self, mock_get):
         self.make_user_and_repo()
 
         client = DatastoreClient('https://appview.local')
-        self.assertEqual({
-            'uri': 'at://did:plc:user/co.l.l/post',
-            'cid': 'my++sidd',
-            'value': {
-                '$type': 'app.bsky.feed.post',
-                'text': 'baz',
-                'createdAt': NOW.isoformat(),
-                'cid': 'my++sidd',
-            },
-        }, client.com.atproto.repo.getRecord(repo='did:plc:user',
-                                             collection='co.l.l', rkey='post'))
+        self.assertEqual(NOTE_BSKY_RECORD, client.com.atproto.repo.getRecord(
+            repo='did:plc:user', collection='co.l.l', rkey='post'))
+
+        mock_get.assert_called_with(
+            'https://appview.local/xrpc/com.atproto.repo.getRecord?repo=did%3Aplc%3Auser&collection=co.l.l&rkey=post',
+            json=None, data=None, headers=ANY)
+
+    @patch('requests.get', return_value=requests_response(NOTE_BSKY_RECORD))
+    def test_datastore_client_get_record_pass_through_if_bsky_unset(self, mock_get):
+        self.make_user_and_repo()
+        self.store_object(id='at://did:plc:user/co.l.l/post', our_as1={'foo': 'bar'})
+
+        client = DatastoreClient('https://appview.local')
+        self.assertEqual(NOTE_BSKY_RECORD, client.com.atproto.repo.getRecord(
+            repo='did:plc:user', collection='co.l.l', rkey='post'))
+        self.assert_object('at://did:plc:user/co.l.l/post',
+                           bsky=NOTE_BSKY_RECORD['value'],
+                           source_protocol='atproto')
 
         mock_get.assert_called_with(
             'https://appview.local/xrpc/com.atproto.repo.getRecord?repo=did%3Aplc%3Auser&collection=co.l.l&rkey=post',

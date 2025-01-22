@@ -138,16 +138,19 @@ class DatastoreClient(Client):
     def get_record(self, repo=None, collection=None, rkey=None):
         assert repo and collection and rkey, (repo, collection, rkey)
 
-        uri = at_uri(did=repo, collection=collection, rkey=rkey)
+        did = repo
+        uri = at_uri(did=did, collection=collection, rkey=rkey)
         record = None
 
         # local record in a repo we own?
-        if repo := arroba.server.storage.load_repo(repo):
+        if repo := arroba.server.storage.load_repo(did):
             record = repo.get_record(collection=collection, rkey=rkey)
 
         # remote record that we may have a cached copy of
         if not record:
             if obj := ATProto.load(uri, raise_=False):
+                if not obj.bsky:
+                    obj = ATProto.load(uri, local=False, remote=True, raise_=False)
                 record = obj.bsky
 
         if record:
