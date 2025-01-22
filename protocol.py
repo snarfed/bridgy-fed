@@ -1003,16 +1003,19 @@ class Protocol:
             # fall through to deliver to followers
 
         elif obj.type in ('delete', 'undo'):
-            assert inner_obj_id
-            inner_obj = Object.get_by_id(inner_obj_id, authed_as=authed_as)
-            if not inner_obj:
-                logger.info(f"Ignoring, we don't have {inner_obj_id} stored")
+            delete_obj_id = (from_user.profile_id()
+                            if inner_obj_id == from_user.key.id()
+                            else inner_obj_id)
+
+            delete_obj = Object.get_by_id(delete_obj_id, authed_as=authed_as)
+            if not delete_obj:
+                logger.info(f"Ignoring, we don't have {delete_obj_id} stored")
                 return 'OK', 204
 
             # TODO: just delete altogether!
-            logger.info(f'Marking Object {inner_obj_id} deleted')
-            inner_obj.deleted = True
-            inner_obj.put()
+            logger.info(f'Marking Object {delete_obj_id} deleted')
+            delete_obj.deleted = True
+            delete_obj.put()
 
             # if this is an actor, handle deleting it later so that
             # in case it's from_user, user.enabled_protocols is still populated
@@ -1082,7 +1085,7 @@ class Protocol:
                     for proto in user.enabled_protocols:
                         user.disable_protocol(PROTOCOLS[proto])
 
-                    logger.info(f'Deactivating Followers from or to = {inner_obj_id}')
+                    logger.info(f'Deactivating Followers from or to {user_key.id()}')
                     followers = Follower.query(
                         OR(Follower.to == user_key, Follower.from_ == user_key)
                         ).fetch()

@@ -1631,6 +1631,25 @@ class WebTest(TestCase):
         self.assertEqual(204, got.status_code, got.text)
         mock_post.assert_not_called()
 
+    def test_delete_web_actor(self, mock_get, mock_post):
+        mock_get.return_value = requests_response('')  # https://user.com/#delete
+        mock_post.return_value = requests_response('unused', status=200)
+
+        self.user.obj.copies = [Target(protocol='fake', uri='fake:user.com')]
+        alice = self.make_user('fake:foo', cls=Fake)
+        follower = Follower.get_or_create(to=self.user, from_=alice)
+
+        body, status = Web.receive(Object(id='https://user.com/#delete', our_as1={
+            'objectType': 'activity',
+            'verb': 'delete',
+            'actor': 'user.com',
+            'object': 'user.com',
+        }), authed_as='user.com')
+        self.assertEqual(202, status, body)
+
+        self.assertTrue(Object.get_by_id('https://user.com/').deleted)
+        self.assertEqual('inactive', follower.key.get().status)
+
     def test_webmention_home_page_404_doesnt_delete_user(self, mock_get, mock_post):
         mock_get.return_value = requests_response('', status=404)
         self.make_followers()
