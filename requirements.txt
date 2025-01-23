@@ -105,7 +105,7 @@ simple-websocket==1.1.0
 six==1.17.0
 soupsieve==2.6
 testtools==2.7.2
-tlslite-ng==0.7.6
+tlslite-ng==0.8.2
 tweepy==4.15.0
 typing-extensions==4.9.0
 typing-validation==1.2.11.post4
