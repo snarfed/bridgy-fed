@@ -2503,6 +2503,19 @@ Sed tortor neque, aliquet quis posuere aliquam […]
             'https://appview.local/xrpc/com.atproto.repo.getRecord?repo=did%3Aplc%3Auser&collection=co.l.l&rkey=post',
             json=None, data=None, headers=ANY)
 
+    @patch('requests.get', return_value=requests_response(status=404))
+    def test_datastore_client_get_record_pass_through_bsky_unset_no_record(self, mock_get):
+        self.make_user_and_repo()
+        self.store_object(id='at://did:plc:user/co.l.l/post', our_as1={'foo': 'bar'})
+
+        client = DatastoreClient('https://appview.local')
+        self.assertEqual({}, client.com.atproto.repo.getRecord(
+            repo='did:plc:user', collection='co.l.l', rkey='post'))
+
+        mock_get.assert_called_with(
+            'https://appview.local/xrpc/com.atproto.repo.getRecord?repo=did%3Aplc%3Auser&collection=co.l.l&rkey=post',
+            json=None, data=None, headers=ANY)
+
     @patch('requests.get', side_effect=HTTPError(
         response=requests_response(status=500)))
     def test_datastore_client_get_record_pass_through_fails(self, mock_get):
