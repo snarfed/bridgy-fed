@@ -806,8 +806,11 @@ class ObjectTest(TestCase):
         obj = Object(id='a', our_as1={'objectType': 'activity', 'verb': 'update'})
         self.assertEqual(NOW + OBJECT_EXPIRE_AGE, obj.expire)
 
+        obj.our_as1['verb'] = 'like'
+        self.assertIsNone(obj.expire)
+
         obj.our_as1['objectType'] = 'note'
-        self.assertEqual(NOW + OBJECT_EXPIRE_AGE, obj.expire)
+        self.assertIsNone(obj.expire)
 
         obj.our_as1['objectType'] = 'person'
         self.assertIsNone(obj.expire)

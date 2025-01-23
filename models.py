@@ -74,7 +74,8 @@ PAGE_SIZE = 20
 #
 # need to keep follows because we attach them to Followers and use them for
 # unfollows
-DONT_EXPIRE_OBJECT_TYPES = as1.ACTOR_TYPES | set(['follow', 'flag'])
+DONT_EXPIRE_OBJECT_TYPES = (as1.ACTOR_TYPES | as1.POST_TYPES
+                            | set(['block', 'flag', 'follow', 'like', 'share']))
 OBJECT_EXPIRE_AGE = timedelta(days=90)
 
 GET_ORIGINALS_CACHE_EXPIRATION = timedelta(days=1)
