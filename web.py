@@ -688,8 +688,7 @@ def enter_web_site():
 
 @app.post('/web-site')
 def check_web_site():
-    logger.info(f'Params: {list(request.form.items())}')
-
+    common.log_request()
     url = request.values['url']
 
     # this normalizes and lower cases domain
@@ -739,7 +738,7 @@ def webmention_external():
     Use a task queue to deliver to followers because we send to each inbox in
     serial, which can take a long time with many followers/instances.
     """
-    logger.info(f'Params: {list(request.form.items())}')
+    common.log_request()
 
     source = flask_util.get_required_param('source').strip()
     if Web.owns_id(source) is False:
@@ -869,7 +868,8 @@ def poll_feed_task():
       ``last_polled`` (str): should match the user's ``last_polled_feed``. Used
         to detect duplicate poll tasks for the same user.
     """
-    logger.info(f'Params: {request.values}')
+    common.log_request()
+
     domain = flask_util.get_required_param('domain')
     logger.info(f'Polling feed for {domain}')
 
@@ -950,7 +950,7 @@ def webmention_task():
     Params:
       ``source`` (str): URL
     """
-    logger.info(f'Params: {list(request.form.items())}')
+    common.log_request()
 
     # load user
     source = flask_util.get_required_param('source').strip()

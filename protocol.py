@@ -1732,8 +1732,8 @@ def receive_task():
     ``changed``, HTTP request details, etc. See stash for attempt at this for
     :class:`web.Web`.
     """
+    common.log_request()
     form = request.form.to_dict()
-    logger.info(f'Params:\n' + '\n'.join(f'{k} = {v[:100]}' for k, v in form.items()))
 
     authed_as = form.pop('authed_as', None)
     internal = (authed_as == common.PRIMARY_DOMAIN
@@ -1776,10 +1776,10 @@ def send_task():
       *: If ``obj_id`` is unset, all other parameters are properties for a new
         :class:`models.Object` to handle
     """
-    form = request.form.to_dict()
-    logger.info(f'Params: {list(form.items())}')
+    common.log_request()
 
     # prepare
+    form = request.form.to_dict()
     url = form.get('url')
     protocol = form.get('protocol')
     if not url or not protocol:

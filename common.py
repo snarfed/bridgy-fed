@@ -446,7 +446,6 @@ NDB_CONTEXT_KWARGS = {
 }
 
 
-
 def as2_request_type():
     """If this request has conneg (ie the ``Accept`` header) for AS2, returns its type.
 
@@ -472,3 +471,11 @@ def as2_request_type():
             elif accept_type in (as2.CONTENT_TYPE_LD, as2.CONTENT_TYPE_LD_PROFILE):
                 return as2.CONTENT_TYPE_LD_PROFILE
             logger.debug(f'Conneg resolved {accept_type} for Accept: {accept}')
+
+
+def log_request():
+    """Logs GET query params and POST form.
+
+    Limits each value to 1000 chars."""
+    logger.info(f'Params:\n' + '\n'.join(
+        f'{k} = {v[:1000]}' for k, v in request.values.items()))
