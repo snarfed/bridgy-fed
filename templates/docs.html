@@ -458,10 +458,10 @@
 
 <ul>
 <li>Bridgy Fed is opt in. When a fediverse user <a href="#fediverse-get-started">enables it</a> for a given network, eg Bluesky, it bridges their profile and posts and other interactions into that network giong forward. It doesn't bridge anything for users who haven't enabled it yet.
-<li>This means that fediverse users don't exist in Bluesky, and can't be followed or found in search there, until they've enabled the bridge.
+<li>This means that fediverse users don't exist in Bluesky, and can't be followed or found in search there, unless they've enabled the bridge.
 <li>Users enable the bridge to Bluesky by following the <code>@bsky.brid.gy@bsky.brid.gy</code> user, and disable it by blocking that user. When they disable it, their profile and posts are all removed from Bluesky.
-<li>Bluesky users can also bridge themselves into the fediverse. Unbridged fediverse users may follow them and interact with them, but those follows and interactions aren't bridged into Bluesky.
-<li>Only fully public posts are bridged into Bluesky. Unlisted aka quiet public, followers-only, and private mention posts aka DMs are never bridged.
+<li>Bluesky users can also bridge themselves into the fediverse. Unbridged fediverse users may follow them and interact with them, but those follows and interactions aren't bridged back into Bluesky.
+<li>Only fully public posts are bridged into Bluesky. Unlisted aka quiet public, followers-only, and private mentions aka DMs are never bridged.
 <li>Replies, reposts, and quote posts are only bridged if the original post being replied to, reposted, or quote posted was also bridged.
 <li>Blocks are bridged too. If a fediverse user blocks a bridged Bluesky user, it works just like blocking a normal fediverse user. Bridgy Fed also converts it to a Bluesky block on that end.
 <li>Reports aka <code>Flag</code>s are similarly bridged. If a fediverse user reports a bridged Bluesky user or post, Bridgy Fed sends it to Bluesky's moderation service as a report. The Bluesky team is then able to act on that user or post just like normal.
@@ -557,6 +557,23 @@ RewriteRule ^.well-known/(host-meta|webfinger).* https://fed.brid.gy/$0  [redire
 </ul>
 </li>
 
+<li id="fediverse-delete" class="question">I disabled my bridged profile, or deleted a post, but it's still visible in the fediverse!</li>
+<li class="answer">
+<p>Sadly, this is a somewhat inherent part of the fediverse itself. When you disable the bridge for your account, Bridgy Fed sends <code>Delete</code>s to every fediverse instance where you had a follower, but it doesn't currently know about other instances that may have loaded and cached your profile. Same with posts bridged into the fediverse that you later delete. Those cached profiles and posts will eventually disappear over time.
+</li>
+
+<li id="instance-subdomains" class="question">Could other networks' instances get their own brid.gy subdomains, so that admins can federate with or block them individually?</li>
+<li class="answer">
+<p>This is a great idea! <a href="https://github.com/snarfed/bridgy-fed/issues/711">It's difficult to implement technically</a> - I'd need to build and run my own DNS server with custom behavior for resolving multi-level wildcard records - but it's definitely doable.</p>
+<p>However, servers and domains on other networks are very different from fediverse instances:</p>
+<ul>
+<li>Bluesky <a href="https://atproto.com/guides/overview#federation">PDSes</a> are similar to shared web hosts; they're more generic and interchangeable than fediverse instances. They don't define affinity groups, user-visible communities, or moderation boundaries. It's not clear that they're useful for domain level federation decisions like fediverse instances are.</li>
+<li>IndieWeb sites generally represent a single person. They're often domains, but when they're subdomains, eg on <a href="https://wordpress.com/">wordpress.com</a> or <a href="https://blogspot.com">blogspot.com</a>, those are often shared hosting platforms that don't define clear communities or moderation boundaries either.</li>
+<!-- <li>Nostr users don't live on specific servers at all. They publish to <a href="https://nostr.com/relays">relays</a>, usually multiple at a time, and may change those relays often. Relays are primarily network infrastructure.</li> -->
+</ul>
+<p>Another difficulty is that accounts on Bluesky have long-lived, server-independent ids. If we used a Bluesky user's PDS domain in their fediverse handle, that handle would change every time they migrated to a new PDS, and they'd lose all of their followers and followings, even though their Bluesky account ID itself hadn't changed.</p>
+</li>
+
 
 <br>
 
@@ -627,7 +644,7 @@ RewriteRule ^.well-known/(host-meta|webfinger).* https://fed.brid.gy/$0  [redire
 <ol>
 <li>Get your bridged account's <a href="https://atproto.com/guides/identity#identifiers">DID</a>. You can either DM <em>did</em> to the Bluesky Bridgy Fed bot account (eg <code>@bsky.brid.gy@bsky.brid.gy</code>), or go to your <a href="#user-page">user page</a> and click the <button class="btn btn-default glyphicon glyphicon-tag"></button> next to to your bridged Bluesky account link.
 <li>Connect your domain to your bridged Bluesky account. You can do this <a href="https://bsky.social/about/blog/4-28-2023-domain-handle-tutorial#:~:text=navigate%20back%20to%20your%20domain%20registrar">with DNS</a> (just steps 5 and 6) or <a href="https://atproto.com/specs/handle#:~:text=HTTPS%20well-known%20method">with HTTPS</a>. Once you're done, <a href="https://bsky-debug.app/handle">check your work here</a>.
-<li>Add your domain to your DID. If your account is on the fediverse, send a DM to <code>@bsky.brid.gy@bsky.brid.gy</code> with the text <code>username [domain]</code> (eg <code>username my.site.com</code>). Or, if you're bridging a website, click the <button class="btn btn-default glyphicon glyphicon-refresh"></button> button on your <a href="#user-page">user page</a>.
+<li>Add your domain to your DID. If your account is on the fediverse, send a DM to <code>@bsky.brid.gy@bsky.brid.gy</code> with the text <code>username [domain]</code> (eg <code>username my.site.com</code>). If you're bridging a website, click the <button class="btn btn-default glyphicon glyphicon-refresh"></button> button on your <a href="#user-page">user page</a>.
 </ol>
 </li>
 
@@ -658,8 +675,8 @@ RewriteRule ^.well-known/(host-meta|webfinger).* https://fed.brid.gy/$0  [redire
 
 <li id="web-get-started" class="question">How do I get started?</li>
 <li class="answer">
-<p>Your web site will need <a href="https://webmention.net/">webmention</a> support or an <a href="http://www.atomenabled.org/">Atom</a> or <a href="https://www.rssboard.org/rss-specification">RSS</a> feed <a href="https://www.rssboard.org/rss-autodiscovery">discoverable from your home page</a>, so that Bridgy Fed can find your posts. When you're ready, <a href="/web-site">connect your site</a>, then <a href="/#fediverse-follow">try following your site from the fediverse</a>. If that looks good, <a href="web-follow">start following other fediverse users</a>!
-<p>We recommend that your site supports <a href="https://webmention.net/">webmentions</a>. You can see a <a href="web-notifications">notifications feed of your interactions from other networks</a> - replies, reposts, likes, etc - but to <a href="#web-backfeed"> get them back to your site, it needs to support webmentions</a>. <a href="https://indieweb.org/webmention#Publishing_Software">Check out the IndieWeb wiki</a> for instructions for your web server.
+<p>Your web site will need either <a href="https://microformats.org/wiki/microformats2">microformats</a> and <a href="https://webmention.net/">webmention</a> support, or an <a href="http://www.atomenabled.org/">Atom</a> or <a href="https://www.rssboard.org/rss-specification">RSS</a> feed <a href="https://www.rssboard.org/rss-autodiscovery">discoverable from your home page</a>, so that Bridgy Fed can find your posts. When you're ready, <a href="/web-site">connect your site</a>, then <a href="/#fediverse-follow">try following your site from the fediverse</a>. If that looks good, <a href="web-follow">start following other fediverse users</a>!
+<p>We recommend that your site supports <a href="https://webmention.net/">webmentions</a>. You can see a <a href="web-notifications">notifications feed of your interactions from other networks</a> - replies, reposts, likes, etc - but to <a href="#web-backfeed"> get them back to your site, it needs to support webmentions</a>. Check out the <a href="https://indieweb.org/">IndieWeb wiki</a> for <a href="https://indieweb.org/webmention#Publishing_Software">instructions for your web server</a> and <a href="https://indieweb.org/content_management_system#Examples">examples of existing projects that support microformats and webmentions</a>.
 </p>
 <p>If your site serves <a href="https://webfinger.net/">WebFinger</a> requests itself, Bridgy Fed won't support it. This generally happens when your site is already a fediverse instance or has its own fediverse integration. If Bridgy Fed tried to work in these cases, it might conflict with your existing ActivityPub server.
 </li>
@@ -820,7 +837,7 @@ This method doesn't require IndieAuth, and it can be automated.</p>
 Use <code>&lt;img class="<span class='keyword'>u-photo</span>"&gt;</code> for the image in your post. For example:
 
 <pre>
-&lt;img class="<span class='keyword'>u-photo</span>" src="<span class='value'>/full_glass.jpg</span>" /&gt;
+&lt;img class="<span class='keyword'>u-photo</span>" src="<span class='value'>/full_glass.jpg</span>" alt="<span class='value'>a drink</span>" /&gt;
 I love scotch. Scotchy scotchy scotch.
 </pre>
 </p>
@@ -829,7 +846,7 @@ I love scotch. Scotchy scotchy scotch.
 <li id="web-video" class="question">How do I include a video in a post?</li>
 <li class="answer">
 <p>
-Use <code>&lt;img class="<span class='keyword'>u-video</span>"&gt;</code> for the video in your post. For example:
+Use <code>&lt;video class="<span class='keyword'>u-video</span>"&gt;</code> for the video in your post. For example:
 
 <pre>
 &lt;video class="<span class='keyword'>u-video</span>" src="<span class='value'>/dancing.mp4</span>"&gt;&lt;/video&gt;
@@ -940,27 +957,8 @@ To receive likes, reposts, replies, @-mentions, and follows from other networks,
 
 <li id="web-enhanced" class="question">Can I use my own domain as my handle on other networks?</li>
 <li class="answer">
-<p>For the fediverse, yes! By default, your web site's bridged handle on other networks includes <code>web.brid.gy</code>, eg <code>@yoursite.com@web.brid.gy</code> on the fediverse, but you can use your own domain instead. <a href="#fediverse-enhanced">Here are instructions for fediverse handles.</a></p>
-<p>For Bluesky, not yet, but hopefully eventually. <a href="https://github.com/snarfed/bridgy-fed/issues/826">Follow this GitHub issue.</a>
+<p>Yes! By default, your web site's bridged handle on other networks includes <code>web.brid.gy</code>, eg <code>@yoursite.com@web.brid.gy</code>, but you can use your own domain instead. Here are instructions for <a href="#fediverse-enhanced">fediverse handles</a> and <a href="#bluesky-enhanced">Bluesky handles</a>.</p>
 </li>
-
-<li id="fediverse-delete" class="question">I disabled my bridged profile, or deleted a post, but it's still visible in the fediverse!</li>
-<li class="answer">
-<p>Sadly, this is a somewhat inherent part of the fediverse itself. When you disable the bridge for your account, Bridgy Fed sends <code>Delete</code>s to every fediverse instance where you had a follower, but it doesn't currently know about other instances that may have loaded and cached your profile. Same with posts bridged into the fediverse that you later delete. Those cached profiles and posts will eventually disappear over time.
-</li>
-
-<li id="instance-subdomains" class="question">Could other networks' instances get their own brid.gy subdomains, so that admins can federate with or block them individually?</li>
-<li class="answer">
-<p>This is a great idea! <a href="https://github.com/snarfed/bridgy-fed/issues/711">It's difficult to implement technically</a> - I'd need to build and run my own DNS server with custom behavior for resolving multi-level wildcard records - but it's definitely doable.</p>
-<p>However, servers and domains on other networks are very different from fediverse instances:</p>
-<ul>
-<li>Bluesky <a href="https://atproto.com/guides/overview#federation">PDSes</a> are similar to shared web hosts; they're more generic and interchangeable than fediverse instances. They don't define affinity groups, user-visible communities, or moderation boundaries. It's not clear that they're useful for domain level federation decisions like fediverse instances are.</li>
-<li>IndieWeb sites generally represent a single person. They're often domains, but when they're subdomains, eg on <a href="https://wordpress.com/">wordpress.com</a> or <a href="https://blogspot.com">blogspot.com</a>, those are often shared hosting platforms that don't define clear communities or moderation boundaries either.</li>
-<!-- <li>Nostr users don't live on specific servers at all. They publish to <a href="https://nostr.com/relays">relays</a>, usually multiple at a time, and may change those relays often. Relays are primarily network infrastructure.</li> -->
-</ul>
-<p>Another difficulty is that accounts on Bluesky have long-lived, server-independent ids. If we used a Bluesky user's PDS domain in their fediverse handle, that handle would change every time they migrated to a new PDS, and they'd lose all of their followers and followings, even though their Bluesky account ID itself hadn't changed.</p>
-</li>
-
 
 
 <br>
@@ -970,7 +968,7 @@ To receive likes, reposts, replies, @-mentions, and follows from other networks,
 <li id="who" class="question">Who are you? Why did you make this?</li>
 <li class="answer">
 <p>
-I'm <a href="https://snarfed.org/">Ryan Barrett</a>. I'm just a guy who likes <a href="https://snarfed.org/2012-07-25_why_i_have_my_own_web_site">the web</a> and <a href="https://indieweb.org/why">owning my data</a>. <a href="https://snarfed.org/2023-11-27_re-introducing-bridgy-fed">I build and run Bridgy Fed myself</a>, with <a href="https://github.com/snarfed/bridgy-fed/graphs/contributors">occasional contributors</a> and lots of broader support.
+I'm <a href="https://snarfed.org/">Ryan Barrett</a>. I'm just a guy who likes <a href="https://snarfed.org/2012-07-25_why_i_have_my_own_web_site">the web</a> and <a href="https://indieweb.org/why">owning my data</a>. <a href="https://snarfed.org/2023-11-27_re-introducing-bridgy-fed">I build and run Bridgy Fed myself</a>, with <a href="https://github.com/snarfed/bridgy-fed/graphs/contributors">occasional contributors</a> and broader support via <a href="https://www.anew.social/hello-social-web/">A New Social</a>, a non-profit with <a href="https://quillmatiq.com/">Anuj Ahooja</a>.
 </p>
 
 <p>I love how decentralized social networks like the fediverse and the <a href="https://indieweb.org/">IndieWeb</a> let us move away from walled gardens controlled by single monolithic entities. I love that we can control our own destinies online, nurture and grow our own communities and instances, and still interact with people elsewhere. I want to be able to interact across networks just like we interact across servers. That's why I build bridges like Bridgy Fed.</p>
