@@ -1368,7 +1368,7 @@ class Object(StringIdModel):
 
         def replace(val, orig_fn):
             id = val.get('id') if isinstance(val, dict) else val
-            if not id:
+            if not id or not self_proto.HAS_COPIES:
                 return id
 
             orig = orig_fn(id)

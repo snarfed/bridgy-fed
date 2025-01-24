@@ -129,11 +129,11 @@ def translate_user_id(*, id, from_, to):
     user = from_.get_by_id(id, allow_opt_out=True)
     if user:
         id = user.key.id()
-
-    if from_.LABEL in COPIES_PROTOCOLS or to.LABEL in COPIES_PROTOCOLS:
-        if user:
+        if to.LABEL in COPIES_PROTOCOLS:
             if copy := user.get_copy(to):
                 return copy
+
+    if from_.LABEL in COPIES_PROTOCOLS:
         if orig := models.get_original_user_key(id):
             if orig.kind() == to._get_kind():
                 return orig.id()
@@ -338,10 +338,12 @@ def translate_object_id(*, id, from_, to):
     if from_ == to:
         return id
 
-    if from_.LABEL in COPIES_PROTOCOLS or to.LABEL in COPIES_PROTOCOLS:
+    if to.LABEL in COPIES_PROTOCOLS:
         if obj := from_.load(id, remote=False):
             if copy := obj.get_copy(to):
                 return copy
+
+    if from_.LABEL in COPIES_PROTOCOLS:
         if orig := models.get_original_object_key(id):
             return orig.id()
 
