@@ -56,7 +56,7 @@ googleapis-common-protos==1.66.0
 grapheme==0.6.0
 grpc-google-iam-v1==0.14.0
 grpcio==1.70.0
-grpcio-status==1.69.0
+grpcio-status==1.70.0
 gunicorn==23.0.0
 h11==0.14.0
 html2text==2024.2.26
