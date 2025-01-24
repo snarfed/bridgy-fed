@@ -97,6 +97,7 @@
 <li><a href="#bluesky-video">Why can't I see a video?</a></li>
 <li><a href="#bluesky-enhanced">Can I use my own domain as my Bluesky handle?</a></li>
 <li><a href="#bluesky-fields">How can I see the full text or original URL for a bridged post?</a></li>
+<li><a href="#bluesky-image-cdn">My images or videos are blank in Bluesky!</a></li>
 
 <br>
 
@@ -644,6 +645,12 @@ RewriteRule ^.well-known/(host-meta|webfinger).* https://fed.brid.gy/$0  [redire
 }
 </pre>
 </li>
+
+<li id="bluesky-image-cdn" class="question">My images or videos are blank in Bluesky!</li>
+<li class="answer">
+<p>This usually means that the server hosting your images is blocking or otherwise not serving them to Bluesky's CDN. To confirm this, open an affected post in <a href="https://bsky.app/">bsky.app</a>, then open one of the blank images in a new browser tab. (Right click, Open image in new tab, or something similar.) If it shows the error <code>Source image is unreachable</code> instead of the image, your server is blocking Bluesky's CDN. Check your Cloudflare, CDN, server or host settings, they might be configured overly aggressively to block bots. <a href="https://github.com/bluesky-social/atproto/discussions/3451">More background.</a>
+</li>
+
 
 <br>
 
