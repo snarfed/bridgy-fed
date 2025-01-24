@@ -636,27 +636,6 @@ class ActivityPubTest(TestCase):
         self.assertEqual(299, resp.status_code)
         self.assertIsNone(Object.get_by_id('mas.to'))
 
-    @patch('activitypub._WEB_OPT_OUT_DOMAINS', new=set(['mas.to']))
-    @patch('oauth_dropins.webutil.appengine_config.tasks_client.create_task')
-    def test_inbox_activity_id_on_opted_out_web_domain(self, mock_create_task, *_):
-        resp = self.post('/ap/sharedInbox', json=NOTE)
-        self.assertEqual(204, resp.status_code)
-        mock_create_task.assert_not_called()
-        self.assertEqual(0, ActivityPub.query().count())
-        self.assertEqual(1, Object.query().count())  # self.user
-
-    @patch('activitypub._WEB_OPT_OUT_DOMAINS', new=set(['bad.com']))
-    @patch('oauth_dropins.webutil.appengine_config.tasks_client.create_task')
-    def test_inbox_actor_id_on_opted_out_web_domain(self, mock_create_task, *_):
-        resp = self.post('/ap/sharedInbox', json={
-            **NOTE,
-            'actor': 'https://bad.com/eve',
-        })
-        self.assertEqual(204, resp.status_code)
-        mock_create_task.assert_not_called()
-        self.assertEqual(0, ActivityPub.query().count())
-        self.assertEqual(1, Object.query().count())  # self.user
-
     @patch('oauth_dropins.webutil.appengine_config.tasks_client.create_task')
     def test_inbox_create_receive_task(self, mock_create_task, *mocks):
         common.RUN_TASKS_INLINE = False
@@ -2982,13 +2961,6 @@ class ActivityPubUtilsTest(TestCase):
         actor = self.make_user('http://inst/person', cls=ActivityPub,
                                obj_as2={'id': 'http://inst/actor'})
         self.assertIsNone(actor.status)
-
-        self.user.manual_opt_out = True
-        self.user.put()
-        activitypub._WEB_OPT_OUT_DOMAINS = None
-        actor = self.make_user('http://user.com/person', cls=ActivityPub,
-                               obj_as2={'id': 'http://inst/actor'})
-        self.assertEqual('opt-out', actor.status)
 
     def test_target_for_actor(self):
         self.assertEqual(ACTOR['inbox'], ActivityPub.target_for(

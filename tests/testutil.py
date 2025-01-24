@@ -329,7 +329,6 @@ class TestCase(unittest.TestCase, testutil.Asserts):
         global_cache.clear()
         models.get_original_object_key.cache_clear()
         models.get_original_user_key.cache_clear()
-        activitypub.WEB_OPT_OUT_DOMAINS = set()
 
         # clear datastore
         requests.post(f'http://{ndb_client.host}/reset')

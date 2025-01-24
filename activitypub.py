@@ -67,25 +67,6 @@ OLD_ACCOUNT_EXEMPT_DOMAINS = (
     'pixelfed.social',
 )
 
-# populated in User.status
-_WEB_OPT_OUT_DOMAINS = None
-
-def web_opt_out_domains():
-    global _WEB_OPT_OUT_DOMAINS
-    if _WEB_OPT_OUT_DOMAINS is None:
-        _WEB_OPT_OUT_DOMAINS = {
-            key.id() for key in Query(
-                'MagicKey',
-                # don't add status to this! we use status=owns-webfinger for Web
-                # users that are fediverse servers - see Web.status - but we
-                # don't want that to extend to ActivityPub users on those domains
-                filters=FilterNode('manual_opt_out', '=', True)
-            ).fetch(keys_only=True)
-        }
-        logger.info(f'Loaded {len(_WEB_OPT_OUT_DOMAINS)} manually opted out Web users')
-
-    return _WEB_OPT_OUT_DOMAINS
-
 # we can't yet authorize activities from these domains:
 # * a.gup.pe groups sign with the group's actor but use the external author as
 #   actor and attributedTo, and don't include an LD Sig
@@ -168,11 +149,6 @@ class ActivityPub(User, Protocol):
 
     @ndb.ComputedProperty
     def status(self):
-        """Override :meth:`Model.status` and exclude Web opted out domains."""
-        if util.domain_or_parent_in(util.domain_from_link(self.key.id()),
-                                    web_opt_out_domains()):
-            return 'opt-out'
-
         if self.obj and self.obj.as2 and as2.is_server_actor(self.obj.as2):
             return None
 
@@ -1096,10 +1072,6 @@ def inbox(protocol=None, id=None):
         error(f'Actor {actor_id} is blocklisted')
 
     actor_domain = util.domain_from_link(actor_id)
-    if util.domain_or_parent_in(actor_domain, web_opt_out_domains()):
-        logger.info(f'{actor_domain} is opted out')
-        return '', 204
-
     # temporary, see emails w/Michael et al, and
     # https://github.com/snarfed/bridgy-fed/issues/1686
     if actor_domain == 'newsmast.community' and type == 'Undo':
@@ -1120,10 +1092,6 @@ def inbox(protocol=None, id=None):
     # are we already processing or done with this activity?
     if id:
         domain = util.domain_from_link(id)
-        if util.domain_or_parent_in(domain, web_opt_out_domains()):
-            logger.info(f'{domain} is opted out')
-            return '', 204
-
         if memcache.memcache.get(activity_id_memcache_key(id)):
             logger.info(f'Already seen {id}')
             return '', 204
