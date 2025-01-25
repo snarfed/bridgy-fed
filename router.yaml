@@ -38,10 +38,13 @@ env_variables:
   # NDB_DEBUG: true
 
 automatic_scaling:
-  min_num_instances: 2
+  min_num_instances: 1
   max_num_instances: 10
   cpu_utilization:
     target_utilization: 0.95
+  # tried this in an attempt to cut down instance count, but it backfired
+  # somehow and kept us at the max of 10 instances
+  # target_concurrent_requests: 20
 
 liveness_check:
   # default 300; does lowering this speed up deploy? seems like maybe, a bit?
