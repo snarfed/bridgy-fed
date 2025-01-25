@@ -89,6 +89,8 @@ ID_FIELDS = ('id', 'object', 'actor', 'author', 'inReplyTo', 'url')
 
 CACHE_CONTROL = {'Cache-Control': 'public, max-age=3600'}  # 1 hour
 
+NDB_MEMCACHE_TIMEOUT = timedelta(hours=2)
+
 USER_AGENT = 'Bridgy Fed (https://fed.brid.gy/)'
 util.set_user_agent(USER_AGENT)
 
@@ -435,7 +437,7 @@ def global_cache_timeout_policy(key):
                  or key.kind == 'Object' and PROFILE_ID_RE.search(key.name))):
         return None
 
-    return int(timedelta(hours=2).total_seconds())
+    return int(NDB_MEMCACHE_TIMEOUT.total_seconds())
 
 
 NDB_CONTEXT_KWARGS = {
