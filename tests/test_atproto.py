@@ -2442,7 +2442,8 @@ Sed tortor neque, aliquet quis posuere aliquam […]
         self.assertFalse(ATProto.send(dm, 'https://bsky.brid.gy/'))
 
     def test_datastore_client_get_record_datastore_object(self):
-        self.make_user_and_repo()
+        self.store_object(id='did:plc:user', raw=DID_DOC)  # uses https://some.pds
+
         post = {
             '$type': 'app.bsky.feed.post',
             'text': 'foo',
@@ -2477,7 +2478,7 @@ Sed tortor neque, aliquet quis posuere aliquam […]
 
     @patch('requests.get', return_value=requests_response(NOTE_BSKY_RECORD))
     def test_datastore_client_get_record_pass_through(self, mock_get):
-        self.make_user_and_repo()
+        self.store_object(id='did:plc:user', raw=DID_DOC)  # uses https://some.pds
 
         client = DatastoreClient('https://appview.local')
         self.assertEqual(NOTE_BSKY_RECORD, client.com.atproto.repo.getRecord(
@@ -2489,7 +2490,7 @@ Sed tortor neque, aliquet quis posuere aliquam […]
 
     @patch('requests.get', return_value=requests_response(NOTE_BSKY_RECORD))
     def test_datastore_client_get_record_pass_through_if_bsky_unset(self, mock_get):
-        self.make_user_and_repo()
+        self.store_object(id='did:plc:user', raw=DID_DOC)  # uses https://some.pds
         self.store_object(id='at://did:plc:user/co.l.l/post', our_as1={'foo': 'bar'})
 
         client = DatastoreClient('https://appview.local')
@@ -2505,7 +2506,7 @@ Sed tortor neque, aliquet quis posuere aliquam […]
 
     @patch('requests.get', return_value=requests_response(status=404))
     def test_datastore_client_get_record_pass_through_bsky_unset_no_record(self, mock_get):
-        self.make_user_and_repo()
+        self.store_object(id='did:plc:user', raw=DID_DOC)  # uses https://some.pds
         self.store_object(id='at://did:plc:user/co.l.l/post', our_as1={'foo': 'bar'})
 
         client = DatastoreClient('https://appview.local')

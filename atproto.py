@@ -142,12 +142,11 @@ class DatastoreClient(Client):
         uri = at_uri(did=did, collection=collection, rkey=rkey)
         record = None
 
-        # local record in a repo we own?
         if repo := arroba.server.storage.load_repo(did):
+            # local record in a repo we own
             record = repo.get_record(collection=collection, rkey=rkey)
-
-        # remote record that we may have a cached copy of
-        if not record:
+        else:
+            # remote record that we may have a cached copy of
             obj = ATProto.load(uri, raise_=False)
             if not obj or not obj.bsky:
                 obj = ATProto.load(uri, local=False, remote=True, raise_=False)
