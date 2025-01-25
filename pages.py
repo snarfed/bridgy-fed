@@ -122,6 +122,7 @@ def docs():
 @app.get(f'/user/<regex("{DOMAIN_RE}"):domain>/feed')
 @app.get(f'/user/<regex("{DOMAIN_RE}"):domain>/<any(followers,following):collection>')
 @canonicalize_request_domain(common.PROTOCOL_DOMAINS, common.PRIMARY_DOMAIN)
+@flask_util.headers(CACHE_CONTROL)
 def web_user_redirects(**kwargs):
     path = request.url.removeprefix(request.root_url).removeprefix('user/')
     return redirect(f'/web/{path}', code=301)
@@ -254,6 +255,7 @@ def followers_or_following(protocol, id, collection):
 
 @app.get(f'/<any({",".join(PROTOCOLS)}):protocol>/<id>/feed')
 @canonicalize_request_domain(common.PROTOCOL_DOMAINS, common.PRIMARY_DOMAIN)
+@flask_util.headers(CACHE_CONTROL)
 def feed(protocol, id):
     user = load_user(protocol, id)
     query = Object.query(Object.feed == user.key)
