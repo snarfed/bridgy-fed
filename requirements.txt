@@ -15,7 +15,7 @@ git+https://github.com/snarfed/python-ndb.git@global-cache-logging#egg=google-cl
 # that includes https://github.com/pinterest/pymemcache/pull/471
 git+https://github.com/pinterest/pymemcache.git#egg=pymemcache
 
-attrs==24.3.0
+attrs==25.1.0
 bases==0.3.0
 beautifulsoup4==4.12.3
 bech32==1.2.0
