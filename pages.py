@@ -9,7 +9,6 @@ import time
 from flask import render_template, request
 from google.cloud.ndb import tasklets
 from google.cloud.ndb.query import AND, OR
-from google.cloud.ndb.stats import KindStat
 from granary import as1, as2, atom, microformats2, rss
 import humanize
 from oauth_dropins.webutil import flask_util, logs, util
@@ -32,6 +31,7 @@ import ids
 import memcache
 from models import fetch_objects, fetch_page, Follower, Object, PAGE_SIZE, PROTOCOLS
 from protocol import Protocol
+from web import Web
 
 # precompute this because we get a ton of requests for non-existing users
 # from weird open redirect referrers:
@@ -376,13 +376,9 @@ def nodeinfo():
     """
     atp = ATProto.query(ATProto.enabled_protocols != None).count()
     ap = ActivityPub.query(ActivityPub.enabled_protocols != None).count()
-
-    web = 0
-    if stat := KindStat.query(KindStat.kind_name == 'MagicKey').get():
-        web = stat.count
-
+    web = Web.query(Web.status == None).count()
     total = atp + ap + web
-    logger.info(f'Total users {total}')
+    logger.info(f'User counts: {total} total, {atp} atproto, {ap} ap, {web} web')
 
     return {
         'version': '2.1',
