@@ -135,6 +135,7 @@ class HostMetaTest(TestCase):
         self.assertEqual(200, got.status_code)
         self.assertEqual('application/xrd+xml; charset=utf-8',
                          got.headers['Content-Type'])
+        self.assertIn('Cache-Control', got.headers)
         body = got.get_data(as_text=True)
         self.assertTrue(body.startswith('<?xml'), body)
 
