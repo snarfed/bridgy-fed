@@ -162,11 +162,6 @@ class PagesTest(TestCase):
         got = self.client.get('/other/other:foo')
         self.assert_equals(200, got.status_code)
 
-    def test_user_web_redirect(self):
-        got = self.client.get('/user/user.com')
-        self.assert_equals(301, got.status_code)
-        self.assert_equals('/web/user.com', got.headers['Location'])
-
     def test_user_use_instead(self):
         self.make_user('bar.com', cls=Web, use_instead=self.user.key)
 
@@ -450,11 +445,6 @@ class PagesTest(TestCase):
         got = self.client.get('/web/nope.com/followers')
         self.assert_equals(404, got.status_code)
 
-    def test_followers_redirect(self):
-        got = self.client.get('/user/user.com/followers')
-        self.assert_equals(301, got.status_code)
-        self.assert_equals('/web/user.com/followers', got.headers['Location'])
-
     def test_following(self):
         Follower.get_or_create(
             from_=self.user,
@@ -489,11 +479,6 @@ class PagesTest(TestCase):
         got = self.client.get('/web/nope.com/following')
         self.assert_equals(404, got.status_code)
 
-    def test_following_redirect(self):
-        got = self.client.get('/user/user.com/following')
-        self.assert_equals(301, got.status_code)
-        self.assert_equals('/web/user.com/following', got.headers['Location'])
-
     def test_following_before_empty(self):
         got = self.client.get(f'/web/user.com/following?before={util.now().isoformat()}')
         self.assert_equals(200, got.status_code)
@@ -505,11 +490,6 @@ class PagesTest(TestCase):
     def test_feed_user_not_found(self):
         got = self.client.get('/web/nope.com/feed')
         self.assert_equals(404, got.status_code)
-
-    def test_feed_web_redirect(self):
-        got = self.client.get('/user/user.com/feed')
-        self.assert_equals(301, got.status_code)
-        self.assert_equals('/web/user.com/feed', got.headers['Location'])
 
     def test_feed_fake(self):
         self.make_user('fake:foo', cls=Fake)

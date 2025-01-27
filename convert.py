@@ -115,13 +115,6 @@ def check_bridged_to(obj, to_proto):
                 error(f"{from_proto.LABEL} user {owner} isn't bridged to {to_proto.LABEL}", status=404)
 
 
-@app.get('/render')
-def render_redirect():
-    """Redirect from old /render?id=... endpoint to /convert/..."""
-    id = flask_util.get_required_param('id')
-    return redirect(subdomain_wrap(ActivityPub, f'/convert/web/{id}'), code=301)
-
-
 @app.get(f'/convert/<from_>/<to>/<path:_>')
 def convert_source_path_redirect(from_, to, _):
     """Old route that included source protocol in path instead of subdomain.

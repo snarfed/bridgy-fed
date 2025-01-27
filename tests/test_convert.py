@@ -343,12 +343,6 @@ A ☕ reply
 <a class="u-in-reply-to" href="https://fake.com/123"></a>
 """, resp.get_data(as_text=True), ignore_blanks=True)
 
-    def test_render_endpoint_redirect(self):
-        resp = self.client.get('/render?id=http://foo%3Fbar')
-        self.assertEqual(301, resp.status_code)
-        self.assertEqual(f'https://ap.brid.gy/convert/web/http://foo?bar',
-                         resp.headers['Location'])
-
     def test_convert_source_path_redirect(self):
         resp = self.client.get('/convert/activitypub/web/https:/foo%3Fbar%23baz',
                                base_url='https://fed.brid.gy/')

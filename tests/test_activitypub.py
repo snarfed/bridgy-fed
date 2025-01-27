@@ -1059,7 +1059,7 @@ class ActivityPubTest(TestCase):
     def test_inbox_like_no_object_error(self, *_):
         user = self.make_user(ACTOR['id'], cls=ActivityPub, obj_as2=ACTOR)
 
-        got = self.post('/inbox', json={
+        got = self.post('/ap/sharedInbox', json={
             'id': 'https://mas.to/like',
             'type': 'Like',
             'actor': ACTOR['id'],

@@ -979,9 +979,8 @@ def _load_user(handle_or_id, create=False):
 # WARNING: the user page handler in pages.py overrides this for fediverse
 # addresses with leading @ character. be careful when changing this route!
 @app.get(f'/ap/<handle_or_id>')
-# source protocol in path; primarily for backcompat
-@app.get(f'/ap/web/<handle_or_id>')
-# special case Web users without /ap/web/ prefix, for backward compatibility
+# special case Web users on fed.brid.gy subdomain without /ap/web/ prefix, for
+# backward compatibility
 @app.get(f'/<regex("{DOMAIN_RE}"):handle_or_id>')
 @flask_util.headers({**CACHE_CONTROL, 'Vary': 'Accept'})
 def actor(handle_or_id):
@@ -1038,8 +1037,7 @@ def actor(handle_or_id):
 @app.post(f'/ap/<id>/inbox')
 # source protocol in path; primarily for backcompat
 @app.post(f'/ap/<protocol>/<id>/inbox')
-# special case Web users without /ap/web/ prefix, for backward compatibility
-@app.post('/inbox')
+# special case Web users on fed subdomain without /ap/web/ prefix
 @app.post(f'/<regex("{DOMAIN_RE}"):id>/inbox')
 def inbox(protocol=None, id=None):
     """Handles ActivityPub inbox delivery."""
@@ -1144,9 +1142,8 @@ def inbox(protocol=None, id=None):
 
 # protocol in subdomain
 @app.get(f'/ap/<id>/<any(followers,following):collection>')
-# source protocol in path; primarily for backcompat
-@app.get(f'/ap/web/<regex("{DOMAIN_RE}"):id>/<any(followers,following):collection>')
-# special case Web users without /ap/web/ prefix, for backward compatibility
+# special case Web users on fed.brid.gy subdomain without /ap/web/ prefix, for
+# backward compatibility
 @app.route(f'/<regex("{DOMAIN_RE}"):id>/<any(followers,following):collection>',
            methods=['GET', 'HEAD'])
 @flask_util.headers(CACHE_CONTROL)
@@ -1215,9 +1212,8 @@ def follower_collection(id, collection):
 
 # protocol in subdomain
 @app.get(f'/ap/<id>/outbox')
-# source protocol in path; primarily for backcompat
-@app.get(f'/ap/web/<regex("{DOMAIN_RE}"):id>/outbox')
-# special case Web users without /ap/web/ prefix, for backward compatibility
+# special case Web users on fed.brid.gy subdomain without /ap/web/ prefix, for
+# backward compatibility
 @app.route(f'/<regex("{DOMAIN_RE}"):id>/outbox', methods=['GET', 'HEAD'])
 @flask_util.headers(CACHE_CONTROL)
 def outbox(id):

@@ -118,16 +118,6 @@ def docs():
     return render_template('docs.html')
 
 
-@app.get(f'/user/<regex("{DOMAIN_RE}"):domain>')
-@app.get(f'/user/<regex("{DOMAIN_RE}"):domain>/feed')
-@app.get(f'/user/<regex("{DOMAIN_RE}"):domain>/<any(followers,following):collection>')
-@canonicalize_request_domain(common.PROTOCOL_DOMAINS, common.PRIMARY_DOMAIN)
-@flask_util.headers(CACHE_CONTROL)
-def web_user_redirects(**kwargs):
-    path = request.url.removeprefix(request.root_url).removeprefix('user/')
-    return redirect(f'/web/{path}', code=301)
-
-
 @app.get(f'/<any({",".join(PROTOCOLS)}):protocol>/<id>')
 # WARNING: this overrides the /ap/... actor URL route in activitypub.py, *only*
 # for handles with leading @ character. be careful when changing this route!
