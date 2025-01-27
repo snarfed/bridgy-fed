@@ -630,6 +630,23 @@ class TestCase(unittest.TestCase, testutil.Asserts):
             task=expected,
         )
 
+    def assert_ap_deliveries(self, mock_post, inboxes, data, ignore=()):
+        self.assertEqual(len(inboxes), len(mock_post.call_args_list),
+                         mock_post.call_args_list)
+
+        calls = {}  # maps inbox URL to JSON data
+        for args, kwargs in mock_post.call_args_list:
+            self.assertEqual(as2.CONTENT_TYPE_LD_PROFILE,
+                             kwargs['headers']['Content-Type'])
+            rsa_key = kwargs['auth'].header_signer._rsa._key
+            self.assertEqual(self.user.private_pem(), rsa_key.exportKey())
+            calls[args[0]] = json_loads(kwargs['data'])
+
+        for inbox in inboxes:
+            got = calls[inbox]
+            as1.get_object(got).pop('publicKey', None)
+            self.assert_equals(data, got, inbox, ignore=ignore)
+
     def parse_tasks(self, mock_create_task):
         """Returns (queue, {param name: value}) tuples, where JSON param values
         are parsed."""

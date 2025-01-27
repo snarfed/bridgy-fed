@@ -429,23 +429,6 @@ class WebTest(TestCase):
 
         self.mrs_foo = ndb.Key(ActivityPub, 'https://mas.to/mrs-foo')
 
-    def assert_deliveries(self, mock_post, inboxes, data, ignore=()):
-        self.assertEqual(len(inboxes), len(mock_post.call_args_list),
-                         mock_post.call_args_list)
-
-        calls = {}  # maps inbox URL to JSON data
-        for args, kwargs in mock_post.call_args_list:
-            self.assertEqual(as2.CONTENT_TYPE_LD_PROFILE,
-                             kwargs['headers']['Content-Type'])
-            rsa_key = kwargs['auth'].header_signer._rsa._key
-            self.assertEqual(self.user.private_pem(), rsa_key.exportKey())
-            calls[args[0]] = json_loads(kwargs['data'])
-
-        for inbox in inboxes:
-            got = calls[inbox]
-            as1.get_object(got).pop('publicKey', None)
-            self.assert_equals(data, got, inbox, ignore=ignore)
-
     def make_followers(self):
         self.followers = []
 
@@ -848,7 +831,7 @@ class WebTest(TestCase):
             self.as2_req('https://mas.to/author'),
         ))
 
-        self.assert_deliveries(mock_post, ['https://mas.to/inbox'], AS2_CREATE)
+        self.assert_ap_deliveries(mock_post, ['https://mas.to/inbox'], AS2_CREATE)
 
         author = ndb.Key(ActivityPub, 'https://mas.to/author')
         self.assert_object('https://user.com/reply',
@@ -895,7 +878,7 @@ class WebTest(TestCase):
             'target': 'https://fed.brid.gy/',
         })
         self.assertEqual(202, got.status_code)
-        self.assert_deliveries(mock_post, ['https://mas.to/inbox'], REPOST_AS2,
+        self.assert_ap_deliveries(mock_post, ['https://mas.to/inbox'], REPOST_AS2,
                                ignore=['cc'])
 
     def test_skip_update_if_content_unchanged(self, mock_get, mock_post):
@@ -1005,7 +988,7 @@ class WebTest(TestCase):
 
         inboxes = ('https://inbox', 'https://public/inbox',
                    'https://shared/inbox', 'https://mas.to/inbox')
-        self.assert_deliveries(mock_post, inboxes, expected_as2, ignore=['cc'])
+        self.assert_ap_deliveries(mock_post, inboxes, expected_as2, ignore=['cc'])
 
         for args, kwargs in mock_get.call_args_list[1:]:
             with self.subTest(url=args[0]):
@@ -1101,7 +1084,7 @@ class WebTest(TestCase):
         self.assertEqual(202, got.status_code)
 
         inboxes = ['https://inbox', 'https://public/inbox', 'https://shared/inbox']
-        self.assert_deliveries(mock_post, inboxes, {
+        self.assert_ap_deliveries(mock_post, inboxes, {
             '@context': ['https://www.w3.org/ns/activitystreams'],
             'type': 'Announce',
             'id': 'http://localhost/r/https://user.com/multiple',
@@ -1293,7 +1276,7 @@ class WebTest(TestCase):
         create_as2 = copy.deepcopy(CREATE_AS2)
         create_as2['id'] = 'http://localhost/r/https://www.user.com/post#bridgy-fed-create'
         create_as2['object']['id'] = 'http://localhost/r/https://www.user.com/post'
-        self.assert_deliveries(mock_post, inboxes, create_as2)
+        self.assert_ap_deliveries(mock_post, inboxes, create_as2)
 
     def test_create_post(self, mock_get, mock_post):
         mock_get.return_value = NOTE
@@ -1310,7 +1293,7 @@ class WebTest(TestCase):
             self.req('https://user.com/post'),
         ))
         inboxes = ('https://inbox', 'https://public/inbox', 'https://shared/inbox')
-        self.assert_deliveries(mock_post, inboxes, CREATE_AS2)
+        self.assert_ap_deliveries(mock_post, inboxes, CREATE_AS2)
 
         self.assert_object('https://user.com/post',
                            our_as1=NOTE_AS1,
@@ -1340,7 +1323,7 @@ class WebTest(TestCase):
             self.req('https://user.com/post'),
         ))
         inboxes = ('https://inbox', 'https://public/inbox', 'https://shared/inbox')
-        self.assert_deliveries(mock_post, inboxes, UPDATE_AS2)
+        self.assert_ap_deliveries(mock_post, inboxes, UPDATE_AS2)
         self.assert_object(
             'https://user.com/post',
             source_protocol='web',
@@ -1397,7 +1380,7 @@ class WebTest(TestCase):
             self.as2_req('https://mas.to/mrs-foo'),
         ))
 
-        self.assert_deliveries(mock_post, ['https://mas.to/inbox'], FOLLOW_AS2)
+        self.assert_ap_deliveries(mock_post, ['https://mas.to/inbox'], FOLLOW_AS2)
 
         follow_as1 = copy.deepcopy(FOLLOW_AS1)
         follow_as1['actor']['id'] = 'https://user.com/'
@@ -1497,7 +1480,7 @@ class WebTest(TestCase):
             self.as2_req('https://mas.to/mrs-foo'),
         ))
 
-        self.assert_deliveries(mock_post, ['https://mas.to/inbox'],
+        self.assert_ap_deliveries(mock_post, ['https://mas.to/inbox'],
                                FOLLOW_FRAGMENT_AS2)
 
         self.assert_object('https://user.com/follow#2',
@@ -1617,7 +1600,7 @@ class WebTest(TestCase):
         self.assertEqual(202, got.status_code, got.text)
 
         inboxes = ('https://inbox', 'https://public/inbox', 'https://shared/inbox')
-        self.assert_deliveries(mock_post, inboxes, DELETE_AS2)
+        self.assert_ap_deliveries(mock_post, inboxes, DELETE_AS2)
         self.assertTrue(Object.get_by_id('https://user.com/post').deleted)
 
     def test_delete_no_object(self, mock_get, mock_post):
@@ -1685,7 +1668,7 @@ class WebTest(TestCase):
             self.as2_req('https://mas.to/mrs-foo'),
         ))
 
-        self.assert_deliveries(mock_post, ['https://mas.to/inbox'], FOLLOW_AS2)
+        self.assert_ap_deliveries(mock_post, ['https://mas.to/inbox'], FOLLOW_AS2)
 
         self.assert_object('https://user.com/follow',
                            users=[self.user.key],
@@ -1756,7 +1739,7 @@ class WebTest(TestCase):
             },
             'to': ['https://www.w3.org/ns/activitystreams#Public'],
         }
-        self.assert_deliveries(mock_post, ('https://shared/inbox', 'https://inbox'),
+        self.assert_ap_deliveries(mock_post, ('https://shared/inbox', 'https://inbox'),
                                expected_as2)
 
         # updated Web user
@@ -1836,7 +1819,7 @@ class WebTest(TestCase):
         del update_as2['object']['endpoints']
         del update_as2['object']['followers']
         del update_as2['object']['following']
-        self.assert_deliveries(mock_post, ('https://inbox',), update_as2)
+        self.assert_ap_deliveries(mock_post, ('https://inbox',), update_as2)
 
         # updated Web user
         self.assert_user(Web, 'user.com', has_redirects=True, obj_as2={

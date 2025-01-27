@@ -152,7 +152,7 @@ class IntegrationTests(TestCase):
 
         web_test = test_web.WebTest()
         web_test.user = alice
-        web_test.assert_deliveries(mock_post, ['http://inst/bob/inbox'], data={
+        web_test.assert_ap_deliveries(mock_post, ['http://inst/bob/inbox'], data={
             '@context': 'https://www.w3.org/ns/activitystreams',
             'type': 'Create',
             'id': 'https://bsky.brid.gy/convert/ap/at://did:plc:alice/app.bsky.feed.post/456#bridgy-fed-create',
