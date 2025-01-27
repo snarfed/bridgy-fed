@@ -374,12 +374,15 @@ def nodeinfo():
     """
     https://nodeinfo.diaspora.software/schema.html
     """
-    user_total = (ATProto.query(ATProto.enabled_protocols != None).count()
-                  + ActivityPub.query(ActivityPub.enabled_protocols != None).count())
-    if stat := KindStat.query(KindStat.kind_name == 'MagicKey').get():
-        user_total += stat.count
+    atp = ATProto.query(ATProto.enabled_protocols != None).count()
+    ap = ActivityPub.query(ActivityPub.enabled_protocols != None).count()
 
-    logger.info(f'Total users {user_total}')
+    web = 0
+    if stat := KindStat.query(KindStat.kind_name == 'MagicKey').get():
+        web = stat.count
+
+    total = atp + ap + web
+    logger.info(f'Total users {total}')
 
     return {
         'version': '2.1',
@@ -400,7 +403,7 @@ def nodeinfo():
         },
         'usage': {
             'users': {
-                'total': user_total,
+                'total': total,
                 # 'activeMonth':
                 # 'activeHalfyear':
             },
@@ -413,7 +416,13 @@ def nodeinfo():
             #                               ).count(),
         },
         'openRegistrations': True,
-        'metadata': {},
+        'metadata': {
+            'users': {
+                'activitypub': ap,
+                'atprotocol': atp,
+                'webmention': web,
+            },
+        },
     }, {
         # https://nodeinfo.diaspora.software/protocol.html
         'Content-Type': 'application/json; profile="http://nodeinfo.diaspora.software/ns/schema/2.1#"',
