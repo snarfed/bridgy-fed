@@ -113,8 +113,61 @@ class IntegrationTests(TestCase):
         assert atproto_firehose.commits.empty()
 
     @patch('requests.post')
-    def test_atproto_notify_reply_to_activitypub(self, mock_post):
-        """ATProto poll notifications, deliver reply to ActivityPub.
+    def test_atproto_post_to_activitypub(self, mock_post):
+        """ATProto post, from firehose to ActivityPub.
+
+        ATProto original post at://did:plc:alice/app.bsky.feed.post/123
+        ActivityPub follower http://inst/bob
+        """
+        self.store_object(id='did:plc:alice', raw=DID_DOC)
+        alice = self.make_user(
+            id='did:plc:alice',
+            cls=ATProto,
+            enabled_protocols=['activitypub'],
+            obj_bsky=test_atproto.ACTOR_PROFILE_BSKY,
+            # make sure we handle our_as1 with profile id ok
+            obj_as1={
+                **test_atproto.ACTOR_AS,
+                'id': 'at://did:plc:alice/app.bsky.actor.profile/self',
+            })
+
+        bob = self.make_ap_user('http://inst/bob')
+        Follower.get_or_create(to=alice, from_=bob)
+
+        # need at least one repo for firehose subscriber to load DIDs and run
+        Repo.create(self.storage, 'did:unused', signing_key=ATPROTO_KEY)
+
+        post = {
+            '$type': 'app.bsky.feed.post',
+            'text': 'I hereby post',
+        }
+        self.firehose(repo='did:plc:alice', action='create', seq=123,
+                      path='app.bsky.feed.post/123', record=post)
+
+        self.assert_ap_deliveries(mock_post, ['http://inst/bob/inbox'],
+                                  from_user=alice, data={
+            '@context': 'https://www.w3.org/ns/activitystreams',
+            'type': 'Create',
+            'id': 'https://bsky.brid.gy/convert/ap/at://did:plc:alice/app.bsky.feed.post/123#bridgy-fed-create',
+            'actor': 'https://bsky.brid.gy/ap/did:plc:alice',
+            'published': '2022-01-02T03:04:05+00:00',
+            'object': {
+                'type': 'Note',
+                'id': 'https://bsky.brid.gy/convert/ap/at://did:plc:alice/app.bsky.feed.post/123',
+                'url': 'http://localhost/r/https://bsky.app/profile/did:plc:alice/post/123',
+                'attributedTo': 'https://bsky.brid.gy/ap/did:plc:alice',
+                'content': '<p>I hereby post</p>',
+                'contentMap': {'en': '<p>I hereby post</p>'},
+                'to': ['https://www.w3.org/ns/activitystreams#Public'],
+            },
+            'to': ['https://www.w3.org/ns/activitystreams#Public'],
+        })
+
+
+
+    @patch('requests.post')
+    def test_atproto_reply_to_activitypub(self, mock_post):
+        """ATProto reply, from firehose to ActivityPub.
 
         ActivityPub original post http://inst/post by bob
         ATProto reply 123 by alice.com (did:plc:alice)
@@ -150,9 +203,8 @@ class IntegrationTests(TestCase):
         self.firehose(repo='did:plc:alice', action='create', seq=456,
                       path='app.bsky.feed.post/456', record=reply)
 
-        web_test = test_web.WebTest()
-        web_test.user = alice
-        web_test.assert_ap_deliveries(mock_post, ['http://inst/bob/inbox'], data={
+        self.assert_ap_deliveries(mock_post, ['http://inst/bob/inbox'],
+                                  from_user=alice, data={
             '@context': 'https://www.w3.org/ns/activitystreams',
             'type': 'Create',
             'id': 'https://bsky.brid.gy/convert/ap/at://did:plc:alice/app.bsky.feed.post/456#bridgy-fed-create',
@@ -177,8 +229,8 @@ class IntegrationTests(TestCase):
 
     @patch('requests.post', return_value=requests_response(''))
     @patch('requests.get', return_value=test_web.WEBMENTION_REL_LINK)
-    def test_atproto_follow_to_web(self, mock_get, mock_post):
-        """ATProto poll notifications, deliver follow to Web.
+    def test_atproto_follow_of_web(self, mock_get, mock_post):
+        """ATProto follow to Web.
 
         ATProto user alice.com (did:plc:alice)
         ATProto follow at://did:plc:alice/app.bsky.graph.follow/123

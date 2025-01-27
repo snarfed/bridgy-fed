@@ -265,7 +265,7 @@ class FollowTest(TestCase):
             **as2.to_as1(unwrap(FOLLOW_URL)),
             'actor': {
                 'objectType': 'person',
-                'id': 'https://alice.com/',
+                'id': 'alice.com',
                 'url': 'acct:eve@alice.com',
             },
         })

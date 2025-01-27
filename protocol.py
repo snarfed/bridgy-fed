@@ -1044,7 +1044,14 @@ class Protocol:
             logger.debug('Fetching actor so we have name, profile photo, etc')
             actor_obj = from_cls.load(actor['id'], raise_=False)
             if actor_obj and actor_obj.as1:
-                obj.our_as1 = {**obj.as1, 'actor': actor_obj.as1}
+                obj.our_as1 = {
+                    **obj.as1, 'actor': {
+                        **actor_obj.as1,
+                        # override profile id with actor id
+                        # https://github.com/snarfed/bridgy-fed/issues/1720
+                        'id': actor['id'],
+                    }
+                }
 
         # fetch object if necessary
         if (obj.type in ('post', 'update', 'share')
