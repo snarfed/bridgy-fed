@@ -238,7 +238,7 @@ class FollowTest(TestCase):
                    mock_post, fetched_followee=False)
 
     def test_callback_user_with_custom_username(self, mock_get, mock_post):
-        self.user.obj.clear()
+        self.user.obj.our_as1 = None
         self.user.obj.as2 = {
             'type': 'Person',
             'url': ['acct:eve@alice.com'],

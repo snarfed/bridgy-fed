@@ -1142,8 +1142,8 @@ class Object(StringIdModel):
                         dirty = True
             elif val and val != getattr(obj, prop):
                 setattr(obj, prop, val)
-                if prop in ('as2', 'bsky', 'mf2', 'raw'):
-                    obj.clear()  # just unsets our_as1
+                if prop in ('as2', 'bsky', 'mf2', 'raw') and not props.get('our_as1'):
+                    obj.our_as1 = None
                 dirty = True
 
         obj.new = False
@@ -1180,10 +1180,6 @@ class Object(StringIdModel):
         """
         with self.lock:
             getattr(self, prop).remove(val)
-
-    def clear(self):
-        """Clears the :attr:`Object.our_as1` property."""
-        self.our_as1 = None
 
     @staticmethod
     def from_request():

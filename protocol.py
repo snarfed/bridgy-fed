@@ -1641,7 +1641,7 @@ Hi! You <a href="{inner_obj_as1.get('url') or inner_obj_id}">recently replied</a
 
         if obj:
             orig_as1 = obj.as1
-            obj.clear()
+            obj.our_as1 = None
             obj.new = False
         else:
             obj = Object(id=id)

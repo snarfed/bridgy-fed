@@ -2471,7 +2471,7 @@ class ActivityPubUtilsTest(TestCase):
         self.user.has_redirects = True
         self.user.put()
 
-        self.user.obj.clear()
+        self.user.obj.our_as1 = None
         self.user.obj.as2 = {
             'type': 'Person',
             'url': ['acct:eve@user.com'],
