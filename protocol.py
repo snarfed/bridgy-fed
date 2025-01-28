@@ -1042,7 +1042,8 @@ class Protocol:
         if (actor and actor.keys() == set(['id'])
                 and obj.type not in ('delete', 'undo')):
             logger.debug('Fetching actor so we have name, profile photo, etc')
-            actor_obj = from_cls.load(actor['id'], raise_=False)
+            actor_obj = from_cls.load(ids.profile_id(id=actor['id'], proto=from_cls),
+                                      raise_=False)
             if actor_obj and actor_obj.as1:
                 obj.our_as1 = {
                     **obj.as1, 'actor': {

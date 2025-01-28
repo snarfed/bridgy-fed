@@ -1518,11 +1518,7 @@ class ProtocolReceiveTest(TestCase):
             'objectType': 'activity',
             'verb': 'post',
             'id': 'fake:post#bridgy-fed-create',
-            'actor': {
-                'objectType': 'person',
-                'id': 'fake:user',
-                'url': 'fake:user',
-            },
+            'actor': 'fake:user',
             'object': note_as1,
             'published': '2022-01-02T03:04:05+00:00',
         }
@@ -1635,7 +1631,7 @@ class ProtocolReceiveTest(TestCase):
         _, status = Fake.receive_as1(update)
         self.assertEqual(204, status)
 
-        self.assertEqual(['fake:post'], Fake.fetched)
+        self.assertEqual(['fake:profile:user', 'fake:post'], Fake.fetched)
         self.assert_object('fake:post',
                            our_as1=post,
                            type='note',
@@ -1655,7 +1651,7 @@ class ProtocolReceiveTest(TestCase):
         with self.assertRaises(ErrorButDoNotRetryTask):
             Fake.receive_as1(update)
 
-        self.assertEqual(['fake:post'], Fake.fetched)
+        self.assertEqual(['fake:profile:user', 'fake:post'], Fake.fetched)
         self.assertIsNone(Object.get_by_id('fake:update'))
 
     def test_create_reply(self):
@@ -2157,19 +2153,20 @@ class ProtocolReceiveTest(TestCase):
 
         self.make_followers()
 
+        actor = {
+            'objectType': 'person',
+            'id': 'fake:user',
+            'displayName': 'Ms. ☕ Baz',
+            'urls': [{'displayName': 'Ms. ☕ Baz', 'value': 'https://user.com/'}],
+            'updated': '2022-01-02T03:04:05+00:00',
+        }
         id = 'fake:user#update-2022-01-02T03:04:05+00:00'
         update_as1 = {
             'objectType': 'activity',
             'verb': 'update',
             'id': id,
-            'actor': 'fake:user',
-            'object': {
-                'objectType': 'person',
-                'id': 'fake:profile:user',
-                'displayName': 'Ms. ☕ Baz',
-                'urls': [{'displayName': 'Ms. ☕ Baz', 'value': 'https://user.com/'}],
-                'updated': '2022-01-02T03:04:05+00:00',
-            },
+            'actor': actor,
+            'object': {**actor, 'id': 'fake:profile:user'},
         }
         Fake.receive_as1(update_as1)
 
@@ -2427,10 +2424,10 @@ class ProtocolReceiveTest(TestCase):
         self.assertEqual([('efake:follow:target', accept_as1)], ExplicitFake.sent)
 
     def test_stop_following(self):
-        follower = Follower.get_or_create(to=self.user, from_=self.alice)
-
         self.user.obj.our_as1 = {'id': 'fake:user'}
         self.user.obj.put()
+
+        follower = Follower.get_or_create(to=self.user, from_=self.alice)
 
         stop_as1 = {
             'id': 'other:stop-following',
@@ -2462,11 +2459,11 @@ class ProtocolReceiveTest(TestCase):
         self.assertEqual([('fake:user:target', stop_following_as1)], Fake.sent)
 
     def test_stop_following_inactive(self):
-        follower = Follower.get_or_create(to=self.user, from_=self.alice,
-                                          status='inactive')
-        OtherFake.fetchable['other:alice'] = {}
         self.user.obj.our_as1 = {'id': 'fake:user'}
         self.user.obj.put()
+
+        follower = Follower.get_or_create(to=self.user, from_=self.alice,
+                                          status='inactive')
 
         stop_following_as1 = {
             'id': 'other:stop-following',
@@ -2690,7 +2687,7 @@ class ProtocolReceiveTest(TestCase):
         self.assertEqual(('OK', 202), Fake.receive(obj, authed_as='fake:user'))
         self.assert_equals({
             **follow,
-            'actor': {'id': 'fake:user'},
+            'actor': 'fake:user',
             'object': 'other:alice',
         }, Object.get_by_id('fake:follow').our_as1)
 

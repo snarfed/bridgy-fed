@@ -238,7 +238,7 @@ class PagesTest(TestCase):
             ['Updating profile from <a href="web:fake:user">fake:handle:user</a>...'],
             get_flashed_messages())
 
-        self.assertEqual(['fake:profile:user', 'fake:user'], Fake.fetched)
+        self.assertEqual(['fake:profile:user'], Fake.fetched)
 
         actor['updated'] = '2022-01-02T03:04:05+00:00'
         self.assert_object('fake:profile:user', source_protocol='fake', our_as1=actor,
@@ -248,7 +248,7 @@ class PagesTest(TestCase):
             'objectType': 'activity',
             'verb': 'update',
             'id': 'fake:profile:user#bridgy-fed-update-2022-01-02T03:04:05+00:00',
-            'actor': 'fake:user',
+            'actor': {**actor, 'id': 'fake:user'},
             'object': actor,
         }
         self.assertEqual([('other:bob:target', update)], OtherFake.sent)
