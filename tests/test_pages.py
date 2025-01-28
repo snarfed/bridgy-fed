@@ -219,6 +219,11 @@ class PagesTest(TestCase):
 
     def test_update_profile(self):
         user = self.make_user('fake:user', cls=Fake)
+        user.obj.copies = [Target(protocol='other', uri='other:profile:fake:user')]
+        user.obj.put()
+
+        bob = self.make_user('other:bob', cls=OtherFake)
+        Follower.get_or_create(to=user, from_=bob)
 
         actor = {
             'objectType': 'person',
@@ -233,11 +238,20 @@ class PagesTest(TestCase):
             ['Updating profile from <a href="web:fake:user">fake:handle:user</a>...'],
             get_flashed_messages())
 
-        self.assertEqual(['fake:profile:user'], Fake.fetched)
+        self.assertEqual(['fake:profile:user', 'fake:user'], Fake.fetched)
 
         actor['updated'] = '2022-01-02T03:04:05+00:00'
         self.assert_object('fake:profile:user', source_protocol='fake', our_as1=actor,
-                           users=[user.key])
+                           users=[user.key], copies=user.obj.copies)
+
+        update = {
+            'objectType': 'activity',
+            'verb': 'update',
+            'id': 'fake:profile:user#bridgy-fed-update-2022-01-02T03:04:05+00:00',
+            'actor': 'fake:user',
+            'object': actor,
+        }
+        self.assertEqual([('other:bob:target', update)], OtherFake.sent)
 
     @patch.object(Fake, 'fetch', side_effect=ConnectionError('foo'))
     def test_update_profile_load_fails(self, _):
@@ -303,7 +317,7 @@ class PagesTest(TestCase):
             'objectType': 'activity',
             'verb': 'update',
             'id': 'https://user.com/#bridgy-fed-update-2022-01-02T03:04:05+00:00',
-            'actor': actor_as1,
+            'actor': {**actor_as1, 'id': 'user.com'},
             'object': actor_as1,
         })], Fake.sent)
 
@@ -331,7 +345,7 @@ class PagesTest(TestCase):
             'objectType': 'activity',
             'verb': 'update',
             'id': 'https://user.com/#bridgy-fed-update-2022-01-02T03:04:05+00:00',
-            'actor': actor_as1,
+            'actor': {**actor_as1, 'id': 'user.com'},
             'object': actor_as1,
         })], Fake.sent)
 

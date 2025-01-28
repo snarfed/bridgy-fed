@@ -1256,7 +1256,7 @@ class Protocol:
         if not is_actor and obj.type not in ('note', 'article', 'comment'):
             return obj
 
-        obj_actor = as1.get_owner(obj.as1)
+        obj_actor = ids.normalize_user_id(id=as1.get_owner(obj.as1), proto=cls)
         now = util.now().isoformat()
 
         # occasionally we override the object, eg if this is a profile object
