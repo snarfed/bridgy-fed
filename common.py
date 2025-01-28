@@ -419,7 +419,7 @@ PROFILE_ID_RE = re.compile(
     """, re.VERBOSE)
 
 def global_cache_timeout_policy(key):
-    """Cache users and profile objects indefinitely, everything else 2h.
+    """Cache everything for 2h.
 
     Args:
       key (google.cloud.datastore.key.Key or google.cloud.ndb.key.Key):
@@ -428,15 +428,6 @@ def global_cache_timeout_policy(key):
     Returns:
       int: cache expiration for this object, in seconds
     """
-    if isinstance(key, Key):
-        # use internal google.cloud.datastore.key.Key
-        # https://github.com/googleapis/python-ndb/issues/987
-        key = key._key
-
-    if (key and (key.kind in ('ActivityPub', 'ATProto', 'MagicKey')
-                 or key.kind == 'Object' and PROFILE_ID_RE.search(key.name))):
-        return None
-
     return int(NDB_MEMCACHE_TIMEOUT.total_seconds())
 
 

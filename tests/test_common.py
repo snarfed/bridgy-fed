@@ -113,7 +113,6 @@ class CommonTest(TestCase):
         with app.test_request_context(base_url='https://bsky.brid.gy', path='/foo'):
             self.assertEqual('https://bsky.brid.gy/asdf', common.host_url('asdf'))
 
-    @skip
     def test_cache_policy(self):
         for id in 'did:plc:foo', 'did:web:foo':
             self.assertTrue(common.cache_policy(Object(id=id).key))
@@ -126,7 +125,7 @@ class CommonTest(TestCase):
             Object(id='at://did:plc:user/app.bsky.actor.profile/self'),
             Follower(id='abc'),
         ):
-            self.assertFalse(common.cache_policy(obj.key))
+            self.assertTrue(common.cache_policy(obj.key))
 
     def test_global_cache_timeout_policy(self):
         for obj in (
@@ -139,7 +138,7 @@ class CommonTest(TestCase):
             Object(id='did:web:foo.com'),
             Object(id='at://did:plc:user/app.bsky.actor.profile/self'),
         ):
-            self.assertIsNone(common.global_cache_timeout_policy(obj.key._key))
+            self.assertEqual(7200, common.global_cache_timeout_policy(obj.key._key))
 
         for obj in (
             Follower(id='abc'),
