@@ -54,7 +54,8 @@ def only_lookups(record):
     if '\nkeys {' in msg:
         if id := KEYS_ID_RE.search(msg):
             stack = [frame for frame in traceback.extract_stack()[:-1]
-                     if frame.filename.startswith('/workspace/')
+                     if (frame.filename.startswith('/workspace/')
+                         or 'arroba' in frame.filename)
                         or (frame.filename.startswith('/Users/ryan/src/')
                             and '/lib/' not in frame.filename)]
             new_msg = id.group(1) + '\n' + ''.join(traceback.format_list(stack))
