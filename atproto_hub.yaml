@@ -16,6 +16,10 @@ resources:
   # steady state memory usage is only .5-2G, but spikes when we're working
   # through a backlog of commits
   # https://github.com/snarfed/bridgy-fed/issues/1266#issuecomment-2321863960
+  #
+  # also note that GAE Flex supposedly only bills for the memory we actually use,
+  # not the amount we reserve here
+  # https://www.mail-archive.com/google-appengine@googlegroups.com/msg93373.html
   memory_gb: 6.0
 
 network:
