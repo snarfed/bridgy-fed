@@ -378,7 +378,11 @@ def nodeinfo():
     ap = ActivityPub.query(ActivityPub.enabled_protocols != None).count()
     web = Web.query(Web.status == None).count()
     total = atp + ap + web
-    logger.info(f'User counts: {total} total, {atp} atproto, {ap} ap, {web} web')
+
+    logger.info(f'Users: ap: {ap}')
+    logger.info(f'Users: atproto: {atp}')
+    logger.info(f'Users: web: {web}')
+    logger.info(f'Users: total: {total}')
 
     return {
         'version': '2.1',
