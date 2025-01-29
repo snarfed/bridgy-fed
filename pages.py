@@ -426,7 +426,6 @@ def nodeinfo():
     }, {
         # https://nodeinfo.diaspora.software/protocol.html
         'Content-Type': 'application/json; profile="http://nodeinfo.diaspora.software/ns/schema/2.1#"',
-        'Cache-Control': f'public, max-age={int(datetime.timedelta(days=1).total_seconds())}'
     }
 
 
