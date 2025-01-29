@@ -3050,6 +3050,21 @@ class ProtocolReceiveTest(TestCase):
         self.assertEqual([], Fake.sent)
         self.assertEqual([], OtherFake.sent)
 
+    def test_too_old_published_without_timezone(self):
+        Follower.get_or_create(to=self.user, from_=self.alice)
+
+        with self.assertRaises(NoContent):
+            Fake.receive_as1({
+                'id': 'fake:post',
+                'objectType': 'note',
+                'author': 'fake:user',
+                'published': '2021-12-14T03:04:05',  # NOW - 2w
+            })
+        self.assertIsNone(Object.get_by_id('fake:post'))
+
+        self.assertEqual([], Fake.sent)
+        self.assertEqual([], OtherFake.sent)
+
     def test_receive_activity_lease(self):
         Follower.get_or_create(to=self.user, from_=self.alice)
 

@@ -1,6 +1,6 @@
 """Base protocol class and common code."""
 import copy
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 import logging
 import os
 import re
@@ -965,7 +965,10 @@ class Protocol:
         if obj.type == 'post':
             if published := inner_obj_as1.get('published'):
                 try:
-                    age = util.now() - util.parse_iso8601(published)
+                    published_dt = util.parse_iso8601(published)
+                    if not published_dt.tzinfo:
+                        published_dt = published_dt.replace(tzinfo=timezone.utc)
+                    age = util.now() - published_dt
                     if age > CREATE_MAX_AGE:
                         error(f'Ignoring, too old, {age} is over {CREATE_MAX_AGE}',
                               status=204)
