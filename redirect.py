@@ -14,6 +14,7 @@ Background:
 The conneg makes these ``/r/`` URLs searchable in Mastodon:
 https://github.com/snarfed/bridgy-fed/issues/352
 """
+from datetime import timedelta
 import logging
 import re
 import urllib.parse
@@ -27,6 +28,7 @@ from oauth_dropins.webutil.util import json_dumps, json_loads
 from activitypub import ActivityPub
 from common import CACHE_CONTROL_VARY_ACCEPT, CONTENT_TYPE_HTML, as2_request_type
 from flask_app import app
+import memcache
 from protocol import Protocol
 from web import Web
 
@@ -38,6 +40,7 @@ DOMAIN_ALLOWLIST = frozenset((
 
 
 @app.get(r'/r/<path:to>')
+@memcache.memoize(expire=timedelta(hours=1), key=lambda to: (to, as2_request_type()))
 @flask_util.headers(CACHE_CONTROL_VARY_ACCEPT)
 def redir(to):
     """Either redirect to a given URL or convert it to another format.

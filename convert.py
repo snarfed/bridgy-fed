@@ -3,6 +3,7 @@
 URL pattern is ``/convert/SOURCE/DEST``, where ``SOURCE`` and ``DEST`` are the
 ``LABEL`` constants from the :class:`protocol.Protocol` subclasses.
 """
+from datetime import timedelta
 import logging
 import re
 from urllib.parse import quote, unquote
@@ -14,12 +15,13 @@ from oauth_dropins.webutil.flask_util import error
 
 from activitypub import ActivityPub
 from common import (
-    CACHE_CONTROL_VARY_ACCEPT,
+    CACHE_CONTROL,
     LOCAL_DOMAINS,
     subdomain_wrap,
     SUPERDOMAIN,
 )
 from flask_app import app
+import memcache
 from models import Object, PROTOCOLS
 from protocol import Protocol
 from web import Web
@@ -28,11 +30,15 @@ logger = logging.getLogger(__name__)
 
 
 @app.get(f'/convert/<to>/<path:_>')
-@flask_util.headers(CACHE_CONTROL_VARY_ACCEPT)
+@memcache.memoize(expire=timedelta(hours=1))
+@flask_util.headers(CACHE_CONTROL)
 def convert(to, _, from_=None):
     """Converts data from one protocol to another and serves it.
 
     Fetches the source data if it's not already stored.
+
+    Note that we don't do conneg or otherwise care about the Accept header here,
+    we always serve the "to" protocol's format.
 
     Args:
       to (str): protocol
