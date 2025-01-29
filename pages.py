@@ -369,6 +369,7 @@ def nodeinfo_jrd():
 
 @app.get('/nodeinfo.json')
 @canonicalize_request_domain(common.PROTOCOL_DOMAINS, common.PRIMARY_DOMAIN)
+@memcache.memoize(expire=datetime.timedelta(hours=1))
 @flask_util.headers(CACHE_CONTROL)
 def nodeinfo():
     """
