@@ -26,6 +26,7 @@ from flask_app import app
 import common
 from common import (
     CACHE_CONTROL,
+    CACHE_CONTROL_VARY_ACCEPT,
     CONTENT_TYPE_HTML,
     create_task,
     DOMAINS,
@@ -982,7 +983,7 @@ def _load_user(handle_or_id, create=False):
 # special case Web users on fed.brid.gy subdomain without /ap/web/ prefix, for
 # backward compatibility
 @app.get(f'/<regex("{DOMAIN_RE}"):handle_or_id>')
-@flask_util.headers({**CACHE_CONTROL, 'Vary': 'Accept'})
+@flask_util.headers(CACHE_CONTROL_VARY_ACCEPT)
 def actor(handle_or_id):
     """Serves a user's AS2 actor from the datastore."""
     user = _load_user(handle_or_id, create=True)

@@ -13,7 +13,12 @@ from oauth_dropins.webutil import flask_util, util
 from oauth_dropins.webutil.flask_util import error
 
 from activitypub import ActivityPub
-from common import CACHE_CONTROL, LOCAL_DOMAINS, subdomain_wrap, SUPERDOMAIN
+from common import (
+    CACHE_CONTROL_VARY_ACCEPT,
+    LOCAL_DOMAINS,
+    subdomain_wrap,
+    SUPERDOMAIN,
+)
 from flask_app import app
 from models import Object, PROTOCOLS
 from protocol import Protocol
@@ -23,7 +28,7 @@ logger = logging.getLogger(__name__)
 
 
 @app.get(f'/convert/<to>/<path:_>')
-@flask_util.headers(CACHE_CONTROL)
+@flask_util.headers(CACHE_CONTROL_VARY_ACCEPT)
 def convert(to, _, from_=None):
     """Converts data from one protocol to another and serves it.
 
@@ -86,7 +91,6 @@ def convert(to, _, from_=None):
     # convert and serve
     return to_proto.convert(obj), {
         'Content-Type': to_proto.CONTENT_TYPE,
-        'Vary': 'Accept',
     }
 
 

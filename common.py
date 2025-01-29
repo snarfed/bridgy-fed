@@ -88,6 +88,7 @@ SUBDOMAIN_BASE_URL_RE = None
 ID_FIELDS = ('id', 'object', 'actor', 'author', 'inReplyTo', 'url')
 
 CACHE_CONTROL = {'Cache-Control': 'public, max-age=3600'}  # 1 hour
+CACHE_CONTROL_VARY_ACCEPT = {**CACHE_CONTROL, 'Vary': 'Accept'}
 
 NDB_MEMCACHE_TIMEOUT = timedelta(hours=2)
 

@@ -25,7 +25,7 @@ from oauth_dropins.webutil.flask_util import error
 from oauth_dropins.webutil.util import json_dumps, json_loads
 
 from activitypub import ActivityPub
-from common import CACHE_CONTROL, CONTENT_TYPE_HTML, as2_request_type
+from common import CACHE_CONTROL_VARY_ACCEPT, CONTENT_TYPE_HTML, as2_request_type
 from flask_app import app
 from protocol import Protocol
 from web import Web
@@ -36,13 +36,9 @@ DOMAIN_ALLOWLIST = frozenset((
     'bsky.app',
 ))
 
-HEADERS = {
-    'Vary': 'Accept',
-    **CACHE_CONTROL,
-}
 
 @app.get(r'/r/<path:to>')
-@flask_util.headers(HEADERS)
+@flask_util.headers(CACHE_CONTROL_VARY_ACCEPT)
 def redir(to):
     """Either redirect to a given URL or convert it to another format.
 
