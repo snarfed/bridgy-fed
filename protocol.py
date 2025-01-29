@@ -54,6 +54,7 @@ from models import (
 
 OBJECT_REFRESH_AGE = timedelta(days=30)
 DELETE_TASK_DELAY = timedelta(minutes=2)
+CREATE_MAX_AGE = timedelta(weeks=2)
 
 # require a follow for users on these domains before we deliver anything from
 # them other than their profile
@@ -958,6 +959,18 @@ class Protocol:
         if obj.type in as1.CRUD_VERBS | as1.VERBS_WITH_OBJECT:
             if not inner_obj_id:
                 error(f'{obj.type} object has no id!')
+
+        # check age. we support backdated posts, but if they're over 2w old, we
+        # don't deliver them
+        if obj.type == 'post':
+            if published := inner_obj_as1.get('published'):
+                try:
+                    age = util.now() - util.parse_iso8601(published)
+                    if age > CREATE_MAX_AGE:
+                        error(f'Ignoring, too old, {age} is over {CREATE_MAX_AGE}',
+                              status=204)
+                except ValueError:  # from parse_iso8601
+                    logger.debug(f"Couldn't parse published {published}")
 
         # write Object to datastore
         obj.source_protocol = from_cls.LABEL
