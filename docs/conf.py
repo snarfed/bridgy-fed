@@ -351,7 +351,7 @@ intersphinx_mapping = {
   'flask': ('https://flask.palletsprojects.com/en/latest', None),
   'flask_caching': ('https://flask-caching.readthedocs.io/en/latest', None),
   'granary': ('https://granary.readthedocs.io/en/stable', None),
-  'lexrpc': ('https://granary.readthedocs.io/en/stable', None),
+  'lexrpc': ('https://lexrpc.readthedocs.io/en/stable', None),
   'multiformats': ('https://multiformats.readthedocs.io/en/stable', None),
   'ndb': ('https://googleapis.dev/python/python-ndb/latest/', None),
   'oauth_dropins': ('https://oauth-dropins.readthedocs.io/en/stable', None),
