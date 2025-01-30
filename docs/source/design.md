@@ -78,7 +78,7 @@ Bridgy Fed runs on Google Cloud and stores data in [Google Cloud Datastore](http
 
 We use [ndb](https://googleapis.dev/python/python-ndb/latest/) our ORM. It's a venerable, conventional ORM for Google Cloud Datastore. Every table is defined by a Python class that ultimately derives from [`ndb.Model`](https://googleapis.dev/python/python-ndb/latest/model.html), with properties (columns) defined via [type-specific ndb `Property` classes](https://googleapis.dev/python/python-ndb/latest/model.html). Queries are programmatic, not SQL.
 
-Common models in Bridgy Fed are defined in [`models`](models). Each protocol has its own separate source file where its user model class is defined, eg `Web` is in [`web`](web).
+Common models in Bridgy Fed are defined in [`models`](models). Each protocol has its own separate source file where its user model class is defined, eg [`Web`](web.Web) is in [`web`](web).
 
 
 ## Users
@@ -89,16 +89,16 @@ Each of these user classes derive from a common base class, [`User`](models.User
 
 The primary key for these user tables is the user's unique id in their native protocol, eg domain for web, actor id for ActivityPub, and DID for AT Protocol. Here are some examples:
 
-* [`Web: snarfed.org`](https://fed.brid.gy/web/snarfed.org)
-* [`ActivityPub: https://indieweb.social/users/snarfed`](https://fed.brid.gy/ap/@snarfed@indieweb.social)
-* [`ATProto: did:plc:3ljmtyyjqcjee2kpewgsifvb`](https://fed.brid.gy/bsky/did:plc:3ljmtyyjqcjee2kpewgsifvb)
+* Web: [`snarfed.org`](https://fed.brid.gy/web/snarfed.org)
+* ActivityPub: [`https://indieweb.social/users/snarfed`](https://fed.brid.gy/ap/@snarfed@indieweb.social)
+* ATProto: [`did:plc:3ljmtyyjqcjee2kpewgsifvb`](https://fed.brid.gy/bsky/did:plc:3ljmtyyjqcjee2kpewgsifvb)
 
 
 ## Objects
 
-The [`Object`](models.Object) table stores all content and data. Every post, reply, like, repost, follow, block, etc is an `Object`. User profiles are too; they're attached to users via [`User.obj`](models.User.obj).
+The [`Object`](models.Object) table stores all content and data. Every post, reply, like, repost, follow, block, etc is an [`Object`](models.Object). User profiles are too; they're attached to users via [`User.obj`](models.User.obj).
 
-The primary key for `Object`s is the object id in its native protocol. For web and ActivityPub, this is a URL; for AT Protocol, it's an [`at://` URI](https://atproto.com/specs/at-uri-scheme). Here are some examples:
+The primary key for [`Object`](models.Object)s is the object id in its native protocol. For web and ActivityPub, this is a URL; for AT Protocol, it's an [`at://` URI](https://atproto.com/specs/at-uri-scheme). Here are some examples:
 
 * Web: `https://snarfed.org/2023-06-30_policing-misinformation` (post)
 * ActivityPub: `https://mastodon.social/00150396-47fc-42c8-7271-d187a8346d42` (follow)
@@ -106,7 +106,7 @@ The primary key for `Object`s is the object id in its native protocol. For web a
 
 Note that user ids and profile ids are the same in some protocols, but not all. They're the same in ActivityPub, eg `https://indieweb.social/users/snarfed`, but in web and AT Protocol, they're different. Web user ids are domains, but web profile ids are home page URLs, eg `snarfed.org` vs `https://snarfed.org/`. Likewise, AT Protocol user ids are DIDs, but profile ids are `at://` URIs, eg `at://did:plc:3ljmtyyjqcjee2kpewgsifvb/app.bsky.actor.profile/self`. [More on translating ids here.](https://fed.brid.gy/docs#translate)
 
-Data is stored in protocol-specific properties on `Object` - `as2`, `bsky`, `mf2`, etc - and converted on demand to ActivityStreams 1, Bridgy Fed's (and granary's) common data format, via the `as1` computed property. We also sometimes modify the protocol's original data and store the result in the `our_as1` property, which overrides the protocol-specific properties.
+Data is stored in protocol-specific properties on [`Object`](models.Object) - `as2`, `bsky`, `mf2`, etc - and converted on demand to ActivityStreams 1, Bridgy Fed's (and granary's) common data format, via the `as1` computed property. We also sometimes modify the protocol's original data and store the result in the `our_as1` property, which overrides the protocol-specific properties.
 
 
 ## Other
@@ -120,24 +120,24 @@ arroba also stores AT Protocol repo data in the datastore in tables with the `At
 
 ## `Protocol`
 
-So far, we've discussed the `User` and `Object` classes, defined in [`models`](models), and the per-protocol user classes defined in [`web`](web), [`activitypub`](activitypub), and [`atproto`](atproto). The one other key class is [`Protocol`](protocol.Protocol), defined in [`protocol`](protocol). This class implements all of our generic logic for [interpreting, routing, and delivering activities across protocols](https://fed.brid.gy/docs#router). `Protocol` has no state or instance-level methods, only `@staticmethod`s and `@classmethod`s. The per-protocol user classes `Web`, `ActivityPub`, and `ATProto` all derive from `User` _and_ `Protocol`.
+So far, we've discussed the [`User`](models.User) and [`Object`](models.Object) classes, defined in [`models`](models), and the per-protocol user classes defined in [`web`](web), [`activitypub`](activitypub), and [`atproto`](atproto). The one other key class is [`Protocol`](protocol.Protocol), defined in [`protocol`](protocol). This class implements all of our generic logic for [interpreting, routing, and delivering activities across protocols](https://fed.brid.gy/docs#router). `Protocol` has no state or instance-level methods, only `@staticmethod`s and `@classmethod`s. The per-protocol user classes `Web`, `ActivityPub`, and `ATProto` all derive from `User` _and_ `Protocol`.
 
-`Protocol` has a lot of code. Its most important methods are:
+[`Protocol`](protocol.Protocol) has a lot of code. Its most important methods are:
 
-* [`receive`](protocol.Protocol.receive): handles an incoming `Object` that has been received ([more details](https://fed.brid.gy/docs#router))
-* [`load`](protocol.Protocol.load): loads an `Object`, either from the datastore or remotely via this protocol if necessary
-* [`targets`](protocol.Protocol.targets): determines all targets (eg servers) that we should send a given `Object` to
-* [`deliver`](protocol.Protocol.deliver): sends an `Object` to all targets that should receive it
-* [`convert`](protocol.Protocol.convert): converts an `Object` to this protocol's data format
-* [`translate_ids`](protocol.Protocol.translate_ids): [maps all object and actor ids](https://fed.brid.gy/docs#translate) in an `Object` to this protocol's id format
+* [`receive`](protocol.Protocol.receive): handles an incoming [`Object`](models.Object) that has been received ([more details](https://fed.brid.gy/docs#router))
+* [`load`](protocol.Protocol.load): loads an [`Object`](models.Object), either from the datastore or remotely via this protocol if necessary
+* [`targets`](protocol.Protocol.targets): determines all targets (eg servers) that we should send a given [`Object`](models.Object) to
+* [`deliver`](protocol.Protocol.deliver): sends an [`Object`](models.Object) to all targets that should receive it
+* [`convert`](protocol.Protocol.convert): converts an [`Object`](models.Object) to this protocol's data format
+* [`translate_ids`](protocol.Protocol.translate_ids): [maps all object and actor ids](https://fed.brid.gy/docs#translate) in an [`Object`](models.Object) to this protocol's id format
 
 Some of these methods run on the source (incoming) protocol; some run on the destination (outgoing) protocol. These are generally class methods, and the traditional `cls` arg is named either `from_cls` or `to_cls` to indicate whether the incoming or outgoing protocol class should run them.
 
-`Protocol` has a few abstract methods that subclasses must implement. The most important ones are:
+[`Protocol`](protocol.Protocol) has a few abstract methods that subclasses must implement. The most important ones are:
 
-* [`fetch`](protocol.Protocol.fetch): fetches an `Object` via this protocol
-* [`send`](protocol.Protocol.send): sends an outgoing `Object` over this protocol to a single destination server
-* `_convert`: converts an `Object` to this protocol's data format (just the protocol-specific part; called by [`convert`](protocol.Protocol.convert))
+* [`fetch`](protocol.Protocol.fetch): fetches an [`Object`](models.Object) via this protocol
+* [`send`](protocol.Protocol.send): sends an outgoing [`Object`](models.Object) over this protocol to a single destination server
+* `_convert`: converts an [`Object`](models.Object) to this protocol's data format (just the protocol-specific part; called by [`convert`](protocol.Protocol.convert))
 
 
 ## Other modules
@@ -153,7 +153,7 @@ Here are the rest of the relevant modules:
 
 ...along with the protocol implementations:
 
-* [`activitypub`](activitypub), [`atproto`](atproto), [`web`](web): main implementations of each protocol in the `ActivityPub`, `ATProto`, and `Web` classes
+* [`activitypub`](activitypub), [`atproto`](atproto), [`web`](web): main implementations of each protocol in the [`ActivityPub`](activitypub.ActivityPub), [`ATProto`](atproto.ATProto), and [`Web`](web.Web) classes
 * [`webfinger`](webfinger): webfinger implementation, both server and client side, for fediverse interop
 * [`atproto_firehose`](atproto_firehose): [AT Protocol firehose](https://docs.bsky.app/docs/advanced-guides/firehose) subscriber. Receives every Bluesky event from the relay, extracts the ones we need to handle, and enqueues `receive` tasks for them.
 

@@ -873,8 +873,9 @@ class Object(StringIdModel):
               # DEPRECATED, replaced by users, notify, feed
               'feed', 'notification', 'user')
 
-    # Keys for user(s) who created or otherwise own this activity.
     users = ndb.KeyProperty(repeated=True)
+    """Keys of user(s) who created or otherwise own this activity."""
+
     # User keys who should see this activity in their user page, eg in reply to,
     # reaction to, share of, etc.
     notify = ndb.KeyProperty(repeated=True)

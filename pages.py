@@ -255,7 +255,7 @@ def feed(protocol, id):
 
 
 def serve_feed(*, objects, format, user, title, as_snippets=False, quiet=False):
-    """Generates a feed based on :class:`Object`s.
+    """Generates a feed based on :class:`Object` s.
 
     Args:
       objects (sequence of models.Object)
