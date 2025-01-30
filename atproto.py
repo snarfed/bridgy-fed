@@ -1124,6 +1124,9 @@ def poll_chat_task():
 def hashtag_redirect(hashtag):
     if (util.domain_from_link(request.host_url) ==
             f'{ATProto.ABBREV}{common.SUPERDOMAIN}'):
-        return redirect(f'https://bsky.app/search?q=%23{hashtag}')
+        try:
+            return redirect(f'https://bsky.app/search?q=%23{hashtag}')
+        except ValueError as e:
+            logging.warning(e)
 
     raise NotFound()

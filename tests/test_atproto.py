@@ -2788,3 +2788,8 @@ Sed tortor neque, aliquet quis posuere aliquam […]
 
         resp = self.get('/hashtag/foo', base_url='https://web.brid.gy')
         self.assert_equals(404, resp.status_code)
+
+    def test_hashtag_with_newlines_error(self):
+        # https://console.cloud.google.com/errors/detail/COugjNSr9oCtfg;time=PT1H;locations=global?project=bridgy-federated
+        resp = self.get('/hashtag/x%0Ay', base_url='https://bsky.brid.gy')
+        self.assert_equals(404, resp.status_code)
