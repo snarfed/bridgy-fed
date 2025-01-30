@@ -179,11 +179,11 @@ def did_to_handle(did, remote=None):
 
     Args:
       did (str)
+      remote (bool): whether to fetch the object over the network. See
+        :meth:`Protocol.load`
 
     Returns:
       str: handle, or None
-      remote (bool): whether to fetch the object over the network. See
-        :meth:`Protocol.load`
     """
     if did_obj := ATProto.load(did, did_doc=True, remote=remote):
         # use first at:// URI in alsoKnownAs

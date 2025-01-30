@@ -1,0 +1,15 @@
+digraph "bridgy fed" {
+
+frontend [shape = box]
+router [shape = box]
+"atproto-hub" [shape = box]
+tasks [shape = cylinder]
+
+frontend -> tasks [xlabel = receive]
+"atproto-hub" -> tasks [xlabel = receive]
+tasks -> router [xlabel = receive]
+tasks -> router [xlabel = send]
+tasks -> router [xlabel = poll_feed]
+router -> tasks [xlabel = send]
+
+}

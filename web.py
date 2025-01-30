@@ -767,7 +767,7 @@ def poll_feed(user, feed_url, rel_type):
       user (Web)
       feed_url (str)
       rel_type (str): feed link's top-level rel type in home page HTML, usually
-        either ``atom`` or ``rss`
+        either ``atom`` or ``rss``
 
     Returns:
       list of dict AS1 activities:
@@ -865,8 +865,7 @@ def poll_feed_task():
 
     Params:
       ``domain`` (str): key id of the :class:`Web` user
-      ``last_polled`` (str): should match the user's ``last_polled_feed``. Used
-        to detect duplicate poll tasks for the same user.
+      ``last_polled`` (str): should match the user's ``last_polled_feed``. Used to detect duplicate poll tasks for the same user.
     """
     common.log_request()
 

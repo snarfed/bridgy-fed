@@ -39,6 +39,7 @@ extensions = [
     # 'sphinx.ext.coverage',
     'sphinx.ext.viewcode',
     'sphinx_rtd_theme',
+    'myst_parser',
 ]
 
 # autodoc settings
@@ -70,7 +71,10 @@ templates_path = ['_templates']
 # The suffix(es) of source filenames.
 # You can specify multiple suffix as a list of string:
 # source_suffix = ['.rst', '.md']
-source_suffix = '.rst'
+source_suffix = {
+    '.rst': 'restructuredtext',
+    '.md': 'markdown',
+}
 
 # The encoding of source files.
 #source_encoding = 'utf-8-sig'
@@ -80,7 +84,7 @@ master_doc = 'index'
 
 # General information about the project.
 project = 'Bridgy Fed'
-copyright = '2017-2023, Ryan Barrett'
+copyright = '2017-2025, Ryan Barrett and contributors'
 author = 'Ryan Barrett'
 
 # The version info for the project you're documenting, acts as replacement for

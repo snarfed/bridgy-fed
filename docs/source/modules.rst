@@ -45,6 +45,11 @@ ids
 .. automodule:: ids
     :exclude-members: __eq__, __getnewargs__, __getstate__, __hash__, __new__, __repr__, __str__, __weakref__
 
+memcache
+--------
+.. automodule:: memcache
+    :exclude-members: __eq__, __getnewargs__, __getstate__, __hash__, __new__, __repr__, __str__, __weakref__
+
 models
 ------
 .. automodule:: models

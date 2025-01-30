@@ -57,11 +57,12 @@ def memoize(expire=None, key=None, write=True, version=MEMOIZE_VERSION):
 
     Args:
       expire (timedelta): optional, expiration
-      key (callable): function that takes the function's (*args, **kwargs) and
-        returns the cache key to use. If it returns None, memcache won't be used.
+      key (callable): function that takes the function's ``(*args, **kwargs)``
+        and returns the cache key to use. If it returns None, memcache won't be
+        used.
       write (bool or callable): whether to write to memcache. If this is a
-        callable, it will be called with the function's (*args, **kwargs) and should
-        return True or False.
+        callable, it will be called with the function's ``(*args, **kwargs)``
+        and should return True or False.
       version (int): overrides our default version number in the memcache key.
         Bumping this version can have the same effect as clearing the cache for
         just the affected function.

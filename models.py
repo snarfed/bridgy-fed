@@ -254,7 +254,7 @@ class User(StringIdModel, metaclass=ProtocolUserMeta):
 
     @classmethod
     def get_by_id(cls, id, allow_opt_out=False, **kwargs):
-        """Override to follow ``use_instead`` property and ``opt-out` status.
+        """Override to follow ``use_instead`` property and ``opt-out`` status.
 
         Returns None if the user is opted out.
         """
@@ -503,8 +503,7 @@ class User(StringIdModel, metaclass=ProtocolUserMeta):
         * The user is opted out or blocked.
         * The user is on a domain that's opted out or blocked.
         * The from protocol requires opt in, and the user hasn't opted in.
-        * ``explicit`` is True, and this protocol supports ``to_proto`` by
-          default, but the user hasn't explicitly opted into it.
+        * ``explicit`` is True, and this protocol supports ``to_proto`` by, but the user hasn't explicitly opted into it.
 
         Args:
           to_proto (Protocol subclass)
@@ -540,7 +539,7 @@ class User(StringIdModel, metaclass=ProtocolUserMeta):
         return False
 
     def enable_protocol(self, to_proto):
-        """Adds ``to_proto` to :attr:`enabled_protocols`.
+        """Adds ``to_proto`` to :attr:`enabled_protocols`.
 
         Also sends a welcome DM to the user (via a send task) if their protocol
         supports DMs.
@@ -584,7 +583,7 @@ Welcome to Bridgy Fed! Your account will soon be bridged to {to_proto.PHRASE} at
         logger.info(msg)
 
     def disable_protocol(self, to_proto):
-        """Removes ``to_proto` from :attr:`enabled_protocols`.
+        """Removes ``to_proto` from :attr:`enabled_protocols``.
 
         Args:
           to_proto (:class:`protocol.Protocol` subclass)
@@ -1247,7 +1246,7 @@ class Object(StringIdModel):
         Args:
           image (bool): whether to include an ``img`` tag with the actor's picture
           sized (bool): whether to set an explicit (``width=32``) size on the
-            profile picture ``img` tag
+            profile picture ``img`` tag
           user (User): current user
 
         Returns:
