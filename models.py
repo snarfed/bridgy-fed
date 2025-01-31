@@ -963,7 +963,8 @@ class Object(StringIdModel):
 
     # DEPRECATED but still used read only to maintain backward compatibility
     # with old Objects in the datastore that we haven't bothered migrating.
-    domains = ndb.StringProperty(repeated=True)
+    #
+    # domains = ndb.StringProperty(repeated=True)
 
     # DEPRECATED; replaced by :attr:`users`, :attr:`notify`, :attr:`feed`
     labels = ndb.StringProperty(repeated=True,
@@ -1282,7 +1283,7 @@ class Object(StringIdModel):
         """
         attrs = {'class': 'h-card u-author'}
 
-        if user and (user.key in self.users or user.key.id() in self.domains):
+        if user and user.key in self.users:
             # outbound; show a nice link to the user
             return user.user_link(handle=False, pictures=True)
 
@@ -1675,10 +1676,8 @@ def fetch_objects(query, by=None, user=None):
         urls = as1.object_urls(inner_obj)
         id = unwrap(inner_obj.get('id', ''))
         url = urls[0] if urls else id
-        if (type == 'update' and
-            (obj.users and (user.is_web_url(id)
-                            or id.strip('/') == obj.users[0].id())
-             or obj.domains and id.strip('/') == f'https://{obj.domains[0]}')):
+        if (type == 'update' and obj.users
+                and (user.is_web_url(id) or id.strip('/') == obj.users[0].id())):
             obj.phrase = 'updated'
             obj_as1.update({
                 'content': 'their profile',
