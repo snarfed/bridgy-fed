@@ -749,7 +749,6 @@ class WebTest(TestCase):
                            source_protocol='web',
                            type='comment',
                            users=[self.user.key],
-                           labels=[],
                            ignore=['mf2', 'our_as1'],
                            )
 
@@ -1004,7 +1003,6 @@ class WebTest(TestCase):
                            source_protocol='web',
                            mf2=mf2,
                            type='share',
-                           labels=['user', 'activity', 'notification', 'feed'],
                            ignore=['our_as1'],
                            )
 
@@ -1062,7 +1060,6 @@ class WebTest(TestCase):
                            source_protocol='web',
                            mf2=LIKE_MF2,
                            type='like',
-                           labels=['activity', 'user'],
                            ignore=['our_as1'],
                            )
 
@@ -1207,7 +1204,6 @@ class WebTest(TestCase):
                            source_protocol='web',
                            mf2=repost_mf2,  # includes author https://user.com/
                            type='share',
-                           labels=['activity', 'user'],
                            notify=[ndb.Key('ActivityPub', 'https://mas.to/author')],
                            ignore=['our_as1'],
                            )
@@ -1237,7 +1233,6 @@ class WebTest(TestCase):
                            our_as1=NOTE_AS1,
                            type='note',
                            users=[self.user.key],
-                           labels=['activity', 'user'],
                            ignore=['feed'],
                            )
 
@@ -1333,7 +1328,6 @@ class WebTest(TestCase):
             },
             type='note',
             users=[self.user.key],
-            labels=['user'],
             ignore=['feed'],
         )
 
@@ -1390,7 +1384,6 @@ class WebTest(TestCase):
                                  source_protocol='web',
                                  our_as1=follow_as1,
                                  type='follow',
-                                 labels=['user', 'activity', 'notification'],
                                  ignore=['our_as1'],
                                  )
 
@@ -1489,7 +1482,6 @@ class WebTest(TestCase):
                            source_protocol='web',
                            mf2=FOLLOW_FRAGMENT_MF2,
                            type='follow',
-                           labels=['user', 'activity', 'notification'],
                            ignore=['our_as1'],
                            )
 
@@ -1554,7 +1546,6 @@ class WebTest(TestCase):
                                  source_protocol='web',
                                  mf2=mf2,
                                  type='follow',
-                                 labels=['user', 'activity', 'notification',],
                                  ignore=['our_as1'],
                                  )
 
@@ -1676,7 +1667,6 @@ class WebTest(TestCase):
                            source_protocol='web',
                            mf2=FOLLOW_MF2,
                            type='follow',
-                           labels=['user', 'activity', 'notification',],
                            ignore=['our_as1'],
                            )
 

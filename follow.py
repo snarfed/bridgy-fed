@@ -131,8 +131,7 @@ class FollowCallback(indieauth.Callback):
             'object': followee_id,
         }
         followee_user = ActivityPub.get_or_create(followee_id, obj=followee)
-        follow_obj = Object(id=follow_id, our_as1=follow_as1, source_protocol='ui',
-                            labels=['user'])
+        follow_obj = Object(id=follow_id, our_as1=follow_as1, source_protocol='ui')
 
         resp = Web.receive(follow_obj, authed_as=domain, internal=True)
         logger.info(f'Web.receive returned {resp}')
@@ -216,7 +215,7 @@ class UnfollowCallback(indieauth.Callback):
         # don't include the followee User who's being unfollowed in the users
         # property, since we don't want to notify or show them. (standard social
         # network etiquette.)
-        unfollow_obj = Object(id=unfollow_id, users=[user.key], labels=['user'],
+        unfollow_obj = Object(id=unfollow_id, users=[user.key],
                               source_protocol='ui', our_as1=unfollow_as1)
         resp = Web.receive(unfollow_obj, authed_as=domain, internal=True)
 

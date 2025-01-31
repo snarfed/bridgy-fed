@@ -967,8 +967,9 @@ class Object(StringIdModel):
     # domains = ndb.StringProperty(repeated=True)
 
     # DEPRECATED; replaced by :attr:`users`, :attr:`notify`, :attr:`feed`
-    labels = ndb.StringProperty(repeated=True,
-                                choices=('activity', 'feed', 'notification', 'user'))
+    #
+    # labels = ndb.StringProperty(repeated=True,
+    #                             choices=('activity', 'feed', 'notification', 'user'))
 
     @property
     def as1(self):
@@ -1068,11 +1069,6 @@ class Object(StringIdModel):
                 raise ValueError(
                     f'at:// URI ids must have DID repos; got {id}')
 
-        if self.as1 and self.as1.get('objectType') == 'activity':
-            self.add('labels', 'activity')
-        elif 'activity' in self.labels:
-            self.remove('labels', 'activity')
-
         if self.as2:
            self.as2.pop('@context', None)
            for field in 'actor', 'attributedTo', 'author', 'object':
@@ -1163,7 +1159,7 @@ class Object(StringIdModel):
         dirty = False
         for prop, val in props.items():
             assert not isinstance(getattr(Object, prop), ndb.ComputedProperty)
-            if prop in ('feed', 'copies', 'labels', 'notify', 'users'):
+            if prop in ('feed', 'copies', 'notify', 'users'):
                 # merge repeated fields
                 for elem in val:
                     if obj.add(prop, elem):

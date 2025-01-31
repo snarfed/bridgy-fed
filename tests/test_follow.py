@@ -392,7 +392,6 @@ class FollowTest(TestCase):
         self.assert_object(follow_id,
                            users=[self.user.key],
                            notify=[followee],
-                           labels=['user', 'activity'],
                            source_protocol='ui',
                            our_as1=expected_follow_as1,
                            )
@@ -439,7 +438,6 @@ class FollowTest(TestCase):
         followee = ActivityPub(id='https://ba.r/id').key
         follow_obj = self.assert_object(id, users=[user.key],
                                         notify=[followee],
-                                        labels=['user', 'activity'],
                                         source_protocol='ui',
                                         our_as1=expected_follow_as1,
                                         )

@@ -646,20 +646,19 @@ class ObjectTest(TestCase):
         obj7 = Object.get_or_create('http://b.ee/ff', as2={'a': 'b'}, mf2={'c': 'd'},
                                     source_protocol='web')
         Object.get_or_create('http://b.ee/ff', authed_as='http://b.ee/ff',
-                             users=[ndb.Key(Web, 'me')], labels=['feed'],
+                             users=[ndb.Key(Web, 'me')],
                              copies=[Target(protocol='ui', uri='http://foo')])
         self.assert_object('http://b.ee/ff', as2={'a': 'b'}, mf2={'c': 'd'},
-                           users=[ndb.Key(Web, 'me')], labels=['feed'],
-                           copies=[Target(protocol='ui', uri='http://foo')],
-                           source_protocol='web')
+                           users=[ndb.Key(Web, 'me')], source_protocol='web',
+                           copies=[Target(protocol='ui', uri='http://foo')])
 
         # repeated properties should merge, not overwrite
         Object.get_or_create('http://b.ee/ff', authed_as='http://b.ee/ff',
-                             users=[ndb.Key(Web, 'you')], labels=['user'],
+                             users=[ndb.Key(Web, 'you')],
                              copies=[Target(protocol='ui', uri='http://bar')])
         self.assert_object('http://b.ee/ff', as2={'a': 'b'}, mf2={'c': 'd'},
                            users=[ndb.Key(Web, 'me'), ndb.Key(Web, 'you')],
-                           labels=['feed', 'user'], source_protocol='web',
+                           source_protocol='web',
                            copies=[Target(protocol='ui', uri='http://foo'),
                                    Target(protocol='ui', uri='http://bar')])
 
@@ -817,27 +816,6 @@ class ObjectTest(TestCase):
 
         obj.deleted = True
         self.assertEqual(NOW + OBJECT_EXPIRE_AGE, obj.expire)
-
-    def test_put_adds_removes_activity_label(self):
-        obj = Object(id='x#y', our_as1={})
-        obj.put()
-        self.assertEqual([], obj.labels)
-
-        obj.our_as1 = {'objectType': 'activity'}
-        obj.put()
-        self.assertEqual(['activity'], obj.labels)
-
-        obj.labels = ['user']
-        obj.put()
-        self.assertEqual(['user', 'activity'], obj.labels)
-
-        obj.labels = ['activity', 'user']
-        obj.put()
-        self.assertEqual(['activity', 'user'], obj.labels)
-
-        obj.our_as1 = {'foo': 'bar'}
-        obj.put()
-        self.assertEqual(['user'], obj.labels)
 
     def test_as1_from_as2(self):
         self.assert_equals({
