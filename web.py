@@ -55,7 +55,6 @@ FEED_TYPES = {
 }
 MIN_FEED_POLL_PERIOD = timedelta(hours=2)
 MAX_FEED_POLL_PERIOD = timedelta(days=1)
-MAX_FEED_PROPERTY_SIZE = 500 * 1000  # Object.atom/rss
 MAX_FEED_ITEMS_PER_POLL = 10
 
 # populated into Web.redirects_error
@@ -813,10 +812,8 @@ def poll_feed(user, feed_url, rel_type):
         return []
     elif type == 'atom' or (type == 'xml' and rel_type == 'atom'):
         activities = atom.atom_to_activities(resp.text)
-        obj_feed_prop = {'atom': resp.text[:MAX_FEED_PROPERTY_SIZE]}
     elif type == 'rss' or (type == 'xml' and rel_type == 'rss'):
         activities = rss.to_activities(resp.text)
-        obj_feed_prop = {'rss': resp.text[:MAX_FEED_PROPERTY_SIZE]}
     else:
         raise ValueError(f'Unknown feed type {content_type}')
 
@@ -868,10 +865,9 @@ def poll_feed(user, feed_url, rel_type):
                 obj['image'] = [img for img in as1.get_ids(post.as1, 'image')
                                 if img not in profile_images]
 
-        activity['feed_index'] = i
         common.create_task(queue='receive', id=id, our_as1=activity,
                            source_protocol=Web.ABBREV, authed_as=user.key.id(),
-                           received_at=util.now().isoformat(), **obj_feed_prop)
+                           received_at=util.now().isoformat())
 
     return activities
 

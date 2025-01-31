@@ -192,8 +192,6 @@ class User(StringIdModel, metaclass=ProtocolUserMeta):
     """Proxy copies of this user elsewhere, eg DIDs for ATProto records, bech32
     npub Nostr ids, etc. Similar to ``rel-me`` links in microformats2,
     ``alsoKnownAs`` in DID docs (and now AS2), etc.
-
-    TODO: switch to using :attr:`Object.copies` on the user profile object?
     """
 
     public_exponent = ndb.StringProperty()
@@ -916,14 +914,6 @@ class Object(StringIdModel):
     raw = JsonProperty()
     'Other standalone data format, eg DID document'
 
-    # TODO: remove
-    # these are full feeds with multiple items, not just this one, so they're
-    # stored as audit record;s only. they're not used in to_as1. for Atom/RSS
-    # based Objects, our_as1 will be populated with an feed_index top-level
-    # integer field that indexes into one of these.
-    atom = ndb.TextProperty() # Atom XML
-    rss = ndb.TextProperty()  # RSS XML
-
     # TODO: remove and actually delete Objects instead!
     deleted = ndb.BooleanProperty()
     ''
@@ -953,13 +943,23 @@ class Object(StringIdModel):
     lock = None
     """Synchronizes :meth:`add` and :meth:`remove`."""
 
+    # DEPRECATED
+    # These were for full feeds with multiple items, not just this one, so they were
+    # stored as audit records only, not used in to_as1. for Atom/RSS
+    # based Objects, our_as1 was populated with an feed_index top-level
+    # integer field that indexed into one of these.
+    #
+    # atom = ndb.TextProperty() # Atom XML
+    # rss = ndb.TextProperty()  # RSS XML
+
     # DEPRECATED; these were for delivery tracking, but they were too expensive,
     # so we stopped: https://github.com/snarfed/bridgy-fed/issues/1501
-    STATUSES = ('new', 'in progress', 'complete', 'failed', 'ignored')
-    status = ndb.StringProperty(choices=STATUSES)
-    delivered = ndb.StructuredProperty(Target, repeated=True)
-    undelivered = ndb.StructuredProperty(Target, repeated=True)
-    failed = ndb.StructuredProperty(Target, repeated=True)
+    #
+    # STATUSES = ('new', 'in progress', 'complete', 'failed', 'ignored')
+    # status = ndb.StringProperty(choices=STATUSES)
+    # delivered = ndb.StructuredProperty(Target, repeated=True)
+    # undelivered = ndb.StructuredProperty(Target, repeated=True)
+    # failed = ndb.StructuredProperty(Target, repeated=True)
 
     # DEPRECATED but still used read only to maintain backward compatibility
     # with old Objects in the datastore that we haven't bothered migrating.
@@ -984,7 +984,7 @@ class Object(StringIdModel):
 
         if self.our_as1:
             obj = self.our_as1
-            if self.atom or self.rss:
+            if self.source_protocol == 'web':
                 use_urls_as_ids(obj)
 
         elif self.as2:
@@ -1221,7 +1221,7 @@ class Object(StringIdModel):
             return Object.get_by_id(obj_id)
 
         props = {field: request.form.get(field)
-                 for field in ('id', 'atom', 'rss', 'source_protocol')}
+                 for field in ('id', 'source_protocol')}
 
         for json_prop in 'as2', 'bsky', 'mf2', 'our_as1', 'raw':
             if val := request.form.get(json_prop):
@@ -1242,7 +1242,7 @@ class Object(StringIdModel):
             if val := getattr(self, json_prop, None):
                 form[json_prop] = json_dumps(val, sort_keys=True)
 
-        for prop in 'atom', 'rss', 'source_protocol':
+        for prop in ['source_protocol']:
             if val := getattr(self, prop):
                 form[prop] = val
 

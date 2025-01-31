@@ -1880,7 +1880,6 @@ class WebTest(TestCase):
                 'author': {'id': 'https://user.com/'},
             },
             'actor': {'id': 'https://user.com/'},
-            'feed_index': 0,
         }
 
         got = self.post('/queue/poll-feed', data={
@@ -1899,9 +1898,8 @@ class WebTest(TestCase):
             self.req('https://foo/feed'),
         ))
         self.assert_task(mock_create_task, 'receive', id='https://user.com/post',
-                         source_protocol='web', atom=feed, our_as1=post_as1,
-                         authed_as='user.com',
-                         received_at='2022-01-02T03:04:05+00:00')
+                         source_protocol='web', our_as1=post_as1,
+                         authed_as='user.com', received_at='2022-01-02T03:04:05+00:00')
 
         expected_eta = NOW_SECONDS + web.MIN_FEED_POLL_PERIOD.total_seconds()
         self.assert_task(mock_create_task, 'poll-feed', domain='user.com',
@@ -2026,11 +2024,10 @@ class WebTest(TestCase):
                     'content': f'I hereby ☕ post {id}',
                     'published': f'2012-12-08T0{hour}:00:00+00:00',
                 },
-                'feed_index': i,
             }
             with self.subTest(id=id):
                 self.assert_task(mock_create_task, 'receive', id=url,
-                                 our_as1=expected_as1, rss=feed,
+                                 our_as1=expected_as1,
                                  source_protocol='web', authed_as='user.com',
                                  received_at='2022-01-02T03:04:05+00:00')
 
@@ -2115,10 +2112,9 @@ class WebTest(TestCase):
                 'author': {'id': 'https://user.com/'},
                 'content': 'I hereby ☕ post',
             },
-            'feed_index': 0,
         }
         self.assert_task(mock_create_task, 'receive', id='https://user.com/post',
-                         our_as1=expected_as1, atom=feed, source_protocol='web',
+                         our_as1=expected_as1, source_protocol='web',
                          authed_as='user.com', received_at='2022-01-02T03:04:05+00:00')
 
     @patch('oauth_dropins.webutil.appengine_config.tasks_client.create_task')
@@ -2317,10 +2313,9 @@ class WebTest(TestCase):
                 'content': 'I hereby ☕ post',
                 'image': ['http://example.com/pic.png'],
             },
-            'feed_index': 0,
         }
         self.assert_task(mock_create_task, 'receive', id='https://user.com/post',
-                         source_protocol='web', atom=feed, our_as1=expected_as1,
+                         source_protocol='web', our_as1=expected_as1,
                          authed_as='user.com', received_at='2022-01-02T03:04:05+00:00')
 
     @patch('oauth_dropins.webutil.appengine_config.tasks_client.create_task')
@@ -2365,10 +2360,9 @@ class WebTest(TestCase):
                 'author': {'id': 'https://user.com/'},
                 'content': 'I hereby ☕ post',
             },
-            'feed_index': 0,
         }
         self.assert_task(mock_create_task, 'receive', id='https://user.com/post',
-                         source_protocol='web', atom=feed, our_as1=expected_as1,
+                         source_protocol='web', our_as1=expected_as1,
                          authed_as='user.com', received_at='2022-01-02T03:04:05+00:00')
 
     @patch('oauth_dropins.webutil.appengine_config.tasks_client.create_task')

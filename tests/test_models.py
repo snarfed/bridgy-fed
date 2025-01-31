@@ -870,12 +870,12 @@ class ObjectTest(TestCase):
         }, Web.load('https://fed.brid.gy/').as1, ignore=['summary'])
 
     def test_atom_url_overrides_id(self):
-        obj = {
+        obj = Object(our_as1={
             'objectType': 'note',
             'id': 'bad',
             'url': 'good',
-        }
-        self.assert_equals('good', Object(our_as1=obj, atom='trigger').as1['id'])
+        }, source_protocol='web')
+        self.assert_equals('good', obj.as1['id'])
 
     @patch('requests.get', return_value=requests_response(DID_DOC))
     def test_as1_from_bsky(self, mock_get):
