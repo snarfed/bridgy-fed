@@ -95,12 +95,19 @@ class ActivityPub(User, Protocol):
     Key id is AP/AS2 actor id URL. (*Not* fediverse/WebFinger @-@ handle!)
     """
     ABBREV = 'ap'
+    ''
     PHRASE = 'the fediverse'
+    ''
     LOGO_HTML = '<img src="/static/fediverse_logo.svg">'
+    ''
     CONTENT_TYPE = as2.CONTENT_TYPE_LD_PROFILE
+    ''
     REQUIRES_AVATAR = True
+    ''
     REQUIRES_NAME = False
+    ''
     DEFAULT_ENABLED_PROTOCOLS = ('web',)
+    ''
     SUPPORTED_AS1_TYPES = (
         tuple(as1.ACTOR_TYPES)
         + tuple(as1.POST_TYPES)
@@ -108,13 +115,17 @@ class ActivityPub(User, Protocol):
         + tuple(as1.VERBS_WITH_OBJECT)
         + ('audio', 'bookmark', 'image', 'video')
     )
+    ''
     SUPPORTED_AS2_TYPES = tuple(
         as2.OBJECT_TYPE_TO_TYPE.get(t) or as2.VERB_TO_TYPE.get(t)
         for t in SUPPORTED_AS1_TYPES)
+    ''
     SUPPORTS_DMS = True
+    ''
 
     @property
     def REQUIRES_OLD_ACCOUNT(self):
+        ''
         return util.domain_from_link(self.key.id()) not in OLD_ACCOUNT_EXEMPT_DOMAINS
 
     def _pre_put_hook(self):

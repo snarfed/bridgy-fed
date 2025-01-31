@@ -109,7 +109,9 @@ class Target(ndb.Model):
     https://googleapis.dev/python/python-ndb/latest/model.html#google.cloud.ndb.model.StructuredProperty
     """
     uri = ndb.StringProperty(required=True)
+    ''
     protocol = ndb.StringProperty(choices=list(PROTOCOLS.keys()), required=True)
+    ''
 
     def __eq__(self, other):
         """Equality excludes Targets' :class:`Key`."""
@@ -133,7 +135,9 @@ class DM(ndb.Model):
         'welcome',
     )
     type = ndb.StringProperty(choices=TYPES, required=True)
+    ''
     protocol = ndb.StringProperty(choices=list(PROTOCOLS.keys()), required=True)
+    ''
 
     def __eq__(self, other):
         """Equality excludes Targets' :class:`Key`."""
@@ -178,33 +182,43 @@ class User(StringIdModel, metaclass=ProtocolUserMeta):
       :class:`arroba.datastore_storage.AtpRepo` entities
     """
     obj_key = ndb.KeyProperty(kind='Object')  # user profile
+    ''
     mod = ndb.StringProperty()
+    ''
     use_instead = ndb.KeyProperty()
+    ''
 
-    # Proxy copies of this user elsewhere, eg DIDs for ATProto records, bech32
-    # npub Nostr ids, etc. Similar to rel-me links in microformats2, alsoKnownAs
-    # in DID docs (and now AS2), etc.
-    # TODO: switch to using Object.copies on the user profile object?
     copies = ndb.StructuredProperty(Target, repeated=True)
+    """Proxy copies of this user elsewhere, eg DIDs for ATProto records, bech32
+    npub Nostr ids, etc. Similar to ``rel-me`` links in microformats2,
+    ``alsoKnownAs`` in DID docs (and now AS2), etc.
 
-    # these are for ActivityPub HTTP Signatures
+    TODO: switch to using :attr:`Object.copies` on the user profile object?
+    """
+
     public_exponent = ndb.StringProperty()
+    """Part of this user's bridged ActivityPub actor's private key."""
     private_exponent = ndb.StringProperty()
+    """Part of this user's bridged ActivityPub actor's private key."""
 
-    # set to True for users who asked me to be opted out instead of putting
-    # #nobridge in their profile
     manual_opt_out = ndb.BooleanProperty()
+    """Set to True for users who asked to be opted out."""
 
-    # protocols that this user has explicitly opted into. protocols that don't
-    # require explicit opt in are omitted here. choices is populated in
-    # reset_protocol_properties.
-    enabled_protocols = ndb.StringProperty(repeated=True, choices=list(PROTOCOLS.keys()))
+    enabled_protocols = ndb.StringProperty(repeated=True,
+                                           choices=list(PROTOCOLS.keys()))
+    """Protocols that this user has explicitly opted into.
 
-    # DMs that we've attempted to send to this user
+    Protocols that don't require explicit opt in are omitted here. ``choices``
+    is populated in :func:`reset_protocol_properties`.
+    """
+
     sent_dms = ndb.StructuredProperty(DM, repeated=True)
+    """DMs that we've attempted to send to this user."""
 
     created = ndb.DateTimeProperty(auto_now_add=True)
+    ''
     updated = ndb.DateTimeProperty(auto_now=True)
+    ''
 
     # `existing` attr is set by get_or_create
 
@@ -869,41 +883,42 @@ class Object(StringIdModel):
 
     Key name is the id. We synthesize ids if necessary.
     """
-    LABELS = ('activity',
-              # DEPRECATED, replaced by users, notify, feed
-              'feed', 'notification', 'user')
-
     users = ndb.KeyProperty(repeated=True)
-    """Keys of user(s) who created or otherwise own this activity."""
+    'User(s) who created or otherwise own this object.'
 
-    # User keys who should see this activity in their user page, eg in reply to,
-    # reaction to, share of, etc.
     notify = ndb.KeyProperty(repeated=True)
-    # User keys who should see this activity in their feeds, eg followers of its
-    # creator
+    """User who should see this in their user page, eg in reply to, reaction to,
+    share of, etc.
+    """
     feed = ndb.KeyProperty(repeated=True)
+    'User who should see this in their feeds, eg followers of its creator'
 
-    # DEPRECATED but still used read only to maintain backward compatibility
-    # with old Objects in the datastore that we haven't bothered migrating.
-    domains = ndb.StringProperty(repeated=True)
-
-    # choices is populated in reset_protocol_properties, after all User
-    # subclasses are created, so that PROTOCOLS is fully populated.
-    # TODO: nail down whether this is ABBREV or LABEL
     source_protocol = ndb.StringProperty(choices=list(PROTOCOLS.keys()))
-    labels = ndb.StringProperty(repeated=True, choices=LABELS)
+    """The protocol this object originally came from.
+
+    ``choices`` is populated in :func:`reset_protocol_properties`, after all
+    :class:`User` subclasses are created, so that :attr:`PROTOCOLS` is fully
+    populated.
+
+    TODO: nail down whether this is :attr:`ABBREV`` or :attr:`LABEL`
+    """
 
     # TODO: switch back to ndb.JsonProperty if/when they fix it for the web console
     # https://github.com/googleapis/python-ndb/issues/874
-    as2 = JsonProperty()      # only one of the rest will be populated...
-    bsky = JsonProperty()     # Bluesky / AT Protocol
-    mf2 = JsonProperty()      # HTML microformats2 item (ie _not_ the top level
-                              # parse object with items inside an 'items' field)
-    our_as1 = JsonProperty()  # AS1 for activities that we generate or modify ourselves
-    raw = JsonProperty()      # other standalone data format, eg DID document
+    as2 = JsonProperty()
+    'ActivityStreams 2, for ActivityPub'
+    bsky = JsonProperty()
+    'AT Protocol lexicon, for Bluesky'
+    mf2 = JsonProperty()
+    'HTML microformats2 item, (ie _not_ top level parse object with ``items`` field'
+    our_as1 = JsonProperty()
+    'ActivityStreams 1, for activities that we generate or modify ourselves'
+    raw = JsonProperty()
+    'Other standalone data format, eg DID document'
 
+    # TODO: remove
     # these are full feeds with multiple items, not just this one, so they're
-    # stored as audit records only. they're not used in to_as1. for Atom/RSS
+    # stored as audit record;s only. they're not used in to_as1. for Atom/RSS
     # based Objects, our_as1 will be populated with an feed_index top-level
     # integer field that indexes into one of these.
     atom = ndb.TextProperty() # Atom XML
@@ -911,36 +926,48 @@ class Object(StringIdModel):
 
     # TODO: remove and actually delete Objects instead!
     deleted = ndb.BooleanProperty()
+    ''
 
-    # Copies of this object elsewhere, eg at:// URIs for ATProto records and
-    # nevent etc bech32-encoded Nostr ids, where this object is the original.
-    # Similar to u-syndication links in microformats2 and
-    # upstream/downstreamDuplicates in AS1.
     copies = ndb.StructuredProperty(Target, repeated=True)
+    """Copies of this object elsewhere, eg at:// URIs for ATProto records and
+    nevent etc bech32-encoded Nostr ids, where this object is the original.
+    Similar to u-syndication links in microformats2 and
+    upstream/downstreamDuplicates in AS1.
+    """
 
     created = ndb.DateTimeProperty(auto_now_add=True)
+    ''
     updated = ndb.DateTimeProperty(auto_now=True)
+    ''
 
     new = None
+    """True if this object is new, ie this is the first time we've seen it,
+    False otherwise, None if we don't know.
+    """
     changed = None
-    """Protocol and subclasses set these in fetch if this :class:`Object` is
-    new or if its contents have changed from what was originally loaded from the
-    datastore. If either one is None, that means we don't know whether this
-    :class:`Object` is new/changed.
-
-    :attr:`changed` is populated by :meth:`activity_changed()`.
+    """True if this object's contents have changed from our existing copy in the
+    datastore, False otherwise, None if we don't know. :class:`Object` is
+    new/changed. See :meth:`activity_changed()` for more details.
     """
 
     lock = None
-    """Initialized in __init__, synchronizes :meth:`add` and :meth:`remove`."""
+    """Synchronizes :meth:`add` and :meth:`remove`."""
 
-    # these were used for delivery tracking, but they were too expensive,
+    # DEPRECATED; these were for delivery tracking, but they were too expensive,
     # so we stopped: https://github.com/snarfed/bridgy-fed/issues/1501
     STATUSES = ('new', 'in progress', 'complete', 'failed', 'ignored')
     status = ndb.StringProperty(choices=STATUSES)
     delivered = ndb.StructuredProperty(Target, repeated=True)
     undelivered = ndb.StructuredProperty(Target, repeated=True)
     failed = ndb.StructuredProperty(Target, repeated=True)
+
+    # DEPRECATED but still used read only to maintain backward compatibility
+    # with old Objects in the datastore that we haven't bothered migrating.
+    domains = ndb.StringProperty(repeated=True)
+
+    # DEPRECATED; replaced by :attr:`users`, :attr:`notify`, :attr:`feed`
+    labels = ndb.StringProperty(repeated=True,
+                                choices=('activity', 'feed', 'notification', 'user'))
 
     @property
     def as1(self):
@@ -1484,12 +1511,15 @@ class Follower(ndb.Model):
     """A follower of a Bridgy Fed user."""
     STATUSES = ('active', 'inactive')
 
-    # these are both subclasses of User
     from_ = ndb.KeyProperty(name='from', required=True)
+    """The follower."""
     to = ndb.KeyProperty(required=True)
+    """The followee, ie the user being followed."""
 
-    follow = ndb.KeyProperty(Object)  # last follow activity
+    follow = ndb.KeyProperty(Object)
+    """The last follow activity."""
     status = ndb.StringProperty(choices=STATUSES, default='active')
+    """Whether this follow is active or note."""
 
     created = ndb.DateTimeProperty(auto_now_add=True)
     updated = ndb.DateTimeProperty(auto_now=True)

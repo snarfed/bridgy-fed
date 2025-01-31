@@ -7,6 +7,12 @@
   color:#fcfcfc;
 }
 
+.rst-content code.literal,
+.rst-content tt.literal {
+  /* overrides theme */
+  color: darkgreen;
+}
+
 .rst-content code, .rst-content tt, code {
   border: none;
   padding: 0;

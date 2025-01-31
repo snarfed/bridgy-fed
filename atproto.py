@@ -92,10 +92,10 @@ def chat_client(*, repo, method, **kwargs):
     Args:
       repo (arroba.repo.Repo): ATProto user
       method (str): XRPC method NSID, eg ``chat.bsky.convo.sendMessage``
-      kwargs: passed through to the :class:`lexrpc.Client` constructor
+      kwargs: passed through to the :class:`lexrpc.client.Client` constructor
 
     Returns:
-      lexrpc.Client:
+      lexrpc.client.Client:
     """
     token = service_jwt(host=os.environ['CHAT_HOST'],
                         aud=os.environ['CHAT_DID'],
@@ -207,8 +207,11 @@ class Cursor(StringIdModel):
     re-subscribe to this event stream, we should send ``cursor + 1``.
     """
     cursor = ndb.IntegerProperty()
+    ''
     created = ndb.DateTimeProperty(auto_now_add=True)
+    ''
     updated = ndb.DateTimeProperty(auto_now=True)
+    ''
 
 
 class ATProto(User, Protocol):
@@ -218,18 +221,27 @@ class ATProto(User, Protocol):
     https://atproto.com/specs/did
     """
     ABBREV = 'bsky'
+    ''
     PHRASE = 'Bluesky'
+    ''
     LOGO_HTML = '<img src="/oauth_dropins_static/bluesky.svg">'
-    # note that PDS hostname is atproto.brid.gy here, not bsky.brid.gy. Bluesky
-    # team currently has our hostname as atproto.brid.gy in their federation
-    # test. also note that PDS URL shouldn't include trailing slash.
-    # https://atproto.com/specs/did#did-documents
+    ''
     PDS_URL = f'https://atproto{common.SUPERDOMAIN}'
+    """Note that PDS hostname is atproto.brid.gy here, not bsky.brid.gy. Bluesky
+    team currently has our hostname as atproto.brid.gy in their federation
+    test. also note that PDS URL shouldn't include trailing slash.
+    https://atproto.com/specs/did#did-documents
+    """
     CONTENT_TYPE = 'application/json'
+    ''
     HAS_COPIES = True
+    ''
     REQUIRES_AVATAR = True
+    ''
     REQUIRES_NAME = False
+    ''
     DEFAULT_ENABLED_PROTOCOLS = ('web',)
+    ''
     SUPPORTED_AS1_TYPES = frozenset(
         tuple(as1.ACTOR_TYPES)
         + tuple(as1.POST_TYPES)
@@ -239,10 +251,13 @@ class ATProto(User, Protocol):
         # TODO: add back once we handle them better
         # https://github.com/snarfed/bridgy-fed/issues/1669
     )
+    ''
     SUPPORTED_RECORD_TYPES = frozenset(
         type for type in itertools.chain(*FROM_AS1_TYPES.values())
         if '#' not in type)
+    ''
     SUPPORTS_DMS = True
+    ''
 
     def _pre_put_hook(self):
         """Validate id, require did:plc or non-blocklisted did:web."""

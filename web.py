@@ -99,12 +99,19 @@ class Web(User, Protocol):
     The key name is the domain.
     """
     ABBREV = 'web'
+    ''
     PHRASE = 'the web'
+    ''
     OTHER_LABELS = ('webmention',)
+    ''
     LOGO_HTML = '🌐'  # used to be 🕸️
+    ''
     CONTENT_TYPE = common.CONTENT_TYPE_HTML
+    ''
     DEFAULT_ENABLED_PROTOCOLS = ('activitypub',)
+    ''
     DEFAULT_SERVE_USER_PAGES = True
+    ''
     SUPPORTED_AS1_TYPES = (
         tuple(as1.ACTOR_TYPES)
         + tuple(as1.POST_TYPES)
@@ -112,32 +119,43 @@ class Web(User, Protocol):
         + ('audio', 'bookmark', 'event', 'image', 'video')
         + ('follow', 'like', 'share', 'stop-following')
     )
+    ''
 
     has_redirects = ndb.BooleanProperty()
+    ''
     redirects_error = ndb.TextProperty()
+    ''
     has_hcard = ndb.BooleanProperty()
+    ''
     last_webmention_in = ndb.DateTimeProperty(tzinfo=timezone.utc)
+    ''
     last_polled_feed = ndb.DateTimeProperty(tzinfo=timezone.utc)
-    feed_last_item = ndb.StringProperty()  # id (URL)
+    ''
+    feed_last_item = ndb.StringProperty()
+    """str: feed item id (URL)"""
     feed_etag = ndb.StringProperty()
+    ''
     feed_last_modified = ndb.StringProperty()
+    ''
 
-    # only used by protocol bot users in Bluesky, for polling their chat
-    # messages with chat.bsky.convo.getLog
     atproto_last_chat_log_cursor = ndb.StringProperty()
+    """Only used by protocol bot users in Bluesky, for polling their chat
+    messages with ``chat.bsky.convo.getLog``.
+    """
 
-    # Originally, BF served Web users' AP actor ids on fed.brid.gy, eg
-    # https://fed.brid.gy/snarfed.org . When we started adding new protocols, we
-    # switched to per-protocol subdomains, eg https://web.brid.gy/snarfed.org .
-    # However, we need to preserve the old users' actor ids as is.
-    #
-    # Also, our per-protocol bot accounts in ActivityPub are on their own
-    # subdomains, eg @bsky.brid.gy@bsky.brid.gy.
-    #
-    # So, this property tracks which subdomain a given Web user's AP actor uses.
     ap_subdomain = ndb.StringProperty(
         choices=['ap', 'bsky', 'fed', 'web', 'fake', 'other', 'efake'],
         default='web')
+    """Originally, BF served Web users' AP actor ids on fed.brid.gy, eg
+    https://fed.brid.gy/snarfed.org . When we started adding new protocols, we
+    switched to per-protocol subdomains, eg https://web.brid.gy/snarfed.org .
+    However, we need to preserve the old users' actor ids as is.
+
+    Also, our per-protocol bot accounts in ActivityPub are on their own
+    subdomains, eg @bsky.brid.gy@bsky.brid.gy.
+
+    So, this property tracks which subdomain a given Web user's AP actor uses.
+    """
 
     # OLD. some stored entities still have these; do not reuse.
     # superfeedr_subscribed = ndb.DateTimeProperty(tzinfo=timezone.utc)

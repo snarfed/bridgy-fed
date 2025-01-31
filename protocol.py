@@ -92,53 +92,33 @@ def activity_id_memcache_key(id):
 
 
 class Protocol:
-    """Base protocol class. Not to be instantiated; classmethods only.
-
-    Attributes:
-      LABEL (str): human-readable lower case name
-      OTHER_LABELS (list of str): label aliases
-      ABBREV (str): lower case abbreviation, used in URL paths
-      PHRASE (str): human-readable name or phrase. Used in phrases like
-        ``Follow this person on {PHRASE}``
-      LOGO_HTML (str): logo emoji or ``<img>`` tag
-      CONTENT_TYPE (str): MIME type of this protocol's native data format,
-        appropriate for the ``Content-Type`` HTTP header.
-      HAS_COPIES (bool): whether this protocol is push and needs us to
-        proactively create "copy" users and objects, as opposed to pulling
-        converted objects on demand
-      REQUIRES_AVATAR (bool): whether accounts on this protocol are required
-        to have a profile picture. If they don't, their ``User.status`` will be
-        ``blocked``.
-      REQUIRES_NAME (bool): whether accounts on this protocol are required to
-        have a profile name that's different than their handle or id. If they
-        don't, their ``User.status`` will be ``blocked``.
-      REQUIRES_OLD_ACCOUNT: (bool): whether accounts on this protocol are
-        required to be at least :const:`common.OLD_ACCOUNT_AGE` old. If their
-        profile includes creation date and it's not old enough, their
-        ``User.status`` will be ``blocked``.
-      DEFAULT_ENABLED_PROTOCOLS (sequence of str): labels of other protocols
-        that are automatically enabled for this protocol to bridge into
-      DEFAULT_SERVE_USER_PAGES (bool): whether to serve user pages for all of
-        this protocol's users on the fed.brid.gy. If ``False``, user pages will
-        only be served for users who have explictly opted in.
-      SUPPORTED_AS1_TYPES (sequence of str): AS1 objectTypes and verbs that this
-        protocol supports receiving and sending.
-      SUPPORTS_DMS (bool): whether this protocol can receive DMs (chat messages)
-
-    """
+    """Base protocol class. Not to be instantiated; classmethods only."""
     ABBREV = None
+    """str: lower case abbreviation, used in URL paths"""
     PHRASE = None
+    """str: human-readable name or phrase. Used in phrases like ``Follow this person on {PHRASE}``"""
     OTHER_LABELS = ()
+    """sequence of str: label aliases"""
     LOGO_HTML = ''
+    """str: logo emoji or ``<img>`` tag"""
     CONTENT_TYPE = None
+    """str: MIME type of this protocol's native data format, appropriate for the ``Content-Type`` HTTP header."""
     HAS_COPIES = False
+    """bool: whether this protocol is push and needs us to proactively create "copy" users and objects, as opposed to pulling converted objects on demand"""
     REQUIRES_AVATAR = False
+    """bool: whether accounts on this protocol are required to have a profile picture. If they don't, their ``User.status`` will be ``blocked``."""
     REQUIRES_NAME = False
+    """bool: whether accounts on this protocol are required to have a profile name that's different than their handle or id. If they don't, their ``User.status`` will be ``blocked``."""
     REQUIRES_OLD_ACCOUNT = False
+    """bool: whether accounts on this protocol are required to be at least :const:`common.OLD_ACCOUNT_AGE` old. If their profile includes creation date and it's not old enough, their ``User.status`` will be ``blocked``."""
     DEFAULT_ENABLED_PROTOCOLS = ()
+    """sequence of str: labels of other protocols that are automatically enabled for this protocol to bridge into"""
     DEFAULT_SERVE_USER_PAGES = False
+    """bool: whether to serve user pages for all of this protocol's users on the fed.brid.gy. If ``False``, user pages will only be served for users who have explictly opted in."""
     SUPPORTED_AS1_TYPES = ()
+    """sequence of str: AS1 objectTypes and verbs that this protocol supports receiving and sending"""
     SUPPORTS_DMS = False
+    """bool: whether this protocol can receive DMs (chat messages)"""
 
     def __init__(self):
         assert False
@@ -146,6 +126,7 @@ class Protocol:
     @classmethod
     @property
     def LABEL(cls):
+        """str: human-readable lower case name of this protocol, eg ``'activitypub``"""
         return cls.__name__.lower()
 
     @staticmethod
