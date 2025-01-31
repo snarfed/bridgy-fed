@@ -65,6 +65,8 @@ AKA_CONTEXT = {'alsoKnownAs': {'@id': 'as:alsoKnownAs', '@type': '@id'}}
 _INSTANCE_ACTOR = None
 
 OLD_ACCOUNT_EXEMPT_DOMAINS = (
+    'channel.org',
+    'newsmast.community',
     'pixelfed.social',
 )
 
