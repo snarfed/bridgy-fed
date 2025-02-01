@@ -464,13 +464,18 @@ class DmsTest(TestCase):
         self.assertEqual(('OK', 200), receive(from_user=alice, obj=obj))
 
         self.assert_replied(OtherFake, alice, '?', ALICE_BLOCK_CONFIRMATION_CONTENT)
-        self.assertEqual([('other:bob:target', {
+
+        block_as1 = {
             'objectType': 'activity',
             'verb': 'block',
             'id': 'efake:alice#bridgy-fed-block-2022-01-02T03:04:05+00:00',
             'actor': 'efake:alice',
             'object': 'other:bob',
-        })], OtherFake.sent)
+        }
+        self.assert_object(id='efake:alice#bridgy-fed-block-2022-01-02T03:04:05+00:00',
+                           our_as1=block_as1, source_protocol='efake',
+                           ignore=['copies'])
+        self.assertEqual([('other:bob:target', block_as1)], OtherFake.sent)
 
     def test_receive_block_handle_at_symbol(self):
         alice, bob = self.make_alice_bob()

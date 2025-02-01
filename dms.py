@@ -200,7 +200,7 @@ def receive(*, from_user, obj):
             return reply(f"Couldn't find {to_proto.PHRASE} user {handle}")
 
         block_id = f'{from_user.key.id()}#bridgy-fed-block-{util.now().isoformat()}'
-        obj = Object(id=block_id, our_as1={
+        obj = Object(id=block_id, source_protocol=from_user.LABEL, our_as1={
             'id': block_id,
             'objectType': 'activity',
             'verb': 'block',
