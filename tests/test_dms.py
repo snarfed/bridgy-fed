@@ -24,7 +24,7 @@ DM_EFAKE_ALICE_REQUESTS_OTHER_BOB = {
     **DM_BASE,
     'content': ' other:handle:bob ',
 }
-ALICE_CONFIRMATION_CONTENT = """Got it! We'll send <a class="h-card u-author" rel="me" href="web:other:bob" title="other:handle:bob">other:handle:bob</a> a message and say that you hope they'll enable the bridge. Fingers crossed!"""
+ALICE_REQUEST_CONFIRMATION_CONTENT = """Got it! We'll send <a class="h-card u-author" rel="me" href="web:other:bob" title="other:handle:bob">other:handle:bob</a> a message and say that you hope they'll enable the bridge. Fingers crossed!"""
 ALICE_REQUEST_CONTENT = """\
 <p>Hi! <a class="h-card u-author" rel="me" href="web:other:efake:alice" title="efake:handle:alice &middot; other:handle:efake:handle:alice"><span style="unicode-bidi: isolate">efake:handle:alice</span> &middot; other:handle:efake:handle:alice</a> is using Bridgy Fed to bridge their account from efake-phrase into other-phrase, and they'd like to follow you. You can bridge your account into efake-phrase by following this account. <a href="https://fed.brid.gy/docs">See the docs</a> for more information.
 <p>If you do nothing, your account won't be bridged, and users on efake-phrase won't be able to see or interact with you.
@@ -35,6 +35,12 @@ DM_EFAKE_ALICE_SET_USERNAME_OTHER = {
     'content': 'username new-handle',
 }
 ALICE_USERNAME_CONFIRMATION_CONTENT = 'Your username in other-phrase has been set to <a class="h-card u-author" rel="me" href="web:other:efake:alice" title="other:handle:efake:handle:alice">other:handle:efake:handle:alice</a>. It should appear soon!'
+
+DM_EFAKE_ALICE_BLOCK_BOB = {
+    **DM_BASE,
+    'content': 'block other:handle:bob',
+}
+ALICE_BLOCK_CONFIRMATION_CONTENT = """OK, you're now blocking <a class="h-card u-author" rel="me" href="web:other:bob" title="other:handle:bob">other:handle:bob</a> in other-phrase."""
 
 
 class DmsTest(TestCase):
@@ -137,7 +143,7 @@ class DmsTest(TestCase):
             'content': '<a href="https://other.brid.gy/other.brid.gy">@other.brid.gy</a> ',
         })
         self.assertEqual(('¯\\_(ツ)_/¯', 204), receive(from_user=alice, obj=obj))
-        self.assert_replied(OtherFake, alice, '?', ALICE_CONFIRMATION_CONTENT)
+        self.assert_replied(OtherFake, alice, '?', ALICE_REQUEST_CONFIRMATION_CONTENT)
         self.assert_sent(ExplicitFake, bob, 'request_bridging',
                          ALICE_REQUEST_CONTENT)
 
@@ -148,12 +154,9 @@ class DmsTest(TestCase):
 
         obj = Object(our_as1={
             **DM_BASE,
-            'content': 'foo bar',
+            'content': 'foo bar baz',
         })
-        with self.assertRaises(NotModified) as e:
-            receive(from_user=alice, obj=obj)
-
-        self.assertIn("Couldn't understand DM: ['foo', 'bar']", str(e.exception))
+        self.assertEqual(('¯\\_(ツ)_/¯', 204), receive(from_user=alice, obj=obj))
         self.assertEqual([], OtherFake.sent)
         self.assertEqual([], Fake.sent)
 
@@ -221,7 +224,7 @@ class DmsTest(TestCase):
         obj = Object(our_as1=DM_EFAKE_ALICE_REQUESTS_OTHER_BOB)
         self.assertEqual(('OK', 200), receive(from_user=alice, obj=obj))
 
-        self.assert_replied(OtherFake, alice, '?', ALICE_CONFIRMATION_CONTENT)
+        self.assert_replied(OtherFake, alice, '?', ALICE_REQUEST_CONFIRMATION_CONTENT)
         self.assert_sent(ExplicitFake, bob, 'request_bridging',
                          ALICE_REQUEST_CONTENT)
 
@@ -233,7 +236,7 @@ class DmsTest(TestCase):
             'content': '@other:handle:bob',
         })
         self.assertEqual(('OK', 200), receive(from_user=alice, obj=obj))
-        self.assert_replied(OtherFake, alice, '?', ALICE_CONFIRMATION_CONTENT)
+        self.assert_replied(OtherFake, alice, '?', ALICE_REQUEST_CONFIRMATION_CONTENT)
         self.assert_sent(ExplicitFake, bob, 'request_bridging',
                          ALICE_REQUEST_CONTENT)
 
@@ -245,7 +248,7 @@ class DmsTest(TestCase):
             'content': '<a href="http://bob">@other:handle:bob</a>',
         })
         self.assertEqual(('OK', 200), receive(from_user=alice, obj=obj))
-        self.assert_replied(OtherFake, alice, '?', ALICE_CONFIRMATION_CONTENT)
+        self.assert_replied(OtherFake, alice, '?', ALICE_REQUEST_CONFIRMATION_CONTENT)
         self.assert_sent(ExplicitFake, bob, 'request_bridging',
                          ALICE_REQUEST_CONTENT)
 
@@ -257,7 +260,7 @@ class DmsTest(TestCase):
             'content': '<a href="https://other.brid.gy/other.brid.gy">@other.brid.gy</a> other:handle:bob',
         })
         self.assertEqual(('OK', 200), receive(from_user=alice, obj=obj))
-        self.assert_replied(OtherFake, alice, '?', ALICE_CONFIRMATION_CONTENT)
+        self.assert_replied(OtherFake, alice, '?', ALICE_REQUEST_CONFIRMATION_CONTENT)
         self.assert_sent(ExplicitFake, bob, 'request_bridging',
                          ALICE_REQUEST_CONTENT)
 
@@ -270,7 +273,7 @@ class DmsTest(TestCase):
 
         obj = Object(our_as1=DM_EFAKE_ALICE_REQUESTS_OTHER_BOB)
         self.assertEqual(('OK', 200), receive(from_user=alice, obj=obj))
-        self.assert_replied(OtherFake, alice, '?', ALICE_CONFIRMATION_CONTENT)
+        self.assert_replied(OtherFake, alice, '?', ALICE_REQUEST_CONFIRMATION_CONTENT)
         self.assert_sent(ExplicitFake, OtherFake(id='other:bob'),
                          'request_bridging', ALICE_REQUEST_CONTENT)
         self.assertEqual(['other:bob'], OtherFake.fetched)
@@ -354,18 +357,16 @@ class DmsTest(TestCase):
 
     def test_receive_prompt_wrong_protocol(self):
         self.make_user(id='other.brid.gy', cls=Web)
+        user = self.make_user('fake:user', cls=Fake, obj_as1={'x': 'y'})
 
         obj = Object(our_as1={
             **DM_BASE,
             'content': 'fake:eve',
         })
-        with self.assertRaises(NotModified) as e:
-            receive(from_user=Fake(id='fake:user'), obj=obj)
-
-        self.assertIn("Couldn't understand DM: ['fake:eve']", str(e.exception))
+        self.assertEqual(('OK', 200), receive(from_user=user, obj=obj))
         self.assertEqual([], ExplicitFake.sent)
         self.assertEqual([], OtherFake.sent)
-        self.assertEqual([], Fake.sent)
+        self.assert_replied(Fake, user, '?', "Couldn't find user fake:eve on other-phrase")
 
     @mock.patch('ids.translate_handle', side_effect=ValueError('nope'))
     def test_receive_prompt_not_supported_in_target_protocol(self, _):
@@ -455,3 +456,18 @@ class DmsTest(TestCase):
         self.assertEqual(('OK', 200), receive(from_user=alice, obj=obj))
         self.assert_replied(ATProto, alice, '?',
                             'Your DID is <code>did:abc:123</code>')
+
+    def test_receive_block(self):
+        alice, bob = self.make_alice_bob()
+
+        obj = Object(our_as1=DM_EFAKE_ALICE_BLOCK_BOB)
+        self.assertEqual(('OK', 200), receive(from_user=alice, obj=obj))
+
+        self.assert_replied(OtherFake, alice, '?', ALICE_BLOCK_CONFIRMATION_CONTENT)
+        self.assertEqual([('other:bob:target', {
+            'objectType': 'activity',
+            'verb': 'block',
+            'id': 'efake:alice#bridgy-fed-block-2022-01-02T03:04:05+00:00',
+            'actor': 'efake:alice',
+            'object': 'other:bob',
+        })], OtherFake.sent)

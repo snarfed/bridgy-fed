@@ -1,4 +1,7 @@
-"""Protocol-independent code for sending and receiving DMs aka chat messages."""
+"""Protocol-independent code for sending and receiving DMs aka chat messages.
+
+TODO: make a command framework, abstract out arg parsing and handling, etc
+"""
 from datetime import timedelta
 import logging
 
@@ -19,6 +22,7 @@ REQUESTS_LIMIT_EXPIRE = timedelta(days=1)
 REQUESTS_LIMIT_USER = 10
 
 COMMANDS = (
+    'block',
     'did',
     'help',
     'no',
@@ -126,7 +130,7 @@ def receive(*, from_user, obj):
         logger.debug(f'  first token is bot mention, removing')
         tokens = tokens[1:]
 
-    if not tokens:
+    if not tokens or len(tokens) > 2:
         return r'¯\_(ツ)_/¯', 204
 
     if tokens[0].lstrip('/') in COMMANDS:
@@ -184,61 +188,91 @@ def receive(*, from_user, obj):
             return reply(str(e))
         return reply(f"Your username in {to_proto.PHRASE} has been set to {from_user.user_link(proto=to_proto, name=False, handle=True)}. It should appear soon!")
 
+    if cmd == 'block' and arg:
+        handle = arg
+        if not to_proto.owns_handle(handle) and handle.startswith('@'):
+            logging.info(f"doesn't look like a handle, trying without leading @")
+            handle = handle.removeprefix('@')
+
+        to_user = load_user(to_proto, arg)
+        if not to_user:
+            return reply(f"Couldn't find {to_proto.PHRASE} user {handle}")
+
+        block_id = f'{from_user.key.id()}#bridgy-fed-block-{util.now().isoformat()}'
+        obj = Object(id=block_id, our_as1={
+            'id': block_id,
+            'objectType': 'activity',
+            'verb': 'block',
+            'actor': from_user.key.id(),
+            'object': to_user.key.id(),
+        })
+        obj.put()
+        from_user.deliver(obj, from_user=from_user)
+        return reply(f"""OK, you're now blocking {to_user.user_link()} in {to_proto.PHRASE}.""")
+
     # are they requesting a user?
     if not cmd:
-        if not to_proto.owns_handle(arg) and arg.startswith('@'):
+        handle = arg
+        if not to_proto.owns_handle(handle) and handle.startswith('@'):
             logging.info(f"doesn't look like a handle, trying without leading @")
-            arg = arg.removeprefix('@')
+            handle = handle.removeprefix('@')
 
-        if to_proto.owns_handle(arg) is not False:
-            handle = arg
-            from_proto = from_user.__class__
+        to_user = load_user(to_proto, handle)
+        if not to_user:
+            return reply(f"Couldn't find {to_proto.PHRASE} user {handle}")
 
-            try:
-                ids.translate_handle(handle=handle, from_=to_proto, to=from_user,
-                                     enhanced=False)
-            except ValueError as e:
-                logger.warning(e)
-                return reply(f"Sorry, Bridgy Fed doesn't yet support bridging handle {handle} from {to_proto.PHRASE} to {from_proto.PHRASE}.")
+        from_proto = from_user.__class__
+        try:
+            ids.translate_handle(handle=handle, from_=to_proto, to=from_user,
+                                 enhanced=False)
+        except ValueError as e:
+            logger.warning(e)
+            return reply(f"Sorry, Bridgy Fed doesn't yet support bridging handle {handle} from {to_proto.PHRASE} to {from_proto.PHRASE}.")
 
-            to_id = to_proto.handle_to_id(handle)
-            if not to_id:
-                return reply(f"Couldn't find {to_proto.PHRASE} user {handle}")
+        if to_user.is_enabled(from_proto):
+            # already bridged
+            return reply(f'{to_user.user_link(proto=from_proto)} is already bridged into {from_proto.PHRASE}.')
 
-            to_user = to_proto.get_or_create(to_id)
-            if not to_user:
-                return reply(f"Couldn't find {to_proto.PHRASE} user {handle}")
+        elif (models.DM(protocol=from_proto.LABEL, type='request_bridging')
+              in to_user.sent_dms):
+            # already requested
+            return reply(f"We've already sent {to_user.user_link()} a DM. Fingers crossed!")
 
-            if not to_user.obj:
-                # doesn't exist
-                return reply(f"Couldn't find {to_proto.PHRASE} user {handle}")
+        # check and update rate limits
+        attempts_key = f'dm-user-requests-{from_user.LABEL}-{from_user.key.id()}'
+        # incr leaves existing expiration as is, doesn't change it
+        # https://stackoverflow.com/a/4084043/186123
+        attempts = memcache.memcache.incr(attempts_key, 1)
+        if not attempts:
+            memcache.memcache.add(
+                attempts_key, 1,
+                expire=int(REQUESTS_LIMIT_EXPIRE.total_seconds()))
+        elif attempts > REQUESTS_LIMIT_USER:
+            return reply(f"Sorry, you've hit your limit of {REQUESTS_LIMIT_USER} requests per day. Try again tomorrow!")
 
-            elif to_user.is_enabled(from_proto):
-                # already bridged
-                return reply(f'{to_user.user_link(proto=from_proto)} is already bridged into {from_proto.PHRASE}.')
-
-            elif (models.DM(protocol=from_proto.LABEL, type='request_bridging')
-                  in to_user.sent_dms):
-                # already requested
-                return reply(f"We've already sent {to_user.user_link()} a DM. Fingers crossed!")
-
-            # check and update rate limits
-            attempts_key = f'dm-user-requests-{from_user.LABEL}-{from_user.key.id()}'
-            # incr leaves existing expiration as is, doesn't change it
-            # https://stackoverflow.com/a/4084043/186123
-            attempts = memcache.memcache.incr(attempts_key, 1)
-            if not attempts:
-                memcache.memcache.add(
-                    attempts_key, 1,
-                    expire=int(REQUESTS_LIMIT_EXPIRE.total_seconds()))
-            elif attempts > REQUESTS_LIMIT_USER:
-                return reply(f"Sorry, you've hit your limit of {REQUESTS_LIMIT_USER} requests per day. Try again tomorrow!")
-
-            # send the DM request!
-            maybe_send(from_proto=from_proto, to_user=to_user, type='request_bridging', text=f"""\
+        # send the DM request!
+        maybe_send(from_proto=from_proto, to_user=to_user, type='request_bridging', text=f"""\
 <p>Hi! {from_user.user_link(proto=to_proto, proto_fallback=True)} is using Bridgy Fed to bridge their account from {from_proto.PHRASE} into {to_proto.PHRASE}, and they'd like to follow you. You can bridge your account into {from_proto.PHRASE} by following this account. <a href="https://fed.brid.gy/docs">See the docs</a> for more information.
 <p>If you do nothing, your account won't be bridged, and users on {from_proto.PHRASE} won't be able to see or interact with you.
 <p>Bridgy Fed will only send you this message once.""")
-            return reply(f"Got it! We'll send {to_user.user_link()} a message and say that you hope they'll enable the bridge. Fingers crossed!")
+        return reply(f"Got it! We'll send {to_user.user_link()} a message and say that you hope they'll enable the bridge. Fingers crossed!")
 
     error(f"Couldn't understand DM: {tokens}", status=304)
+
+
+def load_user(proto, handle):
+    """
+    Args:
+      proto (protocol.Protocol)
+      handle (str)
+
+    Returns:
+      models.User or None
+    """
+    if proto.owns_handle(handle) is False:
+        return None
+
+    if id := proto.handle_to_id(handle):
+        if user := proto.get_or_create(id):
+            if user.obj:
+                return user
