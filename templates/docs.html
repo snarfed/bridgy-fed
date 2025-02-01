@@ -50,6 +50,7 @@
 <li><a href="#follower-count">How does my bridged account's follower count work?</a></li>
 <li><a href="#mention">How do I @-mention a bridged user?</a></li>
 <li><a href="#delete">How do I delete a post?</a></li>
+<li><a href="#block">How do I block someone in another network who's not bridged into mine?</a></li>
 <li><a href="#enhanced">The <code>*.brid.gy</code> domain in my bridged account is ugly. Can I use my own domain instead?</a></li>
 <li><a href="#dm-commands">What commands can I DM the bot account?</a></li>
 <li><a href="#dm-request">I want to follow someone, but they're not bridged!</a></li>
@@ -362,6 +363,12 @@
 </li>
 
 
+<li id="block" class="question">How do I block someone in another network who's not bridged into mine?</li>
+<li class="answer">
+<p>You can use the <code>block</code> <a href="#dm-commands">DM command</a>. First, find the Bridgy Fed bot account for the network they're in. Then, DM that account <code>block [handle]</code>, where handle is the address of the user you want to block.</p>
+<p>For example, if you're on the fediverse, and you want to block @badguy.bsky.social on Bluesky, find the @bsky.brid.gy@bsky.brid.gy account and send it a DM with the text <code>block badguy.bsky.social</code>.
+</li>
+
 <li id="enhanced" class="question">The <code>*.brid.gy</code> domain in my bridged account's handle is ugly. Can I get rid of it and use my own domain/web site instead?</li>
 <li class="answer">
 <p>Yes! Many supported networks let you use <a href="https://indieweb.org/personal-domain">your own domain</a> as your handle one way or another. This takes a bit of technical setup with DNS or a web server, but it's very doable. Here are instructions for <a href="#bluesky-enhanced">web sites and fediverse accounts bridged into Bluesky</a>, and for <a href="#fediverse-enhanced">web sites bridged into the fediverse</a>.</p>
@@ -377,6 +384,7 @@
 <li><em>username [domain]</em>: <a href="#enhanced">set a custom domain username (aka handle)</a>
 <li><em>[handle]</em>: <a href="#dm-request">ask it to DM a user to request that they bridge their account</a>
 <li><em>did</em>: get your bridged Bluesky account's <a href="https://atproto.com/guides/identity#identifiers">DID</a> (only supported with the Bluesky bot)
+<li><em>block [handle]</em>: <a href="#">block a user on another network who's not bridged into your network</a>
 </ul>
 </li>
 

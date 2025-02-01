@@ -157,6 +157,7 @@ def receive(*, from_user, obj):
 <li><em>stop</em>: disable bridging for your account
 <li><em>username [domain]</em>: set a custom domain username (handle)
 <li><em>[handle]</em>: ask me to DM a user on {to_proto.PHRASE} to request that they bridge their account into {from_user.PHRASE}
+<li><em>block [handle]</em>: block a user on {to_proto.PHRASE} who's not bridged here
 {extra}
 <li><em>help</em>: print this message
 </ul>""")
@@ -194,7 +195,7 @@ def receive(*, from_user, obj):
             logging.info(f"doesn't look like a handle, trying without leading @")
             handle = handle.removeprefix('@')
 
-        to_user = load_user(to_proto, arg)
+        to_user = load_user(to_proto, handle)
         if not to_user:
             return reply(f"Couldn't find {to_proto.PHRASE} user {handle}")
 
