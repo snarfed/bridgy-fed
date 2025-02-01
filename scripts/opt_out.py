@@ -158,8 +158,7 @@ def run():
         'actor': user_id,
         'object': user_id,
     }
-    obj = Object(id=delete_id, status='new', source_protocol=from_proto.LABEL,
-                 our_as1=delete_as1)
+    obj = Object(id=delete_id, source_protocol=from_proto.LABEL, our_as1=delete_as1)
 
     if only_proto:
         from_proto.deliver(obj, from_user=user, to_proto=only_proto)
@@ -185,8 +184,7 @@ def delete_ap_targets(*, from_proto=None, user=None, user_id=None):
         'actor': user_id,
         'object': user_id,
     }
-    obj = Object(id=delete_id, status='new', source_protocol=from_proto.LABEL,
-                 our_as1=delete_as1)
+    obj = Object(id=delete_id, source_protocol=from_proto.LABEL, our_as1=delete_as1)
     obj.put()
 
     targets = args.extra_targets
