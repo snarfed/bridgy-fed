@@ -873,9 +873,11 @@ class ProtocolTest(TestCase):
 
     def test_check_supported(self):
         for obj in (
-            {'objectType': 'note'},
+            {'objectType': 'note', 'content': 'foo'},
+            {'objectType': 'note', 'attachments': {'stream': {'url': 'http://x/yz'}}},
+            {'objectType': 'note', 'image': [{'url': 'http://my/pic'}]},
             {'objectType': 'activity', 'verb': 'post',
-             'object': {'objectType': 'note'}},
+             'object': {'objectType': 'note', 'content': 'foo'}},
             {'objectType': 'activity', 'verb': 'follow'},
             {'objectType': 'activity', 'verb': 'delete', 'object': 'x'},
             {'objectType': 'activity', 'verb': 'undo', 'object': {'foo': 'bar'}},
@@ -919,6 +921,19 @@ class ProtocolTest(TestCase):
         for proto in Fake, ExplicitFake:
             with self.subTest(proto=proto), self.assertRaises(NoContent):
                 proto.check_supported(dm)
+
+        # blank content and no video/audio/image
+        for obj in (
+                {'objectType': 'note'},
+                {'objectType': 'note', 'content': '  '},
+                {'objectType': 'note', 'content': '<p></p>'},
+                {'objectType': 'activity', 'verb': 'post',
+                 'object': {'objectType': 'note'}},
+                {'objectType': 'activity', 'verb': 'update',
+                 'object': {'objectType': 'note'}},
+        ):
+            with self.subTest(obj=obj), self.assertRaises(NoContent):
+                Fake.check_supported(Object(our_as1=obj))
 
         # from and to a copy id of a protocol bot user
         self.make_user(cls=Web, id='ap.brid.gy',
@@ -978,6 +993,7 @@ class ProtocolReceiveTest(TestCase):
         post_as1 = {
             'id': 'fake:post',
             'objectType': 'note',
+            'content': 'foo',
         }
         create_as1 = {
             'id': 'fake:create',
@@ -1029,6 +1045,7 @@ class ProtocolReceiveTest(TestCase):
             'id': 'fake:post',
             'objectType': 'note',
             'author': 'fake:user',
+            'content': 'foo',
         }
         self.assertEqual(('OK', 202), Fake.receive_as1(post_as1))
 
@@ -1056,6 +1073,7 @@ class ProtocolReceiveTest(TestCase):
             'id': 'fake:post',
             'objectType': 'note',
             'author': 'fake:user',
+            'content': 'foo',
         }))
 
         self.assertEqual(1, mock_send.call_count)
@@ -1098,6 +1116,7 @@ class ProtocolReceiveTest(TestCase):
             'objectType': 'note',
             'author': 'efake:user',
             'inReplyTo': 'efake:post',
+            'content': 'foo',
         })
 
         self.assertEqual(0, mock_send.call_count)
@@ -1118,6 +1137,7 @@ class ProtocolReceiveTest(TestCase):
             'objectType': 'note',
             'actor': 'fake:user',
             'inReplyTo': 'fake:post',
+            'content': 'foo',
             'tags': [{
                 'objectType': 'mention',
                 'url': 'other:bob'
@@ -1146,6 +1166,7 @@ class ProtocolReceiveTest(TestCase):
             'objectType': 'note',
             'actor': 'fake:user',
             'inReplyTo': 'fake:post',
+            'content': 'foo',
         })
         self.assertEqual(204, code)
         self.assertEqual([], ExplicitFake.sent)
@@ -1171,6 +1192,7 @@ class ProtocolReceiveTest(TestCase):
             'objectType': 'note',
             'actor': 'efake:eve',
             'inReplyTo': 'fake:post',
+            'content': 'foo',
         })
         self.assertEqual(204, code)
 
@@ -1507,6 +1529,7 @@ class ProtocolReceiveTest(TestCase):
             'id': 'fake:post',
             'objectType': 'note',
             'author': 'fake:user',
+            'content': 'foo',
         }
         obj = self.store_object(id='fake:post', our_as1=note_as1,
                                 source_protocol='fake')
@@ -1532,6 +1555,7 @@ class ProtocolReceiveTest(TestCase):
             'id': 'fake:post',
             'objectType': 'note',
             'author': 'fake:user',
+            'content': 'foo',
         }
         self.store_object(id='fake:post', our_as1=post_as1, source_protocol='fake')
 
@@ -1547,25 +1571,30 @@ class ProtocolReceiveTest(TestCase):
     def test_update_post(self):
         self.make_followers()
 
-        post_as1 = {
+        orig_as1 = {
             'id': 'fake:post',
             'objectType': 'note',
             'author': 'fake:user',
+            'content': 'foo',
         }
-        self.store_object(id='fake:post', our_as1=post_as1, source_protocol='fake',
+        self.store_object(id='fake:post', our_as1=orig_as1, source_protocol='fake',
                              copies=[Target(uri='other:post', protocol='other')])
 
+        new_as1 = {
+            **orig_as1,
+            'content': 'bar',
+        }
         update_as1 = {
             'id': 'fake:update',
             'objectType': 'activity',
             'verb': 'update',
             'actor': 'fake:user',
-            'object': post_as1,
+            'object': new_as1,
         }
         self.assertEqual(('OK', 202), Fake.receive_as1(update_as1))
 
         self.assert_object('fake:post',
-                           our_as1=post_as1,
+                           our_as1=new_as1,
                            type='note',
                            feed=[self.alice.key, self.bob.key],
                            users=[self.user.key],
@@ -1668,6 +1697,7 @@ class ProtocolReceiveTest(TestCase):
             'objectType': 'note',
             'inReplyTo': 'other:post',
             'author': 'fake:user',
+            'content': 'foo',
         }
         create_as1 = {
             'id': 'fake:create',
@@ -1698,6 +1728,7 @@ class ProtocolReceiveTest(TestCase):
             'objectType': 'note',
             'inReplyTo': 'other:post',
             'author': 'fake:user',
+            'content': 'foo',
         }
         OtherFake.fetchable['other:post'] = {
             'objectType': 'note',
@@ -1735,6 +1766,7 @@ class ProtocolReceiveTest(TestCase):
             'objectType': 'note',
             'inReplyTo': 'fake:post',
             'author': 'fake:user',
+            'content': 'foo',
         }
         self.store_object(id='fake:post', source_protocol='fake',
                           copies=[Target(protocol='other', uri='other:post')],
@@ -1778,6 +1810,7 @@ class ProtocolReceiveTest(TestCase):
             'objectType': 'note',
             'inReplyTo': 'fake:post',
             'author': 'fake:user',
+            'content': 'foo',
         }
         self.assertEqual(('OK', 202), Fake.receive_as1(reply_as1))
 
@@ -1839,6 +1872,7 @@ class ProtocolReceiveTest(TestCase):
             'objectType': 'note',
             'inReplyTo': 'efake:post',
             'author': 'efake:user',
+            'content': 'foo',
         }
         self.assertEqual(('OK', 202), ExplicitFake.receive_as1(reply_as1))
 
@@ -1875,6 +1909,7 @@ class ProtocolReceiveTest(TestCase):
             'objectType': 'note',
             'inReplyTo': 'other:post',
             'author': 'fake:user',
+            'content': 'foo',
         }
         self.store_object(id='fake:reply', our_as1=reply_as1, source_protocol='fake')
 
@@ -2111,6 +2146,7 @@ class ProtocolReceiveTest(TestCase):
         post_as1 = {
             'id': 'fake:post',
             'objectType': 'note',
+            'content': 'foo',
         }
         create_as1 = {
             'id': 'fake:create',
@@ -2731,6 +2767,7 @@ class ProtocolReceiveTest(TestCase):
             'id': 'fake:reply',
             'author': 'fake:user',
             'objectType': 'note',
+            'content': 'foo',
             'inReplyTo': [
                 'fake:unknown-post',
                 'fake:post',
@@ -2770,6 +2807,7 @@ class ProtocolReceiveTest(TestCase):
             'id': 'fake:reply',
             'objectType': 'note',
             'author': 'fake:user',
+            'content': 'foo',
             'inReplyTo': [
                 'fake:unknown-post',
                 'fake:post',
@@ -3077,6 +3115,7 @@ class ProtocolReceiveTest(TestCase):
                 'id': 'fake:note',
                 'objectType': 'note',
                 'author': 'fake:user',
+                'content': 'foo',
             },
         }
 
@@ -3193,6 +3232,7 @@ class ProtocolReceiveTest(TestCase):
             'id': 'fake:post',
             'objectType': 'note',
             'author': 'fake:other',
+            'content': 'foo',
         }
         create = {
             'id': 'fake:post#bridgy-fed-create',
@@ -3228,6 +3268,7 @@ class ProtocolReceiveTest(TestCase):
             'id': 'fake:post',
             'objectType': 'note',
             'author': 'fake:user',
+            'content': 'foo',
         }
 
         got = self.post('/queue/receive', data={
@@ -3244,6 +3285,7 @@ class ProtocolReceiveTest(TestCase):
             'id': 'https://user.com/c',
             'objectType': 'note',
             'author': 'https://user.com/',
+            'content': 'foo',
         }
 
         got = self.post('/queue/receive', data={
@@ -3263,6 +3305,7 @@ class ProtocolReceiveTest(TestCase):
             'id': 'http://www.foo.com/post',
             'objectType': 'note',
             'author': 'http://www.foo.com/bar',
+            'content': 'foo',
         }
 
         got = self.post('/queue/receive', data={
@@ -3280,6 +3323,7 @@ class ProtocolReceiveTest(TestCase):
             'objectType': 'note',
             'id': 'http://user.com/post',
             'author': 'http://m.user.com/',
+            'content': 'foo',
         }
 
         got = self.post('/queue/receive', data={
@@ -3296,6 +3340,7 @@ class ProtocolReceiveTest(TestCase):
             'id': 'http://bar.com/post',
             'objectType': 'note',
             'author': 'http://bar.com/',
+            'content': 'foo',
         }
 
         got = self.post('/queue/receive', data={
@@ -3311,6 +3356,7 @@ class ProtocolReceiveTest(TestCase):
             'id': 'fake:post',
             'objectType': 'note',
             'author': 'fake:other',
+            'content': 'foo',
         }
 
         got = self.post('/queue/receive', data={
@@ -3392,6 +3438,7 @@ class ProtocolReceiveTest(TestCase):
             'id': 'fake:post',
             'objectType': 'note',
             'author': 'fake:user',
+            'content': 'foo',
         }
         self.assertEqual(('OK', 202), Fake.receive_as1(note_as1))
 
@@ -3426,6 +3473,7 @@ class ProtocolReceiveTest(TestCase):
             'objectType': 'note',
             'inReplyTo': 'other:post',
             'author': 'fake:user',
+            'content': 'foo',
         }
         OtherFake.fetchable['other:post'] = {
             'objectType': 'note',
@@ -3463,6 +3511,7 @@ class ProtocolReceiveTest(TestCase):
         note = self.store_object(id='fake:note', our_as1={
             'id': 'fake:post',
             'objectType': 'note',
+            'content': 'foo',
         })
         target = Target(uri='fake:shared:target', protocol='fake')
         create = self.store_object(id='fake:create', our_as1={
@@ -3546,6 +3595,7 @@ class ProtocolReceiveTest(TestCase):
         self.store_object(id='fake:note', our_as1={
             'id': 'fake:post',
             'objectType': 'note',
+            'content': 'foo',
         })
         resp = self.post('/queue/send', data={
             'protocol': 'fake',

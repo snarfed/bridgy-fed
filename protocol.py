@@ -12,7 +12,7 @@ from flask import request
 from google.cloud import ndb
 from google.cloud.ndb import OR
 from google.cloud.ndb.model import _entity_to_protobuf
-from granary import as1, as2
+from granary import as1, as2, source
 from granary.source import html_to_text
 from oauth_dropins.webutil.appengine_info import DEBUG
 from oauth_dropins.webutil.flask_util import cloud_tasks_only
@@ -1688,7 +1688,7 @@ Hi! You <a href="{inner_obj_as1.get('url') or inner_obj_id}">recently replied</a
 
     @classmethod
     def check_supported(cls, obj):
-        """If this protocol doesn't support this object, return 204.
+        """If this protocol doesn't support this object, raises HTTP 204.
 
         Also reports an error.
 
@@ -1698,6 +1698,9 @@ Hi! You <a href="{inner_obj_as1.get('url') or inner_obj_id}">recently replied</a
 
         Args:
           obj (Object)
+
+        Raises:
+          werkzeug.HTTPException: if this protocol doesn't support this object
         """
         if not obj.type:
             return
@@ -1708,6 +1711,16 @@ Hi! You <a href="{inner_obj_as1.get('url') or inner_obj_id}">recently replied</a
                 and inner_type
                 and inner_type not in cls.SUPPORTED_AS1_TYPES)):
             error(f"Bridgy Fed for {cls.LABEL} doesn't support {obj.type} {inner_type} yet", status=204)
+
+        # don't allow posts with blank content and no image/video/audio
+        crud_obj = (as1.get_object(obj.as1) if obj.type in ('post', 'update')
+                    else obj.as1)
+        if (crud_obj.get('objectType') in as1.POST_TYPES
+                and not util.get_url(crud_obj, key='image')
+                and not any(util.get_urls(crud_obj, 'attachments', inner_key='stream'))
+                # TODO: handle articles with displayName but not content
+                and not source.html_to_text(crud_obj.get('content')).strip()):
+            error('Blank content and no image or video or audio', status=204)
 
         # DMs are only allowed to/from protocol bot accounts
         if recip := as1.recipient_if_dm(obj.as1):

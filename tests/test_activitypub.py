@@ -296,6 +296,7 @@ UPDATE_NOTE = {
     'object': {
         'type': 'Note',
         'id': 'https://mas.to/note',
+        'content': 'foo',
     },
 }
 WEBMENTION_DISCOVERY = requests_response(
