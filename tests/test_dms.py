@@ -261,8 +261,18 @@ class DmsTest(TestCase):
         })
         self.assertEqual(('OK', 200), receive(from_user=alice, obj=obj))
         self.assert_replied(OtherFake, alice, '?', ALICE_REQUEST_CONFIRMATION_CONTENT)
-        self.assert_sent(ExplicitFake, bob, 'request_bridging',
-                         ALICE_REQUEST_CONTENT)
+        self.assert_sent(ExplicitFake, bob, 'request_bridging', ALICE_REQUEST_CONTENT)
+
+    def test_receive_prompt_strip_mention_of_bot_newline(self):
+        alice, bob = self.make_alice_bob()
+
+        obj = Object(our_as1={
+            **DM_BASE,
+            'content': '<p><a href="https://other.brid.gy/other.brid.gy">@other.brid.gy</a></p><p>other:handle:bob</p>',
+        })
+        self.assertEqual(('OK', 200), receive(from_user=alice, obj=obj))
+        self.assert_replied(OtherFake, alice, '?', ALICE_REQUEST_CONFIRMATION_CONTENT)
+        self.assert_sent(ExplicitFake, bob, 'request_bridging', ALICE_REQUEST_CONTENT)
 
     def test_receive_prompt_fetch_user(self):
         self.make_user(id='efake.brid.gy', cls=Web)

@@ -5,7 +5,7 @@ TODO: make a command framework, abstract out arg parsing and handling, etc
 from datetime import timedelta
 import logging
 
-from granary import as1
+from granary import as1, source
 from oauth_dropins.webutil.flask_util import error
 from oauth_dropins.webutil import util
 
@@ -118,9 +118,8 @@ def receive(*, from_user, obj):
     logger.info(f'got DM from {from_user.key.id()} to {to_proto.LABEL}: {inner_obj.get("content")}')
 
     # parse message
-    soup = util.parse_html(inner_obj.get('content', ''))
-    content = soup.get_text().strip().lower()
-    tokens = content.split()
+    text = source.html_to_text(inner_obj.get('content', ''))
+    tokens = text.strip().lower().split()
     logger.info(f'  tokens: {tokens}')
 
     # remove @-mention of bot, if any
