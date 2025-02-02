@@ -16,6 +16,7 @@ from arroba.storage import Action, CommitData
 from arroba.util import (
     at_uri,
     dag_cbor_cid,
+    InactiveRepo,
     next_tid,
     parse_at_uri,
     service_jwt,
@@ -732,8 +733,8 @@ class ATProto(User, Protocol):
             try:
                 repo.apply_writes([Write(action=action, collection=type, rkey=rkey,
                                          record=record)])
-            except KeyError as e:
-                # raised by update and delete if no record exists for this
+            except (KeyError, InactiveRepo) as e:
+                # update and delete raise KeyError if no record exists for this
                 # collection/rkey
                 logger.warning(e)
                 return False

@@ -2115,6 +2115,19 @@ Sed tortor neque, aliquet quis posuere aliquam […]
         self.assertEqual(0, AtpRepo.query().count())
         mock_create_task.assert_not_called()
 
+    def test_send_repo_deactivated(self):
+        user = self.make_user_and_repo()
+        self.storage.deactivate_repo(self.repo)
+
+        note = Object(id='fake:follow', source_protocol='fake', our_as1={
+            'objectType': 'activity',
+            'verb': 'follow',
+            'id': 'fake:follow',
+            'actor': 'fake:user',
+            'object': 'did:plc:bob',
+        })
+        self.assertFalse(ATProto.send(note, 'https://bsky.brid.gy'))
+
     @patch.object(tasks_client, 'create_task')
     @patch.object(ATProto, '_convert', return_value={})
     def test_send_skips_bad_convert(self, _, mock_create_task):
