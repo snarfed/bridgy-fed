@@ -20,7 +20,7 @@ DM_BASE = {
     'to': ['other.brid.gy'],
 }
 
-DM_EFAKE_ALICE_REQUESTS_OTHER_BOB = {
+DM_ALICE_REQUESTS_BOB = {
     **DM_BASE,
     'content': ' other:handle:bob ',
 }
@@ -30,17 +30,23 @@ ALICE_REQUEST_CONTENT = """\
 <p>If you do nothing, your account won't be bridged, and users on efake-phrase won't be able to see or interact with you.
 <p>Bridgy Fed will only send you this message once."""
 
-DM_EFAKE_ALICE_SET_USERNAME_OTHER = {
+DM_ALICE_SET_USERNAME_OTHER = {
     **DM_BASE,
     'content': 'username new-handle',
 }
 ALICE_USERNAME_CONFIRMATION_CONTENT = 'Your username in other-phrase has been set to <a class="h-card u-author" rel="me" href="web:other:efake:alice" title="other:handle:efake:handle:alice">other:handle:efake:handle:alice</a>. It should appear soon!'
 
-DM_EFAKE_ALICE_BLOCK_BOB = {
+DM_ALICE_BLOCK_BOB = {
     **DM_BASE,
     'content': 'block other:handle:bob',
 }
-ALICE_BLOCK_CONFIRMATION_CONTENT = """OK, you're now blocking <a class="h-card u-author" rel="me" href="web:other:bob" title="other:handle:bob">other:handle:bob</a> in other-phrase."""
+ALICE_BLOCK_CONFIRMATION_CONTENT = """OK, you're now blocking <a class="h-card u-author" rel="me" href="web:other:bob" title="other:handle:bob">other:handle:bob</a> on other-phrase."""
+
+DM_ALICE_UNBLOCK_BOB = {
+    **DM_BASE,
+    'content': 'unblock other:handle:bob',
+}
+ALICE_UNBLOCK_CONFIRMATION_CONTENT = """OK, you're not blocking <a class="h-card u-author" rel="me" href="web:other:bob" title="other:handle:bob">other:handle:bob</a> on other-phrase."""
 
 
 class DmsTest(TestCase):
@@ -221,7 +227,7 @@ class DmsTest(TestCase):
     def test_receive_prompt_sends_request_dm(self):
         alice, bob = self.make_alice_bob()
 
-        obj = Object(our_as1=DM_EFAKE_ALICE_REQUESTS_OTHER_BOB)
+        obj = Object(our_as1=DM_ALICE_REQUESTS_BOB)
         self.assertEqual(('OK', 200), receive(from_user=alice, obj=obj))
 
         self.assert_replied(OtherFake, alice, '?', ALICE_REQUEST_CONFIRMATION_CONTENT)
@@ -281,7 +287,7 @@ class DmsTest(TestCase):
                                enabled_protocols=['other'], obj_as1={'x': 'y'})
         OtherFake.fetchable['other:bob'] = {'x': 'y'}
 
-        obj = Object(our_as1=DM_EFAKE_ALICE_REQUESTS_OTHER_BOB)
+        obj = Object(our_as1=DM_ALICE_REQUESTS_BOB)
         self.assertEqual(('OK', 200), receive(from_user=alice, obj=obj))
         self.assert_replied(OtherFake, alice, '?', ALICE_REQUEST_CONFIRMATION_CONTENT)
         self.assert_sent(ExplicitFake, OtherFake(id='other:bob'),
@@ -294,7 +300,7 @@ class DmsTest(TestCase):
                                enabled_protocols=['other'], obj_as1={'x': 'y'})
         OtherFake.fetchable = {}
 
-        obj = Object(our_as1=DM_EFAKE_ALICE_REQUESTS_OTHER_BOB)
+        obj = Object(our_as1=DM_ALICE_REQUESTS_BOB)
         self.assertEqual(('OK', 200), receive(from_user=alice, obj=obj))
         self.assert_replied(OtherFake, alice, '?', "Couldn't find other-phrase user other:handle:bob")
         self.assertEqual([], OtherFake.sent)
@@ -305,7 +311,7 @@ class DmsTest(TestCase):
         alice.enabled_protocols = ['fake']
         alice.put()
 
-        obj = Object(our_as1=DM_EFAKE_ALICE_REQUESTS_OTHER_BOB)
+        obj = Object(our_as1=DM_ALICE_REQUESTS_BOB)
         self.assertEqual(('OK', 200), receive(from_user=alice, obj=obj))
         self.assert_replied(OtherFake, alice, '?', "Looks like you're not bridged to other-phrase yet!")
         self.assertEqual([], OtherFake.sent)
@@ -316,7 +322,7 @@ class DmsTest(TestCase):
         bob.enabled_protocols = ['efake']
         bob.put()
 
-        obj = Object(our_as1=DM_EFAKE_ALICE_REQUESTS_OTHER_BOB)
+        obj = Object(our_as1=DM_ALICE_REQUESTS_BOB)
         self.assertEqual(('OK', 200), receive(from_user=alice, obj=obj))
         self.assert_replied(OtherFake, alice, '?', """<a class="h-card u-author" rel="me" href="web:efake:other:bob" title="other:handle:bob &middot; efake:handle:other:handle:bob"><span style="unicode-bidi: isolate">other:handle:bob</span> &middot; efake:handle:other:handle:bob</a> is already bridged into efake-phrase.""")
         self.assertEqual([], OtherFake.sent)
@@ -326,7 +332,7 @@ class DmsTest(TestCase):
         bob.sent_dms = [DM(protocol='efake', type='request_bridging')]
         bob.put()
 
-        obj = Object(our_as1=DM_EFAKE_ALICE_REQUESTS_OTHER_BOB)
+        obj = Object(our_as1=DM_ALICE_REQUESTS_BOB)
         self.assertEqual(('OK', 200), receive(from_user=alice, obj=obj))
         self.assert_replied(OtherFake, alice, '?', """We've already sent <a class="h-card u-author" rel="me" href="web:other:bob" title="other:handle:bob">other:handle:bob</a> a DM. Fingers crossed!""")
         self.assertEqual([], OtherFake.sent)
@@ -338,7 +344,7 @@ class DmsTest(TestCase):
         eve = self.make_user(id='other:eve', cls=OtherFake, obj_as1={'x': 'y'})
         frank = self.make_user(id='other:frank', cls=OtherFake, obj_as1={'x': 'y'})
 
-        obj = Object(our_as1=DM_EFAKE_ALICE_REQUESTS_OTHER_BOB)
+        obj = Object(our_as1=DM_ALICE_REQUESTS_BOB)
         self.assertEqual(('OK', 200), receive(from_user=alice, obj=obj))
 
         obj = Object(our_as1={
@@ -381,7 +387,7 @@ class DmsTest(TestCase):
     @mock.patch('ids.translate_handle', side_effect=ValueError('nope'))
     def test_receive_prompt_not_supported_in_target_protocol(self, _):
         alice, bob = self.make_alice_bob()
-        obj = Object(our_as1=DM_EFAKE_ALICE_REQUESTS_OTHER_BOB)
+        obj = Object(our_as1=DM_ALICE_REQUESTS_BOB)
 
         self.assertEqual(('OK', 200), receive(from_user=alice, obj=obj))
         self.assert_replied(OtherFake, alice, '?', "Sorry, Bridgy Fed doesn't yet support bridging handle other:handle:bob from other-phrase to efake-phrase.")
@@ -392,7 +398,7 @@ class DmsTest(TestCase):
         alice = self.make_user(id='efake:alice', cls=ExplicitFake,
                                enabled_protocols=['other'], obj_as1={'x': 'y'})
 
-        obj = Object(our_as1=DM_EFAKE_ALICE_SET_USERNAME_OTHER)
+        obj = Object(our_as1=DM_ALICE_SET_USERNAME_OTHER)
         self.assertEqual(('OK', 200), receive(from_user=alice, obj=obj))
         self.assert_replied(OtherFake, alice, '?', ALICE_USERNAME_CONFIRMATION_CONTENT)
         self.assertEqual({'efake:alice': 'new-handle'}, OtherFake.usernames)
@@ -416,7 +422,7 @@ class DmsTest(TestCase):
         alice = self.make_user(id='efake:alice', cls=ExplicitFake,
                                enabled_protocols=['other'], obj_as1={'x': 'y'})
 
-        obj = Object(our_as1=DM_EFAKE_ALICE_SET_USERNAME_OTHER)
+        obj = Object(our_as1=DM_ALICE_SET_USERNAME_OTHER)
         self.assertEqual(('OK', 200), receive(from_user=alice, obj=obj))
         self.assert_replied(OtherFake, alice, '?', 'nopey')
         self.assertEqual({}, OtherFake.usernames)
@@ -470,7 +476,7 @@ class DmsTest(TestCase):
     def test_receive_block(self):
         alice, bob = self.make_alice_bob()
 
-        obj = Object(our_as1=DM_EFAKE_ALICE_BLOCK_BOB)
+        obj = Object(our_as1=DM_ALICE_BLOCK_BOB)
         self.assertEqual(('OK', 200), receive(from_user=alice, obj=obj))
 
         self.assert_replied(OtherFake, alice, '?', ALICE_BLOCK_CONFIRMATION_CONTENT)
@@ -491,7 +497,7 @@ class DmsTest(TestCase):
         alice, bob = self.make_alice_bob()
 
         obj = Object(our_as1={
-            **DM_EFAKE_ALICE_BLOCK_BOB,
+            **DM_ALICE_BLOCK_BOB,
             'content': ' block @other:handle:bob ',
         })
         self.assertEqual(('OK', 200), receive(from_user=alice, obj=obj))
@@ -504,3 +510,28 @@ class DmsTest(TestCase):
             'actor': 'efake:alice',
             'object': 'other:bob',
         })], OtherFake.sent)
+
+    def test_receive_unblock(self):
+        alice, bob = self.make_alice_bob()
+
+        obj = Object(our_as1=DM_ALICE_UNBLOCK_BOB)
+        self.assertEqual(('OK', 200), receive(from_user=alice, obj=obj))
+
+        self.assert_replied(OtherFake, alice, '?', ALICE_UNBLOCK_CONFIRMATION_CONTENT)
+
+        unblock_as1 = {
+            'objectType': 'activity',
+            'verb': 'undo',
+            'id': 'efake:alice#bridgy-fed-unblock-2022-01-02T03:04:05+00:00',
+            'actor': 'efake:alice',
+            'object': {
+                'objectType': 'activity',
+                'verb': 'block',
+                'actor': 'efake:alice',
+                'object': 'other:bob',
+            },
+        }
+        self.assert_object(id='efake:alice#bridgy-fed-unblock-2022-01-02T03:04:05+00:00',
+                           our_as1=unblock_as1, source_protocol='efake',
+                           ignore=['copies'])
+        self.assertEqual([('other:bob:target', unblock_as1)], OtherFake.sent)

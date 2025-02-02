@@ -1399,9 +1399,10 @@ class Protocol:
         is_reply = obj.type == 'comment' or in_reply_tos
         is_self_reply = False
 
+        original_ids = []
         if is_reply:
             original_ids = in_reply_tos
-        else:
+        elif inner_obj_id:
             if inner_obj_id == from_user.key.id():
                 inner_obj_id = from_user.profile_id()
             original_ids = [inner_obj_id]

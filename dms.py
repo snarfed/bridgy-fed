@@ -29,6 +29,7 @@ COMMANDS = (
     'ok',
     'start',
     'stop',
+    'unblock',
     'username',
     'yes',
 )
@@ -188,7 +189,7 @@ def receive(*, from_user, obj):
             return reply(str(e))
         return reply(f"Your username in {to_proto.PHRASE} has been set to {from_user.user_link(proto=to_proto, name=False, handle=True)}. It should appear soon!")
 
-    if cmd == 'block' and arg:
+    if cmd in ('block', 'unblock') and arg:
         handle = arg
         if not to_proto.owns_handle(handle) and handle.startswith('@'):
             logging.info(f"doesn't look like a handle, trying without leading @")
@@ -198,17 +199,30 @@ def receive(*, from_user, obj):
         if not to_user:
             return reply(f"Couldn't find {to_proto.PHRASE} user {handle}")
 
-        block_id = f'{from_user.key.id()}#bridgy-fed-block-{util.now().isoformat()}'
-        obj = Object(id=block_id, source_protocol=from_user.LABEL, our_as1={
-            'id': block_id,
+        obj_as1 = {
             'objectType': 'activity',
             'verb': 'block',
             'actor': from_user.key.id(),
             'object': to_user.key.id(),
-        })
+        }
+
+        if cmd == 'block':
+            msg = f"""OK, you're now blocking {to_user.user_link()} on {to_proto.PHRASE}."""
+        elif cmd == 'unblock':
+            obj_as1 = {
+                'objectType': 'activity',
+                'verb': 'undo',
+                'actor': from_user.key.id(),
+                'object': obj_as1,
+            }
+            msg = f"""OK, you're not blocking {to_user.user_link()} on {to_proto.PHRASE}."""
+
+        id = f'{from_user.key.id()}#bridgy-fed-{cmd}-{util.now().isoformat()}'
+        obj_as1['id'] = id
+        obj = Object(id=id, source_protocol=from_user.LABEL, our_as1=obj_as1)
         obj.put()
         from_user.deliver(obj, from_user=from_user)
-        return reply(f"""OK, you're now blocking {to_user.user_link()} in {to_proto.PHRASE}.""")
+        return reply(msg)
 
     # are they requesting a user?
     if not cmd:
