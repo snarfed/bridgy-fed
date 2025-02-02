@@ -30,7 +30,10 @@ BSKY_TEAM_CIDRS = (
     ip_network('209.249.133.120/29'),
     ip_network('108.179.139.0/24'),
     # https://github.com/bluesky-social/atproto/discussions/3036#discussioncomment-11431550
-    ip_network('67.213.161.32/29')
+    ip_network('67.213.161.32/29'),
+    # maybe???
+    # https://github.com/bluesky-social/atproto/discussions/3036#discussioncomment-11892019
+    ip_network('38.120.64.66/32'),
 )
 BSKY_TEAM_HOSTS = (
     'zip.zayo.com',  # maybe? https://github.com/bluesky-social/atproto/discussions/3036#discussioncomment-11399854
