@@ -203,8 +203,9 @@ class DmsTest(TestCase):
         self.assertEqual(('OK', 200), receive(from_user=user, obj=dm))
         user = user.key.get()
         self.assertEqual(['fake'], user.enabled_protocols)
+        self.assertEqual([], Fake.created_for)
         self.assertTrue(user.is_enabled(Fake))
-        self.assertEqual(['efake:user'], Fake.created_for)
+        self.assert_replied(OtherFake, alice, '?', "Looks like you're already bridged to fake-phrase!")
 
         # "no" DM should remove from enabled_protocols
         Follower.get_or_create(to=user, from_=alice)
