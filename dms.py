@@ -22,18 +22,6 @@ logger = logging.getLogger(__name__)
 REQUESTS_LIMIT_EXPIRE = timedelta(days=1)
 REQUESTS_LIMIT_USER = 10
 
-COMMANDS = (
-    'block',
-    'did',
-    'help',
-    'no',
-    'ok',
-    'start',
-    'stop',
-    'unblock',
-    'username',
-    'yes',
-)
 # populated by the command() decorator
 _commands = {}
 
@@ -339,17 +327,15 @@ def receive(*, from_user, obj):
     if not tokens or len(tokens) > 2:
         return r'¯\_(ツ)_/¯', 204
 
-    if tokens[0].lstrip('/') in COMMANDS:
-        cmd = tokens[0].lstrip('/')
-        arg = tokens[1] if len(tokens) > 1 else None
-    else:
-        cmd = None
-        arg = tokens[0]
+    if fn := _commands.get(tokens[0]):
+        return fn(from_user, to_proto, dm_as1=inner_as1,
+                  cmd=tokens[0], cmd_arg=tokens[1] if len(tokens) == 2 else None)
+    elif len(tokens) == 1:
+        fn = _commands.get(None)
+        assert fn, tokens[0]
+        return fn(from_user, to_proto, dm_as1=inner_as1, cmd=None, cmd_arg=tokens[0])
 
-    if fn := _commands.get(cmd):
-        return fn(from_user, to_proto, cmd, arg, inner_as1)
-
-    error(f"Couldn't understand DM: {text}", status=304)
+    return r'¯\_(ツ)_/¯', 204
 
 
 def load_user(proto, handle):

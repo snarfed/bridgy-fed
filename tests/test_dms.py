@@ -429,16 +429,18 @@ class DmsTest(TestCase):
         self.assertEqual({}, OtherFake.usernames)
 
     def test_receive_help(self):
-        self.make_user(id='other.brid.gy', cls=Web)
-        alice = self.make_user(id='efake:alice', cls=ExplicitFake,
-                               enabled_protocols=['other'], obj_as1={'x': 'y'})
-        obj = Object(our_as1={
-            **DM_BASE,
-            'content': '/help',
-        })
-        self.assertEqual(('OK', 200), receive(from_user=alice, obj=obj))
-        self.assert_replied(OtherFake, alice, '?', "<p>Hi! I'm a friendly bot")
-        self.assertEqual({}, OtherFake.usernames)
+        for command in 'help', 'hello', '?':
+            ExplicitFake.sent = []
+            self.make_user(id='other.brid.gy', cls=Web)
+            alice = self.make_user(id='efake:alice', cls=ExplicitFake,
+                                   enabled_protocols=['other'], obj_as1={'x': 'y'})
+            obj = Object(our_as1={
+                **DM_BASE,
+                'content': command,
+            })
+            self.assertEqual(('OK', 200), receive(from_user=alice, obj=obj))
+            self.assert_replied(OtherFake, alice, '?', "<p>Hi! I'm a friendly bot")
+            self.assertEqual({}, OtherFake.usernames)
 
     def test_receive_help_strip_mention_of_bot(self):
         self.make_user(id='other.brid.gy', cls=Web)
@@ -446,10 +448,10 @@ class DmsTest(TestCase):
                                enabled_protocols=['other'], obj_as1={'x': 'y'})
 
         for content in (
-                '@other.brid.gy /help',
-                'other.brid.gy@other.brid.gy /help',
-                '@other.brid.gy@other.brid.gy /help',
-                'https://other.brid.gy/other.brid.gy /help',
+                '@other.brid.gy help',
+                'other.brid.gy@other.brid.gy help',
+                '@other.brid.gy@other.brid.gy help',
+                'https://other.brid.gy/other.brid.gy help',
         ):
             ExplicitFake.sent = []
             with self.subTest(content=content):
