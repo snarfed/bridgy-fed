@@ -36,7 +36,7 @@ from web import Web
 
 from .test_activitypub import ACTOR, NOTE
 from .test_atproto import DID_DOC
-from .test_dms import DmsTest
+from . import test_dms
 from .test_web import (
     ACTOR_HTML_RESP,
     ACTOR_AS1_UNWRAPPED_URLS,
@@ -1197,7 +1197,7 @@ class ProtocolReceiveTest(TestCase):
         self.assertEqual(204, code)
 
         self.assertEqual([], Fake.sent)
-        DmsTest().assert_sent(Fake, eve, 'replied_to_bridged_user', """Hi! You <a href="efake:reply">recently replied</a> to <a class="h-card u-author" href="fake:user">fake:user</a>, who's bridged here from fake-phrase. If you want them to see your replies, you can bridge your account into fake-phrase by following this account. <a href="https://fed.brid.gy/docs">See the docs</a> for more information.""")
+        test_dms.DmsTest().assert_sent(Fake, eve, 'replied_to_bridged_user', """Hi! You <a href="efake:reply">recently replied</a> to <a class="h-card u-author" href="fake:user">fake:user</a>, who's bridged here from fake-phrase. If you want them to see your replies, you can bridge your account into fake-phrase by following this account. <a href="https://fed.brid.gy/docs">See the docs</a> for more information.""")
 
         eve = eve.key.get()
         self.assertEqual([DM(protocol='fake', type='replied_to_bridged_user')],
@@ -2889,7 +2889,7 @@ class ProtocolReceiveTest(TestCase):
         ], ExplicitFake.sent[1:])
 
         ExplicitFake.sent = ExplicitFake.sent[:1]
-        DmsTest().assert_sent(Fake, user, 'welcome', 'Welcome to Bridgy Fed! Your account will soon be bridged to fake-phrase at <a class="h-card u-author" rel="me" href="web:fake:efake:user" title="fake:handle:efake:handle:user">fake:handle:efake:handle:user</a>. <a href="https://fed.brid.gy/docs">See the docs</a> and <a href="https://fed.brid.gy/efake/efake:handle:user">your user page</a> for more information. To disable this and delete your bridged profile, block this account.')
+        test_dms.DmsTest().assert_sent(Fake, user, 'welcome', 'Welcome to Bridgy Fed! Your account will soon be bridged to fake-phrase at <a class="h-card u-author" rel="me" href="web:fake:efake:user" title="fake:handle:efake:handle:user">fake:handle:efake:handle:user</a>. <a href="https://fed.brid.gy/docs">See the docs</a> and <a href="https://fed.brid.gy/efake/efake:handle:user">your user page</a> for more information. To disable this and delete your bridged profile, block this account.')
 
         # another follow should be a noop
         follow['id'] += '2'

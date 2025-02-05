@@ -81,7 +81,7 @@ def command(names, arg=False, user_bridged=None, handle_bridged=None):
             elif user_bridged is False and from_user_enabled:
                 return reply(f"Looks like you're already bridged to {to_proto.PHRASE}!")
             elif arg and not cmd_arg:
-                return reply(f'{cmd} command needs an argument<br><br>{help(from_user, to_proto)}')
+                return reply(f'{cmd} command needs an argument<br><br>{help(from_user, to_proto, cmd, cmd_arg, dm_as1)}')
 
             # dispatch!
             kwargs = {}
