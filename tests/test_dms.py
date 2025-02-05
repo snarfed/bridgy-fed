@@ -621,6 +621,24 @@ class DmsTest(TestCase):
             'object': 'other:bob',
         })], OtherFake.sent)
 
+    def test_receive_block_id(self):
+        alice, bob = self.make_alice_bob()
+
+        obj = Object(our_as1={
+            **DM_ALICE_BLOCK_BOB,
+            'content': 'block other:bob',
+        })
+        self.assertEqual(('OK', 200), receive(from_user=alice, obj=obj))
+
+        self.assert_replied(OtherFake, alice, '?', ALICE_BLOCK_CONFIRMATION)
+        self.assertEqual([('other:bob:target', {
+            'objectType': 'activity',
+            'verb': 'block',
+            'id': 'efake:alice#bridgy-fed-block-2022-01-02T03:04:05+00:00',
+            'actor': 'efake:alice',
+            'object': 'other:bob',
+        })], OtherFake.sent)
+
     def test_receive_unblock(self):
         alice, bob = self.make_alice_bob()
 
