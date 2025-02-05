@@ -30,8 +30,8 @@ def command(names, arg=False, user_bridged=None, handle_bridged=None):
       names (sequence of str): the command strings that trigger this command, or
         ``None`` if this command has no command string
       arg: whether this command takes an argument. ``False`` for no, ``True``
-        for yes, anything, ``'handle'`` for yes, a handle in the bot account's
-        protocol for a user that must not already be bridged.
+        for yes, anything, ``'handle_or_id'`` for yes, a handle or ID in the bot
+        account's protocol for a user that must not already be bridged.
       user_bridged (bool): whether the user sending the DM should be
         bridged. ``True`` for yes, ``False`` for no, ``None` for either.
       handle_bridged (bool): whether the handle arg should be bridged. ``True``
@@ -52,9 +52,9 @@ def command(names, arg=False, user_bridged=None, handle_bridged=None):
     The decorated function returns:
       str: text to reply to the user in a DM, if any
     """
-    assert arg in (False, True, 'handle'), arg
+    assert arg in (False, True, 'handle_or_id'), arg
     if handle_bridged is not None:
-        assert arg == 'handle', arg
+        assert arg == 'handle_or_id', arg
 
     def decorator(fn):
         def wrapped(from_user, to_proto, cmd, cmd_arg, dm_as1):
@@ -66,13 +66,24 @@ def command(names, arg=False, user_bridged=None, handle_bridged=None):
             if arg and not cmd_arg:
                 return reply(f'{cmd} command needs an argument<br><br>{help_text(from_user, to_proto)}')
 
-            if arg == 'handle':
+            if arg == 'handle_or_id':
+                if to_proto.owns_id(cmd_arg):
+                    if not (to_user := load_user_by_id(to_proto, cmd_arg)):
+                        # Skip trying as a handle, assuming that a valid ID
+                        # never happens to be a valid handle of another user
+                        # at the same time in any supported protocol.
+                        return reply(f"Couldn't find user {cmd_arg} on {to_proto.PHRASE}")
+                else:
+                    logging.info(f"doesn't look like an ID, trying as a handle")
+                    to_user = None
+
+            if arg == 'handle_or_id' and not to_user:
                 if not to_proto.owns_handle(cmd_arg) and cmd_arg.startswith('@'):
                     logging.info(f"doesn't look like a handle, trying without leading @")
                     cmd_arg = cmd_arg.removeprefix('@')
 
                 from_proto = from_user.__class__
-                if not (to_user := load_user(to_proto, cmd_arg)):
+                if not (to_user := load_user_by_handle(to_proto, cmd_arg)):
                     return reply(f"Couldn't find user {cmd_arg} on {to_proto.PHRASE}")
 
                 enabled = to_user.is_enabled(from_proto)
@@ -95,7 +106,7 @@ def command(names, arg=False, user_bridged=None, handle_bridged=None):
             kwargs = {}
             if arg and cmd_arg:
                 kwargs['arg'] = cmd_arg
-            if arg == 'handle':
+            if arg == 'handle_or_id':
                 kwargs['to_user'] = to_user
             reply_text = fn(from_user, to_proto, **kwargs)
             if reply_text:
@@ -128,9 +139,9 @@ def help_text(from_user, to_proto):
 <li><em>stop</em>: disable bridging for your account
 <li><em>mute</em>: disable notifications
 <li><em>username [domain]</em>: set a custom domain username (handle)
-<li><em>[handle]</em>: ask me to DM a user on {to_proto.PHRASE} to request that they bridge their account into {from_user.PHRASE}
-<li><em>block [handle]</em>: block a user on {to_proto.PHRASE} who's not bridged here
-<li><em>unblock [handle]</em>: unblock a user on {to_proto.PHRASE} who's not bridged here
+<li><em>[handle or ID]</em>: ask me to DM a user on {to_proto.PHRASE} to request that they bridge their account into {from_user.PHRASE}
+<li><em>block [handle or ID]</em>: block a user on {to_proto.PHRASE} who's not bridged here
+<li><em>unblock [handle or ID]</em>: unblock a user on {to_proto.PHRASE} who's not bridged here
 {extra}
 <li><em>help</em>: print this message
 </ul>"""
@@ -190,7 +201,7 @@ def username(from_user, to_proto, arg):
     return f"Your username in {to_proto.PHRASE} has been set to {from_user.user_link(proto=to_proto, name=False, handle=True)}. It should appear soon!"
 
 
-@command(['block'], arg='handle', user_bridged=True)
+@command(['block'], arg='handle_or_id', user_bridged=True)
 def block(from_user, to_proto, arg, to_user):
     id = f'{from_user.key.id()}#bridgy-fed-block-{util.now().isoformat()}'
     obj = Object(id=id, source_protocol=from_user.LABEL, our_as1={
@@ -205,7 +216,7 @@ def block(from_user, to_proto, arg, to_user):
     return f"""OK, you're now blocking {to_user.user_link()} on {to_proto.PHRASE}."""
 
 
-@command(['unblock'], arg='handle', user_bridged=True)
+@command(['unblock'], arg='handle_or_id', user_bridged=True)
 def unblock(from_user, to_proto, arg, to_user):
     id = f'{from_user.key.id()}#bridgy-fed-unblock-{util.now().isoformat()}'
     obj = Object(id=id, source_protocol=from_user.LABEL, our_as1={
@@ -225,7 +236,7 @@ def unblock(from_user, to_proto, arg, to_user):
     return f"""OK, you're not blocking {to_user.user_link()} on {to_proto.PHRASE}."""
 
 
-@command(['migrate-to'], arg='handle', user_bridged=True)
+@command(['migrate-to'], arg='handle_or_id', user_bridged=True)
 def migrate_to(from_user, to_proto, arg, to_user):
     try:
         to_proto.migrate_out(from_user, to_user.key.id())
@@ -235,7 +246,7 @@ def migrate_to(from_user, to_proto, arg, to_user):
     return f"OK, we'll migrate your bridged account on {to_proto.PHRASE} to {to_user.user_link()}."
 
 
-@command(None, arg='handle', user_bridged=True, handle_bridged='eligible')
+@command(None, arg='handle_or_id', user_bridged=True, handle_bridged='eligible')
 def prompt(from_user, to_proto, arg, to_user):
     """Prompt a non-bridged user to bridge. No command, just the handle, alone."""
     from_proto = from_user.__class__
@@ -382,7 +393,21 @@ def receive(*, from_user, obj):
     return r'¯\_(ツ)_/¯', 204
 
 
-def load_user(proto, handle):
+def load_user_by_id(proto, id):
+    """
+    Args:
+      proto (protocol.Protocol)
+      id: (str)
+
+    Returns:
+      models.User or None
+    """
+    if user := proto.get_or_create(id, allow_opt_out=True):
+        if user.obj and user.obj.as1:
+            return user
+
+
+def load_user_by_handle(proto, handle):
     """
     Args:
       proto (protocol.Protocol)
