@@ -373,14 +373,14 @@ class ActivityPub(User, Protocol):
 
         # look in HTML to find AS2 link
         if common.content_type(resp) != 'text/html':
-            logger.info('no AS2 available')
+            logger.debug('no AS2 available')
             return False
 
         parsed = util.parse_html(resp)
         link = parsed.find('link', rel=('alternate', 'self'), type=(
             as2.CONTENT_TYPE, as2.CONTENT_TYPE_LD))
         if not (link and link['href']):
-            logger.info('no AS2 available')
+            logger.debug('no AS2 available')
             return False
 
         obj.as2 = _get(link['href'], as2.CONNEG_HEADERS)
