@@ -85,7 +85,7 @@ def command(names, arg=False, user_bridged=None, handle_bridged=None):
 
             # dispatch!
             kwargs = {}
-            if cmd_arg:
+            if arg and cmd_arg:
                 kwargs['arg'] = cmd_arg
             if arg == 'handle':
                 kwargs['to_user'] = to_user
