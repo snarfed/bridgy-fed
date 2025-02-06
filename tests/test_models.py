@@ -349,13 +349,7 @@ class UserTest(TestCase):
         self.assertIsNone(user.status)
 
         user.obj.our_as1.update({
-            'to': [{'objectType': 'group', 'alias': '@unlisted'}],
-        })
-        self.assertEqual('opt-out', user.status)
-
-        user.obj.our_as1.update({
             'summary': 'well #nobot yeah',
-            'to': None,
         })
         self.assertEqual('opt-out', user.status)
 
@@ -369,6 +363,12 @@ class UserTest(TestCase):
         user = User(manual_opt_out=True)
         self.assertEqual('opt-out', user.status)
 
+    def test_status_private(self):
+        self.user.obj.our_as1 = {
+            'to': [{'objectType': 'group', 'alias': '@unlisted'}],
+        }
+        self.assertEqual('private', self.user.status)
+
     def test_status_nobridge_overrides_enabled_protocols(self):
         self.assertIsNone(self.user.status)
 
@@ -381,10 +381,10 @@ class UserTest(TestCase):
     def test_requires_avatar(self):
         user = self.make_user(id='fake:user', cls=Fake,
                               obj_as1={'displayName': 'Alice'})
-        self.assertEqual('blocked', user.status)
+        self.assertEqual('requires-avatar', user.status)
 
         user.enabled_protocols = ['efake']
-        self.assertEqual('blocked', user.status)
+        self.assertEqual('requires-avatar', user.status)
 
         user.obj.our_as1['image'] = 'http://pic'
         self.assertIsNone(user.status)
@@ -393,16 +393,16 @@ class UserTest(TestCase):
     def test_requires_name(self):
         user = self.make_user(id='fake:user', cls=Fake,
                               obj_as1={'image': 'http://pic'})
-        self.assertEqual('blocked', user.status)
+        self.assertEqual('requires-name', user.status)
 
         user.obj.our_as1['displayName'] = 'fake:user'
-        self.assertEqual('blocked', user.status)
+        self.assertEqual('requires-name', user.status)
 
         user.obj.our_as1['displayName'] = 'fake:handle:user'
-        self.assertEqual('blocked', user.status)
+        self.assertEqual('requires-name', user.status)
 
         user.enabled_protocols = ['efake']
-        self.assertEqual('blocked', user.status)
+        self.assertEqual('requires-name', user.status)
 
         user.obj.our_as1['displayName'] = 'Alice'
         self.assertIsNone(user.status)
@@ -416,10 +416,10 @@ class UserTest(TestCase):
 
         too_young = util.now() - common.OLD_ACCOUNT_AGE + timedelta(minutes=1)
         user.obj.our_as1['published'] = too_young.isoformat()
-        self.assertEqual('blocked', user.status)
+        self.assertEqual('requires-old-account', user.status)
 
         user.enabled_protocols = ['efake']
-        self.assertEqual('blocked', user.status)
+        self.assertEqual('requires-old-account', user.status)
 
         user.obj.our_as1['published'] = (too_young - timedelta(minutes=2)).isoformat()
         self.assertIsNone(user.status)
@@ -514,7 +514,7 @@ class UserTest(TestCase):
                                   },
                               })
         self.assertFalse(user.is_enabled(Web))
-        self.assertEqual('opt-out', user.status)
+        self.assertEqual('private', user.status)
 
         user.enabled_protocols = ['web']
         user.put()

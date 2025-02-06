@@ -298,7 +298,7 @@ class ATProtoTest(TestCase):
                                 })
         user = self.make_user('did:plc:user', cls=ATProto, obj_key=obj.key)
 
-        self.assertEqual('opt-out', user.status)
+        self.assertEqual('private', user.status)
 
     def test_target_for_user_no_stored_did(self):
         self.assertEqual('https://atproto.brid.gy', ATProto.target_for(

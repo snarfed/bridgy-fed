@@ -3012,7 +3012,7 @@ class ProtocolReceiveTest(TestCase):
             })
 
         user = user.key.get()
-        self.assertEqual('blocked', user.status)
+        self.assertEqual('requires-name', user.status)
         self.assertFalse(user.is_enabled(Fake))
         self.assertEqual(['efake:user'], ExplicitFake.fetched)
 

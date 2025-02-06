@@ -477,19 +477,19 @@ class User(StringIdModel, metaclass=ProtocolUserMeta):
             return None
 
         if self.REQUIRES_AVATAR and not self.obj.as1.get('image'):
-            return 'blocked'
+            return 'requires-avatar'
 
         name = self.obj.as1.get('displayName')
         if self.REQUIRES_NAME and (not name or name in (self.handle, self.key.id())):
-            return 'blocked'
+            return 'requires-name'
 
         if self.REQUIRES_OLD_ACCOUNT:
             if published := self.obj.as1.get('published'):
                 if util.now() - util.parse_iso8601(published) < OLD_ACCOUNT_AGE:
-                    return 'blocked'
+                    return 'requires-old-account'
 
         summary = html_to_text(self.obj.as1.get('summary', ''), ignore_links=True)
-        name = self.obj.as1.get('displayName', '')
+        name = html_to_text(self.obj.as1.get('displayName', ''), ignore_links=True)
 
         # #nobridge overrides enabled_protocols
         if '#nobridge' in summary or '#nobridge' in name:
@@ -501,7 +501,7 @@ class User(StringIdModel, metaclass=ProtocolUserMeta):
             return None
 
         if not as1.is_public(self.obj.as1, unlisted=False):
-            return 'opt-out'
+            return 'private'
 
         # enabled_protocols overrides #nobot
         if '#nobot' in summary or '#nobot' in name:
