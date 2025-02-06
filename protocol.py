@@ -1072,7 +1072,14 @@ class Protocol:
             if proto := Protocol.for_bridgy_subdomain(inner_obj_id):
                 # follow of one of our protocol bot users; enable that protocol.
                 # fall through so that we send an accept.
-                from_user.enable_protocol(proto)
+                try:
+                    from_user.enable_protocol(proto)
+                except ErrorButDoNotRetryTask:
+                    from web import Web
+                    bot = Web.get_by_id(proto.bot_user_id())
+                    from_cls.respond_to_follow('reject', follower=from_user,
+                                               followee=bot, follow=obj)
+                    raise
                 proto.bot_follow(from_user)
 
             from_cls.handle_follow(obj)
@@ -1167,34 +1174,37 @@ class Protocol:
             follower_obj = Follower.get_or_create(to=to_user, from_=from_user,
                                                   follow=obj.key, status='active')
             obj.add('notify', to_key)
-            from_cls.maybe_accept_follow(follower=from_user, followee=to_user,
-                                         follow=obj)
+            from_cls.respond_to_follow('accept', follower=from_user,
+                                       followee=to_user, follow=obj)
 
     @classmethod
-    def maybe_accept_follow(_, follower, followee, follow):
-        """Sends an accept activity for a follow.
+    def respond_to_follow(_, verb, follower, followee, follow):
+        """Sends an accept or reject activity for a follow.
 
-        ...if the follower protocol handles accepts. Otherwise, does nothing.
+        ...if the follower's protocol supports accepts/rejects. Otherwise, does
+        nothing.
 
         Args:
-          follower: :class:`models.User`
-          followee: :class:`models.User`
-          follow: :class:`models.Object`
+          verb (str): ``accept`` or  ``reject``
+          follower (models.User)
+          followee (models.User)
+          follow (models.Object)
         """
-        if 'accept' not in follower.SUPPORTED_AS1_TYPES:
+        assert verb in ('accept', 'reject')
+        if verb not in follower.SUPPORTED_AS1_TYPES:
             return
 
         target = follower.target_for(follower.obj)
         if not target:
             error(f"Couldn't find delivery target for follower {follower.key.id()}")
 
-        # send accept. note that this is one accept for the whole
-        # follow, even if it has multiple followees!
-        id = f'{followee.key.id()}/followers#accept-{follow.key.id()}'
+        # send. note that this is one response for the whole follow, even if it
+        # has multiple followees!
+        id = f'{followee.key.id()}/followers#{verb}-{follow.key.id()}'
         accept = {
             'id': id,
             'objectType': 'activity',
-            'verb': 'accept',
+            'verb': verb,
             'actor': followee.key.id(),
             'object': follow.as1,
         }

@@ -64,12 +64,12 @@ class DmsTest(TestCase):
         kwargs.setdefault('in_reply_to', 'efake:dm')
         self.assert_sent(*args, **kwargs)
 
-    def assert_sent(self, from_cls, tos, type, text, in_reply_to=None):
+    def assert_sent(self, from_cls, tos, type, text, in_reply_to=None, strict=True):
         if not isinstance(tos, list):
             tos = [tos]
 
         from_id = f'{from_cls.ABBREV}.brid.gy'
-        for expected, (target, activity) in zip(tos, tos[-1].sent, strict=True):
+        for expected, (target, activity) in zip(tos, tos[-1].sent, strict=strict):
             id = expected.key.id()
             self.assertEqual(f'{id}:target', target)
             content = activity['object'].pop('content')
