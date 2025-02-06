@@ -104,12 +104,13 @@ class IntegrationTests(TestCase):
             user.obj.copies = [Target(uri=profile_id, protocol='atproto')]
             user.obj.put()
 
-    def firehose(self, **op):
+    def firehose(self, limit=1, **op):
         setup_firehose()
         FakeWebsocketClient.setup_receive(atproto_firehose.Op(**op))
         atproto_firehose.load_dids()
         atproto_firehose.subscribe()
-        atproto_firehose.handle(limit=1)
+        if limit:
+            atproto_firehose.handle(limit=limit)
         assert atproto_firehose.commits.empty()
 
     @patch('requests.post')
@@ -162,8 +163,6 @@ class IntegrationTests(TestCase):
             },
             'to': ['https://www.w3.org/ns/activitystreams#Public'],
         })
-
-
 
     @patch('requests.post')
     def test_atproto_reply_to_activitypub(self, mock_post):
@@ -226,6 +225,42 @@ class IntegrationTests(TestCase):
             'cc': ['http://inst/bob'],
         })
 
+    @patch('requests.post')
+    def test_atproto_not_bridged_reply_to_activitypub(self, mock_post):
+        """ATProto reply from a non-bridged user, from firehose to ActivityPub.
+
+        Shouldn't be delivered.
+
+        ActivityPub original post http://inst/post by bob
+        ATProto reply 123 by alice.com (did:plc:alice)
+        """
+        alice = self.make_atproto_user('did:plc:alice', enabled_protocols=[])
+        bob = self.make_ap_user('http://inst/bob', 'did:plc:bob')
+
+        self.store_object(
+            id='http://inst/post', source_protocol='activitypub',
+            our_as1={'objectType': 'note', 'author': 'http://inst/bob'},
+            copies=[Target(uri='at://did:plc:bob/app.bsky.feed.post/123',
+                           protocol='atproto')]
+        )
+
+        reply = {
+            '$type': 'app.bsky.feed.post',
+            'text': 'I hereby reply',
+            'reply': {
+                'root': {
+                    'cid': '...',
+                    'uri': 'at://did:plc:bob/app.bsky.feed.post/123',
+                },
+                'parent': {
+                    'cid': '...',
+                    'uri': 'at://did:plc:bob/app.bsky.feed.post/123',
+                },
+            },
+        }
+        self.firehose(limit=0, repo='did:plc:alice', action='create', seq=456,
+                      path='app.bsky.feed.post/456', record=reply)
+        self.assert_ap_deliveries(mock_post, [], data=None)
 
     @patch('requests.post', return_value=requests_response(''))
     @patch('requests.get', return_value=test_web.WEBMENTION_REL_LINK)
@@ -257,7 +292,6 @@ class IntegrationTests(TestCase):
             'source': 'https://bsky.brid.gy/convert/web/at://did:plc:alice/app.bsky.graph.follow/123',
             'target': 'https://bob.com/',
         }, allow_redirects=False, headers={'Accept': '*/*'})
-
 
     @patch('dns.resolver.resolve', side_effect=NXDOMAIN())
     @patch('oauth_dropins.webutil.appengine_config.tasks_client.create_task')
@@ -352,7 +386,6 @@ class IntegrationTests(TestCase):
             'createdAt': '2022-01-02T03:04:05.000Z',
         }], list(records['app.bsky.graph.follow'].values()))
 
-
     @patch('oauth_dropins.webutil.appengine_config.tasks_client.create_task')
     @patch('requests.get', side_effect=[
         # getRecord of original post
@@ -406,6 +439,42 @@ class IntegrationTests(TestCase):
             'createdAt': '2022-01-02T03:04:05.000Z',
         }], list(records['app.bsky.feed.like'].values()))
 
+    @patch('oauth_dropins.webutil.appengine_config.tasks_client.create_task')
+    @patch('requests.post')  # to receive "you're not bridged" DM
+    def test_activitypub_not_bridged_reply_to_atproto(self, mock_get, mock_post):
+        """AP inbox delivery of a reply from an unbridged user to an ATProto post.
+
+        ActivityPub user @bob@inst , https://inst/bob
+        ATProto user alice.com (did:plc:alice)
+        Reply is https://inst/reply
+        """
+        self.make_atproto_user('did:plc:alice')
+        self.make_ap_user('https://inst/bob')
+        self.make_user(id='bsky.brid.gy', cls=Web, ap_subdomain='bsky')
+
+        # existing Object with original post, with cid
+        Object(id='at://did:plc:alice/app.bsky.feed.post/123', bsky={
+            **POST_BSKY,
+            'cid': 'bafyfoo',
+        }).put()
+
+        # inbox delivery
+        reply = {
+            'type': 'Note',
+            'id': 'http://inst/reply',
+            'attributedTo': 'https://inst/bob',
+            'inReplyTo': 'https://bsky.brid.gy/convert/ap/at://did:plc:alice/app.bsky.feed.post/123',
+            'content': 'I hereby reply',
+        }
+        body = json_dumps(reply)
+        headers = sign('/ap/atproto/did:plc:alice/inbox', body,
+                       key_id='https://inst/bob')
+        resp = self.client.post('/ap/atproto/did:plc:alice/inbox', data=body,
+                                headers=headers)
+        self.assertEqual(204, resp.status_code)
+
+        # check results
+        self.assertEqual([], self.storage.load_repos())
 
     @patch('requests.post', return_value=requests_response('OK'))  # create DID
     @patch('requests.get')
@@ -511,7 +580,6 @@ class IntegrationTests(TestCase):
             },
         }, json_loads(kwargs['data']), ignore=['to', '@context'])
 
-
     @patch('requests.get')
     def test_activitypub_follow_bsky_bot_bad_username_error(self, mock_get):
         """AP follow of @bsky.brid.gy@bsky.brid.gy from bad username fails.
@@ -545,7 +613,6 @@ class IntegrationTests(TestCase):
         user = ActivityPub.get_by_id('https://inst/_alice_', allow_opt_out=True)
         self.assertFalse(user.is_enabled(ATProto))
         self.assertEqual(0, len(user.copies))
-
 
     @patch('requests.post', return_value=requests_response({  # sendMessage
         'id': 'chat456',
@@ -627,7 +694,6 @@ class IntegrationTests(TestCase):
                 },
             }, data=None, headers=headers)
 
-
     @patch('requests.post')
     @patch('requests.get')
     def test_atproto_block_ap_bot_user_disables_protocol_deletes_actor(
@@ -664,7 +730,6 @@ class IntegrationTests(TestCase):
                 'to': ['https://www.w3.org/ns/activitystreams#Public'],
             }, json_loads(kwargs['data']))
 
-
     @patch('requests.get', side_effect=[
         requests_response('blob', headers={'Content-Type': 'image/jpeg'}), # http://pic/
     ])
@@ -693,7 +758,6 @@ class IntegrationTests(TestCase):
         self.assertFalse(user.is_enabled(ATProto))
 
         self.assertEqual('deactivated', self.storage.load_repo('did:plc:alice').status)
-
 
     @patch('requests.get', side_effect=[
         requests_response('blob', headers={'Content-Type': 'image/jpeg'}), # http://pic/
@@ -766,7 +830,6 @@ class IntegrationTests(TestCase):
             'object': 'http://localhost/alice.com',
         }, json_loads(kwargs['data']), ignore=['@context', 'contentMap', 'to', 'cc'])
 
-
     @patch('requests.post')
     @patch('requests.get')
     def test_atproto_mention_activitypub(self, mock_get, mock_post):
@@ -819,7 +882,6 @@ class IntegrationTests(TestCase):
             },
         }, json_loads(kwargs['data']), ignore=['@context', 'contentMap', 'to', 'cc'])
 
-
     @patch('requests.post')
     @patch('requests.get')
     def test_atproto_undo_block_of_activitypub(self, mock_get, mock_post):
@@ -853,7 +915,6 @@ class IntegrationTests(TestCase):
             'actor': 'https://bsky.brid.gy/ap/did:plc:alice',
             'object': 'https://bsky.brid.gy/convert/ap/at://did:plc:alice/app.bsky.graph.block/123',
         }, json_loads(kwargs['data']), ignore=['@context', 'contentMap', 'to', 'cc'])
-
 
     @patch('requests.post', side_effect=[
         requests_response('OK'),       # create DID
@@ -904,7 +965,6 @@ class IntegrationTests(TestCase):
                     'cid': 'alice+sidd',
                 },
             }, data=None, headers=ANY)
-
 
     def test_atproto_convert_hashtag_to_activitypub_preserves_bsky_app_link(self):
         obj = Object(id='at://xyz', bsky={
