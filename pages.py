@@ -10,7 +10,6 @@ from flask import render_template, request
 from google.cloud.ndb import tasklets
 from google.cloud.ndb.query import AND, OR
 from granary import as1, as2, atom, microformats2, rss
-import humanize
 from oauth_dropins.webutil import flask_util, logs, util
 from oauth_dropins.webutil.flask_util import (
     canonicalize_request_domain,

@@ -362,7 +362,7 @@ class PagesTest(TestCase):
         self.assert_equals('/web/user.com', got.headers['Location'])
 
         user = self.user.key.get()
-        self.assertEqual('opt-out', user.status)
+        self.assertEqual('nobridge', user.status)
         self.assertEqual([('fake:shared:target', {
             'objectType': 'activity',
             'verb': 'delete',

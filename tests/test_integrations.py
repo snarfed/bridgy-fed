@@ -525,6 +525,7 @@ class IntegrationTests(TestCase):
             'id': 'https://inst/_alice_',
             'name': 'Mrs. ☕ Alice',
             'preferredUsername': '_alice_',
+            'image': 'http://pic',
             'inbox': 'http://inst/inbox',
         }))
         self.make_user(id='bsky.brid.gy', cls=Web, ap_subdomain='bsky')
@@ -535,11 +536,10 @@ class IntegrationTests(TestCase):
             'id': 'http://inst/follow',
             'actor': 'https://inst/_alice_',
             'object': 'https://bsky.brid.gy/bsky.brid.gy',
-            'image': 'http://pic',
         })
         headers = sign('/bsky.brid.gy/inbox', body, key_id='https://inst/_alice_')
         resp = self.client.post('/bsky.brid.gy/inbox', data=body, headers=headers)
-        self.assertEqual(204, resp.status_code)
+        self.assertEqual(299, resp.status_code)
 
         # check results
         user = ActivityPub.get_by_id('https://inst/_alice_', allow_opt_out=True)
@@ -751,7 +751,7 @@ class IntegrationTests(TestCase):
         self.assertEqual(302, resp.status_code)
 
         # should be deleted everywhere
-        self.assertEqual('opt-out', alice.key.get().status)
+        self.assertEqual('nobridge', alice.key.get().status)
 
         self.assertEqual('deactivated', self.storage.load_repo('did:plc:alice').status)
 

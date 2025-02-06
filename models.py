@@ -18,6 +18,7 @@ from google.cloud import ndb
 from granary import as1, as2, atom, bluesky, microformats2
 from granary.bluesky import AT_URI_PATTERN, BSKY_APP_URL_RE
 from granary.source import html_to_text
+import humanize
 from oauth_dropins.webutil import util
 from oauth_dropins.webutil.appengine_info import DEBUG
 from oauth_dropins.webutil.flask_util import error
@@ -64,7 +65,6 @@ if DEBUG:
 # populated in ProtocolUserMeta
 PROTOCOLS_BY_KIND = {}
 
-
 # 2048 bits makes tests slow, so use 1024 for them
 KEY_BITS = 1024 if DEBUG else 2048
 PAGE_SIZE = 20
@@ -80,6 +80,18 @@ OBJECT_EXPIRE_AGE = timedelta(days=90)
 
 GET_ORIGINALS_CACHE_EXPIRATION = timedelta(days=1)
 FOLLOWERS_CACHE_EXPIRATION = timedelta(hours=2)
+
+USER_STATUS_DESCRIPTIONS = {
+    'owns-webfinger': 'your web site looks like a fediverse instance because it already serves Webfinger',
+    'opt-out': 'your account or instance has requested to be opted out',
+    'nobridge': "your profile has 'nobridge' in it",
+    'nobot': "your profile has 'nobot' in it",
+    'no-feed-or-webmention': "your web site doesn't have an RSS or Atom feed or webmention endpoint",
+    'private': 'your account is set as private or protected',
+    'requires-avatar': "you haven't set a profile picture",
+    'requires-name': "you haven't set a profile name that's different from your username",
+    'requires-old-account': "your account is less than {humanize.naturaldelta(OLD_ACCOUNT_AGE)} old",
+}
 
 logger = logging.getLogger(__name__)
 
@@ -129,13 +141,20 @@ class DM(ndb.Model):
 
     https://googleapis.dev/python/python-ndb/latest/model.html#google.cloud.ndb.model.StructuredProperty
     """
-    TYPES = (
-        'request_bridging',
-        'replied_to_bridged_user',
-        'welcome',
-    )
-    type = ndb.StringProperty(choices=TYPES, required=True)
-    ''
+    type = ndb.StringProperty(required=True)
+    """Known values:
+      * no-feed-or-webmention
+      * opt-out
+      * owns-webfinger
+      * private
+      * replied_to_bridged_user
+      * request_bridging
+      * requires-avatar
+      * requires-name
+      * requires-old-account
+      * unsupported-handle
+      * welcome
+    """
     protocol = ndb.StringProperty(choices=list(PROTOCOLS.keys()), required=True)
     ''
 
@@ -453,18 +472,19 @@ class User(StringIdModel, metaclass=ProtocolUserMeta):
         """Whether this user is blocked or opted out.
 
         Optional. Current possible values:
-          * ``opt-out``: if ``#nobridge`` or ``#nobot`` is in the profile
-            description/bio, or if the user or domain has manually opted out.
-            Some protocols also have protocol-specific opt out logic, eg Bluesky
-            accounts that have disabled logged out view.
-          * ``blocked``: if the user fails our validation checks, eg
-            ``REQUIRES_NAME`` or ``REQUIRES_AVATAR`` if either of those are
-            ``True` for this protocol.
-          * `owns-webfinger`: a :class:`web.Web` user that looks like a
+          * ``opt-out``: the user or domain has manually opted out
+          * ``owns-webfinger``: a :class:`web.Web` user that looks like a
             fediverse server
-          * `no-feed-or-webmention`: a :class:`web.Web` user that doesn't have
+          * ``nobridge``: the user's profile has ``#nobridge`` in it
+          * ``nobot``: the user's profile has ``#nobot`` in it
+          * ``no-feed-or-webmention``: a :class:`web.Web` user that doesn't have
             an RSS or Atom feed or webmention endpoint and has never sent us a
             webmention
+          * ``private``: the account is set to be protected or private in its
+            native protocol
+          * ``requires-avatar``
+          * ``requires-name``
+          * ``requires-old-account``
 
         Duplicates ``util.is_opt_out`` in Bridgy!
 
@@ -493,7 +513,7 @@ class User(StringIdModel, metaclass=ProtocolUserMeta):
 
         # #nobridge overrides enabled_protocols
         if '#nobridge' in summary or '#nobridge' in name:
-            return 'opt-out'
+            return 'nobridge'
 
         # user has explicitly opted in. should go after spam filter (REQUIRES_*)
         # checks, but before is_public and #nobot
@@ -505,7 +525,7 @@ class User(StringIdModel, metaclass=ProtocolUserMeta):
 
         # enabled_protocols overrides #nobot
         if '#nobot' in summary or '#nobot' in name:
-            return 'opt-out'
+            return 'nobot'
 
     def is_enabled(self, to_proto, explicit=False):
         """Returns True if this user can be bridged to a given protocol.
@@ -559,6 +579,23 @@ class User(StringIdModel, metaclass=ProtocolUserMeta):
         Args:
           to_proto (:class:`protocol.Protocol` subclass)
         """
+        import dms
+
+        ineligible = """Hi! Your account isn't eligible for bridging yet because {desc}. <a href="https://fed.brid.gy/docs#troubleshooting">More details here.</a> You can try again once that's fixed by unfollowing and re-following this account."""
+        if self.status and self.status != 'nobot':  # explicit opt-in overrides nobot
+            if desc := USER_STATUS_DESCRIPTIONS.get(self.status):
+                dms.maybe_send(from_proto=to_proto, to_user=self, type=self.status,
+                               text=ineligible.format(desc=desc))
+            common.error(f'Nope, user {self.key.id()} is {self.status}', status=299)
+
+        try:
+            self.handle_as(to_proto)
+        except ValueError as e:
+            dms.maybe_send(from_proto=to_proto, to_user=self,
+                           type=f'unsupported-handle-{to_proto.ABBREV}',
+                           text=ineligible.format(desc=e))
+            common.error(str(e), status=299)
+
         added = False
 
         if to_proto.LABEL in ids.COPIES_PROTOCOLS:
@@ -586,9 +623,7 @@ class User(StringIdModel, metaclass=ProtocolUserMeta):
             self.obj.copies = new_self.obj.copies
 
         if added:
-            import dms
-            dms.maybe_send(from_proto=to_proto, to_user=self, type='welcome',
-                           text=f"""\
+            dms.maybe_send(from_proto=to_proto, to_user=self, type='welcome', text=f"""\
 Welcome to Bridgy Fed! Your account will soon be bridged to {to_proto.PHRASE} at {self.user_link(proto=to_proto, name=False)}. <a href="https://fed.brid.gy/docs">See the docs</a> and <a href="https://{common.PRIMARY_DOMAIN}{self.user_page_path()}">your user page</a> for more information. To disable this and delete your bridged profile, block this account.""")
 
         msg = f'Enabled {to_proto.LABEL} for {self.key.id()} : {self.user_page_path()}'

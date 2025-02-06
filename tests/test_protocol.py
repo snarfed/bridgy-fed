@@ -3002,7 +3002,7 @@ class ProtocolReceiveTest(TestCase):
         user = self.make_user('efake:user', cls=ExplicitFake)
         ExplicitFake.fetchable = {'efake:user': {'id': 'efake:user'}}
 
-        with self.assertRaises(NoContent):
+        with self.assertRaises(ErrorButDoNotRetryTask):
             _, code = ExplicitFake.receive_as1({
                 'objectType': 'activity',
                 'verb': 'follow',
@@ -3015,6 +3015,30 @@ class ProtocolReceiveTest(TestCase):
         self.assertEqual('requires-name', user.status)
         self.assertFalse(user.is_enabled(Fake))
         self.assertEqual(['efake:user'], ExplicitFake.fetched)
+
+        test_dms.DmsTest().assert_sent(Fake, user, 'requires-name', "Hi! Your account isn't eligible for bridging yet because you haven't set a profile name that's different from your username.")
+
+    @patch.object(Fake, 'owns_handle', return_value=False)
+    @patch.object(ExplicitFake, 'owns_handle', return_value=True)
+    def test_follow_bot_user_unsupported_handle(self, _, __):
+        self.make_user('fa.brid.gy', cls=Web,
+                       copies=[Target(uri='efake:bot', protocol='efake')])
+
+        user = self.make_user('efake:user-nope', cls=ExplicitFake)
+        ExplicitFake.fetchable = {'efake:user-nope': {'id': 'efake:user-nope'}}
+
+        with self.assertRaises(ErrorButDoNotRetryTask):
+            _, code = ExplicitFake.receive_as1({
+                'objectType': 'activity',
+                'verb': 'follow',
+                'id': 'efake:follow',
+                'actor': 'efake:user-nope',
+                'object': 'efake:bot',
+            })
+
+        user = user.key.get()
+        self.assertFalse(user.is_enabled(Fake))
+        test_dms.DmsTest().assert_sent(Fake, user, 'unsupported-handle-fa', "Hi! Your account isn't eligible for bridging yet because efake:handle:user-nope translated to fake-phrase is fake:handle:efake:handle:user-nope, which isn't supported there.")
 
     def test_block_then_follow_protocol_user_recreates_copy(self):
         # bot user
@@ -3367,7 +3391,7 @@ class ProtocolReceiveTest(TestCase):
 
     def test_user_opted_out(self):
         self.make_followers()
-        self.user.obj.our_as1 = {'summary': '#nobot'}
+        self.user.obj.our_as1 = {'summary': '#nobridge'}
         self.user.obj.put()
 
         with self.assertRaises(NoContent):

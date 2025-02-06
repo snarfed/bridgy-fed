@@ -351,14 +351,14 @@ class UserTest(TestCase):
         user.obj.our_as1.update({
             'summary': 'well #nobot yeah',
         })
-        self.assertEqual('opt-out', user.status)
+        self.assertEqual('nobot', user.status)
 
         user.obj.our_as1.update({
             'summary': '🤷',
             # This is Mastodon's HTML around hashtags
             'displayName': '<a href="..." class="hashtag">#<span>nobridge</span></a>',
         })
-        self.assertEqual('opt-out', user.status)
+        self.assertEqual('nobridge', user.status)
 
         user = User(manual_opt_out=True)
         self.assertEqual('opt-out', user.status)
@@ -375,7 +375,7 @@ class UserTest(TestCase):
         self.user.obj.our_as1 = {'summary': '#nobridge'}
         self.user.obj.put()
         self.user.enabled_protocols = ['activitypub']
-        self.assertEqual('opt-out', self.user.status)
+        self.assertEqual('nobridge', self.user.status)
 
     @patch.object(Fake, 'REQUIRES_AVATAR', True)
     def test_requires_avatar(self):
@@ -493,7 +493,7 @@ class UserTest(TestCase):
         user = self.make_user('efake:user', cls=ExplicitFake,
                               obj_as1={'summary': '#nobot'})
         self.assertFalse(user.is_enabled(Web))
-        self.assertEqual('opt-out', user.status)
+        self.assertEqual('nobot', user.status)
 
         user.enabled_protocols = ['web']
         self.assertTrue(user.is_enabled(Web))
