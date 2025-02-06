@@ -925,7 +925,7 @@ class IntegrationTests(TestCase):
         self.assert_equals({
             'type': 'Note',
             'id': 'https://bsky.brid.gy/convert/ap/at://xyz',
-            'content': '<p>My <a href="https://bsky.app/search?q=%23original">#original</a> post</p>',
+            'content': '<p>My <a class="hashtag" href="https://bsky.app/search?q=%23original">#original</a> post</p>',
             'url': 'http://localhost/r/https://bsky.app/profile/xyz',
             'tag': [{
                 'type': 'Hashtag',
