@@ -28,7 +28,7 @@ So you want to hack on Bridgy Fed, or see how it's built on the inside? Welcome!
 <a href="../_static/diagram-overview.png">
   <img src="../_static/diagram-overview.png" alt="overview diagram" class="right" /></a>
 
-At its core, Bridgy Fed is a middleman. It doesn't provide its own social network, protocol, data format, or anything else. It's just a proxy that translates between existing social networking protocols, currently [IndieWeb](https://indieweb.org/), [ActivityPub](https://activitypub.rocks/), and [AT Protocol](https://atproto.com/). It receives events and activities, translates them from one protocol to the others, and sends them back out.
+At its core, Bridgy Fed is an intermediary. It doesn't provide its own social network, protocol, data format, or anything else. It's just a proxy that translates between existing social networking protocols, currently [IndieWeb](https://indieweb.org/), [ActivityPub](https://activitypub.rocks/), and [AT Protocol](https://atproto.com/). It receives events and activities, translates them from one protocol to the others, and sends them back out.
 
 That sounds simple, but [protocols are complicated](https://fed.brid.gy/docs#compare), as is [translating between them](https://fed.brid.gy/docs#router). If there's one key to understanding Bridgy Fed, it's this: Bridgy Fed *abstracts* across protocols. We implement each protocol, but we try hard to keep the rest of our logic and code as *generic* as possible. When we get an incoming activity, we immediately convert it to a common internal format, operate on that, and only translate it out of that internal format when we're ready to send it back out.
 
