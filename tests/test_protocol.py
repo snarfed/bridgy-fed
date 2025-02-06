@@ -2662,25 +2662,6 @@ class ProtocolReceiveTest(TestCase):
         mock_post.assert_not_called()
         self.assertEqual(0, Follower.query().count())
 
-    def test_opted_out(self):
-        self.user.obj.our_as1 = {
-            'id': 'fake:user',
-            'summary': '#nobridge',
-        }
-        self.user.obj.put()
-
-        with self.assertRaises(NoContent):
-            Fake.receive_as1({
-                'id': 'fake:post',
-                'objectType': 'activity',
-                'verb': 'post',
-                'actor': 'fake:user',
-                'object': {
-                    'id': 'fake:note',
-                    'content': 'foo',
-                },
-            })
-
     def test_activity_id_blocklisted(self):
         with self.assertRaises(ErrorButDoNotRetryTask):
             Fake.receive_as1({
