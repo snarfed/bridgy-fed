@@ -71,7 +71,7 @@ def command(names, arg=False, user_bridged=None, handle_bridged=None):
                 to_user = load_user(to_proto, cmd_arg)
                 from_proto = from_user.__class__
                 if not to_user:
-                    return reply(f"Couldn't find {to_proto.PHRASE} user {cmd_arg}")
+                    return reply(f"Couldn't find user {cmd_arg} on {to_proto.PHRASE}")
                 elif to_user.is_enabled(from_proto):
                     return reply(f'{to_user.user_link(proto=from_proto)} is already bridged into {from_proto.PHRASE}.')
 
@@ -81,7 +81,7 @@ def command(names, arg=False, user_bridged=None, handle_bridged=None):
             elif user_bridged is False and from_user_enabled:
                 return reply(f"Looks like you're already bridged to {to_proto.PHRASE}!")
             elif arg and not cmd_arg:
-                return reply(f'{cmd} command needs an argument<br><br>{help(from_user, to_proto, cmd, cmd_arg, dm_as1)}')
+                return reply(f'{cmd} command needs an argument<br><br>{help_text(from_user, to_proto)}')
 
             # dispatch!
             kwargs = {}
@@ -108,8 +108,7 @@ def command(names, arg=False, user_bridged=None, handle_bridged=None):
     return decorator
 
 
-@command(['?', 'help', 'commands', 'info', 'hi', 'hello'])
-def help(from_user, to_proto):
+def help_text(from_user, to_proto):
     extra = ''
     if to_proto.LABEL == 'atproto':
         extra = """<li><em>did</em>: get your bridged Bluesky account's <a href="https://atproto.com/guides/identity#identifiers">DID</a>"""
@@ -124,6 +123,11 @@ def help(from_user, to_proto):
 {extra}
 <li><em>help</em>: print this message
 </ul>"""
+
+
+@command(['?', 'help', 'commands', 'info', 'hi', 'hello'])
+def help(from_user, to_proto):
+    return help_text(from_user, to_proto)
 
 
 @command(['yes', 'ok', 'start'], user_bridged=False)

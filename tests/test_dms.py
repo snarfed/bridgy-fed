@@ -49,7 +49,9 @@ DM_ALICE_UNBLOCK_BOB = {
 ALICE_UNBLOCK_CONFIRMATION_CONTENT = """OK, you're not blocking <a class="h-card u-author" rel="me" href="web:other:bob" title="other:handle:bob">other:handle:bob</a> on other-phrase."""
 
 
+@mock.patch.object(Fake, 'SUPPORTS_DMS', True)
 class DmsTest(TestCase):
+
     def make_alice_bob(self):
         self.make_user(id='efake.brid.gy', cls=Web)
         self.make_user(id='other.brid.gy', cls=Web)
@@ -58,15 +60,16 @@ class DmsTest(TestCase):
         bob = self.make_user(id='other:bob', cls=OtherFake, obj_as1={'x': 'y'})
         return alice, bob
 
-    def assert_replied(self, *args):
-        self.assert_sent(*args, in_reply_to='efake:dm')
+    def assert_replied(self, *args, **kwargs):
+        kwargs.setdefault('in_reply_to', 'efake:dm')
+        self.assert_sent(*args, **kwargs)
 
     def assert_sent(self, from_cls, tos, type, text, in_reply_to=None):
         if not isinstance(tos, list):
             tos = [tos]
 
         from_id = f'{from_cls.ABBREV}.brid.gy'
-        for expected, (target, activity) in zip(tos, tos[-1].sent):
+        for expected, (target, activity) in zip(tos, tos[-1].sent, strict=True):
             id = expected.key.id()
             self.assertEqual(f'{id}:target', target)
             content = activity['object'].pop('content')
@@ -149,9 +152,8 @@ class DmsTest(TestCase):
             'content': '<a href="https://other.brid.gy/other.brid.gy">@other.brid.gy</a> ',
         })
         self.assertEqual(('¯\\_(ツ)_/¯', 204), receive(from_user=alice, obj=obj))
-        self.assert_replied(OtherFake, alice, '?', ALICE_REQUEST_CONFIRMATION_CONTENT)
-        self.assert_sent(ExplicitFake, bob, 'request_bridging',
-                         ALICE_REQUEST_CONTENT)
+        self.assertEqual([], OtherFake.sent)
+        self.assertEqual([], ExplicitFake.sent)
 
     def test_receive_unknown_text(self):
         self.make_user(id='other.brid.gy', cls=Web)
@@ -179,7 +181,7 @@ class DmsTest(TestCase):
             'content': 'no',
         })
 
-        user = self.make_user('efake:user', cls=ExplicitFake)
+        user = self.make_user('efake:user', cls=ExplicitFake, obj_as1={'x': 'y'})
         self.assertFalse(user.is_enabled(Fake))
 
         # fake protocol isn't enabled yet, no DM should be a noop
@@ -199,18 +201,22 @@ class DmsTest(TestCase):
 
         # another "yes" DM should be a noop
         dm.our_as1['id'] += '3'
+        ExplicitFake.sent = []
         Fake.created_for = []
         self.assertEqual(('OK', 200), receive(from_user=user, obj=dm))
         user = user.key.get()
         self.assertEqual(['fake'], user.enabled_protocols)
         self.assertEqual([], Fake.created_for)
         self.assertTrue(user.is_enabled(Fake))
-        self.assert_replied(OtherFake, alice, '?', "Looks like you're already bridged to fake-phrase!")
+        self.assert_replied(Fake, user, '?',
+                            "Looks like you're already bridged to fake-phrase!",
+                            in_reply_to='efake:dm23')
 
         # "no" DM should remove from enabled_protocols
         Follower.get_or_create(to=user, from_=alice)
         dm.our_as1['id'] += '4'
         dm.our_as1['content'] = '<p><a href="...">@bsky.brid.gy</a>\n  NO \n</p>'
+        Fake.sent = []
         self.assertEqual(('OK', 200), receive(from_user=user, obj=dm))
         user = user.key.get()
         self.assertEqual([], user.enabled_protocols)
@@ -303,7 +309,7 @@ class DmsTest(TestCase):
 
         obj = Object(our_as1=DM_ALICE_REQUESTS_BOB)
         self.assertEqual(('OK', 200), receive(from_user=alice, obj=obj))
-        self.assert_replied(OtherFake, alice, '?', "Couldn't find other-phrase user other:handle:bob")
+        self.assert_replied(OtherFake, alice, '?', "Couldn't find user other:handle:bob on other-phrase")
         self.assertEqual([], OtherFake.sent)
 
     def test_receive_prompt_from_user_not_bridged(self):
@@ -383,7 +389,7 @@ class DmsTest(TestCase):
         self.assertEqual(('OK', 200), receive(from_user=user, obj=obj))
         self.assertEqual([], ExplicitFake.sent)
         self.assertEqual([], OtherFake.sent)
-        self.assert_replied(Fake, user, '?', "Couldn't find user fake:eve on other-phrase")
+        self.assert_replied(OtherFake, user, '?', "Couldn't find user fake:eve on other-phrase")
 
     @mock.patch('ids.translate_handle', side_effect=ValueError('nope'))
     def test_receive_prompt_not_supported_in_target_protocol(self, _):
@@ -413,7 +419,8 @@ class DmsTest(TestCase):
             **DM_BASE,
             'content': 'username',
         })))
-        self.assert_replied(OtherFake, alice, '?', "<p>Hi! I'm a friendly bot")
+        self.assert_replied(OtherFake, alice, '?',
+                            'username command needs an argument')
 
     def test_receive_username_not_implemented(self):
         self.make_user(id='fa.brid.gy', cls=Web)
