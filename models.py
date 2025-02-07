@@ -90,7 +90,7 @@ USER_STATUS_DESCRIPTIONS = {
     'private': 'your account is set as private or protected',
     'requires-avatar': "you haven't set a profile picture",
     'requires-name': "you haven't set a profile name that's different from your username",
-    'requires-old-account': "your account is less than {humanize.naturaldelta(OLD_ACCOUNT_AGE)} old",
+    'requires-old-account': f"your account is less than {humanize.naturaldelta(OLD_ACCOUNT_AGE)} old",
 }
 
 logger = logging.getLogger(__name__)
