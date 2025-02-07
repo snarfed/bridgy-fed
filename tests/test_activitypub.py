@@ -2314,6 +2314,18 @@ class ActivityPubUtilsTest(TestCase):
             'content_is_html': True,  # should be removed
         }))
 
+    def test_postprocess_as2_note_update_contentMap(self):
+        self.assert_equals({
+            'type': 'Note',
+            'content': '<p>foo</p>',
+            'contentMap': {'en': '<p>foo</p>'},
+            'to': [as2.PUBLIC_AUDIENCE],
+        }, postprocess_as2({
+            'type': 'Note',
+            'content': 'foo',
+            'contentMap': {'en': 'foo'},
+        }))
+
     def test_postprocess_as2_hashtag(self):
         """https://github.com/snarfed/bridgy-fed/issues/45"""
         self.assert_equals({

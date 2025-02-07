@@ -861,16 +861,19 @@ def postprocess_as2(activity, orig_obj=None, wrap=True):
         activity['object'] = activity['object'][0]
 
     if content := obj_or_activity.get('content'):
+        # language, in contentMap
+        # https://github.com/snarfed/bridgy-fed/issues/681
+        content_map = obj_or_activity.setdefault('contentMap', {'en': content})
+
         # wrap in <p>. some fediverse servers (eg Mastodon) have a white-space:
         # pre-wrap style that applies to p inside content. this preserves
         # meaningful whitespace in plain text content.
         # https://github.com/snarfed/bridgy-fed/issues/990
         if not content.startswith('<p>'):
-            content = obj_or_activity['content'] = f'<p>{content}</p>'
-
-        # language, in contentMap
-        # https://github.com/snarfed/bridgy-fed/issues/681
-        obj_or_activity.setdefault('contentMap', {'en': content})
+            obj_or_activity['content'] = f'<p>{content}</p>'
+            for lang, val in content_map.items():
+                if val == content:
+                    content_map[lang] = obj_or_activity['content']
 
     activity.pop('content_is_html', None)
     return util.trim_nulls(activity)

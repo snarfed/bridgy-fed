@@ -986,11 +986,13 @@ class IntegrationTests(TestCase):
             'type': 'Note',
             'id': 'https://bsky.brid.gy/convert/ap/at://xyz',
             'content': '<p>My <a class="hashtag" href="https://bsky.app/search?q=%23original">#original</a> post</p>',
+            'contentMap': {
+                'en': '<p>My <a class="hashtag" href="https://bsky.app/search?q=%23original">#original</a> post</p>',
+            },
             'url': 'http://localhost/r/https://bsky.app/profile/xyz',
             'tag': [{
                 'type': 'Hashtag',
                 'name': '#original',
                 'href': 'https://bsky.app/search?q=%23original',
             }],
-        }, ActivityPub.convert(obj),
-        ignore=['@context', 'attributedTo', 'contentMap', 'to'])
+        }, ActivityPub.convert(obj), ignore=['@context', 'attributedTo', 'to'])
