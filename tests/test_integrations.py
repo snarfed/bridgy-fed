@@ -997,30 +997,116 @@ class IntegrationTests(TestCase):
             }],
         }, ActivityPub.convert(obj), ignore=['@context', 'attributedTo', 'to'])
 
-    def test_atproto_convert_link_to_activitypub_contentMap(self):
+    def test_convert_with_html_content_from_atproto_to_activitypub(self):
         obj = Object(id='at://xyz', source_protocol='atproto', bsky={
             '$type': 'app.bsky.feed.post',
-            'text': 'foo bar',
+            'text': '#foo bar @baz',
             'langs': ['en'],
             'facets': [{
+                '$type': 'app.bsky.richtext.facet',
+                'features': [{
+                    '$type': 'app.bsky.richtext.facet#tag',
+                    'tag': 'foo',
+                }],
+                'index': {
+                    'byteStart': 0,
+                    'byteEnd': 4,
+                },
+            }, {
                 '$type': 'app.bsky.richtext.facet',
                 'features': [{
                     '$type': 'app.bsky.richtext.facet#link',
                     'uri': 'http://bar',
                 }],
                 'index': {
-                    'byteStart': 4,
-                    'byteEnd': 7,
+                    'byteStart': 5,
+                    'byteEnd': 8,
+                },
+            }, {
+                '$type': 'app.bsky.richtext.facet',
+                'features': [{
+                    '$type': 'app.bsky.richtext.facet#mention',
+                    'did': 'did:plc:baz',
+                }],
+                'index': {
+                    'byteStart': 9,
+                    'byteEnd': 13,
                 },
             }],
         })
-        self.assert_equals({
+
+        expected = {
             'type': 'Note',
             'id': 'https://bsky.brid.gy/convert/ap/at://xyz',
             'url': 'http://localhost/r/https://bsky.app/profile/xyz',
-            'content': '<p>foo <a href="http://bar">bar</a></p>',
+            'attributedTo': 'xyz',
+            'content': '<p><a class="hashtag" href="https://bsky.app/search?q=%23foo">#foo</a> <a href="http://bar">bar</a> <a class="mention" href="https://bsky.brid.gy/ap/https://bsky.app/profile/did:plc:baz">@baz</a></p>',
             'contentMap': {
-                'en': '<p>foo <a href="http://bar">bar</a></p>',
+                'en': '<p><a class="hashtag" href="https://bsky.app/search?q=%23foo">#foo</a> <a href="http://bar">bar</a> <a class="mention" href="https://bsky.brid.gy/ap/https://bsky.app/profile/did:plc:baz">@baz</a></p>',
             },
-            'tag': [{'name': 'bar', 'type': 'Article', 'url': 'http://bar'}],
-        }, ActivityPub.convert(obj), ignore=['@context', 'attributedTo', 'to'])
+            'tag': [{
+                'type': 'Hashtag',
+                'name': '#foo',
+                'href': 'https://bsky.app/search?q=%23foo',
+            }, {
+                'type': 'Article',
+                'name': 'bar',
+                'url': 'http://bar',
+            }, {
+                'type': 'Mention',
+                'name': '@baz',
+                'href': 'https://bsky.brid.gy/ap/https://bsky.app/profile/did:plc:baz',
+            }],
+        }
+        self.assert_equals(expected, ActivityPub.convert(obj),
+                           ignore=['@context', 'to'])
+
+    def test_convert_quote_with_html_content_from_atproto_to_activitypub(self):
+        obj = Object(id='at://xyz', source_protocol='atproto', bsky={
+            '$type': 'app.bsky.feed.post',
+            'text': "a @b c",
+            'langs': ['en'],
+            'embed': {
+                '$type': 'app.bsky.embed.record',
+                'record': {
+                    'cid': 'bafyfoo',
+                    'uri': 'at://did:plc:abc/app.bsky.feed.post/123',
+                },
+            },
+            'facets': [{
+                '$type': 'app.bsky.richtext.facet',
+                'features': [{
+                    '$type': 'app.bsky.richtext.facet#mention',
+                    'did': 'did:plc:def',
+                }],
+                'index': {
+                    'byteStart': 2,
+                    'byteEnd': 4,
+                },
+            }],
+        })
+
+        expected = {
+            'type': 'Note',
+            'id': 'https://bsky.brid.gy/convert/ap/at://xyz',
+            'url': 'http://localhost/r/https://bsky.app/profile/xyz',
+            'attributedTo': 'xyz',
+            'content': '<p>a <a class="mention" href="https://bsky.brid.gy/ap/https://bsky.app/profile/did:plc:def">@b</a> c<br><br>RE: <a href="https://bsky.app/profile/did:plc:abc/post/123">https://bsky.app/profile/did:plc:abc/post/123</a></p>',
+            'contentMap': {
+                'en': '<p>a <a class="mention" href="https://bsky.brid.gy/ap/https://bsky.app/profile/did:plc:def">@b</a> c<br><br>RE: <a href="https://bsky.app/profile/did:plc:abc/post/123">https://bsky.app/profile/did:plc:abc/post/123</a></p>',
+            },
+            'quoteUrl': 'https://bsky.brid.gy/convert/ap/at://did:plc:abc/app.bsky.feed.post/123',
+            '_misskey_quote': 'https://bsky.brid.gy/convert/ap/at://did:plc:abc/app.bsky.feed.post/123',
+            'tag': [{
+                'type': 'Mention',
+                'name': '@b',
+                'href': 'https://bsky.brid.gy/ap/https://bsky.app/profile/did:plc:def',
+            }, {
+                'type': 'Link',
+                'href': 'https://bsky.brid.gy/convert/ap/at://did:plc:abc/app.bsky.feed.post/123',
+                'name': 'RE: https://bsky.app/profile/did:plc:abc/post/123',
+                'mediaType': 'application/ld+json; profile="https://www.w3.org/ns/activitystreams"',
+          }],
+        }
+        self.assert_equals(expected, ActivityPub.convert(obj),
+                           ignore=['@context', 'to'])

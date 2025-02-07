@@ -774,11 +774,15 @@ def postprocess_as2(activity, orig_obj=None, wrap=True):
     obj_or_activity['attachment'] = [a for a in atts if a.get('type') != 'Link']
     link_atts = [a for a in atts if a.get('type') == 'Link']
 
+    content = obj_or_activity.get('content', '')
     for link in link_atts:
         for url in util.get_list(link, 'href'):
-            if obj_or_activity.setdefault('content', ''):
-                obj_or_activity['content'] += '<br><br>'
-            obj_or_activity['content'] += util.pretty_link(url, text=link.get('name'))
+            if content:
+                content += '<br><br>'
+            content += util.pretty_link(url, text=link.get('name'))
+
+    if content:
+        as2.set_content(obj_or_activity, content)
 
     # copy image(s) into attachment(s). may be Mastodon-specific.
     # https://github.com/snarfed/bridgy-fed/issues/33#issuecomment-440965618
@@ -863,17 +867,14 @@ def postprocess_as2(activity, orig_obj=None, wrap=True):
     if content := obj_or_activity.get('content'):
         # language, in contentMap
         # https://github.com/snarfed/bridgy-fed/issues/681
-        content_map = obj_or_activity.setdefault('contentMap', {'en': content})
+        obj_or_activity.setdefault('contentMap', {'en': content})
 
         # wrap in <p>. some fediverse servers (eg Mastodon) have a white-space:
         # pre-wrap style that applies to p inside content. this preserves
         # meaningful whitespace in plain text content.
         # https://github.com/snarfed/bridgy-fed/issues/990
         if not content.startswith('<p>'):
-            obj_or_activity['content'] = f'<p>{content}</p>'
-            for lang, val in content_map.items():
-                if val == content:
-                    content_map[lang] = obj_or_activity['content']
+            as2.set_content(obj_or_activity, f'<p>{content}</p>')
 
     activity.pop('content_is_html', None)
     return util.trim_nulls(activity)
