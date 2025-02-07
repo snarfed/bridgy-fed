@@ -996,3 +996,31 @@ class IntegrationTests(TestCase):
                 'href': 'https://bsky.app/search?q=%23original',
             }],
         }, ActivityPub.convert(obj), ignore=['@context', 'attributedTo', 'to'])
+
+    def test_atproto_convert_link_to_activitypub_contentMap(self):
+        obj = Object(id='at://xyz', source_protocol='atproto', bsky={
+            '$type': 'app.bsky.feed.post',
+            'text': 'foo bar',
+            'langs': ['en'],
+            'facets': [{
+                '$type': 'app.bsky.richtext.facet',
+                'features': [{
+                    '$type': 'app.bsky.richtext.facet#link',
+                    'uri': 'http://bar',
+                }],
+                'index': {
+                    'byteStart': 4,
+                    'byteEnd': 7,
+                },
+            }],
+        })
+        self.assert_equals({
+            'type': 'Note',
+            'id': 'https://bsky.brid.gy/convert/ap/at://xyz',
+            'url': 'http://localhost/r/https://bsky.app/profile/xyz',
+            'content': '<p>foo <a href="http://bar">bar</a></p>',
+            'contentMap': {
+                'en': '<p>foo <a href="http://bar">bar</a></p>',
+            },
+            'tag': [{'name': 'bar', 'type': 'Article', 'url': 'http://bar'}],
+        }, ActivityPub.convert(obj), ignore=['@context', 'attributedTo', 'to'])
