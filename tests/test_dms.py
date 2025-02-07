@@ -68,6 +68,8 @@ class DmsTest(TestCase):
         if not isinstance(tos, list):
             tos = [tos]
 
+        self.assertGreaterEqual(len(tos[-1].sent), len(tos))
+
         from_id = f'{from_cls.ABBREV}.brid.gy'
         for expected, (target, activity) in zip(tos, tos[-1].sent, strict=strict):
             id = expected.key.id()
