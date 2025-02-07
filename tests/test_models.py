@@ -360,6 +360,12 @@ class UserTest(TestCase):
         })
         self.assertEqual('nobridge', user.status)
 
+        user.obj.our_as1.update({
+            'displayName': 'hi',
+            'bridgeable': False,
+        })
+        self.assertEqual('opt-out', user.status)
+
         user = User(manual_opt_out=True)
         self.assertEqual('opt-out', user.status)
 

@@ -285,7 +285,7 @@ class User(StringIdModel, metaclass=ProtocolUserMeta):
 
     @classmethod
     def get_by_id(cls, id, allow_opt_out=False, **kwargs):
-        """Override to follow ``use_instead`` property and ``opt-out`` status.
+        """Override to follow ``use_instead`` property and ``status``.
 
         Returns None if the user is opted out.
         """
@@ -495,6 +495,9 @@ class User(StringIdModel, metaclass=ProtocolUserMeta):
 
         if not self.obj or not self.obj.as1:
             return None
+
+        if self.obj.as1.get('bridgeable') is False:  # FEP-0036
+            return 'opt-out'
 
         if self.REQUIRES_AVATAR and not self.obj.as1.get('image'):
             return 'requires-avatar'
