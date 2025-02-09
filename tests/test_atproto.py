@@ -99,8 +99,9 @@ class ATProtoTest(TestCase):
         did_doc = copy.deepcopy(DID_DOC)
         did_doc['service'][0]['serviceEndpoint'] = ATProto.PDS_URL
         self.store_object(id='did:plc:user', raw=did_doc)
-        self.repo = Repo.create(self.storage, 'did:plc:user', handle='han.dull.brid.gy',
-                                signing_key=ATPROTO_KEY, rotation_key=ATPROTO_KEY)
+        self.repo = Repo.create(
+            self.storage, 'did:plc:user', handle='han.dull.brid.gy',
+            signing_key=ATPROTO_KEY, rotation_key=ATPROTO_KEY)
 
         return self.user
 
@@ -2805,4 +2806,15 @@ Sed tortor neque, aliquet quis posuere aliquam […]
     def test_hashtag_with_newlines_error(self):
         # https://console.cloud.google.com/errors/detail/COugjNSr9oCtfg;time=PT1H;locations=global?project=bridgy-federated
         resp = self.get('/hashtag/x%0Ay', base_url='https://bsky.brid.gy')
+        self.assert_equals(404, resp.status_code)
+
+    def test_atproto_did(self):
+        user = self.make_user_and_repo()
+        resp = self.get('/.well-known/atproto-did?host=han.dull.brid.gy')
+        self.assert_equals(200, resp.status_code)
+        self.assert_equals('text/plain', resp.headers['Content-Type'])
+        self.assert_equals('did:plc:user', resp.get_data(as_text=True))
+
+    def test_atproto_did_not_found(self):
+        resp = self.get('/.well-known/atproto-did?host=han.dull')
         self.assert_equals(404, resp.status_code)

@@ -1146,3 +1146,18 @@ def hashtag_redirect(hashtag):
             logging.warning(e)
 
     raise NotFound()
+
+
+@app.get(f'/.well-known/atproto-did')
+@flask_util.headers(common.CACHE_CONTROL)
+def atproto_did():
+    """
+    https://github.com/snarfed/bridgy-fed/issues/1537
+    https://atproto.com/specs/handle#handle-resolution
+    """
+    host = get_required_param('host')
+
+    if repo_key := AtpRepo.query(AtpRepo.handles == host).get(keys_only=True):
+        return repo_key.id(), {'Content-Type': 'text/plain'}
+
+    raise NotFound()
