@@ -1455,7 +1455,7 @@ class Protocol:
             target_author_key = target_proto.actor_key(orig_obj)
             if not from_user.is_enabled(target_proto):
                 # if author isn't bridged and inReplyTo author is, DM a prompt
-                if id in in_reply_tos:
+                if id in in_reply_tos and target_author_key:
                     if target_author := target_author_key.get():
                         if target_author.is_enabled(from_cls):
                             dms.maybe_send(
