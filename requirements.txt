@@ -70,7 +70,7 @@ itsdangerous==2.2.0
 Jinja2==3.1.5
 jsonschema==4.23.0
 libipld==1.2.3
-lxml==5.3.0
+lxml==5.3.1
 MarkupSafe==3.0.2
 mf2py==2.0.1
 mf2util==0.5.2
