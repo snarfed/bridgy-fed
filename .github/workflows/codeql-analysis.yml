@@ -59,6 +59,3 @@ jobs:
 
     - name: Perform CodeQL Analysis
       uses: github/codeql-action/analyze@v3
-
-    - name: DefenseCode ThunderScan Action
-      uses: defensecode/thunderscan-action@v1.0
