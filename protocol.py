@@ -313,6 +313,8 @@ class Protocol:
         # include our full ids inside their own ids, non-URL-encoded? guess
         # we'll figure that out if/when it happens.
         id = id.partition('#bridgy-fed-')[0]
+        if not id:
+            return None
 
         if util.is_web(id):
             # step 1: check for our per-protocol subdomains
