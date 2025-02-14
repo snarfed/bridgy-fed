@@ -2818,3 +2818,8 @@ Sed tortor neque, aliquet quis posuere aliquam […]
     def test_atproto_did_not_found(self):
         resp = self.get('/.well-known/atproto-did?host=han.dull')
         self.assert_equals(404, resp.status_code)
+
+    def test_oauth(self):
+        for slug in 'oauth-protected-resource', 'oauth-authorization-server':
+            resp = self.get(f'/.well-known/{slug}')
+            self.assertEqual(404, resp.status_code)

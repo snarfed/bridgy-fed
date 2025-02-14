@@ -1148,7 +1148,7 @@ def hashtag_redirect(hashtag):
     raise NotFound()
 
 
-@app.get(f'/.well-known/atproto-did')
+@app.get('/.well-known/atproto-did')
 @flask_util.headers(common.CACHE_CONTROL)
 def atproto_did():
     """
@@ -1161,3 +1161,11 @@ def atproto_did():
         return repo_key.id(), {'Content-Type': 'text/plain'}
 
     raise NotFound()
+
+
+
+@app.get('/.well-known/oauth-protected-resource')
+@app.get('/.well-known/oauth-authorization-server')
+@flask_util.headers(common.CACHE_CONTROL)
+def no_oauth():
+    return "Sorry, Bridgy Fed doesn't do OAuth. https://fed.brid.gy/docs#use-like-normal", 404
