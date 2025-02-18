@@ -1261,6 +1261,19 @@ Sed tortor neque, aliquet quis posuere aliquam […]
 
         mock_create_task.assert_called()  # atproto-commit
 
+    @patch.object(tasks_client, 'create_task', return_value=Task(name='my task'))
+    @patch.object(Repo, 'create', side_effect=AssertionError('nope'))
+    @patch('requests.post', return_value=requests_response('OK'))  # create DID on PLC
+    def test_create_for_error_doesnt_add_to_copies(self, _, __, ___):
+        user = self.make_user(id='fake:user', cls=Fake)
+        assert not user.obj.as1
+
+        with self.assertRaises(AssertionError):
+            ATProto.create_for(user)
+
+        self.assertEqual([], user.copies)
+        self.assertEqual([], user.key.get().copies)
+
     @patch('atproto.DEBUG', new=False)
     @patch.object(google.cloud.dns.client.ManagedZone, 'changes')
     @patch.object(atproto.dns_discovery_api, 'resourceRecordSets')

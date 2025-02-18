@@ -442,8 +442,6 @@ class ATProto(User, Protocol):
                                  also_known_as=user.profile_id())
 
         Object.get_or_create(did_plc.did, raw=did_plc.doc, authed_as=did_plc)
-        # TODO: move this to ATProto.get_or_create?
-        add(user.copies, Target(uri=did_plc.did, protocol='atproto'))
 
         cls.set_dns(handle=handle, did=did_plc.did)
 
@@ -481,6 +479,9 @@ class ATProto(User, Protocol):
             signing_key=did_plc.signing_key,
             rotation_key=did_plc.rotation_key)
 
+        # don't add the copy id until the end, here, until we've fully
+        # successfully created the repo, profile, etc
+        user.add('copies', Target(uri=did_plc.did, protocol='atproto'))
         user.put()
 
     @classmethod
