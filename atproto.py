@@ -910,11 +910,13 @@ class ATProto(User, Protocol):
             return {}
 
         # if there are any links, generate an external embed as a preview
-        # for the first link
+        # for the first non-mention link
+        mention_urls = [as1.get_url(tag) for tag in obj.as1.get('tags', [])]
         if ret.get('$type') == 'app.bsky.feed.post' and not ret.get('embed'):
             for facet in ret.get('facets', []):
                 if feats := facet.get('features'):
-                    if feats[0]['$type'] == 'app.bsky.richtext.facet#link':
+                    if (feats[0]['$type'] == 'app.bsky.richtext.facet#link'
+                            and feats[0]['uri'] not in mention_urls):
                         try:
                             link = web.Web.load(feats[0]['uri'], metaformats=True,
                                                 authorship_fetch_mf2=False,
