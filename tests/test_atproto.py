@@ -82,6 +82,16 @@ NOTE_BSKY_RECORD = {
         'cid': 'my++sidd',
     },
 }
+METAFORMATS_HTML = """\
+<html>
+<head>
+  <title>A poast</title>
+  <meta property="og:image" content="http://pi/c" />
+  <meta property="og:title" content="Titull" />
+  <meta property="og:description" content="Descrypshun" />
+</head>
+</html>"""
+
 
 @patch('ids.COPIES_PROTOCOLS', ['atproto'])
 class ATProtoTest(TestCase):
@@ -1586,15 +1596,7 @@ Sed tortor neque, aliquet quis posuere aliquam […]
 
     @patch.object(tasks_client, 'create_task', return_value=Task(name='my task'))
     @patch('requests.get', side_effect=[
-        requests_response(f"""\
-<html>
-<head>
-  <title>A poast</title>
-  <meta property="og:image" content="http://pi/c" />
-  <meta property="og:title" content="Titull" />
-  <meta property="og:description" content="Descrypshun" />
-</head>
-</html>""", url='http://orig.co/post'),
+        requests_response(METAFORMATS_HTML, url='http://orig.co/post'),
         requests_response('blob contents', content_type='image/png'),
     ])
     def test_send_note_first_link_preview_embed(self, _, __):
@@ -1697,15 +1699,7 @@ Sed tortor neque, aliquet quis posuere aliquam […]
 
     @patch.object(tasks_client, 'create_task', return_value=Task(name='my task'))
     @patch('requests.get', side_effect=[
-        requests_response(f"""\
-<html>
-<head>
-  <title>A poast</title>
-  <meta property="og:image" content="http://pi/c" />
-  <meta property="og:title" content="Titull" />
-  <meta property="og:description" content="Descrypshun" />
-</head>
-</html>""", url='http://orig.co/post'),
+        requests_response(METAFORMATS_HTML, url='http://orig.co/post'),
         requests_response('blob contents', content_type='image/png'),
     ])
     @patch.dict(
@@ -1741,20 +1735,14 @@ Sed tortor neque, aliquet quis posuere aliquam […]
         }, repo.get_record('app.bsky.feed.post', last_tid), ignore=['facets'])
 
     @patch.object(tasks_client, 'create_task', return_value=Task(name='my task'))
-    @patch('requests.get', return_value=TestCase.as2_resp({
-        'id': 'http://in.st/@user',
-    }))
+    @patch('requests.get', return_value=requests_response(
+        METAFORMATS_HTML, url='http://in.st/@user'))
     def test_send_note_mention_tag_doesnt_get_link_preview(self, mock_get, _):
         user = self.make_user_and_repo()
 
         obj = Object(id='fake:post', source_protocol='fake', our_as1={
             **NOTE_AS,
-            'content': 'Hi <a href="http://in.st/@user">user</a>',
-            'tags': [{
-                'objectType': 'mention',
-                'url': 'http://in.st/@user',
-                'displayName': '@user@in.st'
-            }],
+            'content': 'Hi <a href="http://in.st/@user">@user</a>',
         })
         self.assertTrue(ATProto.send(obj, 'https://atproto.brid.gy'))
 
@@ -1764,7 +1752,7 @@ Sed tortor neque, aliquet quis posuere aliquam […]
         last_tid = arroba.util.int_to_tid(arroba.util._tid_ts_last)
         self.assert_equals({
             **NOTE_BSKY,
-            'text': 'Hi user',
+            'text': 'Hi @user',
             'facets': [{
                 '$type': 'app.bsky.richtext.facet',
                 'features': [{
@@ -1773,7 +1761,7 @@ Sed tortor neque, aliquet quis posuere aliquam […]
                 }],
                 'index': {
                     'byteStart': 3,
-                    'byteEnd': 7,
+                    'byteEnd': 8,
                 },
             }],
         }, repo.get_record('app.bsky.feed.post', last_tid),
