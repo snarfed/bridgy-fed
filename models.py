@@ -520,6 +520,8 @@ class User(StringIdModel, metaclass=ProtocolUserMeta):
 
         # user has explicitly opted in. should go after spam filter (REQUIRES_*)
         # checks, but before is_public and #nobot
+        #
+        # !!! WARNING: keep in sync with User.enable_protocol!
         if self.enabled_protocols:
             return None
 
@@ -584,8 +586,10 @@ class User(StringIdModel, metaclass=ProtocolUserMeta):
         """
         import dms
 
+        # explicit opt-in overrides some status
+        # !!! WARNING: keep in sync with User.status!
         ineligible = """Hi! Your account isn't eligible for bridging yet because {desc}. <a href="https://fed.brid.gy/docs#troubleshooting">More details here.</a> You can try again once that's fixed by unfollowing and re-following this account."""
-        if self.status and self.status != 'nobot':  # explicit opt-in overrides nobot
+        if self.status and self.status not in ('nobot', 'private'):
             if desc := USER_STATUS_DESCRIPTIONS.get(self.status):
                 dms.maybe_send(from_proto=to_proto, to_user=self, type=self.status,
                                text=ineligible.format(desc=desc))
