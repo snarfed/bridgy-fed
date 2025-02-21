@@ -7,6 +7,7 @@ import itertools
 import logging
 import os
 import re
+from urllib.parse import urlparse
 
 from arroba import did
 from arroba.datastore_storage import AtpRemoteBlob, AtpRepo, DatastoreStorage
@@ -34,17 +35,22 @@ from granary.bluesky import Bluesky, FROM_AS1_TYPES, to_external_embed
 from granary.source import html_to_text, INCLUDE_LINK, Source
 from lexrpc import Client, ValidationError
 from requests import RequestException
+import oauth_dropins.bluesky
 from oauth_dropins.webutil import util
 from oauth_dropins.webutil.appengine_config import ndb_client
 from oauth_dropins.webutil.appengine_info import DEBUG
 from oauth_dropins.webutil import flask_util
-from oauth_dropins.webutil.flask_util import get_required_param
+from oauth_dropins.webutil.flask_util import (
+    canonicalize_request_domain,
+    get_required_param,
+)
 from oauth_dropins.webutil.models import StringIdModel
 from oauth_dropins.webutil.util import add, json_dumps, json_loads
 from werkzeug.exceptions import NotFound
 
 import common
 from common import (
+    CACHE_CONTROL,
     DOMAIN_BLOCKLIST,
     DOMAIN_RE,
     DOMAINS,
@@ -85,6 +91,14 @@ logger.info(f'Using GCP DNS project {DNS_GCP_PROJECT} zone {DNS_ZONE}')
 dns_client = dns.Client(project=DNS_GCP_PROJECT)
 # "Discovery API" https://github.com/googleapis/google-api-python-client
 dns_discovery_api = googleapiclient.discovery.build('dns', 'v1')
+
+OAUTH_CLIENT_METADATA = {
+    **oauth_dropins.bluesky.CLIENT_METADATA_TEMPLATE,
+    'client_id': 'https://fed.brid.gy/oauth/bluesky/client-metadata.json',
+    'client_name': 'Bridgy Fed',
+    'client_uri': 'https://fed.brid.gy/',
+    'redirect_uris': ['https://fed.brid.gy/oauth/bluesky/finish'],
+}
 
 
 def chat_client(*, repo, method, **kwargs):
@@ -1159,7 +1173,11 @@ def hashtag_redirect(hashtag):
 @app.get('/.well-known/atproto-did')
 @flask_util.headers(common.CACHE_CONTROL)
 def atproto_did():
-    """
+    """Returns a bridged account's DID.
+
+    Query params:
+      * host (str): the bridged Bluesky account's handle
+
     https://github.com/snarfed/bridgy-fed/issues/1537
     https://atproto.com/specs/handle#handle-resolution
     """
@@ -1171,9 +1189,32 @@ def atproto_did():
     raise NotFound()
 
 
-
+#
+# OAuth
+#
 @app.get('/.well-known/oauth-protected-resource')
 @app.get('/.well-known/oauth-authorization-server')
 @flask_util.headers(common.CACHE_CONTROL)
 def no_oauth():
-    return "Sorry, Bridgy Fed doesn't do OAuth. https://fed.brid.gy/docs#use-like-normal", 404
+    return "Sorry, Bridgy Fed doesn't serve OAuth. https://fed.brid.gy/docs#use-like-normal", 404
+
+
+class BlueskyOAuthStart(oauth_dropins.bluesky.OAuthStart):
+    CLIENT_METADATA = OAUTH_CLIENT_METADATA
+
+class BlueskyOAuthCallback(oauth_dropins.bluesky.OAuthCallback):
+    CLIENT_METADATA = OAUTH_CLIENT_METADATA
+
+
+@app.get(urlparse(OAUTH_CLIENT_METADATA['client_id']).path)
+@canonicalize_request_domain(common.PROTOCOL_DOMAINS, common.PRIMARY_DOMAIN)
+@flask_util.headers(CACHE_CONTROL)
+def bluesky_oauth_client_metadata():
+    """https://docs.bsky.app/docs/advanced-guides/oauth-client#client-and-server-metadata"""
+    return OAUTH_CLIENT_METADATA
+
+
+app.add_url_rule('/oauth/bluesky/start', view_func=BlueskyOAuthStart.as_view(
+    '/oauth/bluesky/start', '/oauth/bluesky/finish'), methods=['POST'])
+app.add_url_rule('/oauth/bluesky/finish', view_func=BlueskyOAuthCallback.as_view(
+    '/oauth/bluesky/finish', '/bluesky/settings'))
