@@ -10,6 +10,9 @@ from flask import render_template, request
 from google.cloud.ndb import tasklets
 from google.cloud.ndb.query import OR
 from granary import as1, as2, atom, microformats2, rss
+import oauth_dropins.bluesky
+from oauth_dropins.bluesky import FlaskTokenAuth
+from oauth_dropins import mastodon as mastodon_od
 from oauth_dropins.webutil import flask_util, logs, util
 from oauth_dropins.webutil.flask_util import (
     canonicalize_request_domain,
@@ -17,18 +20,29 @@ from oauth_dropins.webutil.flask_util import (
     flash,
 )
 import requests
+from requests_oauth2client import DPoPTokenSerializer
+from requests_oauth2client.flask.auth import FlaskSessionAuthMixin
 import werkzeug.exceptions
 from werkzeug.exceptions import NotFound
 
-from activitypub import ActivityPub, instance_actor
+from activitypub import ActivityPub, instance_actor, MastodonOAuthStart
+import atproto
 from atproto import ATProto
 import common
 from common import CACHE_CONTROL, DOMAIN_RE, PROTOCOL_DOMAINS
 from flask_app import app
-from flask import redirect
+from flask import redirect, session
 import ids
 import memcache
-from models import fetch_objects, fetch_page, Follower, Object, PAGE_SIZE, PROTOCOLS
+from models import (
+    fetch_objects,
+    fetch_page,
+    Follower,
+    Object,
+    PAGE_SIZE,
+    PROTOCOLS,
+    USER_STATUS_DESCRIPTIONS,
+)
 from protocol import Protocol
 from web import Web
 
@@ -126,6 +140,38 @@ def front_page():
 def docs():
     """View for the docs page."""
     return render_template('docs.html')
+
+
+@app.route('/login')
+@canonicalize_request_domain(common.PROTOCOL_DOMAINS, common.PRIMARY_DOMAIN)
+@flask_util.headers(CACHE_CONTROL)
+def login():
+    """View for the front page."""
+    return render_template('login.html',
+        bluesky_button=atproto.BlueskyOAuthStart.button_html(
+            '/oauth/bluesky/start', image_prefix='/oauth_dropins_static/'),
+        mastodon_button=MastodonOAuthStart.button_html(
+            '/oauth/mastodon/start', image_prefix='/oauth_dropins_static/'),
+    )
+
+
+@app.route('/<any(bluesky,mastodon):provider>/settings')
+@canonicalize_request_domain(common.PROTOCOL_DOMAINS, common.PRIMARY_DOMAIN)
+def settings(provider):
+    """User settings page. Requires logged in session."""
+    auth = FlaskSessionAuthMixin(session_key=oauth_dropins.bluesky.FLASK_SESSION_KEY,
+                                 serializer=DPoPTokenSerializer())
+    token = auth.token
+    if not token or not token.sub:
+        return redirect('/login', code=302)
+
+    user = ATProto.get_by_id(token.sub, allow_opt_out=True)
+    return render_template(
+        'settings.html',
+        **TEMPLATE_VARS,
+        **locals(),
+        USER_STATUS_DESCRIPTIONS=USER_STATUS_DESCRIPTIONS,
+    )
 
 
 @app.get(f'/<any({",".join(PROTOCOLS)}):protocol>/<id>')
