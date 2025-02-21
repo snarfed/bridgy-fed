@@ -68,7 +68,8 @@
   {% endfor %}
 </div>
 
-<!-- tabs -->
+
+{% block tabs %}
 <div class="row tabs">
   <a class="left-tab"></a>
   <a href="{{ user.user_page_path() }}"
@@ -82,6 +83,7 @@
      >🔔 Notifications</a>
   <a class="right-tab"></a>
 </div>
+{% endblock tabs %}
 
 {% block subtabs %}
 {% endblock subtabs %}
