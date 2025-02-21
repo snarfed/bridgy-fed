@@ -547,21 +547,23 @@ a.active-tab + a {
   border-left: 1px solid lightgray;
 }
 
-.disable-button, #bad-button {
+.disable-button {
   border-color: red;
   color: red;
+  background-color: white;
 }
 
-.disable-button:hover, #bad-button:hover {
+.disable-button:hover {
   background-color: #FCC;
 }
 
-#good-button {
+.enable-button {
   border-color: green;
   color: green;
+  background-color: white;
 }
 
-#good-button:hover {
+.enable-button:hover {
   background-color: #DED;
 }
 

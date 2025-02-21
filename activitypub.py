@@ -14,6 +14,7 @@ from granary import as1, as2
 from httpsig import HeaderVerifier
 from httpsig.requests_auth import HTTPSignatureAuth
 from httpsig.utils import parse_signature_header
+import oauth_dropins.mastodon
 from oauth_dropins.webutil import appengine_info, flask_util, util
 from oauth_dropins.webutil.flask_util import FlashErrors, MovedPermanently
 from oauth_dropins.webutil.util import add, fragmentless, json_dumps, json_loads
@@ -1454,3 +1455,7 @@ def outbox(id):
 #         '@context': as2.CONTEXT,
 #         **featured,
 #     }, {'Content-Type': as2.CONTENT_TYPE_LD_PROFILE}
+
+
+class MastodonOAuthStart(oauth_dropins.mastodon.Start):
+    pass
