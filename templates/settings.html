@@ -1,0 +1,36 @@
+{% extends "user_base.html" %}
+
+{% block tabs %}
+{% endblock tabs %}
+
+{% block feed %}
+<style type="text/css">
+#update-profile-button { display: none; }
+</style>
+
+<form method="post" action="#">
+<input name="key" type="hidden" value="{{ user.key.urlsafe().decode() }}" />
+<p class="row big">
+{% if user.enabled_protocols and not user.status %}
+  Currently bridging to
+  {{ user.enabled_protocols|map(attribute='PHRASE')|join(', ') }}.
+  <br>
+  <button id="disable-button" type="submit" class="btn btn-default disable-button"
+          title="Disable bridging for this account."
+          >Disable</button>
+  </form>
+{% else %}
+  Not currently bridging{% if user.status %} because {{ USER_STATUS_DESCRIPTIONS[user.status] }}{% endif %}.
+  <br>
+  <button id="enable-button" type="submit" class="btn btn-default enable-button"
+          title="Enable bridging for this account."
+          >Enable</button>
+{% endif %}
+</p>
+</form>
+
+<p class="row">
+
+</p>
+
+{% endblock feed %}
