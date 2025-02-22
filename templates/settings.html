@@ -16,7 +16,7 @@
 
 <div class="row">
   {% if user.enabled_protocols and not user.status %}
-    Currently bridging.
+    <a href="{{ user.user_page_path() }}">Currently bridging.</a>
     <!-- to {{ user.enabled_protocols|join(', ') }} -->
     <form method="post" action="#">
       <input name="key" type="hidden" value="{{ user.key.urlsafe().decode() }}" />
