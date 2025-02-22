@@ -1459,3 +1459,12 @@ def outbox(id):
 
 class MastodonOAuthStart(oauth_dropins.mastodon.Start):
     pass
+
+
+app.add_url_rule('/oauth/mastodon/start',
+                 view_func=oauth_dropins.mastodon.Start.as_view(
+                     '/oauth/mastodon/start', '/oauth/mastodon/finish'),
+                 methods=['POST'])
+app.add_url_rule('/oauth/mastodon/finish',
+                 view_func=oauth_dropins.mastodon.Callback.as_view(
+                     '/oauth/mastodon/finish', '/settings'))

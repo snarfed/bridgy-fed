@@ -43,12 +43,36 @@
     </a>
   </p>
 
-  <p class="header-links">
+  <div class="header-links">
     <a href="/docs">Docs</a> &nbsp;
     <a href="https://snarfed.org/?s=%22bridgy+fed%22">News</a> &nbsp;
     <a href="https://github.com/snarfed/bridgy-fed">Code</a> &nbsp;
     <a href="https://github.com/snarfed/bridgy-fed/issues">Issues</a>
-  </p>
+
+    <span class="divider">|</span>
+
+    {% if logins %}
+      <a id="logins" href="/settings">
+      {% for login in logins %}  <!-- oauth-dropins auth entities -->
+        <nobr title="{{ login.site_name() }}: {{ login.user_display_name() }}">
+          <img class="profile" src="{{ login.image_url() }}" />
+          <img class="provider" width="24"
+               src="/oauth_dropins_static/{{ login.site_name().lower() }}_icon.png" />
+        </nobr>
+      {% endfor %}
+      </a>
+
+      <span class="divider">|</span>
+
+      <form action="/logout" method="post">
+        <input type="submit" class="btn-link" value="Logout" />
+      </form>
+
+    {% else %}
+      <a href="/login">Login</a>
+
+    {% endif %}
+  </div>
 </div>
 
 {% block content %}
