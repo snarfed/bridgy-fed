@@ -9,9 +9,10 @@ import time
 from flask import render_template, request
 from google.cloud.ndb import tasklets
 from google.cloud.ndb.query import OR
+from google.cloud.ndb.model import get_multi
 from granary import as1, as2, atom, microformats2, rss
+import oauth_dropins
 import oauth_dropins.bluesky
-from oauth_dropins.bluesky import FlaskTokenAuth
 from oauth_dropins import mastodon as mastodon_od
 from oauth_dropins.webutil import flask_util, logs, util
 from oauth_dropins.webutil.flask_util import (
@@ -19,6 +20,7 @@ from oauth_dropins.webutil.flask_util import (
     error,
     flash,
 )
+from oauth_dropins.webutil.util import json_loads, json_dumps
 import requests
 from requests_oauth2client import DPoPTokenSerializer
 from requests_oauth2client.flask.auth import FlaskSessionAuthMixin
@@ -126,12 +128,31 @@ def load_user(protocol, id):
     error(f'{protocol} user {id} not found', status=404)
 
 
+def get_logins():
+    """Returns the user's current logged in sessions:
+
+    Returns:
+      list of :class:`oauth_dropins.models.BaseAuth`
+    """
+    logins = get_multi(oauth_dropins.get_logins())
+    return sorted(logins, key=lambda l: (l.key.kind(), l.user_display_name()))
+
+
+def render(template, **vars):
+    """Renders a Jinja2 template and adds our standard template variables.
+
+    Args:
+      template (str): file name
+    """
+    return render_template(template, **TEMPLATE_VARS, logins=get_logins(), **vars)
+
+
 @app.route('/')
 @canonicalize_request_domain(common.PROTOCOL_DOMAINS, common.PRIMARY_DOMAIN)
 @flask_util.headers(CACHE_CONTROL)
 def front_page():
     """View for the front page."""
-    return render_template('index.html')
+    return render('index.html')
 
 
 @app.route('/docs')
@@ -139,7 +160,7 @@ def front_page():
 @flask_util.headers(CACHE_CONTROL)
 def docs():
     """View for the docs page."""
-    return render_template('docs.html')
+    return render('docs.html')
 
 
 @app.route('/login')
@@ -147,7 +168,7 @@ def docs():
 @flask_util.headers(CACHE_CONTROL)
 def login():
     """View for the front page."""
-    return render_template('login.html',
+    return render('login.html',
         bluesky_button=atproto.BlueskyOAuthStart.button_html(
             '/oauth/bluesky/start', image_prefix='/oauth_dropins_static/'),
         mastodon_button=MastodonOAuthStart.button_html(
@@ -155,23 +176,35 @@ def login():
     )
 
 
-@app.route('/<any(bluesky,mastodon):provider>/settings')
+@app.route('/settings')
 @canonicalize_request_domain(common.PROTOCOL_DOMAINS, common.PRIMARY_DOMAIN)
-def settings(provider):
+def settings():
     """User settings page. Requires logged in session."""
-    auth = FlaskSessionAuthMixin(session_key=oauth_dropins.bluesky.FLASK_SESSION_KEY,
-                                 serializer=DPoPTokenSerializer())
-    token = auth.token
-    if not token or not token.sub:
+    user_keys = []
+    for login in get_logins():
+        match login.site_name():
+            case 'Mastodon':
+                if id := json_loads(login.user_json).get('uri'):
+                    user_keys.append(ActivityPub(id=id).key)
+            case 'Bluesky':
+                user_keys.append(ATProto(id=login.key.id()).key)
+
+    users = [u for u in get_multi(user_keys) if u]
+    if not users:
         return redirect('/login', code=302)
 
-    user = ATProto.get_by_id(token.sub, allow_opt_out=True)
-    return render_template(
+    return render(
         'settings.html',
-        **TEMPLATE_VARS,
         **locals(),
         USER_STATUS_DESCRIPTIONS=USER_STATUS_DESCRIPTIONS,
     )
+
+@app.post('/logout')
+def logout():
+    """Logs the user out of all current login sessions."""
+    oauth_dropins.logout()
+    flash(f"OK, you're now logged out.")
+    return redirect('/', code=302)
 
 
 @app.get(f'/<any({",".join(PROTOCOLS)}):protocol>/<id>')
@@ -184,7 +217,7 @@ def profile(protocol, id):
     query = Object.query(Object.users == user.key)
     objects, before, after = fetch_objects(query, by=Object.updated, user=user)
     num_followers, num_following = user.count_followers()
-    return render_template('profile.html', **TEMPLATE_VARS, **locals())
+    return render('profile.html', **locals())
 
 
 @app.get(f'/<any({",".join(PROTOCOLS)}):protocol>/<id>/home')
@@ -196,7 +229,7 @@ def home(protocol, id):
 
     # this calls Object.actor_link serially for each object, which loads the
     # actor from the datastore if necessary. TODO: parallelize those fetches
-    return render_template('home.html', **TEMPLATE_VARS, **locals())
+    return render('home.html', **locals())
 
 
 @app.get(f'/<any({",".join(PROTOCOLS)}):protocol>/<id>/notifications')
@@ -214,13 +247,13 @@ def notifications(protocol, id):
                           quiet=request.args.get('quiet'))
 
     # notifications tab UI page
-    return render_template('notifications.html', **TEMPLATE_VARS, **locals())
+    return render('notifications.html', **locals())
 
 
 @app.get(f'/user-page')
 @flask_util.headers(CACHE_CONTROL)
 def find_user_page_form():
-    return render_template('find_user_page.html')
+    return render('find_user_page.html')
 
 
 @app.post(f'/user-page')
@@ -234,13 +267,13 @@ def find_user_page():
         proto, resolved_id = Protocol.for_handle(id)
         if not proto:
             flash(f"Couldn't determine network for {id}.")
-            return render_template('find_user_page.html'), 404
+            return render('find_user_page.html'), 404
 
     try:
         user = load_user(proto.LABEL, resolved_id or id)
     except NotFound:
         flash(f"User {id} on {proto.PHRASE} isn't signed up.")
-        return render_template('find_user_page.html'), 404
+        return render('find_user_page.html'), 404
 
     return redirect(user.user_page_path(), code=302)
 
@@ -290,11 +323,10 @@ def followers_or_following(protocol, id, collection):
 
     followers, before, after = Follower.fetch_page(collection, user)
     num_followers, num_following = user.count_followers()
-    return render_template(
+    return render(
         f'{collection}.html',
         address=request.args.get('address'),
         follow_url=request.values.get('url'),
-        **TEMPLATE_VARS,
         **locals(),
     )
 
@@ -381,7 +413,7 @@ def serve_feed(*, objects, format, user, title, as_snippets=False, quiet=False):
     # syntax. maybe a fediverse kwarg down through the call chain?
     if format == 'html':
         entries = [microformats2.object_to_html(a) for a in activities]
-        return render_template('feed.html', **TEMPLATE_VARS, **locals())
+        return render('feed.html', **locals())
 
     elif format == 'atom':
         body = atom.activities_to_atom(activities, actor=actor, title=title,
