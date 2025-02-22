@@ -25,8 +25,11 @@
 
 #logins {
   text-decoration: none;
-  padding: .5em;
-  padding-right: 0em;
+  padding-top: .5em;
+  padding-bottom: .75em;
+  padding-left: .75em;
+  padding-right: .5em;
+  margin-left: -.25em;
 }
 
 #logins:hover {
@@ -42,6 +45,13 @@
 #logins .provider {
   position: relative;
   margin-left: -.5em;
+}
+
+#login input[type="text"], #login input[type="url"] {
+  width: 12em !important;
+  /* these are from bootstrap */
+  padding: 6px 12px;
+  border: 1px solid #ccc;
 }
 
 .divider {
