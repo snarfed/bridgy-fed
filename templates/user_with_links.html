@@ -1,0 +1,37 @@
+<span class="big">
+  <nobr>
+  {{ user.user_link(pictures=True)|safe }}
+  <form method="post" action="{{ user.user_page_path('update-profile', prefer_id=True) }}">
+    <button id="update-profile-button" type="submit" title="Update profile"
+            class="btn btn-default glyphicon glyphicon-refresh"></button>
+  </form>
+  </nobr>
+</span>
+
+{% set copies = user.copies|map(attribute='protocol')|list %}
+{% for proto in set(PROTOCOLS.values()) %}
+   {% if proto and not isinstance(user, proto) and proto.LABEL not in ('ui', 'web')
+         and user.is_enabled(proto) %}
+    {% set url = proto.bridged_web_url_for(user) %}
+    {% set handle = user.handle_as(proto) %}
+    &middot;
+    <nobr title="{{ proto.__name__ }} (bridged): {{ handle }}">
+    {% if url %} <a rel="me" href="{{ url }}"> {% endif %}
+      <span class="logo">{{ proto.LOGO_HTML|safe }}</span>
+      <span style="unicode-bidi: isolate">{{ util.ellipsize(handle, chars=40) }}</span>
+    {% if url %}
+      </a>
+    {% else %}
+      <button class="btn btn-default btn-copy glyphicon glyphicon-duplicate"
+              onclick="navigator.clipboard.writeText('{{ handle }}')"
+              title="Copy {{ handle }} to clipboard"> </button>
+    {% endif %}
+    {% if proto.LABEL == 'atproto' %}
+      {% set did = user.get_copy(PROTOCOLS['atproto']) %}
+      <button class="btn btn-default btn-copy glyphicon glyphicon-tag"
+              onclick="navigator.clipboard.writeText('{{ did }}')"
+              title="Copy {{ did }} to clipboard"></button>
+    {% endif %}
+    </nobr>
+  {% endif %}
+{% endfor %}
