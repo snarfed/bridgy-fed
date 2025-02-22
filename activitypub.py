@@ -15,6 +15,7 @@ from httpsig import HeaderVerifier
 from httpsig.requests_auth import HTTPSignatureAuth
 from httpsig.utils import parse_signature_header
 import oauth_dropins.mastodon
+import oauth_dropins.pixelfed
 from oauth_dropins.webutil import appengine_info, flask_util, util
 from oauth_dropins.webutil.flask_util import FlashErrors, MovedPermanently
 from oauth_dropins.webutil.util import add, fragmentless, json_dumps, json_loads
@@ -1468,3 +1469,10 @@ app.add_url_rule('/oauth/mastodon/start',
 app.add_url_rule('/oauth/mastodon/finish',
                  view_func=oauth_dropins.mastodon.Callback.as_view(
                      '/oauth/mastodon/finish', '/settings'))
+app.add_url_rule('/oauth/pixelfed/start',
+                 view_func=oauth_dropins.pixelfed.Start.as_view(
+                     '/oauth/pixelfed/start', '/oauth/pixelfed/finish'),
+                 methods=['POST'])
+app.add_url_rule('/oauth/pixelfed/finish',
+                 view_func=oauth_dropins.pixelfed.Callback.as_view(
+                     '/oauth/pixelfed/finish', '/settings'))

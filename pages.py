@@ -26,9 +26,9 @@ from requests_oauth2client.flask.auth import FlaskSessionAuthMixin
 import werkzeug.exceptions
 from werkzeug.exceptions import NotFound
 
-from activitypub import ActivityPub, instance_actor, MastodonOAuthStart
+from activitypub import ActivityPub, instance_actor
 import atproto
-from atproto import ATProto
+from atproto import ATProto, BlueskyOAuthStart
 import common
 from common import CACHE_CONTROL, DOMAIN_RE, PROTOCOL_DOMAINS
 from flask_app import app
@@ -167,11 +167,14 @@ def docs():
 @flask_util.headers(CACHE_CONTROL)
 def login():
     """View for the front page."""
+    # STATE: load profile, create user, on login
     return render('login.html',
-        bluesky_button=atproto.BlueskyOAuthStart.button_html(
+        bluesky_button=BlueskyOAuthStart.button_html(
             '/oauth/bluesky/start', image_prefix='/oauth_dropins_static/'),
-        mastodon_button=MastodonOAuthStart.button_html(
+        mastodon_button=oauth_dropins.mastodon.Start.button_html(
             '/oauth/mastodon/start', image_prefix='/oauth_dropins_static/'),
+        pixelfed_button=oauth_dropins.pixelfed.Start.button_html(
+            '/oauth/pixelfed/start', image_prefix='/oauth_dropins_static/'),
     )
 
 
@@ -185,8 +188,13 @@ def settings():
             case 'Mastodon':
                 if id := json_loads(login.user_json).get('uri'):
                     user_keys.append(ActivityPub(id=id).key)
+            case 'Pixelfed':
+                user, server = login.key.id().strip('@').split('@')
+                user_keys.append(ActivityPub(id=f'https://{server}/users/{user}').key)
             case 'Bluesky':
                 user_keys.append(ATProto(id=login.key.id()).key)
+            case _:
+                assert False, login.site_name()
 
     users = [u for u in get_multi(user_keys) if u]
     if not users:
