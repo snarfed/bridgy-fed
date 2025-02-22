@@ -1,36 +1,43 @@
-{% extends "user_base.html" %}
+{% set body_id = 'settings' %}
+{% extends "base.html" %}
 
-{% block tabs %}
-{% endblock tabs %}
+{% block content %}
 
-{% block feed %}
 <style type="text/css">
 #update-profile-button { display: none; }
 </style>
 
-<form method="post" action="#">
-<input name="key" type="hidden" value="{{ user.key.urlsafe().decode() }}" />
-<p class="row big">
-{% if user.enabled_protocols and not user.status %}
-  Currently bridging to
-  {{ user.enabled_protocols|map(attribute='PHRASE')|join(', ') }}.
-  <br>
-  <button id="disable-button" type="submit" class="btn btn-default disable-button"
-          title="Disable bridging for this account."
-          >Disable</button>
-  </form>
-{% else %}
-  Not currently bridging{% if user.status %} because {{ USER_STATUS_DESCRIPTIONS[user.status] }}{% endif %}.
-  <br>
-  <button id="enable-button" type="submit" class="btn btn-default enable-button"
-          title="Enable bridging for this account."
-          >Enable</button>
-{% endif %}
-</p>
+<p class="row big" style="text-align: center">Accounts</p>
+
+{% for user in users %}
+<div class="row">
+  {% include 'user_with_links.html' %}
+</div>
+
+<div class="row">
+  {% if user.enabled_protocols and not user.status %}
+    Currently bridging.
+    <!-- to {{ user.enabled_protocols|join(', ') }} -->
+    <form method="post" action="#">
+      <input name="key" type="hidden" value="{{ user.key.urlsafe().decode() }}" />
+      <input type="submit" value="Disable" class="btn btn-default disable-button" />
+    </form>
+
+  {% else %}
+    Not bridging{% if user.status %} because {{ USER_STATUS_DESCRIPTIONS[user.status] }}{% endif %}.
+    <form method="post" action="#">
+      <input name="key" type="hidden" value="{{ user.key.urlsafe().decode() }}" />
+      <input type="submit" value="Enable" class="btn btn-default enable-button"
+             {% if user.status %}disabled="true"{% endif %} />
+    </form>
+  {% endif %}
+</div>
+{% if not loop.last %}<hr>{% endif %}
+{% endfor %}
+
+<br>
+<form action="/login" method="get">
+  <input type="submit" class="btn btn-default" value="Add account" />
 </form>
 
-<p class="row">
-
-</p>
-
-{% endblock feed %}
+{% endblock content %}

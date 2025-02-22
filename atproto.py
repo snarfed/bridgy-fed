@@ -1310,4 +1310,4 @@ def bluesky_oauth_client_metadata():
 app.add_url_rule('/oauth/bluesky/start', view_func=BlueskyOAuthStart.as_view(
     '/oauth/bluesky/start', '/oauth/bluesky/finish'), methods=['POST'])
 app.add_url_rule('/oauth/bluesky/finish', view_func=BlueskyOAuthCallback.as_view(
-    '/oauth/bluesky/finish', '/bluesky/settings'))
+    '/oauth/bluesky/finish', '/settings'))

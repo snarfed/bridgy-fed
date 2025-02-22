@@ -18,6 +18,41 @@
  */
 }
 
+#logins img {
+  border-radius: 50%; /* makes perfect circle */
+  object-fit: cover;  /* keeps aspect ratio */
+}
+
+#logins {
+  text-decoration: none;
+  padding: .5em;
+  padding-right: 0em;
+}
+
+#logins:hover {
+  background-color: #DEF;
+  border-radius: 1em;
+}
+
+#logins .profile {
+  position: relative;
+  z-index: 1;
+}
+
+#logins .provider {
+  position: relative;
+  margin-left: -.5em;
+}
+
+.divider {
+  margin-left: .5em;
+  margin-right: .5em;
+}
+
+.btn-link {
+  padding: 0;
+}
+
 .big {
   font-size: 1.5em;
 }
@@ -88,6 +123,10 @@ pre .value, code .value, code.value {
   margin-right: 0;
 }
 
+#settings .row {
+  text-align: left;
+}
+
 #blogposts, #publishes, #webmentions, #user {
   margin-top: 1em;
 }
@@ -150,41 +189,9 @@ pre .value, code .value, code.value {
   background-color: transparent;
 }
 
-.front-buttons {
-  /* vertical center button groups against left side text */
-  /* display: flex; */
-  /* align-items: center; */
-}
-
-.front-buttons .btn-group {
-  text-align: left;
-}
-
 #front-tagline {
   margin-bottom: 0;
   text-shadow: 0px 0px .2em var(--glow);
-}
-
-@media (min-width: 992px) {  /* @screen-md-min */
-  .front-buttons > div:first-child {
-    text-align: right;
-  }
-}
-
-.front-buttons label {
-  font-size: 1em;
-  white-space: nowrap;
-}
-
-.front-buttons label img {
-  height: 1em;
-  margin-top: -.2em;
-}
-
-.front-buttons .btn {
-  float: none;  /* separate buttons */
-  border-radius: .2em !important;
-  margin: .1em !important;
 }
 
 .web, .fediverse, .bluesky, .handle {
@@ -437,13 +444,13 @@ button {
   border-radius: 2px;
 }
 
-button[disabled] {
+button[disabled], input[disabled] {
   border-color: gray !important;
   color: gray !important;
   pointer-events: auto !important;
 }
 
-button[disabled]:hover {
+button[disabled]:hover, input[disabled]:hover {
   background-color: lightgray !important;
 }
 
