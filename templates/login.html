@@ -1,3 +1,4 @@
+{% set body_id = 'login' %}
 {% extends "base.html" %}
 
 {% block content %}
@@ -7,6 +8,7 @@
 <div class="row big" style="font-size: 14px">
   <p>{{ bluesky_button|safe }}</p>
   <p>{{ mastodon_button|safe }}</p>
+  <p>{{ pixelfed_button|safe }}</p>
 </div>
 
 {% endblock %}
