@@ -26,6 +26,8 @@ from oauth_dropins.webutil import flask_util
 from oauth_dropins.webutil.util import interpret_http_exception, json_dumps
 from negotiator import ContentNegotiator, AcceptParameters, ContentType
 import requests
+import werkzeug.exceptions
+from werkzeug.exceptions import HTTPException
 
 import memcache
 
@@ -117,6 +119,14 @@ _negotiator = ContentNegotiator(acceptable=[
 # out to everyone.
 with open(Path(os.path.dirname(__file__)) / 'beta_users.txt') as f:
   BETA_USER_IDS = util.load_file_lines(f)
+
+class ErrorButDoNotRetryTask(HTTPException):
+    code = 299
+    description = 'ErrorButDoNotRetryTask'
+
+# https://github.com/pallets/flask/issues/1837#issuecomment-304996942
+werkzeug.exceptions.default_exceptions.setdefault(299, ErrorButDoNotRetryTask)
+werkzeug.exceptions._aborter.mapping.setdefault(299, ErrorButDoNotRetryTask)
 
 
 @functools.cache
