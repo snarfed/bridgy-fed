@@ -366,9 +366,6 @@ def translate_object_id(*, id, from_, to):
             return id
 
         case 'web', 'activitypub':
-            # domain = util.domain_from_link(id)
-            # STATE: redirect_wrap w/domain ? wait no
-            # same for user_id
             return urljoin(web_ap_base_domain(util.domain_from_link(id)), f'/r/{id}')
 
         case _, 'activitypub' | 'web':

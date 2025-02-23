@@ -8,6 +8,7 @@ import time
 
 from flask import render_template, request
 from google.cloud.ndb import tasklets
+from google.cloud.ndb.key import Key
 from google.cloud.ndb.query import OR
 from google.cloud.ndb.model import get_multi
 from granary import as1, as2, atom, microformats2, rss
@@ -166,7 +167,6 @@ def docs():
 @flask_util.headers(CACHE_CONTROL)
 def login():
     """View for the front page."""
-    # STATE: load profile, create user, on login
     return render('login.html',
         bluesky_button=BlueskyOAuthStart.button_html(
             '/oauth/bluesky/start', image_prefix='/oauth_dropins_static/'),
@@ -181,21 +181,38 @@ def login():
 @canonicalize_request_domain(common.PROTOCOL_DOMAINS, common.PRIMARY_DOMAIN)
 def settings():
     """User settings page. Requires logged in session."""
+    auth_entity = request.args.get('auth_entity')
+    logged_in_as = Key(urlsafe=auth_entity).id() if auth_entity else None
+
+    users = []
     user_keys = []
+
     for login in get_logins():
+        proto = key = None
         match login.site_name():
             case 'Mastodon':
-                if id := json_loads(login.user_json).get('uri'):
-                    user_keys.append(ActivityPub(id=id).key)
+                proto = ActivityPub
+                if login.user_json and (id := json_loads(login.user_json).get('uri')):
+                    pass
+                else:
+                    logger.warning(f'Mastodon auth entity {login.key.id()} has no user_json or uri')
+                    continue
             case 'Pixelfed':
+                proto = ActivityPub
                 user, server = login.key.id().strip('@').split('@')
-                user_keys.append(ActivityPub(id=f'https://{server}/users/{user}').key)
+                id = f'https://{server}/users/{user}'
             case 'Bluesky':
-                user_keys.append(ATProto(id=login.key.id()).key)
+                proto = ATProto
+                id = login.key.id()
             case _:
-                assert False, login.site_name()
+                assert False, repr(login)
 
-    users = [u for u in get_multi(user_keys) if u]
+        if logged_in_as:
+            users.append(proto.get_or_create(id, allow_opt_out=True))
+        else:
+            user_keys.append(proto(id=id).key)
+
+    users.extend(u for u in get_multi(user_keys) if u)
     if not users:
         return redirect('/login', code=302)
 
