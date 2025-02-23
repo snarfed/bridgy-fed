@@ -26,11 +26,12 @@ from activitypub import ActivityPub
 from app import app
 from atproto import ATProto
 import common
+from common import ErrorButDoNotRetryTask
 import memcache
 import models
 from models import DM, Follower, Object, PROTOCOLS, Target, User
 import protocol
-from protocol import ErrorButDoNotRetryTask, Protocol
+from protocol import Protocol
 from ui import UIProtocol
 from web import Web
 
