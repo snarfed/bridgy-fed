@@ -34,6 +34,7 @@ from common import (
     DOMAINS,
     DOMAIN_RE,
     error,
+    FlashErrors,
     host_url,
     LOCAL_DOMAINS,
     PRIMARY_DOMAIN,
@@ -1458,21 +1459,29 @@ def outbox(id):
 #     }, {'Content-Type': as2.CONTENT_TYPE_LD_PROFILE}
 
 
-class MastodonOAuthStart(oauth_dropins.mastodon.Start):
+#
+# OAuth
+#
+class MastodonStart(FlashErrors, oauth_dropins.mastodon.Start):
+    pass
+
+class MastodonCallback(FlashErrors, oauth_dropins.mastodon.Callback):
+    pass
+
+class PixelfedStart(FlashErrors, oauth_dropins.pixelfed.Start):
+    pass
+
+class PixelfedCallback(FlashErrors, oauth_dropins.pixelfed.Callback):
     pass
 
 
-app.add_url_rule('/oauth/mastodon/start',
-                 view_func=oauth_dropins.mastodon.Start.as_view(
+app.add_url_rule('/oauth/mastodon/start', view_func=MastodonStart.as_view(
                      '/oauth/mastodon/start', '/oauth/mastodon/finish'),
                  methods=['POST'])
-app.add_url_rule('/oauth/mastodon/finish',
-                 view_func=oauth_dropins.mastodon.Callback.as_view(
+app.add_url_rule('/oauth/mastodon/finish', view_func=MastodonCallback.as_view(
                      '/oauth/mastodon/finish', '/settings'))
-app.add_url_rule('/oauth/pixelfed/start',
-                 view_func=oauth_dropins.pixelfed.Start.as_view(
+app.add_url_rule('/oauth/pixelfed/start', view_func=PixelfedStart.as_view(
                      '/oauth/pixelfed/start', '/oauth/pixelfed/finish'),
                  methods=['POST'])
-app.add_url_rule('/oauth/pixelfed/finish',
-                 view_func=oauth_dropins.pixelfed.Callback.as_view(
+app.add_url_rule('/oauth/pixelfed/finish', view_func=PixelfedCallback.as_view(
                      '/oauth/pixelfed/finish', '/settings'))

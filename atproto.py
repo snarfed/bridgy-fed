@@ -58,6 +58,7 @@ from common import (
     DOMAIN_RE,
     DOMAINS,
     error,
+    FlashErrors,
     PRIMARY_DOMAIN,
     SUPERDOMAIN,
     USER_AGENT,
@@ -1301,12 +1302,12 @@ def no_oauth():
     return "Sorry, Bridgy Fed doesn't serve OAuth. https://fed.brid.gy/docs#use-like-normal", 404
 
 
-class BlueskyOAuthStart(oauth_dropins.bluesky.OAuthStart):
+class BlueskyOAuthStart(FlashErrors, oauth_dropins.bluesky.OAuthStart):
     @property
     def CLIENT_METADATA(self):
         return oauth_client_metadata()
 
-class BlueskyOAuthCallback(oauth_dropins.bluesky.OAuthCallback):
+class BlueskyOAuthCallback(FlashErrors, oauth_dropins.bluesky.OAuthCallback):
     @property
     def CLIENT_METADATA(self):
         return oauth_client_metadata()

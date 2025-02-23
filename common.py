@@ -11,7 +11,8 @@ import urllib.parse
 from urllib.parse import urljoin, urlparse
 
 from Crypto.Util import number
-from flask import abort, g, has_request_context, make_response, request
+from flask import abort, g, has_request_context, make_response, redirect, request
+from flask.views import View
 from google.cloud.error_reporting.util import build_flask_context
 from google.cloud import ndb
 from google.cloud.ndb.key import Key
@@ -22,8 +23,9 @@ from oauth_dropins.webutil.appengine_config import error_reporting_client, tasks
 from oauth_dropins.webutil import appengine_info
 from oauth_dropins.webutil.appengine_info import DEBUG
 from oauth_dropins.webutil import flask_util
-from oauth_dropins.webutil.util import json_dumps
+from oauth_dropins.webutil.util import interpret_http_exception, json_dumps
 from negotiator import ContentNegotiator, AcceptParameters, ContentType
+import requests
 
 import memcache
 
@@ -478,3 +480,18 @@ def log_request():
     Limits each value to 1000 chars."""
     logger.info(f'Params:\n' + '\n'.join(
         f'{k} = {v[:1000]}' for k, v in request.values.items()))
+
+
+class FlashErrors(View):
+    """Wraps a Flask :class:`flask.view.View` and flashes errors.
+
+    Mostly used with OAuth endpoints.
+    """
+    def dispatch_request(self):
+        try:
+            return super().dispatch_request()
+        except (ValueError, requests.RequestException) as e:
+            logger.warning(f'{self.__class__.__name__} error', exc_info=True)
+            _, body = interpret_http_exception(e)
+            flask_util.flash(util.linkify(body or str(e), pretty=True))
+            return redirect('/login')
