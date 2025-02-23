@@ -28,6 +28,7 @@ from common import (
     DOMAIN_BLOCKLIST,
     DOMAIN_RE,
     DOMAINS,
+    ErrorButDoNotRetryTask,
     PRIMARY_DOMAIN,
     PROTOCOL_DOMAINS,
     report_error,
@@ -76,15 +77,6 @@ logger = logging.getLogger(__name__)
 def error(*args, status=299, **kwargs):
     """Default HTTP status code to 299 to prevent retrying task."""
     return common.error(*args, status=status, **kwargs)
-
-
-class ErrorButDoNotRetryTask(HTTPException):
-    code = 299
-    description = 'ErrorButDoNotRetryTask'
-
-# https://github.com/pallets/flask/issues/1837#issuecomment-304996942
-werkzeug.exceptions.default_exceptions.setdefault(299, ErrorButDoNotRetryTask)
-werkzeug.exceptions._aborter.mapping.setdefault(299, ErrorButDoNotRetryTask)
 
 
 def activity_id_memcache_key(id):
