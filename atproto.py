@@ -36,10 +36,7 @@ from granary.bluesky import Bluesky, FROM_AS1_TYPES, to_external_embed
 from granary.source import html_to_text, INCLUDE_LINK, Source
 from lexrpc import Client, ValidationError
 from requests import RequestException
-from requests_oauth2client import (
-    DPoPToken,
-    OAuth2AccessTokenAuth,
-)
+from requests_oauth2client import OAuth2AccessTokenAuth
 import oauth_dropins.bluesky
 from oauth_dropins.webutil import util
 from oauth_dropins.webutil.appengine_config import ndb_client
@@ -104,13 +101,15 @@ BOUNCE_OAUTH_CLIENT = {
     'redirect_uris': ['https://bounce.anew.social/bluesky/oauth-callback'],
 }
 
-OAUTH_CLIENT_METADATA = {
-    **oauth_dropins.bluesky.CLIENT_METADATA_TEMPLATE,
-    'client_id': 'https://fed.brid.gy/oauth/bluesky/client-metadata.json',
-    'client_name': 'Bridgy Fed',
-    'client_uri': 'https://fed.brid.gy/',
-    'redirect_uris': ['https://fed.brid.gy/oauth/bluesky/finish'],
-}
+
+def oauth_client_metadata():
+    return {
+        **oauth_dropins.bluesky.CLIENT_METADATA_TEMPLATE,
+        'client_id': f'{request.host_url}oauth/bluesky/client-metadata.json',
+        'client_name': 'Bridgy Fed',
+        'client_uri': request.host_url,
+        'redirect_uris': [f'{request.host_url}oauth/bluesky/finish'],
+    }
 
 
 def chat_client(*, repo, method, **kwargs):
@@ -1303,18 +1302,22 @@ def no_oauth():
 
 
 class BlueskyOAuthStart(oauth_dropins.bluesky.OAuthStart):
-    CLIENT_METADATA = OAUTH_CLIENT_METADATA
+    @property
+    def CLIENT_METADATA(self):
+        return oauth_client_metadata()
 
 class BlueskyOAuthCallback(oauth_dropins.bluesky.OAuthCallback):
-    CLIENT_METADATA = OAUTH_CLIENT_METADATA
+    @property
+    def CLIENT_METADATA(self):
+        return oauth_client_metadata()
 
 
-@app.get(urlparse(OAUTH_CLIENT_METADATA['client_id']).path)
+@app.get('/oauth/bluesky/client-metadata.json')
 @canonicalize_request_domain(common.PROTOCOL_DOMAINS, common.PRIMARY_DOMAIN)
 @flask_util.headers(CACHE_CONTROL)
 def bluesky_oauth_client_metadata():
     """https://docs.bsky.app/docs/advanced-guides/oauth-client#client-and-server-metadata"""
-    return OAUTH_CLIENT_METADATA
+    return oauth_client_metadata()
 
 
 app.add_url_rule('/oauth/bluesky/start', view_func=BlueskyOAuthStart.as_view(
