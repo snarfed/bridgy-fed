@@ -92,13 +92,14 @@ dns_client = dns.Client(project=DNS_GCP_PROJECT)
 # "Discovery API" https://github.com/googleapis/google-api-python-client
 dns_discovery_api = googleapiclient.discovery.build('dns', 'v1')
 
-OAUTH_CLIENT_METADATA = {
-    **oauth_dropins.bluesky.CLIENT_METADATA_TEMPLATE,
-    'client_id': 'https://fed.brid.gy/oauth/bluesky/client-metadata.json',
-    'client_name': 'Bridgy Fed',
-    'client_uri': 'https://fed.brid.gy/',
-    'redirect_uris': ['https://fed.brid.gy/oauth/bluesky/finish'],
-}
+def oauth_client_metadata():
+    return {
+        **oauth_dropins.bluesky.CLIENT_METADATA_TEMPLATE,
+        'client_id': f'{request.host_url}oauth/bluesky/client-metadata.json',
+        'client_name': 'Bridgy Fed',
+        'client_uri': request.host_url,
+        'redirect_uris': [f'{request.host_url}oauth/bluesky/finish'],
+    }
 
 
 def chat_client(*, repo, method, **kwargs):
@@ -1200,18 +1201,22 @@ def no_oauth():
 
 
 class BlueskyOAuthStart(oauth_dropins.bluesky.OAuthStart):
-    CLIENT_METADATA = OAUTH_CLIENT_METADATA
+    @property
+    def CLIENT_METADATA(self):
+        return oauth_client_metadata()
 
 class BlueskyOAuthCallback(oauth_dropins.bluesky.OAuthCallback):
-    CLIENT_METADATA = OAUTH_CLIENT_METADATA
+    @property
+    def CLIENT_METADATA(self):
+        return oauth_client_metadata()
 
 
-@app.get(urlparse(OAUTH_CLIENT_METADATA['client_id']).path)
+@app.get('/oauth/bluesky/client-metadata.json')
 @canonicalize_request_domain(common.PROTOCOL_DOMAINS, common.PRIMARY_DOMAIN)
 @flask_util.headers(CACHE_CONTROL)
 def bluesky_oauth_client_metadata():
     """https://docs.bsky.app/docs/advanced-guides/oauth-client#client-and-server-metadata"""
-    return OAUTH_CLIENT_METADATA
+    return oauth_client_metadata()
 
 
 app.add_url_rule('/oauth/bluesky/start', view_func=BlueskyOAuthStart.as_view(
