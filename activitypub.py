@@ -18,6 +18,7 @@ from httpsig.requests_auth import HTTPSignatureAuth
 from httpsig.utils import parse_signature_header
 import oauth_dropins.mastodon
 import oauth_dropins.pixelfed
+import oauth_dropins.threads
 from oauth_dropins.webutil import appengine_info, flask_util, util
 from oauth_dropins.webutil.flask_util import FlashErrors, MovedPermanently
 from oauth_dropins.webutil.util import add, fragmentless, json_dumps, json_loads
@@ -1404,14 +1405,27 @@ class PixelfedStart(FlashErrors, oauth_dropins.pixelfed.Start):
 class PixelfedCallback(FlashErrors, oauth_dropins.pixelfed.Callback):
     pass
 
+class ThreadsStart(FlashErrors, oauth_dropins.threads.Start):
+    pass
+
+class ThreadsCallback(FlashErrors, oauth_dropins.threads.Callback):
+    pass
+
 
 app.add_url_rule('/oauth/mastodon/start', view_func=MastodonStart.as_view(
                      '/oauth/mastodon/start', '/oauth/mastodon/finish'),
                  methods=['POST'])
 app.add_url_rule('/oauth/mastodon/finish', view_func=MastodonCallback.as_view(
                      '/oauth/mastodon/finish', '/settings'))
+
 app.add_url_rule('/oauth/pixelfed/start', view_func=PixelfedStart.as_view(
                      '/oauth/pixelfed/start', '/oauth/pixelfed/finish'),
                  methods=['POST'])
 app.add_url_rule('/oauth/pixelfed/finish', view_func=PixelfedCallback.as_view(
                      '/oauth/pixelfed/finish', '/settings'))
+
+app.add_url_rule('/oauth/threads/start', view_func=ThreadsStart.as_view(
+                     '/oauth/threads/start', '/oauth/threads/finish'),
+                 methods=['POST'])
+app.add_url_rule('/oauth/threads/finish', view_func=ThreadsCallback.as_view(
+                     '/oauth/threads/finish', '/settings'))
