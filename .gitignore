@@ -10,4 +10,5 @@ flask_secret_key
 limited_domains
 private_notes
 service_account_creds.json
+threads_app_*
 TAGS
