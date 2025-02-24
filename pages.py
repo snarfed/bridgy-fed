@@ -1,5 +1,6 @@
 """UI pages."""
 import datetime
+from functools import wraps
 import itertools
 import logging
 import os
@@ -10,7 +11,7 @@ from flask import render_template, request
 from google.cloud.ndb import tasklets
 from google.cloud.ndb.key import Key
 from google.cloud.ndb.query import OR
-from google.cloud.ndb.model import get_multi
+from google.cloud.ndb.model import get_multi, Model
 from granary import as1, as2, atom, microformats2, rss
 import oauth_dropins
 from oauth_dropins.webutil import flask_util, logs, util
@@ -18,6 +19,8 @@ from oauth_dropins.webutil.flask_util import (
     canonicalize_request_domain,
     error,
     flash,
+    get_required_param,
+    Found,
 )
 from oauth_dropins.webutil.util import json_loads, json_dumps
 import requests
@@ -30,7 +33,7 @@ from activitypub import ActivityPub, instance_actor
 import atproto
 from atproto import ATProto, BlueskyOAuthStart
 import common
-from common import CACHE_CONTROL, DOMAIN_RE, PROTOCOL_DOMAINS
+from common import CACHE_CONTROL, DOMAIN_RE, ErrorButDoNotRetryTask, PROTOCOL_DOMAINS
 from flask_app import app
 from flask import redirect, session
 import ids
@@ -127,6 +130,31 @@ def load_user(protocol, id):
     error(f'{protocol} user {id} not found', status=404)
 
 
+def require_login(fn):
+    """Decorator that requires and loads the current request's logged in user.
+
+    Passes the userin the ``user`` kwarg, as a :class:`models.User`.
+
+    HTTP POST params:
+      key (str): url-safe ndb key
+
+    Raises:
+      :class:`werkzeug.exceptions.HTTPException` on error or redirect
+    """
+    @wraps(fn)
+    def wrapper(*args, **kwargs):
+        key = Key(urlsafe=get_required_param('key'))
+        if key not in [login_to_user_key(l) for l in get_logins()]:
+            logger.warning(f'failed login attempt for {key}')
+            raise Found('/login')
+        elif not (user := key.get()):
+            raise Found('/login')
+
+        return fn(*args, user=user, **kwargs)
+
+    return wrapper
+
+
 def get_logins():
     """Returns the user's current logged in sessions:
 
@@ -135,6 +163,30 @@ def get_logins():
     """
     logins = get_multi(oauth_dropins.get_logins())
     return sorted(logins, key=lambda l: (l.key.kind(), l.user_display_name()))
+
+
+def login_to_user_key(login):
+    """"Converts an oauth-dropins auth entity to a :model:`User` key.
+
+    Args:
+      login (oauth_dropins.models.BaseAuth)
+
+    Returns:
+      ndb.key.Key:
+    """
+    match login.site_name():
+        case 'Mastodon':
+            if login.user_json and (id := json_loads(login.user_json).get('uri')):
+                return ActivityPub(id=id).key
+            logger.warning(f'Mastodon auth entity {login.key.id()} has no user_json or uri')
+            return None
+        case 'Pixelfed':
+            user, server = login.key.id().strip('@').split('@')
+            return ActivityPub(id=f'https://{server}/users/{user}').key
+        case 'Bluesky':
+            return ATProto(id=login.key.id()).key
+        case _:
+            assert False, repr(login)
 
 
 def render(template, **vars):
@@ -177,6 +229,14 @@ def login():
     )
 
 
+@app.post('/logout')
+def logout():
+    """Logs the user out of all current login sessions."""
+    oauth_dropins.logout()
+    flash(f"OK, you're now logged out.")
+    return redirect('/', code=302)
+
+
 @app.route('/settings')
 @canonicalize_request_domain(common.PROTOCOL_DOMAINS, common.PRIMARY_DOMAIN)
 def settings():
@@ -186,31 +246,13 @@ def settings():
 
     users = []
     user_keys = []
-
     for login in get_logins():
-        proto = key = None
-        match login.site_name():
-            case 'Mastodon':
-                proto = ActivityPub
-                if login.user_json and (id := json_loads(login.user_json).get('uri')):
-                    pass
-                else:
-                    logger.warning(f'Mastodon auth entity {login.key.id()} has no user_json or uri')
-                    continue
-            case 'Pixelfed':
-                proto = ActivityPub
-                user, server = login.key.id().strip('@').split('@')
-                id = f'https://{server}/users/{user}'
-            case 'Bluesky':
-                proto = ATProto
-                id = login.key.id()
-            case _:
-                assert False, repr(login)
-
-        if logged_in_as:
-            users.append(proto.get_or_create(id, allow_opt_out=True))
+        user_key = login_to_user_key(login)
+        if user_key == logged_in_as:
+            cls = Model._lookup_model(user_key.kind())
+            users.append(cls.get_or_create(id=user_key.id(), allow_opt_out=True))
         else:
-            user_keys.append(proto(id=id).key)
+            user_keys.append(user_key)
 
     users.extend(u for u in get_multi(user_keys) if u)
     if not users:
@@ -222,12 +264,61 @@ def settings():
         USER_STATUS_DESCRIPTIONS=USER_STATUS_DESCRIPTIONS,
     )
 
-@app.post('/logout')
-def logout():
-    """Logs the user out of all current login sessions."""
-    oauth_dropins.logout()
-    flash(f"OK, you're now logged out.")
-    return redirect('/', code=302)
+
+@app.post('/settings/enable')
+@require_login
+def enable(user=None):
+    """Enables bridging for a given account.
+
+    Args:
+      user (models.User)
+    """
+    enabled = []
+
+    for proto in set(PROTOCOLS.values()):
+        if (proto and not isinstance(user, proto)
+                and proto.LABEL not in ('ui', 'web')
+                and not user.is_enabled(proto)):
+            try:
+                user.enable_protocol(proto)
+            except ErrorButDoNotRetryTask as e:
+                msg = str(e)
+                if resp := e.get_response():
+                    if resp.is_json:
+                        msg = resp.json['error']
+                flash(f"Couldn't enable bridging to {proto.PHRASE}: {msg}")
+                return redirect('/settings', code=302)
+
+            proto.bot_follow(user)
+            enabled.append(proto)
+
+    if enabled:
+        flash(f'Now bridging {user.handle_or_id()} to {",".join(p.PHRASE for p in enabled)}.')
+    else:
+        flash(f'{user.handle_or_id()} is already bridging.')
+
+    return redirect('/settings', code=302)
+
+
+@app.post('/settings/disable')
+@require_login
+def disable(user=None):
+    """Disables bridging for a given account.
+
+    Args:
+      user (models.User)
+    """
+    if not user.enabled_protocols:
+        flash(f'{user.handle_or_id()} is not currently bridging.')
+        return redirect('/settings', code=302)
+
+    enabled = list(user.enabled_protocols)
+    for proto in user.enabled_protocols:
+        user.delete(PROTOCOLS[proto])
+        user.disable_protocol(PROTOCOLS[proto])
+
+    flash(f'Disabled bridging {user.handle_or_id()} to {",".join(PROTOCOLS[p].PHRASE for p in enabled)}.')
+    return redirect('/settings', code=302)
 
 
 @app.get(f'/<any({",".join(PROTOCOLS)}):protocol>/<id>')
