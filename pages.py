@@ -50,6 +50,7 @@ from models import (
 )
 from protocol import Protocol
 from web import Web
+import webfinger
 
 # precompute this because we get a ton of requests for non-existing users
 # from weird open redirect referrers:
@@ -176,6 +177,8 @@ def login_to_user_key(login):
       ndb.key.Key:
     """
     match login.site_name():
+        case 'Bluesky':
+            return ATProto(id=login.key.id()).key
         case 'Mastodon':
             if login.user_json and (id := json_loads(login.user_json).get('uri')):
                 return ActivityPub(id=id).key
@@ -184,8 +187,13 @@ def login_to_user_key(login):
         case 'Pixelfed':
             user, server = login.key.id().strip('@').split('@')
             return ActivityPub(id=f'https://{server}/users/{user}').key
-        case 'Bluesky':
-            return ATProto(id=login.key.id()).key
+        case 'Threads':
+            username = json_loads(login.user_json).get('username')
+            handle = f'@{username}@threads.net'
+            if user := ActivityPub.query(ActivityPub.handle == handle).get():
+                return user.key
+            actor_id = webfinger.fetch_actor_url(handle)
+            return ActivityPub(id=actor_id).key
         case _:
             assert False, repr(login)
 
@@ -227,6 +235,8 @@ def login():
             '/oauth/mastodon/start', image_prefix='/oauth_dropins_static/'),
         pixelfed_button=oauth_dropins.pixelfed.Start.button_html(
             '/oauth/pixelfed/start', image_prefix='/oauth_dropins_static/'),
+        threads_button=oauth_dropins.threads.Start.button_html(
+            '/oauth/threads/start', image_prefix='/oauth_dropins_static/'),
     )
 
 
