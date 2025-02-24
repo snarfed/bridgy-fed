@@ -316,7 +316,7 @@
 <p>(However, if you're on a <a href="https://pixelfed.org/">Pixelfed</a> instance, DM the word <code>stop</code> to <code>@bsky.brid.gy@bsky.brid.gy</code> instead. <a href="https://github.com/pixelfed/pixelfed/issues/5678">Pixelfed doesn't yet send the ActivityPub Block activity</a>, so blocking won't work. Hopefully they'll fix that soon!)
 <p>If you're on the web, <a href="mailto:feedback@brid.gy">email us</a> from an address at your web site's domain to show that you own it, or you can put the text <code>#nobridge</code> in the <a href="#web-profile">profile on your home page</a> and then <a href="#update-profile">update your profile</a> on <a href="#user-page">your user page</a>.</p>
 <p>Once you've done this, Bridgy Fed will deactivate your bridged profile in that network, and it will no longer bridge any of your posts or interactions there.</p>
-<p>You can undo this later by un-blocking and re-following the bot user, but depending on the network, not everything will be perfectly restored. For example, when you disable bridging into the fediverse, the bridged fediverse account is deleted and all followers are disconnected. If you later re-enable it, fediverse users will have to search for your account by address manually to find and follow it again.</p>
+<p>You can undo this later and reactivate bridging for your account, but depending on the network, not everything will be perfectly restored. For example, when you disable bridging into the fediverse, the bridged fediverse account is deleted and all followers are disconnected. If you later re-enable it, fediverse users will have to search for your account by address manually to find and follow it again.</p>
 </li>
 
 <li id="dms" class="question">Why is Bridgy Fed chatting or DMing with me?</li>
@@ -388,7 +388,7 @@
 
 <li id="troubleshooting" class="question">I tried it, and it didn't work!</li>
 <li class="answer">
-<p>Here are a few reasons Bridgy Fed might not currently bridge your profile or posts. If any apply, fix them, then un-follow and re-follow the Bridgy Fed bot account.</p>
+<p>Here are a few reasons Bridgy Fed might not currently bridge your profile or posts. If any apply, fix them, then try bridging your account again.</p>
 <ul>
 <li>As basic spam filters, Bridgy Fed requires a couple things on your profile:
   <ul>
@@ -399,7 +399,7 @@
 <li>Bridgy Fed generally only bridges posts going forward; it doesn't backfill older posts from before you enabled it. If you want to see it bridge your posts, try a new one!
 <li>Bridgy Fed <a href="#visibility">only bridges fully public posts and replies</a>, not unlisted, quiet public, followers-only, mentioned-only, or otherwise non-public ones.
 <li>The Bridgy Fed bot account will follow you back. If your account is set to accept follows, did you accept it? If not, and if you're on the fediverse, your instance won't send Bridgy Fed your posts, so they won't get bridged.
-<li>Have you blocked the Bridgy Fed bot account? If so, that <a href="#opt-out">disables the bridge for your account</a>. Un-block it and then follow it again to re-enable the bridge.</a>
+<li>Have you blocked the Bridgy Fed bot account? If so, that <a href="#opt-out">disables the bridge for your account</a>. Un-block it and then re-enable the bridge.</a>
 <li>Bridgy Fed currently doesn't bridge posts if they're over two weeks old. This is largely because some fediverse servers, notably Mastodon, <a href="https://github.com/mastodon/mastodon/issues/4030">don't</a> <a href="https://github.com/mastodon/mastodon/issues/15912#issuecomment-1465692557">fully honor</a> <a href="https://github.com/mastodon/mastodon/issues/33747#issuecomment-2618280976">backdated posts</a> and instead serve them in feeds as if they were new.
 <li>If you're looking at your bridged account in the fediverse, Bridgy Fed only delivers your posts to fediverse instances where you have at least one follower. (This is how the fediverse works in general.)
 <li>If you're on the fediverse, your server might be blocking or limiting Bridgy Fed. Check your server's <em>About</em> page to see if <code>bsky.brid.gy</code> or <code>brid.gy</code> are in the <em>Moderated servers</em> section. If they are, you can ask your server admin to reconsider, and include a link to this page for more details.
@@ -491,7 +491,8 @@
 
 <li id="fediverse-get-started" class="question">How do I get started?</li>
 <li class="answer">
-<p>To bridge your fediverse account into Bluesky and interact with people there, search for and follow <code>@bsky.brid.gy@bsky.brid.gy</code>. That account will then follow you back. Accept its follow to make sure your fediverse posts get sent the bridge and make it into Bluesky.</p>
+<p>To bridge your fediverse account into Bluesky and interact with people there, <a href="/login">log in here</a>, then click the <em>Enable</em> button.</p>
+<p>Or, if login isn't supported for your fediverse server, search for and follow <code>@bsky.brid.gy@bsky.brid.gy</code> in the fediverse. That account will then follow you back. Accept its follow to make sure your fediverse posts get sent the bridge and make it into Bluesky.</p>
 <p>If your fediverse account is <code>@[user]@[instance]</code>, your bridged account will have the handle <code>[user].[instance].ap.brid.gy</code> in Bluesky. For example, <a href="https://indieweb.social/@snarfed">@snarfed@indieweb.social</a> is bridged into Bluesky as <a href="https://bsky.app/profile/snarfed.indieweb.social.ap.brid.gy">@snarfed.indieweb.social.ap.brid.gy</a>.</p>
 <p>If your fediverse username has <code>_</code> (underscore) or <code>~</code> (tilde) characters, they're converted to <code>-</code> (dash) characters. For example, <code>@a_b~c@my.social</code> is bridged into Bluesky as <code>@a-b-c.my.social.ap.brid.gy</code>.</p>
 <p><em>Fediverse usernames that begin or end with <code>_</code>, <code>-</code>, or <code>~</code>, or that contain any non-alphanumeric characters, ie anything other than <code>A-Z</code> <code>a-z</code> <code>0-9</code> <code>_</code> <code>-</code> <code>~</code>, are not currently supported.</em> Sorry. This may change in the future; <a href="https://github.com/snarfed/bridgy-fed/issues/982">follow this GitHub issue for details</a>.</p>
@@ -666,7 +667,7 @@ RewriteRule ^.well-known/(host-meta|webfinger).* https://fed.brid.gy/$0  [redire
 
 <li id="bluesky-get-started" class="question">How do I get started?</li>
 <li class="answer">
-<p>To bridge your Bluesky account into the fediverse and interact with people there, follow <a href="https://bsky.app/profile/ap.brid.gy">@ap.brid.gy</a> on Bluesky.</p>
+<p>To bridge your Bluesky account into the fediverse and interact with people there, <a href="/login">log in here</a>, then click the <em>Enable</em> button. Alternatively, you can bridge your account by following <a href="https://bsky.app/profile/ap.brid.gy">@ap.brid.gy</a> on Bluesky.</p>
 <p>After a few minutes, your Bluesky account will appear in the fediverse as <code>@[handle]@bsky.brid.gy</code>. For example, <a href="https://bsky.app/profile/snarfed.bsky.social">@snarfed.bsky.social</a> on Bluesky is bridged into the fediverse as <code>@snarfed.bsky.social@bsky.brid.gy</code>.</p>
 <p>Alternatively, <a href="#bluesky-follow">you can find and follow bridged fediverse accounts</a> without bridging your own account, but they won't see your posts or interactions.<p>
 </li>
