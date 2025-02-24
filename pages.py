@@ -146,10 +146,10 @@ def require_login(fn):
     def wrapper(*args, **kwargs):
         key = Key(urlsafe=get_required_param('key'))
         if key not in [login_to_user_key(l) for l in get_logins()]:
-            logger.warning(f'failed login attempt for {key}')
-            raise Found('/login')
+            logger.warning(f'not logged in for {key}')
+            raise Found(location='/login')
         elif not (user := key.get()):
-            raise Found('/login')
+            raise Found(location='/login')
 
         return fn(*args, user=user, **kwargs)
 
@@ -162,7 +162,7 @@ def get_logins():
     Returns:
       list of :class:`oauth_dropins.models.BaseAuth`
     """
-    logins = get_multi(oauth_dropins.get_logins())
+    logins = [l for l in get_multi(oauth_dropins.get_logins()) if l]
     return sorted(logins, key=lambda l: (l.key.kind(), l.user_display_name()))
 
 
@@ -243,17 +243,17 @@ def logout():
 def settings():
     """User settings page. Requires logged in session."""
     auth_entity = request.args.get('auth_entity')
-    logged_in_as = Key(urlsafe=auth_entity).id() if auth_entity else None
+    logged_in_as = Key(urlsafe=auth_entity) if auth_entity else None
 
     users = []
     user_keys = []
     for login in get_logins():
-        user_key = login_to_user_key(login)
-        if user_key == logged_in_as:
-            cls = Model._lookup_model(user_key.kind())
-            users.append(cls.get_or_create(id=user_key.id(), allow_opt_out=True))
-        else:
-            user_keys.append(user_key)
+        if user_key := login_to_user_key(login):
+            if login.key == logged_in_as:
+                cls = Model._lookup_model(user_key.kind())
+                users.append(cls.get_or_create(id=user_key.id(), allow_opt_out=True))
+            else:
+                user_keys.append(user_key)
 
     users.extend(u for u in get_multi(user_keys) if u)
     if not users:
