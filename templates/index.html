@@ -26,7 +26,11 @@
 <p>Bridgy Fed connects <a class="web" href="https://indieweb.org/">web sites</a>, the <a class="fediverse" href="https://enwp.org/fediverse">fediverse</a>, and <a class="bluesky" href="https://bsky.social/">Bluesky</a>. You can use it to make your profile on one visible in another, follow people, see their posts, and reply and like and repost them. Interactions work in both directions as much as possible. <a href="/docs">See the docs for more info.</a></p>
 </div>
 
-<div id="enter-web-site" class="row big front-dark">
+<div class="row big front-dark">
+<p>Got a <a class="fediverse" href="https://en.wikipedia.org/wiki/Fediverse">fediverse</a> account? Or a <span class="bluesky">Bluesky</span></a> account? <a href="/login">Get started here.</a></p>
+</div>
+
+<div id="enter-web-site" class="row big front-light">
 <p>Got a <span class="web">web</span> site? Enter it here to use it on the <a class="fediverse" href="https://en.wikipedia.org/wiki/Fediverse">fediverse</a> and <a class="bluesky" href="https://bsky.social/">Bluesky</a>:
 <form method="post" action="/web-site">
   <input required type="url" name="url" id="url" placeholder="example.com" />
@@ -37,25 +41,11 @@
 {{ mastodon_button }}
 </div>
 
-<div class="row big front-light">
-<p>Got a <a class="fediverse" href="https://en.wikipedia.org/wiki/Fediverse">fediverse</a> account? <a href="/docs#fediverse-get-started">Bridge it to <span class="bluesky">Bluesky</span></a> by following <span class="handle">@bsky.brid.gy@bsky.brid.gy<button class="btn btn-default btn-copy glyphicon glyphicon-duplicate" onclick="navigator.clipboard.writeText('@bsky.brid.gy@bsky.brid.gy')" title="Copy @bsky.brid.gy@bsky.brid.gy to clipboard"></button></span>. <!-- <a href="/docs#fediverse-get-started">More details.</a> --></p>
-<br>
-<p>Or, <a href="/docs#fediverse-follow-web">follow a web site</a> like <a class="handle" href="https://example.com/">example.com</a> by searching for <span class="handle">@example.com@web.brid.gy<button class="btn btn-default btn-copy glyphicon glyphicon-duplicate" onclick="navigator.clipboard.writeText('@example.com@web.brid.gy')" title="Copy @example.com@web.brid.gy to clipboard"></button></span>. <!-- <a href="/docs#fediverse-follow-web">More details.</a> --></p>
-</ul>
-</div>
-
-<div class="row big front-dark">
-<p>Got a <a class="bluesky" href="https://bsky.social/">Bluesky</a> account? <a href="/docs#bluesky-get-started">Bridge it to the <span class="fediverse">fediverse</span></a> by following <a class="handle" href="https://bsky.app/profile/ap.brid.gy">@ap.brid.gy</a>. <!-- <a href="/docs#bluesky-get-started">More details.</a> --></p>
-<br>
-<p>Or, to <a href="/docs#bluesky-follow-web">follow a web site</a> like <a class="handle" href="https://example.com/">example.com</a>, first <a href="#enter-web-site">enter it above</a>, then <a href="https://bsky.app/search">search in Bluesky</a> for <span class="handle">example.com.web.brid.gy<button class="btn btn-default btn-copy glyphicon glyphicon-duplicate" onclick="navigator.clipboard.writeText('example.com.web.brid.gy')" title="Copy example.com.web.brid.gy to clipboard"></button></span>. <!-- <a href="/docs#bluesky-follow-web">More details.</a> --></p>
-</ul>
-</div>
-
 <!-- <div class="row big front-light"> -->
 <!-- <p><a href="https://en.wikipedia.org/wiki/Nostr">Nostr</a> and <a href="https://www.farcaster.xyz/">Farcaster</a> are under consideration for the future.</p> -->
 <!-- </div> -->
 
-<div id="find-user-page" class="row big front-light">
+<div id="find-user-page" class="row big front-dark">
 <p>Already bridged? Enter your handle, user id, or domain here to find your user page:
 <form method="post" action="/user-page">
   <input required name="id" id="id" />
@@ -64,7 +54,7 @@
 </p>
 </div>
 
-<div class="row big front-dark">
+<div class="row big front-light">
 <p>Bridgy Fed is a free, non-commercial, <a href="https://github.com/snarfed/bridgy-fed">open source</a> service. <a href="https://snarfed.org/2023-11-27_re-introducing-bridgy-fed">More background here.</a> <a href="https://github.com/snarfed/bridgy-fed/issues">Bug reports, feature requests, and other feedback</a> are welcome!</a></p>
 </div>
 
