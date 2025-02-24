@@ -18,14 +18,15 @@
   {% if user.enabled_protocols and not user.status %}
     <a href="{{ user.user_page_path() }}">Currently bridging.</a>
     <!-- to {{ user.enabled_protocols|join(', ') }} -->
-    <form method="post" action="#">
+    <form method="post" action="/settings/disable"
+          onsubmit="return window.confirm('Are you sure you want to disable bridging? Disabling has effects that can\'t easily be reversed, even if you later re-enable bridging. For example, disabling removes all fediverse followers.')" />
       <input name="key" type="hidden" value="{{ user.key.urlsafe().decode() }}" />
       <input type="submit" value="Disable" class="btn btn-default disable-button" />
     </form>
 
   {% else %}
     Not bridging{% if user.status %} because {{ USER_STATUS_DESCRIPTIONS[user.status] }}{% endif %}.
-    <form method="post" action="#">
+    <form method="post" action="/settings/enable">
       <input name="key" type="hidden" value="{{ user.key.urlsafe().decode() }}" />
       <input type="submit" value="Enable" class="btn btn-default enable-button"
              {% if user.status %}disabled="true"{% endif %} />
