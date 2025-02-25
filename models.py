@@ -826,8 +826,8 @@ Welcome to Bridgy Fed! Your account will soon be bridged to {to_proto.PHRASE} at
             if copy.protocol in (proto.LABEL, proto.ABBREV):
                 return copy.uri
 
-    def user_link(self, name=True, handle=True, pictures=False, proto=None,
-                  proto_fallback=False):
+    def user_link(self, name=True, handle=True, pictures=False, logo=None,
+                  proto=None, proto_fallback=False):
         """Returns a pretty HTML link to the user's profile.
 
         Can optionally include display name, handle, profile
@@ -839,13 +839,15 @@ Welcome to Bridgy Fed! Your account will soon be bridged to {to_proto.PHRASE} at
           name (bool): include display name
           handle (bool): include handle
           pictures (bool): include profile picture and protocol logo
+          logo (str): optional path to platform logo to show instead of the
+            protocol's default
           proto (protocol.Protocol): link to this protocol instead of the user's
             native protocol
           proto_fallback (bool): if True, and ``proto`` is provided and has no
             no canonical profile URL for bridged users, uses the user's profile
             URL in their native protocol
         """
-        img = name_str = handle_str = dot = logo = a_open = a_close = ''
+        img = name_str = handle_str = dot = logo_html = a_open = a_close = ''
 
         if proto:
             assert self.is_enabled(proto), f"{proto.LABEL} isn't enabled"
@@ -855,7 +857,10 @@ Welcome to Bridgy Fed! Your account will soon be bridged to {to_proto.PHRASE} at
             url = self.web_url()
 
         if pictures:
-            logo = f'<span class="logo" title="{proto.__name__}">{proto.LOGO_HTML}</span> '
+            if logo:
+                logo_html = f'<img class="logo" src="{logo}" /> '
+            else:
+                logo_html = f'<span class="logo" title="{proto.__name__}">{proto.LOGO_HTML}</span> '
             if pic := self.profile_picture():
                 img = f'<img src="{pic}" class="profile"> '
 
@@ -873,7 +878,7 @@ Welcome to Bridgy Fed! Your account will soon be bridged to {to_proto.PHRASE} at
             a_close = '</a>'
 
         name_html = f'<span style="unicode-bidi: isolate">{ellipsize(name_str, chars=40)}</span>' if name_str else ''
-        return f'{logo}{a_open}{img}{name_html}{dot}{ellipsize(handle_str, chars=40)}{a_close}'
+        return f'{logo_html}{a_open}{img}{name_html}{dot}{ellipsize(handle_str, chars=40)}{a_close}'
 
     def profile_picture(self):
         """Returns the user's profile picture image URL, if available, or None."""
