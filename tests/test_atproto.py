@@ -40,6 +40,7 @@ from models import Follower, Object, PROTOCOLS, Target
 import protocol
 from .testutil import ATPROTO_KEY, Fake, TestCase
 from . import test_activitypub
+from . import test_web
 from web import Web
 
 
@@ -1628,6 +1629,38 @@ Sed tortor neque, aliquet quis posuere aliquam […]
                         'ref': BLOB_CID,
                         'size': 13,
                     },
+                },
+            },
+        }, repo.get_record('app.bsky.feed.post', last_tid), ignore=['facets'])
+
+    @patch.object(tasks_client, 'create_task', return_value=Task(name='my task'))
+    @patch('requests.get', side_effect=[
+        requests_response(test_web.REPLY_HTML, url='http://orig.co/post'),
+        # requests_response('blob contents', content_type='image/png'),
+    ])
+    def test_send_note_first_link_preview_embed_html_content(self, _, __):
+        user = self.make_user_and_repo()
+
+        obj = Object(id='fake:post', source_protocol='fake', our_as1={
+            **NOTE_AS,
+            'content': 'My <a href="http://orig.co/post">original</a> post',
+        })
+        self.assertTrue(ATProto.send(obj, 'https://bsky.brid.gy'))
+
+        # check repo, record
+        did = user.key.get().get_copy(ATProto)
+        repo = self.storage.load_repo(did)
+        last_tid = arroba.util.int_to_tid(arroba.util._tid_ts_last)
+        self.assert_equals({
+            **NOTE_BSKY,
+            'bridgyOriginalText': 'My <a href="http://orig.co/post">original</a> post',
+            'embed': {
+                '$type': 'app.bsky.embed.external',
+                'external': {
+                    '$type': 'app.bsky.embed.external#external',
+                    'description': 'foo ☕ bar',
+                    'title': 'foo ☕ bar',
+                    'uri': 'http://orig.co/post',
                 },
             },
         }, repo.get_record('app.bsky.feed.post', last_tid), ignore=['facets'])
