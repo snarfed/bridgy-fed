@@ -1,6 +1,9 @@
 <span class="big">
   <nobr>
-  {{ user.user_link(pictures=True)|safe }}
+  {% if logo is not defined %}
+    {% set logo = None %}
+  {% endif %}
+  {{ user.user_link(pictures=True, logo=logo)|safe }}
   <form method="post" action="{{ user.user_page_path('update-profile', prefer_id=True) }}">
     <button id="update-profile-button" type="submit" title="Update profile"
             class="btn btn-default glyphicon glyphicon-refresh"></button>
