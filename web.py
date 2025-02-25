@@ -125,7 +125,7 @@ class Web(User, Protocol):
     redirects_error = ndb.TextProperty()
     ''
     has_hcard = ndb.BooleanProperty()
-    ''
+    'Currently unused, and I think now always ends up as ``True``. TODO: remove?'
     last_webmention_in = ndb.DateTimeProperty(tzinfo=timezone.utc)
     ''
     last_polled_feed = ndb.DateTimeProperty(tzinfo=timezone.utc)

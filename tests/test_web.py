@@ -2495,8 +2495,8 @@ class WebTest(TestCase):
 
         with self.subTest(redirects=redirects, hcard=hcard, actor=actor,
                           redirects_error=redirects_error):
-            self.assert_equals(redirects, bool(self.user.has_redirects))
-            self.assert_equals(hcard, bool(self.user.has_hcard))
+            self.assert_equals(redirects, self.user.has_redirects)
+            self.assert_equals(hcard, self.user.has_hcard)
             if actor is None:
                 assert not self.user.obj or not self.user.obj.as1
             else:
@@ -2613,7 +2613,10 @@ Current vs expected:<pre>- http://this/404s
             url='https://user.com/',
         )
         mock_get.side_effect = [FULL_REDIR, bad_hcard]
-        self._test_verify(True, False, None)
+        self._test_verify(True, True, {
+            'objectType': 'person',
+            'url': 'https://user.com/',
+        })
 
     def test_verify_both_work(self, mock_get, _):
         hcard = requests_response("""
