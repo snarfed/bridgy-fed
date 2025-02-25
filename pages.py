@@ -259,17 +259,27 @@ def settings():
     auth_entity = request.args.get('auth_entity')
     logged_in_as = Key(urlsafe=auth_entity) if auth_entity else None
 
+    def site_logo(login):
+        return f'/oauth_dropins_static/{login.site_name().lower()}_icon.png'
+
     users = []
-    user_keys = []
+    logins_and_user_keys = []
     for login in get_logins():
         if user_key := login_to_user_key(login):
             if login.key == logged_in_as:
                 cls = Model._lookup_model(user_key.kind())
-                users.append(cls.get_or_create(id=user_key.id(), allow_opt_out=True))
+                user = cls.get_or_create(id=user_key.id(), allow_opt_out=True)
+                user.logo = site_logo(login)
+                users.append(user)
             else:
-                user_keys.append(user_key)
+                logins_and_user_keys.append((login, user_key))
 
-    users.extend(u for u in get_multi(user_keys) if u)
+    loaded = get_multi(key for _, key in logins_and_user_keys)
+    for (login, _), user in zip(logins_and_user_keys, loaded):
+        if user:
+            user.logo = site_logo(login)
+            users.append(user)
+
     if not users:
         return redirect('/login', code=302)
 
