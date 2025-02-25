@@ -10,6 +10,7 @@
 <p class="row big" style="text-align: center">Accounts</p>
 
 {% for user in users %}
+{% set logo = user.logo %}
 <div class="row">
   {% include 'user_with_links.html' %}
 </div>
