@@ -19,6 +19,7 @@ from oauth_dropins.webutil.flask_util import (
     canonicalize_request_domain,
     error,
     flash,
+    get_flashed_messages,
     get_required_param,
     Found,
 )
@@ -191,7 +192,11 @@ def login_to_user_key(login):
             handle = f'@{username}@threads.net'
             if user := ActivityPub.query(ActivityPub.handle == handle).get():
                 return user.key
-            actor_id = webfinger.fetch_actor_url(handle)
+            if not (actor_id := webfinger.fetch_actor_url(handle)):
+                for msg in get_flashed_messages:
+                    if 'HTTP 404' in msg:
+                        flash('You need to <a href="https://help.instagram.com/169559812696339">turn on fediverse sharing</a> first.')
+                return None
             return ActivityPub(id=actor_id).key
         case _:
             assert False, repr(login)
