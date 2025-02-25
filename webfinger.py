@@ -280,7 +280,7 @@ def fetch_actor_url(addr):
         ``https://x/y``
 
     Returns:
-      str: ActivityPub actor URL, or None on error or not fouund
+      str: ActivityPub actor URL, or None on error or not found
     """
     data = fetch(addr)
     if not data:
