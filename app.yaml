@@ -27,7 +27,7 @@ vpc_access_connector:
   name: projects/bridgy-federated/locations/us-central1/connectors/bridgy-fed
 
 env_variables:
-  PDS_HOST: fed.brid.gy
+  PDS_HOST: atproto.brid.gy
   PLC_HOST: plc.directory
   APPVIEW_HOST: api.bsky.app
   BGS_HOST: bsky.network
