@@ -227,7 +227,7 @@ class ATProto(User, Protocol):
     ''
     LOGO_HTML = '<img src="/oauth_dropins_static/bluesky.svg">'
     ''
-    PDS_URL = f'https://atproto{common.SUPERDOMAIN}/'
+    PDS_URL = f'https://atproto{common.SUPERDOMAIN}'
     """Note that PDS hostname is atproto.brid.gy here, not bsky.brid.gy. Bluesky
     team currently has our hostname as atproto.brid.gy in their federation
     test. also note that PDS URL shouldn't include trailing slash.

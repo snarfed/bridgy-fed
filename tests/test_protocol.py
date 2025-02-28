@@ -462,7 +462,7 @@ class ProtocolTest(TestCase):
         user = self.make_user(id='fake:user', cls=Fake, enabled_protocols=['atproto'])
 
         did_doc = copy.deepcopy(DID_DOC)
-        did_doc['service'][0]['serviceEndpoint'] = 'http://localhost/'
+        did_doc['service'][0]['serviceEndpoint'] = 'http://localhost'
         self.store_object(id='did:plc:foo', raw=did_doc)
 
         # store Objects so we don't try to fetch them remotely

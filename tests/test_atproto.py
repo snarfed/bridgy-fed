@@ -1396,7 +1396,7 @@ Sed tortor neque, aliquet quis posuere aliquam […]
             'services': {
                 'atproto_pds': {
                     'type': 'AtprotoPersonalDataServer',
-                    'endpoint': 'https://pds.local/',
+                    'endpoint': 'https://pds.local',
                 },
             },
             'prev': 'orig',
