@@ -1470,6 +1470,10 @@ Sed tortor neque, aliquet quis posuere aliquam […]
         repo = arroba.server.storage.load_repo('did:plc:user')
         self.assertEqual('han.dull.brid.gy', repo.handle)
 
+    def test_set_username_unchanged(self):
+        user = self.make_user_and_repo(enabled_protocols=['atproto'])
+        self.assertTrue(ATProto.set_username(user, 'han.dull.brid.gy'))
+
     @patch('google.cloud.dns.client.ManagedZone', autospec=True)
     @patch.object(tasks_client, 'create_task', return_value=Task(name='my task'))
     @patch('requests.post', return_value=requests_response('OK'))  # create DID on PLC
