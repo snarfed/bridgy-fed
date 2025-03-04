@@ -907,7 +907,7 @@ class ATProto(User, Protocol):
             ret = bluesky.from_as1(cls.translate_ids(obj.as1), blobs=blobs,
                                    aspects=aspect_ratios, client=client,
                                    original_fields_prefix='bridgy',
-                                   as_embed=obj.type == 'article')
+                                   as_embed=obj.type == 'article', raise_=True)
         except (ValueError, RequestException):
             logger.info(f"Couldn't convert to ATProto", exc_info=True)
             return {}

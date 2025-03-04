@@ -570,6 +570,14 @@ class ATProtoTest(TestCase):
             'inReplyTo': 'at://did:plc:bob/app.bsky.feed.post/tid',
         })))
 
+    @patch('requests.get', return_value=requests_response(status=404))  # getRecord
+    def test_convert_populate_cid_record_not_found(self, _):
+        self.assertEqual({}, ATProto.convert(Object(our_as1={
+            'objectType': 'activity',
+            'verb': 'share',
+            'object': 'at://did:plc:bob/app.bsky.feed.post/tid',
+        })))
+
     @patch('dns.resolver.resolve', side_effect=NXDOMAIN())
     @patch('requests.get', side_effect=[
         # appview resolveHandle
