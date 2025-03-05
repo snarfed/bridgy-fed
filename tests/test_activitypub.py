@@ -2188,6 +2188,8 @@ class ActivityPubTest(TestCase):
             'target': 'http://in.st/to',
         }, json_loads(kwargs['data']), ignore=['to', '@context'])
 
+        self.assertEqual('http://in.st/to', self.user.obj_key.get().as1['movedTo'])
+
     def test_migrate_out_bad_user_id(self, *_):
         with self.assertRaises(ValueError):
             ActivityPub.migrate_out(self.user, 'at://did:xyz')

@@ -499,8 +499,11 @@ class ActivityPub(User, Protocol):
         move.put()
         ret = user.deliver(move, from_user=user, to_proto=cls)
 
-        # TODO mark the bridged actor with movedTo
-        user.obj.as1['movedTo'] = to_user_id
+        # mark the bridged actor with movedTo
+        user.obj.our_as1 = {
+            **user.obj.as1,
+            'movedTo': to_user_id,
+        }
         user.obj.put()
 
         return ret
