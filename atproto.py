@@ -1066,8 +1066,7 @@ def send_chat(*, msg, from_repo, to_did):
     """
     assert msg['$type'] == 'chat.bsky.convo.defs#messageInput'
 
-    client = chat_client(repo=from_repo,
-                         method='chat.bsky.convo.getConvoForMembers')
+    client = chat_client(repo=from_repo, method='chat.bsky.convo.getConvoForMembers')
     try:
         convo = client.chat.bsky.convo.getConvoForMembers(members=[to_did])
     except RequestException as e:

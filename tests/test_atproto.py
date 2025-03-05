@@ -93,6 +93,28 @@ METAFORMATS_HTML = """\
 </head>
 </html>"""
 
+GET_CONVO_FOR_MEMBERS_OUTPUT = {
+    'convo': {
+        'id': 'convo123',
+        'rev': '22222222fuozt',
+        'members': [{
+            'did': 'did:plc:alice',
+            'handle': 'alice.bsky.social',
+        }, {
+            'did': 'did:plc:user',
+            'handle': 'han.dull.brid.gy',
+        }],
+        'muted': False,
+        'unreadCount': 0,
+    },
+}
+SEND_MESSAGE_OUTPUT = {  # sendMessage
+    'id': 'chat456',
+    'rev': '22222222tef2d',
+    'sender': {'did': 'did:plc:user'},
+    'text': 'hello world',
+}
+
 
 @patch('ids.COPIES_PROTOCOLS', ['atproto'])
 class ATProtoTest(TestCase):
@@ -2446,28 +2468,9 @@ Sed tortor neque, aliquet quis posuere aliquam […]
                 'Authorization': ANY,
             })
 
-    @patch('requests.post', return_value=requests_response({  # sendMessage
-        'id': 'chat456',
-        'rev': '22222222tef2d',
-        'sender': {'did': 'did:plc:user'},
-        'text': 'hello world',
-    }))
+    @patch('requests.post', return_value=requests_response(SEND_MESSAGE_OUTPUT))
     @patch('requests.get', side_effect=[
-        requests_response({  # getConvoForMembers
-            'convo': {
-                'id': 'convo123',
-                'rev': '22222222fuozt',
-                'members': [{
-                    'did': 'did:plc:alice',
-                    'handle': 'alice.bsky.social',
-                }, {
-                    'did': 'did:plc:user',
-                    'handle': 'han.dull.brid.gy',
-                }],
-                'muted': False,
-                'unreadCount': 0,
-            },
-        }),
+        requests_response(GET_CONVO_FOR_MEMBERS_OUTPUT),
         requests_response(DID_DOC),
     ])
     def test_send_dm_chat(self, mock_get, mock_post):
@@ -2502,6 +2505,41 @@ Sed tortor neque, aliquet quis posuere aliquam […]
                     'bridgyOriginalUrl': 'fake:dm',
                 },
             }, data=None, auth=None, headers=headers)
+
+    @patch('requests.post', return_value=requests_response(SEND_MESSAGE_OUTPUT))
+    @patch('requests.get', side_effect=[
+        requests_response(GET_CONVO_FOR_MEMBERS_OUTPUT),
+        requests_response(DID_DOC),
+    ])
+    def test_send_dm_chat_reply(self, mock_get, mock_post):
+        user = self.make_user_and_repo()
+
+        dm = Object(id='fake:dm', source_protocol='fake', our_as1={
+            'objectType': 'note',
+            'actor': user.key.id(),
+            'content': 'hello world',
+            # should be ignored
+            'inReplyTo': 'at://did:plc:abc/chat.bsky.convo.defs.messageView/123',
+            'to': ['did:plc:alice'],
+        })
+        self.assertTrue(ATProto.send(dm, 'https://bsky.brid.gy/'))
+
+        mock_get.assert_any_call(
+            'https://chat.local/xrpc/chat.bsky.convo.getConvoForMembers?members=did%3Aplc%3Aalice',
+            json=None, data=None, auth=None, headers=ANY)
+        mock_post.assert_called_with(
+            'https://chat.local/xrpc/chat.bsky.convo.sendMessage',
+            json={
+                'convoId': 'convo123',
+                'message': {
+                    '$type': 'chat.bsky.convo.defs#messageInput',
+                    'text': 'hello world',
+                    # unused
+                    'createdAt': '2022-01-02T03:04:05.000Z',
+                    'bridgyOriginalText': 'hello world',
+                    'bridgyOriginalUrl': 'fake:dm',
+                },
+            }, data=None, auth=None, headers=ANY)
 
     # getConvoForMembers
     @patch('requests.get', return_value=requests_response({
