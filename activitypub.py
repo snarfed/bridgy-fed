@@ -474,6 +474,9 @@ class ActivityPub(User, Protocol):
             logger.warning(msg)
             raise ValueError(msg)
 
+        user_ap_id = user.id_as(cls)
+        logger.info(f"Migrating {user.key.id()} 's bridged AP actor {user_ap_id} to {to_user_id}")
+
         if cls.owns_id(to_user_id) is False:
             _error(f"{to_user_id} doesn't look like an {cls.LABEL} id")
         elif not user.is_enabled(cls):
@@ -482,7 +485,6 @@ class ActivityPub(User, Protocol):
         # check that the destination actor has an alias to the bridged actor
         to_actor = cls.load(to_user_id, remote=True)
         aka = util.get_list(to_actor.as2, 'alsoKnownAs')
-        user_ap_id = user.id_as(cls)
         if user_ap_id not in aka:
             _error(f"{to_user_id} 's alsoKnownAs {aka} doesn't contain {user_ap_id}")
 
