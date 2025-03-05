@@ -672,7 +672,7 @@ class Protocol:
         raise NotImplementedError()
 
     @classmethod
-    def migrate_out(user, to_user_id):
+    def migrate_out(cls, user, to_user_id):
         """Migrates a bridged account out to be a native account.
 
         Args:

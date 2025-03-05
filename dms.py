@@ -1,7 +1,4 @@
-"""Protocol-independent code for sending and receiving DMs aka chat messages.
-
-TODO: make a command framework, abstract out arg parsing and handling, etc
-"""
+"""Protocol-independent code for sending and receiving DMs aka chat messages."""
 from datetime import timedelta
 import logging
 
@@ -120,6 +117,8 @@ def help_text(from_user, to_proto):
 <li><em>username [domain]</em>: set a custom domain username (handle)
 <li><em>[handle]</em>: ask me to DM a user on {to_proto.PHRASE} to request that they bridge their account into {from_user.PHRASE}
 <li><em>block [handle]</em>: block a user on {to_proto.PHRASE} who's not bridged here
+<li><em>unblock [handle]</em>: unblock a user on {to_proto.PHRASE} who's not bridged here
+<li><em>migrate-to [handle]</em>: migrate your bridged account on {to_proto.PHRASE} out of Bridgy Fed to a native account
 {extra}
 <li><em>help</em>: print this message
 </ul>"""
@@ -193,6 +192,16 @@ def unblock(from_user, to_proto, arg, to_user):
     obj.put()
     from_user.deliver(obj, from_user=from_user)
     return f"""OK, you're not blocking {to_user.user_link()} on {to_proto.PHRASE}."""
+
+
+@command(['migrate-to'], arg='handle', user_bridged=True)
+def migrate_to(from_user, to_proto, arg, to_user):
+    try:
+        to_proto.migrate_out(from_user, to_user.key.id())
+    except ValueError as e:
+        return str(e)
+
+    return f"OK, we'll migrate your bridged account on {to_proto.PHRASE} to {to_user.user_link()}."
 
 
 @command(None, arg='handle', user_bridged=True)  # no command, just the handle, alone

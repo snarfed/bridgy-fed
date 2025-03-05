@@ -24,7 +24,7 @@ DM_ALICE_REQUESTS_BOB = {
     **DM_BASE,
     'content': ' other:handle:bob ',
 }
-ALICE_REQUEST_CONFIRMATION_CONTENT = """Got it! We'll send <a class="h-card u-author" rel="me" href="web:other:bob" title="other:handle:bob">other:handle:bob</a> a message and say that you hope they'll enable the bridge. Fingers crossed!"""
+ALICE_REQUEST_CONFIRMATION = """Got it! We'll send <a class="h-card u-author" rel="me" href="web:other:bob" title="other:handle:bob">other:handle:bob</a> a message and say that you hope they'll enable the bridge. Fingers crossed!"""
 ALICE_REQUEST_CONTENT = """\
 <p>Hi! <a class="h-card u-author" rel="me" href="web:other:efake:alice" title="efake:handle:alice &middot; other:handle:efake:handle:alice"><span style="unicode-bidi: isolate">efake:handle:alice</span> &middot; other:handle:efake:handle:alice</a> is using Bridgy Fed to bridge their account from efake-phrase into other-phrase, and they'd like to follow you. You can bridge your account into efake-phrase by following this account. <a href="https://fed.brid.gy/docs">See the docs</a> for more information.
 <p>If you do nothing, your account won't be bridged, and users on efake-phrase won't be able to see or interact with you.
@@ -34,20 +34,25 @@ DM_ALICE_SET_USERNAME_OTHER = {
     **DM_BASE,
     'content': 'username new-handle',
 }
-ALICE_USERNAME_CONFIRMATION_CONTENT = 'Your username in other-phrase has been set to <a class="h-card u-author" rel="me" href="web:other:efake:alice" title="other:handle:efake:handle:alice">other:handle:efake:handle:alice</a>. It should appear soon!'
+ALICE_USERNAME_CONFIRMATION = 'Your username in other-phrase has been set to <a class="h-card u-author" rel="me" href="web:other:efake:alice" title="other:handle:efake:handle:alice">other:handle:efake:handle:alice</a>. It should appear soon!'
 
 DM_ALICE_BLOCK_BOB = {
     **DM_BASE,
     'content': 'block other:handle:bob',
 }
-ALICE_BLOCK_CONFIRMATION_CONTENT = """OK, you're now blocking <a class="h-card u-author" rel="me" href="web:other:bob" title="other:handle:bob">other:handle:bob</a> on other-phrase."""
+ALICE_BLOCK_CONFIRMATION = """OK, you're now blocking <a class="h-card u-author" rel="me" href="web:other:bob" title="other:handle:bob">other:handle:bob</a> on other-phrase."""
 
 DM_ALICE_UNBLOCK_BOB = {
     **DM_BASE,
     'content': 'unblock other:handle:bob',
 }
-ALICE_UNBLOCK_CONFIRMATION_CONTENT = """OK, you're not blocking <a class="h-card u-author" rel="me" href="web:other:bob" title="other:handle:bob">other:handle:bob</a> on other-phrase."""
+ALICE_UNBLOCK_CONFIRMATION = """OK, you're not blocking <a class="h-card u-author" rel="me" href="web:other:bob" title="other:handle:bob">other:handle:bob</a> on other-phrase."""
 
+DM_ALICE_MIGRATE = {
+    **DM_BASE,
+    'content': 'migrate-to other:handle:new-alice',
+}
+ALICE_MIGRATE_CONFIRMATION = """OK, we'll migrate your bridged account on other-phrase to <a class="h-card u-author" rel="me" href="web:other:new-alice" title="other:handle:new-alice">other:handle:new-alice</a>."""
 
 @mock.patch.object(Fake, 'SUPPORTS_DMS', True)
 class DmsTest(TestCase):
@@ -239,7 +244,7 @@ class DmsTest(TestCase):
         obj = Object(our_as1=DM_ALICE_REQUESTS_BOB)
         self.assertEqual(('OK', 200), receive(from_user=alice, obj=obj))
 
-        self.assert_replied(OtherFake, alice, '?', ALICE_REQUEST_CONFIRMATION_CONTENT)
+        self.assert_replied(OtherFake, alice, '?', ALICE_REQUEST_CONFIRMATION)
         self.assert_sent(ExplicitFake, bob, 'request_bridging',
                          ALICE_REQUEST_CONTENT)
 
@@ -251,7 +256,7 @@ class DmsTest(TestCase):
             'content': '@other:handle:bob',
         })
         self.assertEqual(('OK', 200), receive(from_user=alice, obj=obj))
-        self.assert_replied(OtherFake, alice, '?', ALICE_REQUEST_CONFIRMATION_CONTENT)
+        self.assert_replied(OtherFake, alice, '?', ALICE_REQUEST_CONFIRMATION)
         self.assert_sent(ExplicitFake, bob, 'request_bridging',
                          ALICE_REQUEST_CONTENT)
 
@@ -263,7 +268,7 @@ class DmsTest(TestCase):
             'content': '<a href="http://bob">@other:handle:bob</a>',
         })
         self.assertEqual(('OK', 200), receive(from_user=alice, obj=obj))
-        self.assert_replied(OtherFake, alice, '?', ALICE_REQUEST_CONFIRMATION_CONTENT)
+        self.assert_replied(OtherFake, alice, '?', ALICE_REQUEST_CONFIRMATION)
         self.assert_sent(ExplicitFake, bob, 'request_bridging',
                          ALICE_REQUEST_CONTENT)
 
@@ -275,7 +280,7 @@ class DmsTest(TestCase):
             'content': '<a href="https://other.brid.gy/other.brid.gy">@other.brid.gy</a> other:handle:bob',
         })
         self.assertEqual(('OK', 200), receive(from_user=alice, obj=obj))
-        self.assert_replied(OtherFake, alice, '?', ALICE_REQUEST_CONFIRMATION_CONTENT)
+        self.assert_replied(OtherFake, alice, '?', ALICE_REQUEST_CONFIRMATION)
         self.assert_sent(ExplicitFake, bob, 'request_bridging', ALICE_REQUEST_CONTENT)
 
     def test_receive_prompt_strip_mention_of_bot_newline(self):
@@ -286,7 +291,7 @@ class DmsTest(TestCase):
             'content': '<p><a href="https://other.brid.gy/other.brid.gy">@other.brid.gy</a></p><p>other:handle:bob</p>',
         })
         self.assertEqual(('OK', 200), receive(from_user=alice, obj=obj))
-        self.assert_replied(OtherFake, alice, '?', ALICE_REQUEST_CONFIRMATION_CONTENT)
+        self.assert_replied(OtherFake, alice, '?', ALICE_REQUEST_CONFIRMATION)
         self.assert_sent(ExplicitFake, bob, 'request_bridging', ALICE_REQUEST_CONTENT)
 
     def test_receive_prompt_fetch_user(self):
@@ -298,7 +303,7 @@ class DmsTest(TestCase):
 
         obj = Object(our_as1=DM_ALICE_REQUESTS_BOB)
         self.assertEqual(('OK', 200), receive(from_user=alice, obj=obj))
-        self.assert_replied(OtherFake, alice, '?', ALICE_REQUEST_CONFIRMATION_CONTENT)
+        self.assert_replied(OtherFake, alice, '?', ALICE_REQUEST_CONFIRMATION)
         self.assert_sent(ExplicitFake, OtherFake(id='other:bob'),
                          'request_bridging', ALICE_REQUEST_CONTENT)
         self.assertEqual(['other:bob'], OtherFake.fetched)
@@ -409,7 +414,7 @@ class DmsTest(TestCase):
 
         obj = Object(our_as1=DM_ALICE_SET_USERNAME_OTHER)
         self.assertEqual(('OK', 200), receive(from_user=alice, obj=obj))
-        self.assert_replied(OtherFake, alice, '?', ALICE_USERNAME_CONFIRMATION_CONTENT)
+        self.assert_replied(OtherFake, alice, '?', ALICE_USERNAME_CONFIRMATION)
         self.assertEqual({'efake:alice': 'new-handle'}, OtherFake.usernames)
 
     def test_receive_username_no_arg(self):
@@ -505,7 +510,7 @@ class DmsTest(TestCase):
         obj = Object(our_as1=DM_ALICE_BLOCK_BOB)
         self.assertEqual(('OK', 200), receive(from_user=alice, obj=obj))
 
-        self.assert_replied(OtherFake, alice, '?', ALICE_BLOCK_CONFIRMATION_CONTENT)
+        self.assert_replied(OtherFake, alice, '?', ALICE_BLOCK_CONFIRMATION)
 
         block_as1 = {
             'objectType': 'activity',
@@ -528,7 +533,7 @@ class DmsTest(TestCase):
         })
         self.assertEqual(('OK', 200), receive(from_user=alice, obj=obj))
 
-        self.assert_replied(OtherFake, alice, '?', ALICE_BLOCK_CONFIRMATION_CONTENT)
+        self.assert_replied(OtherFake, alice, '?', ALICE_BLOCK_CONFIRMATION)
         self.assertEqual([('other:bob:target', {
             'objectType': 'activity',
             'verb': 'block',
@@ -543,7 +548,7 @@ class DmsTest(TestCase):
         obj = Object(our_as1=DM_ALICE_UNBLOCK_BOB)
         self.assertEqual(('OK', 200), receive(from_user=alice, obj=obj))
 
-        self.assert_replied(OtherFake, alice, '?', ALICE_UNBLOCK_CONFIRMATION_CONTENT)
+        self.assert_replied(OtherFake, alice, '?', ALICE_UNBLOCK_CONFIRMATION)
 
         unblock_as1 = {
             'objectType': 'activity',
@@ -561,3 +566,12 @@ class DmsTest(TestCase):
                            our_as1=unblock_as1, source_protocol='efake',
                            ignore=['copies'])
         self.assertEqual([('other:bob:target', unblock_as1)], OtherFake.sent)
+
+    def test_receive_migrate_to(self):
+        alice, bob = self.make_alice_bob()
+        OtherFake.fetchable = {'other:new-alice': {'url': 'http://new/alice'}}
+
+        obj = Object(our_as1=DM_ALICE_MIGRATE)
+        self.assertEqual(('OK', 200), receive(from_user=alice, obj=obj))
+        self.assert_replied(OtherFake, alice, '?', ALICE_MIGRATE_CONFIRMATION)
+        self.assertEqual([(alice, 'other:new-alice')], OtherFake.migrated_out)

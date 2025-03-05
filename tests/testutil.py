@@ -93,6 +93,9 @@ class Fake(User, protocol.Protocol):
     fetched = []
     created_for = []
 
+    # in-order list of (user, to user id)
+    migrated_out = []
+
     # maps str user id to str username
     usernames = {}
 
@@ -127,6 +130,10 @@ class Fake(User, protocol.Protocol):
                 id=user.profile_id(), from_=user, to=cls)
             user.obj.add('copies', Target(uri=profile_copy_id, protocol=cls.LABEL))
             user.obj.put()
+
+    @classmethod
+    def migrate_out(cls, user, to_user_id):
+        cls.migrated_out.append((user, to_user_id))
 
     @classmethod
     def owns_id(cls, id):
@@ -318,6 +325,7 @@ class TestCase(unittest.TestCase, testutil.Asserts):
             cls.sent = []
             cls.fetched = []
             cls.created_for = []
+            cls.migrated_out = []
             cls.usernames = {}
 
         # make random test data deterministic
