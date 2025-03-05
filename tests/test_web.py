@@ -188,7 +188,7 @@ TOOT_HTML = requests_response("""\
 </html>
 """, url='https://mas.to/toot')
 TOOT_AS2_DATA = {
-    '@context': ['https://www.w3.org/ns/activitystreams'],
+    '@context': as2.CONTEXT,
     'type': 'Article',
     'id': 'https://mas.to/toot/id',
     'content': 'Lots of ☕ words...',
@@ -314,7 +314,7 @@ FOLLOW = requests_response(FOLLOW_HTML, url='https://user.com/follow')
 FOLLOW_MF2 = util.parse_mf2(FOLLOW_HTML)['items'][0]
 FOLLOW_AS1 = microformats2.json_to_object(FOLLOW_MF2)
 FOLLOW_AS2 = {
-    '@context': ['https://www.w3.org/ns/activitystreams'],
+    '@context': as2.CONTEXT,
     'type': 'Follow',
     'id': 'http://localhost/r/https://user.com/follow',
     'object': 'https://mas.to/mrs-foo',
@@ -1082,7 +1082,7 @@ class WebTest(TestCase):
 
         inboxes = ['https://inbox', 'https://public/inbox', 'https://shared/inbox']
         self.assert_ap_deliveries(mock_post, inboxes, {
-            '@context': ['https://www.w3.org/ns/activitystreams'],
+            '@context': as2.CONTEXT,
             'type': 'Announce',
             'id': 'http://localhost/r/https://user.com/multiple',
             'actor': 'http://localhost/user.com',
@@ -1388,8 +1388,7 @@ class WebTest(TestCase):
                                  )
 
         to = self.assert_user(ActivityPub, 'https://mas.to/mrs-foo', obj_as2={
-            '@context': [
-                'https://www.w3.org/ns/activitystreams',
+            '@context': as2.CONTEXT + [
                 as2.DISCOVERABLE_INDEXABLE_CONTEXT,
                 as2.PROPERTY_VALUE_CONTEXT,
             ],
@@ -1735,8 +1734,7 @@ class WebTest(TestCase):
         # updated Web user
         ndb.context.get_context().cache.clear()
         expected_actor_as2 = {
-            '@context': [
-                'https://www.w3.org/ns/activitystreams',
+            '@context': as2.CONTEXT + [
                 as2.DISCOVERABLE_INDEXABLE_CONTEXT,
                 as2.PROPERTY_VALUE_CONTEXT,
             ],

@@ -414,7 +414,7 @@ class ActivityPub(User, Protocol):
         if obj.as2:
             return {
                 # add back @context since we strip it when we store Objects
-                '@context': [as2.CONTEXT, SECURITY_CONTEXT],
+                '@context': as2.CONTEXT + [SECURITY_CONTEXT],
                 **obj.as2,
             }
 
@@ -1071,7 +1071,7 @@ def actor(handle_or_id):
         raise MovedPermanently(location=id)
 
     actor = ActivityPub.convert(user.obj, from_user=user) or {
-        '@context': [as2.CONTEXT],
+        '@context': as2.CONTEXT,
         'type': 'Person',
     }
     actor = postprocess_as2_actor(actor, user=user)

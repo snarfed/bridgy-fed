@@ -206,7 +206,7 @@ class ConvertTest(testutil.TestCase):
         self.assertEqual(200, resp.status_code)
         self.assertEqual(ActivityPub.CONTENT_TYPE, resp.content_type)
         self.assertEqual({
-            '@context': ['https://www.w3.org/ns/activitystreams'],
+            '@context': as2.CONTEXT,
             'id': 'https://fa.brid.gy/convert/ap/fake:post',
             'actor': 'https://fa.brid.gy/ap/fake:alice',
             'foo': 'bar',

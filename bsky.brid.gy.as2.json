@@ -1,6 +1,7 @@
 {
   "@context": [
     "https://www.w3.org/ns/activitystreams",
+    "https://purl.archive.org/miscellany",
     "https://w3id.org/security/v1",
     {"alsoKnownAs": {"@id": "as:alsoKnownAs", "@type": "@id"}}
   ],
