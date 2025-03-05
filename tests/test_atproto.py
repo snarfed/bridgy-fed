@@ -1748,7 +1748,7 @@ Sed tortor neque, aliquet quis posuere aliquam […]
         requests_response('blob contents', content_type='image/png'),
     ])
     @patch.dict(
-        bluesky.LEXRPC_TRUNCATE.defs['app.bsky.feed.post']['record']['properties']['text'],
+        bluesky.LEXRPC.defs['app.bsky.feed.post']['record']['properties']['text'],
         maxGraphemes=16)
     def test_send_note_truncated_original_post_embed_overrides_first_link_preview(
             self, _, __):
