@@ -113,7 +113,7 @@ class ActivityPub(User, Protocol):
         + tuple(as1.POST_TYPES)
         + tuple(as1.CRUD_VERBS)
         + tuple(as1.VERBS_WITH_OBJECT)
-        + ('audio', 'bookmark', 'image', 'video')
+        + ('audio', 'bookmark', 'image', 'move', 'video')
     )
     ''
     SUPPORTED_AS2_TYPES = tuple(
@@ -454,6 +454,56 @@ class ActivityPub(User, Protocol):
 
         # convert!
         return postprocess_as2(converted, orig_obj=orig_obj)
+
+    @classmethod
+    def migrate_out(cls, user, to_user_id):
+        """Migrates a bridged account out to be a native account.
+
+        * https://www.manton.org/2022/12/02/moving-from-mastodon.html
+        * https://docs.joinmastodon.org/user/moving/#migration
+        * https://www.w3.org/TR/activitystreams-vocabulary/#dfn-move
+
+        Args:
+          user (models.User)
+          to_user_id (str)
+
+        Raises:
+          ValueError: eg if ``ActivityPub`` doesn't own ``to_user_id``
+        """
+        def _error(msg):
+            logger.warning(msg)
+            raise ValueError(msg)
+
+        if cls.owns_id(to_user_id) is False:
+            _error(f"{to_user_id} doesn't look like an {cls.LABEL} id")
+        elif not user.is_enabled(cls):
+            _error(f"{user.handle_or_id()} isn't currently bridged to {cls.PHRASE}")
+
+        # check that the destination actor has an alias to the bridged actor
+        to_actor = cls.load(to_user_id, remote=True)
+        aka = util.get_list(to_actor.as2, 'alsoKnownAs')
+        user_ap_id = user.id_as(cls)
+        if user_ap_id not in aka:
+            _error(f"{to_user_id} 's alsoKnownAs {aka} doesn't contain {user_ap_id}")
+
+        # send a Move activity to all followers' inboxes
+        id = f'{user_ap_id}#move-{to_user_id}'
+        move = Object(id=id, as2={
+            'type': 'Move',
+            'id': id,
+            'actor': user_ap_id,
+            'object': user_ap_id,
+            'target': to_user_id,
+            'to': [as2.PUBLIC_AUDIENCE],
+        })
+        move.put()
+        ret = user.deliver(move, from_user=user, to_proto=cls)
+
+        # TODO mark the bridged actor with movedTo
+        user.obj.as1['movedTo'] = to_user_id
+        user.obj.put()
+
+        return ret
 
     @classmethod
     def verify_signature(cls, activity):

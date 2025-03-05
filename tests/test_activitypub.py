@@ -2176,6 +2176,50 @@ class ActivityPubTest(TestCase):
                                base_url='https://efake.brid.gy')
         self.assertEqual(404, resp.status_code)
 
+    def test_migrate_out(self, _, mock_get, mock_post):
+        mock_get.return_value = self.as2_resp({
+            **ACTOR,
+            'alsoKnownAs': ['http://localhost/user.com'],
+        })
+        mock_post.return_value = requests_response()
+
+        self.store_followers()
+        ActivityPub.migrate_out(self.user, 'http://in.st/to')
+
+        self.assertEqual(1, len(mock_post.call_args_list))
+        args, kwargs = mock_post.call_args_list[0]
+        self.assert_equals(('http://mas.to/inbox',), args)
+        self.assert_equals({
+            'type': 'Move',
+            'id': 'http://localhost/user.com#move-http://in.st/to',
+            'actor': 'http://localhost/user.com',
+            'object': 'http://localhost/user.com',
+            'target': 'http://in.st/to',
+        }, json_loads(kwargs['data']), ignore=['to', '@context'])
+
+    def test_migrate_out_bad_user_id(self, *_):
+        with self.assertRaises(ValueError):
+            ActivityPub.migrate_out(self.user, 'at://did:xyz')
+
+    def test_migrate_out_user_not_enabled(self, *_):
+        eve = self.make_user('efake:eve', cls=ExplicitFake)
+        with self.assertRaises(ValueError):
+            ActivityPub.migrate_out(eve, 'https://in.st/eve')
+
+    def test_migrate_out_no_alias_in_to_actor(self, _, mock_get, __):
+        mock_get.return_value = self.as2_resp(ACTOR)
+
+        with self.assertRaises(ValueError):
+            ActivityPub.migrate_out(self.user, 'http://in.st/to')
+
+        mock_get.return_value = self.as2_resp({
+            **ACTOR,
+            'alsoKnownAs': ['oth', 'er'],
+        })
+
+        with self.assertRaises(ValueError):
+            ActivityPub.migrate_out(self.user, 'http://in.st/to')
+
 
 class ActivityPubUtilsTest(TestCase):
     def setUp(self):

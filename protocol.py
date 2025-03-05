@@ -672,6 +672,19 @@ class Protocol:
         raise NotImplementedError()
 
     @classmethod
+    def migrate_out(user, to_user_id):
+        """Migrates a bridged account out to be a native account.
+
+        Args:
+          user (models.User)
+          to_user_id (str)
+
+        Raises:
+          ValueError: eg if this protocol doesn't own ``to_user_id``
+        """
+        raise NotImplementedError()
+
+    @classmethod
     def target_for(cls, obj, shared=False):
         """Returns an :class:`Object`'s delivery target (endpoint).
 
@@ -1521,7 +1534,7 @@ Hi! You <a href="{inner_obj_as1.get('url') or inner_obj_id}">recently replied</a
             return targets
 
         followers = []
-        if (obj.type in ('post', 'update', 'delete', 'share', 'undo')
+        if (obj.type in ('post', 'update', 'delete', 'move', 'share', 'undo')
                 and (not is_reply or is_self_reply)):
             logger.info(f'Delivering to followers of {user_key}')
             followers = [
