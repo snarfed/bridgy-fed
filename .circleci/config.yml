@@ -30,7 +30,7 @@ jobs:
             echo "deb [signed-by=/usr/share/keyrings/cloud.google.gpg] https://packages.cloud.google.com/apt cloud-sdk main" | sudo tee -a /etc/apt/sources.list.d/google-cloud-sdk.list
             curl https://packages.cloud.google.com/apt/doc/apt-key.gpg | sudo apt-key --keyring /usr/share/keyrings/cloud.google.gpg add -
             sudo apt-get update
-            sudo apt-get install -y apt-transport-https ca-certificates gnupg google-cloud-sdk pkg-config
+            sudo apt-get install -y apt-transport-https ca-certificates gnupg google-cloud-sdk pkg-config oauth2l
 
       - run:
           name: Base dependencies for tests
@@ -81,8 +81,17 @@ jobs:
               service='<< pipeline.parameters.service >>'
               gcloud='gcloud -q app deploy --project bridgy-federated'
               if [[ $service == 'default' ]]; then
-                $gcloud index.yaml queue.yaml router.yaml
+                # deploy router with min_num_instances equal to the current
+                # autoscaled number, then afterward drop it back down to 1
+                # https://github.com/snarfed/bridgy-fed/issues/1771
+                ver=`gcloud app versions list --hide-no-traffic --service=router --format='value(id)'`
+                instances=`gcloud app instances list --service=router --version=$ver --format='value(id)' |wc -l`
+                sed -E "s/min_num_instances: [0-9]+/min_num_instances: ${instances}/" < router.yaml > router.provisioned.yaml
+                $gcloud index.yaml queue.yaml router.provisioned.yaml
+                oauth2l curl --scope=cloud-platform --credentials=./service_account_creds.json --url "https://appengine.googleapis.com/v1/apps/bridgy-federated/services/router/versions/${ver}?updateMask=automaticScaling.minTotalInstances" -- -X PATCH --json '{"automaticScaling": {"minTotalInstances": 1}, "env": "flexible"}'
+
                 $gcloud --no-cache app.yaml
+
               else
                 $gcloud atproto_hub.yaml
               fi
