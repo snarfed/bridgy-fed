@@ -30,7 +30,7 @@ jobs:
             echo "deb [signed-by=/usr/share/keyrings/cloud.google.gpg] https://packages.cloud.google.com/apt cloud-sdk main" | sudo tee -a /etc/apt/sources.list.d/google-cloud-sdk.list
             curl https://packages.cloud.google.com/apt/doc/apt-key.gpg | sudo apt-key --keyring /usr/share/keyrings/cloud.google.gpg add -
             sudo apt-get update
-            sudo apt-get install -y apt-transport-https ca-certificates gnupg google-cloud-sdk pkg-config oauth2l
+            sudo apt-get install -y apt-transport-https ca-certificates gnupg google-cloud-sdk pkg-config
 
       - run:
           name: Base dependencies for tests
@@ -76,24 +76,31 @@ jobs:
             # GitHub users who don't have Circle accounts, like dependabot.
             if [[ $CIRCLE_BRANCH == "main" && $CIRCLE_USERNAME != "" ]]; then
               echo $FLASK_SECRET_KEY > flask_secret_key
-              echo $GCLOUD_SERVICE_KEY | gcloud auth activate-service-account --key-file=-
+              echo $GCLOUD_SERVICE_KEY > /tmp/service_account_creds.json
+              echo $GCLOUD_SERVICE_KEY | gcloud auth activate-service-account --key-file=/tmp/service_account_creds.json
 
               service='<< pipeline.parameters.service >>'
-              gcloud='gcloud -q app deploy --project bridgy-federated'
+              gcloud config set project bridgy-federated
+
               if [[ $service == 'default' ]]; then
+                cd /tmp
+                curl https://storage.googleapis.com/oauth2l/latest/linux_amd64.tgz | tar xz
+                cd -
+
                 # deploy router with min_num_instances equal to the current
                 # autoscaled number, then afterward drop it back down to 1
                 # https://github.com/snarfed/bridgy-fed/issues/1771
                 ver=`gcloud app versions list --hide-no-traffic --service=router --format='value(id)'`
                 instances=`gcloud app instances list --service=router --version=$ver --format='value(id)' |wc -l`
                 sed -E "s/min_num_instances: [0-9]+/min_num_instances: ${instances}/" < router.yaml > router.provisioned.yaml
-                $gcloud index.yaml queue.yaml router.provisioned.yaml
-                oauth2l curl --scope=cloud-platform --credentials=./service_account_creds.json --url "https://appengine.googleapis.com/v1/apps/bridgy-federated/services/router/versions/${ver}?updateMask=automaticScaling.minTotalInstances" -- -X PATCH --json '{"automaticScaling": {"minTotalInstances": 1}, "env": "flexible"}'
+                gcloud -q app deploy index.yaml queue.yaml router.provisioned.yaml
 
-                $gcloud --no-cache app.yaml
+                /tmp/linux_amd64/oauth2l curl --scope=cloud-platform --credentials=/tmp/service_account_creds.json --url "https://appengine.googleapis.com/v1/apps/bridgy-federated/services/router/versions/${ver}?updateMask=automaticScaling.minTotalInstances" -- -X PATCH --data '{"automaticScaling": {"minTotalInstances": 1}, "env": "flexible"}' -H 'Content-Type: application/json'
+
+                gcloud -q app deploy --no-cache app.yaml
 
               else
-                $gcloud atproto_hub.yaml
+                gcloud -q app deploy  atproto_hub.yaml
               fi
             fi
 
