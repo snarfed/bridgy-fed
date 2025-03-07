@@ -487,6 +487,28 @@ class DmsTest(TestCase):
                 self.assertEqual(('OK', 200), receive(from_user=alice, obj=obj))
                 self.assert_replied(OtherFake, alice, '?', "<p>Hi! I'm a friendly bot")
 
+    def test_receive_help_atproto_plain_text(self):
+        self.store_object(id='did:plc:123', raw=DID_DOC)
+        self.store_object(id='did:plc:999', raw=DID_DOC)
+
+        self.make_user(id='other.brid.gy', cls=Web, enabled_protocols=['atproto'],
+                       copies=[Target(protocol='atproto', uri='did:plc:999')])
+        alice = self.make_user(id='did:plc:123', cls=ATProto, obj_bsky={
+            '$type': 'app.bsky.actor.profile',
+            'displayName': 'alice'
+        })
+        obj = Object(our_as1={
+            'objectType': 'note',
+            'id': 'at://did:plc:123/msg/abc',
+            'actor': 'did:plc:123',
+            'content': 'help',
+            'to': ['other.brid.gy'],
+        })
+        self.assertEqual(('OK', 200), receive(from_user=alice, obj=obj))
+
+        reply = Object.get_by_id('https://other.brid.gy/#bridgy-fed-dm-?-did:plc:123-2022-01-02T03:04:05+00:00')
+        self.assertIn('start: enable bridging for your account', reply.as1['content'])
+
     def test_receive_did_atproto(self):
         for content in 'did', 'did foo':
             ExplicitFake.sent = []

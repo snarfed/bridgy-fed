@@ -50,7 +50,6 @@ def command(names, arg=False, user_bridged=None, handle_bridged=None):
 
     The decorated function returns:
       str: text to reply to the user in a DM, if any
-
     """
     assert arg in (False, True, 'handle'), arg
     if handle_bridged is not None:
@@ -113,7 +112,8 @@ def help_text(from_user, to_proto):
     extra = ''
     if to_proto.LABEL == 'atproto':
         extra = """<li><em>did</em>: get your bridged Bluesky account's <a href="https://atproto.com/guides/identity#identifiers">DID</a>"""
-    return f"""\
+
+    text = f"""\
 <p>Hi! I'm a friendly bot that can help you bridge your account into {to_proto.PHRASE}. Here are some commands I respond to:</p>
 <ul>
 <li><em>start</em>: enable bridging for your account
@@ -127,6 +127,10 @@ def help_text(from_user, to_proto):
 <li><em>help</em>: print this message
 </ul>"""
 
+    if from_user.LABEL == 'atproto':
+        text = source.html_to_text(text, ignore_emphasis=True)
+
+    return text
 
 @command(['?', 'help', 'commands', 'info', 'hi', 'hello'])
 def help(from_user, to_proto):
