@@ -34,6 +34,8 @@ def command(names, arg=False, user_bridged=None, handle_bridged=None):
         protocol for a user that must not already be bridged.
       user_bridged (bool): whether the user sending the DM should be
         bridged. ``True`` for yes, ``False`` for no, ``None` for either.
+      handle_bridged (bool): whether the handle arg should be bridged. ``True``
+        for yes, ``False`` for no, ``None` for either.
 
     The decorated function should have the signature:
       (from_user, to_proto, arg=None, to_user=None) => (str, None)
@@ -48,9 +50,10 @@ def command(names, arg=False, user_bridged=None, handle_bridged=None):
 
     The decorated function returns:
       str: text to reply to the user in a DM, if any
+
     """
     assert arg in (False, True, 'handle'), arg
-    if handle_bridged:
+    if handle_bridged is not None:
         assert arg == 'handle', arg
 
     def decorator(fn):
@@ -69,8 +72,9 @@ def command(names, arg=False, user_bridged=None, handle_bridged=None):
                 from_proto = from_user.__class__
                 if not to_user:
                     return reply(f"Couldn't find user {cmd_arg} on {to_proto.PHRASE}")
-                elif to_user.is_enabled(from_proto):
-                    return reply(f'{to_user.user_link(proto=from_proto)} is already bridged into {from_proto.PHRASE}.')
+                elif (handle_bridged is not None
+                      and handle_bridged != to_user.is_enabled(from_proto)):
+                    return reply(f'{to_user.user_link(proto=from_proto)} is {"not" if handle_bridged else "already"} bridged into {from_proto.PHRASE}.')
 
             from_user_enabled = from_user.is_enabled(to_proto)
             if user_bridged is True and not from_user_enabled:
