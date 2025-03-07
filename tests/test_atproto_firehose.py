@@ -6,7 +6,7 @@ from unittest.mock import patch
 
 from arroba.datastore_storage import AtpRepo
 import arroba.util
-from carbox import read_car, write_car
+from carbox import write_car
 from carbox.car import Block
 import dag_cbor
 from google.cloud import ndb
