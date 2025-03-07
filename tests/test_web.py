@@ -3212,6 +3212,12 @@ class WebUtilTest(TestCase):
         self.assertIsNone(obj.as1)
         self.assertIsNone(Object.get_by_id('x y z'))
 
+    def test_fetch_bad_url(self, mock_get, __):
+        obj = Object(id='http://a[b]')
+        self.assertFalse(Web.fetch(obj))
+        self.assertIsNone(obj.as1)
+        self.assertIsNone(Object.get_by_id('http://a[b]'))
+
     def test_fetch_no_mf2(self, mock_get, __):
         mock_get.return_value = requests_response(
             '<html>\n<body>foo</body>\n</html>')

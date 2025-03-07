@@ -541,14 +541,22 @@ class Web(User, Protocol):
           kwargs: ignored
         """
         url = obj.key.id()
+
         if not util.is_web(url):
             logger.info(f'{url} is not a URL')
             return False
-        elif (cls.is_blocklisted(url, allow_internal=True)
+
+        try:
+            parsed = urlparse(url)
+        except ValueError as e:
+            logger.info(f'{url} is not a URL')
+            return False
+
+        if (cls.is_blocklisted(url, allow_internal=True)
               or util.domain_or_parent_in(domain_from_link(url), FETCH_BLOCKLIST)):
             return False
 
-        is_homepage = urlparse(url).path.strip('/') == ''
+        is_homepage = parsed.path.strip('/') == ''
         if is_homepage:
             domain = domain_from_link(url)
             if domain == PRIMARY_DOMAIN or domain in PROTOCOL_DOMAINS:
