@@ -9,6 +9,7 @@ import os
 import re
 
 from arroba import did
+from arroba.did import get_handle
 from arroba.datastore_storage import AtpRemoteBlob, AtpRepo, DatastoreStorage
 from arroba.repo import Repo, Write
 import arroba.server
@@ -187,12 +188,7 @@ def did_to_handle(did, remote=None):
       str: handle, or None
     """
     if did_obj := ATProto.load(did, did_doc=True, remote=remote):
-        # use first at:// URI in alsoKnownAs
-        for aka in util.get_list(did_obj.raw, 'alsoKnownAs'):
-            if aka.startswith('at://'):
-                handle, _, _ = parse_at_uri(aka)
-                if handle:
-                    return handle
+        return get_handle(did_obj.raw)
 
 
 class Cursor(StringIdModel):
