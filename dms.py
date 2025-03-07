@@ -63,6 +63,9 @@ def command(names, arg=False, user_bridged=None, handle_bridged=None):
                            type=type, in_reply_to=dm_as1.get('id'))
                 return 'OK', 200
 
+            if arg and not cmd_arg:
+                return reply(f'{cmd} command needs an argument<br><br>{help_text(from_user, to_proto)}')
+
             if arg == 'handle':
                 if not to_proto.owns_handle(cmd_arg) and cmd_arg.startswith('@'):
                     logging.info(f"doesn't look like a handle, trying without leading @")
@@ -81,9 +84,6 @@ def command(names, arg=False, user_bridged=None, handle_bridged=None):
                 return reply(f"Looks like you're not bridged to {to_proto.PHRASE} yet! Please bridge your account first by following this account.")
             elif user_bridged is False and from_user_enabled:
                 return reply(f"Looks like you're already bridged to {to_proto.PHRASE}!")
-            elif arg and not cmd_arg:
-                return reply(f'{cmd} command needs an argument<br><br>{help_text(from_user, to_proto)}')
-
             # dispatch!
             kwargs = {}
             if arg and cmd_arg:

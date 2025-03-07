@@ -575,3 +575,15 @@ class DmsTest(TestCase):
         self.assertEqual(('OK', 200), receive(from_user=alice, obj=obj))
         self.assert_replied(OtherFake, alice, '?', ALICE_MIGRATE_CONFIRMATION)
         self.assertEqual([(alice, 'other:new-alice')], OtherFake.migrated_out)
+
+    def test_receive_migrate_to_no_handle_arg(self):
+        alice, bob = self.make_alice_bob()
+
+        obj = Object(our_as1={
+            **DM_BASE,
+            'content': 'migrate-to ',
+        })
+        self.assertEqual(('OK', 200), receive(from_user=alice, obj=obj))
+        self.assert_replied(OtherFake, alice, '?',
+                            'migrate-to command needs an argument')
+        self.assertEqual([], OtherFake.migrated_out)
