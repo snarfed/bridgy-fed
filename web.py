@@ -542,13 +542,7 @@ class Web(User, Protocol):
         """
         url = obj.key.id()
 
-        if not util.is_web(url):
-            logger.info(f'{url} is not a URL')
-            return False
-
-        try:
-            parsed = urlparse(url)
-        except ValueError as e:
+        if not util.is_web(url) or not util.is_url(url):
             logger.info(f'{url} is not a URL')
             return False
 
@@ -556,7 +550,7 @@ class Web(User, Protocol):
               or util.domain_or_parent_in(domain_from_link(url), FETCH_BLOCKLIST)):
             return False
 
-        is_homepage = parsed.path.strip('/') == ''
+        is_homepage = urlparse(url).path.strip('/') == ''
         if is_homepage:
             domain = domain_from_link(url)
             if domain == PRIMARY_DOMAIN or domain in PROTOCOL_DOMAINS:
