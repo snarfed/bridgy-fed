@@ -19,5 +19,8 @@ dispatch:
   - url: "*/router/*"
     service: router
 
+  - url: "*/xrpc/com.atproto.repo.importRepo"
+    service: atproto-hub
+
   - url: "*/xrpc/com.atproto.sync.subscribeRepos"
     service: atproto-hub
