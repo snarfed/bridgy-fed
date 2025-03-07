@@ -2199,6 +2199,11 @@ class ActivityPubTest(TestCase):
         with self.assertRaises(ValueError):
             ActivityPub.migrate_out(eve, 'https://in.st/eve')
 
+    def test_migrate_out_activitypub_user(self, *_):
+        eve = self.make_user('http://ev/e', cls=ActivityPub)
+        with self.assertRaises(ValueError):
+            ActivityPub.migrate_out(eve, 'https://in.st/eve')
+
     def test_migrate_out_no_alias_in_to_actor(self, _, mock_get, __):
         mock_get.return_value = self.as2_resp(ACTOR)
 

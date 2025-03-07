@@ -479,6 +479,8 @@ class ActivityPub(User, Protocol):
 
         if cls.owns_id(to_user_id) is False:
             _error(f"{to_user_id} doesn't look like an {cls.LABEL} id")
+        elif isinstance(user, cls):
+            _error(f"{user.handle_or_id()} is on {cls.PHRASE}")
         elif not user.is_enabled(cls):
             _error(f"{user.handle_or_id()} isn't currently bridged to {cls.PHRASE}")
 
