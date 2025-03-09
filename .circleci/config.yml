@@ -76,6 +76,7 @@ jobs:
             # GitHub users who don't have Circle accounts, like dependabot.
             if [[ $CIRCLE_BRANCH == "main" && $CIRCLE_USERNAME != "" ]]; then
               echo $FLASK_SECRET_KEY > flask_secret_key
+              echo $REPO_TOKEN > repo_token
               echo $GCLOUD_SERVICE_KEY > /tmp/service_account_creds.json
               echo $GCLOUD_SERVICE_KEY | gcloud auth activate-service-account --key-file=/tmp/service_account_creds.json
 
