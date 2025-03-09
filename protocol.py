@@ -680,7 +680,24 @@ class Protocol:
           to_user_id (str)
 
         Raises:
-          ValueError: eg if this protocol doesn't own ``to_user_id``
+          ValueError: eg if this protocol doesn't own ``to_user_id``, or if
+            ``user`` is on this protocol or not bridged to this protocol
+        """
+        raise NotImplementedError()
+
+    @classmethod
+    def migrate_in(cls, user, from_user_id, **kwargs):
+        """Migrates a native account in to be a bridged account.
+
+        Args:
+          user (models.User): native user on another protocol to attach the
+            newly imported bridged account to
+          from_user_id (str)
+          kwargs: additional protocol-specific parameters
+
+        Raises:
+          ValueError: eg if this protocol doesn't own ``from_user_id``, or if
+            ``user`` is on this protocol or already bridged to this protocol
         """
         raise NotImplementedError()
 

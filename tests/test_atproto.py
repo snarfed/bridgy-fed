@@ -26,6 +26,7 @@ from oauth_dropins.webutil.appengine_config import tasks_client
 from oauth_dropins.webutil.testutil import NOW, NOW_SECONDS, requests_response
 from oauth_dropins.webutil.util import json_dumps, json_loads, trim_nulls
 from requests.exceptions import HTTPError
+from requests_oauth2client import DPoPKey, DPoPToken, OAuth2Client
 from werkzeug.exceptions import BadRequest
 
 import atproto
@@ -114,6 +115,8 @@ SEND_MESSAGE_OUTPUT = {  # sendMessage
     'sender': {'did': 'did:plc:user'},
     'text': 'hello world',
 }
+
+DPOP_TOKEN = DPoPToken(access_token='towkin', _dpop_key=DPoPKey.generate())
 
 
 @patch('ids.COPIES_PROTOCOLS', ['atproto'])
@@ -1085,6 +1088,76 @@ Sed tortor neque, aliquet quis posuere aliquam […]
             'displayName': 'Alice',
             'summary': '<a href="http://foo">bar</a>',
         }), from_user=user))
+
+    @patch('oauth_dropins.bluesky.oauth_client_for_pds',
+           return_value=OAuth2Client(token_endpoint='https://un/used',
+                                     client_id='unused', client_secret='unused'))
+    @patch('requests.post', side_effect=[
+        requests_response({'operation': {'signed': 'op'}}),
+        requests_response(),
+    ])
+    @patch('requests.get', side_effect=[
+        requests_response(DID_DOC),  # resolve did:plc:user
+    ])
+    def test_migrate_in(self, _, mock_post, mock_oauth2client):
+        self.make_user_and_repo()
+        self.user.copies = self.user.enabled_protocols = []
+        self.user.put()
+
+        ATProto.migrate_in(self.user, 'did:plc:user', plc_code='kode',
+                           dpop_token=DPOP_TOKEN)
+
+        self.assertEqual(
+            ('https://some.pds/xrpc/com.atproto.identity.signPlcOperation',),
+            mock_post.call_args_list[0].args)
+        kwargs = mock_post.call_args_list[0].kwargs
+        did_key = encode_did_key(self.repo.rotation_key.public_key())
+        self.assertEqual({
+            'token': 'kode',
+            'rotationKeys': [did_key],
+            'verificationMethod': [{
+                'id': 'did:plc:user#atproto',
+                'type': 'Multikey',
+                'controller': 'did:plc:user',
+                'publicKeyMultibase': did_key,
+            }],
+            'services': {
+                'atproto_pds': {
+                    'type': 'AtprotoPersonalDataServer',
+                    'endpoint': 'https://atproto.brid.gy',
+                },
+            },
+        }, kwargs['json'])
+        self.assertEqual(DPOP_TOKEN, kwargs['auth'].token)
+
+        self.assertEqual((f'https://plc.local/did:plc:user',),
+                         mock_post.call_args_list[1].args)
+        self.assertEqual({'signed': 'op'}, mock_post.call_args_list[1].kwargs['json'])
+
+    def test_migrate_in_bad_user_id(self, *_):
+        eve = self.make_user('fake:eve', cls=Fake)
+        with self.assertRaises(ValueError):
+            ATProto.migrate_in(eve, 'https://foo/', plc_code='kode',
+                               dpop_token=DPOP_TOKEN)
+
+    def test_migrate_in_user_enabled(self, *_):
+        eve = self.make_user('fake:eve', cls=Fake, enabled_protocols=['atproto'])
+        with self.assertRaises(ValueError):
+            ATProto.migrate_in(eve, 'did:plc:xyz', plc_code='kode',
+                               dpop_token=DPOP_TOKEN)
+
+    def test_migrate_in_atproto_user(self, *_):
+        self.store_object(id='did:plc:eve', raw=DID_DOC)
+        eve = self.make_user('did:plc:eve', cls=ATProto)
+        with self.assertRaises(ValueError):
+            ATProto.migrate_in(eve, 'did:plc:xyz', plc_code='kode',
+                               dpop_token=DPOP_TOKEN)
+
+    def test_migrate_in_missing_repo(self, *_):
+        eve = self.make_user('fake:eve', cls=Fake)
+        with self.assertRaises(ValueError):
+            ATProto.migrate_in(eve, 'did:plc:outside', plc_code='kode',
+                               dpop_token=DPOP_TOKEN)
 
     @patch('requests.get', return_value=requests_response('', status=404))
     def test_web_url(self, mock_get):

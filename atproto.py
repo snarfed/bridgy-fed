@@ -35,6 +35,11 @@ from granary.bluesky import Bluesky, FROM_AS1_TYPES, to_external_embed
 from granary.source import html_to_text, INCLUDE_LINK, Source
 from lexrpc import Client, ValidationError
 from requests import RequestException
+from requests_oauth2client import (
+    DPoPToken,
+    OAuth2AccessTokenAuth,
+)
+import oauth_dropins.bluesky
 from oauth_dropins.webutil import util
 from oauth_dropins.webutil.appengine_config import ndb_client
 from oauth_dropins.webutil.appengine_info import DEBUG
@@ -86,6 +91,12 @@ logger.info(f'Using GCP DNS project {DNS_GCP_PROJECT} zone {DNS_ZONE}')
 dns_client = dns.Client(project=DNS_GCP_PROJECT)
 # "Discovery API" https://github.com/googleapis/google-api-python-client
 dns_discovery_api = googleapiclient.discovery.build('dns', 'v1')
+
+# for migrate_in
+BOUNCE_OAUTH_CLIENT = {
+    'client_id': 'https://bounce.anew.social/bluesky/client-metadata.json',
+    'redirect_uris': ['https://bounce.anew.social/bluesky/oauth-callback'],
+}
 
 
 def chat_client(*, repo, method, **kwargs):
@@ -960,6 +971,73 @@ class ATProto(User, Protocol):
         return ret
 
     @classmethod
+    def migrate_in(cls, user, from_user_id, plc_code, dpop_token):
+        """Migrates an ATProto account on another PDS in to be a bridged account.
+
+        Before calling this, the repo must have already been imported with
+        ``com.atproto.repo.importRepo``!
+
+        Args:
+          user (models.User): native user on another protocol to attach the
+            newly imported bridged account to
+          from_user_id (str): DID of the account to be migrated in
+          plc_code (str): a PLC operation confirmation code from the account's
+            old PDS, from ``com.atproto.identity.requestPlcOperationSignature``
+          dpop_token (requests_oauth2client.DPoPToken): a serialized OAuth DPoP
+            token for the account from its old PDS
+
+        Raises:
+          ValueError: if ``from_user_id`` is not an ATProto DID, or
+            ``user`` is an :class:`ATProto`, or ``user`` is already bridged to
+            Bluesky, or the repo hasn't been imported yet
+        """
+        def _error(msg):
+            logger.warning(msg)
+            raise ValueError(msg)
+
+        logger.info(f"Migrating in {from_user_id} for {user.key.id()}")
+
+        if cls.owns_id(from_user_id) is False:
+            _error(f"{from_user_id} doesn't look like an {cls.LABEL} id")
+        elif isinstance(user, cls):
+            _error(f"{user.handle_or_id()} is on {cls.PHRASE}")
+        elif user.is_enabled(cls):
+            _error(f"{user.handle_or_id()} is already bridged to {cls.PHRASE}")
+
+        if not (repo := arroba.server.storage.load_repo(from_user_id)):
+            _error(f"Please import {from_user_id}'s repo first")
+
+        # ask old PDS to generate signed PLC operation
+        pds_url = oauth_dropins.bluesky.pds_for_did(from_user_id)
+        oauth_client = oauth_dropins.bluesky.oauth_client_for_pds(
+            BOUNCE_OAUTH_CLIENT, pds_url)
+        auth = OAuth2AccessTokenAuth(client=oauth_client, token=dpop_token)
+        pds_client = Client(pds_url, auth=auth)
+
+        op = pds_client.com.atproto.identity.signPlcOperation({
+            'token': plc_code,
+            'rotationKeys': [did.encode_did_key(repo.rotation_key.public_key())],
+            'verificationMethod': [{
+                'id': 'did:plc:user#atproto',
+                'type': 'Multikey',
+                'controller': 'did:plc:user',
+                'publicKeyMultibase': did.encode_did_key(repo.signing_key.public_key()),
+            }],
+            'services': {
+                'atproto_pds': {
+                    'type': 'AtprotoPersonalDataServer',
+                    'endpoint': cls.PDS_URL,
+                },
+            },
+            # TODO: do we need all fields? missing alsoKnownAs
+        })
+        logger.debug(op)
+
+        # submit PLC operation to directory
+        util.requests_post(f'https://{os.environ["PLC_HOST"]}/{from_user_id}',
+                           json=op['operation'])
+
+    @classmethod
     def add_source_links(cls, actor, obj, from_user):
         """Adds "bridged from ... by Bridgy Fed" text to ``obj.our_as1``.
 
@@ -1009,6 +1087,7 @@ class ATProto(User, Protocol):
 
         obj.our_as1['summary'] = Bluesky('unused').truncate(
             summary, url=source_links, punctuation=('', ''), type=obj.type)
+
 
 def create_report(*, input, from_user):
     """Sends a ``createReport`` for a ``flag`` activity.
