@@ -41,9 +41,15 @@ def key(key):
 
     TODO: truncate to 250 *UTF-8* chars, to handle Unicode chars in URLs. Related:
     pymemcache Client's allow_unicode_keys constructor kwarg.
+
+    Args:
+      key (str)
+
+    Returns:
+      bytes:
     """
     assert isinstance(key, str), repr(key)
-    return key[:KEY_MAX_LEN].replace(' ', '%20').encode()
+    return key.replace(' ', '%20').encode()[:KEY_MAX_LEN]
 
 
 def memoize_key(fn, *args, _version=MEMOIZE_VERSION, **kwargs):

@@ -171,7 +171,7 @@ class MemcacheTest(TestCase):
         for input, expected in (
                 ('foo', b'foo'),
                 ('foo-bar-baz', b'foo-bar-ba'),
-                ('foo bar', b'foo%20bar'),
+                ('foo bar123', b'foo%20bar1'),
                 ('☃.net', b'\xe2\x98\x83.net'),
         ):
             self.assertEqual(expected, memcache.key(input))
