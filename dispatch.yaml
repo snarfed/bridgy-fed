@@ -20,7 +20,7 @@ dispatch:
     service: router
 
   - url: "*/xrpc/com.atproto.repo.importRepo"
-    service: atproto-hub
+    service: router
 
   - url: "*/xrpc/com.atproto.sync.subscribeRepos"
     service: atproto-hub
