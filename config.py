@@ -79,3 +79,4 @@ def only_lookups(record):
 os.environ.setdefault('APPVIEW_HOST', 'api.bsky.local')
 os.environ.setdefault('BGS_HOST', 'bgs.bsky.local')
 os.environ.setdefault('PLC_HOST', 'plc.bsky.local')
+os.environ.setdefault('REPO_TOKEN', util.read('repo_token'))
