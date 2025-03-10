@@ -122,10 +122,10 @@ def help_text(from_user, to_proto):
 <li><em>[handle]</em>: ask me to DM a user on {to_proto.PHRASE} to request that they bridge their account into {from_user.PHRASE}
 <li><em>block [handle]</em>: block a user on {to_proto.PHRASE} who's not bridged here
 <li><em>unblock [handle]</em>: unblock a user on {to_proto.PHRASE} who's not bridged here
-<li><em>migrate-to [handle]</em>: migrate your bridged account on {to_proto.PHRASE} out of Bridgy Fed to a native account
 {extra}
 <li><em>help</em>: print this message
 </ul>"""
+# <li><em>migrate-to [handle]</em>: migrate your bridged account on {to_proto.PHRASE} out of Bridgy Fed to a native account
 
     if from_user.LABEL == 'atproto':
         text = source.html_to_text(text, ignore_emphasis=True)
