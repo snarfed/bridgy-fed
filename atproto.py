@@ -921,17 +921,23 @@ class ATProto(User, Protocol):
 
         # if there are any links, generate an external embed as a preview
         # for the first non-@-mention link
+        #
+        # not good enough to just look for #link facets, since bluesky.from_as1
+        # generates those for mention tags for non-Bluesky URLs, so we also
+        # need to check against the AS1 mention tags and avoid those
         if ret.get('$type') == 'app.bsky.feed.post' and not ret.get('embed'):
+            mentions = [as1.get_url(tag) for tag in as1.get_objects(obj.as1, 'tags')
+                        if tag.get('objectType') == 'mention']
             for facet in ret.get('facets', []):
-                # background discussion:
-                # https://github.com/snarfed/bridgy-fed/issues/1615#issuecomment-2667191265
-                if ret['text'].encode()[facet['index']['byteStart']] == ord('@'):
-                    continue
-
                 if feats := facet.get('features'):
-                    if feats[0]['$type'] == 'app.bsky.richtext.facet#link':
+                    feat = feats[0]
+                    first_char = ret['text'].encode()[facet['index']['byteStart']]
+                    if (feat['$type'] == 'app.bsky.richtext.facet#link'
+                            and feat['uri'] not in mentions
+                            # and first_char != ord('@')
+):
                         try:
-                            link = web.Web.load(feats[0]['uri'], metaformats=True,
+                            link = web.Web.load(feat['uri'], metaformats=True,
                                                 authorship_fetch_mf2=False,
                                                 raise_=False)
                         except AssertionError as e:

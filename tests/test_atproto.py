@@ -944,6 +944,66 @@ class ATProtoTest(TestCase):
             }],
         })))
 
+    @patch('requests.get', return_value=requests_response(
+        test_web.REPLY_HTML, url='http://in.st/link'))
+    def test_send_note_mention_tag_doesnt_get_link_preview(self, _):
+        """URLs in mention tags should not be used for external embeds."""
+        obj = Object(id='fake:post', source_protocol='fake', our_as1={
+            **NOTE_AS,
+            'content': 'Check out <a href="http://in.st/link">alice</a>',
+            'tags': [{
+                'objectType': 'mention',
+                'url': 'http://in.st/link',
+                'displayName': 'alice',
+            }],
+        })
+        self.assert_equals({
+            **NOTE_BSKY,
+            'text': 'Check out alice',
+            'bridgyOriginalText': 'Check out <a href="http://in.st/link">alice</a>',
+            'facets': [{
+                '$type': 'app.bsky.richtext.facet',
+                'features': [{
+                    '$type': 'app.bsky.richtext.facet#link',
+                    'uri': 'http://in.st/link',
+                }],
+                'index': {'byteStart': 10, 'byteEnd': 15},
+            }],
+        }, ATProto.convert(obj, 'https://bsky.brid.gy'))
+
+    @patch.object(tasks_client, 'create_task', return_value=Task(name='my task'))
+    @patch('requests.get', return_value=requests_response(
+        test_web.ACTOR_HTML, url='http://in.st/@user'))
+    def test_send_note_mention_link_doesnt_get_link_preview(self, mock_get, _):
+        user = self.make_user_and_repo()
+
+        obj = Object(id='fake:post', source_protocol='fake', our_as1={
+            **NOTE_AS,
+            'content': 'Hi <a href="http://in.st/@user">@user</a>',
+        })
+        self.assertTrue(ATProto.send(obj, 'https://atproto.brid.gy'))
+
+        # check repo, record
+        did = user.key.get().get_copy(ATProto)
+        repo = self.storage.load_repo(did)
+        last_tid = arroba.util.int_to_tid(arroba.util._tid_ts_last)
+        self.assert_equals({
+            **NOTE_BSKY,
+            'text': 'Hi @user',
+            'facets': [{
+                '$type': 'app.bsky.richtext.facet',
+                'features': [{
+                    '$type': 'app.bsky.richtext.facet#link',
+                    'uri': 'http://in.st/@user',
+                }],
+                'index': {
+                    'byteStart': 3,
+                    'byteEnd': 8,
+                },
+            }],
+        }, repo.get_record('app.bsky.feed.post', last_tid),
+        ignore=['bridgyOriginalText', 'bridgyOriginalUrl'])
+
     def test_convert_quote_post_translate_attachment_url_with_copy_id(self):
         self.make_user_and_repo()
 
@@ -1741,10 +1801,8 @@ Sed tortor neque, aliquet quis posuere aliquam […]
         }, repo.get_record('app.bsky.feed.post', last_tid), ignore=['facets'])
 
     @patch.object(tasks_client, 'create_task', return_value=Task(name='my task'))
-    @patch('requests.get', side_effect=[
-        requests_response(test_web.REPLY_HTML, url='http://orig.co/post'),
-        # requests_response('blob contents', content_type='image/png'),
-    ])
+    @patch('requests.get', return_value=requests_response(test_web.REPLY_HTML,
+                                                          url='http://orig.co/post'))
     def test_send_note_first_link_preview_embed_html_content(self, _, __):
         user = self.make_user_and_repo()
 
@@ -1873,39 +1931,6 @@ Sed tortor neque, aliquet quis posuere aliquam […]
                 },
             },
         }, repo.get_record('app.bsky.feed.post', last_tid), ignore=['facets'])
-
-    @patch.object(tasks_client, 'create_task', return_value=Task(name='my task'))
-    @patch('requests.get', return_value=requests_response(
-        METAFORMATS_HTML, url='http://in.st/@user'))
-    def test_send_note_mention_tag_doesnt_get_link_preview(self, mock_get, _):
-        user = self.make_user_and_repo()
-
-        obj = Object(id='fake:post', source_protocol='fake', our_as1={
-            **NOTE_AS,
-            'content': 'Hi <a href="http://in.st/@user">@user</a>',
-        })
-        self.assertTrue(ATProto.send(obj, 'https://atproto.brid.gy'))
-
-        # check repo, record
-        did = user.key.get().get_copy(ATProto)
-        repo = self.storage.load_repo(did)
-        last_tid = arroba.util.int_to_tid(arroba.util._tid_ts_last)
-        self.assert_equals({
-            **NOTE_BSKY,
-            'text': 'Hi @user',
-            'facets': [{
-                '$type': 'app.bsky.richtext.facet',
-                'features': [{
-                    '$type': 'app.bsky.richtext.facet#link',
-                    'uri': 'http://in.st/@user',
-                }],
-                'index': {
-                    'byteStart': 3,
-                    'byteEnd': 8,
-                },
-            }],
-        }, repo.get_record('app.bsky.feed.post', last_tid),
-        ignore=['bridgyOriginalText', 'bridgyOriginalUrl'])
 
     @patch.object(tasks_client, 'create_task', return_value=Task(name='my task'))
     def test_send_update_note(self, mock_create_task):
