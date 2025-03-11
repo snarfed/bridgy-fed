@@ -44,7 +44,10 @@ from oauth_dropins.webutil import util
 from oauth_dropins.webutil.appengine_config import ndb_client
 from oauth_dropins.webutil.appengine_info import DEBUG
 from oauth_dropins.webutil import flask_util
-from oauth_dropins.webutil.flask_util import get_required_param
+from oauth_dropins.webutil.flask_util import (
+    FlashErrors,
+    get_required_param,
+)
 from oauth_dropins.webutil.models import StringIdModel
 from oauth_dropins.webutil.util import add, json_dumps, json_loads
 from werkzeug.exceptions import NotFound

@@ -15,7 +15,7 @@ from httpsig import HeaderVerifier
 from httpsig.requests_auth import HTTPSignatureAuth
 from httpsig.utils import parse_signature_header
 from oauth_dropins.webutil import appengine_info, flask_util, util
-from oauth_dropins.webutil.flask_util import MovedPermanently
+from oauth_dropins.webutil.flask_util import FlashErrors, MovedPermanently
 from oauth_dropins.webutil.util import add, fragmentless, json_dumps, json_loads
 import requests
 from requests import TooManyRedirects
