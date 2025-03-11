@@ -9,6 +9,6 @@ Thank you for investigating Bridgy Fed's security! We appreciate any and all rep
 A few guidelines for your report to qualify for a monetary reward:
 
 * Vulnerabilities must be in the application itself, not unrelated services like email (eg SPF/DKIM/DMARC).
-* Out of scope: rate limiting, XSS/CSRF attacks (Bridgy Fed has no authenticated sessions or private data accessible to users).
+* Out of scope: rate limiting
 * Public user data is intentionally public. That's not a vulnerability.
 * No automated fuzzing, DoSes, or other high volume traffic. We block this traffic, and it will disqualify you from any possible award.
