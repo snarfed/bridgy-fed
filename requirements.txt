@@ -14,7 +14,7 @@ git+https://github.com/snarfed/requests_oauth2client.git@all#egg=requests_oauth2
 # that includes https://github.com/pinterest/pymemcache/pull/471
 git+https://github.com/pinterest/pymemcache.git#egg=pymemcache
 
-attrs==25.1.0
+attrs==25.2.0
 bases==0.3.0
 beautifulsoup4==4.13.3
 bech32==1.2.0
