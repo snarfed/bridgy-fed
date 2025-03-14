@@ -992,7 +992,7 @@ class ATProto(User, Protocol):
           from_user_id (str): DID of the account to be migrated in
           plc_code (str): a PLC operation confirmation code from the account's
             old PDS, from ``com.atproto.identity.requestPlcOperationSignature``
-          dpop_token (requests_oauth2client.DPoPToken): a serialized OAuth DPoP
+          dpop_token (requests_oauth2client.DPoPToken): an OAuth DPoP
             token for the account from its old PDS
 
         Raises:
