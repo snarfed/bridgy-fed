@@ -1672,14 +1672,7 @@ def fetch_objects(query, by=None, user=None):
     # synthesize human-friendly content for objects
     for i, obj in enumerate(objects):
         obj_as1 = obj.as1
-        inner_obj = as1.get_object(obj_as1)
-
-        # synthesize text snippet
         type = as1.object_type(obj_as1)
-        if type == 'post':
-            inner_type = inner_obj.get('objectType')
-            if inner_type:
-                type = inner_type
 
         # AS1 verb => human-readable phrase
         phrases = {
@@ -1703,25 +1696,19 @@ def fetch_objects(query, by=None, user=None):
             'undo': 'undid',
             'update': 'updated',
         }
-        obj.phrase = phrases.get(type)
+        phrases.update({type: 'profile refreshed:' for type in as1.ACTOR_TYPES})
 
-        content = (inner_obj.get('content')
-                   or inner_obj.get('displayName')
-                   or inner_obj.get('summary'))
+        obj.phrase = phrases.get(type, '')
+
+        content = (obj_as1.get('content')
+                   or obj_as1.get('displayName')
+                   or obj_as1.get('summary'))
         if content:
             content = util.parse_html(content).get_text()
 
-        urls = as1.object_urls(inner_obj)
-        id = unwrap(inner_obj.get('id', ''))
-        url = urls[0] if urls else id
-        if (type == 'update' and obj.users
-                and (user.is_web_url(id) or id.strip('/') == obj.users[0].id())):
-            obj.phrase = 'updated'
-            obj_as1.update({
-                'content': 'their profile',
-                'url': id,
-            })
-        elif url and not content:
+        urls = as1.object_urls(obj_as1)
+        url = urls[0] if urls else None
+        if url and not content:
             # heuristics for sniffing URLs and converting them to more friendly
             # phrases and user handles.
             # TODO: standardize this into granary.as2 somewhere?
