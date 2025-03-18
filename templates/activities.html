@@ -9,9 +9,11 @@
       ...
     {% endif %}
     {{ obj.phrase|safe }}
-    {% if obj.url %}<a target="_blank" href="{{ obj.url }}" class="u-url">{% endif %}
-      <span style="unicode-bidi: isolate">{{ obj.content|default('--', true)|striptags|truncate(50) }}</span>
-    {% if obj.url %}</a>{% endif %}
+    {% with url = obj.inner_url or obj.url %}
+      {% if url %}<a target="_blank" href="{{ url }}" class="u-url">{% endif %}
+        <span style="unicode-bidi: isolate">{{ obj.content|default('--', true)|striptags|truncate(50) }}</span>
+      {% if url %}</a>{% endif %}
+    {% endwith %}
   </div>
 
   {% if show_users %}

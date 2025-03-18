@@ -1747,6 +1747,8 @@ def fetch_objects(query, by=None, user=None):
         obj.url = util.get_first(obj_as1, 'url')
 
         if type in ('like', 'follow', 'repost', 'share') or not obj.content:
+            inner_as1 = as1.get_object(obj_as1)
+            obj.inner_url = inner_as1.get('url') or inner_as1.get('id')
             if obj.url:
                 obj.phrase = common.pretty_link(
                     obj.url, text=obj.phrase, attrs={'class': 'u-url'}, user=user)
