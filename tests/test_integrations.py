@@ -793,9 +793,9 @@ class IntegrationTests(TestCase):
 <html>
   <body class="h-card"><a rel="me" href="/">me</a> #nobridge</body>
 </html>""", url='https://alice.com/'))
-    def test_web_nobridge_refresh_profile_deletes_user_deactivates_atproto_repo(
+    def test_web_nobridge_update_profile_deletes_user_deactivates_atproto_repo(
             self, mock_get, mock_post):
-        """Web user adds #nobridge and refreshes their profile.
+        """Web user adds #nobridge and updates their profile.
 
         Should delete their bridged accounts.
 
@@ -829,6 +829,36 @@ class IntegrationTests(TestCase):
             'actor': 'http://localhost/alice.com',
             'object': 'http://localhost/alice.com',
         }, json_loads(kwargs['data']), ignore=['@context', 'contentMap', 'to', 'cc'])
+
+    @patch('requests.post', return_value=requests_response(''))
+    @patch('requests.get', return_value=requests_response("""\
+<html><body class="h-card">
+  <a class="u-url" href="/"></a>
+  <a class="u-url" href="acct:fooey@alice.com"></a>
+</body></html>""", url='https://alice.com/'))
+    def test_web_acct_url_update_profile_gets_custom_username(
+            self, mock_get, mock_post):
+        """Web user has an acct: u-url and updates their profile.
+
+        We should see it and use it as a custom username.
+
+        Web user alice.com
+        """
+        alice = self.make_web_user('alice.com', None)
+        alice.has_redirects = True
+        alice.put()
+        self.assertTrue(alice.is_enabled(ActivityPub))
+
+        bob = self.make_ap_user('https://inst/bob')
+        Follower.get_or_create(to=alice, from_=bob)
+
+        # update profile
+        resp = self.client.post('/web/alice.com/update-profile')
+        self.assertEqual(302, resp.status_code)
+
+        alice = alice.key.get()
+        self.assertEqual('fooey', alice.username())
+        self.assertEqual('@fooey@alice.com', alice.handle_as(ActivityPub))
 
     @patch('requests.post')
     @patch('requests.get')

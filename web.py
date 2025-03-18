@@ -595,7 +595,7 @@ class Web(User, Protocol):
             # we need to store this as https://user.com/
             if parsed['url'] != url:
                 logger.info(f'overriding {parsed["url"]} with {url}')
-                entry['properties']['url'] = [url]
+                entry['properties'].setdefault('url', []).insert(0, url)
                 if rel_url := parsed['rel-urls'].pop(parsed['url'], None):
                     parsed['rel-urls'][url] = rel_url
                 parsed['url'] = url
@@ -678,7 +678,7 @@ class Web(User, Protocol):
         if from_proto:
             # fill in author/actor if available
             for field in 'author', 'actor':
-                val = as1.get_object(obj.as1, field)
+                val = as1.get_object(obj_as1, field)
                 if val.keys() == set(['id']) and val['id']:
                     loaded = from_proto.load(val['id'], raise_=False)
                     if loaded and loaded.as1:

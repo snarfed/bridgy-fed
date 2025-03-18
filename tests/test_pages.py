@@ -339,6 +339,10 @@ class PagesTest(TestCase):
         actor_as1 = {
             **ACTOR_AS1_UNWRAPPED_URLS,
             'updated': '2022-01-02T03:04:05+00:00',
+            'urls': [
+                {'value': 'https://user.com/', 'displayName': 'Ms. ☕ Baz'},
+                {'value': 'https://www.user.com/'},
+            ],
         }
         self.assertEqual([('fake:shared:target', {
             'objectType': 'activity',

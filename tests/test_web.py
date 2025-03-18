@@ -3190,6 +3190,20 @@ class WebUtilTest(TestCase):
         with self.assertRaises(BadRequest):
             Web.fetch(obj)
 
+    def test_fetch_user_homepage_acct_url(self, mock_get, __):
+        mock_get.return_value = requests_response("""\
+<html><body class="h-card">
+  <a class="u-url" href="/"></a>
+  <a class="u-url" href="acct:bob@user.com"></a>
+</body></html>""",
+            content_type=CONTENT_TYPE_HTML)
+
+        obj = Object(id='https://user.com/')
+        Web.fetch(obj)
+
+        self.user.obj = obj
+        self.assertEqual('bob', self.user.username())
+
     def test_fetch_user_homepage_fail(self, mock_get, __):
         mock_get.return_value = requests_response('', status=500)
 

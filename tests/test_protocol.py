@@ -314,7 +314,7 @@ class ProtocolTest(TestCase):
         expected_mf2 = {
             'type': ['h-card'],
             'properties': {
-                'url': ['https://f.ooo'],
+                'url': ['https://f.ooo', 'https://user.com/'],
                 'name': ['Ms. ☕ Baz'],
             },
             'rel-urls': {
@@ -332,9 +332,11 @@ class ProtocolTest(TestCase):
             'id': 'https://f.ooo',
             'url': 'https://f.ooo',
             'displayName': 'Ms. ☕ Baz',
-            'urls': [{'value': 'https://f.ooo', 'displayName': 'Ms. ☕ Baz'}],
-        }
-, loaded.as1)
+            'urls': [
+                {'value': 'https://f.ooo', 'displayName': 'Ms. ☕ Baz'},
+                {'value': 'https://user.com/'},
+            ],
+        } , loaded.as1)
         self.assertTrue(loaded.changed)
         self.assertFalse(loaded.new)
 
