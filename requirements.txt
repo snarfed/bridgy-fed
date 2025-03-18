@@ -54,7 +54,7 @@ google-cloud-tasks==2.19.1
 googleapis-common-protos==1.69.1
 google-cloud-ndb==2.3.2
 grapheme==0.6.0
-grpc-google-iam-v1==0.14.1
+grpc-google-iam-v1==0.14.2
 grpcio==1.70.0
 grpcio-status==1.70.0
 gunicorn==23.0.0
