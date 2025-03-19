@@ -317,7 +317,7 @@ def serve_feed(*, objects, format, user, title, as_snippets=False, quiet=False):
     tasklets.wait_all(gets)
 
     actor = (user.obj.as1 if user.obj and user.obj.as1
-             else {'displayName': user.readable_id, 'url': user.web_url()})
+             else {'displayName': user.handle, 'url': user.web_url()})
 
     # TODO: inject/merge common.pretty_link into microformats2.render_content
     # (specifically into hcard_to_html) somehow to convert Mastodon URLs to @-@

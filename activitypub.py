@@ -216,9 +216,7 @@ class ActivityPub(User, Protocol):
         if not handle.startswith('@'):
             handle = '@' + handle
 
-        user = ActivityPub.query(OR(ActivityPub.handle == handle,
-                                    ActivityPub.readable_id == handle),
-                                 ).get()
+        user = ActivityPub.query(ActivityPub.handle == handle).get()
         if user:
             return user.key.id()
 

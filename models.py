@@ -463,11 +463,6 @@ class User(StringIdModel, metaclass=ProtocolUserMeta):
         raise NotImplementedError()
 
     @ndb.ComputedProperty
-    def readable_id(self):
-        """DEPRECATED: replaced by handle. Kept for backward compatibility."""
-        return None
-
-    @ndb.ComputedProperty
     def status(self):
         """Whether this user is blocked or opted out.
 
