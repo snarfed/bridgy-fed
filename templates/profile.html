@@ -3,6 +3,9 @@
 {% set show_activity_actors = False %}
 
 {% block subtabs %}
+{% if user.is_enabled(ActivityPub) %}
+  <link href="{{ user.id_as(ActivityPub) }}" rel="alternate" type="application/activity+json">
+{% endif %}
 <div class="row tabs">
   <a></a>
   <a href="{{ user.user_page_path() }}"

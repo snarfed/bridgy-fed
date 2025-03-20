@@ -105,6 +105,15 @@ class PagesTest(TestCase):
         got = self.client.get('/bsky/han.dull')
         self.assert_equals(200, got.status_code)
 
+    def test_user_page_enabled_activitypub_rel_alternate(self):
+        user = self.make_user('fake:user', cls=Fake, enabled_protocols=['activitypub'])
+
+        got = self.client.get('/fake/fake:user')
+        self.assert_equals(200, got.status_code)
+        self.assertIn(
+            '<link href="https://fa.brid.gy/ap/fake:user" rel="alternate" type="application/activity+json">',
+            got.get_data(as_text=True))
+
     def test_user_web_custom_username_doesnt_redirect(self):
         """https://github.com/snarfed/bridgy-fed/issues/534"""
         self.user.obj = Object(id='a', as2={
