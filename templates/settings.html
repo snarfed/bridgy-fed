@@ -25,6 +25,18 @@
       <input type="submit" value="Disable" class="btn btn-default disable-button" />
     </form>
 
+  {# TODO: generalize #}
+  {% if 'atproto' in user.enabled_protocols %}
+    <p>
+    <form method="post" action="/settings/set-username">
+      <input name="key" type="hidden" value="{{ user.key.urlsafe().decode() }}" />
+      <input name="protocol" type="hidden" value="atproto" />
+      <label for="username">Set Bluesky username:</label>
+      <input id="username" type="text" name="username" placeholder ="your.domain" />
+      <input type="submit" value="Go" class="btn btn-default" />
+    </form>
+  {% endif %}
+
   {% else %}
     Not bridging{% if user.status %} because {{ USER_STATUS_DESCRIPTIONS[user.status] }}{% endif %}.
     <form method="post" action="/settings/enable">
