@@ -829,3 +829,28 @@ class PagesTest(TestCase):
         self.assertEqual(302, resp.status_code)
         self.assertEqual('/login', resp.headers['Location'])
         self.assertEqual(['efake'], user.key.get().enabled_protocols)
+
+    def test_set_username(self):
+        user = self.make_user('http://b.c/a', cls=ActivityPub,
+                              enabled_protocols=['other'], obj_as2={
+            'id': 'http://b.c/a',
+            'preferredUsername': 'a',
+            'icon': 'http://b/c/a.jpg',
+        })
+
+        auth = MastodonAuth(id='@a@b.c', access_token_str='',
+                            user_json='{"uri":"http://b.c/a"}').put()
+
+        with self.client.session_transaction() as sess:
+            sess[LOGINS_SESSION_KEY] = [('MastodonAuth', '@a@b.c')]
+
+        resp = self.client.post(f'/settings/set-username', data={
+            'key': user.key.urlsafe().decode(),
+            'protocol': 'other',
+            'username': 'yoozer',
+        })
+        self.assertEqual(302, resp.status_code)
+        self.assertEqual('/settings', resp.headers['Location'])
+        self.assertEqual(['Setting username on other-phrase to yoozer...'],
+                         get_flashed_messages())
+        self.assertEqual('yoozer', OtherFake.usernames['http://b.c/a'])
