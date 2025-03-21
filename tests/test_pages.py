@@ -105,6 +105,33 @@ class PagesTest(TestCase):
         got = self.client.get('/bsky/han.dull')
         self.assert_equals(200, got.status_code)
 
+    def test_user_page_handle_atproto_avoid_old_bad_user(self):
+        # first user has computed handle property stored as go.od, but DID doc has
+        # it updated to b.ad instead
+        did = self.store_object(id='did:plc:1', raw={
+            **DID_DOC,
+            'alsoKnownAs': ['at://go.od'],
+        })
+        user_1 = self.make_user('did:plc:1', cls=ATProto, enabled_protocols=['fake'])
+        did.raw['alsoKnownAs'] = ['at://b.ad']
+        did.put()
+
+        # second DID's handle is go.od, its DID is after did:plc:1 so queries return it
+        self.store_object(id='did:plc:2', raw={
+            **DID_DOC,
+            'alsoKnownAs': ['at://go.od'],
+        })
+        user_2 = self.make_user('did:plc:2', cls=ATProto, enabled_protocols=['fake'])
+
+        self.assertEqual([user_1, user_2],
+                         ATProto.query(ATProto.handle == 'go.od').fetch())
+
+        got = self.client.get('/bsky/go.od')
+        self.assert_equals(200, got.status_code)
+        html = got.get_data(as_text=True)
+        self.assertIn('did:plc:2', html)
+        self.assertNotIn('did:plc:1', html)
+
     def test_user_page_enabled_activitypub_rel_alternate(self):
         user = self.make_user('fake:user', cls=Fake, enabled_protocols=['activitypub'])
 

@@ -8,7 +8,7 @@ import time
 
 from flask import render_template, request
 from google.cloud.ndb import tasklets
-from google.cloud.ndb.query import AND, OR
+from google.cloud.ndb.query import OR
 from granary import as1, as2, atom, microformats2, rss
 from oauth_dropins.webutil import flask_util, logs, util
 from oauth_dropins.webutil.flask_util import (
@@ -80,22 +80,30 @@ def load_user(protocol, id):
     elif cls.ABBREV == 'bsky':
         id = id.removeprefix('@')
 
-    user = cls.get_by_id(id)
-
-    if not user and cls.ABBREV != 'web':
-        # query by handle, except for web. Web.handle is custom username, which
+    filters = [cls.key == cls(id=id).key]
+    if cls.ABBREV != 'web':
+        # also query by handle, except for web. Web.handle is custom username, which
         # isn't unique
-        user = cls.query(cls.handle == id, cls.status == None).get()
-        if user and user.use_instead:
-            user = user.use_instead.get()
+        filters.append(cls.handle == id)
 
-    if user and id not in (user.key.id(), user.handle):
+    redirect_user = None
+    for user in cls.query(OR(*filters)):
+        if user.use_instead:
+            if not (user := user.use_instead.get()):
+                continue
+
+        if id not in (user.key.id(), user.handle):
+            # keep looking for an exact match. if we don't find one, we'll redirect
+            # to this one later
+            redirect_user = user
+            continue
+        elif not user.status and (user.enabled_protocols
+                                  or user.DEFAULT_SERVE_USER_PAGES):
+            assert not user.use_instead
+            return user
+
+    if redirect_user:
         error('', status=302, location=user.user_page_path())
-
-    if user and not user.status and (user.enabled_protocols
-                                     or user.DEFAULT_SERVE_USER_PAGES):
-        assert not user.use_instead
-        return user
 
     # TODO: switch back to USER_NOT_FOUND_HTML
     # not easy via exception/abort because this uses Werkzeug's built in
