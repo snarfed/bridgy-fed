@@ -347,6 +347,32 @@ def disable(user=None):
     return redirect('/settings', code=302)
 
 
+@app.post('/settings/set-username')
+@require_login
+def set_username(user=None):
+    """Enables bridging for a given account.
+
+    Args:
+      user (models.User)
+
+    Query params:
+      protocol (str)
+      username (str)
+    """
+    proto = PROTOCOLS[flask_util.get_required_param('protocol')]
+    username = flask_util.get_required_param('username')
+
+    try:
+        proto.set_username(user, username)
+        flash(f"Setting username on {proto.PHRASE} to {username}...")
+    except NotImplementedError:
+        flash(f"Custom usernames aren't supported on {proto.PHRASE}.")
+    except (ValueError, RuntimeError) as e:
+        flash(f"Couldn't set username on {proto.PHRASE} to {username}: {e}")
+
+    return redirect('/settings', code=302)
+
+
 @app.get(f'/<any({",".join(PROTOCOLS)}):protocol>/<id>')
 # WARNING: this overrides the /ap/... actor URL route in activitypub.py, *only*
 # for handles with leading @ character. be careful when changing this route!
