@@ -81,6 +81,10 @@ OBJECT_EXPIRE_AGE = timedelta(days=90)
 GET_ORIGINALS_CACHE_EXPIRATION = timedelta(days=1)
 FOLLOWERS_CACHE_EXPIRATION = timedelta(hours=2)
 
+# See https://www.cloudimage.io/
+IMAGE_PROXY_URL_BASE = 'https://aujtzahimq.cloudimg.io/v7/'
+IMAGE_PROXY_DOMAINS = ('threads.net',)
+
 USER_STATUS_DESCRIPTIONS = {
     'owns-webfinger': 'your web site looks like a fediverse instance because it already serves Webfinger',
     'opt-out': 'your account or instance has requested to be opted out',
@@ -1057,6 +1061,10 @@ class Object(StringIdModel):
         # populate id if necessary
         if self.key:
             obj.setdefault('id', self.key.id())
+
+        if util.domain_or_parent_in(util.domain_from_link(obj.get('id')),
+                                    IMAGE_PROXY_DOMAINS):
+           as1.prefix_urls(obj, 'image', IMAGE_PROXY_URL_BASE)
 
         return obj
 

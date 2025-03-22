@@ -962,6 +962,26 @@ class ObjectTest(TestCase):
         })
         self.assertEqual('z.com', obj.as1['id'])
 
+    def test_as1_image_proxy_domain(self):
+        self.assert_equals({
+            'id': 'https://www.threads.net/foo',
+            'image': 'https://aujtzahimq.cloudimg.io/v7/http://pic?x&y',
+        }, Object(our_as1={
+            'id': 'https://www.threads.net/foo',
+            'image': 'http://pic?x&y',
+        }).as1)
+
+        self.assert_equals({
+            'id': 'https://www.threads.net/foo',
+            'image': [
+                'https://aujtzahimq.cloudimg.io/v7/http://pic/1',
+                {'url': 'https://aujtzahimq.cloudimg.io/v7/http://pic/2'},
+            ],
+        }, Object(our_as1={
+            'id': 'https://www.threads.net/foo',
+            'image': ['http://pic/1', {'url': 'http://pic/2'}],
+        }).as1)
+
     def test_validate_id(self):
         # DID repo ids
         Object(id='at://did:plc:123/app.bsky.feed.post/abc').put()
