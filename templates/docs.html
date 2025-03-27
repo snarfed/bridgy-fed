@@ -3,18 +3,66 @@
 
 {% block content %}
 
+<style type="text/css">
+@media screen and (max-width: 455px) {
+  .half-sidebyside {
+     width: 45% !important;
+  }
+}
+</style>
+
 <div id="docs">
 
-<div class="right third">
-<a href="/static/snarfed_web_site.png">
-  <img class="shadow" src="/static/snarfed_web_site.png" />
-</a>
-<p><em>Personal web site</em></p>
+<div class="right half">
+
+<div class="right half-sidebyside">
 <a href="/static/snarfed_mastodon.png">
   <img class="shadow" src="/static/snarfed_mastodon.png" />
 </a>
-<p><em>Fediverse profile via Bridgy Fed</em></p>
+<p><em>...bridged to the fediverse</em>
 </div>
+
+<div class="half-sidebyside">
+<a href="/static/snarfed_web_site.png">
+  <img class="shadow" src="/static/snarfed_web_site.png" />
+</a>
+<p><em>Personal web site</em>
+</div>
+
+<br>
+
+<div class="right half-sidebyside">
+<a href="/static/gargron_bluesky.png">
+  <img class="shadow" src="/static/gargron_bluesky.png" />
+</a>
+<p><em>...bridged to Bluesky</em>
+</div>
+
+<div class="half-sidebyside">
+<a href="/static/gargron_mastodon.png">
+  <img class="shadow" src="/static/gargron_mastodon.png" />
+</a>
+<p><em>Fediverse account</em>
+</div>
+
+<br>
+
+<div class="right half-sidebyside">
+<a href="/static/jay_mastodon.png">
+  <img class="shadow" src="/static/jay_mastodon.png" />
+</a>
+<p><em>...bridged to the fediverse</em>
+</div>
+
+<div class="half-sidebyside">
+<a href="/static/jay_bluesky.png">
+  <img class="shadow" src="/static/jay_bluesky.png" />
+</a>
+<p><em>Bluesky account</em>
+</div>
+</div>
+
+<!-- </div> -->
 
 <p>Bridgy Fed is a decentralized social network bridge. It connects the <a href="https://en.wikipedia.org/wiki/Fediverse">fediverse</a>, the <a href="https://indieweb.org/">web</a>, and <a href="https://bsky.social/">Bluesky</a>. If you're on one of these networks, you can use Bridgy Fed to follow people on other networks, see their posts, and reply and like and repost them. Likewise, they'll be able to see you and your posts too.</p>
 
@@ -170,7 +218,7 @@
 
 <li id="other-bridges" class="question">What about other bridges?</li>
 <li class="answer">
-<p>Bridgy Fed is just one of many different bridges: <a href="https://fietkau.software/pinhole">pinhole</a>, <a href="https://rss-parrot.net/">RSS Parrot</a>, <a href="https://mostr.pub/">mostr.pub</a>, and <a href="https://github.com/videah/SkyBridge">SkyBridge</a>, among others. They're great! They rarely reach the level of fully bidirectional federation that Bridgy Fed aims at, but they contribute to a diversity of approaches that we think is still valuable.</p>
+<p>Bridgy Fed is just one of many different bridges: <a href="https://fietkau.software/pinhole">pinhole</a>, <a href="https://rss-parrot.net/">RSS Parrot</a>, <a href="https://mostr.pub/">mostr.pub</a>, and <a href="https://eclipse.pub/">Eclipse</a>, among others. They're great! They rarely reach the level of fully bidirectional federation that Bridgy Fed aims at, but they contribute to a diversity of approaches that we think is still valuable.</p>
 <p>These bridges don't interoperate right now, but we hope they will eventually. For example, where multiple bridges overlap, networks can end up with duplicate bridged accounts, which is obviously not ideal. <a href="https://github.com/snarfed/bridgy-fed/issues/543">FEP-fffd</a> is one promising approach to this that we're following closely. <a href="https://github.com/snarfed/bridgy-fed/issues/12">We're open to other ideas!</a></p>
 </li>
 
@@ -403,6 +451,7 @@
 <p>Bridgy Fed will only message a given recipient once, the first time they're requested. If you or someone else request them again, Bridgy Fed won't message them again.</p>
 <p>Also, you can only request 10 users per day. Use them wisely!</p>
 <p>On Bluesky, Bridgy Fed has to poll for chat messages, so if you send it a message, it may not respond immediately. It will within a minute at most!
+<p>Also, Bluesky accounts <a href="https://bsky.social/about/blog/05-22-2024-direct-messages">default to only accepting DMs from people they follow</a>. If people on Bluesky aren't seeing Bridgy Fed's DMs, this is probably why. They can fix that by changing that setting to allow DMs from all accounts. (We definitely know this is inconvenient and makes this feature less useful!)
 
 <p>Here's an example of the exact text in the prompt DM:
 <blockquote>
