@@ -105,6 +105,10 @@ class PagesTest(TestCase):
         got = self.client.get('/bsky/han.dull')
         self.assert_equals(200, got.status_code)
 
+        body = got.get_data(as_text=True)
+        self.assertIn('/bsky/did:plc:user/update-profile', body)
+        self.assertNotIn('/bsky/han.dull/update-profile', body)
+
     def test_user_page_handle_atproto_avoid_old_bad_user(self):
         # first user has computed handle property stored as go.od, but DID doc has
         # it updated to b.ad instead

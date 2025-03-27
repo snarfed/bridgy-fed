@@ -196,12 +196,13 @@ class UserTest(TestCase):
         self.assertTrue(pem.decode().startswith('-----BEGIN RSA PRIVATE KEY-----\n'), pem)
         self.assertTrue(pem.decode().endswith('-----END RSA PRIVATE KEY-----'), pem)
 
-    def test_user_link_page_path(self):
+    def test_user_page_path(self):
         self.assertEqual('/web/y.za', self.user.user_page_path())
         self.assertEqual('/web/y.za/followers', self.user.user_page_path('followers'))
 
         fake_foo = self.make_user('fake:foo', cls=Fake)
         self.assertEqual('/fa/fake:handle:foo', fake_foo.user_page_path())
+        self.assertEqual('/fa/fake:foo', fake_foo.user_page_path(use_id=True))
 
     def test_user_link_pictures_true(self):
         self.assert_multiline_equals(

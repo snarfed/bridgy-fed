@@ -32,7 +32,7 @@
   <span class="big">
     <nobr>
     {{ user.user_link(pictures=True)|safe }}
-    <form method="post" action="{{ user.user_page_path('update-profile') }}">
+    <form method="post" action="{{ user.user_page_path('update-profile', use_id=True) }}">
       <button id="update-profile-button" type="submit" title="Update profile"
               class="btn btn-default glyphicon glyphicon-refresh"></button>
     </form>

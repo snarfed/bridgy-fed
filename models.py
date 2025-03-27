@@ -805,12 +805,18 @@ Welcome to Bridgy Fed! Your account will soon be bridged to {to_proto.PHRASE} at
         if obj:
             self.obj = obj
 
-    def user_page_path(self, rest=None):
-        """Returns the user's Bridgy Fed user page path."""
-        path = f'/{self.ABBREV}/{self.handle_or_id()}'
+    def user_page_path(self, rest=None, use_id=False):
+        """Returns the user's Bridgy Fed user page path.
+
+        Args:
+          rest (str): additional path and/or query to add to the end
+          use_id (bool): whether to use the account's id in the path instead of
+            handle. Defaults to ``False``.
+        """
+        path = f'/{self.ABBREV}/{self.key.id() if use_id else self.handle_or_id()}'
 
         if rest:
-            if not rest.startswith('?'):
+            if not (rest.startswith('?') or rest.startswith('/')):
                 path += '/'
             path += rest
 
