@@ -229,18 +229,38 @@ class ATProtoTest(TestCase):
         self.assertIsNone(ATProto.handle_to_id('han.dull.brid.gy'))
 
     @patch('requests.get', side_effect=[
+        requests_response(DID_DOC),
         requests_response({
             'uri': 'at://did:plc:user/app.bsky.actor.profile/self',
             'cid': 'bafyreigd',
             'value': ACTOR_PROFILE_BSKY,
         }),
-        requests_response(DID_DOC),
     ])
     def test_reload_profile(self, mock_get):
         user = ATProto(id='did:plc:user')
         user.reload_profile()
         self.assertEqual({**ACTOR_PROFILE_BSKY, 'cid': 'bafyreigd'}, user.obj.bsky)
         self.assertEqual(DID_DOC, Object.get_by_id('did:plc:user').raw)
+
+    @patch('requests.get', side_effect=[
+        requests_response({**DID_DOC, 'alsoKnownAs': ['at://new.handle']}),
+        requests_response({
+            'uri': 'at://did:plc:user/app.bsky.actor.profile/self',
+            'cid': 'bafyreigd',
+            'value': ACTOR_PROFILE_BSKY,
+        }),
+    ])
+    def test_reload_profile_updates_handle(self, mock_get):
+        """Test that reload_profile updates the ATProto object's handle when DID doc changes."""
+        self.store_object(id='did:plc:user', raw=DID_DOC)
+        user = self.make_user('did:plc:user', cls=ATProto)
+        self.assertEqual('han.dull.brid.gy', user.handle)
+
+        user.reload_profile()
+
+        # query by handle so that we check the stored value
+        user = ATProto.query(ATProto.handle == 'new.handle').get()
+        self.assertEqual('new.handle', user.handle)
 
     def test_bridged_web_url_for(self):
         self.assertIsNone(ATProto.bridged_web_url_for(ATProto(id='did:plc:foo')))

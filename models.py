@@ -805,6 +805,9 @@ Welcome to Bridgy Fed! Your account will soon be bridged to {to_proto.PHRASE} at
         if obj:
             self.obj = obj
 
+        # write the user so that we re-populate any computed properties
+        self.put()
+
     def user_page_path(self, rest=None, use_id=False):
         """Returns the user's Bridgy Fed user page path.
 

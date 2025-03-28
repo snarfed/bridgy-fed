@@ -620,8 +620,8 @@ class IntegrationTests(TestCase):
         # ...
     }))
     @patch('requests.get', side_effect=[
-        requests_response(PROFILE_GETRECORD),  # alice profile
         requests_response(DID_DOC),  # alice DID
+        requests_response(PROFILE_GETRECORD),  # alice profile
         requests_response(PROFILE_GETRECORD),  # alice profile
         requests_response({  # getConvoForMembers
             'convo': {
