@@ -202,7 +202,7 @@ class UserTest(TestCase):
 
         fake_foo = self.make_user('fake:foo', cls=Fake)
         self.assertEqual('/fa/fake:handle:foo', fake_foo.user_page_path())
-        self.assertEqual('/fa/fake:foo', fake_foo.user_page_path(use_id=True))
+        self.assertEqual('/fa/fake:foo', fake_foo.user_page_path(prefer_id=True))
 
     def test_user_link_pictures_true(self):
         self.assert_multiline_equals(

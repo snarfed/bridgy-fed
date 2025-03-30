@@ -243,8 +243,8 @@ class Web(User, Protocol):
         return super().is_web_url(url, ignore_www=True)
 
     def user_page_path(self, rest=None, **kwargs):
-        """Always use domain (id)."""
-        kwargs['use_id'] = True
+        """Always prefer domain (id)."""
+        kwargs['prefer_id'] = True
         return super().user_page_path(rest=rest, **kwargs)
 
     def username(self):

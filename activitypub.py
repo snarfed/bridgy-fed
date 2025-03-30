@@ -222,6 +222,11 @@ class ActivityPub(User, Protocol):
 
         return webfinger.fetch_actor_url(handle)
 
+    def user_page_path(self, rest=None, **kwargs):
+        """Always prefer handle, since id is a full URL."""
+        kwargs['prefer_id'] = False
+        return super().user_page_path(rest=rest, **kwargs)
+
     @classmethod
     def target_for(cls, obj, shared=False):
         """Returns ``obj``'s or its author's/actor's inbox, if available."""

@@ -92,7 +92,11 @@ class PagesTest(TestCase):
         # self.assert_equals(302, got.status_code)
         # self.assert_equals('/ap/@me@plus.google.com', got.headers['Location'])
 
-    def test_user_page_handle_atproto(self):
+        body = got.get_data(as_text=True)
+        self.assertIn('/ap/@me@fo/update-profile', body)
+        self.assertNotIn('/ap/http://fo/o/update-profile', body)
+
+    def test_user_page_atproto_id(self):
         self.store_object(id='did:plc:user', raw={
             **DID_DOC,
             'alsoKnownAs': ['at://han.dull'],

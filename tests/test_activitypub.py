@@ -2282,6 +2282,10 @@ class ActivityPubUtilsTest(TestCase):
             mock_get,
             'https://inst.com/.well-known/webfinger?resource=acct:user@inst.com')
 
+    def test_user_page_path_ignore_prefers_id(self):
+        user = self.make_user(id='http://inst.com/@user', cls=ActivityPub)
+        self.assertEqual('/ap/@user@inst.com', user.user_page_path(prefer_id=True))
+
     def test_postprocess_as2_multiple_in_reply_tos(self):
         self.assert_equals({
             'id': 'http://localhost/r/xyz',
