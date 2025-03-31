@@ -86,7 +86,7 @@ prawcore==2.4.0
 proto-plus==1.26.1
 protobuf==5.29.3
 pyasn1==0.6.1
-pyasn1-modules==0.4.1
+pyasn1-modules==0.4.2
 pycparser==2.22
 pycryptodome==3.21.0
 pyjwt==2.10.1
