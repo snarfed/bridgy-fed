@@ -49,9 +49,8 @@ env_variables:
 
 # need only one instance so that new commits can be delivered to subscribeRepos
 # subscribers in memory
-basic_scaling:
-  max_instances: 1
-  idle_timeout: 5m
+manual_scaling:
+  instances: 1
 
 liveness_check:
   # default 300; does lowering this speed up deploy? seems like maybe, a bit?
