@@ -72,7 +72,7 @@ dids_initialized = Event()
 def load_dids():
     # run in a separate thread since it needs to make its own NDB
     # context when it runs in the timer thread
-    Thread(target=_load_dids).start()
+    Thread(target=_load_dids, daemon=True).start()
     dids_initialized.wait()
     dids_initialized.clear()
 
