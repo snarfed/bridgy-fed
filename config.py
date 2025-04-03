@@ -21,6 +21,13 @@ CACHE_THRESHOLD = 3000
 # https://github.com/snarfed/bridgy-fed/issues/1593
 MAX_FORM_MEMORY_SIZE = 10000000
 
+# flask-sock, simple_websocket
+# https://flask-sock.readthedocs.io/en/latest/quickstart.html#configuration
+# https://simple-websocket.readthedocs.io/en/latest/api.html#the-server-class
+SOCK_SERVER_OPTIONS = {
+    'ping_interval': 25,
+}
+
 config_logger = logging.getLogger(__name__)
 
 if appengine_info.DEBUG:
