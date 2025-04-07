@@ -20,6 +20,8 @@ gcloud config set project bridgy-federated
 python3 -m venv local
 source local/bin/activate
 pip install -r requirements.txt
+# needed to serve static files locally
+ln -sf local/lib/python3*/site-packages/oauth_dropins/static oauth_dropins_static
 ```
 
 Now, run the tests to check that everything is set up ok:
