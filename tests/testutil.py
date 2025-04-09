@@ -279,12 +279,6 @@ from activitypub import ActivityPub, CONNEG_HEADERS_AS2_HTML
 import atproto
 from atproto import ATProto
 import common
-from common import (
-    LOCAL_DOMAINS,
-    OTHER_DOMAINS,
-    PRIMARY_DOMAIN,
-    PROTOCOL_DOMAINS,
-)
 from memcache import (
     global_cache,
     memcache,
