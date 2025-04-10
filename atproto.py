@@ -982,7 +982,7 @@ class ATProto(User, Protocol):
         return ret
 
     @classmethod
-    def migrate_in(cls, user, from_user_id, plc_code, dpop_token):
+    def migrate_in(cls, user, from_user_id, plc_code, pds_client):
         """Migrates an ATProto account on another PDS in to be a bridged account.
 
         Before calling this, the repo must have already been imported with
@@ -994,8 +994,7 @@ class ATProto(User, Protocol):
           from_user_id (str): DID of the account to be migrated in
           plc_code (str): a PLC operation confirmation code from the account's
             old PDS, from ``com.atproto.identity.requestPlcOperationSignature``
-          dpop_token (requests_oauth2client.DPoPToken): an OAuth DPoP
-            token for the account from its old PDS
+          pds_client (lexrpc.Client): authenticated client for the account's old PDS
 
         Raises:
           ValueError: if ``from_user_id`` is not an ATProto DID, or
@@ -1019,12 +1018,6 @@ class ATProto(User, Protocol):
             _error(f"Please import {from_user_id}'s repo first")
 
         # ask old PDS to generate signed PLC operation
-        pds_url = oauth_dropins.bluesky.pds_for_did(from_user_id)
-        oauth_client = oauth_dropins.bluesky.oauth_client_for_pds(
-            BOUNCE_OAUTH_CLIENT, pds_url)
-        auth = OAuth2AccessTokenAuth(client=oauth_client, token=dpop_token)
-        pds_client = Client(pds_url, auth=auth)
-
         op = pds_client.com.atproto.identity.signPlcOperation({
             'token': plc_code,
             'rotationKeys': [did.encode_did_key(repo.rotation_key.public_key())],
