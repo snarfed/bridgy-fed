@@ -1169,7 +1169,8 @@ Sed tortor neque, aliquet quis posuere aliquam […]
 
     @patch('requests.post', side_effect=[
         requests_response({'operation': {'signed': 'op'}}),
-        requests_response(),
+        requests_response(),  # signPlcOperation
+        requests_response(),  # deactivateAccount
     ])
     @patch('requests.get', side_effect=[
         requests_response(DID_DOC),  # resolve did:plc:user
@@ -1179,10 +1180,15 @@ Sed tortor neque, aliquet quis posuere aliquam […]
         self.user.copies = self.user.enabled_protocols = []
         self.user.put()
 
+        repo = self.storage.load_repo('did:plc:user')
+        arroba.server.storage.deactivate_repo(repo)
+        orig_head = repo.head
+
         pds_client = lexrpc.Client('https://some.pds')
         ATProto.migrate_in(self.user, 'did:plc:user', plc_code='kode',
                            pds_client=pds_client)
 
+        # PLC update
         self.assertEqual(
             ('https://some.pds/xrpc/com.atproto.identity.signPlcOperation',),
             mock_post.call_args_list[0].args)
@@ -1208,6 +1214,17 @@ Sed tortor neque, aliquet quis posuere aliquam […]
         self.assertEqual((f'https://plc.local/did:plc:user',),
                          mock_post.call_args_list[1].args)
         self.assertEqual({'signed': 'op'}, mock_post.call_args_list[1].kwargs['json'])
+
+        # local repo
+        repo = self.storage.load_repo('did:plc:user')
+        self.assertIsNone(repo.status)
+        self.assertNotEqual(orig_head, repo.head)
+        self.assertGreater(repo.head.decoded['rev'], orig_head.decoded['rev'])
+
+        # remote account
+        self.assertEqual(
+            ('https://some.pds/xrpc/com.atproto.server.deactivateAccount',),
+            mock_post.call_args_list[2].args)
 
     def test_migrate_in_bad_user_id(self, *_):
         eve = self.make_user('fake:eve', cls=Fake)

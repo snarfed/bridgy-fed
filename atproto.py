@@ -985,6 +985,8 @@ class ATProto(User, Protocol):
     def migrate_in(cls, user, from_user_id, plc_code, pds_client):
         """Migrates an ATProto account on another PDS in to be a bridged account.
 
+        https://atproto.com/guides/account-migration
+
         Before calling this, the repo must have already been imported with
         ``com.atproto.repo.importRepo``!
 
@@ -1040,6 +1042,12 @@ class ATProto(User, Protocol):
         # submit PLC operation to directory
         util.requests_post(f'https://{os.environ["PLC_HOST"]}/{from_user_id}',
                            json=op['operation'])
+
+        # activate our repo, deactivate account on old PDS
+        # https://atproto.com/guides/account-migration#finalizing-account-status
+        arroba.server.storage.activate_repo(repo)
+        repo.apply_writes(None)
+        pds_client.com.atproto.server.deactivateAccount()
 
     @classmethod
     def add_source_links(cls, actor, obj, from_user):
