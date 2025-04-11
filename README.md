@@ -34,7 +34,7 @@ python3 -m unittest discover
 Finally, run this in the repo root directory to start the web app locally:
 
 ```shell
-GAE_ENV=localdev FLASK_ENV=development flask run -p 8080
+env FLASK_ENV=development APPVIEW_HOST=api.bsky.app PLC_HOST=plc.directory BGS_HOST=bsky.network PDS_HOST=atproto.brid.gy flask --debug run -p 8080
 ```
 
 If you send a pull request, please include (or update) a test for the new functionality!
