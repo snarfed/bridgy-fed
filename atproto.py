@@ -1026,7 +1026,7 @@ class ATProto(User, Protocol):
             'verificationMethod': [{
                 'id': 'did:plc:user#atproto',
                 'type': 'Multikey',
-                'controller': 'did:plc:user',
+                'controller': from_user_id,
                 'publicKeyMultibase': did.encode_did_key(repo.signing_key.public_key()),
             }],
             'services': {
@@ -1035,7 +1035,6 @@ class ATProto(User, Protocol):
                     'endpoint': cls.PDS_URL,
                 },
             },
-            # TODO: do we need all fields? missing alsoKnownAs
         })
         logger.debug(op)
 
