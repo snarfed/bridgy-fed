@@ -1024,7 +1024,7 @@ class ATProto(User, Protocol):
             'token': plc_code,
             'rotationKeys': [did.encode_did_key(repo.rotation_key.public_key())],
             'verificationMethod': [{
-                'id': 'did:plc:user#atproto',
+                'id': f'{from_user_id}#atproto',
                 'type': 'Multikey',
                 'controller': from_user_id,
                 'publicKeyMultibase': did.encode_did_key(repo.signing_key.public_key()),

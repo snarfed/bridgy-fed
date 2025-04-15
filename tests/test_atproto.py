@@ -1185,8 +1185,7 @@ Sed tortor neque, aliquet quis posuere aliquam […]
         orig_head = repo.head
 
         pds_client = lexrpc.Client('https://some.pds')
-        ATProto.migrate_in(self.user, 'did:plc:user', plc_code='kode',
-                           pds_client=pds_client)
+        ATProto.migrate_in(self.user, 'did:plc:user', plc_code='kode', pds_client=pds_client)
 
         # PLC update
         self.assertEqual(
