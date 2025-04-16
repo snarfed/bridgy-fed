@@ -16,7 +16,7 @@ git+https://github.com/pinterest/pymemcache.git#egg=pymemcache
 
 attrs==25.3.0
 bases==0.3.0
-beautifulsoup4==4.13.3
+beautifulsoup4==4.13.4
 bech32==1.2.0
 cachetools==5.3.0
 cbor2==5.6.5
