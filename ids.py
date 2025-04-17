@@ -21,6 +21,7 @@ from common import (
     PROTOCOL_DOMAINS,
     subdomain_wrap,
     SUPERDOMAIN,
+    unwrap,
 )
 import models
 
@@ -100,6 +101,18 @@ def translate_user_id(*, id, from_, to):
       str: the corresponding id in ``to``
     """
     id, from_, to = validate(id, from_, to)
+
+    # check for and handle our own subdomain-wrapped ids, eg
+    # https://bsky.brid.gy/ap/did:plc:456
+    from protocol import Protocol
+    if domain_proto := Protocol.for_bridgy_subdomain(id, fed='web'):
+        path = urlparse(id).path.strip('/').split('/')
+        if (path[0] == from_.ABBREV
+                or (from_.ABBREV == 'ap' and domain_proto.ABBREV == 'web'
+                    and len(path) == 1)):
+            id = unwrap(id)
+            from_ = domain_proto
+
     assert from_.owns_id(id) is not False or from_.LABEL == 'ui', \
         (id, from_.LABEL, to.LABEL)
 

@@ -47,6 +47,10 @@ class IdsTest(TestCase):
             (ActivityPub, 'https://bsky.app/profile/user.com', ATProto, 'did:plc:123'),
             (ActivityPub, 'https://bsky.app/profile/did:plc:123',
              ATProto, 'did:plc:123'),
+            (ActivityPub, 'https://bsky.brid.gy/ap/did:plc:456',
+             ATProto, 'did:plc:456'),
+            (ActivityPub, 'https://bsky.brid.gy/ap/did:plc:456',
+             Fake, 'fake:u:did:plc:456'),
 
             (ATProto, 'did:plc:456', ATProto, 'did:plc:456'),
             # copies
@@ -78,6 +82,8 @@ class IdsTest(TestCase):
             (Web, 'user.com', Fake, 'fake:u:user.com'),
             (Web, 'user.com', Web, 'user.com'),
             (Web, 'https://user.com/', Web, 'user.com'),
+            (ActivityPub, 'https://web.brid.gy/ap/user.com', Web, 'user.com'),
+            (ActivityPub, 'https://web.brid.gy/ap/user.com', Fake, 'fake:u:user.com'),
 
             # instance actor / protocol bot users
             (Web, 'fed.brid.gy', ActivityPub, 'https://fed.brid.gy/fed.brid.gy'),
