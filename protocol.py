@@ -347,6 +347,11 @@ class Protocol:
             return candidates[0]
 
         # step 3: look for existing Objects in the datastore
+        #
+        # note that we don't currently see if this is a copy id because I have FUD
+        # over which Protocol for_id should return in that case...and also because a
+        # protocol may already say definitively above that it owns the id, eg ATProto
+        # with DIDs and at:// URIs.
         obj = Protocol.load(id, remote=False)
         if obj and obj.source_protocol:
             logger.debug(f'  {obj.key.id()} owned by source_protocol {obj.source_protocol}')
