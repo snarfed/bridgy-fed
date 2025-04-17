@@ -85,16 +85,17 @@ FOLLOWERS_CACHE_EXPIRATION = timedelta(hours=2)
 IMAGE_PROXY_URL_BASE = 'https://aujtzahimq.cloudimg.io/v7/'
 IMAGE_PROXY_DOMAINS = ('threads.net',)
 
-USER_STATUS_DESCRIPTIONS = {
-    'owns-webfinger': 'your web site looks like a fediverse instance because it already serves Webfinger',
-    'opt-out': 'your account or instance has requested to be opted out',
-    'nobridge': "your profile has 'nobridge' in it",
-    'nobot': "your profile has 'nobot' in it",
+USER_STATUS_DESCRIPTIONS = {  # keep in sync with DM.type!
     'no-feed-or-webmention': "your web site doesn't have an RSS or Atom feed or webmention endpoint",
+    'nobot': "your profile has 'nobot' in it",
+    'nobridge': "your profile has 'nobridge' in it",
+    'opt-out': 'your account or instance has requested to be opted out',
+    'owns-webfinger': 'your web site looks like a fediverse instance because it already serves Webfinger',
     'private': 'your account is set as private or protected',
     'requires-avatar': "you haven't set a profile picture",
     'requires-name': "you haven't set a profile name that's different from your username",
     'requires-old-account': f"your account is less than {humanize.naturaldelta(OLD_ACCOUNT_AGE)} old",
+    'unsupported-handle-ap': f"<a href='https://fed.brid.gy/docs#fediverse-get-started'>your username has characters that Bridgy Fed doesn't currently support</a>",
 }
 
 logger = logging.getLogger(__name__)
@@ -146,7 +147,7 @@ class DM(ndb.Model):
     https://googleapis.dev/python/python-ndb/latest/model.html#google.cloud.ndb.model.StructuredProperty
     """
     type = ndb.StringProperty(required=True)
-    """Known values:
+    """Known values (keep in sync with USER_STATUS_DESCRIPTIONS!):
       * no-feed-or-webmention
       * opt-out
       * owns-webfinger
@@ -156,7 +157,7 @@ class DM(ndb.Model):
       * requires-avatar
       * requires-name
       * requires-old-account
-      * unsupported-handle
+      * unsupported-handle-ap
       * welcome
     """
     protocol = ndb.StringProperty(choices=list(PROTOCOLS.keys()), required=True)
