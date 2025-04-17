@@ -80,40 +80,46 @@ def load_dids():
 def _load_dids():
     global atproto_dids, atproto_loaded_at, bridged_dids, bridged_loaded_at
 
+    if not DEBUG:
+        Timer(STORE_CURSOR_FREQ.total_seconds(), _load_dids).start()
+
     with ndb_client.context(**NDB_CONTEXT_KWARGS):
-        if not DEBUG:
-            Timer(STORE_CURSOR_FREQ.total_seconds(), _load_dids).start()
+        try:
+            atproto_query = ATProto.query(ATProto.status == None,
+                                          ATProto.enabled_protocols != None,
+                                          ATProto.updated > atproto_loaded_at)
+            loaded_at = ATProto.query().order(-ATProto.updated).get().updated
+            new_atproto = [key.id() for key in atproto_query.iter(keys_only=True)]
+            atproto_dids.update(new_atproto)
+            # set *after* we populate atproto_dids so that if we crash earlier, we
+            # re-query from the earlier timestamp
+            atproto_loaded_at = loaded_at
 
-        atproto_query = ATProto.query(ATProto.status == None,
-                                      ATProto.enabled_protocols != None,
-                                      ATProto.updated > atproto_loaded_at)
-        loaded_at = ATProto.query().order(-ATProto.updated).get().updated
-        new_atproto = [key.id() for key in atproto_query.iter(keys_only=True)]
-        atproto_dids.update(new_atproto)
-        # set *after* we populate atproto_dids so that if we crash earlier, we
-        # re-query from the earlier timestamp
-        atproto_loaded_at = loaded_at
+            bridged_query = AtpRepo.query(AtpRepo.status == None,
+                                          AtpRepo.created > bridged_loaded_at)
+            loaded_at = AtpRepo.query().order(-AtpRepo.created).get().created
+            new_bridged = [key.id() for key in bridged_query.iter(keys_only=True)]
+            bridged_dids.update(new_bridged)
+            # set *after* we populate bridged_dids so that if we crash earlier, we
+            # re-query from the earlier timestamp
+            bridged_loaded_at = loaded_at
 
-        bridged_query = AtpRepo.query(AtpRepo.status == None,
-                                      AtpRepo.created > bridged_loaded_at)
-        loaded_at = AtpRepo.query().order(-AtpRepo.created).get().created
-        new_bridged = [key.id() for key in bridged_query.iter(keys_only=True)]
-        bridged_dids.update(new_bridged)
-        # set *after* we populate bridged_dids so that if we crash earlier, we
-        # re-query from the earlier timestamp
-        bridged_loaded_at = loaded_at
+            if not protocol_bot_dids:
+                bot_keys = [Web(id=domain).key for domain in PROTOCOL_DOMAINS]
+                for bot in ndb.get_multi(bot_keys):
+                    if bot:
+                        if did := bot.get_copy(ATProto):
+                            logger.info(f'Loaded protocol bot user {bot.key.id()} {did}')
+                            protocol_bot_dids.add(did)
 
-        if not protocol_bot_dids:
-            bot_keys = [Web(id=domain).key for domain in PROTOCOL_DOMAINS]
-            for bot in ndb.get_multi(bot_keys):
-                if bot:
-                    if did := bot.get_copy(ATProto):
-                        logger.info(f'Loaded protocol bot user {bot.key.id()} {did}')
-                        protocol_bot_dids.add(did)
+            dids_initialized.set()
+            total = len(atproto_dids) + len(bridged_dids)
+            logger.info(f'DIDs: {total} ATProto {len(atproto_dids)} (+{len(new_atproto)}), AtpRepo {len(bridged_dids)} (+{len(new_bridged)}); commits {commits.qsize()}')
 
-        dids_initialized.set()
-        total = len(atproto_dids) + len(bridged_dids)
-        logger.info(f'DIDs: {total} ATProto {len(atproto_dids)} (+{len(new_atproto)}), AtpRepo {len(bridged_dids)} (+{len(new_bridged)}); commits {commits.qsize()}')
+        except BaseException:
+            # eg google.cloud.ndb.exceptions.ContextError when we lose the ndb context
+            # https://console.cloud.google.com/errors/detail/CLO6nJnRtKXRyQE?project=bridgy-federated
+            report_exception()
 
 
 def subscriber():
