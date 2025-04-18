@@ -110,3 +110,44 @@ def memoize(expire=None, key=None, write=True, version=MEMOIZE_VERSION):
         return wrapped
 
     return decorator
+
+
+###########################################
+
+# https://github.com/googleapis/python-ndb/issues/743#issuecomment-2067590945
+#
+# fixes "RuntimeError: Key has already been set in this batch" errors due to
+# tasklets in pages.serve_feed
+from logging import error as log_error
+from sys import modules
+
+from google.cloud.datastore_v1.types.entity import Key
+from google.cloud.ndb._cache import (
+    _GlobalCacheSetBatch,
+    global_compare_and_swap,
+    global_set_if_not_exists,
+    global_watch,
+)
+from google.cloud.ndb.tasklets import Future, Return, tasklet
+
+GLOBAL_CACHE_KEY_PREFIX: bytes = modules["google.cloud.ndb._cache"]._PREFIX
+LOCKED_FOR_READ: bytes = modules["google.cloud.ndb._cache"]._LOCKED_FOR_READ
+LOCK_TIME: bytes = modules["google.cloud.ndb._cache"]._LOCK_TIME
+
+
+@tasklet
+def custom_global_lock_for_read(key: str, value: str):
+    if value is not None:
+        yield global_watch(key, value)
+        lock_acquired = yield global_compare_and_swap(
+            key, LOCKED_FOR_READ, expires=LOCK_TIME
+        )
+    else:
+        lock_acquired = yield global_set_if_not_exists(
+            key, LOCKED_FOR_READ, expires=LOCK_TIME
+        )
+
+    if lock_acquired:
+        raise Return(LOCKED_FOR_READ)
+
+modules["google.cloud.ndb._cache"].global_lock_for_read = custom_global_lock_for_read
