@@ -33,5 +33,6 @@
   "alsoKnownAs": [
     "https://bsky.brid.gy/",
     "https://fed.brid.gy/"
-  ]
+  ],
+  "manuallyApprovesFollowers": false
 }

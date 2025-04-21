@@ -71,6 +71,7 @@ ACTOR_BASE = {
         'sharedInbox': 'http://localhost/ap/sharedInbox',
     },
     'alsoKnownAs': ['https://user.com/'],
+    'manuallyApprovesFollowers': False,
 }
 ACTOR_BASE_FULL = {
     **ACTOR_BASE,
@@ -94,6 +95,7 @@ ACTOR_FAKE = {
     'preferredUsername': 'fake:handle:user',
     'summary': '',
     'alsoKnownAs': ['uri:fake:user'],
+    'manuallyApprovesFollowers': False,
 }
 ACTOR_FAKE_USER = {
     **ACTOR_FAKE,
@@ -2459,6 +2461,13 @@ class ActivityPubUtilsTest(TestCase):
                 'href': 'http://a/link',
             }],
         }), ignore=['to'])
+
+    def test_postprocess_as2_actor_manuallyApprovesFollowers(self):
+        got = postprocess_as2_actor(as2.from_as1({
+            'objectType': 'person',
+            'id': 'http://foo/bar',
+        }), user=self.user)
+        self.assertFalse(got['manuallyApprovesFollowers'])
 
     def test_postprocess_as2_actor_url_attachments(self):
         got = postprocess_as2_actor(as2.from_as1({

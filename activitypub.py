@@ -1001,7 +1001,11 @@ def postprocess_as2_actor(actor, user):
                                                     link.get('href').rstrip('/')]:
                 att['name'] = 'Web site'
 
-    # required by pixelfed. https://github.com/snarfed/bridgy-fed/issues/39
+    # required by pixelfed
+    #
+    # https://github.com/snarfed/bridgy-fed/issues/1893
+    actor.setdefault('manuallyApprovesFollowers', False)
+    # https://github.com/snarfed/bridgy-fed/issues/39
     actor.setdefault('summary', '')
 
     if not actor.get('publicKey') and not isinstance(user, ActivityPub):

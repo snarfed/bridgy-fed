@@ -96,6 +96,7 @@ ACTOR_AS2 = {
     'indexable': True,
     'inbox': 'http://localhost/user.com/inbox',
     'outbox': 'http://localhost/user.com/outbox',
+    'manuallyApprovesFollowers': False,
 }
 ACTOR_AS2_FULL = {
     **ACTOR_AS2,

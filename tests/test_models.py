@@ -852,6 +852,7 @@ class ObjectTest(TestCase):
                 'url': 'https://fed.brid.gy/static/bridgy_fed_banner.png',
             }],
             'alsoKnownAs': ['https://fed.brid.gy/'],
+            'manuallyApprovesFollowers': False,
         }, Web.load('https://fed.brid.gy/').as1, ignore=['summary'])
 
     def test_atom_url_overrides_id(self):
