@@ -100,7 +100,7 @@ PyYAML==6.0.2
 redis==5.2.1
 requests==2.32.3
 requests-oauthlib==1.4.0
-rsa==4.9
+rsa==4.9.1
 secp256k1==0.14.0
 sgmllib3k==1.0.0
 simple-websocket==1.1.0
