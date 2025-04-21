@@ -105,7 +105,7 @@ secp256k1==0.14.0
 sgmllib3k==1.0.0
 simple-websocket==1.1.0
 six==1.17.0
-soupsieve==2.6
+soupsieve==2.7
 testtools==2.7.2
 tlslite-ng==0.8.2
 tweepy==4.15.0
