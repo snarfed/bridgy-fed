@@ -77,7 +77,7 @@ mf2util==0.5.2
 multiformats==0.3.1.post4
 multiformats-config==0.3.1
 oauthlib==3.2.2
-packaging==24.2
+packaging==25.0
 pbr==6.1.1
 Pillow==11.2.1
 pkce==1.0.3
