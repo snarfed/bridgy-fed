@@ -734,12 +734,13 @@ class ATProto(User, Protocol):
 
         ndb.transactional()
         def write():
-            nonlocal rkey
+            nonlocal record, rkey
             match verb:
                 case 'update':
                     action = Action.UPDATE
                 case 'delete' | 'undo':
                     action = Action.DELETE
+                    record = None  # delete operations shouldn't include record cid
                 case _:
                     action = Action.CREATE
                     rkey = 'self' if type == 'app.bsky.actor.profile' else next_tid()
