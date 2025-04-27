@@ -55,8 +55,8 @@ googleapis-common-protos==1.70.0
 google-cloud-ndb==2.3.2
 grapheme==0.6.0
 grpc-google-iam-v1==0.14.2
-grpcio==1.70.0
-grpcio-status==1.70.0
+grpcio==1.71.0
+grpcio-status==1.71.0
 gunicorn==23.0.0
 h11==0.16.0
 html2text==2025.4.15
