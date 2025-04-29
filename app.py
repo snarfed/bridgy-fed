@@ -10,3 +10,10 @@ import activitypub, atproto, convert, follow, pages, redirect, ui, webfinger, we
 
 import models
 models.reset_protocol_properties()
+
+# only serve subscribeRepos on atproto.brid.gy (atproto-hub), not on fed.brid.gy, so
+# that relays don't think they're two separate PDSes.
+#
+# must be before flask_app import!
+import arroba.server
+del arroba.server.server._methods['com.atproto.sync.subscribeRepos']

@@ -293,7 +293,7 @@ def create_task(queue, delay=None, **params):
     assert queue
     path = f'/queue/{queue}'
 
-    # removed from "Added X task ..." log messae below to cut logging costs
+    # removed from "Added X task ..." log message below to cut logging costs
     # https://github.com/snarfed/bridgy-fed/issues/1149#issuecomment-2265861956
     # loggable = {k: '{...}' if isinstance(v, dict) else v for k, v in params.items()}
     params = {
