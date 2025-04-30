@@ -150,6 +150,7 @@
 <br>
 
 <p><em>From the web</em></p>
+
 <li><a href="#web-get-started">How do I get started?</a></li>
 <li><a href="#web-profile">Where does my profile info come from?</a></li>
 <li><a href="#web-how-post">How does Bridgy Fed find my posts?</a></li>
@@ -177,7 +178,20 @@
 
 <br>
 
+<p><em>Developers</em></p>
+
+<li><a href="#api">Does Bridgy Fed have an API? Can I integrate my client or service or other tool with it?</a></li>
+<li><a href="#identify-bridged-account">How can I tell if an account is bridged?</a></li>
+<li><a href="#identify-bridged-post">How can I tell if a post is bridged?</a></li>
+<li><a href="#metadata">Can I get additional metadata about a bridged account or post?</a></li>
+<li><a href="#enable-api">Can I enable and disable the bridge programmatically for my users?</a></li>
+<li><a href="#bluesky-handle-api">Can I give my users custom Bluesky domain handles automatically?</a></li>
+<li><a href="#fediverse-address-api">Can I give my users custom fediverse addresses automatically?</a></li>
+
+<br>
+
 <p><em>Background</em></p>
+
 <li><a href="#who">Who are you? Why did you make this?</a></li>
 <li><a href="#cost">How much does it cost?</a></li>
 <li><a href="#privacy">What do you do with my data?</a></li>
@@ -191,6 +205,7 @@
 <br>
 
 <p><em>Development</em></p>
+
 <li><a href="#values">What are Bridgy Fed's product and engineering values?</a></li>
 <li><a href="#compare">How do the different protocols compare?</a></li>
 <li><a href="#translate">How are the different protocols translated?</a></li>
@@ -1020,6 +1035,88 @@ To receive likes, reposts, replies, @-mentions, and follows from other networks,
 <li id="web-enhanced" class="question">Can I use my own domain as my handle on other networks?</li>
 <li class="answer">
 <p>Yes! By default, your web site's bridged handle on other networks includes <code>web.brid.gy</code>, eg <code>@yoursite.com@web.brid.gy</code>, but you can use your own domain instead. Here are instructions for <a href="#fediverse-enhanced">fediverse handles</a> and <a href="#bluesky-enhanced">Bluesky handles</a>.</p>
+</li>
+
+
+<br>
+
+<h3>Developers</h3>
+
+<li id="api" class="question">Does Bridgy Fed have an API? Can I integrate my client or service or other tool with it?</li>
+<li class="answer">
+<p>Yes! Bridgy Fed is a first class participant in the protocols it supports, so for most purposes, we recommend that you interact with it natively via those protocols. However, if you want to go the extra mile, there are ways to make your project Bridgy Fed aware and improve your users' experience.
+<p>The first thing we recommend is to detect bridged users, show that they're bridged and where they're coming from, and offer additional ways to interact with them. For example, if you have a multi-protocol client, and a user navigates to a bridged account or post, you can show the original account or post instead, in its native protocol.
+<p>Similarly, if you detect that a post is bridged and has been truncated, you can show the full-length original text, even if you don't support its native protocol.
+<p>Read on for more details, and <a href="mailto:letsbuild@anew.social">feel free to reach out to us</a>, we're always happy to talk!
+</li>
+
+<li id="identify-bridged-account" class="question">How can I tell if an account is bridged?</li>
+<p>For an ActivityPub actor, check its <a href="https://www.w3.org/ns/activitystreams#did-core"><code>alsoKnownAs</code> field</a>. If it's bridged from elsewhere, that field will have its native id as a URI. For example, an account bridged from  Bluesky will have an <a href="https://atproto.com/specs/at-uri-scheme"><code>at://</code></a> URI with its <a href="https://atproto.com/specs/did">DID</a>:
+<pre>
+{
+  "id": "https://bsky.brid.gy/ap/did:plc:3ljmtyyjqcjee2kpewgsifvb",
+  "<span class='keyword'>alsoKnownAs</span>": ["<span class='value'>at://did:plc:3ljmtyyjqcjee2kpewgsifvb</span>"],
+  ...
+</pre>
+<p>Similarly, a bridged web site will have its home page URL:
+<pre>
+{
+  "id": "https://fed.brid.gy/snarfed.org",
+  "<span class='keyword'>alsoKnownAs</span>": ["<span class='value'>https://snarfed.org/</span>"],
+  ...
+</pre>
+<p>Bluesky is similar. If a Bluesky user is bridged from elsewhere, its native id will be in <code>alsoKnownAs</code> in the user's <a href="https://atproto.com/specs/did#did-documents">DID document</a>, eg:
+<pre>
+{
+  "id": "did:plc:fdme4gb7mu7zrie7peay7tst",
+  "<span class='keyword'>alsoKnownAs</span>": ["<span class='value'>https://snarfed.org/</span>"],
+  ...
+</pre>
+<p>On the web, <a href="https://indieweb.org/h-card"><code>h-card</code>s</a> for bridged users have their native id in the <a href="https://microformats.org/wiki/microformats2">microformats2</a> <code>uid</code> property:
+<pre>
+&lt;span class="p-author <span class='keyword'>h-card</span>"&gt;
+  &lt;data class="p-uid" value="<span class='value'>https://mastodon.social/users/clot27</span>"&gt;&lt;/data&gt;
+</pre>
+</li>
+
+<li id="identify-bridged-post" class="question">How can I tell if a post is bridged?</li>
+<li class="answer">
+<p>On Bluesky, look for the <code>bridgyOriginalUrl</code> field in the post record. This will have the post's id in its native protocol. For example, <a href="https://bsky.app/profile/fedi.test.snarfed.org/post/3lmwsp3tpdlt2">this post</a> was bridged from the fediverse:
+<pre>
+{
+  "$type": "app.bsky.feed.post",
+  "text": "hi @shnarfed"
+  "<span class='keyword'>bridgyOriginalUrl</span>": "<span class='value'>https://indieweb.social/@snarfed/114348129599184925</span>",
+  ...
+</pre>
+<p>On the web or the fediverse, check if the post's microformats2 <code>uid</code> or ActivityPub <code>id</code> is on a <code>brid.gy</code> subdomain. If so, its original native id will be the last part of the path, after <code>/convert/[protocol]/</code>.
+<p>For example, <code>https://bsky.brid.gy/convert/ap/at://did:plc:3ljmtyyjqcjee2kpewgsifvb/app.bsky.feed.post/3lhputf77w22j</code> is the Bridgy Fed ActivityPub id for a Bluesky post bridged into the fediverse. Its original Bluesky URI is <code>at://did:plc:3ljmtyyjqcjee2kpewgsifvb/app.bsky.feed.post/3lhputf77w22j</code>.
+</li>
+
+<li id="metadata" class="question">Can I get additional metadata about a bridged account or post?</li>
+<li class="answer">
+<p>On Bluesky, look for the <code>bridgyOriginalUrl</code> field described above, which links to the original native post. There's also a <code>bridgyOriginalText</code> field, which contains the original post's full text, before truncation.
+<p>For posts bridged to the fediverse or the web, we translate everything to standard <a href="https://www.w3.org/TR/activitystreams-core/">ActivityStreams 2</a> fields and <a href="https://microformats.org/wiki/microformats2">microformats2</a> properties, respectively, so we don't need custom fields like for Bluesky.
+</li>
+
+<li id="enable-api" class="question">Can I enable the bridge programmatically for my users?</li>
+<li class="answer">
+<p>Yes! On Bluesky and the fediverse, you can enable the bridge for a user by having them <a href="#bluesky-get-started">follow <code>@ap.brid.gy</code></a> <a href="#fediverse-get-started">or <code>@bsky.brid.gy@bsky.brid.gy</code></a>, respectively. Likewise, you can disable the bridge for a user by having them block <code>@bsky.brid.gy@bsky.brid.gy</code>.
+<p>To enable the bridge for a web site, make a form-encoded HTTP POST to <code>https://fed.brid.gy/web-site</code> with the web site's home page URL in the body's <code>url</code> parameter, eg <code>url=example.com</code>. The web site <a href="#web-get-started">must either support microformats2 and webmentions, or serve an RSS or Atom feed discoverable from its home page.</a> To disable, put the text <code>#nobridge</code> in the web site's <a href="#web-profile">profile metadata</a>, then make an HTTP POST to <code>https://fed.brid.gy/web/[domain]/update-profile</code>, where <code>[domain]</code> is the web site's domain, eg <code>snarfed.org</code>.</a>
+</li>
+
+<li id="bluesky-handle-api" class="question">Can I give my users custom Bluesky domain handles automatically?</li>
+<li class="answer">
+<p>Yes! For Bluesky custom domain handles, you need to redirect the URL path <code>/.well-known/atproto-did</code> to Bridgy Fed from every subdomain that you want to use as a handle. You also need to include two query parameters: <code>protocol</code>, which is <code>ap</code> for fediverse accounts or <code>web</code> for web sites, and <code>id</code>, which is the ActivityPub actor id or WebFinger address for fediverse accounts, or the domain for web sites.
+<p>Say you run a fediverse instance at <code>instance.com</code>, and your users' actor ids follow the pattern <code>https://instance.com/users/alice</code>, and you want to give each of your users a subdomain as their Bluesky handle, eg <code>alice.instance.com</code> for <code>@alice@instance.com</code>. You'd redirect <code>https://alice.instance.com/.well-known/atproto-did</code> to <code>https://fed.brid.gy/.well-known/atproto-did?protocol=ap&id=https://instance.com/users/alice</code>, and so on for each of your users.
+<p>Likewise, if you run a web hosting service at <code>example.com</code>, with subdomains for each of your users, you'd redirect <code>https://bob.example.com/.well-known/atproto-did</code> to <code>https://fed.brid.gy/.well-known/atproto-did?protocol=web&id=bob.example.com</code>, and so on.
+<p>This can often be done with a bit of web server config alone, without needing to change your instance's or service's code. You'll probably also use a wildcard DNS record and SSL certificate instead of provisioning individual DNS records and certificates per subdomain.
+</li>
+
+<li id="fediverse-address-api" class="question">Can I give my users custom fediverse addresses automatically?</li>
+<li class="answer">
+<p>Yes! If you run a web hosting service, the process is similar to Bluesky custom handles. <a href="#fediverse-enhanced">Set up the webfinger redirects</a> for a web site first, before <a href="#enable-api">bridging it</a>, and Bridgy Fed will detect them and automatically use its domain as its fediverse address instead of <code>web.brid.gy</code>.
+<p>We don't currently have a way to automatically set a custom fediverse address for bridged Bluesky accounts. If you'd like that, <a href="https://github.com/snarfed/bridgy-fed/issues">feel free to file a feature request</a>!
 </li>
 
 
