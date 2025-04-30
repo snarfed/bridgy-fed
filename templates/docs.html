@@ -1047,7 +1047,7 @@ To receive likes, reposts, replies, @-mentions, and follows from other networks,
 <p>Yes! Bridgy Fed is a first class participant in the protocols it supports, so for most purposes, we recommend that you interact with it natively via those protocols. However, if you want to go the extra mile, there are ways to make your project Bridgy Fed aware and improve your users' experience.
 <p>The first thing we recommend is to detect bridged users, show that they're bridged and where they're coming from, and offer additional ways to interact with them. For example, if you have a multi-protocol client, and a user navigates to a bridged account or post, you can show the original account or post instead, in its native protocol.
 <p>Similarly, if you detect that a post is bridged and has been truncated, you can show the full-length original text, even if you don't support its native protocol.
-<p>Read on for more details, and <a href="mailto:letsbuild@anew.social">feel free to reach out to us</a>, we're always happy to talk!
+<p>Read on for more details, and <a href="https://www.anew.social/contact/">feel free to reach out to us</a>, we're always happy to talk!
 </li>
 
 <li id="identify-bridged-account" class="question">How can I tell if an account is bridged?</li>
@@ -1102,7 +1102,7 @@ To receive likes, reposts, replies, @-mentions, and follows from other networks,
 
 <li id="enable-api" class="question">Can I enable the bridge programmatically for my users?</li>
 <li class="answer">
-<p>Yes! On Bluesky and the fediverse, you can enable the bridge for a user by having them <a href="#bluesky-get-started">follow <code>@ap.brid.gy</code></a> <a href="#fediverse-get-started">or <code>@bsky.brid.gy@bsky.brid.gy</code></a>, respectively. Likewise, you can disable the bridge for a user by having them block <code>@bsky.brid.gy@bsky.brid.gy</code>.
+<p>Yes! On Bluesky and the fediverse, you can enable the bridge for a user by having them <a href="#bluesky-get-started">follow <code>@ap.brid.gy</code></a> <a href="#fediverse-get-started">or <code>@bsky.brid.gy@bsky.brid.gy</code></a>, respectively. Likewise, you can disable the bridge for a user by having them block that account.
 <p>To enable the bridge for a web site, make a form-encoded HTTP POST to <code>https://fed.brid.gy/web-site</code> with the web site's home page URL in the body's <code>url</code> parameter, eg <code>url=example.com</code>. The web site <a href="#web-get-started">must either support microformats2 and webmentions, or serve an RSS or Atom feed discoverable from its home page.</a> To disable, put the text <code>#nobridge</code> in the web site's <a href="#web-profile">profile metadata</a>, then make an HTTP POST to <code>https://fed.brid.gy/web/[domain]/update-profile</code>, where <code>[domain]</code> is the web site's domain, eg <code>snarfed.org</code>.</a>
 </li>
 
