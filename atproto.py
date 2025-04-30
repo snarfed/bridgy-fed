@@ -1245,14 +1245,24 @@ def hashtag_redirect(hashtag):
 @app.get('/.well-known/atproto-did')
 @flask_util.headers(common.CACHE_CONTROL)
 def atproto_did():
-    """
+    """Programmatic handle resolution for bridged users.
+
     https://github.com/snarfed/bridgy-fed/issues/1537
     https://atproto.com/specs/handle#handle-resolution
-    """
-    host = get_required_param('host')
 
-    if repo_key := AtpRepo.query(AtpRepo.handles == host).get(keys_only=True):
-        return repo_key.id(), {'Content-Type': 'text/plain'}
+    Query params:
+      protocol (str)
+      id (str): native user id or handle
+    """
+    protocol = get_required_param('protocol')
+    if not (proto := PROTOCOLS.get(protocol)):
+        flask_util.error(f'Unknown protocol {protocol}')
+
+    id = get_required_param('id')
+
+    if user := (proto.get_by_id(id) or proto.query(proto.handle == id).get()):
+        if copy := user.get_copy(ATProto):
+            return copy, {'Content-Type': 'text/plain'}
 
     raise NotFound()
 

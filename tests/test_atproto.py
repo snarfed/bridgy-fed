@@ -3055,15 +3055,34 @@ Sed tortor neque, aliquet quis posuere aliquam […]
         resp = self.get('/hashtag/x%0Ay', base_url='https://bsky.brid.gy')
         self.assert_equals(404, resp.status_code)
 
-    def test_atproto_did(self):
+    def test_atproto_did_id(self):
         user = self.make_user_and_repo()
-        resp = self.get('/.well-known/atproto-did?host=han.dull.brid.gy')
+        resp = self.get('/.well-known/atproto-did?protocol=fake&id=fake:user')
         self.assert_equals(200, resp.status_code)
         self.assert_equals('text/plain', resp.headers['Content-Type'])
         self.assert_equals('did:plc:user', resp.get_data(as_text=True))
 
+    def test_atproto_did_handle(self):
+        user = self.make_user_and_repo()
+        resp = self.get('/.well-known/atproto-did?protocol=fake&id=fake:handle:user')
+        self.assert_equals(200, resp.status_code)
+        self.assert_equals('text/plain', resp.headers['Content-Type'])
+        self.assert_equals('did:plc:user', resp.get_data(as_text=True))
+
+    def test_atproto_did_missing_params(self):
+        resp = self.get('/.well-known/atproto-did')
+        self.assert_equals(400, resp.status_code)
+
+    def test_atproto_did_missing_protocol(self):
+        resp = self.get('/.well-known/atproto-did?id=fake:user')
+        self.assert_equals(400, resp.status_code)
+
+    def test_atproto_did_bad_protocol(self):
+        resp = self.get('/.well-known/atproto-did?protocol=foo&id=fake:user')
+        self.assert_equals(400, resp.status_code)
+
     def test_atproto_did_not_found(self):
-        resp = self.get('/.well-known/atproto-did?host=han.dull')
+        resp = self.get('/.well-known/atproto-did?protocol=fake&id=fake:eve')
         self.assert_equals(404, resp.status_code)
 
     def test_oauth(self):
