@@ -16,6 +16,7 @@ from oauth_dropins.webutil import util
 from oauth_dropins.webutil.util import domain_from_link, json_dumps, json_loads
 import requests
 from requests import TooManyRedirects
+from requests.exceptions import InvalidURL
 from urllib3.exceptions import ReadTimeoutError
 from werkzeug.exceptions import BadGateway, BadRequest
 
@@ -1421,13 +1422,23 @@ class ActivityPubTest(TestCase):
         # valid signature
         note = {**NOTE, 'actor': 'http://mas.to/key/id'}
         body = json_dumps(note)
-        headers = sign('/ap/sharedInbox', json_dumps(note),
-                       key_id='http://mas.to/key/id')
+        headers = sign('/ap/sharedInbox', body, key_id='http://mas.to/key/id')
         resp = self.client.post('/ap/sharedInbox', data=body, headers=headers)
         self.assertEqual(204, resp.status_code, resp.get_data(as_text=True))
         mock_get.assert_has_calls((
             self.as2_req('http://mas.to/key/id'),
         ))
+
+    def test_inbox_verify_sig_fetch_key_fails(self, _, mock_get, __):
+        # https://console.cloud.google.com/errors/detail/COLzgISI47vpMg?project=bridgy-federated
+        # bad keyId, requests would raise InvalidURL
+        mock_get.side_effect = InvalidURL('foo')
+
+        body = json_dumps(NOTE)
+        headers = sign('/ap/sharedInbox', body,
+                       key_id='https://ÐºÑÑÑ ÑÐ¸Ñ.Ð¾Ð½Ð»Ð°Ð¹Ð½/oleg')
+        resp = self.client.post('/ap/sharedInbox', data=body, headers=headers)
+        self.assertEqual(400, resp.status_code, resp.get_data(as_text=True))
 
     @patch('oauth_dropins.webutil.appengine_info.DEBUG', False)
     def test_inbox_verify_sig_stored_key(self, *_):

@@ -629,6 +629,11 @@ class ActivityPub(User, Protocol):
           requests.HTTPError:
         """
         assert '#' not in key_id
+        # TODO: we don't currently handle when this raises InvalidURL, see error
+        # below, but I can't reproduce it, when I mock request.get to return
+        # InvalidURL in test_inbox_verify_sig_fetch_key_fails, we return 400
+        # instead of crashing :/
+        # https://console.cloud.google.com/errors/detail/COLzgISI47vpMg?project=bridgy-federated
         actor = cls.load(key_id)
         if not actor:
             return None
