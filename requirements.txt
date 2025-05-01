@@ -63,7 +63,7 @@ html2text==2025.4.15
 html5lib==1.1
 httplib2==0.22.0
 humanfriendly==10.0
-humanize==4.12.2
+humanize==4.12.3
 idna==3.10
 iterators==0.2.0
 itsdangerous==2.2.0
