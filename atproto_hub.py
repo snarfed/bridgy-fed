@@ -8,8 +8,8 @@ import socket
 import threading
 from threading import Thread, Timer
 
+from arroba import firehose
 import arroba.server
-from arroba import xrpc_sync
 from flask import Flask, render_template
 import lexrpc.client
 import lexrpc.flask_server
@@ -86,7 +86,7 @@ def atproto_commit():
 
     Triggers `subscribeRepos` to check for new commits.
     """
-    xrpc_sync.send_events()
+    firehose.send_events()
     return 'OK'
 
 
@@ -114,8 +114,12 @@ def atproto_admin():
 
 
 
-# start firehose consumer threads
+# start firehose consumer and server threads
 if LOCAL_SERVER or not DEBUG:
+    # server
+    firehose.start()
+
+    # consumer
     threads = [t.name for t in threading.enumerate()]
     assert 'atproto_firehose.subscriber' not in threads
     assert 'atproto_firehose.handler' not in threads
