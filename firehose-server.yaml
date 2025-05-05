@@ -1,0 +1,52 @@
+# https://cloud.google.com/appengine/docs/flexible/reference/app-yaml?tab=python
+#
+# application: bridgy-federated
+
+service: firehose-server
+env: flex
+runtime: python
+runtime_config:
+    operating_system: ubuntu22
+    runtime_version: "3.12"
+
+resources:
+  cpu: 1
+  memory_gb: 6.0
+
+network:
+  # run in default VPC for this project
+  # https://cloud.google.com/appengine/docs/flexible/using-shared-vpc
+  # https://cloud.google.com/appengine/docs/flexible/reference/app-yaml#network_settings
+  # https://cloud.google.com/vpc/docs/serverless-vpc-access#supported_services
+  name: projects/bridgy-federated/global/networks/default
+  instance_ip_mode: external
+
+env_variables:
+  PDS_HOST: atproto.brid.gy
+  PLC_HOST: plc.directory
+  APPVIEW_HOST: api.bsky.app
+  BGS_HOST: bsky.network
+  MOD_SERVICE_HOST: mod.bsky.app
+  MOD_SERVICE_DID: did:plc:ar7c4by46qjdydhdevvrndac
+  # ...or test against labeler.dholms.xyz / did:plc:vzxheqfwpbi3lxbgdh22js66
+  MEMCACHE_HOST: '10.126.144.3'
+  SUBSCRIBE_REPOS_BATCH_DELAY: 10
+  PRELOAD_WINDOW: 30000
+
+  # https://github.com/googleapis/python-ndb/blob/c55ec62b5153787404488b046c4bf6ffa02fee64/google/cloud/ndb/utils.py#L78-L81
+  # NDB_DEBUG: true
+
+# need only one instance so that new commits can be delivered to subscribeRepos
+# subscribers in memory
+manual_scaling:
+  instances: 1
+
+liveness_check:
+  # default 300; does lowering this speed up deploy? seems like maybe, a bit?
+  # https://cloud.google.com/appengine/docs/flexible/reference/app-yaml?tab=python#liveness_checks
+  initial_delay_sec: 30
+
+# https://cloud.google.com/appengine/docs/flexible/python/runtime#application_startup
+# https://docs.gunicorn.org/en/latest/settings.html#timeout
+# TODO: try asyncio w/eventlet workers
+entrypoint: gunicorn --workers 1 --threads 1000 --timeout 300 -b :$PORT firehose_server:app
