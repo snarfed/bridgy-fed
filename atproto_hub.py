@@ -53,6 +53,26 @@ logger = logging.getLogger(__name__)
 
 models.reset_protocol_properties()
 
+# start firehose consumer and server threads
+#
+# ...*before* initializing Flask app and request handlers, including health check,
+# so that we don't go into service and start serving subscribers until the preload
+# window is loaded
+if LOCAL_SERVER or not DEBUG:
+    # server
+    firehose.start()
+
+    # consumer
+    for thread in threading.enumerate():
+        assert not thread.name.startswith('atproto_firehose.'), thread.name
+
+    Thread(target=atproto_firehose.subscriber, name='atproto_firehose.subscriber',
+           daemon=True).start()
+    for i in range(HANDLE_THREADS):
+        Thread(target=atproto_firehose.handler, name=f'atproto_firehose.handler-{i}',
+               daemon=True).start()
+
+
 # Flask app
 app = Flask(__name__)
 app.json.compact = False
@@ -111,24 +131,6 @@ def atproto_admin():
         gethostbyaddr=gethostbyaddr,
         pytz=pytz,
     )
-
-
-
-# start firehose consumer and server threads
-if LOCAL_SERVER or not DEBUG:
-    # server
-    firehose.start()
-
-    # consumer
-    threads = [t.name for t in threading.enumerate()]
-    assert 'atproto_firehose.subscriber' not in threads
-    assert 'atproto_firehose.handler' not in threads
-
-    Thread(target=atproto_firehose.subscriber, name='atproto_firehose.subscriber',
-           daemon=True).start()
-    for i in range(HANDLE_THREADS):
-        Thread(target=atproto_firehose.handler, name=f'atproto_firehose.handler-{i}',
-               daemon=True).start()
 
 
 # send requestCrawl to relay every 5m.

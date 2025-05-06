@@ -42,6 +42,15 @@ logger = logging.getLogger(__name__)
 
 models.reset_protocol_properties()
 
+# start firehose server thread
+#
+# ...*before* initializing Flask app and request handlers, including health check,
+# so that we don't go into service and start serving subscribers until the preload
+# window is loaded
+if LOCAL_SERVER or not DEBUG:
+    firehose.start()
+
+
 # Flask app
 app = Flask(__name__)
 app.json.compact = False
@@ -98,11 +107,6 @@ def atproto_admin():
         gethostbyaddr=gethostbyaddr,
         pytz=pytz,
     )
-
-
-# start firehose server thread
-if LOCAL_SERVER or not DEBUG:
-    firehose.start()
 
 
 # send requestCrawl to relay every 5m.

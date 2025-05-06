@@ -31,7 +31,6 @@ env_variables:
   # ...or test against labeler.dholms.xyz / did:plc:vzxheqfwpbi3lxbgdh22js66
   MEMCACHE_HOST: '10.126.144.3'
   SUBSCRIBE_REPOS_BATCH_DELAY: 10
-  PRELOAD_WINDOW: 30000
 
   # https://github.com/googleapis/python-ndb/blob/c55ec62b5153787404488b046c4bf6ffa02fee64/google/cloud/ndb/utils.py#L78-L81
   # NDB_DEBUG: true
@@ -42,9 +41,7 @@ manual_scaling:
   instances: 1
 
 liveness_check:
-  # default 300; does lowering this speed up deploy? seems like maybe, a bit?
-  # https://cloud.google.com/appengine/docs/flexible/reference/app-yaml?tab=python#liveness_checks
-  initial_delay_sec: 30
+  initial_delay_sec: 120  # preloading rollback window
 
 # https://cloud.google.com/appengine/docs/flexible/python/runtime#application_startup
 # https://docs.gunicorn.org/en/latest/settings.html#timeout
