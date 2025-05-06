@@ -1051,7 +1051,7 @@ To receive likes, reposts, replies, @-mentions, and follows from other networks,
 </li>
 
 <li id="identify-bridged-account" class="question">How can I tell if an account is bridged?</li>
-<p>For an ActivityPub actor, check its <a href="https://www.w3.org/ns/activitystreams#did-core"><code>alsoKnownAs</code> field</a>. If it's bridged from elsewhere, that field will have its native id as a URI. For example, an account bridged from  Bluesky will have an <a href="https://atproto.com/specs/at-uri-scheme"><code>at://</code></a> URI with its <a href="https://atproto.com/specs/did">DID</a>:
+<p>For an ActivityPub actor, check its <a href="https://www.w3.org/ns/activitystreams#did-core"><code>alsoKnownAs</code> field</a>. If it's bridged from elsewhere, that field will have its native id as a URI. For example, an account bridged from  Bluesky will have an <a href="https://atproto.com/specs/at-uri-scheme"><code>at:// URI</code></a> with its <a href="https://atproto.com/specs/did">DID</a>:
 <pre>
 {
   "id": "https://bsky.brid.gy/ap/did:plc:3ljmtyyjqcjee2kpewgsifvb",
@@ -1068,14 +1068,14 @@ To receive likes, reposts, replies, @-mentions, and follows from other networks,
 <p>Bluesky is similar. If a Bluesky user is bridged from elsewhere, its native id will be in <code>alsoKnownAs</code> in the user's <a href="https://atproto.com/specs/did#did-documents">DID document</a>, eg:
 <pre>
 {
-  "id": "did:plc:fdme4gb7mu7zrie7peay7tst",
-  "<span class='keyword'>alsoKnownAs</span>": ["<span class='value'>https://snarfed.org/</span>"],
+  "id": "did:plc:bg5udl25mvzg3rt7l5n2hzet",
+  "<span class='keyword'>alsoKnownAs</span>": ["<span class='value'>https://indieweb.social/users/snarfed</span>"],
   ...
 </pre>
 <p>On the web, <a href="https://indieweb.org/h-card"><code>h-card</code>s</a> for bridged users have their native id in the <a href="https://microformats.org/wiki/microformats2">microformats2</a> <code>uid</code> property:
 <pre>
 &lt;span class="p-author <span class='keyword'>h-card</span>"&gt;
-  &lt;data class="p-uid" value="<span class='value'>https://mastodon.social/users/clot27</span>"&gt;&lt;/data&gt;
+  &lt;data class="p-uid" value="<span class='value'>https://indieweb.social/users/snarfed</span>"&gt;&lt;/data&gt;
 </pre>
 </li>
 
