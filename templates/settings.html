@@ -7,46 +7,53 @@
 #update-profile-button { display: none; }
 </style>
 
-<p class="row big" style="text-align: center">Accounts</p>
+<p class="row big" style="text-align: left">Accounts</p>
 
 {% for user in users %}
 {% set logo = user.logo %}
-<div class="row">
-  {% include 'user_with_links.html' %}
+<div class="profile-row">
+  <div class="row">
+    {% include 'user_with_links.html' %}
+  </div>
+
+  <div class="row">
+    {% if user.enabled_protocols and not user.status %}
+      <a href="{{ user.user_page_path() }}">Bridging: </a>
+      <!-- to {{ user.enabled_protocols|join(', ') }} -->
+      <form method="post" action="/settings/disable"
+            onsubmit="return window.confirm('Are you sure you want to disable bridging? Disabling has effects that can\'t easily be reversed, even if you later re-enable bridging. For example, disabling removes all fediverse followers.')" />
+        <input name="key" type="hidden" value="{{ user.key.urlsafe().decode() }}" />
+        <label class="switch">
+          <input type="checkbox" checked onClick="bridgingSwitch(event)">
+          <span class="slider round"></span>
+        </label>
+      </form>
+
+    {# TODO: generalize #}
+    {% if 'atproto' in user.enabled_protocols %}
+      <p>
+      <form method="post" action="/settings/set-username">
+        <input name="key" type="hidden" value="{{ user.key.urlsafe().decode() }}" />
+        <input name="protocol" type="hidden" value="atproto" />
+        <label for="username">Set Bluesky username:</label>
+        <input id="username" type="text" name="username" placeholder ="your.domain" />
+        <input type="submit" value="Go" class="btn btn-default" />
+      </form>
+    {% endif %}
+
+    {% else %}
+      Bridging: 
+      <form method="post" action="/settings/enable">
+        <input name="key" type="hidden" value="{{ user.key.urlsafe().decode() }}" />
+        <label class="switch">
+          <input type="checkbox" onClick="bridgingSwitch(event)" {% if user.status %}disabled="true"{% endif %}>
+          <span class="slider round"></span>
+        </label>
+      </form>
+      {% if user.status %} Not bridging because {{ USER_STATUS_DESCRIPTIONS[user.status] }}{% endif %}
+    {% endif %}
+  </div>
 </div>
-
-<div class="row">
-  {% if user.enabled_protocols and not user.status %}
-    <a href="{{ user.user_page_path() }}">Currently bridging.</a>
-    <!-- to {{ user.enabled_protocols|join(', ') }} -->
-    <form method="post" action="/settings/disable"
-          onsubmit="return window.confirm('Are you sure you want to disable bridging? Disabling has effects that can\'t easily be reversed, even if you later re-enable bridging. For example, disabling removes all fediverse followers.')" />
-      <input name="key" type="hidden" value="{{ user.key.urlsafe().decode() }}" />
-      <input type="submit" value="Disable" class="btn btn-default disable-button" />
-    </form>
-
-  {# TODO: generalize #}
-  {% if 'atproto' in user.enabled_protocols %}
-    <p>
-    <form method="post" action="/settings/set-username">
-      <input name="key" type="hidden" value="{{ user.key.urlsafe().decode() }}" />
-      <input name="protocol" type="hidden" value="atproto" />
-      <label for="username">Set Bluesky username:</label>
-      <input id="username" type="text" name="username" placeholder ="your.domain" />
-      <input type="submit" value="Go" class="btn btn-default" />
-    </form>
-  {% endif %}
-
-  {% else %}
-    Not bridging{% if user.status %} because {{ USER_STATUS_DESCRIPTIONS[user.status] }}{% endif %}.
-    <form method="post" action="/settings/enable">
-      <input name="key" type="hidden" value="{{ user.key.urlsafe().decode() }}" />
-      <input type="submit" value="Enable" class="btn btn-default enable-button"
-             {% if user.status %}disabled="true"{% endif %} />
-    </form>
-  {% endif %}
-</div>
-{% if not loop.last %}<hr>{% endif %}
 {% endfor %}
 
 <br>

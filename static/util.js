@@ -8,3 +8,8 @@ window.onload = function () {
     window.history.replaceState(null, '', '/settings')
   }
 }
+
+function bridgingSwitch(event) {
+  const checkbox = event.currentTarget;
+  event.currentTarget.closest('form').submit()
+}
