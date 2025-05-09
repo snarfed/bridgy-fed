@@ -401,7 +401,7 @@ class ATProtoTest(TestCase):
         # eg https://bsky.social/xrpc/com.atproto.repo.getRecord?repo=did:plc:s2koow7r6t7tozgd4slc3dsg&collection=app.bsky.feed.post&rkey=3jqcpv7bv2c2q
         mock_get.assert_called_once_with(
             'https://appview.local/xrpc/com.atproto.repo.getRecord?repo=did%3Aplc%3Aabc&collection=app.bsky.feed.post&rkey=123',
-            json=None, data=None, auth=None,
+            json=None, data=None,
             headers={
                 'Content-Type': 'application/json',
                 'User-Agent': common.USER_AGENT,
@@ -417,7 +417,7 @@ class ATProtoTest(TestCase):
         self.assertFalse(ATProto.fetch(obj))
         mock_get.assert_called_once_with(
             'https://appview.local/xrpc/com.atproto.repo.getRecord?repo=did%3Aplc%3Aabc&collection=app.bsky.feed.post&rkey=123',
-            json=None, data=None, auth=None, headers=ANY)
+            json=None, data=None, headers=ANY)
 
     @patch('requests.get')
     def test_fetch_bad_at_uri(self, mock_get):
@@ -478,7 +478,7 @@ class ATProtoTest(TestCase):
 
         mock_get.assert_any_call(
             'https://appview.local/xrpc/com.atproto.repo.getRecord?repo=did%3Aplc%3Auser&collection=app.bsky.feed.post&rkey=789',
-            json=None, data=None, auth=None, headers={
+            json=None, data=None, headers={
                 'Content-Type': 'application/json',
                 'User-Agent': common.USER_AGENT,
             })
@@ -503,7 +503,7 @@ class ATProtoTest(TestCase):
 
         mock_get.assert_called_with(
             'https://appview.local/xrpc/com.atproto.repo.getRecord?repo=did%3Aplc%3Auser&collection=app.bsky.actor.profile&rkey=self',
-            json=None, data=None, auth=None, headers={
+            json=None, data=None, headers={
                 'Content-Type': 'application/json',
                 'User-Agent': common.USER_AGENT,
             },
@@ -654,7 +654,7 @@ class ATProtoTest(TestCase):
         })))
         mock_get.assert_called_with(
             'https://appview.local/xrpc/com.atproto.repo.getRecord?repo=did%3Aplc%3Auser&collection=app.bsky.feed.post&rkey=tid',
-            json=None, data=None, auth=None, headers=ANY)
+            json=None, data=None, headers=ANY)
 
     @patch('dns.resolver.resolve', side_effect=NXDOMAIN())
     # appview resolveHandle
@@ -2226,7 +2226,7 @@ Sed tortor neque, aliquet quis posuere aliquam […]
 
         mock_get.assert_called_with(
             'https://appview.local/xrpc/com.atproto.repo.getRecord?repo=did%3Abo%3Ab&collection=app.bsky.feed.post&rkey=tid',
-            json=None, data=None, auth=None, headers=ANY)
+            json=None, data=None, headers=ANY)
         mock_create_task.assert_called()  # atproto-commit
 
     @patch.object(tasks_client, 'create_task', return_value=Task(name='my task'))
@@ -2588,7 +2588,7 @@ Sed tortor neque, aliquet quis posuere aliquam […]
                     'uri': uri,
                     'cid': 'bafyreigd',
                 },
-            }, data=None, auth=None, headers={
+            }, data=None, headers={
                 'Content-Type': 'application/json',
                 'User-Agent': common.USER_AGENT,
                 'Authorization': ANY,
@@ -2617,7 +2617,7 @@ Sed tortor neque, aliquet quis posuere aliquam […]
         }
         mock_get.assert_any_call(
             'https://chat.local/xrpc/chat.bsky.convo.getConvoForMembers?members=did%3Aplc%3Aalice',
-            json=None, data=None, auth=None, headers=headers)
+            json=None, data=None, headers=headers)
         mock_post.assert_called_with(
             'https://chat.local/xrpc/chat.bsky.convo.sendMessage',
             json={
@@ -2630,7 +2630,7 @@ Sed tortor neque, aliquet quis posuere aliquam […]
                     'bridgyOriginalText': 'hello world',
                     'bridgyOriginalUrl': 'fake:dm',
                 },
-            }, data=None, auth=None, headers=headers)
+            }, data=None, headers=headers)
 
     @patch('requests.post', return_value=requests_response(SEND_MESSAGE_OUTPUT))
     @patch('requests.get', side_effect=[
@@ -2652,7 +2652,7 @@ Sed tortor neque, aliquet quis posuere aliquam […]
 
         mock_get.assert_any_call(
             'https://chat.local/xrpc/chat.bsky.convo.getConvoForMembers?members=did%3Aplc%3Aalice',
-            json=None, data=None, auth=None, headers=ANY)
+            json=None, data=None, headers=ANY)
         mock_post.assert_called_with(
             'https://chat.local/xrpc/chat.bsky.convo.sendMessage',
             json={
@@ -2665,7 +2665,7 @@ Sed tortor neque, aliquet quis posuere aliquam […]
                     'bridgyOriginalText': 'hello world',
                     'bridgyOriginalUrl': 'fake:dm',
                 },
-            }, data=None, auth=None, headers=ANY)
+            }, data=None, headers=ANY)
 
     # getConvoForMembers
     @patch('requests.get', return_value=requests_response({
@@ -2685,7 +2685,7 @@ Sed tortor neque, aliquet quis posuere aliquam […]
 
         mock_get.assert_any_call(
             'https://chat.local/xrpc/chat.bsky.convo.getConvoForMembers?members=did%3Aplc%3Aalice',
-            json=None, data=None, auth=None, headers=ANY)
+            json=None, data=None, headers=ANY)
 
     def test_send_object_without_id(self):
         user = self.make_user_and_repo()
@@ -2747,7 +2747,7 @@ Sed tortor neque, aliquet quis posuere aliquam […]
 
         mock_get.assert_called_with(
             'https://appview.local/xrpc/com.atproto.repo.getRecord?repo=did%3Aplc%3Auser&collection=co.l.l&rkey=post',
-            json=None, data=None, auth=None, headers=ANY)
+            json=None, data=None, headers=ANY)
 
     @patch('requests.get', return_value=requests_response(NOTE_BSKY_RECORD))
     def test_datastore_client_get_record_pass_through_if_bsky_unset(self, mock_get):
@@ -2763,7 +2763,7 @@ Sed tortor neque, aliquet quis posuere aliquam […]
 
         mock_get.assert_called_with(
             'https://appview.local/xrpc/com.atproto.repo.getRecord?repo=did%3Aplc%3Auser&collection=co.l.l&rkey=post',
-            json=None, data=None, auth=None, headers=ANY)
+            json=None, data=None, headers=ANY)
 
     @patch('requests.get', return_value=requests_response(status=404))
     def test_datastore_client_get_record_pass_through_bsky_unset_no_record(self, mock_get):
@@ -2776,7 +2776,7 @@ Sed tortor neque, aliquet quis posuere aliquam […]
 
         mock_get.assert_called_with(
             'https://appview.local/xrpc/com.atproto.repo.getRecord?repo=did%3Aplc%3Auser&collection=co.l.l&rkey=post',
-            json=None, data=None, auth=None, headers=ANY)
+            json=None, data=None, headers=ANY)
 
     @patch('requests.get', side_effect=HTTPError(
         response=requests_response(status=500)))
@@ -2787,7 +2787,7 @@ Sed tortor neque, aliquet quis posuere aliquam […]
 
         mock_get.assert_called_with(
             'https://appview.local/xrpc/com.atproto.repo.getRecord?repo=did%3Aplc%3Auser&collection=co.l.l&rkey=post',
-            json=None, data=None, auth=None, headers=ANY)
+            json=None, data=None, headers=ANY)
 
     def test_datastore_client_resolve_handle_datastore_user(self):
         self.store_object(id='did:plc:user', raw=DID_DOC)
@@ -2820,7 +2820,7 @@ Sed tortor neque, aliquet quis posuere aliquam […]
 
         mock_get.assert_called_with(
             'https://appview.local/xrpc/com.atproto.identity.resolveHandle?handle=han.dull.brid.gy',
-            json=None, data=None, auth=None, headers=ANY)
+            json=None, data=None, headers=ANY)
 
     @patch('requests.get')
     def test_datastore_client_other_call_pass_through(self, mock_get):
@@ -2837,7 +2837,7 @@ Sed tortor neque, aliquet quis posuere aliquam […]
 
         mock_get.assert_called_with(
             'https://appview.local/xrpc/com.atproto.repo.describeRepo?repo=y.z',
-            json=None, data=None, auth=None, headers=ANY)
+            json=None, data=None, headers=ANY)
 
     @patch.object(tasks_client, 'create_task')
     @patch('requests.get', side_effect=[
@@ -2851,7 +2851,7 @@ Sed tortor neque, aliquet quis posuere aliquam […]
 
         mock_get.assert_called_with(
             'https://chat.local/xrpc/chat.bsky.convo.getLog?cursor=kursur',
-            json=None, data=None, auth=None, headers=ANY)
+            json=None, data=None, headers=ANY)
         self.assertEqual('neckst', fa.key.get().atproto_last_chat_log_cursor)
         mock_create_task.assert_not_called()
 
@@ -2893,10 +2893,10 @@ Sed tortor neque, aliquet quis posuere aliquam […]
 
         mock_get.assert_any_call(
             'https://chat.local/xrpc/chat.bsky.convo.getLog?cursor=kursur',
-            json=None, data=None, auth=None, headers=ANY)
+            json=None, data=None, headers=ANY)
         mock_get.assert_any_call(
             'https://chat.local/xrpc/chat.bsky.convo.getLog?cursor=neckst',
-            json=None, data=None, auth=None, headers=ANY)
+            json=None, data=None, headers=ANY)
         self.assertEqual('dunn', fa.key.get().atproto_last_chat_log_cursor)
         mock_create_task.assert_not_called()
 
@@ -3004,13 +3004,13 @@ Sed tortor neque, aliquet quis posuere aliquam […]
 
         mock_get.assert_any_call(
             'https://chat.local/xrpc/chat.bsky.convo.getLog?cursor=kursur',
-            json=None, data=None, auth=None, headers=ANY)
+            json=None, data=None, headers=ANY)
         mock_get.assert_any_call(
             'https://chat.local/xrpc/chat.bsky.convo.getLog?cursor=neckst',
-            json=None, data=None, auth=None, headers=ANY)
+            json=None, data=None, headers=ANY)
         mock_get.assert_any_call(
             'https://chat.local/xrpc/chat.bsky.convo.getLog?cursor=moar',
-            json=None, data=None, auth=None, headers=ANY)
+            json=None, data=None, headers=ANY)
 
         self.assertEqual(3, mock_create_task.call_count)
 

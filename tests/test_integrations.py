@@ -665,7 +665,7 @@ class IntegrationTests(TestCase):
         }
         mock_get.assert_any_call(
             'https://chat.local/xrpc/chat.bsky.convo.getConvoForMembers?members=did%3Aplc%3Aalice',
-            json=None, data=None, auth=None, headers=headers)
+            json=None, data=None, headers=headers)
         mock_post.assert_called_with(
             'https://chat.local/xrpc/chat.bsky.convo.sendMessage',
             json={
@@ -692,7 +692,7 @@ class IntegrationTests(TestCase):
                     'bridgyOriginalText': 'Welcome to Bridgy Fed! Your account will soon be bridged to the fediverse at @alice.com@bsky.brid.gy. <a href="https://fed.brid.gy/docs">See the docs</a> and <a href="https://fed.brid.gy/bsky/alice.com">your user page</a> for more information. To disable this and delete your bridged profile, block this account.',
                     'bridgyOriginalUrl': 'https://ap.brid.gy/#bridgy-fed-dm-welcome-did:plc:alice-2022-01-02T03:04:05+00:00',
                 },
-            }, data=None, auth=None, headers=headers)
+            }, data=None, headers=headers)
 
     @patch('requests.post')
     @patch('requests.get')
@@ -994,7 +994,7 @@ class IntegrationTests(TestCase):
                     'uri': 'at://did:plc:alice/app.bsky.actor.profile/self',
                     'cid': 'alice+sidd',
                 },
-            }, data=None, auth=None, headers=ANY)
+            }, data=None, headers=ANY)
 
     def test_atproto_convert_hashtag_to_activitypub_preserves_bsky_app_link(self):
         obj = Object(id='at://xyz', bsky={
