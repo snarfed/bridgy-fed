@@ -72,7 +72,8 @@ class UserTest(TestCase):
         self.assertIsNone(Web.get_by_id('y.za'))
 
     def test_get_or_create(self):
-        user = Fake.get_or_create('fake:user')
+        user = Fake.get_or_create('fake:user', enabled_protocols=['activitypub'],
+                                  propagate=True)
 
         assert not user.existing
         assert user.mod
@@ -187,11 +188,17 @@ class UserTest(TestCase):
         self.assertIsNone(Fake.get_or_create('fake:user', manual_opt_out=True))
 
     def test_public_pem(self):
+        bot = self.make_user(id='ap.brid.gy', cls=Web)
+        self.user.enable_protocol(ActivityPub)
+
         pem = self.user.public_pem()
         self.assertTrue(pem.decode().startswith('-----BEGIN PUBLIC KEY-----\n'), pem)
         self.assertTrue(pem.decode().endswith('-----END PUBLIC KEY-----'), pem)
 
     def test_private_pem(self):
+        bot = self.make_user(id='ap.brid.gy', cls=Web)
+        self.user.enable_protocol(ActivityPub)
+
         pem = self.user.private_pem()
         self.assertTrue(pem.decode().startswith('-----BEGIN RSA PRIVATE KEY-----\n'), pem)
         self.assertTrue(pem.decode().endswith('-----END RSA PRIVATE KEY-----'), pem)
@@ -444,6 +451,19 @@ class UserTest(TestCase):
         self.assertEqual('other:foo', user.get_copy(OtherFake))
 
         self.assertIsNone(OtherFake().get_copy(Fake))
+
+    def test_enable_protocol_calls_create_for(self):
+        bot = self.make_user(id='ap.brid.gy', cls=Web)
+        user = Fake(id='fake:user')
+        user.put()
+
+        self.assertIsNone(user.public_exponent)
+        self.assertIsNone(user.private_exponent)
+
+        user.enable_protocol(ActivityPub)
+
+        self.assertIsNotNone(user.public_exponent)
+        self.assertIsNotNone(user.private_exponent)
 
     def test_count_followers(self):
         self.assertEqual((0, 0), self.user.count_followers())
