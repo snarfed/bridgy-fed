@@ -295,7 +295,8 @@ Web.DEFAULT_ENABLED_PROTOCOLS += ('fake', 'other')
 # expensive to generate.
 requests.post(f'http://{ndb_client.host}/reset')
 with ndb_client.context():
-    global_user = activitypub._INSTANCE_ACTOR = Fake.get_or_create('fake:user')
+    global_user = activitypub._INSTANCE_ACTOR = Fake.get_or_create(
+        'fake:user', propagate=True, enabled_protocols=['activitypub'])
 
 
 class TestCase(unittest.TestCase, testutil.Asserts):

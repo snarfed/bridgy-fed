@@ -497,20 +497,22 @@ class Protocol:
 
     @classmethod
     def create_for(cls, user):
-        """Creates or re-activate a copy user in this protocol.
+        """Creates or re-activate a user in this protocol.
 
-        Should add the copy user to :attr:`copies`.
+        If this protocol has copies, adds the new copy user to :attr:`copies`.
+        If the copy user already exists and active, does nothing.
 
-        If the copy user already exists and active, should do nothing.
+        By default, does nothing.
 
         Args:
           user (models.User): original source user. Shouldn't already have a
             copy user for this protocol in :attr:`copies`.
 
         Raises:
-          ValueError: if we can't create a copy of the given user in this protocol
+          ValueError: if we can't create the given user in this protocol
         """
-        raise NotImplementedError()
+        if cls.HAS_COPIES:
+            raise NotImplementedError()
 
     @classmethod
     def send(to_cls, obj, url, from_user=None, orig_obj_id=None):

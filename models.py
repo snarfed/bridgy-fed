@@ -5,7 +5,6 @@ from functools import lru_cache
 import itertools
 import json
 import logging
-import random
 import re
 from threading import Lock
 from urllib.parse import quote, urlparse
@@ -30,7 +29,6 @@ import common
 from common import (
     base64_to_long,
     DOMAIN_RE,
-    long_to_base64,
     OLD_ACCOUNT_AGE,
     PROTOCOL_DOMAINS,
     report_error,
@@ -377,30 +375,13 @@ class User(StringIdModel, metaclass=ProtocolUserMeta):
                 proto = PROTOCOLS[label]
                 if proto == cls:
                     continue
-                elif proto.HAS_COPIES:
-                    if not user.get_copy(proto) and user.is_enabled(proto):
-                        try:
-                            proto.create_for(user)
-                        except (ValueError, AssertionError):
-                            logger.info(f'failed creating {proto.LABEL} copy',
-                                        exc_info=True)
-                            util.remove(user.enabled_protocols, proto.LABEL)
-                    else:
-                        logger.debug(f'{proto.LABEL} not enabled or user copy already exists, skipping propagate')
-
-        # generate keys for all protocols _except_ our own
-        #
-        # these can use urandom() and do nontrivial math, so they can take time
-        # depending on the amount of randomness available and compute needed.
-        if cls.LABEL != 'activitypub':
-            if (not user.public_exponent or not user.private_exponent or not user.mod):
-                assert (not user.public_exponent and not user.private_exponent
-                        and not user.mod), id
-                key = RSA.generate(KEY_BITS,
-                                   randfunc=random.randbytes if DEBUG else None)
-                user.mod = long_to_base64(key.n)
-                user.public_exponent = long_to_base64(key.e)
-                user.private_exponent = long_to_base64(key.d)
+                elif user.is_enabled(proto):
+                    try:
+                        proto.create_for(user)
+                    except (ValueError, AssertionError):
+                        logger.info(f'failed creating {proto.LABEL} copy',
+                                    exc_info=True)
+                        util.remove(user.enabled_protocols, proto.LABEL)
 
         try:
             user.put()
@@ -603,10 +584,9 @@ class User(StringIdModel, metaclass=ProtocolUserMeta):
                            text=ineligible.format(desc=e))
             common.error(str(e), status=299)
 
-        if to_proto.LABEL in ids.COPIES_PROTOCOLS:
-            # do this even if there's an existing copy since we might need to
-            # reactivate it, which create_for should do
-            to_proto.create_for(self)
+        # do this even if there's an existing copy since we might need to
+        # reactivate it, which create_for should do
+        to_proto.create_for(self)
 
         if to_proto.LABEL not in self.enabled_protocols:
             self.enabled_protocols.append(to_proto.LABEL)
