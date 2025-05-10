@@ -1346,12 +1346,22 @@ Sed tortor neque, aliquet quis posuere aliquam […]
             with self.assertRaises(ValueError):
                 ATProto.create_for(Fake(id=bad))
 
+    def test_create_for_already_exists_active(self):
+        self.make_user_and_repo()
+        orig_seq = self.storage.last_seq(SUBSCRIBE_REPOS_NSID)
+
+        # should be a noop
+        ATProto.create_for(self.user)
+
+        # check that we didn't generate an #account event or anything else
+        self.assertEqual(orig_seq, self.storage.last_seq(SUBSCRIBE_REPOS_NSID))
+
     @patch('atproto.DEBUG', new=False)
     @patch.object(atproto.dns_discovery_api, 'resourceRecordSets')
     @patch('google.cloud.dns.client.ManagedZone', autospec=True)
     @patch.object(tasks_client, 'create_task', return_value=Task(name='my task'))
-    def test_create_for_already_exists(self, mock_create_task, mock_zone,
-                                       mock_rrsets):
+    def test_create_for_already_exists_inactive(self, mock_create_task, mock_zone,
+                                                mock_rrsets):
         """Should emit an active: True #account event and (re)create DNS."""
         mock_zone.return_value = zone = MagicMock()
         zone.resource_record_set = MagicMock()

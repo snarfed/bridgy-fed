@@ -430,7 +430,10 @@ class ATProto(User, Protocol):
         if copy_did := user.get_copy(ATProto):
             # already bridged and inactive
             repo = arroba.server.storage.load_repo(copy_did)
-            if repo.status == TOMBSTONED:
+            if not repo.status:
+                # already active; noop
+                return
+            elif repo.status == TOMBSTONED:
                 # tombstoned repos can't be reactivated, have to wipe and start fresh
                 user.copies = []
                 if user.obj:
@@ -438,7 +441,7 @@ class ATProto(User, Protocol):
                     user.obj.put()
                 # fall through to create new DID, repo
             else:
-                # deactivated or deleted, or maybe still active?
+                # deactivated or deleted
                 arroba.server.storage.activate_repo(repo)
                 common.create_task(queue='atproto-commit')
                 if handle.endswith(SUPERDOMAIN):
