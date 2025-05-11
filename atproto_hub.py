@@ -127,9 +127,11 @@ def gethostbyaddr(addr):
 def atproto_admin():
     return render_template(
         'atproto.html',
-        subscribers=lexrpc.flask_server.subscribers,
+        firehose=firehose,
         gethostbyaddr=gethostbyaddr,
+        len=len,
         pytz=pytz,
+        subscribers=lexrpc.flask_server.subscribers,
     )
 
 

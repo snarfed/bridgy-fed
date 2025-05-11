@@ -105,6 +105,7 @@ def atproto_admin():
         'atproto.html',
         firehose=firehose,
         gethostbyaddr=gethostbyaddr,
+        len=len,
         pytz=pytz,
         subscribers=lexrpc.flask_server.subscribers,
     )
