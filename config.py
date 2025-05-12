@@ -46,7 +46,7 @@ else:
 
     for logger in (
             'atproto_firehose',
-            'arroba.firehose',
+            # 'arroba.firehose',
             'lexrpc',
             'oauth_dropins.webutil.webmention',
     ):
