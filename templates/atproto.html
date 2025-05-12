@@ -11,6 +11,7 @@
     <li>size: {{ len(firehose.rollback) }}
     <li>start: {{ firehose.rollback[0][1]['seq'] }} {{ firehose.rollback[0][1]['time'] }}
     <li>end: {{ firehose.rollback[-1][1]['seq'] }} {{ firehose.rollback[-1][1]['time'] }}
+    <li>lock: {{ firehose.lock_holder }}
   </ul>
 <li>Current subscribers:
   <ul>
