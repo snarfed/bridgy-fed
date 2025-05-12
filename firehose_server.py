@@ -57,6 +57,12 @@ app.json.compact = False
 app_dir = Path(__file__).parent
 app.config.from_pyfile(app_dir / 'config.py')
 
+import faulthandler
+faulthandler.enable()
+import signal
+faulthandler.register(signal.SIGTERM)
+# faulthandler.register(signal.SIGKILL)
+
 app.wsgi_app = flask_util.ndb_context_middleware(
     app.wsgi_app, client=appengine_config.ndb_client, **common.NDB_CONTEXT_KWARGS)
 
