@@ -59,9 +59,6 @@ models.reset_protocol_properties()
 # so that we don't go into service and start serving subscribers until the preload
 # window is loaded
 if LOCAL_SERVER or not DEBUG:
-    # server
-    firehose.start()
-
     # consumer
     for thread in threading.enumerate():
         assert not thread.name.startswith('atproto_firehose.'), thread.name
@@ -72,6 +69,9 @@ if LOCAL_SERVER or not DEBUG:
         Thread(target=atproto_firehose.handler, name=f'atproto_firehose.handler-{i}',
                daemon=True).start()
 
+    # server (this blocks until preload window is filled, which takes ~2m as of May 2025)
+    firehose.start()
+
 
 # Flask app
 app = Flask(__name__)
@@ -81,6 +81,15 @@ app.config.from_pyfile(app_dir / 'config.py')
 
 app.wsgi_app = flask_util.ndb_context_middleware(
     app.wsgi_app, client=appengine_config.ndb_client, **common.NDB_CONTEXT_KWARGS)
+
+
+# dump all threads' stack traces on quit
+# keeping this here due to FUD over early firehose server deadlocks
+# https://github.com/snarfed/arroba/issues/30
+import faulthandler
+faulthandler.enable()
+import signal
+faulthandler.register(signal.SIGTERM)
 
 
 # app.add_url_rule('/hub/eval', view_func=pages.python_eval, methods=['POST'])
