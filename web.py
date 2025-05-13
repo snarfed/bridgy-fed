@@ -192,7 +192,7 @@ class Web(User, Protocol):
             return None
 
         if verify or (verify is None and not user.existing):
-            user = user.verify(**kwargs)
+            user = user.verify()
 
         if not allow_opt_out and user.status:
             return None
@@ -289,12 +289,8 @@ class Web(User, Protocol):
 
         return super().status
 
-    def verify(self, **kwargs):
+    def verify(self):
         """Fetches site a couple ways to check for redirects and h-card.
-
-        Args:
-          **kwargs: passed through to :meth:`Web.get_or_create` if this user is a www
-            domain and we need to call it to create a new root domain user.
 
         Returns:
           web.Web: user that was verified. May be different than self! eg if
@@ -314,7 +310,7 @@ class Web(User, Protocol):
                     logger.info(f'{root_site} serves ok ; using {root} instead')
                     root_user = Web.get_or_create(
                         root, enabled_protocols=self.enabled_protocols,
-                        allow_opt_out=True, **kwargs)
+                        allow_opt_out=True)
                     self.use_instead = root_user.key
                     self.put()
                     return root_user.verify()

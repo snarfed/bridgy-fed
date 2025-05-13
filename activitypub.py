@@ -3,12 +3,10 @@ from base64 import b64encode
 from hashlib import sha256
 import itertools
 import logging
-import random
 import re
 from urllib.parse import quote_plus, urljoin, urlparse
 from unittest.mock import MagicMock
 
-from Crypto.PublicKey import RSA
 from flask import abort, g, redirect, request
 from google.cloud import ndb
 from google.cloud.ndb.query import FilterNode, OR, Query
@@ -36,7 +34,6 @@ from common import (
     error,
     host_url,
     LOCAL_DOMAINS,
-    long_to_base64,
     PRIMARY_DOMAIN,
     PROTOCOL_DOMAINS,
     redirect_wrap,
@@ -46,7 +43,7 @@ from common import (
 )
 from ids import BOT_ACTOR_AP_IDS
 import memcache
-from models import fetch_objects, Follower, KEY_BITS, Object, PROTOCOLS, User
+from models import fetch_objects, Follower, Object, PROTOCOLS, User
 from protocol import activity_id_memcache_key, DELETE_TASK_DELAY, Protocol
 import webfinger
 
@@ -88,7 +85,7 @@ def instance_actor():
     global _INSTANCE_ACTOR
     if _INSTANCE_ACTOR is None:
         import web
-        _INSTANCE_ACTOR = web.Web.get_or_create(PRIMARY_DOMAIN, propagate=True)
+        _INSTANCE_ACTOR = web.Web.get_or_create(PRIMARY_DOMAIN)
     return _INSTANCE_ACTOR
 
 
@@ -229,28 +226,6 @@ class ActivityPub(User, Protocol):
         """Always prefer handle, since id is a full URL."""
         kwargs['prefer_id'] = False
         return super().user_page_path(rest=rest, **kwargs)
-
-    @classmethod
-    def create_for(cls, user):
-        """Creates an AP keypair for a non-APProto user.
-
-        Can use urandom() and do nontrivial math, so this can take time
-        depending on the amount of randomness available and compute needed.
-
-        Args:
-          user (models.User)
-        """
-        assert not isinstance(user, ActivityPub)
-
-        if not user.public_exponent or not user.private_exponent or not user.mod:
-            assert (not user.public_exponent and not user.private_exponent
-                    and not user.mod), id
-            key = RSA.generate(KEY_BITS, randfunc=random.randbytes
-                               if appengine_info.DEBUG else None)
-            user.mod = long_to_base64(key.n)
-            user.public_exponent = long_to_base64(key.e)
-            user.private_exponent = long_to_base64(key.d)
-            user.put()
 
     @classmethod
     def target_for(cls, obj, shared=False):
@@ -1076,8 +1051,7 @@ def _load_user(handle_or_id, create=False):
 
     assert id
     try:
-        user = (proto.get_or_create(id, propagate=True) if create
-                else proto.get_by_id(id))
+        user = proto.get_or_create(id) if create else proto.get_by_id(id)
     except ValueError as e:
         logging.warning(e)
         user = None
