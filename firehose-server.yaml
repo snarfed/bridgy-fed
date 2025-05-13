@@ -15,8 +15,8 @@ resources:
   # at startup, before the rollback window is full when multiple subscribers are
   # reading their own versions of history.
   #
-  # ...but GAE Flex's limit is 6.5G per core. :(
-  memory_gb: 6.5
+  # ...but GAE Flex's limit is 6G per core. :(
+  memory_gb: 6
 
 network:
   # run in default VPC for this project

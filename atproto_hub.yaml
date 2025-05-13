@@ -17,12 +17,12 @@ resources:
   # startup, before the rollback window is full when multiple subscribers are reading
   # their own versions of history.
   #
-  # ...but GAE Flex's limit is 6.5G per core. :(
+  # ...but GAE Flex's limit is 6G per core. :(
   #
   # also note that GAE Flex supposedly only bills for the memory we actually use,
   # not the amount we reserve here
   # https://www.mail-archive.com/google-appengine@googlegroups.com/msg93373.html
-  memory_gb: 6.5
+  memory_gb: 6
 
 network:
   # run in default VPC for this project
