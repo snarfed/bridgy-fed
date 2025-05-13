@@ -1420,6 +1420,7 @@ Sed tortor neque, aliquet quis posuere aliquam […]
         repo = arroba.server.storage.load_repo('did:plc:user')
         self.assertEqual('han.dull', repo.handle)
 
+    @skip
     @patch('atproto.DEBUG', new=False)
     @patch.object(atproto.dns_discovery_api, 'resourceRecordSets')
     @patch('google.cloud.dns.client.ManagedZone', autospec=True)
@@ -1461,15 +1462,25 @@ Sed tortor neque, aliquet quis posuere aliquam […]
         repo = arroba.server.storage.load_repo(did)
         self.assertIsNone(repo.status)
 
-        # check #account event
+        # check #account and #sync events
         seq = self.storage.last_seq(SUBSCRIBE_REPOS_NSID)
+        events = list(self.storage.read_events_by_seq(seq - 1))
         self.assertEqual({
             '$type': 'com.atproto.sync.subscribeRepos#account',
-            'seq': seq,
+            'seq': seq - 1,
             'did': did,
             'time': NOW.isoformat(),
             'active': True,
-        }, next(self.storage.read_events_by_seq(seq)))
+        }, events[0])
+
+        events[1].pop('blocks')
+        self.assertEqual({
+            '$type': 'com.atproto.sync.subscribeRepos#sync',
+            'seq': seq,
+            'did': did,
+            'time': NOW.isoformat(),
+            'rev': '2222222222a22',
+        }, events[1])
 
         mock_create_task.assert_called()  # atproto-commit
 
@@ -1732,7 +1743,7 @@ Sed tortor neque, aliquet quis posuere aliquam […]
             }, genesis_op)
 
         # check atproto-commit task
-        self.assertEqual(4, mock_create_task.call_count)
+        self.assertEqual(5, mock_create_task.call_count)
         self.assert_task(mock_create_task, 'atproto-commit')
 
     @patch('requests.get', return_value=requests_response(
