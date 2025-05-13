@@ -13,14 +13,16 @@ runtime_config:
 
 resources:
   cpu: 1
-  # steady state is 3-4G memory for 50k rollback window, but it can spike much higher
-  # at startup, before the rollback window is full when multiple subscribers are
-  # reading their own versions of history
+  # steady state is 3-4G memory for 50k rollback window, but it can spike higher at
+  # startup, before the rollback window is full when multiple subscribers are reading
+  # their own versions of history.
+  #
+  # ...but GAE Flex's limit is 6.5G per core. :(
   #
   # also note that GAE Flex supposedly only bills for the memory we actually use,
   # not the amount we reserve here
   # https://www.mail-archive.com/google-appengine@googlegroups.com/msg93373.html
-  memory_gb: 12.0
+  memory_gb: 6.5
 
 network:
   # run in default VPC for this project

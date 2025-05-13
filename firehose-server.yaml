@@ -13,8 +13,10 @@ resources:
   cpu: 1
   # steady state is ~3G memory for 50k rollback window, but it can spike much higher
   # at startup, before the rollback window is full when multiple subscribers are
-  # reading their own versions of history
-  memory_gb: 10.0
+  # reading their own versions of history.
+  #
+  # ...but GAE Flex's limit is 6.5G per core. :(
+  memory_gb: 6.5
 
 network:
   # run in default VPC for this project
