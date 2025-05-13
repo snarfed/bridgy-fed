@@ -11,7 +11,10 @@ runtime_config:
 
 resources:
   cpu: 1
-  memory_gb: 6.0
+  # steady state is ~3G memory for 50k rollback window, but it can spike much higher
+  # at startup, before the rollback window is full when multiple subscribers are
+  # reading their own versions of history
+  memory_gb: 10.0
 
 network:
   # run in default VPC for this project
