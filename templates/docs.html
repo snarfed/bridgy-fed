@@ -80,6 +80,7 @@
 <li><a href="#behavior-mismatches">How does this handle behavior differences between networks?</a></li>
 <li><a href="#format-mismatches">How does this handle formatting differences between networks?</a></li>
 <li><a href="#moderation">What about moderation? How do blocks, mutes, etc work?</a></li>
+<li><a href="#spam-etc">I got moderated or labeled as spam, NSFW, etc., but I'm not! What do I do?</a></li>
 <li><a href="#opt-out">How do I opt out and remove my site or account?</a></li>
 <li><a href="#dms">Why is Bridgy Fed chatting or DMing with me?</a></li>
 <li><a href="#migration">Is account migration supported?</a></li>
@@ -302,6 +303,11 @@
 <p>In general, native moderation tools within each network work with bridged users just like with native users. <a href="https://docs.bsky.app/docs/advanced-guides/moderation#global-label-values">Bluesky labels</a> are translated to/from the fediverse's <a href="https://swicg.github.io/miscellany/#sensitive"><code>sensitive</code> flag</a> and <a href="https://docs.joinmastodon.org/user/posting/#cw">content warnings</a>. Blocking and muting is translated too, and works just like normal. Similarly, if you or an admin block an entire bridged network, that works just like blocking a native instance.</p>
 <p>Bridgy Fed also incorporates and obeys lower level mitigation techniques such as the fediverse’s <a href="https://fedi.tips/authorized-fetch/">authorized fetch</a> aka secure mode. It always includes valid HTTP Signatures when fetching actors and other objects.</p>
 <p>For more background, see our <a href="#moderation-policy">content moderation policy</a> and <a href="https://snarfed.org/2024-01-19_moderate-people-not-code">this blog post</a>.</p>
+</li>
+
+<li id="spam-etc" class="question">I got moderated or labeled as spam, NSFW, etc., but I'm not! What do I do?</li>
+<li class="answer">
+<p>Oh no, sorry! Bridgy Fed generally doesn't do any direct moderation or labeling itself. As described above, we primarily bridge the networks' own moderation activities and labels. If you bridge your account into another network, and you get moderated or labeled there, your best bet is to contact their support directly, eg the fediverse instance's admins or <a href="https://bsky.social/about/support">Bluesky support</a>.
 </li>
 
 <li id="opt-out" class="question">How do I opt out and remove my site or account?</li>
