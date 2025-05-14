@@ -943,8 +943,7 @@ class ATProto(User, Protocol):
                     first_char = ret['text'].encode()[facet['index']['byteStart']]
                     if (feat['$type'] == 'app.bsky.richtext.facet#link'
                             and feat['uri'] not in mentions
-                            # and first_char != ord('@')
-):
+                            and first_char != ord('@')):
                         try:
                             link = web.Web.load(feat['uri'], metaformats=True,
                                                 authorship_fetch_mf2=False,
