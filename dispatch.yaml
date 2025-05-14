@@ -2,13 +2,13 @@
 
 dispatch:
   - url: "*/admin/atproto"
-    service: firehose-server
+    service: atproto-hub
 
   - url: "*/queue/atproto-commit"
-    service: firehose-server
+    service: atproto-hub
 
   - url: "*/hub/*"
-    service: firehose-server
+    service: atproto-hub
 
   - url: "*/queue/*"
     service: router
@@ -23,4 +23,4 @@ dispatch:
     service: router
 
   - url: "*/xrpc/com.atproto.sync.subscribeRepos"
-    service: firehose-server
+    service: atproto-hub
