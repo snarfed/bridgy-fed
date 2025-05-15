@@ -278,7 +278,8 @@ def maybe_send(*, from_proto, to_user, text, type=None, in_reply_to=None):
         logger.info("  can't send DM, recipient has no profile obj")
         return
 
-    dm_id = f'{bot.profile_id()}#bridgy-fed-dm-{type or "?"}-{to_user.key.id()}-{util.now().isoformat()}'
+    now = util.now().isoformat()
+    dm_id = f'{bot.profile_id()}#bridgy-fed-dm-{type or "?"}-{to_user.key.id()}-{now}'
     dm_as1 = {
         'objectType': 'note',
         'id': dm_id,
@@ -289,6 +290,7 @@ def maybe_send(*, from_proto, to_user, text, type=None, in_reply_to=None):
             'objectType': 'mention',
             'url': to_user.key.id(),
         }],
+        'published': now,
         'to': [to_user.key.id()],
     }
     Object(id=dm_id, our_as1=dm_as1, source_protocol='web').put()
@@ -300,6 +302,7 @@ def maybe_send(*, from_proto, to_user, text, type=None, in_reply_to=None):
         'id': create_id,
         'actor': bot.key.id(),
         'object': dm_as1,
+        'published': now,
         'to': [to_user.key.id()],
     }
 

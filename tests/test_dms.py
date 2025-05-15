@@ -93,8 +93,10 @@ class DmsTest(TestCase):
                     'author': from_id,
                     'inReplyTo': in_reply_to,
                     'tags': [{'objectType': 'mention', 'url': id}],
+                    'published': '2022-01-02T03:04:05+00:00',
                     'to': [id],
                 },
+                'published': '2022-01-02T03:04:05+00:00',
                 'to': [id],
             }, activity)
 

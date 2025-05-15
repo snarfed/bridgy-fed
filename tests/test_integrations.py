@@ -549,8 +549,10 @@ class IntegrationTests(TestCase):
                     'type': 'Mention',
                     'href': 'https://inst/alice',
                 }],
+                'published': '2022-01-02T03:04:05+00:00',
                 'to': ['https://inst/alice'],
             },
+            'published': '2022-01-02T03:04:05+00:00',
             'to': ['https://inst/alice'],
         }, json_loads(kwargs['data']), ignore=['@context'])
 
