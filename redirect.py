@@ -20,7 +20,7 @@ import re
 import urllib.parse
 
 from flask import redirect, request
-from granary import as2
+from granary import as1, as2
 from oauth_dropins.webutil import flask_util, util
 from oauth_dropins.webutil.flask_util import error
 from oauth_dropins.webutil.util import json_dumps, json_loads
@@ -108,8 +108,14 @@ def redir(to):
     if not obj or obj.deleted:
         return f'Object not found: {to}', 404
 
-    if proto == Web and not web_user:
-        return f'Object not found: {to}', 404
+    if proto == Web:
+        if not web_user:
+            return f'Object not found: {to}', 404
+    else:
+        if obj.type in as1.ACTOR_TYPES:
+            user = proto.query(proto.obj_key == obj.key).get()
+            if not user or not user.is_enabled(ActivityPub):
+                return f'Object not found: {to}', 404
 
     ret = ActivityPub.convert(obj, from_user=web_user)
     # logger.info(f'Returning: {json_dumps(ret, indent=2)}')

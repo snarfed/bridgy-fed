@@ -10,12 +10,15 @@ from oauth_dropins.webutil.testutil import requests_response
 # import first so that Fake is defined before URL routes are registered
 from . import testutil
 
+from atproto import ATProto
 from flask_app import app
+from granary.tests.test_bluesky import ACTOR_PROFILE_BSKY
 from models import Object
 import protocol
 from web import Web
 
 from .test_activitypub import ACTOR_BASE_FULL
+from .test_atproto import DID_DOC
 from .test_web import (
     ACTOR_AS2,
     ACTOR_HTML,
@@ -119,6 +122,22 @@ class RedirectTest(testutil.TestCase):
                                headers={'Accept': as2.CONTENT_TYPE_LD_PROFILE})
         self.assertEqual(404, resp.status_code, resp.get_data(as_text=True))
         self.assertEqual('Accept', resp.headers['Vary'])
+
+    @patch('requests.get', return_value=requests_response(DID_DOC))
+    def test_as2_actor_bsky_profile_url_without_user_404s(self, mock_get):
+        Object(id='at://did:web:alice.com/app.bsky.actor.profile/self',
+               source_protocol='bsky', bsky=ACTOR_PROFILE_BSKY).put()
+
+        resp = self.client.get('/r/https://bsky.app/profile/did:web:alice.com',
+                               headers={'Accept': as2.CONTENT_TYPE})
+        self.assertEqual(404, resp.status_code, resp.get_data(as_text=True))
+
+    @patch('requests.get', return_value=requests_response(DID_DOC))
+    def test_as2_actor_bsky_profile_url_not_ap_enabled_404s(self, mock_get):
+        self.make_user('did:web:alice.com', cls=ATProto, obj_bsky=ACTOR_PROFILE_BSKY)
+        resp = self.client.get('/r/https://bsky.app/profile/did:web:alice.com',
+                               headers={'Accept': as2.CONTENT_TYPE})
+        self.assertEqual(404, resp.status_code, resp.get_data(as_text=True))
 
     @patch('requests.get')
     def test_as2_fetch_post(self, mock_get):
