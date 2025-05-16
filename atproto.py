@@ -257,10 +257,7 @@ class ATProto(User, Protocol):
         tuple(as1.ACTOR_TYPES)
         + tuple(as1.POST_TYPES)
         + tuple(as1.CRUD_VERBS)
-        + ('block', 'follow', 'flag', 'like', 'share')
-        # temporarily disabling 'stop-following' due to follow spammers
-        # TODO: add back once we handle them better
-        # https://github.com/snarfed/bridgy-fed/issues/1669
+        + ('block', 'follow', 'flag', 'like', 'share', 'stop-following')
     )
     ''
     SUPPORTED_RECORD_TYPES = frozenset(
