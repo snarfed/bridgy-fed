@@ -2850,7 +2850,7 @@ class ProtocolReceiveTest(TestCase):
         dm_id = 'https://fa.brid.gy/#welcome-dm-efake:user-2022-01-02T03:04:05+00:00-create'
         follow_back_id = 'https://fa.brid.gy/#follow-back-efake:user-2022-01-02T03:04:05+00:00'
 
-        self.assertEqual([
+        self.assert_equals([
             # fa.brid.gy follows back
             ('efake:user:target', {
                 'objectType': 'activity',

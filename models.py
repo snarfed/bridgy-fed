@@ -314,8 +314,8 @@ class User(StringIdModel, metaclass=ProtocolUserMeta):
         """Loads and returns a :class:`User`. Creates it if necessary.
 
         Not transactional because transactions don't read or write memcache. :/
-        Fortunately we don't really depend on atomicity for anything, last
-        writer wins is pretty much always fine.
+        Fortunately we don't really depend on atomicity for much, last writer wins
+        is usually fine.
 
         Args:
           propagate (bool): whether to create copies of this user in push-based
@@ -603,35 +603,16 @@ class User(StringIdModel, metaclass=ProtocolUserMeta):
                            text=ineligible.format(desc=e))
             common.error(str(e), status=299)
 
-        added = False
-
         if to_proto.LABEL in ids.COPIES_PROTOCOLS:
             # do this even if there's an existing copy since we might need to
             # reactivate it, which create_for should do
             to_proto.create_for(self)
 
-        @ndb.transactional()
-        def enable():
-            user = self.key.get()
-            if to_proto.LABEL not in user.enabled_protocols:
-                user.enabled_protocols.append(to_proto.LABEL)
-                util.add(user.sent_dms, DM(protocol=to_proto.LABEL, type='welcome'))
-                user.put()
-                nonlocal added
-                added = True
-
-            return user
-
-        new_self = enable()
-        # populate newly enabled protocol in this instance
-        self.enabled_protocols = new_self.enabled_protocols
-        self.copies = new_self.copies
-        if self.obj:
-            self.obj.copies = new_self.obj.copies
-
-        if added:
+        if to_proto.LABEL not in self.enabled_protocols:
+            self.enabled_protocols.append(to_proto.LABEL)
             dms.maybe_send(from_proto=to_proto, to_user=self, type='welcome', text=f"""\
 Welcome to Bridgy Fed! Your account will soon be bridged to {to_proto.PHRASE} at {self.user_link(proto=to_proto, name=False)}. <a href="https://fed.brid.gy/docs">See the docs</a> and <a href="https://{common.PRIMARY_DOMAIN}{self.user_page_path()}">your user page</a> for more information. To disable this and delete your bridged profile, block this account.""")
+            self.put()
 
         msg = f'Enabled {to_proto.LABEL} for {self.key.id()} : {self.user_page_path()}'
         logger.info(msg)
@@ -642,15 +623,8 @@ Welcome to Bridgy Fed! Your account will soon be bridged to {to_proto.PHRASE} at
         Args:
           to_proto (:class:`protocol.Protocol` subclass)
         """
-        @ndb.transactional()
-        def disable():
-            user = self.key.get()
-            util.remove(user.enabled_protocols, to_proto.LABEL)
-            user.put()
-
-        disable()
         util.remove(self.enabled_protocols, to_proto.LABEL)
-
+        self.put()
         msg = f'Disabled {to_proto.LABEL} for {self.key.id()} : {self.user_page_path()}'
         logger.info(msg)
 
@@ -1182,8 +1156,8 @@ class Object(StringIdModel):
         object. Also populates the :attr:`new` and :attr:`changed` properties.
 
         Not transactional because transactions don't read or write memcache. :/
-        Fortunately we don't really depend on atomicity for anything, last
-        writer wins is pretty much always fine.
+        Fortunately we don't really depend on atomicity for much, last writer wins
+        is usually fine.
 
         Args:
           authed_as (str): optional; if provided, and a matching :class:`Object`
@@ -1593,8 +1567,8 @@ class Follower(ndb.Model):
         """Returns a Follower with the given ``from_`` and ``to`` users.
 
         Not transactional because transactions don't read or write memcache. :/
-        Fortunately we don't really depend on atomicity for anything, last
-        writer wins is pretty much always fine.
+        Fortunately we don't really depend on atomicity for much, last writer wins
+        is usually fine.
 
         If a matching :class:`Follower` doesn't exist in the datastore, creates
         it first.
