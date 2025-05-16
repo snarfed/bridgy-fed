@@ -547,7 +547,8 @@ class ATProtoFirehoseHandleTest(ATProtoTestCase):
                          eta_seconds=delayed_eta)
 
     def test_delete_other_verbs(self, mock_create_task):
-        for type, verb in [('block', 'undo')]: #('follow', 'stop-following'):
+        for type, verb in [('block', 'undo'),
+                           ('follow', 'stop-following')]:
             with self.subTest(type=type):
                 commits.put(Op(repo='did:plc:user', action='delete', seq=789,
                                path=f'app.bsky.graph.{type}/123', time='1900-02-04'))
