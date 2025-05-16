@@ -1,9 +1,8 @@
+// Handles state of login buttons and input fields on the settings page.
 var openedId;
 
-/**
- * Clear the auth_entity query param on /settings.
- */
 
+ // Clear the auth_entity query param on /settings.
 window.onload = function () {
   url = new URL(window.document.documentURI)
   if (url.pathname == '/settings' && url.searchParams.has('auth_entity')) {
@@ -11,6 +10,7 @@ window.onload = function () {
   }
 }
 
+// Handles login buttons and input fields on the settings page.
 function toggleInput(button_id) {
   var button = document.getElementById(button_id);
   var input = document.getElementById(button_id + "-input");
@@ -46,6 +46,7 @@ function toggleInput(button_id) {
   }
 }
 
+// Used on setting page to change an account's bridging state.
 function bridgingSwitch(event) {
   const checkbox = event.currentTarget;
   event.currentTarget.closest('form').submit()

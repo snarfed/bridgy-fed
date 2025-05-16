@@ -930,6 +930,7 @@ input:checked + .slider:before {
   margin: 20px;
 }
 
+/* sliding OAuth login buttons and inputs */
 .login-button {
   margin-right:10px;
   margin-bottom:-20px;
