@@ -357,7 +357,7 @@ class ATProtoFirehoseSubscribeTest(ATProtoTestCase):
             with self.subTest(type=type):
                 FakeWebsocketClient.to_receive = [({
                     'op': 1,
-                    't': '#account',
+                    't': type,
                 }, {
                     'seq': 789,
                     'did': 'did:plc:user',
@@ -366,8 +366,9 @@ class ATProtoFirehoseSubscribeTest(ATProtoTestCase):
 
                 self.subscribe()
 
-                self.assertEqual(('account', 'did:plc:user', None, 789, None, time),
-                                 commits.get())
+                self.assertEqual(
+                    (type.removeprefix('#'), 'did:plc:user', None, 789, None, time),
+                    commits.get())
                 self.assertTrue(commits.empty())
 
     def test_account_event_user_not_bridged(self):
@@ -573,10 +574,24 @@ class ATProtoFirehoseHandleTest(ATProtoTestCase):
                                  eta_seconds=delayed_eta)
 
     @patch('requests.get', return_value=requests_response({**DID_DOC, 'new': 'stuff'}))
-    def test_account(self, _, __):
+    def test_account(self, mock_get, mock_create_task):
         commits.put(Op(repo='did:plc:user', action='account', seq=789))
         handle(limit=1)
         self.assertEqual('stuff', Object.get_by_id('did:plc:user').raw['new'])
+        mock_create_task.assert_not_called()
+
+    @patch('requests.get', side_effect=[
+        requests_response({**DID_DOC, 'new': 'stuff'}),
+        requests_response(ACTOR_PROFILE_BSKY),
+    ])
+    def test_identity(self, mock_get, mock_create_task):
+        commits.put(Op(repo='did:plc:user', action='identity', seq=789))
+        handle(limit=1)
+        self.assertEqual('stuff', Object.get_by_id('did:plc:user').raw['new'])
+
+        self.assert_task(mock_create_task, 'receive', bsky=ACTOR_PROFILE_BSKY,
+                         id='at://did:plc:user/app.bsky.actor.profile/self',
+                         source_protocol='atproto', authed_as='did:plc:user')
 
     def test_unsupported_type(self, mock_create_task):
         orig_objs = Object.query().count()

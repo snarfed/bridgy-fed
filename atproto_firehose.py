@@ -211,9 +211,9 @@ def subscribe():
 
         if t in ('#account', '#identity'):
             if repo in atproto_dids or repo in bridged_dids:
-                logger.debug(f'Got {t[1:]} {repo}')
-                commits.put(Op(action='account', repo=repo, seq=seq,
-                               time=cur_timestamp))
+                t = t.removeprefix('#')
+                logger.debug(f'Got {t} {repo}')
+                commits.put(Op(action=t, repo=repo, seq=seq, time=cur_timestamp))
             continue
 
         blocks = {}  # maps base32 str CID to dict block
@@ -304,10 +304,6 @@ def handler():
 
 
 def handle(limit=None):
-    def _handle_account(op):
-        # reload DID doc to fetch new changes
-        ATProto.load(op.repo, did_doc=True, remote=True)
-
     def _handle(op):
         at_uri = f'at://{op.repo}/{op.path}'
 
@@ -362,7 +358,20 @@ def handle(limit=None):
     while op := commits.get():
         match op.action:
             case 'account':
-                _handle_account(op)
+                # reload DID doc
+                ATProto.load(op.repo, did_doc=True, remote=True)
+
+            case 'identity':
+                # reload DID doc, update user's computed handle property, send actor
+                # update to followers
+                ATProto.load(op.repo, did_doc=True, remote=True)
+                if user := ATProto.get_by_id(op.repo):
+                    user.put()
+                    if user.obj and user.obj.bsky:
+                        _handle(Op(repo=op.repo, action='update', record=user.obj.bsky,
+                                   path='app.bsky.actor.profile/self',
+                                   seq=op.seq, time=op.time))
+
             case _:
                 _handle(op)
 
