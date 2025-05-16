@@ -6,13 +6,59 @@
 <p class="row big">Log in with an existing account:</p>
 
 <div class="row big" style="font-size: 14px">
-  <p>{{ bluesky_button|safe }}</p>
-  <p>{{ mastodon_button|safe }}</p>
-  <p>{{ pixelfed_button|safe }}</p>
-  <p>{{ threads_button|safe }}</p>
+
+  <form method="post" action="/oauth/bluesky/start">
+    <nobr>
+      <div class="row big">
+        <img id="Bluesky" onclick="toggleInput(this.id)" type="image" height="90" title="Bluesky" class="login-button shadow"
+              src="static/bluesky_logotype.png" /><br />
+        <input id="Bluesky-input" name="handle" type="text" class="fade-in-element login-input" placeholder="Bluesky handle" required>
+        <input id="Bluesky-submit" type="image" title="Bluesky" class="submit-button fade-in-element shadow" style="position:absolute" 
+              src="static/material-arrow-icon.svg" />
+      </div>
+      <input name="scope" type="hidden">
+    </nobr>
+  </form>
+
+  <form method="post" action="/oauth/mastodon/start">
+    <nobr>
+      <div class="row big">
+        <img id="Mastodon" onclick="toggleInput(this.id)" type="image" height="90" title="Mastodon" class="login-button shadow"
+              src="static/mastodon_large.png" /><br />
+        <input id="Mastodon-input" name="instance" type="url" class="fade-in-element login-input" placeholder="Mastodon instance" scheme="https" required>
+        <input id="Mastodon-submit" type="image" title="Mastodon" class="submit-button fade-in-element shadow" style="position:absolute" 
+              src="static/material-arrow-icon.svg" />
+      </div>
+      <input name="scope" type="hidden">
+    </nobr>
+  </form>
+
+  <form method="post" action="/oauth/pixelfed/start">
+    <nobr>
+      <div class="row big">
+        <img id="Pixelfed" onclick="toggleInput(this.id)" type="image" height="90" title="Pixelfed" class="login-button shadow"
+              src="static/pixelfed_large.png" /><br />
+        <input id="Pixelfed-input" name="instance" type="url" class="fade-in-element login-input" placeholder="Pixelfed instance" scheme="https" required>
+        <input id="Pixelfed-submit" type="image" title="Pixelfed" class="submit-button fade-in-element shadow" style="position:absolute" 
+              src="static/material-arrow-icon.svg" />
+      </div>
+      <input name="scope" type="hidden">
+    </nobr>
+  </form>
+
+  <form method="post" action="/oauth/threads/start">
+  <nobr>
+    <div class="row big">
+      <img id="Threads" onclick="toggleInput(this.id)" type="image" height="90" title="Threads" class="login-button shadow" src="/static/threads_2x.png" "=""><br>
+      <input id="Threads-submit" type="image" title="Threads" class="submit-button fade-in-element shadow" style="position:absolute">
+    </div>
+    <input name="scope" type="hidden" value="">
+  </nobr>
+</form>
+
 </div>
 
-<p class="row">
+<p class="row" style="margin-top:35px">
 ...or if you're on another fediverse platform, or the web, <a href="/docs#get-started">get started here</a>.
 </p>
 {% endblock %}

@@ -89,7 +89,7 @@ def instance_actor():
     global _INSTANCE_ACTOR
     if _INSTANCE_ACTOR is None:
         import web
-        _INSTANCE_ACTOR = web.Web.get_or_create(PRIMARY_DOMAIN)
+        _INSTANCE_ACTOR = web.Web.get_or_create(PRIMARY_DOMAIN, allow_opt_out=True)
     return _INSTANCE_ACTOR
 
 
