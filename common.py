@@ -382,9 +382,11 @@ def report_error(msg, *, exception=False, **kwargs):
 
 
 def cache_policy(key):
-    """In memory ndb cache. Cache everything!
+    """In memory ndb cache.
 
     https://github.com/snarfed/bridgy-fed/issues/1149#issuecomment-2261383697
+
+    Only cache kinds in memory that are immutable or largely harmless when changed.
 
     Keep an eye on this in case we start seeing problems due to this ndb bug
     where unstored in-memory modifications get returned by later gets:
@@ -397,14 +399,12 @@ def cache_policy(key):
     Returns:
       bool: whether to cache this object
     """
-    return True
+    if isinstance(key, Key):
+        # use internal google.cloud.datastore.key.Key
+        # https://github.com/googleapis/python-ndb/issues/987
+        key = key._key
 
-    # if isinstance(key, Key):
-    #     # use internal google.cloud.datastore.key.Key
-    #     # https://github.com/googleapis/python-ndb/issues/987
-    #     key = key._key
-
-    # return key and key.kind == 'Object' and key.name.startswith('did:')
+    return key and key.kind in ('AtpBlock', 'AtpSequence', 'Object')
 
 
 def global_cache_policy(key):
