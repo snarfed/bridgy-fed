@@ -123,6 +123,9 @@ class ActivityPub(User, Protocol):
     SUPPORTS_DMS = True
     ''
 
+    webfinger_addr = ndb.StringProperty()
+    """Populated by :meth:`reload_profile`."""
+
     @property
     def REQUIRES_OLD_ACCOUNT(self):
         ''
@@ -154,6 +157,10 @@ class ActivityPub(User, Protocol):
     @ndb.ComputedProperty
     def handle(self):
         """Returns this user's ActivityPub address, eg ``@user@foo.com``."""
+        if self.webfinger_addr:
+            assert self.webfinger_addr.startswith('@')
+            return self.webfinger_addr
+
         if self.obj and self.obj.as1:
             addr = as2.address(self._convert(self.obj, from_user=self))
             if addr:
@@ -169,6 +176,31 @@ class ActivityPub(User, Protocol):
         status = super().status
         if status:
             return status
+
+    def reload_profile(self, **kwargs):
+        """Reloads this user's AP actor, then resolves their webfinger subject.
+
+        1. load AP actor
+        2. fetch Webfinger with preferredUsername
+        3. re-fetch Webfinger with subject from first Webfinger
+
+        https://www.w3.org/community/reports/socialcg/CG-FINAL-apwf-20240608/#reverse-discovery
+        https://correct.webfinger-canary.fietkau.software/#developers
+        """
+        super().reload_profile(**kwargs)
+
+        self.webfinger_addr = None
+        if self.handle:
+            if profile := webfinger.fetch(self.handle):
+                if subject := profile.get('subject'):
+                    addr = subject.removeprefix('acct:')
+                    if profile := webfinger.fetch(addr):
+                        if subject == profile.get('subject'):
+                            logger.info(f'resolved webfinger subject to {subject}')
+                            if not addr.startswith('@'):
+                                addr = '@' + addr
+                            self.webfinger_addr = addr
+                            self.put()
 
     @classmethod
     def owns_id(cls, id):

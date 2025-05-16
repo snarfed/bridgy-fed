@@ -204,18 +204,17 @@ def find_user_page():
 def update_profile(protocol, id):
     user = load_user(protocol, id)
     link = f'<a href="{user.web_url()}">{user.handle_or_id()}</a>'
-    redir = redirect(user.user_page_path(), code=302)
 
     try:
         user.reload_profile()
     except (requests.RequestException, werkzeug.exceptions.HTTPException) as e:
         _, msg = util.interpret_http_exception(e)
         flash(f"Couldn't update profile for {link}: {msg}")
-        return redir
+        return redirect(user.user_page_path(), code=302)
 
     if not user.obj:
         flash(f"Couldn't update profile for {link}")
-        return redir
+        return redirect(user.user_page_path(), code=302)
 
     common.create_task(queue='receive', obj_id=user.obj_key.id(),
                        authed_as=user.key.id())
@@ -232,7 +231,7 @@ def update_profile(protocol, id):
                 except (AssertionError, ValueError, RuntimeError, NotImplementedError):
                     pass
 
-    return redir
+    return redirect(user.user_page_path(), code=302)
 
 
 @app.get(f'/<any({",".join(PROTOCOLS)}):protocol>/<id>/<any(followers,following):collection>')

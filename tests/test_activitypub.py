@@ -595,6 +595,7 @@ class ActivityPubTest(TestCase):
         mock_get.side_effect = [
             self.as2_resp(LIKE_ACTOR),
             self.as2_resp(LIKE_ACTOR),
+            requests_response(status=404),
         ]
 
         reply = {
@@ -695,9 +696,12 @@ class ActivityPubTest(TestCase):
     def _test_inbox_reply(self, reply, mock_head, mock_get, mock_post):
         mock_head.return_value = requests_response(url='https://user.com/post')
         mock_get.side_effect = (
-            (list(mock_get.side_effect) if mock_get.side_effect
-             else [self.as2_resp(ACTOR), self.as2_resp(ACTOR)])
-            + [
+            (list(mock_get.side_effect) if mock_get.side_effect else [
+                # source actor, webfinger
+                self.as2_resp(ACTOR),
+                self.as2_resp(ACTOR),
+                requests_response(status=404),
+            ]) + [
                 requests_response(test_web.NOTE_HTML),
                 requests_response(test_web.NOTE_HTML),
                 WEBMENTION_DISCOVERY,
@@ -801,7 +805,11 @@ class ActivityPubTest(TestCase):
         Follower.get_or_create(to=author, from_=baj, status='inactive')
 
         mock_head.return_value = requests_response(url='http://target')
-        mock_get.return_value = self.as2_resp(ACTOR)  # source actor
+        mock_get.side_effect = [  # source actor, webfinger
+            self.as2_resp(ACTOR),
+            self.as2_resp(ACTOR),
+            requests_response(status=404),
+        ]
         mock_post.return_value = requests_response()
 
         got = self.post(path, json=NOTE)
@@ -899,9 +907,10 @@ class ActivityPubTest(TestCase):
 
     def test_inbox_no_user(self, mock_head, mock_get, mock_post):
         mock_get.side_effect = [
-            # source actor
+            # source actor, webfinger
             self.as2_resp(LIKE_WITH_ACTOR['actor']),
             self.as2_resp(LIKE_WITH_ACTOR['actor']),
+            requests_response(status=404),
             # protocol inference
             requests_response(test_web.NOTE_HTML),
             requests_response(test_web.NOTE_HTML),
@@ -1016,9 +1025,10 @@ class ActivityPubTest(TestCase):
     def test_inbox_like(self, mock_head, mock_get, mock_post):
         mock_head.return_value = requests_response(url='https://user.com/post')
         mock_get.side_effect = [
-            # source actor
+            # source actor, webfinger
             self.as2_resp(LIKE_WITH_ACTOR['actor']),
             self.as2_resp(LIKE_WITH_ACTOR['actor']),
+            requests_response(status=404),
             requests_response(test_web.NOTE_HTML),
             requests_response(test_web.NOTE_HTML),
             WEBMENTION_DISCOVERY,
@@ -1175,8 +1185,10 @@ class ActivityPubTest(TestCase):
                                   mock_get, mock_post, inbox_path='/user.com/inbox'):
         mock_head.return_value = requests_response(url='https://user.com/')
         mock_get.side_effect = [
-            self.as2_resp(ACTOR),  # source actor
-            self.as2_resp(ACTOR),  # source actor
+            # source actor, webfinger
+            self.as2_resp(ACTOR),
+            self.as2_resp(ACTOR),
+            requests_response(status=404),
             WEBMENTION_DISCOVERY,
         ]
         if not mock_post.return_value and not mock_post.side_effect:
@@ -1221,9 +1233,10 @@ class ActivityPubTest(TestCase):
 
         mock_head.return_value = requests_response(url='https://www.user.com/')
         mock_get.side_effect = [
-            # source actor
+            # source actor, webfinger
             self.as2_resp(ACTOR),
             self.as2_resp(ACTOR),
+            requests_response(status=404),
             # target user
             test_web.ACTOR_HTML_RESP,
             # target post webmention discovery
@@ -1254,9 +1267,10 @@ class ActivityPubTest(TestCase):
     def test_inbox_follow_web_brid_gy_subdomain(self, mock_head, mock_get, mock_post):
         mock_head.return_value = requests_response(url='https://user.com/')
         mock_get.side_effect = [
-            # source actor
+            # source actor, webfinger
             self.as2_resp(ACTOR),
             self.as2_resp(ACTOR),
+            requests_response(status=404),
             # target user
             test_web.ACTOR_HTML_RESP,
             # target post webmention discovery
@@ -1386,7 +1400,13 @@ class ActivityPubTest(TestCase):
 
     def test_inbox_bad_object_url(self, mock_head, mock_get, mock_post):
         # https://console.cloud.google.com/errors/detail/CMKn7tqbq-GIRA;time=P30D?project=bridgy-federated
-        mock_get.return_value = self.as2_resp(ACTOR)  # source actor
+        mock_get.side_effect = [
+            # source actor, webfinger
+            self.as2_resp(ACTOR),
+            self.as2_resp(ACTOR),
+            requests_response(status=404),
+            requests_response(status=404),
+        ]
 
         id = 'https://mas.to/users/tmichellemoore#likes/56486252'
         bad_url = 'http://localhost/r/Testing \u2013 Brid.gy \u2013 Post to Mastodon 3'
@@ -1616,6 +1636,7 @@ class ActivityPubTest(TestCase):
         mock_get.assert_not_called()
 
     def test_delete_note(self, _, mock_get, ___):
+        self.make_user('https://mas.to/users/swentel', cls=ActivityPub, obj_as2=ACTOR)
         obj = Object(id='http://mas.to/obj', as2=NOTE, source_protocol='activitypub')
         obj.put()
 
@@ -1643,6 +1664,7 @@ class ActivityPubTest(TestCase):
         mock_get.side_effect = [
             self.as2_resp(ACTOR),
             self.as2_resp(ACTOR),
+            requests_response(status=404),
         ]
 
         resp = self.post('/ap/sharedInbox', json=UPDATE_NOTE)
@@ -1661,9 +1683,10 @@ class ActivityPubTest(TestCase):
     def test_inbox_webmention_discovery_connection_fails(self, mock_head,
                                                          mock_get, mock_post):
         mock_get.side_effect = [
-            # source actor
+            # source actor, webfinger
             self.as2_resp(LIKE_WITH_ACTOR['actor']),
             self.as2_resp(LIKE_WITH_ACTOR['actor']),
+            requests_response(status=404),
             # protocol inference
             requests_response(test_web.NOTE_HTML),
             requests_response(test_web.NOTE_HTML),
@@ -1676,9 +1699,10 @@ class ActivityPubTest(TestCase):
 
     def test_inbox_no_webmention_endpoint(self, mock_head, mock_get, mock_post):
         mock_get.side_effect = [
-            # source actor
+            # source actor, webfinger
             self.as2_resp(LIKE_WITH_ACTOR['actor']),
             self.as2_resp(LIKE_WITH_ACTOR['actor']),
+            requests_response(status=404),
             # protocol inference
             requests_response(test_web.NOTE_HTML),
             requests_response(test_web.NOTE_HTML),
@@ -3027,14 +3051,80 @@ class ActivityPubUtilsTest(TestCase):
         user.obj.as2['url'] = ['http://my/url']
         self.assertEqual('http://my/url', user.web_url())
 
-    def test_handle(self):
-        user = self.make_user('http://foo/ey', cls=ActivityPub)
-        self.assertIsNone(user.handle)
-        self.assertEqual('http://foo/ey', user.handle_or_id())
+    @patch('requests.get', side_effect=[
+        TestCase.as2_resp({
+            'type': 'Person',
+            'id': 'http://foo.com/user',
+            'preferredUsername': 'alice',
+        }),
+        requests_response({'subject': 'acct:ms-alice@bar.com'}),
+        requests_response({'subject': 'acct:ms-alice@bar.com'}),
+    ])
+    def test_reload_profile_resolve_webfinger_subject(self, mock_get):
+        user = self.make_user('http://foo.com/user', cls=ActivityPub)
+        user.reload_profile()
 
-        user.obj = Object(id='a', as2=ACTOR)
-        self.assertEqual('@swentel@mas.to', user.handle)
-        self.assertEqual('@swentel@mas.to', user.handle_or_id())
+        self.assertEqual('@ms-alice@bar.com', user.handle)
+        mock_get.assert_has_calls((
+            self.as2_req('http://foo.com/user'),
+            self.req('https://foo.com/.well-known/webfinger?resource=acct:alice@foo.com'),
+            self.req('https://bar.com/.well-known/webfinger?resource=acct:ms-alice@bar.com'),
+        ))
+
+    @patch('requests.get', return_value= TestCase.as2_resp({
+        'type': 'Person',
+        'id': 'http://foo.com/user',
+    }))
+    def test_reload_profile_no_preferred_username(self, mock_get):
+        user = self.make_user('http://foo.com/user', cls=ActivityPub)
+        user.reload_profile()
+
+        self.assertIsNone(user.handle)
+        mock_get.assert_called_once()
+        mock_get.assert_has_calls((
+            self.as2_req('http://foo.com/user'),
+        ))
+
+    @patch('requests.get', side_effect=[
+        TestCase.as2_resp({
+            'type': 'Person',
+            'id': 'http://foo.com/user',
+            'preferredUsername': 'alice',
+        }),
+        requests_response(status=500),
+    ])
+    def test_reload_profile_first_webfinger_fails(self, mock_get):
+        user = self.make_user('http://foo.com/user', cls=ActivityPub)
+        user.reload_profile()
+
+        self.assertEqual('@alice@foo.com', user.handle)
+        mock_get.assert_has_calls((
+            self.as2_req('http://foo.com/user'),
+            self.req('https://foo.com/.well-known/webfinger?resource=acct:alice@foo.com'),
+        ))
+
+    @patch('requests.get', side_effect=[
+        TestCase.as2_resp({
+            'type': 'Person',
+            'id': 'http://foo.com/user',
+            'preferredUsername': 'alice',
+        }),
+        requests_response({'subject': 'acct:ms-alice@bar.com'}),
+        requests_response({'subject': 'acct:different-subject@baz.com'}),
+    ])
+    def test_reload_profile_second_webfinger_subject_mismatch(self, mock_get):
+        """If the second webfinger call returns a different subject, we should abort."""
+        user = self.make_user('http://foo.com/user', cls=ActivityPub)
+        user.reload_profile()
+
+        # Should fall back to original handle, not set webfinger_subject
+        self.assertEqual('@alice@foo.com', user.handle)
+        self.assertIsNone(user.webfinger_addr)
+        mock_get.assert_has_calls((
+            self.as2_req('http://foo.com/user'),
+            self.req('https://foo.com/.well-known/webfinger?resource=acct:alice@foo.com'),
+            self.req('https://bar.com/.well-known/webfinger?resource=acct:ms-alice@bar.com'),
+        ))
 
     def test_server_actor_override_status(self):
         actor = self.make_user('http://inst/person', cls=ActivityPub,

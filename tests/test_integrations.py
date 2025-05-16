@@ -495,8 +495,14 @@ class IntegrationTests(TestCase):
         }))
         mock_get.side_effect = [
             actor,
+            # actor + webfingers
             actor,
+            requests_response({'subject': 'alice@wf.com'}),
+            requests_response({'subject': 'alice@wf.com'}),
+            # actor + webfingers
             actor,
+            requests_response({'subject': 'alice@wf.com'}),
+            requests_response({'subject': 'alice@wf.com'}),
             requests_response('blob', headers={'Content-Type': 'image/jpeg'}),
         ]
 
@@ -522,7 +528,7 @@ class IntegrationTests(TestCase):
         self.assertEqual('atproto', user.copies[0].protocol)
         did = user.copies[0].uri
 
-        repo = self.storage.load_repo('alice.inst.ap.brid.gy')
+        repo = self.storage.load_repo('alice.wf.com.ap.brid.gy')
         self.assertEqual(did, repo.did)
 
         records = repo.get_contents()
@@ -534,7 +540,7 @@ class IntegrationTests(TestCase):
         args, kwargs = mock_post.call_args_list[1]
         self.assert_equals(('http://inst/inbox',), args)
         message = """\
-<p>Welcome to Bridgy Fed! Your account will soon be bridged to Bluesky at <a class="h-card u-author" rel="me" href="https://bsky.app/profile/alice.inst.ap.brid.gy" title="alice.inst.ap.brid.gy">alice.inst.ap.brid.gy</a>. <a href="https://fed.brid.gy/docs">See the docs</a> and <a href="https://fed.brid.gy/ap/@alice@inst">your user page</a> for more information. To disable this and delete your bridged profile, block this account.</p>"""
+<p>Welcome to Bridgy Fed! Your account will soon be bridged to Bluesky at <a class="h-card u-author" rel="me" href="https://bsky.app/profile/alice.wf.com.ap.brid.gy" title="alice.wf.com.ap.brid.gy">alice.wf.com.ap.brid.gy</a>. <a href="https://fed.brid.gy/docs">See the docs</a> and <a href="https://fed.brid.gy/ap/@alice@wf.com">your user page</a> for more information. To disable this and delete your bridged profile, block this account.</p>"""
         self.assert_equals({
             'type': 'Create',
             'id': 'https://bsky.brid.gy/r/https://bsky.brid.gy/#bridgy-fed-dm-welcome-https://inst/alice-2022-01-02T03:04:05+00:00-create',
