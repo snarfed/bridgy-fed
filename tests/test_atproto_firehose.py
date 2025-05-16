@@ -571,14 +571,6 @@ class ATProtoFirehoseHandleTest(ATProtoTestCase):
                                  authed_as='did:plc:user', received_at='1900-02-04',
                                  eta_seconds=delayed_eta)
 
-    # temporary! TODO: revisit once we handle follow spammers and allow this again
-    # https://github.com/snarfed/bridgy-fed/issues/1669
-    def test_unsupported_as1_verb(self, mock_create_task):
-        commits.put(Op(repo='did:plc:user', action='delete', seq=789,
-                       path=f'app.bsky.graph.follow/123', time='1900-02-04'))
-        handle(limit=1)
-        mock_create_task.assert_not_called()
-
     @patch('requests.get', return_value=requests_response({**DID_DOC, 'new': 'stuff'}))
     def test_account(self, _, __):
         commits.put(Op(repo='did:plc:user', action='account', seq=789))
