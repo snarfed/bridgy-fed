@@ -4,7 +4,8 @@ from datetime import datetime
 from unittest import skip
 from unittest.mock import ANY, patch
 
-from arroba.datastore_storage import DatastoreStorage
+from arroba.datastore_storage import AtpSequence, DatastoreStorage
+from arroba import firehose
 from arroba.repo import Repo
 from arroba.util import dag_cbor_cid
 from dns.resolver import NXDOMAIN
@@ -953,6 +954,43 @@ class IntegrationTests(TestCase):
             'actor': 'https://bsky.brid.gy/ap/did:plc:alice',
             'object': 'https://bsky.brid.gy/convert/ap/at://did:plc:alice/app.bsky.graph.block/123',
         }, json_loads(kwargs['data']), ignore=['@context', 'contentMap', 'to', 'cc'])
+
+    def test_activitypub_like_by_disabled_user_of_atproto_post(self):
+        """AP like of Bluesky post by an AP user who's not enabled for ATProto.
+
+        ActivityPub user @alice@inst , https://inst/alice , did:plc:alice
+        Block is https://inst/block
+        Like is https://inst/like
+        """
+        alice = self.make_ap_user('https://inst/alice', 'did:plc:alice')
+        alice = ActivityPub.get_by_id('https://inst/alice')  # cache
+        alice.disable_protocol(ATProto)
+
+        repo = self.storage.load_repo('did:plc:alice')
+        self.storage.deactivate_repo(repo)
+        last_seq = AtpSequence.last(firehose.SUBSCRIBE_REPOS_NSID)
+
+        bob = self.make_atproto_user('did:plc:bob')
+        Follower.get_or_create(to=alice, from_=bob)
+
+        Object(id='at://did:plc:bob/app.bsky.feed.post/123',
+               bsky={**POST_BSKY, 'cid': 'sydd'}).put()
+
+        # inbox delivery
+        body = json_dumps({
+            'type': 'Like',
+            'id': 'http://inst/like',
+            'actor': 'https://inst/alice',
+            'object': 'https://bsky.brid.gy/convert/ap/at://did:plc:bob/app.bsky.feed.post/123',
+        })
+
+        headers = sign('/ap/did:plc:bob/inbox', body, key_id='https://inst/alice')
+        resp = self.client.post('/ap/did:plc:bob/inbox', data=body, headers=headers)
+        self.assertEqual(204, resp.status_code)
+
+        self.assertFalse(alice.key.get().is_enabled(ATProto))
+        self.assertEqual('deactivated', self.storage.load_repo('did:plc:alice').status)
+        self.assertEqual(last_seq, AtpSequence.last(firehose.SUBSCRIBE_REPOS_NSID))
 
     @patch('requests.post', side_effect=[
         requests_response('OK'),       # create DID
