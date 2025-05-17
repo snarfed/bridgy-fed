@@ -813,7 +813,7 @@ class Protocol:
             elem[field] = [o['id'] if o.keys() == {'id'} else o
                            for o in elem[field]]
 
-            if len(elem[field]) == 1:
+            if len(elem[field]) == 1 and field not in ('items', 'orderedItems'):
                 elem[field] = elem[field][0]
 
         type = as1.object_type(outer_obj)
