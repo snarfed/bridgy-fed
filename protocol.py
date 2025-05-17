@@ -765,6 +765,7 @@ class Protocol:
         * ``bcc``
         * ``bto``
         * ``cc``
+        * ``featured[].items``, ``featured[].orderedItems``
         * ``object``
         * ``object.actor``
         * ``object.author``
@@ -843,6 +844,9 @@ class Protocol:
                     if from_cls := Protocol.for_id(url):
                         att['id'] = translate_object_id(from_=from_cls, to=to_cls,
                                                         id=url)
+            if feat := as1.get_object(o, 'featured'):
+                translate(feat, 'orderedItems', translate_object_id)
+                translate(feat, 'items', translate_object_id)
 
         outer_obj = util.trim_nulls(outer_obj)
 

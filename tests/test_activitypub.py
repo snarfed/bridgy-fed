@@ -2964,7 +2964,7 @@ class ActivityPubUtilsTest(TestCase):
             },
         })), ignore=['@context', 'contentMap', 'to'])
 
-    def test_send_convert_mention_non_bridged_id_uses_profile_url(self):
+    def test_convert_mention_non_bridged_id_uses_profile_url(self):
         self.store_object(id='did:plc:5zspv27pk4iqtrl2ql2nykjh', raw={'foo': 'bar'})
         self.make_user(id='did:plc:5zspv27pk4iqtrl2ql2nykjh', cls=ATProto)
         obj = Object(our_as1={
@@ -2991,6 +2991,29 @@ class ActivityPubUtilsTest(TestCase):
             'to': ['https://www.w3.org/ns/activitystreams#Public'],
             'cc': ['https://bsky.app/profile/did:plc:5zspv27pk4iqtrl2ql2nykjh'],
         }, ActivityPub.convert(obj))
+
+    def test_convert_pinned_post_featured_collection_ids(self):
+        obj = Object(our_as1={
+            'objectType': 'person',
+            'featured': {
+                'type': 'OrderedCollection',
+                'orderedItems': [
+                    'at://did:fo:o/app.bsky.feed.post/bar',
+                    'fake:post',
+                ],
+            },
+        })
+        self.assert_equals({
+            'type': 'Person',
+            'featured': {
+                'type': 'OrderedCollection',
+                'orderedItems': [
+                    'https://bsky.brid.gy/convert/ap/at://did:fo:o/app.bsky.feed.post/bar',
+                    'https://fa.brid.gy/convert/ap/fake:post',
+                ],
+            },
+            'to': ['https://www.w3.org/ns/activitystreams#Public'],
+        }, ActivityPub.convert(obj), ignore=['@context', 'discoverable', 'indexable'])
 
     def test_postprocess_as2_idempotent(self):
         for obj in (ACTOR, REPLY_OBJECT, REPLY_OBJECT_WRAPPED, REPLY,

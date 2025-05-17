@@ -777,6 +777,25 @@ class ProtocolTest(TestCase):
             },
         }))
 
+    def test_translate_ids_featured_items(self):
+        self.assert_equals({
+            'featured': {
+                'type': 'OrderedCollection',
+                'orderedItems': [
+                    'other:o:fa:fake:a',
+                    'other:o:fa:fake:b',
+                ],
+            },
+        }, OtherFake.translate_ids({
+            'featured': {
+                'type': 'OrderedCollection',
+                'orderedItems': [
+                    'fake:a',
+                    'fake:b',
+                ],
+            },
+        }))
+
     def test_translate_ids_to_cc(self):
         self.assert_equals({
             'id': 'xyz',
