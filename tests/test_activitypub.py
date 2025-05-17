@@ -2996,8 +2996,7 @@ class ActivityPubUtilsTest(TestCase):
         obj = Object(our_as1={
             'objectType': 'person',
             'featured': {
-                'type': 'OrderedCollection',
-                'orderedItems': [
+                'items': [
                     'at://did:fo:o/app.bsky.feed.post/bar',
                     'fake:post',
                 ],
