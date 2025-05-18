@@ -366,41 +366,7 @@ class ActivityPub(User, Protocol):
             logger.info(f'{url} is not a URL')
             return False
 
-        resp = None
-
-        def _error(extra_msg=None):
-            msg = f"Couldn't fetch {url} as ActivityStreams 2"
-            if extra_msg:
-                msg += ': ' + extra_msg
-            logger.warning(msg)
-            # protocol.for_id depends on us raising this when an AP network
-            # fetch fails. if we change that, update for_id too!
-            err = BadGateway(msg)
-            err.requests_response = resp
-            raise err
-
-        def _get(url, headers):
-            """Returns None if we fetched and populated, resp otherwise."""
-            nonlocal resp
-
-            try:
-                resp = signed_get(url, headers=headers, gateway=True)
-            except BadGateway as e:
-                # ugh, this is ugly, should be something structured
-                if '406 Client Error' in str(e):
-                    return
-                raise
-
-            if not resp.content:
-                _error('empty response')
-            elif common.content_type(resp) in as2.CONTENT_TYPES:
-                try:
-                    return resp.json()
-                except requests.JSONDecodeError:
-                    _error("Couldn't decode as JSON")
-
-        obj.as2 = _get(url, CONNEG_HEADERS_AS2_HTML)
-
+        resp, obj.as2 = cls._get(url, headers=CONNEG_HEADERS_AS2_HTML)
         if obj.as2:
             return True
         elif not resp:
@@ -418,11 +384,70 @@ class ActivityPub(User, Protocol):
             logger.debug('no AS2 available')
             return False
 
-        obj.as2 = _get(link['href'], as2.CONNEG_HEADERS)
-        if obj.as2:
-            return True
+        _, obj.as2 = cls._get(link['href'])
+        if not obj.as2:
+            return False
 
-        return False
+        return True
+
+    @classmethod
+    def _get(cls, url, headers=as2.CONNEG_HEADERS):
+        """Fetches a URL as AS2.
+
+        Args:
+          url (str)
+          headers (dict)
+
+        Returns:
+          (requests.Response, dict JSON response body or None) tuple:
+        """
+        def _error(extra_msg=None):
+            msg = f"Couldn't fetch {url} as ActivityStreams 2"
+            if extra_msg:
+                msg += ': ' + extra_msg
+            logger.warning(msg)
+            # protocol.for_id depends on us raising this when an AP network
+            # fetch fails. if we change that, update for_id too!
+            err = BadGateway(msg)
+            err.requests_response = resp
+            raise err
+
+        resp = None
+        try:
+            resp = signed_get(url, headers=headers, gateway=True)
+        except BadGateway as e:
+            # ugh, this is ugly, should be something structured
+            if '406 Client Error' in str(e):
+                return resp, None
+            raise
+
+        if not resp.content:
+            _error('empty response')
+        elif common.content_type(resp) in as2.CONTENT_TYPES:
+            try:
+                obj = resp.json()
+            except requests.JSONDecodeError:
+                _error("Couldn't decode as JSON")
+            cls._hydrate(obj)
+            return resp, obj
+
+        return resp, None
+
+    @classmethod
+    def _hydrate(cls, obj):
+        """Hydrates compacted values in ``obj``, in place.
+
+        Very minimal and incomplete! Right now only handles the ``featured``
+        collection in actors.
+
+        Args:
+          obj (dict)
+        """
+        if obj.get('type') in as2.ACTOR_TYPES:
+            if feat := as1.get_object(obj, 'featured'):
+                if set(feat.keys()) == {'id'}:
+                    # fetch collection
+                    _, obj['featured'] = cls._get(feat['id'])
 
     @classmethod
     def _convert(cls, obj, orig_obj=None, from_user=None):

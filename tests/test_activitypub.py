@@ -2802,6 +2802,41 @@ class ActivityPubUtilsTest(TestCase):
         self.assertFalse(ActivityPub.fetch(obj))
         self.assertIsNone(obj.as1)
 
+    @patch('requests.get')
+    def test_fetch_hydrate_actor_featured(self, mock_get):
+        actor = {
+            **ACTOR,
+            'featured': 'http://feat/ured',
+        }
+        featured = {'foo': 'bar'}
+        mock_get.side_effect = [self.as2_resp(actor), self.as2_resp(featured)]
+
+        obj = Object(id='http://orig')
+        ActivityPub.fetch(obj)
+        self.assertEqual({**actor, 'featured': {'foo': 'bar'}}, obj.as2)
+
+        mock_get.assert_has_calls((
+            self.as2_req('http://orig'),
+            self.as2_req('http://feat/ured', headers=as2.CONNEG_HEADERS),
+        ))
+
+    @patch('requests.get')
+    def test_fetch_actor_featured_already_hydrated(self, mock_get):
+        actor = {
+            **ACTOR,
+            'featured': {'foo': 'bar'},
+        }
+        mock_get.return_value = self.as2_resp(actor)
+
+        obj = Object(id='http://orig')
+        ActivityPub.fetch(obj)
+        self.assertEqual(actor, obj.as2)
+
+        mock_get.assert_called_once()
+        mock_get.assert_has_calls((
+            self.as2_req('http://orig'),
+        ))
+
     def test_convert(self):
         obj = Object()
         self.assertEqual({}, ActivityPub.convert(obj))
