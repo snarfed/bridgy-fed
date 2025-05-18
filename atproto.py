@@ -445,7 +445,7 @@ class ATProto(User, Protocol):
                     cls.set_dns(handle=handle, did=copy_did)
                 return
 
-        # create new DID, repo
+        # create new DID
         # PDS URL shouldn't include trailing slash!
         # https://atproto.com/specs/did#did-documents
         pds_url = common.host_url().rstrip('/') if DEBUG else cls.PDS_URL
@@ -454,25 +454,11 @@ class ATProto(User, Protocol):
                                  also_known_as=user.profile_id())
 
         Object.get_or_create(did_plc.did, raw=did_plc.doc, authed_as=did_plc)
-
         cls.set_dns(handle=handle, did=did_plc.did)
 
-        # fetch and store profile
+        # fetch user profile. (we store it later, at the end of this method)
         if not user.obj or not user.obj.as1:
             user.reload_profile()
-
-        initial_writes = []
-        if user.obj and user.obj.as1:
-            # create user profile
-            profile = cls.convert(user.obj, fetch_blobs=True, from_user=user)
-            logger.info(f'Storing ATProto app.bsky.actor.profile self')
-            initial_writes.append(
-                Write(action=Action.CREATE, collection='app.bsky.actor.profile',
-                      rkey='self', record=profile))
-
-            uri = at_uri(did_plc.did, 'app.bsky.actor.profile', 'self')
-            user.obj.add('copies', Target(uri=uri, protocol='atproto'))
-            user.obj.put()
 
         # create chat declaration
         logger.info(f'Storing ATProto chat declaration record')
@@ -480,16 +466,43 @@ class ATProto(User, Protocol):
             "$type" : "chat.bsky.actor.declaration",
             "allowIncoming" : "none",
         }
-        initial_writes.append(
-            Write(action=Action.CREATE, collection='chat.bsky.actor.declaration',
-                  rkey='self', record=chat_declaration))
+        initial_writes = [Write(action=Action.CREATE, record=chat_declaration,
+                                collection='chat.bsky.actor.declaration', rkey='self')]
 
+        # create pinned post
+        if user.obj and user.obj.as1:
+            featured_collection = as1.get_object(user.obj.as1, 'featured')
+            if featured_id := as1.get_id(featured_collection, 'items'):
+                logger.info(f'Fetching and storing pinned post {featured_id}')
+                if featured_obj := user.load(featured_id):
+                    post = cls.convert(featured_obj, fetch_blobs=True, from_user=user)
+                    rkey = next_tid()
+                    initial_writes.append(Write(action=Action.CREATE, record=post,
+                                                collection='app.bsky.feed.post',
+                                                rkey=rkey))
+                    uri = f'at://{did_plc.did}/app.bsky.feed.post/{rkey}'
+                    featured_obj.add('copies', Target(uri=uri, protocol=cls.LABEL))
+                    featured_obj.put()
+
+        # create repo
         repo = Repo.create(
             arroba.server.storage, did_plc.did, handle=handle,
             callback=lambda _: common.create_task(queue='atproto-commit'),
-            initial_writes=initial_writes,
-            signing_key=did_plc.signing_key,
-            rotation_key=did_plc.rotation_key)
+            signing_key=did_plc.signing_key, rotation_key=did_plc.rotation_key,
+            initial_writes=initial_writes)
+
+        # create user profile. can't include this in initial writes because
+        # bluesky.to_as1 in convert fetches the pinned post, which with our
+        # DatastoreClient looks it up as an ATProto record in the repo.
+        if user.obj and user.obj.as1:
+            profile = cls.convert(user.obj, fetch_blobs=True, from_user=user)
+            logger.info(f'Storing ATProto app.bsky.actor.profile self')
+            repo.apply_writes([Write(action=Action.CREATE, record=profile,
+                                     collection='app.bsky.actor.profile',
+                                     rkey='self')])
+            uri = at_uri(did_plc.did, 'app.bsky.actor.profile', 'self')
+            user.obj.add('copies', Target(uri=uri, protocol='atproto'))
+            user.obj.put()
 
         # don't add the copy id until the end, here, until we've fully
         # successfully created the repo, profile, etc

@@ -1340,6 +1340,50 @@ Sed tortor neque, aliquet quis posuere aliquam […]
 
         mock_create_task.assert_called()  # atproto-commit
 
+    @patch.object(tasks_client, 'create_task', return_value=Task(name='my task'))
+    @patch('requests.post', return_value=requests_response('OK'))  # create DID on PLC
+    def test_create_for_with_pinned_post(self, mock_post, mock_create_task):
+        Fake.fetchable = {
+            'fake:profile:user': {
+                **ACTOR_AS,
+                'featured': {'items': ['fake:pinned']},
+                'image': [],
+            },
+            'fake:pinned': {
+                'objectType': 'note',
+                'id': 'fake:pinned',
+                'content': 'My pinned post',
+            },
+        }
+        user = Fake(id='fake:user')
+
+        ATProto.create_for(user)
+
+        # check user, repo
+        did = user.key.get().get_copy(ATProto)
+        self.assertEqual([Target(uri=did, protocol='atproto')], user.copies)
+        repo = arroba.server.storage.load_repo(did)
+
+        # check profile, pinned post
+        last_tid = arroba.util.int_to_tid(arroba.util._tid_ts_last)
+        self.assert_equals({
+            '$type': 'app.bsky.actor.profile',
+            'displayName': 'Alice',
+            'description': 'hi there\n\n[bridged from web:fake:user on fake-phrase by https://fed.brid.gy/ ]',
+            'pinnedPost': {
+                'uri': f'at://{did}/app.bsky.feed.post/{last_tid}',
+                'cid': 'bafyreibjhbhznld7ogitdeub3ptk3cnkaegz3oma46ys5ljnaaec3sylpq',
+            },
+        }, repo.get_record('app.bsky.actor.profile', 'self'),
+        ignore=['bridgyOriginalDescription', 'bridgyOriginalUrl', 'labels'])
+
+        self.assert_equals({
+            '$type': 'app.bsky.feed.post',
+            'text': 'My pinned post',
+            'createdAt': '2022-01-02T03:04:05.000Z',
+        }, repo.get_record('app.bsky.feed.post', last_tid),
+        ignore=['bridgyOriginalText', 'bridgyOriginalUrl'])
+
     def test_create_for_bad_handle(self):
         # underscores gets translated to dashes, trailing/leading aren't allowed
         for bad in 'fake:user_', '_fake:user':
