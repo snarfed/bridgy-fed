@@ -528,6 +528,32 @@ class DmsTest(TestCase):
                 self.assert_replied(ATProto, alice, '?',
                                     'Your DID is <code>did:abc:123</code>')
 
+    def test_receive_notify(self):
+        self.make_user(id='other.brid.gy', cls=Web)
+        alice = self.make_user(id='efake:alice', cls=ExplicitFake, obj_as1={'x': 'y'},
+                               enabled_protocols=['other'], send_notifs='none')
+
+        obj = Object(our_as1={
+            **DM_BASE,
+            'content': 'notify',
+        })
+        self.assertEqual(('OK', 200), receive(from_user=alice, obj=obj))
+        self.assert_replied(OtherFake, alice, '?', 'Notifications enabled!')
+        self.assertEqual('all', ExplicitFake.get_by_id('efake:alice').send_notifs)
+
+    def test_receive_mute(self):
+        self.make_user(id='other.brid.gy', cls=Web)
+        alice = self.make_user(id='efake:alice', cls=ExplicitFake, obj_as1={'x': 'y'},
+                               enabled_protocols=['other'], send_notifs='all')
+
+        obj = Object(our_as1={
+            **DM_BASE,
+            'content': 'mute',
+        })
+        self.assertEqual(('OK', 200), receive(from_user=alice, obj=obj))
+        self.assert_replied(OtherFake, alice, '?', 'Notifications disabled.')
+        self.assertEqual('none', ExplicitFake.get_by_id('efake:alice').send_notifs)
+
     def test_receive_block(self):
         alice, bob = self.make_alice_bob()
 

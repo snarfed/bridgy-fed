@@ -118,6 +118,8 @@ def help_text(from_user, to_proto):
 <ul>
 <li><em>start</em>: enable bridging for your account
 <li><em>stop</em>: disable bridging for your account
+<li><em>notify</em>: enable notifications when someone who's not bridged replies to you, quotes you, or @-mentions you
+<li><em>mute</em>: disable notifications
 <li><em>username [domain]</em>: set a custom domain username (handle)
 <li><em>[handle]</em>: ask me to DM a user on {to_proto.PHRASE} to request that they bridge their account into {from_user.PHRASE}
 <li><em>block [handle]</em>: block a user on {to_proto.PHRASE} who's not bridged here
@@ -147,6 +149,20 @@ def start(from_user, to_proto):
 def stop(from_user, to_proto, user_bridged=True):
     from_user.delete(to_proto)
     from_user.disable_protocol(to_proto)
+
+
+@command(['notify'], user_bridged=True)
+def notify(from_user, to_proto):
+    from_user.send_notifs = 'all'
+    from_user.put()
+    return f"Notifications enabled! You'll now receive batched notifications via DM when someone on {to_proto.PHRASE} who's not bridged replies to you, quotes you, or @-mentions you."
+
+
+@command(['mute'], user_bridged=True)
+def mute(from_user, to_proto):
+    from_user.send_notifs = 'none'
+    from_user.put()
+    return f"Notifications disabled. You won't receive DM notifications when someone on {to_proto.PHRASE} who's not bridged replies to you, quotes you, or @-mentions you."
 
 
 @command(['did'], user_bridged=True)

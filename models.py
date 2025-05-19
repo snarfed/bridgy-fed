@@ -237,6 +237,9 @@ class User(StringIdModel, metaclass=ProtocolUserMeta):
     sent_dms = ndb.StructuredProperty(DM, repeated=True)
     """DMs that we've attempted to send to this user."""
 
+    send_notifs = ndb.StringProperty(default='all', choices=('all', 'none'))
+    """Which notifications we should send this user."""
+
     created = ndb.DateTimeProperty(auto_now_add=True)
     ''
     updated = ndb.DateTimeProperty(auto_now=True)
