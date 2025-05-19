@@ -1082,6 +1082,10 @@ def postprocess_as2_actor(actor, user):
         actor['@context'] = util.get_list(actor, '@context')
         add(actor['@context'], SECURITY_CONTEXT)
 
+    # featured collection, pinned posts
+    if featured := actor.get('featured'):
+        featured.setdefault('id', id + '/featured')
+
     return actor
 
 
@@ -1415,3 +1419,28 @@ def outbox(id):
     #     ret['totalItems'] = count
 
     return ret, {'Content-Type': as2.CONTENT_TYPE_LD_PROFILE}
+
+
+# protocol in subdomain
+@app.get(f'/ap/<id>/featured')
+def featured(id):
+    """Serves a user's AP featured collection for pinned posts.
+
+    https://docs.joinmastodon.org/spec/activitypub/#featured
+
+    We inline the featured collection in users' actors, but Mastodon requires it to
+    be fetchable separately too. :(
+    """
+    user = _load_user(id)
+
+    actor = ActivityPub.convert(user.obj, from_user=user)
+    featured = actor.get('featured') or {
+        'type': 'OrderedCollection',
+        'id': request.base_url,
+        'totalItems': 0,
+        'orderedItems': [],
+    }
+    return {
+        '@context': as2.CONTEXT,
+        **featured,
+    }, {'Content-Type': as2.CONTENT_TYPE_LD_PROFILE}

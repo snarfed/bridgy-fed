@@ -478,7 +478,7 @@ class ActivityPubTest(TestCase):
         self.assert_equals(ACTOR_FAKE_USER, got.json,
                            ignore=['attachment', 'publicKey'])
 
-    def test_actor_atproto_not_enabled(self, *_):
+    def test_actor_activitypub_not_enabled(self, *_):
         obj = self.store_object(id='did:plc:user', raw={'foo': 'baz'})
         self.make_user('did:plc:user', cls=ATProto, obj_key=obj.key)
         got = self.client.get('/ap/did:plc:user', base_url='https://bsky.brid.gy/')
@@ -2204,6 +2204,46 @@ class ActivityPubTest(TestCase):
                                base_url='https://efake.brid.gy')
         self.assertEqual(404, resp.status_code)
 
+    def test_featured_empty(self, *_):
+        self.make_user('fake:foo', cls=Fake, enabled_protocols=['activitypub'])
+        resp = self.client.get(f'/ap/fake:foo/featured', base_url='https://fa.brid.gy')
+        self.assertEqual(200, resp.status_code)
+        self.assertEqual({
+            '@context': as2.CONTEXT,
+            'id': 'https://fa.brid.gy/ap/fake:foo/featured',
+            'type': 'OrderedCollection',
+            'totalItems': 0,
+            'orderedItems': [],
+        }, resp.json)
+
+    def test_featured_with_items(self, *_):
+        actor_as1 = {
+            'objectType': 'person',
+            'featured': {
+                'totalItems': 2,
+                'items': ['a', 'b'],
+            },
+        }
+        user = self.make_user('fake:foo', cls=Fake, enabled_protocols=['activitypub'],
+                              obj_as1=actor_as1)
+
+        resp = self.client.get(f'/ap/fake:foo/featured', base_url='https://fa.brid.gy')
+        self.assertEqual(200, resp.status_code)
+        self.assert_equals({
+            '@context': as2.CONTEXT,
+            'id': 'https://fa.brid.gy/ap/fake:foo/featured',
+            'type': 'OrderedCollection',
+            'totalItems': 2,
+            'orderedItems': ['a', 'b'],
+        }, resp.json)
+
+    def test_featured_activitypub_not_enabled(self, *_):
+        obj = self.store_object(id='did:plc:user', raw={'foo': 'baz'})
+        self.make_user('did:plc:user', cls=ATProto, obj_key=obj.key)
+        got = self.client.get('/ap/did:plc:user/featured',
+                              base_url='https://bsky.brid.gy/')
+        self.assertEqual(404, got.status_code)
+
     def test_migrate_out(self, _, mock_get, mock_post):
         mock_get.return_value = self.as2_resp({
             **ACTOR,
@@ -2593,6 +2633,18 @@ class ActivityPubUtilsTest(TestCase):
                 'id': id,
             }), user=self.user)
             self.assert_equals('http://localhost/user.com', got['id'])
+
+    def test_postprocess_as2_featured_id(self):
+        got = postprocess_as2_actor(as2.from_as1({
+            'objectType': 'person',
+            'id': 'http://foo/bar',
+            'featured': {'baz': 'biff'},
+        }), user=self.user)
+        self.assert_equals({
+            'type': 'OrderedCollection',
+            'id': 'http://foo/bar/featured',
+            'baz': 'biff',
+        }, got['featured'])
 
     def test_postprocess_as2_mentions_into_cc(self):
         obj = copy.deepcopy(MENTION_OBJECT)
