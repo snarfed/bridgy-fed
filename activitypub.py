@@ -1083,8 +1083,13 @@ def postprocess_as2_actor(actor, user):
         add(actor['@context'], SECURITY_CONTEXT)
 
     # featured collection, pinned posts
-    if featured := actor.get('featured'):
-        featured.setdefault('id', id + '/featured')
+    #
+    # TODO: bring back once we figure out why this causes a flood of requests from
+    # Pleroma/Akkoma
+    # https://github.com/snarfed/bridgy-fed/issues/1374#issuecomment-2891993190
+    #
+    # if featured := actor.get('featured'):
+    #     featured.setdefault('id', id + '/featured')
 
     return actor
 
@@ -1422,25 +1427,30 @@ def outbox(id):
 
 
 # protocol in subdomain
-@app.get(f'/ap/<id>/featured')
-def featured(id):
-    """Serves a user's AP featured collection for pinned posts.
+#
+# TODO: bring back once we figure out why this causes a flood of requests from
+# Pleroma/Akkoma
+# https://github.com/snarfed/bridgy-fed/issues/1374#issuecomment-2891993190
+#
+# @app.get(f'/ap/<id>/featured')
+# def featured(id):
+#     """Serves a user's AP featured collection for pinned posts.
 
-    https://docs.joinmastodon.org/spec/activitypub/#featured
+#     https://docs.joinmastodon.org/spec/activitypub/#featured
 
-    We inline the featured collection in users' actors, but Mastodon requires it to
-    be fetchable separately too. :(
-    """
-    user = _load_user(id)
+#     We inline the featured collection in users' actors, but Mastodon requires it to
+#     be fetchable separately too. :(
+#     """
+#     user = _load_user(id)
 
-    actor = ActivityPub.convert(user.obj, from_user=user)
-    featured = actor.get('featured') or {
-        'type': 'OrderedCollection',
-        'id': request.base_url,
-        'totalItems': 0,
-        'orderedItems': [],
-    }
-    return {
-        '@context': as2.CONTEXT,
-        **featured,
-    }, {'Content-Type': as2.CONTENT_TYPE_LD_PROFILE}
+#     actor = ActivityPub.convert(user.obj, from_user=user)
+#     featured = actor.get('featured') or {
+#         'type': 'OrderedCollection',
+#         'id': request.base_url,
+#         'totalItems': 0,
+#         'orderedItems': [],
+#     }
+#     return {
+#         '@context': as2.CONTEXT,
+#         **featured,
+#     }, {'Content-Type': as2.CONTENT_TYPE_LD_PROFILE}
