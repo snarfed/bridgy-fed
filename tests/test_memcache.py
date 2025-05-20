@@ -4,9 +4,9 @@ from unittest.mock import patch
 from google.cloud.ndb import Key
 
 import memcache
-from memcache import memoize, pickle_memcache
-from models import Object
-from .testutil import TestCase
+from memcache import memoize, pickle_memcache, add_notification
+from models import Object, User
+from .testutil import Fake, TestCase
 
 
 class MemcacheTest(TestCase):
@@ -175,3 +175,47 @@ class MemcacheTest(TestCase):
                 ('☃.net', b'\xe2\x98\x83.net'),
         ):
             self.assertEqual(expected, memcache.key(input))
+
+    def test_add_notification_new_key(self):
+        user = self.make_user(id='fake:user', cls=Fake)
+        obj = self.store_object(id='efake:reply', source_protocol='efake')
+
+        add_notification(user, obj)
+
+        result = memcache.memcache.get('notifs-fake:user')
+        self.assertEqual(['efake:reply'], result)
+
+    def test_add_notification_append_to_existing(self):
+        user = self.make_user(id='fake:user', cls=Fake)
+        obj1 = self.store_object(id='efake:reply1', source_protocol='efake')
+        obj2 = self.store_object(id='efake:reply2', source_protocol='efake')
+
+        add_notification(user, obj1)
+        add_notification(user, obj2)
+
+        result = memcache.memcache.get('notifs-fake:user')
+        self.assertEqual(['efake:reply1', 'efake:reply2'], result)
+
+    def test_add_notification_no_duplicates(self):
+        user = self.make_user(id='fake:user', cls=Fake)
+        obj = self.store_object(id='efake:reply', source_protocol='efake')
+
+        # add the same notification twice
+        add_notification(user, obj)
+        add_notification(user, obj)
+
+        # should only appear once
+        result = memcache.memcache.get('notifs-fake:user')
+        self.assertEqual(['efake:reply'], result)
+
+    def test_add_notification_cas_failure(self):
+        user = self.make_user(id='fake:user', cls=Fake)
+        obj = self.store_object(id='efake:reply', source_protocol='efake')
+
+        memcache.memcache.set('notifs-fake:user', ['existing:reply'])
+
+        add_notification(user, obj)
+
+        # should get the new value and append
+        result = memcache.memcache.get('notifs-fake:user')
+        self.assertEqual(['existing:reply', 'efake:reply'], result)

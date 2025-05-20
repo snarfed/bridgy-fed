@@ -4,11 +4,12 @@ import logging
 import os
 
 from google.cloud.ndb.global_cache import _InProcessGlobalCache, MemcacheCache
+from granary import as1
 from oauth_dropins.webutil import appengine_info
-
 from pymemcache.client.base import PooledClient
 from pymemcache.serde import PickleSerde
-from pymemcache.test.utils import MockMemcacheClient
+
+from tests.mock_memcache import CasMockMemcacheClient
 
 logger = logging.getLogger(__name__)
 
@@ -20,8 +21,9 @@ MEMOIZE_VERSION = 2
 
 if appengine_info.DEBUG or appengine_info.LOCAL_SERVER:
     logger.info('Using in memory mock memcache')
-    memcache = MockMemcacheClient(allow_unicode_keys=True)
-    pickle_memcache = MockMemcacheClient(allow_unicode_keys=True, serde=PickleSerde())
+    memcache = CasMockMemcacheClient(allow_unicode_keys=True)
+    pickle_memcache = CasMockMemcacheClient(allow_unicode_keys=True,
+                                            serde=PickleSerde())
     global_cache = _InProcessGlobalCache()
 else:
     logger.info('Using production Memorystore memcache')
@@ -110,6 +112,55 @@ def memoize(expire=None, key=None, write=True, version=MEMOIZE_VERSION):
         return wrapped
 
     return decorator
+
+
+def add_notification(user, obj):
+    """Adds a notification for a given user.
+
+    The memcache key is ``notifs-{user id}``. The value is the list of object URLs to
+    notify the user of.
+
+    Uses gets/cas to create the cache entry if it doesn't exist.
+
+    Args:
+      user (models.User): the user to notify
+      obj (models.Object): the object to notify about
+    """
+    cache_key = key(f'notifs-{user.key.id()}')
+    obj_url = as1.get_url(obj.as1) or obj.key.id()
+
+    notifs, cas_token = memcache.gets(cache_key)
+
+    if notifs is None:
+        success = memcache.cas(cache_key, [obj_url], cas_token)
+        if not success:
+            # Another process created the key, get its value and append
+            try:
+                notifs = memcache.get(cache_key)
+                if notifs is None:
+                    notifs = []
+            except:
+                notifs = []
+
+            if obj_url not in notifs:
+                notifs.append(obj_url)
+                memcache.set(cache_key, notifs)
+    else:
+        if obj_url not in notifs:
+            notifs.append(obj_url)
+            success = memcache.cas(cache_key, notifs, cas_token)
+            if not success:
+                # Another process modified the value, get current and append
+                try:
+                    current_notifs = memcache.get(cache_key)
+                    if current_notifs is None:
+                        current_notifs = []
+                except:
+                    current_notifs = []
+
+                if obj_url not in current_notifs:
+                    current_notifs.append(obj_url)
+                    memcache.set(cache_key, current_notifs)
 
 
 ###########################################
