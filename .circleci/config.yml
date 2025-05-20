@@ -35,7 +35,7 @@ jobs:
       - run:
           name: Base dependencies for tests
           command: |
-            sudo apt-get install -y google-cloud-cli-firestore-emulator default-jre
+            sudo apt-get install -y google-cloud-cli-firestore-emulator openjdk-21-jre-headless
 
       - run:
           name: Python dependencies
