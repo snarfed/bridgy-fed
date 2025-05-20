@@ -27,6 +27,9 @@
           <input type="checkbox" checked onClick="bridgingSwitch(event)">
           <span class="slider round"></span>
         </label>
+        <noscript>
+          <input type="submit" value="Disable" class="btn btn-default disable-button" />
+        </noscript>
       </form>
 
     {# TODO: generalize #}
@@ -49,6 +52,10 @@
           <input type="checkbox" onClick="bridgingSwitch(event)" {% if user.status %}disabled="true"{% endif %}>
           <span class="slider round"></span>
         </label>
+        <noscript>
+          <input type="submit" value="Enable" class="btn btn-default enable-button"
+             {% if user.status %}disabled="true"{% endif %} />
+        </noscript>
       </form>
       {% if user.status %} Not bridging because {{ USER_STATUS_DESCRIPTIONS[user.status] }}{% endif %}
     {% endif %}
