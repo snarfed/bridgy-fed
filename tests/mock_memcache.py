@@ -21,7 +21,7 @@ class CasMockMemcacheClient(MockMemcacheClient):
 
     def set(self, key, value, expire=0, noreply=True, flags=None):
         ret = super().set(key, value, expire=expire, noreply=noreply, flags=flags)
-        self._cas_ids[key] = str(time.time_ns())
+        self._cas_ids[key] = str(time.time_ns()).encode()
         return ret
 
     def stats(self, *kwargs):
@@ -39,7 +39,7 @@ class CasMockMemcacheClient(MockMemcacheClient):
             cas_default: CAS token value to return if key not found
 
         Returns:
-            A tuple of (value, cas_token)
+            A tuple of (value, bytes cas_token)
         """
         not_found = []
 
@@ -47,7 +47,7 @@ class CasMockMemcacheClient(MockMemcacheClient):
         if value is not_found:
             return default, cas_default
 
-        cas_token = self._cas_ids.setdefault(key, str(time.time_ns()))
+        cas_token = self._cas_ids.setdefault(key, str(time.time_ns()).encode())
         return value, cas_token
 
     def cas(self, key, value, cas_token, noreply=False, **kwargs):
@@ -71,8 +71,10 @@ class CasMockMemcacheClient(MockMemcacheClient):
         key = self.check_key(key)
 
         if key not in self._contents:
+            return self.set(key, value, noreply=noreply, **kwargs)
             return True if noreply else None
+
         elif self._cas_ids.get(key) != cas_token:
             return True if noreply else False
 
-        return self.set(key, value, **kwargs)
+        return self.set(key, value, noreply=noreply, **kwargs)

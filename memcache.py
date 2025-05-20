@@ -114,11 +114,15 @@ def memoize(expire=None, key=None, write=True, version=MEMOIZE_VERSION):
     return decorator
 
 
+def notification_key(user):
+    return key(f'notifs-{user.key.id()}')
+
+
 def add_notification(user, obj):
     """Adds a notification for a given user.
 
-    The memcache key is ``notifs-{user id}``. The value is the list of object URLs to
-    notify the user of.
+    The memcache key is ``notifs-{user id}``. The value is a space-separated list of
+    object URLs to notify the user of.
 
     Uses gets/cas to create the cache entry if it doesn't exist.
 
@@ -126,41 +130,37 @@ def add_notification(user, obj):
       user (models.User): the user to notify
       obj (models.Object): the object to notify about
     """
-    cache_key = key(f'notifs-{user.key.id()}')
+    key = notification_key(user)
     obj_url = as1.get_url(obj.as1) or obj.key.id()
+    assert obj_url
+    logger.info(f'Adding notif {obj_url} for {user.key.id()}')
 
-    notifs, cas_token = memcache.gets(cache_key)
+    notifs, cas_token = memcache.gets(key)
 
     if notifs is None:
-        success = memcache.cas(cache_key, [obj_url], cas_token)
-        if not success:
-            # Another process created the key, get its value and append
-            try:
-                notifs = memcache.get(cache_key)
-                if notifs is None:
-                    notifs = []
-            except:
-                notifs = []
+        if memcache.cas(key, obj_url.encode(), cas_token) in (True, None):
+            return
+        # ...otherwise, if cas returned False, that means a notification was added
+        # between our gets and our cas, so append to it
+    elif notifs and obj_url in notifs.decode().split():
+        return
 
-            if obj_url not in notifs:
-                notifs.append(obj_url)
-                memcache.set(cache_key, notifs)
-    else:
-        if obj_url not in notifs:
-            notifs.append(obj_url)
-            success = memcache.cas(cache_key, notifs, cas_token)
-            if not success:
-                # Another process modified the value, get current and append
-                try:
-                    current_notifs = memcache.get(cache_key)
-                    if current_notifs is None:
-                        current_notifs = []
-                except:
-                    current_notifs = []
+    memcache.append(key, (' ' + obj_url).encode())
 
-                if obj_url not in current_notifs:
-                    current_notifs.append(obj_url)
-                    memcache.set(cache_key, current_notifs)
+
+def get_notifications(user):
+    """Gets enqueued notifications for a given user.
+
+    The memcache key is ``notifs-{user id}``.
+
+    Args:
+      user (models.User)
+
+    Returns:
+      list of str: URLs to notify the user of; possibly empty
+    """
+    key = notification_key(user)
+    return memcache.get(key, default=b'').decode().strip().split()
 
 
 ###########################################

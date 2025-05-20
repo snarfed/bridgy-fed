@@ -4,7 +4,7 @@ from unittest.mock import patch
 from google.cloud.ndb import Key
 
 import memcache
-from memcache import memoize, pickle_memcache, add_notification
+from memcache import memoize, pickle_memcache
 from models import Object, User
 from .testutil import Fake, TestCase
 
@@ -176,46 +176,59 @@ class MemcacheTest(TestCase):
         ):
             self.assertEqual(expected, memcache.key(input))
 
+    def test_get_notifications_empty(self):
+        user = self.make_user(id='fake:user', cls=Fake)
+        self.assertEqual([], memcache.get_notifications(user))
+
     def test_add_notification_new_key(self):
         user = self.make_user(id='fake:user', cls=Fake)
         obj = self.store_object(id='efake:reply', source_protocol='efake')
 
-        add_notification(user, obj)
+        memcache.add_notification(user, obj)
 
-        result = memcache.memcache.get('notifs-fake:user')
-        self.assertEqual(['efake:reply'], result)
+        self.assertEqual(['efake:reply'], memcache.get_notifications(user))
+        self.assertEqual(b'efake:reply', memcache.memcache.get('notifs-fake:user'))
 
     def test_add_notification_append_to_existing(self):
         user = self.make_user(id='fake:user', cls=Fake)
         obj1 = self.store_object(id='efake:reply1', source_protocol='efake')
         obj2 = self.store_object(id='efake:reply2', source_protocol='efake')
 
-        add_notification(user, obj1)
-        add_notification(user, obj2)
+        memcache.add_notification(user, obj1)
+        memcache.add_notification(user, obj2)
 
-        result = memcache.memcache.get('notifs-fake:user')
-        self.assertEqual(['efake:reply1', 'efake:reply2'], result)
+        self.assertEqual(['efake:reply1', 'efake:reply2'],
+                         memcache.get_notifications(user))
+        self.assertEqual(b'efake:reply1 efake:reply2',
+                         memcache.memcache.get('notifs-fake:user'))
 
-    def test_add_notification_no_duplicates(self):
+    def test_add_notification_deduplicate(self):
         user = self.make_user(id='fake:user', cls=Fake)
         obj = self.store_object(id='efake:reply', source_protocol='efake')
 
-        # add the same notification twice
-        add_notification(user, obj)
-        add_notification(user, obj)
+        memcache.add_notification(user, obj)
+        memcache.add_notification(user, obj)
 
-        # should only appear once
-        result = memcache.memcache.get('notifs-fake:user')
-        self.assertEqual(['efake:reply'], result)
+        self.assertEqual(['efake:reply'], memcache.get_notifications(user))
+        self.assertEqual(b'efake:reply', memcache.memcache.get('notifs-fake:user'))
 
-    def test_add_notification_cas_failure(self):
+    # mock get to say there's nothing in the cache, and cas to say someone changed it
+    # since the get. should then append.
+    @patch.object(memcache.memcache, 'gets', return_value=(None, b'towkin'))
+    @patch.object(memcache.memcache, 'cas', return_value=False)
+    def test_add_notification_cas_failure(self, mock_cas, mock_get):
         user = self.make_user(id='fake:user', cls=Fake)
         obj = self.store_object(id='efake:reply', source_protocol='efake')
 
-        memcache.memcache.set('notifs-fake:user', ['existing:reply'])
+        memcache.memcache.set('notifs-fake:user', b'existing:reply')
 
-        add_notification(user, obj)
+        memcache.add_notification(user, obj)
 
         # should get the new value and append
-        result = memcache.memcache.get('notifs-fake:user')
-        self.assertEqual(['existing:reply', 'efake:reply'], result)
+        self.assertEqual(['existing:reply', 'efake:reply'],
+                         memcache.get_notifications(user))
+        self.assertEqual(b'existing:reply efake:reply',
+                         memcache.memcache.get('notifs-fake:user'))
+
+        mock_get.assert_called_with(b'notifs-fake:user')
+        mock_cas.assert_called_with(b'notifs-fake:user', b'efake:reply', b'towkin')
