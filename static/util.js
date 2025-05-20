@@ -15,34 +15,31 @@ function toggleInput(button_id) {
   var button = document.getElementById(button_id);
   var input = document.getElementById(button_id + "-input");
   var submit = document.getElementById(button_id + "-submit");
-  if (input) {
-    if (openedId && openedId != button_id) {
-      document.getElementById(openedId).classList.remove("slide-up");
+  
+  if (openedId && openedId != button_id) {
+    document.getElementById(openedId).classList.remove("slide-up");
 
-      document.getElementById(openedId + "-submit").classList.remove("visible");
-      document.getElementById(openedId + "-input").classList.remove("visible");
+    document.getElementById(openedId + "-submit").classList.remove("visible");
+    document.getElementById(openedId + "-input").classList.remove("visible");
 
-      openedId = null;
-    }
+    openedId = null;
+  }
 
-    if(input.classList.contains("visible")){
-      submit.classList.remove("visible");
-      input.classList.remove("visible");
+  if(input.classList.contains("visible")){
+    submit.classList.remove("visible");
+    input.classList.remove("visible");
 
-      button.classList.remove("slide-up");
+    button.classList.remove("slide-up");
 
-      openedId = null;
-    } else {
-      openedId = button_id;
-
-      button.classList.add("slide-up");
-
-      submit.classList.add("visible");
-      input.classList.add("visible");
-      input.focus();
-    }
+    openedId = null;
   } else {
-    submit.click();
+    openedId = button_id;
+
+    button.classList.add("slide-up");
+
+    submit.classList.add("visible");
+    input.classList.add("visible");
+    input.focus();
   }
 }
 

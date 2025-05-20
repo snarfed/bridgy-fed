@@ -859,9 +859,19 @@ a img.shadow:hover
 }
 
 /* The switch - the box around the slider */
+@media (scripting: none) {
+  .switch {
+    display: none;
+  }
+}
+
+@media (scripting: enabled) {
+  .switch {
+    display: inline-block;
+  }
+}
 .switch {
   position: relative;
-  display: inline-block;
   width: 60px;
   height: 34px;
   margin-left: 10px;
@@ -930,54 +940,82 @@ input:checked + .slider:before {
   margin: 20px;
 }
 
-/* sliding OAuth login buttons and inputs */
-.login-button {
-  margin-right:10px;
-  margin-bottom:-20px;
-  border:gray 1px solid;
-  border-radius:30px;
-  padding:15px;
-  transition: transform 0.5s ease-in-out;
-  position: relative;
+@media (scripting: none) {
+  .login-button {
+    margin-top:20px;
+  }
+
+  .login-input {
+    width: 135px; 
+    height: 50px; 
+    border-radius: 90px; 
+    margin-right:10px;
+  }
+
+  .submit-button {
+    border:gray 1px solid;
+    border-radius:30px;
+    width: 45px;
+    height: 45px;
+  }
+
+  .fade-in-element {
+    opacity: 1;
+    transform: translateY(0px);
+    margin-top:20px;
+  }
 }
 
-.login-button.slide-up {
-  transform: translateY(-20px);
-  margin-top:20px;
-}
+@media (scripting: enabled) {
+  /* sliding OAuth login buttons and inputs */
+  .login-button {
+    margin-right:10px;
+    margin-bottom:-20px;
+    border:gray 1px solid;
+    border-radius:30px;
+    padding:15px;
+    transition: transform 0.5s ease-in-out;
+    position: relative;
+  }
 
-.login-input {
-  width: 0px; 
-  height: 0px;
-}
+  .login-button.slide-up {
+    transform: translateY(-20px);
+    margin-top:20px;
+  }
 
-.login-input.visible {
-  width: 135px; 
-  height: 50px; 
-  border-radius: 90px; 
-  margin-right:10px;
-}
+  .login-input {
+    width: 0px; 
+    height: 0px;
+  }
 
-.submit-button {
-  border:gray 1px solid;
-  border-radius:30px;
-  width: 0px;
-  height: 0px;
-}
+  .login-input.visible {
+    width: 135px; 
+    height: 50px; 
+    border-radius: 90px; 
+    margin-right:10px;
+  }
 
-.submit-button.visible {
-  width: 45px;
-  height: 45px;
-}
+  .submit-button {
+    border:gray 1px solid;
+    border-radius:30px;
+    width: 0px;
+    height: 0px;
+  }
 
-.fade-in-element {
-  transition: all 0.3s ease-in-out;
-  opacity: 0;
-  transform: translateY(-10px);
-}
+  .submit-button.visible {
+    width: 45px;
+    height: 45px;
+  }
 
-.fade-in-element.visible {
-  opacity: 1;
-  transform: translateY(0px);
-  margin-top:20px;
+  .fade-in-element {
+    transition: all 0.3s ease-in-out;
+    opacity: 0;
+    transform: translateY(-10px);
+  }
+
+  .fade-in-element.visible {
+    opacity: 1;
+    transform: translateY(0px);
+    margin-top:20px;
+  }
 }
