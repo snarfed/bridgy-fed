@@ -412,11 +412,12 @@ def notify_task():
 
     proto = PROTOCOLS[request.form['protocol']]
     user_id = request.form['user_id']
+
     if not (user := proto.get_by_id(user_id)):
         logger.info(f"Couldn't load user {user_id}")
         return '', 204
 
-    if not (notifs := memcache.get_notifications(user)):
+    if not (notifs := memcache.get_notifications(user, clear=True)):
         logger.info(f'No notifications for {user_id}')
         return '', 204
 
@@ -432,7 +433,5 @@ def notify_task():
         message += f'<li>{util.pretty_link(url)}\n'
     message += '</ul>\n<p>To disable these messages, reply with the text <em>mute</em>.'
     maybe_send(from_proto=PROTOCOLS[from_proto_label], to_user=user, text=message)
-
-    memcache.memcache.delete(memcache.notification_key(user))
 
     return '', 200

@@ -652,7 +652,6 @@ class DmsTest(TestCase):
             'protocol': 'fake',
         })
         self.assertEqual(200, resp.status_code)
-
         self.assert_sent(ExplicitFake, user, '?', """\
 <p>Hi! Here are your recent interactions from people who aren't bridged into fake-phrase:
 <ul>
@@ -660,6 +659,7 @@ class DmsTest(TestCase):
 <li><a href="http://notif/b">notif/b</a>
 </ul>
 <p>To disable these messages, reply with the text <em>mute</em>.""")
+        self.assertEqual([], get_notifications(user))
 
     def test_notify_task_no_notifications(self):
         self.make_user(id='efake.brid.gy', cls=Web)
@@ -672,6 +672,7 @@ class DmsTest(TestCase):
         })
         self.assertEqual(204, resp.status_code)
         self.assertEqual([], Fake.sent)
+        self.assertEqual([], get_notifications(user))
 
     def test_notify_task_user_not_enabled(self):
         self.make_user(id='efake.brid.gy', cls=Web)
@@ -686,3 +687,4 @@ class DmsTest(TestCase):
         })
         self.assertEqual(204, resp.status_code)
         self.assertEqual([], Fake.sent)
+        self.assertEqual([], get_notifications(user))

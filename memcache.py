@@ -153,19 +153,25 @@ def add_notification(user, obj):
     memcache.append(key, (' ' + obj_url).encode())
 
 
-def get_notifications(user):
+def get_notifications(user, clear=False):
     """Gets enqueued notifications for a given user.
 
     The memcache key is ``notifs-{user id}``.
 
     Args:
       user (models.User)
+      clear (bool): clear notifications from memcache after fetching them
 
     Returns:
       list of str: URLs to notify the user of; possibly empty
     """
     key = notification_key(user)
-    return memcache.get(key, default=b'').decode().strip().split()
+    notifs = memcache.get(key, default=b'').decode().strip().split()
+
+    if notifs and clear:
+        memcache.delete(key)
+
+    return notifs
 
 
 ###########################################
