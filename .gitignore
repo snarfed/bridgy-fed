@@ -2,7 +2,6 @@
 *_jwt
 .coverage
 /.well-known/acme-challenge/
-beta_users.txt
 datastore.dat*
 /docs/_build/
 flask_secret_key

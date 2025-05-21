@@ -133,9 +133,16 @@ def add_notification(user, obj):
       user (models.User): the user to notify
       obj (models.Object): the object to notify about
     """
+    import common
+
     key = notification_key(user)
     obj_url = as1.get_url(obj.as1) or obj.key.id()
     assert obj_url
+
+    # TODO: remove to launch
+    if (user.key.id() not in common.BETA_USER_IDS
+            and not (appengine_info.DEBUG or appengine_info.LOCAL_SERVER)):
+        return
 
     if not util.is_web(obj_url):
         logger.info(f'Dropping non-URL notif {obj_url} for {user.key.id()}')
@@ -147,7 +154,6 @@ def add_notification(user, obj):
 
     if notifs is None:
         if memcache.cas(key, obj_url.encode(), cas_token) in (True, None):
-            import common
             common.create_task(queue='notify', delay=NOTIFY_TASK_FREQ,
                                user_id=user.key.id(), protocol=user.LABEL)
             return

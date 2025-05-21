@@ -1,0 +1,19 @@
+# User ids who opt into testing new "beta" features and changes before we roll them
+# out to everyone.
+anew.social
+quillmatiq.com
+snarfed.org
+
+did:plc:xgvzy7ni6ig6ievcbls5jaxe  # quillmatiq.com
+did:plc:4wgmwsq4t3tg55ffl3r7ocec  # self-labeler.snarfed.org
+did:plc:3ljmtyyjqcjee2kpewgsifvb  # snarfed.bsky.social
+did:plc:5zspv27pk4iqtrl2ql2nykjh  # snarfed2.bsky.social
+did:plc:fdme4gb7mu7zrie7peay7tst  # snarfed.org
+
+https://indieweb.social/users/snarfed
+https://mas.to/users/snarfed
+https://mas.to/users/snarfed2
+https://mastodon.social/users/quillmatiq
+https://mastodon.social/users/snarfed
+https://pixelfed.social/users/quillmatiq
+https://pixelfed.social/users/snarfed
