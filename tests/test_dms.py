@@ -6,6 +6,7 @@ import dms
 from dms import maybe_send, receive
 import ids
 from common import memcache
+from memcache import add_notification, get_notifications
 from models import DM, Follower, Object, Target
 from web import Web
 
@@ -637,3 +638,51 @@ class DmsTest(TestCase):
         self.assert_replied(OtherFake, alice, '?',
                             'migrate-to command needs an argument')
         self.assertEqual([], OtherFake.migrated_out)
+
+    def test_notify_task(self):
+        self.make_user(id='efake.brid.gy', cls=Web)
+        user = self.make_user(id='fake:user', cls=Fake, enabled_protocols=['efake'],
+                              obj_as1={'x': 'y'})
+
+        add_notification(user, Object(id='efake:a', our_as1={'url': 'http://notif/a'}))
+        add_notification(user, Object(id='http://notif/b'))
+
+        resp = self.post('/queue/notify', data={
+            'user_id': 'fake:user',
+            'protocol': 'fake',
+        })
+        self.assertEqual(200, resp.status_code)
+
+        self.assert_sent(ExplicitFake, user, '?', """\
+<p>Hi! Here are your recent interactions from people who aren't bridged into fake-phrase:
+<ul>
+<li><a href="http://notif/a">notif/a</a>
+<li><a href="http://notif/b">notif/b</a>
+</ul>
+<p>To disable these messages, reply with the text <em>mute</em>.""")
+
+    def test_notify_task_no_notifications(self):
+        self.make_user(id='efake.brid.gy', cls=Web)
+        user = self.make_user(id='fake:user', cls=Fake, enabled_protocols=['efake'],
+                              obj_as1={'x': 'y'})
+
+        resp = self.post('/queue/notify', data={
+            'user_id': 'fake:user',
+            'protocol': 'fake',
+        })
+        self.assertEqual(204, resp.status_code)
+        self.assertEqual([], Fake.sent)
+
+    def test_notify_task_user_not_enabled(self):
+        self.make_user(id='efake.brid.gy', cls=Web)
+        user = self.make_user(id='fake:user', cls=Fake, manual_opt_out=True,
+                              enabled_protocols=['efake'], obj_as1={'x': 'y'})
+
+        add_notification(user, Object(id='efake:b'))
+
+        resp = self.post('/queue/notify', data={
+            'user_id': 'fake:user',
+            'protocol': 'fake',
+        })
+        self.assertEqual(204, resp.status_code)
+        self.assertEqual([], Fake.sent)

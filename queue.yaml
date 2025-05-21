@@ -38,3 +38,11 @@ queue:
     task_retry_limit: 2
     min_backoff_seconds: 300
     max_doublings: 2
+
+- name: notify
+  rate: 5/s
+  max_concurrent_requests: 5
+  retry_parameters:
+    task_retry_limit: 2
+    min_backoff_seconds: 300
+    max_doublings: 2
