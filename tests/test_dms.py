@@ -13,6 +13,7 @@ from models import DM, Follower, Object, Target
 from web import Web
 
 from oauth_dropins.webutil.flask_util import NotModified
+from oauth_dropins.webutil.util import json_dumps, json_loads
 from .testutil import ExplicitFake, Fake, OtherFake, TestCase
 from .test_atproto import DID_DOC
 
@@ -418,6 +419,20 @@ class DmsTest(TestCase):
                                enabled_protocols=['other'], obj_as1={'x': 'y'})
 
         obj = Object(our_as1=DM_ALICE_SET_USERNAME_OTHER)
+        self.assertEqual(('OK', 200), receive(from_user=alice, obj=obj))
+        self.assert_replied(OtherFake, alice, '?', ALICE_USERNAME_CONFIRMATION)
+        self.assertEqual({'efake:alice': 'new-handle'}, OtherFake.usernames)
+
+    def test_receive_username_strip_invisible_chars(self):
+        # https://github.com/snarfed/bridgy-fed/issues/1936
+        self.make_user(id='other.brid.gy', cls=Web)
+        alice = self.make_user(id='efake:alice', cls=ExplicitFake,
+                               enabled_protocols=['other'], obj_as1={'x': 'y'})
+
+        obj = Object(our_as1={
+            **DM_BASE,
+            'content': json_loads(r'"username \u202anew\u202d-handle\u202c"'),
+        })
         self.assertEqual(('OK', 200), receive(from_user=alice, obj=obj))
         self.assert_replied(OtherFake, alice, '?', ALICE_USERNAME_CONFIRMATION)
         self.assertEqual({'efake:alice': 'new-handle'}, OtherFake.usernames)
