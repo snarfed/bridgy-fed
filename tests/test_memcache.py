@@ -2,7 +2,10 @@
 from unittest.mock import patch
 
 from google.cloud.ndb import Key
+from oauth_dropins.webutil.testutil import NOW
+from oauth_dropins.webutil import util
 
+import common
 import memcache
 from memcache import memoize, pickle_memcache
 from models import Object, User
@@ -180,7 +183,9 @@ class MemcacheTest(TestCase):
         user = self.make_user(id='fake:user', cls=Fake)
         self.assertEqual([], memcache.get_notifications(user))
 
-    def test_add_notification_new_key(self):
+    @patch('oauth_dropins.webutil.appengine_config.tasks_client.create_task')
+    def test_add_notification_new_key(self, mock_create_task):
+        common.RUN_TASKS_INLINE = False
         user = self.make_user(id='fake:user', cls=Fake)
 
         memcache.add_notification(user, Object(id='http://reply'))
@@ -188,49 +193,65 @@ class MemcacheTest(TestCase):
         self.assertEqual(['http://reply'], memcache.get_notifications(user))
         self.assertEqual(b'http://reply', memcache.memcache.get('notifs-fake:user'))
 
-    def test_add_notification_requires_web_url(self):
+        delayed_eta = (util.to_utc_timestamp(NOW) +
+                       memcache.NOTIFY_TASK_FREQ.total_seconds())
+        self.assert_task(mock_create_task, 'notify', delayed_eta, user_id='fake:user',
+                         protocol='fake')
+
+    @patch('oauth_dropins.webutil.appengine_config.tasks_client.create_task')
+    def test_add_notification_requires_web_url(self, mock_create_task):
+        common.RUN_TASKS_INLINE = False
         user = self.make_user(id='fake:user', cls=Fake)
-        obj = self.store_object(id='efake:reply')
 
         memcache.add_notification(user, Object(id='efake:reply'))
 
         self.assertEqual([], memcache.get_notifications(user))
         self.assertIsNone(memcache.memcache.get('notifs-fake:user'))
+        mock_create_task.assert_not_called()
 
-    def test_add_notification_append_to_existing(self):
+    @patch('oauth_dropins.webutil.appengine_config.tasks_client.create_task')
+    def test_add_notification_append_to_existing(self, mock_create_task):
+        common.RUN_TASKS_INLINE = False
         user = self.make_user(id='fake:user', cls=Fake)
-        obj1 = self.store_object(id='r1', our_as1={'url': 'http://reply1'})
-        obj2 = self.store_object(id='http://reply2')
 
-        memcache.add_notification(user, obj1)
-        memcache.add_notification(user, obj2)
+        memcache.memcache.set('notifs-fake:user', 'http://reply0')
+        memcache.add_notification(user, Object(id='r1', our_as1={'url': 'http://r1'}))
+        memcache.add_notification(user, Object(id='http://reply2'))
 
-        self.assertEqual(['http://reply1', 'http://reply2'],
+        self.assertEqual(['http://reply0', 'http://r1', 'http://reply2'],
                          memcache.get_notifications(user))
-        self.assertEqual(b'http://reply1 http://reply2',
+        self.assertEqual(b'http://reply0 http://r1 http://reply2',
                          memcache.memcache.get('notifs-fake:user'))
+        mock_create_task.assert_not_called()
 
-    def test_add_notification_deduplicate(self):
+    @patch('oauth_dropins.webutil.appengine_config.tasks_client.create_task')
+    def test_add_notification_deduplicate(self, mock_create_task):
+        common.RUN_TASKS_INLINE = False
         user = self.make_user(id='fake:user', cls=Fake)
-        obj = self.store_object(id='http://reply')
 
-        memcache.add_notification(user, obj)
-        memcache.add_notification(user, obj)
+        memcache.add_notification(user, Object(id='http://reply'))
+        memcache.add_notification(user, Object(id='http://reply'))
 
         self.assertEqual(['http://reply'], memcache.get_notifications(user))
         self.assertEqual(b'http://reply', memcache.memcache.get('notifs-fake:user'))
 
+        delayed_eta = (util.to_utc_timestamp(NOW) +
+                       memcache.NOTIFY_TASK_FREQ.total_seconds())
+        self.assert_task(mock_create_task, 'notify', delayed_eta, user_id='fake:user',
+                         protocol='fake')
+
     # mock get to say there's nothing in the cache, and cas to say someone changed it
     # since the get. should then append.
+    @patch('oauth_dropins.webutil.appengine_config.tasks_client.create_task')
     @patch.object(memcache.memcache, 'gets', return_value=(None, b'towkin'))
     @patch.object(memcache.memcache, 'cas', return_value=False)
-    def test_add_notification_cas_failure(self, mock_cas, mock_get):
+    def test_add_notification_cas_failure(self, mock_cas, mock_get, mock_create_task):
+        common.RUN_TASKS_INLINE = False
         user = self.make_user(id='fake:user', cls=Fake)
-        obj = self.store_object(id='http://reply')
 
         memcache.memcache.set('notifs-fake:user', b'http://existing')
 
-        memcache.add_notification(user, obj)
+        memcache.add_notification(user, Object(id='http://reply'))
 
         # should get the new value and append
         self.assertEqual(['http://existing', 'http://reply'],
@@ -240,3 +261,4 @@ class MemcacheTest(TestCase):
 
         mock_get.assert_called_with(b'notifs-fake:user')
         mock_cas.assert_called_with(b'notifs-fake:user', b'http://reply', b'towkin')
+        mock_create_task.assert_not_called()

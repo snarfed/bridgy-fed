@@ -422,7 +422,7 @@ def notify_task():
         return '', 204
 
     from_proto_label = (user.enabled_protocols[0] if user.enabled_protocols
-        else user.DEFAULT_ENABLED_PROTOCOLS[0] if DEFAULT_ENABLED_PROTOCOLS
+        else user.DEFAULT_ENABLED_PROTOCOLS[0] if user.DEFAULT_ENABLED_PROTOCOLS
         else None)
     if not from_proto_label:
         logger.info(f"User {user_id} isn't enabled")

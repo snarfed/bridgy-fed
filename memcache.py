@@ -1,4 +1,5 @@
 """Utilities for caching data in memcache."""
+from datetime import timedelta
 import functools
 import logging
 import os
@@ -17,6 +18,8 @@ logger = logging.getLogger(__name__)
 KEY_MAX_LEN = 250
 
 MEMOIZE_VERSION = 2
+
+NOTIFY_TASK_FREQ = timedelta(hours=1)
 
 
 if appengine_info.DEBUG or appengine_info.LOCAL_SERVER:
@@ -144,10 +147,16 @@ def add_notification(user, obj):
 
     if notifs is None:
         if memcache.cas(key, obj_url.encode(), cas_token) in (True, None):
+            import common
+            common.create_task(queue='notify', delay=NOTIFY_TASK_FREQ,
+                               user_id=user.key.id(), protocol=user.LABEL)
             return
+
         # ...otherwise, if cas returned False, that means a notification was added
-        # between our gets and our cas, so append to it
+        # between our gets and our cas, so append to it, below
+
     elif notifs and obj_url in notifs.decode().split():
+        # this notif URL has already been added
         return
 
     memcache.append(key, (' ' + obj_url).encode())

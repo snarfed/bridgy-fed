@@ -1,11 +1,13 @@
 """Unit tests for dms.py."""
 from unittest import mock
+from unittest.mock import patch
 
 from atproto import ATProto
+import common
+from common import memcache
 import dms
 from dms import maybe_send, receive
 import ids
-from common import memcache
 from memcache import add_notification, get_notifications
 from models import DM, Follower, Object, Target
 from web import Web
@@ -639,7 +641,9 @@ class DmsTest(TestCase):
                             'migrate-to command needs an argument')
         self.assertEqual([], OtherFake.migrated_out)
 
-    def test_notify_task(self):
+    @patch('oauth_dropins.webutil.appengine_config.tasks_client.create_task')
+    def test_notify_task(self, _):
+        common.RUN_TASKS_INLINE = False
         self.make_user(id='efake.brid.gy', cls=Web)
         user = self.make_user(id='fake:user', cls=Fake, enabled_protocols=['efake'],
                               obj_as1={'x': 'y'})
@@ -647,6 +651,7 @@ class DmsTest(TestCase):
         add_notification(user, Object(id='efake:a', our_as1={'url': 'http://notif/a'}))
         add_notification(user, Object(id='http://notif/b'))
 
+        common.RUN_TASKS_INLINE = True
         resp = self.post('/queue/notify', data={
             'user_id': 'fake:user',
             'protocol': 'fake',
@@ -674,13 +679,16 @@ class DmsTest(TestCase):
         self.assertEqual([], Fake.sent)
         self.assertEqual([], get_notifications(user))
 
-    def test_notify_task_user_not_enabled(self):
+    @patch('oauth_dropins.webutil.appengine_config.tasks_client.create_task')
+    def test_notify_task_user_not_enabled(self, _):
+        common.RUN_TASKS_INLINE = False
         self.make_user(id='efake.brid.gy', cls=Web)
         user = self.make_user(id='fake:user', cls=Fake, manual_opt_out=True,
                               enabled_protocols=['efake'], obj_as1={'x': 'y'})
 
         add_notification(user, Object(id='efake:b'))
 
+        common.RUN_TASKS_INLINE = True
         resp = self.post('/queue/notify', data={
             'user_id': 'fake:user',
             'protocol': 'fake',
