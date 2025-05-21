@@ -1464,13 +1464,21 @@ def outbox(id):
 # OAuth
 #
 class MastodonStart(FlashErrors, oauth_dropins.mastodon.Start):
-    pass
+  def app_name(self):
+      return 'Bridgy Fed'
+
+  def app_url(self):
+      return 'https://fed.brid.gy/'
 
 class MastodonCallback(FlashErrors, oauth_dropins.mastodon.Callback):
     pass
 
 class PixelfedStart(FlashErrors, oauth_dropins.pixelfed.Start):
-    pass
+  def app_name(self):
+      return 'Bridgy Fed'
+
+  def app_url(self):
+      return 'https://fed.brid.gy/'
 
 class PixelfedCallback(FlashErrors, oauth_dropins.pixelfed.Callback):
     pass

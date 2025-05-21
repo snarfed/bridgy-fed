@@ -14,7 +14,6 @@ from google.cloud.ndb.query import OR
 from google.cloud.ndb.model import get_multi, Model
 from granary import as1, as2, atom, microformats2, rss
 import oauth_dropins
-import oauth_dropins.bluesky
 from oauth_dropins.webutil import flask_util, logs, util
 from oauth_dropins.webutil.flask_util import (
     canonicalize_request_domain,
@@ -31,7 +30,8 @@ from requests_oauth2client.flask.auth import FlaskSessionAuthMixin
 import werkzeug.exceptions
 from werkzeug.exceptions import NotFound
 
-from activitypub import ActivityPub, instance_actor
+import activitypub
+from activitypub import ActivityPub
 import atproto
 from atproto import ATProto, BlueskyOAuthStart
 import common
@@ -233,16 +233,7 @@ def docs():
 @flask_util.headers(CACHE_CONTROL)
 def login():
     """View for the front page."""
-    return render('login.html',
-        bluesky_button=BlueskyOAuthStart.button_html(
-            '/oauth/bluesky/start', image_prefix='/oauth_dropins_static/'),
-        mastodon_button=oauth_dropins.mastodon.Start.button_html(
-            '/oauth/mastodon/start', image_prefix='/oauth_dropins_static/'),
-        pixelfed_button=oauth_dropins.pixelfed.Start.button_html(
-            '/oauth/pixelfed/start', image_prefix='/oauth_dropins_static/'),
-        threads_button=oauth_dropins.threads.Start.button_html(
-            '/oauth/threads/start', image_prefix='/oauth_dropins_static/'),
-    )
+    return render('login.html')
 
 
 @app.post('/logout')
@@ -613,7 +604,7 @@ def nodeinfo_jrd():
             'href': common.host_url('nodeinfo.json'),
         }, {
             "rel": "https://www.w3.org/ns/activitystreams#Application",
-            "href": instance_actor().id_as(ActivityPub),
+            "href": activitypub.instance_actor().id_as(ActivityPub),
         }],
     }, {
         'Content-Type': 'application/jrd+json',
