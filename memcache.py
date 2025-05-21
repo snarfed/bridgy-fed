@@ -10,7 +10,7 @@ from oauth_dropins.webutil import appengine_info, util
 from pymemcache.client.base import PooledClient
 from pymemcache.serde import PickleSerde
 
-from tests.mock_memcache import CasMockMemcacheClient
+from mock_memcache import CasMockMemcacheClient
 
 logger = logging.getLogger(__name__)
 
