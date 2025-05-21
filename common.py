@@ -111,6 +111,11 @@ _negotiator = ContentNegotiator(acceptable=[
     AcceptParameters(ContentType(as2.CONTENT_TYPE_LD)),
 ])
 
+# User ids who opt into testing new "beta" features and changes before we roll them
+# out to everyone.
+with open(Path(os.path.dirname(__file__)) / 'beta_users.txt') as f:
+  BETA_USER_IDS = util.load_file_lines(f)
+
 
 @functools.cache
 def protocol_user_copy_ids():
