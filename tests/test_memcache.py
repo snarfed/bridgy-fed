@@ -182,35 +182,43 @@ class MemcacheTest(TestCase):
 
     def test_add_notification_new_key(self):
         user = self.make_user(id='fake:user', cls=Fake)
-        obj = self.store_object(id='efake:reply', source_protocol='efake')
 
-        memcache.add_notification(user, obj)
+        memcache.add_notification(user, Object(id='http://reply'))
 
-        self.assertEqual(['efake:reply'], memcache.get_notifications(user))
-        self.assertEqual(b'efake:reply', memcache.memcache.get('notifs-fake:user'))
+        self.assertEqual(['http://reply'], memcache.get_notifications(user))
+        self.assertEqual(b'http://reply', memcache.memcache.get('notifs-fake:user'))
+
+    def test_add_notification_requires_web_url(self):
+        user = self.make_user(id='fake:user', cls=Fake)
+        obj = self.store_object(id='efake:reply')
+
+        memcache.add_notification(user, Object(id='efake:reply'))
+
+        self.assertEqual([], memcache.get_notifications(user))
+        self.assertIsNone(memcache.memcache.get('notifs-fake:user'))
 
     def test_add_notification_append_to_existing(self):
         user = self.make_user(id='fake:user', cls=Fake)
-        obj1 = self.store_object(id='efake:reply1', source_protocol='efake')
-        obj2 = self.store_object(id='efake:reply2', source_protocol='efake')
+        obj1 = self.store_object(id='r1', our_as1={'url': 'http://reply1'})
+        obj2 = self.store_object(id='http://reply2')
 
         memcache.add_notification(user, obj1)
         memcache.add_notification(user, obj2)
 
-        self.assertEqual(['efake:reply1', 'efake:reply2'],
+        self.assertEqual(['http://reply1', 'http://reply2'],
                          memcache.get_notifications(user))
-        self.assertEqual(b'efake:reply1 efake:reply2',
+        self.assertEqual(b'http://reply1 http://reply2',
                          memcache.memcache.get('notifs-fake:user'))
 
     def test_add_notification_deduplicate(self):
         user = self.make_user(id='fake:user', cls=Fake)
-        obj = self.store_object(id='efake:reply', source_protocol='efake')
+        obj = self.store_object(id='http://reply')
 
         memcache.add_notification(user, obj)
         memcache.add_notification(user, obj)
 
-        self.assertEqual(['efake:reply'], memcache.get_notifications(user))
-        self.assertEqual(b'efake:reply', memcache.memcache.get('notifs-fake:user'))
+        self.assertEqual(['http://reply'], memcache.get_notifications(user))
+        self.assertEqual(b'http://reply', memcache.memcache.get('notifs-fake:user'))
 
     # mock get to say there's nothing in the cache, and cas to say someone changed it
     # since the get. should then append.
@@ -218,17 +226,17 @@ class MemcacheTest(TestCase):
     @patch.object(memcache.memcache, 'cas', return_value=False)
     def test_add_notification_cas_failure(self, mock_cas, mock_get):
         user = self.make_user(id='fake:user', cls=Fake)
-        obj = self.store_object(id='efake:reply', source_protocol='efake')
+        obj = self.store_object(id='http://reply')
 
-        memcache.memcache.set('notifs-fake:user', b'existing:reply')
+        memcache.memcache.set('notifs-fake:user', b'http://existing')
 
         memcache.add_notification(user, obj)
 
         # should get the new value and append
-        self.assertEqual(['existing:reply', 'efake:reply'],
+        self.assertEqual(['http://existing', 'http://reply'],
                          memcache.get_notifications(user))
-        self.assertEqual(b'existing:reply efake:reply',
+        self.assertEqual(b'http://existing http://reply',
                          memcache.memcache.get('notifs-fake:user'))
 
         mock_get.assert_called_with(b'notifs-fake:user')
-        mock_cas.assert_called_with(b'notifs-fake:user', b'efake:reply', b'towkin')
+        mock_cas.assert_called_with(b'notifs-fake:user', b'http://reply', b'towkin')

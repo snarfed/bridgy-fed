@@ -5,7 +5,7 @@ import os
 
 from google.cloud.ndb.global_cache import _InProcessGlobalCache, MemcacheCache
 from granary import as1
-from oauth_dropins.webutil import appengine_info
+from oauth_dropins.webutil import appengine_info, util
 from pymemcache.client.base import PooledClient
 from pymemcache.serde import PickleSerde
 
@@ -133,6 +133,11 @@ def add_notification(user, obj):
     key = notification_key(user)
     obj_url = as1.get_url(obj.as1) or obj.key.id()
     assert obj_url
+
+    if not util.is_web(obj_url):
+        logger.info(f'Dropping non-URL notif {obj_url} for {user.key.id()}')
+        return
+
     logger.info(f'Adding notif {obj_url} for {user.key.id()}')
 
     notifs, cas_token = memcache.gets(key)
