@@ -903,7 +903,7 @@ class Protocol:
         # lease this object, atomically
         memcache_key = activity_id_memcache_key(id)
         leased = memcache.memcache.add(memcache_key, 'leased', noreply=False,
-                                     expire=5 * 60)  # 5 min
+                                       expire=5 * 60)  # 5 min
         # short circuit if we've already seen this activity id.
         # (don't do this for bare objects since we need to check further down
         # whether they've been updated since we saw them last.)
@@ -1485,10 +1485,12 @@ class Protocol:
 
             target_author_key = target_proto.actor_key(orig_obj)
             if not from_user.is_enabled(target_proto):
-                # if author isn't bridged and inReplyTo author is, DM a prompt
+                # if author isn't bridged and inReplyTo author is, DM a prompt and
+                # add a notif for the inReplyTo author
                 if id in in_reply_tos and target_author_key:
                     if target_author := target_author_key.get():
                         if target_author.is_enabled(from_cls):
+                            memcache.add_notification(target_author, write_obj)
                             dms.maybe_send(
                                 from_proto=target_proto, to_user=from_user,
                                 type='replied_to_bridged_user', text=f"""\

@@ -1213,35 +1213,43 @@ class ProtocolReceiveTest(TestCase):
         self.assertEqual([], Fake.sent)
 
     def test_reply_from_non_bridged_post_isnt_bridged_but_gets_dm_prompt(self):
-        self.make_user(id='fa.brid.gy', cls=Web)
-        self.user.enabled_protocols = ['efake']
-        self.user.put()
+        self.make_user(id='other.brid.gy', cls=Web)
+        self.make_user(id='efake.brid.gy', cls=Web)
+
+        user = self.make_user('other:user', cls=OtherFake, enabled_protocols=['efake'],
+                              obj_as1={'id': 'other:user'})
 
         eve = self.make_user('efake:eve', cls=ExplicitFake, obj_as1={
             'id': 'efake:eve',
         })
 
-        self.store_object(id='fake:post', source_protocol='fake', our_as1={
-            'id': 'fake:post',
+        self.store_object(id='other:post', source_protocol='other', our_as1={
+            'id': 'other:post',
             'objectType': 'note',
-            'author': 'fake:user',
+            'author': 'other:user',
         })
 
         _, code = ExplicitFake.receive_as1({
             'id': 'efake:reply',
+            'url': 'http://efake/reply',
             'objectType': 'note',
             'actor': 'efake:eve',
-            'inReplyTo': 'fake:post',
+            'inReplyTo': 'other:post',
             'content': 'foo',
         })
         self.assertEqual(204, code)
 
         self.assertEqual([], Fake.sent)
-        test_dms.DmsTest().assert_sent(Fake, eve, 'replied_to_bridged_user', """Hi! You <a href="efake:reply">recently replied</a> to <a class="h-card u-author" href="fake:user">fake:user</a>, who's bridged here from fake-phrase. If you want them to see your replies, you can bridge your account into fake-phrase by following this account. <a href="https://fed.brid.gy/docs">See the docs</a> for more information.""")
+        test_dms.DmsTest().assert_sent(OtherFake, eve, 'replied_to_bridged_user', """Hi! You <a href="http://efake/reply">recently replied</a> to <a class="h-card u-author" href="other:user">other:user</a>, who's bridged here from other-phrase. If you want them to see your replies, you can bridge your account into other-phrase by following this account. <a href="https://fed.brid.gy/docs">See the docs</a> for more information.""")
 
         eve = eve.key.get()
-        self.assertEqual([DM(protocol='fake', type='replied_to_bridged_user')],
-                         eve.sent_dms)
+
+        # check that we added and sent a notif
+        test_dms.DmsTest().assert_sent(ExplicitFake, user, '?', """\
+<p>Hi! Here are your recent interactions from people who aren't bridged into fake-phrase:
+<ul>
+<li><a href="http://efake/reply">efake/reply</a>
+</ul>""")
 
     @patch.object(ATProto, 'send', return_value=True)
     def test_repost_of_non_bridged_account_skips_atproto(self, mock_send):
