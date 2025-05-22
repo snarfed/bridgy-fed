@@ -656,6 +656,21 @@ class DmsTest(TestCase):
                             'migrate-to command needs an argument')
         self.assertEqual([], OtherFake.migrated_out)
 
+    def test_receive_DM_recipient_in_cc_instead_of_to(self):
+        # eg this is evidently how https://neodb.net/ sends DMs, with the recipient
+        # in cc instead of to
+        obj = Object(our_as1={
+            'objectType': 'note',
+            'id': 'efake:dm',
+            'actor': 'efake:alice',
+            'cc': ['other.brid.gy'],
+            'content': 'help',
+        })
+        alice, bob = self.make_alice_bob()
+
+        self.assertEqual(('OK', 200), receive(from_user=alice, obj=obj))
+        self.assert_replied(OtherFake, alice, '?', "<p>Hi! I'm a friendly bot")
+
     @patch('oauth_dropins.webutil.appengine_config.tasks_client.create_task')
     def test_notify_task(self, _):
         common.RUN_TASKS_INLINE = False

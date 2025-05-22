@@ -920,6 +920,20 @@ def postprocess_as2(activity, orig_obj=None, wrap=True):
                 img = {'url': img}
             add(atts, img)
 
+    # determine whether this is a DM *before* we modify the cc field, below
+    #
+    # WARNING: activity and obj here are AS2, but we're using as1.is_dm. right now
+    # the logic is effectively the same for our purposes, but watch out here if that
+    # ever changes.
+    if not as1.is_dm(activity):
+        # to public, since Mastodon interprets to public as public, cc public as
+        # unlisted:
+        # https://socialhub.activitypub.rocks/t/visibility-to-cc-mapping/284
+        # https://wordsmith.social/falkreon/securing-activitypub
+        add(activity.setdefault('to', []), as2.PUBLIC_AUDIENCE)
+        if obj and type in as2.CRUD_VERBS:
+            add(obj.setdefault('to', []), as2.PUBLIC_AUDIENCE)
+
     # cc target's author(s), recipients, mentions
     # https://www.w3.org/TR/activitystreams-vocabulary/#audienceTargeting
     # https://w3c.github.io/activitypub/#delivery
@@ -948,16 +962,6 @@ def postprocess_as2(activity, orig_obj=None, wrap=True):
     if type in ('Create', 'Update'):
         activity['to'] = util.get_list(obj, 'to')
         activity['cc'] = util.get_list(obj, 'cc')
-
-    # WARNING: activity here is AS2, but we're using as1.is_dm. right now the
-    # logic is effectively the same for our purposes, but watch out here if that
-    # ever changes.
-    if not as1.is_dm(activity):
-        # to public, since Mastodon interprets to public as public, cc public as
-        # unlisted:
-        # https://socialhub.activitypub.rocks/t/visibility-to-cc-mapping/284
-        # https://wordsmith.social/falkreon/securing-activitypub
-        add(activity.setdefault('to', []), as2.PUBLIC_AUDIENCE)
 
     # hashtags. Mastodon requires:
     # * type: Hashtag
