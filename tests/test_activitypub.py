@@ -566,6 +566,7 @@ class ActivityPubTest(TestCase):
             got_json.pop(field)
         self.assertEqual(actor_as2, got_json)
 
+    @patch('oauth_dropins.webutil.appengine_info.DEBUG', False)
     def test_actor_protocol_bot_user_doesnt_exist(self, *_):
         got = self.client.get('/web.brid.gy', base_url='https://web.brid.gy/',
                               headers={'Accept': as2.CONTENT_TYPE})
