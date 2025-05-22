@@ -13,6 +13,7 @@ from models import DM, Follower, Object, Target
 from web import Web
 
 from oauth_dropins.webutil.flask_util import NotModified
+from oauth_dropins.webutil.util import json_dumps, json_loads
 from .testutil import ExplicitFake, Fake, OtherFake, TestCase
 from .test_atproto import DID_DOC
 
@@ -422,6 +423,20 @@ class DmsTest(TestCase):
         self.assert_replied(OtherFake, alice, '?', ALICE_USERNAME_CONFIRMATION)
         self.assertEqual({'efake:alice': 'new-handle'}, OtherFake.usernames)
 
+    def test_receive_username_strip_invisible_chars(self):
+        # https://github.com/snarfed/bridgy-fed/issues/1936
+        self.make_user(id='other.brid.gy', cls=Web)
+        alice = self.make_user(id='efake:alice', cls=ExplicitFake,
+                               enabled_protocols=['other'], obj_as1={'x': 'y'})
+
+        obj = Object(our_as1={
+            **DM_BASE,
+            'content': json_loads(r'"username \u202anew\u202d-handle\u202c"'),
+        })
+        self.assertEqual(('OK', 200), receive(from_user=alice, obj=obj))
+        self.assert_replied(OtherFake, alice, '?', ALICE_USERNAME_CONFIRMATION)
+        self.assertEqual({'efake:alice': 'new-handle'}, OtherFake.usernames)
+
     def test_receive_username_no_arg(self):
         self.make_user(id='other.brid.gy', cls=Web)
         alice = self.make_user(id='efake:alice', cls=ExplicitFake,
@@ -640,6 +655,21 @@ class DmsTest(TestCase):
         self.assert_replied(OtherFake, alice, '?',
                             'migrate-to command needs an argument')
         self.assertEqual([], OtherFake.migrated_out)
+
+    def test_receive_DM_recipient_in_cc_instead_of_to(self):
+        # eg this is evidently how https://neodb.net/ sends DMs, with the recipient
+        # in cc instead of to
+        obj = Object(our_as1={
+            'objectType': 'note',
+            'id': 'efake:dm',
+            'actor': 'efake:alice',
+            'cc': ['other.brid.gy'],
+            'content': 'help',
+        })
+        alice, bob = self.make_alice_bob()
+
+        self.assertEqual(('OK', 200), receive(from_user=alice, obj=obj))
+        self.assert_replied(OtherFake, alice, '?', "<p>Hi! I'm a friendly bot")
 
     @patch('oauth_dropins.webutil.appengine_config.tasks_client.create_task')
     def test_notify_task(self, _):

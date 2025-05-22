@@ -355,7 +355,7 @@ def receive(*, from_user, obj):
     logger.info(f'got DM from {from_user.key.id()} to {to_proto.LABEL}: {inner_as1.get("content")}')
 
     # parse message
-    text = source.html_to_text(inner_as1.get('content', ''))
+    text = util.remove_invisible_chars(source.html_to_text(inner_as1.get('content', '')))
     tokens = text.strip().lower().split()
     logger.info(f'  tokens: {tokens}')
 

@@ -920,6 +920,20 @@ def postprocess_as2(activity, orig_obj=None, wrap=True):
                 img = {'url': img}
             add(atts, img)
 
+    # determine whether this is a DM *before* we modify the cc field, below
+    #
+    # WARNING: activity and obj here are AS2, but we're using as1.is_dm. right now
+    # the logic is effectively the same for our purposes, but watch out here if that
+    # ever changes.
+    if not as1.is_dm(activity):
+        # to public, since Mastodon interprets to public as public, cc public as
+        # unlisted:
+        # https://socialhub.activitypub.rocks/t/visibility-to-cc-mapping/284
+        # https://wordsmith.social/falkreon/securing-activitypub
+        add(activity.setdefault('to', []), as2.PUBLIC_AUDIENCE)
+        if obj and type in as2.CRUD_VERBS:
+            add(obj.setdefault('to', []), as2.PUBLIC_AUDIENCE)
+
     # cc target's author(s), recipients, mentions
     # https://www.w3.org/TR/activitystreams-vocabulary/#audienceTargeting
     # https://w3c.github.io/activitypub/#delivery
@@ -948,16 +962,6 @@ def postprocess_as2(activity, orig_obj=None, wrap=True):
     if type in ('Create', 'Update'):
         activity['to'] = util.get_list(obj, 'to')
         activity['cc'] = util.get_list(obj, 'cc')
-
-    # WARNING: activity here is AS2, but we're using as1.is_dm. right now the
-    # logic is effectively the same for our purposes, but watch out here if that
-    # ever changes.
-    if not as1.is_dm(activity):
-        # to public, since Mastodon interprets to public as public, cc public as
-        # unlisted:
-        # https://socialhub.activitypub.rocks/t/visibility-to-cc-mapping/284
-        # https://wordsmith.social/falkreon/securing-activitypub
-        add(activity.setdefault('to', []), as2.PUBLIC_AUDIENCE)
 
     # hashtags. Mastodon requires:
     # * type: Hashtag
@@ -1087,13 +1091,8 @@ def postprocess_as2_actor(actor, user):
         add(actor['@context'], SECURITY_CONTEXT)
 
     # featured collection, pinned posts
-    #
-    # TODO: bring back once we figure out why this causes a flood of requests from
-    # Pleroma/Akkoma
-    # https://github.com/snarfed/bridgy-fed/issues/1374#issuecomment-2891993190
-    #
-    # if featured := actor.get('featured'):
-    #     featured.setdefault('id', id + '/featured')
+    if featured := actor.get('featured'):
+        featured.setdefault('id', id + '/featured')
 
     return actor
 
@@ -1431,33 +1430,39 @@ def outbox(id):
 
 
 # protocol in subdomain
-#
-# TODO: bring back once we figure out why this causes a flood of requests from
-# Pleroma/Akkoma
-# https://github.com/snarfed/bridgy-fed/issues/1374#issuecomment-2891993190
-#
-# @app.get(f'/ap/<id>/featured')
-# def featured(id):
-#     """Serves a user's AP featured collection for pinned posts.
+@app.get(f'/ap/<id>/featured')
+def featured(id):
+    """Serves a user's AP featured collection for pinned posts.
 
-#     https://docs.joinmastodon.org/spec/activitypub/#featured
+    https://docs.joinmastodon.org/spec/activitypub/#featured
 
-#     We inline the featured collection in users' actors, but Mastodon requires it to
-#     be fetchable separately too. :(
-#     """
-#     user = _load_user(id)
+    We inline the featured collection in users' actors, but Mastodon (and
+    Pleroma/Akkoma?) require it to be fetchable separately too. :(
 
-#     actor = ActivityPub.convert(user.obj, from_user=user)
-#     featured = actor.get('featured') or {
-#         'type': 'OrderedCollection',
-#         'id': request.base_url,
-#         'totalItems': 0,
-#         'orderedItems': [],
-#     }
-#     return {
-#         '@context': as2.CONTEXT,
-#         **featured,
-#     }, {'Content-Type': as2.CONTENT_TYPE_LD_PROFILE}
+    Also, it's critical that the collection items here are expanded objects!
+    Originally they were compacted string ids, but that triggered a massive flood of
+    requests from Pleroma and Akkoma:
+    https://github.com/snarfed/bridgy-fed/issues/1374#issuecomment-2891993190
+    """
+    user = _load_user(id)
+
+    items = []
+    if user.obj and user.obj.as1:
+        for obj in as1.get_objects(user.obj.as1.get('featured', {}), 'items'):
+            if set(obj.keys()) == {'id'}:
+                if obj := user.load(obj['id']):
+                    if obj.as1:
+                        items.append(obj.as1)
+            elif obj:
+                items.append(obj)
+
+    return {
+        '@context': as2.CONTEXT,
+        'type': 'OrderedCollection',
+        'id': request.base_url,
+        'totalItems': len(items),
+        'orderedItems': items,
+    }, {'Content-Type': as2.CONTENT_TYPE_LD_PROFILE}
 
 
 #
