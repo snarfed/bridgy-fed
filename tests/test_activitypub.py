@@ -2205,6 +2205,10 @@ class ActivityPubTest(TestCase):
                                base_url='https://efake.brid.gy')
         self.assertEqual(404, resp.status_code)
 
+    # TODO: bring back once we figure out how to get Mastodon to support this and
+    # Pleroma and Akkoma not to DDoS us
+    # https://github.com/snarfed/bridgy-fed/issues/1374#issuecomment-2891993190
+    @skip
     def test_featured_empty(self, *_):
         self.make_user('fake:foo', cls=Fake, enabled_protocols=['activitypub'])
         resp = self.client.get(f'/ap/fake:foo/featured', base_url='https://fa.brid.gy')
@@ -2217,9 +2221,13 @@ class ActivityPubTest(TestCase):
             'orderedItems': [],
         }, resp.json)
 
+    # TODO: bring back once we figure out how to get Mastodon to support this and
+    # Pleroma and Akkoma not to DDoS us
+    # https://github.com/snarfed/bridgy-fed/issues/1374#issuecomment-2891993190
+    @skip
     def test_featured_with_items(self, *_):
-        Object(id='fake:a', our_as1={'foo': 'bar'}).put()
-        Fake.fetchable = {'fake:b': {'baz': 'biff'}}
+        Object(id='fake:a', our_as1={'objectType': 'note', 'foo': 'bar'}).put()
+        Fake.fetchable = {'fake:b': {'objectType': 'article', 'baz': 'biff'}}
 
         actor_as1 = {
             'objectType': 'person',
@@ -2238,11 +2246,18 @@ class ActivityPubTest(TestCase):
             'id': 'https://fa.brid.gy/ap/fake:foo/featured',
             'type': 'OrderedCollection',
             'totalItems': 2,
-            'orderedItems': [
-                {'id': 'fake:a', 'foo': 'bar'},
-                {'id': 'fake:b', 'baz': 'biff'},
-            ],
-        }, resp.json)
+            'orderedItems': [{
+                'type': 'Note',
+                'id': 'https://fa.brid.gy/convert/ap/fake:a',
+                'foo': 'bar',
+                'to': ['https://www.w3.org/ns/activitystreams#Public'],
+            }, {
+                'type': 'Article',
+                'id': 'https://fa.brid.gy/convert/ap/fake:b',
+                'baz': 'biff',
+                'to': ['https://www.w3.org/ns/activitystreams#Public'],
+            }],
+        }, resp.json, ignore=['@context'])
 
     def test_featured_activitypub_not_enabled(self, *_):
         obj = self.store_object(id='did:plc:user', raw={'foo': 'baz'})
@@ -2641,6 +2656,10 @@ class ActivityPubUtilsTest(TestCase):
             }), user=self.user)
             self.assert_equals('http://localhost/user.com', got['id'])
 
+    # TODO: bring back once we figure out how to get Mastodon to support this and
+    # Pleroma and Akkoma not to DDoS us
+    # https://github.com/snarfed/bridgy-fed/issues/1374#issuecomment-2891993190
+    @skip
     def test_postprocess_as2_featured_id(self):
         got = postprocess_as2_actor(as2.from_as1({
             'objectType': 'person',
