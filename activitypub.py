@@ -1452,9 +1452,9 @@ def featured(id):
             if set(obj.keys()) == {'id'}:
                 if obj := user.load(obj['id']):
                     if obj.as1:
-                        items.append(obj.as1)
+                        items.append(ActivityPub.convert(obj))
             elif obj:
-                items.append(obj)
+                items.append(ActivityPub.convert(Object(our_as1=obj)))
 
     return {
         '@context': as2.CONTEXT,

@@ -2218,8 +2218,8 @@ class ActivityPubTest(TestCase):
         }, resp.json)
 
     def test_featured_with_items(self, *_):
-        Object(id='fake:a', our_as1={'foo': 'bar'}).put()
-        Fake.fetchable = {'fake:b': {'baz': 'biff'}}
+        Object(id='fake:a', our_as1={'objectType': 'note', 'foo': 'bar'}).put()
+        Fake.fetchable = {'fake:b': {'objectType': 'article', 'baz': 'biff'}}
 
         actor_as1 = {
             'objectType': 'person',
@@ -2238,11 +2238,18 @@ class ActivityPubTest(TestCase):
             'id': 'https://fa.brid.gy/ap/fake:foo/featured',
             'type': 'OrderedCollection',
             'totalItems': 2,
-            'orderedItems': [
-                {'id': 'fake:a', 'foo': 'bar'},
-                {'id': 'fake:b', 'baz': 'biff'},
-            ],
-        }, resp.json)
+            'orderedItems': [{
+                'type': 'Note',
+                'id': 'https://fa.brid.gy/convert/ap/fake:a',
+                'foo': 'bar',
+                'to': ['https://www.w3.org/ns/activitystreams#Public'],
+            }, {
+                'type': 'Article',
+                'id': 'https://fa.brid.gy/convert/ap/fake:b',
+                'baz': 'biff',
+                'to': ['https://www.w3.org/ns/activitystreams#Public'],
+            }],
+        }, resp.json, ignore=['@context'])
 
     def test_featured_activitypub_not_enabled(self, *_):
         obj = self.store_object(id='did:plc:user', raw={'foo': 'baz'})
