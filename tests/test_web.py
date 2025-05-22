@@ -566,6 +566,7 @@ class WebTest(TestCase):
         self.assertEqual([], OtherFake.created_for)
         self.assertEqual([], ExplicitFake.created_for)
 
+    @patch('oauth_dropins.webutil.appengine_info.DEBUG', False)
     def test_get_or_create_bridgy_subdomain(self, *_):
         for subdomain in '', 'fa.', 'fed.', 'web.':
             self.assertIsNone(Web.get_or_create(f'{subdomain}brid.gy'))
