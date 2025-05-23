@@ -1292,7 +1292,7 @@ def inbox(protocol=None, id=None):
         user = ActivityPub.get_or_create(actor_id, propagate=True,
                                          enabled_protocols=all_protocols)
         if user and not user.existing:
-            logger.info(f'Automatically enabled AP server actor {actor_id} for ')
+            logger.info(f'Automatically enabled AP server actor {actor_id}')
 
     delay = DELETE_TASK_DELAY if type in ('Delete', 'Undo') else None
     return create_task(queue='receive', id=id, as2=activity,

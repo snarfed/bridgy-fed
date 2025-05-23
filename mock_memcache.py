@@ -1,6 +1,7 @@
 """Extend MockMemcacheClient and add ``gets`` and ``cas``."""
 import time
 
+from pymemcache.exceptions import MemcacheIllegalInputError
 from pymemcache.test.utils import MockMemcacheClient
 
 
@@ -68,7 +69,11 @@ class CasMockMemcacheClient(MockMemcacheClient):
             If CAS value doesn't match, returns False
             If CAS value matches (operation succeeded), returns True
         """
+        if not isinstance(cas_token, (int, str, bytes)):
+            raise MemcacheIllegalInputError(f'cas must be integer, string, or bytes, got bad value: {cas_token}')
+
         key = self.check_key(key)
+
 
         if key not in self._contents:
             return self.set(key, value, noreply=noreply, **kwargs)

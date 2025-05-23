@@ -903,7 +903,7 @@ class Protocol:
         # lease this object, atomically
         memcache_key = activity_id_memcache_key(id)
         leased = memcache.memcache.add(memcache_key, 'leased', noreply=False,
-                                     expire=5 * 60)  # 5 min
+                                       expire=5 * 60)  # 5 min
         # short circuit if we've already seen this activity id.
         # (don't do this for bare objects since we need to check further down
         # whether they've been updated since we saw them last.)
@@ -1436,6 +1436,8 @@ class Protocol:
         inner_obj_as1 = as1.get_object(obj.as1)
         inner_obj_id = inner_obj_as1.get('id')
         in_reply_tos = as1.get_ids(inner_obj_as1, 'inReplyTo')
+        quoted_posts = as1.quoted_posts(inner_obj_as1)
+        mentioned_urls = as1.mentions(inner_obj_as1)
         is_reply = obj.type == 'comment' or in_reply_tos
         is_self_reply = False
 
@@ -1483,16 +1485,24 @@ class Protocol:
                 logger.info(f"Couldn't load {id}")
                 continue
 
-            target_author_key = target_proto.actor_key(orig_obj)
+            target_author_key = (target_proto(id=id).key if id in mentioned_urls
+                                 else target_proto.actor_key(orig_obj))
             if not from_user.is_enabled(target_proto):
-                # if author isn't bridged and inReplyTo author is, DM a prompt
-                if id in in_reply_tos and target_author_key:
+                # if author isn't bridged and target user is, DM a prompt and
+                # add a notif for the target user
+                if (id in (in_reply_tos + quoted_posts + mentioned_urls)
+                        and target_author_key):
                     if target_author := target_author_key.get():
                         if target_author.is_enabled(from_cls):
+                            memcache.add_notification(target_author, write_obj)
+                            verb, noun = (
+                                ('replied to', 'replies') if id in in_reply_tos
+                                else ('quoted', 'quotes') if id in quoted_posts
+                                else ('mentioned', 'mentions'))
                             dms.maybe_send(
                                 from_proto=target_proto, to_user=from_user,
                                 type='replied_to_bridged_user', text=f"""\
-Hi! You <a href="{inner_obj_as1.get('url') or inner_obj_id}">recently replied</a> to {orig_obj.actor_link(image=False)}, who's bridged here from {target_proto.PHRASE}. If you want them to see your replies, you can bridge your account into {target_proto.PHRASE} by following this account. <a href="https://fed.brid.gy/docs">See the docs</a> for more information.""")
+Hi! You <a href="{inner_obj_as1.get('url') or inner_obj_id}">recently {verb}</a> {target_author.user_link()}, who's bridged here from {target_proto.PHRASE}. If you want them to see your {noun}, you can bridge your account into {target_proto.PHRASE} by following this account. <a href="https://fed.brid.gy/docs">See the docs</a> for more information.""")
 
                 continue
 

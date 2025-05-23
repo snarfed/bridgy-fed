@@ -210,6 +210,18 @@ class MemcacheTest(TestCase):
         mock_create_task.assert_not_called()
 
     @patch('oauth_dropins.webutil.appengine_config.tasks_client.create_task')
+    def test_add_notification_for_user_with_send_notifs_none_is_noop(
+            self, mock_create_task):
+        common.RUN_TASKS_INLINE = False
+        user = self.make_user(id='fake:user', cls=Fake, send_notifs='none')
+
+        memcache.add_notification(user, Object(id='http://reply'))
+
+        self.assertEqual([], memcache.get_notifications(user))
+        self.assertIsNone(memcache.memcache.get('notifs-fake:user'))
+        mock_create_task.assert_not_called()
+
+    @patch('oauth_dropins.webutil.appengine_config.tasks_client.create_task')
     def test_add_notification_append_to_existing(self, mock_create_task):
         common.RUN_TASKS_INLINE = False
         user = self.make_user(id='fake:user', cls=Fake)
@@ -259,6 +271,6 @@ class MemcacheTest(TestCase):
         self.assertEqual(b'http://existing http://reply',
                          memcache.memcache.get('notifs-fake:user'))
 
-        mock_get.assert_called_with(b'notifs-fake:user')
+        mock_get.assert_called_with(b'notifs-fake:user', cas_default=0)
         mock_cas.assert_called_with(b'notifs-fake:user', b'http://reply', b'towkin')
         mock_create_task.assert_not_called()
