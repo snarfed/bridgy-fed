@@ -1,12 +1,20 @@
 // Handles state of login buttons and input fields on the settings page.
 var openedId;
 
-
  // Clear the auth_entity query param on /settings.
 window.onload = function () {
   url = new URL(window.document.documentURI)
   if (url.pathname == '/settings' && url.searchParams.has('auth_entity')) {
     window.history.replaceState(null, '', '/settings')
+  }
+
+  // Unhides Threads login if feature flag is enabled.
+  if (window.location.pathname == '/login') {
+    var urlParams = new URLSearchParams(window.location.search);
+
+    if (urlParams.get('enable-threads') == 'true') {
+      document.getElementById('threads-form').style.display = 'block';
+    }
   }
 }
 
