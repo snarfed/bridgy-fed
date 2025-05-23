@@ -398,7 +398,7 @@ def load_user(proto, handle):
                 return user
 
 
-@cloud_tasks_only(log=None)
+@cloud_tasks_only()
 def notify_task():
     """Task handler for sending a notification DM to a user.
 

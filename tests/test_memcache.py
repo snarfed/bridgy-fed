@@ -271,6 +271,6 @@ class MemcacheTest(TestCase):
         self.assertEqual(b'http://existing http://reply',
                          memcache.memcache.get('notifs-fake:user'))
 
-        mock_get.assert_called_with(b'notifs-fake:user')
+        mock_get.assert_called_with(b'notifs-fake:user', cas_default=0)
         mock_cas.assert_called_with(b'notifs-fake:user', b'http://reply', b'towkin')
         mock_create_task.assert_not_called()
