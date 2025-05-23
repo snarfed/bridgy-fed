@@ -338,8 +338,8 @@ class TestCase(unittest.TestCase, testutil.Asserts):
 
         self.router_client = router.app.test_client()
 
-        memcache.clear()
-        pickle_memcache.clear()
+        memcache.client_pool.clear()
+        pickle_memcache.client_pool.clear()
         global_cache.clear()
         models.get_original_object_key.cache_clear()
         models.get_original_user_key.cache_clear()

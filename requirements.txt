@@ -10,9 +10,7 @@ git+https://github.com/snarfed/mox3.git#egg=mox3
 git+https://github.com/snarfed/negotiator.git@py3#egg=negotiator
 git+https://github.com/snarfed/oauth-dropins.git#egg=oauth_dropins
 git+https://github.com/snarfed/requests_oauth2client.git@all#egg=requests_oauth2client
-# TODO: switch back to pypi as soon as a new release is cut after 4.0.0
-# that includes https://github.com/pinterest/pymemcache/pull/471
-git+https://github.com/pinterest/pymemcache.git#egg=pymemcache
+git+https://github.com/snarfed/pymemcache.git@all#egg=pymemcache
 
 attrs==25.3.0
 bases==0.3.0

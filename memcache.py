@@ -9,8 +9,7 @@ from granary import as1
 from oauth_dropins.webutil import appengine_info, util
 from pymemcache.client.base import PooledClient
 from pymemcache.serde import PickleSerde
-
-from mock_memcache import CasMockMemcacheClient
+from pymemcache.test.utils import MockMemcacheClient
 
 logger = logging.getLogger(__name__)
 
@@ -24,9 +23,11 @@ NOTIFY_TASK_FREQ = timedelta(hours=1)
 
 if appengine_info.DEBUG or appengine_info.LOCAL_SERVER:
     logger.info('Using in memory mock memcache')
-    memcache = CasMockMemcacheClient(allow_unicode_keys=True)
-    pickle_memcache = CasMockMemcacheClient(allow_unicode_keys=True,
-                                            serde=PickleSerde())
+    memcache = PooledClient('server.unused:0', allow_unicode_keys=True,
+                            max_pool_size=1)
+    pickle_memcache = PooledClient('server.unused:0', allow_unicode_keys=True,
+                                   serde=PickleSerde(), max_pool_size=1)
+    memcache.client_class = pickle_memcache.client_class = MockMemcacheClient
     global_cache = _InProcessGlobalCache()
 else:
     logger.info('Using production Memorystore memcache')

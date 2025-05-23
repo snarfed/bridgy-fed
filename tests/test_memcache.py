@@ -109,11 +109,11 @@ class MemcacheTest(TestCase):
 
         self.assertEqual('5', foo(5))
         self.assertEqual([5], calls)
-        self.assertEqual(0, len(pickle_memcache._contents))
+        self.assertEqual(0, len(pickle_memcache.client_pool.free))
 
         self.assertEqual('5', foo(5))
         self.assertEqual([5, 5], calls)
-        self.assertEqual(0, len(pickle_memcache._contents))
+        self.assertEqual(0, len(pickle_memcache.client_pool.free))
 
     def test_memoize_write_false(self):
         calls = []
@@ -226,7 +226,7 @@ class MemcacheTest(TestCase):
         common.RUN_TASKS_INLINE = False
         user = self.make_user(id='fake:user', cls=Fake)
 
-        memcache.memcache.set('notifs-fake:user', 'http://reply0')
+        memcache.memcache.set('notifs-fake:user', b'http://reply0')
         memcache.add_notification(user, Object(id='r1', our_as1={'url': 'http://r1'}))
         memcache.add_notification(user, Object(id='http://reply2'))
 
