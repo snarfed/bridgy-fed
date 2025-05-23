@@ -428,10 +428,10 @@ def notify_task():
         logger.info(f"User {user_id} isn't enabled")
         return '', 204
 
-    message = "<p>Hi! Here are your recent interactions from people who aren't bridged into fake-phrase:\n<ul>\n"
+    message = f"<p>Hi! Here are your recent interactions from people who aren't bridged into {user.PHRASE}:\n<ul>\n"
     for url in notifs:
         message += f'<li>{util.pretty_link(url)}\n'
-    message += '</ul>\n<p>To disable these messages, reply with the text <em>mute</em>.'
+    message += "</ul>\n<p>To disable these messages, reply with the text 'mute'."
 
     logger.info(f'sending notifications DM for {user_id}')
     maybe_send(from_proto=PROTOCOLS[from_proto_label], to_user=user, text=message)

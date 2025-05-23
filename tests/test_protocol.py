@@ -1240,7 +1240,7 @@ class ProtocolReceiveTest(TestCase):
         # check that we sent a prompt to eve and a notif to other:user
         test_dms.DmsTest().assert_sent(OtherFake, eve, 'replied_to_bridged_user', """Hi! You <a href="http://efake/reply">recently replied to</a> <a class="h-card u-author" rel="me" href="web:other:user" title="other:handle:user">other:handle:user</a>, who's bridged here from other-phrase. If you want them to see your replies, you can bridge your account into other-phrase by following this account. <a href="https://fed.brid.gy/docs">See the docs</a> for more information.""")
         test_dms.DmsTest().assert_sent(ExplicitFake, user, '?', """\
-<p>Hi! Here are your recent interactions from people who aren't bridged into fake-phrase:
+<p>Hi! Here are your recent interactions from people who aren't bridged into other-phrase:
 <ul>
 <li><a href="http://efake/reply">efake/reply</a>
 </ul>""")
@@ -1276,7 +1276,7 @@ class ProtocolReceiveTest(TestCase):
         # check that we sent a prompt to eve and a notif to other:user
         test_dms.DmsTest().assert_sent(OtherFake, eve, 'replied_to_bridged_user', """Hi! You <a href="http://efake/quote">recently quoted</a> <a class="h-card u-author" rel="me" href="web:other:user" title="other:handle:user">other:handle:user</a>, who's bridged here from other-phrase. If you want them to see your quotes, you can bridge your account into other-phrase by following this account. <a href="https://fed.brid.gy/docs">See the docs</a> for more information.""")
         test_dms.DmsTest().assert_sent(ExplicitFake, user, '?', """\
-<p>Hi! Here are your recent interactions from people who aren't bridged into fake-phrase:
+<p>Hi! Here are your recent interactions from people who aren't bridged into other-phrase:
 <ul>
 <li><a href="http://efake/quote">efake/quote</a>
 </ul>""")
@@ -1306,7 +1306,7 @@ class ProtocolReceiveTest(TestCase):
         # check that we sent a prompt to eve and a notif to other:user
         test_dms.DmsTest().assert_sent(OtherFake, eve, 'replied_to_bridged_user', """Hi! You <a href="http://efake/mention">recently mentioned</a> <a class="h-card u-author" rel="me" href="web:other:user" title="other:handle:user">other:handle:user</a>, who's bridged here from other-phrase. If you want them to see your mentions, you can bridge your account into other-phrase by following this account. <a href="https://fed.brid.gy/docs">See the docs</a> for more information.""")
         test_dms.DmsTest().assert_sent(ExplicitFake, user, '?', """\
-<p>Hi! Here are your recent interactions from people who aren't bridged into fake-phrase:
+<p>Hi! Here are your recent interactions from people who aren't bridged into other-phrase:
 <ul>
 <li><a href="http://efake/mention">efake/mention</a>
 </ul>""")

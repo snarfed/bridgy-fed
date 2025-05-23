@@ -693,7 +693,7 @@ class DmsTest(TestCase):
 <li><a href="http://notif/a">notif/a</a>
 <li><a href="http://notif/b">notif/b</a>
 </ul>
-<p>To disable these messages, reply with the text <em>mute</em>.""")
+<p>To disable these messages, reply with the text 'mute'.""")
         self.assertEqual([], get_notifications(user))
 
     def test_notify_task_no_notifications(self):
