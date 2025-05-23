@@ -251,26 +251,3 @@ class MemcacheTest(TestCase):
                        memcache.NOTIFY_TASK_FREQ.total_seconds())
         self.assert_task(mock_create_task, 'notify', delayed_eta, user_id='fake:user',
                          protocol='fake')
-
-    # mock get to say there's nothing in the cache, and cas to say someone changed it
-    # since the get. should then append.
-    @patch('oauth_dropins.webutil.appengine_config.tasks_client.create_task')
-    @patch.object(memcache.memcache, 'gets', return_value=(None, b'towkin'))
-    @patch.object(memcache.memcache, 'cas', return_value=False)
-    def test_add_notification_cas_failure(self, mock_cas, mock_get, mock_create_task):
-        common.RUN_TASKS_INLINE = False
-        user = self.make_user(id='fake:user', cls=Fake)
-
-        memcache.memcache.set('notifs-fake:user', b'http://existing')
-
-        memcache.add_notification(user, Object(id='http://reply'))
-
-        # should get the new value and append
-        self.assertEqual(['http://existing', 'http://reply'],
-                         memcache.get_notifications(user))
-        self.assertEqual(b'http://existing http://reply',
-                         memcache.memcache.get('notifs-fake:user'))
-
-        mock_get.assert_called_with(b'notifs-fake:user', cas_default=0)
-        mock_cas.assert_called_with(b'notifs-fake:user', b'http://reply', b'towkin')
-        mock_create_task.assert_not_called()

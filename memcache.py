@@ -20,22 +20,25 @@ MEMOIZE_VERSION = 2
 
 NOTIFY_TASK_FREQ = timedelta(hours=1)
 
+# https://pymemcache.readthedocs.io/en/latest/apidoc/pymemcache.client.base.html#pymemcache.client.base.Client.__init__
+kwargs = {
+    'server': os.environ.get('MEMCACHE_HOST', 'localhost'),
+    'allow_unicode_keys': True,
+    'default_noreply': False,
+    'timeout': 10,   # seconds
+    'connect_timeout': 10,   # seconds
+}
 
 if appengine_info.DEBUG or appengine_info.LOCAL_SERVER:
     logger.info('Using in memory mock memcache')
-    memcache = PooledClient('server.unused:0', allow_unicode_keys=True,
-                            max_pool_size=1)
-    pickle_memcache = PooledClient('server.unused:0', allow_unicode_keys=True,
-                                   serde=PickleSerde(), max_pool_size=1)
+    memcache = PooledClient(max_pool_size=1, **kwargs)
+    pickle_memcache = PooledClient(max_pool_size=1, serde=PickleSerde(), **kwargs)
     memcache.client_class = pickle_memcache.client_class = MockMemcacheClient
     global_cache = _InProcessGlobalCache()
 else:
     logger.info('Using production Memorystore memcache')
-    memcache = PooledClient(os.environ['MEMCACHE_HOST'], allow_unicode_keys=True,
-                            timeout=10, connect_timeout=10) # seconds
-    pickle_memcache = PooledClient(os.environ['MEMCACHE_HOST'],
-                                   serde=PickleSerde(), allow_unicode_keys=True,
-                                   timeout=10, connect_timeout=10)  # seconds
+    memcache = PooledClient(**kwargs)
+    pickle_memcache = PooledClient(serde=PickleSerde(), **kwargs)
     global_cache = MemcacheCache(memcache)
 
 
@@ -154,22 +157,19 @@ def add_notification(user, obj):
 
     logger.info(f'Adding notif {obj_url} for {user.key.id()}')
 
-    notifs, cas_token = memcache.gets(key, cas_default=0)
-
-    if notifs is None:
-        if memcache.cas(key, obj_url.encode(), cas_token) in (True, None):
-            common.create_task(queue='notify', delay=NOTIFY_TASK_FREQ,
-                               user_id=user.key.id(), protocol=user.LABEL)
-            return
-
-        # ...otherwise, if cas returned False, that means a notification was added
-        # between our gets and our cas, so append to it, below
-
-    elif notifs and obj_url in notifs.decode().split():
-        # this notif URL has already been added
-        return
-
-    memcache.append(key, (' ' + obj_url).encode())
+    if memcache.add(key, obj_url.encode()):
+        common.create_task(queue='notify', delay=NOTIFY_TASK_FREQ,
+                           user_id=user.key.id(), protocol=user.LABEL)
+    else:
+        existing = memcache.get(key)
+        if existing and obj_url not in existing.decode().split():
+            # there's a race condition here if the notify task runs between the gets
+            # call above and this append call, since there won't be a value in
+            # memcache, so append will do nothing. should be rare.
+            #
+            # gets/cas wouldn't make it any easier; we'd still need to keep retrying
+            # until we have a get/append or gets/cas that no one else writes between.
+            memcache.append(key, (' ' + obj_url).encode())
 
 
 def get_notifications(user, clear=False):
