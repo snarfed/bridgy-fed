@@ -139,6 +139,9 @@ def add_notification(user, obj):
     obj_url = as1.get_url(obj.as1) or obj.key.id()
     assert obj_url
 
+    if user.send_notifs != 'all':
+        return
+
     # TODO: remove to launch
     if (user.key.id() not in common.BETA_USER_IDS
             and not (appengine_info.DEBUG or appengine_info.LOCAL_SERVER)):
