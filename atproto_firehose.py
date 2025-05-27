@@ -242,6 +242,9 @@ def subscribe():
             # https://github.com/snarfed/bridgy-fed/issues/1016
             if not cid or not block:
                 continue
+            elif not isinstance(block, dict):
+                # https://github.com/snarfed/bridgy-fed/issues/1938
+                logger.info(f'Bad record! See #1938. {cid} {op} {repr(block)}')
 
             op = op._replace(record=block)
             type = op.record.get('$type')
