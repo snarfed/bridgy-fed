@@ -3753,3 +3753,42 @@ class ProtocolReceiveTest(TestCase):
 
         _, kwargs = mock_send.call_args
         self.assertEqual('other:alice', kwargs['from_user'].key.id())
+
+    def test_auto_repost(self):
+        anewsocial = self.make_user('https://mastodon.social/users/anewsocial',
+                                    cls=ActivityPub)
+        ap = self.make_user('ap.brid.gy', cls=Web)
+        bsky = self.make_user('bsky.brid.gy', cls=Web)
+        Follower.get_or_create(from_=self.user, to=bsky)
+        Follower.get_or_create(from_=self.alice, to=ap)
+
+        post = Object(id='https://mastodon.social/post', our_as1={
+            'objectType': 'note',
+            'id': 'https://mastodon.social/post',
+            'actor': 'https://mastodon.social/users/anewsocial',
+            'content': 'Hello world',
+        }, source_protocol='activitypub', copies=[
+            Target(uri='fake:post', protocol='fake'),
+            Target(uri='other:post', protocol='other'),
+        ])
+        post.put()
+        post.new = True
+
+        _, status = ActivityPub.receive(
+            post, authed_as='https://mastodon.social/users/anewsocial')
+        self.assertEqual(204, status)
+
+        self.assertIn(('fake:shared:target', {
+            'id': 'https://bsky.brid.gy/#auto-repost-https://mastodon.social/post',
+            'objectType': 'activity',
+            'verb': 'share',
+            'actor': 'bsky.brid.gy',
+            'object': 'https://mastodon.social/post',
+        }), Fake.sent)
+        self.assertIn(('other:alice:target', {
+            'id': 'https://ap.brid.gy/#auto-repost-https://mastodon.social/post',
+            'objectType': 'activity',
+            'verb': 'share',
+            'actor': 'ap.brid.gy',
+            'object': 'https://mastodon.social/post',
+        }), OtherFake.sent)
