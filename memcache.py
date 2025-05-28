@@ -1,12 +1,10 @@
 """Utilities for caching data in memcache."""
-from datetime import timedelta
 import functools
 import logging
 import os
 
 from google.cloud.ndb.global_cache import _InProcessGlobalCache, MemcacheCache
-from granary import as1
-from oauth_dropins.webutil import appengine_info, util
+from oauth_dropins.webutil import appengine_info
 from pymemcache.client.base import PooledClient
 from pymemcache.serde import PickleSerde
 from pymemcache.test.utils import MockMemcacheClient
@@ -17,8 +15,6 @@ logger = logging.getLogger(__name__)
 KEY_MAX_LEN = 250
 
 MEMOIZE_VERSION = 2
-
-NOTIFY_TASK_FREQ = timedelta(hours=1)
 
 # https://pymemcache.readthedocs.io/en/latest/apidoc/pymemcache.client.base.html#pymemcache.client.base.Client.__init__
 kwargs = {
@@ -71,7 +67,7 @@ def memoize(expire=None, key=None, write=True, version=MEMOIZE_VERSION):
     """Memoize function decorator that stores the cached value in memcache.
 
     Args:
-      expire (timedelta): optional, expiration
+      expire (datetime.timedelta): optional, expiration
       key (callable): function that takes the function's ``(*args, **kwargs)``
         and returns the cache key to use. If it returns None, memcache won't be
         used.
@@ -119,78 +115,6 @@ def memoize(expire=None, key=None, write=True, version=MEMOIZE_VERSION):
         return wrapped
 
     return decorator
-
-
-def notification_key(user):
-    return key(f'notifs-{user.key.id()}')
-
-
-def add_notification(user, obj):
-    """Adds a notification for a given user.
-
-    The memcache key is ``notifs-{user id}``. The value is a space-separated list of
-    object URLs to notify the user of.
-
-    Uses gets/cas to create the cache entry if it doesn't exist.
-
-    Args:
-      user (models.User): the user to notify
-      obj (models.Object): the object to notify about
-    """
-    import common
-
-    key = notification_key(user)
-    obj_url = as1.get_url(obj.as1) or obj.key.id()
-    assert obj_url
-
-    if user.send_notifs != 'all':
-        return
-
-    # TODO: remove to launch
-    if (user.key.id() not in common.BETA_USER_IDS
-            and not (appengine_info.DEBUG or appengine_info.LOCAL_SERVER)):
-        return
-
-    if not util.is_web(obj_url):
-        logger.info(f'Dropping non-URL notif {obj_url} for {user.key.id()}')
-        return
-
-    logger.info(f'Adding notif {obj_url} for {user.key.id()}')
-
-    if memcache.add(key, obj_url.encode()):
-        common.create_task(queue='notify', delay=NOTIFY_TASK_FREQ,
-                           user_id=user.key.id(), protocol=user.LABEL)
-    else:
-        existing = memcache.get(key)
-        if existing and obj_url not in existing.decode().split():
-            # there's a race condition here if the notify task runs between the gets
-            # call above and this append call, since there won't be a value in
-            # memcache, so append will do nothing. should be rare.
-            #
-            # gets/cas wouldn't make it any easier; we'd still need to keep retrying
-            # until we have a get/append or gets/cas that no one else writes between.
-            memcache.append(key, (' ' + obj_url).encode())
-
-
-def get_notifications(user, clear=False):
-    """Gets enqueued notifications for a given user.
-
-    The memcache key is ``notifs-{user id}``.
-
-    Args:
-      user (models.User)
-      clear (bool): clear notifications from memcache after fetching them
-
-    Returns:
-      list of str: URLs to notify the user of; possibly empty
-    """
-    key = notification_key(user)
-    notifs = memcache.get(key, default=b'').decode().strip().split()
-
-    if notifs and clear:
-        memcache.delete(key)
-
-    return notifs
 
 
 ###########################################

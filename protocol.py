@@ -52,6 +52,7 @@ from models import (
     Target,
     User,
 )
+import notifications
 
 OBJECT_REFRESH_AGE = timedelta(days=30)
 DELETE_TASK_DELAY = timedelta(minutes=2)
@@ -1520,7 +1521,7 @@ class Protocol:
                         and target_author_key):
                     if target_author := target_author_key.get():
                         if target_author.is_enabled(from_cls):
-                            memcache.add_notification(target_author, write_obj)
+                            notifications.add_notification(target_author, write_obj)
                             verb, noun = (
                                 ('replied to', 'replies') if id in in_reply_tos
                                 else ('quoted', 'quotes') if id in quoted_posts

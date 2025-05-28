@@ -2,14 +2,11 @@
 from unittest.mock import patch
 
 from google.cloud.ndb import Key
-from oauth_dropins.webutil.testutil import NOW
-from oauth_dropins.webutil import util
 
-import common
 import memcache
 from memcache import memoize, pickle_memcache
-from models import Object, User
-from .testutil import Fake, TestCase
+from models import Object
+from .testutil import TestCase
 
 
 class MemcacheTest(TestCase):
@@ -178,76 +175,3 @@ class MemcacheTest(TestCase):
                 ('☃.net', b'\xe2\x98\x83.net'),
         ):
             self.assertEqual(expected, memcache.key(input))
-
-    def test_get_notifications_empty(self):
-        user = self.make_user(id='fake:user', cls=Fake)
-        self.assertEqual([], memcache.get_notifications(user))
-
-    @patch('oauth_dropins.webutil.appengine_config.tasks_client.create_task')
-    def test_add_notification_new_key(self, mock_create_task):
-        common.RUN_TASKS_INLINE = False
-        user = self.make_user(id='fake:user', cls=Fake)
-
-        memcache.add_notification(user, Object(id='http://reply'))
-
-        self.assertEqual(['http://reply'], memcache.get_notifications(user))
-        self.assertEqual(b'http://reply', memcache.memcache.get('notifs-fake:user'))
-
-        delayed_eta = (util.to_utc_timestamp(NOW) +
-                       memcache.NOTIFY_TASK_FREQ.total_seconds())
-        self.assert_task(mock_create_task, 'notify', delayed_eta, user_id='fake:user',
-                         protocol='fake')
-
-    @patch('oauth_dropins.webutil.appengine_config.tasks_client.create_task')
-    def test_add_notification_requires_web_url(self, mock_create_task):
-        common.RUN_TASKS_INLINE = False
-        user = self.make_user(id='fake:user', cls=Fake)
-
-        memcache.add_notification(user, Object(id='efake:reply'))
-
-        self.assertEqual([], memcache.get_notifications(user))
-        self.assertIsNone(memcache.memcache.get('notifs-fake:user'))
-        mock_create_task.assert_not_called()
-
-    @patch('oauth_dropins.webutil.appengine_config.tasks_client.create_task')
-    def test_add_notification_for_user_with_send_notifs_none_is_noop(
-            self, mock_create_task):
-        common.RUN_TASKS_INLINE = False
-        user = self.make_user(id='fake:user', cls=Fake, send_notifs='none')
-
-        memcache.add_notification(user, Object(id='http://reply'))
-
-        self.assertEqual([], memcache.get_notifications(user))
-        self.assertIsNone(memcache.memcache.get('notifs-fake:user'))
-        mock_create_task.assert_not_called()
-
-    @patch('oauth_dropins.webutil.appengine_config.tasks_client.create_task')
-    def test_add_notification_append_to_existing(self, mock_create_task):
-        common.RUN_TASKS_INLINE = False
-        user = self.make_user(id='fake:user', cls=Fake)
-
-        memcache.memcache.set('notifs-fake:user', b'http://reply0')
-        memcache.add_notification(user, Object(id='r1', our_as1={'url': 'http://r1'}))
-        memcache.add_notification(user, Object(id='http://reply2'))
-
-        self.assertEqual(['http://reply0', 'http://r1', 'http://reply2'],
-                         memcache.get_notifications(user))
-        self.assertEqual(b'http://reply0 http://r1 http://reply2',
-                         memcache.memcache.get('notifs-fake:user'))
-        mock_create_task.assert_not_called()
-
-    @patch('oauth_dropins.webutil.appengine_config.tasks_client.create_task')
-    def test_add_notification_deduplicate(self, mock_create_task):
-        common.RUN_TASKS_INLINE = False
-        user = self.make_user(id='fake:user', cls=Fake)
-
-        memcache.add_notification(user, Object(id='http://reply'))
-        memcache.add_notification(user, Object(id='http://reply'))
-
-        self.assertEqual(['http://reply'], memcache.get_notifications(user))
-        self.assertEqual(b'http://reply', memcache.memcache.get('notifs-fake:user'))
-
-        delayed_eta = (util.to_utc_timestamp(NOW) +
-                       memcache.NOTIFY_TASK_FREQ.total_seconds())
-        self.assert_task(mock_create_task, 'notify', delayed_eta, user_id='fake:user',
-                         protocol='fake')
