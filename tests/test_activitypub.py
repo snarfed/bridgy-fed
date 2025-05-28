@@ -2494,7 +2494,7 @@ class ActivityPubUtilsTest(TestCase):
         }))
 
     def test_postprocess_as2_plain_text_content_links_hashtags_mentions(self):
-        expected = '<p>foo <a class="mention" href="http://inst/bar">@bar</a> <a class="hashtag" href="http://inst/baz">#baz</a></p>'
+        expected = '<p>foo <a class="mention" href="http://inst/bar">@bar</a> <a class="hashtag" rel="tag" href="http://inst/baz">#baz</a></p>'
         self.assert_equals({
             'content': expected,
             'contentMap': {'en': expected},

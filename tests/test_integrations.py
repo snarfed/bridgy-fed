@@ -1099,9 +1099,9 @@ To disable these messages, reply with the text 'mute'.""",
         self.assert_equals({
             'type': 'Note',
             'id': 'https://bsky.brid.gy/convert/ap/at://xyz',
-            'content': '<p>My <a class="hashtag" href="https://bsky.app/search?q=%23original">#original</a> post</p>',
+            'content': '<p>My <a class="hashtag" rel="tag" href="https://bsky.app/search?q=%23original">#original</a> post</p>',
             'contentMap': {
-                'en': '<p>My <a class="hashtag" href="https://bsky.app/search?q=%23original">#original</a> post</p>',
+                'en': '<p>My <a class="hashtag" rel="tag" href="https://bsky.app/search?q=%23original">#original</a> post</p>',
             },
             'url': 'http://localhost/r/https://bsky.app/profile/xyz',
             'tag': [{
@@ -1154,9 +1154,9 @@ To disable these messages, reply with the text 'mute'.""",
             'id': 'https://bsky.brid.gy/convert/ap/at://xyz',
             'url': 'http://localhost/r/https://bsky.app/profile/xyz',
             'attributedTo': 'xyz',
-            'content': '<p><a class="hashtag" href="https://bsky.app/search?q=%23foo">#foo</a> <a href="http://bar">bar</a> <a class="mention" href="https://bsky.brid.gy/ap/https://bsky.app/profile/did:plc:baz">@baz</a></p>',
+            'content': '<p><a class="hashtag" rel="tag" href="https://bsky.app/search?q=%23foo">#foo</a> <a href="http://bar">bar</a> <a class="mention" href="https://bsky.brid.gy/ap/https://bsky.app/profile/did:plc:baz">@baz</a></p>',
             'contentMap': {
-                'en': '<p><a class="hashtag" href="https://bsky.app/search?q=%23foo">#foo</a> <a href="http://bar">bar</a> <a class="mention" href="https://bsky.brid.gy/ap/https://bsky.app/profile/did:plc:baz">@baz</a></p>',
+                'en': '<p><a class="hashtag" rel="tag" href="https://bsky.app/search?q=%23foo">#foo</a> <a href="http://bar">bar</a> <a class="mention" href="https://bsky.brid.gy/ap/https://bsky.app/profile/did:plc:baz">@baz</a></p>',
             },
             'tag': [{
                 'type': 'Hashtag',
