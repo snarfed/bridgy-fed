@@ -1754,6 +1754,46 @@ def fetch_objects(query, by=None, user=None):
     return objects, new_before, new_after
 
 
+def hydrate(activity, fields=('author', 'actor', 'object')):
+    """Hydrates fields in an AS1 activity, in place.
+
+    Args:
+      activity (dict): AS1 activity
+      fields (sequence of str): names of fields to hydrate. If they're string ids,
+        loads them from the datastore, if possible, and replaces them with their dict
+        AS1 objects.
+
+    Returns:
+      sequence of :class:`google.cloud.ndb.tasklets.Future`: tasklets for hydrating
+        each field. Wait on these before using ``activity``.
+    """
+    def _hydrate(field):
+        def maybe_set(future):
+            if future.result() and future.result().as1:
+                activity[field] = future.result().as1
+        return maybe_set
+
+    futures = []
+
+    for field in fields:
+        val = as1.get_object(activity, field)
+        if val and val.keys() <= set(['id']):
+            # TODO: extract a Protocol class method out of User.profile_id,
+            # then use that here instead. the catch is that we'd need to
+            # determine Protocol for every id, which is expensive.
+            #
+            # same TODO is in models.fetch_objects
+            id = val['id']
+            if id.startswith('did:'):
+                id = f'at://{id}/app.bsky.actor.profile/self'
+
+            future = Object.get_by_id_async(id)
+            future.add_done_callback(_hydrate(field))
+            futures.append(future)
+
+    return futures
+
+
 def fetch_page(query, model_class, by=None):
     """Fetches a page of results from a datastore query.
 

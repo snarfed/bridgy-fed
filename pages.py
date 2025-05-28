@@ -40,6 +40,7 @@ from flask_app import app
 from flask import redirect, session
 import ids
 import memcache
+import models
 from models import (
     fetch_objects,
     fetch_page,
@@ -534,32 +535,10 @@ def serve_feed(*, objects, format, user, title, as_snippets=False, quiet=False):
         activities = [obj.as1 for obj in objects]
 
     # hydrate authors, actors, objects from stored Objects
-    fields = 'author', 'actor', 'object'
-    gets = []
+    futures = []
     for a in activities:
-        for field in fields:
-            val = as1.get_object(a, field)
-            if val and val.keys() <= set(['id']):
-                def hydrate(a, f):
-                    def maybe_set(future):
-                        if future.result() and future.result().as1:
-                            a[f] = future.result().as1
-                    return maybe_set
-
-                # TODO: extract a Protocol class method out of User.profile_id,
-                # then use that here instead. the catch is that we'd need to
-                # determine Protocol for every id, which is expensive.
-                #
-                # same TODO is in models.fetch_objects
-                id = val['id']
-                if id.startswith('did:'):
-                    id = f'at://{id}/app.bsky.actor.profile/self'
-
-                future = Object.get_by_id_async(id)
-                future.add_done_callback(hydrate(a, field))
-                gets.append(future)
-
-    tasklets.wait_all(gets)
+        futures.extend(models.hydrate(a))
+    tasklets.wait_all(futures)
 
     actor = (user.obj.as1 if user.obj and user.obj.as1
              else {'displayName': user.handle, 'url': user.web_url()})
@@ -580,7 +559,7 @@ def serve_feed(*, objects, format, user, title, as_snippets=False, quiet=False):
         # RSS requires email to generate an author element, so fill in blank one
         # where necessary
         for a in activities:
-            for field in fields:
+            for field in ('actor', 'author', 'object'):
                 if val := as1.get_object(a, field):
                     if as1.object_type(val) in as1.ACTOR_TYPES:
                         val.setdefault('email', '_@_._')

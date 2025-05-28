@@ -11,6 +11,7 @@ from Crypto.PublicKey import ECC
 from cryptography.hazmat.primitives.asymmetric import ec
 from cryptography.hazmat.primitives import serialization
 from google.cloud import ndb
+from google.cloud.ndb import tasklets
 from google.cloud.tasks_v2.types import Task
 from granary.bluesky import NO_AUTHENTICATED_LABEL
 from granary.tests.test_bluesky import ACTOR_AS, ACTOR_PROFILE_BSKY
@@ -586,6 +587,7 @@ class UserTest(TestCase):
 
 
 class ObjectTest(TestCase):
+
     def setUp(self):
         super().setUp()
         self.user = None
@@ -1305,6 +1307,64 @@ class ObjectTest(TestCase):
         cache_key = memcache.memoize_key(
             models.get_original_object_key, 'other:x')
         self.assertIsNone(memcache.pickle_memcache.get(cache_key))
+
+    def test_hydrate_note(self):
+        self.store_object(id='fake:alice', our_as1=ACTOR_AS)
+        # self.store_object(id='fake:post', our_as1=)
+
+        note = {
+            'objectType': 'note',
+            'content': 'hello world',
+            'author': 'fake:alice',
+        }
+        tasklets.wait_all(models.hydrate(note))
+
+        self.assertEqual({
+            'objectType': 'note',
+            'content': 'hello world',
+            'author': ACTOR_AS,
+        }, note)
+
+    def test_hydrate_repost(self):
+        self.store_object(id='fake:alice', our_as1=ACTOR_AS)
+
+        repost = {
+            'objectType': 'activity',
+            'verb': 'repost',
+            'actor': 'fake:alice',
+            'object': 'fake:post',
+        }
+        tasklets.wait_all(models.hydrate(repost))
+
+        self.assertEqual({
+            'objectType': 'activity',
+            'verb': 'repost',
+            'actor': ACTOR_AS,
+            'object': 'fake:post',
+        }, repost)
+
+    def test_hydrate_like(self):
+        self.store_object(id='fake:post', our_as1={
+            'objectType': 'note',
+            'content': 'hello world',
+        })
+
+        like = {
+            'objectType': 'activity',
+            'verb': 'like',
+            'object': 'fake:post',
+        }
+        tasklets.wait_all(models.hydrate(like))
+
+        self.assertEqual({
+            'objectType': 'activity',
+            'verb': 'like',
+            'object': {
+                'objectType': 'note',
+                'id': 'fake:post',
+                'content': 'hello world',
+            },
+        }, like)
 
 
 class FollowerTest(TestCase):
