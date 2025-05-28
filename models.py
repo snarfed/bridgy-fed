@@ -1750,6 +1750,8 @@ def fetch_objects(query, by=None, user=None):
             if content:
                 obj.content = content
                 obj.url = url
+            elif obj.inner_url:
+                obj.content = common.pretty_link(obj.inner_url, max_length=50)
 
     return objects, new_before, new_after
 
