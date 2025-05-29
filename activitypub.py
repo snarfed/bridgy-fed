@@ -236,13 +236,7 @@ class ActivityPub(User, Protocol):
         https://datatracker.ietf.org/doc/html/rfc7033#section-3.1
         https://datatracker.ietf.org/doc/html/rfc7033#section-4.5
         """
-        parts = handle.lstrip('@').split('@')
-        if len(parts) != 2:
-            return False
-
-        user, domain = parts
-        return user and domain and not cls.is_blocklisted(
-            domain, allow_internal=allow_internal)
+        return cls.is_user_at_domain(handle.lstrip('@'), allow_internal=allow_internal)
 
     @classmethod
     def handle_to_id(cls, handle):

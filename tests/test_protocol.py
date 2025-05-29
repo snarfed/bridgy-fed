@@ -216,6 +216,19 @@ class ProtocolTest(TestCase):
     def test_for_handle_atproto_resolve(self, _):
         self.assertEqual((ATProto, 'did:plc:123abc'), Protocol.for_handle('ha.nl'))
 
+    def test_is_user_at_domain(self):
+        for handle in ('user@instance', 'user@instance.com', 'user.com@instance.com',
+                       '_@sub.do.main'):
+            with self.subTest(handle=handle):
+                self.assertTrue(ActivityPub.is_user_at_domain(handle))
+
+        for handle in ('instance', 'instance.com', '@user', 'x@y@user.com',
+                       'http://user.com', '@user@web.brid.gy', '@user@localhost'):
+            with self.subTest(handle=handle):
+                self.assertEqual(False, ActivityPub.is_user_at_domain(handle))
+
+        assert ActivityPub.is_user_at_domain('user@web.brid.gy', allow_internal=True)
+
     def test_load(self):
         Fake.fetchable['foo'] = {'x': 'y'}
 

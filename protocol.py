@@ -453,6 +453,24 @@ class Protocol:
         return (None, None)
 
     @classmethod
+    def is_user_at_domain(cls, handle, allow_internal=False):
+        """Returns True if handle is formatted ``user@domain.tld``, False otherwise.
+
+        Example: ``@user@instance.com``
+
+        Args:
+          handle (str)
+          allow_internal (bool): whether the domain can be a Bridgy Fed domain
+        """
+        parts = handle.split('@')
+        if len(parts) != 2:
+            return False
+
+        user, domain = parts
+        return bool(user and domain
+                    and not cls.is_blocklisted(domain, allow_internal=allow_internal))
+
+    @classmethod
     def bridged_web_url_for(cls, user, fallback=False):
         """Returns the web URL for a user's bridged profile in this protocol.
 

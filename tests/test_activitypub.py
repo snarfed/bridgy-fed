@@ -2351,7 +2351,7 @@ class ActivityPubUtilsTest(TestCase):
 
     def test_owns_handle(self):
         for handle in ('@user@instance', 'user@instance.com', 'user.com@instance.com',
-                     'user@instance'):
+                     'user@instance', 'user@sub.do.main'):
             with self.subTest(handle=handle):
                 assert ActivityPub.owns_handle(handle)
 
