@@ -150,6 +150,21 @@ class MemcacheTest(TestCase):
         self.assertEqual('6', foo(6))
         self.assertEqual([5, 6, 6], calls)
 
+    @patch('memcache.pickle_memcache', new=None)
+    def test_memoize_no_memcache(self):
+        calls = []
+
+        @memoize()
+        def foo(x):
+            calls.append(x)
+            return str(x)
+
+        self.assertEqual('5', foo(5))
+        self.assertEqual([5], calls)
+
+        self.assertEqual('5', foo(5))
+        self.assertEqual([5, 5], calls)
+
     def test_memoize_version_callable(self):
         calls = []
 

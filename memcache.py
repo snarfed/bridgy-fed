@@ -92,7 +92,7 @@ def memoize(expire=None, key=None, write=True, version=MEMOIZE_VERSION):
             else:
                 cache_key = memoize_key(fn, *args, _version=version, **kwargs)
 
-            if cache_key:
+            if pickle_memcache and cache_key:
                 val = pickle_memcache.get(cache_key)
                 if val is not None:
                     logger.debug(f'cache hit {cache_key} {repr(val)[:100]}')
@@ -102,7 +102,7 @@ def memoize(expire=None, key=None, write=True, version=MEMOIZE_VERSION):
 
             val = fn(*args, **kwargs)
 
-            if cache_key:
+            if pickle_memcache and cache_key:
                 write_cache = (write if isinstance(write, bool)
                                else write(*args, **kwargs))
                 if write_cache:
