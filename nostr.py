@@ -65,12 +65,7 @@ class Nostr(User, Protocol):
 
     @classmethod
     def owns_id(cls, id):
-        return (id.startswith('npub')
-                or id.startswith('nevent')
-                or id.startswith('note')
-                or id.startswith('nprofile')
-                or id.startswith('naddr')
-                or id.startswith('nostr:'))
+        return id.startswith('nostr:') or bool(nostr.is_bech32(id))
 
     @classmethod
     def owns_handle(cls, handle, allow_internal=False):
