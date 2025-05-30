@@ -38,7 +38,7 @@
       <form method="post" action="/settings/set-username">
         <input name="key" type="hidden" value="{{ user.key.urlsafe().decode() }}" />
         <input name="protocol" type="hidden" value="atproto" />
-        <label for="username">Set Bluesky username:</label>
+        <label for="username">Set Bluesky handle:</label>
         <input id="username" type="text" name="username" placeholder ="your.domain" />
         <input type="submit" value="Go" class="btn btn-default" />
       </form>
