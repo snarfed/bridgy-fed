@@ -50,6 +50,7 @@ from models import (
     PROTOCOLS,
     USER_STATUS_DESCRIPTIONS,
 )
+from nostr import Nostr
 from protocol import Protocol
 from web import Web
 import webfinger
@@ -70,6 +71,7 @@ TEMPLATE_VARS = {
     'ids': ids,
     'isinstance': isinstance,
     'logs': logs,
+    'Nostr': Nostr,
     'PROTOCOLS': PROTOCOLS,
     'set': set,
     'util': util,

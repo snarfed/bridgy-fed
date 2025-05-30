@@ -49,6 +49,7 @@ PROTOCOLS = {label: None for label in (
     'atproto',
     'bsky',
     'ostatus',
+    'nostr',
     'web',
     'webmention',
     'ui',

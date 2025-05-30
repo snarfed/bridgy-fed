@@ -288,7 +288,7 @@ class UserTest(TestCase):
         user = self.make_user('fake:user', cls=Fake)
         self.assertEqual('fake:handle:user', user.handle_as(Fake))
         self.assertEqual('fake:handle:user', user.handle_as('fake'))
-        self.assertEqual('@fake:handle:user@fa.brid.gy', user.handle_as('ap'))
+        self.assertEqual('@fake-handle-user@fa.brid.gy', user.handle_as('ap'))
 
     def test_handle_as_web_custom_username(self, *_):
         self.user.obj.our_as1 = {

@@ -56,6 +56,7 @@ PROTOCOL_DOMAINS = (
     'efake.brid.gy',
     'fa.brid.gy',
     'other.brid.gy',
+    'nostr.brid.gy',
 )
 OTHER_DOMAINS = (
     'bridgy-federated.appspot.com',

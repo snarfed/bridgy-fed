@@ -17,7 +17,7 @@ from oauth_dropins.webutil import appengine_config, flask_util
 import pytz
 
 # all protocols
-import activitypub, atproto, web
+import activitypub, atproto, nostr, web
 import common
 import models
 

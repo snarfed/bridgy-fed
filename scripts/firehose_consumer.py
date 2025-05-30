@@ -10,7 +10,7 @@ from oauth_dropins.webutil.appengine_info import DEBUG, LOCAL_SERVER
 from oauth_dropins.webutil import appengine_config, flask_util
 
 # all protocols
-import activitypub, atproto, web
+import activitypub, atproto, nostr, web
 import atproto_firehose
 import models
 

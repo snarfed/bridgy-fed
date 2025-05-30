@@ -117,7 +117,7 @@ class RemoteFollowTest(TestCase):
         mock_get.return_value = WEBFINGER
         got = self.client.post('/remote-follow?address=@foo@ba.r&id=fake:user&protocol=fake')
         self.assertEqual(302, got.status_code)
-        self.assertEqual('https://ba.r/follow?uri=@fake:handle:user@fa.brid.gy',
+        self.assertEqual('https://ba.r/follow?uri=@fake-handle-user@fa.brid.gy',
                          got.headers['Location'])
 
         mock_get.assert_has_calls((

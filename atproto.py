@@ -313,7 +313,7 @@ class ATProto(User, Protocol):
 
     @classmethod
     def owns_handle(cls, handle, allow_internal=False):
-        # TODO: implement allow_internal
+        # TODO: implement allow_internal?
         if not did.HANDLE_RE.fullmatch(handle):
             return False
 

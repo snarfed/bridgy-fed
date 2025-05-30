@@ -94,7 +94,7 @@ WEBFINGER_NO_HCARD = {
     }],
 }
 WEBFINGER_FAKE = {
-    'subject': 'acct:fake:handle:user@fa.brid.gy',
+    'subject': 'acct:fake-handle-user@fa.brid.gy',
     'aliases': ['web:fake:user'],
     'links': [{
         'rel': 'canonical_uri',
@@ -290,7 +290,7 @@ class WebfingerTest(TestCase):
 
     def test_missing_user(self):
         for acct in ('nope.com', 'nope.com@nope.com', 'nope.com@web.brid.gy',
-                     'nope.com@fed.brid.gy', 'fake:handle:user@fake.brid.gy'):
+                     'nope.com@fed.brid.gy', 'fake-handle-user@fake.brid.gy'):
             got = self.client.get(f'/.well-known/webfinger?resource=acct:{acct}')
             self.assertEqual(404, got.status_code)
 

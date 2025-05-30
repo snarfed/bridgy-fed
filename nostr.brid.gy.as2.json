@@ -1,0 +1,38 @@
+{
+  "@context": [
+    "https://www.w3.org/ns/activitystreams",
+    "https://purl.archive.org/miscellany",
+    "https://w3id.org/security/v1",
+    {"alsoKnownAs": {"@id": "as:alsoKnownAs", "@type": "@id"}}
+  ],
+  "type": "Service",
+  "id": "https://nostr.brid.gy/nostr.brid.gy",
+  "url": [
+    "https://nostr.brid.gy/",
+    "https://fed.brid.gy/"
+  ],
+  "preferredUsername": "nostr.brid.gy",
+  "summary": "<p><a href='https://fed.brid.gy/'>Bridgy Fed</a> bot user for <a href='https://nostr.social/'>Nostr</a>. To bridge your account to Nostr, follow this account. <a href='https://fed.brid.gy/docs'>More info here.</a><p>After you follow this account, it will follow you back. Accept its follow to make sure your posts get sent to the bridge.<p>To ask a Nostr user to bridge their account, DM their NIP-05 handle (eg ryan@snarfed.org) to this account.</p>",
+  "name": "Bridgy Fed for Nostr",
+  "image": [
+    {
+      "type": "Image",
+      "url": "https://fed.brid.gy/static/bridgy_fed_banner.png"
+    },
+    {
+      "name": "Bridgy Fed for Nostr",
+      "type": "Image",
+      "url": "https://fed.brid.gy/static/bridgy_logo_square.jpg"
+    }
+  ],
+  "icon": {
+    "name": "Bridgy Fed for Nostr",
+    "type": "Image",
+    "url": "https://fed.brid.gy/static/bridgy_logo_square.jpg"
+  },
+  "alsoKnownAs": [
+    "https://nostr.brid.gy/",
+    "https://fed.brid.gy/"
+  ],
+  "manuallyApprovesFollowers": false
+}

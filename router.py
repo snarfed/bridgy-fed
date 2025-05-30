@@ -10,7 +10,7 @@ from oauth_dropins.webutil import (
 )
 
 # all protocols
-import activitypub, atproto, web
+import activitypub, atproto, nostr, web
 import common
 import dms
 import models

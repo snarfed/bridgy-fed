@@ -284,12 +284,12 @@ from memcache import (
     memcache,
     pickle_memcache,
 )
-from web import Web
 from flask_app import app
+from nostr import Nostr
+from web import Web
 
-ActivityPub.DEFAULT_ENABLED_PROTOCOLS += ('fake', 'other')
-ATProto.DEFAULT_ENABLED_PROTOCOLS += ('fake', 'other')
-Web.DEFAULT_ENABLED_PROTOCOLS += ('fake', 'other')
+for proto in (ActivityPub, ATProto, Nostr, Web):
+    proto.DEFAULT_ENABLED_PROTOCOLS += ('fake', 'other')
 
 # used in TestCase.make_user() to reuse keys across Users since they're
 # expensive to generate.
