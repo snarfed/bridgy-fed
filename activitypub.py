@@ -236,7 +236,13 @@ class ActivityPub(User, Protocol):
         https://datatracker.ietf.org/doc/html/rfc7033#section-3.1
         https://datatracker.ietf.org/doc/html/rfc7033#section-4.5
         """
-        return cls.is_user_at_domain(handle.lstrip('@'), allow_internal=allow_internal)
+        if (handle and handle[0] == '@'
+                and cls.is_user_at_domain(handle[1:], allow_internal=allow_internal)):
+            return True
+        # elif cls.is_user_at_domain(handle, allow_internal=allow_internal):
+        #     return None
+
+        return False
 
     @classmethod
     def handle_to_id(cls, handle):

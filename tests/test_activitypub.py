@@ -2350,10 +2350,14 @@ class ActivityPubUtilsTest(TestCase):
         self.assertFalse(ActivityPub.owns_id('https://ap.brid.gy/foo'))
 
     def test_owns_handle(self):
-        for handle in ('@user@instance', 'user@instance.com', 'user.com@instance.com',
+        for addr in ('user@instance', 'user@instance.com', 'user.com@instance.com',
                      'user@instance', 'user@sub.do.main'):
+            with self.subTest(handle=addr):
+                self.assertEqual(False, ActivityPub.owns_handle(addr))
+
+            handle = '@' + addr
             with self.subTest(handle=handle):
-                assert ActivityPub.owns_handle(handle)
+                self.assertTrue(ActivityPub.owns_handle(handle))
 
         for handle in ('instance', 'instance.com', '@user', '@user.com',
                        'http://user.com', '@user@web.brid.gy', '@user@localhost'):
