@@ -3,6 +3,9 @@
 https://github.com/nostr-protocol/nostr
 https://github.com/nostr-protocol/nips/blob/master/01.md
 https://github.com/nostr-protocol/nips#list
+
+Nostr Object key ids are NIP-21 nostr:... URIs.
+https://nips.nostr.com/21
 """
 import logging
 

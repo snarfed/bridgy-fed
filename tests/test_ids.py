@@ -259,14 +259,14 @@ class IdsTest(TestCase):
     def test_translate_object_id(self):
         self.store_object(id='http://po.st',
                           copies=[Target(uri='at://did/web/post', protocol='atproto'),
-                                  Target(uri='nevent123web', protocol='nostr')])
+                                  Target(uri='nostr:123web', protocol='nostr')])
         self.store_object(id='https://inst/post',
                           copies=[Target(uri='at://did/ap/post', protocol='atproto'),
-                                  Target(uri='nevent123ap', protocol='atproto')])
+                                  Target(uri='nostr:123ap', protocol='atproto')])
         self.store_object(id='fake:post',
                           copies=[Target(uri='at://did/fa/post', protocol='atproto'),
-                                  Target(uri='nevent123fa', protocol='nostr')])
-        self.store_object(id='nevent123',
+                                  Target(uri='nostr:123fa', protocol='nostr')])
+        self.store_object(id='nostr:123',
                           copies=[Target(uri='at://did/no/post', protocol='atproto')])
 
         # DID doc and ATProto, used to resolve handle in bsky.app URL
@@ -282,21 +282,21 @@ class IdsTest(TestCase):
             (ActivityPub, 'https://inst/post',
              Web, 'https://ap.brid.gy/convert/web/https://inst/post'),
             (ATProto, 'at://did/atp/post', ATProto, 'at://did/atp/post'),
-            (Nostr, 'nevent123', Nostr, 'nevent123'),
+            (Nostr, 'nostr:123', Nostr, 'nostr:123'),
 
             # copies
             (ActivityPub, 'https://inst/post', ATProto, 'at://did/ap/post'),
             (ATProto, 'at://did/web/post', Web, 'http://po.st'),
             (ATProto, 'at://did/ap/post', ActivityPub, 'https://inst/post'),
             (ATProto, 'at://did/fa/post', Fake, 'fake:post'),
-            (ATProto, 'at://did/no/post', Nostr, 'nevent123'),
-            (Nostr, 'nevent123web', Web, 'http://po.st'),
-            (Nostr, 'nevent123ap', ActivityPub, 'https://inst/post'),
-            (Nostr, 'nevent123fa', Fake, 'fake:post'),
-            (Nostr, 'nevent123', ATProto, 'at://did/no/post'),
+            (ATProto, 'at://did/no/post', Nostr, 'nostr:123'),
+            (Nostr, 'nostr:123web', Web, 'http://po.st'),
+            (Nostr, 'nostr:123ap', ActivityPub, 'https://inst/post'),
+            (Nostr, 'nostr:123fa', Fake, 'fake:post'),
+            (Nostr, 'nostr:123', ATProto, 'at://did/no/post'),
             (Web, 'http://po.st', ATProto, 'at://did/web/post'),
-            (Web, 'http://po.st', Nostr, 'nevent123web'),
-            (Fake, 'fake:post', Nostr, 'nevent123fa'),
+            (Web, 'http://po.st', Nostr, 'nostr:123web'),
+            (Fake, 'fake:post', Nostr, 'nostr:123fa'),
 
             # no copies
             (ATProto, 'did:plc:x', Web, 'https://bsky.brid.gy/convert/web/did:plc:x'),
@@ -316,11 +316,11 @@ class IdsTest(TestCase):
             (Web, 'http://po.st', ActivityPub, 'http://localhost/r/http://po.st'),
             (Web, 'http://po.st', Fake, 'fake:o:web:http://po.st'),
             (Web, 'http://po.st', Web, 'http://po.st'),
-            (Nostr, 'nevent456', Fake, 'fake:o:nostr:nevent456'),
-            (Nostr, 'nevent456', ActivityPub,
-             'https://nostr.brid.gy/convert/ap/nevent456'),
-            (Nostr, 'nevent456', ATProto, 'nevent456'),
-            (Nostr, 'nevent456', Web, 'https://nostr.brid.gy/convert/web/nevent456'),
+            (Nostr, 'nostr:456', Fake, 'fake:o:nostr:nostr:456'),
+            (Nostr, 'nostr:456', ActivityPub,
+             'https://nostr.brid.gy/convert/ap/nostr:456'),
+            (Nostr, 'nostr:456', ATProto, 'nostr:456'),
+            (Nostr, 'nostr:456', Web, 'https://nostr.brid.gy/convert/web/nostr:456'),
         ]:
             with self.subTest(id=id, from_=from_.LABEL, to=to.LABEL):
                 self.assertEqual(expected, translate_object_id(

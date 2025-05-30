@@ -913,7 +913,7 @@ Welcome to Bridgy Fed! Your account will soon be bridged to {to_proto.PHRASE} at
 class Object(StringIdModel):
     """An activity or other object, eg actor.
 
-    Key name is the id. We synthesize ids if necessary.
+    Key name is the id, generally a URI. We synthesize ids if necessary.
     """
     users = ndb.KeyProperty(repeated=True)
     'User(s) who created or otherwise own this object.'
