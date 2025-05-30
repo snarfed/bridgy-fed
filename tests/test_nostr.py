@@ -16,6 +16,17 @@ class NostrTest(TestCase):
         super().setUp()
         common.RUN_TASKS_INLINE = False
 
+    def test_owns_id(self):
+        for id in ('npub23', 'nevent123', 'note123', 'nprofile123', 'naddr123',
+                   'nostr:nevent123'):
+            with self.subTest(id=id):
+                self.assertTrue(Nostr.owns_id(id))
+
+        for id in ('abc', 'did:abc', 'foo.com', 'https://foo.com/',
+                   'https://foo.com/bar', 'at://did:abc/x.y.z/123'):
+            with self.subTest(id=id):
+                self.assertFalse(Nostr.owns_id(id))
+
     def test_owns_handle(self):
         for handle in ('user@domain', 'user@domain.com', 'user.com@domain.com',
                        'user@domain', 'user@sub.do.main', '_@domain'):
