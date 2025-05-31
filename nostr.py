@@ -10,7 +10,8 @@ https://nips.nostr.com/21
 import logging
 
 from google.cloud import ndb
-from granary import as1, nostr
+from granary import as1
+import granary.nostr
 from requests import RequestException
 from oauth_dropins.webutil import util
 from oauth_dropins.webutil.util import add, json_dumps, json_loads
@@ -38,7 +39,7 @@ class Nostr(User, Protocol):
     """
     ABBREV = 'nostr'
     PHRASE = 'Nostr'
-    LOGO_HTML = '<img src="/static/nostr.png">'
+    LOGO_HTML = '<img src="/static/nostr_logo.png">'
     CONTENT_TYPE = 'application/json'
     HAS_COPIES = True
     REQUIRES_AVATAR = True
@@ -58,14 +59,16 @@ class Nostr(User, Protocol):
         return None
 
     def web_url(self):
-        return None  # TODO
+        if self.obj_key:
+            return granary.nostr.Nostr.user_url(
+                self.obj_key.id().removeprefix("nostr:"))
 
     def id_uri(self):
         return f'nostr:{self.key.id()}'
 
     @classmethod
     def owns_id(cls, id):
-        return id.startswith('nostr:') or bool(nostr.is_bech32(id))
+        return id.startswith('nostr:') or bool(granary.nostr.is_bech32(id))
 
     @classmethod
     def owns_handle(cls, handle, allow_internal=False):
@@ -80,23 +83,20 @@ class Nostr(User, Protocol):
     def handle_to_id(cls, handle):
         if cls.owns_handle(handle) is False:
             return None
-
-        if handle.startswith('npub'):
+        elif handle.startswith('npub'):
             return handle
 
-        # TODO: implement NIP-05 resolution
-        return None
+        return granary.nostr.nip05_to_npub(handle)
 
     @classmethod
     def bridged_web_url_for(cls, user, fallback=False):
-        """TODO: which client? coracle?
-        """
-        return None
+        if not isinstance(user, Nostr) and user.obj:
+            if nprofile := user.obj.get_copy(Nostr):
+                return granary.nostr.Nostr.user_url(nprofile)
 
     @classmethod
     def target_for(cls, obj, shared=False):
-        """Look up the author's relays and return one?
-        """
+        """Look up the author's relays and return one?"""
         return None
 
     @classmethod
@@ -149,22 +149,15 @@ class Nostr(User, Protocol):
         # TODO: fetch from relay
         return False
 
-
     @classmethod
     def _convert(cls, obj, from_user=None):
         """Converts a :class:`models.Object` to a Nostr event.
 
         Args:
           obj (models.Object)
-          from_user (models.User): user (actor) this activity/object is from
+          from_user (models.User): user this object is from
 
         Returns:
           dict: JSON Nostr event
         """
-        from_proto = PROTOCOLS.get(obj.source_protocol)
-
-        # TODO: implement actual conversion
-        if not obj.as1:
-            return {}
-
-        return {}  # TODO
+        return granary.nostr.from_as1(obj.as1)
