@@ -966,6 +966,21 @@ class ObjectTest(TestCase):
         })
         self.assertEqual('z.com', obj.as1['id'])
 
+    def test_as1_from_nostr_note(self):
+        obj = Object(id='nostr:note123', nostr={
+            'kind': 1,
+            'id': '12ab',
+            'content': 'Something to say',
+            'created_at': 1641092645,
+            'tags': [],
+        })
+        self.assert_equals({
+            'objectType': 'note',
+            'id': 'nostr:note1z24swknlsf',
+            'content': 'Something to say',
+            'published': '2022-01-02T03:04:05+00:00',
+        }, obj.as1)
+
     def test_as1_image_proxy_domain(self):
         self.assert_equals({
             'id': 'https://www.threads.net/foo',

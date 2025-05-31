@@ -17,6 +17,7 @@ from flask import request
 from google.cloud import ndb
 from granary import as1, as2, atom, bluesky, microformats2
 from granary.bluesky import AT_URI_PATTERN, BSKY_APP_URL_RE
+import granary.nostr
 from granary.source import html_to_text
 import humanize
 from oauth_dropins.webutil import util
@@ -943,6 +944,8 @@ class Object(StringIdModel):
     'AT Protocol lexicon, for Bluesky'
     mf2 = JsonProperty()
     'HTML microformats2 item, (ie _not_ top level parse object with ``items`` field'
+    nostr = JsonProperty()
+    'Nostr event'
     our_as1 = JsonProperty()
     'ActivityStreams 1, for activities that we generate or modify ourselves'
     raw = JsonProperty()
@@ -1047,6 +1050,9 @@ class Object(StringIdModel):
             if url := self.mf2.get('url'):
                 obj['id'] = (self.key.id() if self.key and '#' in self.key.id()
                              else url)
+
+        elif self.nostr:
+            obj = granary.nostr.to_as1(self.nostr)
 
         else:
             return None
