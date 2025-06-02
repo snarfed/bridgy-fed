@@ -12,6 +12,8 @@ from models import Object, Target
 from nostr import Nostr
 from .testutil import Fake, TestCase
 
+from granary.tests.test_nostr import NOW_TS, NPUB_URI, PUBKEY
+
 
 class NostrTest(TestCase):
 
@@ -69,8 +71,8 @@ class NostrTest(TestCase):
     def test_convert_actor(self):
         self.assert_equals({
             'kind': 0,
-            'id': 'fake:user',
-            'pubkey': 'fake:user',  # TODO
+            'id': 'b5194395b42eebb7c3dfb9c45be1859d20daf33a95dd05e409c68597689b7a19',
+            'pubkey': PUBKEY,
             'content': json_dumps({
                 'name': 'Alice',
                 'about': 'It me',
@@ -78,9 +80,10 @@ class NostrTest(TestCase):
                 'nip05': '_@alice',  # TODO
             }, sort_keys=True),
             'tags': [],
+            'created_at': NOW_TS,
         }, Nostr._convert(Object(our_as1={
             'objectType': 'person',
-            'id': 'fake:user',
+            'id': NPUB_URI,
             'displayName': 'Alice',
             'description': 'It me',
             'image': 'http://alice/pic',
@@ -90,15 +93,15 @@ class NostrTest(TestCase):
     def test_convert_note(self):
         self.assert_equals({
             'kind': 1,
-            'id': '12ab',
-            'pubkey': '98fe',
+            'id': '4a57c7a1dde3bfe13076db485c4f09756e54447f6389dbf6864d4139bc40a214',
+            'pubkey': PUBKEY,
             'content': 'Something to say',
-            'created_at': 1641092645,
+            'created_at': NOW_TS,
             'tags': [],
         }, Nostr._convert(Object(our_as1={
             'objectType': 'note',
             'id': 'nostr:note1z24swknlsf',
-            'author': 'nostr:npub1nrlqrdny0w',
+            'author': NPUB_URI,
             'content': 'Something to say',
             'published': '2022-01-02T03:04:05+00:00',
         })))
@@ -106,19 +109,19 @@ class NostrTest(TestCase):
     def test_convert_follow(self):
         self.assert_equals({
             'kind': 3,
-            'id': '12ab',
-            'pubkey': '98fe',
+            'id': 'e65338c8d5529524ba28618367baf052573d57d7646fabb213bf7575bf19cd5f',
+            'pubkey': PUBKEY,
             'content': 'not important',
             'tags': [
                 ['p', '34cd', 'TODO relay', ''],
                 ['p', '98fe', 'TODO relay', 'bob'],
             ],
-            'created_at': 1641092645,
+            'created_at': NOW_TS,
         }, Nostr._convert(Object(our_as1={
             'objectType': 'activity',
             'verb': 'follow',
             'id': 'nostr:nevent1z24spd6d40',
-            'actor': 'nostr:npub1nrlqrdny0w',
+            'actor': NPUB_URI,
             'published': '2022-01-02T03:04:05+00:00',
             'object': [
                 'nostr:npub1xnxsce33j3',
