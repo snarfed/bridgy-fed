@@ -447,7 +447,7 @@ class ActivityPub(User, Protocol):
         Args:
           obj (dict)
         """
-        if obj.get('type') in as2.ACTOR_TYPES:
+        if util.get_first(obj, 'type') in as2.ACTOR_TYPES:
             if feat := as1.get_object(obj, 'featured'):
                 if set(feat.keys()) == {'id'}:
                     # fetch collection

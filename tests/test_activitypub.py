@@ -2885,6 +2885,20 @@ class ActivityPubUtilsTest(TestCase):
         self.assertIsNone(obj.as1)
 
     @patch('requests.get')
+    def test_fetch_multiply_valued_type(self, mock_get):
+        # BandWagon sends this, eg https://bandwagon.fm/683df9a103137839d85d1579
+        # https://console.cloud.google.com/errors/detail/COLtjYq7gMveSA?project=bridgy-federated
+        event_article = {
+            'type': ['Event', 'Article'],
+            'id': 'http://foo/bar',
+        }
+        mock_get.return_value = self.as2_resp(event_article)
+
+        obj = Object(id='http://orig')
+        ActivityPub.fetch(obj)
+        self.assertEqual(event_article, obj.as2)
+
+    @patch('requests.get')
     def test_fetch_hydrate_actor_featured(self, mock_get):
         actor = {
             **ACTOR,
