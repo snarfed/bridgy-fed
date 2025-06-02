@@ -34,6 +34,7 @@ import protocol
 from protocol import Protocol
 from web import Web
 
+from granary.tests.test_nostr import PRIVKEY, NPUB_URI, NSEC_URI
 from .test_activitypub import ACTOR
 from .test_atproto import DID_DOC
 
@@ -196,6 +197,14 @@ class UserTest(TestCase):
         pem = self.user.private_pem()
         self.assertTrue(pem.decode().startswith('-----BEGIN RSA PRIVATE KEY-----\n'), pem)
         self.assertTrue(pem.decode().endswith('-----END RSA PRIVATE KEY-----'), pem)
+
+    def test_nsec(self):
+        self.user.nostr_key_bytes = bytes.fromhex(PRIVKEY)
+        self.assertEqual(NSEC_URI.removeprefix('nostr:'), self.user.nsec())
+
+    def test_npub(self):
+        self.user.nostr_key_bytes = bytes.fromhex(PRIVKEY)
+        self.assertEqual(NPUB_URI.removeprefix('nostr:'), self.user.npub())
 
     def test_user_page_path(self):
         self.assertEqual('/web/y.za', self.user.user_page_path())

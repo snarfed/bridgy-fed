@@ -26,6 +26,7 @@ from oauth_dropins.webutil.flask_util import error
 from oauth_dropins.webutil.models import JsonProperty, StringIdModel
 from oauth_dropins.webutil.util import ellipsize, json_dumps, json_loads
 from requests import RequestException
+import secp256k1
 
 import common
 from common import (
@@ -221,9 +222,11 @@ class User(StringIdModel, metaclass=ProtocolUserMeta):
     """
 
     public_exponent = ndb.StringProperty()
-    """Part of this user's bridged ActivityPub actor's private key."""
+    """Part of the bridged ActivityPub actor's private key."""
     private_exponent = ndb.StringProperty()
-    """Part of this user's bridged ActivityPub actor's private key."""
+    """Part of the bridged ActivityPub actor's private key."""
+    nostr_key_bytes = ndb.BlobProperty()
+    """The bridged Nostr account's secp256k1 private key, in raw bytes."""
 
     manual_opt_out = ndb.BooleanProperty()
     """Set to True for users who asked to be opted out."""
@@ -681,7 +684,8 @@ Welcome to Bridgy Fed! Your account will soon be bridged to {to_proto.PHRASE} at
         return self.handle or self.key.id()
 
     def public_pem(self):
-        """
+        """Returns the user's PEM-encoded ActivityPub public RSA key.
+
         Returns:
           bytes:
         """
@@ -690,7 +694,8 @@ Welcome to Bridgy Fed! Your account will soon be bridged to {to_proto.PHRASE} at
         return rsa.exportKey(format='PEM')
 
     def private_pem(self):
-        """
+        """Returns the user's PEM-encoded ActivityPub private RSA key.
+
         Returns:
           bytes:
         """
@@ -699,6 +704,26 @@ Welcome to Bridgy Fed! Your account will soon be bridged to {to_proto.PHRASE} at
                              base64_to_long(str(self.public_exponent)),
                              base64_to_long(str(self.private_exponent))))
         return rsa.exportKey(format='PEM')
+
+    def nsec(self):
+        """Returns the user's bech32-encoded ActivityPub private secp256k1 key.
+
+        Returns:
+          str:
+        """
+        assert self.nostr_key_bytes
+        privkey = secp256k1.PrivateKey(self.nostr_key_bytes, raw=True)
+        return granary.nostr.bech32_encode('nsec', privkey.serialize())
+
+    def npub(self):
+        """Returns the user's bech32-encoded ActivityPub public secp256k1 key.
+
+        Returns:
+          str:
+        """
+        assert self.nostr_key_bytes
+        hex = granary.nostr.pubkey_from_privkey(self.nostr_key_bytes.hex())
+        return granary.nostr.bech32_encode('npub', hex)
 
     def name(self):
         """Returns this user's human-readable name, eg ``Ryan Barrett``."""
