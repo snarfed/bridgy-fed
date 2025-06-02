@@ -470,8 +470,8 @@ class Web(User, Protocol):
                     return url
 
     @classmethod
-    def send(to_cls, obj, url, from_user=None, orig_obj_id=None, **kwargs):
-        """Sends a webmention to a given target URL.
+    def send(to_cls, obj, target, from_user=None, orig_obj_id=None, **kwargs):
+        """Sends a webmention to a given webmention target URL.
 
         See :meth:`Protocol.send` for details.
 
@@ -480,30 +480,30 @@ class Web(User, Protocol):
         https://fed.brid.gy/docs#error-handling
         """
         targets = as1.targets(obj.as1)
-        if not (url in targets or
+        if not (target in targets or
                 # homepage, check domain too
-                (urlparse(url).path.strip('/') == ''
-                 and domain_from_link(url) in targets)):
-            logger.debug(f'Skipping sending to {url} , not a target in the object')
+                (urlparse(target).path.strip('/') == ''
+                 and domain_from_link(target) in targets)):
+            logger.debug(f'Skipping sending to {target} , not a target in the object')
             return False
 
-        if to_cls.is_blocklisted(url):
-            logger.info(f'Skipping sending to blocklisted {url}')
+        if to_cls.is_blocklisted(target):
+            logger.info(f'Skipping sending to blocklisted {target}')
             return False
 
         source_id = translate_object_id(
             id=obj.key.id(), from_=PROTOCOLS[obj.source_protocol], to=Web)
         source_url = quote(source_id, safe=':/%+')
-        logger.info(f'Sending webmention from {source_url} to {url}')
+        logger.info(f'Sending webmention from {source_url} to {target}')
 
         # we only send webmentions for responses. for sending normal posts etc
         # to followers, we just update our stored objects (elsewhere) and web
         # users consume them via feeds.
-        endpoint = webmention_discover(url).endpoint
+        endpoint = webmention_discover(target).endpoint
         if not endpoint:
             return False
 
-        webmention.send(endpoint, source_url, url)
+        webmention.send(endpoint, source_url, target)
         return True
 
     @classmethod

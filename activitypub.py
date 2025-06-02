@@ -297,7 +297,7 @@ class ActivityPub(User, Protocol):
         return actor.get('publicInbox') or actor.get('inbox')
 
     @classmethod
-    def send(to_cls, obj, url, from_user=None, orig_obj_id=None):
+    def send(to_cls, obj, inbox_url, from_user=None, orig_obj_id=None):
         """Delivers an activity to an inbox URL.
 
         If ``obj.recipient_obj`` is set, it's interpreted as the receiving actor
@@ -306,8 +306,8 @@ class ActivityPub(User, Protocol):
         if not from_user:
             logger.info('Skipping sending, no from_user!')
             return False
-        elif to_cls.is_blocklisted(url):
-            logger.info(f'Skipping sending to blocklisted {url}')
+        elif to_cls.is_blocklisted(inbox_url):
+            logger.info(f'Skipping sending to blocklisted {inbox_url}')
             return False
 
         orig_obj = None
@@ -316,7 +316,7 @@ class ActivityPub(User, Protocol):
                                       from_user=from_user)
         activity = to_cls.convert(obj, from_user=from_user, orig_obj=orig_obj)
 
-        return signed_post(url, data=activity, from_user=from_user).ok
+        return signed_post(inbox_url, data=activity, from_user=from_user).ok
 
     @classmethod
     def fetch(cls, obj, **kwargs):

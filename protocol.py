@@ -532,7 +532,7 @@ class Protocol:
         raise NotImplementedError()
 
     @classmethod
-    def send(to_cls, obj, url, from_user=None, orig_obj_id=None):
+    def send(to_cls, obj, target, from_user=None, orig_obj_id=None):
         """Sends an outgoing activity.
 
         To be implemented by subclasses.
@@ -543,7 +543,7 @@ class Protocol:
 
         Args:
           obj (models.Object): with activity to send
-          url (str): destination URL to send to
+          target (str): destination URL to send to
           from_user (models.User): user (actor) this activity is from
           orig_obj_id (str): :class:`models.Object` key id of the "original object"
             that this object refers to, eg replies to or reposts or likes

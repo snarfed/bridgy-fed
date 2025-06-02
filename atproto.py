@@ -624,7 +624,7 @@ class ATProto(User, Protocol):
         repo.handle = username
 
     @classmethod
-    def send(to_cls, obj, url, from_user=None, orig_obj_id=None):
+    def send(to_cls, obj, pds_url, from_user=None, orig_obj_id=None):
         """Creates a record if we own its repo.
 
         If the repo's DID doc doesn't say we're its PDS, does nothing and
@@ -638,8 +638,8 @@ class ATProto(User, Protocol):
         * ``flag``s are translated to ``createReport`` to the mod service
         * DMs are translated to ``sendMessage`` to the chat service
         """
-        if util.domain_from_link(url) not in DOMAINS:
-            logger.info(f'Target PDS {url} is not us')
+        if util.domain_from_link(pds_url) not in DOMAINS:
+            logger.info(f'Target PDS {pds_url} is not us')
             return False
 
         # determine "base" object, if any
