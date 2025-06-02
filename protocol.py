@@ -535,7 +535,9 @@ class Protocol:
     def send(to_cls, obj, target, from_user=None, orig_obj_id=None):
         """Sends an outgoing activity.
 
-        To be implemented by subclasses.
+        To be implemented by subclasses. Should call
+        ``to_cls.translate_ids(obj.as1)`` before converting it to this Protocol's
+        format.
 
         NOTE: if this protocol's ``HAS_COPIES`` is True, and this method creates
         a copy and sends it, it *must* add that copy to the *object*'s (not

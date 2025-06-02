@@ -15,6 +15,9 @@ import granary.nostr
 from requests import RequestException
 from oauth_dropins.webutil import util
 from oauth_dropins.webutil.util import add, json_dumps, json_loads
+import secp256k1
+from websockets.exceptions import ConnectionClosedOK
+from websockets.sync.client import connect
 
 import common
 from common import (
@@ -122,13 +125,6 @@ class Nostr(User, Protocol):
         pass
 
     @classmethod
-    def send(to_cls, obj, url, from_user=None, orig_obj_id=None):
-        """Sends an object to a relay.
-        """
-        # TODO: send to relay
-        return False
-
-    @classmethod
     def fetch(cls, obj, **kwargs):
         """Tries to fetch a Nostr event from a relay.
 
@@ -150,7 +146,7 @@ class Nostr(User, Protocol):
         return False
 
     @classmethod
-    def _convert(cls, obj, from_user=None):
+    def _convert(to_cls, obj, from_user=None):
         """Converts a :class:`models.Object` to a Nostr event.
 
         Args:
@@ -160,4 +156,32 @@ class Nostr(User, Protocol):
         Returns:
           dict: JSON Nostr event
         """
-        return granary.nostr.from_as1(obj.as1)
+        privkey = None
+        if from_user and from_user.nostr_key_bytes:
+            privkey = granary.nostr.bech32_encode(
+                'nsec', from_user.nostr_key_bytes.hex())
+
+        translated = to_cls.translate_ids(obj.as1)
+        return granary.nostr.from_as1(translated, privkey=privkey)
+
+    @classmethod
+    def send(to_cls, obj, relay_url, from_user=None, **kwargs):
+        """Sends an event to a relay."""
+        assert from_user
+        assert from_user.nostr_key_bytes
+
+        event = to_cls.convert(obj, from_user=from_user)
+        pubkey = granary.nostr.pubkey_from_privkey(from_user.nostr_key_bytes.hex())
+        assert event.get('pubkey') == pubkey, event
+        assert event.get('sig'), event
+
+        with connect(relay_url, open_timeout=util.HTTP_TIMEOUT,
+                     close_timeout=util.HTTP_TIMEOUT) as websocket:
+            try:
+                websocket.send(json_dumps(['EVENT', event]))
+                msg = websocket.recv(timeout=util.HTTP_TIMEOUT)
+            except ConnectionClosedOK as cc:
+                logger.warning(cc)
+                return False
+
+        return True

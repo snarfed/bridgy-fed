@@ -1,18 +1,28 @@
 """Unit tests for nostr.py."""
 from unittest.mock import patch
 
+import granary.nostr
 from oauth_dropins.webutil.testutil import requests_response
 from oauth_dropins.webutil.util import json_dumps, json_loads
+from secp256k1 import PrivateKey, PublicKey
 
 import common
 from flask_app import app
 import ids
 from ids import translate_handle, translate_object_id, translate_user_id
 from models import Object, Target
+import nostr
 from nostr import Nostr
 from .testutil import Fake, TestCase
 
-from granary.tests.test_nostr import NOW_TS, NPUB_URI, PUBKEY
+from granary.tests.test_nostr import (
+    fake_connect,
+    FakeConnection,
+    NOW_TS,
+    NPUB_URI,
+    PRIVKEY,
+    PUBKEY,
+)
 
 
 class NostrTest(TestCase):
@@ -20,6 +30,15 @@ class NostrTest(TestCase):
     def setUp(self):
         super().setUp()
         common.RUN_TASKS_INLINE = False
+
+        FakeConnection.reset()
+        nostr.connect = fake_connect
+
+        self.key = PrivateKey(bytes.fromhex(PRIVKEY))
+        self.user = self.make_user(
+            'fake:user', cls=Fake, nostr_key_bytes=self.key.private_key,
+            enabled_protocols=['nostr'],
+            copies=[Target(uri=NPUB_URI, protocol='nostr')])
 
     def test_id_uri(self):
         self.assertEqual('nostr:npub123', Nostr(id='npub123').id_uri())
@@ -129,3 +148,48 @@ class NostrTest(TestCase):
             ],
             'content': 'not important',
         })))
+
+    def test_convert_note_from_user_sign(self):
+        got = Nostr._convert(Object(our_as1={
+            'objectType': 'note',
+            'id': 'fake:post',
+            'author': NPUB_URI,
+            'content': 'Something to say',
+            'published': '2022-01-02T03:04:05+00:00',
+        }), from_user=self.user)
+        self.assert_equals({
+            'kind': 1,
+            'id': '4a57c7a1dde3bfe13076db485c4f09756e54447f6389dbf6864d4139bc40a214',
+            'pubkey': PUBKEY,
+            'content': 'Something to say',
+            'created_at': NOW_TS,
+            'tags': [],
+            'sig': '65b42db33486f669fa4dff3dba2ed914dcda886d47177a747e5e574e1a87cd4da23b54350dba758ecd91d48625f5345c8516458c76bebf60b0de89d12fa76a11',
+        }, got)
+        self.assertTrue(granary.nostr.verify(got))
+
+    def test_send_note(self):
+        obj = Object(id='fake:note', our_as1={
+            'objectType': 'note',
+            'author': 'fake:user',
+            'content': 'Something to say',
+            'published': '2019-12-02T03:04:05+00:00',
+        })
+
+        id = '941a6c6fe92768bc9935ad2fe8f29df4934d551b63f4e7c6038df758c0a5602f'
+        expected = {
+            'kind': 1,
+            'id': id,
+            'pubkey': PUBKEY,
+            'content': 'Something to say',
+            'created_at': 1575255845,
+            'tags': [],
+            'sig': '43bfafe0b0b6911ee0246906e23fb7eb857be1daa8cafdd521ad9eb33d0da981435f9b0adda92917881de5373baa64a5c2db11ab9c29b2ef2edfa94463261a14',
+        }
+        FakeConnection.to_receive = [
+            ['OK', id, True],
+        ]
+
+        self.assertTrue(Nostr.send(obj, 'TODO relay', from_user=self.user))
+        self.assert_equals([['EVENT', expected]], FakeConnection.sent)
+        self.assertTrue(granary.nostr.verify(expected))

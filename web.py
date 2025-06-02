@@ -1042,7 +1042,7 @@ def webmention_endpoint_cache_key(url):
 
 @memcache.memoize(expire=timedelta(hours=2), key=webmention_endpoint_cache_key)
 def webmention_discover(url, **kwargs):
-    """Thin caching wrapper around :func:`oauth_dropins.webutil.webmention.discover`."""
+    """Thin cache around :func:`oauth_dropins.webutil.webmention.discover`."""
     # discard the response since we don't use it and it's occasionally too big for
     # memcache
     return webmention.discover(url, **kwargs)._replace(response=None)
