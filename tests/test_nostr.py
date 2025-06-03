@@ -90,13 +90,12 @@ class NostrTest(TestCase):
     def test_convert_actor(self):
         self.assert_equals({
             'kind': 0,
-            'id': 'b5194395b42eebb7c3dfb9c45be1859d20daf33a95dd05e409c68597689b7a19',
+            'id': 'ad2022ba75a10fb2963005f14ce69ef66b466ebd4a13100d86200dcb818bcb2e',
             'pubkey': PUBKEY,
             'content': json_dumps({
                 'name': 'Alice',
                 'about': 'It me',
                 'picture': 'http://alice/pic',
-                'nip05': '_@alice',  # TODO
             }, sort_keys=True),
             'tags': [],
             'created_at': NOW_TS,
@@ -193,3 +192,76 @@ class NostrTest(TestCase):
         self.assertTrue(Nostr.send(obj, 'TODO relay', from_user=self.user))
         self.assert_equals([['EVENT', expected]], FakeConnection.sent)
         self.assertTrue(granary.nostr.verify(expected))
+        self.assertEqual(granary.nostr.id_to_uri('note', id), obj.get_copy(Nostr))
+
+    @patch('secp256k1._gen_private_key', return_value=bytes.fromhex(PRIVKEY))
+    def test_create_for(self, _):
+        alice = self.make_user(
+            'fake:alice', cls=Fake,
+            obj_as1={'objectType': 'person', 'displayName': 'Alice'})
+        self.assertIsNone(alice.nostr_key_bytes)
+
+        profile_id = '8be34ca85471dcb2306ca005182d4468eede8e3a979f84b80f1a9616e84f4c74'
+        FakeConnection.to_receive = [
+            ['OK', profile_id, True],
+        ]
+
+        Nostr.create_for(alice)
+
+        alice = alice.key.get()
+        self.assertEqual(PRIVKEY, alice.nostr_key_bytes.hex())
+        self.assertEqual(NPUB_URI, alice.get_copy(Nostr))
+        self.assertEqual(granary.nostr.id_to_uri('nprofile', profile_id),
+                         alice.obj.get_copy(Nostr))
+
+        self.assertEqual([['EVENT', {
+            'kind': 0,
+            'pubkey': PUBKEY,
+            'id': profile_id,
+            'sig': '54173e03ea1608c1c99b40532a68c824c3e2558628286d13271277f8811d08823484d4708a299182310c2a5480aa3966772c99214531937437fc900a361288f0',
+            'content': json_dumps({'name':'Alice'}),
+            'created_at': NOW_TS,
+            'tags': [],
+        }]], FakeConnection.sent)
+
+    def test_create_for_already_has_nostr_copy(self):
+        alice = self.make_user('fake:user3', cls=Fake,
+                                   copies=[Target(uri='nostr:npub123', protocol='nostr')])
+
+        Nostr.create_for(alice)
+
+        alice = alice.key.get()
+        self.assertIsNone(alice.nostr_key_bytes)
+        self.assertEqual(0, len(FakeConnection.sent))
+
+    def test_create_for_existing_key_no_copy(self):
+        alice = self.make_user('fake:user4', cls=Fake,
+                                   nostr_key_bytes=self.key.private_key,
+                                   obj_as1={'objectType': 'person', 'displayName': 'Charlie'})
+
+        FakeConnection.to_receive = [
+            ['OK', 'fakeid', True],
+        ]
+
+        Nostr.create_for(alice)
+
+        alice = alice.key.get()
+        self.assertEqual(self.key.private_key, alice.nostr_key_bytes)
+
+        self.assertEqual(1, len(FakeConnection.sent))
+        event_type, event = FakeConnection.sent[0]
+        self.assertEqual('EVENT', event_type)
+        self.assertEqual(PUBKEY, event['pubkey'])
+
+    def test_create_for_profile_already_copied(self):
+        alice = self.make_user('fake:user5', cls=Fake,
+                                   obj_as1={'objectType': 'person', 'displayName': 'David'})
+        alice.obj.copies = [Target(uri='nostr:nevent123', protocol='nostr')]
+        alice.obj.put()
+
+        Nostr.create_for(alice)
+
+        alice = alice.key.get()
+        self.assertIsNotNone(alice.nostr_key_bytes)
+        self.assertEqual(1, len([c for c in alice.copies if c.protocol == 'nostr']))
+        self.assertEqual(0, len(FakeConnection.sent))

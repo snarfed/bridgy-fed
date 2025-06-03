@@ -12,6 +12,7 @@ import logging
 from google.cloud import ndb
 from granary import as1
 import granary.nostr
+from granary.nostr import bech32_prefix_for, id_to_uri, uri_to_id
 from requests import RequestException
 from oauth_dropins.webutil import util
 from oauth_dropins.webutil.util import add, json_dumps, json_loads
@@ -93,8 +94,8 @@ class Nostr(User, Protocol):
 
     @classmethod
     def bridged_web_url_for(cls, user, fallback=False):
-        if not isinstance(user, Nostr) and user.obj:
-            if nprofile := user.obj.get_copy(Nostr):
+        if not isinstance(user, cls) and user.obj:
+            if nprofile := user.obj.get_copy(cls):
                 return granary.nostr.Nostr.user_url(nprofile)
 
     @classmethod
@@ -109,15 +110,40 @@ class Nostr(User, Protocol):
         Args:
           user (models.User)
         """
-        pass  # TODO
+        assert not isinstance(user, cls)
+
+        if npub := user.get_copy(cls):
+            return
+
+        # generate keypair if necessary, store npub as copy in user
+        if not user.nostr_key_bytes:
+            logger.info(f'generating Nostr keypair for {user.key}')
+            privkey = secp256k1.PrivateKey()
+            user.nostr_key_bytes = privkey.private_key
+
+        pubkey = granary.nostr.pubkey_from_privkey(user.nostr_key_bytes.hex())
+        npub = id_to_uri('npub', pubkey)
+        logger.info(f'adding Nostr copy user {npub} for {user.key}')
+        user.add('copies', Target(uri=npub, protocol='nostr'))
+        user.put()
+
+        if user.obj and any(copy.protocol == 'nostr' for copy in user.obj.copies):
+            return
+
+        # create Nostr profile (kind 0 event) if necessary
+        if not user.obj or not user.obj.as1:
+            user.reload_profile()
+
+        if user.obj and not user.obj.get_copy(cls):
+            cls.send(user.obj, 'TODO relay', from_user=user)
 
     @classmethod
     def set_username(to_cls, user, username):
         """check NIP-05 DNS, then update profile event with nip05?"""
-        if not user.is_enabled(Nostr):
+        if not user.is_enabled(to_cls):
             raise ValueError("First, you'll need to bridge your account into Nostr by following this account.")
 
-        npub = user.get_copy(Nostr)
+        npub = user.get_copy(to_cls)
         username = username.removeprefix('@')
 
         # TODO: implement NIP-05 setup
@@ -184,4 +210,6 @@ class Nostr(User, Protocol):
                 logger.warning(cc)
                 return False
 
+        event_uri = id_to_uri(bech32_prefix_for(event), event['id'])
+        obj.add('copies', Target(uri=event_uri, protocol=to_cls.LABEL))
         return True
