@@ -25,6 +25,10 @@ from granary.tests.test_as1 import (
     MENTION,
     NOTE,
 )
+from granary.tests.test_nostr import (
+    fake_connect,
+    FakeConnection,
+)
 from oauth_dropins.webutil import flask_util, testutil, util
 from oauth_dropins.webutil.appengine_config import ndb_client
 from oauth_dropins.webutil import appengine_info
@@ -38,6 +42,7 @@ from common import long_to_base64, NDB_CONTEXT_KWARGS, TASKS_LOCATION
 import ids
 import models
 from models import KEY_BITS, Object, PROTOCOLS, Target, User
+import nostr
 import protocol
 import router
 
@@ -371,6 +376,10 @@ class TestCase(unittest.TestCase, testutil.Asserts):
             'CHAT_DID': 'did:chat',
         })
         atproto.appview.address = 'https://appview.local'
+
+        # nostr fake websocket
+        FakeConnection.reset()
+        nostr.connect = fake_connect
 
     def tearDown(self):
         self.app_context.pop()

@@ -16,7 +16,6 @@ from nostr import Nostr
 from .testutil import Fake, TestCase
 
 from granary.tests.test_nostr import (
-    fake_connect,
     FakeConnection,
     NOW_TS,
     NPUB_URI,
@@ -30,9 +29,6 @@ class NostrTest(TestCase):
     def setUp(self):
         super().setUp()
         common.RUN_TASKS_INLINE = False
-
-        FakeConnection.reset()
-        nostr.connect = fake_connect
 
         self.key = PrivateKey(bytes.fromhex(PRIVKEY))
         self.user = self.make_user(
