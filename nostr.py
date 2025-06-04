@@ -59,8 +59,11 @@ class Nostr(User, Protocol):
 
     @ndb.ComputedProperty
     def handle(self):
-        """TODO: NIP-05"""
-        return None
+        """Returns the NIP-05 identity from the user's profile event."""
+        if self.obj and self.obj.nostr and self.obj.nostr.get('kind') == 0:
+            content = json_loads(self.obj.nostr.get('content', '{}'))
+            if nip05 := content.get('nip05'):
+                return nip05.removeprefix('_@')
 
     def web_url(self):
         if self.obj_key:

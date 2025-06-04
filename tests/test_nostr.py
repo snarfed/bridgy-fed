@@ -1,6 +1,7 @@
 """Unit tests for nostr.py."""
 from unittest.mock import patch
 
+from google.cloud import ndb
 import granary.nostr
 from oauth_dropins.webutil.testutil import requests_response
 from oauth_dropins.webutil.util import json_dumps, json_loads
@@ -46,6 +47,21 @@ class NostrTest(TestCase):
         self.assertIsNone(Nostr().web_url())
         self.assertEqual('https://coracle.social/people/nprofile123',
                          Nostr(obj_key=Object(id='nostr:nprofile123').key).web_url())
+
+    def test_handle(self):
+        self.assertIsNone(Nostr().handle)
+
+        for expected, event in (
+                (None, {'kind': 1}),
+                (None, {'kind': 1, 'content': 'foo'}),
+                (None, {'kind': 1, 'content': '{"nip05":"foo"}'}),
+                (None, {'kind': 0, 'content': '{"name":"Alice"}'}),
+                ('foo', {'kind': 0, 'content': '{"nip05":"foo"}'}),
+                ('foo', {'kind': 0, 'content': '{"nip05":"_@foo"}'}),
+        ):
+            with self.subTest(event=event):
+                obj = Object(id='x', nostr={**event, 'pubkey': PUBKEY})
+                self.assertEqual(expected, Nostr(obj_key=obj.put()).handle)
 
     def test_bridged_web_url_for(self):
         self.assertIsNone(Nostr.bridged_web_url_for(Nostr()))
