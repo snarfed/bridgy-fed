@@ -51,18 +51,20 @@ PROTOCOLS = {label: None for label in (
     'atproto',
     'bsky',
     'ostatus',
-    'nostr',
     'web',
     'webmention',
     'ui',
 )}
+DEBUG_PROTOCOLS = (
+    'fa',
+    'fake',
+    'efake',
+    'other',
+    # TODO: move to PROTOCOLS for launch
+    'nostr',
+)
 if DEBUG:
-    PROTOCOLS.update({label: None for label in (
-        'fa',
-        'fake',
-        'efake',
-        'other',
-    )})
+    PROTOCOLS.update({label: None for label in DEBUG_PROTOCOLS})
 
 # maps string kind (eg 'MagicKey') to Protocol subclass.
 # populated in ProtocolUserMeta
@@ -172,16 +174,16 @@ class DM(ndb.Model):
 
 
 class ProtocolUserMeta(type(ndb.Model)):
-    """:class:`User` metaclass. Registers all subclasses in the ``PROTOCOLS`` global."""
+    """:class:`User` metaclass. Registers all subclasses in ``PROTOCOLS``."""
     def __new__(meta, name, bases, class_dict):
         cls = super().__new__(meta, name, bases, class_dict)
 
-        if hasattr(cls, 'LABEL') and cls.LABEL not in ('protocol', 'user'):
-            for label in (cls.LABEL, cls.ABBREV) + cls.OTHER_LABELS:
-                if label:
-                    PROTOCOLS[label] = cls
-
-        PROTOCOLS_BY_KIND[cls._get_kind()] = cls
+        if DEBUG or cls.LABEL not in DEBUG_PROTOCOLS:
+            if hasattr(cls, 'LABEL') and cls.LABEL not in ('protocol', 'user'):
+                for label in (cls.LABEL, cls.ABBREV) + cls.OTHER_LABELS:
+                    if label:
+                        PROTOCOLS[label] = cls
+            PROTOCOLS_BY_KIND[cls._get_kind()] = cls
 
         return cls
 
