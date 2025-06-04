@@ -45,6 +45,14 @@ models
 ------
 .. automodule:: models
 
+nostr
+-----
+.. automodule:: nostr
+
+notifications
+-------------
+.. automodule:: notifications
+
 pages
 -----
 .. automodule:: pages
