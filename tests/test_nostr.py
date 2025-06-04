@@ -5,6 +5,7 @@ import granary.nostr
 from oauth_dropins.webutil.testutil import requests_response
 from oauth_dropins.webutil.util import json_dumps, json_loads
 from secp256k1 import PrivateKey, PublicKey
+from websockets.exceptions import ConnectionClosedOK, WebSocketException
 
 import common
 from flask_app import app
@@ -17,10 +18,12 @@ from .testutil import Fake, TestCase
 
 from granary.tests.test_nostr import (
     FakeConnection,
+    ID,
     NOW_TS,
     NPUB_URI,
     PRIVKEY,
     PUBKEY,
+    URI,
 )
 
 
@@ -261,3 +264,69 @@ class NostrTest(TestCase):
         self.assertIsNotNone(alice.nostr_key_bytes)
         self.assertEqual(1, len([c for c in alice.copies if c.protocol == 'nostr']))
         self.assertEqual(0, len(FakeConnection.sent))
+
+    @patch('secrets.token_urlsafe', return_value='towkin')
+    def test_fetch_note(self, _):
+        event = {
+            'kind': 1,
+            'content': 'foo bar',
+        }
+        FakeConnection.to_receive = [
+            ['EVENT', 'towkin', event],
+            ['EOSE', 'towkin'],
+        ]
+
+        obj = Object(id=URI)
+        self.assertTrue(Nostr.fetch(obj))
+        self.assertEqual(event, obj.nostr)
+        self.assertEqual([
+            ['REQ', 'towkin', {'ids': [ID], 'limit': 20}],
+            ['CLOSE', 'towkin'],
+        ], FakeConnection.sent)
+
+    @patch('secrets.token_urlsafe', return_value='towkin')
+    def test_fetch_npub(self, _):
+        event = {
+            'kind': 0,
+            'content': '{"name":"Alice"}',
+        }
+        FakeConnection.to_receive = [
+            ['EVENT', 'towkin', event],
+            ['EOSE', 'towkin'],
+        ]
+
+        obj = Object(id=NPUB_URI)
+        self.assertTrue(Nostr.fetch(obj))
+        self.assertEqual(event, obj.nostr)
+        self.assertEqual([
+            ['REQ', 'towkin', {'authors': [PUBKEY], 'kinds': [0], 'limit': 20}],
+            ['CLOSE', 'towkin'],
+        ], FakeConnection.sent)
+
+    @patch('secrets.token_urlsafe', return_value='towkin')
+    def test_fetch_not_found(self, _):
+        FakeConnection.to_receive = [
+            ['EOSE', 'towkin'],
+        ]
+
+        obj = Object(id=URI)
+        self.assertFalse(Nostr.fetch(obj))
+        self.assertIsNone(obj.nostr)
+        self.assertEqual([
+            ['REQ', 'towkin', {'ids': [ID], 'limit': 20}],
+            ['CLOSE', 'towkin'],
+        ], FakeConnection.sent)
+
+    def test_fetch_error(self):
+        FakeConnection.send_err = WebSocketException('Failed to connect')
+
+        obj = Object(id=URI)
+        with self.assertRaises(WebSocketException):
+            Nostr.fetch(obj)
+
+        self.assertIsNone(obj.nostr)
+
+    def test_fetch_invalid_id(self):
+        for id in '', 'not-a-nostr-id', 'https://example.com':
+            with self.subTest(id=id):
+                self.assertFalse(Nostr.fetch(Object(id=id)))

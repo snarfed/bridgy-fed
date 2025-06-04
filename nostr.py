@@ -152,24 +152,38 @@ class Nostr(User, Protocol):
 
     @classmethod
     def fetch(cls, obj, **kwargs):
-        """Tries to fetch a Nostr event from a relay.
+        """Fetches a Nostr event from a relay.
 
         Args:
-          obj (models.Object): with the id to fetch. Fills data into the ``as2``
+          obj (models.Object): with the id to fetch. Fills data into the ``nostr``
             property.
           kwargs: ignored
 
         Returns:
           bool: True if the object was fetched and populated successfully,
-          False otherwise
+            False otherwise
         """
-        id = obj.key.id()
-        if not cls.owns_id(id):
-            logger.info(f"Nostr can't fetch {id}")
+        uri = obj.key.id()
+        if not cls.owns_id(uri):
+            logger.info(f"Nostr can't fetch {uri}")
             return False
 
-        # TODO: fetch from relay
-        return False
+        bech32_id = uri.removeprefix('nostr:')
+        is_profile = bech32_id.startswith('npub') or bech32_id.startswith('nprofile')
+        hex_id = uri_to_id(uri)
+        filter = ({'authors': [hex_id], 'kinds': [0]} if is_profile
+                  else {'ids': [hex_id]})
+
+        client = granary.nostr.Nostr(['unused'])
+        with connect('TODO relay', open_timeout=util.HTTP_TIMEOUT,
+                     close_timeout=util.HTTP_TIMEOUT) as websocket:
+            events = client.query(websocket, filter)
+
+        if not events:
+            return False
+
+        obj.nostr = events[0]
+        return True
 
     @classmethod
     def _convert(to_cls, obj, from_user=None):

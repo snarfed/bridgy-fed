@@ -581,7 +581,8 @@ class Protocol:
           False otherwise
 
         Raises:
-          requests.RequestException or werkzeug.HTTPException: if the fetch fails
+          requests.RequestException, werkzeug.HTTPException,
+          websockets.WebSocketException, etc: if the fetch fails
         """
         raise NotImplementedError()
 
