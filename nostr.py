@@ -13,12 +13,15 @@ from google.cloud import ndb
 from granary import as1
 import granary.nostr
 from granary.nostr import bech32_prefix_for, id_to_uri, uri_to_id
-from requests import RequestException
+from oauth_dropins.webutil import flask_util
 from oauth_dropins.webutil import util
+from oauth_dropins.webutil.flask_util import get_required_param
 from oauth_dropins.webutil.util import add, json_dumps, json_loads
+from requests import RequestException
 import secp256k1
 from websockets.exceptions import ConnectionClosedOK
 from websockets.sync.client import connect
+from werkzeug.exceptions import NotFound
 
 import common
 from common import (
@@ -28,6 +31,7 @@ from common import (
     error,
     USER_AGENT,
 )
+from flask_app import app
 import ids
 from models import Object, PROTOCOLS, Target, User
 from protocol import Protocol
@@ -230,3 +234,31 @@ class Nostr(User, Protocol):
         event_uri = id_to_uri(bech32_prefix_for(event), event['id'])
         obj.add('copies', Target(uri=event_uri, protocol=to_cls.LABEL))
         return True
+
+
+@app.get('/.well-known/nostr.json')
+@flask_util.headers(common.CACHE_CONTROL)
+def nip_05():
+    """NIP-05 endpoint that serves handles for users bridged into Nostr.
+
+    https://nips.nostr.com/5
+
+    Query params:
+      name (str): should only contain a-z0-9-_.
+
+    Returns a JSON object with:
+      names: {<name>: <pubkey hex>}
+      relays: optional, {<pubkey hex>: [relay urls]}
+    """
+    name = get_required_param('name')
+
+    # TODO: convert back to protocol's handle, eg - and . chars
+    if (proto := Protocol.for_request()) and proto != Nostr:
+        user = proto.get_by_id(name) or proto.query(proto.handle == name).get()
+        if user and user.is_enabled(Nostr):
+            if npub := user.get_copy(Nostr):
+                return {
+                    'names': {name: uri_to_id(npub)},
+                }
+
+    raise NotFound()
