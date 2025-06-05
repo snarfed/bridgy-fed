@@ -153,9 +153,9 @@ class Nostr(User, Protocol):
         npub = user.get_copy(to_cls)
         username = username.removeprefix('@')
 
-        # TODO: implement NIP-05 setup
+        # TODO
         logger.info(f'Setting Nostr NIP-05 for {user.key.id()} to {username}')
-        pass
+        raise NotImplementedError()
 
     @classmethod
     def fetch(cls, obj, **kwargs):

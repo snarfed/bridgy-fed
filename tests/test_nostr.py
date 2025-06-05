@@ -20,6 +20,7 @@ from web import Web
 from granary.tests.test_nostr import (
     FakeConnection,
     ID,
+    NOTE_NOSTR,
     NOW_TS,
     NPUB_URI,
     PRIVKEY,
@@ -284,18 +285,14 @@ class NostrTest(TestCase):
 
     @patch('secrets.token_urlsafe', return_value='towkin')
     def test_fetch_note(self, _):
-        event = {
-            'kind': 1,
-            'content': 'foo bar',
-        }
         FakeConnection.to_receive = [
-            ['EVENT', 'towkin', event],
+            ['EVENT', 'towkin', NOTE_NOSTR],
             ['EOSE', 'towkin'],
         ]
 
         obj = Object(id=URI)
         self.assertTrue(Nostr.fetch(obj))
-        self.assertEqual(event, obj.nostr)
+        self.assertEqual(NOTE_NOSTR, obj.nostr)
         self.assertEqual([
             ['REQ', 'towkin', {'ids': [ID], 'limit': 20}],
             ['CLOSE', 'towkin'],
@@ -303,18 +300,14 @@ class NostrTest(TestCase):
 
     @patch('secrets.token_urlsafe', return_value='towkin')
     def test_fetch_npub(self, _):
-        event = {
-            'kind': 0,
-            'content': '{"name":"Alice"}',
-        }
         FakeConnection.to_receive = [
-            ['EVENT', 'towkin', event],
+            ['EVENT', 'towkin', NOTE_NOSTR],
             ['EOSE', 'towkin'],
         ]
 
         obj = Object(id=NPUB_URI)
         self.assertTrue(Nostr.fetch(obj))
-        self.assertEqual(event, obj.nostr)
+        self.assertEqual(NOTE_NOSTR, obj.nostr)
         self.assertEqual([
             ['REQ', 'towkin', {'authors': [PUBKEY], 'kinds': [0], 'limit': 20}],
             ['CLOSE', 'towkin'],
