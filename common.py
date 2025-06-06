@@ -53,11 +53,14 @@ PROTOCOL_DOMAINS = (
     'atproto.brid.gy',
     'bsky.brid.gy',
     'web.brid.gy',
-    'efake.brid.gy',
-    'fa.brid.gy',
-    'other.brid.gy',
-    'nostr.brid.gy',
 )
+if DEBUG:
+    PROTOCOL_DOMAINS += (
+        'efake.brid.gy',
+        'fa.brid.gy',
+        'other.brid.gy',
+        'nostr.brid.gy',
+    )
 OTHER_DOMAINS = (
     'bridgy-federated.appspot.com',
     'bridgy-federated.uc.r.appspot.com',

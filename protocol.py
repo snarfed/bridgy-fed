@@ -74,7 +74,11 @@ STORE_AS1_TYPES = (as1.ACTOR_TYPES | as1.POST_TYPES | as1.VERBS_WITH_OBJECT
 
 # when we see a post from a user id that's a key in this dict, we automatically
 # repost it as each of the accounts in the value sequence
-PROTOCOL_BOT_ACCOUNTS = tuple(('web', domain) for domain in PROTOCOL_DOMAINS)
+PROTOCOL_BOT_ACCOUNTS = (
+    ('web', 'ap.brid.gy'),
+    ('web', 'bsky.brid.gy'),
+    ('web', 'fed.brid.gy'),
+)
 AUTO_REPOST_ACCOUNTS = {
     'https://blog.anew.social/.ghost/activitypub/users/index': PROTOCOL_BOT_ACCOUNTS,
     'https://mastodon.social/users/anewsocial': PROTOCOL_BOT_ACCOUNTS,
