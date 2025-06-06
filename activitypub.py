@@ -239,8 +239,6 @@ class ActivityPub(User, Protocol):
         if (handle and handle[0] == '@'
                 and cls.is_user_at_domain(handle[1:], allow_internal=allow_internal)):
             return True
-        # elif cls.is_user_at_domain(handle, allow_internal=allow_internal):
-        #     return None
 
         return False
 
