@@ -285,7 +285,8 @@ class ActivityPub(User, Protocol):
 
             logger.info(f'{obj.key} type {obj.type} is not an actor and has no author or actor with inbox')
 
-        actor = cls._convert(obj)
+        if not (actor := cls._convert(obj)):
+            return None
 
         if shared:
             shared_inbox = actor.get('endpoints', {}).get('sharedInbox')
