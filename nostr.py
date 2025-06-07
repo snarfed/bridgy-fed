@@ -61,6 +61,8 @@ class Nostr(User, Protocol):
     )
     SUPPORTS_DMS = False  # NIP-17
 
+    relays = ndb.StringProperty(repeated=True)
+    """Relays this user generally uses, from NIP-65 kind 10002 events."""
 
     def _pre_put_hook(self):
         """Validates that the id is a bech32-encoded nostr:npub id."""
@@ -113,8 +115,11 @@ class Nostr(User, Protocol):
 
     @classmethod
     def target_for(cls, obj, shared=False):
-        """Look up the author's relays and return one?"""
-        return None
+        """Returns the first NIP-65 relay for the given object's author."""
+        if (id := as1.get_owner(obj.as1)) and id.startswith('nostr:npub'):
+            if user := Nostr.get_or_create(id):
+                if user.relays:
+                    return user.relays[0]
 
     @classmethod
     def create_for(cls, user):

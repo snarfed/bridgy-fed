@@ -1,4 +1,5 @@
 """Unit tests for nostr.py."""
+from unittest import skip
 from unittest.mock import patch
 
 from google.cloud import ndb
@@ -422,3 +423,24 @@ class NostrTest(TestCase):
                 resp = self.get(f'/.well-known/nostr.json?name={name}',
                                 base_url='https://nostr.brid.gy')
                 self.assertEqual(404, resp.status_code)
+
+    def test_target_for_existing_user(self):
+        self.make_user(NPUB_URI, cls=Nostr, relays=['wss://a', 'wss://b'])
+        self.assertEqual('wss://a', Nostr.target_for(Object(nostr=NOTE_NOSTR)))
+
+    @skip  # TODO
+    def test_target_for_fetch_user(self):
+        self.assertEqual('wss://a', Nostr.target_for(Object(nostr=NOTE_NOSTR)))
+
+    def test_target_for_no_relays(self):
+        self.make_user(NPUB_URI, cls=Nostr)
+        self.assertIsNone(Nostr.target_for(Object(nostr=NOTE_NOSTR)))
+
+    def test_target_for_no_author(self):
+        self.assertIsNone(Nostr.target_for(Object(our_as1={
+            'objectType': 'note',
+            'content': 'Hello world',
+        })))
+
+    def test_target_for_no_as1(self):
+        self.assertIsNone(Nostr.target_for(Object()))
