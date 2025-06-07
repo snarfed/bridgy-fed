@@ -11,8 +11,10 @@ from granary.nostr import (
     KIND_NOTE,
     KIND_PROFILE,
     KIND_RELAYS,
+    id_and_sign,
 )
 from oauth_dropins.webutil.testutil import requests_response
+from oauth_dropins.webutil import util
 from oauth_dropins.webutil.util import json_dumps, json_loads
 from secp256k1 import PrivateKey, PublicKey
 from websockets.exceptions import ConnectionClosedOK, WebSocketException
@@ -32,6 +34,7 @@ from granary.tests.test_nostr import (
     NOTE_NOSTR,
     NOW_TS,
     NPUB_URI,
+    NSEC_URI,
     PRIVKEY,
     PUBKEY,
     URI,
@@ -61,7 +64,7 @@ class NostrTest(TestCase):
         self.assertEqual(PUBKEY, Nostr(id=NPUB_URI).hex_pubkey())
 
     def test_npub(self):
-        self.assertEqual(NPUB_URI, Nostr(id=NPUB_URI).npub())
+        self.assertEqual('npub123', Nostr(id='nostr:npub123').npub())
 
     def test_id_uri(self):
         self.assertEqual('nostr:npub123', Nostr(id='npub123').id_uri())
@@ -432,31 +435,27 @@ class NostrTest(TestCase):
                 self.assertEqual(404, resp.status_code)
 
     def test_target_for_existing_user(self):
-        relay_list = Object(id='nostr:nevent123', nostr={
+        relays = Object(id='nostr:nevent123', nostr={
             'kind': 10002,
             'tags': [
                 ['r', 'wss://a', 'read'],
                 ['r', 'wss://b'],
             ],
         })
-        relay_list.put()
-        self.make_user(NPUB_URI, cls=Nostr, relay_list=relay_list.key)
+        relays.put()
+        self.make_user(NPUB_URI, cls=Nostr, relays=relays.key)
 
         self.assertEqual('wss://b', Nostr.target_for(Object(nostr=NOTE_NOSTR)))
 
-        relay_list.nostr['tags'] = [
+        relays.nostr['tags'] = [
             ['r', 'wss://a', 'read'],
             ['r', 'wss://c', 'write'],
             ['r', 'wss://b'],
         ]
-        relay_list.put()
+        relays.put()
         self.assertEqual('wss://c', Nostr.target_for(Object(nostr=NOTE_NOSTR)))
 
-    @skip  # TODO
-    def test_target_for_fetch_user(self):
-        self.assertEqual('wss://a', Nostr.target_for(Object(nostr=NOTE_NOSTR)))
-
-    def test_target_for_no_relay_list_object(self):
+    def test_target_for_no_relays_object(self):
         self.make_user(NPUB_URI, cls=Nostr)
         self.assertIsNone(Nostr.target_for(Object(nostr=NOTE_NOSTR)))
 
@@ -468,3 +467,62 @@ class NostrTest(TestCase):
 
     def test_target_for_no_as1(self):
         self.assertIsNone(Nostr.target_for(Object()))
+
+    @patch('secrets.token_urlsafe', return_value='towkin')
+    def test_reload_profile(self, _):
+        profile = id_and_sign({
+            'kind': KIND_PROFILE,
+            'pubkey': PUBKEY,
+            'content': json_dumps({
+                'name': 'Alice',
+                'about': 'Test user',
+                'picture': 'http://alice/pic',
+            }),
+            'created_at': NOW_TS,
+            'tags': [],
+        }, privkey=NSEC_URI)
+        relays = id_and_sign({
+            'kind': KIND_RELAYS,
+            'pubkey': PUBKEY,
+            'content': '',
+            'created_at': NOW_TS,
+            'tags': [
+                ['r', 'wss://a', 'read'],
+                ['r', 'wss://b'],
+            ],
+        }, privkey=NSEC_URI)
+
+        FakeConnection.to_receive = [
+            ['EVENT', 'towkin', profile],
+            ['EVENT', 'towkin', relays],
+            ['EOSE', 'towkin'],
+        ]
+
+        user = Nostr(id=NPUB_URI)
+        user.reload_profile()
+
+        self.assertEqual([
+            ['REQ', 'towkin', {
+                'authors': [PUBKEY],
+                'kinds': [KIND_PROFILE, KIND_RELAYS],
+                'limit': 20,
+            }],
+            ['CLOSE', 'towkin'],
+        ], FakeConnection.sent)
+
+        self.assertEqual(profile, user.obj_key.get().nostr)
+        self.assertEqual(relays, user.relays.get().nostr)
+        self.assertEqual('wss://b', Nostr.target_for(Object(nostr=NOTE_NOSTR)))
+
+    @patch('secrets.token_urlsafe', return_value='towkin')
+    def test_reload_profile_no_events(self, _):
+        FakeConnection.to_receive = [
+            ['EOSE', 'towkin'],
+        ]
+
+        user = Nostr(id=NPUB_URI)
+        user.reload_profile()
+
+        self.assertIsNone(user.obj_key)
+        self.assertIsNone(user.relays)
+        self.assertIsNone(Nostr.target_for(Object(nostr=NOTE_NOSTR)))

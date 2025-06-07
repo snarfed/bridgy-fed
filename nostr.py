@@ -12,10 +12,17 @@ import logging
 from google.cloud import ndb
 from granary import as1
 import granary.nostr
-from granary.nostr import bech32_prefix_for, id_to_uri, uri_to_id
+from granary.nostr import (
+    bech32_prefix_for,
+    id_to_uri,
+    KIND_PROFILE,
+    KIND_RELAYS,
+    uri_to_id,
+)
 from oauth_dropins.webutil import flask_util
 from oauth_dropins.webutil import util
 from oauth_dropins.webutil.flask_util import get_required_param
+from oauth_dropins.webutil import util
 from oauth_dropins.webutil.util import add, json_dumps, json_loads
 from requests import RequestException
 import secp256k1
@@ -61,7 +68,7 @@ class Nostr(User, Protocol):
     )
     SUPPORTS_DMS = False  # NIP-17
 
-    relay_list = ndb.KeyProperty(kind='Object')
+    relays = ndb.KeyProperty(kind='Object')
     """NIP-65 kind 10002 event with this user's relays."""
 
     def _pre_put_hook(self):
@@ -75,8 +82,7 @@ class Nostr(User, Protocol):
         Returns:
           str:
         """
-        assert self.nostr_key_bytes
-        return granary.nostr.pubkey_from_privkey(self.nostr_key_bytes.hex())
+        return uri_to_id(self.key.id())
 
     def npub(self):
         """Returns the user's bech32-encoded ActivityPub public secp256k1 key.
@@ -84,7 +90,7 @@ class Nostr(User, Protocol):
         Returns:
           str:
         """
-        return granary.nostr.bech32_encode('npub', self.hex_pubkey())
+        return self.key.id().removeprefix('nostr:')
 
     @ndb.ComputedProperty
     def handle(self):
@@ -135,9 +141,9 @@ class Nostr(User, Protocol):
         """Returns the first NIP-65 relay for the given object's author."""
         if (id := as1.get_owner(obj.as1)) and id.startswith('nostr:npub'):
             if user := Nostr.get_or_create(id):
-                if user.relay_list and (relay_list := user.relay_list.get()):
-                    if relay_list.nostr:
-                        for tag in relay_list.nostr.get('tags', []):
+                if user.relays and (relays := user.relays.get()):
+                    if relays.nostr:
+                        for tag in relays.nostr.get('tags', []):
                             if tag[0] == 'r' and (len(tag) == 2 or tag[2] == 'write'):
                                 return tag[1]
 
@@ -173,6 +179,38 @@ class Nostr(User, Protocol):
         if user.obj and not user.obj.get_copy(cls):
             cls.send(user.obj, 'TODO relay', from_user=user)
 
+    def reload_profile(self, **kwargs):
+        """Reloads this user's kind 0 profile and also their NIP-65 relay list.
+
+        https://nips.nostr.com/65
+        """
+        client = granary.nostr.Nostr(['unused'])
+        with connect('TODO relay', open_timeout=util.HTTP_TIMEOUT,
+                     close_timeout=util.HTTP_TIMEOUT) as websocket:
+            events = client.query(websocket, {
+                'authors': [self.hex_pubkey()],
+                'kinds': [KIND_PROFILE, KIND_RELAYS],
+            })
+
+        profile = relays = None
+        for event in events:
+            kind = event.get('kind')
+            obj = Object(id=id_to_uri('nevent', event['id']), nostr=event,
+                         source_protocol='nostr')
+
+            if kind == KIND_PROFILE and not profile:
+                profile = obj
+                self.obj_key = profile.put()
+            elif kind == KIND_RELAYS and not relays:
+                relays = obj
+                self.relays = relays.put()
+
+            if profile and relays:
+                break
+
+        # Save the updated user
+        self.put()
+
     @classmethod
     def set_username(to_cls, user, username):
         """check NIP-05 DNS, then update profile event with nip05?"""
@@ -207,7 +245,7 @@ class Nostr(User, Protocol):
         bech32_id = uri.removeprefix('nostr:')
         is_profile = bech32_id.startswith('npub') or bech32_id.startswith('nprofile')
         hex_id = uri_to_id(uri)
-        filter = ({'authors': [hex_id], 'kinds': [0]} if is_profile
+        filter = ({'authors': [hex_id], 'kinds': [KIND_PROFILE]} if is_profile
                   else {'ids': [hex_id]})
 
         client = granary.nostr.Nostr(['unused'])

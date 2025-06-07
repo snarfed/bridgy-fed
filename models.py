@@ -978,7 +978,7 @@ class Object(StringIdModel):
     bsky = JsonProperty()
     'AT Protocol lexicon, for Bluesky'
     mf2 = JsonProperty()
-    'HTML microformats2 item, (ie _not_ top level parse object with ``items`` field'
+    'HTML microformats2 item (*not* top level parse object with ``items`` field)'
     nostr = JsonProperty()
     'Nostr event'
     our_as1 = JsonProperty()

@@ -207,13 +207,9 @@ class UserTest(TestCase):
         self.user.nostr_key_bytes = bytes.fromhex(PRIVKEY)
         self.assertEqual(PUBKEY, self.user.hex_pubkey())
 
-        self.assertEqual(PUBKEY, Nostr(id=NPUB_URI).hex_pubkey())
-
     def test_npub(self):
         self.user.nostr_key_bytes = bytes.fromhex(PRIVKEY)
         self.assertEqual(NPUB_URI.removeprefix('nostr:'), self.user.npub())
-
-        self.assertEqual(NPUB_URI, Nostr(id=NPUB_URI).npub())
 
     def test_user_page_path(self):
         self.assertEqual('/web/y.za', self.user.user_page_path())
