@@ -57,6 +57,12 @@ class NostrTest(TestCase):
         with self.assertRaises(AssertionError):
             Nostr(id='foo').put()
 
+    def test_hex_pubkey(self):
+        self.assertEqual(PUBKEY, Nostr(id=NPUB_URI).hex_pubkey())
+
+    def test_npub(self):
+        self.assertEqual(NPUB_URI, Nostr(id=NPUB_URI).npub())
+
     def test_id_uri(self):
         self.assertEqual('nostr:npub123', Nostr(id='npub123').id_uri())
 

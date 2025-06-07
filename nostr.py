@@ -69,6 +69,23 @@ class Nostr(User, Protocol):
         assert self.key.id().startswith('nostr:npub')
         return super()._pre_put_hook()
 
+    def hex_pubkey(self):
+        """Returns the user's hex-encoded Nostr public secp256k1 key.
+
+        Returns:
+          str:
+        """
+        assert self.nostr_key_bytes
+        return granary.nostr.pubkey_from_privkey(self.nostr_key_bytes.hex())
+
+    def npub(self):
+        """Returns the user's bech32-encoded ActivityPub public secp256k1 key.
+
+        Returns:
+          str:
+        """
+        return granary.nostr.bech32_encode('npub', self.hex_pubkey())
+
     @ndb.ComputedProperty
     def handle(self):
         """Returns the NIP-05 identity from the user's profile event."""
@@ -226,7 +243,7 @@ class Nostr(User, Protocol):
         assert from_user.nostr_key_bytes
 
         event = to_cls.convert(obj, from_user=from_user)
-        assert event.get('pubkey') == from_user.npub_hex(), event
+        assert event.get('pubkey') == from_user.hex_pubkey(), event
         assert event.get('sig'), event
 
         with connect(relay_url, open_timeout=util.HTTP_TIMEOUT,

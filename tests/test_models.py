@@ -30,6 +30,7 @@ import common
 import memcache
 import models
 from models import Follower, Object, OBJECT_EXPIRE_AGE, PROTOCOLS, Target, User
+from nostr import Nostr
 import protocol
 from protocol import Protocol
 from web import Web
@@ -202,13 +203,17 @@ class UserTest(TestCase):
         self.user.nostr_key_bytes = bytes.fromhex(PRIVKEY)
         self.assertEqual(NSEC_URI.removeprefix('nostr:'), self.user.nsec())
 
-    def test_npub_hex(self):
+    def test_hex_pubkey(self):
         self.user.nostr_key_bytes = bytes.fromhex(PRIVKEY)
-        self.assertEqual(PUBKEY, self.user.npub_hex())
+        self.assertEqual(PUBKEY, self.user.hex_pubkey())
+
+        self.assertEqual(PUBKEY, Nostr(id=NPUB_URI).hex_pubkey())
 
     def test_npub(self):
         self.user.nostr_key_bytes = bytes.fromhex(PRIVKEY)
         self.assertEqual(NPUB_URI.removeprefix('nostr:'), self.user.npub())
+
+        self.assertEqual(NPUB_URI, Nostr(id=NPUB_URI).npub())
 
     def test_user_page_path(self):
         self.assertEqual('/web/y.za', self.user.user_page_path())

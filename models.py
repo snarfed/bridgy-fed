@@ -718,7 +718,7 @@ Welcome to Bridgy Fed! Your account will soon be bridged to {to_proto.PHRASE} at
         privkey = secp256k1.PrivateKey(self.nostr_key_bytes, raw=True)
         return granary.nostr.bech32_encode('nsec', privkey.serialize())
 
-    def npub_hex(self):
+    def hex_pubkey(self):
         """Returns the user's hex-encoded Nostr public secp256k1 key.
 
         Returns:
@@ -733,7 +733,7 @@ Welcome to Bridgy Fed! Your account will soon be bridged to {to_proto.PHRASE} at
         Returns:
           str:
         """
-        return granary.nostr.bech32_encode('npub', self.npub_hex())
+        return granary.nostr.bech32_encode('npub', self.hex_pubkey())
 
     def name(self):
         """Returns this user's human-readable name, eg ``Ryan Barrett``."""
