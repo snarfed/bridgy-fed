@@ -42,7 +42,7 @@ logger = logging.getLogger(__name__)
 class Nostr(User, Protocol):
     """Nostr class.
 
-    Key id is bech32 npub id.
+    Key id is bech32 npub id with ``nostr:`` prefix.
     https://github.com/nostr-protocol/nips/blob/master/19.md
     """
     ABBREV = 'nostr'
@@ -128,10 +128,8 @@ class Nostr(User, Protocol):
             privkey = secp256k1.PrivateKey()
             user.nostr_key_bytes = privkey.private_key
 
-        pubkey = granary.nostr.pubkey_from_privkey(user.nostr_key_bytes.hex())
-        npub = id_to_uri('npub', pubkey)
-        logger.info(f'adding Nostr copy user {npub} for {user.key}')
-        user.add('copies', Target(uri=npub, protocol='nostr'))
+        logger.info(f'adding Nostr copy user {user.npub()} for {user.key}')
+        user.add('copies', Target(uri='nostr:' + user.npub(), protocol='nostr'))
         user.put()
 
         if user.obj and any(copy.protocol == 'nostr' for copy in user.obj.copies):
@@ -203,11 +201,7 @@ class Nostr(User, Protocol):
         Returns:
           dict: JSON Nostr event
         """
-        privkey = None
-        if from_user and from_user.nostr_key_bytes:
-            privkey = granary.nostr.bech32_encode(
-                'nsec', from_user.nostr_key_bytes.hex())
-
+        privkey = from_user.nsec() if from_user and from_user.nostr_key_bytes else None
         translated = to_cls.translate_ids(obj.as1)
         return granary.nostr.from_as1(translated, privkey=privkey)
 
@@ -218,8 +212,7 @@ class Nostr(User, Protocol):
         assert from_user.nostr_key_bytes
 
         event = to_cls.convert(obj, from_user=from_user)
-        pubkey = granary.nostr.pubkey_from_privkey(from_user.nostr_key_bytes.hex())
-        assert event.get('pubkey') == pubkey, event
+        assert event.get('pubkey') == from_user.npub_hex(), event
         assert event.get('sig'), event
 
         with connect(relay_url, open_timeout=util.HTTP_TIMEOUT,

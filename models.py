@@ -709,7 +709,7 @@ Welcome to Bridgy Fed! Your account will soon be bridged to {to_proto.PHRASE} at
         return rsa.exportKey(format='PEM')
 
     def nsec(self):
-        """Returns the user's bech32-encoded ActivityPub private secp256k1 key.
+        """Returns the user's bech32-encoded Nostr private secp256k1 key.
 
         Returns:
           str:
@@ -718,15 +718,22 @@ Welcome to Bridgy Fed! Your account will soon be bridged to {to_proto.PHRASE} at
         privkey = secp256k1.PrivateKey(self.nostr_key_bytes, raw=True)
         return granary.nostr.bech32_encode('nsec', privkey.serialize())
 
+    def npub_hex(self):
+        """Returns the user's hex-encoded Nostr public secp256k1 key.
+
+        Returns:
+          str:
+        """
+        assert self.nostr_key_bytes
+        return granary.nostr.pubkey_from_privkey(self.nostr_key_bytes.hex())
+
     def npub(self):
         """Returns the user's bech32-encoded ActivityPub public secp256k1 key.
 
         Returns:
           str:
         """
-        assert self.nostr_key_bytes
-        hex = granary.nostr.pubkey_from_privkey(self.nostr_key_bytes.hex())
-        return granary.nostr.bech32_encode('npub', hex)
+        return granary.nostr.bech32_encode('npub', self.npub_hex())
 
     def name(self):
         """Returns this user's human-readable name, eg ``Ryan Barrett``."""

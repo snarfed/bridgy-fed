@@ -34,7 +34,7 @@ import protocol
 from protocol import Protocol
 from web import Web
 
-from granary.tests.test_nostr import PRIVKEY, NPUB_URI, NSEC_URI
+from granary.tests.test_nostr import PRIVKEY, PUBKEY, NPUB_URI, NSEC_URI
 from .test_activitypub import ACTOR
 from .test_atproto import DID_DOC
 
@@ -201,6 +201,10 @@ class UserTest(TestCase):
     def test_nsec(self):
         self.user.nostr_key_bytes = bytes.fromhex(PRIVKEY)
         self.assertEqual(NSEC_URI.removeprefix('nostr:'), self.user.nsec())
+
+    def test_npub_hex(self):
+        self.user.nostr_key_bytes = bytes.fromhex(PRIVKEY)
+        self.assertEqual(PUBKEY, self.user.npub_hex())
 
     def test_npub(self):
         self.user.nostr_key_bytes = bytes.fromhex(PRIVKEY)
