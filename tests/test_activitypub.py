@@ -3061,7 +3061,7 @@ class ActivityPubUtilsTest(TestCase):
             'type': 'Note',
             'id': 'https://bsky.brid.gy/convert/ap/at://did:alice/app.bsky.feed.post/123',
             'url': 'http://localhost/r/https://bsky.app/profile/did:alice/post/123',
-            'content': '<p>foo bar<br><br>RE: <a href="https://bsky.app/profile/did:bob/post/456">https://bsky.app/profile/did:bob/post/456</a></p>',
+            'content': '<p>foo bar<span class="quote-inline"><br><br>RE: <a href="https://bsky.app/profile/did:bob/post/456">https://bsky.app/profile/did:bob/post/456</a></span></p>',
             'attributedTo': 'did:alice',
             '_misskey_quote': 'https://bsky.brid.gy/convert/ap/at://did:bob/app.bsky.feed.post/456',
             'quoteUrl': 'https://bsky.brid.gy/convert/ap/at://did:bob/app.bsky.feed.post/456',
