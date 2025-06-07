@@ -3,6 +3,13 @@ from unittest.mock import patch
 
 from google.cloud import ndb
 import granary.nostr
+from granary.nostr import (
+    KIND_AUTH,
+    KIND_DELETE,
+    KIND_NOTE,
+    KIND_PROFILE,
+    KIND_RELAYS,
+)
 from oauth_dropins.webutil.testutil import requests_response
 from oauth_dropins.webutil.util import json_dumps, json_loads
 from secp256k1 import PrivateKey, PublicKey
@@ -60,12 +67,12 @@ class NostrTest(TestCase):
         self.assertIsNone(Nostr().handle)
 
         for expected, event in (
-                (None, {'kind': 1}),
-                (None, {'kind': 1, 'content': 'foo'}),
-                (None, {'kind': 1, 'content': '{"nip05":"foo"}'}),
-                (None, {'kind': 0, 'content': '{"name":"Alice"}'}),
-                ('foo', {'kind': 0, 'content': '{"nip05":"foo"}'}),
-                ('foo', {'kind': 0, 'content': '{"nip05":"_@foo"}'}),
+                (None, {'kind': KIND_NOTE}),
+                (None, {'kind': KIND_NOTE, 'content': 'foo'}),
+                (None, {'kind': KIND_NOTE, 'content': '{"nip05":"foo"}'}),
+                (None, {'kind': KIND_PROFILE, 'content': '{"name":"Alice"}'}),
+                ('foo', {'kind': KIND_PROFILE, 'content': '{"nip05":"foo"}'}),
+                ('foo', {'kind': KIND_PROFILE, 'content': '{"nip05":"_@foo"}'}),
         ):
             with self.subTest(event=event):
                 obj = Object(id='x', nostr={**event, 'pubkey': PUBKEY})
@@ -112,7 +119,7 @@ class NostrTest(TestCase):
 
     def test_convert_actor(self):
         self.assert_equals({
-            'kind': 0,
+            'kind': KIND_PROFILE,
             'id': 'ad2022ba75a10fb2963005f14ce69ef66b466ebd4a13100d86200dcb818bcb2e',
             'pubkey': PUBKEY,
             'content': json_dumps({
@@ -133,7 +140,7 @@ class NostrTest(TestCase):
 
     def test_convert_note(self):
         self.assert_equals({
-            'kind': 1,
+            'kind': KIND_NOTE,
             'id': '4a57c7a1dde3bfe13076db485c4f09756e54447f6389dbf6864d4139bc40a214',
             'pubkey': PUBKEY,
             'content': 'Something to say',
@@ -149,7 +156,7 @@ class NostrTest(TestCase):
 
     def test_convert_follow(self):
         self.assert_equals({
-            'kind': 3,
+            'kind': KIND_CONTACTS,
             'id': 'e65338c8d5529524ba28618367baf052573d57d7646fabb213bf7575bf19cd5f',
             'pubkey': PUBKEY,
             'content': 'not important',
@@ -180,7 +187,7 @@ class NostrTest(TestCase):
             'published': '2022-01-02T03:04:05+00:00',
         }), from_user=self.user)
         self.assert_equals({
-            'kind': 1,
+            'kind': KIND_NOTE,
             'id': '4a57c7a1dde3bfe13076db485c4f09756e54447f6389dbf6864d4139bc40a214',
             'pubkey': PUBKEY,
             'content': 'Something to say',
@@ -200,7 +207,7 @@ class NostrTest(TestCase):
 
         id = '941a6c6fe92768bc9935ad2fe8f29df4934d551b63f4e7c6038df758c0a5602f'
         expected = {
-            'kind': 1,
+            'kind': KIND_NOTE,
             'id': id,
             'pubkey': PUBKEY,
             'content': 'Something to say',
@@ -238,7 +245,7 @@ class NostrTest(TestCase):
                          alice.obj.get_copy(Nostr))
 
         self.assertEqual([['EVENT', {
-            'kind': 0,
+            'kind': KIND_PROFILE,
             'pubkey': PUBKEY,
             'id': profile_id,
             'sig': '54173e03ea1608c1c99b40532a68c824c3e2558628286d13271277f8811d08823484d4708a299182310c2a5480aa3966772c99214531937437fc900a361288f0',
