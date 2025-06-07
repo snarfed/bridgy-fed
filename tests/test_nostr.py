@@ -42,6 +42,12 @@ class NostrTest(TestCase):
             enabled_protocols=['nostr'],
             copies=[Target(uri=NPUB_URI, protocol='nostr')])
 
+    def test_pre_put_hook(self):
+        Nostr(id='nostr:npub123').put()
+
+        with self.assertRaises(AssertionError):
+            Nostr(id='foo').put()
+
     def test_id_uri(self):
         self.assertEqual('nostr:npub123', Nostr(id='npub123').id_uri())
 
@@ -402,8 +408,10 @@ class NostrTest(TestCase):
         self.assertEqual(400, resp.status_code)
 
     def test_nip_05_native_nostr_user_ignored(self):
-        nostr_user = self.make_user('npub123', cls=Nostr)
+        nostr_user = self.make_user('nostr:npub123', cls=Nostr)
 
-        resp = self.get('/.well-known/nostr.json?name=npub123',
-                        base_url='https://nostr.brid.gy')
-        self.assertEqual(404, resp.status_code)
+        for name in ('npub123', 'nostr:npub123'):
+            with self.subTest(name=name):
+                resp = self.get(f'/.well-known/nostr.json?name={name}',
+                                base_url='https://nostr.brid.gy')
+                self.assertEqual(404, resp.status_code)

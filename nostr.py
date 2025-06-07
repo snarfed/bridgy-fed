@@ -42,7 +42,7 @@ logger = logging.getLogger(__name__)
 class Nostr(User, Protocol):
     """Nostr class.
 
-    Key id is bech32 npub id with ``nostr:`` prefix.
+    Key id is bech32 npub id, without nostr: prefix.
     https://github.com/nostr-protocol/nips/blob/master/19.md
     """
     ABBREV = 'nostr'
@@ -60,6 +60,12 @@ class Nostr(User, Protocol):
         + ('follow', 'like', 'share', 'stop-following')
     )
     SUPPORTS_DMS = False  # NIP-17
+
+
+    def _pre_put_hook(self):
+        """Validates that the id is a bech32-encoded nostr:npub id."""
+        assert self.key.id().startswith('nostr:npub')
+        return super()._pre_put_hook()
 
     @ndb.ComputedProperty
     def handle(self):
