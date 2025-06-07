@@ -6,6 +6,7 @@ from google.cloud import ndb
 import granary.nostr
 from granary.nostr import (
     KIND_AUTH,
+    KIND_CONTACTS,
     KIND_DELETE,
     KIND_NOTE,
     KIND_PROFILE,
@@ -425,14 +426,31 @@ class NostrTest(TestCase):
                 self.assertEqual(404, resp.status_code)
 
     def test_target_for_existing_user(self):
-        self.make_user(NPUB_URI, cls=Nostr, relays=['wss://a', 'wss://b'])
-        self.assertEqual('wss://a', Nostr.target_for(Object(nostr=NOTE_NOSTR)))
+        relay_list = Object(id='nostr:nevent123', nostr={
+            'kind': 10002,
+            'tags': [
+                ['r', 'wss://a', 'read'],
+                ['r', 'wss://b'],
+            ],
+        })
+        relay_list.put()
+        self.make_user(NPUB_URI, cls=Nostr, relay_list=relay_list.key)
+
+        self.assertEqual('wss://b', Nostr.target_for(Object(nostr=NOTE_NOSTR)))
+
+        relay_list.nostr['tags'] = [
+            ['r', 'wss://a', 'read'],
+            ['r', 'wss://c', 'write'],
+            ['r', 'wss://b'],
+        ]
+        relay_list.put()
+        self.assertEqual('wss://c', Nostr.target_for(Object(nostr=NOTE_NOSTR)))
 
     @skip  # TODO
     def test_target_for_fetch_user(self):
         self.assertEqual('wss://a', Nostr.target_for(Object(nostr=NOTE_NOSTR)))
 
-    def test_target_for_no_relays(self):
+    def test_target_for_no_relay_list_object(self):
         self.make_user(NPUB_URI, cls=Nostr)
         self.assertIsNone(Nostr.target_for(Object(nostr=NOTE_NOSTR)))
 
