@@ -1,8 +1,10 @@
 """ActivityPub protocol implementation."""
 from base64 import b64encode
+import datetime
 from hashlib import sha256
 import itertools
 import logging
+import os
 import re
 from urllib.parse import quote_plus, urljoin, urlparse
 from unittest.mock import MagicMock
@@ -1471,6 +1473,121 @@ def featured(id):
         'totalItems': len(items),
         'orderedItems': items,
     }, {'Content-Type': as2.CONTENT_TYPE_LD_PROFILE}
+
+
+@app.get('/.well-known/nodeinfo')
+@flask_util.canonicalize_request_domain(common.PROTOCOL_DOMAINS, common.PRIMARY_DOMAIN)
+@flask_util.headers(CACHE_CONTROL)
+def nodeinfo_jrd():
+    """
+    https://nodeinfo.diaspora.software/protocol.html
+    """
+    return {
+        'links': [{
+            'rel': 'http://nodeinfo.diaspora.software/ns/schema/2.1',
+            'href': common.host_url('nodeinfo.json'),
+        }, {
+            "rel": "https://www.w3.org/ns/activitystreams#Application",
+            "href": instance_actor().id_as(ActivityPub),
+        }],
+    }, {
+        'Content-Type': 'application/jrd+json',
+    }
+
+
+@app.get('/nodeinfo.json')
+@flask_util.canonicalize_request_domain(common.PROTOCOL_DOMAINS, common.PRIMARY_DOMAIN)
+@memcache.memoize(expire=datetime.timedelta(hours=1))
+@flask_util.headers(CACHE_CONTROL)
+def nodeinfo():
+    """
+    https://nodeinfo.diaspora.software/schema.html
+    """
+    from atproto import ATProto
+    from nostr import Nostr
+    from web import Web
+
+    atp = ATProto.query(ATProto.enabled_protocols != None).count()
+    ap = ActivityPub.query(ActivityPub.enabled_protocols != None).count()
+    nostr = Nostr.query(Nostr.enabled_protocols != None).count()
+    web = Web.query(Web.status == None).count()
+    total = atp + ap + nostr + web
+
+    logger.info(f'Users: ap: {ap}')
+    logger.info(f'Users: atproto: {atp}')
+    logger.info(f'Users: web: {web}')
+    logger.info(f'Users: total: {total}')
+
+    return {
+        'version': '2.1',
+        'software': {
+            'name': 'bridgy-fed',
+            'version': os.getenv('GAE_VERSION'),
+            'repository': 'https://github.com/snarfed/bridgy-fed',
+            'homepage': 'https://fed.brid.gy/',
+        },
+        'protocols': [
+            'activitypub',
+            'atprotocol',
+            'webmention',
+        ],
+        'services': {
+            'outbound': [],
+            'inbound': [],
+        },
+        'usage': {
+            'users': {
+                'total': total,
+                # 'activeMonth':
+                # 'activeHalfyear':
+            },
+            # these are too heavy
+            # 'localPosts': Object.query(Object.source_protocol.IN(('web', 'webmention')),
+            #                            Object.type.IN(['note', 'article']),
+            #                            ).count(),
+            # 'localComments': Object.query(Object.source_protocol.IN(('web', 'webmention')),
+            #                               Object.type == 'comment',
+            #                               ).count(),
+        },
+        'openRegistrations': True,
+        'metadata': {
+            'users': {
+                'activitypub': ap,
+                'atprotocol': atp,
+                'webmention': web,
+            },
+        },
+    }, {
+        # https://nodeinfo.diaspora.software/protocol.html
+        'Content-Type': 'application/json; profile="http://nodeinfo.diaspora.software/ns/schema/2.1#"',
+    }
+
+
+@app.get('/api/v1/instance')
+@flask_util.canonicalize_request_domain(common.PROTOCOL_DOMAINS, common.PRIMARY_DOMAIN)
+@flask_util.headers(CACHE_CONTROL)
+def instance_info():
+    """
+    https://docs.joinmastodon.org/methods/instance/#v1
+    """
+    return {
+        'uri': 'fed.brid.gy',
+        'title': 'Bridgy Fed',
+        'version': os.getenv('GAE_VERSION'),
+        'short_description': 'Bridging the new social internet',
+        'description': 'Bridging the new social internet',
+        'email': 'feedback@brid.gy',
+        'thumbnail': 'https://fed.brid.gy/static/bridgy_logo_with_alpha.png',
+        'registrations': True,
+        'approval_required': False,
+        'invites_enabled': False,
+        'contact_account': {
+            'username': 'snarfed.org',
+            'acct': 'snarfed.org',
+            'display_name': 'Ryan',
+            'url': 'https://snarfed.org/',
+        },
+    }
 
 
 #

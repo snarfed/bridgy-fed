@@ -45,7 +45,7 @@
     {% endif %}
 
     {% else %}
-      Bridging: 
+      Bridging:
       <form method="post" action="/settings/enable">
         <input name="key" type="hidden" value="{{ user.key.urlsafe().decode() }}" />
         <label class="switch">

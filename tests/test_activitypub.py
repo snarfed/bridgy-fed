@@ -3408,3 +3408,12 @@ class ActivityPubUtilsTest(TestCase):
             'contentMap': {'en': '<p>hello world</p>'},
             'to': [ACTOR['id']],
         }, json_loads(kwargs['data']))
+
+    def test_nodeinfo(self):
+        # just check that it doesn't crash
+        self.client.get('/.well-known/nodeinfo')
+        self.client.get('/nodeinfo.json')
+
+    def test_instance_info(self):
+        # just check that it doesn't crash
+        self.client.get('/api/v1/instance')
