@@ -49,12 +49,12 @@
       <form method="post" action="/settings/enable">
         <input name="key" type="hidden" value="{{ user.key.urlsafe().decode() }}" />
         <label class="switch">
-          <input type="checkbox" onClick="bridgingSwitch(event)" {% if user.status %}disabled="true"{% endif %}>
+          <input type="checkbox" onClick="bridgingSwitch(event)" {% if user.status and user.status != 'private' %}disabled="true"{% endif %}>
           <span class="slider round"></span>
         </label>
         <noscript>
           <input type="submit" value="Enable" class="btn btn-default enable-button"
-             {% if user.status %}disabled="true"{% endif %} />
+             {% if user.status and user.status != 'private' %}disabled="true"{% endif %} />
         </noscript>
       </form>
       {% if user.status %} Not bridging because {{ USER_STATUS_DESCRIPTIONS[user.status] }}{% endif %}

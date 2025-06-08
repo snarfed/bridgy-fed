@@ -723,6 +723,29 @@ class PagesTest(TestCase):
         # TODO: bring back
         # self.assert_multiline_in('Not bridging.', body)
 
+    def test_settings_private_status(self):
+        # the enable switch should be enabled even if the user is status=private
+        self.make_user('http://b.c/a', cls=ActivityPub, obj_as1={
+            'image': 'http://pic',
+            'to': [{'alias': '@private'}],
+        })
+        MastodonAuth(id='@a@b.c', access_token_str='',
+                     user_json='{"uri":"http://b.c/a"}').put()
+
+        with self.client.session_transaction() as sess:
+            sess[LOGINS_SESSION_KEY] = [
+                ('MastodonAuth', '@a@b.c'),
+            ]
+
+        resp = self.client.get('/settings')
+        self.assertEqual(200, resp.status_code)
+
+        body = resp.get_data(as_text=True)
+        self.assert_multiline_in(
+            'Not bridging because your account is set as private', body)
+        self.assert_multiline_in(
+            '<input type="checkbox" onClick="bridgingSwitch(event)" >', body)
+
     @patch('requests.get')
     def test_settings_on_login_create_new_user(self, mock_get):
         mock_get.return_value = self.as2_resp(ACTOR_AS2)
