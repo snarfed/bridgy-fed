@@ -383,7 +383,7 @@ class User(StringIdModel, metaclass=ProtocolUserMeta):
             if user.status and not allow_opt_out:
                 return None
 
-        if propagate and not user.status:
+        if propagate and user.status in (None, 'private'):
             for label in user.enabled_protocols + list(user.DEFAULT_ENABLED_PROTOCOLS):
                 proto = PROTOCOLS[label]
                 if proto == cls:
@@ -561,7 +561,7 @@ class User(StringIdModel, metaclass=ProtocolUserMeta):
           bool:
         """
         from protocol import Protocol
-        assert issubclass(to_proto, Protocol)
+        assert isinstance(to_proto, Protocol) or issubclass(to_proto, Protocol)
 
         if self.__class__ == to_proto:
             return True
@@ -1680,7 +1680,7 @@ class Follower(ndb.Model):
 
         for f, u in zip(followers, users):
             f.user = u
-        followers = [f for f in followers if not f.user.status]
+        followers = [f for f in followers if f.user.is_enabled(user)]
 
         return followers, before, after
 
