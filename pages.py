@@ -578,7 +578,6 @@ def log():
 
 
 @app.get('/<any(ans,snarfed):site>/<path:path>')
-@canonicalize_request_domain(common.PROTOCOL_DOMAINS, common.PRIMARY_DOMAIN)
 @flask_util.headers(CACHE_CONTROL)
 def blog_redirect(site, path):
     host = {
