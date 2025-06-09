@@ -20,6 +20,7 @@ from oauth_dropins.webutil.flask_util import (
     get_flashed_messages,
     get_required_param,
     Found,
+    MovedPermanently,
 )
 from oauth_dropins.webutil.util import json_loads, json_dumps
 import requests
@@ -574,3 +575,14 @@ def serve_feed(*, objects, format, user, title, as_snippets=False, quiet=False):
 @flask_util.headers(CACHE_CONTROL)
 def log():
     return logs.log()
+
+
+@app.get('/<any(ans,snarfed):site>/<path:path>')
+@canonicalize_request_domain(common.PROTOCOL_DOMAINS, common.PRIMARY_DOMAIN)
+@flask_util.headers(CACHE_CONTROL)
+def blog_redirect(site, path):
+    host = {
+        'ans': 'blog.anew.social',
+        'snarfed': 'snarfed.org',
+    }[site]
+    return MovedPermanently(location=f'https://{host}/{path}')
