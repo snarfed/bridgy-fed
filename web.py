@@ -957,6 +957,9 @@ def poll_feed_task():
 def webmention_task():
     """Handles inbound webmention task.
 
+    Allows source URLs on brid.gy subdomains if the ``Authorization`` header matches
+    the Flask secret key.
+
     Params:
       ``source`` (str): URL
     """
@@ -967,7 +970,8 @@ def webmention_task():
     domain = domain_from_link(source, minimize=False)
     logger.info(f'webmention from {domain}')
 
-    if domain in common.DOMAINS:
+    internal = request.headers.get('Authorization') == app.config['SECRET_KEY']
+    if domain in common.DOMAINS and not internal:
         error(f'URL not supported: {source}')
 
     user = Web.get_by_id(domain)
@@ -1009,9 +1013,11 @@ def webmention_task():
                 authors[0]['properties']['url'] = [user.web_url()]
             else:
                 authors[0] = user.web_url()
+            if obj.our_as1:
+                obj.our_as1['author'] = user.web_url()
 
     try:
-        return Web.receive(obj, authed_as=user.key.id())
+        return Web.receive(obj, authed_as=user.key.id(), internal=internal)
     except ValueError as e:
         logger.warning(e, exc_info=True)
         error(e, status=304)
