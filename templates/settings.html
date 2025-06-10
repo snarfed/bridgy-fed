@@ -18,13 +18,14 @@
 
   <div class="row">
     {% if user.enabled_protocols and not user.status %}
+      <span id="{{ user.handle }}-switch-disabled-notice" class="disabled-notice"></span>
       <a href="{{ user.user_page_path() }}">Bridging: </a>
       <!-- to {{ user.enabled_protocols|join(', ') }} -->
       <form method="post" action="/settings/disable"
             onsubmit="return window.confirm('Are you sure you want to disable bridging? Disabling has effects that can\'t easily be reversed, even if you later re-enable bridging. For example, disabling removes all fediverse followers.')" />
         <input name="key" type="hidden" value="{{ user.key.urlsafe().decode() }}" />
-        <label class="switch">
-          <input type="checkbox" checked onClick="bridgingSwitch(event)">
+        <label class="switch" id="{{ user.handle }}-switch-wrapper">
+          <input id="{{ user.handle }}-switch" type="checkbox" checked onClick="bridgingSwitch(event)">
           <span class="slider round"></span>
         </label>
         <noscript>
@@ -34,7 +35,7 @@
 
     {# TODO: generalize #}
     {% if 'atproto' in user.enabled_protocols %}
-      <p>
+    <p>
       <form method="post" action="/settings/set-username">
         <input name="key" type="hidden" value="{{ user.key.urlsafe().decode() }}" />
         <input name="protocol" type="hidden" value="atproto" />
@@ -42,14 +43,16 @@
         <input id="username" type="text" name="username" placeholder ="your.domain" />
         <input type="submit" value="Go" class="btn btn-default" />
       </form>
+    </p>
     {% endif %}
 
     {% else %}
+      <label id="{{ user.handle }}-switch-disabled-notice" class="disabled-notice"></label>
       Bridging:
       <form method="post" action="/settings/enable">
         <input name="key" type="hidden" value="{{ user.key.urlsafe().decode() }}" />
-        <label class="switch">
-          <input type="checkbox" onClick="bridgingSwitch(event)" {% if user.status and user.status != 'private' %}disabled="true"{% endif %}>
+        <label class="switch" id="{{ user.handle }}-switch-wrapper">
+          <input  id="{{ user.handle }}-switch" type="checkbox" onClick="bridgingSwitch(event)" {% if user.status and user.status != 'private' %}disabled="true"{% endif %}>
           <span class="slider round"></span>
         </label>
         <noscript>

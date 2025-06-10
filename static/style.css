@@ -875,6 +875,7 @@ a img.shadow:hover
   width: 60px;
   height: 34px;
   margin-left: 10px;
+  margin-bottom: 15px;
 }
 
 /* Hide default HTML checkbox */
@@ -908,6 +909,13 @@ a img.shadow:hover
   -webkit-transition: .4s;
   transition: .4s;
 }
+
+.disabled-notice {
+    font-size:small;
+    color:gray;
+    display:none;
+    margin-bottom: 10px;
+  }
 
 input:checked + .slider {
   background-color: #2196F3;
