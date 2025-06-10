@@ -23,7 +23,7 @@
     <li {% if host and (host == 'bsky' or host.endswith('.zayo.com')) %}style="background-color: lightgreen"{% endif %}>
       {{ s.ip }} {{ host }} {{s.user_agent }} {{ s.args }} {{ s.start.astimezone(pt) }}
   {% endfor %}
-<ul>
+</ul>
 {% endfor %}
 </ul>
 </h3>

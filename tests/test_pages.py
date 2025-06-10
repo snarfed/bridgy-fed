@@ -638,14 +638,6 @@ class PagesTest(TestCase):
         # COMMENT's author
         self.assertIn('<author>_@_._ (Dr. Eve)</author>', got.text, got.text)
 
-    def test_nodeinfo(self):
-        # just check that it doesn't crash
-        self.client.get('/nodeinfo.json')
-
-    def test_instance_info(self):
-        # just check that it doesn't crash
-        self.client.get('/api/v1/instance')
-
     def test_canonicalize_domain(self):
         got = self.client.get('/', base_url='https://ap.brid.gy/')
         self.assert_equals(301, got.status_code)
@@ -730,6 +722,29 @@ class PagesTest(TestCase):
         self.assert_multiline_in('<a class="h-card u-author" rel="me" href="https://bsky.app/profile/ab.c" title="ab.c">ab.c</a>', body)
         # TODO: bring back
         # self.assert_multiline_in('Not bridging.', body)
+
+    def test_settings_private_status(self):
+        # the enable switch should be enabled even if the user is status=private
+        self.make_user('http://b.c/a', cls=ActivityPub, obj_as1={
+            'image': 'http://pic',
+            'to': [{'alias': '@private'}],
+        })
+        MastodonAuth(id='@a@b.c', access_token_str='',
+                     user_json='{"uri":"http://b.c/a"}').put()
+
+        with self.client.session_transaction() as sess:
+            sess[LOGINS_SESSION_KEY] = [
+                ('MastodonAuth', '@a@b.c'),
+            ]
+
+        resp = self.client.get('/settings')
+        self.assertEqual(200, resp.status_code)
+
+        body = resp.get_data(as_text=True)
+        self.assert_multiline_in(
+            'Not bridging because your account is set as private', body)
+        self.assert_multiline_in(
+            '<input type="checkbox" onClick="bridgingSwitch(event)" >', body)
 
     @patch('requests.get')
     def test_settings_on_login_create_new_user(self, mock_get):

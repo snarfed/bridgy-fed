@@ -93,7 +93,7 @@ ACTOR_FAKE = {
     'following': 'https://fa.brid.gy/ap/fake:user/following',
     'followers': 'https://fa.brid.gy/ap/fake:user/followers',
     'endpoints': {'sharedInbox': 'https://fa.brid.gy/ap/sharedInbox'},
-    'preferredUsername': 'fake:handle:user',
+    'preferredUsername': 'fake-handle-user',
     'summary': '',
     'alsoKnownAs': ['uri:fake:user'],
     'manuallyApprovesFollowers': False,
@@ -106,7 +106,7 @@ ACTOR_FAKE_USER = {
         activitypub.SECURITY_CONTEXT,
         activitypub.AKA_CONTEXT,
     ],
-    'name': 'fake:handle:user',
+    'name': 'fake-handle-user',
     'type': 'Person',
     'summary': '[<a href="https://fed.brid.gy/fa/fake:handle:user">bridged</a> from <a href="web:fake:user">fake:handle:user</a> on fake-phrase by <a href="https://fed.brid.gy/">Bridgy Fed</a>]',
     'discoverable': True,
@@ -832,7 +832,8 @@ class ActivityPubTest(TestCase):
             type='note',
             copies=[Target(protocol='fake', uri='fake:o:ap:http://mas.to/note/id')],
             users=[ndb.Key(ActivityPub, ACTOR['id'])],
-            feed=[self.user.key, baz.key])
+            feed=[self.user.key],
+        )
 
     def test_repost_of_indieweb(self, mock_head, mock_get, mock_post):
         self.make_user(ACTOR['id'], cls=ActivityPub, obj_as2=ACTOR)
@@ -902,9 +903,10 @@ class ActivityPubTest(TestCase):
                            as2=REPOST,
                            copies=[copy],
                            users=[self.swentel_key],
-                           feed=[baz.key, self.user.key],
+                           feed=[self.user.key],
                            type='share',
-                           ignore=['our_as1'])
+                           ignore=['our_as1'],
+                           )
 
     def test_inbox_no_user(self, mock_head, mock_get, mock_post):
         mock_get.side_effect = [
@@ -2350,10 +2352,14 @@ class ActivityPubUtilsTest(TestCase):
         self.assertFalse(ActivityPub.owns_id('https://ap.brid.gy/foo'))
 
     def test_owns_handle(self):
-        for handle in ('@user@instance', 'user@instance.com', 'user.com@instance.com',
-                     'user@instance'):
+        for addr in ('user@instance', 'user@instance.com', 'user.com@instance.com',
+                     'user@instance', 'user@sub.do.main'):
+            with self.subTest(handle=addr):
+                self.assertEqual(False, ActivityPub.owns_handle(addr))
+
+            handle = '@' + addr
             with self.subTest(handle=handle):
-                assert ActivityPub.owns_handle(handle)
+                self.assertTrue(ActivityPub.owns_handle(handle))
 
         for handle in ('instance', 'instance.com', '@user', '@user.com',
                        'http://user.com', '@user@web.brid.gy', '@user@localhost'):
@@ -2494,7 +2500,7 @@ class ActivityPubUtilsTest(TestCase):
         }))
 
     def test_postprocess_as2_plain_text_content_links_hashtags_mentions(self):
-        expected = '<p>foo <a class="mention" href="http://inst/bar">@bar</a> <a class="hashtag" href="http://inst/baz">#baz</a></p>'
+        expected = '<p>foo <a class="mention" href="http://inst/bar">@bar</a> <a class="hashtag" rel="tag" href="http://inst/baz">#baz</a></p>'
         self.assert_equals({
             'content': expected,
             'contentMap': {'en': expected},
@@ -2881,6 +2887,20 @@ class ActivityPubUtilsTest(TestCase):
         self.assertIsNone(obj.as1)
 
     @patch('requests.get')
+    def test_fetch_multiply_valued_type(self, mock_get):
+        # BandWagon sends this, eg https://bandwagon.fm/683df9a103137839d85d1579
+        # https://console.cloud.google.com/errors/detail/COLtjYq7gMveSA?project=bridgy-federated
+        event_article = {
+            'type': ['Event', 'Article'],
+            'id': 'http://foo/bar',
+        }
+        mock_get.return_value = self.as2_resp(event_article)
+
+        obj = Object(id='http://orig')
+        ActivityPub.fetch(obj)
+        self.assertEqual(event_article, obj.as2)
+
+    @patch('requests.get')
     def test_fetch_hydrate_actor_featured(self, mock_get):
         actor = {
             **ACTOR,
@@ -3043,7 +3063,7 @@ class ActivityPubUtilsTest(TestCase):
             'type': 'Note',
             'id': 'https://bsky.brid.gy/convert/ap/at://did:alice/app.bsky.feed.post/123',
             'url': 'http://localhost/r/https://bsky.app/profile/did:alice/post/123',
-            'content': '<p>foo bar<br><br>RE: <a href="https://bsky.app/profile/did:bob/post/456">https://bsky.app/profile/did:bob/post/456</a></p>',
+            'content': '<p>foo bar<span class="quote-inline"><br><br>RE: <a href="https://bsky.app/profile/did:bob/post/456">https://bsky.app/profile/did:bob/post/456</a></span></p>',
             'attributedTo': 'did:alice',
             '_misskey_quote': 'https://bsky.brid.gy/convert/ap/at://did:bob/app.bsky.feed.post/456',
             'quoteUrl': 'https://bsky.brid.gy/convert/ap/at://did:bob/app.bsky.feed.post/456',
@@ -3390,3 +3410,12 @@ class ActivityPubUtilsTest(TestCase):
             'contentMap': {'en': '<p>hello world</p>'},
             'to': [ACTOR['id']],
         }, json_loads(kwargs['data']))
+
+    def test_nodeinfo(self):
+        # just check that it doesn't crash
+        self.client.get('/.well-known/nodeinfo')
+        self.client.get('/nodeinfo.json')
+
+    def test_instance_info(self):
+        # just check that it doesn't crash
+        self.client.get('/api/v1/instance')

@@ -1,8 +1,10 @@
 """ActivityPub protocol implementation."""
 from base64 import b64encode
+import datetime
 from hashlib import sha256
 import itertools
 import logging
+import os
 import re
 from urllib.parse import quote_plus, urljoin, urlparse
 from unittest.mock import MagicMock
@@ -236,13 +238,11 @@ class ActivityPub(User, Protocol):
         https://datatracker.ietf.org/doc/html/rfc7033#section-3.1
         https://datatracker.ietf.org/doc/html/rfc7033#section-4.5
         """
-        parts = handle.lstrip('@').split('@')
-        if len(parts) != 2:
-            return False
+        if (handle and handle[0] == '@'
+                and cls.is_user_at_domain(handle[1:], allow_internal=allow_internal)):
+            return True
 
-        user, domain = parts
-        return user and domain and not cls.is_blocklisted(
-            domain, allow_internal=allow_internal)
+        return False
 
     @classmethod
     def handle_to_id(cls, handle):
@@ -287,7 +287,8 @@ class ActivityPub(User, Protocol):
 
             logger.info(f'{obj.key} type {obj.type} is not an actor and has no author or actor with inbox')
 
-        actor = cls._convert(obj)
+        if not (actor := cls._convert(obj)):
+            return None
 
         if shared:
             shared_inbox = actor.get('endpoints', {}).get('sharedInbox')
@@ -297,7 +298,7 @@ class ActivityPub(User, Protocol):
         return actor.get('publicInbox') or actor.get('inbox')
 
     @classmethod
-    def send(to_cls, obj, url, from_user=None, orig_obj_id=None):
+    def send(to_cls, obj, inbox_url, from_user=None, orig_obj_id=None):
         """Delivers an activity to an inbox URL.
 
         If ``obj.recipient_obj`` is set, it's interpreted as the receiving actor
@@ -306,8 +307,8 @@ class ActivityPub(User, Protocol):
         if not from_user:
             logger.info('Skipping sending, no from_user!')
             return False
-        elif to_cls.is_blocklisted(url):
-            logger.info(f'Skipping sending to blocklisted {url}')
+        elif to_cls.is_blocklisted(inbox_url):
+            logger.info(f'Skipping sending to blocklisted {inbox_url}')
             return False
 
         orig_obj = None
@@ -316,7 +317,7 @@ class ActivityPub(User, Protocol):
                                       from_user=from_user)
         activity = to_cls.convert(obj, from_user=from_user, orig_obj=orig_obj)
 
-        return signed_post(url, data=activity, from_user=from_user).ok
+        return signed_post(inbox_url, data=activity, from_user=from_user).ok
 
     @classmethod
     def fetch(cls, obj, **kwargs):
@@ -447,7 +448,7 @@ class ActivityPub(User, Protocol):
         Args:
           obj (dict)
         """
-        if obj.get('type') in as2.ACTOR_TYPES:
+        if util.get_first(obj, 'type') in as2.ACTOR_TYPES:
             if feat := as1.get_object(obj, 'featured'):
                 if set(feat.keys()) == {'id'}:
                     # fetch collection
@@ -1472,6 +1473,121 @@ def featured(id):
         'totalItems': len(items),
         'orderedItems': items,
     }, {'Content-Type': as2.CONTENT_TYPE_LD_PROFILE}
+
+
+@app.get('/.well-known/nodeinfo')
+@flask_util.canonicalize_request_domain(common.PROTOCOL_DOMAINS, common.PRIMARY_DOMAIN)
+@flask_util.headers(CACHE_CONTROL)
+def nodeinfo_jrd():
+    """
+    https://nodeinfo.diaspora.software/protocol.html
+    """
+    return {
+        'links': [{
+            'rel': 'http://nodeinfo.diaspora.software/ns/schema/2.1',
+            'href': common.host_url('nodeinfo.json'),
+        }, {
+            "rel": "https://www.w3.org/ns/activitystreams#Application",
+            "href": instance_actor().id_as(ActivityPub),
+        }],
+    }, {
+        'Content-Type': 'application/jrd+json',
+    }
+
+
+@app.get('/nodeinfo.json')
+@flask_util.canonicalize_request_domain(common.PROTOCOL_DOMAINS, common.PRIMARY_DOMAIN)
+@memcache.memoize(expire=datetime.timedelta(hours=1))
+@flask_util.headers(CACHE_CONTROL)
+def nodeinfo():
+    """
+    https://nodeinfo.diaspora.software/schema.html
+    """
+    from atproto import ATProto
+    from nostr import Nostr
+    from web import Web
+
+    atp = ATProto.query(ATProto.enabled_protocols != None).count()
+    ap = ActivityPub.query(ActivityPub.enabled_protocols != None).count()
+    nostr = Nostr.query(Nostr.enabled_protocols != None).count()
+    web = Web.query(Web.status == None).count()
+    total = atp + ap + nostr + web
+
+    logger.info(f'Users: ap: {ap}')
+    logger.info(f'Users: atproto: {atp}')
+    logger.info(f'Users: web: {web}')
+    logger.info(f'Users: total: {total}')
+
+    return {
+        'version': '2.1',
+        'software': {
+            'name': 'bridgy-fed',
+            'version': os.getenv('GAE_VERSION'),
+            'repository': 'https://github.com/snarfed/bridgy-fed',
+            'homepage': 'https://fed.brid.gy/',
+        },
+        'protocols': [
+            'activitypub',
+            'atprotocol',
+            'webmention',
+        ],
+        'services': {
+            'outbound': [],
+            'inbound': [],
+        },
+        'usage': {
+            'users': {
+                'total': total,
+                # 'activeMonth':
+                # 'activeHalfyear':
+            },
+            # these are too heavy
+            # 'localPosts': Object.query(Object.source_protocol.IN(('web', 'webmention')),
+            #                            Object.type.IN(['note', 'article']),
+            #                            ).count(),
+            # 'localComments': Object.query(Object.source_protocol.IN(('web', 'webmention')),
+            #                               Object.type == 'comment',
+            #                               ).count(),
+        },
+        'openRegistrations': True,
+        'metadata': {
+            'users': {
+                'activitypub': ap,
+                'atprotocol': atp,
+                'webmention': web,
+            },
+        },
+    }, {
+        # https://nodeinfo.diaspora.software/protocol.html
+        'Content-Type': 'application/json; profile="http://nodeinfo.diaspora.software/ns/schema/2.1#"',
+    }
+
+
+@app.get('/api/v1/instance')
+@flask_util.canonicalize_request_domain(common.PROTOCOL_DOMAINS, common.PRIMARY_DOMAIN)
+@flask_util.headers(CACHE_CONTROL)
+def instance_info():
+    """
+    https://docs.joinmastodon.org/methods/instance/#v1
+    """
+    return {
+        'uri': 'fed.brid.gy',
+        'title': 'Bridgy Fed',
+        'version': os.getenv('GAE_VERSION'),
+        'short_description': 'Bridging the new social internet',
+        'description': 'Bridging the new social internet',
+        'email': 'feedback@brid.gy',
+        'thumbnail': 'https://fed.brid.gy/static/bridgy_logo_with_alpha.png',
+        'registrations': True,
+        'approval_required': False,
+        'invites_enabled': False,
+        'contact_account': {
+            'username': 'snarfed.org',
+            'acct': 'snarfed.org',
+            'display_name': 'Ryan',
+            'url': 'https://snarfed.org/',
+        },
+    }
 
 
 #

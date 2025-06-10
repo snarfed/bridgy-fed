@@ -59,9 +59,10 @@ How to add a new protocol
 ---
 
 1. Determine [how you'll map the new protocol to other existing Bridgy Fed protocols](https://fed.brid.gy/docs#translate), specifically identity, protocol inference, events, and operations. [Add those to the existing tables in the docs](https://github.com/snarfed/bridgy-fed/blob/main/templates/docs.html) in a PR. This is an important step before you start writing code.
+1. Add the new protocol to `DEBUG_PROTOCOLS` in [`models.py`](https://github.com/snarfed/bridgy-fed/blob/main/models.py).
 1. Implement the id and handle conversions in [`ids.py`](https://github.com/snarfed/bridgy-fed/blob/main/ids.py).
 1. If the new protocol uses a new data format - which is likely - add that format to [granary](https://github.com/snarfed/granary) in a new file with functions that convert to/from [ActivityStreams 1](https://activitystrea.ms/specs/json/1.0/) and tests. See [`nostr.py`](https://github.com/snarfed/granary/blob/main/granary/nostr.py) and [`test_nostr.py`](https://github.com/snarfed/granary/blob/main/granary/tests/test_nostr.py) for examples.
-1. Implement the protocol in a new `.py` file as a subclass of both [`Protocol`](https://github.com/snarfed/bridgy-fed/blob/main/protocol.py) and [`User`](https://github.com/snarfed/bridgy-fed/blob/main/models.py). Implement the `send`, `fetch`, `serve`, and `target_for` methods from `Protocol` and `handle` and `web_url` from `User` .
+1. Implement the protocol in a new `.py` file as a subclass of both [`Protocol`](https://github.com/snarfed/bridgy-fed/blob/main/protocol.py) and [`User`](https://github.com/snarfed/bridgy-fed/blob/main/models.py). Implement `send`, `fetch`, `serve`, `target_for`, `create_for`, and other necessary methods from `Protocol`, and `handle`, `handle_for_id`, `web_url`, and other necessary methods from `User` .
 1. TODO: add a new usage section to the docs for the new protocol.
 1. TODO: does the new protocol need any new UI or signup functionality? Unusual, but not impossible. Add that if necessary.
 1. Protocol logos may be emoji or image files. If this one is a file, add it `static/`. Then add the emoji or file `<img>` tag in the `Protocol` subclass's `LOGO_HTML` constant.

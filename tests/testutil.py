@@ -25,6 +25,10 @@ from granary.tests.test_as1 import (
     MENTION,
     NOTE,
 )
+from granary.tests.test_nostr import (
+    fake_connect,
+    FakeConnection,
+)
 from oauth_dropins.webutil import flask_util, testutil, util
 from oauth_dropins.webutil.appengine_config import ndb_client
 from oauth_dropins.webutil import appengine_info
@@ -38,6 +42,7 @@ from common import long_to_base64, NDB_CONTEXT_KWARGS, TASKS_LOCATION
 import ids
 import models
 from models import KEY_BITS, Object, PROTOCOLS, Target, User
+import nostr
 import protocol
 import router
 
@@ -164,9 +169,9 @@ class Fake(User, protocol.Protocol):
         return url.startswith(f'{cls.LABEL}:blocklisted')
 
     @classmethod
-    def send(to, obj, url, from_user=None, orig_obj_id=None):
-        logger.info(f'{to.__name__}.send {url} {obj.as1}')
-        to.sent.append((url, obj.as1))
+    def send(to, obj, target, from_user=None, orig_obj_id=None):
+        logger.info(f'{to.__name__}.send {target} {obj.as1}')
+        to.sent.append((target, obj.as1))
 
         from_ = PROTOCOLS.get(obj.source_protocol)
         if (from_ and from_ != to and to.HAS_COPIES
@@ -262,6 +267,7 @@ class ExplicitFake(Fake):
     DEFAULT_ENABLED_PROTOCOLS = ()
     DEFAULT_SERVE_USER_PAGES = False
     SUPPORTS_DMS = True
+    USES_OBJECT_FEED = True
 
     fetchable = {}
     sent = []
@@ -284,12 +290,12 @@ from memcache import (
     memcache,
     pickle_memcache,
 )
-from web import Web
 from flask_app import app
+from nostr import Nostr
+from web import Web
 
-ActivityPub.DEFAULT_ENABLED_PROTOCOLS += ('fake', 'other')
-ATProto.DEFAULT_ENABLED_PROTOCOLS += ('fake', 'other')
-Web.DEFAULT_ENABLED_PROTOCOLS += ('fake', 'other')
+for proto in (ActivityPub, ATProto, Nostr, Web):
+    proto.DEFAULT_ENABLED_PROTOCOLS += ('fake', 'other')
 
 # used in TestCase.make_user() to reuse keys across Users since they're
 # expensive to generate.
@@ -338,8 +344,8 @@ class TestCase(unittest.TestCase, testutil.Asserts):
 
         self.router_client = router.app.test_client()
 
-        memcache.clear()
-        pickle_memcache.clear()
+        memcache.client_pool.clear()
+        pickle_memcache.client_pool.clear()
         global_cache.clear()
         models.get_original_object_key.cache_clear()
         models.get_original_user_key.cache_clear()
@@ -371,6 +377,10 @@ class TestCase(unittest.TestCase, testutil.Asserts):
             'CHAT_DID': 'did:chat',
         })
         atproto.appview.address = 'https://appview.local'
+
+        # nostr fake websocket
+        FakeConnection.reset()
+        nostr.connect = fake_connect
 
     def tearDown(self):
         self.app_context.pop()
@@ -632,6 +642,7 @@ class TestCase(unittest.TestCase, testutil.Asserts):
                 'body': urlencode(sorted(params)).encode(),
                 'headers': {
                     'Content-Type': 'application/x-www-form-urlencoded',
+                    'Authorization': '',
                     'traceparent': '',
                 },
             },

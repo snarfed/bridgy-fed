@@ -11,6 +11,7 @@ import urllib.parse
 from urllib.parse import urljoin, urlparse
 
 from Crypto.Util import number
+import flask
 from flask import abort, g, has_request_context, make_response, redirect, request
 from flask.views import View
 from google.cloud.error_reporting.util import build_flask_context
@@ -53,10 +54,14 @@ PROTOCOL_DOMAINS = (
     'atproto.brid.gy',
     'bsky.brid.gy',
     'web.brid.gy',
-    'efake.brid.gy',
-    'fa.brid.gy',
-    'other.brid.gy',
 )
+if DEBUG:
+    PROTOCOL_DOMAINS += (
+        'efake.brid.gy',
+        'fa.brid.gy',
+        'other.brid.gy',
+        'nostr.brid.gy',
+    )
 OTHER_DOMAINS = (
     'bridgy-federated.appspot.com',
     'bridgy-federated.uc.r.appspot.com',
@@ -322,8 +327,10 @@ def create_task(queue, delay=None, **params):
     if RUN_TASKS_INLINE or appengine_info.LOCAL_SERVER:
         logger.info(f'Running task inline: {queue} {params}')
         from router import app
-        return app.test_client().post(
-            path, data=params, headers={flask_util.CLOUD_TASKS_TASK_HEADER: 'x'})
+        return app.test_client().post(path, data=params, headers={
+              flask_util.CLOUD_TASKS_TASK_HEADER: 'x',
+              'Authorization': request.headers.get('Authorization', ''),
+        })
 
         # # alternative: run inline in this request context
         # request.form = params
@@ -343,6 +350,8 @@ def create_task(queue, delay=None, **params):
             'body': body,
             'headers': {
                 'Content-Type': 'application/x-www-form-urlencoded',
+                'Authorization': (request.headers.get('Authorization', '')
+                                  if flask.has_request_context() else ''),
                 # propagate trace id
                 # https://cloud.google.com/trace/docs/trace-context#http-requests
                 # https://stackoverflow.com/a/71343735/186123

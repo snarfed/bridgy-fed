@@ -71,7 +71,7 @@ class IntegrationTests(TestCase):
                               enabled_protocols=enabled_protocols)
         return user
 
-    def make_web_user(self, domain, did, enabled_protocols=['activitypub']):
+    def make_web_user(self, domain, did=None, enabled_protocols=['activitypub']):
         ap_subdomain = (domain.removesuffix('.brid.gy')
                         if domain.endswith('.brid.gy')
                         else None)
@@ -95,7 +95,7 @@ class IntegrationTests(TestCase):
         Repo.create(self.storage, did, signing_key=ATPROTO_KEY)
 
         did_doc = copy.deepcopy(test_atproto.DID_DOC)
-        did_doc['service'][0]['serviceEndpoint'] = ATProto.PDS_URL
+        did_doc['service'][0]['serviceEndpoint'] = ATProto.DEFAULT_TARGET
         did_doc['id'] = did
 
         self.store_object(id=did, raw=did_doc)
@@ -441,8 +441,27 @@ class IntegrationTests(TestCase):
         }], list(records['app.bsky.feed.like'].values()))
 
     @patch('oauth_dropins.webutil.appengine_config.tasks_client.create_task')
-    @patch('requests.post')  # to receive "you're not bridged" DM
-    def test_activitypub_not_bridged_reply_to_atproto(self, mock_get, mock_post):
+    @patch('requests.post', return_value=requests_response({  # sendMessage
+        'id': 'chat456',
+        'rev': '22222222tef2d',
+        # ...
+    }))
+    @patch('requests.get', side_effect=[
+        # requests_response(DID_DOC),  # alice DID
+        # requests_response(PROFILE_GETRECORD),  # alice profile
+        # requests_response(PROFILE_GETRECORD),  # alice profile
+        requests_response({  # getConvoForMembers
+            'convo': {
+                'id': 'convo123',
+                'rev': '22222222fuozt',
+                'members': [],
+                'muted': False,
+                'unreadCount': 0,
+            },
+        }),
+    ])
+    def test_activitypub_not_bridged_reply_to_atproto(self, mock_get, mock_post,
+                                                      mock_create_task):
         """AP inbox delivery of a reply from an unbridged user to an ATProto post.
 
         ActivityPub user @bob@inst , https://inst/bob
@@ -451,7 +470,8 @@ class IntegrationTests(TestCase):
         """
         self.make_atproto_user('did:plc:alice')
         self.make_ap_user('https://inst/bob')
-        self.make_user(id='bsky.brid.gy', cls=Web, ap_subdomain='bsky')
+        self.make_web_user('ap.brid.gy', did='did:plc:ap')
+        self.make_web_user('bsky.brid.gy')
 
         # existing Object with original post, with cid
         Object(id='at://did:plc:alice/app.bsky.feed.post/123', bsky={
@@ -474,8 +494,26 @@ class IntegrationTests(TestCase):
                                 headers=headers)
         self.assertEqual(204, resp.status_code)
 
-        # check results
-        self.assertEqual([], self.storage.load_repos())
+        # check that we didn't create a repo for bob
+        repos = self.storage.load_repos()
+        self.assertEqual(1, len(repos))
+        self.assertEqual('did:plc:ap', repos[0].did)
+
+        self.assertEqual(2, mock_post.call_count)
+        self.assertEqual(('https://chat.local/xrpc/chat.bsky.convo.sendMessage',),
+                         mock_post.call_args_list[0][0])
+        self.assertEqual("""\
+Hi! Here are your recent interactions from people who aren't bridged into Bluesky:
+
+  * inst/reply
+
+
+To disable these messages, reply with the text 'mute'.""",
+            mock_post.call_args_list[0][1]['json']['message']['text'])
+
+        self.assertEqual(('https://inst/bob/inbox',), mock_post.call_args_list[1][0])
+        self.assertEqual("""<p>Hi! You <a href="http://inst/reply">recently replied to</a> <a class="h-card u-author" rel="me" href="https://bsky.app/profile/alice.com" title="Alice &middot; alice.com"><span style="unicode-bidi: isolate">Alice</span> &middot; alice.com</a>, who's bridged here from Bluesky. If you want them to see your replies, you can bridge your account into Bluesky by following this account. <a href="https://fed.brid.gy/docs">See the docs</a> for more information.</p>""",
+            json_loads(mock_post.call_args_list[1][1]['data'])['object']['content'])
 
     @patch('requests.post', return_value=requests_response('OK'))  # create DID
     @patch('requests.get')
@@ -1061,9 +1099,9 @@ class IntegrationTests(TestCase):
         self.assert_equals({
             'type': 'Note',
             'id': 'https://bsky.brid.gy/convert/ap/at://xyz',
-            'content': '<p>My <a class="hashtag" href="https://bsky.app/search?q=%23original">#original</a> post</p>',
+            'content': '<p>My <a class="hashtag" rel="tag" href="https://bsky.app/search?q=%23original">#original</a> post</p>',
             'contentMap': {
-                'en': '<p>My <a class="hashtag" href="https://bsky.app/search?q=%23original">#original</a> post</p>',
+                'en': '<p>My <a class="hashtag" rel="tag" href="https://bsky.app/search?q=%23original">#original</a> post</p>',
             },
             'url': 'http://localhost/r/https://bsky.app/profile/xyz',
             'tag': [{
@@ -1116,9 +1154,9 @@ class IntegrationTests(TestCase):
             'id': 'https://bsky.brid.gy/convert/ap/at://xyz',
             'url': 'http://localhost/r/https://bsky.app/profile/xyz',
             'attributedTo': 'xyz',
-            'content': '<p><a class="hashtag" href="https://bsky.app/search?q=%23foo">#foo</a> <a href="http://bar">bar</a> <a class="mention" href="https://bsky.brid.gy/ap/https://bsky.app/profile/did:plc:baz">@baz</a></p>',
+            'content': '<p><a class="hashtag" rel="tag" href="https://bsky.app/search?q=%23foo">#foo</a> <a href="http://bar">bar</a> <a class="mention" href="https://bsky.brid.gy/ap/https://bsky.app/profile/did:plc:baz">@baz</a></p>',
             'contentMap': {
-                'en': '<p><a class="hashtag" href="https://bsky.app/search?q=%23foo">#foo</a> <a href="http://bar">bar</a> <a class="mention" href="https://bsky.brid.gy/ap/https://bsky.app/profile/did:plc:baz">@baz</a></p>',
+                'en': '<p><a class="hashtag" rel="tag" href="https://bsky.app/search?q=%23foo">#foo</a> <a href="http://bar">bar</a> <a class="mention" href="https://bsky.brid.gy/ap/https://bsky.app/profile/did:plc:baz">@baz</a></p>',
             },
             'tag': [{
                 'type': 'Hashtag',
@@ -1167,9 +1205,9 @@ class IntegrationTests(TestCase):
             'id': 'https://bsky.brid.gy/convert/ap/at://xyz',
             'url': 'http://localhost/r/https://bsky.app/profile/xyz',
             'attributedTo': 'xyz',
-            'content': '<p>a <a class="mention" href="https://bsky.brid.gy/ap/https://bsky.app/profile/did:plc:def">@b</a> c<br><br>RE: <a href="https://bsky.app/profile/did:plc:abc/post/123">https://bsky.app/profile/did:plc:abc/post/123</a></p>',
+            'content': '<p>a <a class="mention" href="https://bsky.brid.gy/ap/https://bsky.app/profile/did:plc:def">@b</a> c<span class="quote-inline"><br><br>RE: <a href="https://bsky.app/profile/did:plc:abc/post/123">https://bsky.app/profile/did:plc:abc/post/123</a></span></p>',
             'contentMap': {
-                'en': '<p>a <a class="mention" href="https://bsky.brid.gy/ap/https://bsky.app/profile/did:plc:def">@b</a> c<br><br>RE: <a href="https://bsky.app/profile/did:plc:abc/post/123">https://bsky.app/profile/did:plc:abc/post/123</a></p>',
+                'en': '<p>a <a class="mention" href="https://bsky.brid.gy/ap/https://bsky.app/profile/did:plc:def">@b</a> c<span class="quote-inline"><br><br>RE: <a href="https://bsky.app/profile/did:plc:abc/post/123">https://bsky.app/profile/did:plc:abc/post/123</a></span></p>',
             },
             'quoteUrl': 'https://bsky.brid.gy/convert/ap/at://did:plc:abc/app.bsky.feed.post/123',
             '_misskey_quote': 'https://bsky.brid.gy/convert/ap/at://did:plc:abc/app.bsky.feed.post/123',

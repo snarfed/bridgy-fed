@@ -1001,7 +1001,6 @@ class WebTest(TestCase):
         self.assert_object('https://user.com/repost',
                            users=[self.user.key],
                            notify=[author_key],
-                           feed=self.followers,
                            source_protocol='web',
                            mf2=mf2,
                            type='share',
@@ -1235,7 +1234,6 @@ class WebTest(TestCase):
                            our_as1=NOTE_AS1,
                            type='note',
                            users=[self.user.key],
-                           ignore=['feed'],
                            )
 
     def test_create_post_use_instead_strip_www(self, mock_get, mock_post):
@@ -1294,7 +1292,6 @@ class WebTest(TestCase):
 
         self.assert_object('https://user.com/post',
                            our_as1=NOTE_AS1,
-                           feed=self.followers,
                            type='note',
                            source_protocol='web',
                            users=[self.user.key],
@@ -1330,7 +1327,6 @@ class WebTest(TestCase):
             },
             type='note',
             users=[self.user.key],
-            ignore=['feed'],
         )
 
     def test_create_with_image(self, mock_get, mock_post):
@@ -2956,6 +2952,7 @@ class WebUtilTest(TestCase):
         self.assertIs(False, Web.owns_id('http://localhost:8080/foo'))
         self.assertIs(False, Web.owns_id('https://twitter.com/'))
         self.assertIs(True, Web.owns_id('https://ap.brid.gy/foo'))
+        self.assertIs(True, Web.owns_id('https://ap.brid.gy/internal/foo'))
 
     def test_owns_handle(self, *_):
         self.assertIsNone(Web.owns_handle('foo.com'))

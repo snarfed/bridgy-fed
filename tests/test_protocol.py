@@ -111,13 +111,16 @@ class ProtocolTest(TestCase):
                 # TODO: remove? should we require normalized ids?
                 ('https://ap.brid.gy/foo/bar', ActivityPub),
                 ('https://web.brid.gy/foo/bar', Web),
+                ('https://ap.brid.gy/internal/foo', Web),
+                ('https://bsky.brid.gy/internal/foo', Web),
                 ('https://fed.brid.gy/', Web),
                 ('https://web.brid.gy/', Web),
                 ('https://bsky.brid.gy/', Web),
                 ('bsky.brid.gy', Web),
         ]:
-            self.assertEqual(expected, Protocol.for_id(id, remote=False))
-            self.assertEqual(expected, Protocol.for_id(id, remote=True))
+            with self.subTest(id=id, expected=expected):
+                self.assertEqual(expected, Protocol.for_id(id, remote=False))
+                self.assertEqual(expected, Protocol.for_id(id, remote=True))
 
     def test_for_id_true_overrides_none(self):
         class Greedy(Protocol, User):
@@ -215,6 +218,19 @@ class ProtocolTest(TestCase):
             '_atproto.ha.nl.', '"did=did:plc:123abc"'))
     def test_for_handle_atproto_resolve(self, _):
         self.assertEqual((ATProto, 'did:plc:123abc'), Protocol.for_handle('ha.nl'))
+
+    def test_is_user_at_domain(self):
+        for handle in ('user@instance', 'user@instance.com', 'user.com@instance.com',
+                       '_@sub.do.main'):
+            with self.subTest(handle=handle):
+                self.assertTrue(ActivityPub.is_user_at_domain(handle))
+
+        for handle in ('instance', 'instance.com', '@user', 'x@y@user.com',
+                       'http://user.com', '@user@web.brid.gy', '@user@localhost'):
+            with self.subTest(handle=handle):
+                self.assertEqual(False, ActivityPub.is_user_at_domain(handle))
+
+        assert ActivityPub.is_user_at_domain('user@web.brid.gy', allow_internal=True)
 
     def test_load(self):
         Fake.fetchable['foo'] = {'x': 'y'}
@@ -1028,7 +1044,13 @@ class ProtocolReceiveTest(TestCase):
                                status='inactive')
 
     def test_create_post(self):
+        self.user.enabled_protocols = ['efake']
+        self.user.put()
+
         self.make_followers()
+
+        eve = self.make_user('efake:eve', cls=ExplicitFake, obj_id='efake:eve')
+        Follower.get_or_create(to=self.user, from_=eve)
 
         post_as1 = {
             'id': 'fake:post',
@@ -1047,9 +1069,11 @@ class ProtocolReceiveTest(TestCase):
         self.assert_object('fake:post',
                            our_as1=post_as1,
                            type='note',
-                           copies=[Target(protocol='other',
-                                          uri='other:o:fa:fake:post')],
-                           feed=[self.alice.key, self.bob.key],
+                           copies=[
+                               Target(protocol='efake', uri='efake:o:fa:fake:post'),
+                               Target(protocol='other', uri='other:o:fa:fake:post'),
+                           ],
+                           feed=[eve.key],
                            users=[self.user.key],
                            )
         self.assertIsNone(Object.get_by_id('fake:create'))
@@ -1094,7 +1118,6 @@ class ProtocolReceiveTest(TestCase):
             our_as1=post_as1,
             type='note',
             copies=[Target(protocol='other', uri='other:o:fa:fake:post')],
-            feed=[self.alice.key, self.bob.key],
             users=[Fake(id='fake:user').key],
         )
 
@@ -1119,7 +1142,7 @@ class ProtocolReceiveTest(TestCase):
         self.assertEqual(1, mock_send.call_count)
         [obj, url], _ = mock_send.call_args
         self.assertEqual('fake:post#bridgy-fed-create', obj.key.id())
-        self.assertEqual(ATProto.PDS_URL, url)
+        self.assertEqual(ATProto.DEFAULT_TARGET, url)
 
     def test_post_not_public_ignored(self):
         self.assertEqual(('OK', 200), Fake.receive_as1({
@@ -1240,7 +1263,7 @@ class ProtocolReceiveTest(TestCase):
         # check that we sent a prompt to eve and a notif to other:user
         test_dms.DmsTest().assert_sent(OtherFake, eve, 'replied_to_bridged_user', """Hi! You <a href="http://efake/reply">recently replied to</a> <a class="h-card u-author" rel="me" href="web:other:user" title="other:handle:user">other:handle:user</a>, who's bridged here from other-phrase. If you want them to see your replies, you can bridge your account into other-phrase by following this account. <a href="https://fed.brid.gy/docs">See the docs</a> for more information.""")
         test_dms.DmsTest().assert_sent(ExplicitFake, user, '?', """\
-<p>Hi! Here are your recent interactions from people who aren't bridged into fake-phrase:
+<p>Hi! Here are your recent interactions from people who aren't bridged into other-phrase:
 <ul>
 <li><a href="http://efake/reply">efake/reply</a>
 </ul>""")
@@ -1276,7 +1299,7 @@ class ProtocolReceiveTest(TestCase):
         # check that we sent a prompt to eve and a notif to other:user
         test_dms.DmsTest().assert_sent(OtherFake, eve, 'replied_to_bridged_user', """Hi! You <a href="http://efake/quote">recently quoted</a> <a class="h-card u-author" rel="me" href="web:other:user" title="other:handle:user">other:handle:user</a>, who's bridged here from other-phrase. If you want them to see your quotes, you can bridge your account into other-phrase by following this account. <a href="https://fed.brid.gy/docs">See the docs</a> for more information.""")
         test_dms.DmsTest().assert_sent(ExplicitFake, user, '?', """\
-<p>Hi! Here are your recent interactions from people who aren't bridged into fake-phrase:
+<p>Hi! Here are your recent interactions from people who aren't bridged into other-phrase:
 <ul>
 <li><a href="http://efake/quote">efake/quote</a>
 </ul>""")
@@ -1306,7 +1329,7 @@ class ProtocolReceiveTest(TestCase):
         # check that we sent a prompt to eve and a notif to other:user
         test_dms.DmsTest().assert_sent(OtherFake, eve, 'replied_to_bridged_user', """Hi! You <a href="http://efake/mention">recently mentioned</a> <a class="h-card u-author" rel="me" href="web:other:user" title="other:handle:user">other:handle:user</a>, who's bridged here from other-phrase. If you want them to see your mentions, you can bridge your account into other-phrase by following this account. <a href="https://fed.brid.gy/docs">See the docs</a> for more information.""")
         test_dms.DmsTest().assert_sent(ExplicitFake, user, '?', """\
-<p>Hi! Here are your recent interactions from people who aren't bridged into fake-phrase:
+<p>Hi! Here are your recent interactions from people who aren't bridged into other-phrase:
 <ul>
 <li><a href="http://efake/mention">efake/mention</a>
 </ul>""")
@@ -1704,7 +1727,6 @@ class ProtocolReceiveTest(TestCase):
         self.assert_object('fake:post',
                            our_as1=new_as1,
                            type='note',
-                           feed=[self.alice.key, self.bob.key],
                            users=[self.user.key],
                            copies=[Target(uri='other:post', protocol='other')],
                            )
@@ -1739,7 +1761,6 @@ class ProtocolReceiveTest(TestCase):
                                'updated': '2022-01-02T03:04:05+00:00',
                            },
                            type='note',
-                           feed=[self.bob.key, self.alice.key],
                            users=[self.user.key],
                            copies=[copy],
                            )
@@ -1889,7 +1910,6 @@ class ProtocolReceiveTest(TestCase):
             'fake:reply',
             our_as1=reply_as1,
             type='note',
-            feed=[eve.key],
             users=[self.user.key],
             copies=[Target(protocol='other', uri='other:o:fa:fake:reply')],
         )
@@ -1990,8 +2010,7 @@ class ProtocolReceiveTest(TestCase):
                                    source_protocol='efake',
                                    our_as1=reply_as1,
                                    users=[user.key],
-                                   copies=[copy],
-                                   feed=[eve.key])
+                                   copies=[copy])
         expected_create = {
             'objectType': 'activity',
             'verb': 'post',
@@ -2062,7 +2081,6 @@ class ProtocolReceiveTest(TestCase):
                                  type='share',
                                  users=[self.user.key],
                                  notify=[self.bob.key],
-                                 feed=[self.alice.key, self.bob.key],
                                  )
         self.assertEqual([
             ('other:alice:target', obj.as1),
@@ -2283,7 +2301,6 @@ class ProtocolReceiveTest(TestCase):
         self.assert_object('fake:post',
                            our_as1=post_as1,
                            type='note',
-                           feed=[self.alice.key, self.bob.key],
                            users=[self.user.key],
                            )
         self.assertIsNone(Object.get_by_id('fake:create'))
@@ -2453,7 +2470,6 @@ class ProtocolReceiveTest(TestCase):
             copies=[Target(protocol='other', uri='other:o:fa:fake:follow')],
             users=[self.user.key],
             notify=[self.alice.key],
-            feed=[],
         )
 
         accept_id = 'other:alice/followers#accept-fake:follow'
@@ -2801,8 +2817,8 @@ class ProtocolReceiveTest(TestCase):
 
         models.get_original_user_key.cache_clear()
         models.get_original_object_key.cache_clear()
-        memcache.memcache.clear()
-        memcache.pickle_memcache.clear()
+        memcache.memcache.client_pool.clear()
+        memcache.pickle_memcache.client_pool.clear()
 
         obj.new = True
         Fake.fetchable = {
@@ -2836,8 +2852,8 @@ class ProtocolReceiveTest(TestCase):
 
         models.get_original_user_key.cache_clear()
         models.get_original_object_key.cache_clear()
-        memcache.memcache.clear()
-        memcache.pickle_memcache.clear()
+        memcache.memcache.client_pool.clear()
+        memcache.pickle_memcache.client_pool.clear()
         obj.new = True
 
         _, code = Fake.receive(obj, authed_as='fake:user')
@@ -2889,7 +2905,7 @@ class ProtocolReceiveTest(TestCase):
 
         models.get_original_user_key.cache_clear()
         models.get_original_object_key.cache_clear()
-        memcache.pickle_memcache.clear()
+        memcache.pickle_memcache.client_pool.clear()
 
         self.assertEqual(('OK', 202), Fake.receive_as1(reply, new=True))
         self.assertEqual({
@@ -3753,3 +3769,42 @@ class ProtocolReceiveTest(TestCase):
 
         _, kwargs = mock_send.call_args
         self.assertEqual('other:alice', kwargs['from_user'].key.id())
+
+    def test_auto_repost(self):
+        anewsocial = self.make_user('https://mastodon.social/users/anewsocial',
+                                    cls=ActivityPub)
+        ap = self.make_user('ap.brid.gy', cls=Web)
+        bsky = self.make_user('bsky.brid.gy', cls=Web)
+        Follower.get_or_create(from_=self.user, to=bsky)
+        Follower.get_or_create(from_=self.alice, to=ap)
+
+        post = Object(id='https://mastodon.social/post', our_as1={
+            'objectType': 'note',
+            'id': 'https://mastodon.social/post',
+            'actor': 'https://mastodon.social/users/anewsocial',
+            'content': 'Hello world',
+        }, source_protocol='activitypub', copies=[
+            Target(uri='fake:post', protocol='fake'),
+            Target(uri='other:post', protocol='other'),
+        ])
+        post.put()
+        post.new = True
+
+        _, status = ActivityPub.receive(
+            post, authed_as='https://mastodon.social/users/anewsocial')
+        self.assertEqual(204, status)
+
+        self.assertIn(('fake:shared:target', {
+            'id': 'https://bsky.brid.gy/#auto-repost-https://mastodon.social/post',
+            'objectType': 'activity',
+            'verb': 'share',
+            'actor': 'bsky.brid.gy',
+            'object': 'https://mastodon.social/post',
+        }), Fake.sent)
+        self.assertIn(('other:alice:target', {
+            'id': 'https://ap.brid.gy/#auto-repost-https://mastodon.social/post',
+            'objectType': 'activity',
+            'verb': 'share',
+            'actor': 'ap.brid.gy',
+            'object': 'https://mastodon.social/post',
+        }), OtherFake.sent)

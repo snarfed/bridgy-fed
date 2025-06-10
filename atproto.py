@@ -248,7 +248,7 @@ class ATProto(User, Protocol):
     ''
     LOGO_HTML = '<img src="/oauth_dropins_static/bluesky.svg">'
     ''
-    PDS_URL = f'https://atproto{common.SUPERDOMAIN}'
+    DEFAULT_TARGET = f'https://atproto{common.SUPERDOMAIN}'
     """Note that PDS hostname is atproto.brid.gy here, not bsky.brid.gy. Bluesky
     team currently has our hostname as atproto.brid.gy in their federation
     test. also note that PDS URL shouldn't include trailing slash.
@@ -313,7 +313,7 @@ class ATProto(User, Protocol):
 
     @classmethod
     def owns_handle(cls, handle, allow_internal=False):
-        # TODO: implement allow_internal
+        # TODO: implement allow_internal?
         if not did.HANDLE_RE.fullmatch(handle):
             return False
 
@@ -355,7 +355,7 @@ class ATProto(User, Protocol):
         (eg ``https://atproto.brid.gy``) as the PDS URL, for all activities.
         """
         if cls.owns_id(obj.key.id()) is not False:
-            return cls.PDS_URL
+            return cls.DEFAULT_TARGET
 
     @classmethod
     def pds_for(cls, obj):
@@ -459,7 +459,7 @@ class ATProto(User, Protocol):
         # create new DID
         # PDS URL shouldn't include trailing slash!
         # https://atproto.com/specs/did#did-documents
-        pds_url = common.host_url().rstrip('/') if DEBUG else cls.PDS_URL
+        pds_url = common.host_url().rstrip('/') if DEBUG else cls.DEFAULT_TARGET
         logger.info(f'Creating new did:plc for {user.key.id()} {handle} {pds_url}')
         did_plc = did.create_plc(handle, pds_url=pds_url, post_fn=util.requests_post,
                                  also_known_as=user.profile_id())
@@ -624,7 +624,7 @@ class ATProto(User, Protocol):
         repo.handle = username
 
     @classmethod
-    def send(to_cls, obj, url, from_user=None, orig_obj_id=None):
+    def send(to_cls, obj, pds_url, from_user=None, orig_obj_id=None):
         """Creates a record if we own its repo.
 
         If the repo's DID doc doesn't say we're its PDS, does nothing and
@@ -638,8 +638,8 @@ class ATProto(User, Protocol):
         * ``flag``s are translated to ``createReport`` to the mod service
         * DMs are translated to ``sendMessage`` to the chat service
         """
-        if util.domain_from_link(url) not in DOMAINS:
-            logger.info(f'Target PDS {url} is not us')
+        if util.domain_from_link(pds_url) not in DOMAINS:
+            logger.info(f'Target PDS {pds_url} is not us')
             return False
 
         # determine "base" object, if any
@@ -1058,7 +1058,7 @@ class ATProto(User, Protocol):
             'services': {
                 'atproto_pds': {
                     'type': 'AtprotoPersonalDataServer',
-                    'endpoint': cls.PDS_URL,
+                    'endpoint': cls.DEFAULT_TARGET,
                 },
             },
         })

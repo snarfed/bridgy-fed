@@ -31,19 +31,23 @@ logger = logging.getLogger(__name__)
 # populated in models.reset_protocol_properties
 COPIES_PROTOCOLS = None
 
-# Webfinger allows all sorts of characters that ATProto handles don't,
-# notably _ and ~. Map those to -.
+# Webfinger allows all sorts of characters that ATProto handles and Nostr usernames
+# don't, notably _ and ~. Map those to -.
 # ( : (colon) is mostly just used in the fake protocols in unit tests.)
 # https://www.rfc-editor.org/rfc/rfc7565.html#section-7
 # https://atproto.com/specs/handle
 # https://github.com/snarfed/bridgy-fed/issues/982
 # https://github.com/swicg/activitypub-webfinger/issues/9
-ATPROTO_DASH_CHARS = ('_', '~', ':')
+DASH_CHARS = ('_', '~', ':')
 
 # can't use translate_user_id because Web.owns_id checks valid_domain, which
 # doesn't allow our protocol subdomains
 BOT_ACTOR_AP_IDS = tuple(f'https://{domain}/{domain}' for domain in PROTOCOL_DOMAINS)
 BOT_ACTOR_AP_HANDLES = tuple(f'@{domain}@{domain}' for domain in PROTOCOL_DOMAINS)
+
+# if the path for a URL on a subdomain starts with this, it's our own web page/post,
+# not the subdomain protocol's.
+INTERNAL_PATH_PREFIX = '/internal/'
 
 
 def validate(id, from_, to):
@@ -89,6 +93,9 @@ def web_ap_base_domain(user_domain):
 
 def translate_user_id(*, id, from_, to):
     """Translate a user id from one protocol to another.
+
+    *NOTE*: unlike :func:`translate_object_id`, if ``to`` is a ``HAS_COPIES`` protocol
+    and has no copy object for ``id``, this function returns None, not ``id``!
 
     TODO: unify with :func:`translate_object_id`.
 
@@ -206,6 +213,8 @@ def normalize_user_id(*, id, proto):
         normalized = util.domain_from_link(normalized)
     elif proto.LABEL == 'atproto' and id.startswith('at://'):
         normalized, _, _ = parse_at_uri(id)
+    elif proto.LABEL == 'nostr':
+        normalized = id.removeprefix('nostr:')
     elif proto.LABEL in ('fake', 'efake', 'other'):
         normalized = normalized.replace(':profile:', ':')
 
@@ -276,23 +285,42 @@ def translate_handle(*, handle, from_, to, enhanced):
         if from_.owns_handle(handle, allow_internal=True) is False:
             raise ValueError(f'input handle {handle} is not valid for {from_.LABEL}')
 
+    if from_.LABEL == 'nostr':
+        # _ username is NIP-05 shortcut for just the domain itself
+        # https://nips.nostr.com/5#showing-just-the-domain-as-an-identifier
+        handle = handle.removeprefix('_@')
+
+    def flattened_user_at_domain():
+        # "flatten" [@]user@domain handles to just domain-like, eg user.domain,
+        # and then append @[protocol domain], so we end up with
+        # user.domain@proto.brid.gy.
+        domain = f'{from_.ABBREV}{SUPERDOMAIN}'
+
+        flattened = handle.lstrip('@').replace('@', '.')
+        for from_char in DASH_CHARS:
+            flattened = flattened.replace(from_char, '-')
+
+        if enhanced or handle == PRIMARY_DOMAIN or handle in PROTOCOL_DOMAINS:
+            domain = flattened
+
+        return f'{flattened}@{domain}'
+
     output = None
     match from_.LABEL, to.LABEL:
         case _, 'activitypub':
-            domain = f'{from_.ABBREV}{SUPERDOMAIN}'
-            if enhanced or handle == PRIMARY_DOMAIN or handle in PROTOCOL_DOMAINS:
-                domain = handle
-            output = f'@{handle}@{domain}'
+            output = '@' + flattened_user_at_domain()
 
         case _, 'atproto':
-            output = handle.lstrip('@').replace('@', '.')
-            for from_char in ATPROTO_DASH_CHARS:
-                output = output.replace(from_char, '-')
+            if handle == PRIMARY_DOMAIN or handle in PROTOCOL_DOMAINS:
+                return handle
 
-            if enhanced or handle == PRIMARY_DOMAIN or handle in PROTOCOL_DOMAINS:
-                pass
-            else:
-                output = f'{output}.{from_.ABBREV}{SUPERDOMAIN}'
+            output = flattened_user_at_domain().replace('@', '.')
+
+        case _, 'nostr':
+            if handle == PRIMARY_DOMAIN or handle in PROTOCOL_DOMAINS:
+                return f'_@{handle}'
+
+            output = flattened_user_at_domain()
 
         case 'activitypub', 'web':
             user, instance = handle.lstrip('@').split('@')
@@ -318,6 +346,9 @@ def translate_handle(*, handle, from_, to, enhanced):
 
 def translate_object_id(*, id, from_, to):
     """Translates a user handle from one protocol to another.
+
+    *NOTE*: unlike :func:`translate_user_id`, if ``to`` is a ``HAS_COPIES`` protocol
+    and has no copy object for ``id``, this function returns ``id``, not None!
 
     TODO: unify with :func:`translate_user_id`.
 

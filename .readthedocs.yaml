@@ -9,6 +9,11 @@ build:
     # 3.11 can't resolve current dependencies as of 2023-01-24,
     # google-api-core vs google-cloud-core versions
     python: "3.10"
+  apt_packages:
+    # needed to build secp256k1
+    # https://github.com/snarfed/bridgy-fed/commit/2b3471a4a87e1d286fb42c68756e9ad77bc65ab0
+    - automake
+    - libtool
 
 python:
    install:

@@ -119,6 +119,8 @@ class Web(User, Protocol):
         + ('follow', 'like', 'share', 'stop-following')
     )
     ''
+    USES_OBJECT_FEED = True
+    ''
 
     has_redirects = ndb.BooleanProperty()
     ''
@@ -143,7 +145,7 @@ class Web(User, Protocol):
     """
 
     ap_subdomain = ndb.StringProperty(
-        choices=['ap', 'bsky', 'fed', 'web', 'fake', 'other', 'efake'],
+        choices=['ap', 'bsky', 'efake', 'fake', 'fed', 'nostr', 'other', 'web'],
         default='web')
     """Originally, BF served Web users' AP actor ids on fed.brid.gy, eg
     https://fed.brid.gy/snarfed.org . When we started adding new protocols, we
@@ -470,8 +472,8 @@ class Web(User, Protocol):
                     return url
 
     @classmethod
-    def send(to_cls, obj, url, from_user=None, orig_obj_id=None, **kwargs):
-        """Sends a webmention to a given target URL.
+    def send(to_cls, obj, target, from_user=None, orig_obj_id=None, **kwargs):
+        """Sends a webmention to a given webmention target URL.
 
         See :meth:`Protocol.send` for details.
 
@@ -480,30 +482,30 @@ class Web(User, Protocol):
         https://fed.brid.gy/docs#error-handling
         """
         targets = as1.targets(obj.as1)
-        if not (url in targets or
+        if not (target in targets or
                 # homepage, check domain too
-                (urlparse(url).path.strip('/') == ''
-                 and domain_from_link(url) in targets)):
-            logger.debug(f'Skipping sending to {url} , not a target in the object')
+                (urlparse(target).path.strip('/') == ''
+                 and domain_from_link(target) in targets)):
+            logger.debug(f'Skipping sending to {target} , not a target in the object')
             return False
 
-        if to_cls.is_blocklisted(url):
-            logger.info(f'Skipping sending to blocklisted {url}')
+        if to_cls.is_blocklisted(target):
+            logger.info(f'Skipping sending to blocklisted {target}')
             return False
 
         source_id = translate_object_id(
             id=obj.key.id(), from_=PROTOCOLS[obj.source_protocol], to=Web)
         source_url = quote(source_id, safe=':/%+')
-        logger.info(f'Sending webmention from {source_url} to {url}')
+        logger.info(f'Sending webmention from {source_url} to {target}')
 
         # we only send webmentions for responses. for sending normal posts etc
         # to followers, we just update our stored objects (elsewhere) and web
         # users consume them via feeds.
-        endpoint = webmention_discover(url).endpoint
+        endpoint = webmention_discover(target).endpoint
         if not endpoint:
             return False
 
-        webmention.send(endpoint, source_url, url)
+        webmention.send(endpoint, source_url, target)
         return True
 
     @classmethod
@@ -957,6 +959,9 @@ def poll_feed_task():
 def webmention_task():
     """Handles inbound webmention task.
 
+    Allows source URLs on brid.gy subdomains if the ``Authorization`` header matches
+    the Flask secret key.
+
     Params:
       ``source`` (str): URL
     """
@@ -967,7 +972,8 @@ def webmention_task():
     domain = domain_from_link(source, minimize=False)
     logger.info(f'webmention from {domain}')
 
-    if domain in common.DOMAINS:
+    internal = request.headers.get('Authorization') == app.config['SECRET_KEY']
+    if domain in common.DOMAINS and not internal:
         error(f'URL not supported: {source}')
 
     user = Web.get_by_id(domain)
@@ -1009,9 +1015,11 @@ def webmention_task():
                 authors[0]['properties']['url'] = [user.web_url()]
             else:
                 authors[0] = user.web_url()
+            if obj.our_as1:
+                obj.our_as1['author'] = user.web_url()
 
     try:
-        return Web.receive(obj, authed_as=user.key.id())
+        return Web.receive(obj, authed_as=user.key.id(), internal=internal)
     except ValueError as e:
         logger.warning(e, exc_info=True)
         error(e, status=304)
@@ -1042,5 +1050,7 @@ def webmention_endpoint_cache_key(url):
 
 @memcache.memoize(expire=timedelta(hours=2), key=webmention_endpoint_cache_key)
 def webmention_discover(url, **kwargs):
-    """Thin caching wrapper around :func:`oauth_dropins.webutil.webmention.discover`."""
-    return webmention.discover(url, **kwargs)
+    """Thin cache around :func:`oauth_dropins.webutil.webmention.discover`."""
+    # discard the response since we don't use it and it's occasionally too big for
+    # memcache
+    return webmention.discover(url, **kwargs)._replace(response=None)

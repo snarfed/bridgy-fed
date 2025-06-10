@@ -1,9 +1,7 @@
 """UI pages."""
-import datetime
 from functools import wraps
 import itertools
 import logging
-import os
 import re
 import time
 
@@ -22,6 +20,7 @@ from oauth_dropins.webutil.flask_util import (
     get_flashed_messages,
     get_required_param,
     Found,
+    MovedPermanently,
 )
 from oauth_dropins.webutil.util import json_loads, json_dumps
 import requests
@@ -40,6 +39,7 @@ from flask_app import app
 from flask import redirect, session
 import ids
 import memcache
+import models
 from models import (
     fetch_objects,
     fetch_page,
@@ -49,6 +49,7 @@ from models import (
     PROTOCOLS,
     USER_STATUS_DESCRIPTIONS,
 )
+from nostr import Nostr
 from protocol import Protocol
 from web import Web
 import webfinger
@@ -61,6 +62,11 @@ with app.test_request_context('/'):
 
 logger = logging.getLogger(__name__)
 
+BLOG_REDIRECT_DOMAINS = (
+    'blog.anew.social',
+    'snarfed.org',
+)
+
 TEMPLATE_VARS = {
     'ActivityPub': ActivityPub,
     'as1': as1,
@@ -69,6 +75,7 @@ TEMPLATE_VARS = {
     'ids': ids,
     'isinstance': isinstance,
     'logs': logs,
+    'Nostr': Nostr,
     'PROTOCOLS': PROTOCOLS,
     'set': set,
     'util': util,
@@ -534,32 +541,10 @@ def serve_feed(*, objects, format, user, title, as_snippets=False, quiet=False):
         activities = [obj.as1 for obj in objects]
 
     # hydrate authors, actors, objects from stored Objects
-    fields = 'author', 'actor', 'object'
-    gets = []
+    futures = []
     for a in activities:
-        for field in fields:
-            val = as1.get_object(a, field)
-            if val and val.keys() <= set(['id']):
-                def hydrate(a, f):
-                    def maybe_set(future):
-                        if future.result() and future.result().as1:
-                            a[f] = future.result().as1
-                    return maybe_set
-
-                # TODO: extract a Protocol class method out of User.profile_id,
-                # then use that here instead. the catch is that we'd need to
-                # determine Protocol for every id, which is expensive.
-                #
-                # same TODO is in models.fetch_objects
-                id = val['id']
-                if id.startswith('did:'):
-                    id = f'at://{id}/app.bsky.actor.profile/self'
-
-                future = Object.get_by_id_async(id)
-                future.add_done_callback(hydrate(a, field))
-                gets.append(future)
-
-    tasklets.wait_all(gets)
+        futures.extend(models.hydrate(a))
+    tasklets.wait_all(futures)
 
     actor = (user.obj.as1 if user.obj and user.obj.as1
              else {'displayName': user.handle, 'url': user.web_url()})
@@ -580,7 +565,7 @@ def serve_feed(*, objects, format, user, title, as_snippets=False, quiet=False):
         # RSS requires email to generate an author element, so fill in blank one
         # where necessary
         for a in activities:
-            for field in fields:
+            for field in ('actor', 'author', 'object'):
                 if val := as1.get_object(a, field):
                     if as1.object_type(val) in as1.ACTOR_TYPES:
                         val.setdefault('email', '_@_._')
@@ -590,119 +575,14 @@ def serve_feed(*, objects, format, user, title, as_snippets=False, quiet=False):
         return body, {'Content-Type': rss.CONTENT_TYPE}
 
 
-
-@app.get('/.well-known/nodeinfo')
-@canonicalize_request_domain(common.PROTOCOL_DOMAINS, common.PRIMARY_DOMAIN)
-@flask_util.headers(CACHE_CONTROL)
-def nodeinfo_jrd():
-    """
-    https://nodeinfo.diaspora.software/protocol.html
-    """
-    return {
-        'links': [{
-            'rel': 'http://nodeinfo.diaspora.software/ns/schema/2.1',
-            'href': common.host_url('nodeinfo.json'),
-        }, {
-            "rel": "https://www.w3.org/ns/activitystreams#Application",
-            "href": activitypub.instance_actor().id_as(ActivityPub),
-        }],
-    }, {
-        'Content-Type': 'application/jrd+json',
-    }
-
-
-@app.get('/nodeinfo.json')
-@canonicalize_request_domain(common.PROTOCOL_DOMAINS, common.PRIMARY_DOMAIN)
-@memcache.memoize(expire=datetime.timedelta(hours=1))
-@flask_util.headers(CACHE_CONTROL)
-def nodeinfo():
-    """
-    https://nodeinfo.diaspora.software/schema.html
-    """
-    atp = ATProto.query(ATProto.enabled_protocols != None).count()
-    ap = ActivityPub.query(ActivityPub.enabled_protocols != None).count()
-    web = Web.query(Web.status == None).count()
-    total = atp + ap + web
-
-    logger.info(f'Users: ap: {ap}')
-    logger.info(f'Users: atproto: {atp}')
-    logger.info(f'Users: web: {web}')
-    logger.info(f'Users: total: {total}')
-
-    return {
-        'version': '2.1',
-        'software': {
-            'name': 'bridgy-fed',
-            'version': os.getenv('GAE_VERSION'),
-            'repository': 'https://github.com/snarfed/bridgy-fed',
-            'homepage': 'https://fed.brid.gy/',
-        },
-        'protocols': [
-            'activitypub',
-            'atprotocol',
-            'webmention',
-        ],
-        'services': {
-            'outbound': [],
-            'inbound': [],
-        },
-        'usage': {
-            'users': {
-                'total': total,
-                # 'activeMonth':
-                # 'activeHalfyear':
-            },
-            # these are too heavy
-            # 'localPosts': Object.query(Object.source_protocol.IN(('web', 'webmention')),
-            #                            Object.type.IN(['note', 'article']),
-            #                            ).count(),
-            # 'localComments': Object.query(Object.source_protocol.IN(('web', 'webmention')),
-            #                               Object.type == 'comment',
-            #                               ).count(),
-        },
-        'openRegistrations': True,
-        'metadata': {
-            'users': {
-                'activitypub': ap,
-                'atprotocol': atp,
-                'webmention': web,
-            },
-        },
-    }, {
-        # https://nodeinfo.diaspora.software/protocol.html
-        'Content-Type': 'application/json; profile="http://nodeinfo.diaspora.software/ns/schema/2.1#"',
-    }
-
-
-@app.get('/api/v1/instance')
-@canonicalize_request_domain(common.PROTOCOL_DOMAINS, common.PRIMARY_DOMAIN)
-@flask_util.headers(CACHE_CONTROL)
-def instance_info():
-    """
-    https://docs.joinmastodon.org/methods/instance/#v1
-    """
-    return {
-        'uri': 'fed.brid.gy',
-        'title': 'Bridgy Fed',
-        'version': os.getenv('GAE_VERSION'),
-        'short_description': 'Bridging the new social internet',
-        'description': 'Bridging the new social internet',
-        'email': 'feedback@brid.gy',
-        'thumbnail': 'https://fed.brid.gy/static/bridgy_logo_with_alpha.png',
-        'registrations': True,
-        'approval_required': False,
-        'invites_enabled': False,
-        'contact_account': {
-            'username': 'snarfed.org',
-            'acct': 'snarfed.org',
-            'display_name': 'Ryan',
-            'url': 'https://snarfed.org/',
-        },
-    }
-
-
 @app.get('/log')
 @canonicalize_request_domain(common.PROTOCOL_DOMAINS, common.PRIMARY_DOMAIN)
 @flask_util.headers(CACHE_CONTROL)
 def log():
     return logs.log()
+
+
+@app.get(f'/internal/<any({",".join(BLOG_REDIRECT_DOMAINS)}):host>/<path:path>')
+@flask_util.headers(CACHE_CONTROL)
+def blog_redirect(host, path):
+    return MovedPermanently(location=f'https://{host}/{path}')

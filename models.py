@@ -17,6 +17,7 @@ from flask import request
 from google.cloud import ndb
 from granary import as1, as2, atom, bluesky, microformats2
 from granary.bluesky import AT_URI_PATTERN, BSKY_APP_URL_RE
+import granary.nostr
 from granary.source import html_to_text
 import humanize
 from oauth_dropins.webutil import util
@@ -25,6 +26,7 @@ from oauth_dropins.webutil.flask_util import error
 from oauth_dropins.webutil.models import JsonProperty, StringIdModel
 from oauth_dropins.webutil.util import ellipsize, json_dumps, json_loads
 from requests import RequestException
+import secp256k1
 
 import common
 from common import (
@@ -53,13 +55,16 @@ PROTOCOLS = {label: None for label in (
     'webmention',
     'ui',
 )}
+DEBUG_PROTOCOLS = (
+    'fa',
+    'fake',
+    'efake',
+    'other',
+    # TODO: move to PROTOCOLS for launch
+    'nostr',
+)
 if DEBUG:
-    PROTOCOLS.update({label: None for label in (
-        'fa',
-        'fake',
-        'efake',
-        'other',
-    )})
+    PROTOCOLS.update({label: None for label in DEBUG_PROTOCOLS})
 
 # maps string kind (eg 'MagicKey') to Protocol subclass.
 # populated in ProtocolUserMeta
@@ -169,16 +174,17 @@ class DM(ndb.Model):
 
 
 class ProtocolUserMeta(type(ndb.Model)):
-    """:class:`User` metaclass. Registers all subclasses in the ``PROTOCOLS`` global."""
+    """:class:`User` metaclass. Registers all subclasses in ``PROTOCOLS``."""
     def __new__(meta, name, bases, class_dict):
         cls = super().__new__(meta, name, bases, class_dict)
 
-        if hasattr(cls, 'LABEL') and cls.LABEL not in ('protocol', 'user'):
-            for label in (cls.LABEL, cls.ABBREV) + cls.OTHER_LABELS:
+        label = getattr(cls, 'LABEL', None)
+        if (label and label not in ('protocol', 'user')
+                and (DEBUG or cls.LABEL not in DEBUG_PROTOCOLS)):
+            for label in (label, cls.ABBREV) + cls.OTHER_LABELS:
                 if label:
                     PROTOCOLS[label] = cls
-
-        PROTOCOLS_BY_KIND[cls._get_kind()] = cls
+            PROTOCOLS_BY_KIND[cls._get_kind()] = cls
 
         return cls
 
@@ -219,9 +225,11 @@ class User(StringIdModel, metaclass=ProtocolUserMeta):
     """
 
     public_exponent = ndb.StringProperty()
-    """Part of this user's bridged ActivityPub actor's private key."""
+    """Part of the bridged ActivityPub actor's private key."""
     private_exponent = ndb.StringProperty()
-    """Part of this user's bridged ActivityPub actor's private key."""
+    """Part of the bridged ActivityPub actor's private key."""
+    nostr_key_bytes = ndb.BlobProperty()
+    """The bridged Nostr account's secp256k1 private key, in raw bytes."""
 
     manual_opt_out = ndb.BooleanProperty()
     """Set to True for users who asked to be opted out."""
@@ -375,7 +383,7 @@ class User(StringIdModel, metaclass=ProtocolUserMeta):
             if user.status and not allow_opt_out:
                 return None
 
-        if propagate and not user.status:
+        if propagate and user.status in (None, 'private'):
             for label in user.enabled_protocols + list(user.DEFAULT_ENABLED_PROTOCOLS):
                 proto = PROTOCOLS[label]
                 if proto == cls:
@@ -553,7 +561,7 @@ class User(StringIdModel, metaclass=ProtocolUserMeta):
           bool:
         """
         from protocol import Protocol
-        assert issubclass(to_proto, Protocol)
+        assert isinstance(to_proto, Protocol) or issubclass(to_proto, Protocol)
 
         if self.__class__ == to_proto:
             return True
@@ -679,7 +687,8 @@ Welcome to Bridgy Fed! Your account will soon be bridged to {to_proto.PHRASE} at
         return self.handle or self.key.id()
 
     def public_pem(self):
-        """
+        """Returns the user's PEM-encoded ActivityPub public RSA key.
+
         Returns:
           bytes:
         """
@@ -688,7 +697,8 @@ Welcome to Bridgy Fed! Your account will soon be bridged to {to_proto.PHRASE} at
         return rsa.exportKey(format='PEM')
 
     def private_pem(self):
-        """
+        """Returns the user's PEM-encoded ActivityPub private RSA key.
+
         Returns:
           bytes:
         """
@@ -697,6 +707,33 @@ Welcome to Bridgy Fed! Your account will soon be bridged to {to_proto.PHRASE} at
                              base64_to_long(str(self.public_exponent)),
                              base64_to_long(str(self.private_exponent))))
         return rsa.exportKey(format='PEM')
+
+    def nsec(self):
+        """Returns the user's bech32-encoded Nostr private secp256k1 key.
+
+        Returns:
+          str:
+        """
+        assert self.nostr_key_bytes
+        privkey = secp256k1.PrivateKey(self.nostr_key_bytes, raw=True)
+        return granary.nostr.bech32_encode('nsec', privkey.serialize())
+
+    def hex_pubkey(self):
+        """Returns the user's hex-encoded Nostr public secp256k1 key.
+
+        Returns:
+          str:
+        """
+        assert self.nostr_key_bytes
+        return granary.nostr.pubkey_from_privkey(self.nostr_key_bytes.hex())
+
+    def npub(self):
+        """Returns the user's bech32-encoded ActivityPub public secp256k1 key.
+
+        Returns:
+          str:
+        """
+        return granary.nostr.bech32_encode('npub', self.hex_pubkey())
 
     def name(self):
         """Returns this user's human-readable name, eg ``Ryan Barrett``."""
@@ -912,7 +949,7 @@ Welcome to Bridgy Fed! Your account will soon be bridged to {to_proto.PHRASE} at
 class Object(StringIdModel):
     """An activity or other object, eg actor.
 
-    Key name is the id. We synthesize ids if necessary.
+    Key name is the id, generally a URI. We synthesize ids if necessary.
     """
     users = ndb.KeyProperty(repeated=True)
     'User(s) who created or otherwise own this object.'
@@ -941,7 +978,9 @@ class Object(StringIdModel):
     bsky = JsonProperty()
     'AT Protocol lexicon, for Bluesky'
     mf2 = JsonProperty()
-    'HTML microformats2 item, (ie _not_ top level parse object with ``items`` field'
+    'HTML microformats2 item (*not* top level parse object with ``items`` field)'
+    nostr = JsonProperty()
+    'Nostr event'
     our_as1 = JsonProperty()
     'ActivityStreams 1, for activities that we generate or modify ourselves'
     raw = JsonProperty()
@@ -1046,6 +1085,9 @@ class Object(StringIdModel):
             if url := self.mf2.get('url'):
                 obj['id'] = (self.key.id() if self.key and '#' in self.key.id()
                              else url)
+
+        elif self.nostr:
+            obj = granary.nostr.to_as1(self.nostr)
 
         else:
             return None
@@ -1638,7 +1680,7 @@ class Follower(ndb.Model):
 
         for f, u in zip(followers, users):
             f.user = u
-        followers = [f for f in followers if not f.user.status]
+        followers = [f for f in followers if f.user.is_enabled(user)]
 
         return followers, before, after
 
@@ -1750,8 +1792,50 @@ def fetch_objects(query, by=None, user=None):
             if content:
                 obj.content = content
                 obj.url = url
+            elif obj.inner_url:
+                obj.content = common.pretty_link(obj.inner_url, max_length=50)
 
     return objects, new_before, new_after
+
+
+def hydrate(activity, fields=('author', 'actor', 'object')):
+    """Hydrates fields in an AS1 activity, in place.
+
+    Args:
+      activity (dict): AS1 activity
+      fields (sequence of str): names of fields to hydrate. If they're string ids,
+        loads them from the datastore, if possible, and replaces them with their dict
+        AS1 objects.
+
+    Returns:
+      sequence of :class:`google.cloud.ndb.tasklets.Future`: tasklets for hydrating
+        each field. Wait on these before using ``activity``.
+    """
+    def _hydrate(field):
+        def maybe_set(future):
+            if future.result() and future.result().as1:
+                activity[field] = future.result().as1
+        return maybe_set
+
+    futures = []
+
+    for field in fields:
+        val = as1.get_object(activity, field)
+        if val and val.keys() <= set(['id']):
+            # TODO: extract a Protocol class method out of User.profile_id,
+            # then use that here instead. the catch is that we'd need to
+            # determine Protocol for every id, which is expensive.
+            #
+            # same TODO is in models.fetch_objects
+            id = val['id']
+            if id.startswith('did:'):
+                id = f'at://{id}/app.bsky.actor.profile/self'
+
+            future = Object.get_by_id_async(id)
+            future.add_done_callback(_hydrate(field))
+            futures.append(future)
+
+    return futures
 
 
 def fetch_page(query, model_class, by=None):

@@ -52,6 +52,7 @@ from models import (
     Target,
     User,
 )
+import notifications
 
 OBJECT_REFRESH_AGE = timedelta(days=30)
 DELETE_TASK_DELAY = timedelta(minutes=2)
@@ -70,6 +71,18 @@ DONT_STORE_AS1_TYPES = as1.CRUD_VERBS | set((
 ))
 STORE_AS1_TYPES = (as1.ACTOR_TYPES | as1.POST_TYPES | as1.VERBS_WITH_OBJECT
                    - DONT_STORE_AS1_TYPES)
+
+# when we see a post from a user id that's a key in this dict, we automatically
+# repost it as each of the accounts in the value sequence
+PROTOCOL_BOT_ACCOUNTS = (
+    ('web', 'ap.brid.gy'),
+    ('web', 'bsky.brid.gy'),
+    ('web', 'fed.brid.gy'),
+)
+AUTO_REPOST_ACCOUNTS = {
+    'https://blog.anew.social/.ghost/activitypub/users/index': PROTOCOL_BOT_ACCOUNTS,
+    'https://mastodon.social/users/anewsocial': PROTOCOL_BOT_ACCOUNTS,
+}
 
 logger = logging.getLogger(__name__)
 
@@ -97,6 +110,8 @@ class Protocol:
     """str: MIME type of this protocol's native data format, appropriate for the ``Content-Type`` HTTP header."""
     HAS_COPIES = False
     """bool: whether this protocol is push and needs us to proactively create "copy" users and objects, as opposed to pulling converted objects on demand"""
+    DEFAULT_TARGET = None
+    """str: optional, the default target URI to send this protocol's activities to. May be used as the "shared" target. Often only set if ``HAS_COPIES`` is true."""
     REQUIRES_AVATAR = False
     """bool: whether accounts on this protocol are required to have a profile picture. If they don't, their ``User.status`` will be ``blocked``."""
     REQUIRES_NAME = False
@@ -111,6 +126,8 @@ class Protocol:
     """sequence of str: AS1 objectTypes and verbs that this protocol supports receiving and sending"""
     SUPPORTS_DMS = False
     """bool: whether this protocol can receive DMs (chat messages)"""
+    USES_OBJECT_FEED = False
+    """bool: whether to store followers on this protocol in :attr:`Object.feed`."""
 
     def __init__(self):
         assert False
@@ -276,11 +293,14 @@ class Protocol:
         Returns:
           (str domain, bool remote) or None
         """
-        if remote and util.is_web(id):
-            return util.domain_from_link(id)
+        domain = util.domain_from_link(id)
+        if domain in PROTOCOL_DOMAINS:
+            return id
+        elif remote and util.is_web(id):
+            return domain
 
     @cached(LRUCache(20000), lock=Lock())
-    @memcache.memoize(key=_for_id_memcache_key, write=lambda id, remote: remote,
+    @memcache.memoize(key=_for_id_memcache_key, write=lambda id, remote=True: remote,
                       version=3)
     @staticmethod
     def for_id(id, remote=True):
@@ -311,13 +331,16 @@ class Protocol:
         if util.is_web(id):
             # step 1: check for our per-protocol subdomains
             try:
-                is_homepage = urlparse(id).path.strip('/') == ''
+                parsed = urlparse(id)
             except ValueError as e:
                 logger.info(f'urlparse ValueError: {e}')
                 return None
 
+            is_homepage = parsed.path.strip('/') == ''
+            is_internal = parsed.path.startswith(ids.INTERNAL_PATH_PREFIX)
             by_subdomain = Protocol.for_bridgy_subdomain(id)
-            if by_subdomain and not is_homepage and id not in BOT_ACTOR_AP_IDS:
+            if by_subdomain and not (is_homepage or is_internal
+                                     or id in BOT_ACTOR_AP_IDS):
                 logger.debug(f'  {by_subdomain.LABEL} owns id {id}')
                 return by_subdomain
 
@@ -444,6 +467,24 @@ class Protocol:
         return (None, None)
 
     @classmethod
+    def is_user_at_domain(cls, handle, allow_internal=False):
+        """Returns True if handle is formatted ``user@domain.tld``, False otherwise.
+
+        Example: ``@user@instance.com``
+
+        Args:
+          handle (str)
+          allow_internal (bool): whether the domain can be a Bridgy Fed domain
+        """
+        parts = handle.split('@')
+        if len(parts) != 2:
+            return False
+
+        user, domain = parts
+        return bool(user and domain
+                    and not cls.is_blocklisted(domain, allow_internal=allow_internal))
+
+    @classmethod
     def bridged_web_url_for(cls, user, fallback=False):
         """Returns the web URL for a user's bridged profile in this protocol.
 
@@ -505,10 +546,12 @@ class Protocol:
         raise NotImplementedError()
 
     @classmethod
-    def send(to_cls, obj, url, from_user=None, orig_obj_id=None):
+    def send(to_cls, obj, target, from_user=None, orig_obj_id=None):
         """Sends an outgoing activity.
 
-        To be implemented by subclasses.
+        To be implemented by subclasses. Should call
+        ``to_cls.translate_ids(obj.as1)`` before converting it to this Protocol's
+        format.
 
         NOTE: if this protocol's ``HAS_COPIES`` is True, and this method creates
         a copy and sends it, it *must* add that copy to the *object*'s (not
@@ -516,7 +559,7 @@ class Protocol:
 
         Args:
           obj (models.Object): with activity to send
-          url (str): destination URL to send to
+          target (str): destination URL to send to
           from_user (models.User): user (actor) this activity is from
           orig_obj_id (str): :class:`models.Object` key id of the "original object"
             that this object refers to, eg replies to or reposts or likes
@@ -552,7 +595,8 @@ class Protocol:
           False otherwise
 
         Raises:
-          requests.RequestException or werkzeug.HTTPException: if the fetch fails
+          requests.RequestException, werkzeug.HTTPException,
+          websockets.WebSocketException, etc: if the fetch fails
         """
         raise NotImplementedError()
 
@@ -1065,6 +1109,24 @@ class Protocol:
             if as1.is_dm(obj.as1):
                 return dms.receive(from_user=from_user, obj=obj)
 
+            # auto-repost from configured accounts
+            if reposters := AUTO_REPOST_ACCOUNTS.get(actor_id):
+                logger.info(f'auto reposting {inner_obj_id} from {reposters}')
+                for proto, id in reposters:
+                    profile_id = ids.profile_id(id=id, proto=PROTOCOLS[proto])
+                    repost_as1 = {
+                        # double profile id because we subdomain-unwrap it for
+                        # protocol bot accounts
+                        'id': f'{profile_id}{profile_id}#auto-repost-{inner_obj_id}',
+                        'objectType': 'activity',
+                        'verb': 'share',
+                        'actor': id,
+                        'object': inner_obj_id,
+                    }
+                    # enqueue receive task
+                    common.create_task(queue='receive', authed_as=id,
+                                       our_as1=repost_as1, source_protocol=proto)
+
         # fetch actor if necessary
         if (actor and actor.keys() == set(['id'])
                 and obj.type not in ('delete', 'undo')):
@@ -1494,7 +1556,7 @@ class Protocol:
                         and target_author_key):
                     if target_author := target_author_key.get():
                         if target_author.is_enabled(from_cls):
-                            memcache.add_notification(target_author, write_obj)
+                            notifications.add_notification(target_author, write_obj)
                             verb, noun = (
                                 ('replied to', 'replies') if id in in_reply_tos
                                 else ('quoted', 'quotes') if id in quoted_posts
@@ -1565,14 +1627,20 @@ Hi! You <a href="{inner_obj_as1.get('url') or inner_obj_id}">recently {verb}</a>
         if (obj.type in ('post', 'update', 'delete', 'move', 'share', 'undo')
                 and (not is_reply or is_self_reply)):
             logger.info(f'Delivering to followers of {user_key}')
-            followers = [
-                f for f in Follower.query(Follower.to == user_key,
-                                          Follower.status == 'active')
+            followers = []
+            for f in Follower.query(Follower.to == user_key,
+                                    Follower.status == 'active'):
+                proto = PROTOCOLS_BY_KIND[f.from_.kind()]
                 # skip protocol bot users
-                if not Protocol.for_bridgy_subdomain(f.from_.id())
-                # skip protocols this user hasn't enabled, or where the base
-                # object of this activity hasn't been bridged
-                and PROTOCOLS_BY_KIND[f.from_.kind()] in to_protocols]
+                if (not Protocol.for_bridgy_subdomain(f.from_.id())
+                        # skip protocols this user hasn't enabled, or where the base
+                        # object of this activity hasn't been bridged
+                        and proto in to_protocols
+                        # we deliver to HAS_COPIES protocols separately, below. we
+                        # assume they have follower-independent targets.
+                        and not (proto.HAS_COPIES and proto.DEFAULT_TARGET)):
+                    followers.append(f)
+
             user_keys = [f.from_ for f in followers]
             users = [u for u in ndb.get_multi(user_keys) if u]
             User.load_multi(users)
@@ -1588,7 +1656,7 @@ Hi! You <a href="{inner_obj_as1.get('url') or inner_obj_id}">recently {verb}</a>
             # add to followers' feeds, if any
             if not internal and obj.type in ('post', 'update', 'share'):
                 if write_obj.type not in as1.ACTOR_TYPES:
-                    write_obj.feed = [u.key for u in users]
+                    write_obj.feed = [u.key for u in users if u.USES_OBJECT_FEED]
                     if write_obj.feed:
                         write_obj.dirty = True
 
@@ -1610,13 +1678,12 @@ Hi! You <a href="{inner_obj_as1.get('url') or inner_obj_id}">recently {verb}</a>
                     Object.get_by_id(inner_obj_id) if obj.type == 'share' else None
 
         # deliver to enabled HAS_COPIES protocols proactively
-        # TODO: abstract for other protocols
-        from atproto import ATProto
-        if (ATProto in to_protocols
-                and obj.type in ('post', 'update', 'delete', 'share')):
-            logger.info(f'user has ATProto enabled, adding {ATProto.PDS_URL}')
-            targets.setdefault(
-                Target(protocol=ATProto.LABEL, uri=ATProto.PDS_URL), None)
+        if obj.type in ('post', 'update', 'delete', 'share'):
+            for proto in to_protocols:
+                if proto.HAS_COPIES and proto.DEFAULT_TARGET:
+                    logger.info(f'user has {proto.LABEL} enabled, adding {proto.DEFAULT_TARGET}')
+                    targets.setdefault(
+                        Target(protocol=proto.LABEL, uri=proto.DEFAULT_TARGET), None)
 
         # de-dupe targets, discard same-domain
         # maps string target URL to (Target, Object) tuple

@@ -16,7 +16,6 @@ import time
 
 from arroba.datastore_storage import AtpRepo
 from arroba.util import parse_at_uri
-import dag_cbor
 import dag_json
 from google.cloud import ndb
 from google.cloud.ndb.exceptions import ContextError
@@ -241,6 +240,10 @@ def subscribe():
             # our own commits are sometimes missing the record
             # https://github.com/snarfed/bridgy-fed/issues/1016
             if not cid or not block:
+                continue
+            elif not isinstance(block, dict):
+                # https://github.com/snarfed/bridgy-fed/issues/1938
+                logger.info(f"Skipping odd record we couldn't understand (#1938): {op} {p_op} {repr(block)}")
                 continue
 
             op = op._replace(record=block)

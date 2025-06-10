@@ -92,7 +92,6 @@
 <p><em>Using</em></p>
 <li><a href="#get-started">How do I get started?</a></li>
 <li><a href="#which-accounts">Which accounts do I need?</a></li>
-<li><a href="#login">How do I log into Bridgy Fed?</a></li>
 <li><a href="#update-profile">How do I update my profile?</a></li>
 <li><a href="#troubleshooting">I tried it, and it didn't work!</a></li>
 <li><a href="#user-page">Can I see my account's status and recent activity?</a></li>
@@ -371,12 +370,6 @@
 <li class="answer">
 <p>None! At least, no more than the accounts you already have. Bridgy Fed doesn't cross-post (ie copy posts) between separate accounts. Instead, it <a href="https://en.wikipedia.org/wiki/Federation_(information_technology)"><em>federates</em></a>, or mirrors, your existing accounts into other networks.</p>
 <p>If you want to cross-post instead, check out <a href="https://brid.gy/">Bridgy classic</a>!</p>
-</li>
-
-
-<li id="login" class="question">How do I log into Bridgy Fed?</li>
-<li class="answer">
-<p>You don't! Bridgy Fed doesn't have its own accounts or logins.</p>
 </li>
 
 
@@ -728,9 +721,9 @@ RewriteRule ^.well-known/(host-meta|webfinger).* https://fed.brid.gy/$0  [redire
 <li class="answer">
 <p>Yes! Just follow these three steps:</p>
 <ol>
-<li>Get your bridged account's <a href="https://atproto.com/guides/identity#identifiers">DID</a>. You can either DM <em>did</em> to the Bluesky Bridgy Fed bot account (eg <code>@bsky.brid.gy@bsky.brid.gy</code>), or go to your <a href="#user-page">user page</a> and click the <button class="btn btn-default glyphicon glyphicon-tag"></button> next to to your bridged Bluesky account link.
+<li>Get your bridged account's <a href="https://atproto.com/guides/identity#identifiers">DID</a>. You can DM the text <code>did</code> to the Bluesky Bridgy Fed bot account (eg <code>@bsky.brid.gy@bsky.brid.gy</code>), or go to your <a href="#user-page">user page</a> and click the <button class="btn btn-default glyphicon glyphicon-tag"></button> next to to your bridged Bluesky account link.
 <li>Connect your domain to your bridged Bluesky account. You can do this <a href="https://bsky.social/about/blog/4-28-2023-domain-handle-tutorial#:~:text=navigate%20back%20to%20your%20domain%20registrar">with DNS</a> (just steps 5 and 6) or <a href="https://atproto.com/specs/handle#:~:text=HTTPS%20well-known%20method">with HTTPS</a>. Once you're done, <a href="https://bsky-debug.app/handle">check your work here</a>.
-<li>Add your domain to your DID. If your account is on the fediverse, send a DM to <code>@bsky.brid.gy@bsky.brid.gy</code> with the text <code>username [domain]</code> (eg <code>username my.site.com</code>). If you're bridging a website, click the <button class="btn btn-default glyphicon glyphicon-refresh"></button> button on your <a href="#user-page">user page</a>.
+<li>If you're on the fediverse, <a href="/login">log in here</a> and enter your domain in the <em>Set Bluesky handle</em> form. Or, if your account isn't supported for login, send a DM to <code>@bsky.brid.gy@bsky.brid.gy</code> with the text <code>username [domain]</code> (eg <code>username my.site.com</code>). If you're bridging a website, click the <button class="btn btn-default glyphicon glyphicon-refresh"></button> button on your <a href="#user-page">user page</a>.
 </ol>
 </li>
 
@@ -1265,7 +1258,7 @@ I'm <a href="https://snarfed.org/">Ryan Barrett</a>. I'm just a guy who likes <a
   <td><a href="https://www.oscollective.org/">non-profit</a>,
     <a href="https://www.w3.org/community/socialcg/">W3C</a></td>
   <td><a href="https://www.w3.org/community/socialcg/">W3C</a>, <a href="https://socialhub.activitypub.rocks/t/about-the-fediverse-enhancement-proposals/1168">FEPs</a></td>
-  <td><a href="https://bsky.social/about/blog/7-05-2023-business-plan">C-corp now</a>,
+  <td><a href="https://bsky.social/about/blog/7-05-2023-business-plan">PBC now</a>,
     <a href="https://blue.amazingca.dev/user/did:plc:44ybard66vv44zksje25o7dz/post/3k3p6upex4x2l">IETF eventually?</a></td>
   <td><a href="https://fiatjaf.com/">BDFL</a>, <a href="https://github.com/nostr-protocol/nips">NIPs</a>, adoption based</td>
   <td><a href="https://docs.farcaster.xyz/learn/contributing/fips">FIPs</a>, <a href="https://docs.farcaster.xyz/learn/contributing/governance">adoption based</a></td>

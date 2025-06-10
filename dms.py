@@ -2,9 +2,7 @@
 from datetime import timedelta
 import logging
 
-from flask import request
 from granary import as1, source
-from oauth_dropins.webutil.flask_util import cloud_tasks_only, error
 from oauth_dropins.webutil import util
 
 from collections import namedtuple
@@ -396,44 +394,3 @@ def load_user(proto, handle):
         if user := proto.get_or_create(id):
             if user.obj:
                 return user
-
-
-@cloud_tasks_only()
-def notify_task():
-    """Task handler for sending a notification DM to a user.
-
-    Fetches notifications from memcache.
-
-    Parameters:
-      user_id (str): ID of the user to send notifications to
-      protocol (str): Protocol label the user is on
-    """
-    common.log_request()
-
-    proto = PROTOCOLS[request.form['protocol']]
-    user_id = request.form['user_id']
-
-    if not (user := proto.get_by_id(user_id)):
-        logger.info(f"Couldn't load user {user_id}")
-        return '', 204
-
-    if not (notifs := memcache.get_notifications(user, clear=True)):
-        logger.info(f'No notifications for {user_id}')
-        return '', 204
-
-    from_proto_label = (user.enabled_protocols[0] if user.enabled_protocols
-        else user.DEFAULT_ENABLED_PROTOCOLS[0] if user.DEFAULT_ENABLED_PROTOCOLS
-        else None)
-    if not from_proto_label:
-        logger.info(f"User {user_id} isn't enabled")
-        return '', 204
-
-    message = "<p>Hi! Here are your recent interactions from people who aren't bridged into fake-phrase:\n<ul>\n"
-    for url in notifs:
-        message += f'<li>{util.pretty_link(url)}\n'
-    message += '</ul>\n<p>To disable these messages, reply with the text <em>mute</em>.'
-
-    logger.info(f'sending notifications DM for {user_id}')
-    maybe_send(from_proto=PROTOCOLS[from_proto_label], to_user=user, text=message)
-
-    return '', 200

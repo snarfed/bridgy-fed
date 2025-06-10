@@ -11,6 +11,7 @@ from Crypto.PublicKey import ECC
 from cryptography.hazmat.primitives.asymmetric import ec
 from cryptography.hazmat.primitives import serialization
 from google.cloud import ndb
+from google.cloud.ndb import tasklets
 from google.cloud.tasks_v2.types import Task
 from granary.bluesky import NO_AUTHENTICATED_LABEL
 from granary.tests.test_bluesky import ACTOR_AS, ACTOR_PROFILE_BSKY
@@ -29,10 +30,12 @@ import common
 import memcache
 import models
 from models import Follower, Object, OBJECT_EXPIRE_AGE, PROTOCOLS, Target, User
+from nostr import Nostr
 import protocol
 from protocol import Protocol
 from web import Web
 
+from granary.tests.test_nostr import PRIVKEY, PUBKEY, NPUB_URI, NSEC_URI
 from .test_activitypub import ACTOR
 from .test_atproto import DID_DOC
 
@@ -196,6 +199,18 @@ class UserTest(TestCase):
         self.assertTrue(pem.decode().startswith('-----BEGIN RSA PRIVATE KEY-----\n'), pem)
         self.assertTrue(pem.decode().endswith('-----END RSA PRIVATE KEY-----'), pem)
 
+    def test_nsec(self):
+        self.user.nostr_key_bytes = bytes.fromhex(PRIVKEY)
+        self.assertEqual(NSEC_URI.removeprefix('nostr:'), self.user.nsec())
+
+    def test_hex_pubkey(self):
+        self.user.nostr_key_bytes = bytes.fromhex(PRIVKEY)
+        self.assertEqual(PUBKEY, self.user.hex_pubkey())
+
+    def test_npub(self):
+        self.user.nostr_key_bytes = bytes.fromhex(PRIVKEY)
+        self.assertEqual(NPUB_URI.removeprefix('nostr:'), self.user.npub())
+
     def test_user_page_path(self):
         self.assertEqual('/web/y.za', self.user.user_page_path())
         self.assertEqual('/web/y.za/followers', self.user.user_page_path('followers'))
@@ -287,7 +302,7 @@ class UserTest(TestCase):
         user = self.make_user('fake:user', cls=Fake)
         self.assertEqual('fake:handle:user', user.handle_as(Fake))
         self.assertEqual('fake:handle:user', user.handle_as('fake'))
-        self.assertEqual('@fake:handle:user@fa.brid.gy', user.handle_as('ap'))
+        self.assertEqual('@fake-handle-user@fa.brid.gy', user.handle_as('ap'))
 
     def test_handle_as_web_custom_username(self, *_):
         self.user.obj.our_as1 = {
@@ -461,7 +476,7 @@ class UserTest(TestCase):
         self.assertEqual((0, 0), user.count_followers())
 
         # clear both
-        memcache.pickle_memcache.clear()
+        memcache.pickle_memcache.client_pool.clear()
         user.count_followers.cache.clear()
         self.assertEqual((1, 2), user.count_followers())
 
@@ -586,6 +601,7 @@ class UserTest(TestCase):
 
 
 class ObjectTest(TestCase):
+
     def setUp(self):
         super().setUp()
         self.user = None
@@ -964,6 +980,21 @@ class ObjectTest(TestCase):
         })
         self.assertEqual('z.com', obj.as1['id'])
 
+    def test_as1_from_nostr_note(self):
+        obj = Object(id='nostr:note123', nostr={
+            'kind': 1,
+            'id': '12ab',
+            'content': 'Something to say',
+            'created_at': 1641092645,
+            'tags': [],
+        })
+        self.assert_equals({
+            'objectType': 'note',
+            'id': 'nostr:note1z24swknlsf',
+            'content': 'Something to say',
+            'published': '2022-01-02T03:04:05+00:00',
+        }, obj.as1)
+
     def test_as1_image_proxy_domain(self):
         self.assert_equals({
             'id': 'https://www.threads.net/foo',
@@ -1065,7 +1096,7 @@ class ObjectTest(TestCase):
 
         models.get_original_user_key.cache_clear()
         models.get_original_object_key.cache_clear()
-        memcache.pickle_memcache.clear()
+        memcache.pickle_memcache.client_pool.clear()
 
         # matching copy users
         self.make_user('other:alice', cls=OtherFake,
@@ -1104,7 +1135,7 @@ class ObjectTest(TestCase):
 
         models.get_original_user_key.cache_clear()
         models.get_original_object_key.cache_clear()
-        memcache.pickle_memcache.clear()
+        memcache.pickle_memcache.client_pool.clear()
 
         # matching copies
         self.make_user('other:alice', cls=OtherFake,
@@ -1146,7 +1177,7 @@ class ObjectTest(TestCase):
 
         models.get_original_user_key.cache_clear()
         models.get_original_object_key.cache_clear()
-        memcache.pickle_memcache.clear()
+        memcache.pickle_memcache.client_pool.clear()
 
         # matching copies
         self.store_object(id='other:a',
@@ -1260,7 +1291,7 @@ class ObjectTest(TestCase):
     def test_get_original_user_key(self):
         self.assertIsNone(models.get_original_user_key('other:user'))
         models.get_original_user_key.cache_clear()
-        memcache.pickle_memcache.clear()
+        memcache.pickle_memcache.client_pool.clear()
         user = self.make_user('fake:user', cls=Fake,
                               copies=[Target(uri='other:user', protocol='other')])
         self.assertEqual(user.key, models.get_original_user_key('other:user'))
@@ -1268,7 +1299,7 @@ class ObjectTest(TestCase):
     def test_get_original_object_key(self):
         self.assertIsNone(models.get_original_object_key('other:post'))
         models.get_original_object_key.cache_clear()
-        memcache.pickle_memcache.clear()
+        memcache.pickle_memcache.client_pool.clear()
         obj = self.store_object(id='fake:post',
                                 copies=[Target(uri='other:post', protocol='other')])
         self.assertEqual(obj.key, models.get_original_object_key('other:post'))
@@ -1305,6 +1336,64 @@ class ObjectTest(TestCase):
         cache_key = memcache.memoize_key(
             models.get_original_object_key, 'other:x')
         self.assertIsNone(memcache.pickle_memcache.get(cache_key))
+
+    def test_hydrate_note(self):
+        self.store_object(id='fake:alice', our_as1=ACTOR_AS)
+        # self.store_object(id='fake:post', our_as1=)
+
+        note = {
+            'objectType': 'note',
+            'content': 'hello world',
+            'author': 'fake:alice',
+        }
+        tasklets.wait_all(models.hydrate(note))
+
+        self.assertEqual({
+            'objectType': 'note',
+            'content': 'hello world',
+            'author': ACTOR_AS,
+        }, note)
+
+    def test_hydrate_repost(self):
+        self.store_object(id='fake:alice', our_as1=ACTOR_AS)
+
+        repost = {
+            'objectType': 'activity',
+            'verb': 'repost',
+            'actor': 'fake:alice',
+            'object': 'fake:post',
+        }
+        tasklets.wait_all(models.hydrate(repost))
+
+        self.assertEqual({
+            'objectType': 'activity',
+            'verb': 'repost',
+            'actor': ACTOR_AS,
+            'object': 'fake:post',
+        }, repost)
+
+    def test_hydrate_like(self):
+        self.store_object(id='fake:post', our_as1={
+            'objectType': 'note',
+            'content': 'hello world',
+        })
+
+        like = {
+            'objectType': 'activity',
+            'verb': 'like',
+            'object': 'fake:post',
+        }
+        tasklets.wait_all(models.hydrate(like))
+
+        self.assertEqual({
+            'objectType': 'activity',
+            'verb': 'like',
+            'object': {
+                'objectType': 'note',
+                'id': 'fake:post',
+                'content': 'hello world',
+            },
+        }, like)
 
 
 class FollowerTest(TestCase):

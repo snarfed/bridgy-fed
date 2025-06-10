@@ -17,3 +17,18 @@ https://mastodon.social/users/quillmatiq
 https://mastodon.social/users/snarfed
 https://pixelfed.social/users/quillmatiq
 https://pixelfed.social/users/snarfed
+
+# Susan
+susanmernit.com
+did:plc:rovjobylvcwmjg5vdld6jhsb  # smernit.bsky.social
+https://sfba.social/users/suziedarling
+
+# Ben
+werd.io
+did:plc:77tdak46psveqneyegsdyc7l  # werd.io
+https://werd.social/users/ben
+
+# Erin
+wrecka.ge
+did:plc:qrt5rykojeg5sbsajbu4zdke  # kissane.bsky.social
+https://mas.to/users/kissane

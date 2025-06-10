@@ -2,14 +2,11 @@
 from unittest.mock import patch
 
 from google.cloud.ndb import Key
-from oauth_dropins.webutil.testutil import NOW
-from oauth_dropins.webutil import util
 
-import common
 import memcache
 from memcache import memoize, pickle_memcache
-from models import Object, User
-from .testutil import Fake, TestCase
+from models import Object
+from .testutil import TestCase
 
 
 class MemcacheTest(TestCase):
@@ -109,11 +106,11 @@ class MemcacheTest(TestCase):
 
         self.assertEqual('5', foo(5))
         self.assertEqual([5], calls)
-        self.assertEqual(0, len(pickle_memcache._contents))
+        self.assertEqual(0, len(pickle_memcache.client_pool.free))
 
         self.assertEqual('5', foo(5))
         self.assertEqual([5, 5], calls)
-        self.assertEqual(0, len(pickle_memcache._contents))
+        self.assertEqual(0, len(pickle_memcache.client_pool.free))
 
     def test_memoize_write_false(self):
         calls = []
@@ -153,6 +150,21 @@ class MemcacheTest(TestCase):
         self.assertEqual('6', foo(6))
         self.assertEqual([5, 6, 6], calls)
 
+    @patch('memcache.pickle_memcache', new=None)
+    def test_memoize_no_memcache(self):
+        calls = []
+
+        @memoize()
+        def foo(x):
+            calls.append(x)
+            return str(x)
+
+        self.assertEqual('5', foo(5))
+        self.assertEqual([5], calls)
+
+        self.assertEqual('5', foo(5))
+        self.assertEqual([5, 5], calls)
+
     def test_memoize_version_callable(self):
         calls = []
 
@@ -178,99 +190,3 @@ class MemcacheTest(TestCase):
                 ('☃.net', b'\xe2\x98\x83.net'),
         ):
             self.assertEqual(expected, memcache.key(input))
-
-    def test_get_notifications_empty(self):
-        user = self.make_user(id='fake:user', cls=Fake)
-        self.assertEqual([], memcache.get_notifications(user))
-
-    @patch('oauth_dropins.webutil.appengine_config.tasks_client.create_task')
-    def test_add_notification_new_key(self, mock_create_task):
-        common.RUN_TASKS_INLINE = False
-        user = self.make_user(id='fake:user', cls=Fake)
-
-        memcache.add_notification(user, Object(id='http://reply'))
-
-        self.assertEqual(['http://reply'], memcache.get_notifications(user))
-        self.assertEqual(b'http://reply', memcache.memcache.get('notifs-fake:user'))
-
-        delayed_eta = (util.to_utc_timestamp(NOW) +
-                       memcache.NOTIFY_TASK_FREQ.total_seconds())
-        self.assert_task(mock_create_task, 'notify', delayed_eta, user_id='fake:user',
-                         protocol='fake')
-
-    @patch('oauth_dropins.webutil.appengine_config.tasks_client.create_task')
-    def test_add_notification_requires_web_url(self, mock_create_task):
-        common.RUN_TASKS_INLINE = False
-        user = self.make_user(id='fake:user', cls=Fake)
-
-        memcache.add_notification(user, Object(id='efake:reply'))
-
-        self.assertEqual([], memcache.get_notifications(user))
-        self.assertIsNone(memcache.memcache.get('notifs-fake:user'))
-        mock_create_task.assert_not_called()
-
-    @patch('oauth_dropins.webutil.appengine_config.tasks_client.create_task')
-    def test_add_notification_for_user_with_send_notifs_none_is_noop(
-            self, mock_create_task):
-        common.RUN_TASKS_INLINE = False
-        user = self.make_user(id='fake:user', cls=Fake, send_notifs='none')
-
-        memcache.add_notification(user, Object(id='http://reply'))
-
-        self.assertEqual([], memcache.get_notifications(user))
-        self.assertIsNone(memcache.memcache.get('notifs-fake:user'))
-        mock_create_task.assert_not_called()
-
-    @patch('oauth_dropins.webutil.appengine_config.tasks_client.create_task')
-    def test_add_notification_append_to_existing(self, mock_create_task):
-        common.RUN_TASKS_INLINE = False
-        user = self.make_user(id='fake:user', cls=Fake)
-
-        memcache.memcache.set('notifs-fake:user', 'http://reply0')
-        memcache.add_notification(user, Object(id='r1', our_as1={'url': 'http://r1'}))
-        memcache.add_notification(user, Object(id='http://reply2'))
-
-        self.assertEqual(['http://reply0', 'http://r1', 'http://reply2'],
-                         memcache.get_notifications(user))
-        self.assertEqual(b'http://reply0 http://r1 http://reply2',
-                         memcache.memcache.get('notifs-fake:user'))
-        mock_create_task.assert_not_called()
-
-    @patch('oauth_dropins.webutil.appengine_config.tasks_client.create_task')
-    def test_add_notification_deduplicate(self, mock_create_task):
-        common.RUN_TASKS_INLINE = False
-        user = self.make_user(id='fake:user', cls=Fake)
-
-        memcache.add_notification(user, Object(id='http://reply'))
-        memcache.add_notification(user, Object(id='http://reply'))
-
-        self.assertEqual(['http://reply'], memcache.get_notifications(user))
-        self.assertEqual(b'http://reply', memcache.memcache.get('notifs-fake:user'))
-
-        delayed_eta = (util.to_utc_timestamp(NOW) +
-                       memcache.NOTIFY_TASK_FREQ.total_seconds())
-        self.assert_task(mock_create_task, 'notify', delayed_eta, user_id='fake:user',
-                         protocol='fake')
-
-    # mock get to say there's nothing in the cache, and cas to say someone changed it
-    # since the get. should then append.
-    @patch('oauth_dropins.webutil.appengine_config.tasks_client.create_task')
-    @patch.object(memcache.memcache, 'gets', return_value=(None, b'towkin'))
-    @patch.object(memcache.memcache, 'cas', return_value=False)
-    def test_add_notification_cas_failure(self, mock_cas, mock_get, mock_create_task):
-        common.RUN_TASKS_INLINE = False
-        user = self.make_user(id='fake:user', cls=Fake)
-
-        memcache.memcache.set('notifs-fake:user', b'http://existing')
-
-        memcache.add_notification(user, Object(id='http://reply'))
-
-        # should get the new value and append
-        self.assertEqual(['http://existing', 'http://reply'],
-                         memcache.get_notifications(user))
-        self.assertEqual(b'http://existing http://reply',
-                         memcache.memcache.get('notifs-fake:user'))
-
-        mock_get.assert_called_with(b'notifs-fake:user', cas_default=0)
-        mock_cas.assert_called_with(b'notifs-fake:user', b'http://reply', b'towkin')
-        mock_create_task.assert_not_called()
