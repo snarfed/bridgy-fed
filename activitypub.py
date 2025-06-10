@@ -291,7 +291,7 @@ class ActivityPub(User, Protocol):
             return None
 
         if shared:
-            shared_inbox = actor.get('endpoints', {}).get('sharedInbox')
+            shared_inbox = (actor.get('endpoints') or {}).get('sharedInbox')
             if shared_inbox:
                 return shared_inbox
 
