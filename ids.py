@@ -45,6 +45,10 @@ DASH_CHARS = ('_', '~', ':')
 BOT_ACTOR_AP_IDS = tuple(f'https://{domain}/{domain}' for domain in PROTOCOL_DOMAINS)
 BOT_ACTOR_AP_HANDLES = tuple(f'@{domain}@{domain}' for domain in PROTOCOL_DOMAINS)
 
+# if the path for a URL on a subdomain starts with this, it's our own web page/post,
+# not the subdomain protocol's.
+INTERNAL_PATH_PREFIX = '/internal/'
+
 
 def validate(id, from_, to):
     """Validates args.

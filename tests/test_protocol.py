@@ -111,13 +111,16 @@ class ProtocolTest(TestCase):
                 # TODO: remove? should we require normalized ids?
                 ('https://ap.brid.gy/foo/bar', ActivityPub),
                 ('https://web.brid.gy/foo/bar', Web),
+                ('https://ap.brid.gy/internal/foo', Web),
+                ('https://bsky.brid.gy/internal/foo', Web),
                 ('https://fed.brid.gy/', Web),
                 ('https://web.brid.gy/', Web),
                 ('https://bsky.brid.gy/', Web),
                 ('bsky.brid.gy', Web),
         ]:
-            self.assertEqual(expected, Protocol.for_id(id, remote=False))
-            self.assertEqual(expected, Protocol.for_id(id, remote=True))
+            with self.subTest(id=id, expected=expected):
+                self.assertEqual(expected, Protocol.for_id(id, remote=False))
+                self.assertEqual(expected, Protocol.for_id(id, remote=True))
 
     def test_for_id_true_overrides_none(self):
         class Greedy(Protocol, User):

@@ -291,11 +291,14 @@ class Protocol:
         Returns:
           (str domain, bool remote) or None
         """
-        if remote and util.is_web(id):
-            return util.domain_from_link(id)
+        domain = util.domain_from_link(id)
+        if domain in PROTOCOL_DOMAINS:
+            return id
+        elif remote and util.is_web(id):
+            return domain
 
     @cached(LRUCache(20000), lock=Lock())
-    @memcache.memoize(key=_for_id_memcache_key, write=lambda id, remote: remote,
+    @memcache.memoize(key=_for_id_memcache_key, write=lambda id, remote=True: remote,
                       version=3)
     @staticmethod
     def for_id(id, remote=True):
@@ -326,13 +329,16 @@ class Protocol:
         if util.is_web(id):
             # step 1: check for our per-protocol subdomains
             try:
-                is_homepage = urlparse(id).path.strip('/') == ''
+                parsed = urlparse(id)
             except ValueError as e:
                 logger.info(f'urlparse ValueError: {e}')
                 return None
 
+            is_homepage = parsed.path.strip('/') == ''
+            is_internal = parsed.path.startswith(ids.INTERNAL_PATH_PREFIX)
             by_subdomain = Protocol.for_bridgy_subdomain(id)
-            if by_subdomain and not is_homepage and id not in BOT_ACTOR_AP_IDS:
+            if by_subdomain and not (is_homepage or is_internal
+                                     or id in BOT_ACTOR_AP_IDS):
                 logger.debug(f'  {by_subdomain.LABEL} owns id {id}')
                 return by_subdomain
 

@@ -2952,6 +2952,7 @@ class WebUtilTest(TestCase):
         self.assertIs(False, Web.owns_id('http://localhost:8080/foo'))
         self.assertIs(False, Web.owns_id('https://twitter.com/'))
         self.assertIs(True, Web.owns_id('https://ap.brid.gy/foo'))
+        self.assertIs(True, Web.owns_id('https://ap.brid.gy/internal/foo'))
 
     def test_owns_handle(self, *_):
         self.assertIsNone(Web.owns_handle('foo.com'))

@@ -62,6 +62,11 @@ with app.test_request_context('/'):
 
 logger = logging.getLogger(__name__)
 
+BLOG_REDIRECT_DOMAINS = (
+    'blog.anew.social',
+    'snarfed.org',
+)
+
 TEMPLATE_VARS = {
     'ActivityPub': ActivityPub,
     'as1': as1,
@@ -577,11 +582,7 @@ def log():
     return logs.log()
 
 
-@app.get('/<any(ans,snarfed):site>/<path:path>')
+@app.get(f'/internal/<any({",".join(BLOG_REDIRECT_DOMAINS)}):host>/<path:path>')
 @flask_util.headers(CACHE_CONTROL)
-def blog_redirect(site, path):
-    host = {
-        'ans': 'blog.anew.social',
-        'snarfed': 'snarfed.org',
-    }[site]
+def blog_redirect(host, path):
     return MovedPermanently(location=f'https://{host}/{path}')
