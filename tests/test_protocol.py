@@ -1142,7 +1142,7 @@ class ProtocolReceiveTest(TestCase):
         self.assertEqual(1, mock_send.call_count)
         [obj, url], _ = mock_send.call_args
         self.assertEqual('fake:post#bridgy-fed-create', obj.key.id())
-        self.assertEqual(ATProto.PDS_URL, url)
+        self.assertEqual(ATProto.DEFAULT_TARGET, url)
 
     def test_post_not_public_ignored(self):
         self.assertEqual(('OK', 200), Fake.receive_as1({

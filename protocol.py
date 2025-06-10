@@ -110,6 +110,8 @@ class Protocol:
     """str: MIME type of this protocol's native data format, appropriate for the ``Content-Type`` HTTP header."""
     HAS_COPIES = False
     """bool: whether this protocol is push and needs us to proactively create "copy" users and objects, as opposed to pulling converted objects on demand"""
+    DEFAULT_TARGET = None
+    """str: optional, the default target URI to send this protocol's activities to. May be used as the "shared" target. Often only set if ``HAS_COPIES`` is true."""
     REQUIRES_AVATAR = False
     """bool: whether accounts on this protocol are required to have a profile picture. If they don't, their ``User.status`` will be ``blocked``."""
     REQUIRES_NAME = False
@@ -1625,14 +1627,20 @@ Hi! You <a href="{inner_obj_as1.get('url') or inner_obj_id}">recently {verb}</a>
         if (obj.type in ('post', 'update', 'delete', 'move', 'share', 'undo')
                 and (not is_reply or is_self_reply)):
             logger.info(f'Delivering to followers of {user_key}')
-            followers = [
-                f for f in Follower.query(Follower.to == user_key,
-                                          Follower.status == 'active')
+            followers = []
+            for f in Follower.query(Follower.to == user_key,
+                                    Follower.status == 'active'):
+                proto = PROTOCOLS_BY_KIND[f.from_.kind()]
                 # skip protocol bot users
-                if not Protocol.for_bridgy_subdomain(f.from_.id())
-                # skip protocols this user hasn't enabled, or where the base
-                # object of this activity hasn't been bridged
-                and PROTOCOLS_BY_KIND[f.from_.kind()] in to_protocols]
+                if (not Protocol.for_bridgy_subdomain(f.from_.id())
+                        # skip protocols this user hasn't enabled, or where the base
+                        # object of this activity hasn't been bridged
+                        and proto in to_protocols
+                        # we deliver to HAS_COPIES protocols separately, below. we
+                        # assume they have follower-independent targets.
+                        and not (proto.HAS_COPIES and proto.DEFAULT_TARGET)):
+                    followers.append(f)
+
             user_keys = [f.from_ for f in followers]
             users = [u for u in ndb.get_multi(user_keys) if u]
             User.load_multi(users)
@@ -1670,13 +1678,12 @@ Hi! You <a href="{inner_obj_as1.get('url') or inner_obj_id}">recently {verb}</a>
                     Object.get_by_id(inner_obj_id) if obj.type == 'share' else None
 
         # deliver to enabled HAS_COPIES protocols proactively
-        # TODO: abstract for other protocols
-        from atproto import ATProto
-        if (ATProto in to_protocols
-                and obj.type in ('post', 'update', 'delete', 'share')):
-            logger.info(f'user has ATProto enabled, adding {ATProto.PDS_URL}')
-            targets.setdefault(
-                Target(protocol=ATProto.LABEL, uri=ATProto.PDS_URL), None)
+        if obj.type in ('post', 'update', 'delete', 'share'):
+            for proto in to_protocols:
+                if proto.HAS_COPIES and proto.DEFAULT_TARGET:
+                    logger.info(f'user has {proto.LABEL} enabled, adding {proto.DEFAULT_TARGET}')
+                    targets.setdefault(
+                        Target(protocol=proto.LABEL, uri=proto.DEFAULT_TARGET), None)
 
         # de-dupe targets, discard same-domain
         # maps string target URL to (Target, Object) tuple

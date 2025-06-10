@@ -131,7 +131,7 @@ class ATProtoTest(TestCase):
         self.user = self.make_user(id=id, cls=cls, copies=[atp_copy], **kwargs)
 
         did_doc = copy.deepcopy(DID_DOC)
-        did_doc['service'][0]['serviceEndpoint'] = ATProto.PDS_URL
+        did_doc['service'][0]['serviceEndpoint'] = ATProto.DEFAULT_TARGET
         self.store_object(id='did:plc:user', raw=did_doc)
         self.repo = Repo.create(
             self.storage, 'did:plc:user', handle='han.dull.brid.gy',

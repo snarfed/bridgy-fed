@@ -95,7 +95,7 @@ class IntegrationTests(TestCase):
         Repo.create(self.storage, did, signing_key=ATPROTO_KEY)
 
         did_doc = copy.deepcopy(test_atproto.DID_DOC)
-        did_doc['service'][0]['serviceEndpoint'] = ATProto.PDS_URL
+        did_doc['service'][0]['serviceEndpoint'] = ATProto.DEFAULT_TARGET
         did_doc['id'] = did
 
         self.store_object(id=did, raw=did_doc)
