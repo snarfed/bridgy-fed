@@ -832,7 +832,7 @@ class ActivityPubTest(TestCase):
             type='note',
             copies=[Target(protocol='fake', uri='fake:o:ap:http://mas.to/note/id')],
             users=[ndb.Key(ActivityPub, ACTOR['id'])],
-            feed=[self.user.key, baz.key])
+        )
 
     def test_repost_of_indieweb(self, mock_head, mock_get, mock_post):
         self.make_user(ACTOR['id'], cls=ActivityPub, obj_as2=ACTOR)
@@ -902,7 +902,6 @@ class ActivityPubTest(TestCase):
                            as2=REPOST,
                            copies=[copy],
                            users=[self.swentel_key],
-                           feed=[baz.key, self.user.key],
                            type='share',
                            ignore=['our_as1'])
 

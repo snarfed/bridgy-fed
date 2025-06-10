@@ -119,6 +119,8 @@ class Web(User, Protocol):
         + ('follow', 'like', 'share', 'stop-following')
     )
     ''
+    USES_OBJECT_FEED = True
+    ''
 
     has_redirects = ndb.BooleanProperty()
     ''

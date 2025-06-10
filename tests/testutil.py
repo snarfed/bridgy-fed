@@ -267,6 +267,7 @@ class ExplicitFake(Fake):
     DEFAULT_ENABLED_PROTOCOLS = ()
     DEFAULT_SERVE_USER_PAGES = False
     SUPPORTS_DMS = True
+    USES_OBJECT_FEED = True
 
     fetchable = {}
     sent = []

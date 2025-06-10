@@ -1041,7 +1041,13 @@ class ProtocolReceiveTest(TestCase):
                                status='inactive')
 
     def test_create_post(self):
+        self.user.enabled_protocols = ['efake']
+        self.user.put()
+
         self.make_followers()
+
+        eve = self.make_user('efake:eve', cls=ExplicitFake, obj_id='efake:eve')
+        Follower.get_or_create(to=self.user, from_=eve)
 
         post_as1 = {
             'id': 'fake:post',
@@ -1060,9 +1066,11 @@ class ProtocolReceiveTest(TestCase):
         self.assert_object('fake:post',
                            our_as1=post_as1,
                            type='note',
-                           copies=[Target(protocol='other',
-                                          uri='other:o:fa:fake:post')],
-                           feed=[self.alice.key, self.bob.key],
+                           copies=[
+                               Target(protocol='efake', uri='efake:o:fa:fake:post'),
+                               Target(protocol='other', uri='other:o:fa:fake:post'),
+                           ],
+                           feed=[eve.key],
                            users=[self.user.key],
                            )
         self.assertIsNone(Object.get_by_id('fake:create'))
@@ -1107,7 +1115,6 @@ class ProtocolReceiveTest(TestCase):
             our_as1=post_as1,
             type='note',
             copies=[Target(protocol='other', uri='other:o:fa:fake:post')],
-            feed=[self.alice.key, self.bob.key],
             users=[Fake(id='fake:user').key],
         )
 
@@ -1717,7 +1724,6 @@ class ProtocolReceiveTest(TestCase):
         self.assert_object('fake:post',
                            our_as1=new_as1,
                            type='note',
-                           feed=[self.alice.key, self.bob.key],
                            users=[self.user.key],
                            copies=[Target(uri='other:post', protocol='other')],
                            )
@@ -1752,7 +1758,6 @@ class ProtocolReceiveTest(TestCase):
                                'updated': '2022-01-02T03:04:05+00:00',
                            },
                            type='note',
-                           feed=[self.bob.key, self.alice.key],
                            users=[self.user.key],
                            copies=[copy],
                            )
@@ -1902,7 +1907,6 @@ class ProtocolReceiveTest(TestCase):
             'fake:reply',
             our_as1=reply_as1,
             type='note',
-            feed=[eve.key],
             users=[self.user.key],
             copies=[Target(protocol='other', uri='other:o:fa:fake:reply')],
         )
@@ -2003,8 +2007,7 @@ class ProtocolReceiveTest(TestCase):
                                    source_protocol='efake',
                                    our_as1=reply_as1,
                                    users=[user.key],
-                                   copies=[copy],
-                                   feed=[eve.key])
+                                   copies=[copy])
         expected_create = {
             'objectType': 'activity',
             'verb': 'post',
@@ -2075,7 +2078,6 @@ class ProtocolReceiveTest(TestCase):
                                  type='share',
                                  users=[self.user.key],
                                  notify=[self.bob.key],
-                                 feed=[self.alice.key, self.bob.key],
                                  )
         self.assertEqual([
             ('other:alice:target', obj.as1),
@@ -2296,7 +2298,6 @@ class ProtocolReceiveTest(TestCase):
         self.assert_object('fake:post',
                            our_as1=post_as1,
                            type='note',
-                           feed=[self.alice.key, self.bob.key],
                            users=[self.user.key],
                            )
         self.assertIsNone(Object.get_by_id('fake:create'))
@@ -2466,7 +2467,6 @@ class ProtocolReceiveTest(TestCase):
             copies=[Target(protocol='other', uri='other:o:fa:fake:follow')],
             users=[self.user.key],
             notify=[self.alice.key],
-            feed=[],
         )
 
         accept_id = 'other:alice/followers#accept-fake:follow'

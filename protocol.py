@@ -124,6 +124,8 @@ class Protocol:
     """sequence of str: AS1 objectTypes and verbs that this protocol supports receiving and sending"""
     SUPPORTS_DMS = False
     """bool: whether this protocol can receive DMs (chat messages)"""
+    USES_OBJECT_FEED = False
+    """bool: whether to store followers on this protocol in :attr:`Object.feed`."""
 
     def __init__(self):
         assert False
@@ -1640,7 +1642,7 @@ Hi! You <a href="{inner_obj_as1.get('url') or inner_obj_id}">recently {verb}</a>
             # add to followers' feeds, if any
             if not internal and obj.type in ('post', 'update', 'share'):
                 if write_obj.type not in as1.ACTOR_TYPES:
-                    write_obj.feed = [u.key for u in users]
+                    write_obj.feed = [u.key for u in users if u.USES_OBJECT_FEED]
                     if write_obj.feed:
                         write_obj.dirty = True
 
