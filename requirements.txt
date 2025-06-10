@@ -97,7 +97,7 @@ python-tumblpy==1.1.4
 pytz==2025.2
 PyYAML==6.0.2
 redis==5.2.1
-requests==2.32.3
+requests==2.32.4
 requests-oauthlib==1.4.0
 rsa==4.9.1
 sgmllib3k==1.0.0
