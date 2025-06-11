@@ -3346,6 +3346,15 @@ class ActivityPubUtilsTest(TestCase):
         })
         # test is that we short circuit out instead of infinite recursion
         self.assertIsNone(ActivityPub.target_for(obj))
+        self.assertIsNone(ActivityPub.target_for(obj, shared=True))
+
+    def test_target_for_actor_endpoints_null(self):
+        obj = Object(as2={
+            'type': 'Person',
+            'endpoints': None,
+        })
+        self.assertIsNone(ActivityPub.target_for(obj))
+        self.assertIsNone(ActivityPub.target_for(obj, shared=True))
 
     @patch('requests.post')
     def test_send_blocklisted(self, mock_post):

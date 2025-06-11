@@ -68,6 +68,22 @@ How to add a new protocol
 1. Protocol logos may be emoji or image files. If this one is a file, add it `static/`. Then add the emoji or file `<img>` tag in the `Protocol` subclass's `LOGO_HTML` constant.
 
 
+How to post as the protocol bot accounts: @ap.brid.gy, @bsky.brid.gy, etc
+---
+The protocol bot accounts - [@ap.brid.gy](https://bsky.app/profile/ap.brid.gy), [@bsky.brid.gy](https://mastodon.social/@bsky.brid.gy@bsky.brid.gy), and so on - don't have user-facing UIs to log into and post as, but it's still possible to post as them! Here's how.
+
+They're currently set up as [bridged _web_ accounts](https://fed.brid.gy/docs#web-get-started). To post to them, first create a blog post on [snarfed.org](https://snarfed.org/), then send a [webmention](https://webmention.net/) to Bridgy Fed to make it bridge the post. The source should be of the form eg `https://[subdomain].brid.gy/internal/[URL]`, where URL is the snarfed.org post's URL, _without_ `https://`, eg `https://ap.brid.gy/internal/snarfed.org/2025-06-09_55084`.
+
+```
+curl -v -H "Authorization: `cat flask_secret_key`" \
+  -d source=https://ap.brid.gy/internal/snarfed.org/2025-06-09_55084 \
+  -d force=true \
+  https://fed.brid.gy/webmention
+```
+
+(Ideally we'd like to be able to do this from [blog.anew.social](https://blog.anew.social/) too! [They don't support microformats in the default theme](https://indieweb.org/Ghost#Rejected_microformats2_markup_in_default_theme), though, so we'd need to switch to a microformats-enabled theme first. 😕)
+
+
 Stats
 ---
 

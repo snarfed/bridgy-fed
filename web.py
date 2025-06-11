@@ -1016,7 +1016,9 @@ def webmention_task():
             else:
                 authors[0] = user.web_url()
             if obj.our_as1:
-                obj.our_as1['author'] = user.web_url()
+                field = ('actor' if obj.our_as1.get('objectType') == 'activity'
+                         else 'author')
+                obj.our_as1[field] = user.web_url()
 
     try:
         return Web.receive(obj, authed_as=user.key.id(), internal=internal)

@@ -78,8 +78,7 @@ def memoize(expire=None, key=None, write=True, version=MEMOIZE_VERSION):
         Bumping this version can have the same effect as clearing the cache for
         just the affected function.
     """
-    if expire:
-        expire = int(expire.total_seconds())
+    expire = int(expire.total_seconds()) if expire else 0
 
     def decorator(fn):
         @functools.wraps(fn)

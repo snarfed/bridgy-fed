@@ -72,18 +72,6 @@ DONT_STORE_AS1_TYPES = as1.CRUD_VERBS | set((
 STORE_AS1_TYPES = (as1.ACTOR_TYPES | as1.POST_TYPES | as1.VERBS_WITH_OBJECT
                    - DONT_STORE_AS1_TYPES)
 
-# when we see a post from a user id that's a key in this dict, we automatically
-# repost it as each of the accounts in the value sequence
-PROTOCOL_BOT_ACCOUNTS = (
-    ('web', 'ap.brid.gy'),
-    ('web', 'bsky.brid.gy'),
-    ('web', 'fed.brid.gy'),
-)
-AUTO_REPOST_ACCOUNTS = {
-    'https://blog.anew.social/.ghost/activitypub/users/index': PROTOCOL_BOT_ACCOUNTS,
-    'https://mastodon.social/users/anewsocial': PROTOCOL_BOT_ACCOUNTS,
-}
-
 logger = logging.getLogger(__name__)
 
 
@@ -1108,24 +1096,6 @@ class Protocol:
             # handle DMs to bot users
             if as1.is_dm(obj.as1):
                 return dms.receive(from_user=from_user, obj=obj)
-
-            # auto-repost from configured accounts
-            if reposters := AUTO_REPOST_ACCOUNTS.get(actor_id):
-                logger.info(f'auto reposting {inner_obj_id} from {reposters}')
-                for proto, id in reposters:
-                    profile_id = ids.profile_id(id=id, proto=PROTOCOLS[proto])
-                    repost_as1 = {
-                        # double profile id because we subdomain-unwrap it for
-                        # protocol bot accounts
-                        'id': f'{profile_id}{profile_id}#auto-repost-{inner_obj_id}',
-                        'objectType': 'activity',
-                        'verb': 'share',
-                        'actor': id,
-                        'object': inner_obj_id,
-                    }
-                    # enqueue receive task
-                    common.create_task(queue='receive', authed_as=id,
-                                       our_as1=repost_as1, source_protocol=proto)
 
         # fetch actor if necessary
         if (actor and actor.keys() == set(['id'])
