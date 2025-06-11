@@ -612,6 +612,15 @@ class ObjectTest(TestCase):
         # just check that these don't crash
         assert isinstance(id(target), int)
 
+    @patch('models._MAX_KEYPART_BYTES', 20)
+    def test_get_by_id_truncate_id(self):
+        id = 'http://my/long/url/ok/then'
+        self.assertIsNone(Object.get_by_id(id))
+
+        obj = Object.get_or_create(id, our_as1={'content': 'foo'})
+        self.assert_entities_equal(obj, Object.get_by_id(id))
+        self.assertEqual('http://my/long/url/o', obj.key.id())
+
     def test_get_or_create(self):
         def check(obj1, obj2):
             self.assert_entities_equal(obj1, obj2, ignore=['expire', 'updated'])

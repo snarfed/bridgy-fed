@@ -15,6 +15,7 @@ import cachetools
 from Crypto.PublicKey import RSA
 from flask import request
 from google.cloud import ndb
+from google.cloud.ndb.key import _MAX_KEYPART_BYTES
 from granary import as1, as2, atom, bluesky, microformats2
 from granary.bluesky import AT_URI_PATTERN, BSKY_APP_URL_RE
 import granary.nostr
@@ -1176,7 +1177,15 @@ class Object(StringIdModel):
           :class:`werkzeug.exceptions.Forbidden` if ``authed_as`` doesn't match
             the existing object
         """
-        obj = super().get_by_id(id, **kwargs)
+        key_id = id
+        if len(key_id) > _MAX_KEYPART_BYTES:
+            # TODO: handle Unicode chars. naive approach is to UTF-8 encode,
+            # truncate, then decode, but that might cut mid character. easier to just
+            # hope/assume the URL is already URL-encoded.
+            key_id = key_id[:_MAX_KEYPART_BYTES]
+            logger.warning(f'Truncating id to {_MAX_KEYPART_BYTES} chars: {key_id}')
+
+        obj = super().get_by_id(key_id, **kwargs)
 
         if obj and obj.as1 and authed_as:
             # authorization: check that the authed user is allowed to modify
@@ -1221,10 +1230,18 @@ class Object(StringIdModel):
           :class:`werkzeug.exceptions.Forbidden` if ``authed_as`` doesn't match
             the existing object
         """
-        obj = cls.get_by_id(id, authed_as=authed_as)
+        key_id = id
+        if len(key_id) > _MAX_KEYPART_BYTES:
+            # TODO: handle Unicode chars. naive approach is to UTF-8 encode,
+            # truncate, then decode, but that might cut mid character. easier to just
+            # hope/assume the URL is already URL-encoded.
+            key_id = key_id[:_MAX_KEYPART_BYTES]
+            logger.warning(f'Truncating id to {_MAX_KEYPART_BYTES} chars: {key_id}')
+
+        obj = cls.get_by_id(key_id, authed_as=authed_as)
 
         if not obj:
-            obj = Object(id=id, **props)
+            obj = Object(id=key_id, **props)
             obj.new = True
             obj.changed = False
             obj.put()
