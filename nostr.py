@@ -187,6 +187,7 @@ class Nostr(User, Protocol):
         """
         client = granary.nostr.Nostr()
         relay = self.target_for(self.obj) or self.DEFAULT_TARGET
+        logger.debug(f'connecting to {relay}')
         with connect(relay, open_timeout=util.HTTP_TIMEOUT,
                      close_timeout=util.HTTP_TIMEOUT) as websocket:
             events = client.query(websocket, {
@@ -251,7 +252,9 @@ class Nostr(User, Protocol):
                   else {'ids': [hex_id]})
 
         client = granary.nostr.Nostr()
-        with connect(cls.target_for(obj), open_timeout=util.HTTP_TIMEOUT,
+        relay = cls.target_for(obj)
+        logger.debug(f'connecting to {relay}')
+        with connect(relay, open_timeout=util.HTTP_TIMEOUT,
                      close_timeout=util.HTTP_TIMEOUT) as websocket:
             events = client.query(websocket, filter)
 
@@ -302,11 +305,15 @@ class Nostr(User, Protocol):
         assert event.get('pubkey') == from_user.hex_pubkey(), event
         assert event.get('sig'), event
 
+        logger.debug(f'connecting to {relay_url}')
         with connect(relay_url, open_timeout=util.HTTP_TIMEOUT,
                      close_timeout=util.HTTP_TIMEOUT) as websocket:
             try:
-                websocket.send(json_dumps(['EVENT', event]))
-                msg = websocket.recv(timeout=util.HTTP_TIMEOUT)
+                msg = ['EVENT', event]
+                logger.debug(f'{websocket.remote_address} <= {event}')
+                websocket.send(json_dumps(msg))
+                resp = websocket.recv(timeout=util.HTTP_TIMEOUT)
+                logger.debug(f'{websocket.remote_address} => {resp}')
             except ConnectionClosedOK as cc:
                 logger.warning(cc)
                 return False
