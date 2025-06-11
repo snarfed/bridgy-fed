@@ -52,7 +52,7 @@
       <form method="post" action="/settings/enable">
         <input name="key" type="hidden" value="{{ user.key.urlsafe().decode() }}" />
         <label class="switch" id="{{ user.handle }}-switch-wrapper">
-          <input  id="{{ user.handle }}-switch" type="checkbox" onClick="bridgingSwitch(event)" {% if user.status and user.status != 'private' %}disabled="true"{% endif %}>
+          <input id="{{ user.handle }}-switch" type="checkbox" onClick="bridgingSwitch(event)" {% if user.status and user.status != 'private' %}disabled="true"{% endif %}>
           <span class="slider round"></span>
         </label>
         <noscript>
