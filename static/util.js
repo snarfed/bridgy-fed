@@ -82,7 +82,7 @@ function bridgingSwitch(event) {
   event.currentTarget.closest('form').submit()
 }
 
-// Tempoarily disable the bridging switch to avoid double submission
+// Temporarily disable the bridging switch to avoid double submission
 function disableCheckbox(checkbox) {
   checkbox.disabled = true;
 
