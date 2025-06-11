@@ -185,7 +185,7 @@ class Nostr(User, Protocol):
 
         https://nips.nostr.com/65
         """
-        client = granary.nostr.Nostr(['unused'])
+        client = granary.nostr.Nostr()
         relay = self.target_for(self.obj) or self.DEFAULT_TARGET
         with connect(relay, open_timeout=util.HTTP_TIMEOUT,
                      close_timeout=util.HTTP_TIMEOUT) as websocket:
@@ -250,7 +250,7 @@ class Nostr(User, Protocol):
         filter = ({'authors': [hex_id], 'kinds': [KIND_PROFILE]} if is_profile
                   else {'ids': [hex_id]})
 
-        client = granary.nostr.Nostr(['unused'])
+        client = granary.nostr.Nostr()
         with connect(cls.target_for(obj), open_timeout=util.HTTP_TIMEOUT,
                      close_timeout=util.HTTP_TIMEOUT) as websocket:
             events = client.query(websocket, filter)
@@ -272,9 +272,25 @@ class Nostr(User, Protocol):
         Returns:
           dict: JSON Nostr event
         """
+        obj_as1 = obj.as1
+        translated = to_cls.translate_ids(obj_as1)
+
+        # find first relay (target) for referenced user (follow of, in reply to, repost of)
+        if as1.object_type(obj_as1) in as1.CRUD_VERBS:
+            obj_as1 = as1.get_object(obj_as1)
+
+        remote_relay = ''
+        if remote_obj := granary.nostr.Nostr().base_object(obj_as1):
+            if id := remote_obj.get('id'):
+                if id.startswith('nostr:npub'):
+                    obj = Object(our_as1={'objectType': 'person', 'id': id})
+                else:
+                    obj = Nostr.load(id)
+                remote_relay = to_cls.target_for(obj)
+
+        # convert!
         privkey = from_user.nsec() if from_user and from_user.nostr_key_bytes else None
-        translated = to_cls.translate_ids(obj.as1)
-        return granary.nostr.from_as1(translated, privkey=privkey)
+        return granary.nostr.from_as1(translated, privkey=privkey, remote_relay=remote_relay)
 
     @classmethod
     def send(to_cls, obj, relay_url, from_user=None, **kwargs):

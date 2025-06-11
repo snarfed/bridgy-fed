@@ -1,4 +1,5 @@
 """Unit tests for nostr.py."""
+import copy
 from unittest import skip
 from unittest.mock import patch
 
@@ -11,6 +12,7 @@ from granary.nostr import (
     KIND_NOTE,
     KIND_PROFILE,
     KIND_RELAYS,
+    KIND_REPOST,
     id_and_sign,
 )
 from oauth_dropins.webutil.testutil import requests_response
@@ -31,6 +33,7 @@ from web import Web
 from granary.tests.test_nostr import (
     FakeConnection,
     ID,
+    NOTE_AS1,
     NOTE_NOSTR,
     NOW_TS,
     NPUB_URI,
@@ -165,15 +168,79 @@ class NostrTest(TestCase):
             'published': '2022-01-02T03:04:05+00:00',
         })))
 
+    def test_convert_reply(self):
+        Object(id=URI, nostr={
+            'kind': KIND_NOTE,
+            'pubkey': 'abc123',  # npub140qjxm63yry
+        }).put()
+        relays = Object(id='nostr:nevent123', nostr={
+            'kind': KIND_RELAYS,
+            'tags': [['r', 'reelaay']],
+        }).put()
+        Nostr(id='nostr:npub140qjxm63yry', relays=relays).put()
+
+        self.assert_equals({
+            'kind': KIND_NOTE,
+            'id': 'ddaa744f04433c978af112e5b9d1affb514a745e4734c267bcd54492b02ba908',
+            'pubkey': PUBKEY,
+            'content': 'I hereby reply',
+            'tags': [
+                ['e', ID, 'reelaay', 'reply'],
+            ],
+            'created_at': NOW_TS,
+        }, Nostr._convert(Object(our_as1={
+            'objectType': 'note',
+            'id': 'http://foo/bar',
+            'author': NPUB_URI,
+            'content': 'I hereby reply',
+            'inReplyTo': URI,
+        })))
+
+    def test_convert_repost(self):
+        Object(id=NOTE_AS1['id'], nostr=NOTE_NOSTR).put()
+        relays = Object(id='nostr:nevent123', nostr={
+            'kind': KIND_RELAYS,
+            'tags': [['r', 'reelaay']],
+        }).put()
+        Nostr(id=NPUB_URI, relays=relays).put()
+
+        note_event = copy.copy(NOTE_NOSTR)
+        del note_event['sig']
+        self.assert_equals({
+            'kind': KIND_REPOST,
+            'id': 'ac3f207afeb7687fe71522fb350dd983ac388d6bf5e85079b9edb2a7cd4f956c',
+            'pubkey': 'abc123',  # npub140qjxm63yry,
+            'content': json_dumps(note_event, sort_keys=True),
+            'tags': [
+                # id for Nostr version of original post object, below
+                ['e', NOTE_NOSTR['id'], 'reelaay', 'mention'],
+                ['p', PUBKEY],
+            ],
+            'created_at': NOW_TS,
+        }, Nostr._convert(Object(our_as1={
+            'objectType': 'activity',
+            'verb': 'share',
+            'id': 'http://foo/bar',
+            'author': 'nostr:npub140qjxm63yry',
+            'content': 'I hereby reply',
+            'object': NOTE_AS1,
+        })))
+
     def test_convert_follow(self):
+        relays = Object(id='nostr:nevent123', nostr={
+            'kind': KIND_RELAYS,
+            'tags': [['r', 'reelaay']],
+        }).put()
+        Nostr(id='nostr:npub1xnxsce33j3', relays=relays).put()
+
         self.assert_equals({
             'kind': KIND_CONTACTS,
-            'id': 'e65338c8d5529524ba28618367baf052573d57d7646fabb213bf7575bf19cd5f',
+            'id': 'b772f7125a61bdce7cbce6925dd73d66914a3451655a7c3469cbac0626da9d82',
             'pubkey': PUBKEY,
             'content': 'not important',
             'tags': [
-                ['p', '34cd', 'TODO relay', ''],
-                ['p', '98fe', 'TODO relay', 'bob'],
+                ['p', '34cd', 'reelaay', ''],
+                ['p', '98fe', 'reelaay', 'bob'],
             ],
             'created_at': NOW_TS,
         }, Nostr._convert(Object(our_as1={
@@ -437,7 +504,7 @@ class NostrTest(TestCase):
 
     def test_target_for_existing_user(self):
         relays = Object(id='nostr:nevent123', nostr={
-            'kind': 10002,
+            'kind': KIND_RELAYS,
             'tags': [
                 ['r', 'wss://a', 'read'],
                 ['r', 'wss://b'],
