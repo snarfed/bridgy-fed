@@ -230,7 +230,8 @@ class NostrTest(TestCase):
             ['OK', id, True],
         ]
 
-        self.assertTrue(Nostr.send(obj, 'TODO relay', from_user=self.user))
+        self.assertTrue(Nostr.send(obj, 'reeelaaay', from_user=self.user))
+        self.assert_equals('reeelaaay', FakeConnection.relay)
         self.assert_equals([['EVENT', expected]], FakeConnection.sent)
         self.assertTrue(granary.nostr.verify(expected))
         self.assertEqual(granary.nostr.id_to_uri('note', id), obj.get_copy(Nostr))

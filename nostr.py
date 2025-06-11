@@ -57,6 +57,7 @@ class Nostr(User, Protocol):
     LOGO_HTML = '<img src="/static/nostr_logo.png">'
     CONTENT_TYPE = 'application/json'
     HAS_COPIES = True
+    DEFAULT_TARGET = 'wss://nos.lol'
     REQUIRES_AVATAR = True
     REQUIRES_NAME = True
     DEFAULT_ENABLED_PROTOCOLS = ('web',)
@@ -139,7 +140,7 @@ class Nostr(User, Protocol):
     @classmethod
     def target_for(cls, obj, shared=False):
         """Returns the first NIP-65 relay for the given object's author."""
-        if (id := as1.get_owner(obj.as1)) and id.startswith('nostr:npub'):
+        if obj and (id := as1.get_owner(obj.as1)) and id.startswith('nostr:npub'):
             if user := Nostr.get_or_create(id):
                 if user.relays and (relays := user.relays.get()):
                     if relays.nostr:
@@ -177,7 +178,7 @@ class Nostr(User, Protocol):
             user.reload_profile()
 
         if user.obj and not user.obj.get_copy(cls):
-            cls.send(user.obj, 'TODO relay', from_user=user)
+            cls.send(user.obj, cls.DEFAULT_TARGET, from_user=user)
 
     def reload_profile(self, **kwargs):
         """Reloads this user's kind 0 profile and also their NIP-65 relay list.
@@ -185,7 +186,8 @@ class Nostr(User, Protocol):
         https://nips.nostr.com/65
         """
         client = granary.nostr.Nostr(['unused'])
-        with connect('TODO relay', open_timeout=util.HTTP_TIMEOUT,
+        relay = self.target_for(self.obj) or self.DEFAULT_TARGET
+        with connect(relay, open_timeout=util.HTTP_TIMEOUT,
                      close_timeout=util.HTTP_TIMEOUT) as websocket:
             events = client.query(websocket, {
                 'authors': [self.hex_pubkey()],
@@ -249,7 +251,7 @@ class Nostr(User, Protocol):
                   else {'ids': [hex_id]})
 
         client = granary.nostr.Nostr(['unused'])
-        with connect('TODO relay', open_timeout=util.HTTP_TIMEOUT,
+        with connect(cls.target_for(obj), open_timeout=util.HTTP_TIMEOUT,
                      close_timeout=util.HTTP_TIMEOUT) as websocket:
             events = client.query(websocket, filter)
 
