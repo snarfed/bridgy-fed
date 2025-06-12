@@ -68,6 +68,7 @@ class Nostr(User, Protocol):
         + ('follow', 'like', 'share', 'stop-following')
     )
     SUPPORTS_DMS = False  # NIP-17
+    HTML_PROFILES = False
 
     relays = ndb.KeyProperty(kind='Object')
     """NIP-65 kind 10002 event with this user's relays."""
@@ -319,7 +320,9 @@ class Nostr(User, Protocol):
                 return False
 
         event_uri = id_to_uri(bech32_prefix_for(event), event['id'])
+        # STATE: TODO: remove old copy
         obj.add('copies', Target(uri=event_uri, protocol=to_cls.LABEL))
+        # obj.put()
         return True
 
 

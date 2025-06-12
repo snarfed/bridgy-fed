@@ -147,7 +147,7 @@ class NostrTest(TestCase):
             'objectType': 'person',
             'id': NPUB_URI,
             'displayName': 'Alice',
-            'description': 'It me',
+            'summary': 'It me',
             'image': 'http://alice/pic',
             'username': 'alice',
         })))
@@ -305,12 +305,14 @@ class NostrTest(TestCase):
 
     @patch('secp256k1._gen_private_key', return_value=bytes.fromhex(PRIVKEY))
     def test_create_for(self, _):
-        alice = self.make_user(
-            'fake:alice', cls=Fake,
-            obj_as1={'objectType': 'person', 'displayName': 'Alice'})
+        alice = self.make_user('fake:alice', cls=Fake, obj_as1={
+            'objectType': 'person',
+            'displayName': 'Alice',
+            'summary': 'foo bar'
+        })
         self.assertIsNone(alice.nostr_key_bytes)
 
-        profile_id = '8be34ca85471dcb2306ca005182d4468eede8e3a979f84b80f1a9616e84f4c74'
+        profile_id = 'c3f5ade6dc03c6d802bb3188567ee2f9c6424c7552d58ed7c4551c1c7e356c2d'
         FakeConnection.to_receive = [
             ['OK', profile_id, True],
         ]
@@ -323,15 +325,17 @@ class NostrTest(TestCase):
         self.assertEqual(granary.nostr.id_to_uri('nprofile', profile_id),
                          alice.obj.get_copy(Nostr))
 
-        self.assertEqual([['EVENT', {
+        self.assert_equals([['EVENT', {
             'kind': KIND_PROFILE,
             'pubkey': PUBKEY,
             'id': profile_id,
-            'sig': '54173e03ea1608c1c99b40532a68c824c3e2558628286d13271277f8811d08823484d4708a299182310c2a5480aa3966772c99214531937437fc900a361288f0',
-            'content': json_dumps({'name':'Alice'}),
+            'content': json_dumps({
+                'about': 'foo bar\n\n[bridged from web:fake:alice on fake-phrase by https://fed.brid.gy/ ]',
+                'name':'Alice',
+            }),
             'created_at': NOW_TS,
             'tags': [],
-        }]], FakeConnection.sent)
+        }]], FakeConnection.sent, ignore=['id', 'sig'])
 
     def test_create_for_already_has_nostr_copy(self):
         alice = self.make_user('fake:user3', cls=Fake,

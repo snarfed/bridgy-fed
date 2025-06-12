@@ -116,6 +116,8 @@ class Protocol:
     """bool: whether this protocol can receive DMs (chat messages)"""
     USES_OBJECT_FEED = False
     """bool: whether to store followers on this protocol in :attr:`Object.feed`."""
+    HTML_PROFILES = True
+    """bool: whether this protocol supports HTML in profile descriptions. If False, profile descriptions should be plain text."""
 
     def __init__(self):
         assert False
@@ -610,7 +612,7 @@ class Protocol:
             return {}
 
         id = obj.key.id() if obj.key else obj.as1.get('id')
-        is_activity = obj.as1.get('verb') in ('post', 'update')
+        is_activity = obj.as1.get('verb') in as1.CRUD_VERBS
         base_obj = as1.get_object(obj.as1) if is_activity else obj.as1
         orig_our_as1 = obj.our_as1
 
@@ -624,10 +626,7 @@ class Protocol:
             and not (from_user.LABEL == 'web'
                      and (from_user.last_webmention_in or from_user.has_redirects))):
 
-            obj.our_as1 = copy.deepcopy(obj.as1)
-            actor = as1.get_object(obj.as1) if is_activity else obj.as1
-            actor['objectType'] = 'person'
-            cls.add_source_links(actor=actor, obj=obj, from_user=from_user)
+            cls.add_source_links(obj=obj, from_user=from_user)
 
         converted = cls._convert(obj, from_user=from_user, **kwargs)
         obj.our_as1 = orig_our_as1
@@ -653,38 +652,67 @@ class Protocol:
         raise NotImplementedError()
 
     @classmethod
-    def add_source_links(cls, actor, obj, from_user):
-        """Adds "bridged from ... by Bridgy Fed" HTML to ``actor['summary']``.
+    def add_source_links(cls, obj, from_user):
+        """Adds "bridged from ... by Bridgy Fed" to the user's actor's ``summary``.
 
-        Default implementation; subclasses may override.
+        Uses HTML for protocols that support it, plain text otherwise.
 
         Args:
-          actor (dict): AS1 actor
-          obj (models.Object):
+          obj (models.Object): user's actor/profile object
           from_user (models.User): user (actor) this activity/object is from
         """
+        assert obj and obj.as1
         assert from_user
-        summary = actor.setdefault('summary', '')
-        if 'Bridgy Fed]' in html_to_text(summary, ignore_links=True):
+
+        obj.our_as1 = copy.deepcopy(obj.as1)
+        actor = (as1.get_object(obj.as1) if obj.as1.get('verb') in as1.CRUD_VERBS
+                 else obj.as1)
+        actor['objectType'] = 'person'
+
+        orig_summary = actor.setdefault('summary', '')
+        summary_text = html_to_text(orig_summary, ignore_links=True)
+
+        # Check if we've already added source links
+        if 'Bridgy Fed]' in summary_text or 'fed.brid.gy ]' in summary_text:
             return
 
-        id = actor.get('id')
-        proto_phrase = (PROTOCOLS[obj.source_protocol].PHRASE
+        actor_id = actor.get('id')
+        # actor_id = obj.key.id() if obj.key else actor.get('id')
+        # util.d(from_user.key, actor_id, from_user.key.id(), from_user.profile_id())
+        proto_phrase = (f' on {PROTOCOLS[obj.source_protocol].PHRASE}'
                         if obj.source_protocol else '')
-        if proto_phrase:
-            proto_phrase = f' on {proto_phrase}'
+        url = as1.get_url(actor) or obj.key.id() if obj.key else actor_id
 
-        if from_user.key and id in (from_user.key.id(), from_user.profile_id()):
-            source_links = f'[<a href="https://{PRIMARY_DOMAIN}{from_user.user_page_path()}">bridged</a> from <a href="{from_user.web_url()}">{from_user.handle}</a>{proto_phrase} by <a href="https://{PRIMARY_DOMAIN}/">Bridgy Fed</a>]'
+        if cls.HTML_PROFILES:
+            by = f' by <a href="https://{PRIMARY_DOMAIN}/">Bridgy Fed</a>'
+            separator = '<br><br>'
 
-        else:
-            url = as1.get_url(actor) or id
-            source = util.pretty_link(url) if url else '?'
-            source_links = f'[bridged from {source}{proto_phrase} by <a href="https://{PRIMARY_DOMAIN}/">Bridgy Fed</a>]'
+            is_user = from_user.key and actor_id in (from_user.key.id(),
+                                                     from_user.profile_id())
+            if is_user:
+                bridged = f'<a href="https://{PRIMARY_DOMAIN}{from_user.user_page_path()}">bridged</a>'
+                from_ = f'<a href="{from_user.web_url()}">{from_user.handle}</a>'
+            else:
+                bridged = 'bridged'
+                from_ = util.pretty_link(url) if url else '?'
 
-        if summary:
-            summary += '<br><br>'
-        actor['summary'] = summary + source_links
+        else:  # plain text
+            # TODO: unify with above. which is right?
+            id = obj.key.id() if obj.key else obj.our_as1.get('id')
+            is_user = from_user.key and id in (from_user.key.id(),
+                                               from_user.profile_id())
+            from_ = (from_user.web_url() if is_user else url) or '?'
+
+            bridged = 'bridged'
+            by = (f': https://{PRIMARY_DOMAIN}{from_user.user_page_path()} '
+                  # link web users to their user pages
+                  if from_user.LABEL == 'web'
+                  else f' by https://{PRIMARY_DOMAIN}/ ')
+            separator = '\n\n'
+            orig_summary = summary_text
+
+        source_links = f'{separator if orig_summary else ""}[{bridged} from {from_}{proto_phrase}{by}]'
+        actor['summary'] = orig_summary + source_links
 
     @classmethod
     def set_username(to_cls, user, username):

@@ -277,6 +277,8 @@ class ATProto(User, Protocol):
     ''
     SUPPORTS_DMS = True
     ''
+    HTML_PROFILES = False
+    ''
 
     def _pre_put_hook(self):
         """Validate id, require did:plc or non-blocklisted did:web."""
@@ -1075,55 +1077,40 @@ class ATProto(User, Protocol):
         pds_client.com.atproto.server.deactivateAccount()
 
     @classmethod
-    def add_source_links(cls, actor, obj, from_user):
-        """Adds "bridged from ... by Bridgy Fed" text to ``obj.our_as1``.
+    def add_source_links(cls, obj, from_user):
+        """Adds "bridged from ... by Bridgy Fed" text to ``actor['summary']``.
 
-        Overrides the default :meth:`protocol.Protocol.add_source_links`
-        implementation to use plain text URLs because ``app.bsky.actor.profile``
-        has no ``descriptionFacets`` for the ``description`` field.
-
-        TODO: much of this duplicates
-        :meth:`protocol.Protocol.add_source_links`. Refactor somehow.
+        Calls the parent implementation and then truncates the result for
+        Bluesky's character limits.
 
         Args:
-          obj (models.Object):
+          obj (models.Object): user's actor/profile object
           from_user (models.User): user (actor) this activity/object is from
         """
-        assert obj.our_as1
-        assert from_user
+        def get_actor():
+            return (as1.get_object(obj.as1) if obj.as1.get('verb') in as1.CRUD_VERBS
+                    else obj.as1)
 
-        orig_summary = obj.our_as1.setdefault('summary', '')
-        summary = html_to_text(orig_summary, ignore_links=True)
-        if 'fed.brid.gy ]' in summary or 'Bridgy Fed]' in summary:
+        actor = get_actor()
+        summary = actor.get('summary', '')
+        if '[bridged from' in summary:
             return
 
-        # consumed by _convert above
-        actor.setdefault('bridgyOriginalSummary', orig_summary)
+        # consumed by _convert
+        actor.setdefault('bridgyOriginalSummary', summary)
 
-        id = obj.key.id() if obj.key else obj.our_as1.get('id')
+        super().add_source_links(obj, from_user)
 
-        proto_phrase = (PROTOCOLS[obj.source_protocol].PHRASE
-                        if obj.source_protocol else '')
-        if proto_phrase:
-            proto_phrase = f' on {proto_phrase}'
-
-        if from_user.key and id in (from_user.key.id(), from_user.profile_id()):
-            url = from_user.web_url()
-        else:
-            url = as1.get_url(obj.our_as1) or id
-            url = util.pretty_link(url) if url else '?'
-
-        if from_user.LABEL == 'web':
-            # link web users to their user pages
-            source_links = f'[bridged from {url}{proto_phrase}: https://{PRIMARY_DOMAIN}{from_user.user_page_path()} ]'
-        else:
-            source_links = f'[bridged from {url}{proto_phrase} by https://{PRIMARY_DOMAIN}/ ]'
-
-        if summary:
-            source_links = '\n\n' + source_links
-
-        obj.our_as1['summary'] = Bluesky('unused').truncate(
-            summary, url=source_links, punctuation=('', ''), type=obj.type)
+        # truncate
+        actor = get_actor()
+        if '[bridged from' in actor['summary']:
+            parts = actor['summary'].rsplit('\n\n', 1)
+            if len(parts) == 2:
+                text, source_links = parts
+                # Need to add back the newlines between text and source_links
+                actor['summary'] = Bluesky('unused').truncate(
+                    text, url='\n\n' + source_links, punctuation=('', ''),
+                    type=obj.type)
 
 
 def create_report(*, input, from_user):
