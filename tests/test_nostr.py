@@ -301,7 +301,42 @@ class NostrTest(TestCase):
         self.assert_equals('reeelaaay', FakeConnection.relay)
         self.assert_equals([['EVENT', expected]], FakeConnection.sent)
         self.assertTrue(granary.nostr.verify(expected))
-        self.assertEqual(granary.nostr.id_to_uri('note', id), obj.get_copy(Nostr))
+        self.assertEqual(
+            [Target(uri=granary.nostr.id_to_uri('note', id), protocol='nostr')],
+            obj.key.get().copies)
+
+    def test_send_profile_has_existing_copy(self):
+        obj = Object(id='fake:note',
+                     copies=[Target(uri='nostr:nprofile123', protocol='nostr')],
+                     our_as1={
+                         'objectType': 'person',
+                         'displayName': 'alice',
+                     })
+        obj.put()
+
+        id = '8ad830634299733997c828ba094b995a1a1aad8ca7607ff44e268afb83a29da9'
+        expected = {
+            'kind': KIND_PROFILE,
+            'id': id,
+            'pubkey': PUBKEY,
+            'content': json_dumps({
+                'about': '🌉 bridged from fake:note by https://fed.brid.gy/',
+                'name': 'alice',
+            }, ensure_ascii=False),
+            'created_at': 1641092645,
+            'tags': [],
+        }
+        FakeConnection.to_receive = [
+            ['OK', id, True],
+        ]
+
+        self.assertTrue(Nostr.send(obj, 'reeelaaay', from_user=self.user))
+        self.assert_equals('reeelaaay', FakeConnection.relay)
+        self.assert_equals([['EVENT', expected]], FakeConnection.sent,
+                           ignore=['sig'])
+        self.assertEqual(
+            [Target(uri=granary.nostr.id_to_uri('nprofile', id), protocol='nostr')],
+            obj.key.get().copies)
 
     @patch('secp256k1._gen_private_key', return_value=bytes.fromhex(PRIVKEY))
     def test_create_for(self, _):

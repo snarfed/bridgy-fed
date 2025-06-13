@@ -319,10 +319,11 @@ class Nostr(User, Protocol):
                 logger.warning(cc)
                 return False
 
-        event_uri = id_to_uri(bech32_prefix_for(event), event['id'])
-        # STATE: TODO: remove old copy
-        obj.add('copies', Target(uri=event_uri, protocol=to_cls.LABEL))
-        # obj.put()
+        obj.copies = [copy for copy in obj.copies if copy.protocol != 'nostr']
+        uri = id_to_uri(bech32_prefix_for(event), event['id'])
+        obj.add('copies', Target(uri=uri, protocol=to_cls.LABEL))
+        obj.put()
+
         return True
 
 

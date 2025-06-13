@@ -545,7 +545,7 @@ class Protocol:
 
         NOTE: if this protocol's ``HAS_COPIES`` is True, and this method creates
         a copy and sends it, it *must* add that copy to the *object*'s (not
-        activity's) :attr:`copies`!
+        activity's) :attr:`copies`, and store it back in the datastore!
 
         Args:
           obj (models.Object): with activity to send
