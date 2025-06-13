@@ -133,7 +133,9 @@ class Target(ndb.Model):
     """
     uri = ndb.StringProperty(required=True)
     ''
-    protocol = ndb.StringProperty(choices=list(PROTOCOLS.keys()), required=True)
+    # TODO: remove for Nostr launch
+    protocol = ndb.StringProperty(choices=list(PROTOCOLS.keys()) + ['nostr'],
+                                  required=True)
     ''
 
     def __eq__(self, other):
@@ -166,7 +168,9 @@ class DM(ndb.Model):
       * unsupported-handle-ap
       * welcome
     """
-    protocol = ndb.StringProperty(choices=list(PROTOCOLS.keys()), required=True)
+    # TODO: remove for Nostr launch
+    protocol = ndb.StringProperty(choices=list(PROTOCOLS.keys()) + ['nostr'],
+                                  required=True)
     ''
 
     def __eq__(self, other):
@@ -236,7 +240,8 @@ class User(StringIdModel, metaclass=ProtocolUserMeta):
     """Set to True for users who asked to be opted out."""
 
     enabled_protocols = ndb.StringProperty(repeated=True,
-                                           choices=list(PROTOCOLS.keys()))
+                                           # TODO: remove for Nostr launch
+                                           choices=list(PROTOCOLS.keys()) + ['nostr'])
     """Protocols that this user has explicitly opted into.
 
     Protocols that don't require explicit opt in are omitted here. ``choices``
@@ -962,7 +967,8 @@ class Object(StringIdModel):
     feed = ndb.KeyProperty(repeated=True)
     'User who should see this in their feeds, eg followers of its creator'
 
-    source_protocol = ndb.StringProperty(choices=list(PROTOCOLS.keys()))
+    # TODO: remove for Nostr launch
+    source_protocol = ndb.StringProperty(choices=list(PROTOCOLS.keys()) + ['nostr'])
     """The protocol this object originally came from.
 
     ``choices`` is populated in :func:`reset_protocol_properties`, after all
