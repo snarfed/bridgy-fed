@@ -1,5 +1,6 @@
 """UI pages."""
 from functools import wraps
+import html
 import itertools
 import logging
 import re
@@ -430,13 +431,13 @@ def find_user_page():
     if not proto:
         proto, resolved_id = Protocol.for_handle(id)
         if not proto:
-            flash(f"Couldn't determine network for {id}.")
+            flash(f"Couldn't determine network for {html.escape(id)}.")
             return render('find_user_page.html'), 404
 
     try:
         user = load_user(proto.LABEL, resolved_id or id)
     except NotFound:
-        flash(f"User {id} on {proto.PHRASE} isn't signed up.")
+        flash(f"User {html.escape(id)} on {proto.PHRASE} isn't signed up.")
         return render('find_user_page.html'), 404
 
     return redirect(user.user_page_path(), code=302)

@@ -680,6 +680,20 @@ class PagesTest(TestCase):
         self.assertEqual(["User other:foo on other-phrase isn't signed up."],
                          get_flashed_messages())
 
+    def test_find_user_page_xss_unknown_protocol(self):
+        """Test that HTML in id parameter is escaped for unknown protocol."""
+        got = self.client.post('/user-page', data={'id': '<script>alert("xss")</script>'})
+        self.assert_equals(404, got.status_code)
+        self.assertEqual(["Couldn't determine network for &lt;script&gt;alert(&quot;xss&quot;)&lt;/script&gt;."],
+                         get_flashed_messages())
+
+    def test_find_user_page_xss_user_not_found(self):
+        """Test that HTML in id parameter is escaped for user not found."""
+        got = self.client.post('/user-page', data={'id': 'fake:<script>alert("xss")</script>'})
+        self.assert_equals(404, got.status_code)
+        self.assertEqual(["User fake:&lt;script&gt;alert(&quot;xss&quot;)&lt;/script&gt; on fake-phrase isn't signed up."],
+                         get_flashed_messages())
+
     def test_logout(self):
         with self.client.session_transaction() as sess:
             sess[LOGINS_SESSION_KEY] = [('BlueskyAuth', 'did:abc')]
