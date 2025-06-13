@@ -1080,7 +1080,7 @@ class ATProtoTest(TestCase):
         self.assertEqual({
             '$type': 'app.bsky.actor.profile',
             'displayName': 'Alice',
-            'description': '[bridged from web:fake:user on fake-phrase by https://fed.brid.gy/ ]',
+            'description': '🌉 bridged from web:fake:user on fake-phrase by https://fed.brid.gy/',
             'labels': {
                 '$type': 'com.atproto.label.defs#selfLabels',
                 'values': [{'val': 'bridged-from-bridgy-fed-fake'}],
@@ -1098,7 +1098,7 @@ class ATProtoTest(TestCase):
         self.assertEqual({
             '$type': 'app.bsky.actor.profile',
             'displayName': 'Alice',
-            'description': '[bridged from https://user.com/ on the web: https://fed.brid.gy/web/user.com ]',
+            'description': '🌉 bridged from https://user.com/ on the web: https://fed.brid.gy/web/user.com',
             'labels': {
                 '$type': 'com.atproto.label.defs#selfLabels',
                 'values': [{'val': 'bridged-from-bridgy-fed-web'}],
@@ -1131,7 +1131,7 @@ Nam quis tristique elit.
 
 Sed tortor neque, aliquet quis posuere aliquam […] 
 
-[bridged from web:fake:user on fake-phrase by https://fed.brid.gy/ ]""",
+🌉 bridged from web:fake:user on fake-phrase by https://fed.brid.gy/""",
             'bridgyOriginalDescription': summary,
             'bridgyOriginalUrl': 'fake:user',
             'labels': {
@@ -1153,7 +1153,7 @@ Sed tortor neque, aliquet quis posuere aliquam […]
         self.assertEqual({
             '$type': 'app.bsky.actor.profile',
             'displayName': 'Alice',
-            'description': 'bar\n\n[bridged from web:fake:user on fake-phrase by https://fed.brid.gy/ ]',
+            'description': 'bar\n\n🌉 bridged from web:fake:user on fake-phrase by https://fed.brid.gy/',
             'labels': {
                 '$type': 'com.atproto.label.defs#selfLabels',
                 'values': [{'val': 'bridged-from-bridgy-fed-fake'}],
@@ -1314,7 +1314,7 @@ Sed tortor neque, aliquet quis posuere aliquam […]
         self.assertEqual({
             '$type': 'app.bsky.actor.profile',
             'displayName': 'Alice',
-            'description': 'hi there\n\n[bridged from web:fake:us_er on fake-phrase by https://fed.brid.gy/ ]',
+            'description': 'hi there\n\n🌉 bridged from web:fake:us_er on fake-phrase by https://fed.brid.gy/',
             'bridgyOriginalDescription': 'hi there',
             'bridgyOriginalUrl': 'https://alice.com/',
             'avatar': {
@@ -1369,7 +1369,7 @@ Sed tortor neque, aliquet quis posuere aliquam […]
         self.assert_equals({
             '$type': 'app.bsky.actor.profile',
             'displayName': 'Alice',
-            'description': 'hi there\n\n[bridged from web:fake:user on fake-phrase by https://fed.brid.gy/ ]',
+            'description': 'hi there\n\n🌉 bridged from web:fake:user on fake-phrase by https://fed.brid.gy/',
             'pinnedPost': {
                 'uri': f'at://{did}/app.bsky.feed.post/{last_tid}',
                 'cid': 'bafyreibjhbhznld7ogitdeub3ptk3cnkaegz3oma46ys5ljnaaec3sylpq',
@@ -1812,7 +1812,7 @@ Sed tortor neque, aliquet quis posuere aliquam […]
         self.assertEqual({
             '$type': 'app.bsky.actor.profile',
             'displayName': 'Alice',
-            'description': 'hi there\n\n[bridged from web:fake:user on fake-phrase by https://fed.brid.gy/ ]',
+            'description': 'hi there\n\n🌉 bridged from web:fake:user on fake-phrase by https://fed.brid.gy/',
             'bridgyOriginalDescription': 'hi there',
             'bridgyOriginalUrl': 'https://alice.com/',
             'avatar': {
@@ -2080,7 +2080,7 @@ Sed tortor neque, aliquet quis posuere aliquam […]
         self.assert_equals({
             '$type': 'app.bsky.actor.profile',
             'displayName': 'fooey',
-            'description': '[bridged from web:fake:user on fake-phrase by https://fed.brid.gy/ ]',
+            'description': '🌉 bridged from web:fake:user on fake-phrase by https://fed.brid.gy/',
         }, repo.get_record('app.bsky.actor.profile', 'self'),
         ignore=['bridgyOriginalUrl', 'labels'])
 

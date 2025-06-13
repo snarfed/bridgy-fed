@@ -673,12 +673,10 @@ class Protocol:
         summary_text = html_to_text(orig_summary, ignore_links=True)
 
         # Check if we've already added source links
-        if 'Bridgy Fed]' in summary_text or 'fed.brid.gy ]' in summary_text:
+        if '🌉 bridged' in summary_text:
             return
 
         actor_id = actor.get('id')
-        # actor_id = obj.key.id() if obj.key else actor.get('id')
-        # util.d(from_user.key, actor_id, from_user.key.id(), from_user.profile_id())
         proto_phrase = (f' on {PROTOCOLS[obj.source_protocol].PHRASE}'
                         if obj.source_protocol else '')
         url = as1.get_url(actor) or obj.key.id() if obj.key else actor_id
@@ -690,10 +688,10 @@ class Protocol:
             is_user = from_user.key and actor_id in (from_user.key.id(),
                                                      from_user.profile_id())
             if is_user:
-                bridged = f'<a href="https://{PRIMARY_DOMAIN}{from_user.user_page_path()}">bridged</a>'
+                bridged = f'🌉 <a href="https://{PRIMARY_DOMAIN}{from_user.user_page_path()}">bridged</a>'
                 from_ = f'<a href="{from_user.web_url()}">{from_user.handle}</a>'
             else:
-                bridged = 'bridged'
+                bridged = '🌉 bridged'
                 from_ = util.pretty_link(url) if url else '?'
 
         else:  # plain text
@@ -703,15 +701,15 @@ class Protocol:
                                                from_user.profile_id())
             from_ = (from_user.web_url() if is_user else url) or '?'
 
-            bridged = 'bridged'
-            by = (f': https://{PRIMARY_DOMAIN}{from_user.user_page_path()} '
+            bridged = '🌉 bridged'
+            by = (f': https://{PRIMARY_DOMAIN}{from_user.user_page_path()}'
                   # link web users to their user pages
                   if from_user.LABEL == 'web'
-                  else f' by https://{PRIMARY_DOMAIN}/ ')
+                  else f' by https://{PRIMARY_DOMAIN}/')
             separator = '\n\n'
             orig_summary = summary_text
 
-        source_links = f'{separator if orig_summary else ""}[{bridged} from {from_}{proto_phrase}{by}]'
+        source_links = f'{separator if orig_summary else ""}{bridged} from {from_}{proto_phrase}{by}'
         actor['summary'] = orig_summary + source_links
 
     @classmethod

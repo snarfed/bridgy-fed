@@ -108,7 +108,7 @@ ACTOR_FAKE_USER = {
     ],
     'name': 'fake-handle-user',
     'type': 'Person',
-    'summary': '[<a href="https://fed.brid.gy/fa/fake:handle:user">bridged</a> from <a href="web:fake:user">fake:handle:user</a> on fake-phrase by <a href="https://fed.brid.gy/">Bridgy Fed</a>]',
+    'summary': '🌉 <a href="https://fed.brid.gy/fa/fake:handle:user">bridged</a> from <a href="web:fake:user">fake:handle:user</a> on fake-phrase by <a href="https://fed.brid.gy/">Bridgy Fed</a>',
     'discoverable': True,
     'indexable': True,
 }

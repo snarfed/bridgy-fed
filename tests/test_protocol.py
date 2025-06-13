@@ -858,7 +858,7 @@ class ProtocolTest(TestCase):
             'objectType': 'person',
             'id': 'other:u:fake:alice',
             'url': 'http://unused',
-            'summary': 'something about me<br><br>[<a href="https://fed.brid.gy/fa/fake:handle:alice">bridged</a> from <a href="web:fake:alice">fake:handle:alice</a> on fake-phrase by <a href="https://fed.brid.gy/">Bridgy Fed</a>]',
+            'summary': 'something about me<br><br>🌉 <a href="https://fed.brid.gy/fa/fake:handle:alice">bridged</a> from <a href="web:fake:alice">fake:handle:alice</a> on fake-phrase by <a href="https://fed.brid.gy/">Bridgy Fed</a>',
         }, OtherFake.convert(Object(
             id='fake:profile:alice', source_protocol='fake', our_as1={
                 'objectType': 'person',
@@ -873,7 +873,7 @@ class ProtocolTest(TestCase):
             'objectType': 'person',
             'id': 'other:u:fake:alice',
             'url': 'http://al/ice',
-            'summary': '[bridged from <a href="http://al/ice">al/ice</a> on fake-phrase by <a href="https://fed.brid.gy/">Bridgy Fed</a>]',
+            'summary': '🌉 bridged from <a href="http://al/ice">al/ice</a> on fake-phrase by <a href="https://fed.brid.gy/">Bridgy Fed</a>',
         }, OtherFake.convert(Object(id='fake:alice', source_protocol='fake', our_as1={
             'objectType': 'person',
             'id': 'fake:alice',
@@ -893,7 +893,7 @@ class ProtocolTest(TestCase):
 
     def test_convert_doesnt_duplicate_source_links(self):
         alice = Fake(id='fake:alice')
-        summary = 'something about me<br><br>[bridged from <a href="http://al/ice">someone else</a> by <a href="https://fed.brid.gy/">Bridgy Fed</a>]'
+        summary = 'something about me<br><br>🌉 bridged from <a href="http://al/ice">someone else</a> by <a href="https://fed.brid.gy/">Bridgy Fed</a>'
         self.assertEqual({
             'objectType': 'person',
             'id': 'other:u:fake:alice',
@@ -914,7 +914,7 @@ class ProtocolTest(TestCase):
                 'object': {
                     'objectType': 'person',
                     'id': 'other:u:fake:profile:alice',
-                    'summary': 'something about me<br><br>[<a href="https://fed.brid.gy/fa/fake:handle:alice">bridged</a> from <a href="web:fake:alice">fake:handle:alice</a> on fake-phrase by <a href="https://fed.brid.gy/">Bridgy Fed</a>]',
+                    'summary': 'something about me<br><br>🌉 <a href="https://fed.brid.gy/fa/fake:handle:alice">bridged</a> from <a href="web:fake:alice">fake:handle:alice</a> on fake-phrase by <a href="https://fed.brid.gy/">Bridgy Fed</a>',
                 },
             }, OtherFake.convert(
                 Object(id='fake:profile:update', source_protocol='fake', our_as1={

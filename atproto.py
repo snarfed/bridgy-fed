@@ -1093,7 +1093,7 @@ class ATProto(User, Protocol):
 
         actor = get_actor()
         summary = actor.get('summary', '')
-        if '[bridged from' in summary:
+        if '🌉 bridged' in summary:
             return
 
         # consumed by _convert
@@ -1103,7 +1103,7 @@ class ATProto(User, Protocol):
 
         # truncate
         actor = get_actor()
-        if '[bridged from' in actor['summary']:
+        if '🌉 bridged' in actor['summary']:
             parts = actor['summary'].rsplit('\n\n', 1)
             if len(parts) == 2:
                 text, source_links = parts

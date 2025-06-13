@@ -126,7 +126,7 @@ class UserTest(TestCase):
         self.assertEqual({
             '$type': 'app.bsky.actor.profile',
             'displayName': 'Alice',
-            'description': 'hi there\n\n[bridged from web:fake:user on fake-phrase by https://fed.brid.gy/ ]',
+            'description': 'hi there\n\n🌉 bridged from web:fake:user on fake-phrase by https://fed.brid.gy/',
             'bridgyOriginalDescription': 'hi there',
             'bridgyOriginalUrl': 'https://alice.com/',
             'labels': {
