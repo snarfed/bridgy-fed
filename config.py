@@ -31,6 +31,7 @@ SOCK_SERVER_OPTIONS = {
 config_logger = logging.getLogger(__name__)
 
 logging.getLogger('granary.nostr').setLevel(logging.DEBUG)
+logging.getLogger('nostr').setLevel(logging.DEBUG)
 
 if appengine_info.DEBUG:
     ENV = 'development'
