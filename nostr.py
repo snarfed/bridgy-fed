@@ -102,6 +102,9 @@ class Nostr(User, Protocol):
             if nip05 := content.get('nip05'):
                 return nip05.removeprefix('_@')
 
+        if self.key:
+            return self.key.id().removeprefix('nostr:')
+
     def web_url(self):
         if self.obj_key:
             return granary.nostr.Nostr.user_url(

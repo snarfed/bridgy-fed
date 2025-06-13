@@ -90,7 +90,11 @@ class NostrTest(TestCase):
         ):
             with self.subTest(event=event):
                 obj = Object(id='x', nostr={**event, 'pubkey': PUBKEY})
-                self.assertEqual(expected, Nostr(obj_key=obj.put()).handle)
+                user = Nostr(obj_key=obj.put())
+                self.assertEqual(expected, user.handle)
+                if expected is None:
+                    user.key = ndb.Key(Nostr, 'nostr:npub123')
+                    self.assertEqual('npub123', user.handle)
 
     def test_bridged_web_url_for(self):
         self.assertIsNone(Nostr.bridged_web_url_for(Nostr()))
