@@ -338,3 +338,30 @@ class IdsTest(TestCase):
                 got = translate_object_id(id='http://on-web.com/post', from_=Web,
                                           to=ActivityPub)
                 self.assertEqual('https://web.brid.gy/r/http://on-web.com/post', got)
+
+    def test_handle_as_domain(self):
+        for handle, expected in [
+            (None, None),
+            ('', None),
+
+            ('user.com', 'user.com'),
+            ('@user@instance.com', 'user.instance.com'),
+            ('user@instance.com', 'user.instance.com'),
+
+            ('user_name@instance.com', 'user-name.instance.com'),
+            ('@alice@inst~test.com', 'alice.inst-test.com'),
+            ('alice_bob@server.com', 'alice-bob.server.com'),
+            ('alice~bob:jones@server.com', 'alice-bob-jones.server.com'),
+
+            ('alice.bsky.social', 'alice.bsky.social'),
+            ('alice_bob.bsky.social', 'alice-bob.bsky.social'),
+            ('han.dull.brid.gy', 'han.dull.brid.gy'),
+
+            ('fake:handle:user', 'fake-handle-user'),
+            ('fake:handle:alice_bob', 'fake-handle-alice-bob'),
+            ('fake:handle:alice~bob:jones', 'fake-handle-alice-bob-jones'),
+            ('other:handle:user', 'other-handle-user'),
+            ('other:handle:alice_bob~jones', 'other-handle-alice-bob-jones'),
+        ]:
+            with self.subTest(handle=handle):
+                self.assertEqual(expected, ids.handle_as_domain(handle))

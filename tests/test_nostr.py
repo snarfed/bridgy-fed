@@ -135,6 +135,20 @@ class NostrTest(TestCase):
     def test_handle_to_id(self, _):
         self.assertEqual('npub1kp346yk70h6', Nostr.handle_to_id('alice@example.com'))
 
+    def test_handle_as_domain(self):
+        self.assertEqual('npub789', Nostr(id='nostr:npub789').handle_as_domain)
+
+        profile = Object(id='x', nostr={
+            'kind': KIND_PROFILE,
+            'pubkey': PUBKEY,
+            'content': json_dumps({'nip05': '_@x.y'}),
+        })
+        user = Nostr(id='nostr:npub789', obj_key=profile.put())
+        self.assertEqual('x.y', user.handle_as_domain)
+
+        profile.nostr['content'] = json_dumps({'nip05': 'a@x.y'})
+        self.assertEqual('a.x.y', user.handle_as_domain)
+
     def test_convert_actor(self):
         self.assert_equals({
             'kind': KIND_PROFILE,

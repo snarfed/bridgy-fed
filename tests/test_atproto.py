@@ -1276,6 +1276,20 @@ Sed tortor neque, aliquet quis posuere aliquam […]
         self.store_object(id='did:plc:user', raw=DID_DOC)
         self.assertEqual('@han.dull.brid.gy@bsky.brid.gy', user.handle_as('activitypub'))
 
+    def test_handle_as_domain(self):
+        did_doc = self.store_object(id='did:plc:user', raw={
+            **DID_DOC,
+            'alsoKnownAs': ['at://alice.bsky.social'],
+        })
+        user = ATProto(id='did:plc:user')
+        self.assertEqual('alice.bsky.social', user.handle)
+        self.assertEqual('alice.bsky.social', user.handle_as_domain)
+
+        # underscore
+        did_doc.raw['alsoKnownAs'] = ['at://alice_bob.bsky.social']
+        self.assertEqual('alice_bob.bsky.social', user.handle)
+        self.assertEqual('alice-bob.bsky.social', user.handle_as_domain)
+
     @patch('requests.get', return_value=requests_response(DID_DOC))
     def test_profile_id(self, mock_get):
         self.assertEqual('at://did:plc:user/app.bsky.actor.profile/self',

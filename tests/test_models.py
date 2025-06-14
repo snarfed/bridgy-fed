@@ -288,6 +288,13 @@ class UserTest(TestCase):
     def test_handle(self):
         self.assertEqual('y.za', self.user.handle)
 
+    def test_handle_as_domain(self):
+        self.assertEqual('fake-handle-user', Fake(id='fake:user').handle_as_domain)
+        self.assertEqual('fake-handle-alice-bob',
+                         Fake(id='fake:alice_bob').handle_as_domain)
+        self.assertEqual('fake-handle-alice-bob-jones',
+                         Fake(id='fake:alice~bob:jones').handle_as_domain)
+
     def test_id_as(self):
         user = self.make_user('fake:user', cls=Fake)
         self.assertEqual('fake:user', user.id_as(Fake))

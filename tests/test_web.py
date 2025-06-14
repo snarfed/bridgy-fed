@@ -2932,6 +2932,9 @@ class WebUtilTest(TestCase):
     def test_handle(self, *_):
         self.assertEqual('user.com', self.user.handle)
 
+    def test_handle_as_domain(self, *_):
+        self.assertEqual('user.com', self.user.handle_as_domain)
+
     def test_owns_id(self, *_):
         self.assertIsNone(Web.owns_id('http://foo.com'))
         self.assertIsNone(Web.owns_id('https://bar.com/'))

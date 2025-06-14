@@ -407,3 +407,30 @@ def translate_object_id(*, id, from_, to):
             return f'{to.LABEL}:o:{from_.ABBREV}:{id}'
 
     assert False, (id, from_.LABEL, to.LABEL)
+
+
+def handle_as_domain(handle):
+    """Converts a handle to domain-like format.
+
+    Converts handle to domain format by removing leading @ and replacing
+    @ with ., and replacing certain characters (_ ~ :) with -.
+
+    For example:
+    * ``@user@instance.com`` => ``user.instance.com``
+    * ``user_name@instance.com`` => ``user-name.instance.com``
+    * ``@alice@inst~test.com`` => ``alice.inst-test.com``
+
+    Args:
+      handle (str or None)
+
+    Returns:
+      str or None: if handle is None
+    """
+    if not handle:
+        return None
+
+    flattened = handle.lstrip('@').replace('@', '.')
+    for char in DASH_CHARS:
+        flattened = flattened.replace(char, '-')
+
+    return flattened

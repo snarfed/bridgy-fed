@@ -485,6 +485,15 @@ class User(StringIdModel, metaclass=ProtocolUserMeta):
         raise NotImplementedError()
 
     @ndb.ComputedProperty
+    def handle_as_domain(self):
+        """This user's handle in domain-like format, via :func:`id.handle_as_domain`.
+
+        Returns:
+          str or None: if handle is None
+        """
+        return ids.handle_as_domain(self.handle)
+
+    @ndb.ComputedProperty
     def status(self):
         """Whether this user is blocked or opted out.
 
