@@ -490,16 +490,17 @@ class NostrTest(TestCase):
             with self.subTest(id=id):
                 self.assertFalse(Nostr.fetch(Object(id=id)))
 
-    def test_nip_05_fake_user(self):
+    def test_nip_05_fake_user_by_handle(self):
         user = self.make_user('fake:alice', cls=Fake, enabled_protocols=['nostr'],
                              copies=[Target(uri=NPUB_URI, protocol='nostr')])
+        self.assertEqual('fake-handle-alice', user.handle_as_domain)
 
-        resp = self.get('/.well-known/nostr.json?name=fake:alice',
+        resp = self.get('/.well-known/nostr.json?name=fake-handle-alice',
                         base_url='https://fa.brid.gy')
         self.assertEqual(200, resp.status_code)
         self.assertEqual('application/json', resp.headers['Content-Type'])
         self.assert_equals({
-            'names': {'fake:alice': PUBKEY},
+            'names': {'fake-handle-alice': PUBKEY},
         }, resp.json)
 
     def test_nip_05_web_user(self):
@@ -514,18 +515,6 @@ class NostrTest(TestCase):
             'names': {'user.com': PUBKEY},
         }, resp.json)
 
-    def test_nip_05_fake_user_by_handle(self):
-        user = self.make_user('fake:bob', cls=Fake, enabled_protocols=['nostr'],
-                             copies=[Target(uri=NPUB_URI, protocol='nostr')])
-
-        resp = self.get('/.well-known/nostr.json?name=fake:handle:bob',
-                        base_url='https://fa.brid.gy')
-        self.assertEqual(200, resp.status_code)
-        self.assertEqual('application/json', resp.headers['Content-Type'])
-        self.assert_equals({
-            'names': {'fake:handle:bob': PUBKEY},
-        }, resp.json)
-
     def test_nip_05_user_nostr_not_enabled(self):
         user = self.make_user('fake:disabled', cls=Fake,
                              copies=[Target(uri=NPUB_URI, protocol='nostr')])
@@ -537,7 +526,7 @@ class NostrTest(TestCase):
     def test_nip_05_no_nostr_copy(self):
         user = self.make_user('fake:charlie', cls=Fake, enabled_protocols=['nostr'])
 
-        resp = self.get('/.well-known/nostr.json?name=fake:charlie',
+        resp = self.get('/.well-known/nostr.json?name=fake-handle-charlie',
                         base_url='https://fa.brid.gy')
         self.assertEqual(404, resp.status_code)
 
@@ -553,7 +542,7 @@ class NostrTest(TestCase):
     def test_nip_05_native_nostr_user_ignored(self):
         nostr_user = self.make_user('nostr:npub123', cls=Nostr)
 
-        for name in ('npub123', 'nostr:npub123'):
+        for name in ('npub123', 'nostr:npub123', 'nostr-npub123'):
             with self.subTest(name=name):
                 resp = self.get(f'/.well-known/nostr.json?name={name}',
                                 base_url='https://nostr.brid.gy')

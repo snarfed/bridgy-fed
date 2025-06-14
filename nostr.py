@@ -10,6 +10,7 @@ https://nips.nostr.com/21
 import logging
 
 from google.cloud import ndb
+from google.cloud.ndb.query import OR
 from granary import as1
 import granary.nostr
 from granary.nostr import (
@@ -346,9 +347,11 @@ def nip_05():
     """
     name = get_required_param('name')
 
-    # TODO: convert back to protocol's handle, eg - and . chars
     if (proto := Protocol.for_request()) and proto != Nostr:
-        user = proto.get_by_id(name) or proto.query(proto.handle == name).get()
+        user = proto.query(OR(proto.handle == name,
+                              proto.handle_as_domain == name,
+                              proto.key == ndb.Key(proto, name),
+                              )).get()
         if user and user.is_enabled(Nostr):
             if npub := user.get_copy(Nostr):
                 return {
