@@ -140,9 +140,6 @@ def subscribe():
     """Subscribes to the relay's firehose.
 
     Relay hostname comes from the ``BGS_HOST`` environment variable.
-
-    Args:
-      reconnect (bool): whether to always reconnect after we get disconnected
     """
     global cursor
     if not cursor:

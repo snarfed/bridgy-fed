@@ -1331,7 +1331,7 @@ class Object(StringIdModel):
         props = {field: request.form.get(field)
                  for field in ('id', 'source_protocol')}
 
-        for json_prop in 'as2', 'bsky', 'mf2', 'our_as1', 'raw':
+        for json_prop in 'as2', 'bsky', 'mf2', 'our_as1', 'nostr', 'raw':
             if val := request.form.get(json_prop):
                 props[json_prop] = json_loads(val)
 
