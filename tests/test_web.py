@@ -1962,7 +1962,7 @@ class WebTest(TestCase):
   <item>
     <guid>http://po.st/b</guid>
     <description>I hereby ☕ post b</description>
-    <pubDate>Tue, 08 Dec 2012 05:00:00 +0000</pubDate>
+    <pubDate>Tue, 07 Dec 2012 22:00:00</pubDate>
   </item>
   <item>
     <guid>http://po.st/c</guid>
@@ -1994,7 +1994,10 @@ class WebTest(TestCase):
             self.req('https://foo/rss'),
         ))
 
-        for i, (id, hour) in enumerate([('a', 8), ('b', 5), ('c', 4)]):
+        for i, (id, published) in enumerate([
+                ('a', '2012-12-08T08:00:00+00:00'),
+                ('b', '2012-12-07T22:00:00'),
+                ('c', '2012-12-08T04:00:00+00:00')]):
             url = f'http://po.st/{id}'
             expected_as1 = {
                 'objectType': 'activity',
@@ -2008,7 +2011,7 @@ class WebTest(TestCase):
                     'url': url,
                     'author': {'id': 'https://user.com/'},
                     'content': f'I hereby ☕ post {id}',
-                    'published': f'2012-12-08T0{hour}:00:00+00:00',
+                    'published': published,
                 },
             }
             with self.subTest(id=id):

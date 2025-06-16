@@ -382,6 +382,9 @@ class TestCase(unittest.TestCase, testutil.Asserts):
         FakeConnection.reset()
         nostr.connect = fake_connect
 
+        # system level local timezone
+        os.environ['TZ'] = 'America/Los_Angeles'
+
     def tearDown(self):
         self.app_context.pop()
         self.ndb_context.__exit__(None, None, None)
@@ -657,7 +660,7 @@ class TestCase(unittest.TestCase, testutil.Asserts):
                 task=expected,
             )
         except AssertionError as e:
-            e.args = [e.args[0] + f'\nCalls: {"\n".join(mock_create_task.call_args_list)}']
+            e.args = [e.args[0] + f'\nCalls: {mock_create_task.call_args_list}']
             raise
 
     def assert_ap_deliveries(self, mock_post, inboxes, data, from_user=None,
