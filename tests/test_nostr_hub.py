@@ -20,7 +20,7 @@ from granary.tests.test_nostr import (
     PUBKEY,
 )
 from oauth_dropins.webutil import util
-from websockets.exceptions import ConnectionClosedOK
+from websockets.exceptions import ConnectionClosedOK, ConnectionClosedError
 
 import common
 from models import Target
@@ -88,10 +88,9 @@ class NostrHubTest(TestCase):
             ['EVENT', 'sub123', event],
             ['EOSE', 'sub123'],
         ]
-        FakeConnection.recv_err = ConnectionClosedOK(None, None)
 
         nostr_hub.load_pubkeys()
-        nostr_hub.subscribe()
+        nostr_hub.subscribe(limit=2)
 
         self.assert_task(mock_create_task, 'receive',
                          id=id_to_uri('nevent', event['id']),
@@ -115,10 +114,9 @@ class NostrHubTest(TestCase):
             ['EVENT', 'sub123', event],
             ['EOSE', 'sub123'],
         ]
-        FakeConnection.recv_err = ConnectionClosedOK(None, None)
 
         nostr_hub.load_pubkeys()
-        nostr_hub.subscribe()
+        nostr_hub.subscribe(limit=2)
 
         bob_npub = bech32_encode('npub', BOB_PUBKEY)
         self.assert_task(mock_create_task, 'receive',
@@ -144,10 +142,9 @@ class NostrHubTest(TestCase):
             ['EVENT', 'sub123', event],
             ['EOSE', 'sub123'],
         ]
-        FakeConnection.recv_err = ConnectionClosedOK(None, None)
 
         nostr_hub.load_pubkeys()
-        nostr_hub.subscribe()
+        nostr_hub.subscribe(limit=2)
 
         self.assert_task(mock_create_task, 'receive',
                          id=id_to_uri('nevent', event['id']),
@@ -163,50 +160,42 @@ class NostrHubTest(TestCase):
             'content': 'Just chatting',
             'tags': [['p', 'random_user2']],
             'created_at': NOW_TS,
+            'sig': 'foo',
         }
 
         FakeConnection.to_receive = [
             ['EVENT', 'sub123', event],
             ['EOSE', 'sub123'],
         ]
-        FakeConnection.recv_err = ConnectionClosedOK(None, None)
 
         nostr_hub.load_pubkeys()
-        nostr_hub.subscribe()
+        nostr_hub.subscribe(limit=2)
 
         mock_create_task.assert_not_called()
 
     def test_subscribe_invalid_events(self, mock_create_task, _):
         # bad signature - use a different pubkey than what we sign with
-        invalid_event1 = id_and_sign({
-            'pubkey': PUBKEY,
-            'kind': KIND_NOTE,
-            'content': 'Invalid sig',
-            'tags': [],
-            'created_at': NOW_TS,
-        }, privkey=NSEC_URI)
-        invalid_event1['sig'] = 'bad' + invalid_event1['sig'][3:]
-
-        # Event without proper fields but valid structure
-        invalid_event2 = {
-            'id': '123',
-            'pubkey': 'not_hex',
-            'kind': KIND_NOTE,
-            'content': 'Bad pubkey',
-            'tags': [],
-            'created_at': NOW_TS,
-            'sig': 'invalid_sig'
-        }
+        events = [
+            id_and_sign({
+                'pubkey': 'bad_not_hex',
+                'kind': KIND_NOTE,
+                'content': 'bad pubkey',
+            }, privkey=NSEC_URI),
+            id_and_sign({
+                'pubkey': 'not_hex',
+                'kind': KIND_NOTE,
+                'content': 'bad sig',
+            }, privkey=NSEC_URI),
+        ]
+        events[1]['sig'] = 'not-right'
 
         FakeConnection.to_receive = [
-            ['EVENT', 'sub123', invalid_event1],
-            ['EVENT', 'sub123', invalid_event2],
-            ['EOSE', 'sub123'],
+            ['EVENT', 'sub123', events[0]],
+            ['EVENT', 'sub123', events[1]],
         ]
-        FakeConnection.recv_err = ConnectionClosedOK(None, None)
 
         nostr_hub.load_pubkeys()
-        nostr_hub.subscribe()
+        nostr_hub.subscribe(limit=2)
 
         mock_create_task.assert_not_called()
 
@@ -230,7 +219,7 @@ class NostrHubTest(TestCase):
         FakeConnection.recv_err = ConnectionClosedOK(None, None)
 
         nostr_hub.load_pubkeys()
-        nostr_hub.subscribe()
+        nostr_hub.subscribe(limit=2)
 
         delayed_eta = NOW_TS + DELETE_TASK_DELAY.total_seconds()
         bob_npub = bech32_encode('npub', BOB_PUBKEY)

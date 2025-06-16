@@ -43,6 +43,7 @@ import ids
 import models
 from models import KEY_BITS, Object, PROTOCOLS, Target, User
 import nostr
+import nostr_hub
 import protocol
 import router
 
@@ -380,7 +381,7 @@ class TestCase(unittest.TestCase, testutil.Asserts):
 
         # nostr fake websocket
         FakeConnection.reset()
-        nostr.connect = fake_connect
+        nostr.connect = nostr_hub.connect = fake_connect
 
         # system level local timezone
         os.environ['TZ'] = 'America/Los_Angeles'

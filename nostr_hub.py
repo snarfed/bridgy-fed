@@ -1,12 +1,12 @@
 """Nostr backfeed, via long-lived websocket connection(s) to relay(s)."""
 from datetime import datetime, timedelta, timezone
 import logging
+import secrets
 from threading import Event, Thread, Timer
 import time
 
 from google.cloud import ndb
 from google.cloud.ndb.exceptions import ContextError
-import granary.nostr
 from granary.nostr import (
     bech32_decode,
     bech32_encode,
@@ -17,6 +17,10 @@ from granary.nostr import (
 from oauth_dropins.webutil import util
 from oauth_dropins.webutil.appengine_config import ndb_client
 from oauth_dropins.webutil.appengine_info import DEBUG
+from oauth_dropins.webutil.util import HTTP_TIMEOUT, json_dumps, json_loads
+from websockets.exceptions import ConnectionClosed
+from websockets.sync.client import connect
+
 from common import (
     create_task,
     NDB_CONTEXT_KWARGS,
@@ -132,55 +136,105 @@ def subscriber():
          while True:
             try:
                 subscribe()
+            except ConnectionClosed as err:
+                logger.warning(err)
             except BaseException:
                 report_exception()
             logger.info(f'disconnected! waiting {RECONNECT_DELAY} and then reconnecting')
             time.sleep(RECONNECT_DELAY.total_seconds())
 
 
-def subscribe():
+def subscribe(limit=None):
     """Subscribes to relay(s), backfeeds responses to our users' activities.
 
     Relay URL comes from :attr:`Nostr.DEFAULT_TARGET`.
+
+    Args:
+      limit (int): return after receiving this many messages. Only used in tests.
     """
-    with nostr.connect(Nostr.DEFAULT_TARGET, user_agent_header=util.user_agent,
-                       open_timeout=util.HTTP_TIMEOUT, close_timeout=util.HTTP_TIMEOUT,
-                       ) as ws:
-        # TODO: query() returns a list of events, not a generator
-        events = granary.nostr.Nostr().query(ws, {'#p': list(bridged_pubkeys)})
-        for event in events:
-            assert (isinstance(event, dict)
-                    and event.keys() >= set(('pubkey', 'id', 'kind', 'sig'))
-                    and event['pubkey'] and event['id']
-                    and event['kind'] and event['sig']
-                    ), event
+    with connect(Nostr.DEFAULT_TARGET, user_agent_header=util.user_agent,
+                 open_timeout=util.HTTP_TIMEOUT, close_timeout=util.HTTP_TIMEOUT,
+                 ) as ws:
+        if not DEBUG:
+            assert limit is None
 
-            pubkey = event['pubkey']
+        received = 0
+        subscription = secrets.token_urlsafe(16)
+        ws.send(json_dumps(['REQ', subscription, {'#p': list(bridged_pubkeys)}]))
 
-            # TODO: validate signature
+        while True:
+            msg = ws.recv(timeout=HTTP_TIMEOUT)
+            logger.debug(f'{ws.remote_address} => {msg}')
+            resp = json_loads(msg)
 
-            follow_of_bot = False
-            if event['kind'] == KIND_CONTACTS:
-                for tag in event.get('tags', []):
-                    if tag[0] == 'p' and tag[1] in protocol_bot_pubkeys:
-                        follow_of_bot = True
+            # https://nips.nostr.com/1
+            match resp[0]:
+                case 'EVENT':
+                    handle(resp[2])
 
-            if not (pubkey not in nostr_pubkeys  # from a Nostr user who's bridged
-                    or follow_of_bot):
-                continue
+                case 'CLOSED':
+                    # relay closed our query. reconnect!
+                    return
 
-            logger.debug(f'Got Nostr event {event["id"]} from {pubkey}')
-            obj_id = id_to_uri('nevent', event['id'])
-            npub_uri = id_to_uri('npub', pubkey)
-            delay = DELETE_TASK_DELAY if event.get('kind') == KIND_DELETE else None
-            # TODO: new fn in granary, deterministic conversion from event (by kind)
-            # to bech32 id w/prefix
-            try:
-                create_task(queue='receive', id=obj_id, source_protocol=Nostr.LABEL,
-                            authed_as=npub_uri, nostr=event, delay=delay)
-                # when running locally, comment out above and uncomment this
-                # logger.info(f'enqueuing receive task for {obj_id}')
-            except ContextError:
-                raise  # handled in subscriber()
-            except BaseException:
-                report_error(obj_id, exception=True)
+                case 'OK':
+                    # TODO: this is a response to an EVENT we sent
+                    pass
+
+                case 'EOSE':
+                    # switching from stored results to live
+                    pass
+
+                case 'NOTICE':
+                    # already logged this
+                    pass
+
+            received += 1
+            if limit and received >= limit:
+                return
+
+
+def handle(event):
+    """Handles a Nostr event. Enqueues a receive task for it if necessary.
+
+    Args:
+      event (dict): Nostr event
+    """
+    assert (isinstance(event, dict) and event.get('kind') is not None
+            and event.get('pubkey') and event.get('id') and event.get('sig')), event
+
+    id = event['id']
+    pubkey = event['pubkey']
+
+    # TODO: validate signature
+
+    follow_of_bot = False
+    if event['kind'] == KIND_CONTACTS:
+        for tag in event.get('tags', []):
+            if tag[0] == 'p' and tag[1] in protocol_bot_pubkeys:
+                follow_of_bot = True
+
+    if not (pubkey not in nostr_pubkeys  # from a Nostr user who's bridged
+            or follow_of_bot):
+        return
+
+    logger.debug(f'Got Nostr event {id} from {pubkey}')
+    try:
+        obj_id = id_to_uri('nevent', id)
+        npub_uri = id_to_uri('npub', pubkey)
+    except (TypeError, ValueError):
+        logger.info(f'bad id {id} or pubkey {pubkey}')
+        return
+
+    delay = DELETE_TASK_DELAY if event.get('kind') == KIND_DELETE else None
+    # TODO: new fn in granary, deterministic conversion from event (by kind)
+    # to bech32 id w/prefix
+
+    try:
+        create_task(queue='receive', id=obj_id, source_protocol=Nostr.LABEL,
+                    authed_as=npub_uri, nostr=event, delay=delay)
+        # when running locally, comment out above and uncomment this
+        # logger.info(f'enqueuing receive task for {obj_id}')
+    except ContextError:
+        raise  # handled in subscriber()
+    except BaseException:
+        report_error(obj_id, exception=True)
