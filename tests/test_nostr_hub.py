@@ -174,25 +174,28 @@ class NostrHubTest(TestCase):
         mock_create_task.assert_not_called()
 
     def test_subscribe_invalid_events(self, mock_create_task, _):
-        # bad signature - use a different pubkey than what we sign with
         events = [
             id_and_sign({
                 'pubkey': 'bad_not_hex',
                 'kind': KIND_NOTE,
                 'content': 'bad pubkey',
             }, privkey=NSEC_URI),
+            {
+                'pubkey': PUBKEY,
+                'id': 'bad_not_hex',
+                'kind': KIND_NOTE,
+                'content': 'bad id',
+                'sig': 'unused',
+            },
             id_and_sign({
-                'pubkey': 'not_hex',
+                'pubkey': PUBKEY,
                 'kind': KIND_NOTE,
                 'content': 'bad sig',
             }, privkey=NSEC_URI),
         ]
-        events[1]['sig'] = 'not-right'
+        events[1]['sig'] = 'bad'
 
-        FakeConnection.to_receive = [
-            ['EVENT', 'sub123', events[0]],
-            ['EVENT', 'sub123', events[1]],
-        ]
+        FakeConnection.to_receive = [['EVENT', 'sub123', event] for event in events]
 
         nostr_hub.load_pubkeys()
         nostr_hub.subscribe(limit=2)

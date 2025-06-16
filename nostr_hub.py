@@ -13,6 +13,7 @@ from granary.nostr import (
     id_to_uri,
     KIND_CONTACTS,
     KIND_DELETE,
+    verify,
 )
 from oauth_dropins.webutil import util
 from oauth_dropins.webutil.appengine_config import ndb_client
@@ -205,8 +206,6 @@ def handle(event):
     id = event['id']
     pubkey = event['pubkey']
 
-    # TODO: validate signature
-
     follow_of_bot = False
     if event['kind'] == KIND_CONTACTS:
         for tag in event.get('tags', []):
@@ -215,6 +214,10 @@ def handle(event):
 
     if not (pubkey not in nostr_pubkeys  # from a Nostr user who's bridged
             or follow_of_bot):
+        return
+
+    if not verify(event):
+        logger.debug(f'bad id or sig for {id}')
         return
 
     logger.debug(f'Got Nostr event {id} from {pubkey}')
