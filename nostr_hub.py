@@ -13,6 +13,7 @@ from granary.nostr import (
     id_to_uri,
     KIND_CONTACTS,
     KIND_DELETE,
+    uri_for,
     verify,
 )
 from oauth_dropins.webutil import util
@@ -200,8 +201,10 @@ def handle(event):
     Args:
       event (dict): Nostr event
     """
-    assert (isinstance(event, dict) and event.get('kind') is not None
-            and event.get('pubkey') and event.get('id') and event.get('sig')), event
+    if not (isinstance(event, dict) and event.get('kind') is not None
+            and event.get('pubkey') and event.get('id') and event.get('sig')):
+        logger.info(f'ignoring bad event: {event}')
+        return
 
     id = event['id']
     pubkey = event['pubkey']
@@ -220,18 +223,15 @@ def handle(event):
         logger.debug(f'bad id or sig for {id}')
         return
 
-    logger.debug(f'Got Nostr event {id} from {pubkey}')
     try:
-        obj_id = id_to_uri('nevent', id)
+        obj_id = uri_for(event)
         npub_uri = id_to_uri('npub', pubkey)
     except (TypeError, ValueError):
         logger.info(f'bad id {id} or pubkey {pubkey}')
         return
+    logger.debug(f'Got Nostr event {obj_id} from {pubkey}')
 
     delay = DELETE_TASK_DELAY if event.get('kind') == KIND_DELETE else None
-    # TODO: new fn in granary, deterministic conversion from event (by kind)
-    # to bech32 id w/prefix
-
     try:
         create_task(queue='receive', id=obj_id, source_protocol=Nostr.LABEL,
                     authed_as=npub_uri, nostr=event, delay=delay)

@@ -93,7 +93,7 @@ class NostrHubTest(TestCase):
         nostr_hub.subscribe(limit=2)
 
         self.assert_task(mock_create_task, 'receive',
-                         id=id_to_uri('nevent', event['id']),
+                         id=id_to_uri('note', event['id']),
                          source_protocol='nostr',
                          authed_as=NPUB_URI,
                          nostr=event)
@@ -147,7 +147,7 @@ class NostrHubTest(TestCase):
         nostr_hub.subscribe(limit=2)
 
         self.assert_task(mock_create_task, 'receive',
-                         id=id_to_uri('nevent', event['id']),
+                         id=id_to_uri('note', event['id']),
                          source_protocol='nostr',
                          authed_as=NPUB_URI,
                          nostr=event)
