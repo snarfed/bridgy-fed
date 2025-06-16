@@ -651,10 +651,14 @@ class TestCase(unittest.TestCase, testutil.Asserts):
         if eta_seconds:
             expected['schedule_time'] = Timestamp(seconds=int(eta_seconds))
 
-        mock_create_task.assert_any_call(
-            parent=f'projects/{appengine_info.APP_ID}/locations/{TASKS_LOCATION}/queues/{queue}',
-            task=expected,
-        )
+        try:
+            mock_create_task.assert_any_call(
+                parent=f'projects/{appengine_info.APP_ID}/locations/{TASKS_LOCATION}/queues/{queue}',
+                task=expected,
+            )
+        except AssertionError as e:
+            e.args = [e.args[0] + f'\nCalls: {"\n".join(mock_create_task.call_args_list)}']
+            raise
 
     def assert_ap_deliveries(self, mock_post, inboxes, data, from_user=None,
                              ignore=()):
