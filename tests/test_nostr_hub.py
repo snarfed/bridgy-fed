@@ -18,6 +18,7 @@ from granary.tests.test_nostr import (
     NOW_TS,
     NPUB_URI,
     NSEC_URI,
+    PRIVKEY,
     PUBKEY,
 )
 from oauth_dropins.webutil import util
@@ -31,9 +32,9 @@ from protocol import DELETE_TASK_DELAY
 from .testutil import Fake, TestCase
 from web import Web
 
-BOB_PUBKEY = 'abcd1234567890abcdef1234567890abcdef1234567890abcdef1234567890ab'
-BOB_NPUB_URI = 'nostr:npub140x3ydzk0zg2hn00zg69v7ys40x77y352eufp27daufrg4ncjz4skgrm7u'
-
+BOB_PUBKEY = 'be7e55eb264470903bbcf1d02ea417b5e1d2cd788cd6155f8e0b361a2bea76ed'
+BOB_NPUB_URI = 'nostr:npub1hel9t6exg3cfqwau78gzafqhkhsa9ntc3ntp2huwpvmp52l2wmksdr85t7'
+BOB_NSEC_URI = 'nostr:nsec1al80skcswjnwpukq3cw24x9rvdwyel8qls6kcled3q9ethqflu4q30070v'
 EVE_PUBKEY = 'bd19ea0297facfe0e766f08995a0a92ca1ea52bf5f664fe2487f7894a7b0a7ff'
 EVE_NPUB_URI = 'nostr:npub1h5v75q5hlt87pemx7zyetg9f9js7554ltanylcjg0aufffas5lls5m6tcf'
 EVE_NSEC_URI = 'nostr:nsec1ger8dg42xau7ctdaduv6wse8apzueqgye3l7ta6dcj4j7w07lqdq4d9rey'
@@ -54,9 +55,9 @@ class NostrHubTest(TestCase):
         nostr_hub.protocol_bot_pubkeys = set()
         nostr_hub.pubkeys_initialized.clear()
 
-        self.alice = self.make_user('fake:alice', cls=Fake,
-                                    enabled_protocols=['nostr'],
-                                    copies=[Target(uri=NPUB_URI, protocol='nostr')])
+        self.alice = self.make_user(
+            'fake:alice', cls=Fake, enabled_protocols=['nostr'],
+            nostr_key_bytes=bytes.fromhex(PRIVKEY))
 
         self.bob = self.make_user(BOB_NPUB_URI, cls=Nostr, enabled_protocols=['fake'])
 
@@ -65,7 +66,7 @@ class NostrHubTest(TestCase):
 
         nostr_hub.load_pubkeys()
         self.assertEqual(set((PUBKEY,)), nostr_hub.bridged_pubkeys)
-        # TODO: nostr_hub.nostr_pubkeys is (BOB_PUBKEY,)
+        self.assertEqual(set((BOB_PUBKEY,)), nostr_hub.nostr_pubkeys)
 
         eve = self.make_user('fake:eve', cls=Fake, enabled_protocols=['nostr'],
                              nostr_key_bytes=bytes.fromhex(uri_to_id(EVE_NSEC_URI)))
@@ -75,7 +76,8 @@ class NostrHubTest(TestCase):
 
         nostr_hub.load_pubkeys()
         self.assertEqual(set((PUBKEY, EVE_PUBKEY)), nostr_hub.bridged_pubkeys)
-        # TODO: nostr_hub.nostr_pubkeys is (BOB_PUBKEY, bech32_decode(frank.key.id()))
+        self.assertEqual(set((BOB_PUBKEY, frank.hex_pubkey())),
+                         nostr_hub.nostr_pubkeys)
 
     def test_subscribe_reply_to_bridged_user(self, mock_create_task, _):
         event = id_and_sign({
@@ -120,17 +122,16 @@ class NostrHubTest(TestCase):
         nostr_hub.load_pubkeys()
         nostr_hub.subscribe(limit=2)
 
-        bob_npub = bech32_encode('npub', BOB_PUBKEY)
         self.assert_task(mock_create_task, 'receive',
                          id=id_to_uri(event['id']),
                          source_protocol='nostr',
-                         authed_as=f'nostr:{bob_npub}',
+                         authed_as=f'nostr:{BOB_NPUB_URI}',
                          nostr=event)
 
     def test_subscribe_mention_protocol_bot(self, mock_create_task, _):
         # Create a protocol bot with a valid hex pubkey
         bot = self.make_user('fa.brid.gy', cls=Web, enabled_protocols=['nostr'],
-                           copies=[Target(uri=BOB_NPUB_URI, protocol='nostr')])
+                             nostr_key_bytes=bytes.fromhex(uri_to_id(BOB_NSEC_URI)))
 
         event = id_and_sign({
             'pubkey': PUBKEY,
@@ -227,11 +228,10 @@ class NostrHubTest(TestCase):
         nostr_hub.subscribe(limit=2)
 
         delayed_eta = NOW_TS + DELETE_TASK_DELAY.total_seconds()
-        bob_npub = bech32_encode('npub', BOB_PUBKEY)
         self.assert_task(mock_create_task, 'receive',
                          id=f'nostr:nevent{delete_event["id"]}',
                          source_protocol='nostr',
-                         authed_as=f'nostr:{bob_npub}',
+                         authed_as=f'nostr:{BOB_NPUB_URI}',
                          nostr=delete_event,
                          eta_seconds=delayed_eta)
 

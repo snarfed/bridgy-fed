@@ -14,6 +14,7 @@ from granary.nostr import (
     KIND_CONTACTS,
     KIND_DELETE,
     uri_for,
+    uri_to_id,
     verify,
 )
 from oauth_dropins.webutil import util
@@ -67,19 +68,17 @@ def _load_pubkeys():
 
     with ndb_client.context(**NDB_CONTEXT_KWARGS):
         try:
-            # loaded_at = Nostr.query().order(-Nostr.updated).get().updated
             loaded_at = util.now()
 
-            # nostr_query = Nostr.query(Nostr.status == None,
-            #                               Nostr.enabled_protocols != None,
-            #                               Nostr.updated > nostr_loaded_at)
-            # new_nostr = [key.id() for key in nostr_query.iter(keys_only=True)]
-            new_nostr = []
-            # nostr_pubkeys.update(new_nostr)
-            #
+            new_nostr = Nostr.query(Nostr.status == None,
+                                    Nostr.enabled_protocols != None,
+                                    Nostr.updated > nostr_loaded_at,
+                                    ).fetch(keys_only=True)
+            nostr_pubkeys.update(uri_to_id(key.id()) for key in new_nostr)
+
             # set *after* we populate nostr_pubkeys so that if we crash earlier, we
             # re-query from the earlier timestamp
-            # nostr_loaded_at = loaded_at
+            nostr_loaded_at = loaded_at
 
             new_bridged = []
             for proto in PROTOCOLS.values():
