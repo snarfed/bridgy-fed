@@ -10,6 +10,7 @@ from granary.nostr import (
     id_to_uri,
     KIND_DELETE,
     KIND_NOTE,
+    uri_to_id,
 )
 from granary.tests.test_nostr import (
     fake_connect,
@@ -32,6 +33,10 @@ from web import Web
 
 BOB_PUBKEY = 'abcd1234567890abcdef1234567890abcdef1234567890abcdef1234567890ab'
 BOB_NPUB_URI = 'nostr:npub140x3ydzk0zg2hn00zg69v7ys40x77y352eufp27daufrg4ncjz4skgrm7u'
+
+EVE_PUBKEY = 'bd19ea0297facfe0e766f08995a0a92ca1ea52bf5f664fe2487f7894a7b0a7ff'
+EVE_NPUB_URI = 'nostr:npub1h5v75q5hlt87pemx7zyetg9f9js7554ltanylcjg0aufffas5lls5m6tcf'
+EVE_NSEC_URI = 'nostr:nsec1ger8dg42xau7ctdaduv6wse8apzueqgye3l7ta6dcj4j7w07lqdq4d9rey'
 
 
 @patch('secrets.token_urlsafe', return_value='sub123')
@@ -62,17 +67,14 @@ class NostrHubTest(TestCase):
         self.assertEqual(set((PUBKEY,)), nostr_hub.bridged_pubkeys)
         # TODO: nostr_hub.nostr_pubkeys is (BOB_PUBKEY,)
 
-        eve_npub = 'npub1z24szqzphd'
-        fake_user = self.make_user(
-            'fake:eve', cls=Fake, enabled_protocols=['nostr'],
-            copies=[Target(uri=f'nostr:{eve_npub}', protocol='nostr')])
+        eve = self.make_user('fake:eve', cls=Fake, enabled_protocols=['nostr'],
+                             nostr_key_bytes=bytes.fromhex(uri_to_id(EVE_NSEC_URI)))
 
         frank_npub = 'nostr:npub140qjxm63yry'
         frank = self.make_user(frank_npub, cls=Nostr, enabled_protocols=['fake'])
 
         nostr_hub.load_pubkeys()
-        self.assertEqual(set((PUBKEY, bech32_decode(eve_npub))),
-                         nostr_hub.bridged_pubkeys)
+        self.assertEqual(set((PUBKEY, EVE_PUBKEY)), nostr_hub.bridged_pubkeys)
         # TODO: nostr_hub.nostr_pubkeys is (BOB_PUBKEY, bech32_decode(frank.key.id()))
 
     def test_subscribe_reply_to_bridged_user(self, mock_create_task, _):

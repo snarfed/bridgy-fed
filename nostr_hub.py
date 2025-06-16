@@ -59,26 +59,28 @@ def load_pubkeys():
 
 
 def _load_pubkeys():
-    global nostr_pubkeys, nostr_loaded_at, bridged_pubkeys, bridged_loaded_at
+    global nostr_pubkeys, nostr_loaded_at, bridged_pubkeys, bridged_loaded_at, \
+            protocol_bot_pubkeys
 
     if not DEBUG:
         Timer(STORE_CURSOR_FREQ.total_seconds(), _load_pubkeys).start()
 
     with ndb_client.context(**NDB_CONTEXT_KWARGS):
         try:
+            # loaded_at = Nostr.query().order(-Nostr.updated).get().updated
+            loaded_at = util.now()
+
             # nostr_query = Nostr.query(Nostr.status == None,
             #                               Nostr.enabled_protocols != None,
             #                               Nostr.updated > nostr_loaded_at)
-            # loaded_at = Nostr.query().order(-Nostr.updated).get().updated
             # new_nostr = [key.id() for key in nostr_query.iter(keys_only=True)]
+            new_nostr = []
             # nostr_pubkeys.update(new_nostr)
-
+            #
             # set *after* we populate nostr_pubkeys so that if we crash earlier, we
             # re-query from the earlier timestamp
-            new_nostr = []
             # nostr_loaded_at = loaded_at
 
-            loaded_at = util.now()
             new_bridged = []
             for proto in PROTOCOLS.values():
                 if proto and proto != Nostr:
@@ -87,19 +89,9 @@ def _load_pubkeys():
                                        proto.enabled_protocols != None,
                                        proto.updated > bridged_loaded_at,
                                        ).fetch()
-                    new_bridged.extend([u for u in users if 'nostr' in u.enabled_protocols])
-            # Extract pubkeys from bridged users' Nostr copies
+                    new_bridged.extend([u for u in users if u.is_enabled(Nostr)])
             for user in new_bridged:
-                nostr_copy = user.get_copy(Nostr)
-                if nostr_copy and nostr_copy.startswith('nostr:npub'):
-                    # Extract hex pubkey from npub
-                    try:
-                        npub = nostr_copy.replace('nostr:', '')
-                        hex_pubkey = bech32_decode(npub)
-                        if hex_pubkey:
-                            bridged_pubkeys.add(hex_pubkey)
-                    except Exception as e:
-                        logger.warning(f'Failed to decode npub {nostr_copy}: {e}')
+                bridged_pubkeys.add(user.hex_pubkey())
 
             # set *after* we populate bridged_pubkeys so that if we crash earlier, we
             # re-query from the earlier timestamp
@@ -107,17 +99,11 @@ def _load_pubkeys():
 
             if not protocol_bot_pubkeys:
                 bot_keys = [Web(id=domain).key for domain in PROTOCOL_DOMAINS]
-                for bot in ndb.get_multi(bot_keys):
-                    if bot and (nostr_copy := bot.get_copy(Nostr)):
-                        if nostr_copy.startswith('nostr:npub'):
-                            try:
-                                npub = nostr_copy.replace('nostr:', '')
-                                hex_pubkey = bech32_decode(npub)
-                                if hex_pubkey:
-                                    logger.info(f'Loaded protocol bot user {bot.key.id()} {nostr_copy} -> {hex_pubkey}')
-                                    protocol_bot_pubkeys.add(hex_pubkey)
-                            except:
-                                pass
+                bots = [bot for bot in ndb.get_multi(bot_keys) if bot]
+                logger.info(f'Loaded protocol bot users: {bots}')
+                protocol_bot_pubkeys = [bot.hex_pubkey() for bot in bots
+                                        if bot.is_enabled(Nostr)]
+                logger.info(f'  protocol bot pubkeys: {protocol_bot_pubkeys}')
 
             pubkeys_initialized.set()
             total = len(nostr_pubkeys) + len(bridged_pubkeys)

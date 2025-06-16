@@ -28,6 +28,7 @@ from granary.tests.test_as1 import (
 from granary.tests.test_nostr import (
     fake_connect,
     FakeConnection,
+    PRIVKEY,
 )
 from oauth_dropins.webutil import flask_util, testutil, util
 from oauth_dropins.webutil.appengine_config import ndb_client
@@ -443,6 +444,9 @@ class TestCase(unittest.TestCase, testutil.Asserts):
 
         if cls == Web and not obj_mf2:
             kwargs.setdefault('last_webmention_in', testutil.NOW)
+
+        if 'nostr' in kwargs.get('enabled_protocols', []):
+            kwargs.setdefault('nostr_key_bytes', bytes.fromhex(PRIVKEY))
 
         user = cls(id=id,
                    mod=global_user.mod,
