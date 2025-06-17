@@ -414,10 +414,12 @@ class ATProto(User, Protocol):
 
         return None
 
-    def is_blocklisted(url, allow_internal=False):
-        # don't block common.DOMAINS since we want ourselves, ie our own PDS, to
-        # be a valid domain to send to
-        return util.domain_or_parent_in(util.domain_from_link(url), DOMAIN_BLOCKLIST)
+    @classmethod
+    def is_blocklisted(cls, url, allow_internal=False):
+        if util.domain_from_link(url) == cls.DEFAULT_TARGET:
+            return False
+
+        return super().is_blocklisted(url, allow_internal=allow_internal)
 
     @classmethod
     def create_for(cls, user):

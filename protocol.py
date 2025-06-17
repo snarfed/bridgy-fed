@@ -793,6 +793,8 @@ class Protocol:
             like ``fed.brid.gy``, ``bsky.brid.gy``, etc
         """
         blocklist = DOMAIN_BLOCKLIST
+        if not DEBUG:
+            blocklist += tuple(util.RESERVED_TLDS | util.LOCAL_TLDS)
         if not allow_internal:
             blocklist += DOMAINS
         return util.domain_or_parent_in(util.domain_from_link(url), blocklist)
