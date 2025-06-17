@@ -1,4 +1,4 @@
-"""Single-instance hub for ATProto subscription (firehose) server and client."""
+"""Single-instance hub for long-lived server and subscription connections."""
 from functools import lru_cache
 from ipaddress import ip_address, ip_network
 import logging

@@ -1,14 +1,14 @@
 # https://cloud.google.com/appengine/docs/flexible/reference/dispatch-yaml?tab=python
 
 dispatch:
-  - url: "*/admin/atproto"
-    service: atproto-hub
+  - url: "*/admin/hub"
+    service: hub
 
   - url: "*/queue/atproto-commit"
-    service: atproto-hub
+    service: hub
 
   - url: "*/hub/*"
-    service: atproto-hub
+    service: hub
 
   - url: "*/queue/*"
     service: router
@@ -23,4 +23,4 @@ dispatch:
     service: router
 
   - url: "*/xrpc/com.atproto.sync.subscribeRepos"
-    service: atproto-hub
+    service: hub

@@ -9,7 +9,7 @@ version: 2.1
 parameters:
   service:
     type: enum
-    enum: ["atproto_hub", "default"]
+    enum: ["hub", "default"]
     default: "default"
 
 jobs:
@@ -104,7 +104,7 @@ jobs:
                 gcloud -q app deploy --no-cache app.yaml
 
               else
-                gcloud -q app deploy  atproto_hub.yaml
+                gcloud -q app deploy hub.yaml
               fi
             fi
 

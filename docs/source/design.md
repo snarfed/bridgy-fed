@@ -47,9 +47,9 @@ At a high level, Bridgy Fed consists of three services and a task queue. The ser
 
 * `frontend` (aka `default`) is the external-facing frontend that serves most HTTP requests from the internet. This includes the [fed.brid.gy](https://fed.brid.gy/) web site, Webfinger, ActivityPub actors and inboxes and collections, the `/convert/...` endpoint that converts objects between protocols and data formats, most [AT Protocol XRPC methods](https://atproto.com/specs/xrpc), and more.
 * `router` is the [activity router](https://fed.brid.gy/docs#router). It receives events and activities from each protocol, handles them, and sends them back out to other protocols. These are all tasks sent to it by the task queue as HTTP requests.
-* `atproto-hub` is a special, single-instance service that connects to and processes the [Bluesky firehose](https://docs.bsky.app/docs/advanced-guides/firehose), and also serves its own firehose (via the `com.atproto.sync.subscribeRepos` XRPC method) to subscribers like the Bluesky relay. These are all long-lived WebSocket connections, so this service is manually scaled and only runs on a single instance.
+* `hub` is a special, single-instance service that serves and consumes the [Bluesky firehose](https://docs.bsky.app/docs/advanced-guides/firehose) (`com.atproto.sync.subscribeRepos`), Nostr relays, etc. These are all long-lived WebSocket connections, so this service is manually scaled and only runs on a single instance.
 
-`frontend` and `atproto-hub` are somewhat latency sensitive. `frontend` serves external HTTP requests, which we always want to be relatively low latency. `atproto-hub` is a single runtime, on a single instance, and our firehose subscriber in particular has to be a single thread, since it consumes the firehose over a single WebSocket connection. `frontend` and `atproto-hub` both handle incoming requests and events synchronously, so they need to scale with incoming traffic and firehose volume.
+`frontend` and `hub` are somewhat latency sensitive. `frontend` serves external HTTP requests, which we always want to be relatively low latency. `hub` is a single runtime, on a single instance, and our firehose subscriber in particular has to be a single thread, since it consumes the firehose over a single WebSocket connection. `frontend` and `hub` both handle incoming requests and events synchronously, so they need to scale with incoming traffic and firehose volume.
 
 So, we try to move work off of these services as quickly as possible and onto the task queue, which lets us buffer and process that load more evenly over time. This includes most of our heavier operations, eg external network requests, and scaling, eg fan-out for ActivityPub delivery for accounts with many followers. We try to do these in the background, via tasks run by the `router` service, as much as possible. (Most fediverse servers are designed the same way.)
 
@@ -161,7 +161,7 @@ Here are the rest of the relevant modules:
 
 * `flask_app`
 * `app`
-* `atproto_hub`
+* `hub`
 * `router`
 * `config`
 
@@ -198,7 +198,7 @@ We also use a few key external dependencies:
 
 Here are a few miscellaneous notes on how we do operations, observability, and other manual tasks.
 
-* The `frontend` and `router` services are stateless and autoscaled. `atproto-hub` serves long-running WebSocket requests, and it's somewhat stateful, so it's pinned at only one instance.
+* The `frontend` and `router` services are stateless and autoscaled. `hub` serves long-running WebSocket requests, and it's somewhat stateful, so it's pinned at only one instance.
 * We use [Google Cloud Monitoring](https://cloud.google.com/monitoring) for observability, alerting, and logging. We use both built-in GCP metrics (CPU, memory, requests, tasks, etc) and custom [logs-based metrics](https://cloud.google.com/logging/docs/logs-based-metrics) for app-level monitoring such as per-protocol traffic, activity types, outbound HTTP requests, etc.
 * The [_Main_ dashboard](https://console.cloud.google.com/monitoring/dashboards/builder/4f0ac7cc-258d-4058-8208-fafa32088378?project=bridgy-federated) is our single pane of glass for everything going on with the service. If you want to know how Bridgy Fed is doing, start there. (We'd love to make this publicly visible! [Sadly GCP doesn't support that yet.](https://issuetracker.google.com/issues/354101899) Hopefully eventually.)
 * We buffer incoming events and activities in the task queue, so when there's a big spike, we can sometimes get behind. The _Main_ dashboard shows our processing delays at the top; they're usually only seconds, but sometimes minutes. `router` autoscales and adds instances when this happens, so backlogs don't usually last long.
