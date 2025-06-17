@@ -1,20 +1,19 @@
 """Unit tests for nostr_hub.py."""
-from datetime import datetime, timedelta
+from datetime import datetime
 from unittest import skip
 from unittest.mock import patch
 
 from granary.nostr import (
-    bech32_decode,
-    bech32_encode,
     id_and_sign,
     id_to_uri,
     KIND_DELETE,
     KIND_NOTE,
+    KIND_PROFILE,
+    KIND_RELAYS,
     uri_for,
     uri_to_id,
 )
 from granary.tests.test_nostr import (
-    fake_connect,
     FakeConnection,
     NOW_TS,
     NPUB_URI,
@@ -23,10 +22,10 @@ from granary.tests.test_nostr import (
     PUBKEY,
 )
 from oauth_dropins.webutil import util
-from websockets.exceptions import ConnectionClosedOK, ConnectionClosedError
+from oauth_dropins.webutil.util import json_dumps, json_loads
 
 import common
-from models import Target
+from models import Object
 import nostr_hub
 from nostr import Nostr
 from protocol import DELETE_TASK_DELAY
@@ -58,6 +57,7 @@ class NostrHubTest(TestCase):
         nostr_hub.bridged_loaded_at = datetime(1900, 1, 1)
         nostr_hub.protocol_bot_pubkeys = set()
         nostr_hub.pubkeys_initialized.clear()
+        nostr_hub.subscribed_relays = []
 
         self.alice = self.make_user(
             'fake:alice', cls=Fake, enabled_protocols=['nostr'],
@@ -65,23 +65,68 @@ class NostrHubTest(TestCase):
 
         self.bob = self.make_user(BOB_NPUB_URI, cls=Nostr, enabled_protocols=['fake'])
 
-    def test_load_pubkeys(self, _, __):
-        util.now = lambda: datetime.now().replace(tzinfo=None)
+    def test_init_load_users(self, _, __):
+        util.now = lambda **kwargs: datetime.now().replace(tzinfo=None)
 
-        nostr_hub.load_pubkeys()
+        nostr_hub.init(subscribe=False)
         self.assertEqual(set((PUBKEY,)), nostr_hub.bridged_pubkeys)
         self.assertEqual(set((BOB_PUBKEY,)), nostr_hub.nostr_pubkeys)
 
         eve = self.make_user('fake:eve', cls=Fake, enabled_protocols=['nostr'],
                              nostr_key_bytes=bytes.fromhex(uri_to_id(EVE_NSEC_URI)))
+        frank = self.make_user(FRANK_NPUB_URI, cls=Nostr, enabled_protocols=['fake'])
 
-        frank_npub = 'nostr:npub140qjxm63yry'
-        frank = self.make_user(frank_npub, cls=Nostr, enabled_protocols=['fake'])
-
-        nostr_hub.load_pubkeys()
+        nostr_hub.init(subscribe=False)
         self.assertEqual(set((PUBKEY, EVE_PUBKEY)), nostr_hub.bridged_pubkeys)
-        self.assertEqual(set((BOB_PUBKEY, frank.hex_pubkey())),
-                         nostr_hub.nostr_pubkeys)
+        self.assertEqual(set((BOB_PUBKEY, FRANK_PUBKEY)), nostr_hub.nostr_pubkeys)
+
+    def test_init_subscribe_to_relays(self, _, __):
+        util.now = lambda **kwargs: datetime.now().replace(tzinfo=None)
+
+        self.assertEqual([], FakeConnection.relays)
+        nostr_hub.init()
+        self.assertEqual([Nostr.DEFAULT_TARGET], FakeConnection.relays)
+
+        profile = {
+            'kind': KIND_PROFILE,
+            'content': json_dumps({
+                'name': 'Me',
+                'picture': 'http://a/pic',
+            }),
+        }
+        relays_a = Object(id='nostr:neventa', nostr={
+            'kind': KIND_RELAYS,
+            'tags': [['r', 'wss://a']],
+        }).put()
+
+        self.bob.obj_key = Object(id='bob', nostr={**profile, 'pubkey': BOB_PUBKEY}
+                                  ).put()
+        self.bob.relays = relays_a
+        self.bob.put()
+
+        FakeConnection.reset()
+        nostr_hub.init()
+        self.assertEqual(['wss://a'], FakeConnection.relays)
+
+        eve = self.make_user(EVE_NPUB_URI, cls=Nostr, enabled_protocols=['fake'],
+                             obj_nostr={**profile, 'pubkey': EVE_PUBKEY},
+                             relays=relays_a)
+
+        FakeConnection.reset()
+        nostr_hub.init()
+        self.assertEqual([], FakeConnection.relays)
+
+        relays_b = Object(id='nostr:neventb', nostr={
+            'kind': KIND_RELAYS,
+            'tags': [['r', 'wss://b']],
+        }).put()
+        frank = self.make_user(FRANK_NPUB_URI, cls=Nostr, enabled_protocols=['fake'],
+                               obj_nostr={**profile, 'pubkey': FRANK_PUBKEY},
+                               relays=relays_b)
+
+        FakeConnection.reset()
+        nostr_hub.init()
+        self.assertEqual(['wss://b'], FakeConnection.relays)
 
     def test_subscribe_reply_to_bridged_user(self, mock_create_task, _):
         event = id_and_sign({
@@ -97,9 +142,10 @@ class NostrHubTest(TestCase):
             ['EOSE', 'sub123'],
         ]
 
-        nostr_hub.load_pubkeys()
-        nostr_hub.subscribe(limit=2)
+        nostr_hub.init(subscribe=False)
+        nostr_hub.subscribe('wss://reelaay', limit=2)
 
+        self.assertEqual(['wss://reelaay'], FakeConnection.relays)
         self.assertEqual([
             ['REQ', 'sub123',
              {'#p': [PUBKEY]},
@@ -126,9 +172,10 @@ class NostrHubTest(TestCase):
             ['EOSE', 'sub123'],
         ]
 
-        nostr_hub.load_pubkeys()
-        nostr_hub.subscribe(limit=2)
+        nostr_hub.init(subscribe=False)
+        nostr_hub.subscribe('wss://reelaay', limit=2)
 
+        self.assertEqual(['wss://reelaay'], FakeConnection.relays)
         self.assertEqual([
             ['REQ', 'sub123',
              {'#p': [PUBKEY]},
@@ -160,9 +207,10 @@ class NostrHubTest(TestCase):
             ['EOSE', 'sub123'],
         ]
 
-        nostr_hub.load_pubkeys()
-        nostr_hub.subscribe(limit=2)
+        nostr_hub.init(subscribe=False)
+        nostr_hub.subscribe('wss://reelaay', limit=2)
 
+        self.assertEqual(['wss://reelaay'], FakeConnection.relays)
         self.assertEqual([
             ['REQ', 'sub123',
              {'#p': [PUBKEY, bot_pubkey]},
@@ -189,9 +237,10 @@ class NostrHubTest(TestCase):
             ['EOSE', 'sub123'],
         ]
 
-        nostr_hub.load_pubkeys()
-        nostr_hub.subscribe(limit=2)
+        nostr_hub.init(subscribe=False)
+        nostr_hub.subscribe('wss://reelaay', limit=2)
 
+        self.assertEqual(['wss://reelaay'], FakeConnection.relays)
         self.assertEqual([
             ['REQ', 'sub123',
              {'#p': [PUBKEY]},
@@ -224,9 +273,10 @@ class NostrHubTest(TestCase):
 
         FakeConnection.to_receive = [['EVENT', 'sub123', event] for event in events]
 
-        nostr_hub.load_pubkeys()
-        nostr_hub.subscribe(limit=2)
+        nostr_hub.init(subscribe=False)
+        nostr_hub.subscribe('wss://reelaay', limit=2)
 
+        self.assertEqual(['wss://reelaay'], FakeConnection.relays)
         self.assertEqual([
             ['REQ', 'sub123',
              {'#p': [PUBKEY]},
@@ -240,7 +290,10 @@ class NostrHubTest(TestCase):
             'pubkey': BOB_PUBKEY,
             'kind': KIND_DELETE,
             'content': '',
-            'tags': [['e', 'eventToDelete123']],
+            'tags': [
+                ['e', 'eventToDelete123'],
+                ['p', PUBKEY],
+            ],
             'created_at': NOW_TS,
         }, privkey=BOB_NSEC_URI)
 
@@ -248,11 +301,11 @@ class NostrHubTest(TestCase):
             ['EVENT', 'sub123', event],
             ['EOSE', 'sub123'],
         ]
-        FakeConnection.recv_err = ConnectionClosedOK(None, None)
 
-        nostr_hub.load_pubkeys()
-        nostr_hub.subscribe(limit=2)
+        nostr_hub.init(subscribe=False)
+        nostr_hub.subscribe('wss://reelaay', limit=2)
 
+        self.assertEqual(['wss://reelaay'], FakeConnection.relays)
         self.assertEqual([
             ['REQ', 'sub123',
              {'#p': [PUBKEY]},
@@ -267,4 +320,3 @@ class NostrHubTest(TestCase):
                          authed_as=BOB_NPUB_URI,
                          nostr=event,
                          eta_seconds=delayed_eta)
-

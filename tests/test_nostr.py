@@ -82,6 +82,7 @@ class NostrTest(TestCase):
 
         for expected, event in (
                 (None, {'kind': KIND_NOTE}),
+                (None, {'kind': KIND_PROFILE}),
                 (None, {'kind': KIND_NOTE, 'content': 'foo'}),
                 (None, {'kind': KIND_NOTE, 'content': '{"nip05":"foo"}'}),
                 (None, {'kind': KIND_PROFILE, 'content': '{"name":"Alice"}'}),
@@ -316,7 +317,7 @@ class NostrTest(TestCase):
         ]
 
         self.assertTrue(Nostr.send(obj, 'reeelaaay', from_user=self.user))
-        self.assert_equals('reeelaaay', FakeConnection.relay)
+        self.assert_equals(['reeelaaay'], FakeConnection.relays)
         self.assert_equals([['EVENT', expected]], FakeConnection.sent)
         self.assertTrue(granary.nostr.verify(expected))
         self.assertEqual(
@@ -349,7 +350,7 @@ class NostrTest(TestCase):
         ]
 
         self.assertTrue(Nostr.send(obj, 'reeelaaay', from_user=self.user))
-        self.assert_equals('reeelaaay', FakeConnection.relay)
+        self.assert_equals(['reeelaaay'], FakeConnection.relays)
         self.assert_equals([['EVENT', expected]], FakeConnection.sent,
                            ignore=['sig'])
         self.assertEqual(
@@ -402,8 +403,10 @@ class NostrTest(TestCase):
 
     def test_create_for_existing_key_no_copy(self):
         alice = self.make_user('fake:user4', cls=Fake,
-                                   nostr_key_bytes=self.key.private_key,
-                                   obj_as1={'objectType': 'person', 'displayName': 'Charlie'})
+                               nostr_key_bytes=self.key.private_key, obj_as1={
+                                   'objectType': 'person',
+                                   'displayName': 'Charlie',
+                               })
 
         FakeConnection.to_receive = [
             ['OK', 'fakeid', True],
@@ -420,8 +423,10 @@ class NostrTest(TestCase):
         self.assertEqual(PUBKEY, event['pubkey'])
 
     def test_create_for_profile_already_copied(self):
-        alice = self.make_user('fake:user5', cls=Fake,
-                                   obj_as1={'objectType': 'person', 'displayName': 'David'})
+        alice = self.make_user('fake:user5', cls=Fake, obj_as1={
+            'objectType': 'person',
+            'displayName': 'David',
+        })
         alice.obj.copies = [Target(uri='nostr:nevent123', protocol='nostr')]
         alice.obj.put()
 

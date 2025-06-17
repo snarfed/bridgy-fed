@@ -22,6 +22,7 @@ import activitypub, atproto, nostr, web
 import atproto_firehose
 import common
 import models
+import nostr_hub
 import pages
 
 # as of 2024-07-10
@@ -47,13 +48,17 @@ BSKY_TEAM_HOSTS = (
 # increases. Are ndb clients/contexts not thread safe?!
 # https://github.com/snarfed/bridgy-fed/issues/1315
 # https://console.cloud.google.com/errors/detail/CJrBqKnRzPfNRA;time=PT1H;refresh=true;locations=global?project=bridgy-federated
-HANDLE_THREADS = 10
+ATPROTO_HANDLE_THREADS = 10
 
 logger = logging.getLogger(__name__)
 
 models.reset_protocol_properties()
 
-# start firehose consumer and server threads
+
+# start Nostr subscribers
+nostr_hub.init()
+
+# start ATProto firehose consumer and server threads
 #
 # ...*before* initializing Flask app and request handlers, including health check,
 # so that we don't go into service and start serving subscribers until the preload
@@ -65,7 +70,7 @@ if LOCAL_SERVER or not DEBUG:
 
     Thread(target=atproto_firehose.subscriber, name='atproto_firehose.subscriber',
            daemon=True).start()
-    for i in range(HANDLE_THREADS):
+    for i in range(ATPROTO_HANDLE_THREADS):
         Thread(target=atproto_firehose.handler, name=f'atproto_firehose.handler-{i}',
                daemon=True).start()
 

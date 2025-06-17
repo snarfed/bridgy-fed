@@ -1,17 +1,13 @@
 """Nostr backfeed, via long-lived websocket connection(s) to relay(s)."""
-from datetime import datetime, timedelta, timezone
+from datetime import datetime, timedelta
 import logging
 import secrets
-from threading import Event, Thread, Timer
+from threading import Event, Lock, Thread, Timer
 import time
 
-from google.cloud import ndb
 from google.cloud.ndb.exceptions import ContextError
 from granary.nostr import (
-    bech32_decode,
-    bech32_encode,
     id_to_uri,
-    KIND_CONTACTS,
     KIND_DELETE,
     uri_for,
     uri_to_id,
@@ -27,7 +23,6 @@ from websockets.sync.client import connect
 from common import (
     create_task,
     NDB_CONTEXT_KWARGS,
-    PROTOCOL_DOMAINS,
     report_error,
     report_exception,
 )
@@ -35,36 +30,39 @@ from models import PROTOCOLS
 import nostr
 from nostr import Nostr
 from protocol import DELETE_TASK_DELAY
-from web import Web
 
 logger = logging.getLogger(__name__)
 
 RECONNECT_DELAY = timedelta(seconds=30)
-STORE_CURSOR_FREQ = timedelta(seconds=10)
+LOAD_USERS_FREQ = timedelta(seconds=10)
 
 # global: _load_pubkeys populates them, subscribe uses them
 nostr_pubkeys = set()
 nostr_loaded_at = datetime(1900, 1, 1)
 bridged_pubkeys = set()
 bridged_loaded_at = datetime(1900, 1, 1)
-protocol_bot_pubkeys = set()
 pubkeys_initialized = Event()
 
+subscribed_relays = []
+subscribed_relays_lock = Lock()
 
-def load_pubkeys():
+
+def init(subscribe=True):
     # run in a separate thread since it needs to make its own NDB
     # context when it runs in the timer thread
-    Thread(target=_load_pubkeys, daemon=True).start()
+    Thread(target=_load_users, daemon=True).start()
     pubkeys_initialized.wait()
     pubkeys_initialized.clear()
 
+    if subscribe:
+        add_relay(Nostr.DEFAULT_TARGET)
 
-def _load_pubkeys():
-    global nostr_pubkeys, nostr_loaded_at, bridged_pubkeys, bridged_loaded_at, \
-            protocol_bot_pubkeys
+
+def _load_users():
+    global bridged_loaded_at, nostr_loaded_at
 
     if not DEBUG:
-        Timer(STORE_CURSOR_FREQ.total_seconds(), _load_pubkeys).start()
+        Timer(LOAD_USERS_FREQ.total_seconds(), _load_users).start()
 
     with ndb_client.context(**NDB_CONTEXT_KWARGS):
         try:
@@ -73,8 +71,12 @@ def _load_pubkeys():
             new_nostr = Nostr.query(Nostr.status == None,
                                     Nostr.enabled_protocols != None,
                                     Nostr.updated > nostr_loaded_at,
-                                    ).fetch(keys_only=True)
-            nostr_pubkeys.update(uri_to_id(key.id()) for key in new_nostr)
+                                    ).fetch()
+            Nostr.load_multi(new_nostr)
+            for user in new_nostr:
+                nostr_pubkeys.add(uri_to_id(user.key.id()))
+                if target := Nostr.target_for(user.obj):
+                    add_relay(target)
 
             # set *after* we populate nostr_pubkeys so that if we crash earlier, we
             # re-query from the earlier timestamp
@@ -96,14 +98,6 @@ def _load_pubkeys():
             # re-query from the earlier timestamp
             bridged_loaded_at = loaded_at
 
-            if not protocol_bot_pubkeys:
-                bot_keys = [Web(id=domain).key for domain in PROTOCOL_DOMAINS]
-                bots = [bot for bot in ndb.get_multi(bot_keys) if bot]
-                logger.info(f'Loaded protocol bot users: {[b.key for b in bots]}')
-                protocol_bot_pubkeys = [bot.hex_pubkey() for bot in bots
-                                        if bot.is_enabled(Nostr)]
-                logger.info(f'  protocol bot pubkeys: {protocol_bot_pubkeys}')
-
             pubkeys_initialized.set()
             total = len(nostr_pubkeys) + len(bridged_pubkeys)
             logger.info(f'Nostr pubkeys: {total}, Nostr {len(nostr_pubkeys)} (+{len(new_nostr)}), bridged {len(bridged_pubkeys)} (+{len(new_bridged)})')
@@ -114,32 +108,42 @@ def _load_pubkeys():
             report_exception()
 
 
-def subscriber():
+def add_relay(relay):
+    """Subscribes to a new relay if we're not already connected to it."""
+    if Nostr.is_blocklisted(relay):
+        logger.warning(f'Not subscribing to relay {relay}')
+        return
+
+    with subscribed_relays_lock:
+        if relay not in subscribed_relays:
+            subscribed_relays.append(relay)
+            Thread(target=subscriber, daemon=True, args=(relay,)).start()
+
+
+def subscriber(relay):
     """Wrapper around :func:`_subscribe` that catches exceptions and reconnects."""
-    logger.info(f'started thread to subscribe to relay {Nostr.DEFAULT_TARGET}')
-    load_pubkeys()
+    logger.info(f'started thread to subscribe to relay {relay}')
 
     with ndb_client.context(**NDB_CONTEXT_KWARGS):
          while True:
             try:
-                subscribe()
+                subscribe(relay)
             except ConnectionClosed as err:
                 logger.warning(err)
             except BaseException:
                 report_exception()
-            logger.info(f'disconnected! waiting {RECONNECT_DELAY} and then reconnecting')
+            logger.info(f'disconnected! waiting {RECONNECT_DELAY}, then reconnecting')
             time.sleep(RECONNECT_DELAY.total_seconds())
 
 
-def subscribe(limit=None):
+def subscribe(relay, limit=None):
     """Subscribes to relay(s), backfeeds responses to our users' activities.
 
-    Relay URL comes from :attr:`Nostr.DEFAULT_TARGET`.
-
     Args:
+      relay (str): URI, relay websocket adddress, starting with ``ws://`` or ``wss://``
       limit (int): return after receiving this many messages. Only used in tests.
     """
-    with connect(Nostr.DEFAULT_TARGET, user_agent_header=util.user_agent,
+    with connect(relay, user_agent_header=util.user_agent,
                  open_timeout=util.HTTP_TIMEOUT, close_timeout=util.HTTP_TIMEOUT,
                  ) as ws:
         if not DEBUG:
@@ -147,11 +151,13 @@ def subscribe(limit=None):
 
         received = 0
         subscription = secrets.token_urlsafe(16)
-        ws.send(json_dumps([
+        req = json_dumps([
             'REQ', subscription,
             {'#p': sorted(bridged_pubkeys)},
             {'authors': sorted(nostr_pubkeys)},
-        ]))
+        ])
+        logger.debug(f'{ws.remote_address} <= {req}')
+        ws.send(req)
 
         while True:
             msg = ws.recv(timeout=HTTP_TIMEOUT)
