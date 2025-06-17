@@ -324,12 +324,18 @@ def create_task(queue, delay=None, **params):
         if v is not None
     }
 
+    try:
+        authorization = request.headers.get('Authorization') or ''
+        traceparent = request.headers.get('traceparent') or ''
+    except RuntimeError:  # not currently in a request context
+        authorization = traceparent = ''
+
     if RUN_TASKS_INLINE or appengine_info.LOCAL_SERVER:
         logger.info(f'Running task inline: {queue} {params}')
         from router import app
         return app.test_client().post(path, data=params, headers={
               flask_util.CLOUD_TASKS_TASK_HEADER: 'x',
-              'Authorization': request.headers.get('Authorization', ''),
+              'Authorization': authorization,
         })
 
         # # alternative: run inline in this request context
@@ -339,10 +345,6 @@ def create_task(queue, delay=None, **params):
         # return app.view_functions[endpoint](**args)
 
     body = urllib.parse.urlencode(sorted(params.items())).encode()
-    try:
-        traceparent = request.headers.get('traceparent', '')
-    except RuntimeError:  # not currently in a request context
-        traceparent = ''
     task = {
         'app_engine_http_request': {
             'http_method': 'POST',
