@@ -10,6 +10,7 @@ from granary.nostr import (
     id_to_uri,
     KIND_DELETE,
     KIND_NOTE,
+    uri_for,
     uri_to_id,
 )
 from granary.tests.test_nostr import (
@@ -38,6 +39,9 @@ BOB_NSEC_URI = 'nostr:nsec1al80skcswjnwpukq3cw24x9rvdwyel8qls6kcled3q9ethqflu4q3
 EVE_PUBKEY = 'bd19ea0297facfe0e766f08995a0a92ca1ea52bf5f664fe2487f7894a7b0a7ff'
 EVE_NPUB_URI = 'nostr:npub1h5v75q5hlt87pemx7zyetg9f9js7554ltanylcjg0aufffas5lls5m6tcf'
 EVE_NSEC_URI = 'nostr:nsec1ger8dg42xau7ctdaduv6wse8apzueqgye3l7ta6dcj4j7w07lqdq4d9rey'
+FRANK_PUBKEY = '2032dba5fdf02ba4223381075da4ba7dc6cf976aacb2ca658f13e00d834a0e29'
+FRANK_NPUB_URI = 'nostr:npub1yqedhf0a7q46gg3nsyr4mf960hrvl9m24jev5ev0z0sqmq62pc5stypxxz'
+FRANK_NSEC_URI = 'nostr:nsec12hj6ylwt5kypmq6hs7tssy3h68hdy5kvwj9qwhgv60vh6qdud8vsd5c3ln'
 
 
 @patch('secrets.token_urlsafe', return_value='sub123')
@@ -81,12 +85,12 @@ class NostrHubTest(TestCase):
 
     def test_subscribe_reply_to_bridged_user(self, mock_create_task, _):
         event = id_and_sign({
-            'pubkey': PUBKEY,
+            'pubkey': EVE_PUBKEY,
             'kind': KIND_NOTE,
             'content': 'Hello Alice!',
             'tags': [['p', PUBKEY]],
             'created_at': NOW_TS,
-        }, privkey=NSEC_URI)
+        }, privkey=EVE_NSEC_URI)
 
         FakeConnection.to_receive = [
             ['EVENT', 'sub123', event],
@@ -96,23 +100,26 @@ class NostrHubTest(TestCase):
         nostr_hub.load_pubkeys()
         nostr_hub.subscribe(limit=2)
 
+        self.assertEqual([
+            ['REQ', 'sub123',
+             {'#p': [PUBKEY]},
+             {'authors': [BOB_PUBKEY]},
+             ]
+        ], FakeConnection.sent)
         self.assert_task(mock_create_task, 'receive',
                          id=id_to_uri('note', event['id']),
                          source_protocol='nostr',
-                         authed_as=NPUB_URI,
+                         authed_as=EVE_NPUB_URI,
                          nostr=event)
 
-    # TODO: uncomment when we support native Nostr users
-    @skip
     def test_subscribe_post_from_native_nostr_user(self, mock_create_task, _):
         # Create a post event from Bob - need to use test PUBKEY that matches NSEC_URI
         event = id_and_sign({
             'pubkey': BOB_PUBKEY,
             'kind': KIND_NOTE,
             'content': 'Hello world!',
-            'tags': [],
             'created_at': NOW_TS,
-        }, privkey=NSEC_URI)
+        }, privkey=BOB_NSEC_URI)
 
         FakeConnection.to_receive = [
             ['EVENT', 'sub123', event],
@@ -122,24 +129,31 @@ class NostrHubTest(TestCase):
         nostr_hub.load_pubkeys()
         nostr_hub.subscribe(limit=2)
 
+        self.assertEqual([
+            ['REQ', 'sub123',
+             {'#p': [PUBKEY]},
+             {'authors': [BOB_PUBKEY]},
+             ]
+        ], FakeConnection.sent)
         self.assert_task(mock_create_task, 'receive',
-                         id=id_to_uri(event['id']),
+                         id=id_to_uri('note', event['id']),
                          source_protocol='nostr',
-                         authed_as=f'nostr:{BOB_NPUB_URI}',
+                         authed_as=BOB_NPUB_URI,
                          nostr=event)
 
     def test_subscribe_mention_protocol_bot(self, mock_create_task, _):
         # Create a protocol bot with a valid hex pubkey
         bot = self.make_user('fa.brid.gy', cls=Web, enabled_protocols=['nostr'],
-                             nostr_key_bytes=bytes.fromhex(uri_to_id(BOB_NSEC_URI)))
+                             nostr_key_bytes=bytes.fromhex(uri_to_id(EVE_NSEC_URI)))
+        bot_pubkey = EVE_PUBKEY
 
         event = id_and_sign({
-            'pubkey': PUBKEY,
+            'pubkey': FRANK_PUBKEY,
             'kind': KIND_NOTE,
             'content': 'Hello @fa.brid.gy!',
-            'tags': [['p', BOB_PUBKEY]],
+            'tags': [['p', bot_pubkey]],
             'created_at': NOW_TS,
-        }, privkey=NSEC_URI)
+        }, privkey=FRANK_NSEC_URI)
 
         FakeConnection.to_receive = [
             ['EVENT', 'sub123', event],
@@ -149,22 +163,26 @@ class NostrHubTest(TestCase):
         nostr_hub.load_pubkeys()
         nostr_hub.subscribe(limit=2)
 
+        self.assertEqual([
+            ['REQ', 'sub123',
+             {'#p': [PUBKEY, bot_pubkey]},
+             {'authors': [BOB_PUBKEY]},
+             ]
+        ], FakeConnection.sent)
         self.assert_task(mock_create_task, 'receive',
                          id=id_to_uri('note', event['id']),
                          source_protocol='nostr',
-                         authed_as=NPUB_URI,
+                         authed_as=FRANK_NPUB_URI,
                          nostr=event)
 
     def test_subscribe_unrelated_event(self, mock_create_task, _):
-        event = {
-            'id': 'unrelated123',
-            'pubkey': 'random_user1',
+        event = id_and_sign({
+            'pubkey': EVE_PUBKEY,
             'kind': KIND_NOTE,
             'content': 'Just chatting',
-            'tags': [['p', 'random_user2']],
+            'tags': [['p', 'abc123']],
             'created_at': NOW_TS,
-            'sig': 'foo',
-        }
+        }, EVE_NSEC_URI)
 
         FakeConnection.to_receive = [
             ['EVENT', 'sub123', event],
@@ -174,6 +192,12 @@ class NostrHubTest(TestCase):
         nostr_hub.load_pubkeys()
         nostr_hub.subscribe(limit=2)
 
+        self.assertEqual([
+            ['REQ', 'sub123',
+             {'#p': [PUBKEY]},
+             {'authors': [BOB_PUBKEY]},
+             ]
+        ], FakeConnection.sent)
         mock_create_task.assert_not_called()
 
     def test_subscribe_invalid_events(self, mock_create_task, _):
@@ -203,23 +227,25 @@ class NostrHubTest(TestCase):
         nostr_hub.load_pubkeys()
         nostr_hub.subscribe(limit=2)
 
+        self.assertEqual([
+            ['REQ', 'sub123',
+             {'#p': [PUBKEY]},
+             {'authors': [BOB_PUBKEY]},
+             ]
+        ], FakeConnection.sent)
         mock_create_task.assert_not_called()
 
-    # TODO: uncomment when we support native Nostr users
-    @skip
     def test_subscribe_delete_event(self, mock_create_task, _):
-        nostr_hub.nostr_pubkeys = {BOB_PUBKEY}
-
-        delete_event = id_and_sign({
-            'pubkey': PUBKEY,
+        event = id_and_sign({
+            'pubkey': BOB_PUBKEY,
             'kind': KIND_DELETE,
             'content': '',
             'tags': [['e', 'eventToDelete123']],
             'created_at': NOW_TS,
-        }, privkey=NSEC_URI)
+        }, privkey=BOB_NSEC_URI)
 
         FakeConnection.to_receive = [
-            ['EVENT', 'sub123', delete_event],
+            ['EVENT', 'sub123', event],
             ['EOSE', 'sub123'],
         ]
         FakeConnection.recv_err = ConnectionClosedOK(None, None)
@@ -227,11 +253,18 @@ class NostrHubTest(TestCase):
         nostr_hub.load_pubkeys()
         nostr_hub.subscribe(limit=2)
 
+        self.assertEqual([
+            ['REQ', 'sub123',
+             {'#p': [PUBKEY]},
+             {'authors': [BOB_PUBKEY]},
+             ]
+        ], FakeConnection.sent)
+
         delayed_eta = NOW_TS + DELETE_TASK_DELAY.total_seconds()
         self.assert_task(mock_create_task, 'receive',
-                         id=f'nostr:nevent{delete_event["id"]}',
+                         id=uri_for(event),
                          source_protocol='nostr',
-                         authed_as=f'nostr:{BOB_NPUB_URI}',
-                         nostr=delete_event,
+                         authed_as=BOB_NPUB_URI,
+                         nostr=event,
                          eta_seconds=delayed_eta)
 

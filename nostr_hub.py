@@ -89,8 +89,8 @@ def _load_pubkeys():
                                        proto.updated > bridged_loaded_at,
                                        ).fetch()
                     new_bridged.extend([u for u in users if u.is_enabled(Nostr)])
-            for user in new_bridged:
-                bridged_pubkeys.add(user.hex_pubkey())
+
+            bridged_pubkeys.update(user.hex_pubkey() for user in new_bridged)
 
             # set *after* we populate bridged_pubkeys so that if we crash earlier, we
             # re-query from the earlier timestamp
@@ -99,14 +99,14 @@ def _load_pubkeys():
             if not protocol_bot_pubkeys:
                 bot_keys = [Web(id=domain).key for domain in PROTOCOL_DOMAINS]
                 bots = [bot for bot in ndb.get_multi(bot_keys) if bot]
-                logger.info(f'Loaded protocol bot users: {bots}')
+                logger.info(f'Loaded protocol bot users: {[b.key for b in bots]}')
                 protocol_bot_pubkeys = [bot.hex_pubkey() for bot in bots
                                         if bot.is_enabled(Nostr)]
                 logger.info(f'  protocol bot pubkeys: {protocol_bot_pubkeys}')
 
             pubkeys_initialized.set()
             total = len(nostr_pubkeys) + len(bridged_pubkeys)
-            logger.info(f'Nostr pubkeys: {total} Nostr {len(nostr_pubkeys)} (+{len(new_nostr)}), bridged {len(bridged_pubkeys)} (+{len(new_bridged)})')
+            logger.info(f'Nostr pubkeys: {total}, Nostr {len(nostr_pubkeys)} (+{len(new_nostr)}), bridged {len(bridged_pubkeys)} (+{len(new_bridged)})')
 
         except BaseException:
             # eg google.cloud.ndb.exceptions.ContextError when we lose the ndb context
@@ -147,7 +147,11 @@ def subscribe(limit=None):
 
         received = 0
         subscription = secrets.token_urlsafe(16)
-        ws.send(json_dumps(['REQ', subscription, {'#p': list(bridged_pubkeys)}]))
+        ws.send(json_dumps([
+            'REQ', subscription,
+            {'#p': sorted(bridged_pubkeys)},
+            {'authors': sorted(nostr_pubkeys)},
+        ]))
 
         while True:
             msg = ws.recv(timeout=HTTP_TIMEOUT)
@@ -194,14 +198,10 @@ def handle(event):
     id = event['id']
     pubkey = event['pubkey']
 
-    follow_of_bot = False
-    if event['kind'] == KIND_CONTACTS:
-        for tag in event.get('tags', []):
-            if tag[0] == 'p' and tag[1] in protocol_bot_pubkeys:
-                follow_of_bot = True
+    mentions = set(tag[1] for tag in event.get('tags', []) if tag[0] == 'p')
 
-    if not (pubkey not in nostr_pubkeys  # from a Nostr user who's bridged
-            or follow_of_bot):
+    if not (pubkey in nostr_pubkeys          # from a Nostr user who's bridged
+            or mentions & bridged_pubkeys):  # mentions a user bridged into Nostr
         return
 
     if not verify(event):
