@@ -44,7 +44,8 @@ AP_BASE_TARGETS = [
     # 'https://diasp.org/',
 
     # Friendica
-    'https://venera.social/inbox',
+    # dead!
+    # 'https://venera.social/inbox',
 
     # kbin (not sharedInbox)
     # dead!
