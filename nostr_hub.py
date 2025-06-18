@@ -48,6 +48,7 @@ subscribed_relays_lock = Lock()
 
 
 def init(subscribe=True):
+    logger.info('Starting _load_users timer')
     # run in a separate thread since it needs to make its own NDB
     # context when it runs in the timer thread
     Thread(target=_load_users, daemon=True).start()
@@ -87,10 +88,10 @@ def _load_users():
                 if proto and proto != Nostr:
                     # query for all users, then filter for nostr enabled
                     users = proto.query(proto.status == None,
-                                       proto.enabled_protocols != None,
-                                       proto.updated > bridged_loaded_at,
-                                       ).fetch()
-                    new_bridged.extend([u for u in users if u.is_enabled(Nostr)])
+                                        proto.enabled_protocols == 'nostr',
+                                        proto.updated > bridged_loaded_at,
+                                        ).fetch()
+                    new_bridged.extend(users)
 
             bridged_pubkeys.update(user.hex_pubkey() for user in new_bridged)
 

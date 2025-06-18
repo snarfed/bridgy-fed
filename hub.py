@@ -10,6 +10,7 @@ from threading import Thread, Timer
 
 from arroba import firehose
 import arroba.server
+import config
 from flask import Flask, render_template
 import lexrpc.client
 import lexrpc.flask_server
@@ -55,16 +56,16 @@ logger = logging.getLogger(__name__)
 models.reset_protocol_properties()
 
 
-# start Nostr subscribers
-nostr_hub.init()
-
-# start ATProto firehose consumer and server threads
+# start ATProto firehose consumer and server threads, Nostr relay subscribers
 #
 # ...*before* initializing Flask app and request handlers, including health check,
 # so that we don't go into service and start serving subscribers until the preload
 # window is loaded
 if LOCAL_SERVER or not DEBUG:
-    # consumer
+    # Nostr relays
+    nostr_hub.init()
+
+    # ATProto firehose consumer
     for thread in threading.enumerate():
         assert not thread.name.startswith('atproto_firehose.'), thread.name
 
@@ -74,7 +75,8 @@ if LOCAL_SERVER or not DEBUG:
         Thread(target=atproto_firehose.handler, name=f'atproto_firehose.handler-{i}',
                daemon=True).start()
 
-    # server (this blocks until preload window is filled, which takes ~2m as of May 2025)
+    # ATProto firehose server (this blocks until preload window is filled, which
+    # takes ~2m as of May 2025)
     firehose.start()
 
 
@@ -128,15 +130,16 @@ def gethostbyaddr(addr):
         return None
 
 
-@app.get('/admin/atproto')
-def atproto_admin():
+@app.get('/admin/hub')
+def hub_admin():
     return render_template(
-        'atproto.html',
+        'hub.html',
         firehose=firehose,
         gethostbyaddr=gethostbyaddr,
         len=len,
+        lexrpc=lexrpc,
+        nostr_hub=nostr_hub,
         pytz=pytz,
-        subscribers=lexrpc.flask_server.subscribers,
     )
 
 

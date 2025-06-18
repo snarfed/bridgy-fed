@@ -12,7 +12,7 @@
     <li>end: {{ firehose.rollback[-1][1]['seq'] }} {{ firehose.rollback[-1][1]['time'] }}
   </ul>
 
-{% for nsid, subs in subscribers.items() %}
+{% for nsid, subs in lexrpc.flask_server.subscribers.items() %}
 <li>{{ nsid }} ({{ len(subs) }})
 <ul>
   {% for s in subs %}
@@ -24,6 +24,13 @@
 </ul>
 {% endfor %}
 </ul>
-</h3>
+
+<li>Nostr relays ({{ len(nostr_hub.subscribed_relays) }}):
+  <ul>
+    {% for relay in nostr_hub.subscribed_relays %}
+    <li>{{ relay }}
+    {% endfor %}
+  </ul>
+</ul>
 
 {% endblock %}
