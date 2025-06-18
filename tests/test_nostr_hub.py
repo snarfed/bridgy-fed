@@ -66,8 +66,6 @@ class NostrHubTest(TestCase):
         self.bob = self.make_user(BOB_NPUB_URI, cls=Nostr, enabled_protocols=['fake'])
 
     def test_init_load_users(self, _, __):
-        util.now = lambda **kwargs: datetime.now().replace(tzinfo=None)
-
         nostr_hub.init(subscribe=False)
         self.assertEqual(set((PUBKEY,)), nostr_hub.bridged_pubkeys)
         self.assertEqual(set((BOB_PUBKEY,)), nostr_hub.nostr_pubkeys)
@@ -81,8 +79,6 @@ class NostrHubTest(TestCase):
         self.assertEqual(set((BOB_PUBKEY, FRANK_PUBKEY)), nostr_hub.nostr_pubkeys)
 
     def test_init_subscribe_to_relays(self, _, __):
-        util.now = lambda **kwargs: datetime.now().replace(tzinfo=None)
-
         self.assertEqual([], FakeConnection.relays)
         nostr_hub.init()
         self.assertEqual([Nostr.DEFAULT_TARGET], FakeConnection.relays)

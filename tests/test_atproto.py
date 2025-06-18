@@ -1,6 +1,7 @@
 """Unit tests for atproto.py."""
 import base64
 import copy
+from datetime import timezone
 from pathlib import Path
 from unittest import skip
 from unittest.mock import ANY, call, MagicMock, patch
@@ -124,7 +125,7 @@ class ATProtoTest(TestCase):
         super().setUp()
         self.storage = DatastoreStorage()
         common.RUN_TASKS_INLINE = False
-        arroba.util.now = lambda **kwargs: NOW
+        arroba.util.now = lambda tz=timezone.utc: NOW.replace(tzinfo=tz)
 
     def make_user_and_repo(self, cls=Fake, id='fake:user', **kwargs):
         atp_copy = Target(uri='did:plc:user', protocol='atproto')

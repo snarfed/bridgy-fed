@@ -1,7 +1,7 @@
 """Common test utility code."""
 import contextlib
 import copy
-from datetime import datetime
+from datetime import datetime, timezone
 import logging
 import os
 import random
@@ -357,7 +357,8 @@ class TestCase(unittest.TestCase, testutil.Asserts):
         self.ndb_context = ndb_client.context(**NDB_CONTEXT_KWARGS)
         self.ndb_context.__enter__()
 
-        util.now = lambda **kwargs: testutil.NOW
+        util.now = lambda tz=timezone.utc: testutil.NOW.replace(tzinfo=tz)
+
         # used in make_user()
         self.last_make_user_id = 1
 

@@ -66,7 +66,7 @@ def _load_users():
 
     with ndb_client.context(**NDB_CONTEXT_KWARGS):
         try:
-            loaded_at = util.now()
+            loaded_at = util.now().replace(tzinfo=None)
 
             new_nostr = Nostr.query(Nostr.status == None,
                                     Nostr.enabled_protocols != None,
