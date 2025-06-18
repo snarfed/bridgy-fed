@@ -70,7 +70,6 @@ def _load_users():
             loaded_at = util.now().replace(tzinfo=None)
 
             new_nostr = Nostr.query(Nostr.status == None,
-                                    Nostr.enabled_protocols != None,
                                     Nostr.updated > nostr_loaded_at,
                                     ).fetch()
             Nostr.load_multi(new_nostr)
