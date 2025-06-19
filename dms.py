@@ -118,7 +118,6 @@ def help_text(from_user, to_proto):
 <ul>
 <li><em>start</em>: enable bridging for your account
 <li><em>stop</em>: disable bridging for your account
-<li><em>notify</em>: enable notifications when someone who's not bridged replies to you, quotes you, or @-mentions you
 <li><em>mute</em>: disable notifications
 <li><em>username [domain]</em>: set a custom domain username (handle)
 <li><em>[handle]</em>: ask me to DM a user on {to_proto.PHRASE} to request that they bridge their account into {from_user.PHRASE}
