@@ -375,7 +375,7 @@ class User(StringIdModel, metaclass=ProtocolUserMeta):
                     user.put()
                 return user
 
-        else:
+        else:  # new, not existing
             if orig_key := get_original_user_key(id):
                 orig = orig_key.get()
                 if orig.status and not allow_opt_out:

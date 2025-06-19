@@ -283,7 +283,8 @@ class Nostr(User, Protocol):
         obj_as1 = obj.as1
         translated = to_cls.translate_ids(obj_as1)
 
-        # find first relay (target) for referenced user (follow of, in reply to, repost of)
+        # find first relay (target) for referenced user (follow of, in reply to,
+        # repost of)
         if as1.object_type(obj_as1) in as1.CRUD_VERBS:
             obj_as1 = as1.get_object(obj_as1)
 
@@ -297,8 +298,10 @@ class Nostr(User, Protocol):
                 remote_relay = to_cls.target_for(obj)
 
         # convert!
-        privkey = from_user.nsec() if from_user and from_user.nostr_key_bytes else None
-        return granary.nostr.from_as1(translated, privkey=privkey, remote_relay=remote_relay)
+        privkey = (from_user.nsec() if from_user and from_user.nostr_key_bytes
+                   else None)
+        return granary.nostr.from_as1(translated, privkey=privkey,
+                                      remote_relay=remote_relay)
 
     @classmethod
     def send(to_cls, obj, relay_url, from_user=None, **kwargs):
