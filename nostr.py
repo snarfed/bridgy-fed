@@ -43,6 +43,7 @@ from flask_app import app
 import ids
 from models import Object, PROTOCOLS, Target, User
 from protocol import Protocol
+import web
 
 logger = logging.getLogger(__name__)
 
@@ -124,8 +125,14 @@ class Nostr(User, Protocol):
             return False
 
         # TODO: implement allow_internal?
-        return (handle.startswith('npub')
-                or cls.is_user_at_domain(handle, allow_internal=True))
+        if (handle.startswith('npub')
+                or cls.is_user_at_domain(handle, allow_internal=True)):
+            return True
+
+        if web.is_valid_domain(handle):
+            return None  # could be a _@ NIP-05
+
+        return False
 
     @classmethod
     def handle_to_id(cls, handle):

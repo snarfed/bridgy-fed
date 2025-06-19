@@ -124,9 +124,12 @@ class NostrTest(TestCase):
             with self.subTest(handle=handle):
                 self.assertTrue(Nostr.owns_handle(handle))
 
-        for handle in ('domain', 'domain.com', '@user', '@user.com',
-                       'http://user.com', '@user@web.brid.gy', '@user@domain',
-                       '@user@sub.dom.ain', '_@'):
+        for handle in 'domain.com', 'foo.domain.com':
+            with self.subTest(handle=handle):
+                self.assertIsNone(Nostr.owns_handle(handle))
+
+        for handle in ('domain', '@user', '@user.com', 'http://user.com',
+                       '@user@web.brid.gy', '@user@domain', '@user@sub.dom.ain', '_@'):
             with self.subTest(handle=handle):
                 self.assertEqual(False, Nostr.owns_handle(handle))
 
