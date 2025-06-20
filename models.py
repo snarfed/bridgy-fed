@@ -95,6 +95,8 @@ USER_STATUS_DESCRIPTIONS = {  # keep in sync with DM.type!
     'no-feed-or-webmention': "your web site doesn't have an RSS or Atom feed or webmention endpoint",
     'nobot': "your profile has 'nobot' in it",
     'nobridge': "your profile has 'nobridge' in it",
+    'no-nip05': "your account's NIP-05 identifier is missing or invalid",
+    'no-profile': 'your profile is missing or empty',
     'opt-out': 'your account or instance has requested to be opted out',
     'owns-webfinger': 'your web site looks like a fediverse instance because it already serves Webfinger',
     'private': 'your account is set as private or protected',
@@ -157,6 +159,8 @@ class DM(ndb.Model):
     type = ndb.StringProperty(required=True)
     """Known values (keep in sync with USER_STATUS_DESCRIPTIONS!):
       * no-feed-or-webmention
+      * no-nip05
+      * no-profile
       * opt-out
       * owns-webfinger
       * private
@@ -497,28 +501,12 @@ class User(StringIdModel, metaclass=ProtocolUserMeta):
     def status(self):
         """Whether this user is blocked or opted out.
 
-        Optional. Current possible values:
-          * ``opt-out``: the user or domain has manually opted out
-          * ``owns-webfinger``: a :class:`web.Web` user that looks like a
-            fediverse server
-          * ``nobridge``: the user's profile has ``#nobridge`` in it
-          * ``nobot``: the user's profile has ``#nobot`` in it
-          * ``no-feed-or-webmention``: a :class:`web.Web` user that doesn't have
-            an RSS or Atom feed or webmention endpoint and has never sent us a
-            webmention
-          * ``private``: the account is set to be protected or private in its
-            native protocol
-          * ``requires-avatar``
-          * ``requires-name``
-          * ``requires-old-account``
-
-        Duplicates ``util.is_opt_out`` in Bridgy!
-
-        https://github.com/snarfed/bridgy-fed/issues/666
+        Optional. See :attr:`USER_STATUS_DESCRIPTIONS` for possible values.
         """
         if self.manual_opt_out:
             return 'opt-out'
 
+        # TODO: require profile for more protocols? all?
         if not self.obj or not self.obj.as1:
             return None
 

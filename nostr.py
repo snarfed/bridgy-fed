@@ -18,6 +18,7 @@ from granary.nostr import (
     id_to_uri,
     KIND_PROFILE,
     KIND_RELAYS,
+    nip05_to_npub,
     uri_to_id,
 )
 from oauth_dropins.webutil import flask_util
@@ -74,6 +75,8 @@ class Nostr(User, Protocol):
 
     relays = ndb.KeyProperty(kind='Object')
     """NIP-65 kind 10002 event with this user's relays."""
+    valid_nip05 = ndb.StringProperty()
+    """NIP-05 identifier that we've resolved and verified."""
 
     def _pre_put_hook(self):
         """Validates that the id is a bech32-encoded nostr:npub id."""
@@ -99,13 +102,26 @@ class Nostr(User, Protocol):
     @ndb.ComputedProperty
     def handle(self):
         """Returns the NIP-05 identity from the user's profile event."""
+        if nip05 := self.nip_05():
+            return nip05.removeprefix('_@')
+        elif self.key:
+            return self.key.id().removeprefix('nostr:')
+
+    @ndb.ComputedProperty
+    def status(self):
+        if not self.obj or not self.obj.as1:
+            return 'no-profile'
+
+        if not self.valid_nip05 or self.valid_nip05 != self.nip_05():
+            return 'no-nip05'
+
+        return super().status
+
+    def nip_05(self):
         if self.obj and self.obj.nostr and self.obj.nostr.get('kind') == KIND_PROFILE:
             content = json_loads(self.obj.nostr.get('content', '{}'))
             if nip05 := content.get('nip05'):
-                return nip05.removeprefix('_@')
-
-        if self.key:
-            return self.key.id().removeprefix('nostr:')
+                return nip05
 
     def web_url(self):
         if self.obj_key:
@@ -153,7 +169,7 @@ class Nostr(User, Protocol):
     def target_for(cls, obj, shared=False):
         """Returns the first NIP-65 relay for the given object's author."""
         if obj and (id := as1.get_owner(obj.as1)) and id.startswith('nostr:npub'):
-            if user := Nostr.get_or_create(id):
+            if user := Nostr.get_or_create(id, allow_opt_out=True):
                 if user.relays and (relays := user.relays.get()):
                     if relays.nostr:
                         for tag in relays.nostr.get('tags', []):
@@ -193,9 +209,11 @@ class Nostr(User, Protocol):
             cls.send(user.obj, cls.DEFAULT_TARGET, from_user=user)
 
     def reload_profile(self, **kwargs):
-        """Reloads this user's kind 0 profile and also their NIP-65 relay list.
+        """Reloads this user's kind 0 profile, NIP-65 relay list, and NIP-05 id.
 
+        https://nips.nostr.com/1#kinds
         https://nips.nostr.com/65
+        https://nips.nostr.com/5
         """
         client = granary.nostr.Nostr()
         relay = self.target_for(self.obj) or self.DEFAULT_TARGET
@@ -223,7 +241,17 @@ class Nostr(User, Protocol):
             if profile and relays:
                 break
 
-        # Save the updated user
+        # check NIP-05
+        self.valid_nip05 = None
+        if nip05 := self.nip_05():
+            try:
+                if nip05_to_npub(nip05) == self.npub():
+                    self.valid_nip05 = nip05
+            except BaseException as e:
+                code, _ = util.interpret_http_exception(e)
+                if not code:
+                    logger.info(e)
+
         self.put()
 
     @classmethod

@@ -77,6 +77,22 @@ class NostrTest(TestCase):
         self.assertEqual('https://coracle.social/people/nprofile123',
                          Nostr(obj_key=Object(id='nostr:nprofile123').key).web_url())
 
+    def test_nip_05(self):
+        self.assertIsNone(Nostr().nip_05())
+
+        for expected, event in (
+                (None, {'kind': KIND_NOTE}),
+                (None, {'kind': KIND_PROFILE}),
+                (None, {'kind': KIND_NOTE, 'content': '{"nip05":"foo"}'}),
+                (None, {'kind': KIND_PROFILE, 'content': '{"name":"Alice"}'}),
+                ('foo', {'kind': KIND_PROFILE, 'content': '{"nip05":"foo"}'}),
+                ('_@foo', {'kind': KIND_PROFILE, 'content': '{"nip05":"_@foo"}'}),
+                ('a@foo', {'kind': KIND_PROFILE, 'content': '{"nip05":"a@foo"}'}),
+        ):
+            with self.subTest(event=event):
+                obj = Object(id='x', nostr={**event, 'pubkey': PUBKEY})
+                self.assertEqual(expected, Nostr(obj_key=obj.put()).nip_05())
+
     def test_handle(self):
         self.assertIsNone(Nostr().handle)
 
@@ -591,7 +607,8 @@ class NostrTest(TestCase):
         self.assertIsNone(Nostr.target_for(Object()))
 
     @patch('secrets.token_urlsafe', return_value='towkin')
-    def test_reload_profile(self, _):
+    @patch('requests.get', return_value=requests_response({'names': {'a': PUBKEY}}))
+    def test_reload_profile(self, mock_get, _):
         profile = id_and_sign({
             'kind': KIND_PROFILE,
             'pubkey': PUBKEY,
@@ -599,6 +616,7 @@ class NostrTest(TestCase):
                 'name': 'Alice',
                 'about': 'Test user',
                 'picture': 'http://alice/pic',
+                'nip05': 'a@example.com',
             }),
             'created_at': NOW_TS,
             'tags': [],
@@ -631,10 +649,12 @@ class NostrTest(TestCase):
             }],
             ['CLOSE', 'towkin'],
         ], FakeConnection.sent)
+        self.assert_req(mock_get, 'https://example.com/.well-known/nostr.json?name=a')
 
         self.assertEqual(profile, user.obj_key.get().nostr)
         self.assertEqual(relays, user.relays.get().nostr)
         self.assertEqual('wss://b', Nostr.target_for(Object(nostr=NOTE_NOSTR)))
+        self.assertEqual('a@example.com', user.valid_nip05)
 
     @patch('secrets.token_urlsafe', return_value='towkin')
     def test_reload_profile_no_events(self, _):
@@ -642,9 +662,89 @@ class NostrTest(TestCase):
             ['EOSE', 'towkin'],
         ]
 
-        user = Nostr(id=NPUB_URI)
+        user = Nostr(id=NPUB_URI, valid_nip05='old')
         user.reload_profile()
 
         self.assertIsNone(user.obj_key)
         self.assertIsNone(user.relays)
+        self.assertIsNone(user.valid_nip05)
         self.assertIsNone(Nostr.target_for(Object(nostr=NOTE_NOSTR)))
+
+    @patch('secrets.token_urlsafe', return_value='towkin')
+    def test_reload_profile_no_nip05(self, _):
+        profile = id_and_sign({
+            'kind': KIND_PROFILE,
+            'pubkey': PUBKEY,
+            'content': json_dumps({'name': 'Alice'}),
+        }, privkey=NSEC_URI)
+
+        FakeConnection.to_receive = [
+            ['EVENT', 'towkin', profile],
+            ['EOSE', 'towkin'],
+        ]
+
+        user = Nostr(id=NPUB_URI, valid_nip05='old')
+        user.reload_profile()
+        self.assertIsNone(user.valid_nip05)
+
+    @patch('secrets.token_urlsafe', return_value='towkin')
+    @patch('requests.get', return_value=requests_response({'names': {'a': 'cba321'}}))
+    def test_reload_profile_nip05_wrong_pubkey(self, mock_get, _):
+        profile = id_and_sign({
+            'kind': KIND_PROFILE,
+            'pubkey': PUBKEY,
+            'content': json_dumps({'nip05': 'a@example.com'}),
+        }, privkey=NSEC_URI)
+
+        FakeConnection.to_receive = [
+            ['EVENT', 'towkin', profile],
+            ['EOSE', 'towkin'],
+        ]
+
+        user = Nostr(id=NPUB_URI, valid_nip05='old')
+        user.reload_profile()
+
+        self.assert_req(mock_get, 'https://example.com/.well-known/nostr.json?name=a')
+        self.assertIsNone(user.valid_nip05)
+
+    @patch('secrets.token_urlsafe', return_value='towkin')
+    @patch('requests.get', side_effect=OSError('nope'))
+    def test_reload_profile_nip05_fetch_error(self, mock_get, _):
+        profile = id_and_sign({
+            'kind': KIND_PROFILE,
+            'pubkey': PUBKEY,
+            'content': json_dumps({'nip05': 'a@example.com'}),
+        }, privkey=NSEC_URI)
+
+        FakeConnection.to_receive = [
+            ['EVENT', 'towkin', profile],
+            ['EOSE', 'towkin'],
+        ]
+
+        user = Nostr(id=NPUB_URI, valid_nip05='old')
+        user.reload_profile()
+
+        self.assert_req(mock_get, 'https://example.com/.well-known/nostr.json?name=a')
+        self.assertIsNone(user.valid_nip05)
+
+    def test_status(self):
+        self.assertEqual('no-profile', Nostr().status)
+        self.assertEqual('no-profile', Nostr(valid_nip05='a@example.com').status)
+
+        profile = Object(id='nostr:foo', nostr=id_and_sign({
+            'kind': KIND_PROFILE,
+            'pubkey': PUBKEY,
+            'content': json_dumps({
+                'name': 'Alice',
+                'picture': 'http://alice/pic',
+                'nip05': 'a@example.com',
+            }),
+        }, privkey=NSEC_URI))
+        user = Nostr(id='nostr:npubalice', obj_key=profile.put())
+        self.assertEqual('no-nip05', user.status)
+
+        user.valid_nip05 = 'nope@example.com'
+        self.assertEqual('no-nip05', user.status)
+
+        user.valid_nip05 = 'a@example.com'
+        self.assertIsNone(user.status)

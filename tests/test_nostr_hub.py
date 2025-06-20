@@ -64,7 +64,21 @@ class NostrHubTest(TestCase):
             'fake:alice', cls=Fake, enabled_protocols=['nostr'],
             nostr_key_bytes=bytes.fromhex(PRIVKEY))
 
-        self.bob = self.make_user(BOB_NPUB_URI, cls=Nostr, enabled_protocols=['fake'])
+        self.bob = self.make_nostr('bob', BOB_NSEC_URI, BOB_NPUB_URI)
+
+    def make_nostr(self, name, nsec, npub, **props):
+        nip05 = f'{name}@example.com'
+        profile = Object(id=f'nostr:nprofile{name}', nostr=id_and_sign({
+            'kind': KIND_PROFILE,
+            'pubkey': uri_to_id(npub),
+            'content': json_dumps({
+                'name': name.capitalize(),
+                'picture': f'http://{name}/pic',
+                'nip05': nip05,
+            }),
+        }, privkey=nsec))
+        return self.make_user(npub, cls=Nostr, enabled_protocols=['fake'],
+                              obj_key=profile.put(), valid_nip05=nip05, **props)
 
     def serve_and_subscribe(self, events):
         nostr_hub.init(subscribe=False)
@@ -84,7 +98,7 @@ class NostrHubTest(TestCase):
 
         eve = self.make_user('fake:eve', cls=Fake, enabled_protocols=['nostr'],
                              nostr_key_bytes=bytes.fromhex(uri_to_id(EVE_NSEC_URI)))
-        frank = self.make_user(FRANK_NPUB_URI, cls=Nostr, enabled_protocols=['fake'])
+        frank = self.make_nostr('frank', FRANK_NSEC_URI, FRANK_NPUB_URI)
 
         nostr_hub.init(subscribe=False)
         self.assertEqual(set((PUBKEY, EVE_PUBKEY)), nostr_hub.bridged_pubkeys)
@@ -116,9 +130,7 @@ class NostrHubTest(TestCase):
         nostr_hub.init()
         self.assertEqual(['wss://a'], FakeConnection.relays)
 
-        eve = self.make_user(EVE_NPUB_URI, cls=Nostr, enabled_protocols=['fake'],
-                             obj_nostr={**profile, 'pubkey': EVE_PUBKEY},
-                             relays=relays_a)
+        eve = self.make_nostr('eve', EVE_NSEC_URI, EVE_NPUB_URI, relays=relays_a)
 
         FakeConnection.reset()
         nostr_hub.init()
@@ -128,9 +140,8 @@ class NostrHubTest(TestCase):
             'kind': KIND_RELAYS,
             'tags': [['r', 'wss://b']],
         }).put()
-        frank = self.make_user(FRANK_NPUB_URI, cls=Nostr, enabled_protocols=['fake'],
-                               obj_nostr={**profile, 'pubkey': FRANK_PUBKEY},
-                               relays=relays_b)
+        frank = self.make_nostr('frank', FRANK_NSEC_URI, FRANK_NPUB_URI,
+                                relays=relays_b)
 
         FakeConnection.reset()
         nostr_hub.init()
