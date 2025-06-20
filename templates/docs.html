@@ -184,8 +184,8 @@
 <li><a href="#identify-bridged-account">How can I tell if an account is bridged?</a></li>
 <li><a href="#identify-bridged-post">How can I tell if a post is bridged?</a></li>
 <li><a href="#metadata">Can I get additional metadata about a bridged account or post?</a></li>
-<li><a href="#enable-api">Can I enable and disable the bridge programmatically for my users?</a></li>
-<li><a href="#bluesky-handle-api">Can I give my users custom Bluesky domain handles automatically?</a></li>
+<li><a href="#enable-api">As a server admin, can I automatically enable the bridge for new users?</a></li>
+<li><a href="#bluesky-handle-api">As a server admin, can I give my users custom Bluesky domain handles automatically?</a></li>
 <li><a href="#fediverse-address-api">Can I give my users custom fediverse addresses automatically?</a></li>
 
 <br>
@@ -1104,13 +1104,14 @@ To receive likes, reposts, replies, @-mentions, and follows from other networks,
 <p>For posts bridged to the fediverse or the web, we translate everything to standard <a href="https://www.w3.org/TR/activitystreams-core/">ActivityStreams 2</a> fields and <a href="https://microformats.org/wiki/microformats2">microformats2</a> properties, respectively, so we don't need custom fields like for Bluesky.
 </li>
 
-<li id="enable-api" class="question">Can I enable the bridge programmatically for my users?</li>
+<li id="enable-api" class="question">As a server admin, can I automatically enable the bridge for new users?</li>
 <li class="answer">
-<p>Yes! On Bluesky and the fediverse, you can enable the bridge for a user by having them <a href="#bluesky-get-started">follow <code>@ap.brid.gy</code></a> <a href="#fediverse-get-started">or <code>@bsky.brid.gy@bsky.brid.gy</code></a>, respectively. Likewise, you can disable the bridge for a user by having them block that account.
+<p>Yes! On Bluesky and the fediverse, you can enable the bridge for a user by having them <a href="#bluesky-get-started">follow <code>@ap.brid.gy</code></a> <a href="#fediverse-get-started">or <code>@bsky.brid.gy@bsky.brid.gy</code></a>, respectively. Likewise, you can disable the bridge for a user by having them block that account. <a href="#opt-out">Your users will still be able to opt in or out individually</a>, of course.
+<p>If you do this, we strongly recommend and expect that you only do it for new users, not existing users, and that you tell new users loudly during the signup flow that they'll be bridged. If you don't, we reserve the right to disable automatic opt-in from your instance.
 <p>To enable the bridge for a web site, make a form-encoded HTTP POST to <code>https://fed.brid.gy/web-site</code> with the web site's home page URL in the body's <code>url</code> parameter, eg <code>url=example.com</code>. The web site <a href="#web-get-started">must either support microformats2 and webmentions, or serve an RSS or Atom feed discoverable from its home page.</a> To disable, put the text <code>#nobridge</code> in the web site's <a href="#web-profile">profile metadata</a>, then make an HTTP POST to <code>https://fed.brid.gy/web/[domain]/update-profile</code>, where <code>[domain]</code> is the web site's domain, eg <code>snarfed.org</code>.</a>
 </li>
 
-<li id="bluesky-handle-api" class="question">Can I give my users custom Bluesky domain handles automatically?</li>
+<li id="bluesky-handle-api" class="question">As a server admin, can I give my users custom Bluesky domain handles automatically?</li>
 <li class="answer">
 <p>Yes! For Bluesky custom domain handles, you need to redirect the URL path <code>/.well-known/atproto-did</code> to Bridgy Fed from every subdomain that you want to use as a handle. You also need to include two query parameters: <code>protocol</code>, which is <code>ap</code> for fediverse accounts or <code>web</code> for web sites, and <code>id</code>, which is the ActivityPub actor id or WebFinger address for fediverse accounts, or the domain for web sites.
 <p>Say you run a fediverse instance at <code>instance.com</code>, and your users' actor ids follow the pattern <code>https://instance.com/users/alice</code>, and you want to give each of your users a subdomain as their Bluesky handle, eg <code>alice.instance.com</code> for <code>@alice@instance.com</code>. You'd redirect <code>https://alice.instance.com/.well-known/atproto-did</code> to <code>https://fed.brid.gy/.well-known/atproto-did?protocol=ap&id=https://instance.com/users/alice</code>, and so on for each of your users.
