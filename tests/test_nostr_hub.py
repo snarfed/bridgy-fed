@@ -23,6 +23,7 @@ from granary.tests.test_nostr import (
 )
 from oauth_dropins.webutil import util
 from oauth_dropins.webutil.util import json_dumps, json_loads
+from websockets.exceptions import ConnectionClosedOK
 
 import common
 from models import Object
@@ -64,6 +65,17 @@ class NostrHubTest(TestCase):
             nostr_key_bytes=bytes.fromhex(PRIVKEY))
 
         self.bob = self.make_user(BOB_NPUB_URI, cls=Nostr, enabled_protocols=['fake'])
+
+    def serve_and_subscribe(self, events):
+        nostr_hub.init(subscribe=False)
+
+        FakeConnection.to_receive = [
+            ['EVENT', 'sub123', event] for event in events
+        ] + [['EOSE', 'sub123']]
+
+        nostr_hub.subscribe('wss://reelaay', limit=len(events) + 1)
+
+        self.assertEqual(['wss://reelaay'], FakeConnection.relays)
 
     def test_init_load_users(self, _, __):
         nostr_hub.init(subscribe=False)
@@ -133,15 +145,8 @@ class NostrHubTest(TestCase):
             'created_at': NOW_TS,
         }, privkey=EVE_NSEC_URI)
 
-        FakeConnection.to_receive = [
-            ['EVENT', 'sub123', event],
-            ['EOSE', 'sub123'],
-        ]
+        self.serve_and_subscribe([event])
 
-        nostr_hub.init(subscribe=False)
-        nostr_hub.subscribe('wss://reelaay', limit=2)
-
-        self.assertEqual(['wss://reelaay'], FakeConnection.relays)
         self.assertEqual([
             ['REQ', 'sub123',
              {'#p': [PUBKEY]},
@@ -163,15 +168,8 @@ class NostrHubTest(TestCase):
             'created_at': NOW_TS,
         }, privkey=BOB_NSEC_URI)
 
-        FakeConnection.to_receive = [
-            ['EVENT', 'sub123', event],
-            ['EOSE', 'sub123'],
-        ]
+        self.serve_and_subscribe([event])
 
-        nostr_hub.init(subscribe=False)
-        nostr_hub.subscribe('wss://reelaay', limit=2)
-
-        self.assertEqual(['wss://reelaay'], FakeConnection.relays)
         self.assertEqual([
             ['REQ', 'sub123',
              {'#p': [PUBKEY]},
@@ -198,15 +196,8 @@ class NostrHubTest(TestCase):
             'created_at': NOW_TS,
         }, privkey=FRANK_NSEC_URI)
 
-        FakeConnection.to_receive = [
-            ['EVENT', 'sub123', event],
-            ['EOSE', 'sub123'],
-        ]
+        self.serve_and_subscribe([event])
 
-        nostr_hub.init(subscribe=False)
-        nostr_hub.subscribe('wss://reelaay', limit=2)
-
-        self.assertEqual(['wss://reelaay'], FakeConnection.relays)
         self.assertEqual([
             ['REQ', 'sub123',
              {'#p': [PUBKEY, bot_pubkey]},
@@ -228,15 +219,8 @@ class NostrHubTest(TestCase):
             'created_at': NOW_TS,
         }, EVE_NSEC_URI)
 
-        FakeConnection.to_receive = [
-            ['EVENT', 'sub123', event],
-            ['EOSE', 'sub123'],
-        ]
+        self.serve_and_subscribe([event])
 
-        nostr_hub.init(subscribe=False)
-        nostr_hub.subscribe('wss://reelaay', limit=2)
-
-        self.assertEqual(['wss://reelaay'], FakeConnection.relays)
         self.assertEqual([
             ['REQ', 'sub123',
              {'#p': [PUBKEY]},
@@ -267,12 +251,8 @@ class NostrHubTest(TestCase):
         ]
         events[1]['sig'] = 'bad'
 
-        FakeConnection.to_receive = [['EVENT', 'sub123', event] for event in events]
+        self.serve_and_subscribe(events)
 
-        nostr_hub.init(subscribe=False)
-        nostr_hub.subscribe('wss://reelaay', limit=2)
-
-        self.assertEqual(['wss://reelaay'], FakeConnection.relays)
         self.assertEqual([
             ['REQ', 'sub123',
              {'#p': [PUBKEY]},
@@ -293,15 +273,8 @@ class NostrHubTest(TestCase):
             'created_at': NOW_TS,
         }, privkey=BOB_NSEC_URI)
 
-        FakeConnection.to_receive = [
-            ['EVENT', 'sub123', event],
-            ['EOSE', 'sub123'],
-        ]
+        self.serve_and_subscribe([event])
 
-        nostr_hub.init(subscribe=False)
-        nostr_hub.subscribe('wss://reelaay', limit=2)
-
-        self.assertEqual(['wss://reelaay'], FakeConnection.relays)
         self.assertEqual([
             ['REQ', 'sub123',
              {'#p': [PUBKEY]},
