@@ -61,10 +61,11 @@ models.reset_protocol_properties()
 # ...*before* initializing Flask app and request handlers, including health check,
 # so that we don't go into service and start serving subscribers until the preload
 # window is loaded
-if LOCAL_SERVER or not DEBUG:
+if LOCAL_SERVER:
     # Nostr relays
     nostr_hub.init()
 
+if LOCAL_SERVER or not DEBUG:
     # ATProto firehose consumer
     for thread in threading.enumerate():
         assert not thread.name.startswith('atproto_firehose.'), thread.name
