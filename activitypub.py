@@ -74,7 +74,7 @@ OLD_ACCOUNT_EXEMPT_DOMAINS = (
     'channel.org',
     'newsmast.community',
     'pixelfed.social',
-) + tuple(ids.ATPROTO_HANDLE_DOMAINS)
+) + ids.ATPROTO_HANDLE_DOMAINS
 
 # we can't yet authorize activities from these domains:
 # * a.gup.pe groups sign with the group's actor but use the external author as

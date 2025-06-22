@@ -53,7 +53,9 @@ INTERNAL_PATH_PREFIX = '/internal/'
 # /.well-known/atproto-did path to fed.brid.gy for ATProto handle resolution.
 # https://github.com/snarfed/bridgy-fed/issues/1305
 # https://fed.brid.gy/docs#bluesky-handle-api
-ATPROTO_HANDLE_DOMAINS = util.load_file_lines('atproto_handle_domains.txt')
+ATPROTO_HANDLE_DOMAINS = (
+    'music-social.com',
+)
 
 
 def validate(id, from_, to):
