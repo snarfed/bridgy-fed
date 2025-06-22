@@ -47,7 +47,7 @@ from common import (
     subdomain_wrap,
     unwrap,
 )
-from ids import BOT_ACTOR_AP_IDS
+import ids
 import memcache
 from models import fetch_objects, Follower, Object, PROTOCOLS, User
 from protocol import activity_id_memcache_key, DELETE_TASK_DELAY, Protocol
@@ -74,7 +74,7 @@ OLD_ACCOUNT_EXEMPT_DOMAINS = (
     'channel.org',
     'newsmast.community',
     'pixelfed.social',
-)
+) + tuple(ids.ATPROTO_HANDLE_DOMAINS)
 
 # we can't yet authorize activities from these domains:
 # * a.gup.pe groups sign with the group's actor but use the external author as
