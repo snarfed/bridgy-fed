@@ -268,7 +268,8 @@ def settings():
         if user_key := login_to_user_key(login):
             if login.key == logged_in_as:
                 cls = Model._lookup_model(user_key.kind())
-                user = cls.get_or_create(id=user_key.id(), allow_opt_out=True)
+                user = cls.get_or_create(id=user_key.id(), allow_opt_out=True,
+                                         reload=True)
                 user.logo = site_logo(login)
                 users.append(user)
             else:

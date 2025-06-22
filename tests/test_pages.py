@@ -34,7 +34,7 @@ import common
 from models import Object, Follower, Target
 from web import Web
 
-from granary.tests.test_bluesky import ACTOR_AS, ACTOR_PROFILE_BSKY
+from granary.tests.test_bluesky import ACTOR_PROFILE_BSKY
 from .test_atproto import DID_DOC
 from .test_web import (
     ACTOR_AS1_UNWRAPPED_URLS,
@@ -778,6 +778,31 @@ class PagesTest(TestCase):
 
         body = resp.get_data(as_text=True)
         self.assert_multiline_in('Not bridging because you haven&#39;t set a profile picture', body)
+
+    @patch('requests.get', side_effect=[
+        requests_response(DID_DOC),
+        requests_response({
+            'uri': 'at://did:plc:abc/app.bsky.actor.profile/self',
+            'cid': 'bafyreigd',
+            'value': ACTOR_PROFILE_BSKY,
+        }),
+    ])
+    def test_settings_on_login_reload_profile(self, mock_get):
+        self.store_object(id='did:plc:abc', raw={'alsoKnownAs': ['at://ab.c']})
+        user = self.make_user('did:plc:abc', cls=ATProto)
+        auth = BlueskyAuth(id='did:plc:abc', user_json='{}').put()
+
+        with self.client.session_transaction() as sess:
+            sess[LOGINS_SESSION_KEY] = [('BlueskyAuth', 'did:plc:abc')]
+
+        resp = self.client.get(f'/settings?auth_entity={auth.urlsafe().decode()}')
+        self.assertEqual(200, resp.status_code)
+
+        user = user.key.get()
+        self.assertEqual({
+            **ACTOR_PROFILE_BSKY,
+            'cid': 'bafyreigd',
+        }, user.obj.bsky)
 
     @patch('pages.PROTOCOLS', new={
         'activitypub': ActivityPub,
