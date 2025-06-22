@@ -49,6 +49,12 @@ BOT_ACTOR_AP_HANDLES = tuple(f'@{domain}@{domain}' for domain in PROTOCOL_DOMAIN
 # not the subdomain protocol's.
 INTERNAL_PATH_PREFIX = '/internal/'
 
+# Domains that we set custom Bluesky subdomain handles for. They redirect their
+# /.well-known/atproto-did path to fed.brid.gy for ATProto handle resolution.
+# https://github.com/snarfed/bridgy-fed/issues/1305
+# https://fed.brid.gy/docs#bluesky-handle-api
+ATPROTO_HANDLE_DOMAINS = util.load_file_lines('atproto_handle_domains.txt')
+
 
 def validate(id, from_, to):
     """Validates args.
@@ -290,19 +296,16 @@ def translate_handle(*, handle, from_, to, enhanced):
         # https://nips.nostr.com/5#showing-just-the-domain-as-an-identifier
         handle = handle.removeprefix('_@')
 
+    # "flatten" [@]user@domain handles to just domain-like, eg user.domain,
+    # and then append @[protocol domain], so we end up with user.domain@proto.brid.gy
+    flattened = handle.lstrip('@').replace('@', '.')
+    for from_char in DASH_CHARS:
+        flattened = flattened.replace(from_char, '-')
+
     def flattened_user_at_domain():
-        # "flatten" [@]user@domain handles to just domain-like, eg user.domain,
-        # and then append @[protocol domain], so we end up with
-        # user.domain@proto.brid.gy.
         domain = f'{from_.ABBREV}{SUPERDOMAIN}'
-
-        flattened = handle.lstrip('@').replace('@', '.')
-        for from_char in DASH_CHARS:
-            flattened = flattened.replace(from_char, '-')
-
         if enhanced or handle == PRIMARY_DOMAIN or handle in PROTOCOL_DOMAINS:
             domain = flattened
-
         return f'{flattened}@{domain}'
 
     output = None
@@ -314,7 +317,10 @@ def translate_handle(*, handle, from_, to, enhanced):
             if handle == PRIMARY_DOMAIN or handle in PROTOCOL_DOMAINS:
                 return handle
 
-            output = flattened_user_at_domain().replace('@', '.')
+            if util.domain_or_parent_in(flattened, ATPROTO_HANDLE_DOMAINS):
+                output = flattened
+            else:
+                output = flattened_user_at_domain().replace('@', '.')
 
         case _, 'nostr':
             if handle == PRIMARY_DOMAIN or handle in PROTOCOL_DOMAINS:

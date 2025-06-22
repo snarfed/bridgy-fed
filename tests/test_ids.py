@@ -256,6 +256,15 @@ class IdsTest(TestCase):
                 self.assertEqual(expected, translate_handle(
                     handle=handle, from_=from_, to=to, enhanced=True))
 
+    @patch('ids.ATPROTO_HANDLE_DOMAINS', set(('example.com',)))
+    def test_translate_handle_atproto_handle_domains_file(self):
+        self.assertEqual('alice.example.com', translate_handle(
+            handle='alice.example.com', from_=Web, to=ATProto, enhanced=False))
+        self.assertEqual('bob.example.com', translate_handle(
+            handle='@bob@example.com', from_=ActivityPub, to=ATProto, enhanced=False))
+
+        # TODO: enhanced True? https://github.com/snarfed/bridgy-fed/issues/1969
+
     def test_translate_object_id(self):
         self.store_object(id='http://po.st',
                           copies=[Target(uri='at://did/web/post', protocol='atproto'),

@@ -543,6 +543,9 @@ class ATProto(User, Protocol):
         if DEBUG:
             logger.info('  skipped since DEBUG is true')
             return
+        elif util.domain_or_parent_in(handle, ids.ATPROTO_HANDLE_DOMAINS):
+            logger.info('  skipped since domain is in ATPROTO_HANDLE_DOMAINS')
+            return
 
         # https://cloud.google.com/python/docs/reference/dns/latest
         # https://cloud.google.com/dns/docs/reference/rest/v1/

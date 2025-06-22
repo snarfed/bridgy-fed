@@ -7,8 +7,10 @@ from unittest.mock import ANY, patch
 from arroba.datastore_storage import AtpSequence, DatastoreStorage
 from arroba import firehose
 from arroba.repo import Repo
+from arroba.storage import SUBSCRIBE_REPOS_NSID
 from arroba.util import dag_cbor_cid
 from dns.resolver import NXDOMAIN
+import google.cloud.dns.client
 from granary import as2, bluesky
 from granary.tests.test_bluesky import ACTOR_PROFILE_BSKY, POST_BSKY
 from oauth_dropins.webutil.flask_util import NoContent
@@ -50,7 +52,7 @@ class IntegrationTests(TestCase):
         super().setUp()
         self.storage = DatastoreStorage()
 
-    def make_ap_user(self, ap_id, did=None):
+    def make_ap_user(self, ap_id, did=None, **props):
         user = self.make_user(id=ap_id, cls=ActivityPub,
                               obj_as2=add_key({
                                   'type': 'Person',
@@ -58,7 +60,7 @@ class IntegrationTests(TestCase):
                                   'name': 'My Name',
                                   'image': 'http://pic',
                                   'inbox': f'{ap_id}/inbox',
-                              }))
+                              }), **props)
         if did:
             self.make_atproto_copy(user, did)
 
@@ -626,6 +628,52 @@ To disable these messages, reply with the text 'mute'.""",
                 'object': 'https://bsky.brid.gy/bsky.brid.gy',
             },
         }, json_loads(kwargs['data']), ignore=['to', '@context'])
+
+    @patch('ids.ATPROTO_HANDLE_DOMAINS', set(('in.st',)))
+    @patch('atproto.DEBUG', new=False)
+    @patch.object(google.cloud.dns.client.ManagedZone, 'changes')
+    # PLC directory create DID, welcome DM AP inbox delivery
+    @patch('requests.post', return_value=requests_response('OK'))
+    @patch('requests.get')
+    def test_activitypub_enable_atproto_custom_handle_domain(
+            self, mock_get, mock_post, mock_dns_changes):
+        """AP user from an instance in atproto_handle_domains.txt enables ATProto.
+
+        ActivityPub user @alice@in.st, https://in.st/alice
+        """
+        self.make_web_user('bsky.brid.gy')
+        alice = self.make_ap_user('https://in.st/alice', webfinger_addr='@alice@in.st')
+
+        # alice's image http://pic
+        mock_get.return_value = requests_response(
+            'blob', headers={'Content-Type': 'image/jpeg'})
+
+        alice.enable_protocol(ATProto)  # eg from web UI
+
+        # check results
+        alice = alice.key.get()
+        self.assertTrue(alice.is_enabled(ATProto))
+        self.assertEqual('alice.in.st', alice.handle_as(ATProto))
+
+        self.assertEqual(1, len(alice.copies))
+        self.assertEqual('atproto', alice.copies[0].protocol)
+        did = alice.copies[0].uri
+
+        repo = self.storage.load_repo('alice.in.st')
+        self.assertEqual(did, repo.did)
+        self.assertEqual('alice.in.st', repo.handle)
+
+        seq = self.storage.last_seq(SUBSCRIBE_REPOS_NSID)
+        self.assertIn({
+            '$type': 'com.atproto.sync.subscribeRepos#identity',
+            'seq': ANY,
+            'did': did,
+            'handle': 'alice.in.st',
+            'time': ANY,
+        }, list(self.storage.read_events_by_seq()))
+
+        # shouldn't have set DNS, we're using HTTP for handle resolution
+        mock_dns_changes.assert_not_called()
 
     @patch('requests.get')
     def test_activitypub_follow_bsky_bot_bad_username_error(self, mock_get):
