@@ -288,7 +288,7 @@ class PagesTest(TestCase):
 
         actor['updated'] = '2022-01-02T03:04:05+00:00'
         self.assert_object('fake:profile:user', source_protocol='fake', our_as1=actor,
-                           users=[user.key], copies=user.obj.copies)
+                           users=[user.key], copies=user.obj.copies, deleted=False)
 
         update = {
             'objectType': 'activity',

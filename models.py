@@ -1258,12 +1258,12 @@ class Object(StringIdModel):
         dirty = False
         for prop, val in props.items():
             assert not isinstance(getattr(Object, prop), ndb.ComputedProperty)
-            if prop in ('feed', 'copies', 'notify', 'users'):
+            if prop in ('copies', 'feed', 'notify', 'users'):
                 # merge repeated fields
                 for elem in val:
                     if obj.add(prop, elem):
                         dirty = True
-            elif val and val != getattr(obj, prop):
+            elif val is not None and val != getattr(obj, prop):
                 setattr(obj, prop, val)
                 if prop in ('as2', 'bsky', 'mf2', 'raw') and not props.get('our_as1'):
                     obj.our_as1 = None

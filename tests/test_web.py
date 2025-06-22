@@ -751,8 +751,8 @@ class WebTest(TestCase):
                            source_protocol='web',
                            type='comment',
                            users=[self.user.key],
-                           ignore=['mf2', 'our_as1'],
-                           )
+                           deleted=False,
+                           ignore=['mf2', 'our_as1'])
 
     def test_target_fetch_fails(self, mock_get, mock_post):
         mock_get.side_effect = [
@@ -841,6 +841,7 @@ class WebTest(TestCase):
                            users=[self.user.key],
                            notify=[author],
                            type='comment',
+                           deleted=False,
                            )
 
     def test_update_reply(self, mock_get, mock_post):
@@ -1234,6 +1235,7 @@ class WebTest(TestCase):
                            our_as1=NOTE_AS1,
                            type='note',
                            users=[self.user.key],
+                           deleted=False,
                            )
 
     def test_create_post_use_instead_strip_www(self, mock_get, mock_post):
@@ -1295,6 +1297,7 @@ class WebTest(TestCase):
                            type='note',
                            source_protocol='web',
                            users=[self.user.key],
+                           deleted=False,
                            )
 
     def test_update_post(self, mock_get, mock_post):
@@ -1327,6 +1330,7 @@ class WebTest(TestCase):
             },
             type='note',
             users=[self.user.key],
+            deleted=False,
         )
 
     def test_create_with_image(self, mock_get, mock_post):
@@ -1766,6 +1770,7 @@ class WebTest(TestCase):
                            our_as1=actor,
                            type='person',
                            users=[self.user.key],
+                           deleted=False,
                            )
 
     def test_update_profile_homepage_no_mf2_or_metaformats(self, mock_get, mock_post):

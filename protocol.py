@@ -1058,7 +1058,8 @@ class Protocol:
         if obj.type in ('post', 'update') and inner_obj_as1.keys() > set(['id']):
             crud_obj = Object.get_or_create(inner_obj_id, our_as1=inner_obj_as1,
                                             source_protocol=from_cls.LABEL,
-                                            authed_as=actor, users=[from_user.key])
+                                            authed_as=actor, users=[from_user.key],
+                                            deleted=False)
 
         actor = as1.get_object(obj.as1, 'actor')
         actor_id = actor.get('id')

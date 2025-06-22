@@ -622,6 +622,7 @@ class ActivityPubTest(TestCase):
         self.assert_object('http://mas.to/note/id',
                            source_protocol='activitypub',
                            users=[user.key],
+                           deleted=False,
                            ignore=['our_as1'])
 
     def test_inbox_bad_id(self, *_):
@@ -666,6 +667,7 @@ class ActivityPubTest(TestCase):
                            type='comment',
                            users=[self.swentel_key],
                            notify=[self.user.key],
+                           deleted=False,
                            )
 
     def test_inbox_reply_object_wrapped(self, mock_head, mock_get, mock_post):
@@ -677,6 +679,7 @@ class ActivityPubTest(TestCase):
                            type='comment',
                            notify=[self.user.key],
                            users=[self.swentel_key],
+                           deleted=False,
                            )
 
     def test_inbox_reply_create_activity(self, mock_head, mock_get, mock_post):
@@ -692,6 +695,7 @@ class ActivityPubTest(TestCase):
                            type='comment',
                            notify=[self.user.key],
                            users=[self.swentel_key],
+                           deleted=False,
                            )
 
     def _test_inbox_reply(self, reply, mock_head, mock_get, mock_post):
@@ -833,6 +837,7 @@ class ActivityPubTest(TestCase):
             copies=[Target(protocol='fake', uri='fake:o:ap:http://mas.to/note/id')],
             users=[ndb.Key(ActivityPub, ACTOR['id'])],
             feed=[self.user.key],
+            deleted=False,
         )
 
     def test_repost_of_indieweb(self, mock_head, mock_get, mock_post):
@@ -1681,7 +1686,9 @@ class ActivityPubTest(TestCase):
                            type='note',
                            our_as1=note_as1,
                            users=[self.swentel_key],
-                           source_protocol='activitypub')
+                           source_protocol='activitypub',
+                           deleted=False,
+                           )
 
     def test_inbox_webmention_discovery_connection_fails(self, mock_head,
                                                          mock_get, mock_post):
