@@ -108,8 +108,6 @@ class ActivityPub(User, Protocol):
     ''
     CONTENT_TYPE = as2.CONTENT_TYPE_LD_PROFILE
     ''
-    REQUIRES_AVATAR = True
-    ''
     REQUIRES_NAME = False
     ''
     DEFAULT_ENABLED_PROTOCOLS = ('web',)
@@ -131,6 +129,11 @@ class ActivityPub(User, Protocol):
 
     webfinger_addr = ndb.StringProperty()
     """Populated by :meth:`reload_profile`."""
+
+    @property
+    def REQUIRES_AVATAR(self):
+        ''
+        return util.domain_from_link(self.key.id()) not in ids.ATPROTO_HANDLE_DOMAINS
 
     @property
     def REQUIRES_OLD_ACCOUNT(self):
