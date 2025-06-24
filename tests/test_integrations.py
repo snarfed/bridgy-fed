@@ -629,7 +629,7 @@ To disable these messages, reply with the text 'mute'.""",
             },
         }, json_loads(kwargs['data']), ignore=['to', '@context'])
 
-    @patch('ids.ATPROTO_HANDLE_DOMAINS', set(('in.st',)))
+    @patch('ids.ATPROTO_HANDLE_DOMAINS', ('in.st',))
     @patch('atproto.DEBUG', new=False)
     @patch.object(google.cloud.dns.client.ManagedZone, 'changes')
     # PLC directory create DID, welcome DM AP inbox delivery
