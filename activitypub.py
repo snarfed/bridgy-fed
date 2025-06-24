@@ -74,7 +74,7 @@ OLD_ACCOUNT_EXEMPT_DOMAINS = (
     'channel.org',
     'newsmast.community',
     'pixelfed.social',
-) + ids.ATPROTO_HANDLE_DOMAINS
+)
 
 # we can't yet authorize activities from these domains:
 # * a.gup.pe groups sign with the group's actor but use the external author as
@@ -133,12 +133,13 @@ class ActivityPub(User, Protocol):
     @property
     def REQUIRES_AVATAR(self):
         ''
-        return util.domain_from_link(self.key.id()) not in ids.ATPROTO_HANDLE_DOMAINS
+        return not util.domain_or_parent_in(self.key.id(), ids.ATPROTO_HANDLE_DOMAINS)
 
     @property
     def REQUIRES_OLD_ACCOUNT(self):
         ''
-        return util.domain_from_link(self.key.id()) not in OLD_ACCOUNT_EXEMPT_DOMAINS
+        return not util.domain_or_parent_in(
+            self.key.id(), OLD_ACCOUNT_EXEMPT_DOMAINS + ids.ATPROTO_HANDLE_DOMAINS)
 
     def _pre_put_hook(self):
         r"""Validate id, require URL, don't allow Bridgy Fed domains.
