@@ -1,5 +1,7 @@
 """Unit tests for nostr_hub.py."""
-from datetime import datetime
+from datetime import datetime, timedelta
+from threading import Barrier
+import time
 from unittest import skip
 from unittest.mock import patch
 
@@ -108,20 +110,10 @@ class NostrHubTest(TestCase):
         nostr_hub.init()
         self.assertEqual([Nostr.DEFAULT_TARGET], FakeConnection.relays)
 
-        profile = {
-            'kind': KIND_PROFILE,
-            'content': json_dumps({
-                'name': 'Me',
-                'picture': 'http://a/pic',
-            }),
-        }
         relays_a = Object(id='nostr:neventa', nostr={
             'kind': KIND_RELAYS,
             'tags': [['r', 'wss://a']],
         }).put()
-
-        self.bob.obj_key = Object(id='bob', nostr={**profile, 'pubkey': BOB_PUBKEY}
-                                  ).put()
         self.bob.relays = relays_a
         self.bob.put()
 
@@ -145,6 +137,43 @@ class NostrHubTest(TestCase):
         FakeConnection.reset()
         nostr_hub.init()
         self.assertEqual(['wss://b'], FakeConnection.relays)
+
+    @patch('nostr_hub.RECONNECT_DELAY', timedelta(seconds=.01))
+    def test_load_new_user_makes_existing_subscribers_reconnect(self, _, __):
+        util.now = datetime.now
+
+        recving = Barrier(2)
+        def recv(**kwargs):
+            recving.wait()
+            raise TimeoutError()
+
+        with patch.object(FakeConnection, 'recv', side_effect=recv):
+            nostr_hub.init()
+
+            bob_req = [
+                'REQ', 'sub123',
+                {'#p': [PUBKEY]},
+                {'authors': [BOB_PUBKEY]},
+            ]
+            self.assertEqual([bob_req], FakeConnection.sent)
+
+            relays = Object(id='nostr:neventa', nostr={
+                'kind': KIND_RELAYS,
+                'tags': [['r', Nostr.DEFAULT_TARGET]],
+            }).put()
+            eve = self.make_nostr('eve', EVE_NSEC_URI, EVE_NPUB_URI, relays=relays)
+
+            recving.wait()
+            nostr_hub.init(subscribe=False)
+            recving.wait()
+            recving.wait()
+
+        both_req = [
+            'REQ', 'sub123',
+            {'#p': [PUBKEY]},
+            {'authors': [EVE_PUBKEY, BOB_PUBKEY]},
+        ]
+        self.assertEqual([bob_req, both_req], FakeConnection.sent)
 
     def test_subscribe_reply_to_bridged_user(self, mock_create_task, _):
         event = id_and_sign({

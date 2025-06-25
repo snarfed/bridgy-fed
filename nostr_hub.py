@@ -126,14 +126,14 @@ def subscriber(relay):
 
     with ndb_client.context(**NDB_CONTEXT_KWARGS):
          while True:
-            try:
-                subscribe(relay)
-            except (ConnectionClosed, TimeoutError) as err:
-                logger.warning(err)
-            except BaseException:
-                report_exception()
-            logger.info(f'disconnected! waiting {RECONNECT_DELAY}, then reconnecting')
-            time.sleep(RECONNECT_DELAY.total_seconds())
+             try:
+                 subscribe(relay)
+             except (ConnectionClosed, TimeoutError) as err:
+                 logger.warning(err)
+                 logger.info(f'disconnected! waiting {RECONNECT_DELAY}, then reconnecting')
+                 time.sleep(RECONNECT_DELAY.total_seconds())
+             except BaseException as err:
+                 report_exception()
 
 
 def subscribe(relay, limit=None):
@@ -149,6 +149,7 @@ def subscribe(relay, limit=None):
         if not DEBUG:
             assert limit is None
 
+        last_loaded_at = max(bridged_loaded_at, nostr_loaded_at)
         received = 0
         subscription = secrets.token_urlsafe(16)
         req = json_dumps([
@@ -160,7 +161,17 @@ def subscribe(relay, limit=None):
         ws.send(req)
 
         while True:
-            msg = ws.recv(timeout=HTTP_TIMEOUT)
+            if bridged_loaded_at > last_loaded_at or nostr_loaded_at > last_loaded_at:
+                logger.info(f'reconnecting to {relay} to pick up new user(s)')
+                return
+
+            try:
+                # use timeout to make sure we periodically loop and check whether
+                # we've loaded any new users, above, and need to re-query
+                msg = ws.recv(timeout=util.HTTP_TIMEOUT)
+            except TimeoutError:
+                continue
+
             logger.debug(f'{ws.remote_address} => {msg}')
             resp = json_loads(msg)
 
