@@ -128,7 +128,7 @@ def subscriber(relay):
          while True:
             try:
                 subscribe(relay)
-            except ConnectionClosed as err:
+            except (ConnectionClosed, TimeoutError) as err:
                 logger.warning(err)
             except BaseException:
                 report_exception()

@@ -23,7 +23,6 @@ from granary.tests.test_nostr import (
 )
 from oauth_dropins.webutil import util
 from oauth_dropins.webutil.util import json_dumps, json_loads
-from websockets.exceptions import ConnectionClosedOK
 
 import common
 from models import Object
