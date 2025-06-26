@@ -133,15 +133,13 @@ class ActivityPub(User, Protocol):
     @property
     def REQUIRES_AVATAR(self):
         ''
-        return not util.domain_or_parent_in(util.domain_from_link(self.key.id()),
-                                            ids.ATPROTO_HANDLE_DOMAINS)
+        return not util.domain_or_parent_in(self.key.id(), ids.ATPROTO_HANDLE_DOMAINS)
 
     @property
     def REQUIRES_OLD_ACCOUNT(self):
         ''
         return not util.domain_or_parent_in(
-            util.domain_from_link(self.key.id()),
-            OLD_ACCOUNT_EXEMPT_DOMAINS + ids.ATPROTO_HANDLE_DOMAINS)
+            self.key.id(), OLD_ACCOUNT_EXEMPT_DOMAINS + ids.ATPROTO_HANDLE_DOMAINS)
 
     def _pre_put_hook(self):
         r"""Validate id, require URL, don't allow Bridgy Fed domains.
@@ -1264,9 +1262,8 @@ def inbox(protocol=None, id=None):
     # check signature, auth
     authed_as = ActivityPub.verify_signature(activity)
 
-    authed_domain = util.domain_from_link(authed_as)
-    if util.domain_or_parent_in(authed_domain, NO_AUTH_DOMAINS):
-        error(f"Ignoring, sorry, we don't know how to authorize {authed_domain} activities yet. https://github.com/snarfed/bridgy-fed/issues/566", status=204)
+    if util.domain_or_parent_in(authed_as, NO_AUTH_DOMAINS):
+        error(f"Ignoring, sorry, we don't know how to authorize {util.domain_from_link(authed_as)} activities yet. https://github.com/snarfed/bridgy-fed/issues/566", status=204)
 
     # if we need the LD Sig to authorize this activity, bail out, we don't do
     # those yet

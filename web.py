@@ -544,7 +544,7 @@ class Web(User, Protocol):
             return False
 
         if (cls.is_blocklisted(url, allow_internal=True)
-              or util.domain_or_parent_in(domain_from_link(url), FETCH_BLOCKLIST)):
+                or util.domain_or_parent_in(url, FETCH_BLOCKLIST)):
             return False
 
         is_homepage = urlparse(url).path.strip('/') == ''

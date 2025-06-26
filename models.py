@@ -1100,8 +1100,7 @@ class Object(StringIdModel):
         if self.key:
             obj.setdefault('id', self.key.id())
 
-        if util.domain_or_parent_in(util.domain_from_link(obj.get('id')),
-                                    IMAGE_PROXY_DOMAINS):
+        if util.domain_or_parent_in(obj.get('id'), IMAGE_PROXY_DOMAINS):
            as1.prefix_urls(obj, 'image', IMAGE_PROXY_URL_BASE)
 
         return obj

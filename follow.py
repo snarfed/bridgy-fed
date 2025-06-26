@@ -105,7 +105,7 @@ class FollowCallback(indieauth.Callback):
             #     return redirect(user.user_page_path('following'))
             as2_url = webfinger.fetch_actor_url(addr)
 
-        if util.domain_or_parent_in(util.domain_from_link(as2_url), common.DOMAINS):
+        if util.domain_or_parent_in(as2_url, common.DOMAINS):
             proto = Protocol.for_id(as2_url)
             flash(f"{addr} is a bridged account. Try following them on {proto.PHRASE}!")
             return redirect(user.user_page_path('following'))

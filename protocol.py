@@ -797,7 +797,7 @@ class Protocol:
             blocklist += tuple(util.RESERVED_TLDS | util.LOCAL_TLDS)
         if not allow_internal:
             blocklist += DOMAINS
-        return util.domain_or_parent_in(util.domain_from_link(url), blocklist)
+        return util.domain_or_parent_in(url, blocklist)
 
     @classmethod
     def translate_ids(to_cls, obj):
@@ -1645,10 +1645,8 @@ Hi! You <a href="{inner_obj_as1.get('url') or inner_obj_id}">recently {verb}</a>
             User.load_multi(users)
 
             if (not followers and
-                (util.domain_or_parent_in(
-                    util.domain_from_link(from_user.key.id()), LIMITED_DOMAINS)
-                 or util.domain_or_parent_in(
-                     util.domain_from_link(obj.key.id()), LIMITED_DOMAINS))):
+                (util.domain_or_parent_in(from_user.key.id(), LIMITED_DOMAINS)
+                 or util.domain_or_parent_in(obj.key.id(), LIMITED_DOMAINS))):
                 logger.info(f'skipping, {from_user.key.id()} is on a limited domain and has no followers')
                 return {}
 
