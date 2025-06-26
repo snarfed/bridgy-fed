@@ -367,6 +367,22 @@ class ActivityPubTest(TestCase):
         return self.client.post(path, data=body, headers=headers,
                                 base_url=base_url, **kwargs)
 
+    @patch('ids.ATPROTO_HANDLE_DOMAINS', ('a.co', 'b.org'))
+    @patch('activitypub.OLD_ACCOUNT_EXEMPT_DOMAINS', ('a.co', 'c.d.net'))
+    def test_REQUIRES_OLD_ACCOUNT_and_REQUIRES_AVATAR(self, *_):
+        for id in ('http://a.co/x', 'http://sub.subb.a.co/y', 'http://b.org/'):
+            with self.subTest(id=id):
+                self.assertFalse(ActivityPub(id=id).REQUIRES_AVATAR)
+                self.assertFalse(ActivityPub(id=id).REQUIRES_OLD_ACCOUNT)
+
+        cdnet = ActivityPub(id='https://c.d.net/e/f')
+        self.assertTrue(cdnet.REQUIRES_AVATAR)
+        self.assertFalse(cdnet.REQUIRES_OLD_ACCOUNT)
+
+        zio = ActivityPub(id='https://z.io/y')
+        self.assertTrue(zio.REQUIRES_AVATAR)
+        self.assertTrue(zio.REQUIRES_OLD_ACCOUNT)
+
     def test_actor_fake(self, *_):
         self.make_user('fake:user', cls=Fake, enabled_protocols=['activitypub'])
         got = self.client.get('/ap/fake:user', base_url='https://fa.brid.gy/',

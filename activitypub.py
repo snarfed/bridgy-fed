@@ -133,13 +133,15 @@ class ActivityPub(User, Protocol):
     @property
     def REQUIRES_AVATAR(self):
         ''
-        return not util.domain_or_parent_in(self.key.id(), ids.ATPROTO_HANDLE_DOMAINS)
+        return not util.domain_or_parent_in(util.domain_from_link(self.key.id()),
+                                            ids.ATPROTO_HANDLE_DOMAINS)
 
     @property
     def REQUIRES_OLD_ACCOUNT(self):
         ''
         return not util.domain_or_parent_in(
-            self.key.id(), OLD_ACCOUNT_EXEMPT_DOMAINS + ids.ATPROTO_HANDLE_DOMAINS)
+            util.domain_from_link(self.key.id()),
+            OLD_ACCOUNT_EXEMPT_DOMAINS + ids.ATPROTO_HANDLE_DOMAINS)
 
     def _pre_put_hook(self):
         r"""Validate id, require URL, don't allow Bridgy Fed domains.
