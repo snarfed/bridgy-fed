@@ -491,6 +491,8 @@ class ATProto(User, Protocol):
                 logger.info(f'Fetching and storing pinned post {featured_id}')
                 if featured_obj := user.load(featured_id):
                     post = cls.convert(featured_obj, fetch_blobs=True, from_user=user)
+                    if not post:
+                        raise ValueError(f"Couldn't convert pinned post {featured_id}")
                     rkey = next_tid()
                     initial_writes.append(Write(action=Action.CREATE, record=post,
                                                 collection='app.bsky.feed.post',
@@ -511,6 +513,8 @@ class ATProto(User, Protocol):
         # DatastoreClient looks it up as an ATProto record in the repo.
         if user.obj and user.obj.as1:
             profile = cls.convert(user.obj, fetch_blobs=True, from_user=user)
+            if not profile:
+                raise ValueError(f"Couldn't convert profile object {user.obj_key.id()}")
             logger.info(f'Storing ATProto app.bsky.actor.profile self')
             repo.apply_writes([Write(action=Action.CREATE, record=profile,
                                      collection='app.bsky.actor.profile',

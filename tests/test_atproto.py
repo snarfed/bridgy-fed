@@ -1399,6 +1399,24 @@ Sed tortor neque, aliquet quis posuere aliquam […]
         }, repo.get_record('app.bsky.feed.post', last_tid),
         ignore=['bridgyOriginalText', 'bridgyOriginalUrl'])
 
+    @patch.object(tasks_client, 'create_task', return_value=Task(name='my task'))
+    @patch('requests.post', return_value=requests_response('OK'))  # create DID on PLC
+    def test_create_for_cant_fetch_pinned_post(self, mock_post, mock_create_task):
+        Fake.fetchable = {
+            'fake:profile:user': {
+                **ACTOR_AS,
+                'featured': {'items': ['fake:pinned']},
+                'image': [],
+            },
+            # no fake:pinned so that fetching it returns None
+        }
+        user = Fake(id='fake:user')
+
+        with self.assertRaises(ValueError):
+            ATProto.create_for(user)
+
+        self.assertEqual([], user.copies)
+
     def test_create_for_bad_handle(self):
         # underscores gets translated to dashes, trailing/leading aren't allowed
         for bad in 'fake:user_', '_fake:user':
