@@ -490,16 +490,18 @@ class ATProto(User, Protocol):
             if featured_id := as1.get_id(featured_collection, 'items'):
                 logger.info(f'Fetching and storing pinned post {featured_id}')
                 if featured_obj := user.load(featured_id):
-                    post = cls.convert(featured_obj, fetch_blobs=True, from_user=user)
-                    if not post:
-                        raise ValueError(f"Couldn't convert pinned post {featured_id}")
-                    rkey = next_tid()
-                    initial_writes.append(Write(action=Action.CREATE, record=post,
-                                                collection='app.bsky.feed.post',
-                                                rkey=rkey))
-                    uri = f'at://{did_plc.did}/app.bsky.feed.post/{rkey}'
-                    featured_obj.add('copies', Target(uri=uri, protocol=cls.LABEL))
-                    featured_obj.put()
+                    if post := cls.convert(featured_obj, fetch_blobs=True,
+                                           from_user=user):
+                        rkey = next_tid()
+                        initial_writes.append(Write(action=Action.CREATE, record=post,
+                                                    collection='app.bsky.feed.post',
+                                                    rkey=rkey))
+                        uri = f'at://{did_plc.did}/app.bsky.feed.post/{rkey}'
+                        featured_obj.add('copies', Target(uri=uri, protocol=cls.LABEL))
+                        featured_obj.put()
+                    else:
+                        logger.warning(f"Couldn't convert pinned post {featured_id}")
+
 
         # create repo
         repo = Repo.create(

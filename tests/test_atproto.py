@@ -1401,21 +1401,38 @@ Sed tortor neque, aliquet quis posuere aliquam […]
 
     @patch.object(tasks_client, 'create_task', return_value=Task(name='my task'))
     @patch('requests.post', return_value=requests_response('OK'))  # create DID on PLC
-    def test_create_for_cant_fetch_pinned_post(self, mock_post, mock_create_task):
+    def test_create_for_cant_convert_pinned_post(self, mock_post, mock_create_task):
         Fake.fetchable = {
             'fake:profile:user': {
                 **ACTOR_AS,
                 'featured': {'items': ['fake:pinned']},
                 'image': [],
             },
-            # no fake:pinned so that fetching it returns None
+            # can't convert because it has an an inReplyTo
+            'fake:pinned': {
+                'objectType': 'note',
+                'id': 'fake:pinned',
+                'inReplyTo': 'fake:orig',
+                'content': 'My pinned post',
+            },
         }
         user = Fake(id='fake:user')
 
-        with self.assertRaises(ValueError):
-            ATProto.create_for(user)
+        ATProto.create_for(user)
 
-        self.assertEqual([], user.copies)
+        # check user, repo
+        did = user.key.get().get_copy(ATProto)
+        self.assertEqual([Target(uri=did, protocol='atproto')], user.copies)
+        repo = arroba.server.storage.load_repo(did)
+
+        # check profile, pinned post
+        last_tid = arroba.util.int_to_tid(arroba.util._tid_ts_last)
+        self.assert_equals({
+            '$type': 'app.bsky.actor.profile',
+            'displayName': 'Alice',
+            'description': 'hi there\n\n🌉 bridged from web:fake:user on fake-phrase by https://fed.brid.gy/',
+        }, repo.get_record('app.bsky.actor.profile', 'self'),
+        ignore=['bridgyOriginalDescription', 'bridgyOriginalUrl', 'labels'])
 
     def test_create_for_bad_handle(self):
         # underscores gets translated to dashes, trailing/leading aren't allowed
