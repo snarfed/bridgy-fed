@@ -43,6 +43,7 @@ bridged_pubkeys = set()
 bridged_loaded_at = datetime(1900, 1, 1)
 pubkeys_initialized = Event()
 
+# string relay websocket adddress URIs
 subscribed_relays = []
 subscribed_relays_lock = Lock()
 
@@ -70,6 +71,7 @@ def _load_users():
             loaded_at = util.now().replace(tzinfo=None)
 
             new_nostr = Nostr.query(Nostr.status == None,
+                                    Nostr.enabled_protocols != None,
                                     Nostr.updated > nostr_loaded_at,
                                     ).fetch()
             Nostr.load_multi(new_nostr)
@@ -109,7 +111,11 @@ def _load_users():
 
 
 def add_relay(relay):
-    """Subscribes to a new relay if we're not already connected to it."""
+    """Subscribes to a new relay if we're not already connected to it.
+
+    Args:
+      relay (str): URI, relay websocket adddress, starting with ``ws://`` or ``wss://``
+    """
     if Nostr.is_blocklisted(relay):
         logger.warning(f'Not subscribing to relay {relay}')
         return
@@ -121,7 +127,11 @@ def add_relay(relay):
 
 
 def subscriber(relay):
-    """Wrapper around :func:`_subscribe` that catches exceptions and reconnects."""
+    """Wrapper around :func:`_subscribe` that catches exceptions and reconnects.
+
+    Args:
+      relay (str): URI, relay websocket adddress, starting with ``ws://`` or ``wss://``
+    """
     logger.info(f'started thread to subscribe to relay {relay}')
 
     with ndb_client.context(**NDB_CONTEXT_KWARGS):

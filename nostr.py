@@ -52,7 +52,7 @@ logger = logging.getLogger(__name__)
 class Nostr(User, Protocol):
     """Nostr class.
 
-    Key id is bech32 npub id, without nostr: prefix.
+    Key id is NIP-21 nostr:npub... bech32 npub URI.
     https://github.com/nostr-protocol/nips/blob/master/19.md
     """
     ABBREV = 'nostr'
@@ -80,7 +80,7 @@ class Nostr(User, Protocol):
 
     def _pre_put_hook(self):
         """Validates that the id is a bech32-encoded nostr:npub id."""
-        assert self.key.id().startswith('nostr:npub')
+        assert self.key.id().startswith('nostr:npub'), self.key.id()
         return super()._pre_put_hook()
 
     def hex_pubkey(self):
@@ -127,9 +127,6 @@ class Nostr(User, Protocol):
         if self.obj_key:
             return granary.nostr.Nostr.user_url(
                 self.obj_key.id().removeprefix("nostr:"))
-
-    def id_uri(self):
-        return f'nostr:{self.key.id()}'
 
     @classmethod
     def owns_id(cls, id):

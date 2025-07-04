@@ -70,7 +70,7 @@ class NostrTest(TestCase):
         self.assertEqual('npub123', Nostr(id='nostr:npub123').npub())
 
     def test_id_uri(self):
-        self.assertEqual('nostr:npub123', Nostr(id='npub123').id_uri())
+        self.assertEqual('nostr:npub123', Nostr(id='nostr:npub123').id_uri())
 
     def test_web_url(self):
         self.assertIsNone(Nostr().web_url())
