@@ -60,7 +60,7 @@
              {% if user.status and user.status != 'private' %}disabled="true"{% endif %} />
         </noscript>
       </form>
-      {% if user.status %} Not bridging because {{ USER_STATUS_DESCRIPTIONS[user.status] }}{% endif %}
+      {% if user.status %} Not bridging because your {{ USER_STATUS_DESCRIPTIONS[user.status] }}{% endif %}
     {% endif %}
   </div>
 </div>

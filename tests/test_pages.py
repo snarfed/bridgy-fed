@@ -777,7 +777,7 @@ class PagesTest(TestCase):
         self.assertEqual(ACTOR_AS2, user.obj.as2)
 
         body = resp.get_data(as_text=True)
-        self.assert_multiline_in('Not bridging because you haven&#39;t set a profile picture', body)
+        self.assert_multiline_in('Not bridging because your account doesn&#39;t have a profile picture', body)
 
     @patch('requests.get', side_effect=[
         requests_response(DID_DOC),

@@ -3207,7 +3207,7 @@ class ProtocolReceiveTest(TestCase):
         self.assertEqual(2, len(ExplicitFake.sent))
         test_dms.DmsTest().assert_sent(
             Fake, user, 'requires-name',
-            "Hi! Your account isn't eligible for bridging yet because you haven't set a profile name that's different from your username.",
+            "Hi! Your account isn't eligible for bridging yet because your account doesn't have a name that's different from your username.",
             strict=False)
         self.assertEqual(('efake:user:target', {
             'objectType': 'activity',
@@ -3247,7 +3247,7 @@ class ProtocolReceiveTest(TestCase):
         self.assertEqual(2, len(ExplicitFake.sent))
         test_dms.DmsTest().assert_sent(
             Fake, user, 'unsupported-handle-fa',
-            "Hi! Your account isn't eligible for bridging yet because efake:handle:user-nope translated to fake-phrase is fake:handle:efake:handle:user-nope, which isn't supported there.",
+            "Hi! Your account isn't eligible for bridging yet because your handle efake:handle:user-nope translated to fake-phrase is fake:handle:efake:handle:user-nope, which isn't supported there.",
             strict=False)
         self.assertEqual(('efake:user-nope:target', {
             'objectType': 'activity',

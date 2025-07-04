@@ -92,18 +92,18 @@ IMAGE_PROXY_URL_BASE = 'https://aujtzahimq.cloudimg.io/v7/'
 IMAGE_PROXY_DOMAINS = ('threads.net',)
 
 USER_STATUS_DESCRIPTIONS = {  # keep in sync with DM.type!
-    'no-feed-or-webmention': "your web site doesn't have an RSS or Atom feed or webmention endpoint",
-    'nobot': "your profile has 'nobot' in it",
-    'nobridge': "your profile has 'nobridge' in it",
-    'no-nip05': "your account's NIP-05 identifier is missing or invalid",
-    'no-profile': 'your profile is missing or empty',
-    'opt-out': 'your account or instance has requested to be opted out',
-    'owns-webfinger': 'your web site looks like a fediverse instance because it already serves Webfinger',
-    'private': 'your account is set as private or protected',
-    'requires-avatar': "you haven't set a profile picture",
-    'requires-name': "you haven't set a profile name that's different from your username",
-    'requires-old-account': f"your account is less than {humanize.naturaldelta(OLD_ACCOUNT_AGE)} old",
-    'unsupported-handle-ap': f"<a href='https://fed.brid.gy/docs#fediverse-get-started'>your username has characters that Bridgy Fed doesn't currently support</a>",
+    'no-feed-or-webmention': "web site doesn't have an RSS or Atom feed or webmention endpoint",
+    'nobot': "profile has 'nobot' in it",
+    'nobridge': "profile has 'nobridge' in it",
+    'no-nip05': "account's NIP-05 identifier is missing or invalid",
+    'no-profile': 'profile is missing or empty',
+    'opt-out': 'account or instance has requested to be opted out',
+    'owns-webfinger': 'web site looks like a fediverse instance because it already serves Webfinger',
+    'private': 'account is set as private or protected',
+    'requires-avatar': "account doesn't have a profile picture",
+    'requires-name': "account doesn't have a name that's different from your username",
+    'requires-old-account': f"account is less than {humanize.naturaldelta(OLD_ACCOUNT_AGE)} old",
+    'unsupported-handle-ap': f"<a href='https://fed.brid.gy/docs#fediverse-get-started'>username has characters that Bridgy Fed doesn't currently support</a>",
 }
 
 logger = logging.getLogger(__name__)
@@ -602,7 +602,7 @@ class User(StringIdModel, metaclass=ProtocolUserMeta):
 
         # explicit opt-in overrides some status
         # !!! WARNING: keep in sync with User.status!
-        ineligible = """Hi! Your account isn't eligible for bridging yet because {desc}. <a href="https://fed.brid.gy/docs#troubleshooting">More details here.</a> You can try again once that's fixed by unfollowing and re-following this account."""
+        ineligible = """Hi! Your account isn't eligible for bridging yet because your {desc}. <a href="https://fed.brid.gy/docs#troubleshooting">More details here.</a> You can try again once that's fixed by unfollowing and re-following this account."""
         if self.status and self.status not in ('nobot', 'private'):
             if desc := USER_STATUS_DESCRIPTIONS.get(self.status):
                 dms.maybe_send(from_proto=to_proto, to_user=self, type=self.status,

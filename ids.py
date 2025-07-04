@@ -348,7 +348,7 @@ def translate_handle(*, handle, from_, to, enhanced):
     # don't check Web handles because they're sometimes URLs, eg
     # @user@instance => https://instance/@user
     if to.LABEL != 'web' and to.owns_handle(output, allow_internal=True) is False:
-        raise ValueError(f"{handle} translated to {to.PHRASE} is {output}, which isn't supported there")
+        raise ValueError(f"handle {handle} translated to {to.PHRASE} is {output}, which isn't supported there")
 
     return output
 
