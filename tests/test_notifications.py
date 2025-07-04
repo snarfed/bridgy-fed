@@ -11,7 +11,7 @@ from notifications import add_notification, get_notifications, NOTIFY_TASK_FREQ
 from .testutil import ExplicitFake, Fake, TestCase
 from web import Web
 
-from .test_dms import DmsTest
+from . import test_dms
 
 
 @patch.object(Fake, 'SUPPORTS_DMS', True)
@@ -105,7 +105,7 @@ class NotificationsTest(TestCase):
             'protocol': 'fake',
         })
         self.assertEqual(200, resp.status_code)
-        DmsTest().assert_sent(ExplicitFake, user, '?', """\
+        test_dms.DmsTest().assert_sent(ExplicitFake, user, '?', """\
 <p>Hi! Here are your recent interactions from people who aren't bridged into fake-phrase:
 <ul>
 <li><a href="http://notif/a">notif/a</a>
