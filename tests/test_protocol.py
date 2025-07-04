@@ -3207,7 +3207,7 @@ class ProtocolReceiveTest(TestCase):
         self.assertEqual(2, len(ExplicitFake.sent))
         test_dms.DmsTest().assert_sent(
             Fake, user, 'requires-name',
-            "Hi! Your account isn't eligible for bridging yet because your account doesn't have a name that's different from your username.",
+            "Hi! Your account isn't eligible for bridging yet because your account's name and username are the same.",
             strict=False)
         self.assertEqual(('efake:user:target', {
             'objectType': 'activity',

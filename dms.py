@@ -35,7 +35,8 @@ def command(names, arg=False, user_bridged=None, handle_bridged=None):
       user_bridged (bool): whether the user sending the DM should be
         bridged. ``True`` for yes, ``False`` for no, ``None` for either.
       handle_bridged (bool): whether the handle arg should be bridged. ``True``
-        for yes, ``False`` for no, ``None` for either.
+        for yes, ``False`` for no, ``None` for either, ``'eligible'`` for
+        not bridged but eligible.
 
     The decorated function should have the signature:
       (from_user, to_proto, arg=None, to_user=None) => (str, None)
@@ -70,13 +71,20 @@ def command(names, arg=False, user_bridged=None, handle_bridged=None):
                     logging.info(f"doesn't look like a handle, trying without leading @")
                     cmd_arg = cmd_arg.removeprefix('@')
 
-                to_user = load_user(to_proto, cmd_arg)
                 from_proto = from_user.__class__
-                if not to_user:
+                if not (to_user := load_user(to_proto, cmd_arg)):
                     return reply(f"Couldn't find user {cmd_arg} on {to_proto.PHRASE}")
-                elif (handle_bridged is not None
-                      and handle_bridged != to_user.is_enabled(from_proto)):
-                    return reply(f'{to_user.user_link(proto=from_proto)} is {"not" if handle_bridged else "already"} bridged into {from_proto.PHRASE}.')
+
+                enabled = to_user.is_enabled(from_proto)
+                if handle_bridged is True and not enabled:
+                    return reply(f'{to_user.user_link(proto=from_proto)} is not bridged into {from_proto.PHRASE}.')
+                elif handle_bridged in (False, 'eligible') and enabled:
+                    return reply(f'{to_user.user_link(proto=from_proto)} is already bridged into {from_proto.PHRASE}.')
+                elif handle_bridged == 'eligible' and to_user.status:
+                    because = ''
+                    if desc := models.USER_STATUS_DESCRIPTIONS.get(to_user.status):
+                        because = f' because their {desc}'
+                    return reply(f"{to_user.user_link()} on {to_proto.PHRASE} isn't eligible for bridging into {from_proto.PHRASE}{because}.")
 
             from_user_enabled = from_user.is_enabled(to_proto)
             if user_bridged is True and not from_user_enabled:
@@ -227,8 +235,9 @@ def migrate_to(from_user, to_proto, arg, to_user):
     return f"OK, we'll migrate your bridged account on {to_proto.PHRASE} to {to_user.user_link()}."
 
 
-@command(None, arg='handle', user_bridged=True)  # no command, just the handle, alone
+@command(None, arg='handle', user_bridged=True, handle_bridged='eligible')
 def prompt(from_user, to_proto, arg, to_user):
+    """Prompt a non-bridged user to bridge. No command, just the handle, alone."""
     from_proto = from_user.__class__
     try:
         ids.translate_handle(handle=arg, from_=to_proto, to=from_user, enhanced=False)
@@ -236,11 +245,7 @@ def prompt(from_user, to_proto, arg, to_user):
         logger.warning(e)
         return f"Sorry, Bridgy Fed doesn't yet support bridging handle {arg} from {to_proto.PHRASE} to {from_proto.PHRASE}."
 
-    if to_user.is_enabled(from_proto):
-        # already bridged
-        return f'{to_user.user_link(proto=from_proto)} is already bridged into {from_proto.PHRASE}.'
-
-    elif (models.DM(protocol=from_proto.LABEL, type='request_bridging')
+    if (models.DM(protocol=from_proto.LABEL, type='request_bridging')
           in to_user.sent_dms):
         # already requested
         return f"We've already sent {to_user.user_link()} a DM. Fingers crossed!"
@@ -390,6 +395,6 @@ def load_user(proto, handle):
         return None
 
     if id := proto.handle_to_id(handle):
-        if user := proto.get_or_create(id):
-            if user.obj:
+        if user := proto.get_or_create(id, allow_opt_out=True):
+            if user.obj and user.obj.as1:
                 return user

@@ -101,7 +101,7 @@ USER_STATUS_DESCRIPTIONS = {  # keep in sync with DM.type!
     'owns-webfinger': 'web site looks like a fediverse instance because it already serves Webfinger',
     'private': 'account is set as private or protected',
     'requires-avatar': "account doesn't have a profile picture",
-    'requires-name': "account doesn't have a name that's different from your username",
+    'requires-name': "account's name and username are the same",
     'requires-old-account': f"account is less than {humanize.naturaldelta(OLD_ACCOUNT_AGE)} old",
     'unsupported-handle-ap': f"<a href='https://fed.brid.gy/docs#fediverse-get-started'>username has characters that Bridgy Fed doesn't currently support</a>",
 }

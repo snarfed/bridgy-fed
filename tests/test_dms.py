@@ -324,6 +324,18 @@ class DmsTest(TestCase):
         self.assert_replied(OtherFake, alice, '?', "Couldn't find user other:handle:bob on other-phrase")
         self.assertEqual([], OtherFake.sent)
 
+    @mock.patch.object(OtherFake, 'REQUIRES_NAME', True)
+    def test_receive_prompt_user_not_eligible(self):
+        self.make_user(id='other.brid.gy', cls=Web)
+        alice = self.make_user(id='efake:alice', cls=ExplicitFake,
+                               enabled_protocols=['other'], obj_as1={'x': 'y'})
+        OtherFake.fetchable = {'other:bob': {'a': 'b'}}
+
+        obj = Object(our_as1=DM_ALICE_REQUESTS_BOB)
+        self.assertEqual(('OK', 200), receive(from_user=alice, obj=obj))
+        self.assert_replied(OtherFake, alice, '?', """<a class="h-card u-author" rel="me" href="web:other:bob" title="other:handle:bob">other:handle:bob</a> on other-phrase isn't eligible for bridging into efake-phrase because their account's name and username are the same""")
+        self.assertEqual([], OtherFake.sent)
+
     def test_receive_prompt_from_user_not_bridged(self):
         alice, _ = self.make_alice_bob()
         # not bridged into OtherFake
