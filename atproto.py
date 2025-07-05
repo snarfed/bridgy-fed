@@ -31,7 +31,7 @@ from google.cloud import dns
 from google.cloud.dns.resource_record_set import ResourceRecordSet
 from google.cloud import ndb
 import googleapiclient.discovery
-from granary import as1, bluesky
+from granary import as1, as2, bluesky
 from granary.bluesky import Bluesky, FROM_AS1_TYPES, to_external_embed
 from granary.source import html_to_text, INCLUDE_LINK, Source
 from lexrpc import Client, ValidationError
@@ -1283,7 +1283,19 @@ def atproto_did():
 
     id = get_required_param('id')
 
-    if user := (proto.get_by_id(id) or proto.query(proto.handle == id).get()):
+    user = proto.get_by_id(id) or proto.query(proto.handle == id).get()
+
+    # heuristic for fediverse accounts with mixed case usernames
+    # https://github.com/snarfed/bridgy-fed/issues/1974
+    if not user and protocol == 'ap':
+        if match := as2.URL_RE.match(id):
+            for domain in ids.ATPROTO_HANDLE_DOMAINS:
+                if util.domain_or_parent_in(match.group('server'), [domain]):
+                    handle_as_domain = f'{match.group("username")}.{domain}'.lower()
+                    logger.info(f'Looking for {handle_as_domain}')
+                    user = proto.query(proto.handle_as_domain == handle_as_domain).get()
+
+    if user:
         if copy := user.get_copy(ATProto):
             return copy, {'Content-Type': 'text/plain'}
 

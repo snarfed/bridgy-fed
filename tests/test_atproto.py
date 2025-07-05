@@ -30,6 +30,7 @@ from oauth_dropins.webutil.util import json_dumps, json_loads, trim_nulls
 from requests.exceptions import HTTPError
 from werkzeug.exceptions import BadRequest
 
+from activitypub import ActivityPub
 import atproto
 from atproto import (
     ATProto,
@@ -3183,6 +3184,18 @@ Sed tortor neque, aliquet quis posuere aliquam […]
         self.assert_equals(200, resp.status_code)
         self.assert_equals('text/plain', resp.headers['Content-Type'])
         self.assert_equals('did:plc:user', resp.get_data(as_text=True))
+
+    @patch('ids.ATPROTO_HANDLE_DOMAINS', ('b.c',))
+    def test_atproto_did_ap_id_lower_case_handle_as_domain(self):
+        copy = Target(uri='did:plc:alice', protocol='atproto')
+        user = self.make_user(id='http://a.b.c/users/AlIcE', cls=ActivityPub,
+                              copies=[copy], webfinger_addr='@AlIcE@b.c')
+        self.assertEqual('alice.b.c', user.handle_as_domain)
+
+        resp = self.get('/.well-known/atproto-did?protocol=ap&id=http://a.b.c/users/alice')
+        self.assert_equals(200, resp.status_code)
+        self.assert_equals('text/plain', resp.headers['Content-Type'])
+        self.assert_equals('did:plc:alice', resp.get_data(as_text=True))
 
     def test_atproto_did_missing_params(self):
         resp = self.get('/.well-known/atproto-did')
