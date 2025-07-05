@@ -284,6 +284,7 @@ class UserTest(TestCase):
 
     def test_handle_as_domain(self):
         self.assertEqual('fake-handle-user', Fake(id='fake:user').handle_as_domain)
+        self.assertEqual('fake-handle-user', Fake(id='fake:uSeR').handle_as_domain)
         self.assertEqual('fake-handle-alice-bob',
                          Fake(id='fake:alice_bob').handle_as_domain)
         self.assertEqual('fake-handle-alice-bob-jones',

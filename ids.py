@@ -438,7 +438,7 @@ def handle_as_domain(handle):
     if not handle:
         return None
 
-    flattened = handle.lstrip('@').replace('@', '.')
+    flattened = handle.lower().lstrip('@').replace('@', '.')
     for char in DASH_CHARS:
         flattened = flattened.replace(char, '-')
 

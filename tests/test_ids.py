@@ -354,8 +354,10 @@ class IdsTest(TestCase):
             ('', None),
 
             ('user.com', 'user.com'),
+            ('UsEr.cOm', 'user.com'),
             ('@user@instance.com', 'user.instance.com'),
             ('user@instance.com', 'user.instance.com'),
+            ('uSeR@instAnce.cOm', 'user.instance.com'),
 
             ('user_name@instance.com', 'user-name.instance.com'),
             ('@alice@inst~test.com', 'alice.inst-test.com'),
