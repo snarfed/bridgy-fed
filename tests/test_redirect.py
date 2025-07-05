@@ -67,6 +67,16 @@ class RedirectTest(testutil.TestCase):
         self.assertEqual('https://bsky.app/profile/.bsky.social',
                          got.headers['Location'])
 
+    def test_redirect_brid_gy_url(self):
+        for subdomain in 'fed', 'bsky', 'web':
+            for headers in None, {'Accept': as2.CONTENT_TYPE_LD_PROFILE}:
+                with self.subTest(headers=headers):
+                    got = self.client.get(f'/r/https://{subdomain}.brid.gy/foo?x=y',
+                                          headers=headers)
+                    self.assertEqual(301, got.status_code)
+                    self.assertEqual(f'https://{subdomain}.brid.gy/foo?x=y',
+                                     got.headers['Location'])
+
     def test_as2_bsky_app_url(self):
         got = self.client.get('/r/https://bsky.app/profile/.bsky.social',
                               headers={'Accept': as2.CONTENT_TYPE_LD_PROFILE})

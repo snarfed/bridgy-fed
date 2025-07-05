@@ -20,13 +20,18 @@ import re
 import urllib.parse
 
 from flask import redirect, request
-from granary import as1, as2
+from granary import as1
 from oauth_dropins.webutil import flask_util, util
 from oauth_dropins.webutil.flask_util import error
 from oauth_dropins.webutil.util import json_dumps, json_loads
 
 from activitypub import ActivityPub
-from common import CACHE_CONTROL_VARY_ACCEPT, CONTENT_TYPE_HTML, as2_request_type
+from common import (
+    as2_request_type,
+    CACHE_CONTROL_VARY_ACCEPT,
+    CONTENT_TYPE_HTML,
+    SUPERDOMAIN,
+)
 from flask_app import app
 import memcache
 from protocol import Protocol
@@ -63,6 +68,9 @@ def redir(to):
         to_domain = urllib.parse.urlparse(to).hostname
     except ValueError as e:
         error(f'Invalid URL {to} : {e}')
+
+    if to_domain.endswith(SUPERDOMAIN):
+        return redirect(to, code=301)
 
     # check conneg
     as2_request = as2_request_type()
