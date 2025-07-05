@@ -38,9 +38,8 @@ LOAD_USERS_FREQ = timedelta(seconds=10)
 
 # global: _load_pubkeys populates them, subscribe uses them
 nostr_pubkeys = set()
-nostr_loaded_at = datetime(1900, 1, 1)
 bridged_pubkeys = set()
-bridged_loaded_at = datetime(1900, 1, 1)
+pubkeys_loaded_at = datetime(1900, 1, 1)
 pubkeys_initialized = Event()
 
 # string relay websocket adddress URIs
@@ -61,7 +60,7 @@ def init(subscribe=True):
 
 
 def _load_users():
-    global bridged_loaded_at, nostr_loaded_at
+    global pubkeys_loaded_at
 
     if not DEBUG:
         Timer(LOAD_USERS_FREQ.total_seconds(), _load_users).start()
@@ -72,17 +71,13 @@ def _load_users():
 
             new_nostr = Nostr.query(Nostr.status == None,
                                     Nostr.enabled_protocols != None,
-                                    Nostr.updated > nostr_loaded_at,
+                                    Nostr.updated > pubkeys_loaded_at,
                                     ).fetch()
             Nostr.load_multi(new_nostr)
             for user in new_nostr:
                 nostr_pubkeys.add(uri_to_id(user.key.id()))
                 if target := Nostr.target_for(user.obj):
                     add_relay(target)
-
-            # set *after* we populate nostr_pubkeys so that if we crash earlier, we
-            # re-query from the earlier timestamp
-            nostr_loaded_at = loaded_at
 
             new_bridged = []
             for proto in PROTOCOLS.values():
@@ -96,10 +91,9 @@ def _load_users():
 
             bridged_pubkeys.update(user.hex_pubkey() for user in new_bridged)
 
-            # set *after* we populate bridged_pubkeys so that if we crash earlier, we
-            # re-query from the earlier timestamp
-            bridged_loaded_at = loaded_at
-
+            # set *after* we populate bridged_pubkeys and nostr_pubkeys so that if we
+            # crash earlier, we re-query from the earlier timestamp
+            pubkeys_loaded_at = loaded_at
             pubkeys_initialized.set()
             total = len(nostr_pubkeys) + len(bridged_pubkeys)
             logger.info(f'Nostr pubkeys: {total}, Nostr {len(nostr_pubkeys)} (+{len(new_nostr)}), bridged {len(bridged_pubkeys)} (+{len(new_bridged)})')
@@ -159,7 +153,7 @@ def subscribe(relay, limit=None):
         if not DEBUG:
             assert limit is None
 
-        last_loaded_at = max(bridged_loaded_at, nostr_loaded_at)
+        last_loaded_at = pubkeys_loaded_at
         received = 0
         subscription = secrets.token_urlsafe(16)
         req = json_dumps([
@@ -171,7 +165,7 @@ def subscribe(relay, limit=None):
         ws.send(req)
 
         while True:
-            if bridged_loaded_at > last_loaded_at or nostr_loaded_at > last_loaded_at:
+            if pubkeys_loaded_at > last_loaded_at:
                 logger.info(f'reconnecting to {relay} to pick up new user(s)')
                 return
 
