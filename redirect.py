@@ -69,7 +69,7 @@ def redir(to):
     except ValueError as e:
         error(f'Invalid URL {to} : {e}')
 
-    if to_domain.endswith(SUPERDOMAIN):
+    if to_domain and to_domain.endswith(SUPERDOMAIN):
         return redirect(to, code=301)
 
     # check conneg

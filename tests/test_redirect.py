@@ -86,6 +86,10 @@ class RedirectTest(testutil.TestCase):
         got = self.client.get('/r/')
         self.assertEqual(404, got.status_code)
 
+    def test_redirect_incomplete_url(self):
+        got = self.client.get('/r/https://')
+        self.assertEqual(404, got.status_code)
+
     def test_redirect_html_no_user(self):
         got = self.client.get('/r/http://bar.com/baz')
         self.assertEqual(404, got.status_code)
