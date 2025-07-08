@@ -4,6 +4,7 @@
 /.well-known/acme-challenge/
 datastore.dat*
 /docs/_build/
+encrypted_property_key
 flask_secret_key
 /l
 /local*
