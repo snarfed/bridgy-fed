@@ -72,7 +72,7 @@ iterators==0.2.0
 itsdangerous==2.2.0
 Jinja2==3.1.6
 jwskate==0.12.2
-libipld==1.2.3
+libipld==3.1.1
 lxml==5.4.0
 MarkupSafe==3.0.2
 mf2py==2.0.1
