@@ -588,3 +588,14 @@ def log():
 @flask_util.headers(CACHE_CONTROL)
 def blog_redirect(host, path):
     return MovedPermanently(location=f'https://{host}/{path}')
+
+
+@app.post('/admin/memcache-evict')
+def memcache_evict():
+    if request.headers.get('Authorization') != app.config['SECRET_KEY']:
+        return '', 401
+
+    key = Key(urlsafe=flask_util.get_required_param('key'))
+    memcache.evict(key)
+
+    return ''

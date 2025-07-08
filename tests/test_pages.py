@@ -1,3 +1,4 @@
+
 """Unit tests for pages.py."""
 from unittest import skip
 from unittest.mock import patch
@@ -31,6 +32,7 @@ from .testutil import (
 from activitypub import ActivityPub
 from atproto import ATProto
 import common
+import config
 from models import Object, Follower, Target
 from web import Web
 
@@ -260,7 +262,7 @@ class PagesTest(TestCase):
 
     def test_user_protocol_bot_user(self):
         bot = self.make_user(id='fa.brid.gy', cls=Web)
-        got = self.client.get(f'/web/fa.brid.gy')
+        got = self.client.get('/web/fa.brid.gy')
         self.assert_equals(404, got.status_code)
 
     def test_update_profile(self):
@@ -823,7 +825,7 @@ class PagesTest(TestCase):
         with self.client.session_transaction() as sess:
             sess[LOGINS_SESSION_KEY] = [('MastodonAuth', '@a@b.c')]
 
-        resp = self.client.post(f'/settings/enable', data={
+        resp = self.client.post('/settings/enable', data={
             'key': user.key.urlsafe().decode(),
         })
         self.assertEqual(302, resp.status_code)
@@ -842,7 +844,7 @@ class PagesTest(TestCase):
         with self.client.session_transaction() as sess:
             sess[LOGINS_SESSION_KEY] = [('BlueskyAuth', 'did:plc:abc')]
 
-        resp = self.client.post(f'/settings/enable', data={
+        resp = self.client.post('/settings/enable', data={
             'key': ExplicitFake(id='efake:user').key.urlsafe().decode(),
         })
         self.assertEqual(302, resp.status_code)
@@ -858,7 +860,7 @@ class PagesTest(TestCase):
         with self.client.session_transaction() as sess:
             sess[LOGINS_SESSION_KEY] = [('BlueskyAuth', 'did:plc:abc')]
 
-        resp = self.client.post(f'/settings/disable', data={
+        resp = self.client.post('/settings/disable', data={
             'key': user.key.urlsafe().decode(),
         })
         self.assertEqual(302, resp.status_code)
@@ -878,7 +880,7 @@ class PagesTest(TestCase):
         with self.client.session_transaction() as sess:
             sess[LOGINS_SESSION_KEY] = [('MastodonAuth', '@a@b.c')]
 
-        resp = self.client.post(f'/settings/disable', data={
+        resp = self.client.post('/settings/disable', data={
             'key': ExplicitFake(id='efake:user').key.urlsafe().decode(),
         })
         self.assertEqual(302, resp.status_code)
@@ -899,7 +901,7 @@ class PagesTest(TestCase):
         with self.client.session_transaction() as sess:
             sess[LOGINS_SESSION_KEY] = [('MastodonAuth', '@a@b.c')]
 
-        resp = self.client.post(f'/settings/set-username', data={
+        resp = self.client.post('/settings/set-username', data={
             'key': user.key.urlsafe().decode(),
             'protocol': 'other',
             'username': 'yoozer',
@@ -909,3 +911,28 @@ class PagesTest(TestCase):
         self.assertEqual(['Setting username on other-phrase to yoozer...'],
                          get_flashed_messages())
         self.assertEqual('yoozer', OtherFake.usernames['http://b.c/a'])
+
+    def test_memcache_evict(self):
+        # key = Fake(id='fake:foo').put()
+        self.user.key.get()
+        self.assertIsNotNone(self.user.key.get(use_cache=False, use_datastore=False,
+                                               use_global_cache=True))
+
+        resp = self.client.post('/admin/memcache-evict',
+                                data={'key': self.user.key.urlsafe().decode()},
+                                headers={'Authorization': config.SECRET_KEY})
+        self.assertEqual(200, resp.status_code)
+        self.assertIsNone(self.user.key.get(use_cache=False, use_datastore=False,
+                                            use_global_cache=True))
+
+    def test_memcache_evict_bad_auth(self):
+        self.user.key.get()
+        self.assertIsNotNone(self.user.key.get(use_cache=False, use_datastore=False,
+                                               use_global_cache=True))
+
+        resp = self.client.post('/admin/memcache-evict', data={
+            'key': self.user.key.urlsafe().decode(),
+        })
+        self.assertEqual(401, resp.status_code)
+        self.assertIsNotNone(self.user.key.get(use_cache=False, use_datastore=False,
+                                               use_global_cache=True))

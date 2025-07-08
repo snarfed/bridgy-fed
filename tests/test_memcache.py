@@ -6,7 +6,7 @@ from google.cloud.ndb import Key
 import memcache
 from memcache import memoize, pickle_memcache
 from models import Object
-from .testutil import TestCase
+from .testutil import Fake, TestCase
 
 
 class MemcacheTest(TestCase):
@@ -190,3 +190,13 @@ class MemcacheTest(TestCase):
                 ('☃.net', b'\xe2\x98\x83.net'),
         ):
             self.assertEqual(expected, memcache.key(input))
+
+    def test_evict(self):
+        key = Fake(id='fake:foo').put()
+        key.get()
+        self.assertIsNotNone(key.get(use_cache=False, use_datastore=False,
+                                     use_global_cache=True))
+
+        memcache.evict(key)
+        self.assertIsNone(key.get(use_cache=False, use_datastore=False,
+                                  use_global_cache=True))

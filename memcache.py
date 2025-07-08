@@ -3,6 +3,7 @@ import functools
 import logging
 import os
 
+from google.cloud.ndb._cache import global_cache_key
 from google.cloud.ndb.global_cache import _InProcessGlobalCache, MemcacheCache
 from oauth_dropins.webutil import appengine_info
 from pymemcache.client.base import PooledClient
@@ -114,6 +115,15 @@ def memoize(expire=None, key=None, write=True, version=MEMOIZE_VERSION):
         return wrapped
 
     return decorator
+
+
+def evict(entity_key):
+    """Evict a datastore entity from memcache.
+
+    Args:
+      entity_key (google.cloud.ndb.Key)
+    """
+    global_cache.delete([global_cache_key(entity_key._key)])
 
 
 ###########################################
