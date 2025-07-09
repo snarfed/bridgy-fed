@@ -36,7 +36,6 @@ from granary.bluesky import Bluesky, FROM_AS1_TYPES, to_external_embed
 from granary.source import html_to_text, INCLUDE_LINK, Source
 from lexrpc import Client, ValidationError
 from requests import RequestException
-from requests_oauth2client import OAuth2AccessTokenAuth
 import oauth_dropins.bluesky
 from oauth_dropins.webutil import util
 from oauth_dropins.webutil.appengine_config import ndb_client

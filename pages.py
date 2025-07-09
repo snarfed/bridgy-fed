@@ -25,8 +25,6 @@ from oauth_dropins.webutil.flask_util import (
 )
 from oauth_dropins.webutil.util import json_loads, json_dumps
 import requests
-from requests_oauth2client import DPoPTokenSerializer
-from requests_oauth2client.flask.auth import FlaskSessionAuthMixin
 import werkzeug.exceptions
 from werkzeug.exceptions import NotFound
 
