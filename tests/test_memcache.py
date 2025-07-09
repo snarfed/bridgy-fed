@@ -3,9 +3,11 @@ from unittest.mock import patch
 
 from google.cloud.ndb import Key
 
+import config
 import memcache
 from memcache import memoize, pickle_memcache
 from models import Object
+from oauth_dropins.webutil.testutil import requests_response
 from .testutil import Fake, TestCase
 
 
@@ -200,3 +202,13 @@ class MemcacheTest(TestCase):
         memcache.evict(key)
         self.assertIsNone(key.get(use_cache=False, use_datastore=False,
                                   use_global_cache=True))
+
+    @patch('requests.post', return_value=requests_response())
+    def test_remote_evict(self, mock_post):
+        key = Fake(id='fake:foo').key
+        memcache.remote_evict(key)
+        mock_post.assert_has_calls([self.req(
+            'https://fed.brid.gy/admin/memcache-evict',
+            headers={'Authorization': config.SECRET_KEY},
+            data={'key': key.urlsafe()},
+        )])

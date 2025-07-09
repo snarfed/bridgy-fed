@@ -3,9 +3,10 @@ import functools
 import logging
 import os
 
+import config
 from google.cloud.ndb._cache import global_cache_key
 from google.cloud.ndb.global_cache import _InProcessGlobalCache, MemcacheCache
-from oauth_dropins.webutil import appengine_info
+from oauth_dropins.webutil import appengine_info, util
 from pymemcache.client.base import PooledClient
 from pymemcache.serde import PickleSerde
 from pymemcache.test.utils import MockMemcacheClient
@@ -124,6 +125,22 @@ def evict(entity_key):
       entity_key (google.cloud.ndb.Key)
     """
     global_cache.delete([global_cache_key(entity_key._key)])
+
+
+def remote_evict(entity_key):
+    """Send a request to production Bridgy Fed to evict an entity from memcache.
+
+    Args:
+      entity_key (google.cloud.ndb.Key)
+
+    Returns:
+      requests.Response:
+    """
+    from common import PRIMARY_DOMAIN
+
+    return util.requests_post(f'https://{PRIMARY_DOMAIN}/admin/memcache-evict',
+                              headers={'Authorization': config.SECRET_KEY},
+                              data={'key': entity_key.urlsafe()})
 
 
 ###########################################

@@ -23,13 +23,14 @@ from oauth_dropins.webutil import appengine_info
 appengine_info.DEBUG = False
 from oauth_dropins.webutil import appengine_config, flask_util, util
 
+from activitypub import ActivityPub
+from app import app
+from atproto import ATProto
 import ids
+import memcache
 from models import Object, Target
 import protocol
-from activitypub import ActivityPub
-from atproto import ATProto
 from web import Web
-from app import app
 
 appengine_config.error_reporting_client.host = 'localhost:9999'
 appengine_config.error_reporting_client.secure = False
@@ -170,6 +171,8 @@ def run():
         if not user.manual_opt_out:
             user.manual_opt_out = True
             user.put()
+
+    memcache.remote_evict(user.key)
 
 
 def delete_ap_targets(*, from_proto=None, user=None, user_id=None):
