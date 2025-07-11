@@ -44,11 +44,11 @@ flask-sock==0.7.0
 furl==2.1.3
 google-api-core[grpc]==2.25.1
 google-api-python-client==2.169.0
-google-auth==2.15.0
+google-auth==2.40.3
 google-auth-httplib2==0.2.0
 google-cloud-appengine-logging==1.6.1
 google-cloud-audit-log==0.3.2
-google-cloud-core==2.3.2
+google-cloud-core==2.4.3
 google-cloud-datastore==2.21.0
 google-cloud-dns==0.35.0
 google-cloud-error-reporting==1.12.0
