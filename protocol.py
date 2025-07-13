@@ -1019,7 +1019,7 @@ class Protocol:
             from_user = from_cls.get_or_create(id=actor, allow_opt_out=internal)
 
         if not internal and (not from_user or from_user.manual_opt_out):
-            error(f'Actor {actor} is manually opted out', status=204)
+            error(f"Couldn't load actor {actor}", status=204)
 
         # if this is an object, ie not an activity, wrap it in a create or update
         obj = from_cls.handle_bare_object(obj, authed_as=authed_as)
