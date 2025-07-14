@@ -623,6 +623,15 @@ class UserTest(TestCase):
         models.get_original_user_key.cache_clear()  # lru_cache
         self.assertIsNone(models.get_original_user_key('other:x'))
 
+    def test_remove_nonexistent_value_noop(self):
+        user = Fake(id='fake:x', enabled_protocols=[])
+        user.remove('enabled_protocols', 'activitypub')
+        self.assertEqual([], user.enabled_protocols)
+
+        user.enabled_protocols = ['web']
+        user.remove('enabled_protocols', 'activitypub')
+        self.assertEqual(['web'], user.enabled_protocols)
+
 
 class ObjectTest(TestCase):
 
@@ -1369,6 +1378,38 @@ class ObjectTest(TestCase):
         cache_key = memcache.memoize_key(
             models.get_original_object_key, 'other:x')
         self.assertIsNone(memcache.pickle_memcache.get(cache_key))
+
+    def test_remove(self):
+        obj = Object(id='x', users=[ndb.Key(Web, 'user1'), ndb.Key(Web, 'user2')])
+        obj.remove('users', ndb.Key(Web, 'user1'))
+        self.assertEqual([ndb.Key(Web, 'user2')], obj.users)
+
+    def test_remove_from_copies_deletes_from_get_original_object_memoize(self):
+        copy = Target(protocol='other', uri='other:x')
+        obj = Object(id='x', copies=[copy])
+        obj.put()
+
+        # check that it's memoized
+        self.assertEqual(obj.key, models.get_original_object_key('other:x'))
+        cache_key = memcache.memoize_key(models.get_original_object_key, 'other:x')
+        self.assertEqual(obj.key, memcache.pickle_memcache.get(cache_key))
+
+        obj.remove('copies', copy)
+        obj.put()
+
+        # check that it's no longer memoized
+        models.get_original_object_key.cache_clear()  # lru_cache
+        self.assertIsNone(models.get_original_object_key('other:x'))
+
+    def test_remove_nonexistent_value_noop(self):
+        user = ndb.Key(Web, 'user')
+        obj = Object(id='x', users=[])
+        obj.remove('users', user)
+        self.assertEqual([], obj.users)
+
+        obj.users = [user]
+        obj.remove('users', ndb.Key(Web, 'other'))
+        self.assertEqual([user], obj.users)
 
     def test_hydrate_note(self):
         self.store_object(id='fake:alice', our_as1=ACTOR_AS)

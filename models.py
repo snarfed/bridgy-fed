@@ -298,6 +298,8 @@ class User(StringIdModel, metaclass=ProtocolUserMeta):
     def add(self, prop, val):
         """Adds a value to a multiply-valued property. Uses ``self.lock``.
 
+        Duplicates :meth:`Object.add`!
+
         Args:
           prop (str)
           val
@@ -311,6 +313,8 @@ class User(StringIdModel, metaclass=ProtocolUserMeta):
 
     def remove(self, prop, val):
         """Removes a value from a multiply-valued property. Uses ``self.lock``.
+
+        Duplicates :meth:`Object.remove`!
 
         Args:
           prop (str)
@@ -1293,6 +1297,8 @@ class Object(StringIdModel):
     def add(self, prop, val):
         """Adds a value to a multiply-valued property. Uses ``self.lock``.
 
+        Duplicates :meth:`User.add`!
+
         Args:
           prop (str)
           val
@@ -1312,12 +1318,20 @@ class Object(StringIdModel):
     def remove(self, prop, val):
         """Removes a value from a multiply-valued property. Uses ``self.lock``.
 
+        Duplicates :meth:`User.remove`!
+
         Args:
           prop (str)
           val
         """
         with self.lock:
-            getattr(self, prop).remove(val)
+            existing = getattr(self, prop)
+            if val in existing:
+                existing.remove(val)
+
+        if prop == 'copies':
+            memcache.pickle_memcache.delete(memcache.memoize_key(
+                get_original_object_key, val.uri))
 
     @staticmethod
     def from_request():
