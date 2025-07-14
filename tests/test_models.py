@@ -601,6 +601,28 @@ class UserTest(TestCase):
             models.get_original_user_key, 'other:x')
         self.assertIsNone(memcache.pickle_memcache.get(cache_key))
 
+    def test_remove(self):
+        user = Fake(id='fake:x', enabled_protocols=['web', 'activitypub'])
+        user.remove('enabled_protocols', 'web')
+        self.assertEqual(['activitypub'], user.enabled_protocols)
+
+    def test_remove_from_copies_deletes_from_get_original_user_memoize(self):
+        copy = Target(protocol='other', uri='other:x')
+        user = Fake(id='fake:x', copies=[copy])
+        user.put()
+
+        # check that it's memoized
+        self.assertEqual(user.key, models.get_original_user_key('other:x'))
+        cache_key = memcache.memoize_key(models.get_original_user_key, 'other:x')
+        self.assertEqual(user.key, memcache.pickle_memcache.get(cache_key))
+
+        user.remove('copies', copy)
+        user.put()
+
+        # check that it's no longer memoized
+        models.get_original_user_key.cache_clear()  # lru_cache
+        self.assertIsNone(models.get_original_user_key('other:x'))
+
 
 class ObjectTest(TestCase):
 

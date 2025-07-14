@@ -309,6 +309,22 @@ class User(StringIdModel, metaclass=ProtocolUserMeta):
             memcache.pickle_memcache.set(memcache.memoize_key(
                 get_original_user_key, val.uri), self.key)
 
+    def remove(self, prop, val):
+        """Removes a value from a multiply-valued property. Uses ``self.lock``.
+
+        Args:
+          prop (str)
+          val
+        """
+        with self.lock:
+            existing = getattr(self, prop)
+            if val in existing:
+                existing.remove(val)
+
+        if prop == 'copies':
+            memcache.pickle_memcache.delete(memcache.memoize_key(
+                get_original_user_key, val.uri))
+
     @classmethod
     def get_by_id(cls, id, allow_opt_out=False, **kwargs):
         """Override to follow ``use_instead`` property and ``status``.
@@ -405,7 +421,7 @@ class User(StringIdModel, metaclass=ProtocolUserMeta):
                         except (ValueError, AssertionError):
                             logger.info(f'failed creating {proto.LABEL} copy',
                                         exc_info=True)
-                            util.remove(user.enabled_protocols, proto.LABEL)
+                            user.remove('enabled_protocols', proto.LABEL)
                     else:
                         logger.debug(f'{proto.LABEL} not enabled or user copy already exists, skipping propagate')
 
@@ -637,7 +653,7 @@ Welcome to Bridgy Fed! Your account will soon be bridged to {to_proto.PHRASE} at
         Args:
           to_proto (:class:`protocol.Protocol` subclass)
         """
-        util.remove(self.enabled_protocols, to_proto.LABEL)
+        self.remove('enabled_protocols', to_proto.LABEL)
         self.put()
         msg = f'Disabled {to_proto.LABEL} for {self.key.id()} : {self.user_page_path()}'
         logger.info(msg)
@@ -1956,7 +1972,6 @@ def get_original_user_key(copy_id):
 
     Args:
       copy_id (str)
-      not_proto (Protocol): optional, don't query this protocol
 
     Returns:
       google.cloud.ndb.Key or None

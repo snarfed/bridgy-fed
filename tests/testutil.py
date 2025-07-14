@@ -318,6 +318,12 @@ class TestCase(unittest.TestCase, testutil.Asserts):
         common.RUN_TASKS_INLINE = True
         app.testing = True
 
+        memcache.client_pool.clear()
+        pickle_memcache.client_pool.clear()
+        global_cache.clear()
+
+        models.get_original_object_key.cache_clear()
+        models.get_original_user_key.cache_clear()
         did.resolve_handle.cache.clear()
         did.resolve_plc.cache.clear()
         did.resolve_web.cache.clear()
@@ -345,12 +351,6 @@ class TestCase(unittest.TestCase, testutil.Asserts):
         self.client.__enter__()
 
         self.router_client = router.app.test_client()
-
-        memcache.client_pool.clear()
-        pickle_memcache.client_pool.clear()
-        global_cache.clear()
-        models.get_original_object_key.cache_clear()
-        models.get_original_user_key.cache_clear()
 
         # clear datastore
         requests.post(f'http://{ndb_client.host}/reset')
