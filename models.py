@@ -207,7 +207,97 @@ def reset_protocol_properties():
                                  if proto and proto.HAS_COPIES)
 
 
-class User(StringIdModel, metaclass=ProtocolUserMeta):
+@lru_cache(maxsize=100000)
+@memcache.memoize(expire=GET_ORIGINALS_CACHE_EXPIRATION)
+def get_original_object_key(copy_id):
+    """Finds the :class:`Object` with a given copy id, if any.
+
+    Note that :meth:`Object.add` also updates this function's
+    :func:`memcache.memoize` cache.
+
+    Args:
+      copy_id (str)
+
+    Returns:
+      google.cloud.ndb.Key or None
+    """
+    assert copy_id
+
+    return Object.query(Object.copies.uri == copy_id).get(keys_only=True)
+
+
+@lru_cache(maxsize=100000)
+@memcache.memoize(expire=GET_ORIGINALS_CACHE_EXPIRATION)
+def get_original_user_key(copy_id):
+    """Finds the user with a given copy id, if any.
+
+    Note that :meth:`User.add` also updates this function's
+    :func:`memcache.memoize` cache.
+
+    Args:
+      copy_id (str)
+
+    Returns:
+      google.cloud.ndb.Key or None
+    """
+    assert copy_id
+
+    for proto in PROTOCOLS.values():
+        if proto and proto.LABEL != 'ui' and not proto.owns_id(copy_id):
+            if orig := proto.query(proto.copies.uri == copy_id).get(keys_only=True):
+                return orig
+
+
+class AddRemoveMixin:
+    """Mixin class that defines the :meth:`add` and :meth:`remove` methods.
+
+    If a subclass of this mixin defines the ``GET_ORIGINAL_FN`` class-level
+    attribute, its memoize cache will be cleared when :meth:`remove` is called with
+    the ``copies`` property.
+    """
+
+    def add(self, prop, val):
+        """Adds a value to a multiply-valued property. Uses ``self.lock``.
+
+        Args:
+          prop (str)
+          val
+
+        Returns:
+          True if val was added, ie it wasn't already in prop, False otherwise
+        """
+        with self.lock:
+            added = util.add(getattr(self, prop), val)
+
+        if prop == 'copies' and added:
+            if fn := getattr(self, 'GET_ORIGINAL_FN'):
+                memcache.pickle_memcache.set(memcache.memoize_key(fn, val.uri),
+                                             self.key)
+
+        return added
+
+    def remove(self, prop, val):
+        """Removes a value from a multiply-valued property. Uses ``self.lock``.
+
+        Args:
+          prop (str)
+          val
+        """
+        with self.lock:
+            existing = getattr(self, prop)
+            if val in existing:
+                existing.remove(val)
+
+        if prop == 'copies':
+            self.clear_get_original_cache(val.uri)
+
+    @classmethod
+    def clear_get_original_cache(cls, uri):
+        if fn := getattr(cls, 'GET_ORIGINAL_FN'):
+            memcache.pickle_memcache.delete(memcache.memoize_key(fn, uri))
+
+
+class User(StringIdModel, AddRemoveMixin, metaclass=ProtocolUserMeta):
     """Abstract base class for a Bridgy Fed user.
 
     Stores some protocols' keypairs. Currently:
@@ -220,6 +310,9 @@ class User(StringIdModel, metaclass=ProtocolUserMeta):
     * *Not* K-256 signing or rotation keys for AT Protocol, those are stored in
       :class:`arroba.datastore_storage.AtpRepo` entities
     """
+    GET_ORIGINAL_FN = get_original_user_key
+    'used by AddRemoveMixin'
+
     obj_key = ndb.KeyProperty(kind='Object')  # user profile
     ''
     mod = ndb.StringProperty()
@@ -294,40 +387,6 @@ class User(StringIdModel, metaclass=ProtocolUserMeta):
 
     def _post_put_hook(self, future):
         logger.debug(f'Wrote {self.key}')
-
-    def add(self, prop, val):
-        """Adds a value to a multiply-valued property. Uses ``self.lock``.
-
-        Duplicates :meth:`Object.add`!
-
-        Args:
-          prop (str)
-          val
-        """
-        with self.lock:
-            added = util.add(getattr(self, prop), val)
-
-        if prop == 'copies' and added:
-            memcache.pickle_memcache.set(memcache.memoize_key(
-                get_original_user_key, val.uri), self.key)
-
-    def remove(self, prop, val):
-        """Removes a value from a multiply-valued property. Uses ``self.lock``.
-
-        Duplicates :meth:`Object.remove`!
-
-        Args:
-          prop (str)
-          val
-        """
-        with self.lock:
-            existing = getattr(self, prop)
-            if val in existing:
-                existing.remove(val)
-
-        if prop == 'copies':
-            memcache.pickle_memcache.delete(memcache.memoize_key(
-                get_original_user_key, val.uri))
 
     @classmethod
     def get_by_id(cls, id, allow_opt_out=False, **kwargs):
@@ -969,11 +1028,14 @@ Welcome to Bridgy Fed! Your account will soon be bridged to {to_proto.PHRASE} at
         return num_followers.get_result(), num_following.get_result()
 
 
-class Object(StringIdModel):
+class Object(StringIdModel, AddRemoveMixin):
     """An activity or other object, eg actor.
 
     Key name is the id, generally a URI. We synthesize ids if necessary.
     """
+    GET_ORIGINAL_FN = get_original_object_key
+    'used by AddRemoveMixin'
+
     users = ndb.KeyProperty(repeated=True)
     'User(s) who created or otherwise own this object.'
 
@@ -1293,45 +1355,6 @@ class Object(StringIdModel):
         if dirty:
             obj.put()
         return obj
-
-    def add(self, prop, val):
-        """Adds a value to a multiply-valued property. Uses ``self.lock``.
-
-        Duplicates :meth:`User.add`!
-
-        Args:
-          prop (str)
-          val
-
-        Returns:
-          True if val was added, ie it wasn't already in prop, False otherwise
-        """
-        with self.lock:
-            added = util.add(getattr(self, prop), val)
-
-        if prop == 'copies' and added:
-            memcache.pickle_memcache.set(memcache.memoize_key(
-                get_original_object_key, val.uri), self.key)
-
-        return added
-
-    def remove(self, prop, val):
-        """Removes a value from a multiply-valued property. Uses ``self.lock``.
-
-        Duplicates :meth:`User.remove`!
-
-        Args:
-          prop (str)
-          val
-        """
-        with self.lock:
-            existing = getattr(self, prop)
-            if val in existing:
-                existing.remove(val)
-
-        if prop == 'copies':
-            memcache.pickle_memcache.delete(memcache.memoize_key(
-                get_original_object_key, val.uri))
 
     @staticmethod
     def from_request():
@@ -1955,44 +1978,3 @@ def fetch_page(query, model_class, by=None):
         new_before = new_before.isoformat()
 
     return results, new_before, new_after
-
-
-@lru_cache(maxsize=100000)
-@memcache.memoize(expire=GET_ORIGINALS_CACHE_EXPIRATION)
-def get_original_object_key(copy_id):
-    """Finds the :class:`Object` with a given copy id, if any.
-
-    Note that :meth:`Object.add` also updates this function's
-    :func:`memcache.memoize` cache.
-
-    Args:
-      copy_id (str)
-
-    Returns:
-      google.cloud.ndb.Key or None
-    """
-    assert copy_id
-
-    return Object.query(Object.copies.uri == copy_id).get(keys_only=True)
-
-
-@lru_cache(maxsize=100000)
-@memcache.memoize(expire=GET_ORIGINALS_CACHE_EXPIRATION)
-def get_original_user_key(copy_id):
-    """Finds the user with a given copy id, if any.
-
-    Note that :meth:`User.add` also updates this function's
-    :func:`memcache.memoize` cache.
-
-    Args:
-      copy_id (str)
-
-    Returns:
-      google.cloud.ndb.Key or None
-    """
-    assert copy_id
-
-    for proto in PROTOCOLS.values():
-        if proto and proto.LABEL != 'ui' and not proto.owns_id(copy_id):
-            if orig := proto.query(proto.copies.uri == copy_id).get(keys_only=True):
-                return orig
