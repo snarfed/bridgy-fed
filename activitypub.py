@@ -1,5 +1,6 @@
 """ActivityPub protocol implementation."""
 from base64 import b64encode
+import copy
 import datetime
 from hashlib import sha256
 import itertools
@@ -570,13 +571,13 @@ class ActivityPub(User, Protocol):
             'to': [as2.PUBLIC_AUDIENCE],
         })
         move.put()
+        logger.info(f'Delivering to AP followers: {move.as2}')
         ret = user.deliver(move, from_user=user, to_proto=cls)
 
-        # mark the bridged actor with movedTo
-        user.obj.our_as1 = {
-            **user.obj.as1,
-            'movedTo': to_user_id,
-        }
+        # set the bridged actor's alsoKnownAs, movedTo
+        user.obj.our_as1 = copy.deepcopy(user.obj.as1)
+        user.obj.our_as1['movedTo'] = to_user_id
+        util.add(user.obj.our_as1.setdefault('alsoKnownAs', []), to_user_id)
         user.obj.put()
 
         return ret
