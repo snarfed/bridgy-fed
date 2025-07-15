@@ -6,7 +6,7 @@ from google.cloud.ndb import Key
 import config
 import memcache
 from memcache import memoize, pickle_memcache
-from models import Object
+from models import get_original_user_key, Object, Target
 from oauth_dropins.webutil.testutil import requests_response
 from .testutil import Fake, TestCase
 
@@ -202,6 +202,25 @@ class MemcacheTest(TestCase):
         memcache.evict(key)
         self.assertIsNone(key.get(use_cache=False, use_datastore=False,
                                   use_global_cache=True))
+
+    def test_evict_nonexistent_entity(self):
+        memcache.evict(Key(Fake, 'fake:nope'))
+
+    def test_evict_user_clears_copies_from_memoize(self):
+        user = Fake(id='fake:foo', copies=[Target(protocol='other', uri='other:a'),
+                                           Target(protocol='other', uri='other:b')])
+        user.put()
+
+        # populate the get_original_user_key memoize cache
+        self.assertEqual(user.key, get_original_user_key('other:a'))
+        self.assertEqual(user.key, get_original_user_key('other:b'))
+
+        memcache.evict(user.key)
+        get_original_user_key.cache_clear()
+        user.key.delete()
+
+        self.assertIsNone(get_original_user_key('other:a'))
+        self.assertIsNone(get_original_user_key('other:b'))
 
     @patch('requests.post', return_value=requests_response())
     def test_remote_evict(self, mock_post):

@@ -121,9 +121,17 @@ def memoize(expire=None, key=None, write=True, version=MEMOIZE_VERSION):
 def evict(entity_key):
     """Evict a datastore entity from memcache.
 
+    For :class:`models.User` and :class:`models.Object` entities, also clears their
+    copies from the :func:`models.get_original_user_key` and
+    :func:`models.get_original_object_key` memoize caches.
+
     Args:
       entity_key (google.cloud.ndb.Key)
     """
+    if entity := entity_key.get():
+        for val in getattr(entity, 'copies'):
+            entity.clear_get_original_cache(val.uri)
+
     global_cache.delete([global_cache_key(entity_key._key)])
 
 
