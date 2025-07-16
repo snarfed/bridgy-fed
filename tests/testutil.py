@@ -39,7 +39,7 @@ import requests
 
 # other modules are imported _after_ Fake etc classes is defined so that it's in
 # PROTOCOLS when URL routes are registered.
-from common import long_to_base64, NDB_CONTEXT_KWARGS, TASKS_LOCATION
+from common import GCP_PROJECT_ID, long_to_base64, NDB_CONTEXT_KWARGS, TASKS_LOCATION
 import ids
 import models
 from models import KEY_BITS, Object, PROTOCOLS, Target, User
@@ -665,7 +665,7 @@ class TestCase(unittest.TestCase, testutil.Asserts):
 
         try:
             mock_create_task.assert_any_call(
-                parent=f'projects/{appengine_info.APP_ID}/locations/{TASKS_LOCATION}/queues/{queue}',
+                parent=f'projects/{GCP_PROJECT_ID}/locations/{TASKS_LOCATION}/queues/{queue}',
                 task=expected,
             )
         except AssertionError as e:

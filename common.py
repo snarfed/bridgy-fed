@@ -43,6 +43,8 @@ DOMAIN_RE = r'^([^/:;@?!\'.]+\.)+[^/:@_?!\'.]+$'
 
 CONTENT_TYPE_HTML = 'text/html; charset=utf-8'
 
+GCP_PROJECT_ID = 'bridgy-federated'  # used in create_task
+
 PRIMARY_DOMAIN = 'fed.brid.gy'
 # protocol-specific subdomains are under this "super"domain
 SUPERDOMAIN = '.brid.gy'
@@ -296,7 +298,7 @@ def unwrap(val, field=None):
     return val
 
 
-def create_task(queue, delay=None, **params):
+def create_task(queue, app_id=GCP_PROJECT_ID, delay=None, **params):
     """Adds a Cloud Tasks task.
 
     If running in a local server, runs the task handler inline instead of
@@ -365,7 +367,7 @@ def create_task(queue, delay=None, **params):
         eta_seconds = int(util.to_utc_timestamp(util.now()) + delay.total_seconds())
         task['schedule_time'] = Timestamp(seconds=eta_seconds)
 
-    parent = tasks_client.queue_path(appengine_info.APP_ID, TASKS_LOCATION, queue)
+    parent = tasks_client.queue_path(app_id, TASKS_LOCATION, queue)
     task = tasks_client.create_task(parent=parent, task=task)
     msg = f'Added {queue} {task.name.split("/")[-1]}'
     if not traceparent:
