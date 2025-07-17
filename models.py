@@ -1204,8 +1204,11 @@ class Object(StringIdModel, AddRemoveMixin):
         They recommend not indexing TTL properties:
         https://cloud.google.com/datastore/docs/ttl#ttl_properties_and_indexes
         """
-        if self.deleted or self.type not in DONT_EXPIRE_OBJECT_TYPES:
-            return (self.updated or util.now()) + OBJECT_EXPIRE_AGE
+        now = self.updated or util.now()
+        if self.deleted:
+            return now + timedelta(days=1)
+        elif self.type not in DONT_EXPIRE_OBJECT_TYPES:
+            return now + OBJECT_EXPIRE_AGE
 
     expire = ndb.ComputedProperty(_expire, indexed=False)
 

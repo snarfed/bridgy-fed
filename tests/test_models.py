@@ -880,7 +880,7 @@ class ObjectTest(TestCase):
         self.assertIsNone(obj.expire)
 
         obj.deleted = True
-        self.assertEqual(NOW + OBJECT_EXPIRE_AGE, obj.expire)
+        self.assertEqual(NOW + timedelta(days=1), obj.expire)
 
     def test_as1_from_as2(self):
         self.assert_equals({

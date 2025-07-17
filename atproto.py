@@ -24,7 +24,6 @@ from arroba.util import (
     service_jwt,
     TOMBSTONED,
 )
-import brevity
 import dag_json
 from flask import abort, redirect, request
 from google.cloud import dns
