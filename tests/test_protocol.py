@@ -1024,6 +1024,24 @@ class ProtocolTest(TestCase):
         Fake.bot_follow(user)
         self.assertEqual([], Fake.sent)
 
+    def test_check_can_migrate_out(self, *_):
+        fake = Fake(id='fake:user', enabled_protocols=['other'])
+        OtherFake.check_can_migrate_out(fake, 'other:user')
+
+    def test_check_can_migrate_out_bad_user_id(self, *_):
+        fake = Fake(id='fake:user', enabled_protocols=['other'])
+        with self.assertRaises(ValueError):
+            OtherFake.check_can_migrate_out(self.user, 'at://did:xyz')
+
+    def test_check_can_migrate_out_user_not_enabled(self, *_):
+        fake = Fake(id='fake:user', enabled_protocols=['efake'])
+        with self.assertRaises(ValueError):
+            OtherFake.check_can_migrate_out(fake, 'https://in.st/eve')
+
+    def test_check_can_migrate_out_same_protocol(self, *_):
+        fake = Fake(id='fake:user', enabled_protocols=['other'])
+        with self.assertRaises(ValueError):
+            Fake.check_can_migrate_out(fake, 'fake:eve')
 
 class ProtocolReceiveTest(TestCase):
 

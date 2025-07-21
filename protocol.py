@@ -741,6 +741,36 @@ class Protocol:
         raise NotImplementedError()
 
     @classmethod
+    def check_can_migrate_out(cls, user, to_user_id):
+        """Raises an exception if a user can't yet migrate to a native account.
+
+        For example, if ``to_user_id`` isn't on this protocol, or if ``user`` is on
+        this protocol, or isn't bridged to this protocol.
+
+        If the user is ready to migrate, returns ``None``.
+
+        Subclasses may override this to add more criteria, but they should call this
+        implementation first.
+
+        Args:
+          user (models.User)
+          to_user_id (str)
+
+        Raises:
+          ValueError: if ``user`` isn't ready to migrate to this protocol yet
+        """
+        def _error(msg):
+            logger.warning(msg)
+            raise ValueError(msg)
+
+        if cls.owns_id(to_user_id) is False:
+            _error(f"{to_user_id} doesn't look like an {cls.LABEL} id")
+        elif isinstance(user, cls):
+            _error(f"{user.handle_or_id()} is on {cls.PHRASE}")
+        elif not user.is_enabled(cls):
+            _error(f"{user.handle_or_id()} isn't currently bridged to {cls.PHRASE}")
+
+    @classmethod
     def migrate_in(cls, user, from_user_id, **kwargs):
         """Migrates a native account in to be a bridged account.
 

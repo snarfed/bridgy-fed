@@ -2344,6 +2344,30 @@ class ActivityPubTest(TestCase):
         with self.assertRaises(ValueError):
             ActivityPub.migrate_out(self.user, 'http://in.st/to')
 
+    def test_check_can_migrate_out(self, _, mock_get, mock_post):
+        mock_get.return_value = self.as2_resp({
+            **ACTOR,
+            'alsoKnownAs': ['http://localhost/user.com'],
+        })
+
+        # shouldn't raise
+        ActivityPub.check_can_migrate_out(self.user, 'http://in.st/to')
+
+    def test_check_can_migrate_out_no_alias_in_to_actor(self, _, mock_get, __):
+        mock_get.return_value = self.as2_resp(ACTOR)
+
+        self.user.enabled_protocols = ['activitypub']
+        with self.assertRaises(ValueError):
+            ActivityPub.check_can_migrate_out(self.user, 'http://in.st/to')
+
+        mock_get.return_value = self.as2_resp({
+            **ACTOR,
+            'alsoKnownAs': ['oth', 'er'],
+        })
+
+        with self.assertRaises(ValueError):
+            ActivityPub.check_can_migrate_out(self.user, 'http://in.st/to')
+
 
 class ActivityPubUtilsTest(TestCase):
     def setUp(self):

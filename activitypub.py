@@ -540,25 +540,10 @@ class ActivityPub(User, Protocol):
         Raises:
           ValueError: eg if ``ActivityPub`` doesn't own ``to_user_id``
         """
-        def _error(msg):
-            logger.warning(msg)
-            raise ValueError(msg)
-
         user_ap_id = user.id_as(cls)
         logger.info(f"Migrating {user.key.id()} 's bridged AP actor {user_ap_id} to {to_user_id}")
 
-        if cls.owns_id(to_user_id) is False:
-            _error(f"{to_user_id} doesn't look like an {cls.LABEL} id")
-        elif isinstance(user, cls):
-            _error(f"{user.handle_or_id()} is on {cls.PHRASE}")
-        elif not user.is_enabled(cls):
-            _error(f"{user.handle_or_id()} isn't currently bridged to {cls.PHRASE}")
-
-        # check that the destination actor has an alias to the bridged actor
-        to_actor = cls.load(to_user_id, remote=True)
-        aka = util.get_list(to_actor.as2, 'alsoKnownAs')
-        if user_ap_id not in aka:
-            _error(f"{to_user_id} 's alsoKnownAs {aka} doesn't contain {user_ap_id}")
+        cls.check_can_migrate_out(user, to_user_id)
 
         # send a Move activity to all followers' inboxes
         id = f'{user_ap_id}#move-{to_user_id}'
@@ -581,6 +566,33 @@ class ActivityPub(User, Protocol):
         user.obj.put()
 
         return ret
+
+    @classmethod
+    def check_can_migrate_out(cls, user, to_user_id):
+        """Raises an exception if a user can't yet migrate to a native AP account.
+
+        For example, if ``to_user_id`` isn't an ActivityPub actor id, or if it
+        doesn't have ``user``'s bridged AP id in its ``alsoKnownAs``.
+
+        Args:
+          user (models.User)
+          to_user_id (str)
+
+        Raises:
+          ValueError: if ``user`` can't migrate to ActivityPub or ``to_user_id`` yet
+        """
+        super().check_can_migrate_out(user, to_user_id)
+
+        # check that the destination actor has an alias to the bridged actor
+        if not (to_actor := cls.load(to_user_id, remote=True)):
+            raise ValueError("Couldn't fetch {to_user_id}")
+
+        aka = util.get_list(to_actor.as2, 'alsoKnownAs')
+        user_ap_id = user.id_as(cls)
+        if user_ap_id not in aka:
+            msg = f"{to_user_id} 's alsoKnownAs doesn't contain {user_ap_id}: {aka}"
+            logger.warning(msg)
+            raise ValueError(msg)
 
     @classmethod
     def verify_signature(cls, activity):
