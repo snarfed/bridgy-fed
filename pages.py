@@ -6,7 +6,7 @@ import logging
 import re
 import time
 
-from flask import render_template, request
+from flask import request
 from google.cloud.ndb import tasklets
 from google.cloud.ndb.key import Key
 from google.cloud.ndb.query import OR
@@ -33,7 +33,13 @@ from activitypub import ActivityPub
 import atproto
 from atproto import ATProto, BlueskyOAuthStart
 import common
-from common import CACHE_CONTROL, DOMAIN_RE, ErrorButDoNotRetryTask, PROTOCOL_DOMAINS
+from common import (
+    CACHE_CONTROL,
+    DOMAIN_RE,
+    ErrorButDoNotRetryTask,
+    PROTOCOL_DOMAINS,
+    render_template,
+)
 from flask_app import app
 from flask import redirect, session
 import ids
@@ -53,12 +59,6 @@ from protocol import Protocol
 from web import Web
 import webfinger
 
-# precompute this because we get a ton of requests for non-existing users
-# from weird open redirect referrers:
-# https://github.com/snarfed/bridgy-fed/issues/422
-with app.test_request_context('/'):
-    USER_NOT_FOUND_HTML = render_template('user_not_found.html')
-
 logger = logging.getLogger(__name__)
 
 BLOG_REDIRECT_DOMAINS = (
@@ -72,14 +72,17 @@ TEMPLATE_VARS = {
     'as2': as2,
     'ATProto': ATProto,
     'ids': ids,
-    'isinstance': isinstance,
     'logs': logs,
     'Nostr': Nostr,
     'PROTOCOLS': PROTOCOLS,
-    'set': set,
-    'util': util,
     'Web': Web,
 }
+
+# precompute this because we get a ton of requests for non-existing users
+# from weird open redirect referrers:
+# https://github.com/snarfed/bridgy-fed/issues/422
+with app.test_request_context('/'):
+    USER_NOT_FOUND_HTML = render_template('user_not_found.html', **TEMPLATE_VARS)
 
 
 def load_user(protocol, id):

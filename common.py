@@ -518,3 +518,13 @@ class FlashErrors(View):
             _, body = interpret_http_exception(e)
             flask_util.flash(util.linkify(body or str(e), pretty=True))
             return redirect('/login')
+
+
+def render_template(template, **kwargs):
+    return flask.render_template(
+        template,
+        isinstance=isinstance,
+        request=request,
+        set=set,
+        util=util,
+        **kwargs)

@@ -9,7 +9,7 @@ from urllib.parse import quote, urlencode, urljoin, urlparse
 from xml.etree import ElementTree
 
 import brevity
-from flask import redirect, render_template, request
+from flask import redirect, request
 from google.cloud import ndb
 from google.cloud.ndb import ComputedProperty
 from granary import as1, as2, atom, microformats2, rss
@@ -31,6 +31,7 @@ from common import (
     DOMAINS,
     PRIMARY_DOMAIN,
     PROTOCOL_DOMAINS,
+    render_template,
     SUPERDOMAIN,
 )
 from flask_app import app
