@@ -438,6 +438,10 @@ class ActivityPub(User, Protocol):
                 obj = resp.json()
             except requests.JSONDecodeError:
                 _error("Couldn't decode as JSON")
+            if not isinstance(obj, dict):
+                logger.warning(f'Got non-object: {obj}')
+                return resp, None
+
             cls._hydrate(obj)
             return resp, obj
 

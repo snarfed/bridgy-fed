@@ -2864,12 +2864,22 @@ class ActivityPubUtilsTest(TestCase):
         mock_post.assert_called_once()
         self.assertEqual(302, resp.status_code)
 
-    @patch('requests.get')
+    @patch('requests.get', return_value=AS2)
     def test_fetch_direct(self, mock_get):
-        mock_get.return_value = AS2
         obj = Object(id='http://orig')
-        ActivityPub.fetch(obj)
+        self.assertTrue(ActivityPub.fetch(obj))
         self.assertEqual(AS2_OBJ, obj.as2)
+
+        mock_get.assert_has_calls((
+            self.as2_req('http://orig'),
+        ))
+
+    @patch('requests.get')
+    def test_fetch_direct_list(self, mock_get):
+        mock_get.return_value = self.as2_resp([AS2_OBJ])
+        obj = Object(id='http://orig')
+        self.assertFalse(ActivityPub.fetch(obj))
+        self.assertIsNone(obj.as2)
 
         mock_get.assert_has_calls((
             self.as2_req('http://orig'),
@@ -2881,7 +2891,7 @@ class ActivityPubUtilsTest(TestCase):
             'Content-Type': 'application/ld+json; profile="https://www.w3.org/ns/activitystreams"',
         })
         obj = Object(id='http://orig')
-        ActivityPub.fetch(obj)
+        self.assertTrue(ActivityPub.fetch(obj))
         self.assertEqual(AS2_OBJ, obj.as2)
 
         mock_get.assert_has_calls((
@@ -2892,7 +2902,7 @@ class ActivityPubUtilsTest(TestCase):
     def test_fetch_via_html(self, mock_get):
         mock_get.side_effect = [HTML_WITH_AS2, AS2]
         obj = Object(id='http://orig')
-        ActivityPub.fetch(obj)
+        self.assertTrue(ActivityPub.fetch(obj))
         self.assertEqual(AS2_OBJ, obj.as2)
 
         mock_get.assert_has_calls((
@@ -2956,7 +2966,7 @@ class ActivityPubUtilsTest(TestCase):
         mock_get.return_value = self.as2_resp(event_article)
 
         obj = Object(id='http://orig')
-        ActivityPub.fetch(obj)
+        self.assertTrue(ActivityPub.fetch(obj))
         self.assertEqual(event_article, obj.as2)
 
     @patch('requests.get')
@@ -2969,7 +2979,7 @@ class ActivityPubUtilsTest(TestCase):
         mock_get.side_effect = [self.as2_resp(actor), self.as2_resp(featured)]
 
         obj = Object(id='http://orig')
-        ActivityPub.fetch(obj)
+        self.assertTrue(ActivityPub.fetch(obj))
         self.assertEqual({**actor, 'featured': {'foo': 'bar'}}, obj.as2)
 
         mock_get.assert_has_calls((
@@ -2986,7 +2996,7 @@ class ActivityPubUtilsTest(TestCase):
         mock_get.return_value = self.as2_resp(actor)
 
         obj = Object(id='http://orig')
-        ActivityPub.fetch(obj)
+        self.assertTrue(ActivityPub.fetch(obj))
         self.assertEqual(actor, obj.as2)
 
         mock_get.assert_called_once()

@@ -212,6 +212,10 @@ def content_type(resp):
     """Returns a :class:`requests.Response`'s Content-Type, without charset suffix."""
     type = resp.headers.get('Content-Type')
     if type:
+        # TODO: don't remove profile
+        # right now, when we remove it, and don't use it to compare against eg
+        # as2.CONTENT_TYPE_LD, we end up accepting non-AS2 JSON-LD, eg:
+        # Content-Type: application/ld+json; charset=UTF-8
         return type.split(';')[0]
 
 
