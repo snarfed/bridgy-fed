@@ -374,6 +374,27 @@ def set_username(user=None):
     return redirect('/settings', code=302)
 
 
+@app.post('/settings/toggle-notifs')
+@require_login
+def toggle_notifs(user=None):
+    """Toggles DM notifications for a given account.
+
+    Args:
+      user (models.User)
+    """
+    if user.send_notifs == 'all':
+        user.send_notifs = 'none'
+        verb = 'disabled'
+    else:
+        user.send_notifs = 'all'
+        verb = 'enabled'
+
+    user.put()
+
+    flash(f'DM notifications {verb} for {user.handle_or_id()}.')
+    return redirect('/settings', code=302)
+
+
 @app.get(f'/<any({",".join(PROTOCOLS)}):protocol>/<id>')
 # WARNING: this overrides the /ap/... actor URL route in activitypub.py, *only*
 # for handles with leading @ character. be careful when changing this route!

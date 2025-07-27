@@ -912,6 +912,36 @@ class PagesTest(TestCase):
                          get_flashed_messages())
         self.assertEqual('yoozer', OtherFake.usernames['http://b.c/a'])
 
+    def test_toggle_notifs(self):
+        user = self.make_user('http://b.c/a', cls=ActivityPub, send_notifs='none',
+                              obj_as2={'id': 'http://b.c/a', 'preferredUsername': 'a'})
+        auth = MastodonAuth(id='@a@b.c', access_token_str='',
+                            user_json='{"uri":"http://b.c/a"}').put()
+
+        with self.client.session_transaction() as sess:
+            sess[LOGINS_SESSION_KEY] = [('MastodonAuth', '@a@b.c')]
+
+        # toggle on
+        resp = self.client.post('/settings/toggle-notifs', data={
+            'key': user.key.urlsafe().decode(),
+        })
+        self.assertEqual(302, resp.status_code)
+        self.assertEqual('/settings', resp.headers['Location'])
+        self.assertEqual(['DM notifications enabled for @a@b.c.'],
+                         get_flashed_messages())
+        self.assertEqual('all', user.key.get().send_notifs)
+
+        # toggle off
+        resp = self.client.post('/settings/toggle-notifs', data={
+            'key': user.key.urlsafe().decode(),
+        })
+        self.assertEqual(302, resp.status_code)
+        self.assertEqual('/settings', resp.headers['Location'])
+        self.assertEqual(['DM notifications enabled for @a@b.c.',
+                          'DM notifications disabled for @a@b.c.'],
+                         get_flashed_messages())
+        self.assertEqual('none', user.key.get().send_notifs)
+
     def test_memcache_evict(self):
         # key = Fake(id='fake:foo').put()
         self.user.key.get()

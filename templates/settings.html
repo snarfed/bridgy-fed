@@ -17,7 +17,7 @@
   </div>
 
   <div class="row">
-    {% if user.enabled_protocols and not user.status %}
+    {% if user.enabled_protocols and not user.status %}  {# Bridging: on #}
       <span id="{{ user.handle }}-switch-disabled-notice" class="disabled-notice"></span>
       <a href="{{ user.user_page_path() }}">Bridging: </a>
       <!-- to {{ user.enabled_protocols|join(', ') }} -->
@@ -46,7 +46,27 @@
     </p>
     {% endif %}
 
-    {% else %}
+    <!--  TODO: uncomment when we launch DM notifs
+    <p>
+      <form method="post" action="/settings/toggle-notifs">
+        <input name="key" type="hidden" value="{{ user.key.urlsafe().decode() }}" />
+        DM notifications from unbridged accounts:
+
+        <label class="switch" id="{{ user.handle }}-notifs-wrapper">
+          <input id="{{ user.handle }}-switch" type="checkbox"
+                 onClick="event.currentTarget.closest('form').submit()"
+                 {% if user.send_notifs == 'all' %}checked{% endif %} />
+          <span class="slider round"></span>
+        </label>
+        <noscript>
+          <input type="submit" class="btn btn-default"
+                 value="{{ 'Enable' if user.send_notifs == 'none' else 'Disable' }}" />
+        </noscript>
+      </form>
+    </p>
+    -->
+
+    {% else %}  {# Bridging: off #}
       <label id="{{ user.handle }}-switch-disabled-notice" class="disabled-notice"></label>
       Bridging:
       <form method="post" action="/settings/enable">
