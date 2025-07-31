@@ -1544,7 +1544,10 @@ class Protocol:
         to_protocols = []
         for label in (list(from_user.DEFAULT_ENABLED_PROTOCOLS)
                       + from_user.enabled_protocols):
-            proto = PROTOCOLS[label]
+            if not (proto := PROTOCOLS.get(label)):
+                report_error(f'unknown enabled protocol {label} for {from_user.key.id()}')
+                continue
+
             if proto.HAS_COPIES and (obj.type in ('update', 'delete', 'share', 'undo')
                                      or is_reply):
                 for id in original_ids:

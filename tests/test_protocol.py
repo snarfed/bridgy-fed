@@ -1566,6 +1566,20 @@ class ProtocolReceiveTest(TestCase):
             Target(protocol='other', uri='other:orig:target'),
         }, Fake.targets(obj, from_user=self.user).keys())
 
+    def test_targets_skip_unknown_enabled_protocol(self):
+        with patch.object(User.enabled_protocols, '_do_validate',
+                          return_value='nope'):
+            self.alice.enabled_protocols = ['nope']
+
+        self.alice.put()
+
+        obj = Object(our_as1={
+            'id': 'fake:post',
+            'objectType': 'note',
+            'author': 'fake:alice',
+        })
+        self.assertEqual([], list(Fake.targets(obj, from_user=self.alice)))
+
     def test_targets_repost_of_quote_with_article_tag_uses_quote_post_as_orig_obj(self):
         """https://github.com/snarfed/bridgy-fed/issues/1357"""
         self.make_followers()
