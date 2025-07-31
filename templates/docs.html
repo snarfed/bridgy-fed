@@ -1085,7 +1085,24 @@ To receive likes, reposts, replies, @-mentions, and follows from other networks,
 
 <li id="identify-bridged-post" class="question">How can I tell if a post is bridged?</li>
 <li class="answer">
-<p>On Bluesky, look for the <code>bridgyOriginalUrl</code> field in the post record. This will have the post's id in its native protocol. For example, <a href="https://bsky.app/profile/fedi.test.snarfed.org/post/3lmwsp3tpdlt2">this post</a> was bridged from the fediverse:
+<p>On the fediverse, look for a <a href="https://codeberg.org/fediverse/fep/src/branch/main/fep/fffd/fep-fffd.md">FEP-fffd proxy link</a> in the object's <code>url</code> field, ie an element with <code>rel=canonical</code> or <code>rel=alternate</code>. For example, <a href="https://browser.pub/...">this reply</a> was bridged from Bluesky:
+<pre>
+{
+  "type": "Note",
+  "id": "...",
+  "url": [
+    "<a href='https://bsky.app/profile/snarfed.bsky.social/post/3lvcb3tswns26'>https://bsky.app/profile/snarfed.bsky.social/post/3lvcb3tswns26</a>",
+    {
+      "type": "Link",
+      "<span class='keyword'>rel</span>": "<span class='keyword'>canonical</span>",
+      "<span class='keyword'>href</span>": "<span class='value'>at://did:plc:3ljmtyyjqcjee2kpewgsifvb/app.bsky.feed.post/3lvcb3tswns26</span>",
+    },
+  ],
+  ...
+</pre>
+<p>On the web, check if the post's microformats2 <code>uid</code> is on a <code>brid.gy</code> subdomain. If so, its original native id will be the last part of the path, after <code>/convert/[protocol]/</code>.
+<p>For example, <code>https://bsky.brid.gy/convert/ap/at://did:plc:3ljmtyyjqcjee2kpewgsifvb/app.bsky.feed.post/3lhputf77w22j</code> is the Bridgy Fed ActivityPub id for a Bluesky post bridged into the fediverse. Its original Bluesky URI is <code>at://did:plc:3ljmtyyjqcjee2kpewgsifvb/app.bsky.feed.post/3lhputf77w22j</code>.
+<p>Bluesky/ATProto don't yet have a standard way to do this yet. For now, Bridgy Fed uses the <code>bridgyOriginalUrl</code> field in the Bluesky post record; it will have the post's id in its native protocol. For example, <a href="https://bsky.app/profile/fedi.test.snarfed.org/post/3lmwsp3tpdlt2">this post</a> was bridged from the fediverse:
 <pre>
 {
   "$type": "app.bsky.feed.post",
@@ -1094,9 +1111,6 @@ To receive likes, reposts, replies, @-mentions, and follows from other networks,
   "<span class='keyword'>bridgyOriginalText</span>": "<span class='value'>&lt;p&gt;hi &lt;a href="https://threads.net/@shnarfed/" class="u-url mention"&gt;@shnarfed&lt;/a&gt;&lt;/p&gt;</span>",
   ...
 </pre>
-<p>On the web or the fediverse, check if the post's microformats2 <code>uid</code> or ActivityPub <code>id</code> is on a <code>brid.gy</code> subdomain. If so, its original native id will be the last part of the path, after <code>/convert/[protocol]/</code>.
-<p>(We're working on using <a href="https://codeberg.org/fediverse/fep/src/branch/main/fep/fffd/fep-fffd.md">FEP-fffd proxy links</a> for this in the fediverse. <a href="https://github.com/snarfed/bridgy-fed/issues/543">Feel free to follow along on GitHub!</a>)
-<p>For example, <code>https://bsky.brid.gy/convert/ap/at://did:plc:3ljmtyyjqcjee2kpewgsifvb/app.bsky.feed.post/3lhputf77w22j</code> is the Bridgy Fed ActivityPub id for a Bluesky post bridged into the fediverse. Its original Bluesky URI is <code>at://did:plc:3ljmtyyjqcjee2kpewgsifvb/app.bsky.feed.post/3lhputf77w22j</code>.
 </li>
 
 <li id="metadata" class="question">Can I get additional metadata about a bridged account or post?</li>
