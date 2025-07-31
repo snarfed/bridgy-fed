@@ -134,7 +134,13 @@ REPOST_AS2 = {
     'type': 'Announce',
     'id': 'http://localhost/r/https://user.com/repost',
     'name': 'reposted!',
+    'actor': 'http://localhost/user.com',
     'object': 'https://mas.to/toot/id',
+    'url': [{
+        'type': 'Link',
+        'rel': 'canonical',
+        'href': 'https://user.com/repost',
+    }],
     'to': [as2.PUBLIC_AUDIENCE],
     'cc': [
         'https://mas.to/author',
@@ -142,7 +148,6 @@ REPOST_AS2 = {
         'https://mas.to/recipient',
         as2.PUBLIC_AUDIENCE,
     ],
-    'actor': 'http://localhost/user.com',
 }
 
 REPOST_HCITE_HTML = """\
@@ -320,6 +325,11 @@ FOLLOW_AS2 = {
     'id': 'http://localhost/r/https://user.com/follow',
     'object': 'https://mas.to/mrs-foo',
     'actor': 'http://localhost/user.com',
+    'url': [{
+        'type': 'Link',
+        'rel': 'canonical',
+        'href': 'https://user.com/follow',
+    }],
     'to': [as2.PUBLIC_AUDIENCE],
 }
 
@@ -343,6 +353,11 @@ FOLLOW_FRAGMENT_MF2 = util.parse_mf2(FOLLOW_FRAGMENT_HTML, id='2')['items'][0]
 FOLLOW_FRAGMENT_AS2 = {
     **FOLLOW_AS2,
     'id': 'http://localhost/r/https://user.com/follow#2',
+    'url': [{
+        'type': 'Link',
+        'rel': 'canonical',
+        'href': 'https://user.com/follow#2',
+    }],
 }
 
 NOTE_HTML = """\
@@ -1092,6 +1107,11 @@ class WebTest(TestCase):
             'contentMap': {'en': '<p>hello i am a post</p>'},
             'name': 'hello i am a post',
             'object': 'http://localhost/r/http://bob.com/post',
+            'url': [{
+                'type': 'Link',
+                'rel': 'canonical',
+                'href': 'https://user.com/multiple',
+            }],
             'to': ['https://www.w3.org/ns/activitystreams#Public'],
             'cc': ['http://localhost/user.com',
                    'https://www.w3.org/ns/activitystreams#Public'],
@@ -1146,7 +1166,7 @@ class WebTest(TestCase):
         self.assertEqual(('https://mas.to/inbox',), args)
         self.assert_equals({
             **REPOST_AS2,
-            'url': 'http://localhost/r/https://unused',
+            'url': ['http://localhost/r/https://unused'] + REPOST_AS2['url'],
         }, json_loads(kwargs['data']))
 
     def test_create_author_only_url(self, mock_get, mock_post):
@@ -1475,7 +1495,7 @@ class WebTest(TestCase):
         ))
 
         self.assert_ap_deliveries(mock_post, ['https://mas.to/inbox'],
-                               FOLLOW_FRAGMENT_AS2)
+                                  FOLLOW_FRAGMENT_AS2)
 
         self.assert_object('https://user.com/follow#2',
                            users=[self.user.key],

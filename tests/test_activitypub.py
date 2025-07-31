@@ -3059,6 +3059,20 @@ class ActivityPubUtilsTest(TestCase):
         self.assert_equals(ACTOR, common.unwrap(ActivityPub.convert(obj)),
                            ignore=['to', 'attachment', 'publicKey'])
 
+    def test_convert_actor_as1_proxy_link(self):
+        obj = Object(id='fake:id', our_as1=ACTOR_AS1, source_protocol='fake')
+        converted = ActivityPub.convert(obj)
+        self.assert_equals([{
+            'type': 'Link',
+            'rel': 'canonical',
+            'href': 'fake:id',
+        }], converted['url'])
+
+    def test_convert_actor_as1_skip_proxy_link_for_brid_gy_ids(self):
+        obj = Object(id='https://web.brid.gy/foo', our_as1=ACTOR_AS1,
+                     source_protocol='web')
+        self.assertNotIn('url', ActivityPub.convert(obj))
+
     def test_convert_follow_as1_no_from_user(self):
         # prevent HTTP fetches to infer protocol
         self.store_object(id='https://mas.to/follow', source_protocol='activitypub')
@@ -3215,6 +3229,79 @@ class ActivityPubUtilsTest(TestCase):
             },
             'to': ['https://www.w3.org/ns/activitystreams#Public'],
         }, ActivityPub.convert(obj), ignore=['@context', 'discoverable', 'indexable'])
+
+    def test_convert_adds_fep_fffd_canonical_link(self):
+        obj = Object(id='fake:post:123', source_protocol='fake', our_as1={
+            'objectType': 'note',
+            'content': 'Hello world',
+        })
+        converted = ActivityPub.convert(obj)
+        self.assertEqual([{
+            'type': 'Link',
+            'rel': 'canonical',
+            'href': 'fake:post:123'
+        }], converted['url'])
+
+    def test_convert_fep_fffd_preserves_existing_url_string(self):
+        obj = Object(id='fake:post:456', source_protocol='web', our_as1={
+            'objectType': 'note',
+            'content': 'Hello',
+            'url': 'fake:url:456',
+        })
+        converted = ActivityPub.convert(obj)
+        self.assertEqual([
+            'http://localhost/r/fake:url:456',
+            {
+                'type': 'Link',
+                'rel': 'canonical',
+                'href': 'fake:post:456'
+            },
+        ], converted['url'])
+
+    def test_convert_fep_fffd_preserves_existing_url_list(self):
+        obj = Object(id='fake:post:789', source_protocol='web', our_as1={
+            'objectType': 'note',
+            'content': 'Multiple URLs',
+            'url': ['fake:1', 'fake:2'],
+        })
+        converted = ActivityPub.convert(obj)
+        self.assertEqual([
+            'http://localhost/r/fake:1',
+            'http://localhost/r/fake:2',
+            {
+                'type': 'Link',
+                'rel': 'canonical',
+                'href': 'fake:post:789'
+            },
+        ], converted['url'])
+
+    def test_convert_fep_fffd_skips_ap_objects(self):
+        obj = Object(id='https://mastodon.social/id',
+                     source_protocol='activitypub',
+                     our_as1={
+                         'objectType': 'note',
+                         'content': 'From ActivityPub',
+                         'url': 'https://mastodon.social/url',
+                     })
+        converted = ActivityPub.convert(obj)
+        self.assertEqual('https://mastodon.social/url', converted['url'])
+
+    def test_convert_fep_fffd_skips_crud_activities(self):
+        obj = Object(id='fake:update', source_protocol='fake',
+                     our_as1={
+                         'objectType': 'update',
+                         'content': 'an update',
+                     })
+        converted = ActivityPub.convert(obj)
+        self.assertNotIn('url', converted)
+
+    def test_convert_fep_fffd_no_object_id(self):
+        obj = Object(source_protocol='web', our_as1={
+            'objectType': 'note',
+            'content': 'No ID',
+        })
+        converted = ActivityPub.convert(obj)
+        self.assertNotIn('url', converted)
 
     def test_postprocess_as2_idempotent(self):
         for obj in (ACTOR, REPLY_OBJECT, REPLY_OBJECT_WRAPPED, REPLY,
@@ -3486,6 +3573,11 @@ class ActivityPubUtilsTest(TestCase):
             'attributedTo': 'https://web.brid.gy/web.brid.gy',
             'content': '<p>hello world</p>',
             'contentMap': {'en': '<p>hello world</p>'},
+            'url': [{
+                'href': 'https://internal.brid.gy/dm',
+                'rel': 'canonical',
+                'type': 'Link',
+            }],
             'to': [ACTOR['id']],
         }, json_loads(kwargs['data']))
 

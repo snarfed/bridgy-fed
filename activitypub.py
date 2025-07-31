@@ -527,7 +527,23 @@ class ActivityPub(User, Protocol):
                 converted['object']['object'] = from_user.id_as(ActivityPub)
 
         # convert!
-        return postprocess_as2(converted, orig_obj=orig_obj)
+        converted = postprocess_as2(converted, orig_obj=orig_obj)
+
+        # FEP-fffd proxy link
+        # https://codeberg.org/fediverse/fep/src/branch/main/fep/fffd/fep-fffd.md
+        # https://github.com/snarfed/bridgy-fed/issues/543
+        if (obj.source_protocol not in (None, 'activitypub')
+                and obj.type not in as1.CRUD_VERBS and obj.key and obj.key.id()
+                and not cls.is_blocklisted(obj.key.id())):
+            canonical = {
+                'type': 'Link',
+                'rel': 'canonical',
+                'href': obj.key.id(),
+            }
+            converted['url'] = util.get_list(converted, 'url')
+            util.add(converted['url'], canonical)
+
+        return converted
 
     @classmethod
     def migrate_out(cls, user, to_user_id):

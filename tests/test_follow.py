@@ -365,7 +365,8 @@ class FollowTest(TestCase):
 
         inbox_args, inbox_kwargs = mock_post.call_args
         self.assertEqual(('http://ba.r/inbox',), inbox_args)
-        self.assert_equals(expected_follow, json_loads(inbox_kwargs['data']))
+        self.assert_equals(expected_follow, json_loads(inbox_kwargs['data']),
+                           ignore=['url'])
 
         # check that we signed with the follower's key
         sig_template = inbox_kwargs['auth'].header_signer.signature_template
@@ -607,7 +608,7 @@ class UnfollowTest(TestCase):
         self.assert_equals({
             **expected_undo,
             'to': [as2.PUBLIC_AUDIENCE],
-        }, json_loads(inbox_kwargs['data']))
+        }, json_loads(inbox_kwargs['data']), ignore=['url'])
 
         # check that we signed with the follower's key
         sig_template = inbox_kwargs['auth'].header_signer.signature_template
@@ -655,7 +656,12 @@ class UnfollowTest(TestCase):
                 **FOLLOW_ADDRESS,
                 'actor': 'http://localhost/www.alice.com',
             },
-        }
+            'url': [{
+                'type': 'Link',
+                'rel': 'canonical',
+                'href': 'https://www.alice.com/#bridgy-fed-unfollow-2022-01-02T03:04:05-https://ba.r/id',
+            }],
+       }
         del expected_undo['object']['id']
 
         inbox_args, inbox_kwargs = mock_post.call_args_list[1]

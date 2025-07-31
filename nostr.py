@@ -34,7 +34,6 @@ from werkzeug.exceptions import NotFound
 
 import common
 from common import (
-    DOMAIN_BLOCKLIST,
     DOMAIN_RE,
     DOMAINS,
     error,

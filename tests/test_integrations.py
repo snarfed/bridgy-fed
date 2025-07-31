@@ -1219,6 +1219,14 @@ To disable these messages, reply with the text 'mute'.""",
                 'name': '@baz',
                 'href': 'https://bsky.brid.gy/ap/https://bsky.app/profile/did:plc:baz',
             }],
+            'url': [
+                'http://localhost/r/https://bsky.app/profile/xyz',
+                {
+                    'type': 'Link',
+                    'rel': 'canonical',
+                    'href': 'at://xyz',
+                },
+            ],
         }
         self.assert_equals(expected, ActivityPub.convert(obj),
                            ignore=['@context', 'to'])
@@ -1268,7 +1276,15 @@ To disable these messages, reply with the text 'mute'.""",
                 'href': 'https://bsky.brid.gy/convert/ap/at://did:plc:abc/app.bsky.feed.post/123',
                 'name': 'RE: https://bsky.app/profile/did:plc:abc/post/123',
                 'mediaType': 'application/ld+json; profile="https://www.w3.org/ns/activitystreams"',
-          }],
+            }],
+            'url': [
+                'http://localhost/r/https://bsky.app/profile/xyz',
+                {
+                    'type': 'Link',
+                    'rel': 'canonical',
+                    'href': 'at://xyz',
+                },
+            ],
         }
         self.assert_equals(expected, ActivityPub.convert(obj),
                            ignore=['@context', 'to'])
