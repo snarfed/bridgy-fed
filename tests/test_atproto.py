@@ -429,6 +429,9 @@ class ATProtoTest(TestCase):
                     'at://did:plc:abc/123/456',  # bad nsid
                     'at://did:plc:abc/123/a b',  # bad rkey
                     'at://did:plc:abc//',
+                    # bad authority
+                    # https://console.cloud.google.com/errors/detail/CI7V5rLOyaWBSg?project=bridgy-federated
+                    'at://foo.bsky.social,[object%20Object]/app.bsky.actor.profile/self',
                     ):
             with self.subTest(uri=uri):
                 self.assertFalse(ATProto.fetch(Object(id=uri)))
@@ -510,6 +513,10 @@ class ATProtoTest(TestCase):
                 'User-Agent': common.USER_AGENT,
             },
         )
+
+    def test_load_bad_bsky_app_url(self):
+        self.assertIsNone(ATProto.load(
+            'https://bsky.app/profile/foo.bsky.social,[object%20Object]'))
 
     def test_convert_bsky_pass_through(self):
         self.store_object(id='did:plc:alice', raw=DID_DOC)

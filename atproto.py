@@ -839,21 +839,20 @@ class ATProto(User, Protocol):
 
         assert not id.startswith('https://bsky.app/')  # handled in load
 
-        # did:plc, did:web
-        if id.startswith('did:'):
-            try:
+        try:
+            # did:plc, did:web
+            if id.startswith('did:'):
                 obj.raw = did.resolve(id, get_fn=util.requests_get)
                 return True
-            except (ValueError, RequestException) as e:
-                util.interpret_http_exception(e)
+            # at:// URI. if it has a handle, resolve and replace with DID.
+            # examples:
+            # at://did:plc:s2koow7r6t7tozgd4slc3dsg/app.bsky.feed.post/3jqcpv7bv2c2q
+            # https://bsky.social/xrpc/com.atproto.repo.getRecord?repo=did:plc:s2koow7r6t7tozgd4slc3dsg&collection=app.bsky.feed.post&rkey=3jqcpv7bv2c2q
+            repo, collection, rkey = parse_at_uri(id)
+            if not repo or not collection or not rkey:
                 return False
-
-        # at:// URI. if it has a handle, resolve and replace with DID.
-        # examples:
-        # at://did:plc:s2koow7r6t7tozgd4slc3dsg/app.bsky.feed.post/3jqcpv7bv2c2q
-        # https://bsky.social/xrpc/com.atproto.repo.getRecord?repo=did:plc:s2koow7r6t7tozgd4slc3dsg&collection=app.bsky.feed.post&rkey=3jqcpv7bv2c2q
-        repo, collection, rkey = parse_at_uri(id)
-        if not repo or not collection or not rkey:
+        except (ValueError, RequestException) as e:
+            util.interpret_http_exception(e)
             return False
 
         if not repo.startswith('did:'):
