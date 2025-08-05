@@ -50,7 +50,7 @@ google-cloud-appengine-logging==1.6.2
 google-cloud-audit-log==0.3.2
 google-cloud-core==2.4.3
 google-cloud-datastore==2.21.0
-google-cloud-dns==0.35.0
+google-cloud-dns==0.35.1
 google-cloud-error-reporting==1.12.0
 google-cloud-logging==3.12.1
 google-cloud-ndb==2.3.4
