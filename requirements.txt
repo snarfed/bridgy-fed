@@ -111,7 +111,7 @@ simple-websocket==1.1.0
 six==1.17.0
 soupsieve==2.7
 tlslite-ng==0.8.2
-tweepy==4.15.0
+tweepy==4.16.0
 typing-validation==1.2.12
 typing_extensions==4.9.0
 ujson==5.10.0
