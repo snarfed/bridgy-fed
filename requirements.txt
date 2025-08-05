@@ -116,7 +116,7 @@ typing-validation==1.2.12
 typing_extensions==4.9.0
 ujson==5.10.0
 update-checker==0.18.0
-uritemplate==4.1.1
+uritemplate==4.2.0
 urllib3==2.5.0
 webencodings==0.5.1
 WebOb==1.8.9
