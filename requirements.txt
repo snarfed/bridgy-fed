@@ -54,7 +54,7 @@ google-cloud-dns==0.35.0
 google-cloud-error-reporting==1.12.0
 google-cloud-logging==3.12.1
 google-cloud-ndb==2.3.4
-google-cloud-tasks==2.19.2
+google-cloud-tasks==2.19.3
 googleapis-common-protos==1.70.0
 grapheme==0.6.0
 grpc-google-iam-v1==0.14.2
