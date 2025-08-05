@@ -104,7 +104,7 @@ pytz==2025.2
 PyYAML==6.0.2
 redis==6.2.0
 requests==2.32.4
-requests-oauthlib==1.4.0
+requests-oauthlib==2.0.0
 rsa==4.9.1
 sgmllib3k==1.0.0
 simple-websocket==1.1.0
