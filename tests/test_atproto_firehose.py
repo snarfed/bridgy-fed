@@ -119,6 +119,10 @@ class ATProtoFirehoseSubscribeTest(ATProtoTestCase):
         super().setUp()
 
         self.cursor = setup_firehose()
+
+        # user is Bluesky, bridged
+        # alice is non-Bluesky, bridged
+        # bob is Bluesky, not bridged
         self.user = self.make_bridged_atproto_user()
         AtpRepo(id='did:alice', head='', signing_key_pem=b'').put()
         self.store_object(id='did:plc:bob', raw=DID_DOC)
@@ -268,6 +272,85 @@ class ATProtoFirehoseSubscribeTest(ATProtoTestCase):
                 'root': {'uri': '-'},
             },
         })
+
+    def test_reply_from_non_bridged_bluesky_to_bridged_other(self):
+        self.assert_enqueues({
+            '$type': 'app.bsky.feed.post',
+            'reply': {
+                '$type': 'app.bsky.feed.post#replyRef',
+                'parent': {'uri': 'at://did:alice/app.bsky.feed.post/tid'},
+            },
+        }, repo='did:plc:bob')
+
+    def test_reply_from_non_bridged_bluesky_to_bridged_bluesky(self):
+        self.assert_doesnt_enqueue({
+            '$type': 'app.bsky.feed.post',
+            'reply': {
+                '$type': 'app.bsky.feed.post#replyRef',
+                'parent': {'uri': 'at://did:plc:user/app.bsky.feed.post/tid'},
+            },
+        }, repo='did:plc:bob')
+
+    def test_reply_from_non_bridged_bluesky_to_non_bridged_bluesky(self):
+        self.assert_doesnt_enqueue({
+            '$type': 'app.bsky.feed.post',
+            'reply': {
+                '$type': 'app.bsky.feed.post#replyRef',
+                'parent': {'uri': 'at://did:eve/app.bsky.feed.post/tid'},
+            },
+        }, repo='did:plc:bob')
+
+    def test_quote_post_from_non_bridged_bluesky_of_bridged_other(self):
+        self.assert_enqueues({
+            '$type': 'app.bsky.feed.post',
+            'embed': {
+                '$type': 'app.bsky.embed.record',
+                'record': {'uri': 'at://did:alice/app.bsky.feed.post/tid'},
+            },
+        }, repo='did:plc:bob')
+
+    def test_quote_post_from_non_bridged_bluesky_of_bridged_bluesky(self):
+        self.assert_doesnt_enqueue({
+            '$type': 'app.bsky.feed.post',
+            'embed': {
+                '$type': 'app.bsky.embed.record',
+                'record': {'uri': 'at://did:plc:user/app.bsky.feed.post/tid'},
+            },
+        }, repo='did:plc:bob')
+
+    def test_quote_post_from_non_bridged_bluesky_of_non_bridged_bluesky(self):
+        self.assert_doesnt_enqueue({
+            '$type': 'app.bsky.feed.post',
+            'embed': {
+                '$type': 'app.bsky.embed.record',
+                'record': {'uri': 'at://did:eve/app.bsky.feed.post/tid'},
+            },
+        }, repo='did:plc:bob')
+
+    def test_reply_and_quote_from_non_bridged_bluesky_to_bridged_other(self):
+        self.assert_enqueues({
+            '$type': 'app.bsky.feed.post',
+            'reply': {
+                '$type': 'app.bsky.feed.post#replyRef',
+                'parent': {'uri': 'at://did:alice/app.bsky.feed.post/tid1'},
+            },
+            'embed': {
+                '$type': 'app.bsky.embed.record',
+                'record': {'uri': 'at://did:alice/app.bsky.feed.post/tid2'},
+            },
+        }, repo='did:plc:bob')
+
+    def test_mention_from_non_bridged_bluesky_of_bridged_other(self):
+        self.assert_enqueues({
+            '$type': 'app.bsky.feed.post',
+            'facets': [{
+                '$type': 'app.bsky.richtext.facet',
+                'features': [{
+                    '$type': 'app.bsky.richtext.facet#mention',
+                    'did': 'did:alice',
+                }],
+            }],
+        }, repo='did:plc:bob')
 
     def test_like_of_our_user(self):
         self.assert_enqueues({

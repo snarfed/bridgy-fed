@@ -43,6 +43,20 @@ PROFILE_GETRECORD = {
     'cid': 'alice+sidd',
     'value': test_atproto.ACTOR_PROFILE_BSKY,
 }
+BSKY_GET_CONVO_RESP = requests_response({  # getConvoForMembers
+    'convo': {
+        'id': 'convo123',
+        'rev': '22222222fuozt',
+        'members': [],
+        'muted': False,
+        'unreadCount': 0,
+    },
+})
+BSKY_SEND_MESSAGE_RESP = requests_response({  # sendMessage
+    'id': 'chat456',
+    'rev': '22222222tef2d',
+    # ...
+})
 
 
 @patch('ids.COPIES_PROTOCOLS', ['atproto'])
@@ -228,17 +242,21 @@ class IntegrationTests(TestCase):
             'cc': ['http://inst/bob'],
         })
 
-    @patch('requests.post')
-    def test_atproto_not_bridged_reply_to_activitypub(self, mock_post):
+    @patch('requests.post', return_value=BSKY_SEND_MESSAGE_RESP)
+    @patch('requests.get', return_value=BSKY_GET_CONVO_RESP)
+    def test_atproto_not_bridged_reply_to_activitypub(self, mock_get, mock_post):
         """ATProto reply from a non-bridged user, from firehose to ActivityPub.
 
-        Shouldn't be delivered.
+        Should be enqueued, shouldn't be delivered, should send a DM notif to
+        the non-bridged user, should enqueue a notif task (which is run inline).
 
         ActivityPub original post http://inst/post by bob
         ATProto reply 123 by alice.com (did:plc:alice)
         """
         alice = self.make_atproto_user('did:plc:alice', enabled_protocols=[])
         bob = self.make_ap_user('http://inst/bob', 'did:plc:bob')
+        self.make_web_user('ap.brid.gy', did='did:plc:ap')
+        self.make_web_user('bsky.brid.gy')
 
         self.store_object(
             id='http://inst/post', source_protocol='activitypub',
@@ -261,9 +279,25 @@ class IntegrationTests(TestCase):
                 },
             },
         }
-        self.firehose(limit=0, repo='did:plc:alice', action='create', seq=456,
+        self.firehose(limit=1, repo='did:plc:alice', action='create', seq=456,
                       path='app.bsky.feed.post/456', record=reply)
-        self.assert_ap_deliveries(mock_post, [], data=None)
+
+        self.assertEqual(2, len(mock_post.call_args_list))
+
+        # DM notif to bob of reply
+        args, kwargs = mock_post.call_args_list[0]
+        self.assertEqual(('http://inst/bob/inbox',), args)
+        content = json_loads(kwargs['data'])['object']['content']
+        self.assertTrue(content.startswith("""\
+<p>Hi! Here are your recent interactions from people who aren't bridged into the fediverse:
+<ul>
+<li><a title="bsky.app/profile/did:plc:alice/post/456" href="https://bsky.app/profile/did:plc:alice/post/456">"""), content)
+
+        # "you replied to a bridged user" DM to alice
+        args, kwargs = mock_post.call_args_list[1]
+        self.assertEqual(('https://chat.local/xrpc/chat.bsky.convo.sendMessage',), args)
+        text = kwargs['json']['message']['text']
+        self.assertTrue(text.startswith("""Hi! You recently replied to My Name, who's bridged here from the fediverse."""), text)
 
     @patch('requests.post', return_value=requests_response(''))
     @patch('requests.get', return_value=test_web.WEBMENTION_REL_LINK)
@@ -443,25 +477,8 @@ class IntegrationTests(TestCase):
         }], list(records['app.bsky.feed.like'].values()))
 
     @patch('oauth_dropins.webutil.appengine_config.tasks_client.create_task')
-    @patch('requests.post', return_value=requests_response({  # sendMessage
-        'id': 'chat456',
-        'rev': '22222222tef2d',
-        # ...
-    }))
-    @patch('requests.get', side_effect=[
-        # requests_response(DID_DOC),  # alice DID
-        # requests_response(PROFILE_GETRECORD),  # alice profile
-        # requests_response(PROFILE_GETRECORD),  # alice profile
-        requests_response({  # getConvoForMembers
-            'convo': {
-                'id': 'convo123',
-                'rev': '22222222fuozt',
-                'members': [],
-                'muted': False,
-                'unreadCount': 0,
-            },
-        }),
-    ])
+    @patch('requests.post', return_value=BSKY_SEND_MESSAGE_RESP)
+    @patch('requests.get', return_value=BSKY_GET_CONVO_RESP)
     def test_activitypub_not_bridged_reply_to_atproto(self, mock_get, mock_post,
                                                       mock_create_task):
         """AP inbox delivery of a reply from an unbridged user to an ATProto post.
@@ -709,24 +726,12 @@ To disable these messages, reply with the text 'mute'.""",
         self.assertFalse(user.is_enabled(ATProto))
         self.assertEqual(0, len(user.copies))
 
-    @patch('requests.post', return_value=requests_response({  # sendMessage
-        'id': 'chat456',
-        'rev': '22222222tef2d',
-        # ...
-    }))
+    @patch('requests.post', return_value=BSKY_SEND_MESSAGE_RESP)
     @patch('requests.get', side_effect=[
         requests_response(DID_DOC),  # alice DID
         requests_response(PROFILE_GETRECORD),  # alice profile
         requests_response(PROFILE_GETRECORD),  # alice profile
-        requests_response({  # getConvoForMembers
-            'convo': {
-                'id': 'convo123',
-                'rev': '22222222fuozt',
-                'members': [],
-                'muted': False,
-                'unreadCount': 0,
-            },
-        }),
+        BSKY_GET_CONVO_RESP,
     ])
     def test_atproto_follow_ap_bot_user_enables_protocol(self, mock_get, mock_post):
         """ATProto follow of @ap.brid.gy enables the ActivityPub protocol.

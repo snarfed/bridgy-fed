@@ -253,38 +253,68 @@ def subscribe():
             elif type not in ATProto.SUPPORTED_RECORD_TYPES:
                 continue
 
-            # generally we only want records from bridged Bluesky users. the one
-            # exception is follows of protocol bot users.
-            if (op.repo not in atproto_dids
-                and not (type == 'app.bsky.graph.follow'
-                         and op.record['subject'] in protocol_bot_dids)):
-                continue
+            def is_ours(did_or_ref, native):
+                """Returns True if the arg is a bridged user.
 
-            def is_ours(ref, also_atproto_users=False):
-                """Returns True if the arg is a bridge user."""
-                if match := AT_URI_PATTERN.match(ref['uri']):
-                    did = match.group('repo')
-                    return did and (did in bridged_dids
-                                    or also_atproto_users and did in atproto_dids)
+                Args:
+                  did_or_ref (str or dict): if dict, a ``com.atproto.repo.strongRef``
+                    or similar
+                  native (bool): if True, bridged ATProto users also count. If
+                    False, only users from other protocols who are bridged into
+                    ATProto count
+                """
+                did = None
+                if isinstance(did_or_ref, dict):
+                    if match := AT_URI_PATTERN.match(did_or_ref['uri']):
+                        did = match.group('repo')
+                else:
+                    did = did_or_ref
 
-            if type == 'app.bsky.feed.repost':
-                if not is_ours(op.record['subject'], also_atproto_users=True):
-                    continue
+                return did and (did in bridged_dids or native and did in atproto_dids)
 
-            elif type == 'app.bsky.feed.like':
-                if not is_ours(op.record['subject'], also_atproto_users=False):
-                    continue
+            if op.repo in atproto_dids:
+                # from a bridged Bluesky user
+                if type == 'app.bsky.feed.repost':
+                    if is_ours(op.record['subject'], native=True):
+                        commits.put(op)
 
-            elif type in ('app.bsky.graph.block', 'app.bsky.graph.follow'):
-                if op.record['subject'] not in bridged_dids:
-                    continue
+                elif type == 'app.bsky.feed.like':
+                    if is_ours(op.record['subject'], native=False):
+                        commits.put(op)
 
-            elif type == 'app.bsky.feed.post':
-                if reply := op.record.get('reply'):
-                    if not is_ours(reply['parent'], also_atproto_users=True):
-                        continue
+                elif type in ('app.bsky.graph.block', 'app.bsky.graph.follow'):
+                    if is_ours(op.record['subject'], native=False):
+                        commits.put(op)
 
-            commits.put(op)
+                elif type == 'app.bsky.feed.post':
+                    reply = op.record.get('reply')
+                    if not reply or is_ours(reply['parent'], native=True):
+                        commits.put(op)
+
+            elif op.repo not in bridged_dids:
+                # from an unbridged Bluesky user. only follows of protocol bots and
+                # replies/quotes/mentions of bridged users, so that we can DM them a
+                # notification
+                if type == 'app.bsky.graph.follow':
+                    if op.record['subject'] in protocol_bot_dids:
+                        commits.put(op)
+
+                elif type == 'app.bsky.feed.post':
+                    subjects = []
+                    if reply := op.record.get('reply'):
+                        subjects.append(reply.get('parent'))
+                    if embed := op.record.get('embed'):
+                        if embed.get('$type') == 'app.bsky.embed.record':
+                            subjects.append(embed['record'])
+                    for facet in op.record.get('facets', []):
+                        for feat in facet.get('features', []):
+                            if feat.get('$type') == 'app.bsky.richtext.facet#mention':
+                                subjects.append(feat.get('did'))
+
+                    for subject in subjects:
+                        if is_ours(subject, native=False):
+                            commits.put(op)
+                            break
 
 
 def handler():
