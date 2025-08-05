@@ -15,7 +15,7 @@ from flask import Flask, render_template
 import lexrpc.client
 import lexrpc.flask_server
 from oauth_dropins.webutil.appengine_info import DEBUG, LOCAL_SERVER
-from oauth_dropins.webutil import appengine_config, flask_util
+from oauth_dropins.webutil import appengine_config, flask_util, util
 import pytz
 
 # all protocols
@@ -141,6 +141,7 @@ def hub_admin():
         lexrpc=lexrpc,
         nostr_hub=nostr_hub,
         pytz=pytz,
+        util=util,
     )
 
 
