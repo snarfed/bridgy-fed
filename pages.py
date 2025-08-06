@@ -62,8 +62,13 @@ import webfinger
 logger = logging.getLogger(__name__)
 
 BLOG_REDIRECT_DOMAINS = (
-    'blog.anew.social',
     'snarfed.org',
+    # would be nice to do this! but we're currently on their default theme, which
+    # doesn't have microformats:
+    # https://indieweb.org/Ghost#Rejected_microformats2_markup_in_default_theme
+    # ...also it's usually nicer to write custom microblog posts, instead of posting
+    # the blog post itself, which will usually get rendered as just the title and link
+    # 'blog.anew.social',
 )
 
 TEMPLATE_VARS = {
