@@ -1081,6 +1081,7 @@ To receive likes, reposts, replies, @-mentions, and follows from other networks,
 &lt;span class="p-author <span class='keyword'>h-card</span>"&gt;
   &lt;data class="p-uid" value="<span class='value'>https://indieweb.social/users/snarfed</span>"&gt;&lt;/data&gt;
 </pre>
+<p>You can also use <a href="https://swicg.github.io/activitypub-html-discovery/#html-to-activitypub"><code>rel=alternate</code></a> and <a href="https://docs.joinmastodon.org/user/profile/#verification"><code>rel=me</code></a> to discover fediverse accounts that are associated with a web site, either bridged or otherwise.
 </li>
 
 <li id="identify-bridged-post" class="question">How can I tell if a post is bridged?</li>
@@ -1102,6 +1103,7 @@ To receive likes, reposts, replies, @-mentions, and follows from other networks,
 </pre>
 <p>On the web, check if the post's microformats2 <code>uid</code> is on a <code>brid.gy</code> subdomain. If so, its original native id will be the last part of the path, after <code>/convert/[protocol]/</code>.
 <p>For example, <code>https://bsky.brid.gy/convert/ap/at://did:plc:3ljmtyyjqcjee2kpewgsifvb/app.bsky.feed.post/3lhputf77w22j</code> is the Bridgy Fed ActivityPub id for a Bluesky post bridged into the fediverse. Its original Bluesky URI is <code>at://did:plc:3ljmtyyjqcjee2kpewgsifvb/app.bsky.feed.post/3lhputf77w22j</code>.
+<p>You can also use <a href="https://swicg.github.io/activitypub-html-discovery/#html-to-activitypub"><code>rel=alternate</code> and <code>rel=canonical</code></a> to discover other versions of a post in the fediverse and elsewhere.
 <p>Bluesky doesn't have a standard way to do this yet. For now, Bridgy Fed uses the <code>bridgyOriginalUrl</code> field in the Bluesky post record; it will have the post's id in its native protocol. For example, <a href="https://bsky.app/profile/fedi.test.snarfed.org/post/3lmwsp3tpdlt2">this post</a> was bridged from the fediverse:
 <pre>
 {
