@@ -184,9 +184,7 @@ class ActivityPub(User, Protocol):
         if self.obj and self.obj.as2 and as2.is_server_actor(self.obj.as2):
             return None
 
-        status = super().status
-        if status:
-            return status
+        return super().status
 
     def reload_profile(self, **kwargs):
         """Reloads this user's AP actor, then resolves their webfinger subject.
