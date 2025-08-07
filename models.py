@@ -1011,6 +1011,9 @@ Welcome to Bridgy Fed! Your account will soon be bridged to {to_proto.PHRASE} at
     def count_followers(self):
         """Counts this user's followers and followings.
 
+        TODO: remove followers on protocols where this user isn't currently bridged
+        https://github.com/snarfed/bridgy-fed/issues/1966
+
         Returns:
           (int, int) tuple: (number of followers, number following)
         """
@@ -1755,6 +1758,8 @@ class Follower(ndb.Model):
 
         for f, u in zip(followers, users):
             f.user = u
+
+        # only show followers in protocols that this user is bridged into
         followers = [f for f in followers if f.user.is_enabled(user)]
 
         return followers, before, after
