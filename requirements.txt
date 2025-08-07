@@ -102,7 +102,7 @@ python-dateutil==2.9.0.post0
 python-tumblpy==1.1.4
 pytz==2025.2
 PyYAML==6.0.2
-redis==6.3.0
+redis==6.4.0
 requests==2.32.4
 requests-oauthlib==2.0.0
 rsa==4.9.1
