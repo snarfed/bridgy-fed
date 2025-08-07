@@ -12,6 +12,7 @@ from granary import as2
 from oauth_dropins.webutil import flask_util, util
 from oauth_dropins.webutil.flask_util import error, flash, Found
 from oauth_dropins.webutil.util import json_dumps, json_loads
+from requests import RequestException
 
 import activitypub
 import common
@@ -249,6 +250,9 @@ def fetch(addr):
     try:
         resp = util.requests_get(
             f'https://{addr_domain}/.well-known/webfinger?resource={resource}')
+    except RequestException as e:
+        flash(f"Couldn't fetch {addr}: {e}")
+        return None
     except BaseException as e:
         if util.is_connection_failure(e):
             flash(f"Couldn't connect to {addr_domain}")

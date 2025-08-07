@@ -101,6 +101,14 @@ class RemoteFollowTest(TestCase):
             self.req('https://ba.r/.well-known/webfinger?resource=acct:foo@ba.r'),
         ))
 
+    def test_bad_address(self, mock_get):
+        # https://console.cloud.google.com/errors/detail/CPn404XJ2rC6rAE;locations=global;time=P30D?project=bridgy-federated&inv=1&invt=Ab42rw
+        mock_get.side_effect = requests.exceptions.InvalidURL('URL is baaad')
+        got = self.client.post('/remote-follow?address=@x@.y&id=user.com&protocol=web')
+        self.assertEqual(["Couldn't fetch x@.y: URL is baaad"], get_flashed_messages())
+        self.assertEqual(302, got.status_code)
+        self.assertEqual('/web/user.com', got.headers['Location'])
+
     def test_url(self, mock_get):
         mock_get.return_value = WEBFINGER
         got = self.client.post('/remote-follow?address=https://ba.r/foo&id=user.com&protocol=web')
@@ -350,6 +358,24 @@ class FollowTest(TestCase):
         self.assertEqual(
             ["@bob.com@bob.com is a bridged account. Try following them on the web!"],
             get_flashed_messages())
+
+    def test_callback_bad_addr(self, mock_get, mock_post):
+        # https://console.cloud.google.com/errors/detail/CPn404XJ2rC6rAE;locations=global;time=P30D?project=bridgy-federated&inv=1&invt=Ab42rw
+        mock_post.return_value = requests_response('me=https://alice.com')
+        mock_get.side_effect = [
+            requests_response(''),  # IndieAuth endpoint discovery
+            requests.exceptions.InvalidURL('URL has an invalid label.'),  # webfinger
+        ]
+
+        self.state['state'] = '@foo@.x'
+        state = util.encode_oauth_state(self.state)
+        resp = self.client.get(f'/follow/callback?code=my_code&state={state}',
+                               base_url='https://fed.brid.gy/')
+
+        self.assertEqual(["Couldn't fetch foo@.x: URL has an invalid label."],
+                         get_flashed_messages())
+        self.assertEqual(302, resp.status_code)
+        self.assertEqual('/web/alice.com/following', resp.headers['Location'])
 
     def check(self, input, resp, expected_follow, mock_get, mock_post,
               fetched_followee=True, expected_follow_as1=None):

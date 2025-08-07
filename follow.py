@@ -26,7 +26,7 @@ logger = logging.getLogger(__name__)
 @app.post('/remote-follow')
 def remote_follow():
     """Discovers and redirects to a remote follow page for a given user."""
-    logger.info(f'Got: {request.values}')
+    common.log_request()
 
     cls = PROTOCOLS.get(request.values['protocol'])
     if not cls:
@@ -55,7 +55,7 @@ def remote_follow():
 class FollowStart(indieauth.Start):
     """Starts the IndieAuth flow to add a follower to an existing user."""
     def dispatch_request(self):
-        logger.info(f'Got: {request.values}')
+        common.log_request()
 
         address = request.form['address']
         me = request.form['me']
@@ -105,6 +105,10 @@ class FollowCallback(indieauth.Callback):
             #     return redirect(user.user_page_path('following'))
             as2_url = webfinger.fetch_actor_url(addr)
 
+        if not as2_url:
+            # fetch_actor_url flashed an error message
+            return redirect(user.user_page_path('following'))
+
         if util.domain_or_parent_in(as2_url, common.DOMAINS):
             proto = Protocol.for_id(as2_url)
             flash(f"{addr} is a bridged account. Try following them on {proto.PHRASE}!")
@@ -149,7 +153,7 @@ class FollowCallback(indieauth.Callback):
 class UnfollowStart(indieauth.Start):
     """Starts the IndieAuth flow to remove a follower from an existing user."""
     def dispatch_request(self):
-        logger.info(f'Got: {request.values}')
+        common.log_request()
         key = request.form['key']
         me = request.form['me']
 
