@@ -2624,6 +2624,43 @@ class ActivityPubUtilsTest(TestCase):
             }],
         }), ignore=['to'])
 
+    def test_postprocess_as2_reply_includes_original_posts_mentions(self):
+        note = {
+            'type': 'Note',
+            'id': 'http://inst/note',
+            'content': 'foo @bar',
+            'tag': [{
+                'type': 'Mention',
+                'href': 'http://inst/bar',
+                'startIndex': 4,
+                'length': 4,
+            }, {
+                'type': 'Mention',
+                'href': 'http://inst/baz',
+            }, {
+                'type': 'Mention',
+                'href': 'http://inst/foo',
+            }],
+        }
+        reply = {
+            'content': 'ok',
+            'inReplyTo': 'http://inst/note',
+            'tag': [{
+                'type': 'Mention',
+                'href': 'http://inst/foo',
+            }],
+        }
+
+        self.assert_equals({
+            'content': '<p>ok</p>',
+            'inReplyTo': 'http://inst/note',
+            'tag': [
+                {'type': 'Mention', 'href': 'http://inst/foo'},
+                {'type': 'Mention', 'href': 'http://inst/bar'},
+                {'type': 'Mention', 'href': 'http://inst/baz'},
+            ],
+        }, postprocess_as2(reply, orig_obj=note), ignore=['contentMap', 'to', 'cc'])
+
     def test_postprocess_as2_actor_manuallyApprovesFollowers(self):
         got = postprocess_as2_actor(as2.from_as1({
             'objectType': 'person',

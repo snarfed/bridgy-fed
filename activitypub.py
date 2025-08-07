@@ -882,13 +882,18 @@ def postprocess_as2(activity, orig_obj=None, wrap=True):
             activity['inReplyTo'] = in_reply_to[0]
 
         # Mastodon evidently requires a Mention tag for replies to generate a
-        # notification to the original post's author. not required for likes,
-        # reposts, etc. details:
+        # notification to the original post's author. also include the original
+        # post's own Mention tags to notify other people involved in the thread.
+        # not required for likes, reposts, etc.
         # https://github.com/snarfed/bridgy-fed/issues/34
+        # https://github.com/snarfed/bridgy-fed/issues/1608
         if orig_obj:
+            orig_mentions = [t.get('href') for t in as1.get_objects(orig_obj, 'tag')
+                             if t.get('type') == 'Mention']
             for to in (util.get_list(orig_obj, 'attributedTo') +
                        util.get_list(orig_obj, 'author') +
-                       util.get_list(orig_obj, 'actor')):
+                       util.get_list(orig_obj, 'actor') +
+                       orig_mentions):
                 if isinstance(to, dict):
                     to = util.get_first(to, 'url') or to.get('id')
                 if to:
