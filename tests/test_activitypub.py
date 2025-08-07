@@ -2559,7 +2559,7 @@ class ActivityPubUtilsTest(TestCase):
         }))
 
     def test_postprocess_as2_plain_text_content_links_hashtags_mentions(self):
-        expected = '<p>foo <a class="mention" href="http://inst/bar">@bar</a> <a class="hashtag" rel="tag" href="http://inst/baz">#baz</a></p>'
+        expected = '<p>foo <a class="mention h-card" href="http://inst/bar">@bar</a> <a class="hashtag" rel="tag" href="http://inst/baz">#baz</a></p>'
         self.assert_equals({
             'content': expected,
             'contentMap': {'en': expected},
@@ -3197,8 +3197,8 @@ class ActivityPubUtilsTest(TestCase):
         self.assertEqual({
             '@context': as2.CONTEXT,
             'type': 'Note',
-            'content': '<p>hello <a class="mention" href="https://bsky.app/profile/did:plc:5zspv27pk4iqtrl2ql2nykjh">@snarfed2.bsky.social</a></p>',
-            'contentMap': {'en': '<p>hello <a class="mention" href="https://bsky.app/profile/did:plc:5zspv27pk4iqtrl2ql2nykjh">@snarfed2.bsky.social</a></p>'},
+            'content': '<p>hello <a class="mention h-card" href="https://bsky.app/profile/did:plc:5zspv27pk4iqtrl2ql2nykjh">@snarfed2.bsky.social</a></p>',
+            'contentMap': {'en': '<p>hello <a class="mention h-card" href="https://bsky.app/profile/did:plc:5zspv27pk4iqtrl2ql2nykjh">@snarfed2.bsky.social</a></p>'},
             'tag': [{
                 'type': 'Mention',
                 'name': '@snarfed2.bsky.social',
