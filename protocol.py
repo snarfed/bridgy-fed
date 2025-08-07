@@ -1466,6 +1466,9 @@ class Protocol:
         # ...then write the relevant object, since targets() has a side effect of
         # setting the notify and feed properties (and dirty attribute)
         targets = from_cls.targets(obj, from_user=from_user, crud_obj=crud_obj)
+        if to_proto:
+            targets = {t: obj for t, obj in targets.items()
+                       if t.protocol == to_proto.LABEL}
         if not targets:
             return r'No targets, nothing to do ¯\_(ツ)_/¯', 204
 
@@ -1485,8 +1488,6 @@ class Protocol:
         logger.info(f'Delivering to: {[t for t, _ in sorted_targets]}')
         user = from_user.key.urlsafe()
         for i, (target, orig_obj) in enumerate(sorted_targets):
-            if to_proto and target.protocol != to_proto.LABEL:
-                continue
             orig_obj_id = orig_obj.key.id() if orig_obj else None
             common.create_task(queue='send', url=target.uri, protocol=target.protocol,
                                orig_obj_id=orig_obj_id, user=user, **obj_params)
