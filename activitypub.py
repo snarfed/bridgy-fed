@@ -1135,9 +1135,9 @@ def postprocess_as2_actor(actor, user):
     # Pleroma and Akkoma not to DDoS us
     # https://github.com/snarfed/bridgy-fed/issues/1374#issuecomment-2891993190
     #
-    # # featured collection, pinned posts
-    # if featured := actor.get('featured'):
-    #     featured.setdefault('id', id + '/featured')
+    # featured collection, pinned posts
+    if featured := actor.get('featured'):
+        featured.setdefault('id', id + '/featured')
 
     return actor
 
