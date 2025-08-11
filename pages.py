@@ -515,6 +515,16 @@ def followers_or_following(protocol, id, collection):
 
     followers, before, after = Follower.fetch_page(collection, user)
     num_followers, num_following = user.count_followers()
+
+    # followers on protocols where we're not currently bridged shouldn't count.
+    # ideally we'd remove all of them from the count, but we don't currently have a
+    # good (efficient) way to include that in the query in count_followers(), so for
+    # now, just revise the follower count down for the ones we see in the page that
+    # we've fetched and will display.
+    #
+    # https://github.com/snarfed/bridgy-fed/issues/1966#issuecomment-2985666899
+    num_followers = min(num_followers, len(followers))
+
     return render(
         f'{collection}.html',
         address=request.args.get('address'),

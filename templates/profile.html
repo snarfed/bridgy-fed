@@ -13,7 +13,7 @@
      >activity</a><a
   href="{{ user.user_page_path('followers') }}"
      {% if subtab == 'followers' %}class="active-tab"{% endif %}
-     >{{ num_followers }} follower{% if followers != '1' %}s{% endif %}</a><a
+     >{{ num_followers }} follower{% if num_followers != 1 %}s{% endif %}</a><a
   href="{{ user.user_page_path('following') }}"
      {% if subtab == 'following' %}class="active-tab"{% endif %}
      >following {{ num_following }}</a>

@@ -511,6 +511,23 @@ class PagesTest(TestCase):
         got = self.client.get('/web/nope.com/followers')
         self.assert_equals(404, got.status_code)
 
+    def test_followers_revises_count_for_followers_not_bridged_to_users_protocol(self):
+        # https://github.com/snarfed/bridgy-fed/issues/1966#issuecomment-2985666899
+        Follower.get_or_create(
+            from_=self.make_user('fake:alice', cls=Fake, obj_as1=ACTOR_AS2),
+            to=self.user)
+        Follower.get_or_create(
+            from_=self.make_user('efake:bob', cls=ExplicitFake, obj_as1=ACTOR_AS2),
+            to=self.user)
+
+        got = self.client.get('/web/user.com/followers')
+        self.assert_equals(200, got.status_code)
+
+        body = got.get_data(as_text=True)
+        self.assertIn('>1 follower<', body, body)
+        self.assertIn('fake:alice', body, body)
+        self.assertNotIn('efake:bob', body, body)
+
     def test_following(self):
         Follower.get_or_create(
             from_=self.user,
@@ -943,7 +960,6 @@ class PagesTest(TestCase):
         self.assertEqual('none', user.key.get().send_notifs)
 
     def test_memcache_evict(self):
-        # key = Fake(id='fake:foo').put()
         self.user.key.get()
         self.assertIsNotNone(self.user.key.get(use_cache=False, use_datastore=False,
                                                use_global_cache=True))
