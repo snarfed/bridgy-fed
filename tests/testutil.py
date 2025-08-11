@@ -243,6 +243,7 @@ class OtherFake(Fake):
     DEFAULT_SERVE_USER_PAGES = False
     SUPPORTED_AS1_TYPES = Fake.SUPPORTED_AS1_TYPES - set(('accept',))
     SUPPORTS_DMS = True
+    SEND_REPLIES_TO_ORIG_POSTS_MENTIONS = True
 
     fetchable = {}
     sent = []

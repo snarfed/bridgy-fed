@@ -553,6 +553,54 @@ class ProtocolTest(TestCase):
             {Target(protocol='fake', uri='fake:post:target')},
             OtherFake.targets(create, crud_obj=reply, from_user=self.user).keys())
 
+    def test_targets_SEND_REPLIES_TO_ORIG_POSTS_MENTIONS(self):
+        # https://github.com/snarfed/bridgy-fed/issues/1608
+        alice = self.make_user(id='other:alice', cls=OtherFake, obj_as1={'foo': 'bar'})
+        bob = self.make_user(id='other:bob', cls=OtherFake, obj_as1={'foo': 'bar'})
+        eve = self.make_user(id='other:eve', cls=OtherFake, obj_as1={'foo': 'bar'})
+        frank = self.make_user(id='fake:frank', cls=Fake, obj_as1={'foo': 'bar'})
+
+        note = Object(id='other:note', source_protocol='other', our_as1={
+            'objectType': 'note',
+            'id': 'other:note',
+            'author': 'other:alice',
+            'content': 'foo @bob',
+            'tags': [{
+                'objectType': 'mention',
+                'url': 'other:bob',
+                'startIndex': 4,
+                'length': 4,
+            }, {
+                'objectType': 'mention',
+                'url': 'other:eve',
+            }],
+        })
+        note.put()
+
+        reply = Object(id='fake:reply', our_as1={
+            'objectType': 'note',
+            'id': 'fake:reply',
+            'author': 'fake:frank',
+            'content': 'ok',
+            'inReplyTo': 'other:note',
+            'tags': [{
+                'objectType': 'mention',
+                'url': 'other:alice',
+            }],
+        })
+        create = Object(our_as1={
+            'objectType': 'activity',
+            'verb': 'post',
+            'object': reply.as1,
+        })
+
+        self.assert_equals({
+            Target(protocol='other', uri='other:note:target'): note,
+            Target(protocol='other', uri='other:alice:target'): None,
+            Target(protocol='other', uri='other:bob:target'): note,
+            Target(protocol='other', uri='other:eve:target'): note,
+        }, Fake.targets(create, from_user=frank, crud_obj=reply))
+
     def test_targets_link_tag_has_no_orig_obj(self):
         # https://github.com/snarfed/bridgy-fed/issues/1237
         Fake.fetchable['fake:linked-post'] = {
@@ -2112,6 +2160,65 @@ class ProtocolReceiveTest(TestCase):
         self.assertEqual([('other:eve:target', expected_create),
                           ('other:post:target', expected_create),
                           ], OtherFake.sent)
+
+    @patch('requests.post')
+    def test_deliver_reply_targets_adds_original_posts_mentions(self, mock_post):
+        # https://github.com/snarfed/bridgy-fed/issues/1608
+        alice = self.make_user(id='http://inst/alice', cls=ActivityPub,
+                               obj_as2={'type': 'Person', 'inbox': 'http://alice/in'})
+        bob = self.make_user(id='http://inst/bob', cls=ActivityPub,
+                               obj_as2={'type': 'Person', 'inbox': 'http://bob/in'})
+        eve = self.make_user(id='http://inst/eve', cls=ActivityPub,
+                               obj_as2={'type': 'Person', 'inbox': 'http://eve/in'})
+        frank = self.make_user(id='fake:frank', cls=Fake,
+                               enabled_protocols=['activitypub'])
+
+        Object(id='http://inst/note', source_protocol='activitypub', our_as1={
+            'objectType': 'note',
+            'id': 'http://inst/note',
+            'author': 'http://inst/alice',
+            'content': 'foo @bob',
+            'tags': [{
+                'objectType': 'mention',
+                'url': 'http://inst/bob',
+                'startIndex': 4,
+                'length': 4,
+            }, {
+                'objectType': 'mention',
+                'url': 'http://inst/eve',
+            }],
+        }).put()
+
+        self.assertEqual(('OK', 202), Fake.receive_as1({
+            'objectType': 'note',
+            'id': 'fake:reply',
+            'author': 'fake:frank',
+            'content': 'ok',
+            'inReplyTo': 'http://inst/note',
+            'tags': [{
+                'objectType': 'mention',
+                'url': 'http://inst/alice',
+            }],
+        }))
+
+        inboxes = ('http://alice/in', 'http://bob/in', 'http://eve/in')
+        self.assert_ap_deliveries(mock_post, inboxes, {
+            'type': 'Create',
+            'id': 'https://fa.brid.gy/convert/ap/fake:reply#bridgy-fed-create',
+            'actor': 'https://fa.brid.gy/ap/fake:frank',
+            'object': {
+                'type': 'Note',
+                'id': 'https://fa.brid.gy/convert/ap/fake:reply',
+                'attributedTo': 'https://fa.brid.gy/ap/fake:frank',
+                'content': '<p>ok</p>',
+                'inReplyTo': 'http://inst/note',
+                'tag': [
+                    {'type': 'Mention', 'href': 'http://inst/alice'},
+                    {'type': 'Mention', 'href': 'http://inst/bob'},
+                    {'type': 'Mention', 'href': 'http://inst/eve'},
+                ],
+            },
+        }, from_user=frank, ignore=['contentMap', 'to', 'cc', 'published'])
 
     def test_update_reply(self):
         eve = self.make_user('other:eve', cls=OtherFake, obj_id='other:eve')

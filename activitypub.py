@@ -127,6 +127,8 @@ class ActivityPub(User, Protocol):
     ''
     SUPPORTS_DMS = True
     ''
+    SEND_REPLIES_TO_ORIG_POSTS_MENTIONS = True
+    'https://github.com/snarfed/bridgy-fed/issues/1608 , https://github.com/snarfed/bridgy-fed/issues/1218'
 
     webfinger_addr = ndb.StringProperty()
     """Populated by :meth:`reload_profile`."""
@@ -887,7 +889,7 @@ def postprocess_as2(activity, orig_obj=None, wrap=True):
         # not required for likes, reposts, etc.
         # https://github.com/snarfed/bridgy-fed/issues/34
         # https://github.com/snarfed/bridgy-fed/issues/1608
-        if orig_obj:
+        if orig_obj and ActivityPub.owns_id(orig_id) is not False:
             orig_mentions = [t.get('href') for t in as1.get_objects(orig_obj, 'tag')
                              if t.get('type') == 'Mention']
             for to in (util.get_list(orig_obj, 'attributedTo') +

@@ -118,6 +118,8 @@ class Protocol:
     """bool: whether to store followers on this protocol in :attr:`Object.feed`."""
     HTML_PROFILES = True
     """bool: whether this protocol supports HTML in profile descriptions. If False, profile descriptions should be plain text."""
+    SEND_REPLIES_TO_ORIG_POSTS_MENTIONS = False
+    """bool: whether replies to this protocol should include the original post's mentions as delivery targets"""
 
     def __init__(self):
         assert False
@@ -1519,8 +1521,7 @@ class Protocol:
         write_obj = crud_obj or obj
         write_obj.dirty = False
 
-        target_uris = sorted(set(as1.targets(obj.as1)))
-        logger.info(f'Raw targets: {target_uris}')
+        target_uris = as1.targets(obj.as1)
         orig_obj = None
         targets = {}  # maps Target to Object or None
         owner = as1.get_owner(obj.as1)
@@ -1540,6 +1541,23 @@ class Protocol:
             if inner_obj_id == from_user.key.id():
                 inner_obj_id = from_user.profile_id()
             original_ids = [inner_obj_id]
+
+        # for AP, add in-reply-tos' mentions
+        # https://github.com/snarfed/bridgy-fed/issues/1608
+        # https://github.com/snarfed/bridgy-fed/issues/1218
+        orig_post_mentions = {}  # maps mentioned id to original post Object
+        for id in in_reply_tos:
+            if ((proto := Protocol.for_id(id))
+                    and proto.SEND_REPLIES_TO_ORIG_POSTS_MENTIONS):
+                if (in_reply_to_obj := proto.load(id)) and in_reply_to_obj.as1:
+                    if mentions := as1.mentions(in_reply_to_obj.as1):
+                        logger.info(f"Adding in-reply-to {id} 's mentions to targets: {mentions}")
+                        target_uris.extend(mentions)
+                        for mention in mentions:
+                            orig_post_mentions[mention] = in_reply_to_obj
+
+        target_uris = sorted(set(target_uris))
+        logger.info(f'Raw targets: {target_uris}')
 
         # which protocols should we allow delivering to?
         to_protocols = []
@@ -1566,33 +1584,34 @@ class Protocol:
             util.add(to_protocols, proto)
 
         # process direct targets
-        for id in sorted(target_uris):
-            target_proto = Protocol.for_id(id)
+        for target_id in target_uris:
+            target_proto = Protocol.for_id(target_id)
             if not target_proto:
-                logger.info(f"Can't determine protocol for {id}")
+                logger.info(f"Can't determine protocol for {target_id}")
                 continue
-            elif target_proto.is_blocklisted(id):
-                logger.debug(f'{id} is blocklisted')
+            elif target_proto.is_blocklisted(target_id):
+                logger.debug(f'{target_id} is blocklisted')
                 continue
 
-            orig_obj = target_proto.load(id, raise_=False)
+            orig_obj = target_proto.load(target_id, raise_=False)
             if not orig_obj or not orig_obj.as1:
-                logger.info(f"Couldn't load {id}")
+                logger.info(f"Couldn't load {target_id}")
                 continue
 
-            target_author_key = (target_proto(id=id).key if id in mentioned_urls
+            target_author_key = (target_proto(id=target_id).key
+                                 if target_id in mentioned_urls
                                  else target_proto.actor_key(orig_obj))
             if not from_user.is_enabled(target_proto):
                 # if author isn't bridged and target user is, DM a prompt and
                 # add a notif for the target user
-                if (id in (in_reply_tos + quoted_posts + mentioned_urls)
+                if (target_id in (in_reply_tos + quoted_posts + mentioned_urls)
                         and target_author_key):
                     if target_author := target_author_key.get():
                         if target_author.is_enabled(from_cls):
                             notifications.add_notification(target_author, write_obj)
                             verb, noun = (
-                                ('replied to', 'replies') if id in in_reply_tos
-                                else ('quoted', 'quotes') if id in quoted_posts
+                                ('replied to', 'replies') if target_id in in_reply_tos
+                                else ('quoted', 'quotes') if target_id in quoted_posts
                                 else ('mentioned', 'mentions'))
                             dms.maybe_send(
                                 from_proto=target_proto, to_user=from_user,
@@ -1603,7 +1622,7 @@ Hi! You <a href="{inner_obj_as1.get('url') or inner_obj_id}">recently {verb}</a>
 
             # deliver self-replies to followers
             # https://github.com/snarfed/bridgy-fed/issues/639
-            if id in in_reply_tos and owner == as1.get_owner(orig_obj.as1):
+            if target_id in in_reply_tos and owner == as1.get_owner(orig_obj.as1):
                 is_self_reply = True
                 logger.info(f'self reply!')
 
@@ -1613,25 +1632,29 @@ Hi! You <a href="{inner_obj_as1.get('url') or inner_obj_id}">recently {verb}</a>
                 if proto in to_protocols:
                     # copies generally won't have their own Objects
                     if target := proto.target_for(Object(id=copy.uri)):
-                        logger.debug(f'Adding target {target} for copy {copy.uri} of original {id}')
+                        logger.debug(f'Adding target {target} for copy {copy.uri} of original {target_id}')
                         targets[Target(protocol=copy.protocol, uri=target)] = orig_obj
 
             if target_proto == from_cls:
-                logger.debug(f'Skipping same-protocol target {id}')
+                logger.debug(f'Skipping same-protocol target {target_id}')
                 continue
 
             target = target_proto.target_for(orig_obj)
             if not target:
                 # TODO: surface errors like this somehow?
-                logger.error(f"Can't find delivery target for {id}")
+                logger.error(f"Can't find delivery target for {target_id}")
                 continue
 
-            logger.debug(f'Target for {id} is {target}')
-            # only use orig_obj for inReplyTos, like/repost objects, etc
+            logger.debug(f'Target for {target_id} is {target}')
+            # only use orig_obj for inReplyTos, like/repost objects, reply's original
+            # post's mentions, etc
             # https://github.com/snarfed/bridgy-fed/issues/1237
-            targets[Target(protocol=target_proto.LABEL, uri=target)] = (
-                orig_obj if id in in_reply_tos or id in as1.get_ids(obj.as1, 'object')
-                else None)
+            target_obj = None
+            if target_id in in_reply_tos + as1.get_ids(obj.as1, 'object'):
+                target_obj = orig_obj
+            elif target_id in orig_post_mentions:
+                target_obj = orig_post_mentions[target_id]
+            targets[Target(protocol=target_proto.LABEL, uri=target)] = target_obj
 
             if target_author_key:
                 logger.debug(f'Recipient is {target_author_key}')
