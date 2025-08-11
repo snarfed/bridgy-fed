@@ -210,7 +210,7 @@ def login_to_user_key(login):
             if not (actor_id := webfinger.fetch_actor_url(handle)):
                 for msg in get_flashed_messages:
                     if 'HTTP 404' in msg:
-                        flash('You need to <a href="https://help.instagram.com/169559812696339">turn on fediverse sharing</a> first.')
+                        flash('You need to <a href="https://help.instagram.com/169559812696339">turn on fediverse sharing</a> first.', escape=False)
                 return None
             return ActivityPub(id=actor_id).key
         case _:
@@ -459,13 +459,13 @@ def find_user_page():
     if not proto:
         proto, resolved_id = Protocol.for_handle(id)
         if not proto:
-            flash(f"Couldn't determine network for {html.escape(id)}.")
+            flash(f"Couldn't determine network for {id}.")
             return render('find_user_page.html'), 404
 
     try:
         user = load_user(proto.LABEL, resolved_id or id)
     except NotFound:
-        flash(f"User {html.escape(id)} on {proto.PHRASE} isn't signed up.")
+        flash(f"User {id} on {proto.PHRASE} isn't signed up.")
         return render('find_user_page.html'), 404
 
     return redirect(user.user_page_path(), code=302)
@@ -481,16 +481,16 @@ def update_profile(protocol, id):
         user.reload_profile()
     except (requests.RequestException, werkzeug.exceptions.HTTPException) as e:
         _, msg = util.interpret_http_exception(e)
-        flash(f"Couldn't update profile for {link}: {msg}")
+        flash(f"Couldn't update profile for {link}: {msg}", escape=False)
         return redirect(user.user_page_path(), code=302)
 
     if not user.obj:
-        flash(f"Couldn't update profile for {link}")
+        flash(f"Couldn't update profile for {link}", escape=False)
         return redirect(user.user_page_path(), code=302)
 
     common.create_task(queue='receive', obj_id=user.obj_key.id(),
                        authed_as=user.key.id())
-    flash(f'Updating profile from {link}...')
+    flash(f'Updating profile from {link}...', escape=False)
 
     if user.LABEL == 'web':
         if user.status:

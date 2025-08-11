@@ -717,7 +717,7 @@ def check_web_site():
 
     invalid_msg = util.linkify(f'{url} is not a <a href="/docs#web-get-started">valid or supported web site</a>', pretty=True)
     if not domain or not is_valid_domain(domain, allow_internal=False):
-        flash(invalid_msg)
+        flash(invalid_msg, escape=False)
         return render_template('enter_web_site.html'), 400
 
     if util.is_web(url) and urlparse(url).path.strip('/'):
@@ -730,12 +730,12 @@ def check_web_site():
     except BaseException as e:
         code, body = util.interpret_http_exception(e)
         if code:
-            flash(util.linkify(f"Couldn't connect to {url}: {e}", pretty=True))
+            flash(f"Couldn't connect to {url}: {e}", pretty=True)
             return render_template('enter_web_site.html')
         raise
 
     if not user:  # opted out
-        flash(invalid_msg)
+        flash(invalid_msg, escape=False)
         return render_template('enter_web_site.html'), 400
 
     user.put()

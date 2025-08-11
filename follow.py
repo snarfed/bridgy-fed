@@ -146,7 +146,7 @@ class FollowCallback(indieauth.Callback):
 
         url = as1.get_url(followee.as1) or followee_id
         link = common.pretty_link(url, text=addr)
-        flash(f'Followed {link}.')
+        flash(f'Followed {link}.', escape=False)
         return redirect(user.user_page_path('following'))
 
 
@@ -227,7 +227,7 @@ class UnfollowCallback(indieauth.Callback):
         follower.put()
 
         link = common.pretty_link(as1.get_url(followee.obj.as1) or followee_id)
-        flash(f'Unfollowed {link}.')
+        flash(f'Unfollowed {link}.', escape=False)
         return redirect(user.user_page_path('following'))
 
 
