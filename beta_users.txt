@@ -32,3 +32,20 @@ https://werd.social/users/ben
 wrecka.ge
 did:plc:qrt5rykojeg5sbsajbu4zdke  # kissane.bsky.social
 https://mas.to/users/kissane
+
+# DM notifications Beta Opt-In (https://github.com/snarfed/bridgy-fed/issues/1200)
+https://mastodon.tails.ch/users/shanie
+https://mastodon.gamedev.place/users/tamschi
+https://dragonchat.org/users/baralheia
+https://martianbase.net/users/mackuba
+https://hachyderm.io/users/tedted
+https://tiggi.es/users/Qazm
+https://furries.club/users/qazm
+https://pixel.tiggi.es/users/qazm
+https://mastodon.social/users/fediversereport
+
+did:plc:kh75nufdwqlesva4uyyj2e2m # tamschi.itch.io
+did:plc:oio4hkxaop4ao4wz2pp3f4cr # mackuba.eu
+did:plc:hgnmtf73y7af252bfajdqcm7 # desfontain.es
+did:plc:2shmwstgqmlu4ymg7ctjcdc7 # qazm.de
+did:plc:mdjhvva6vlrswsj26cftjttd # laurenshof.online
