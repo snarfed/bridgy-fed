@@ -43,6 +43,8 @@ https://tiggi.es/users/Qazm
 https://furries.club/users/qazm
 https://pixel.tiggi.es/users/qazm
 https://mastodon.social/users/fediversereport
+https://meow.social/users/sig
+https://cubhub.social/users/wetwolf
 
 did:plc:kh75nufdwqlesva4uyyj2e2m # tamschi.itch.io
 did:plc:oio4hkxaop4ao4wz2pp3f4cr # mackuba.eu
