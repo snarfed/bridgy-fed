@@ -523,7 +523,8 @@ def followers_or_following(protocol, id, collection):
     # we've fetched and will display.
     #
     # https://github.com/snarfed/bridgy-fed/issues/1966#issuecomment-2985666899
-    num_followers = min(num_followers, len(followers))
+    if num_followers <= PAGE_SIZE:
+        num_followers = min(num_followers, len(followers))
 
     return render(
         f'{collection}.html',
