@@ -110,6 +110,10 @@ def notify_task():
         logger.info(f'No notifications for {user_id}')
         return '', 204
 
+    if user.send_notifs == 'none':
+        logger.info(f'User {user_id} has notifs disabled')
+        return '', 204
+
     from_proto_label = (user.enabled_protocols[0] if user.enabled_protocols
         else user.DEFAULT_ENABLED_PROTOCOLS[0] if user.DEFAULT_ENABLED_PROTOCOLS
         else None)

@@ -127,6 +127,14 @@ class NotificationsTest(TestCase):
         self.assertEqual([], Fake.sent)
         self.assertEqual([], get_notifications(user))
 
+    def test_notify_task_user_not_found(self):
+        resp = self.post('/queue/notify', data={
+            'user_id': 'fake:user',
+            'protocol': 'fake',
+        })
+        self.assertEqual(204, resp.status_code)
+        self.assertEqual([], Fake.sent)
+
     @patch('oauth_dropins.webutil.appengine_config.tasks_client.create_task')
     def test_notify_task_user_not_enabled(self, _):
         common.RUN_TASKS_INLINE = False
@@ -134,7 +142,25 @@ class NotificationsTest(TestCase):
         user = self.make_user(id='fake:user', cls=Fake, manual_opt_out=True,
                               enabled_protocols=['efake'], obj_as1={'x': 'y'})
 
-        add_notification(user, Object(id='efake:b'))
+        add_notification(user, Object(id='http://notif/a'))
+
+        common.RUN_TASKS_INLINE = True
+        resp = self.post('/queue/notify', data={
+            'user_id': 'fake:user',
+            'protocol': 'fake',
+        })
+        self.assertEqual(204, resp.status_code)
+        self.assertEqual([], Fake.sent)
+        self.assertEqual(['http://notif/a'], get_notifications(user))
+
+    @patch('oauth_dropins.webutil.appengine_config.tasks_client.create_task')
+    def test_notify_task_user_notifs_disabled(self, _):
+        common.RUN_TASKS_INLINE = False
+        self.make_user(id='efake.brid.gy', cls=Web)
+        user = self.make_user(id='fake:user', cls=Fake, send_notifs='none',
+                              enabled_protocols=['efake'], obj_as1={'x': 'y'})
+
+        add_notification(user, Object(id='http://notif/a'))
 
         common.RUN_TASKS_INLINE = True
         resp = self.post('/queue/notify', data={
