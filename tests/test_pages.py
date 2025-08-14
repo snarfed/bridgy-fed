@@ -511,6 +511,12 @@ class PagesTest(TestCase):
         got = self.client.get('/web/nope.com/followers')
         self.assert_equals(404, got.status_code)
 
+    def test_followers_user_not_in_datastore(self):
+        # https://github.com/snarfed/bridgy-fed/issues/1966#issuecomment-2985666899
+        Follower.get_or_create(from_=Fake(id='fake:alice'), to=self.user)
+        got = self.client.get('/web/user.com/followers')
+        self.assert_equals(200, got.status_code)
+
     def test_followers_revises_count_for_followers_not_bridged_to_users_protocol(self):
         # https://github.com/snarfed/bridgy-fed/issues/1966#issuecomment-2985666899
         Follower.get_or_create(

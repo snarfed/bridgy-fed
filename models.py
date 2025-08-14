@@ -1757,7 +1757,7 @@ class Follower(ndb.Model):
             f.user = u
 
         # only show followers in protocols that this user is bridged into
-        followers = [f for f in followers if user.is_enabled(f.user)]
+        followers = [f for f in followers if f.user and user.is_enabled(f.user)]
 
         return followers, before, after
 
