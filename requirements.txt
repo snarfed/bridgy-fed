@@ -89,7 +89,7 @@ pkce==1.0.3
 praw==7.8.1
 prawcore==2.4.0
 proto-plus==1.26.1
-protobuf==6.31.1
+protobuf==6.32.0
 pyasn1==0.6.1
 pyasn1_modules==0.4.2
 pycparser==2.22
