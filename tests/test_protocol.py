@@ -2274,6 +2274,37 @@ class ProtocolReceiveTest(TestCase):
         self.assertIsNone(Object.get_by_id('fake:update'))
         self.assertEqual([('other:post:target', update_as1)], OtherFake.sent)
 
+
+    def test_create_quote(self):
+        self.store_object(id='fake:post', source_protocol='fake', our_as1={
+            'id': 'fake:post',
+            'objectType': 'note',
+            'author': 'fake:user',
+        })
+        quote_as1 = {
+            'objectType': 'note',
+            'id': 'other:quote',
+            'url': 'http://other/quote',
+            'author': 'other:alice',
+            'content': 'weird flex but ok',
+            'attachments': [{
+                'objectType': 'note',
+                'id': 'fake:post',
+                'url': 'http://fake/post',
+            }],
+        }
+        _, code = OtherFake.receive_as1(quote_as1)
+
+        self.assertEqual(202, code)
+        self.assertEqual([('fake:post:target', {
+            'id': 'other:quote#bridgy-fed-create',
+            'objectType': 'activity',
+            'verb': 'post',
+            'actor': 'other:alice',
+            'object': quote_as1,
+            'published': '2022-01-02T03:04:05+00:00',
+        })], Fake.sent)
+
     def test_repost(self):
         self.make_followers()
 
