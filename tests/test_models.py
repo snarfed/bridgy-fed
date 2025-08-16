@@ -1265,6 +1265,29 @@ class ObjectTest(TestCase):
             },
         }, obj.our_as1)
 
+    def test_resolve_ids_quote_post_in_attachments(self):
+        obj = Object(source_protocol='fake', our_as1={
+            'objectType': 'note',
+            'id': 'fake:quote',
+            'attachments': [{
+                'objectType': 'note',
+                'id': 'other:copy',
+            }],
+        })
+
+        self.store_object(id='fake:orig',
+                          copies=[Target(uri='other:copy', protocol='other')])
+
+        obj.resolve_ids()
+        self.assert_equals({
+            'objectType': 'note',
+            'id': 'fake:quote',
+            'attachments': [{
+                'objectType': 'note',
+                'id': 'fake:orig',
+            }],
+        }, obj.our_as1)
+
     def test_normalize_ids_empty(self):
         obj = Object()
         obj.normalize_ids()

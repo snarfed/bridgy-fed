@@ -330,6 +330,56 @@ class IntegrationTests(TestCase):
             'target': 'https://bob.com/',
         }, allow_redirects=False, headers={'Accept': '*/*'})
 
+    @patch('requests.post', return_value=requests_response(''))
+    @patch('requests.get', side_effect=[
+        test_web.WEBMENTION_REL_LINK,
+    ])
+    def test_atproto_quote_to_web(self, mock_get, mock_post):
+        """ATProto quote post to Web.
+
+        ATProto user alice.com (did:plc:alice)
+        ATProto quote at://did:plc:alice/app.bsky.feed.post/456
+        Web user bob.com's post https://bob.com/post
+        """
+        alice = self.make_atproto_user('did:plc:alice')
+
+        Repo.create(self.storage, 'did:plc:bob', signing_key=ATPROTO_KEY)
+        bob = self.make_user(id='bob.com', cls=Web,
+                             copies=[Target(uri='did:plc:bob', protocol='atproto')],
+                             enabled_protocols=['atproto'])
+
+        # bob's original post
+        self.store_object(id='https://bob.com/post', source_protocol='web',
+                          our_as1={
+                              'objectType': 'note',
+                              'author': 'https://bob.com/',
+                              'content': 'Original post content',
+                          },
+                          copies=[
+            Target(uri='at://did:plc:bob/app.bsky.feed.post/123', protocol='atproto'),
+        ])
+
+        quote = {
+            '$type': 'app.bsky.feed.post',
+            'text': 'I quote this post',
+            'createdAt': '2022-01-02T03:04:05.000Z',
+            'embed': {
+                '$type': 'app.bsky.embed.record',
+                'record': {
+                    'uri': 'at://did:plc:bob/app.bsky.feed.post/123',
+                    'cid': '...',
+                },
+            },
+        }
+        self.firehose(repo='did:plc:alice', action='create', seq=456,
+                      path='app.bsky.feed.post/456', record=quote)
+
+        self.assert_req(mock_get, 'https://bob.com/post')
+        self.assert_req(mock_post, 'https://bob.com/webmention', data={
+            'source': 'https://bsky.brid.gy/convert/web/at://did:plc:alice/app.bsky.feed.post/456%23bridgy-fed-create',
+            'target': 'https://bob.com/post',
+        }, allow_redirects=False, headers={'Accept': '*/*'})
+
     @patch('dns.resolver.resolve', side_effect=NXDOMAIN())
     @patch('oauth_dropins.webutil.appengine_config.tasks_client.create_task')
     @patch('requests.post', side_effect=[

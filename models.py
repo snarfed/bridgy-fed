@@ -1492,7 +1492,7 @@ class Object(StringIdModel, AddRemoveMixin):
                 return copy.uri
 
     def resolve_ids(self):
-        """Resolves "copy" ids, subdomain ids, etc with their originals.
+        """Replaces "copy" ids, subdomain ids, etc with their originals.
 
         The end result is that all ids are original "source" ids, ie in the
         protocol that they first came from.
@@ -1518,6 +1518,7 @@ class Object(StringIdModel, AddRemoveMixin):
         * ``object.author``
         * ``object.id``
         * ``object.inReplyTo``
+        * ``attachments.[objectType=note].id``
         * ``tags.[objectType=mention].url``
 
         :meth:`protocol.Protocol.translate_ids` is partly the inverse of this.
@@ -1570,6 +1571,9 @@ class Object(StringIdModel, AddRemoveMixin):
             for tag in as1.get_objects(obj, 'tags'):
                 if tag.get('objectType') == 'mention':
                     tag['url'] = replace(tag.get('url'), get_original_user_key)
+            for att in as1.get_objects(obj, 'attachments'):
+                if att.get('objectType') == 'note':
+                    att['id'] = replace(att.get('id'), get_original_object_key)
             for field, fn in (
                     ('actor', get_original_user_key),
                     ('author', get_original_user_key),

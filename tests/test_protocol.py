@@ -2276,7 +2276,9 @@ class ProtocolReceiveTest(TestCase):
 
 
     def test_create_quote(self):
-        self.store_object(id='fake:post', source_protocol='fake', our_as1={
+        self.store_object(id='fake:post', source_protocol='fake',
+                          copies=[Target(protocol='other', uri='other:post-copy')],
+                          our_as1={
             'id': 'fake:post',
             'objectType': 'note',
             'author': 'fake:user',
@@ -2289,13 +2291,23 @@ class ProtocolReceiveTest(TestCase):
             'content': 'weird flex but ok',
             'attachments': [{
                 'objectType': 'note',
-                'id': 'fake:post',
+                'id': 'other:post-copy',
                 'url': 'http://fake/post',
             }],
         }
+
+        OtherFake.fetchable = {
+            'other:post-copy': {
+                'id': 'other:post-copy',
+                'objectType': 'note',
+            },
+        }
+
         _, code = OtherFake.receive_as1(quote_as1)
 
         self.assertEqual(202, code)
+
+        quote_as1['attachments'][0]['id'] = 'fake:post'
         self.assertEqual([('fake:post:target', {
             'id': 'other:quote#bridgy-fed-create',
             'objectType': 'activity',
