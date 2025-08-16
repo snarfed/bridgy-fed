@@ -1,7 +1,8 @@
 # https://cloud.google.com/appengine/docs/standard/python/config/queueref
 # https://cloud.google.com/tasks/docs/queue-yaml
-queue:
 total_storage_limit: 10G
+
+queue:
 
 - name: atproto-commit
   rate: 300/s
