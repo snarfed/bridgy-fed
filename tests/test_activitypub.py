@@ -337,6 +337,8 @@ def sign(path, body, key_id, host='localhost'):
     return hs.sign(headers, method='POST', path=path)
 
 
+# @patch.object(Fake, 'HAS_COPIES', False)
+# @patch.object(OtherFake, 'HAS_COPIES', False)
 @patch('requests.post')
 @patch('requests.get')
 @patch('requests.head')
@@ -1428,6 +1430,7 @@ class ActivityPubTest(TestCase):
             # source actor, webfinger
             self.as2_resp(ACTOR),
             self.as2_resp(ACTOR),
+            requests_response(status=404),
             requests_response(status=404),
             requests_response(status=404),
         ]

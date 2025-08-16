@@ -13,7 +13,7 @@ from granary import as2
 from granary.tests.test_bluesky import ACTOR_PROFILE_BSKY
 from oauth_dropins.webutil import appengine_info, util
 from oauth_dropins.webutil.appengine_config import ndb_client
-from oauth_dropins.webutil.flask_util import NoContent
+from oauth_dropins.webutil.flask_util import NoContent, NotModified
 from oauth_dropins.webutil.testutil import NOW, requests_response
 from oauth_dropins.webutil.util import json_dumps
 import requests
@@ -1242,66 +1242,77 @@ class ProtocolReceiveTest(TestCase):
             'author': 'efake:eve',
         })
 
-        ExplicitFake.receive_as1({
+        _, code = ExplicitFake.receive_as1({
             'id': 'efake:reply',
             'objectType': 'note',
             'author': 'efake:user',
             'inReplyTo': 'efake:post',
             'content': 'foo',
         })
-
+        self.assertEqual(204, code)
         self.assertEqual(0, mock_send.call_count)
 
     @patch.object(ATProto, 'send')
-    def test_reply_to_non_bridged_post_with_mention_skips_atproto(self, mock_send):
+    def test_reply_to_non_bridged_post_with_mention_fails_for_retry(self, mock_send):
         self.user.enabled_protocols = ['atproto']
         self.user.put()
 
-        self.store_object(id='fake:post', our_as1={
-            'id': 'fake:post',
+        self.alice.enabled_protocols = ['atproto']
+        self.alice.put()
+
+        self.store_object(id='other:post', source_protocol='other', our_as1={
+            'id': 'other:post',
             'objectType': 'note',
             'author': 'other:alice',
         })
 
-        Fake.receive_as1({
-            'id': 'fake:reply',
-            'objectType': 'note',
-            'actor': 'fake:user',
-            'inReplyTo': 'fake:post',
-            'content': 'foo',
-            'tags': [{
-                'objectType': 'mention',
-                'url': 'other:bob'
-            }],
-        })
+        with self.assertRaises(NotModified):  # 304 retry
+            _, code = Fake.receive_as1({
+                'id': 'fake:reply',
+                'objectType': 'note',
+                'actor': 'fake:user',
+                'inReplyTo': 'other:post',
+                'content': 'foo',
+                'tags': [{
+                    'objectType': 'mention',
+                    'url': 'other:bob'
+                }],
+            })
 
         self.assertEqual(0, mock_send.call_count)
+        self.assertEqual([], Fake.sent)
+        self.assertEqual([], OtherFake.sent)
 
-    def test_reply_to_non_bridged_post_skips_enabled_protocol_with_followers(self):
+    def test_reply_to_non_bridged_post_with_enabled_protocol_fails_for_retry(self):
         self.make_user(id='fa.brid.gy', cls=Web)
 
-        # should skip even if it's enabled and we have followers there
-        self.user.enabled_protocols = ['efake']
-        self.user.put()
+        self.alice.enabled_protocols = ['efake']
+        self.alice.put()
+        self.bob.enabled_protocols = ['efake']
+        self.bob.put()
 
-        eve = self.make_user('efake:eve', cls=ExplicitFake)
-        Follower.get_or_create(from_=eve, to=self.user)
+        # original post isn't bridged to efake yet
+        self.store_object(id='other:post', source_protocol='other', our_as1={
+            'id': 'other:post',
+            'objectType': 'note',
+            'author': 'other:alice',
+        })
 
-        self.store_object(id='fake:post', source_protocol='fake', our_as1={
-            'id': 'fake:post',
-            'objectType': 'note',
-            'author': 'fake:alice',
-        })
-        _, code = Fake.receive_as1({
-            'id': 'fake:reply',
-            'objectType': 'note',
-            'actor': 'fake:user',
-            'inReplyTo': 'fake:post',
-            'content': 'foo',
-        })
-        self.assertEqual(204, code)
+        # we might be in the middle of bridging the original post. so, make sure we
+        # return an error code that Cloud Tasks considers a failure, so that the task
+        # gets retried later, hopefully after the OP is bridged
+        # https://github.com/snarfed/bridgy-fed/issues/1361
+        with self.assertRaises(NotModified):
+            _, code = OtherFake.receive_as1({
+                'id': 'other:reply',
+                'objectType': 'note',
+                'actor': 'other:bob',
+                'inReplyTo': 'other:post',
+                'content': 'foo',
+            })
+
         self.assertEqual([], ExplicitFake.sent)
-        self.assertEqual([], Fake.sent)
+        self.assertEqual([], OtherFake.sent)
 
     def test_reply_from_non_bridged_user_isnt_bridged_gets_dm_prompt_and_notif(self):
         self.make_user(id='other.brid.gy', cls=Web)
@@ -1423,49 +1434,57 @@ class ProtocolReceiveTest(TestCase):
         })
         self.assertEqual(204, code)
         self.assertEqual(0, mock_send.call_count)
+        self.assertEqual([], ExplicitFake.sent)
+        self.assertEqual([], Fake.sent)
 
     @patch.object(ATProto, 'send', return_value=True)
-    def test_repost_of_not_bridged_post_skips_atproto(self, mock_send):
-        user = self.make_user('efake:user', cls=ExplicitFake,
-                              enabled_protocols=['atproto'])
-
-        self.eve = self.make_user('efake:eve', cls=ExplicitFake,
-                              enabled_protocols=['atproto'])
-        self.store_object(id='efake:post', our_as1={
-            'id': 'efake:post',
-            'objectType': 'note',
-            'author': 'efake:eve',
-        })
-
-        _, code = ExplicitFake.receive_as1({
-            'id': 'efake:repost',
-            'objectType': 'activity',
-            'verb': 'share',
-            'actor': 'efake:user',
-            'object': 'efake:post',
-        })
-        self.assertEqual(204, code)
-        self.assertEqual(0, mock_send.call_count)
-
-    def test_repost_of_not_bridged_post_skips_enabled_protocol_with_followers(self):
-        # should skip even if it's enabled and we have followers there
-        self.user.enabled_protocols = ['efake']
+    def test_repost_of_not_bridged_post_fails_for_retry(self, mock_send):
+        self.user.enabled_protocols = ['atproto']
         self.user.put()
 
-        eve = self.make_user('efake:eve', cls=ExplicitFake)
-        Follower.get_or_create(from_=eve, to=self.user)
+        self.alice.enabled_protocols = ['atproto']
+        self.alice.put()
 
-        self.store_object(id='fake:post', source_protocol='fake', our_as1={
-            'id': 'fake:post',
+        self.store_object(id='other:post', source_protocol='other', our_as1={
+            'id': 'other:post',
             'objectType': 'note',
-            'author': 'fake:alice',
+            'author': 'other:alice',
         })
-        _, code = Fake.receive_as1({
-            'id': 'fake:repost',
+
+        # we might be in the middle of bridging the original post. so, make sure we
+        # return an error code that Cloud Tasks considers a failure, so that the task
+        # gets retried later, hopefully after the OP is bridged
+        # https://github.com/snarfed/bridgy-fed/issues/1361
+        with self.assertRaises(NotModified):  # 304 retry
+            _, code = Fake.receive_as1({
+                'id': 'fake:repost',
+                'objectType': 'activity',
+                'verb': 'share',
+                'actor': 'fake:user',
+                'object': 'other:post',
+            })
+
+        self.assertEqual(0, mock_send.call_count)
+        self.assertEqual([], Fake.sent)
+        self.assertEqual([], OtherFake.sent)
+
+    def test_repost_of_not_bridged_user_skips_enabled_protocol_with_followers(self):
+        self.alice.enabled_protocols = ['efake']
+        self.alice.put()
+        # bob isn't enabled for efake
+
+        self.store_object(id='other:post', source_protocol='other', our_as1={
+            'id': 'other:post',
+            'objectType': 'note',
+            'author': 'other:bob',
+        })
+
+        _, code = OtherFake.receive_as1({
+            'id': 'other:repost',
             'objectType': 'activity',
             'verb': 'share',
-            'actor': 'fake:user',
-            'object': 'fake:post',
+            'actor': 'other:bob',
+            'object': 'other:post',
         })
         self.assertEqual(204, code)
         self.assertEqual([], ExplicitFake.sent)

@@ -1,6 +1,8 @@
 # https://cloud.google.com/appengine/docs/standard/python/config/queueref
 # https://cloud.google.com/tasks/docs/queue-yaml
 queue:
+total_storage_limit: 10G
+
 - name: atproto-commit
   rate: 300/s
   max_concurrent_requests: 25
@@ -12,23 +14,23 @@ queue:
   max_concurrent_requests: 10
   retry_parameters:
     task_retry_limit: 2
-    min_backoff_seconds: 300
+    min_backoff_seconds: 30
     max_doublings: 2
 
 - name: receive
   rate: 500/s
   max_concurrent_requests: 500
   retry_parameters:
-    task_retry_limit: 2
-    min_backoff_seconds: 300
-    max_doublings: 2
+    task_retry_limit: 4
+    min_backoff_seconds: 30
+    max_doublings: 4
 
 - name: send
   rate: 500/s
   max_concurrent_requests: 500
   retry_parameters:
     task_retry_limit: 2
-    min_backoff_seconds: 300
+    min_backoff_seconds: 30
     max_doublings: 2
 
 - name: poll-feed

@@ -1542,19 +1542,24 @@ class Protocol:
                 inner_obj_id = from_user.profile_id()
             original_ids = [inner_obj_id]
 
+        original_objs = {}
+        for id in original_ids:
+            if proto := Protocol.for_id(id):
+                original_objs[id] = proto.load(id, raise_=False)
+
         # for AP, add in-reply-tos' mentions
         # https://github.com/snarfed/bridgy-fed/issues/1608
         # https://github.com/snarfed/bridgy-fed/issues/1218
         orig_post_mentions = {}  # maps mentioned id to original post Object
         for id in in_reply_tos:
-            if ((proto := Protocol.for_id(id))
-                    and proto.SEND_REPLIES_TO_ORIG_POSTS_MENTIONS):
-                if (in_reply_to_obj := proto.load(id)) and in_reply_to_obj.as1:
-                    if mentions := as1.mentions(in_reply_to_obj.as1):
-                        logger.info(f"Adding in-reply-to {id} 's mentions to targets: {mentions}")
-                        target_uris.extend(mentions)
-                        for mention in mentions:
-                            orig_post_mentions[mention] = in_reply_to_obj
+            if ((in_reply_to_obj := original_objs.get(id))
+                    and (proto := PROTOCOLS.get(in_reply_to_obj.source_protocol))
+                    and proto.SEND_REPLIES_TO_ORIG_POSTS_MENTIONS
+                    and (mentions := as1.mentions(in_reply_to_obj.as1))):
+                logger.info(f"Adding in-reply-to {id} 's mentions to targets: {mentions}")
+                target_uris.extend(mentions)
+                for mention in mentions:
+                    orig_post_mentions[mention] = in_reply_to_obj
 
         target_uris = sorted(set(target_uris))
         logger.info(f'Raw targets: {target_uris}')
@@ -1569,17 +1574,34 @@ class Protocol:
 
             if proto.HAS_COPIES and (obj.type in ('update', 'delete', 'share', 'undo')
                                      or is_reply):
+                origs_could_bridge = None
+
                 for id in original_ids:
-                    if Protocol.for_id(id) == proto:
+                    if not (orig := original_objs.get(id)):
+                        continue
+                    elif isinstance(orig, proto):
                         logger.info(f'Allowing {label} for original post {id}')
                         break
-                    elif orig := from_user.load(id, remote=False):
-                        if orig.get_copy(proto):
-                            logger.info(f'Allowing {label}, original post {id} was bridged there')
-                            break
+                    elif orig.get_copy(proto):
+                        logger.info(f'Allowing {label}, original post {id} was bridged there')
+                        break
+
+                    if (origs_could_bridge is not False
+                            and (orig_author_id := as1.get_owner(orig.as1))
+                            and (orig_proto := PROTOCOLS.get(orig.source_protocol))
+                            and (orig_author := orig_proto.get_by_id(orig_author_id))):
+                        origs_could_bridge = orig_author.is_enabled(proto)
+
                 else:
-                    logger.info(f"Skipping {label}, original objects {original_ids} weren't bridged there")
+                    msg = f"original object(s) {original_ids} weren't bridged to {label}"
+                    if (proto.LABEL not in from_user.DEFAULT_ENABLED_PROTOCOLS
+                            and origs_could_bridge):
+                        # retry later; original obj may still be bridging
+                        error(msg, status=304)
+
+                    logger.info(msg)
                     continue
+
 
             util.add(to_protocols, proto)
 
@@ -1719,8 +1741,7 @@ Hi! You <a href="{inner_obj_as1.get('url') or inner_obj_id}">recently {verb}</a>
                 # TODO: should we pass remote=False through here to Protocol.load?
                 target = user.target_for(user.obj, shared=True) if user.obj else None
                 if not target:
-                    # TODO: surface errors like this somehow?
-                    logger.error(f'Follower {user.key} has no delivery target')
+                    # logger.error(f'Follower {user.key} has no delivery target')
                     continue
 
                 # normalize URL (lower case hostname, etc)
