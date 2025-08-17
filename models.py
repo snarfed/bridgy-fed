@@ -24,7 +24,7 @@ import humanize
 from oauth_dropins.webutil import util
 from oauth_dropins.webutil.appengine_info import DEBUG
 from oauth_dropins.webutil.flask_util import error
-from oauth_dropins.webutil.models import JsonProperty, StringIdModel
+from oauth_dropins.webutil.models import EncryptedProperty, JsonProperty, StringIdModel
 from oauth_dropins.webutil.util import ellipsize, json_dumps, json_loads
 from requests import RequestException
 import secp256k1
@@ -330,7 +330,7 @@ class User(StringIdModel, AddRemoveMixin, metaclass=ProtocolUserMeta):
     """Part of the bridged ActivityPub actor's private key."""
     private_exponent = ndb.StringProperty()
     """Part of the bridged ActivityPub actor's private key."""
-    nostr_key_bytes = ndb.BlobProperty()
+    nostr_key_bytes = EncryptedProperty()
     """The bridged Nostr account's secp256k1 private key, in raw bytes."""
 
     manual_opt_out = ndb.BooleanProperty()
