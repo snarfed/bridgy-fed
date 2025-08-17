@@ -877,6 +877,8 @@ class PagesTest(TestCase):
 
     def test_disable(self):
         self.store_object(id='did:plc:abc', raw={})
+        self.store_object(id='at://did:plc:abc/app.bsky.actor.profile/self',
+                          our_as1={})
         user = self.make_user('did:plc:abc', cls=ATProto, enabled_protocols=['efake'])
         BlueskyAuth(id='did:plc:abc', user_json='{}').put()
 
