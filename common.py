@@ -340,7 +340,7 @@ def create_task(queue, app_id=GCP_PROJECT_ID, delay=None, **params):
         logger.info(f'Running task inline: {queue} {params}')
         from router import app
         return app.test_client().post(path, data=params, headers={
-              flask_util.CLOUD_TASKS_TASK_HEADER: 'x',
+              flask_util.CLOUD_TASKS_TASK_HEADER: 'inline',
               'Authorization': authorization,
         })
 
