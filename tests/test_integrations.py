@@ -1135,7 +1135,18 @@ To disable these messages, reply with the text 'mute'.""",
 
     @patch('requests.post', side_effect=[
         requests_response('OK'),       # create DID
-        requests_response({'id': 3}),  # createReport
+        requests_response({  # createReport
+            'id': 3,
+            'reportedBy': 'did:plc:alice',
+            'reasonType': 'com.atproto.moderation.defs#reasonOther',
+            'reason': '',
+            'subject': {
+                '$type': 'com.atproto.repo.strongRef',
+                'uri': 'at://did:plc:alice/app.bsky.actor.profile/self',
+                'cid': 'alice+sidd',
+            },
+            'createdAt': NOW.isoformat(),
+        }),
     ])
     @patch('requests.get', side_effect=[
         requests_response(PROFILE_GETRECORD),
