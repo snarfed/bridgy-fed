@@ -142,7 +142,8 @@ class Target(ndb.Model):
 
     def __eq__(self, other):
         """Equality excludes Targets' :class:`Key`."""
-        return self.uri == other.uri and self.protocol == other.protocol
+        if isinstance(other, Target):
+            return self.uri == other.uri and self.protocol == other.protocol
 
     def __hash__(self):
         """Allow hashing so these can be dict keys."""
