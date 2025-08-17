@@ -1,9 +1,8 @@
 # Main build and test pipeline.
 #
 # CircleCI automatically reads this file from our repo and uses it for
-# configuration. Docs:
-# https://circleci.com/docs/2.1/configuration-reference/
-# https://circleci.com/docs/2.1/sample-config/
+# configuration.
+# https://circleci.com/docs/reference/configuration-reference/
 version: 2.1
 
 parameters:
