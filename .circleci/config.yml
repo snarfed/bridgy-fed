@@ -74,12 +74,13 @@ jobs:
             # don't deploy on dependabot merges. $CIRCLE_USERNAME is unset for
             # GitHub users who don't have Circle accounts, like dependabot.
             if [[ $CIRCLE_BRANCH == "main" && $CIRCLE_USERNAME != "" ]]; then
+              echo $ENCRYPTED_PROPERTY_KEY > encrypted_property_key
               echo $FLASK_SECRET_KEY > flask_secret_key
+              echo $GCLOUD_SERVICE_KEY > /tmp/service_account_creds.json
+              echo $GCLOUD_SERVICE_KEY | gcloud auth activate-service-account --key-file=/tmp/service_account_creds.json
               echo $REPO_TOKEN > repo_token
               echo $THREADS_APP_ID > threads_app_id
               echo $THREADS_APP_SECRET > threads_app_secret
-              echo $GCLOUD_SERVICE_KEY > /tmp/service_account_creds.json
-              echo $GCLOUD_SERVICE_KEY | gcloud auth activate-service-account --key-file=/tmp/service_account_creds.json
 
               service='<< pipeline.parameters.service >>'
               gcloud config set project bridgy-federated
