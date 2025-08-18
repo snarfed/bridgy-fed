@@ -1793,7 +1793,7 @@ class ActivityPubTest(TestCase):
         self.assertEqual(204, got.status_code)
 
         actor = ActivityPub.get_by_id('https://mas.to/actor')
-        self.assertEqual(['fake', 'other'], actor.enabled_protocols)
+        self.assertEqual(['other', 'fake'], actor.enabled_protocols)
 
     @patch('activitypub.PROTOCOLS', new={'fake': Fake, 'other': OtherFake})
     def test_inbox_existing_server_actor_adds_enabled_protocols(

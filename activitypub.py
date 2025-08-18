@@ -52,6 +52,7 @@ import ids
 import memcache
 from models import fetch_objects, Follower, Object, PROTOCOLS, User
 from protocol import activity_id_memcache_key, DELETE_TASK_DELAY, Protocol
+from ui import UIProtocol
 import webfinger
 
 logger = logging.getLogger(__name__)
@@ -1328,9 +1329,8 @@ def inbox(protocol=None, id=None):
     # automatically bridge server aka instance actors
     # https://codeberg.org/fediverse/fep/src/branch/main/fep/d556/fep-d556.md
     if as2.is_server_actor(actor):
-        all_protocols = [
-            label for label, proto in PROTOCOLS.items()
-            if label and proto and label not in ('ui', 'activitypub', 'ap')]
+        all_protocols = [proto.LABEL for proto in set(PROTOCOLS.values())
+                         if proto not in (ActivityPub, UIProtocol, None)]
         user = ActivityPub.get_or_create(actor_id, propagate=True,
                                          enabled_protocols=all_protocols)
         if user and not user.existing:
