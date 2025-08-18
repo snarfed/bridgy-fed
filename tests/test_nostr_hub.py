@@ -54,9 +54,8 @@ class NostrHubTest(TestCase):
         common.RUN_TASKS_INLINE = False
 
         nostr_hub.nostr_pubkeys = set()
-        nostr_hub.nostr_loaded_at = datetime(1900, 1, 1)
         nostr_hub.bridged_pubkeys = set()
-        nostr_hub.bridged_loaded_at = datetime(1900, 1, 1)
+        nostr_hub.pubkeys_loaded_at = datetime(1900, 1, 1)
         nostr_hub.protocol_bot_pubkeys = set()
         nostr_hub.pubkeys_initialized.clear()
         nostr_hub.subscribed_relays = []

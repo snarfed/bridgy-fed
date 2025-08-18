@@ -85,7 +85,7 @@ def _load_users():
                     # query for all users, then filter for nostr enabled
                     users = proto.query(proto.status == None,
                                         proto.enabled_protocols == 'nostr',
-                                        proto.updated > bridged_loaded_at,
+                                        proto.updated > pubkeys_loaded_at,
                                         ).fetch()
                     new_bridged.extend(users)
 
