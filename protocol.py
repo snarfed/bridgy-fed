@@ -1076,7 +1076,7 @@ class Protocol:
                     if not published_dt.tzinfo:
                         published_dt = published_dt.replace(tzinfo=timezone.utc)
                     age = util.now() - published_dt
-                    if age > CREATE_MAX_AGE:
+                    if age > CREATE_MAX_AGE and 'force' not in request.values:
                         error(f'Ignoring, too old, {age} is over {CREATE_MAX_AGE}',
                               status=204)
                 except ValueError:  # from parse_iso8601
