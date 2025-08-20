@@ -998,7 +998,7 @@ class Protocol:
         memcache_key = activity_id_memcache_key(id)
         leased = memcache.memcache.add(
             memcache_key, 'leased', noreply=False,
-            expire=MEMCACHE_LEASE_EXPIRATION.total_seconds())
+            expire=int(MEMCACHE_LEASE_EXPIRATION.total_seconds()))
 
         # short circuit if we've already seen this activity id.
         # (don't do this for bare objects since we need to check further down
