@@ -1601,6 +1601,7 @@ class Protocol:
                     if (proto.LABEL not in from_user.DEFAULT_ENABLED_PROTOCOLS
                             and origs_could_bridge):
                         # retry later; original obj may still be bridging
+                        # TODO: limit to brief window, eg no older than 2h? 1d?
                         error(msg, status=304)
 
                     logger.info(msg)
