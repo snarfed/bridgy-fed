@@ -23,6 +23,7 @@ queue:
   max_concurrent_requests: 500
   retry_parameters:
     task_retry_limit: 4
+    # WARNING: keep this above protocol.MEMCACHE_LEASE_EXPIRATION!
     min_backoff_seconds: 30
     max_doublings: 4
 

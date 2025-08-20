@@ -3570,11 +3570,13 @@ class ProtocolReceiveTest(TestCase):
         first = Thread(target=receive)
         second = Thread(target=receive)
 
+        memcache_key = protocol.activity_id_memcache_key('fake:post')
         with patch.object(OtherFake, 'send', side_effect=send):
             first.start()
             second.start()
             with at_send:
                 at_send.wait(10)  # timeout in seconds
+            self.assertEqual('leased', memcache.memcache.get(memcache_key))
             with continue_send:
                 continue_send.notify(1)
             first.join()
@@ -3582,6 +3584,9 @@ class ProtocolReceiveTest(TestCase):
 
         # only one receive call should try to send
         self.assertEqual([('other:alice:target', post_as1)], OtherFake.sent)
+
+        lease_key = protocol.activity_id_memcache_key('fake:post')
+        self.assertEqual('done', memcache.memcache.get(memcache_key))
 
     @patch('protocol.LIMITED_DOMAINS', ['lim.it'])
     @patch('requests.get')

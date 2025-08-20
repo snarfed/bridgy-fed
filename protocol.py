@@ -57,6 +57,8 @@ import notifications
 OBJECT_REFRESH_AGE = timedelta(days=30)
 DELETE_TASK_DELAY = timedelta(minutes=2)
 CREATE_MAX_AGE = timedelta(weeks=2)
+# WARNING: keep this below the receive queue's min_backoff_seconds in queue.yaml!
+MEMCACHE_LEASE_EXPIRATION = timedelta(seconds=25)
 
 # require a follow for users on these domains before we deliver anything from
 # them other than their profile
@@ -994,8 +996,10 @@ class Protocol:
 
         # lease this object, atomically
         memcache_key = activity_id_memcache_key(id)
-        leased = memcache.memcache.add(memcache_key, 'leased', noreply=False,
-                                       expire=5 * 60)  # 5 min
+        leased = memcache.memcache.add(
+            memcache_key, 'leased', noreply=False,
+            expire=MEMCACHE_LEASE_EXPIRATION.total_seconds())
+
         # short circuit if we've already seen this activity id.
         # (don't do this for bare objects since we need to check further down
         # whether they've been updated since we saw them last.)
