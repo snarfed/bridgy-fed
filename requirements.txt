@@ -83,7 +83,7 @@ oauthlib==3.3.1
 opentelemetry-api==1.36.0
 orderedmultidict==1.0.1
 packaging==25.0
-pbr==7.0.0
+pbr==7.0.1
 pillow==11.3.0
 pkce==1.0.3
 praw==7.8.1
