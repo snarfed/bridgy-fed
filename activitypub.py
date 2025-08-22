@@ -74,6 +74,7 @@ _INSTANCE_ACTOR = None
 
 OLD_ACCOUNT_EXEMPT_DOMAINS = (
     'channel.org',
+    'mo-me.social',
     'newsmast.community',
     'pixelfed.social',
 )

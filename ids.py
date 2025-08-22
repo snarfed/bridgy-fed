@@ -55,6 +55,7 @@ INTERNAL_PATH_PREFIX = '/internal/'
 # https://fed.brid.gy/docs#bluesky-handle-api
 ATPROTO_HANDLE_DOMAINS = (
     'faithtree.social',
+    'mo-me.social',
     'music-social.com',
 )
 
