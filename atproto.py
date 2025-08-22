@@ -93,12 +93,6 @@ dns_client = dns.Client(project=DNS_GCP_PROJECT)
 # "Discovery API" https://github.com/googleapis/google-api-python-client
 dns_discovery_api = googleapiclient.discovery.build('dns', 'v1')
 
-# for migrate_in
-BOUNCE_OAUTH_CLIENT = {
-    'client_id': 'https://bounce.anew.social/bluesky/client-metadata.json',
-    'redirect_uris': ['https://bounce.anew.social/bluesky/oauth-callback'],
-}
-
 
 def oauth_client_metadata():
     return {
