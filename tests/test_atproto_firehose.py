@@ -433,6 +433,9 @@ class ATProtoFirehoseSubscribeTest(ATProtoTestCase):
             'subject': {'uri': 'at://did:alice/app.bsky.feed.post/tid'},
         })
 
+    def test_profile_update_by_our_atproto_user(self):
+        self.assert_enqueues(action='update', record=ACTOR_PROFILE_BSKY)
+
     def test_account_identity_events(self):
         time = NOW.isoformat()
 

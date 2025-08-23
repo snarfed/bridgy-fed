@@ -182,6 +182,47 @@ class IntegrationTests(TestCase):
         })
 
     @patch('requests.post')
+    def test_atproto_profile_update_to_activitypub(self, mock_post):
+        """ATProto profile update, from firehose to ActivityPub.
+
+        ATProto user did:plc:alice
+        ActivityPub follower http://inst/bob
+        """
+        alice = self.make_atproto_user('did:plc:alice')
+
+        bob = self.make_ap_user('http://inst/bob')
+        Follower.get_or_create(to=alice, from_=bob)
+
+        # need at least one repo for firehose subscriber to load DIDs and run
+        Repo.create(self.storage, 'did:unused', signing_key=ATPROTO_KEY)
+
+        new_profile = {
+            **ACTOR_PROFILE_BSKY,
+            'displayName': 'Ms New Alice',
+        }
+        self.firehose(repo='did:plc:alice', action='update', seq=123,
+                      path='app.bsky.actor.profile/self', record=new_profile)
+
+        expected_actor = ActivityPub.convert(
+            Object(id='at://did:plc:alice/app.bsky.actor.profile/self',
+                   bsky=new_profile, source_protocol='atproto'),
+            from_user=alice)
+
+        self.assert_ap_deliveries(mock_post, ['http://inst/bob/inbox'],
+                                  from_user=alice, data={
+            '@context': 'https://www.w3.org/ns/activitystreams',
+            'type': 'Update',
+            'id': 'https://bsky.brid.gy/convert/ap/at://did:plc:alice/app.bsky.actor.profile/self#bridgy-fed-update-2022-01-02T03:04:05+00:00',
+            'actor': 'https://bsky.brid.gy/ap/did:plc:alice',
+            'object': {
+                **expected_actor,
+                'updated': '2022-01-02T03:04:05+00:00',
+                'url': ['http://localhost/r/https://bsky.app/profile/alice.com',
+                        'http://localhost/r/https://alice.com/'],
+            },
+        }, ignore=('attachment', 'publicKey', 'to'))
+
+    @patch('requests.post')
     def test_atproto_reply_to_activitypub(self, mock_post):
         """ATProto reply, from firehose to ActivityPub.
 

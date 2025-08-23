@@ -274,7 +274,10 @@ def subscribe():
 
             if op.repo in atproto_dids:
                 # from a bridged Bluesky user
-                if type == 'app.bsky.feed.repost':
+                if type == 'app.bsky.actor.profile':
+                    commits.put(op)
+
+                elif type == 'app.bsky.feed.repost':
                     if is_ours(op.record['subject'], native=True):
                         commits.put(op)
 
