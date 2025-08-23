@@ -3199,6 +3199,18 @@ Sed tortor neque, aliquet quis posuere aliquam […]
                               copies=[copy], webfinger_addr='@AlIcE@b.c')
         self.assertEqual('alice.b.c', user.handle_as_domain)
 
+        resp = self.get('/.well-known/atproto-did?protocol=ap&id=http://b.c/users/alice')
+        self.assert_equals(200, resp.status_code)
+        self.assert_equals('text/plain', resp.headers['Content-Type'])
+        self.assert_equals('did:plc:alice', resp.get_data(as_text=True))
+
+    @patch('ids.ATPROTO_HANDLE_DOMAINS', ('b.c',))
+    def test_atproto_did_ap_id_split_domain(self):
+        copy = Target(uri='did:plc:alice', protocol='atproto')
+        user = self.make_user(id='http://a.b.c/users/AlIcE', cls=ActivityPub,
+                              copies=[copy], webfinger_addr='@AlIcE@b.c')
+        self.assertEqual('alice.b.c', user.handle_as_domain)
+
         resp = self.get('/.well-known/atproto-did?protocol=ap&id=http://a.b.c/users/alice')
         self.assert_equals(200, resp.status_code)
         self.assert_equals('text/plain', resp.headers['Content-Type'])
