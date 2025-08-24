@@ -657,17 +657,13 @@ class ATProtoFirehoseHandleTest(ATProtoTestCase):
                          authed_as='did:plc:user', received_at='1900-02-04',
                          eta_seconds=delayed_eta)
 
-    # getRecord of follow
-    @patch('requests.get', return_value=requests_response({
-        'uri': 'at://did:plc:user/app.bsky.graph.follow/123',
-        'cid': 'bafyre123',
-        'value': {
+    def test_delete_follow_to_stop_following(self, mock_create_task):
+        Object(id='at://did:plc:user/app.bsky.graph.follow/123', bsky={
             '$type': 'app.bsky.graph.follow',
             'subject': 'did:bo:b',
             'createdAt': '2022-01-02T03:04:05.000Z',
-        },
-    }))
-    def test_delete_follow_to_stop_following(self, mock_get, mock_create_task):
+        }).put()
+
         commits.put(Op(repo='did:plc:user', action='delete', seq=789,
                        path='app.bsky.graph.follow/123', time='1900-02-04'))
         handle(limit=1)
@@ -688,10 +684,7 @@ class ATProtoFirehoseHandleTest(ATProtoTestCase):
                          authed_as='did:plc:user', received_at='1900-02-04',
                          eta_seconds=delayed_eta)
 
-    # getRecord of follow
-    @patch('requests.get', side_effect=socket.timeout('foo'))
-    def test_delete_follow_to_stop_following_getRecord_fails(self, mock_get,
-                                                             mock_create_task):
+    def test_delete_follow_to_stop_following_no_stored_follow(self, mock_create_task):
         commits.put(Op(repo='did:plc:user', action='delete', seq=789,
                        path='app.bsky.graph.follow/123', time='1900-02-04'))
         handle(limit=1)

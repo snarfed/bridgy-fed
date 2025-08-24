@@ -338,8 +338,6 @@ def handler():
 
 
 def handle(limit=None):
-    client = DatastoreClient()
-
     def _handle(op):
         at_uri = f'at://{op.repo}/{op.path}'
 
@@ -374,17 +372,10 @@ def handle(limit=None):
 
             # stop-following object is followee id, not follow activity's id
             if type == 'app.bsky.graph.follow':
-                repo, collection, rkey = parse_at_uri(at_uri)
-                try:
-                    follow = client.com.atproto.repo.getRecord(
-                        repo=repo, collection=collection, rkey=rkey)
-                    record_kwarg['our_as1']['object'] = follow['value']['subject']
-                except BaseException as e:
-                    code, body = util.interpret_http_exception(e)
-                    if code:
-                        logger.warning(f"Couldn't load follow {at_uri} : {code} {body}")
-                        return
-                    raise
+                if (follow := ATProto.load(at_uri, remote=False)) and follow.bsky:
+                    record_kwarg['our_as1']['object'] = follow.bsky['subject']
+                else:
+                    return
 
         else:
             logger.error(f'Unknown action {op.action} for {op.repo} {op.path}')
