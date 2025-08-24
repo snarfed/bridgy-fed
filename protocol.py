@@ -55,7 +55,7 @@ from models import (
 import notifications
 
 OBJECT_REFRESH_AGE = timedelta(days=30)
-DELETE_TASK_DELAY = timedelta(minutes=2)
+DELETE_TASK_DELAY = timedelta(minutes=1)
 CREATE_MAX_AGE = timedelta(weeks=2)
 # WARNING: keep this below the receive queue's min_backoff_seconds in queue.yaml!
 MEMCACHE_LEASE_EXPIRATION = timedelta(seconds=25)

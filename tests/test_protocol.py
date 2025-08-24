@@ -1256,7 +1256,6 @@ class ProtocolReceiveTest(TestCase):
     def test_reply_to_non_bridged_post_with_mention_fails_for_retry(self, mock_send):
         self.user.enabled_protocols = ['atproto']
         self.user.put()
-
         self.alice.enabled_protocols = ['atproto']
         self.alice.put()
 
@@ -1284,8 +1283,6 @@ class ProtocolReceiveTest(TestCase):
         self.assertEqual([], OtherFake.sent)
 
     def test_reply_to_non_bridged_post_with_enabled_protocol_fails_for_retry(self):
-        self.make_user(id='fa.brid.gy', cls=Web)
-
         self.alice.enabled_protocols = ['efake']
         self.alice.put()
         self.bob.enabled_protocols = ['efake']

@@ -1257,8 +1257,8 @@ def inbox(protocol=None, id=None):
     # do we support this object type?
     # (this logic is duplicated in Protocol.check_supported)
     obj = as1.get_object(activity)
+    inner_type = obj.get('type')
     if type := activity.get('type'):
-        inner_type = as1.object_type(obj) or ''
         if (type not in ActivityPub.SUPPORTED_AS2_TYPES or
             (type in as2.CRUD_VERBS
              and inner_type
@@ -1337,7 +1337,10 @@ def inbox(protocol=None, id=None):
         if user and not user.existing:
             logger.info(f'Automatically enabled AP server actor {actor_id}')
 
-    delay = DELETE_TASK_DELAY if type in ('Delete', 'Undo') else None
+    delay = None
+    if type == 'Delete' or (type == 'Undo' and inner_type != 'Follow'):
+        delay = DELETE_TASK_DELAY
+
     return create_task(queue='receive', id=id, as2=activity,
                        source_protocol=ActivityPub.LABEL, authed_as=authed_as,
                        received_at=util.now().isoformat(), delay=delay)

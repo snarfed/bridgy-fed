@@ -676,6 +676,17 @@ class ActivityPubTest(TestCase):
                          received_at='2022-01-02T03:04:05+00:00',
                          eta_seconds=delayed_eta)
 
+    @patch('oauth_dropins.webutil.appengine_config.tasks_client.create_task')
+    def test_inbox_undo_follow_receive_task_no_delay(self, mock_create_task, *mocks):
+        common.RUN_TASKS_INLINE = False
+
+        self.make_user(ACTOR['id'], cls=ActivityPub, obj_as2=ACTOR)
+        resp = self.post('/ap/sharedInbox', json=UNDO_FOLLOW_WRAPPED)
+        self.assert_task(mock_create_task, 'receive', id=UNDO_FOLLOW_WRAPPED['id'],
+                         source_protocol='activitypub', as2=UNDO_FOLLOW_WRAPPED,
+                         authed_as=ACTOR['id'],
+                         received_at='2022-01-02T03:04:05+00:00')
+
     def test_inbox_reply_object(self, mock_head, mock_get, mock_post):
         self._test_inbox_reply(REPLY_OBJECT, mock_head, mock_get, mock_post)
 
