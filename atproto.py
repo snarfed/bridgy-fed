@@ -140,8 +140,8 @@ class DatastoreClient(Client):
     and then to ``ATProto.fetch``, which uses the ``appview`` global.
     """
     def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
-        assert self.address == f'https://{os.environ["APPVIEW_HOST"]}', self.address
+        super().__init__(*args, address=f'https://{os.environ["APPVIEW_HOST"]}',
+                         **kwargs)
 
     def call(self, nsid, input=None, headers={}, **params):
         if nsid == 'com.atproto.repo.getRecord':
@@ -942,7 +942,7 @@ class ATProto(User, Protocol):
 
         # convert! using our records in the datastore and fetching code instead
         # of granary's
-        client = DatastoreClient(f'https://{os.environ["APPVIEW_HOST"]}')
+        client = DatastoreClient()
         try:
             ret = bluesky.from_as1(cls.translate_ids(obj.as1), blobs=blobs,
                                    aspects=aspect_ratios, client=client,

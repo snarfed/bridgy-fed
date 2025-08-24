@@ -2834,7 +2834,7 @@ Sed tortor neque, aliquet quis posuere aliquam […]
         }
         self.store_object(id='at://did:plc:user/co.l.l/post', bsky=post)
 
-        client = DatastoreClient('https://appview.local')
+        client = DatastoreClient()
         self.assertEqual({
             'uri': 'at://did:plc:user/co.l.l/post',
             'cid': 'bafyreigdjrzqmcj4i3zcj3fzcfgod52ty7lfvw57ienlu4yeet3dv6zdpy',
@@ -2852,7 +2852,7 @@ Sed tortor neque, aliquet quis posuere aliquam […]
         self.repo.apply_writes([Write(action=Action.CREATE, collection='co.l.l',
                                       rkey='post', record=post)])
 
-        client = DatastoreClient('https://appview.local')
+        client = DatastoreClient()
         self.assertEqual({
             'uri': 'at://did:plc:user/co.l.l/post',
             'cid': 'bafyreiam6fisrctmj7uv6is5wkk4fqw6bxzlooepaapxntuv45j3mu34p4',
@@ -2864,7 +2864,7 @@ Sed tortor neque, aliquet quis posuere aliquam […]
     def test_datastore_client_get_record_pass_through(self, mock_get):
         self.store_object(id='did:plc:user', raw=DID_DOC)  # uses https://some.pds
 
-        client = DatastoreClient('https://appview.local')
+        client = DatastoreClient()
         self.assertEqual(NOTE_BSKY_RECORD, client.com.atproto.repo.getRecord(
             repo='did:plc:user', collection='co.l.l', rkey='post'))
 
@@ -2877,7 +2877,7 @@ Sed tortor neque, aliquet quis posuere aliquam […]
         self.store_object(id='did:plc:user', raw=DID_DOC)  # uses https://some.pds
         self.store_object(id='at://did:plc:user/co.l.l/post', our_as1={'foo': 'bar'})
 
-        client = DatastoreClient('https://appview.local')
+        client = DatastoreClient()
         self.assertEqual(NOTE_BSKY_RECORD, client.com.atproto.repo.getRecord(
             repo='did:plc:user', collection='co.l.l', rkey='post'))
         self.assert_object('at://did:plc:user/co.l.l/post',
@@ -2893,7 +2893,7 @@ Sed tortor neque, aliquet quis posuere aliquam […]
         self.store_object(id='did:plc:user', raw=DID_DOC)  # uses https://some.pds
         self.store_object(id='at://did:plc:user/co.l.l/post', our_as1={'foo': 'bar'})
 
-        client = DatastoreClient('https://appview.local')
+        client = DatastoreClient()
         self.assertEqual({}, client.com.atproto.repo.getRecord(
             repo='did:plc:user', collection='co.l.l', rkey='post'))
 
@@ -2904,7 +2904,7 @@ Sed tortor neque, aliquet quis posuere aliquam […]
     @patch('requests.get', side_effect=HTTPError(
         response=requests_response(status=500)))
     def test_datastore_client_get_record_pass_through_fails(self, mock_get):
-        client = DatastoreClient('https://appview.local')
+        client = DatastoreClient()
         self.assertEqual({}, client.com.atproto.repo.getRecord(
             repo='did:plc:user', collection='co.l.l', rkey='post'))
 
@@ -2916,14 +2916,14 @@ Sed tortor neque, aliquet quis posuere aliquam […]
         self.store_object(id='did:plc:user', raw=DID_DOC)
         self.make_user('did:plc:user', cls=ATProto)
 
-        client = DatastoreClient('https://appview.local')
+        client = DatastoreClient()
         self.assertEqual({'did': 'did:plc:user'},
                          client.com.atproto.identity.resolveHandle(handle='han.dull.brid.gy'))
 
     def test_datastore_client_resolve_handle_datastore_repo(self):
         self.make_user_and_repo()
 
-        client = DatastoreClient('https://appview.local')
+        client = DatastoreClient()
         self.assertEqual({'did': 'did:plc:user'},
                          client.com.atproto.identity.resolveHandle(handle='han.dull.brid.gy'))
 
@@ -2937,7 +2937,7 @@ Sed tortor neque, aliquet quis posuere aliquam […]
 
     @patch('requests.get', return_value=requests_response({'did': 'did:dy:d'}))
     def test_datastore_client_resolve_handle_pass_through(self, mock_get):
-        client = DatastoreClient('https://appview.local')
+        client = DatastoreClient()
         self.assertEqual({'did': 'did:dy:d'},
                          client.com.atproto.identity.resolveHandle(handle='han.dull.brid.gy'))
 
@@ -2955,7 +2955,7 @@ Sed tortor neque, aliquet quis posuere aliquam […]
             'handleIsCorrect': True,
         }
         mock_get.return_value = requests_response(output)
-        client = DatastoreClient('https://appview.local')
+        client = DatastoreClient()
         self.assertEqual(output, client.com.atproto.repo.describeRepo(repo='y.z'))
 
         mock_get.assert_called_with(
