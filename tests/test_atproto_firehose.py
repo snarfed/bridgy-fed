@@ -1,6 +1,7 @@
 """Unit tests for atproto_firehose.py."""
 import copy
 from datetime import datetime, timedelta, timezone
+import socket
 from unittest import skip
 from unittest.mock import patch
 
@@ -633,31 +634,68 @@ class ATProtoFirehoseHandleTest(ATProtoTestCase):
                          authed_as='did:plc:user', received_at='1900-02-04',
                          eta_seconds=delayed_eta)
 
-    def test_delete_other_verbs(self, mock_create_task):
-        for type, verb in [('block', 'undo'),
-                           ('follow', 'stop-following')]:
-            with self.subTest(type=type):
-                commits.put(Op(repo='did:plc:user', action='delete', seq=789,
-                               path=f'app.bsky.graph.{type}/123', time='1900-02-04'))
-                handle(limit=1)
+    def test_delete_block(self, mock_create_task):
+        commits.put(Op(repo='did:plc:user', action='delete', seq=789,
+                       path=f'app.bsky.graph.block/123', time='1900-02-04'))
+        handle(limit=1)
 
-                obj_id = f'at://did:plc:user/app.bsky.graph.{type}/123'
-                activity_id = f'{obj_id}#{verb}'
-                user_key = ATProto(id='did:plc:user').key
+        obj_id = f'at://did:plc:user/app.bsky.graph.block/123'
+        activity_id = f'{obj_id}#undo'
+        user_key = ATProto(id='did:plc:user').key
 
-                expected_as1 = {
-                    'objectType': 'activity',
-                    'verb': verb,
-                    'id': activity_id,
-                    'actor': 'did:plc:user',
-                    'object': obj_id,
-                }
-                delayed_eta = (util.to_utc_timestamp(NOW)
-                               + DELETE_TASK_DELAY.total_seconds())
-                self.assert_task(mock_create_task, 'receive', id=activity_id,
-                                 our_as1=expected_as1, source_protocol='atproto',
-                                 authed_as='did:plc:user', received_at='1900-02-04',
-                                 eta_seconds=delayed_eta)
+        expected_as1 = {
+            'objectType': 'activity',
+            'verb': 'undo',
+            'id': activity_id,
+            'actor': 'did:plc:user',
+            'object': obj_id,
+        }
+        delayed_eta = (util.to_utc_timestamp(NOW)
+                       + DELETE_TASK_DELAY.total_seconds())
+        self.assert_task(mock_create_task, 'receive', id=activity_id,
+                         our_as1=expected_as1, source_protocol='atproto',
+                         authed_as='did:plc:user', received_at='1900-02-04',
+                         eta_seconds=delayed_eta)
+
+    # getRecord of follow
+    @patch('requests.get', return_value=requests_response({
+        'uri': 'at://did:plc:user/app.bsky.graph.follow/123',
+        'cid': 'bafyre123',
+        'value': {
+            '$type': 'app.bsky.graph.follow',
+            'subject': 'did:bo:b',
+            'createdAt': '2022-01-02T03:04:05.000Z',
+        },
+    }))
+    def test_delete_follow_to_stop_following(self, mock_get, mock_create_task):
+        commits.put(Op(repo='did:plc:user', action='delete', seq=789,
+                       path='app.bsky.graph.follow/123', time='1900-02-04'))
+        handle(limit=1)
+
+        activity_id = 'at://did:plc:user/app.bsky.graph.follow/123#stop-following'
+        user_key = ATProto(id='did:plc:user').key
+        expected_as1 = {
+            'objectType': 'activity',
+            'verb': 'stop-following',
+            'id': activity_id,
+            'actor': 'did:plc:user',
+            'object': 'did:bo:b',
+        }
+
+        delayed_eta = util.to_utc_timestamp(NOW) + DELETE_TASK_DELAY.total_seconds()
+        self.assert_task(mock_create_task, 'receive', id=activity_id,
+                         our_as1=expected_as1, source_protocol='atproto',
+                         authed_as='did:plc:user', received_at='1900-02-04',
+                         eta_seconds=delayed_eta)
+
+    # getRecord of follow
+    @patch('requests.get', side_effect=socket.timeout('foo'))
+    def test_delete_follow_to_stop_following_getRecord_fails(self, mock_get,
+                                                             mock_create_task):
+        commits.put(Op(repo='did:plc:user', action='delete', seq=789,
+                       path='app.bsky.graph.follow/123', time='1900-02-04'))
+        handle(limit=1)
+        mock_create_task.assert_not_called()
 
     @patch('requests.get', return_value=requests_response({**DID_DOC, 'new': 'stuff'}))
     def test_account(self, mock_get, mock_create_task):

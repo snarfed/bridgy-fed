@@ -27,7 +27,7 @@ from oauth_dropins.webutil.appengine_config import ndb_client
 from oauth_dropins.webutil.appengine_info import DEBUG
 from oauth_dropins.webutil.util import json_dumps, json_loads
 
-from atproto import ATProto, Cursor
+from atproto import ATProto, Cursor, DatastoreClient
 from common import (
     create_task,
     NDB_CONTEXT_KWARGS,
@@ -338,6 +338,8 @@ def handler():
 
 
 def handle(limit=None):
+    client = DatastoreClient()
+
     def _handle(op):
         at_uri = f'at://{op.repo}/{op.path}'
 
@@ -353,6 +355,7 @@ def handle(limit=None):
                 'bsky': op.record,
             }
             obj_id = at_uri
+
         elif op.action == 'delete':
             verb = (
                 'delete' if type in ('app.bsky.actor.profile', 'app.bsky.feed.post')
@@ -368,6 +371,21 @@ def handle(limit=None):
                     'object': at_uri,
                 },
             }
+
+            # stop-following object is followee id, not follow activity's id
+            if type == 'app.bsky.graph.follow':
+                repo, collection, rkey = parse_at_uri(at_uri)
+                try:
+                    follow = client.com.atproto.repo.getRecord(
+                        repo=repo, collection=collection, rkey=rkey)
+                    record_kwarg['our_as1']['object'] = follow['value']['subject']
+                except BaseException as e:
+                    code, body = util.interpret_http_exception(e)
+                    if code:
+                        logger.warning(f"Couldn't load follow {at_uri} : {code} {body}")
+                        return
+                    raise
+
         else:
             logger.error(f'Unknown action {op.action} for {op.repo} {op.path}')
             return
