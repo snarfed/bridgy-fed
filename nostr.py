@@ -56,6 +56,7 @@ class Nostr(User, Protocol):
     """
     ABBREV = 'nostr'
     PHRASE = 'Nostr'
+    LOGO_EMOJI = ''  # TODO
     LOGO_HTML = '<img src="/static/nostr_logo.png">'
     CONTENT_TYPE = 'application/json'
     HAS_COPIES = True

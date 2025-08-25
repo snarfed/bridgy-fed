@@ -46,6 +46,8 @@ root directory:
    python3 -m venv local
    source local/bin/activate
    pip install -r requirements.txt
+   # needed to serve static files locally
+   ln -sf local/lib/python3*/site-packages/oauth_dropins/static oauth_dropins_static
 
 Now, run the tests to check that everything is set up ok:
 
@@ -59,7 +61,7 @@ locally:
 
 .. code:: shell
 
-   GAE_ENV=localdev FLASK_ENV=development flask run -p 8080
+   env FLASK_ENV=development APPVIEW_HOST=api.bsky.app PLC_HOST=plc.directory BGS_HOST=bsky.network PDS_HOST=atproto.brid.gy flask --debug run -p 8080
 
 If you send a pull request, please include (or update) a test for the
 new functionality!
@@ -95,9 +97,11 @@ How to add a new protocol
    the existing tables in the
    docs <https://github.com/snarfed/bridgy-fed/blob/main/templates/docs.html>`__
    in a PR. This is an important step before you start writing code.
-2. Implement the id and handle conversions in
+2. Add the new protocol to ``DEBUG_PROTOCOLS`` in
+   `models.py <https://github.com/snarfed/bridgy-fed/blob/main/models.py>`__.
+3. Implement the id and handle conversions in
    `ids.py <https://github.com/snarfed/bridgy-fed/blob/main/ids.py>`__.
-3. If the new protocol uses a new data format - which is likely - add
+4. If the new protocol uses a new data format - which is likely - add
    that format to `granary <https://github.com/snarfed/granary>`__ in a
    new file with functions that convert to/from `ActivityStreams
    1 <https://activitystrea.ms/specs/json/1.0/>`__ and tests. See
@@ -105,19 +109,59 @@ How to add a new protocol
    and
    `test_nostr.py <https://github.com/snarfed/granary/blob/main/granary/tests/test_nostr.py>`__
    for examples.
-4. Implement the protocol in a new ``.py`` file as a subclass of both
+5. Implement the protocol in a new ``.py`` file as a subclass of both
    `Protocol <https://github.com/snarfed/bridgy-fed/blob/main/protocol.py>`__
    and
    `User <https://github.com/snarfed/bridgy-fed/blob/main/models.py>`__.
-   Implement the ``send``, ``fetch``, ``serve``, and ``target_for``
-   methods from ``Protocol`` and ``handle`` and ``web_url`` from
-   ``User`` .
-5. TODO: add a new usage section to the docs for the new protocol.
-6. TODO: does the new protocol need any new UI or signup functionality?
+   Implement ``send``, ``fetch``, ``serve``, ``target_for``,
+   ``create_for``, and other necessary methods from ``Protocol``, and
+   ``handle``, ``handle_for_id``, ``web_url``, and other necessary
+   methods from ``User`` .
+6. TODO: add a new usage section to the docs for the new protocol.
+7. TODO: does the new protocol need any new UI or signup functionality?
    Unusual, but not impossible. Add that if necessary.
-7. Protocol logos may be emoji or image files. If this one is a file,
-   add it ``static/``. Then add the emoji or file ``<img>`` tag in the
-   ``Protocol`` subclass’s ``LOGO_HTML`` constant.
+8. Protocol logos may be emoji and/or image files. If this one has a
+   file, add it ``static/``. Then add the emoji and/or file ``<img>``
+   tag to the ``Protocol`` subclass’s ``LOGO_EMOJI`` and/or
+   ``LOGO_HTML`` constants.
+
+How to post as the protocol bot accounts: @ap.brid.gy, @bsky.brid.gy, etc
+-------------------------------------------------------------------------
+
+The protocol bot accounts -
+`@ap.brid.gy <https://bsky.app/profile/ap.brid.gy>`__,
+`@bsky.brid.gy <https://mastodon.social/@bsky.brid.gy@bsky.brid.gy>`__,
+and so on - don’t have user-facing UIs to log into and post as, but it’s
+still possible to post as them! Here’s how.
+
+They’re currently set up as `bridged web
+accounts <https://fed.brid.gy/docs#web-get-started>`__. To post to them,
+first create a blog post *without title* on
+`snarfed.org <https://snarfed.org/>`__, *check that it’s under 300 chars
+for Bluesky*, then send a `webmention <https://webmention.net/>`__ to
+Bridgy Fed to make it bridge the post. The source should be of the form
+eg ``https://[subdomain].brid.gy/internal/[URL]``, where URL is the
+snarfed.org post’s URL, *without* ``https://``, eg
+``https://ap.brid.gy/internal/snarfed.org/2025-06-09_55084``.
+
+::
+
+   curl -v -H "Authorization: `cat flask_secret_key`" \
+     -d source=https://ap.brid.gy/internal/snarfed.org/... \
+     -d force=true \
+     https://fed.brid.gy/webmention
+
+   curl -v -H "Authorization: `cat flask_secret_key`" \
+     -d source=https://bsky.brid.gy/internal/snarfed.org/... \
+     -d force=true \
+     https://fed.brid.gy/webmention
+
+(Ideally we’d like to be able to do this from
+`blog.anew.social <https://blog.anew.social/>`__ too! `They don’t
+support microformats in the default
+theme <https://indieweb.org/Ghost#Rejected_microformats2_markup_in_default_theme>`__,
+though, so we’d need to switch to a microformats-enabled theme first.
+😕)
 
 Stats
 -----

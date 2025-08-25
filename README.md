@@ -65,7 +65,7 @@ How to add a new protocol
 1. Implement the protocol in a new `.py` file as a subclass of both [`Protocol`](https://github.com/snarfed/bridgy-fed/blob/main/protocol.py) and [`User`](https://github.com/snarfed/bridgy-fed/blob/main/models.py). Implement `send`, `fetch`, `serve`, `target_for`, `create_for`, and other necessary methods from `Protocol`, and `handle`, `handle_for_id`, `web_url`, and other necessary methods from `User` .
 1. TODO: add a new usage section to the docs for the new protocol.
 1. TODO: does the new protocol need any new UI or signup functionality? Unusual, but not impossible. Add that if necessary.
-1. Protocol logos may be emoji or image files. If this one is a file, add it `static/`. Then add the emoji or file `<img>` tag in the `Protocol` subclass's `LOGO_HTML` constant.
+1. Protocol logos may be emoji and/or image files. If this one has a file, add it `static/`. Then add the emoji and/or file `<img>` tag to the `Protocol` subclass's `LOGO_EMOJI` and/or `LOGO_HTML` constants.
 
 
 How to post as the protocol bot accounts: @ap.brid.gy, @bsky.brid.gy, etc
