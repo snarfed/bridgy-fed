@@ -15,7 +15,7 @@ git+https://github.com/snarfed/secp256k1-py.git@setup-requires-pycparser#egg=sec
 
 attrs==25.3.0
 bases==0.3.0
-beautifulsoup4==4.13.4
+beautifulsoup4==4.13.5
 bech32==1.2.0
 binapy==0.8.0
 blinker==1.9.0
