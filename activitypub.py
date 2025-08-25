@@ -92,9 +92,12 @@ FEDI_URL_RE = re.compile(r'https://[^/]+/(@|users/)([^/@]+)(@[^/@]+)?(/(?:status
 
 def instance_actor():
     global _INSTANCE_ACTOR
+
     if _INSTANCE_ACTOR is None:
         import web
         _INSTANCE_ACTOR = web.Web.get_or_create(PRIMARY_DOMAIN)
+        assert _INSTANCE_ACTOR
+
     return _INSTANCE_ACTOR
 
 
