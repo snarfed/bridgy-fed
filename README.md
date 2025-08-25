@@ -70,7 +70,7 @@ How to add a new protocol
 
 How to post as the protocol bot accounts: @ap.brid.gy, @bsky.brid.gy, etc
 ---
-The protocol bot accounts - [@ap.brid.gy](https://bsky.app/profile/ap.brid.gy), [@bsky.brid.gy](https://mastodon.social/@bsky.brid.gy@bsky.brid.gy), and so on - don't have user-facing UIs to log into and post as, but it's still possible to post as them! Here's how.
+The protocol bot accounts - [@ap.brid.gy](https://bsky.app/profile/ap.brid.gy), [@bsky.brid.gy](https://mastodon.social/@bsky.brid.gy@bsky.brid.gy), and so on - don't have user-facing UIs to log into and post as, but it's still possible to post as them! And repost etc. Here's how.
 
 They're currently set up as [bridged _web_ accounts](https://fed.brid.gy/docs#web-get-started). To post to them, first create a blog post _without title_ on [snarfed.org](https://snarfed.org/), _check that it's under 300 chars for Bluesky_, then send a [webmention](https://webmention.net/) to Bridgy Fed to make it bridge the post. The source should be of the form eg `https://[subdomain].brid.gy/internal/[URL]`, where URL is the snarfed.org post's URL, _without_ `https://`, eg `https://ap.brid.gy/internal/snarfed.org/2025-06-09_55084`.
 
