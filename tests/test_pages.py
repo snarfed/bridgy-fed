@@ -758,7 +758,7 @@ class PagesTest(TestCase):
 
         body = resp.get_data(as_text=True)
         self.assert_multiline_in('<a href="/ap/@a@b.c">Bridging: </a>', body)
-        self.assert_multiline_in('<a class="h-card u-author" rel="me" href="https://bsky.app/profile/ab.c" title="ab.c">ab.c</a>', body)
+        self.assert_multiline_in('<a class="h-card u-author mention" rel="me" href="https://bsky.app/profile/ab.c" title="ab.c">ab.c</a>', body)
         # TODO: bring back
         # self.assert_multiline_in('Not bridging.', body)
 

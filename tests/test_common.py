@@ -37,7 +37,7 @@ class CommonTest(TestCase):
 
         # current user's homepage gets converted to BF user page
         self.assert_multiline_equals("""\
-<span class="logo" title="Web">🌐</span> <a class="h-card u-author" rel="me" href="https://user.com/" title="user.com"><span style="unicode-bidi: isolate">user.com</span></a>""", common.pretty_link('https://user.com/', user=Web(id='user.com')),
+<span class="logo" title="Web">🌐</span> <a class="h-card u-author mention" rel="me" href="https://user.com/" title="user.com"><span style="unicode-bidi: isolate">user.com</span></a>""", common.pretty_link('https://user.com/', user=Web(id='user.com')),
         ignore_blanks=True)
 
     def test_redirect_wrap_empty(self):

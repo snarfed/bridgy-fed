@@ -940,7 +940,7 @@ class ProtocolTest(TestCase):
             'objectType': 'person',
             'id': 'other:u:efake:alice',
             'url': 'http://unused',
-            'summary': 'something about me<br><br>🌉 <a href="https://fed.brid.gy/efake/efake:handle:alice">bridged</a> from 📣 <a href="web:efake:alice">efake:handle:alice</a>, follow <a class="h-card u-author" rel="me" href="web:other:efake.brid.gy" title="other:handle:efake.brid.gy">other:handle:efake.brid.gy</a> to interact',
+            'summary': 'something about me<br><br>🌉 <a href="https://fed.brid.gy/efake/efake:handle:alice">bridged</a> from 📣 <a href="web:efake:alice">efake:handle:alice</a>, follow <a class="h-card u-author mention" rel="me" href="web:other:efake.brid.gy" title="other:handle:efake.brid.gy">other:handle:efake.brid.gy</a> to interact',
         }, OtherFake.convert(Object(
             id='efake:profile:alice', source_protocol='efake', our_as1={
                 'objectType': 'person',
@@ -988,7 +988,7 @@ class ProtocolTest(TestCase):
                 'object': {
                     'objectType': 'person',
                     'id': 'other:u:efake:alice',
-                    'summary': 'something about me<br><br>🌉 <a href="https://fed.brid.gy/efake/efake:handle:alice">bridged</a> from 📣 <a href="web:efake:alice">efake:handle:alice</a>, follow <a class="h-card u-author" rel="me" href="web:other:efake.brid.gy" title="other:handle:efake.brid.gy">other:handle:efake.brid.gy</a> to interact',
+                    'summary': 'something about me<br><br>🌉 <a href="https://fed.brid.gy/efake/efake:handle:alice">bridged</a> from 📣 <a href="web:efake:alice">efake:handle:alice</a>, follow <a class="h-card u-author mention" rel="me" href="web:other:efake.brid.gy" title="other:handle:efake.brid.gy">other:handle:efake.brid.gy</a> to interact',
                 },
             }, OtherFake.convert(
                 Object(id='efake:profile:update', source_protocol='efake', our_as1={
@@ -1363,7 +1363,7 @@ class ProtocolReceiveTest(TestCase):
         self.assertEqual(204, code)
 
         # check that we sent a prompt to eve and a notif to other:user
-        test_dms.DmsTest().assert_sent(OtherFake, eve, 'replied_to_bridged_user', """Hi! You <a href="http://efake/reply">recently replied to</a> <a class="h-card u-author" rel="me" href="web:other:user" title="other:handle:user">other:handle:user</a>, who's bridged here from other-phrase. If you want them to see your replies, you can bridge your account into other-phrase by following this account. <a href="https://fed.brid.gy/docs">See the docs</a> for more information.""")
+        test_dms.DmsTest().assert_sent(OtherFake, eve, 'replied_to_bridged_user', """Hi! You <a href="http://efake/reply">recently replied to</a> <a class="h-card u-author mention" rel="me" href="web:other:user" title="other:handle:user">other:handle:user</a>, who's bridged here from other-phrase. If you want them to see your replies, you can bridge your account into other-phrase by following this account. <a href="https://fed.brid.gy/docs">See the docs</a> for more information.""")
         test_dms.DmsTest().assert_sent(ExplicitFake, user, '?', """\
 <p>Hi! Here are your recent interactions from people who aren't bridged into other-phrase:
 <ul>
@@ -1399,7 +1399,7 @@ class ProtocolReceiveTest(TestCase):
         self.assertEqual(204, code)
 
         # check that we sent a prompt to eve and a notif to other:user
-        test_dms.DmsTest().assert_sent(OtherFake, eve, 'replied_to_bridged_user', """Hi! You <a href="http://efake/quote">recently quoted</a> <a class="h-card u-author" rel="me" href="web:other:user" title="other:handle:user">other:handle:user</a>, who's bridged here from other-phrase. If you want them to see your quotes, you can bridge your account into other-phrase by following this account. <a href="https://fed.brid.gy/docs">See the docs</a> for more information.""")
+        test_dms.DmsTest().assert_sent(OtherFake, eve, 'replied_to_bridged_user', """Hi! You <a href="http://efake/quote">recently quoted</a> <a class="h-card u-author mention" rel="me" href="web:other:user" title="other:handle:user">other:handle:user</a>, who's bridged here from other-phrase. If you want them to see your quotes, you can bridge your account into other-phrase by following this account. <a href="https://fed.brid.gy/docs">See the docs</a> for more information.""")
         test_dms.DmsTest().assert_sent(ExplicitFake, user, '?', """\
 <p>Hi! Here are your recent interactions from people who aren't bridged into other-phrase:
 <ul>
@@ -1429,7 +1429,7 @@ class ProtocolReceiveTest(TestCase):
         self.assertEqual(204, code)
 
         # check that we sent a prompt to eve and a notif to other:user
-        test_dms.DmsTest().assert_sent(OtherFake, eve, 'replied_to_bridged_user', """Hi! You <a href="http://efake/mention">recently mentioned</a> <a class="h-card u-author" rel="me" href="web:other:user" title="other:handle:user">other:handle:user</a>, who's bridged here from other-phrase. If you want them to see your mentions, you can bridge your account into other-phrase by following this account. <a href="https://fed.brid.gy/docs">See the docs</a> for more information.""")
+        test_dms.DmsTest().assert_sent(OtherFake, eve, 'replied_to_bridged_user', """Hi! You <a href="http://efake/mention">recently mentioned</a> <a class="h-card u-author mention" rel="me" href="web:other:user" title="other:handle:user">other:handle:user</a>, who's bridged here from other-phrase. If you want them to see your mentions, you can bridge your account into other-phrase by following this account. <a href="https://fed.brid.gy/docs">See the docs</a> for more information.""")
         test_dms.DmsTest().assert_sent(ExplicitFake, user, '?', """\
 <p>Hi! Here are your recent interactions from people who aren't bridged into other-phrase:
 <ul>
@@ -3281,7 +3281,7 @@ class ProtocolReceiveTest(TestCase):
         ], ExplicitFake.sent[1:])
 
         ExplicitFake.sent = ExplicitFake.sent[:1]
-        test_dms.DmsTest().assert_sent(Fake, user, 'welcome', 'Welcome to Bridgy Fed! Your account will soon be bridged to fake-phrase at <a class="h-card u-author" rel="me" href="web:fake:efake:user" title="fake:handle:efake:handle:user">fake:handle:efake:handle:user</a>. <a href="https://fed.brid.gy/docs">See the docs</a> and <a href="https://fed.brid.gy/efake/efake:handle:user">your user page</a> for more information. To disable this and delete your bridged profile, block this account.')
+        test_dms.DmsTest().assert_sent(Fake, user, 'welcome', 'Welcome to Bridgy Fed! Your account will soon be bridged to fake-phrase at <a class="h-card u-author mention" rel="me" href="web:fake:efake:user" title="fake:handle:efake:handle:user">fake:handle:efake:handle:user</a>. <a href="https://fed.brid.gy/docs">See the docs</a> and <a href="https://fed.brid.gy/efake/efake:handle:user">your user page</a> for more information. To disable this and delete your bridged profile, block this account.')
 
         # another follow should be a noop
         follow['id'] += '2'
