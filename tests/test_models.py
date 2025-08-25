@@ -433,9 +433,7 @@ class UserTest(TestCase):
 
     @patch.object(Fake, 'REQUIRES_OLD_ACCOUNT', True)
     def test_requires_old_account(self):
-        user = self.make_user(id='fake:user', cls=Fake, obj_as1={
-            'foo': 'bar',
-        })
+        user = self.make_user(id='fake:user', cls=Fake, obj_as1={'foo': 'bar'})
         self.assertIsNone(user.status)
 
         too_young = util.now() - common.OLD_ACCOUNT_AGE + timedelta(minutes=1)
@@ -447,6 +445,17 @@ class UserTest(TestCase):
 
         user.obj.our_as1['published'] = (too_young - timedelta(minutes=2)).isoformat()
         self.assertIsNone(user.status)
+
+    def test_status_manual_opt_out_false_overrides_spam_filters(self):
+        too_young = util.now() - common.OLD_ACCOUNT_AGE + timedelta(minutes=1)
+        user = self.make_user(id='fake:user', cls=Fake, manual_opt_out=False,
+                              obj_as1={'published': too_young.isoformat()})
+        self.assertIsNone(user.status)
+
+        with (patch.object(Fake, 'REQUIRES_OLD_ACCOUNT', True),
+              patch.object(Fake, 'REQUIRES_NAME', True),
+              patch.object(Fake, 'REQUIRES_AVATAR', True)):
+            self.assertIsNone(user.status)
 
     def test_get_copy(self):
         user = Fake(id='x')

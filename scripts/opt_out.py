@@ -142,7 +142,7 @@ def run():
 
     if user.manual_opt_out:
         # needed for key_for etc in misc downstream code below
-        user.manual_opt_out = False
+        user.manual_opt_out = None
         user.put()
 
     # assert not user.status, user.status

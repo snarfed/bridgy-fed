@@ -335,7 +335,7 @@ class User(StringIdModel, AddRemoveMixin, metaclass=ProtocolUserMeta):
     """The bridged Nostr account's secp256k1 private key, in raw bytes."""
 
     manual_opt_out = ndb.BooleanProperty()
-    """Set to True for users who asked to be opted out."""
+    """Set to True to manually disable this user. Set to False to override spam filters and forcibly enable this user."""
 
     enabled_protocols = ndb.StringProperty(repeated=True,
                                            # TODO: remove for Nostr launch
@@ -585,6 +585,8 @@ class User(StringIdModel, AddRemoveMixin, metaclass=ProtocolUserMeta):
         """
         if self.manual_opt_out:
             return 'opt-out'
+        elif self.manual_opt_out is False:
+            return None
 
         # TODO: require profile for more protocols? all?
         if not self.obj or not self.obj.as1:
