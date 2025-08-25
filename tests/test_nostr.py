@@ -42,7 +42,7 @@ from granary.tests.test_nostr import (
     PUBKEY,
     URI,
 )
-from .testutil import Fake, TestCase
+from .testutil import ExplicitFake, Fake, TestCase
 
 
 class NostrTest(TestCase):
@@ -352,13 +352,13 @@ class NostrTest(TestCase):
                      })
         obj.put()
 
-        id = '8ad830634299733997c828ba094b995a1a1aad8ca7607ff44e268afb83a29da9'
+        id = '13d6ebaa1c81003083152f55e976698ccfbe1abd8caecc9fa449dc75bf946879'
         expected = {
             'kind': KIND_PROFILE,
             'id': id,
             'pubkey': PUBKEY,
             'content': json_dumps({
-                'about': '🌉 bridged from fake:note by https://fed.brid.gy/',
+                'about': '🌉 bridged from 🤡 fake:note by https://fed.brid.gy/',
                 'name': 'alice',
             }, ensure_ascii=False),
             'created_at': 1641092645,
@@ -378,7 +378,9 @@ class NostrTest(TestCase):
 
     @patch('secp256k1._gen_private_key', return_value=bytes.fromhex(PRIVKEY))
     def test_create_for(self, _):
-        alice = self.make_user('fake:alice', cls=Fake, obj_as1={
+        self.make_user(cls=Web, id='efake.brid.gy',
+                       copies=[Target(protocol='nostr', uri='nostr:npub123')])
+        alice = self.make_user('efake:alice', cls=ExplicitFake, obj_as1={
             'objectType': 'person',
             'displayName': 'Alice',
             'summary': 'foo bar'
@@ -403,7 +405,9 @@ class NostrTest(TestCase):
             'pubkey': PUBKEY,
             'id': profile_id,
             'content': json_dumps({
-                'about': 'foo bar\n\n🌉 bridged from web:fake:alice on fake-phrase by https://fed.brid.gy/',
+                # TODO: bot handle formatting. and are there @-mentions in Nostr
+                # profiles?
+                'about': 'foo bar\n\n🌉 bridged from 📣 web:efake:alice, follow @_@efake.brid.gy to interact',
                 'name':'Alice',
             }, ensure_ascii=False),
             'created_at': NOW_TS,

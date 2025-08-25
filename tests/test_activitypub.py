@@ -108,7 +108,7 @@ ACTOR_FAKE_USER = {
     ],
     'name': 'fake-handle-user',
     'type': 'Person',
-    'summary': '🌉 <a href="https://fed.brid.gy/fa/fake:handle:user">bridged</a> from <a href="web:fake:user">fake:handle:user</a> on fake-phrase by <a href="https://fed.brid.gy/">Bridgy Fed</a>',
+    'summary': '🌉 <a href="https://fed.brid.gy/fa/fake:handle:user">bridged</a> from 🤡 <a href="web:fake:user">fake:handle:user</a> by <a href="https://fed.brid.gy/">Bridgy Fed</a>',
     'discoverable': True,
     'indexable': True,
 }
@@ -442,6 +442,7 @@ class ActivityPubTest(TestCase):
         self.assertEqual('Accept', got.headers['Vary'])
 
     def test_actor_new_user_fetch(self, _, mock_get, __):
+        self.make_user(cls=Web, id='fa.brid.gy')
         self.user.obj_key.delete()
         self.user.key.delete()
         mock_get.side_effect = test_web.web_user_gets('user.com')
@@ -473,6 +474,7 @@ class ActivityPubTest(TestCase):
         self.assertEqual(504, got.status_code)
 
     def test_actor_handle_existing_user(self, _, __, ___):
+        self.make_user(cls=Web, id='fa.brid.gy')
         self.make_user('fake:user', cls=Fake, obj_as1=as2.to_as1({
             **ACTOR_FAKE,
             'id': 'fake:profile:user',
@@ -486,6 +488,7 @@ class ActivityPubTest(TestCase):
 
     @patch.object(Fake, 'DEFAULT_ENABLED_PROTOCOLS', new=['activitypub'])
     def test_actor_handle_new_user(self, _, __, ___):
+        self.make_user(cls=Web, id='fa.brid.gy')
         Fake.fetchable['fake:profile:user'] = as2.to_as1({
             **ACTOR_FAKE,
             'id': 'fake:profile:user',

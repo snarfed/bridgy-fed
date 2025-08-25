@@ -237,6 +237,8 @@ class ATProto(User, Protocol):
     ''
     PHRASE = 'Bluesky'
     ''
+    LOGO_EMOJI = '🦋'
+    ''
     LOGO_HTML = '<img src="/oauth_dropins_static/bluesky.svg">'
     ''
     DEFAULT_TARGET = f'https://atproto{common.SUPERDOMAIN}'

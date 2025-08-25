@@ -41,7 +41,7 @@ from atproto import (
 import common
 from models import Follower, Object, PROTOCOLS, Target
 import protocol
-from .testutil import ATPROTO_KEY, Fake, TestCase
+from .testutil import ATPROTO_KEY, ExplicitFake, Fake, TestCase
 from . import test_activitypub
 from . import test_web
 from web import Web
@@ -1084,20 +1084,22 @@ class ATProtoTest(TestCase):
         })))
 
     def test_convert_non_atproto_actor_adds_source_links(self):
-        user = self.make_user_and_repo()
+        self.make_user(cls=Web, id='efake.brid.gy',
+                       copies=[Target(protocol='atproto', uri='did:efake')])
+        user = self.make_user_and_repo(cls=ExplicitFake, id='efake:user')
 
         self.assertEqual({
             '$type': 'app.bsky.actor.profile',
             'displayName': 'Alice',
-            'description': '🌉 bridged from web:fake:user on fake-phrase by https://fed.brid.gy/',
+            'description': '🌉 bridged from 📣 web:efake:user, follow @efake.brid.gy to interact',
             'labels': {
                 '$type': 'com.atproto.label.defs#selfLabels',
-                'values': [{'val': 'bridged-from-bridgy-fed-fake'}],
+                'values': [{'val': 'bridged-from-bridgy-fed-efake'}],
             },
-            'bridgyOriginalUrl': 'fake:user',
-        }, ATProto.convert(Object(source_protocol='fake', our_as1={
+            'bridgyOriginalUrl': 'efake:user',
+        }, ATProto.convert(Object(source_protocol='efake', our_as1={
             'objectType': 'person',
-            'id': 'fake:user',
+            'id': 'efake:user',
             'displayName': 'Alice',
         }), from_user=user))
 
@@ -1107,7 +1109,7 @@ class ATProtoTest(TestCase):
         self.assertEqual({
             '$type': 'app.bsky.actor.profile',
             'displayName': 'Alice',
-            'description': '🌉 bridged from https://user.com/ on the web: https://fed.brid.gy/web/user.com',
+            'description': '🌉 bridged from 🌐 https://user.com/: https://fed.brid.gy/web/user.com',
             'labels': {
                 '$type': 'com.atproto.label.defs#selfLabels',
                 'values': [{'val': 'bridged-from-bridgy-fed-web'}],
@@ -1120,6 +1122,8 @@ class ATProtoTest(TestCase):
         }), from_user=user))
 
     def test_convert_non_atproto_update_actor_truncates_before_source_links(self):
+        self.make_user(cls=Web, id='fa.brid.gy',
+                       copies=[Target(protocol='atproto', uri='did:fa')])
         user = self.make_user_and_repo()
 
         summary = """\
@@ -1138,9 +1142,9 @@ Mauris laoreet dolor eu ligula vulputate aliquam.
 Aenean vel augue at ipsum vestibulum ultricies.
 Nam quis tristique elit.
 
-Sed tortor neque, aliquet quis posuere aliquam […] 
+Sed tortor neque, aliquet quis posuere aliquam, imperdiet sitamet […] 
 
-🌉 bridged from web:fake:user on fake-phrase by https://fed.brid.gy/""",
+🌉 bridged from 🤡 web:fake:user by https://fed.brid.gy/""",
             'bridgyOriginalDescription': summary,
             'bridgyOriginalUrl': 'fake:user',
             'labels': {
@@ -1157,12 +1161,14 @@ Sed tortor neque, aliquet quis posuere aliquam […]
         }), from_user=user))
 
     def test_convert_non_atproto_actor_link_in_summary(self):
+        self.make_user(cls=Web, id='fa.brid.gy',
+                       copies=[Target(protocol='atproto', uri='did:fa')])
         user = self.make_user_and_repo()
 
         self.assertEqual({
             '$type': 'app.bsky.actor.profile',
             'displayName': 'Alice',
-            'description': 'bar\n\n🌉 bridged from web:fake:user on fake-phrase by https://fed.brid.gy/',
+            'description': 'bar\n\n🌉 bridged from 🤡 web:fake:user by https://fed.brid.gy/',
             'labels': {
                 '$type': 'com.atproto.label.defs#selfLabels',
                 'values': [{'val': 'bridged-from-bridgy-fed-fake'}],
@@ -1316,6 +1322,8 @@ Sed tortor neque, aliquet quis posuere aliquam […]
         rrsets.list.return_value = list_ = MagicMock()
         list_.execute.return_value = {'rrsets': []}
 
+        self.make_user(cls=Web, id='fa.brid.gy',
+                       copies=[Target(protocol='atproto', uri='did:fa')])
         Fake.fetchable = {'fake:profile:us_er': ACTOR_AS}
         user = Fake(id='fake:us_er')
         AtpRemoteBlob(id='https://alice.com/alice.jpg', mime_type='image/png',
@@ -1337,7 +1345,7 @@ Sed tortor neque, aliquet quis posuere aliquam […]
         self.assertEqual({
             '$type': 'app.bsky.actor.profile',
             'displayName': 'Alice',
-            'description': 'hi there\n\n🌉 bridged from web:fake:us_er on fake-phrase by https://fed.brid.gy/',
+            'description': 'hi there\n\n🌉 bridged from 🤡 web:fake:us_er by https://fed.brid.gy/',
             'bridgyOriginalDescription': 'hi there',
             'bridgyOriginalUrl': 'https://alice.com/',
             'avatar': {
@@ -1366,6 +1374,8 @@ Sed tortor neque, aliquet quis posuere aliquam […]
     @patch.object(tasks_client, 'create_task', return_value=Task(name='my task'))
     @patch('requests.post', return_value=requests_response('OK'))  # create DID on PLC
     def test_create_for_with_pinned_post(self, mock_post, mock_create_task):
+        self.make_user(cls=Web, id='fa.brid.gy',
+                       copies=[Target(protocol='atproto', uri='did:fa')])
         Fake.fetchable = {
             'fake:profile:user': {
                 **ACTOR_AS,
@@ -1392,7 +1402,7 @@ Sed tortor neque, aliquet quis posuere aliquam […]
         self.assert_equals({
             '$type': 'app.bsky.actor.profile',
             'displayName': 'Alice',
-            'description': 'hi there\n\n🌉 bridged from web:fake:user on fake-phrase by https://fed.brid.gy/',
+            'description': 'hi there\n\n🌉 bridged from 🤡 web:fake:user by https://fed.brid.gy/',
             'pinnedPost': {
                 'uri': f'at://{did}/app.bsky.feed.post/{last_tid}',
                 'cid': 'bafyreibjhbhznld7ogitdeub3ptk3cnkaegz3oma46ys5ljnaaec3sylpq',
@@ -1410,6 +1420,8 @@ Sed tortor neque, aliquet quis posuere aliquam […]
     @patch.object(tasks_client, 'create_task', return_value=Task(name='my task'))
     @patch('requests.post', return_value=requests_response('OK'))  # create DID on PLC
     def test_create_for_cant_convert_pinned_post(self, mock_post, mock_create_task):
+        self.make_user(cls=Web, id='fa.brid.gy',
+                       copies=[Target(protocol='atproto', uri='did:fa')])
         Fake.fetchable = {
             'fake:profile:user': {
                 **ACTOR_AS,
@@ -1438,7 +1450,7 @@ Sed tortor neque, aliquet quis posuere aliquam […]
         self.assert_equals({
             '$type': 'app.bsky.actor.profile',
             'displayName': 'Alice',
-            'description': 'hi there\n\n🌉 bridged from web:fake:user on fake-phrase by https://fed.brid.gy/',
+            'description': 'hi there\n\n🌉 bridged from 🤡 web:fake:user by https://fed.brid.gy/',
         }, repo.get_record('app.bsky.actor.profile', 'self'),
         ignore=['bridgyOriginalDescription', 'bridgyOriginalUrl', 'labels'])
 
@@ -1870,7 +1882,7 @@ Sed tortor neque, aliquet quis posuere aliquam […]
         self.assertEqual({
             '$type': 'app.bsky.actor.profile',
             'displayName': 'Alice',
-            'description': 'hi there\n\n🌉 bridged from web:fake:user on fake-phrase by https://fed.brid.gy/',
+            'description': 'hi there\n\n🌉 bridged from 🤡 web:fake:user by https://fed.brid.gy/',
             'bridgyOriginalDescription': 'hi there',
             'bridgyOriginalUrl': 'https://alice.com/',
             'avatar': {
@@ -2138,7 +2150,7 @@ Sed tortor neque, aliquet quis posuere aliquam […]
         self.assert_equals({
             '$type': 'app.bsky.actor.profile',
             'displayName': 'fooey',
-            'description': '🌉 bridged from web:fake:user on fake-phrase by https://fed.brid.gy/',
+            'description': '🌉 bridged from 🤡 web:fake:user by https://fed.brid.gy/',
         }, repo.get_record('app.bsky.actor.profile', 'self'),
         ignore=['bridgyOriginalUrl', 'labels'])
 

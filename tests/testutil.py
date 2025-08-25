@@ -81,6 +81,7 @@ class Fake(User, protocol.Protocol):
     CONTENT_TYPE = 'fa/ke'
     DEFAULT_ENABLED_PROTOCOLS = ('other',)
     HAS_COPIES = True
+    LOGO_EMOJI = '🤡'
     LOGO_HTML = '<img src="fake-logo">'
     DEFAULT_SERVE_USER_PAGES = True
     SUPPORTED_AS1_TYPES = frozenset(
@@ -239,11 +240,13 @@ class OtherFake(Fake):
     LABEL = ABBREV = 'other'
     PHRASE = 'other-phrase'
     CONTENT_TYPE = 'ot/her'
+    LOGO_EMOJI = '⏎'
     DEFAULT_ENABLED_PROTOCOLS = ('fake',)
     DEFAULT_SERVE_USER_PAGES = False
     SUPPORTED_AS1_TYPES = Fake.SUPPORTED_AS1_TYPES - set(('accept',))
     SUPPORTS_DMS = True
     SEND_REPLIES_TO_ORIG_POSTS_MENTIONS = True
+    HTML_PROFILES = True
 
     fetchable = {}
     sent = []
@@ -267,6 +270,7 @@ class ExplicitFake(Fake):
     LABEL = ABBREV = 'efake'
     PHRASE = 'efake-phrase'
     CONTENT_TYPE = 'un/known'
+    LOGO_EMOJI = '📣'
     DEFAULT_ENABLED_PROTOCOLS = ()
     DEFAULT_SERVE_USER_PAGES = False
     SUPPORTS_DMS = True

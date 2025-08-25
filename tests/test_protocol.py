@@ -901,12 +901,14 @@ class ProtocolTest(TestCase):
         self.assertEqual(obj, Fake.translate_ids(obj))
 
     def test_convert_object_is_from_user_adds_source_links(self):
+        self.make_user(cls=Web, id='fa.brid.gy',
+                       copies=[Target(protocol='other', uri='other:bot')])
         alice = Fake(id='fake:alice')
         self.assertEqual({
             'objectType': 'person',
             'id': 'other:u:fake:alice',
             'url': 'http://unused',
-            'summary': 'something about me<br><br>🌉 <a href="https://fed.brid.gy/fa/fake:handle:alice">bridged</a> from <a href="web:fake:alice">fake:handle:alice</a> on fake-phrase by <a href="https://fed.brid.gy/">Bridgy Fed</a>',
+            'summary': 'something about me<br><br>🌉 <a href="https://fed.brid.gy/fa/fake:handle:alice">bridged</a> from 🤡 <a href="web:fake:alice">fake:handle:alice</a> by <a href="https://fed.brid.gy/">Bridgy Fed</a>',
         }, OtherFake.convert(Object(
             id='fake:profile:alice', source_protocol='fake', our_as1={
                 'objectType': 'person',
@@ -916,17 +918,36 @@ class ProtocolTest(TestCase):
             }), from_user=alice))
 
     def test_convert_object_isnt_from_user_adds_source_links(self):
+        self.make_user(cls=Web, id='fa.brid.gy',
+                       copies=[Target(protocol='other', uri='other:bot')])
         bob = Fake(id='fake:bob')
         self.assertEqual({
             'objectType': 'person',
             'id': 'other:u:fake:alice',
             'url': 'http://al/ice',
-            'summary': '🌉 bridged from <a href="http://al/ice">al/ice</a> on fake-phrase by <a href="https://fed.brid.gy/">Bridgy Fed</a>',
+            'summary': '🌉 bridged from 🤡 <a href="http://al/ice">al/ice</a> by <a href="https://fed.brid.gy/">Bridgy Fed</a>',
         }, OtherFake.convert(Object(id='fake:alice', source_protocol='fake', our_as1={
             'objectType': 'person',
             'id': 'fake:alice',
             'url': 'http://al/ice',
         }), from_user=bob))
+
+    def test_convert_object_not_default_enabled_protocol_adds_source_links(self):
+        self.make_user(cls=Web, id='efake.brid.gy',
+                       copies=[Target(protocol='other', uri='other:bot')])
+        alice = ExplicitFake(id='efake:alice')
+        self.assertEqual({
+            'objectType': 'person',
+            'id': 'other:u:efake:alice',
+            'url': 'http://unused',
+            'summary': 'something about me<br><br>🌉 <a href="https://fed.brid.gy/efake/efake:handle:alice">bridged</a> from 📣 <a href="web:efake:alice">efake:handle:alice</a>, follow <a class="h-card u-author" rel="me" href="web:other:efake.brid.gy" title="other:handle:efake.brid.gy">other:handle:efake.brid.gy</a> to interact',
+        }, OtherFake.convert(Object(
+            id='efake:profile:alice', source_protocol='efake', our_as1={
+                'objectType': 'person',
+                'id': 'efake:alice',
+                'url': 'http://unused',
+                'summary': 'something about me',
+            }), from_user=alice))
 
     def test_convert_actor_without_from_user_doesnt_add_source_links(self):
         self.assertEqual({
@@ -953,23 +974,28 @@ class ProtocolTest(TestCase):
         }), from_user=alice))
 
     def test_convert_object_adds_source_links_to_create_update(self):
-        alice = Fake(id='fake:alice')
+        self.make_user(cls=Web, id='efake.brid.gy',
+                       copies=[Target(protocol='other', uri='other:bot')])
+        # alice = ExplicitFake(id='efake:alice')
+        alice = self.make_user('efake:alice', cls=ExplicitFake, obj_as1={
+            'id': 'other:foo:alice', 'foo': 'bar'})
+
         for verb in 'post', 'update':
             self.assertEqual({
                 'objectType': 'activity',
                 'verb': verb,
-                'id': 'other:o:fa:fake:profile:update',
+                'id': 'other:o:efake:efake:profile:update',
                 'object': {
                     'objectType': 'person',
-                    'id': 'other:u:fake:profile:alice',
-                    'summary': 'something about me<br><br>🌉 <a href="https://fed.brid.gy/fa/fake:handle:alice">bridged</a> from <a href="web:fake:alice">fake:handle:alice</a> on fake-phrase by <a href="https://fed.brid.gy/">Bridgy Fed</a>',
+                    'id': 'other:u:efake:alice',
+                    'summary': 'something about me<br><br>🌉 <a href="https://fed.brid.gy/efake/efake:handle:alice">bridged</a> from 📣 <a href="web:efake:alice">efake:handle:alice</a>, follow <a class="h-card u-author" rel="me" href="web:other:efake.brid.gy" title="other:handle:efake.brid.gy">other:handle:efake.brid.gy</a> to interact',
                 },
             }, OtherFake.convert(
-                Object(id='fake:profile:update', source_protocol='fake', our_as1={
+                Object(id='efake:profile:update', source_protocol='efake', our_as1={
                     'objectType': 'activity',
                     'verb': verb,
                     'object': {
-                        'id': 'fake:profile:alice',
+                        'id': 'efake:alice',
                         'objectType': 'person',
                         'summary': 'something about me',
                     },

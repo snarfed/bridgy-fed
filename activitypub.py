@@ -110,6 +110,8 @@ class ActivityPub(User, Protocol):
     ''
     PHRASE = 'the fediverse'
     ''
+    LOGO_EMOJI = '⁂'
+    ''
     LOGO_HTML = '<img src="/static/fediverse_logo.svg">'
     ''
     CONTENT_TYPE = as2.CONTENT_TYPE_LD_PROFILE
@@ -134,6 +136,8 @@ class ActivityPub(User, Protocol):
     ''
     SEND_REPLIES_TO_ORIG_POSTS_MENTIONS = True
     'https://github.com/snarfed/bridgy-fed/issues/1608 , https://github.com/snarfed/bridgy-fed/issues/1218'
+    HTML_PROFILES = True
+    ''
 
     webfinger_addr = ndb.StringProperty()
     """Populated by :meth:`reload_profile`."""

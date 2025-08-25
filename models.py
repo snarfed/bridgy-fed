@@ -979,7 +979,7 @@ Welcome to Bridgy Fed! Your account will soon be bridged to {to_proto.PHRASE} at
             if logo:
                 logo_html = f'<img class="logo" src="{logo}" /> '
             else:
-                logo_html = f'<span class="logo" title="{proto.__name__}">{proto.LOGO_HTML}</span> '
+                logo_html = f'<span class="logo" title="{proto.__name__}">{proto.LOGO_HTML or proto.LOGO_EMOJI}</span> '
             if pic := self.profile_picture():
                 img = f'<img src="{pic}" class="profile"> '
 
@@ -1466,7 +1466,7 @@ class Object(StringIdModel, AddRemoveMixin):
 
         logo = ''
         if proto:
-            logo = f'<span class="logo" title="{self.__class__.__name__}">{proto.LOGO_HTML}</span>'
+            logo = f'<span class="logo" title="{self.__class__.__name__}">{proto.LOGO_HTML or proto.LOGO_EMOJI}</span>'
 
         return f"""\
         {logo}
@@ -1677,7 +1677,7 @@ class Follower(ndb.Model):
     follow = ndb.KeyProperty(Object)
     """The last follow activity."""
     status = ndb.StringProperty(choices=STATUSES, default='active')
-    """Whether this follow is active or note."""
+    """Whether this follow is active or not."""
 
     created = ndb.DateTimeProperty(auto_now_add=True)
     updated = ndb.DateTimeProperty(auto_now=True)

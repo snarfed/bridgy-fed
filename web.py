@@ -104,7 +104,7 @@ class Web(User, Protocol):
     ''
     OTHER_LABELS = ('webmention',)
     ''
-    LOGO_HTML = '🌐'  # used to be 🕸️
+    LOGO_EMOJI = '🌐'  # used to be 🕸️
     ''
     CONTENT_TYPE = common.CONTENT_TYPE_HTML
     ''
@@ -121,6 +121,8 @@ class Web(User, Protocol):
     )
     ''
     USES_OBJECT_FEED = True
+    ''
+    HTML_PROFILES = True
     ''
 
     has_redirects = ndb.BooleanProperty()

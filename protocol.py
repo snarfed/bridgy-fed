@@ -94,8 +94,10 @@ class Protocol:
     """str: human-readable name or phrase. Used in phrases like ``Follow this person on {PHRASE}``"""
     OTHER_LABELS = ()
     """sequence of str: label aliases"""
+    LOGO_EMOJI = ''
+    """str: logo emoji, if any"""
     LOGO_HTML = ''
-    """str: logo emoji or ``<img>`` tag"""
+    """str: logo ``<img>`` tag, if any"""
     CONTENT_TYPE = None
     """str: MIME type of this protocol's native data format, appropriate for the ``Content-Type`` HTTP header."""
     HAS_COPIES = False
@@ -118,7 +120,7 @@ class Protocol:
     """bool: whether this protocol can receive DMs (chat messages)"""
     USES_OBJECT_FEED = False
     """bool: whether to store followers on this protocol in :attr:`Object.feed`."""
-    HTML_PROFILES = True
+    HTML_PROFILES = False
     """bool: whether this protocol supports HTML in profile descriptions. If False, profile descriptions should be plain text."""
     SEND_REPLIES_TO_ORIG_POSTS_MENTIONS = False
     """bool: whether replies to this protocol should include the original post's mentions as delivery targets"""
@@ -616,8 +618,8 @@ class Protocol:
             return {}
 
         id = obj.key.id() if obj.key else obj.as1.get('id')
-        is_activity = obj.as1.get('verb') in as1.CRUD_VERBS
-        base_obj = as1.get_object(obj.as1) if is_activity else obj.as1
+        is_crud = obj.as1.get('verb') in as1.CRUD_VERBS
+        base_obj = as1.get_object(obj.as1) if is_crud else obj.as1
         orig_our_as1 = obj.our_as1
 
         # mark bridged actors as bots and add "bridged by Bridgy Fed" to their bios
@@ -629,7 +631,6 @@ class Protocol:
             # explicitly enabled Bridgy Fed with redirects or webmentions
             and not (from_user.LABEL == 'web'
                      and (from_user.last_webmention_in or from_user.has_redirects))):
-
             cls.add_source_links(obj=obj, from_user=from_user)
 
         converted = cls._convert(obj, from_user=from_user, **kwargs)
@@ -681,12 +682,20 @@ class Protocol:
             return
 
         actor_id = actor.get('id')
-        proto_phrase = (f' on {PROTOCOLS[obj.source_protocol].PHRASE}'
-                        if obj.source_protocol else '')
-        url = as1.get_url(actor) or obj.key.id() if obj.key else actor_id
+
+        url = (as1.get_url(actor)
+               or (from_user.web_url() if from_user.profile_id() == actor_id
+                   else actor_id))
+
+        from web import Web
+        bot_user = Web.get_by_id(from_user.bot_user_id())
 
         if cls.HTML_PROFILES:
-            by = f' by <a href="https://{PRIMARY_DOMAIN}/">Bridgy Fed</a>'
+            suffix = (
+                f', follow {bot_user.user_link(proto=cls, name=False)} to interact'
+                if bot_user and from_user.LABEL not in cls.DEFAULT_ENABLED_PROTOCOLS
+                else f' by <a href="https://{PRIMARY_DOMAIN}/">Bridgy Fed</a>')
+
             separator = '<br><br>'
 
             is_user = from_user.key and actor_id in (from_user.key.id(),
@@ -706,14 +715,18 @@ class Protocol:
             from_ = (from_user.web_url() if is_user else url) or '?'
 
             bridged = '🌉 bridged'
-            by = (f': https://{PRIMARY_DOMAIN}{from_user.user_page_path()}'
-                  # link web users to their user pages
-                  if from_user.LABEL == 'web'
-                  else f' by https://{PRIMARY_DOMAIN}/')
+            suffix = (
+                f': https://{PRIMARY_DOMAIN}{from_user.user_page_path()}'
+                # link web users to their user pages
+                if from_user.LABEL == 'web'
+                else f', follow @{bot_user.handle_as(cls)} to interact'
+                if bot_user and from_user.LABEL not in cls.DEFAULT_ENABLED_PROTOCOLS
+                else f' by https://{PRIMARY_DOMAIN}/')
             separator = '\n\n'
             orig_summary = summary_text
 
-        source_links = f'{separator if orig_summary else ""}{bridged} from {from_}{proto_phrase}{by}'
+        logo = f'{from_user.LOGO_EMOJI} ' if from_user.LOGO_EMOJI else ''
+        source_links = f'{separator if orig_summary else ""}{bridged} from {logo}{from_}{suffix}'
         actor['summary'] = orig_summary + source_links
 
     @classmethod
