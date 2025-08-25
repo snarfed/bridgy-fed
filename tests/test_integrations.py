@@ -622,7 +622,7 @@ To disable these messages, reply with the text 'mute'.""",
             mock_post.call_args_list[0][1]['json']['message']['text'])
 
         self.assertEqual(('https://inst/bob/inbox',), mock_post.call_args_list[1][0])
-        self.assertEqual("""<p>Hi! You <a href="http://inst/reply">recently replied to</a> <a class="h-card u-author" rel="me" href="https://bsky.app/profile/alice.com" title="Alice &middot; alice.com"><span style="unicode-bidi: isolate">Alice</span> &middot; alice.com</a>, who's bridged here from Bluesky. If you want them to see your replies, you can bridge your account into Bluesky by following this account. <a href="https://fed.brid.gy/docs">See the docs</a> for more information.</p>""",
+        self.assertEqual("""<p>Hi! You <a href="http://inst/reply">recently replied to</a> <a class="h-card u-author mention" rel="me" href="https://bsky.app/profile/alice.com" title="Alice &middot; alice.com"><span style="unicode-bidi: isolate">Alice</span> &middot; alice.com</a>, who's bridged here from Bluesky. If you want them to see your replies, you can bridge your account into Bluesky by following this account. <a href="https://fed.brid.gy/docs">See the docs</a> for more information.</p>""",
             json_loads(mock_post.call_args_list[1][1]['data'])['object']['content'])
 
     @patch('requests.post', return_value=requests_response('OK'))  # create DID
@@ -689,7 +689,7 @@ To disable these messages, reply with the text 'mute'.""",
         args, kwargs = mock_post.call_args_list[1]
         self.assert_equals(('http://inst/inbox',), args)
         message = """\
-<p>Welcome to Bridgy Fed! Your account will soon be bridged to Bluesky at <a class="h-card u-author" rel="me" href="https://bsky.app/profile/alice.wf.com.ap.brid.gy" title="alice.wf.com.ap.brid.gy">alice.wf.com.ap.brid.gy</a>. <a href="https://fed.brid.gy/docs">See the docs</a> and <a href="https://fed.brid.gy/ap/@alice@wf.com">your user page</a> for more information. To disable this and delete your bridged profile, block this account.</p>"""
+<p>Welcome to Bridgy Fed! Your account will soon be bridged to Bluesky at <a class="h-card u-author mention" rel="me" href="https://bsky.app/profile/alice.wf.com.ap.brid.gy" title="alice.wf.com.ap.brid.gy">alice.wf.com.ap.brid.gy</a>. <a href="https://fed.brid.gy/docs">See the docs</a> and <a href="https://fed.brid.gy/ap/@alice@wf.com">your user page</a> for more information. To disable this and delete your bridged profile, block this account.</p>"""
         self.assert_equals({
             'type': 'Create',
             'id': 'https://bsky.brid.gy/r/https://bsky.brid.gy/#bridgy-fed-dm-welcome-https://inst/alice-2022-01-02T03:04:05+00:00-create',

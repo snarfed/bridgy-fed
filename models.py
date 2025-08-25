@@ -993,7 +993,7 @@ Welcome to Bridgy Fed! Your account will soon be bridged to {to_proto.PHRASE} at
             dot = ' &middot; '
 
         if url:
-            a_open = f'<a class="h-card u-author" rel="me" href="{url}" title="{name_str}{dot}{handle_str}">'
+            a_open = f'<a class="h-card u-author mention" rel="me" href="{url}" title="{name_str}{dot}{handle_str}">'
             a_close = '</a>'
 
         name_html = f'<span style="unicode-bidi: isolate">{ellipsize(name_str, chars=40)}</span>' if name_str else ''
