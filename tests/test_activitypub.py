@@ -2735,10 +2735,18 @@ class ActivityPubUtilsTest(TestCase):
 
     def test_postprocess_as2_actor_strips_acct_url(self):
         self.assert_equals('http://localhost/r/http://user.com/',
-                           postprocess_as2_actor(as2.from_as1({
-            'objectType': 'person',
-            'urls': ['http://user.com/', 'acct:foo@bar'],
-        }), user=self.user)['url'])
+                           postprocess_as2_actor({
+            'type': 'Person',
+            'url': [
+                'http://user.com/',
+                'acct:foo@bar',
+                {
+                    'type': 'Link',
+                    'rel': 'canonical',
+                    'href': 'acct:baz',
+                },
+            ],
+        }, user=self.user)['url'])
 
     def test_postprocess_as2_actor_doesnt_duplicate_security_context(self):
         self.assert_equals([SECURITY_CONTEXT], postprocess_as2_actor({

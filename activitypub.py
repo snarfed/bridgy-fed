@@ -1100,12 +1100,19 @@ def postprocess_as2_actor(actor, user):
     assert isinstance(actor, dict)
     assert user
 
+    # remove acct: urls, set default url
+    urls = []
+    for url in util.get_list(actor, 'url'):
+        url_str = url if isinstance(url, str) else url.get('href')
+        if url_str and not url_str.startswith('acct:'):
+            urls.append(url)
+
     url = user.web_url()
-    urls = [u for u in util.get_list(actor, 'url') if u and not u.startswith('acct:')]
     if not urls and url:
         urls = [url]
     if urls:
         urls[0] = redirect_wrap(urls[0])
+    actor['url'] = urls[0] if len(urls) == 1 else urls
 
     id = actor.get('id')
     user_id = user.key.id()
@@ -1113,7 +1120,6 @@ def postprocess_as2_actor(actor, user):
             user_id, user.profile_id(), f'www.{user_id}'):
         id = actor['id'] = user.id_as(ActivityPub)
 
-    actor['url'] = urls[0] if len(urls) == 1 else urls
     # required by ActivityPub
     # https://www.w3.org/TR/activitypub/#actor-objects
     actor.setdefault('inbox', id + '/inbox')
