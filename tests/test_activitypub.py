@@ -63,7 +63,6 @@ ACTOR_BASE = {
     'id': 'http://localhost/user.com',
     'url': 'http://localhost/r/https://user.com/',
     'preferredUsername': 'user.com',
-    'summary': '[<a href="https://fed.brid.gy/web/user.com">bridged</a> from <a href="https://user.com/">Ms. ☕ Baz</a> by <a href="https://fed.brid.gy/">Bridgy Fed</a>]',
     'inbox': 'http://localhost/user.com/inbox',
     'outbox': 'http://localhost/user.com/outbox',
     'following': 'http://localhost/user.com/following',
@@ -2463,6 +2462,16 @@ class ActivityPubUtilsTest(TestCase):
         })
         self.assertEqual('z.b.c', ActivityPub(obj_key=actor.put()).handle_as_domain)
 
+    def test_bridged_web_url_for(self):
+        self.assertIsNone(ActivityPub.bridged_web_url_for(
+            ActivityPub(id='http://inst/user')))
+
+        self.assertEqual('http://localhost/user.com',
+                         ActivityPub.bridged_web_url_for(self.user))
+
+        self.assertEqual('https://bsky.brid.gy/ap/did:plc:user',
+                         ActivityPub.bridged_web_url_for(ATProto(id='did:plc:user')))
+
     def test_user_page_path_ignore_prefers_id(self):
         user = self.make_user(id='http://inst.com/@user', cls=ActivityPub)
         self.assertEqual('/ap/@user@inst.com', user.user_page_path(prefer_id=True))
@@ -3159,6 +3168,15 @@ class ActivityPubUtilsTest(TestCase):
             'attributedTo': 'bar',
             'object': {'attributedTo': 'biff'},
         }, ActivityPub.convert(obj), ignore=['to'])
+
+    def test_convert_actor_as1_source_links(self):
+        self.make_user('efake.brid.gy', cls=Web, ap_subdomain='efake')
+        user = self.make_user(cls=ExplicitFake, id='efake:user',
+                              obj_as1={'objectType': 'person'})
+
+        self.assert_equals(
+            '🌉 <a href="https://fed.brid.gy/efake/efake:handle:user">bridged</a> from 📣 <a href="web:efake:user">efake:handle:user</a>, follow <a class="h-card u-author mention" rel="me" href="https://efake.brid.gy/efake.brid.gy" title="@efake.brid.gy@efake.brid.gy">@efake.brid.gy@efake.brid.gy</a> to interact',
+            ActivityPub.convert(user.obj, from_user=user)['summary'])
 
     def test_convert_adds_context_to_as2(self):
         obj = Object(as2={

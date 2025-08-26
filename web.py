@@ -148,7 +148,7 @@ class Web(User, Protocol):
     """
 
     ap_subdomain = ndb.StringProperty(
-        choices=['ap', 'bsky', 'efake', 'fake', 'fed', 'nostr', 'other', 'web'],
+        choices=['ap', 'bsky', 'efake', 'fa', 'fed', 'nostr', 'other', 'web'],
         default='web')
     """Originally, BF served Web users' AP actor ids on fed.brid.gy, eg
     https://fed.brid.gy/snarfed.org . When we started adding new protocols, we

@@ -340,6 +340,8 @@ class ATProto(User, Protocol):
             if did := user.get_copy(ATProto):
                 return Bluesky.user_url(did_to_handle(did) or did)
 
+        return super().bridged_web_url_for(user, fallback=fallback)
+
     @classmethod
     def target_for(cls, obj, shared=False):
         """Returns our PDS URL as the target for the given object.

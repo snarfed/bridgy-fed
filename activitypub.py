@@ -312,6 +312,26 @@ class ActivityPub(User, Protocol):
         return actor.get('publicInbox') or actor.get('inbox')
 
     @classmethod
+    def bridged_web_url_for(cls, user, fallback=False):
+        """Returns the user's bridged AP id.
+
+        There's no single canonical web URL for a user bridged into ActivityPub. So,
+        we want some URL that's reasonable, and when it's used in a link in a
+        fediverse post, eg in an @-mention, we ideally want it to open that local
+        instance's view of the remote bridged user. In general, that means it needs
+        to serve the AP actor when requested with AP conneg.
+
+        Our translated AP actor ids, served by ``/actor`` below, satisfy this. They
+        serve the actor via conneg, and otherwise redirect to the user's profile in
+        their native protocol.
+        """
+        if not isinstance(user, ActivityPub):
+            if ap_id := user.id_as(ActivityPub):
+                return ap_id
+
+        return super().bridged_web_url_for(user, fallback=fallback)
+
+    @classmethod
     def send(to_cls, obj, inbox_url, from_user=None, orig_obj_id=None):
         """Delivers an activity to an inbox URL.
 
