@@ -20,7 +20,7 @@
     &middot;
     <nobr title="{{ proto.__name__ }} (bridged): {{ handle }}">
     {% if url %} <a rel="me" href="{{ url }}"> {% endif %}
-      <span class="logo">{{ proto.LOGO_HTML or proto.LOGO_EMOJI|safe }}</span>
+      <span class="logo">{{ (proto.LOGO_HTML or proto.LOGO_EMOJI)|safe }}</span>
       <span style="unicode-bidi: isolate">{{ util.ellipsize(handle, chars=40) }}</span>
     {% if url %}
       </a>
