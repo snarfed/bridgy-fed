@@ -2768,12 +2768,14 @@ Current vs expected:<pre>- http://this/404s
 
         self.user.has_redirects = False
         self.assertEqual('@user.com@web.brid.gy', self.user.handle_as(ActivityPub))
+        self.assertEqual('@user.com', self.user.handle_as(ActivityPub, short=True))
 
         self.assertEqual('fake:handle:user.com', self.user.handle_as(Fake))
         self.assertEqual('user.com.web.brid.gy', self.user.handle_as('atproto'))
 
         self.user.ap_subdomain = 'fed'
         self.assertEqual('@user.com@fed.brid.gy', self.user.handle_as(ActivityPub))
+        self.assertEqual('@user.com', self.user.handle_as(ActivityPub, short=True))
 
     def test_handle_as_bot_users(self, *_):
         fed = Web(id='fed.brid.gy', ap_subdomain='fed')

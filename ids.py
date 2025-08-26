@@ -267,7 +267,7 @@ def profile_id(*, id, proto):
             return id
 
 
-def translate_handle(*, handle, from_, to, enhanced):
+def translate_handle(*, handle, from_, to, enhanced=False, short=False):
     """Translates a user handle from one protocol to another.
 
     Args:
@@ -276,6 +276,9 @@ def translate_handle(*, handle, from_, to, enhanced):
       to (protocol.Protocol)
       enhanced (bool): whether to convert to an "enhanced" handle based on the
         user's domain
+      short (bool): whether to return the full handle or a shortened form.
+        Default False. Currently only affects ActivityPub; returns just ``@[user]``
+        instead of ``@[user]@[domain]``
 
     TODO: drop enhanced arg, always use if available?
 
@@ -289,6 +292,8 @@ def translate_handle(*, handle, from_, to, enhanced):
     handle, from_, to = validate(handle, from_, to)
 
     if from_ == to:
+        if to.LABEL == 'activitypub' and short:
+            return handle.rsplit('@', maxsplit=1)[0]
         return handle
 
     if from_.LABEL != 'ui':
@@ -315,7 +320,10 @@ def translate_handle(*, handle, from_, to, enhanced):
     output = None
     match from_.LABEL, to.LABEL:
         case _, 'activitypub':
-            output = '@' + flattened_user_at_domain()
+            if short:
+                return '@' + flattened
+
+            return '@' + flattened_user_at_domain()
 
         case _, 'atproto':
             if handle == PRIMARY_DOMAIN or handle in PROTOCOL_DOMAINS:

@@ -706,8 +706,7 @@ class User(StringIdModel, AddRemoveMixin, metaclass=ProtocolUserMeta):
 
         if to_proto.LABEL not in self.enabled_protocols:
             self.enabled_protocols.append(to_proto.LABEL)
-            dms.maybe_send(from_proto=to_proto, to_user=self, type='welcome', text=f"""\
-Welcome to Bridgy Fed! Your account will soon be bridged to {to_proto.PHRASE} at {self.user_link(proto=to_proto, name=False)}. <a href="https://fed.brid.gy/docs">See the docs</a> and <a href="https://{common.PRIMARY_DOMAIN}{self.user_page_path()}">your user page</a> for more information. To disable this and delete your bridged profile, block this account.""")
+            dms.maybe_send(from_proto=to_proto, to_user=self, type='welcome', text=f"""Welcome to Bridgy Fed! Your account will soon be bridged to {to_proto.PHRASE} at {self.user_link(proto=to_proto, name=False)}. <a href="https://fed.brid.gy/docs">See the docs</a> and <a href="https://{common.PRIMARY_DOMAIN}{self.user_page_path()}">your user page</a> for more information. To disable this and delete your bridged profile, block this account.""")
             self.put()
 
         msg = f'Enabled {to_proto.LABEL} for {self.key.id()} : {self.user_page_path()}'
@@ -724,11 +723,14 @@ Welcome to Bridgy Fed! Your account will soon be bridged to {to_proto.PHRASE} at
         msg = f'Disabled {to_proto.LABEL} for {self.key.id()} : {self.user_page_path()}'
         logger.info(msg)
 
-    def handle_as(self, to_proto):
+    def handle_as(self, to_proto, short=False):
         """Returns this user's handle in a different protocol.
 
         Args:
           to_proto (str or Protocol)
+          short (bool): whether to return the full handle or a shortened form.
+            Default False. Currently only affects ActivityPub; returns just
+            ``@[user]`` instead of ``@[user]@[domain]``
 
         Returns:
           str
@@ -750,7 +752,7 @@ Welcome to Bridgy Fed! Your account will soon be bridged to {to_proto.PHRASE} at
             return None
 
         return ids.translate_handle(handle=handle, from_=self.__class__,
-                                    to=to_proto, enhanced=False)
+                                    to=to_proto, enhanced=False, short=short)
 
     def id_as(self, to_proto):
         """Returns this user's id in a different protocol.
@@ -956,7 +958,8 @@ Welcome to Bridgy Fed! Your account will soon be bridged to {to_proto.PHRASE} at
 
         Args:
           name (bool): include display name
-          handle (bool): include handle
+          handle (bool): True to include handle, False to exclude it, ``'short'``
+            to include a shortened version, if available
           pictures (bool): include profile picture and protocol logo
           logo (str): optional path to platform logo to show instead of the
             protocol's default
@@ -966,7 +969,7 @@ Welcome to Bridgy Fed! Your account will soon be bridged to {to_proto.PHRASE} at
             no canonical profile URL for bridged users, uses the user's profile
             URL in their native protocol
         """
-        img = name_str = handle_str = dot = logo_html = a_open = a_close = ''
+        img = name_str = full_handle = handle_str = dot = logo_html = a_open = a_close = ''
 
         if proto:
             assert self.is_enabled(proto), f"{proto.LABEL} isn't enabled"
@@ -984,16 +987,17 @@ Welcome to Bridgy Fed! Your account will soon be bridged to {to_proto.PHRASE} at
                 img = f'<img src="{pic}" class="profile"> '
 
         if handle:
-            handle_str = self.handle_as(proto) or ''
+            full_handle = self.handle_as(proto) or ''
+            handle_str = self.handle_as(proto, short=(handle == 'short')) or ''
 
-        if name and self.name() != handle_str:
+        if name and self.name() != full_handle:
             name_str = self.name() or ''
 
         if handle_str and name_str:
             dot = ' &middot; '
 
         if url:
-            a_open = f'<a class="h-card u-author mention" rel="me" href="{url}" title="{name_str}{dot}{handle_str}">'
+            a_open = f'<a class="h-card u-author mention" rel="me" href="{url}" title="{name_str}{dot}{full_handle}">'
             a_close = '</a>'
 
         name_html = f'<span style="unicode-bidi: isolate">{ellipsize(name_str, chars=40)}</span>' if name_str else ''

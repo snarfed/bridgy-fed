@@ -252,10 +252,17 @@ class UserTest(TestCase):
             '<a class="h-card u-author mention" rel="me" href="web:fake:y.za" title="Mrs. ☕ Foo &middot; fake:handle:y.za"><span style="unicode-bidi: isolate">Mrs. ☕ Foo</span> &middot; fake:handle:y.za</a>',
             self.user.user_link(proto=Fake, handle=True))
 
+    def test_user_link_proto_activitypub_short(self):
+        user = Fake(id='fake:x', enabled_protocols=['activitypub'])
+        user.obj = Object(id='fake:profile:x', as2=ACTOR)
+        self.assert_multiline_equals(
+            '<a class="h-card u-author mention" rel="me" href="https://fa.brid.gy/ap/fake:x" title="@fake-handle-x@fa.brid.gy">@fake-handle-x</a>',
+            user.user_link(proto=ActivityPub, handle='short', name=False))
+
     def test_user_link_proto_fallback(self):
         self.user.obj = Object(id='y.za', as2=ACTOR)
         self.assert_multiline_equals(
-            '<a class="h-card u-author mention" rel="me" href="https://y.za/" title="Mrs. ☕ Foo &middot; @y.za@web.brid.gy"><span style="unicode-bidi: isolate">Mrs. ☕ Foo</span> &middot; @y.za@web.brid.gy</a>',
+            '<a class="h-card u-author mention" rel="me" href="http://localhost/y.za" title="Mrs. ☕ Foo &middot; @y.za@web.brid.gy"><span style="unicode-bidi: isolate">Mrs. ☕ Foo</span> &middot; @y.za@web.brid.gy</a>',
             self.user.user_link(proto=ActivityPub, proto_fallback=True, handle=True))
 
     def test_user_link_proto_not_enabled(self):
@@ -305,6 +312,7 @@ class UserTest(TestCase):
         self.assertEqual('fake:handle:user', user.handle_as(Fake))
         self.assertEqual('fake:handle:user', user.handle_as('fake'))
         self.assertEqual('@fake-handle-user@fa.brid.gy', user.handle_as('ap'))
+        self.assertEqual('@fake-handle-user', user.handle_as('ap', short=True))
 
     def test_handle_as_web_custom_username(self, *_):
         self.user.obj.our_as1 = {

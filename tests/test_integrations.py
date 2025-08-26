@@ -866,6 +866,13 @@ To disable these messages, reply with the text 'mute'.""",
                     'text': 'Welcome to Bridgy Fed! Your account will soon be bridged to the fediverse at @alice.com@bsky.brid.gy. See the docs and your user page for more information. To disable this and delete your bridged profile, block this account.',
                     'facets': [{
                         '$type': 'app.bsky.richtext.facet',
+                        'index': {'byteStart': 77, 'byteEnd': 100},
+                        'features': [{
+                            '$type': 'app.bsky.richtext.facet#mention',
+                            'did': 'did:plc:alice',
+                        }],
+                    }, {
+                        '$type': 'app.bsky.richtext.facet',
                         'index': {'byteStart': 102, 'byteEnd': 114},
                         'features': [{
                             '$type': 'app.bsky.richtext.facet#link',
@@ -880,7 +887,7 @@ To disable these messages, reply with the text 'mute'.""",
                         }],
                     }],
                     'createdAt': '2022-01-02T03:04:05.000Z',
-                    'bridgyOriginalText': 'Welcome to Bridgy Fed! Your account will soon be bridged to the fediverse at @alice.com@bsky.brid.gy. <a href="https://fed.brid.gy/docs">See the docs</a> and <a href="https://fed.brid.gy/bsky/alice.com">your user page</a> for more information. To disable this and delete your bridged profile, block this account.',
+                    'bridgyOriginalText': 'Welcome to Bridgy Fed! Your account will soon be bridged to the fediverse at <a class="h-card u-author mention" rel="me" href="https://bsky.app/profile/alice.com" title="@alice.com@bsky.brid.gy">@alice.com@bsky.brid.gy</a>. <a href="https://fed.brid.gy/docs">See the docs</a> and <a href="https://fed.brid.gy/bsky/alice.com">your user page</a> for more information. To disable this and delete your bridged profile, block this account.',
                     'bridgyOriginalUrl': 'https://ap.brid.gy/#bridgy-fed-dm-welcome-did:plc:alice-2022-01-02T03:04:05+00:00',
                 },
             }, data=None, headers=headers)

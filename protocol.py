@@ -691,10 +691,11 @@ class Protocol:
         bot_user = Web.get_by_id(from_user.bot_user_id())
 
         if cls.HTML_PROFILES:
-            suffix = (
-                f', follow {bot_user.user_link(proto=cls, name=False)} to interact'
-                if bot_user and from_user.LABEL not in cls.DEFAULT_ENABLED_PROTOCOLS
-                else f' by <a href="https://{PRIMARY_DOMAIN}/">Bridgy Fed</a>')
+            if bot_user and from_user.LABEL not in cls.DEFAULT_ENABLED_PROTOCOLS:
+                mention = bot_user.user_link(proto=cls, name=False, handle='short')
+                suffix = f', follow {mention} to interact'
+            else:
+                suffix = f' by <a href="https://{PRIMARY_DOMAIN}/">Bridgy Fed</a>'
 
             separator = '<br><br>'
 

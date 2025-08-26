@@ -217,13 +217,16 @@ class Web(User, Protocol):
             return domain_from_link(username, minimize=False)
         return username
 
-    def handle_as(self, to_proto):
+    def handle_as(self, to_proto, short=False):
         """Special case ActivityPub to use custom username."""
         if to_proto in ('activitypub', 'ap', PROTOCOLS['ap']):
-            return (f'@{self.username()}@{self.key.id()}' if self.has_redirects
-                    else f'@{self.key.id()}@{self.ap_subdomain}{SUPERDOMAIN}')
+            if self.has_redirects:
+                handle = f'@{self.username()}@{self.key.id()}'
+            else:
+                handle = f'@{self.key.id()}@{self.ap_subdomain}{SUPERDOMAIN}'
+            return handle.rsplit('@', maxsplit=1)[0] if short else handle
 
-        return super().handle_as(to_proto)
+        return super().handle_as(to_proto, short=short)
 
     def id_as(self, to_proto):
         """Special case ActivityPub to use ``ap_subdomain``."""

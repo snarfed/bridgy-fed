@@ -232,12 +232,21 @@ class IdsTest(TestCase):
         ]:
             with self.subTest(from_=from_.LABEL, handle=handle, to=to.LABEL):
                 self.assertEqual(expected, translate_handle(
-                    handle=handle, from_=from_, to=to, enhanced=False))
+                    handle=handle, from_=from_, to=to))
 
         for input in '@_user@instance', '@user~@instance':
             with self.subTest(input=input), self.assertRaises(ValueError):
-                translate_handle(handle=input, from_=ActivityPub, to=ATProto,
-                                 enhanced=False)
+                translate_handle(handle=input, from_=ActivityPub, to=ATProto)
+
+        # to ActivityPub, short=True
+        for from_, handle in (
+            (ActivityPub, '@us.er@instance'),
+            (ATProto, 'us.er'),
+            (Nostr, 'us@er'),
+            (Nostr, '_@us.er'),
+        ):
+            self.assertEqual('@us.er',translate_handle(
+                handle=handle, from_=from_, to=ActivityPub, short=True))
 
     def test_translate_handle_enhanced(self):
         for from_, handle, to, expected in [
@@ -259,9 +268,9 @@ class IdsTest(TestCase):
     @patch('ids.ATPROTO_HANDLE_DOMAINS', set(('example.com',)))
     def test_translate_handle_atproto_handle_domains_file(self):
         self.assertEqual('alice.example.com', translate_handle(
-            handle='alice.example.com', from_=Web, to=ATProto, enhanced=False))
+            handle='alice.example.com', from_=Web, to=ATProto))
         self.assertEqual('bob.example.com', translate_handle(
-            handle='@bob@example.com', from_=ActivityPub, to=ATProto, enhanced=False))
+            handle='@bob@example.com', from_=ActivityPub, to=ATProto))
 
         # TODO: enhanced True? https://github.com/snarfed/bridgy-fed/issues/1969
 

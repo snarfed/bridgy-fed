@@ -3175,7 +3175,7 @@ class ActivityPubUtilsTest(TestCase):
                               obj_as1={'objectType': 'person'})
 
         self.assert_equals(
-            '🌉 <a href="https://fed.brid.gy/efake/efake:handle:user">bridged</a> from 📣 <a href="web:efake:user">efake:handle:user</a>, follow <a class="h-card u-author mention" rel="me" href="https://efake.brid.gy/efake.brid.gy" title="@efake.brid.gy@efake.brid.gy">@efake.brid.gy@efake.brid.gy</a> to interact',
+            '🌉 <a href="https://fed.brid.gy/efake/efake:handle:user">bridged</a> from 📣 <a href="web:efake:user">efake:handle:user</a>, follow <a class="h-card u-author mention" rel="me" href="https://efake.brid.gy/efake.brid.gy" title="@efake.brid.gy@efake.brid.gy">@efake.brid.gy</a> to interact',
             ActivityPub.convert(user.obj, from_user=user)['summary'])
 
     def test_convert_adds_context_to_as2(self):
