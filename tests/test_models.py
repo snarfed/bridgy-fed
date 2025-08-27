@@ -1006,16 +1006,16 @@ class ObjectTest(TestCase):
     def test_as1_from_mf2_uses_url_as_id(self):
         mf2 = {
             'properties': {
-                'url': ['x', 'y'],
-                'author': [{'properties': {'url': ['a', 'b']}}],
-                'repost-of': [{'properties': {'url': ['c', 'd']}}],
+                'url': ['http://x', 'http://y'],
+                'author': [{'properties': {'url': ['http://a', 'http://b']}}],
+                'repost-of': [{'properties': {'url': ['http://c', 'http://d']}}],
             },
-            'url': 'z',
+            'url': 'http://z',
         }
         obj = Object(mf2=mf2)
-        self.assertEqual('z', obj.as1['id'])
-        self.assertEqual('a', obj.as1['actor']['id'])
-        self.assertEqual('c', obj.as1['object']['id'])
+        self.assertEqual('http://z', obj.as1['id'])
+        self.assertEqual('http://a', obj.as1['actor']['id'])
+        self.assertEqual('http://c', obj.as1['object']['id'])
 
         # fragment URL should override final fetched URL
         obj = Object(id='http://foo#123', mf2=mf2)
@@ -1034,7 +1034,7 @@ class ObjectTest(TestCase):
         obj = Object(mf2={
             'properties': {
                 'uid': ['z.com'],
-                'url': ['x'],
+                'url': ['http://x'],
             },
         })
         self.assertEqual('z.com', obj.as1['id'])
