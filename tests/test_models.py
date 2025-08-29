@@ -775,12 +775,21 @@ class ObjectTest(TestCase):
         }, obj.as1)
 
     def test_get_or_create_auth_check_profile_id(self):
+        # https://console.cloud.google.com/errors/detail/CMDC_cirnMT0FQ;time=P1D;locations=global?project=bridgy-federated
         Object(id='fake:profile:alice', source_protocol='fake',
                our_as1={'x': 'y'}).put()
 
         obj = Object.get_or_create('fake:profile:alice', authed_as='fake:alice',
                                    our_as1={'x': 'z'})
         self.assertEqual({'id': 'fake:profile:alice', 'x': 'z'}, obj.as1)
+
+    def test_get_or_create_authed_as_different_protocol(self):
+        obj = Object(id='https://si.te/x', source_protocol='activitypub',
+                     our_as1={'foo': 'bar'})
+        obj.put()
+
+        with self.assertRaises(Forbidden):
+            Object.get_or_create('https://si.te/x', authed_as='si.te')
 
     def test_activity_changed(self):
         obj = Object()

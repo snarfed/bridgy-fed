@@ -131,8 +131,8 @@ def translate_user_id(*, id, from_, to):
             id = unwrap(id)
             from_ = domain_proto
 
-    assert from_.owns_id(id) is not False or from_.LABEL == 'ui', \
-        (id, from_.LABEL, to.LABEL)
+    if from_.owns_id(id) is False and from_.LABEL != 'ui':
+        return id
 
     parsed = urlparse(id)
     if from_.LABEL == 'web' and parsed.path.strip('/') == '':
@@ -251,7 +251,8 @@ def profile_id(*, id, proto):
     Returns:
       str: the profile id
     """
-    assert proto.owns_id(id) is not False, (id, proto.LABEL)
+    if proto.owns_id(id) is False:
+        return id
 
     match proto.LABEL:
         case 'atproto':
@@ -380,7 +381,8 @@ def translate_object_id(*, id, from_, to):
       str: the corresponding id in ``to``
     """
     id, from_, to = validate(id, from_, to)
-    assert from_.owns_id(id) is not False or from_.LABEL == 'ui', (from_.LABEL, id)
+    if from_.owns_id(id) is False and from_.LABEL != 'ui':
+        return id
 
     # bsky.app profile URL to DID
     if to.LABEL == 'atproto':

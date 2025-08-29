@@ -1221,6 +1221,19 @@ class ProtocolReceiveTest(TestCase):
         self.assertEqual('fake:post#bridgy-fed-create', OtherFake.sent[0][1]['id'])
         self.assertEqual('fake:post#bridgy-fed-create', OtherFake.sent[1][1]['id'])
 
+    def test_create_post_bare_object_from_copy_user(self):
+        # https://console.cloud.google.com/errors/detail/CIaI78mDj7DucA;time=P1D;locations=global?project=bridgy-federated
+        eve = self.make_user('other:eve', cls=OtherFake,
+                             copies=[Target(protocol='fake', uri='fake:user')])
+        post_as1 = {
+            'id': 'fake:post',
+            'objectType': 'note',
+            'author': 'fake:user',
+            'content': 'foo',
+        }
+        _, code = Fake.receive_as1(post_as1)
+        self.assertEqual(204, code)
+
     @patch.object(ATProto, 'send', return_value=True)
     def test_post_by_user_enabled_atproto_adds_pds_target(self, mock_send):
         self.user.enabled_protocols = ['atproto']
