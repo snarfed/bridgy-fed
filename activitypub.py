@@ -1408,7 +1408,7 @@ def follower_collection(id, collection):
         'type': 'CollectionPage',
         'partOf': request.base_url,
         'items': util.trim_nulls(
-            [ActivityPub.convert(f.user.obj, from_user=f.user)
+            [ActivityPub.convert(f.user.obj)
              for f in followers if f.user.is_enabled(ActivityPub)]),
     }
     if new_before:
