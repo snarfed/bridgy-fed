@@ -990,6 +990,10 @@ class ATProto(User, Protocol):
                                 fetch_blob(img, props, name='thumb',
                                            check_size=False, check_type=False)
                             ret['embed'] = to_external_embed(link.as1, blobs=blobs)
+                            if (not util.is_url(ret['embed']['external']['uri'])
+                                or not util.is_web(ret['embed']['external']['uri'])):
+                                # backward compatibility for some Objects with bad urls
+                                ret['embed']['external']['uri'] = feat['uri']
                             break
 
         if from_proto != ATProto:
