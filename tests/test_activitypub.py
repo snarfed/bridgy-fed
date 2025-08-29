@@ -2748,6 +2748,29 @@ class ActivityPubUtilsTest(TestCase):
             ],
         }, user=self.user)['url'])
 
+    def test_postprocess_as2_actor_url_dict_with_href(self):
+        got = postprocess_as2_actor({
+            'type': 'Person',
+            'url': {
+                'type': 'Link',
+                'href': 'http://user.com/',
+            },
+        }, user=self.user)
+        self.assertEqual('http://localhost/r/http://user.com/', got['url'])
+
+        got = postprocess_as2_actor({
+            'type': 'Person',
+            'url': [
+                {
+                    'type': 'Link',
+                    'href': 'http://user.com/',
+                },
+                'http://other.com/',
+            ],
+        }, user=self.user)
+        self.assertEqual(['http://localhost/r/http://user.com/', 'http://other.com/'],
+                         got['url'])
+
     def test_postprocess_as2_actor_doesnt_duplicate_security_context(self):
         self.assert_equals([SECURITY_CONTEXT], postprocess_as2_actor({
             '@context': [SECURITY_CONTEXT],

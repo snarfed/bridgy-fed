@@ -580,6 +580,7 @@ class ActivityPub(User, Protocol):
 
         * https://www.manton.org/2022/12/02/moving-from-mastodon.html
         * https://docs.joinmastodon.org/user/moving/#migration
+        * https://docs.joinmastodon.org/spec/activitypub/#Move
         * https://www.w3.org/TR/activitystreams-vocabulary/#dfn-move
 
         Args:
@@ -1101,12 +1102,7 @@ def postprocess_as2_actor(actor, user):
     assert user
 
     # remove acct: urls, set default url
-    urls = []
-    for url in util.get_list(actor, 'url'):
-        url_str = url if isinstance(url, str) else url.get('href')
-        if url_str and not url_str.startswith('acct:'):
-            urls.append(url)
-
+    urls = [u for u in as2.get_urls(actor) if not u.startswith('acct:')]
     url = user.web_url()
     if not urls and url:
         urls = [url]
