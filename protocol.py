@@ -1210,7 +1210,7 @@ class Protocol:
                     }
                 }
             elif obj.type in ('post', 'update'):
-                error("Need object {inner_obj_id} but couldn't fetch, giving up")
+                error(f"Need object {inner_obj_id} but couldn't fetch, giving up")
 
         if obj.type == 'follow':
             if proto := Protocol.for_bridgy_subdomain(inner_obj_id):
