@@ -1195,7 +1195,7 @@ class Protocol:
         # fetch object if necessary
         if (obj.type in ('post', 'update', 'share')
                 and inner_obj_as1.keys() == set(['id'])
-                and from_cls.owns_id(inner_obj_id)):
+                and from_cls.owns_id(inner_obj_id) is not False):
             logger.debug('Fetching inner object')
             inner_obj = from_cls.load(inner_obj_id, raise_=False,
                                       remote=(obj.type in ('post', 'update')))
