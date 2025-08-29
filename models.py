@@ -1767,8 +1767,11 @@ class Follower(ndb.Model):
         for f, u in zip(followers, users):
             f.user = u
 
+        followers = [f for f in followers if f.user]
+
         # only show followers in protocols that this user is bridged into
-        followers = [f for f in followers if f.user and user.is_enabled(f.user)]
+        if collection == 'followers':
+            followers = [f for f in followers if user.is_enabled(f.user)]
 
         return followers, before, after
 
