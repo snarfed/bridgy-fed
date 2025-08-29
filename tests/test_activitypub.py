@@ -1970,7 +1970,7 @@ class ActivityPubTest(TestCase):
             'id': 'https://bsky.brid.gy/bsky.brid.gy/followers',
             'type': 'Collection',
             'summary': "bsky.brid.gy's followers",
-            'totalItems': 2,
+            'totalItems': 3,
             'first': {
                 'type': 'CollectionPage',
                 'partOf': 'https://bsky.brid.gy/bsky.brid.gy/followers',
@@ -1978,7 +1978,7 @@ class ActivityPubTest(TestCase):
             },
         }, resp.json)
 
-    @patch('models.PAGE_SIZE', 1)
+    @patch('models.PAGE_SIZE', 2)
     def test_followers_collection_page(self, *_):
         self.store_followers()
         before = (datetime.now(UTC) + timedelta(seconds=1)
