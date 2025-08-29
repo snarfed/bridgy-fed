@@ -902,13 +902,18 @@ class ActivityPubTest(TestCase):
             },
         )
 
+        expected_as1 = as2.to_as1({
+            **REPOST,
+            'actor': ACTOR,
+            'object': {
+                'id': 'https://user.com/orig',
+                'type': 'Note',
+                'content': '☕ just a normal post',
+            },
+        })
         self.assert_object(REPOST_FULL['id'],
                            source_protocol='activitypub',
-                           as2={
-                               **REPOST,
-                               'actor': ACTOR,
-                               'object': repost['object'],
-                           },
+                           our_as1=expected_as1,
                            users=[self.swentel_key],
                            type='share',
                            )

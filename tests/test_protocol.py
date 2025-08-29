@@ -1195,6 +1195,41 @@ class ProtocolReceiveTest(TestCase):
 
         self.assertEqual([], OtherFake.sent)
 
+    def test_create_post_fetch_object(self):
+        self.make_followers()
+
+        post_as1 = Fake.fetchable['fake:post'] = {
+            'id': 'fake:post',
+            'objectType': 'note',
+            'content': 'foo',
+        }
+
+        # Postmarks sends these, https://github.com/ckolderup/postmarks
+        create_as1 = {
+            'id': 'fake:create',
+            'objectType': 'activity',
+            'verb': 'post',
+            'actor': 'fake:user',
+            'object': 'fake:post',
+        }
+        self.assertEqual(('OK', 202), Fake.receive_as1(create_as1))
+
+        self.assert_object('fake:post',
+                           our_as1=post_as1,
+                           type='note',
+                           copies=[Target(protocol='other', uri='other:o:fa:fake:post')],
+                           # users=[self.user.key],
+                           )
+
+        expected_create = {
+            **create_as1,
+            'object': post_as1,
+        }
+        self.assertEqual([
+            ('other:alice:target', expected_create),
+            ('other:bob:target', expected_create),
+        ], OtherFake.sent)
+
     def test_create_post_bare_object(self):
         self.make_followers()
 
@@ -1977,10 +2012,7 @@ class ProtocolReceiveTest(TestCase):
         self.assertEqual(204, status)
 
         self.assertEqual(['fake:profile:user', 'fake:post'], Fake.fetched)
-        self.assert_object('fake:post',
-                           our_as1=post,
-                           type='note',
-                           )
+        self.assert_object('fake:post', our_as1=post, type='note')
         self.assertIsNone(Object.get_by_id('fake:update'))
 
     def test_update_post_fetch_object_fails(self):
