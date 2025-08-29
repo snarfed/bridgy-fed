@@ -1910,8 +1910,16 @@ class ActivityPubTest(TestCase):
             follow=follow)
         Follower.get_or_create(
             to=self.user,
-            from_=self.make_user('fake:baj', cls=Fake),
+            from_=self.make_user('fake:baj', cls=Fake,
+                                 obj_as2={**ACTOR, 'id': 'fake:baj'}),
             status='inactive')
+
+        self.user.enabled_protocols.append('efake')
+        self.user.put()
+        Follower.get_or_create(  # not enabled for activitypub
+            to=self.user,
+            from_=self.make_user('efake:biff', cls=ExplicitFake,
+                                 obj_as2={**ACTOR, 'id': 'efake:biff'}))
 
     def test_followers_collection_fake(self, *_):
         self.make_user('fake:foo', cls=Fake, enabled_protocols=['activitypub'])
@@ -1942,7 +1950,7 @@ class ActivityPubTest(TestCase):
             'id': 'http://localhost/user.com/followers',
             'type': 'Collection',
             'summary': "user.com's followers",
-            'totalItems': 2,
+            'totalItems': 3,
             'first': {
                 'type': 'CollectionPage',
                 'partOf': 'http://localhost/user.com/followers',

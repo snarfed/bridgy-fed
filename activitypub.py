@@ -1407,8 +1407,9 @@ def follower_collection(id, collection):
     page = {
         'type': 'CollectionPage',
         'partOf': request.base_url,
-        'items': util.trim_nulls([ActivityPub.convert(f.user.obj, from_user=f.user)
-                                  for f in followers]),
+        'items': util.trim_nulls(
+            [ActivityPub.convert(f.user.obj, from_user=f.user)
+             for f in followers if f.user.is_enabled(ActivityPub)]),
     }
     if new_before:
         page['next'] = f'{request.base_url}?before={new_before}'
