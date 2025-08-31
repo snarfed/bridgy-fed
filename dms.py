@@ -66,6 +66,8 @@ def command(names, arg=False, user_bridged=None, handle_bridged=None):
             if arg and not cmd_arg:
                 return reply(f'{cmd} command needs an argument<br><br>{help_text(from_user, to_proto)}')
 
+            to_user = None
+
             if arg == 'handle_or_id':
                 if to_proto.owns_id(cmd_arg):
                     if not (to_user := load_user_by_id(to_proto, cmd_arg)):
@@ -75,17 +77,17 @@ def command(names, arg=False, user_bridged=None, handle_bridged=None):
                         return reply(f"Couldn't find user {cmd_arg} on {to_proto.PHRASE}")
                 else:
                     logging.info(f"doesn't look like an ID, trying as a handle")
-                    to_user = None
 
             if arg == 'handle_or_id' and not to_user:
                 if not to_proto.owns_handle(cmd_arg) and cmd_arg.startswith('@'):
                     logging.info(f"doesn't look like a handle, trying without leading @")
                     cmd_arg = cmd_arg.removeprefix('@')
 
-                from_proto = from_user.__class__
                 if not (to_user := load_user_by_handle(to_proto, cmd_arg)):
                     return reply(f"Couldn't find user {cmd_arg} on {to_proto.PHRASE}")
 
+            if to_user:
+                from_proto = from_user.__class__
                 enabled = to_user.is_enabled(from_proto)
                 if handle_bridged is True and not enabled:
                     return reply(f'{to_user.user_link(proto=from_proto)} is not bridged into {from_proto.PHRASE}.')
