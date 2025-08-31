@@ -342,8 +342,7 @@ class User(StringIdModel, AddRemoveMixin, metaclass=ProtocolUserMeta):
                                            choices=list(PROTOCOLS.keys()) + ['nostr'])
     """Protocols that this user has explicitly opted into.
 
-    Protocols that don't require explicit opt in are omitted here. ``choices``
-    is populated in :func:`reset_protocol_properties`.
+    Protocols that don't require explicit opt in are omitted here.
     """
 
     sent_dms = ndb.StructuredProperty(DM, repeated=True)
@@ -432,7 +431,7 @@ class User(StringIdModel, AddRemoveMixin, metaclass=ProtocolUserMeta):
         assert cls != User
 
         user = cls.get_by_id(id, allow_opt_out=True)
-        if user:
+        if user:  # existing
             if reload:
                 user.reload_profile(gateway=True, raise_=False)
 
@@ -1056,10 +1055,6 @@ class Object(StringIdModel, AddRemoveMixin):
     # TODO: remove for Nostr launch
     source_protocol = ndb.StringProperty(choices=list(PROTOCOLS.keys()) + ['nostr'])
     """The protocol this object originally came from.
-
-    ``choices`` is populated in :func:`reset_protocol_properties`, after all
-    :class:`User` subclasses are created, so that :attr:`PROTOCOLS` is fully
-    populated.
 
     TODO: nail down whether this is :attr:`ABBREV`` or :attr:`LABEL`
     """

@@ -94,12 +94,11 @@ class Fake(User, protocol.Protocol):
     # maps string ids to dict AS1 objects that can be fetched
     fetchable = {}
 
-    # in-order list of (Object, str URL)
+    # in-order list of (str target URL, dict AS1 activity)
     sent = []
 
     # in-order lists of ids
     fetched = []
-    created_for = []
 
     # in-order list of (user, to/from user id)
     migrated_out = []
