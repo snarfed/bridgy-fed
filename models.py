@@ -316,8 +316,6 @@ class User(StringIdModel, AddRemoveMixin, metaclass=ProtocolUserMeta):
 
     obj_key = ndb.KeyProperty(kind='Object')  # user profile
     ''
-    mod = ndb.StringProperty()
-    ''
     use_instead = ndb.KeyProperty()
     ''
 
@@ -327,6 +325,8 @@ class User(StringIdModel, AddRemoveMixin, metaclass=ProtocolUserMeta):
     ``alsoKnownAs`` in DID docs (and now AS2), etc.
     """
 
+    mod = ndb.StringProperty()
+    """Part of the bridged ActivityPub actor's private key."""
     public_exponent = ndb.StringProperty()
     """Part of the bridged ActivityPub actor's private key."""
     private_exponent = ndb.StringProperty()
@@ -487,20 +487,6 @@ class User(StringIdModel, AddRemoveMixin, metaclass=ProtocolUserMeta):
                             user.remove('enabled_protocols', proto.LABEL)
                     else:
                         logger.debug(f'{proto.LABEL} not enabled or user copy already exists, skipping propagate')
-
-        # generate keys for all protocols _except_ our own
-        #
-        # these can use urandom() and do nontrivial math, so they can take time
-        # depending on the amount of randomness available and compute needed.
-        if cls.LABEL != 'activitypub':
-            if (not user.public_exponent or not user.private_exponent or not user.mod):
-                assert (not user.public_exponent and not user.private_exponent
-                        and not user.mod), id
-                key = RSA.generate(KEY_BITS,
-                                   randfunc=random.randbytes if DEBUG else None)
-                user.mod = long_to_base64(key.n)
-                user.public_exponent = long_to_base64(key.e)
-                user.private_exponent = long_to_base64(key.d)
 
         try:
             user.put()
@@ -778,6 +764,7 @@ class User(StringIdModel, AddRemoveMixin, metaclass=ProtocolUserMeta):
         Returns:
           bytes:
         """
+        self._maybe_generate_ap_key()
         rsa = RSA.construct((base64_to_long(str(self.mod)),
                              base64_to_long(str(self.public_exponent))))
         return rsa.exportKey(format='PEM')
@@ -788,11 +775,22 @@ class User(StringIdModel, AddRemoveMixin, metaclass=ProtocolUserMeta):
         Returns:
           bytes:
         """
-        assert self.mod and self.public_exponent and self.private_exponent, str(self)
+        self._maybe_generate_ap_key()
         rsa = RSA.construct((base64_to_long(str(self.mod)),
                              base64_to_long(str(self.public_exponent)),
                              base64_to_long(str(self.private_exponent))))
         return rsa.exportKey(format='PEM')
+
+    def _maybe_generate_ap_key(self):
+        """Generates this user's ActivityPub private key if necessary."""
+        if not self.public_exponent or not self.private_exponent or not self.mod:
+            assert (not self.public_exponent and not self.private_exponent
+                    and not self.mod), id
+            key = RSA.generate(KEY_BITS, randfunc=random.randbytes if DEBUG else None)
+            self.mod = long_to_base64(key.n)
+            self.public_exponent = long_to_base64(key.e)
+            self.private_exponent = long_to_base64(key.d)
+            self.put()
 
     def nsec(self):
         """Returns the user's bech32-encoded Nostr private secp256k1 key.

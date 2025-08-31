@@ -70,15 +70,9 @@ class UserTest(TestCase):
 
     def test_get_or_create(self):
         user = Fake.get_or_create('fake:user')
-
+        assert isinstance(user, Fake)
+        self.assertEqual('fake:user', user.key.id())
         assert not user.existing
-        assert user.mod
-        assert user.public_exponent
-        assert user.private_exponent
-
-        # check that we can load the keys
-        assert user.public_pem()
-        assert user.private_pem()
 
     def test_get_or_create_existing_merge_enabled_protocols(self):
         self.user.enabled_protocols = ['fake']
@@ -184,14 +178,34 @@ class UserTest(TestCase):
         self.assertIsNone(Fake.get_or_create('fake:user', manual_opt_out=True))
 
     def test_public_pem(self):
-        pem = self.user.public_pem()
+        user = Fake(id='fake:a')
+        self.assertIsNone(user.mod)
+        self.assertIsNone(user.private_exponent)
+        self.assertIsNone(user.public_exponent)
+
+        pem = user.public_pem()
         self.assertTrue(pem.decode().startswith('-----BEGIN PUBLIC KEY-----\n'), pem)
         self.assertTrue(pem.decode().endswith('-----END PUBLIC KEY-----'), pem)
+        self.assertIsNotNone(user.mod)
+        self.assertIsNotNone(user.private_exponent)
+        self.assertIsNotNone(user.public_exponent)
+
+        self.assertEqual(pem, user.key.get().public_pem())
 
     def test_private_pem(self):
-        pem = self.user.private_pem()
+        user = Fake(id='fake:a')
+        self.assertIsNone(user.mod)
+        self.assertIsNone(user.private_exponent)
+        self.assertIsNone(user.public_exponent)
+
+        pem = user.private_pem()
         self.assertTrue(pem.decode().startswith('-----BEGIN RSA PRIVATE KEY-----\n'), pem)
         self.assertTrue(pem.decode().endswith('-----END RSA PRIVATE KEY-----'), pem)
+        self.assertIsNotNone(user.mod)
+        self.assertIsNotNone(user.private_exponent)
+        self.assertIsNotNone(user.public_exponent)
+
+        self.assertEqual(pem, user.key.get().private_pem())
 
     def test_nsec(self):
         self.user.nostr_key_bytes = bytes.fromhex(PRIVKEY)

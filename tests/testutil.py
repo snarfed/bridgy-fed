@@ -632,11 +632,6 @@ class TestCase(unittest.TestCase, testutil.Asserts):
 
         self.assert_entities_equal(cls(id=id, **props), got, ignore=ignore)
 
-        if cls != ActivityPub:
-            assert got.mod
-            assert got.private_exponent
-            assert got.public_exponent
-
         return got
 
     def assert_task(self, mock_create_task, queue, eta_seconds=None, **params):
