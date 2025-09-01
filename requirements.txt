@@ -64,7 +64,7 @@ gunicorn==23.0.0
 h11==0.16.0
 html2text==2025.4.15
 html5lib==1.1
-httplib2==0.22.0
+httplib2==0.30.0
 humanfriendly==10.0
 humanize==4.13.0
 idna==3.10
