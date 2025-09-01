@@ -385,7 +385,6 @@ class NostrTest(TestCase):
             'displayName': 'Alice',
             'summary': 'foo bar'
         })
-        self.assertIsNone(alice.nostr_key_bytes)
 
         profile_id = 'c3f5ade6dc03c6d802bb3188567ee2f9c6424c7552d58ed7c4551c1c7e356c2d'
         FakeConnection.to_receive = [
@@ -393,12 +392,6 @@ class NostrTest(TestCase):
         ]
 
         Nostr.create_for(alice)
-
-        alice = alice.key.get()
-        self.assertEqual(PRIVKEY, alice.nostr_key_bytes.hex())
-        self.assertEqual(NPUB_URI, alice.get_copy(Nostr))
-        # self.assertEqual(granary.nostr.id_to_uri('nprofile', profile_id),
-        #                  alice.obj.get_copy(Nostr))
 
         self.assert_equals([['EVENT', {
             'kind': KIND_PROFILE,
@@ -415,20 +408,18 @@ class NostrTest(TestCase):
         }]], FakeConnection.sent, ignore=['id', 'sig'])
 
     def test_create_for_already_has_nostr_copy(self):
-        alice = self.make_user('fake:user3', cls=Fake,
-                                   copies=[Target(uri='nostr:npub123', protocol='nostr')])
+        Nostr.create_for(self.user)
 
-        Nostr.create_for(alice)
+        got = self.user.key.get()
+        self.assertEqual([Target(uri=NPUB_URI, protocol='nostr')], got.copies)
 
-        alice = alice.key.get()
-        self.assertIsNone(alice.nostr_key_bytes)
         self.assertEqual(0, len(FakeConnection.sent))
 
-    def test_create_for_existing_key_no_copy(self):
-        alice = self.make_user('fake:user4', cls=Fake,
+    def test_create_for_no_copy(self):
+        alice = self.make_user('fake:alice', cls=Fake,
                                nostr_key_bytes=self.key.private_key, obj_as1={
                                    'objectType': 'person',
-                                   'displayName': 'Charlie',
+                                   'displayName': 'Alice',
                                })
 
         FakeConnection.to_receive = [
@@ -437,8 +428,8 @@ class NostrTest(TestCase):
 
         Nostr.create_for(alice)
 
-        alice = alice.key.get()
-        self.assertEqual(self.key.private_key, alice.nostr_key_bytes)
+        got = alice.key.get()
+        self.assertEqual([Target(uri=NPUB_URI, protocol='nostr')], got.copies)
 
         self.assertEqual(1, len(FakeConnection.sent))
         event_type, event = FakeConnection.sent[0]
@@ -446,9 +437,9 @@ class NostrTest(TestCase):
         self.assertEqual(PUBKEY, event['pubkey'])
 
     def test_create_for_profile_already_copied(self):
-        alice = self.make_user('fake:user5', cls=Fake, obj_as1={
+        alice = self.make_user('fake:user', cls=Fake, obj_as1={
             'objectType': 'person',
-            'displayName': 'David',
+            'displayName': 'Alice',
         })
         alice.obj.copies = [Target(uri='nostr:nevent123', protocol='nostr')]
         alice.obj.put()
@@ -456,7 +447,6 @@ class NostrTest(TestCase):
         Nostr.create_for(alice)
 
         alice = alice.key.get()
-        self.assertIsNotNone(alice.nostr_key_bytes)
         self.assertEqual(1, len([c for c in alice.copies if c.protocol == 'nostr']))
         self.assertEqual(0, len(FakeConnection.sent))
 

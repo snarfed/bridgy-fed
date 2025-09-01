@@ -185,12 +185,6 @@ class Nostr(User, Protocol):
         if npub := user.get_copy(cls):
             return
 
-        # generate keypair if necessary, store npub as copy in user
-        if not user.nostr_key_bytes:
-            logger.info(f'generating Nostr keypair for {user.key}')
-            privkey = secp256k1.PrivateKey()
-            user.nostr_key_bytes = privkey.private_key
-
         logger.info(f'adding Nostr copy user {user.npub()} for {user.key}')
         user.add('copies', Target(uri='nostr:' + user.npub(), protocol='nostr'))
         user.put()
@@ -330,8 +324,7 @@ class Nostr(User, Protocol):
                 remote_relay = to_cls.target_for(obj)
 
         # convert!
-        privkey = (from_user.nsec() if from_user and from_user.nostr_key_bytes
-                   else None)
+        privkey = from_user.nsec() if from_user else None
         return granary.nostr.from_as1(translated, privkey=privkey,
                                       remote_relay=remote_relay)
 
@@ -339,7 +332,6 @@ class Nostr(User, Protocol):
     def send(to_cls, obj, relay_url, from_user=None, **kwargs):
         """Sends an event to a relay."""
         assert from_user
-        assert from_user.nostr_key_bytes
 
         event = to_cls.convert(obj, from_user=from_user)
         assert event.get('pubkey') == from_user.hex_pubkey(), event

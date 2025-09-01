@@ -29,6 +29,7 @@ import protocol
 from protocol import Protocol
 from web import Web
 
+from granary.nostr import bech32_prefix_for, is_bech32
 from granary.tests.test_nostr import PRIVKEY, PUBKEY, NPUB_URI, NSEC_URI
 from .test_activitypub import ACTOR
 from .test_atproto import DID_DOC
@@ -207,17 +208,35 @@ class UserTest(TestCase):
 
         self.assertEqual(pem, user.key.get().private_pem())
 
-    def test_nsec(self):
+    def test_nsec_new(self):
+        user = Fake(id='fake:a')
+        self.assertIsNone(user.nostr_key_bytes)
+
+        nsec = user.nsec()
+        self.assertTrue(is_bech32(nsec))
+        self.assertIsNotNone(user.nostr_key_bytes)
+        self.assertIsNotNone(user.key.get().nostr_key_bytes)
+
+    def test_nsec_existing(self):
         self.user.nostr_key_bytes = bytes.fromhex(PRIVKEY)
         self.assertEqual(NSEC_URI.removeprefix('nostr:'), self.user.nsec())
+
+    def test_npub_new(self):
+        user = Fake(id='fake:a')
+        self.assertIsNone(user.nostr_key_bytes)
+
+        npub = user.npub()
+        self.assertTrue(is_bech32(npub))
+        self.assertIsNotNone(user.nostr_key_bytes)
+        self.assertIsNotNone(user.key.get().nostr_key_bytes)
+
+    def test_npub_existing(self):
+        self.user.nostr_key_bytes = bytes.fromhex(PRIVKEY)
+        self.assertEqual(NPUB_URI.removeprefix('nostr:'), self.user.npub())
 
     def test_hex_pubkey(self):
         self.user.nostr_key_bytes = bytes.fromhex(PRIVKEY)
         self.assertEqual(PUBKEY, self.user.hex_pubkey())
-
-    def test_npub(self):
-        self.user.nostr_key_bytes = bytes.fromhex(PRIVKEY)
-        self.assertEqual(NPUB_URI.removeprefix('nostr:'), self.user.npub())
 
     def test_user_page_path(self):
         self.assertEqual('/web/y.za', self.user.user_page_path())

@@ -784,6 +784,7 @@ class User(StringIdModel, AddRemoveMixin, metaclass=ProtocolUserMeta):
     def _maybe_generate_ap_key(self):
         """Generates this user's ActivityPub private key if necessary."""
         if not self.public_exponent or not self.private_exponent or not self.mod:
+            logger.info(f'generating AP keypair for {self.key}')
             assert (not self.public_exponent and not self.private_exponent
                     and not self.mod), id
             key = RSA.generate(KEY_BITS, randfunc=random.randbytes if DEBUG else None)
@@ -798,7 +799,7 @@ class User(StringIdModel, AddRemoveMixin, metaclass=ProtocolUserMeta):
         Returns:
           str:
         """
-        assert self.nostr_key_bytes
+        self._maybe_generate_nostr_key()
         privkey = secp256k1.PrivateKey(self.nostr_key_bytes, raw=True)
         return granary.nostr.bech32_encode('nsec', privkey.serialize())
 
@@ -808,7 +809,7 @@ class User(StringIdModel, AddRemoveMixin, metaclass=ProtocolUserMeta):
         Returns:
           str:
         """
-        assert self.nostr_key_bytes
+        self._maybe_generate_nostr_key()
         return granary.nostr.pubkey_from_privkey(self.nostr_key_bytes.hex())
 
     def npub(self):
@@ -818,6 +819,13 @@ class User(StringIdModel, AddRemoveMixin, metaclass=ProtocolUserMeta):
           str:
         """
         return granary.nostr.bech32_encode('npub', self.hex_pubkey())
+
+    def _maybe_generate_nostr_key(self):
+        """Generates this user's Nostr private key if necessary."""
+        if not self.nostr_key_bytes:
+            logger.info(f'generating Nostr keypair for {self.key}')
+            self.nostr_key_bytes = secp256k1.PrivateKey().private_key
+            self.put()
 
     def name(self):
         """Returns this user's human-readable name, eg ``Ryan Barrett``."""
