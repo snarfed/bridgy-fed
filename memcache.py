@@ -129,7 +129,7 @@ def evict(entity_key):
       entity_key (google.cloud.ndb.Key)
     """
     if entity := entity_key.get():
-        for val in getattr(entity, 'copies'):
+        for val in getattr(entity, 'copies', []):
             entity.clear_get_original_cache(val.uri)
 
     global_cache.delete([global_cache_key(entity_key._key)])

@@ -3,6 +3,8 @@ from unittest.mock import patch
 
 from google.cloud.ndb import Key
 
+from arroba.datastore_storage import AtpRepo
+
 import config
 import memcache
 from memcache import memoize, pickle_memcache
@@ -195,6 +197,16 @@ class MemcacheTest(TestCase):
 
     def test_evict(self):
         key = Fake(id='fake:foo').put()
+        key.get()
+        self.assertIsNotNone(key.get(use_cache=False, use_datastore=False,
+                                     use_global_cache=True))
+
+        memcache.evict(key)
+        self.assertIsNone(key.get(use_cache=False, use_datastore=False,
+                                  use_global_cache=True))
+
+    def test_evict_model_without_copies(self):
+        key = AtpRepo(id='did:plc:foo', head='x', signing_key_pem=b'y').put()
         key.get()
         self.assertIsNotNone(key.get(use_cache=False, use_datastore=False,
                                      use_global_cache=True))
