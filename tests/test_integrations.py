@@ -8,7 +8,7 @@ from arroba.datastore_storage import AtpSequence, DatastoreStorage
 from arroba import firehose
 from arroba.repo import Repo
 from arroba.storage import SUBSCRIBE_REPOS_NSID
-from arroba.util import dag_cbor_cid
+import arroba.util
 from dns.resolver import NXDOMAIN
 import google.cloud.dns.client
 from granary import as2, bluesky
@@ -562,7 +562,7 @@ class IntegrationTests(TestCase):
             '$type': 'app.bsky.feed.like',
             'subject': {
                 'uri': 'at://did:plc:alice/app.bsky.feed.post/123',
-                'cid': dag_cbor_cid(POST_BSKY).encode('base32'),
+                'cid': arroba.util.dag_cbor_cid(POST_BSKY).encode('base32'),
             },
             'createdAt': '2022-01-02T03:04:05.000Z',
         }], list(records['app.bsky.feed.like'].values()))
@@ -742,7 +742,10 @@ To disable these messages, reply with the text 'mute'.""",
     @patch.object(google.cloud.dns.client.ManagedZone, 'changes')
     # PLC directory create DID, welcome DM AP inbox delivery
     @patch('requests.post', return_value=requests_response('OK'))
-    @patch('requests.get')
+    @patch('requests.get', side_effect=[
+        # alice profile picture
+        requests_response('blob', headers={'Content-Type': 'image/jpeg'}),
+    ])
     def test_activitypub_enable_atproto_custom_handle_domain(
             self, mock_get, mock_post, mock_dns_changes):
         """AP user from an instance in atproto_handle_domains.txt enables ATProto.
@@ -751,10 +754,6 @@ To disable these messages, reply with the text 'mute'.""",
         """
         self.make_web_user('bsky.brid.gy')
         alice = self.make_ap_user('https://in.st/alice', webfinger_addr='@alice@in.st')
-
-        # alice's image http://pic
-        mock_get.return_value = requests_response(
-            'blob', headers={'Content-Type': 'image/jpeg'})
 
         alice.enable_protocol(ATProto)  # eg from web UI
 
@@ -929,7 +928,8 @@ To disable these messages, reply with the text 'mute'.""",
             }, json_loads(kwargs['data']))
 
     @patch('requests.get', side_effect=[
-        requests_response('blob', headers={'Content-Type': 'image/jpeg'}), # http://pic/
+        # alice profile picture
+        requests_response('blob', headers={'Content-Type': 'image/jpeg'}),
     ])
     def test_activitypub_block_bsky_bot_user_deactivates_atproto_repo(self, mock_get):
         """AP Block of @bsky.brid.gy@bsky.brid.gy deactivates the Bluesky repo.
@@ -958,13 +958,14 @@ To disable these messages, reply with the text 'mute'.""",
         self.assertEqual('deactivated', self.storage.load_repo('did:plc:alice').status)
 
     @patch('requests.get', side_effect=[
-        requests_response('blob', headers={'Content-Type': 'image/jpeg'}), # http://pic/
+        # alice profile picture
+        requests_response('blob', headers={'Content-Type': 'image/jpeg'}),
     ])
     def test_activitypub_delete_user_deactivates_atproto_repo(self, mock_get):
         """AP Delete of user deactivates the Bluesky repo.
 
         ActivityPub user @alice@inst , https://inst/alice , did:plc:alice
-        Delete is https://inst/block
+        Delete is https://inst/delete
         """
         user = self.make_ap_user('https://inst/alice', 'did:plc:alice')
         self.assertTrue(user.is_enabled(ATProto))
@@ -972,7 +973,7 @@ To disable these messages, reply with the text 'mute'.""",
         # deliver delete
         body = json_dumps({
             'type': 'Delete',
-            'id': 'http://inst/block',
+            'id': 'http://inst/delete',
             'actor': 'https://inst/alice',
             'object': 'https://inst/alice',
         })
@@ -985,6 +986,67 @@ To disable these messages, reply with the text 'mute'.""",
         self.assertFalse(user.is_enabled(ATProto))
 
         self.assertEqual('deactivated', self.storage.load_repo('did:plc:alice').status)
+
+    @patch('requests.get', side_effect=[
+        # alice profile picture
+        requests_response('blob', headers={'Content-Type': 'image/jpeg'}),
+    ])
+    def test_activitypub_delete_of_post_bridged_to_atproto(self, mock_get):
+        """AP Delete of a post removes it from the ATProto repo.
+
+        ActivityPub user @alice@inst , https://inst/alice , did:plc:alice
+        Post is https://inst/post
+        Delete is https://inst/delete
+        """
+        alice = self.make_ap_user('https://inst/alice', 'did:plc:alice')
+
+        # original AP post
+        obj = self.store_object(
+            id='https://inst/post',
+            source_protocol='activitypub',
+            our_as1={
+                'objectType': 'note',
+                'id': 'https://inst/post',
+                'author': 'https://inst/alice',
+                'content': 'Hello from ActivityPub!',
+            },
+        )
+
+        # bridged to ATProto
+        repo = Repo.create(self.storage, 'did:plc:alice',
+                          handle='alice.inst.ap.brid.gy', signing_key=ATPROTO_KEY)
+        tid = arroba.util.int_to_tid(arroba.util._tid_ts_last)
+        record = {
+            '$type': 'app.bsky.feed.post',
+            'text': 'Hello from ActivityPub!',
+            'createdAt': '2022-01-02T03:04:05.000Z',
+        }
+        repo.apply_writes([arroba.repo.Write(
+            action=arroba.repo.Action.CREATE,
+            collection='app.bsky.feed.post',
+            rkey=tid,
+            record=record,
+        )])
+        self.assertIsNotNone(repo.get_record('app.bsky.feed.post', tid))
+
+        at_uri = f'at://did:plc:alice/app.bsky.feed.post/{tid}'
+        obj.copies = [Target(uri=at_uri, protocol='atproto')]
+        obj.put()
+
+        # AP Delete activity
+        delete = {
+            'type': 'Delete',
+            'id': 'https://inst/delete',
+            'actor': 'https://inst/alice',
+            'object': 'https://inst/post',
+        }
+        body = json_dumps(delete)
+        headers = sign('/ap/sharedInbox', body, key_id='https://inst/alice')
+        resp = self.client.post('/ap/sharedInbox', data=body, headers=headers)
+        self.assertEqual(202, resp.status_code)
+
+        # check that the record was deleted from the repo
+        self.assertIsNone(repo.get_record('app.bsky.feed.post', tid))
 
     @patch('requests.post', return_value=requests_response(''))
     @patch('requests.get', return_value=requests_response("""\
