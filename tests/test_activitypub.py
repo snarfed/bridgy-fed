@@ -1787,6 +1787,14 @@ class ActivityPubTest(TestCase):
         self.assertEqual(204, got.status_code)
         self.assertEqual(1, Follower.query().count())
 
+    def test_inbox_bad_actor_id(self, mock_head, mock_get, mock_post):
+        got = self.post('/user.com/inbox', json={
+            'type': 'Move',
+            'actor': 'https:///',
+            'object': 'http://inst/obj',
+        })
+        self.assertEqual(400, got.status_code)
+
     @patch('activitypub.PROTOCOLS', new={'fake': Fake, 'other': OtherFake})
     def test_inbox_server_actor_create_with_propagate(
             self, mock_head, mock_get, mock_post):

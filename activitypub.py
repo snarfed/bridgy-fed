@@ -238,7 +238,7 @@ class ActivityPub(User, Protocol):
 
         https://docs.microblog.pub/user_guide.html#activitypub
         """
-        if util.is_web(id) and not cls.is_blocklisted(id):
+        if util.is_web(id) and util.is_url(id) and not cls.is_blocklisted(id):
             return None
 
         return False
@@ -1299,9 +1299,8 @@ def inbox(protocol=None, id=None):
     actor = (as1.get_object(activity, 'actor')
              or as1.get_object(activity, 'attributedTo'))
     actor_id = actor.get('id')
-
-    if ActivityPub.is_blocklisted(actor_id):
-        error(f'Actor {actor_id} is blocklisted')
+    if ActivityPub.owns_id(actor_id) is False:
+        error(f'Bad ActivityPub actor id {actor_id}')
 
     actor_domain = util.domain_from_link(actor_id)
     # temporary, see emails w/Michael et al, and
