@@ -647,12 +647,22 @@ class ActivityPubTest(TestCase):
 
     def test_inbox_bad_id(self, *_):
         user = self.make_user(ACTOR['id'], cls=ActivityPub, obj_as2=ACTOR)
-        resp = self.post('/ap/sharedInbox', json={
-            **NOTE,
-            'id': 'mas.to',
-        })
-        self.assertEqual(299, resp.status_code)
-        self.assertIsNone(Object.get_by_id('mas.to'))
+
+        for id in 'x y', 'mas.to', 'https:///':
+            with self.subTest(id=id):
+                resp = self.post('/ap/sharedInbox', json={**NOTE, 'id': id})
+                self.assertEqual(400, resp.status_code)
+                self.assertIsNone(Object.get_by_id('mas.to'))
+
+    def test_inbox_bad_actor_id(self, mock_head, mock_get, mock_post):
+        for id in '', 'x y', 'mas.to', 'https:///':
+            with self.subTest(id=id):
+                got = self.post('/user.com/inbox', json={
+                    'type': 'Move',
+                    'actor': id,
+                    'object': 'http://inst/obj',
+                })
+                self.assertEqual(400, got.status_code)
 
     @patch('oauth_dropins.webutil.appengine_config.tasks_client.create_task')
     def test_inbox_create_receive_task(self, mock_create_task, *mocks):
@@ -1787,14 +1797,6 @@ class ActivityPubTest(TestCase):
         self.assertEqual(204, got.status_code)
         self.assertEqual(1, Follower.query().count())
 
-    def test_inbox_bad_actor_id(self, mock_head, mock_get, mock_post):
-        got = self.post('/user.com/inbox', json={
-            'type': 'Move',
-            'actor': 'https:///',
-            'object': 'http://inst/obj',
-        })
-        self.assertEqual(400, got.status_code)
-
     @patch('activitypub.PROTOCOLS', new={'fake': Fake, 'other': OtherFake})
     def test_inbox_server_actor_create_with_propagate(
             self, mock_head, mock_get, mock_post):
@@ -2430,12 +2432,12 @@ class ActivityPubUtilsTest(TestCase):
     def test_owns_id(self):
         self.assertIsNone(ActivityPub.owns_id('http://foo'))
         self.assertIsNone(ActivityPub.owns_id('https://bar/baz'))
-        self.assertFalse(ActivityPub.owns_id('at://did:plc:foo/bar/123'))
-        self.assertFalse(ActivityPub.owns_id('e45fab982'))
 
-        self.assertFalse(ActivityPub.owns_id('https://twitter.com/foo'))
-        self.assertFalse(ActivityPub.owns_id('https://fed.brid.gy/foo'))
-        self.assertFalse(ActivityPub.owns_id('https://ap.brid.gy/foo'))
+        for id in ('', 'xy', 'x y', 'https:///', 'at://did:plc:foo/bar/123',
+                   'e45fab982', 'https://twitter.com/foo', 'https://fed.brid.gy/foo',
+                   'https://ap.brid.gy/foo'):
+            with self.subTest(id=id):
+                self.assertFalse(ActivityPub.owns_id(id))
 
     def test_owns_handle(self):
         for addr in ('user@instance', 'user@instance.com', 'user.com@instance.com',

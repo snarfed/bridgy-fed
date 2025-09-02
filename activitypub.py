@@ -1300,7 +1300,7 @@ def inbox(protocol=None, id=None):
              or as1.get_object(activity, 'attributedTo'))
     actor_id = actor.get('id')
     if ActivityPub.owns_id(actor_id) is False:
-        error(f'Bad ActivityPub actor id {actor_id}')
+        error(f'Bad ActivityPub actor id {actor_id}', status=400)
 
     actor_domain = util.domain_from_link(actor_id)
     # temporary, see emails w/Michael et al, and
@@ -1309,6 +1309,9 @@ def inbox(protocol=None, id=None):
         return ':(', 204
 
     id = activity.get('id')
+    if id and ActivityPub.owns_id(id) is False:
+        error(f'Bad ActivityPub activity id {id}', status=400)
+
     obj_id = obj.get('id')
     if id and actor_domain != util.domain_from_link(id):
         report_error(f'Auth: actor and activity on different domains: {json_dumps(activity, indent=2)}',
@@ -1354,6 +1357,7 @@ def inbox(protocol=None, id=None):
 
     if not id:
         id = f'{actor_id}#{type}-{obj_id or ""}-{util.now().isoformat()}'
+        logger.info(f'Generated synthetic activity id {id}')
 
     # automatically bridge server aka instance actors
     # https://codeberg.org/fediverse/fep/src/branch/main/fep/d556/fep-d556.md
