@@ -168,22 +168,6 @@ class CommonTest(TestCase):
 
         mock_client.report.assert_called_with('foo', http_context=None, bar='baz')
 
-    def test_as2_request_type(self):
-        for accept, expected in (
-                (as2.CONTENT_TYPE_LD_PROFILE, as2.CONTENT_TYPE_LD_PROFILE),
-                (as2.CONTENT_TYPE_LD, as2.CONTENT_TYPE_LD_PROFILE),
-                (as2.CONTENT_TYPE, as2.CONTENT_TYPE),
-                # TODO: handle eventually; this should return non-None
-                (CONNEG_HEADERS_AS2_HTML['Accept'], None),
-                ('', None),
-                ('*/*', None),
-                ('text/html', None),
-        ):
-            with (self.subTest(accept=accept),
-                  app.test_request_context('/', headers={'Accept': accept})):
-                self.assertEqual(expected, common.as2_request_type())
-
-
     @patch('oauth_dropins.webutil.appengine_config.tasks_client.create_task')
     def test_create_task_no_request_context(self, mock_create_task):
         common.RUN_TASKS_INLINE = False

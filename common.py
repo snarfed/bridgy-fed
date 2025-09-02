@@ -474,33 +474,6 @@ NDB_CONTEXT_KWARGS = {
 }
 
 
-def as2_request_type():
-    """If this request has conneg (ie the ``Accept`` header) for AS2, returns its type.
-
-    Specifically, returns either
-    ``application/ld+json; profile="https://www.w3.org/ns/activitystreams"`` or
-    ``application/activity+json``.
-
-    If the current request's conneg isn't asking for AS2, returns None.
-
-    https://www.w3.org/TR/activitypub/#retrieving-objects
-    https://snarfed.org/2023-03-24_49619-2
-    """
-    if accept := request.headers.get('Accept'):
-        try:
-            negotiated = _negotiator.negotiate(accept)
-        except ValueError:
-            # work around https://github.com/CottageLabs/negotiator/issues/6
-            negotiated = None
-        if negotiated:
-            accept_type = str(negotiated.content_type)
-            if accept_type == as2.CONTENT_TYPE:
-                return as2.CONTENT_TYPE
-            elif accept_type in (as2.CONTENT_TYPE_LD, as2.CONTENT_TYPE_LD_PROFILE):
-                return as2.CONTENT_TYPE_LD_PROFILE
-            logger.debug(f'Conneg resolved {accept_type} for Accept: {accept}')
-
-
 def log_request():
     """Logs GET query params and POST form.
 

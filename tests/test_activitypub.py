@@ -3715,3 +3715,18 @@ class ActivityPubUtilsTest(TestCase):
     def test_instance_info(self):
         # just check that it doesn't crash
         self.client.get('/api/v1/instance')
+
+    def test_as2_request_type(self):
+        for accept, expected in (
+                (as2.CONTENT_TYPE_LD_PROFILE, as2.CONTENT_TYPE_LD_PROFILE),
+                (as2.CONTENT_TYPE_LD, as2.CONTENT_TYPE_LD_PROFILE),
+                (as2.CONTENT_TYPE, as2.CONTENT_TYPE),
+                # TODO: handle eventually; this should return non-None
+                (activitypub.CONNEG_HEADERS_AS2_HTML['Accept'], None),
+                ('', None),
+                ('*/*', None),
+                ('text/html', None),
+        ):
+            with (self.subTest(accept=accept),
+                  app.test_request_context('/', headers={'Accept': accept})):
+                self.assertEqual(expected, activitypub.as2_request_type())
