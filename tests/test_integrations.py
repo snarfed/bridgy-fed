@@ -1038,7 +1038,13 @@ To disable these messages, reply with the text 'mute'.""",
             'type': 'Delete',
             'id': 'https://inst/delete',
             'actor': 'https://inst/alice',
-            'object': 'https://inst/post',
+            # some fediverse servers use Tombstones as their Delete objects,
+            # eg Threads and some Mastodon versions
+            # https://github.com/snarfed/bridgy-fed/issues/2065
+            'object': {
+                'type': 'Tombstone',
+                'id': 'https://inst/post',
+            },
         }
         body = json_dumps(delete)
         headers = sign('/ap/sharedInbox', body, key_id='https://inst/alice')
@@ -1046,6 +1052,7 @@ To disable these messages, reply with the text 'mute'.""",
         self.assertEqual(202, resp.status_code)
 
         # check that the record was deleted from the repo
+        repo = self.storage.load_repo('did:plc:alice')
         self.assertIsNone(repo.get_record('app.bsky.feed.post', tid))
 
     @patch('requests.post', return_value=requests_response(''))

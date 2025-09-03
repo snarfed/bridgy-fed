@@ -1289,7 +1289,7 @@ def inbox(protocol=None, id=None):
     inner_type = obj.get('type')
     if type := activity.get('type'):
         if (type not in ActivityPub.SUPPORTED_AS2_TYPES or
-            (type in as2.CRUD_VERBS
+            (type in ('Create', 'Update')
              and inner_type
              and inner_type not in ActivityPub.SUPPORTED_AS2_TYPES)):
             error(f"Bridgy Fed for ActivityPub doesn't support {type} {inner_type} yet: {json_dumps(activity, indent=2)}", status=204)
