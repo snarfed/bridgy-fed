@@ -631,6 +631,7 @@ class ActivityPub(User, Protocol):
         Raises:
           ValueError: if ``user`` can't migrate to ActivityPub or ``to_user_id`` yet
         """
+        logger.info(f'Checking that {user.key} can migrate to {to_user_id}')
         super().check_can_migrate_out(user, to_user_id)
 
         # check that the destination actor has an alias to the bridged actor
