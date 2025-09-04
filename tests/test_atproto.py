@@ -1211,7 +1211,7 @@ Sed tortor neque, aliquet quis posuere aliquam, imperdiet sitamet […]
         self.assertEqual({
             'token': 'kode',
             'rotationKeys': [did_key],
-            'verificationMethod': [{
+            'verificationMethods': [{
                 'id': 'did:plc:user#atproto',
                 'type': 'Multikey',
                 'controller': 'did:plc:user',

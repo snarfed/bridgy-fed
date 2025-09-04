@@ -691,7 +691,8 @@ class ATProto(User, Protocol):
             return False
 
         # load user
-        user = from_cls.get_or_create(from_key.id(), allow_opt_out=allow_opt_out, propagate=True)
+        user = from_cls.get_or_create(from_key.id(), allow_opt_out=allow_opt_out,
+                                      propagate=True)
         did = user.get_copy(ATProto)
         assert did
         logger.info(f'{user.key.id()} is {did}')
@@ -1057,10 +1058,14 @@ class ATProto(User, Protocol):
             _error(f"Please import {from_user_id}'s repo first")
 
         # ask old PDS to generate signed PLC operation
+        # https://atproto.com/guides/account-migration#updating-identity
         op = pds_client.com.atproto.identity.signPlcOperation({
             'token': plc_code,
             'rotationKeys': [did.encode_did_key(repo.rotation_key.public_key())],
-            'verificationMethod': [{
+            # note the name here, verificationMethods *with* trailing s! different
+            # from verificationMethod (no s) in DID docs! confusing! and important!
+            # https://github.com/snarfed/bounce/issues/45#issuecomment-3254425427
+            'verificationMethods': [{
                 'id': f'{from_user_id}#atproto',
                 'type': 'Multikey',
                 'controller': from_user_id,
@@ -1076,6 +1081,7 @@ class ATProto(User, Protocol):
         logger.debug(op)
 
         # submit PLC operation to directory
+        # https://github.com/did-method-plc/did-method-plc#did-update
         util.requests_post(f'https://{os.environ["PLC_HOST"]}/{from_user_id}',
                            json=op['operation'])
 
