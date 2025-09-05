@@ -257,8 +257,15 @@ class AddRemoveMixin:
     the ``copies`` property.
     """
 
+    lock = None
+    """Synchronizes :meth:`add`, :meth:`remove`, etc."""
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.lock = Lock()
+
     def add(self, prop, val):
-        """Adds a value to a multiply-valued property. Uses ``self.lock``.
+        """Adds a value to a multiply-valued property.
 
         Args:
           prop (str)
@@ -278,7 +285,7 @@ class AddRemoveMixin:
         return added
 
     def remove(self, prop, val):
-        """Removes a value from a multiply-valued property. Uses ``self.lock``.
+        """Removes a value from a multiply-valued property.
 
         Args:
           prop (str)
@@ -292,13 +299,30 @@ class AddRemoveMixin:
         if prop == 'copies':
             self.clear_get_original_cache(val.uri)
 
+    def remove_copies_on(self, proto):
+        """Removes all copies on a given protocol.
+
+        ``proto.HAS_COPIES`` must be True.
+
+        Args:
+          proto (protocol.Protocol subclass)
+        """
+        assert proto.HAS_COPIES
+
+        for copy in self.copies:
+            if copy.protocol in (proto.ABBREV, proto.LABEL):
+                self.remove('copies', copy)
+
     @classmethod
     def clear_get_original_cache(cls, uri):
         if fn := getattr(cls, 'GET_ORIGINAL_FN'):
             memcache.pickle_memcache.delete(memcache.memoize_key(fn, uri))
 
 
-class User(StringIdModel, AddRemoveMixin, metaclass=ProtocolUserMeta):
+# WARNING: AddRemoveMixin *must* be before StringIdModel here so that its __init__
+# gets called! Due to an (arguable) ndb.Model bug:
+# https://github.com/googleapis/python-ndb/issues/1025
+class User(AddRemoveMixin, StringIdModel, metaclass=ProtocolUserMeta):
     """Abstract base class for a Bridgy Fed user.
 
     Stores some protocols' keypairs. Currently:
@@ -377,8 +401,6 @@ class User(StringIdModel, AddRemoveMixin, metaclass=ProtocolUserMeta):
 
         if obj:
             self.obj = obj
-
-        self.lock = Lock()
 
     @classmethod
     def new(cls, **kwargs):
@@ -1040,7 +1062,10 @@ class User(StringIdModel, AddRemoveMixin, metaclass=ProtocolUserMeta):
         return num_followers.get_result(), num_following.get_result()
 
 
-class Object(StringIdModel, AddRemoveMixin):
+# WARNING: AddRemoveMixin *must* be before StringIdModel here so that its __init__
+# gets called! Due to an (arguable) ndb.Model bug:
+# https://github.com/googleapis/python-ndb/issues/1025
+class Object(AddRemoveMixin, StringIdModel):
     """An activity or other object, eg actor.
 
     Key name is the id, generally a URI. We synthesize ids if necessary.
@@ -1105,9 +1130,6 @@ class Object(StringIdModel, AddRemoveMixin):
     datastore, False otherwise, None if we don't know. :class:`Object` is
     new/changed. See :meth:`activity_changed()` for more details.
     """
-
-    lock = None
-    """Synchronizes :meth:`add` and :meth:`remove`."""
 
     # DEPRECATED
     # These were for full feeds with multiple items, not just this one, so they were
@@ -1199,10 +1221,6 @@ class Object(StringIdModel, AddRemoveMixin):
     def type(self):  # AS1 objectType, or verb if it's an activity
         if self.as1:
             return as1.object_type(self.as1)
-
-    def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
-        self.lock = Lock()
 
     def _expire(self):
         """Automatically delete most Objects after a while using a TTL policy.

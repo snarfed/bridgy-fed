@@ -125,9 +125,6 @@ class Protocol:
     SEND_REPLIES_TO_ORIG_POSTS_MENTIONS = False
     """bool: whether replies to this protocol should include the original post's mentions as delivery targets"""
 
-    def __init__(self):
-        assert False
-
     @classmethod
     @property
     def LABEL(cls):

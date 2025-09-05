@@ -682,6 +682,30 @@ class UserTest(TestCase):
         user.remove('enabled_protocols', 'activitypub')
         self.assertEqual(['web'], user.enabled_protocols)
 
+    def test_remove_copies_on(self):
+        user = Fake(id='fake:x', copies=[
+            Target(protocol='other', uri='other:x'),
+            Target(protocol='efake', uri='efake:y'),
+            Target(protocol='other', uri='other:z'),
+        ])
+        user.put()
+
+        self.assertEqual(user.key, models.get_original_user_key('other:x'))
+        self.assertEqual(user.key, models.get_original_user_key('other:z'))
+
+        user.remove_copies_on(OtherFake)
+        self.assertEqual([Target(protocol='efake', uri='efake:y')], user.copies)
+        user.put()
+
+        models.get_original_user_key.cache_clear()  # lru_cache
+        self.assertIsNone(models.get_original_user_key('other:x'))
+        self.assertIsNone(models.get_original_user_key('other:z'))
+
+    def test_remove_copies_on_empty(self):
+        user = Fake(id='fake:x', copies=[Target(protocol='fake', uri='fake:y')])
+        user.remove_copies_on(OtherFake)
+        self.assertEqual([Target(protocol='fake', uri='fake:y')], user.copies)
+
 
 class ObjectTest(TestCase):
 

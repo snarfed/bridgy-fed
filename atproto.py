@@ -1099,7 +1099,8 @@ class ATProto(User, Protocol):
 
         if user.obj:
             profile_at_uri = ids.profile_id(id=from_user_id, proto=ATProto)
-            user.obj.copies = [Target(uri=profile_at_uri, protocol='atproto')]
+            user.obj.remove_copies_on(ATProto)
+            user.obj.add('copies', Target(uri=profile_at_uri, protocol='atproto'))
             user.obj.put()
             common.create_task(queue='receive', obj_id=user.obj_key.id(),
                                authed_as=user.key.id())

@@ -1195,6 +1195,15 @@ Sed tortor neque, aliquet quis posuere aliquam, imperdiet sitamet […]
         self.make_user_and_repo()
         self.user.copies = self.user.enabled_protocols = []
         self.user.put()
+        
+        # add some old atproto copies that should be removed
+        self.user.obj = self.store_object(id='fake:profile:user', our_as1={
+            'objectType': 'person',
+            'id': 'fake:user',
+        }, copies=[
+            Target(uri='at://did:plc:old/app.bsky.actor.profile/self', protocol='atproto'),
+            Target(uri='some:other:copy', protocol='other'),
+        ])
 
         repo = self.storage.load_repo('did:plc:user')
         arroba.server.storage.deactivate_repo(repo)
@@ -1254,9 +1263,14 @@ Sed tortor neque, aliquet quis posuere aliquam, imperdiet sitamet […]
         self.assert_equals(profile_as1, self.user.obj.as1)
         self.assertEqual('fake:profile:user', self.user.obj.key.id())
 
+        # check that old atproto copies were removed and new one added
+        # but other protocol copies were preserved
         profile_at_uri = 'at://did:plc:user/app.bsky.actor.profile/self'
-        self.assertEqual([Target(uri=profile_at_uri, protocol='atproto')],
-                         self.user.obj.copies)
+        obj = self.user.obj.key.get()
+        self.assertCountEqual([
+            Target(uri=profile_at_uri, protocol='atproto'),
+            Target(uri='some:other:copy', protocol='other'),
+        ], obj.copies)
         self.assert_task(mock_create_task, 'receive', authed_as='fake:user',
                          obj_id='fake:profile:user')
 
