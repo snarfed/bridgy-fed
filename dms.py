@@ -69,8 +69,8 @@ def command(names, arg=False, user_bridged=None, handle_bridged=None):
             to_user = None
 
             if arg == 'handle_or_id':
-                if to_proto.owns_id(cmd_arg):
-                    if not (to_user := load_user_by_id(to_proto, cmd_arg)):
+                if to_proto.owns_id(cmd_arg) is not False:
+                    if not (to_user := to_proto.get_or_create(cmd_arg, allow_opt_out=True)):
                         # Skip trying as a handle, assuming that a valid ID
                         # never happens to be a valid handle of another user
                         # at the same time in any supported protocol.
@@ -78,13 +78,12 @@ def command(names, arg=False, user_bridged=None, handle_bridged=None):
                 else:
                     logging.info(f"doesn't look like an ID, trying as a handle")
 
-            if arg == 'handle_or_id' and not to_user:
-                if not to_proto.owns_handle(cmd_arg) and cmd_arg.startswith('@'):
-                    logging.info(f"doesn't look like a handle, trying without leading @")
-                    cmd_arg = cmd_arg.removeprefix('@')
+                    if not to_proto.owns_handle(cmd_arg) and cmd_arg.startswith('@'):
+                        logging.info(f"doesn't look like a handle, trying without leading @")
+                        cmd_arg = cmd_arg.removeprefix('@')
 
-                if not (to_user := load_user_by_handle(to_proto, cmd_arg)):
-                    return reply(f"Couldn't find user {cmd_arg} on {to_proto.PHRASE}")
+                    if not (to_user := load_user_by_handle(to_proto, cmd_arg)):
+                        return reply(f"Couldn't find user {cmd_arg} on {to_proto.PHRASE}")
 
             if to_user:
                 from_proto = from_user.__class__
@@ -393,20 +392,6 @@ def receive(*, from_user, obj):
         return fn(from_user, to_proto, dm_as1=inner_as1, cmd=None, cmd_arg=tokens[0])
 
     return r'¯\_(ツ)_/¯', 204
-
-
-def load_user_by_id(proto, id):
-    """
-    Args:
-      proto (protocol.Protocol)
-      id: (str)
-
-    Returns:
-      models.User or None
-    """
-    if user := proto.get_or_create(id, allow_opt_out=True):
-        if user.obj and user.obj.as1:
-            return user
 
 
 def load_user_by_handle(proto, handle):
