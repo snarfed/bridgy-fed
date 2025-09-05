@@ -2710,6 +2710,14 @@ class ProtocolReceiveTest(TestCase):
             'object': profile,
         })], Fake.sent)
 
+    def test_update_profile_empty_object(self):
+        profile = self.store_object(id='other:profile:alice', source_protocol='other')
+        self.assertIsNone(profile.as1)
+        profile.new = True
+
+        with self.assertRaises(ErrorButDoNotRetryTask):
+            OtherFake.receive(profile, authed_as='other:alice')
+
     def test_update_profile_use_instead(self):
         user_instead = self.make_user('fake:user-instead', cls=Fake,
                                        use_instead=self.user.key)

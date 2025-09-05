@@ -1190,7 +1190,8 @@ Sed tortor neque, aliquet quis posuere aliquam, imperdiet sitamet […]
     @patch('requests.get', side_effect=[
         requests_response(DID_DOC),  # resolve did:plc:user
     ])
-    def test_migrate_in(self, _, mock_post):
+    @patch.object(tasks_client, 'create_task')
+    def test_migrate_in(self, mock_create_task, _, mock_post):
         self.make_user_and_repo()
         self.user.copies = self.user.enabled_protocols = []
         self.user.put()
@@ -1198,6 +1199,13 @@ Sed tortor neque, aliquet quis posuere aliquam, imperdiet sitamet […]
         repo = self.storage.load_repo('did:plc:user')
         arroba.server.storage.deactivate_repo(repo)
         orig_head = repo.head
+
+        profile_as1 = {
+            'objectType': 'person',
+            'id': 'fake:user',
+            'displayName': 'New Fake User',
+        }
+        Fake.fetchable = {'fake:profile:user': profile_as1}
 
         pds_client = lexrpc.Client('https://some.pds')
         ATProto.migrate_in(self.user, 'did:plc:user', plc_code='kode', pds_client=pds_client)
@@ -1240,6 +1248,18 @@ Sed tortor neque, aliquet quis posuere aliquam, imperdiet sitamet […]
             ('https://some.pds/xrpc/com.atproto.server.deactivateAccount',),
             mock_post.call_args_list[2].args)
 
+        # check that we fully reloaded the profile
+        self.assertEqual(['fake:profile:user'], Fake.fetched)
+        self.user = self.user.key.get()
+        self.assert_equals(profile_as1, self.user.obj.as1)
+        self.assertEqual('fake:profile:user', self.user.obj.key.id())
+
+        profile_at_uri = 'at://did:plc:user/app.bsky.actor.profile/self'
+        self.assertEqual([Target(uri=profile_at_uri, protocol='atproto')],
+                         self.user.obj.copies)
+        self.assert_task(mock_create_task, 'receive', authed_as='fake:user',
+                         obj_id='fake:profile:user')
+
     def test_migrate_in_bad_user_id(self, *_):
         eve = self.make_user('fake:eve', cls=Fake)
         with self.assertRaises(ValueError):
@@ -1261,6 +1281,36 @@ Sed tortor neque, aliquet quis posuere aliquam, imperdiet sitamet […]
         with self.assertRaises(ValueError):
             ATProto.migrate_in(eve, 'did:plc:outside', plc_code='kode',
                                pds_client=None)
+
+    @patch('requests.post', side_effect=[
+        requests_response({'operation': {'signed': 'op'}}),
+        requests_response(),  # signPlcOperation
+        requests_response(),  # deactivateAccount
+    ])
+    @patch.object(tasks_client, 'create_task')
+    def test_migrate_in_reload_profile_fails(self, mock_create_task, mock_post):
+        self.make_user_and_repo(obj_key=None)
+        self.assertIsNotNone(self.user.copies)
+
+        repo = self.storage.load_repo('did:plc:user')
+        arroba.server.storage.deactivate_repo(repo)
+
+        # profile fetch will fail
+        Fake.fetchable = {}
+
+        pds_client = lexrpc.Client('https://some.pds')
+        ATProto.migrate_in(self.user, 'did:plc:user', plc_code='kode',
+                           pds_client=pds_client)
+
+        # profile was fetched, got nothing, no profile update receive task
+        self.assertIn('fake:profile:user', Fake.fetched)
+        user = self.user.key.get()
+        profile_at_uri = 'at://did:plc:user/app.bsky.actor.profile/self'
+        self.assertEqual([Target(uri=profile_at_uri, protocol='atproto')],
+                         user.obj.copies)
+        self.assertIsNone(user.obj.as1)
+        self.assert_task(mock_create_task, 'receive', authed_as='fake:user',
+                         obj_id='fake:profile:user')
 
     @patch('requests.get', return_value=requests_response('', status=404))
     def test_web_url(self, mock_get):

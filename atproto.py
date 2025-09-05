@@ -47,7 +47,7 @@ from oauth_dropins.webutil.flask_util import (
 )
 from oauth_dropins.webutil.models import StringIdModel
 from oauth_dropins.webutil.util import add, json_dumps, json_loads
-from werkzeug.exceptions import NotFound
+from werkzeug.exceptions import HTTPException, NotFound
 
 import common
 from common import (
@@ -1090,6 +1090,19 @@ class ATProto(User, Protocol):
         arroba.server.storage.activate_repo(repo)
         repo.apply_writes(None)
         pds_client.com.atproto.server.deactivateAccount()
+
+        # reload profile, reattach bridged copy URI
+        try:
+            user.reload_profile()
+        except (RequestException, HTTPException) as e:
+            _, msg = util.interpret_http_exception(e)
+
+        if user.obj:
+            profile_at_uri = ids.profile_id(id=from_user_id, proto=ATProto)
+            user.obj.copies = [Target(uri=profile_at_uri, protocol='atproto')]
+            user.obj.put()
+            common.create_task(queue='receive', obj_id=user.obj_key.id(),
+                               authed_as=user.key.id())
 
     @classmethod
     def add_source_links(cls, obj, from_user):
