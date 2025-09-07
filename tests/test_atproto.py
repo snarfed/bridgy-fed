@@ -1195,7 +1195,7 @@ Sed tortor neque, aliquet quis posuere aliquam, imperdiet sitamet […]
         self.make_user_and_repo()
         self.user.copies = self.user.enabled_protocols = []
         self.user.put()
-        
+
         # add some old atproto copies that should be removed
         self.user.obj = self.store_object(id='fake:profile:user', our_as1={
             'objectType': 'person',
@@ -1217,7 +1217,8 @@ Sed tortor neque, aliquet quis posuere aliquam, imperdiet sitamet […]
         Fake.fetchable = {'fake:profile:user': profile_as1}
 
         pds_client = lexrpc.Client('https://some.pds')
-        ATProto.migrate_in(self.user, 'did:plc:user', plc_code='kode', pds_client=pds_client)
+        ATProto.migrate_in(self.user, 'did:plc:user', plc_code='kode',
+                           pds_client=pds_client)
 
         # PLC update
         self.assertEqual(
@@ -1257,9 +1258,10 @@ Sed tortor neque, aliquet quis posuere aliquam, imperdiet sitamet […]
             ('https://some.pds/xrpc/com.atproto.server.deactivateAccount',),
             mock_post.call_args_list[2].args)
 
-        # check that we fully reloaded the profile
+        # check that the user is enabled for atproto and we fully reloaded the profile
         self.assertEqual(['fake:profile:user'], Fake.fetched)
         self.user = self.user.key.get()
+        self.assertEqual(['atproto'], self.user.enabled_protocols)
         self.assert_equals(profile_as1, self.user.obj.as1)
         self.assertEqual('fake:profile:user', self.user.obj.key.id())
 
@@ -1319,6 +1321,7 @@ Sed tortor neque, aliquet quis posuere aliquam, imperdiet sitamet […]
         # profile was fetched, got nothing, no profile update receive task
         self.assertIn('fake:profile:user', Fake.fetched)
         user = self.user.key.get()
+        self.assertEqual(['atproto'], self.user.enabled_protocols)
         profile_at_uri = 'at://did:plc:user/app.bsky.actor.profile/self'
         self.assertEqual([Target(uri=profile_at_uri, protocol='atproto')],
                          user.obj.copies)

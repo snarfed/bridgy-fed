@@ -1091,6 +1091,9 @@ class ATProto(User, Protocol):
         repo.apply_writes(None)
         pds_client.com.atproto.server.deactivateAccount()
 
+        user.add('enabled_protocols', 'atproto')
+        user.put()
+
         # reload profile, reattach bridged copy URI
         try:
             user.reload_profile()
