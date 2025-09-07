@@ -1052,6 +1052,16 @@ class ProtocolTest(TestCase):
             with self.subTest(proto=proto), self.assertRaises(NoContent):
                 proto.check_supported(dm)
 
+        for to in 'fake:user/followers', '@unlisted':
+            with self.subTest(to=to), self.assertRaises(NoContent):
+                Fake.check_supported(Object(our_as1={
+                    'id': 'fake:post',
+                    'objectType': 'note',
+                    'author': 'fake:user',
+                    'to': [to],
+                    'content': 'x',
+                }))
+
         # blank content and no video/audio/image
         for obj in (
                 {'objectType': 'note'},
@@ -1287,21 +1297,25 @@ class ProtocolReceiveTest(TestCase):
         self.assertEqual(ATProto.DEFAULT_TARGET, url)
 
     def test_post_not_public_ignored(self):
-        self.assertEqual(('OK', 200), Fake.receive_as1({
-            'id': 'fake:post',
-            'objectType': 'note',
-            'author': 'fake:user',
-            'to': ['fake:user/followers'],
-        }))
+        with self.assertRaises(NoContent):
+            Fake.receive_as1({
+                'id': 'fake:post',
+                'objectType': 'note',
+                'author': 'fake:user',
+                'to': ['fake:user/followers'],
+            })
+
         self.assertIsNone(Object.get_by_id('fake:post'))
 
     def test_post_unlisted_ignored(self):
-        self.assertEqual(('OK', 200), Fake.receive_as1({
-            'id': 'fake:post',
-            'objectType': 'note',
-            'author': 'fake:user',
-            'to': ['@unlisted'],
-        }))
+        with self.assertRaises(NoContent):
+            Fake.receive_as1({
+                'id': 'fake:post',
+                'objectType': 'note',
+                'author': 'fake:user',
+                'to': ['@unlisted'],
+            })
+
         self.assertIsNone(Object.get_by_id('fake:post'))
 
     @patch.object(ATProto, 'send')
@@ -2305,7 +2319,7 @@ class ProtocolReceiveTest(TestCase):
                     {'type': 'Mention', 'href': 'http://inst/eve'},
                 ],
             },
-        }, from_user=frank, ignore=['contentMap', 'to', 'cc', 'published'])
+        }, from_user=frank.key.get(), ignore=['contentMap', 'to', 'cc', 'published'])
 
     def test_update_reply(self):
         eve = self.make_user('other:eve', cls=OtherFake, obj_id='other:eve')

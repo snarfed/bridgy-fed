@@ -996,14 +996,9 @@ class Protocol:
             error(f'Protocol {from_cls.LABEL} does not own id {id}')
         elif from_cls.is_blocklisted(id, allow_internal=internal):
             error(f'Activity {id} is blocklisted')
-        # check that this activity is public. only do this for some activities,
-        # not eg likes or follows, since Mastodon doesn't currently mark those
-        # as explicitly public.
-        elif (obj.type in set(('post', 'update')) | as1.POST_TYPES | as1.ACTOR_TYPES
-                  and not as1.is_public(obj.as1, unlisted=False)
-                  and not as1.is_dm(obj.as1)):
-              logger.info('Dropping non-public activity')
-              return ('OK', 200)
+
+        # does this protocol support this activity/object type?
+        from_cls.check_supported(obj)
 
         # lease this object, atomically
         memcache_key = activity_id_memcache_key(id)
@@ -1030,9 +1025,6 @@ class Protocol:
                            ).total_seconds())
             delay = f'({delay_s} s behind)'
         logger.info(f'Receiving {from_cls.LABEL} {obj.type} {id} {delay} AS1: {json_dumps(pruned, indent=2)}')
-
-        # does this protocol support this activity/object type?
-        from_cls.check_supported(obj)
 
         # check authorization
         # https://www.w3.org/wiki/ActivityPub/Primer/Authentication_Authorization
@@ -1937,7 +1929,15 @@ Hi! You <a href="{inner_obj_as1.get('url') or inner_obj_id}">recently {verb}</a>
             if (not cls.SUPPORTS_DMS
                     or (recip not in protocol_user_ids
                         and as1.get_owner(obj.as1) not in protocol_user_ids)):
-                error(f"Bridgy Fed doesn't support DMs", status=204)
+                error("Bridgy Fed doesn't support DMs", status=204)
+
+        # check that this activity is public. only do this for some activities,
+        # not eg likes or follows, since Mastodon doesn't currently mark those
+        # as explicitly public.
+        if (obj.type in set(('post', 'update')) | as1.POST_TYPES | as1.ACTOR_TYPES
+                  and not as1.is_public(obj.as1, unlisted=False)
+                  and not as1.is_dm(obj.as1)):
+              error('Bridgy Fed only supports public activities', status=204)
 
 
 @cloud_tasks_only(log=None)

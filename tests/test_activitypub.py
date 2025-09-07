@@ -1010,7 +1010,7 @@ class ActivityPubTest(TestCase):
         not_public['object']['to'] = to
 
         got = self.post('/user.com/inbox', json=not_public)
-        self.assertEqual(200, got.status_code, got.get_data(as_text=True))
+        self.assertEqual(204, got.status_code, got.get_data(as_text=True))
 
         self.assertEqual(orig_obj_count, Object.query().count())
 
