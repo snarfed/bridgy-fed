@@ -1398,6 +1398,23 @@ class ObjectTest(TestCase):
             'object': 'did:plc:user',
         }, obj.our_as1)
 
+    def test_normalize_ids_block(self):
+        user = self.make_user('bob.com', cls=Web)
+
+        obj = Object(our_as1={
+            'objectType': 'activity',
+            'verb': 'block',
+            'actor': 'fake:alice',
+            'object': 'https://bob.com/',
+        })
+        obj.normalize_ids()
+        self.assert_equals({
+            'objectType': 'activity',
+            'verb': 'block',
+            'actor': 'fake:alice',
+            'object': 'bob.com',
+        }, obj.our_as1)
+
     def test_normalize_ids_reply(self):
         # for ATProto handle resolution
         self.store_object(id='did:plc:user', raw={

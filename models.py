@@ -1672,11 +1672,10 @@ class Object(AddRemoveMixin, StringIdModel):
 
         outer_obj['object'] = []
         for inner_obj in inner_objs:
-            translate_fn = (ids.translate_user_id
-                            if (as1.object_type(inner_obj) in as1.ACTOR_TYPES
-                                or as1.object_type(outer_obj) in
-                                ('follow', 'stop-following'))
-                            else ids.translate_object_id)
+            translate_fn = ids.translate_object_id
+            if (as1.object_type(inner_obj) in as1.ACTOR_TYPES
+                    or as1.object_type(outer_obj) in as1.VERBS_WITH_ACTOR_OBJECT):
+                translate_fn = ids.translate_user_id
 
             got = replace(inner_obj, translate_fn)
             if isinstance(got, dict) and util.trim_nulls(got).keys() == {'id'}:
