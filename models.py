@@ -158,7 +158,10 @@ class DM(ndb.Model):
     https://googleapis.dev/python/python-ndb/latest/model.html#google.cloud.ndb.model.StructuredProperty
     """
     type = ndb.StringProperty(required=True)
-    """Known values (keep in sync with USER_STATUS_DESCRIPTIONS!):
+    """Known values (keep in sync with USER_STATUS_DESCRIPTIONS, the subset for
+    ineligible users):
+
+      * dms_not_supported-[RECIPIENT-USER-ID]
       * no-feed-or-webmention
       * no-nip05
       * no-profile
@@ -694,14 +697,14 @@ class User(AddRemoveMixin, StringIdModel, metaclass=ProtocolUserMeta):
         ineligible = """Hi! Your account isn't eligible for bridging yet because your {desc}. <a href="https://fed.brid.gy/docs#troubleshooting">More details here.</a> You can try again once that's fixed by unfollowing and re-following this account."""
         if self.status and self.status not in ('nobot', 'private'):
             if desc := USER_STATUS_DESCRIPTIONS.get(self.status):
-                dms.maybe_send(from_proto=to_proto, to_user=self, type=self.status,
+                dms.maybe_send(from_=to_proto, to_user=self, type=self.status,
                                text=ineligible.format(desc=desc))
             common.error(f'Nope, user {self.key.id()} is {self.status}', status=299)
 
         try:
             self.handle_as(to_proto)
         except ValueError as e:
-            dms.maybe_send(from_proto=to_proto, to_user=self,
+            dms.maybe_send(from_=to_proto, to_user=self,
                            type=f'unsupported-handle-{to_proto.ABBREV}',
                            text=ineligible.format(desc=e))
             common.error(str(e), status=299)
@@ -713,7 +716,7 @@ class User(AddRemoveMixin, StringIdModel, metaclass=ProtocolUserMeta):
 
         if to_proto.LABEL not in self.enabled_protocols:
             self.enabled_protocols.append(to_proto.LABEL)
-            dms.maybe_send(from_proto=to_proto, to_user=self, type='welcome', text=f"""Welcome to Bridgy Fed! Your account will soon be bridged to {to_proto.PHRASE} at {self.user_link(proto=to_proto, name=False)}. <a href="https://fed.brid.gy/docs">See the docs</a> and <a href="https://{common.PRIMARY_DOMAIN}{self.user_page_path()}">your user page</a> for more information. To disable this and delete your bridged profile, block this account.""")
+            dms.maybe_send(from_=to_proto, to_user=self, type='welcome', text=f"""Welcome to Bridgy Fed! Your account will soon be bridged to {to_proto.PHRASE} at {self.user_link(proto=to_proto, name=False)}. <a href="https://fed.brid.gy/docs">See the docs</a> and <a href="https://{common.PRIMARY_DOMAIN}{self.user_page_path()}">your user page</a> for more information. To disable this and delete your bridged profile, block this account.""")
             self.put()
 
         msg = f'Enabled {to_proto.LABEL} for {self.key.id()} : {self.user_page_path()}'

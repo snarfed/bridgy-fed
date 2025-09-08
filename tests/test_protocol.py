@@ -1015,16 +1015,18 @@ class ProtocolTest(TestCase):
              'object': {'objectType': 'activity', 'verb': 'share'}},
             {'objectType': 'activity', 'verb': 'flag'},
         ):
-            with self.subTest(obj=obj):
-                Fake.check_supported(Object(our_as1=obj))
+            for dir in 'receive', 'send':
+                with self.subTest(obj=obj, dir=dir):
+                    Fake.check_supported(Object(our_as1=obj), dir)
 
         for obj in (
             {'objectType': 'event'},
             {'objectType': 'activity', 'verb': 'post',
              'object': {'objectType': 'event'}},
         ):
-            with self.subTest(obj=obj), self.assertRaises(NoContent):
-                Fake.check_supported(Object(our_as1=obj))
+            for dir in 'receive', 'send':
+                with self.subTest(obj=obj, dir=dir), self.assertRaises(NoContent):
+                    Fake.check_supported(Object(our_as1=obj), dir)
 
         # Fake doesn't support DMs, ExplicitFake does
         for author, recip in (
@@ -1037,9 +1039,9 @@ class ProtocolTest(TestCase):
                 'to': [recip],
                 'content': 'hello world',
             })
-            ExplicitFake.check_supported(bot_dm)
+            ExplicitFake.check_supported(bot_dm, 'receive')
             with self.assertRaises(NoContent):
-                Fake.check_supported(bot_dm)
+                Fake.check_supported(bot_dm, 'receive')
 
         # not from or to a protocol bot user
         dm = Object(our_as1={
@@ -1049,8 +1051,12 @@ class ProtocolTest(TestCase):
             'content': 'hello world',
         })
         for proto in Fake, ExplicitFake:
-            with self.subTest(proto=proto), self.assertRaises(NoContent):
-                proto.check_supported(dm)
+            with self.subTest(proto=proto):
+                with self.assertRaises(NoContent):
+                    proto.check_supported(dm, 'receive')
+
+                # send is allowed because we reply to DMs as the receiving user
+                proto.check_supported(dm, 'send')
 
         for to in 'fake:user/followers', '@unlisted':
             with self.subTest(to=to), self.assertRaises(NoContent):
@@ -1060,7 +1066,7 @@ class ProtocolTest(TestCase):
                     'author': 'fake:user',
                     'to': [to],
                     'content': 'x',
-                }))
+                }), 'receive')
 
         # blank content and no video/audio/image
         for obj in (
@@ -1073,20 +1079,63 @@ class ProtocolTest(TestCase):
                  'object': {'objectType': 'note'}},
         ):
             with self.subTest(obj=obj), self.assertRaises(NoContent):
-                Fake.check_supported(Object(our_as1=obj))
+                Fake.check_supported(Object(our_as1=obj), 'receive')
 
         # from and to a copy id of a protocol bot user
         self.make_user(cls=Web, id='ap.brid.gy',
                        copies=[Target(protocol='fake', uri='fake:ap-bot')])
         common.protocol_user_copy_ids.cache_clear()
         dm.our_as1['author'] = 'fake:ap-bot'
-        proto.check_supported(dm)
+        proto.check_supported(dm, 'send')
 
         dm.our_as1.update({
             'author': 'did:alice',
             'to': ['fake:ap-bot'],
         })
-        proto.check_supported(dm)
+        proto.check_supported(dm, 'receive')
+
+    def test_dm_gets_reply_that_we_dont_support_dms(self):
+        # DM from fake:alice to other:bob
+        alice = self.make_user(id='fake:alice', cls=Fake, obj_as1={'x': 'y'})
+        bob = self.make_user(id='other:bob', cls=OtherFake,
+                             copies=[Target(protocol='fake', uri='fake:bob')])
+
+        dm = {
+            'objectType': 'note',
+            'id': 'fake:dm',
+            'author': 'fake:alice',
+            'to': ['other:bob'],
+            'content': 'Hello Bob!',
+        }
+
+        with self.assertRaises(NoContent):
+            Fake.receive_as1(dm)
+
+        alice = alice.key.get()
+        self.assertEqual([DM(protocol='other', type='dms_not_supported-other:bob')],
+                         alice.sent_dms)
+
+        self.assertEqual([('fake:alice:target', {
+            'objectType': 'activity',
+            'verb': 'post',
+            'id': 'other:bob#bridgy-fed-dm-dms_not_supported-other:bob-fake:alice-2022-01-02T03:04:05+00:00-create',
+            'actor': 'other:bob',
+            'published': '2022-01-02T03:04:05+00:00',
+            'to': ['fake:alice'],
+            'object': {
+                'objectType': 'note',
+                'id': 'other:bob#bridgy-fed-dm-dms_not_supported-other:bob-fake:alice-2022-01-02T03:04:05+00:00',
+                'author': 'other:bob',
+                'content': "Hi! Sorry, this account is bridged from other-phrase, so it doesn't support DMs. Try getting in touch another way!",
+                'inReplyTo': 'fake:dm',
+                'published': '2022-01-02T03:04:05+00:00',
+                'tags': [{
+                    'objectType': 'mention',
+                    'url': 'fake:alice',
+                }],
+                'to': ['fake:alice'],
+            },
+        })], Fake.sent)
 
     def test_bot_follow(self):
         self.make_user(id='fa.brid.gy', cls=Web)

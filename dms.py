@@ -11,7 +11,7 @@ from common import create_task, DOMAINS
 import ids
 import memcache
 import models
-from models import Object, PROTOCOLS
+from models import Object, PROTOCOLS, User
 import protocol
 
 logger = logging.getLogger(__name__)
@@ -59,7 +59,7 @@ def command(names, arg=False, user_bridged=None, handle_bridged=None):
     def decorator(fn):
         def wrapped(from_user, to_proto, cmd, cmd_arg, dm_as1):
             def reply(text, type=None):
-                maybe_send(from_proto=to_proto, to_user=from_user, text=text,
+                maybe_send(from_=to_proto, to_user=from_user, text=text,
                            type=type, in_reply_to=dm_as1.get('id'))
                 return 'OK', 200
 
@@ -275,14 +275,14 @@ def prompt(from_user, to_proto, arg, to_user):
         return f"Sorry, you've hit your limit of {REQUESTS_LIMIT_USER} requests per day. Try again tomorrow!"
 
     # send the DM request!
-    maybe_send(from_proto=from_proto, to_user=to_user, type='request_bridging', text=f"""\
+    maybe_send(from_=from_proto, to_user=to_user, type='request_bridging', text=f"""\
 <p>Hi! {from_user.user_link(proto=to_proto, proto_fallback=True)} is using Bridgy Fed to bridge their account from {from_proto.PHRASE} into {to_proto.PHRASE}, and they'd like to follow you. You can bridge your account into {from_proto.PHRASE} by following this account. <a href="https://fed.brid.gy/docs">See the docs</a> for more information.
 <p>If you do nothing, your account won't be bridged, and users on {from_proto.PHRASE} won't be able to see or interact with you.
 <p>Bridgy Fed will only send you this message once.""")
     return f"Got it! We'll send {to_user.user_link()} a message and say that you hope they'll enable the bridge. Fingers crossed!"
 
 
-def maybe_send(*, from_proto, to_user, text, type=None, in_reply_to=None):
+def maybe_send(*, from_, to_user, text, type=None, in_reply_to=None):
     """Sends a DM.
 
     Creates a task to send the DM asynchronously.
@@ -291,31 +291,35 @@ def maybe_send(*, from_proto, to_user, text, type=None, in_reply_to=None):
     from this protocol, does nothing.
 
     Args:
-      from_proto (protocol.Protocol)
+      from_ (protocol.Protocol or models.User)
       to_user (models.User)
       text (str): message content. May be HTML.
       type (str): optional, one of DM.TYPES
       in_reply_to (str): optional, ``id`` of a DM to reply to
     """
+    from_proto = from_
+    if not isinstance(from_, User):
+        assert issubclass(from_, protocol.Protocol)
+        from web import Web
+        from_ = Web.get_by_id(from_.bot_user_id())
+
     if type:
         dm = models.DM(protocol=from_proto.LABEL, type=type)
         if dm in to_user.sent_dms:
             return
 
-    from web import Web
-    bot = Web.get_by_id(from_proto.bot_user_id())
-    logger.info(f'Sending DM from {bot.key.id()} to {to_user.key.id()} : {text}')
+    logger.info(f'Sending DM from {from_.key.id()} to {to_user.key.id()} : {text}')
 
     if not to_user.obj or not to_user.obj.as1:
         logger.info("  can't send DM, recipient has no profile obj")
         return
 
     now = util.now().isoformat()
-    dm_id = f'{bot.profile_id()}#bridgy-fed-dm-{type or "?"}-{to_user.key.id()}-{now}'
+    dm_id = f'{from_.profile_id()}#bridgy-fed-dm-{type or "?"}-{to_user.key.id()}-{now}'
     dm_as1 = {
         'objectType': 'note',
         'id': dm_id,
-        'author': bot.key.id(),
+        'author': from_.key.id(),
         'content': text,
         'inReplyTo': in_reply_to,
         'tags': [{
@@ -325,14 +329,14 @@ def maybe_send(*, from_proto, to_user, text, type=None, in_reply_to=None):
         'published': now,
         'to': [to_user.key.id()],
     }
-    Object(id=dm_id, our_as1=dm_as1, source_protocol='web').put()
+    Object(id=dm_id, our_as1=dm_as1).put()
 
     create_id = f'{dm_id}-create'
     create_as1 = {
         'objectType': 'activity',
         'verb': 'post',
         'id': create_id,
-        'actor': bot.key.id(),
+        'actor': from_.key.id(),
         'object': dm_as1,
         'published': now,
         'to': [to_user.key.id()],
@@ -341,7 +345,7 @@ def maybe_send(*, from_proto, to_user, text, type=None, in_reply_to=None):
     target_uri = to_user.target_for(to_user.obj, shared=False)
     target = models.Target(protocol=to_user.LABEL, uri=target_uri)
     create_task(queue='send', id=create_id, our_as1=create_as1, source_protocol='web',
-                protocol=to_user.LABEL, url=target.uri, user=bot.key.urlsafe())
+                protocol=to_user.LABEL, url=target.uri, user=from_.key.urlsafe())
 
     if type:
         to_user.sent_dms.append(dm)

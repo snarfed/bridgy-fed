@@ -998,7 +998,7 @@ class Protocol:
             error(f'Activity {id} is blocklisted')
 
         # does this protocol support this activity/object type?
-        from_cls.check_supported(obj)
+        from_cls.check_supported(obj, 'receive')
 
         # lease this object, atomically
         memcache_key = activity_id_memcache_key(id)
@@ -1643,9 +1643,8 @@ class Protocol:
                                 ('replied to', 'replies') if target_id in in_reply_tos
                                 else ('quoted', 'quotes') if target_id in quoted_posts
                                 else ('mentioned', 'mentions'))
-                            dms.maybe_send(
-                                from_proto=target_proto, to_user=from_user,
-                                type='replied_to_bridged_user', text=f"""\
+                            dms.maybe_send(from_=target_proto, to_user=from_user,
+                                           type='replied_to_bridged_user', text=f"""\
 Hi! You <a href="{inner_obj_as1.get('url') or inner_obj_id}">recently {verb}</a> {target_author.user_link()}, who's bridged here from {target_proto.PHRASE}. If you want them to see your {noun}, you can bridge your account into {target_proto.PHRASE} by following this account. <a href="https://fed.brid.gy/docs">See the docs</a> for more information.""")
 
                 continue
@@ -1888,8 +1887,8 @@ Hi! You <a href="{inner_obj_as1.get('url') or inner_obj_id}">recently {verb}</a>
         return obj
 
     @classmethod
-    def check_supported(cls, obj):
-        """If this protocol doesn't support this object, raises HTTP 204.
+    def check_supported(cls, obj, direction):
+        """If this protocol doesn't support this activity, raises HTTP 204.
 
         Also reports an error.
 
@@ -1899,14 +1898,17 @@ Hi! You <a href="{inner_obj_as1.get('url') or inner_obj_id}">recently {verb}</a>
 
         Args:
           obj (Object)
+          direction (str): ``'receive'`` or  ``'send'``
 
         Raises:
           werkzeug.HTTPException: if this protocol doesn't support this object
         """
+        assert direction in ('receive', 'send')
         if not obj.type:
             return
 
-        inner_type = as1.object_type(as1.get_object(obj.as1)) or ''
+        inner = as1.get_object(obj.as1)
+        inner_type = as1.object_type(inner) or ''
         if (obj.type not in cls.SUPPORTED_AS1_TYPES
             or (obj.type in as1.CRUD_VERBS
                 and inner_type
@@ -1923,21 +1925,35 @@ Hi! You <a href="{inner_obj_as1.get('url') or inner_obj_id}">recently {verb}</a>
                 and not source.html_to_text(crud_obj.get('content')).strip()):
             error('Blank content and no image or video or audio', status=204)
 
-        # DMs are only allowed to/from protocol bot accounts
-        if recip := as1.recipient_if_dm(obj.as1):
-            protocol_user_ids = PROTOCOL_DOMAINS + common.protocol_user_copy_ids()
-            if (not cls.SUPPORTS_DMS
-                    or (recip not in protocol_user_ids
-                        and as1.get_owner(obj.as1) not in protocol_user_ids)):
-                error("Bridgy Fed doesn't support DMs", status=204)
+        # receiving DMs is only allowed to protocol bot accounts
+        if direction == 'receive':
+            if recip := as1.recipient_if_dm(obj.as1):
+                protocol_users = PROTOCOL_DOMAINS + common.protocol_user_copy_ids()
+                owner = as1.get_owner(obj.as1)
+                if (not cls.SUPPORTS_DMS
+                        or (recip not in protocol_users and owner not in protocol_users)):
+                    # reply and say DMs aren't supported
+                    from_proto = PROTOCOLS.get(obj.source_protocol)
+                    to_proto = Protocol.for_id(recip)
+                    if owner and from_proto and to_proto:
+                        if ((from_user := from_proto.get_or_create(id=owner))
+                                and (to_user := to_proto.get_or_create(id=recip))):
+                            in_reply_to = (inner.get('id') if obj.type == 'post'
+                                           else obj.as1.get('id'))
+                            text = f"Hi! Sorry, this account is bridged from {to_user.PHRASE}, so it doesn't support DMs. Try getting in touch another way!"
+                            type = f'dms_not_supported-{to_user.key.id()}'
+                            dms.maybe_send(from_=to_user, to_user=from_user,
+                                           text=text, type=type,
+                                           in_reply_to=in_reply_to)
 
-        # check that this activity is public. only do this for some activities,
-        # not eg likes or follows, since Mastodon doesn't currently mark those
-        # as explicitly public.
-        if (obj.type in set(('post', 'update')) | as1.POST_TYPES | as1.ACTOR_TYPES
-                  and not as1.is_public(obj.as1, unlisted=False)
-                  and not as1.is_dm(obj.as1)):
-              error('Bridgy Fed only supports public activities', status=204)
+                    error("Bridgy Fed doesn't support DMs", status=204)
+
+            # check that this activity is public. only do this for some activities,
+            # not eg likes or follows, since Mastodon doesn't currently mark those
+            # as explicitly public.
+            elif (obj.type in set(('post', 'update')) | as1.POST_TYPES | as1.ACTOR_TYPES
+                      and not as1.is_public(obj.as1, unlisted=False)):
+                  error('Bridgy Fed only supports public activities', status=204)
 
 
 @cloud_tasks_only(log=None)
@@ -2018,7 +2034,7 @@ def send_task():
     obj = Object.from_request()
     assert obj and obj.key and obj.key.id()
 
-    PROTOCOLS[protocol].check_supported(obj)
+    PROTOCOLS[protocol].check_supported(obj, 'send')
     allow_opt_out = (obj.type == 'delete')
 
     user = None

@@ -25,6 +25,7 @@ from granary.tests.test_bluesky import (
 import lexrpc
 from multiformats import CID
 from oauth_dropins.webutil.appengine_config import tasks_client
+from oauth_dropins.webutil.flask_util import NoContent
 from oauth_dropins.webutil.testutil import NOW, NOW_SECONDS, requests_response
 from oauth_dropins.webutil.util import json_dumps, json_loads, trim_nulls
 from requests.exceptions import HTTPError
@@ -3381,3 +3382,18 @@ Sed tortor neque, aliquet quis posuere aliquam, imperdiet sitamet […]
         for slug in 'oauth-protected-resource', 'oauth-authorization-server':
             resp = self.get(f'/.well-known/{slug}')
             self.assertEqual(404, resp.status_code)
+
+    def test_check_supported(self):
+        # sending DMs should be allowed
+        dm = Object(our_as1={
+            'objectType': 'note',
+            'id': 'fake:dm',
+            'actor': 'fake:alice',
+            'to': ['did:plc:bob'],
+            'content': 'hi',
+        })
+
+        with self.assertRaises(NoContent):
+            ATProto.check_supported(dm, 'receive')
+
+        ATProto.check_supported(dm, 'send')

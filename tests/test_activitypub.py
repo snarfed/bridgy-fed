@@ -2499,6 +2499,21 @@ class ActivityPubUtilsTest(TestCase):
         user = self.make_user(id='http://inst.com/@user', cls=ActivityPub)
         self.assertEqual('/ap/@user@inst.com', user.user_page_path(prefer_id=True))
 
+    def test_check_supported(self):
+        # sending DMs should be allowed
+        dm = Object(our_as1={
+            'objectType': 'note',
+            'id': 'fake:dm',
+            'actor': 'fake:alice',
+            'to': ['http://inst/bob'],
+            'content': 'hi',
+        })
+
+        with self.assertRaises(NoContent):
+            ActivityPub.check_supported(dm, 'receive')
+
+        ActivityPub.check_supported(dm, 'send')
+
     def test_postprocess_as2_multiple_in_reply_tos(self):
         self.assert_equals({
             'id': 'http://localhost/r/xyz',

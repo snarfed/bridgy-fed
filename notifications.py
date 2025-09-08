@@ -127,6 +127,6 @@ def notify_task():
     message += "</ul>\n<p>To disable these messages, reply with the text 'mute'."
 
     logger.info(f'sending notifications DM for {user_id}')
-    dms.maybe_send(from_proto=PROTOCOLS[from_proto_label], to_user=user, text=message)
+    dms.maybe_send(from_=PROTOCOLS[from_proto_label], to_user=user, text=message)
 
     return '', 200

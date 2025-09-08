@@ -8,7 +8,7 @@ from common import memcache
 import dms
 from dms import maybe_send, receive
 import ids
-from models import DM, Follower, Object, Target
+from models import DM, Follower, Object, Target, User
 from web import Web
 
 from oauth_dropins.webutil.flask_util import NotModified
@@ -72,13 +72,15 @@ class DmsTest(TestCase):
         kwargs.setdefault('in_reply_to', 'efake:dm')
         self.assert_sent(*args, **kwargs)
 
-    def assert_sent(self, from_cls, tos, type, text, in_reply_to=None, strict=True):
+    def assert_sent(self, from_, tos, type, text, in_reply_to=None, strict=True):
         if not isinstance(tos, list):
             tos = [tos]
 
         self.assertGreaterEqual(len(tos[-1].sent), len(tos))
 
-        from_id = f'{from_cls.ABBREV}.brid.gy'
+        if not isinstance(from_, User):
+            from_ = Web.get_by_id(from_.bot_user_id())
+
         for expected, (target, activity) in zip(tos, tos[-1].sent, strict=strict):
             id = expected.key.id()
             self.assertEqual(f'{id}:target', target)
@@ -88,12 +90,12 @@ class DmsTest(TestCase):
             self.assertEqual({
                 'objectType': 'activity',
                 'verb': 'post',
-                'id': f'https://{from_id}/#bridgy-fed-dm-{type}-{id}-2022-01-02T03:04:05+00:00-create',
-                'actor': from_id,
+                'id': f'{from_.profile_id()}#bridgy-fed-dm-{type}-{id}-2022-01-02T03:04:05+00:00-create',
+                'actor': from_.key.id(),
                 'object': {
                     'objectType': 'note',
-                    'id': f'https://{from_id}/#bridgy-fed-dm-{type}-{id}-2022-01-02T03:04:05+00:00',
-                    'author': from_id,
+                    'id': f'{from_.profile_id()}#bridgy-fed-dm-{type}-{id}-2022-01-02T03:04:05+00:00',
+                    'author': from_.key.id(),
                     'inReplyTo': in_reply_to,
                     'tags': [{'objectType': 'mention', 'url': id}],
                     'published': '2022-01-02T03:04:05+00:00',
@@ -103,11 +105,11 @@ class DmsTest(TestCase):
                 'to': [id],
             }, activity)
 
-    def test_maybe_send(self):
+    def test_maybe_send_from_protocol(self):
         self.make_user(id='fa.brid.gy', cls=Web)
         user = self.make_user(id='other:user', cls=OtherFake, obj_as1={'x': 'y'})
 
-        maybe_send(from_proto=Fake, to_user=user, text='hi hi hi',
+        maybe_send(from_=Fake, to_user=user, text='hi hi hi',
                    type='replied_to_bridged_user')
         self.assert_sent(Fake, user, 'replied_to_bridged_user', 'hi hi hi')
         expected_sent_dms = [DM(protocol='fake', type='replied_to_bridged_user')]
@@ -115,22 +117,32 @@ class DmsTest(TestCase):
 
         # now that this type is in sent_dms, another attempt should be a noop
         OtherFake.sent = []
-        maybe_send(from_proto=Fake, to_user=user, text='hi again',
+        maybe_send(from_=Fake, to_user=user, text='hi again',
                    type='replied_to_bridged_user')
         self.assertEqual([], OtherFake.sent)
         self.assertEqual(expected_sent_dms, user.key.get().sent_dms)
+
+    def test_maybe_send_from_user(self):
+        alice = self.make_user(id='fake:alice', cls=Fake)
+        bob = self.make_user(id='other:bob', cls=OtherFake, obj_as1={'x': 'y'})
+
+        maybe_send(from_=alice, to_user=bob, text='hi hi hi',
+                   type='dms_not_supported')
+        self.assert_sent(alice, bob, 'dms_not_supported', 'hi hi hi')
+        expected_sent_dms = [DM(protocol='fake', type='dms_not_supported')]
+        self.assertEqual(expected_sent_dms, bob.key.get().sent_dms)
 
     def test_maybe_send_no_type(self):
         self.make_user(id='fa.brid.gy', cls=Web)
         user = self.make_user(id='other:user', cls=OtherFake, obj_as1={'x': 'y'})
 
-        maybe_send(from_proto=Fake, to_user=user, text='hi hi hi')
+        maybe_send(from_=Fake, to_user=user, text='hi hi hi')
         self.assert_sent(Fake, user, '?', 'hi hi hi')
         self.assertEqual([], user.key.get().sent_dms)
 
         # another DM without type should also work
         OtherFake.sent = []
-        maybe_send(from_proto=Fake, to_user=user, text='hi again')
+        maybe_send(from_=Fake, to_user=user, text='hi again')
         self.assert_sent(Fake, user, '?', 'hi again')
         self.assertEqual([], user.key.get().sent_dms)
 
@@ -139,7 +151,7 @@ class DmsTest(TestCase):
         user = OtherFake(id='other:user')
         assert not user.obj
 
-        maybe_send(from_proto=OtherFake, to_user=user, text='nope', type='welcome')
+        maybe_send(from_=OtherFake, to_user=user, text='nope', type='welcome')
         self.assertEqual([], OtherFake.sent)
         self.assertEqual([], user.sent_dms)
 
