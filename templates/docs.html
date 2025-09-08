@@ -486,8 +486,8 @@
 <li id="fediverse-get-started" class="question">How do I get started?</li>
 <li class="answer">
 <p>To bridge your fediverse account into Bluesky and interact with people there, <a href="/login">log in here</a>, then click the <em>Enable</em> button.</p>
-<p>Or, if login isn't supported for your fediverse server, search for and follow <code>@bsky.brid.gy@bsky.brid.gy</code> in the fediverse. That account will then follow you back. Accept its follow to make sure your fediverse posts get sent the bridge and make it into Bluesky.</p>
-<p>If your fediverse account is <code>@[user]@[instance]</code>, your bridged account will have the handle <code>[user].[instance].ap.brid.gy</code> in Bluesky. For example, <a href="https://indieweb.social/@snarfed">@snarfed@indieweb.social</a> is bridged into Bluesky as <a href="https://bsky.app/profile/snarfed.indieweb.social.ap.brid.gy">@snarfed.indieweb.social.ap.brid.gy</a>.</p>
+<p>Or, if login isn't supported for your fediverse server, search for and follow <code>@bsky.brid.gy@bsky.brid.gy</code> in the fediverse. That account will then follow you back. Accept its follow to make sure your fediverse posts get sent the bridge and make it into Bluesky. You can unfollow it afterward if you want, you'll still stay bridged. (<a href="#opt-out">Here's how to disable.</a>)</p>
+<p>If your fediverse account is <code>@[user]@[instance]</code>, your bridged account will have the handle <code>[user].[instance].ap.brid.gy</code> in Bluesky. For example, <ahref="https://indieweb.social/@snarfed">@snarfed@indieweb.social</a> is bridged into Bluesky as <a href="https://bsky.app/profile/snarfed.indieweb.social.ap.brid.gy">@snarfed.indieweb.social.ap.brid.gy</a>.</p>
 <p>If your fediverse username has <code>_</code> (underscore) or <code>~</code> (tilde) characters, they're converted to <code>-</code> (dash) characters. For example, <code>@a_b~c@my.social</code> is bridged into Bluesky as <code>@a-b-c.my.social.ap.brid.gy</code>.</p>
 <p><em>Fediverse usernames that begin or end with <code>_</code>, <code>-</code>, or <code>~</code>, or that contain any non-alphanumeric characters, ie anything other than <code>A-Z</code> <code>a-z</code> <code>0-9</code> <code>_</code> <code>-</code> <code>~</code>, are not currently supported.</em> Sorry. This may change in the future; <a href="https://github.com/snarfed/bridgy-fed/issues/982">follow this GitHub issue for details</a>.</p>
 <p>Bluesky limits profile bios to 256 characters, so if yours is longer in the fediverse, it will be truncated and ellipsized.</p>
@@ -662,7 +662,7 @@ RewriteRule ^.well-known/(host-meta|webfinger).* https://fed.brid.gy/$0  [redire
 
 <li id="bluesky-get-started" class="question">How do I get started?</li>
 <li class="answer">
-<p>To bridge your Bluesky account into the fediverse and interact with people there, <a href="/login">log in here</a>, then click the <em>Enable</em> button. Alternatively, you can bridge your account by following <a href="https://bsky.app/profile/ap.brid.gy">@ap.brid.gy</a> on Bluesky.</p>
+<p>To bridge your Bluesky account into the fediverse and interact with people there, <a href="/login">log in here</a>, then click the <em>Enable</em> button. Alternatively, you can bridge your account by following <a href="https://bsky.app/profile/ap.brid.gy">@ap.brid.gy</a> on Bluesky. You can unfollow it afterward if you want, you'll still stay bridged. (<a href="#opt-out">Here's how to disable.</a>)</p>
 <p>After a few minutes, your Bluesky account will appear in the fediverse as <code>@[handle]@bsky.brid.gy</code>. For example, <a href="https://bsky.app/profile/snarfed.bsky.social">@snarfed.bsky.social</a> on Bluesky is bridged into the fediverse as <code>@snarfed.bsky.social@bsky.brid.gy</code>.</p>
 <p>Alternatively, <a href="#bluesky-follow">you can find and follow bridged fediverse accounts</a> without bridging your own account, but they won't see your posts or interactions.<p>
 </li>
