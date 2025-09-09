@@ -95,7 +95,7 @@ def instance_actor():
 
     if _INSTANCE_ACTOR is None:
         import web
-        _INSTANCE_ACTOR = web.Web.get_or_create(PRIMARY_DOMAIN)
+        _INSTANCE_ACTOR = web.Web.get_or_create(PRIMARY_DOMAIN, verify=False)
         assert _INSTANCE_ACTOR
 
     return _INSTANCE_ACTOR
