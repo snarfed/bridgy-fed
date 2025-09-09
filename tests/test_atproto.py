@@ -29,7 +29,7 @@ from oauth_dropins.webutil.flask_util import NoContent
 from oauth_dropins.webutil.testutil import NOW, NOW_SECONDS, requests_response
 from oauth_dropins.webutil.util import json_dumps, json_loads, trim_nulls
 from requests.exceptions import HTTPError
-from werkzeug.exceptions import BadRequest
+from werkzeug.exceptions import BadGateway
 
 from activitypub import ActivityPub
 import atproto
@@ -1184,8 +1184,8 @@ Sed tortor neque, aliquet quis posuere aliquam, imperdiet sitamet […]
         }), from_user=user))
 
     @patch('requests.post', side_effect=[
-        requests_response({'operation': {'signed': 'op'}}),
-        requests_response(),  # signPlcOperation
+        requests_response({'operation': {'signed': 'op'}}),  # signPlcOperation
+        requests_response(),  # plc.directory update
         requests_response(),  # deactivateAccount
     ])
     @patch('requests.get', side_effect=[
@@ -1230,12 +1230,9 @@ Sed tortor neque, aliquet quis posuere aliquam, imperdiet sitamet […]
         self.assertEqual({
             'token': 'kode',
             'rotationKeys': [did_key],
-            'verificationMethods': [{
-                'id': 'did:plc:user#atproto',
-                'type': 'Multikey',
-                'controller': 'did:plc:user',
-                'publicKeyMultibase': did_key,
-            }],
+            'verificationMethods': {
+                'atproto': did_key,
+            },
             'services': {
                 'atproto_pds': {
                     'type': 'AtprotoPersonalDataServer',
@@ -1300,8 +1297,8 @@ Sed tortor neque, aliquet quis posuere aliquam, imperdiet sitamet […]
                                pds_client=None)
 
     @patch('requests.post', side_effect=[
-        requests_response({'operation': {'signed': 'op'}}),
-        requests_response(),  # signPlcOperation
+        requests_response({'operation': {'signed': 'op'}}),  # signPlcOperation
+        requests_response(),  # plc.directory update
         requests_response(),  # deactivateAccount
     ])
     @patch.object(tasks_client, 'create_task')
@@ -1329,6 +1326,22 @@ Sed tortor neque, aliquet quis posuere aliquam, imperdiet sitamet […]
         self.assertIsNone(user.obj.as1)
         self.assert_task(mock_create_task, 'receive', authed_as='fake:user',
                          obj_id='fake:profile:user')
+
+    @patch('requests.post', side_effect=[
+        requests_response({'operation': {'signed': 'op'}}),  # signPlcOperation
+        requests_response(status=400),  # plc.directory update
+    ])
+    def test_migrate_in_plc_update_fails(self, mock_post):
+        self.make_user_and_repo(obj_key=None)
+
+        repo = self.storage.load_repo('did:plc:user')
+        arroba.server.storage.deactivate_repo(repo)
+
+        pds_client = lexrpc.Client('https://some.pds')
+
+        with self.assertRaises(BadGateway) as e:
+            ATProto.migrate_in(self.user, 'did:plc:user', plc_code='kode',
+                               pds_client=pds_client)
 
     @patch('requests.get', return_value=requests_response('', status=404))
     def test_web_url(self, mock_get):

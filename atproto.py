@@ -1065,12 +1065,9 @@ class ATProto(User, Protocol):
             # note the name here, verificationMethods *with* trailing s! different
             # from verificationMethod (no s) in DID docs! confusing! and important!
             # https://github.com/snarfed/bounce/issues/45#issuecomment-3254425427
-            'verificationMethods': [{
-                'id': f'{from_user_id}#atproto',
-                'type': 'Multikey',
-                'controller': from_user_id,
-                'publicKeyMultibase': did.encode_did_key(repo.signing_key.public_key()),
-            }],
+            'verificationMethods': {
+                'atproto': did.encode_did_key(repo.signing_key.public_key()),
+            },
             'services': {
                 'atproto_pds': {
                     'type': 'AtprotoPersonalDataServer',
@@ -1082,8 +1079,13 @@ class ATProto(User, Protocol):
 
         # submit PLC operation to directory
         # https://github.com/did-method-plc/did-method-plc#did-update
+        #
+        # ideally we'd use com.atproto.identity.submitPlcOperation on the PDS
+        # instead, since it includes extra error checks, but it doesn't let us change
+        # the PDS (ie the AtprotoPersonalDataServer endpoint) :(
+        # https://github.com/bluesky-social/atproto/blob/cf4117966c1b1c1786a25bb352c12ad57b617a05/packages/pds/src/api/com/atproto/identity/submitPlcOperation.ts#L19-L50
         util.requests_post(f'https://{os.environ["PLC_HOST"]}/{from_user_id}',
-                           json=op['operation'])
+                           json=op['operation'], gateway=True)
 
         # activate our repo, deactivate account on old PDS
         # https://atproto.com/guides/account-migration#finalizing-account-status
