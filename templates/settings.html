@@ -46,7 +46,6 @@
     </p>
     {% endif %}
 
-    <!--  TODO: uncomment when we launch DM notifs
     <p>
       <form method="post" action="/settings/toggle-notifs">
         <input name="key" type="hidden" value="{{ user.key.urlsafe().decode() }}" />
@@ -64,7 +63,6 @@
         </noscript>
       </form>
     </p>
-    -->
 
     {% else %}  {# Bridging: off #}
       <label id="{{ user.handle }}-switch-disabled-notice" class="disabled-notice"></label>
