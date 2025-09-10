@@ -575,6 +575,26 @@ class ActivityPub(User, Protocol):
         return converted
 
     @classmethod
+    def _migrate_in(cls, user, from_user_id, **kwargs):
+        """Migrates an external fediverse account in to be a bridged account.
+
+        Just sets ``alsoKnownAs`` on this user's profile object. After calling this,
+        the user must trigger the migration themselves, interactively, on the
+        ``from_user_id`` account's instance!
+
+        Args:
+          user (models.User): native user on another protocol to attach the
+            newly imported bridged account to
+          from_user_id (str)
+          kwargs: additional protocol-specific parameters
+        """
+        if not user.obj or not user.obj.as1:
+            raise ValueError("No profile object for {user.key.id()}")
+
+        user.obj.our_as1 = user.obj.as1
+        util.add(user.obj.our_as1.setdefault('alsoKnownAs', []), from_user_id)
+
+    @classmethod
     def migrate_out(cls, user, to_user_id):
         """Migrates a bridged account out to be a native account.
 

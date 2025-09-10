@@ -792,6 +792,8 @@ class Protocol:
         The protocol independent parts are done here; protocol-specific parts are
         done in :meth:`_migrate_in`, which this wraps.
 
+        Reloads the user's profile before calling :meth:`_migrate_in`.
+
         Args:
           user (models.User): native user on another protocol to attach the
             newly imported bridged account to
@@ -801,7 +803,6 @@ class Protocol:
         Raises:
           ValueError: eg if this protocol doesn't own ``from_user_id``, or if
             ``user`` is on this protocol or already bridged to this protocol
-
         """
         def _error(msg):
             logger.warning(msg)
@@ -814,20 +815,21 @@ class Protocol:
             _error(f"{from_user_id} doesn't look like an {cls.LABEL} id")
         elif isinstance(user, cls):
             _error(f"{user.handle_or_id()} is on {cls.PHRASE}")
-        elif user.is_enabled(cls):
+        elif cls.LABEL in user.enabled_protocols:
             _error(f"{user.handle_or_id()} is already bridged to {cls.PHRASE}")
+
+        # reload profile
+        try:
+            user.reload_profile()
+        except (RequestException, HTTPException) as e:
+            _, msg = util.interpret_http_exception(e)
 
         # migrate!
         cls._migrate_in(user, from_user_id, **kwargs)
         user.add('enabled_protocols', cls.LABEL)
         user.put()
 
-        # reload profile, reattach bridged copy URI
-        try:
-            user.reload_profile()
-        except (RequestException, HTTPException) as e:
-            _, msg = util.interpret_http_exception(e)
-
+        # attach profile object
         if user.obj:
             if cls.HAS_COPIES:
                 profile_id = ids.profile_id(id=from_user_id, proto=cls)

@@ -2407,6 +2407,12 @@ class ActivityPubTest(TestCase):
         with self.assertRaises(ValueError):
             ActivityPub.check_can_migrate_out(self.user, 'http://in.st/to')
 
+    def test_migrate_in(self, _, mock_get, mock_post):
+        ActivityPub._migrate_in(self.user, 'http://in.st/alice')
+        user = self.user.key.get()
+        self.assertEqual(['http://in.st/alice'],
+                         ActivityPub.convert(user.obj)['alsoKnownAs'])
+
 
 class ActivityPubUtilsTest(TestCase):
     def setUp(self):
