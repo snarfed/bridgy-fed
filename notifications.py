@@ -40,11 +40,6 @@ def add_notification(user, obj):
     if user.send_notifs != 'all':
         return
 
-    # TODO: remove to launch
-    if (user.key.id() not in common.BETA_USER_IDS
-            and not (appengine_info.DEBUG or appengine_info.LOCAL_SERVER)):
-        return
-
     if not util.is_web(obj_url):
         logger.info(f'Dropping non-URL notif {obj_url} for {user.key.id()}')
         return
