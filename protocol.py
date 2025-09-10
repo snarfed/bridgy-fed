@@ -789,6 +789,9 @@ class Protocol:
     def migrate_in(cls, user, from_user_id, **kwargs):
         """Migrates a native account in to be a bridged account.
 
+        The protocol independent parts are done here; protocol-specific parts are
+        done in :meth:`_migrate_in`, which this wraps.
+
         Args:
           user (models.User): native user on another protocol to attach the
             newly imported bridged account to
@@ -798,6 +801,54 @@ class Protocol:
         Raises:
           ValueError: eg if this protocol doesn't own ``from_user_id``, or if
             ``user`` is on this protocol or already bridged to this protocol
+
+        """
+        def _error(msg):
+            logger.warning(msg)
+            raise ValueError(msg)
+
+        logger.info(f"Migrating in {from_user_id} for {user.key.id()}")
+
+        # check req'ts
+        if cls.owns_id(from_user_id) is False:
+            _error(f"{from_user_id} doesn't look like an {cls.LABEL} id")
+        elif isinstance(user, cls):
+            _error(f"{user.handle_or_id()} is on {cls.PHRASE}")
+        elif user.is_enabled(cls):
+            _error(f"{user.handle_or_id()} is already bridged to {cls.PHRASE}")
+
+        # migrate!
+        cls._migrate_in(user, from_user_id, **kwargs)
+        user.add('enabled_protocols', cls.LABEL)
+        user.put()
+
+        # reload profile, reattach bridged copy URI
+        try:
+            user.reload_profile()
+        except (RequestException, HTTPException) as e:
+            _, msg = util.interpret_http_exception(e)
+
+        if user.obj:
+            if cls.HAS_COPIES:
+                profile_id = ids.profile_id(id=from_user_id, proto=cls)
+                user.obj.remove_copies_on(cls)
+                user.obj.add('copies', Target(uri=profile_id, protocol=cls.LABEL))
+                user.obj.put()
+
+            common.create_task(queue='receive', obj_id=user.obj_key.id(),
+                               authed_as=user.key.id())
+
+    @classmethod
+    def _migrate_in(cls, user, from_user_id, **kwargs):
+        """Protocol-specific parts of migrating in external account.
+
+        Called by :meth:`migrate_in`, which does most of the work.
+
+        Args:
+          user (models.User): native user on another protocol to attach the
+            newly imported account to. Unused.
+          from_user_id (str): DID of the account to be migrated in
+          kwargs: protocol dependent
         """
         raise NotImplementedError()
 

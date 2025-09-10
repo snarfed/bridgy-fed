@@ -1020,7 +1020,7 @@ class ATProto(User, Protocol):
         return ret
 
     @classmethod
-    def migrate_in(cls, user, from_user_id, plc_code, pds_client):
+    def _migrate_in(cls, user, from_user_id, plc_code, pds_client):
         """Migrates an ATProto account on another PDS in to be a bridged account.
 
         https://atproto.com/guides/account-migration
@@ -1030,32 +1030,19 @@ class ATProto(User, Protocol):
 
         Args:
           user (models.User): native user on another protocol to attach the
-            newly imported bridged account to
+            newly imported account to. Unused.
           from_user_id (str): DID of the account to be migrated in
           plc_code (str): a PLC operation confirmation code from the account's
             old PDS, from ``com.atproto.identity.requestPlcOperationSignature``
           pds_client (lexrpc.Client): authenticated client for the account's old PDS
 
         Raises:
-          ValueError: if ``from_user_id`` is not an ATProto DID, or
-            ``user`` is an :class:`ATProto`, or ``user`` is already bridged to
-            Bluesky, or the repo hasn't been imported yet
+          ValueError: if the repo hasn't been imported yet
         """
-        def _error(msg):
-            logger.warning(msg)
-            raise ValueError(msg)
-
-        logger.info(f"Migrating in {from_user_id} for {user.key.id()}")
-
-        if cls.owns_id(from_user_id) is False:
-            _error(f"{from_user_id} doesn't look like an {cls.LABEL} id")
-        elif isinstance(user, cls):
-            _error(f"{user.handle_or_id()} is on {cls.PHRASE}")
-        elif user.is_enabled(cls):
-            _error(f"{user.handle_or_id()} is already bridged to {cls.PHRASE}")
-
         if not (repo := arroba.server.storage.load_repo(from_user_id)):
-            _error(f"Please import {from_user_id}'s repo first")
+            msg = f"Please import {from_user_id}'s repo first"
+            logger.error(msg)
+            raise ValueError(msg)
 
         # ask old PDS to generate signed PLC operation
         # https://atproto.com/guides/account-migration#updating-identity
@@ -1092,23 +1079,6 @@ class ATProto(User, Protocol):
         arroba.server.storage.activate_repo(repo)
         repo.apply_writes(None)
         pds_client.com.atproto.server.deactivateAccount()
-
-        user.add('enabled_protocols', 'atproto')
-        user.put()
-
-        # reload profile, reattach bridged copy URI
-        try:
-            user.reload_profile()
-        except (RequestException, HTTPException) as e:
-            _, msg = util.interpret_http_exception(e)
-
-        if user.obj:
-            profile_at_uri = ids.profile_id(id=from_user_id, proto=ATProto)
-            user.obj.remove_copies_on(ATProto)
-            user.obj.add('copies', Target(uri=profile_at_uri, protocol='atproto'))
-            user.obj.put()
-            common.create_task(queue='receive', obj_id=user.obj_key.id(),
-                               authed_as=user.key.id())
 
     @classmethod
     def add_source_links(cls, obj, from_user):
