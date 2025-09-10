@@ -97,6 +97,7 @@
 <li><a href="#follower-count">How does my bridged account's follower count work?</a></li>
 <li><a href="#mention">How do I @-mention a bridged user?</a></li>
 <li><a href="#delete">How do I delete a post?</a></li>
+<li><a href="#notifs">What happens when someone replies or interacts with me?</a></li>
 <li><a href="#block">How do I block someone in another network who's not bridged into mine?</a></li>
 <li><a href="#enhanced">The <code>*.brid.gy</code> domain in my bridged account is ugly. Can I use my own domain instead?</a></li>
 <li><a href="#dm-commands">What commands can I DM the bot account?</a></li>
@@ -428,6 +429,11 @@
 </li>
 
 
+<li id="notifs" class="question">What happens when someone replies or interacts with me?</li>
+<li class="answer">
+<p>If they're bridged into your network, you'll see the reply or interaction natively! Otherwise, if you're on a network that supports DMs/chat, Bridgy Fed will send you a DM every hour with replies and @-mentions from people who aren't bridged into your network. Make sure you're accepting DMs from the Bridgy Fed bot user, eg you're not blocking it, and if you only accept DMs from accounts you follow, that you're following it too. <a href="#dm-commands">You can disable these notification DMs by replying with the text <code>mute</code>.</a>
+</li>
+
 <li id="block" class="question">How do I block someone in another network who's not bridged into mine?</li>
 <li class="answer">
 <p>You can use the <code>block</code> <a href="#dm-commands">DM command</a>. First, find the Bridgy Fed bot account for the network they're in. Then, DM that account <code>block [handle]</code>, where handle is the address of the user you want to block.</p>
@@ -447,8 +453,8 @@
 <ul>
 <li><em>start</em>: <a href="#get-started">enable bridging for your account</a>
 <li><em>stop</em>: <a href="#opt-out">disable bridging for your account</a>
-<li><em>notify</em>: enable notifications when someone who's not bridged replies to you, quotes you, or @-mentions you
-<li><em>mute</em>: disable notifications
+<li><em>notify</em>: enable <a href="#notifs">notifications</a> when someone who's not bridged replies to you, quotes you, or @-mentions you
+<li><em>mute</em>: disable <a href="#notifs">notifications</a>
 <li><em>username [domain]</em>: <a href="#bluesky-enhanced">set a custom domain username (aka handle)</a>
 <li><em>[handle]</em>: <a href="#dm-request">ask it to DM a user to request that they bridge their account</a>
 <li><em>did</em>: get your bridged Bluesky account's <a href="https://atproto.com/guides/identity#identifiers">DID</a> (only supported with the Bluesky bot)
