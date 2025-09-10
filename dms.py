@@ -138,6 +138,7 @@ def help_text(from_user, to_proto):
 <ul>
 <li><em>start</em>: enable bridging for your account
 <li><em>stop</em>: disable bridging for your account
+<li><em>notify</em>: enable notifications when someone who's not bridged replies to you, quotes you, or @-mentions you
 <li><em>mute</em>: disable notifications
 <li><em>username [domain]</em>: set a custom domain username (handle)
 <li><em>[handle or ID]</em>: ask me to DM a user on {to_proto.PHRASE} to request that they bridge their account into {from_user.PHRASE}
@@ -174,14 +175,14 @@ def stop(from_user, to_proto, user_bridged=True):
 def notify(from_user, to_proto):
     from_user.send_notifs = 'all'
     from_user.put()
-    return f"Notifications enabled! You'll now receive batched notifications via DM when someone on {to_proto.PHRASE} who's not bridged replies to you, quotes you, or @-mentions you."
+    return f"Notifications enabled! You'll now receive batched notifications via DM when someone on {to_proto.PHRASE} who's not bridged replies to you, quotes you, or @-mentions you. To disable, reply with the text 'mute'."
 
 
 @command(['mute'], user_bridged=True)
 def mute(from_user, to_proto):
     from_user.send_notifs = 'none'
     from_user.put()
-    return f"Notifications disabled. You won't receive DM notifications when someone on {to_proto.PHRASE} who's not bridged replies to you, quotes you, or @-mentions you."
+    return f"Notifications disabled. You won't receive DM notifications when someone on {to_proto.PHRASE} who's not bridged replies to you, quotes you, or @-mentions you. To re-enable, reply with the text 'notify'."
 
 
 @command(['did'], user_bridged=True)
