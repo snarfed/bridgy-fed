@@ -189,8 +189,8 @@ class Web(User, Protocol):
         """
         # normalize id (domain)
         domain = cls.key_for(id, allow_opt_out=True).id()
-        if (util.domain_or_parent_in(domain, [SUPERDOMAIN.strip('.')])
-                and not appengine_info.DEBUG):
+        is_bot = util.domain_or_parent_in(domain, [SUPERDOMAIN.strip('.')])
+        if is_bot and not appengine_info.DEBUG:
             return super().get_by_id(domain)
 
         user = super().get_or_create(domain, allow_opt_out=True, **kwargs)
@@ -203,7 +203,7 @@ class Web(User, Protocol):
         if not allow_opt_out and user.status:
             return None
 
-        if not user.existing:
+        if not user.existing and not is_bot:
             common.create_task(queue='poll-feed', domain=user.key.id())
 
         return user
