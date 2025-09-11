@@ -302,7 +302,7 @@ def unwrap(val, field=None):
     return val
 
 
-def create_task(queue, app_id=GCP_PROJECT_ID, delay=None, **params):
+def create_task(queue, app_id=GCP_PROJECT_ID, delay=None, app=None, **params):
     """Adds a Cloud Tasks task.
 
     If running in a local server, runs the task handler inline instead of
@@ -311,6 +311,7 @@ def create_task(queue, app_id=GCP_PROJECT_ID, delay=None, **params):
     Args:
       queue (str): queue name
       delay (:class:`datetime.timedelta`): optional, used as task ETA (from now)
+      app (flask.Flask): if not provided, defaults to ``router.app``
       params: form-encoded and included in the task request body
 
     Returns:
@@ -338,7 +339,8 @@ def create_task(queue, app_id=GCP_PROJECT_ID, delay=None, **params):
 
     if RUN_TASKS_INLINE or appengine_info.LOCAL_SERVER:
         logger.info(f'Running task inline: {queue} {params}')
-        from router import app
+        if not app:
+            from router import app
         return app.test_client().post(path, data=params, headers={
               flask_util.CLOUD_TASKS_TASK_HEADER: 'inline',
               'Authorization': authorization,
