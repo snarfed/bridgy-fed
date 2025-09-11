@@ -155,6 +155,13 @@ class DmsTest(TestCase):
         self.assertEqual([], OtherFake.sent)
         self.assertEqual([], user.sent_dms)
 
+    def test_maybe_send_from_protocol_has_no_bot_user(self):
+        user = Fake(id='fake:user')
+
+        maybe_send(from_=Web, to_user=user, text='nope', type='welcome')
+        self.assertEqual([], OtherFake.sent)
+        self.assertEqual([], user.sent_dms)
+
     def test_receive_empty(self):
         self.make_user(id='other.brid.gy', cls=Web)
         alice = self.make_user('efake:alice', cls=ExplicitFake,
