@@ -1165,7 +1165,8 @@ class Protocol:
 
             # deactivate Follower
             from_ = from_cls.key_for(actor_id)
-            to_cls = Protocol.for_id(inner_obj_id)
+            if not (to_cls := Protocol.for_id(inner_obj_id)):
+                error(f"Can't determine protocol for {inner_obj_id} , giving up")
             to = to_cls.key_for(inner_obj_id)
             follower = Follower.query(Follower.to == to,
                                       Follower.from_ == from_,

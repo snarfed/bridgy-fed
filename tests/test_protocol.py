@@ -3040,6 +3040,19 @@ class ProtocolReceiveTest(TestCase):
         self.assertEqual('inactive', follower.key.get().status)
         self.assertEqual([('fake:user:target', stop_following_as1)], Fake.sent)
 
+    def test_stop_following_cant_determine_object_protocol(self):
+        stop_following_as1 = {
+            'id': 'other:stop-following',
+            'objectType': 'activity',
+            'verb': 'stop-following',
+            'actor': 'other:alice',
+            'object': 'not a known id format',
+        }
+        with self.assertRaises(ErrorButDoNotRetryTask):
+            OtherFake.receive_as1(stop_following_as1)
+
+        self.assertEqual([], OtherFake.sent)
+
     def test_block(self):
         self.bob.obj.our_as1 = {'id': 'other:bob'}
         self.bob.obj.put()
