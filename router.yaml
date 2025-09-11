@@ -39,7 +39,7 @@ env_variables:
 
 automatic_scaling:
   min_num_instances: 1
-  max_num_instances: 10
+  max_num_instances: 20
   cpu_utilization:
     target_utilization: 0.95
   # tried this in an attempt to cut down instance count, but it backfired
