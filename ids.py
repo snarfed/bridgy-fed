@@ -54,8 +54,11 @@ INTERNAL_PATH_PREFIX = '/internal/'
 # https://github.com/snarfed/bridgy-fed/issues/1305
 # https://fed.brid.gy/docs#bluesky-handle-api
 ATPROTO_HANDLE_DOMAINS = (
+    'beeping.synth.download',
+    'booping.synth.download',
     'explore.alt.store',
     'faithtree.social',
+    'merping.synth.download',
     'mo-me.social',
     'music-social.com',
 )
