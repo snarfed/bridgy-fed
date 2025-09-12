@@ -349,7 +349,7 @@ class ATProtoTest(TestCase):
                                     **ACTOR_PROFILE_BSKY,
                                     'labels': {
                                         'values': [{
-                                            'val' : bluesky.NO_AUTHENTICATED_LABEL,
+                                            'val' : bluesky.NO_UNAUTHENTICATED_LABEL,
                                             'neg' : False,
                                         }],
                                     },

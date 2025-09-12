@@ -8,7 +8,7 @@ from arroba.util import at_uri
 from google.cloud import ndb
 from google.cloud.ndb import tasklets
 from google.cloud.tasks_v2.types import Task
-from granary.bluesky import NO_AUTHENTICATED_LABEL
+from granary.bluesky import NO_UNAUTHENTICATED_LABEL
 from granary.tests.test_bluesky import ACTOR_AS, ACTOR_PROFILE_BSKY
 from oauth_dropins.webutil.appengine_config import tasks_client
 from oauth_dropins.webutil.testutil import NOW, requests_response
@@ -584,7 +584,7 @@ class UserTest(TestCase):
                               obj_bsky={
                                   **ACTOR_PROFILE_BSKY,
                                   'labels': {
-                                      'values': [{'val': NO_AUTHENTICATED_LABEL}],
+                                      'values': [{'val': NO_UNAUTHENTICATED_LABEL}],
                                   },
                               })
         self.assertFalse(user.is_enabled(Web))
