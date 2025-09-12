@@ -335,7 +335,7 @@ class TestCase(unittest.TestCase, testutil.Asserts):
         protocol.Protocol.for_id.cache.clear()
         protocol.Protocol.for_handle.cache.clear()
         User.count_followers.cache.clear()
-        common.protocol_user_copy_ids.cache_clear()
+        common.bot_user_ids.cache_clear()
 
         for cls in ExplicitFake, Fake, OtherFake:
             cls.fetchable = {}

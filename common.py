@@ -137,9 +137,9 @@ werkzeug.exceptions._aborter.mapping.setdefault(299, ErrorButDoNotRetryTask)
 
 
 @functools.cache
-def protocol_user_copy_ids():
+def bot_user_ids():
     """Returns all copy ids for protocol bot users."""
-    ids = []
+    ids = list(PROTOCOL_DOMAINS)
 
     from web import Web
     for user in ndb.get_multi(Web(id=domain).key for domain in PROTOCOL_DOMAINS):

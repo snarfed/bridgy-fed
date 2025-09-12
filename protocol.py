@@ -1982,10 +1982,9 @@ Hi! You <a href="{inner_obj_as1.get('url') or inner_obj_id}">recently {verb}</a>
         # receiving DMs is only allowed to protocol bot accounts
         if direction == 'receive':
             if recip := as1.recipient_if_dm(obj.as1):
-                protocol_users = PROTOCOL_DOMAINS + common.protocol_user_copy_ids()
                 owner = as1.get_owner(obj.as1)
-                if (not cls.SUPPORTS_DMS
-                        or (recip not in protocol_users and owner not in protocol_users)):
+                if (not cls.SUPPORTS_DMS or (recip not in common.bot_user_ids()
+                                             and owner not in common.bot_user_ids())):
                     # reply and say DMs aren't supported
                     from_proto = PROTOCOLS.get(obj.source_protocol)
                     to_proto = Protocol.for_id(recip)

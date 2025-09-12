@@ -1084,7 +1084,7 @@ class ProtocolTest(TestCase):
         # from and to a copy id of a protocol bot user
         self.make_user(cls=Web, id='ap.brid.gy',
                        copies=[Target(protocol='fake', uri='fake:ap-bot')])
-        common.protocol_user_copy_ids.cache_clear()
+        common.bot_user_ids.cache_clear()
         dm.our_as1['author'] = 'fake:ap-bot'
         proto.check_supported(dm, 'send')
 
@@ -3342,7 +3342,7 @@ class ProtocolReceiveTest(TestCase):
             }],
         }, Object.get_by_id('fake:reply').our_as1)
 
-    def test_follow_and_block_protocol_user_sets_enabled_protocols(self):
+    def test_follow_and_block_bot_user_sets_enabled_protocols(self):
         # bot user
         self.make_user('fa.brid.gy', cls=Web)
 
@@ -3614,7 +3614,7 @@ class ProtocolReceiveTest(TestCase):
             },
         }), ExplicitFake.sent[1])
 
-    def test_block_then_follow_protocol_user_recreates_copy(self):
+    def test_block_then_follow_bot_user_recreates_copy(self):
         # bot user
         self.make_user('fa.brid.gy', cls=Web)
 
