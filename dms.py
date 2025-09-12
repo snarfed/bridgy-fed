@@ -93,10 +93,12 @@ def command(names, arg=False, user_bridged=None, handle_bridged=None):
                 elif handle_bridged in (False, 'eligible') and enabled:
                     return reply(f'{to_user.user_link(proto=from_proto)} is already bridged into {from_proto.PHRASE}.')
                 elif handle_bridged == 'eligible' and to_user.status:
-                    because = ''
-                    if desc := models.USER_STATUS_DESCRIPTIONS.get(to_user.status):
-                        because = f' because their {desc}'
-                    return reply(f"{to_user.user_link()} on {to_proto.PHRASE} isn't eligible for bridging into {from_proto.PHRASE}{because}.")
+                    to_user.reload_profile()
+                    if to_user.status:
+                        because = ''
+                        if desc := models.USER_STATUS_DESCRIPTIONS.get(to_user.status):
+                            because = f' because their {desc}'
+                        return reply(f"{to_user.user_link()} on {to_proto.PHRASE} isn't eligible for bridging into {from_proto.PHRASE}{because}.")
 
             from_user_enabled = from_user.is_enabled(to_proto)
             if user_bridged is True and not from_user_enabled:

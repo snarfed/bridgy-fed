@@ -345,6 +345,7 @@ class DmsTest(TestCase):
 
     @mock.patch.object(OtherFake, 'REQUIRES_NAME', True)
     def test_receive_prompt_user_not_eligible(self):
+        self.make_user(id='efake.brid.gy', cls=Web)
         self.make_user(id='other.brid.gy', cls=Web)
         alice = self.make_user(id='efake:alice', cls=ExplicitFake,
                                enabled_protocols=['other'], obj_as1={'x': 'y'})
@@ -354,6 +355,29 @@ class DmsTest(TestCase):
         self.assertEqual(('OK', 200), receive(from_user=alice, obj=obj))
         self.assert_replied(OtherFake, alice, '?', """<a class="h-card u-author mention" rel="me" href="web:other:bob" title="other:handle:bob">other:handle:bob</a> on other-phrase isn't eligible for bridging into efake-phrase because their account's name and username are the same""")
         self.assertEqual([], OtherFake.sent)
+
+    def test_receive_prompt_user_not_eligible_reloads_profile(self):
+        self.make_user(id='efake.brid.gy', cls=Web)
+        self.make_user(id='other.brid.gy', cls=Web)
+        alice = self.make_user(id='efake:alice', cls=ExplicitFake,
+                               enabled_protocols=['other'], obj_as1={'a': 'b'})
+
+        # currently stored profile object isn't public, but reloaded profile is
+        bob_as1 = {
+            'to': [{
+                'objectType': 'group',
+                'alias': '@unlisted',
+            }],
+        }
+        bob = self.make_user(id='other:bob', cls=OtherFake, obj_as1=bob_as1)
+        OtherFake.fetchable = {'other:bob': {'displayName': 'Bob'}}
+
+        obj = Object(our_as1=DM_ALICE_REQUESTS_BOB)
+        self.assertEqual(('OK', 200), receive(from_user=alice, obj=obj))
+
+        self.assert_replied(OtherFake, alice, '?', "Got it! We'll send")
+        self.assert_sent(ExplicitFake, bob, 'request_bridging', ALICE_REQUEST_CONTENT)
+        self.assertEqual(['other:bob'], OtherFake.fetched)
 
     def test_receive_prompt_from_user_not_bridged(self):
         alice, _ = self.make_alice_bob()
