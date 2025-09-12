@@ -174,3 +174,16 @@ class CommonTest(TestCase):
         self.request_context.pop()
         common.create_task('foo')
         mock_create_task.assert_called()
+
+    def test_bot_user_ids(self):
+        self.make_user('fa.brid.gy', cls=Web, ap_subdomain='fa',
+                       copies=[Target(protocol='efake', uri='efake:fa-bot'),
+                               Target(protocol='other', uri='other:fa-bot')])
+        self.make_user('other.brid.gy', cls=Web, ap_subdomain='other')
+
+        self.assert_equals(list(common.PROTOCOL_DOMAINS) + [
+            'efake:fa-bot',
+            'other:fa-bot',
+            'https://fa.brid.gy/fa.brid.gy',
+            'https://other.brid.gy/other.brid.gy',
+        ], common.bot_user_ids())

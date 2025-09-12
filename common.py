@@ -139,14 +139,25 @@ werkzeug.exceptions._aborter.mapping.setdefault(299, ErrorButDoNotRetryTask)
 @functools.cache
 def bot_user_ids():
     """Returns all copy ids for protocol bot users."""
-    ids = list(PROTOCOL_DOMAINS)
-
+    from models import PROTOCOLS
     from web import Web
-    for user in ndb.get_multi(Web(id=domain).key for domain in PROTOCOL_DOMAINS):
-        if user:
-            ids.extend(copy.uri for copy in user.copies)
 
-    return tuple(ids)
+    bot_ids = set(PROTOCOL_DOMAINS)
+    protocols = set(p for p in PROTOCOLS.values() if p and p.LABEL != 'ui')
+
+    for bot_proto in protocols:
+        subdomain = f'{bot_proto.ABBREV}{SUPERDOMAIN}'
+        if not (bot := Web.get_by_id(subdomain)):
+            continue
+
+        bot_ids.update(copy.uri for copy in bot.copies)
+
+        for other_proto in protocols:
+            if (bot_proto != other_proto and not other_proto.HAS_COPIES
+                    and other_proto.LABEL not in bot_proto.DEFAULT_ENABLED_PROTOCOLS):
+                bot_ids.add(bot.id_as(other_proto))
+
+    return bot_ids
 
 
 def base64_to_long(x):
