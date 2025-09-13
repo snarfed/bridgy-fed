@@ -434,6 +434,12 @@ class UserTest(TestCase):
         }
         self.assertEqual('private', self.user.status)
 
+    def test_status_movedTo(self):
+        self.user.obj.our_as1 = {
+            'movedTo': 'http://ot/her',
+        }
+        self.assertEqual('moved', self.user.status)
+
     def test_status_nobridge_overrides_enabled_protocols(self):
         self.assertIsNone(self.user.status)
 

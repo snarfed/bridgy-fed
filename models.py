@@ -92,6 +92,7 @@ IMAGE_PROXY_URL_BASE = 'https://aujtzahimq.cloudimg.io/v7/'
 IMAGE_PROXY_DOMAINS = ('threads.net',)
 
 USER_STATUS_DESCRIPTIONS = {  # keep in sync with DM.type!
+    'moved': 'account has migrated to another account',
     'no-feed-or-webmention': "web site doesn't have an RSS or Atom feed or webmention endpoint",
     'nobot': "profile has 'nobot' in it",
     'nobridge': "profile has 'nobridge' in it",
@@ -162,6 +163,7 @@ class DM(ndb.Model):
     ineligible users):
 
       * dms_not_supported-[RECIPIENT-USER-ID]
+      * moved
       * no-feed-or-webmention
       * no-nip05
       * no-profile
@@ -616,6 +618,11 @@ class User(AddRemoveMixin, StringIdModel, metaclass=ProtocolUserMeta):
             if published := self.obj.as1.get('published'):
                 if util.now() - util.parse_iso8601(published) < OLD_ACCOUNT_AGE:
                     return 'requires-old-account'
+
+        # https://swicg.github.io/miscellany/#movedTo
+        # https://docs.joinmastodon.org/spec/activitypub/#as
+        if self.obj.as1.get('movedTo'):
+            return 'moved'
 
         summary = html_to_text(self.obj.as1.get('summary', ''), ignore_links=True)
         name = html_to_text(self.obj.as1.get('displayName', ''), ignore_links=True)
