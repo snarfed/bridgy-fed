@@ -1081,6 +1081,28 @@ class ATProto(User, Protocol):
         pds_client.com.atproto.server.deactivateAccount()
 
     @classmethod
+    def migrate_out(cls, user, to_user_id):
+        """Noop, does nothing.
+
+        This may eventually do something when we support actual account migration,
+        https://atproto.com/guides/account-migration , but right now we only migrate
+        to a separate DID.
+
+        Args:
+          user (models.User)
+          to_user_id (str)
+
+        Raises:
+          ValueError: eg if ``ATProto`` doesn't own ``to_user_id``
+        """
+        logger.info(f"ATProto migrate_out to a different DID is a noop, doing nothing. (migrating {user.key.id()} to {to_user_id})")
+
+        cls.check_can_migrate_out(user, to_user_id)
+
+        if user.get_copy(ATProto) == to_user_id:
+            raise ValueError(f'{user.key.id()} is already bridged to {to_user_id}')
+
+    @classmethod
     def add_source_links(cls, obj, from_user):
         """Adds "bridged from ... by Bridgy Fed" text to ``actor['summary']``.
 
