@@ -96,7 +96,7 @@ pycparser==2.23
 pycryptodome==3.23.0
 PyJWT==2.10.1
 pymediainfo==7.0.1
-pyparsing==3.2.3
+pyparsing==3.2.4
 pyrsistent==0.20.0
 python-dateutil==2.9.0.post0
 python-tumblpy==1.1.4
