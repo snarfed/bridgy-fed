@@ -144,7 +144,7 @@ class Fake(User, protocol.Protocol):
         cls.migrated_out.append((user, to_user_id))
 
     @classmethod
-    def migrate_in(cls, user, from_user_id):
+    def _migrate_in(cls, user, from_user_id):
         cls.migrated_in.append((user, from_user_id))
 
     @classmethod

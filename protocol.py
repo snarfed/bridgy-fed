@@ -815,7 +815,7 @@ class Protocol:
             _error(f"{from_user_id} doesn't look like an {cls.LABEL} id")
         elif isinstance(user, cls):
             _error(f"{user.handle_or_id()} is on {cls.PHRASE}")
-        elif cls.LABEL in user.enabled_protocols:
+        elif cls.HAS_COPIES and cls.LABEL in user.enabled_protocols:
             _error(f"{user.handle_or_id()} is already bridged to {cls.PHRASE}")
 
         # reload profile

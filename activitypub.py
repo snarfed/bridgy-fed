@@ -589,7 +589,7 @@ class ActivityPub(User, Protocol):
           kwargs: additional protocol-specific parameters
         """
         if not user.obj or not user.obj.as1:
-            raise ValueError("No profile object for {user.key.id()}")
+            raise ValueError(f'No profile object for {user.key.id()}')
 
         user.obj.our_as1 = user.obj.as1
         util.add(user.obj.our_as1.setdefault('alsoKnownAs', []), from_user_id)
