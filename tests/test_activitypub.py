@@ -2410,8 +2410,10 @@ class ActivityPubTest(TestCase):
     def test_migrate_in(self, _, mock_get, mock_post):
         ActivityPub._migrate_in(self.user, 'http://in.st/alice')
         user = self.user.key.get()
+        # this doesn't actually test that we called put(). it still passes if we
+        # remove that in _migrate_in. not sure why.
         self.assertEqual(['http://in.st/alice'],
-                         ActivityPub.convert(user.obj)['alsoKnownAs'])
+                         ActivityPub.convert(user.obj_key.get())['alsoKnownAs'])
 
 
 class ActivityPubUtilsTest(TestCase):

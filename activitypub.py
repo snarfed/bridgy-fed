@@ -591,8 +591,10 @@ class ActivityPub(User, Protocol):
         if not user.obj or not user.obj.as1:
             raise ValueError(f'No profile object for {user.key.id()}')
 
+        logger.info(f"Adding {from_user_id} to {user.key.id()} 's alsoKnownAs")
         user.obj.our_as1 = user.obj.as1
         util.add(user.obj.our_as1.setdefault('alsoKnownAs', []), from_user_id)
+        user.obj.put()
 
     @classmethod
     def migrate_out(cls, user, to_user_id):
