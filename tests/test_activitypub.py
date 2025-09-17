@@ -401,6 +401,21 @@ class ActivityPubTest(TestCase):
         self.assertEqual(ACTOR_FAKE, got.json)
         self.assertEqual('Accept', got.headers['Vary'])
 
+    def test_actor_fake_merge_alsoKnownAs(self, *_):
+        self.make_user('fake:user', cls=Fake, enabled_protocols=['activitypub'],
+                       obj_as1={'alsoKnownAs': ['first']})
+
+        got = self.client.get('/ap/fake:user', base_url='https://fa.brid.gy/',
+                              headers={'Accept': as2.CONTENT_TYPE_LD_PROFILE})
+        self.assertEqual(200, got.status_code, got.get_data(as_text=True))
+        self.assertEqual(as2.CONTENT_TYPE_LD_PROFILE, got.headers['Content-Type'])
+        self.assertEqual('Accept', got.headers['Vary'])
+
+        self.assert_equals({
+            **ACTOR_FAKE,
+            'alsoKnownAs': ['first', 'uri:fake:user'],
+        }, got.json, ignore=['summary', 'to', 'type', 'url'])
+
     def test_actor_web(self, *_):
         """Web users are special cased to drop the /web/ prefix."""
         got = self.client.get('/user.com', headers={'Accept': as2.CONTENT_TYPE})

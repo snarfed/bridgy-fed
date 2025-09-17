@@ -1267,7 +1267,7 @@ def actor(handle_or_id):
 
     actor['@context'] = util.get_list(actor, '@context')
     add(actor['@context'], AKA_CONTEXT)
-    actor.setdefault('alsoKnownAs', [user.id_uri()])
+    add(actor.setdefault('alsoKnownAs', []), user.id_uri())
 
     actor.update({
         'id': id,
