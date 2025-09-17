@@ -1356,8 +1356,10 @@ class Protocol:
                 logger.info(f'Skipping invalid {from_cls.LABEL} user key: {from_id}')
                 continue
 
-            to_user = to_cls.get_or_create(id=to_key.id(), obj=to_obj,
-                                           allow_opt_out=True)
+            to_user = to_cls.get_or_create(id=to_key.id(), obj=to_obj)
+            if not to_user or not to_user.is_enabled(from_user):
+                error(f'{to_id} not found')
+
             follower_obj = Follower.get_or_create(to=to_user, from_=from_user,
                                                   follow=obj.key, status='active')
             obj.add('notify', to_key)

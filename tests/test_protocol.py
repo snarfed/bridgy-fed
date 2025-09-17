@@ -1679,6 +1679,28 @@ class ProtocolReceiveTest(TestCase):
                                    ignore=['created', 'updated'])
         self.assertEqual(0, mock_send.call_count)
 
+    @patch.object(ATProto, 'send')
+    def test_follow_of_unbridged_account_by_bridged_account_skips(self, mock_send):
+        # efake:alice follows did:plc:bob, who's not bridged, should be a noop
+        alice = self.make_user('efake:alice', cls=ExplicitFake,
+                               enabled_protocols=['atproto'])
+        self.store_object(id='efake:alice', our_as1={'x': 'y'})
+        self.store_object(id='did:plc:bob', raw=DID_DOC)
+        bob = self.make_user('did:plc:bob', cls=ATProto, obj_bsky=ACTOR_PROFILE_BSKY)
+
+        with self.assertRaises(ErrorButDoNotRetryTask):
+            _, code = ExplicitFake.receive_as1({
+                'id': 'efake:follow',
+                'objectType': 'activity',
+                'verb': 'follow',
+                'actor': 'efake:alice',
+                'object': 'did:plc:bob',
+            })
+
+        mock_send.assert_not_called()
+        self.assertEqual([], ExplicitFake.sent)
+        self.assertEqual([], Follower.query().fetch())
+
     def test_targets_block(self):
         self.bob.obj.our_as1 = {'foo': 'bar'}
         self.bob.obj.put()

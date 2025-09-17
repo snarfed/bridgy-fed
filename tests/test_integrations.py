@@ -625,6 +625,38 @@ To disable these messages, reply with the text 'mute'.""",
         self.assertEqual("""<p>Hi! You <a href="http://inst/reply">recently replied to</a> <a class="h-card u-author mention" rel="me" href="https://bsky.app/profile/alice.com" title="Alice &middot; alice.com"><span style="unicode-bidi: isolate">Alice</span> &middot; alice.com</a>, who's bridged here from Bluesky. If you want them to see your replies, you can bridge your account into Bluesky by following this account. <a href="https://fed.brid.gy/docs">See the docs</a> for more information.</p>""",
             json_loads(mock_post.call_args_list[1][1]['data'])['object']['content'])
 
+    @patch('requests.post')
+    def test_activitypub_follow_to_atproto_not_bridged(self, mock_post):
+        """AP inbox delivery of a follow to an ATProto user without bridge enabled.
+
+        Should reject with 299, not store follow, not send Accept.
+
+        ActivityPub user @bob@inst , https://inst/bob
+        ATProto user alice.com (did:plc:alice) without activitypub in enabled_protocols
+        Follow is https://inst/follow
+        """
+        self.make_atproto_user('did:plc:alice', enabled_protocols=[])
+        self.make_ap_user('https://inst/bob')
+
+        follow = {
+            'type': 'Follow',
+            'id': 'http://inst/follow',
+            'actor': 'https://inst/bob',
+            'object': 'https://bsky.brid.gy/ap/did:plc:alice',
+        }
+        body = json_dumps(follow)
+        headers = sign('/ap/atproto/did:plc:alice/inbox', body,
+                       key_id='https://inst/bob')
+        resp = self.client.post('/ap/atproto/did:plc:alice/inbox', data=body,
+                                headers=headers)
+
+        self.assertEqual(299, resp.status_code)
+        self.assertEqual(0, Follower.query().count())
+        self.assertEqual(0, mock_post.call_count)
+
+        # no atproto write, didn't create repo
+        self.assertIsNone(self.storage.load_repo('did:plc:alice'))
+
     @patch('requests.post', return_value=requests_response('OK'))  # create DID
     @patch('requests.get')
     def test_activitypub_follow_bsky_bot_user_enables_protocol(self, mock_get, mock_post):
