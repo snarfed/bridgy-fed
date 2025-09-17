@@ -1033,6 +1033,8 @@ To disable these messages, reply with the text 'mute'.""",
         obj.copies = [Target(uri=at_uri, protocol='atproto')]
         obj.put()
 
+        self.assertIsNotNone(repo.get_record('app.bsky.feed.post', tid))
+
         # AP Delete activity
         delete = {
             'type': 'Delete',
