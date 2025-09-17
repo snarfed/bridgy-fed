@@ -2877,7 +2877,8 @@ class ProtocolReceiveTest(TestCase):
                           object={'id': 'other:alice', 'objectType': 'person'})
 
     def _test_follow(self, **extra):
-        OtherFake.fetchable['other:alice'] = {}
+        self.alice.obj.our_as1 = {'x': 'y'}
+        self.alice.obj.put()
 
         follow_as1 = {
             'id': 'fake:follow',
@@ -2916,7 +2917,8 @@ class ProtocolReceiveTest(TestCase):
         )
 
     def test_follow_protocol_that_doesnt_support_accept(self, **extra):
-        OtherFake.fetchable['other:eve'] = {}
+        self.user.obj.our_as1 = {'x': 'y'}
+        self.user.obj.put()
 
         follow_as1 = {
             'id': 'other:follow',
@@ -3153,12 +3155,11 @@ class ProtocolReceiveTest(TestCase):
         self.assertIsNone(Object.get_by_id('https://ap.brid.gy/user.com'))
 
     def test_skip_same_protocol(self):
-        self.make_user('other:carol', cls=OtherFake, obj_id='other:carol')
-        self.make_user('other:dan', cls=OtherFake, obj_id='other:dan')
+        self.user.obj.our_as1 = {'x': 'y'}
+        self.user.obj.put()
 
-        OtherFake.fetchable = {
-            'other:carol': {},
-        }
+        self.make_user('other:carol', cls=OtherFake, obj_as1={'a': 'b'})
+        self.make_user('other:dan', cls=OtherFake, obj_as1={'c': 'd'})
 
         follow_as1 = {
             'id': 'other:follow',
@@ -3235,6 +3236,9 @@ class ProtocolReceiveTest(TestCase):
             })
 
     def test_resolve_ids_follow(self):
+        self.alice.obj.our_as1 = {'x': 'y'}
+        self.alice.obj.put()
+
         follow = {
             'id': 'fake:follow',
             'objectType': 'activity',

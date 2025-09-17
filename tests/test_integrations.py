@@ -353,7 +353,7 @@ class IntegrationTests(TestCase):
         alice = self.make_atproto_user('did:plc:alice', enabled_protocols=['web'])
 
         Repo.create(self.storage, 'did:plc:bob', signing_key=ATPROTO_KEY)
-        bob = self.make_user(id='bob.com', cls=Web,
+        bob = self.make_user(id='bob.com', cls=Web, obj_as1={'x': 'y'},
                              copies=[Target(uri='did:plc:bob', protocol='atproto')],
                              enabled_protocols=['atproto'])
 

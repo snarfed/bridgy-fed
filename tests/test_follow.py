@@ -163,7 +163,7 @@ class FollowTest(TestCase):
 
     def setUp(self):
         super().setUp()
-        self.user = self.make_user('alice.com', cls=Web, obj_id='https://alice.com/')
+        self.user = self.make_user('alice.com', cls=Web)
         self.state = {
             'endpoint': 'http://auth/endpoint',
             'me': 'https://alice.com',
@@ -347,7 +347,7 @@ class FollowTest(TestCase):
             }),
         ]
 
-        bob = self.make_user('bob.com', cls=Web, obj_id='https://bob.com/')
+        bob = self.make_user('bob.com', cls=Web)
 
         self.state['state'] = '@bob.com@bob.com'
         state = util.encode_oauth_state(self.state)
@@ -433,8 +433,7 @@ class FollowTest(TestCase):
         self.assertEqual(400, resp.status_code)
 
     def test_callback_user_use_instead(self, mock_get, mock_post):
-        user = self.make_user('www.alice.com', cls=Web,
-                              obj_id='https://www.alice.com/')
+        user = self.make_user('www.alice.com', cls=Web)
         self.user.use_instead = user.key
         self.user.put()
 

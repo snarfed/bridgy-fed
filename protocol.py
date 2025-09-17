@@ -1269,7 +1269,7 @@ class Protocol:
                     raise
                 proto.bot_follow(from_user)
 
-            from_cls.handle_follow(obj)
+            from_cls.handle_follow(obj, from_user=from_user)
 
         # deliver to targets
         resp = from_cls.deliver(obj, from_user=from_user, crud_obj=crud_obj)
@@ -1294,7 +1294,7 @@ class Protocol:
         return resp
 
     @classmethod
-    def handle_follow(from_cls, obj):
+    def handle_follow(from_cls, obj, from_user):
         """Handles an incoming follow activity.
 
         Sends an ``Accept`` back, but doesn't send the ``Follow`` itself. That
@@ -1303,28 +1303,8 @@ class Protocol:
         Args:
           obj (models.Object): follow activity
         """
-        logger.debug('Got follow. Loading users, storing Follow(s), sending accept(s)')
-
-        # Prepare follower (from) users' data
-        # TODO: remove all of this and just use from_user
-        from_as1 = as1.get_object(obj.as1, 'actor')
-        from_id = from_as1.get('id')
-        if not from_id:
-            error(f'Follow activity requires actor. Got: {obj.as1}')
-
-        from_obj = from_cls.load(from_id, raise_=False)
-        if not from_obj:
-            error(f"Couldn't load {from_id}", status=502)
-
-        if not from_obj.as1:
-            from_obj.our_as1 = from_as1
-            from_obj.put()
-
-        from_key = from_cls.key_for(from_id)
-        if not from_key:
-            error(f'Invalid {from_cls.LABEL} user key: {from_id}')
-        obj.users = [from_key]
-        from_user = from_cls.get_or_create(id=from_key.id(), obj=from_obj)
+        logger.debug('Got follow. storing Follow(s), sending accept(s)')
+        from_id = from_user.key.id()
 
         # Prepare followee (to) users' data
         to_as1s = as1.get_objects(obj.as1)
@@ -1346,17 +1326,12 @@ class Protocol:
                 logger.info(f'Skipping same-protocol Follower {from_id} => {to_id}')
                 continue
 
-            to_obj = to_cls.load(to_id)
-            if to_obj and not to_obj.as1:
-                to_obj.our_as1 = to_as1
-                to_obj.put()
-
             to_key = to_cls.key_for(to_id)
             if not to_key:
                 logger.info(f'Skipping invalid {from_cls.LABEL} user key: {from_id}')
                 continue
 
-            to_user = to_cls.get_or_create(id=to_key.id(), obj=to_obj)
+            to_user = to_cls.get_or_create(id=to_key.id())
             if not to_user or not to_user.is_enabled(from_user):
                 error(f'{to_id} not found')
 
