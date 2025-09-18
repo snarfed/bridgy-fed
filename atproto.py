@@ -461,7 +461,7 @@ class ATProto(User, Protocol):
         pds_url = common.host_url().rstrip('/') if DEBUG else cls.DEFAULT_TARGET
         logger.info(f'Creating new did:plc for {user.key.id()} {handle} {pds_url}')
         did_plc = did.create_plc(handle, pds_url=pds_url, post_fn=util.requests_post,
-                                 also_known_as=user.profile_id())
+                                 also_known_as=user.id_uri())
 
         Object.get_or_create(did_plc.did, raw=did_plc.doc, authed_as=did_plc)
         cls.set_dns(handle=handle, did=did_plc.did)
@@ -1047,7 +1047,7 @@ class ATProto(User, Protocol):
         did_doc = cls.load(from_user_id, did_doc=True)
         assert did_doc, from_user_id
         aka = did_doc.raw.get('alsoKnownAs') or []
-        util.add(aka, user.profile_id())
+        util.add(aka, user.id_uri())
 
         # ask old PDS to generate signed PLC operation
         # https://atproto.com/guides/account-migration#updating-identity

@@ -1229,7 +1229,7 @@ Sed tortor neque, aliquet quis posuere aliquam, imperdiet sitamet […]
         did_key = encode_did_key(self.repo.rotation_key.public_key())
         self.assertEqual({
             'token': 'kode',
-            'alsoKnownAs': ['at://han.dull.brid.gy', 'fake:profile:user'],
+            'alsoKnownAs': ['at://han.dull.brid.gy', 'uri:fake:user'],
             'rotationKeys': [did_key],
             'verificationMethods': {
                 'atproto': did_key,
@@ -1927,7 +1927,7 @@ Sed tortor neque, aliquet quis posuere aliquam, imperdiet sitamet […]
                 'rotationKeys': [encode_did_key(repo.rotation_key.public_key())],
                 'alsoKnownAs': [
                     'at://fake-handle-user.fa.brid.gy',
-                    'fake:profile:user',
+                    'uri:fake:user',
                 ],
                 'services': {
                     'atproto_pds': {
