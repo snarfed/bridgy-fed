@@ -1044,6 +1044,11 @@ class ATProto(User, Protocol):
             logger.error(msg)
             raise ValueError(msg)
 
+        did_doc = cls.load(from_user_id, did_doc=True)
+        assert did_doc, from_user_id
+        aka = did_doc.raw.get('alsoKnownAs') or []
+        util.add(aka, user.profile_id())
+
         # ask old PDS to generate signed PLC operation
         # https://atproto.com/guides/account-migration#updating-identity
         op = pds_client.com.atproto.identity.signPlcOperation({
@@ -1055,6 +1060,7 @@ class ATProto(User, Protocol):
             'verificationMethods': {
                 'atproto': did.encode_did_key(repo.signing_key.public_key()),
             },
+            'alsoKnownAs': aka,
             'services': {
                 'atproto_pds': {
                     'type': 'AtprotoPersonalDataServer',

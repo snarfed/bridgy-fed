@@ -844,7 +844,8 @@ class Protocol:
     def _migrate_in(cls, user, from_user_id, **kwargs):
         """Protocol-specific parts of migrating in external account.
 
-        Called by :meth:`migrate_in`, which does most of the work.
+        Called by :meth:`migrate_in`, which does most of the work, including calling
+        :meth:`reload_profile` before this.
 
         Args:
           user (models.User): native user on another protocol to attach the
