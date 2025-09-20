@@ -2589,7 +2589,8 @@ Current vs expected:<pre>- http://this/404s
                 {}, status=404,
                 url='https://user.com/.well-known/webfinger?resource=acct:user.com@user.com'),
             # host-meta
-            requests_response('some XRD', url='https://user.com/.well-known/host-meta'),
+            requests_response('some XRD', url='https://user.com/.well-known/host-meta',
+                              headers={'Content-Type': 'application/xrd+xml; foo'}),
             # h-card
             requests_response(''),
         ]
@@ -2600,6 +2601,23 @@ Current vs expected:<pre>- http://this/404s
         self.assertFalse(self.user.has_redirects)
         self.assertEqual(web.OWNS_WEBFINGER, self.user.redirects_error)
         self.assertEqual('owns-webfinger', self.user.status)
+
+    def test_verify_non_bridgy_fed_webfinger_redirect_to_non_json(self, mock_get, _):
+        mock_get.side_effect = [
+            # webfinger redirects to /, which serves HTML
+            requests_response(status=302, url='/?resource=acct:user.com@user'),
+            requests_response(status=200, url='/?resource=acct:user.com@user',
+                              headers={'Content-Type': 'text/html'}),
+            # host-meta serves HTML
+            requests_response(status=200, headers={'Content-Type': 'text/html'}),
+            requests_response(''),  # h-card
+        ]
+
+        self.user.has_redirects = False
+        self.user.put()
+        got = self.user.verify()
+        self.assertFalse(self.user.has_redirects)
+        self.assertEqual('no-feed-or-webmention', self.user.status)
 
     def test_verify_non_bridgy_fed_webfinger_host_meta_redirects(self, mock_get, _):
         mock_get.side_effect = [
