@@ -349,10 +349,6 @@ def create_task(queue, app_id=GCP_PROJECT_ID, delay=None, app=None, **params):
         authorization = traceparent = ''
 
     if RUN_TASKS_INLINE or appengine_info.LOCAL_SERVER:
-        if delay:
-            logger.info(f'Task delay {delay}, not running inline: {queue} {params}')
-            return
-
         logger.info(f'Running task inline: {queue} {params}')
         if not app:
             from router import app
