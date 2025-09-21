@@ -24,6 +24,7 @@ from arroba.util import (
     service_jwt,
     TOMBSTONED,
 )
+from arroba import xrpc_repo
 import dag_json
 from flask import abort, redirect, request
 from google.cloud import dns
@@ -655,13 +656,22 @@ class ATProto(User, Protocol):
         base_obj = obj
         base_obj_as1 = obj.as1
         allow_opt_out = (type == 'delete')
+
         if type in as1.CRUD_VERBS:
             base_obj_as1 = as1.get_object(obj.as1)
             base_id = base_obj_as1.get('id')
-            if not base_id:
-                logger.info(f'{type} object has no id!')
-                return False
-            base_obj = PROTOCOLS[obj.source_protocol].load(base_id, remote=False)
+            base_obj_type = as1.object_type(base_obj_as1)
+
+            if type == 'undo' and base_obj_type == 'block' and not base_id:
+                # we allow undo of block without id
+                # https://github.com/snarfed/bridgy-fed/issues/2073
+                base_obj = Object(our_as1=base_obj_as1)
+            else:
+                if not base_id:
+                    logger.info(f'{type} object has no id!')
+                    return False
+                base_obj = PROTOCOLS[obj.source_protocol].load(base_id, remote=False)
+
             if type not in ('delete', 'undo'):
                 if not base_obj:  # probably a new repo
                     base_obj = Object(id=base_id, source_protocol=obj.source_protocol)
@@ -741,6 +751,29 @@ class ATProto(User, Protocol):
             logger.info(f'stop-following => delete of {base_obj.key.id()}')
             assert base_obj and base_obj.type == 'follow', base_obj
             verb = 'delete'
+
+        elif verb == 'undo' and base_obj_type == 'block':
+            # for undo of block without id (eg from dms.unblock()), find and delete
+            # *all* block records with the given object (subject)
+            # https://github.com/snarfed/bridgy-fed/issues/2073
+            blocked_did = as1.get_object(base_obj_as1).get('id')
+            if not blocked_did:
+                logger.error('no object.object for undo block')
+                return False
+
+            logger.info(f'Deleting app.bsky.graph.blocks for subject {blocked_did}')
+            writes = []
+            resp = xrpc_repo.list_records({}, repo=did, limit=None,
+                                          collection='app.bsky.graph.block')
+            for record in resp['records']:
+                if record['value']['subject'] == blocked_did:
+                    _, _, rkey = parse_at_uri(record['uri'])
+                    writes.append(Write(action=Action.DELETE,
+                                        collection='app.bsky.graph.block',
+                                        rkey=rkey))
+
+            repo.apply_writes(writes)
+            return True
 
         elif recip := as1.recipient_if_dm(obj.as1):
             assert recip.startswith('did:'), recip

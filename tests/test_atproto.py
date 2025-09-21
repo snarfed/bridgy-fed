@@ -2612,6 +2612,76 @@ Sed tortor neque, aliquet quis posuere aliquam, imperdiet sitamet […]
         self.assertIsNone(repo.get_record('app.bsky.graph.follow', '123'))
         mock_create_task.assert_called()  # atproto-commit
 
+    @patch.object(tasks_client, 'create_task', return_value=Task(name='my task'))
+    def test_send_undo_block_without_id_deletes_all_blocks(self, mock_create_task):
+        """Undo of block without id deletes all block records for that subject."""
+        user = self.make_user_and_repo()
+
+        # two block records with the same subject
+        repo = self.storage.load_repo('did:plc:user')
+        repo.apply_writes([
+            Write(action=Action.CREATE, collection='app.bsky.graph.block', rkey='a',
+                  record={
+                      '$type': 'app.bsky.graph.block',
+                      'subject': 'did:plc:bob',
+                      'createdAt': '2022-01-01T00:00:00.000Z',
+                  }),
+            Write(action=Action.CREATE, collection='app.bsky.graph.block', rkey='b',
+                  record={
+                      '$type': 'app.bsky.graph.block',
+                      'subject': 'did:plc:bob',
+                      'createdAt': '2022-01-02T00:00:00.000Z',
+                  }),
+        ])
+
+        # undo of block without id. this is the shape dms.unblock sends
+        undo = Object(id='fake:undo', source_protocol='fake', our_as1={
+            'objectType': 'activity',
+            'verb': 'undo',
+            'actor': 'fake:user',
+            'object': {
+                'objectType': 'activity',
+                'verb': 'block',
+                'actor': 'fake:user',
+                'object': 'did:plc:bob',
+            },
+        })
+        self.assertTrue(ATProto.send(undo, 'https://bsky.brid.gy/'))
+
+        # both block records should be deleted
+        repo = self.storage.load_repo('did:plc:user')
+        self.assertIsNone(repo.get_record('app.bsky.graph.block', 'a'))
+        self.assertIsNone(repo.get_record('app.bsky.graph.block', 'b'))
+        mock_create_task.assert_called()  # atproto-commit
+
+    @patch.object(tasks_client, 'create_task', return_value=Task(name='my task'))
+    def test_send_undo_block_without_id_no_blocks_exist(self, mock_create_task):
+        """Undo of block without id when no block records exist is a noop."""
+        user = self.make_user_and_repo()
+        self.store_object(id='did:plc:bob', raw={
+            **DID_DOC,
+            'id': 'did:plc:bob',
+        })
+        bob = self.make_user('did:plc:bob', cls=ATProto)
+
+        undo = Object(id='fake:undo', source_protocol='fake', our_as1={
+            'objectType': 'activity',
+            'verb': 'undo',
+            'actor': 'fake:user',
+            'object': {
+                'objectType': 'activity',
+                'verb': 'block',
+                'actor': 'fake:user',
+                'object': 'did:plc:bob',
+            },
+        })
+
+        self.assertTrue(ATProto.send(undo, 'https://bsky.brid.gy/'))
+
+        repo = self.storage.load_repo('did:plc:user')
+        self.assertNotIn('app.bsky.graph.block', repo.get_contents())
+        mock_create_task.assert_called()  # atproto-commit
+
     @patch.object(tasks_client, 'create_task')
     def test_send_not_our_repo(self, mock_create_task):
         self.assertFalse(ATProto.send(Object(id='fake:post'), 'http://other.pds/'))
