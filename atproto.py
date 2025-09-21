@@ -765,28 +765,31 @@ class ATProto(User, Protocol):
                 logger.info(f"Can't {verb} {base_obj.key.id()} {type}, original {copy} is in a different repo or collection")
                 return False
 
+        writes = []
+        match verb:
+            case 'update':
+                action = Action.UPDATE
+            case 'delete' | 'undo':
+                action = Action.DELETE
+                record = None  # delete operations shouldn't include record cid
+            case _:
+                action = Action.CREATE
+                # TODO: use lexicon's key type
+                rkey = 'self' if type == 'app.bsky.actor.profile' else next_tid()
+
+        writes.append(Write(action=action, collection=type, rkey=rkey, record=record))
+        logger.info(f'Storing ATProto {writes}')
+
         ndb.transactional()
         def write():
-            nonlocal record, rkey
-            match verb:
-                case 'update':
-                    action = Action.UPDATE
-                case 'delete' | 'undo':
-                    action = Action.DELETE
-                    record = None  # delete operations shouldn't include record cid
-                case _:
-                    action = Action.CREATE
-                    rkey = 'self' if type == 'app.bsky.actor.profile' else next_tid()
-
-            logger.info(f'Storing ATProto {action} {type} {rkey} {dag_json.encode(record, dialect="atproto")}')
             try:
-                repo.apply_writes([Write(action=action, collection=type, rkey=rkey,
-                                         record=record)])
+                repo.apply_writes(writes)
             except (KeyError, InactiveRepo) as e:
                 # update and delete raise KeyError if no record exists for this
                 # collection/rkey
                 logger.warning(e)
                 return False
+
             logger.info(f'  seq {repo.head.seq}')
 
             if verb not in ('delete', 'undo'):
