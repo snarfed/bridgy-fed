@@ -356,7 +356,7 @@ class Web(User, Protocol):
                     resp = util.requests_get(
                         urljoin(self.web_url(), '/.well-known/host-meta'),
                         gateway=False)
-                    content_type = resp.headers.get('Content-Type').split(';')[0]
+                    content_type = resp.headers.get('Content-Type', '').split(';')[0]
                     if (resp.status_code == 200
                             and content_type in HOST_META_CONTENT_TYPES
                             and domain_from_link(resp.url) not in common.DOMAINS):

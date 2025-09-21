@@ -2607,9 +2607,28 @@ Current vs expected:<pre>- http://this/404s
             # webfinger redirects to /, which serves HTML
             requests_response(status=302, url='/?resource=acct:user.com@user'),
             requests_response(status=200, url='/?resource=acct:user.com@user',
-                              headers={'Content-Type': 'text/html'}),
+                              content_type='text/html'),
             # host-meta serves HTML
-            requests_response(status=200, headers={'Content-Type': 'text/html'}),
+            requests_response(status=200, content_type='text/html'),
+            requests_response(''),  # h-card
+        ]
+
+        self.user.has_redirects = False
+        self.user.put()
+        got = self.user.verify()
+        self.assertFalse(self.user.has_redirects)
+        self.assertEqual('no-feed-or-webmention', self.user.status)
+
+    def test_verify_webfinger_host_meta_no_content_type(self, mock_get, _):
+        no_content_type = requests.Response()
+        no_content_type.status_code = 200
+
+        mock_get.side_effect = [
+            # webfinger redirects to /, which serves HTML
+            requests_response(status=200, url='/?resource=acct:user.com@user'),
+            # host-meta without Content-Type
+            no_content_type,
+            # requests_response(status=200, headers={'Content-Type': None}),
             requests_response(''),  # h-card
         ]
 
