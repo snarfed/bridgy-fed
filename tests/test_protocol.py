@@ -2979,6 +2979,19 @@ class ProtocolReceiveTest(TestCase):
         self.assertEqual([], Follower.query().fetch())
         self.assertEqual([], Fake.sent)
 
+    def test_follow_cant_fetch_follower(self):
+        with self.assertRaises(ErrorButDoNotRetryTask):
+            Fake.receive_as1({
+                'id': 'fake:follow',
+                'objectType': 'activity',
+                'verb': 'follow',
+                'actor': 'fake:eve',
+                'object': 'other:bob'
+            })
+
+        self.assertEqual([], Fake.sent)
+        self.assertEqual([], OtherFake.sent)
+
     def test_accept_noop(self, **extra):
         eve = self.make_user('other:eve', cls=OtherFake)
         accept_as1 = {

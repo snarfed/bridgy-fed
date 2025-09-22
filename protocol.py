@@ -1359,8 +1359,7 @@ class Protocol:
         if verb not in follower.SUPPORTED_AS1_TYPES:
             return
 
-        target = follower.target_for(follower.obj)
-        if not target:
+        if not follower.obj or not (target := follower.target_for(follower.obj)):
             error(f"Couldn't find delivery target for follower {follower.key.id()}")
 
         # send. note that this is one response for the whole follow, even if it
