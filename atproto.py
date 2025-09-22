@@ -471,6 +471,12 @@ class ATProto(User, Protocol):
         if not user.obj or not user.obj.as1:
             user.reload_profile()
 
+        # create repo
+        repo = Repo.create(
+            arroba.server.storage, did_plc.did, handle=handle,
+            callback=lambda _: common.create_task(queue='atproto-commit'),
+            signing_key=did_plc.signing_key, rotation_key=did_plc.rotation_key)
+
         # create chat declaration
         logger.info(f'Storing ATProto chat declaration record')
         chat_declaration = {
@@ -498,13 +504,7 @@ class ATProto(User, Protocol):
                     else:
                         logger.warning(f"Couldn't convert pinned post {featured_id}")
 
-
-        # create repo
-        repo = Repo.create(
-            arroba.server.storage, did_plc.did, handle=handle,
-            callback=lambda _: common.create_task(queue='atproto-commit'),
-            signing_key=did_plc.signing_key, rotation_key=did_plc.rotation_key,
-            initial_writes=initial_writes)
+        repo.apply_writes(initial_writes)
 
         # create user profile. can't include this in initial writes because
         # bluesky.to_as1 in convert fetches the pinned post, which with our

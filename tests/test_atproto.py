@@ -1939,7 +1939,7 @@ Sed tortor neque, aliquet quis posuere aliquam, imperdiet sitamet […]
             }, genesis_op)
 
         # check atproto-commit task
-        self.assertEqual(5, mock_create_task.call_count)
+        self.assertEqual(6, mock_create_task.call_count)
         self.assert_task(mock_create_task, 'atproto-commit')
 
     @patch('requests.get', return_value=requests_response(
