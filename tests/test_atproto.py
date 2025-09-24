@@ -1038,8 +1038,9 @@ class ATProtoTest(TestCase):
         self.store_object(id='fake:orig-post', copies=[
             Target(protocol='atproto', uri='at://did:plc:user/co.l.l/tid'),
         ])
-        self.repo.apply_writes([Write(action=Action.CREATE, collection='co.l.l',
-                                      rkey='tid', record=NOTE_BSKY)])
+        create = Write(action=Action.CREATE, collection='co.l.l', rkey='tid',
+                       record=NOTE_BSKY)
+        self.storage.commit(self.repo, create)
 
         self.assertEqual({
             '$type': 'app.bsky.feed.post',
@@ -1939,7 +1940,7 @@ Sed tortor neque, aliquet quis posuere aliquam, imperdiet sitamet […]
             }, genesis_op)
 
         # check atproto-commit task
-        self.assertEqual(6, mock_create_task.call_count)
+        self.assertEqual(7, mock_create_task.call_count)
         self.assert_task(mock_create_task, 'atproto-commit')
 
     @patch('requests.get', return_value=requests_response(
@@ -2273,9 +2274,9 @@ Sed tortor neque, aliquet quis posuere aliquam, imperdiet sitamet […]
         user = self.make_user_and_repo(obj_as1={'objectType': 'person', 'foo': 'bar'})
 
         # create profile object, set copy
-        self.repo.apply_writes([
-            Write(action=Action.CREATE, collection='app.bsky.actor.profile',
-                  rkey='self', record=ACTOR_PROFILE_BSKY)])
+        create = Write(action=Action.CREATE, collection='app.bsky.actor.profile',
+                       rkey='self', record=ACTOR_PROFILE_BSKY)
+        self.storage.commit(self.repo, create)
         user.obj.copies = [Target(uri='at://did:plc:user/app.bsky.actor.profile/self',
                                   protocol='atproto')]
         user.obj.put()
@@ -2572,7 +2573,7 @@ Sed tortor neque, aliquet quis posuere aliquam, imperdiet sitamet […]
         bob = self.make_user('did:plc:bob', cls=ATProto)
 
         # store follow objects and Follower
-        self.repo.apply_writes([Write(
+        self.storage.commit(self.repo, Write(
             action=Action.CREATE,
             collection='app.bsky.graph.follow',
             rkey='123',
@@ -2580,7 +2581,7 @@ Sed tortor neque, aliquet quis posuere aliquam, imperdiet sitamet […]
                 '$type': 'app.bsky.graph.follow',
                 'subject': 'did:plc:bob',
                 'createdAt': '2022-01-02T03:04:05.000Z',
-            })])
+            }))
         self.assertIsNotNone(self.repo.get_record('app.bsky.graph.follow', '123'))
 
         copy = Target(uri='at://did:plc:user/app.bsky.graph.follow/123',
@@ -2619,7 +2620,7 @@ Sed tortor neque, aliquet quis posuere aliquam, imperdiet sitamet […]
 
         # two block records with the same subject
         repo = self.storage.load_repo('did:plc:user')
-        repo.apply_writes([
+        arroba.server.storage.commit(repo, [
             Write(action=Action.CREATE, collection='app.bsky.graph.block', rkey='a',
                   record={
                       '$type': 'app.bsky.graph.block',
@@ -3079,8 +3080,9 @@ Sed tortor neque, aliquet quis posuere aliquam, imperdiet sitamet […]
             'text': 'foo',
             'createdAt': '2022-01-02T03:04:05.000Z',
         }
-        self.repo.apply_writes([Write(action=Action.CREATE, collection='co.l.l',
-                                      rkey='post', record=post)])
+        create = Write(action=Action.CREATE, collection='co.l.l', rkey='post',
+                       record=post)
+        self.storage.commit(self.repo, create)
 
         client = DatastoreClient()
         self.assertEqual({

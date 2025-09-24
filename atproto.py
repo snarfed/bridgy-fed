@@ -504,7 +504,7 @@ class ATProto(User, Protocol):
                     else:
                         logger.warning(f"Couldn't convert pinned post {featured_id}")
 
-        repo.apply_writes(initial_writes)
+        arroba.server.storage.commit(repo, initial_writes)
 
         # create user profile. can't include this in initial writes because
         # bluesky.to_as1 in convert fetches the pinned post, which with our
@@ -514,9 +514,12 @@ class ATProto(User, Protocol):
             if not profile:
                 raise ValueError(f"Couldn't convert profile object {user.obj_key.id()}")
             logger.info(f'Storing ATProto app.bsky.actor.profile self')
-            repo.apply_writes([Write(action=Action.CREATE, record=profile,
-                                     collection='app.bsky.actor.profile',
-                                     rkey='self')])
+            arroba.server.storage.commit(repo, Write(
+                action=Action.CREATE,
+                record=profile,
+                collection='app.bsky.actor.profile',
+                rkey='self',
+            ))
             uri = at_uri(did_plc.did, 'app.bsky.actor.profile', 'self')
             user.obj.add('copies', Target(uri=uri, protocol='atproto'))
             user.obj.put()
@@ -772,7 +775,7 @@ class ATProto(User, Protocol):
                                         collection='app.bsky.graph.block',
                                         rkey=rkey))
 
-            repo.apply_writes(writes)
+            arroba.server.storage.commit(repo, writes)
             return True
 
         elif recip := as1.recipient_if_dm(obj.as1):
@@ -816,9 +819,9 @@ class ATProto(User, Protocol):
         ndb.transactional()
         def write():
             try:
-                repo.apply_writes(writes)
-            except (KeyError, InactiveRepo) as e:
-                # update and delete raise KeyError if no record exists for this
+                arroba.server.storage.commit(repo, writes)
+            except (ValueError, InactiveRepo) as e:
+                # update and delete raise ValueError if no record exists for this
                 # collection/rkey
                 logger.warning(e)
                 return False
@@ -1119,7 +1122,7 @@ class ATProto(User, Protocol):
         # activate our repo, deactivate account on old PDS
         # https://atproto.com/guides/account-migration#finalizing-account-status
         arroba.server.storage.activate_repo(repo)
-        repo.apply_writes(None)
+        arroba.server.storage.commit(repo, [])
         pds_client.com.atproto.server.deactivateAccount()
 
     @classmethod

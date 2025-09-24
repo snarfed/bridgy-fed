@@ -1053,12 +1053,12 @@ To disable these messages, reply with the text 'mute'.""",
             'text': 'Hello from ActivityPub!',
             'createdAt': '2022-01-02T03:04:05.000Z',
         }
-        repo.apply_writes([arroba.repo.Write(
-            action=arroba.repo.Action.CREATE,
+        self.storage.commit(repo, arroba.repo.Write(
+            action=arroba.storage.Action.CREATE,
             collection='app.bsky.feed.post',
             rkey=tid,
             record=record,
-        )])
+        ))
         self.assertIsNotNone(repo.get_record('app.bsky.feed.post', tid))
 
         at_uri = f'at://did:plc:alice/app.bsky.feed.post/{tid}'
