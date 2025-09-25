@@ -209,7 +209,7 @@ def subscribe():
         if t in ('#account', '#identity'):
             if repo in atproto_dids or repo in bridged_dids:
                 t = t.removeprefix('#')
-                logger.debug(f'Got {t} {repo}')
+                logger.info(f'Got {t} {repo}')
                 commits.put(Op(action=t, repo=repo, seq=seq, time=cur_timestamp))
             continue
 
