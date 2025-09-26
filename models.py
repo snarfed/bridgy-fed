@@ -1514,6 +1514,14 @@ class Object(AddRemoveMixin, StringIdModel):
         ...or None if no such copy exists. If ``proto`` is ``source_protocol``,
         returns this object's key id.
 
+        TODO: for some protocols, we should try harder to find the *right* copy id.
+        Eg if if copies has some old garbage entries for this protocol, and we can
+        tell that they don't belong to the user's copy account in this protocol, eg
+        if the DID in the at:// URI doesn't match, we should skip those and look for
+        the matching copy. We'd need the user here though.
+        This would help with or fix:
+        https://console.cloud.google.com/errors/detail/COK22a6w4O2JVg;locations=global;time=P30D?project=bridgy-federated
+
         Args:
           proto: :class:`Protocol` subclass
 
