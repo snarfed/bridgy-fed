@@ -717,6 +717,7 @@ class ATProtoTest(TestCase):
     @patch('requests.get', return_value=requests_response(
         'blob contents', content_type='image/png'))
     def test_convert_fetch_blobs_true(self, mock_get):
+        user = self.make_user_and_repo()
         cid = CID.decode('bafkreicqpqncshdd27sgztqgzocd3zhhqnnsv6slvzhs5uz6f57cq6lmtq')
         self.assertEqual({
             '$type': 'app.bsky.actor.profile',
@@ -727,6 +728,7 @@ class ATProtoTest(TestCase):
                 'mimeType': 'image/png',
                 'size': 13,
             },
+            'description': '🌉 bridged from 🤡 did:web:alice.com by https://fed.brid.gy/',
             'labels': {
                 '$type': 'com.atproto.label.defs#selfLabels',
                 'values': [{'val': 'bridged-from-bridgy-fed'}],
@@ -737,9 +739,12 @@ class ATProtoTest(TestCase):
             'id': 'did:web:alice.com',
             'displayName': 'Alice',
             'image': [{'url': 'http://my/pic'}],
-        }), fetch_blobs=True))
+        }), fetch_blobs=True, from_user=user))
 
         mock_get.assert_has_calls([self.req('http://my/pic')])
+
+        blob = AtpRemoteBlob.get_by_id('http://my/pic')
+        self.assertEqual([AtpRepo(id='did:plc:user').key], blob.repos)
 
     @patch('requests.get', return_value=requests_response(
         'blob contents', content_type='video/mp4'))
@@ -997,7 +1002,7 @@ class ATProtoTest(TestCase):
                 }],
                 'index': {'byteStart': 10, 'byteEnd': 15},
             }],
-        }, ATProto.convert(obj, 'https://bsky.brid.gy'))
+        }, ATProto.convert(obj))
 
     @patch.object(tasks_client, 'create_task', return_value=Task(name='my task'))
     @patch('requests.get', return_value=requests_response(

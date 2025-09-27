@@ -945,6 +945,10 @@ class ATProto(User, Protocol):
         blobs = {}  # maps str URL to dict blob object
         aspect_ratios = {}  # maps str URL to (int width, int height) tuple
 
+        repo_key = None
+        if from_user and (did := from_user.get_copy(ATProto)):
+            repo_key = AtpRepo(id=did)
+
         def fetch_blob(url, blob_field, name, check_size=True, check_type=True):
             if url and url not in blobs:
                 max_size = blob_field[name].get('maxSize') if check_size else None
@@ -952,7 +956,7 @@ class ATProto(User, Protocol):
                 try:
                     blob = AtpRemoteBlob.get_or_create(
                         url=url, get_fn=util.requests_get, max_size=max_size,
-                        accept_types=accept)
+                        accept_types=accept, repo=repo_key)
                     blobs[url] = blob.as_object()
                     if blob.width and blob.height:
                         aspect_ratios[url] = (blob.width, blob.height)
