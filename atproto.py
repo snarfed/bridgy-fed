@@ -736,7 +736,7 @@ class ATProto(User, Protocol):
                 to_cls.remove_dns(user.handle_as('atproto'))
                 return True
 
-        if not record:
+        if not record and verb not in ('delete', 'undo'):
             # _convert already logged
             return False
 
@@ -783,21 +783,27 @@ class ATProto(User, Protocol):
             return send_chat(msg=record, from_repo=repo, to_did=recip)
 
         # write commit
-        type = record['$type']
-        lex_type = LEXICONS[type]['type']
-        assert lex_type == 'record', f"Can't store {type} object of type {lex_type}"
+        if record:
+            type = record['$type']
+            lex_type = LEXICONS[type]['type']
+            assert lex_type == 'record', f"Can't store {type} object of type {lex_type}"
+        else:
+            type = None
 
         # only modify objects that we've bridged
+        collection = type
         rkey = None
         if verb in ('update', 'delete', 'undo'):
             # check that they're updating the object we have
-            copy = base_obj.get_copy(to_cls)
-            if not copy:
+            if not base_obj:
+                logger.info(f"Can't {verb} {base_id}, no original object")
+                return False
+            elif not (copy := base_obj.get_copy(to_cls)):
                 logger.info(f"Can't {verb} {base_obj.key.id()} {type}, we didn't create it originally")
                 return False
 
-            copy_did, coll, rkey = parse_at_uri(copy)
-            if copy_did != did or coll != type:
+            copy_did, collection, rkey = parse_at_uri(copy)
+            if copy_did != did or (type and collection != type):
                 logger.info(f"Can't {verb} {base_obj.key.id()} {type}, original {copy} is in a different repo or collection")
                 return False
 
@@ -813,7 +819,8 @@ class ATProto(User, Protocol):
                 # TODO: use lexicon's key type
                 rkey = 'self' if type == 'app.bsky.actor.profile' else next_tid()
 
-        writes.append(Write(action=action, collection=type, rkey=rkey, record=record))
+        writes.append(Write(action=action, collection=collection, rkey=rkey,
+                            record=record))
         logger.info(f'Storing ATProto {writes}')
 
         ndb.transactional()

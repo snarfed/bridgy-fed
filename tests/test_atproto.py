@@ -2371,6 +2371,36 @@ Sed tortor neque, aliquet quis posuere aliquam, imperdiet sitamet […]
 
         mock_create_task.assert_called()  # atproto-commit
 
+    @patch.object(tasks_client, 'create_task', return_value=Task(name='my task'))
+    def test_send_delete_reply_cant_convert_object(self, _):
+        self.make_user_and_repo()
+
+        reply = Object(id='fake:reply', source_protocol='fake', our_as1={
+            'objectType': 'note',
+            'id': 'fake:reply',
+            'content': 'My pinned post',
+            'author': 'fake:user',
+        })
+        self.assertTrue(ATProto.send(reply, 'https://bsky.brid.gy'))
+
+        _, _, rkey = arroba.util.parse_at_uri(reply.copies[0].uri)
+        repo = self.storage.load_repo('did:plc:user')
+        self.assertIsNotNone(repo.get_record('app.bsky.feed.post', rkey))
+
+        reply.our_as1['inReplyTo'] = 'fake:orig'
+        reply.put()
+
+        delete = Object(id='fake:delete', source_protocol='fake', our_as1={
+            'objectType': 'activity',
+            'verb': 'delete',
+            'actor': 'fake:user',
+            'object': 'fake:reply',
+        })
+        self.assertTrue(ATProto.send(delete, 'https://bsky.brid.gy/'))
+
+        repo = self.storage.load_repo('did:plc:user')
+        self.assertIsNone(repo.get_record('app.bsky.feed.post', rkey))
+
     @patch.object(tasks_client, 'create_task')
     def test_send_delete_no_original(self, mock_create_task):
         self.make_user_and_repo()
