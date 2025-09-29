@@ -1542,6 +1542,37 @@ Sed tortor neque, aliquet quis posuere aliquam, imperdiet sitamet […]
         }, repo.get_record('app.bsky.actor.profile', 'self'),
         ignore=['bridgyOriginalDescription', 'bridgyOriginalUrl', 'labels'])
 
+    @patch.object(tasks_client, 'create_task', return_value=Task(name='my task'))
+    @patch('requests.post', return_value=requests_response('OK'))  # create DID on PLC
+    def test_create_for_with_web_monetization(self, mock_post, mock_create_task):
+        self.make_user(cls=Web, id='fa.brid.gy',
+                       copies=[Target(protocol='atproto', uri='did:fa')])
+        Fake.fetchable = {
+            'fake:profile:user': {
+                **ACTOR_AS,
+                'image': [],
+                'monetization': 'http://wal/let',
+            },
+        }
+        user = Fake(id='fake:user')
+        ATProto.create_for(user)
+
+        # check user, repo
+        did = user.key.get().get_copy(ATProto)
+        repo = arroba.server.storage.load_repo(did)
+
+        # check profile, webMonetization records
+        self.assert_equals({
+            '$type': 'app.bsky.actor.profile',
+            'displayName': 'Alice',
+            'description': 'hi there\n\n🌉 bridged from 🤡 web:fake:user by https://fed.brid.gy/',
+        }, repo.get_record('app.bsky.actor.profile', 'self'),
+        ignore=['bridgyOriginalDescription', 'bridgyOriginalUrl', 'labels'])
+        self.assert_equals({
+            '$type': 'community.lexicon.payments.webMonetization',
+            'address': 'http://wal/let',
+        }, repo.get_record('community.lexicon.payments.webMonetization', 'self'))
+
     def test_create_for_bad_handle(self):
         # underscores gets translated to dashes, trailing/leading aren't allowed
         for bad in 'fake:user_', '_fake:user':
@@ -1953,7 +1984,7 @@ Sed tortor neque, aliquet quis posuere aliquam, imperdiet sitamet […]
     @patch('google.cloud.dns.client.ManagedZone', autospec=True)
     @patch.object(tasks_client, 'create_task', return_value=Task(name='my task'))
     @patch('requests.post', return_value=requests_response('OK'))  # create DID on PLC
-    def test_send_new_repo_includes_user_profile(self, mock_post, mock_create_task,
+    def test_send_new_repo_includes_user_profile(self, mock_get, mock_create_task,
                                                  _, __):
         user = self.make_user(id='fake:user', cls=Fake, enabled_protocols=['atproto'],
                               obj_as1={})
@@ -2307,6 +2338,48 @@ Sed tortor neque, aliquet quis posuere aliquam, imperdiet sitamet […]
             'description': '🌉 bridged from 🤡 web:fake:user by https://fed.brid.gy/',
         }, repo.get_record('app.bsky.actor.profile', 'self'),
         ignore=['bridgyOriginalUrl', 'labels'])
+
+        mock_create_task.assert_called()  # atproto-commit
+
+    @patch.object(tasks_client, 'create_task', return_value=Task(name='my task'))
+    def test_send_update_actor_web_monetization(self, mock_create_task):
+        user = self.make_user_and_repo(obj_as1={'objectType': 'person', 'foo': 'bar'})
+
+        # create profile object and Web Monetization wallet records, set copies
+        creates = [
+            Write(action=Action.CREATE, collection='app.bsky.actor.profile',
+                  rkey='self', record=ACTOR_PROFILE_BSKY),
+            Write(action=Action.CREATE,
+                  collection='community.lexicon.payments.webMonetization',
+                  rkey='self', record={
+                      '$type': 'community.lexicon.payments.webMonetization',
+                      'address': 'http://or/ig',
+                  }),
+        ]
+        self.storage.commit(self.repo, creates)
+        user.obj.copies = [Target(uri='at://did:plc:user/app.bsky.actor.profile/self',
+                                  protocol='atproto')]
+        user.obj.put()
+
+        # update profile
+        update = Object(id='fake:update', source_protocol='fake', our_as1={
+            'objectType': 'activity',
+            'verb': 'update',
+            'actor': 'fake:user',
+            'object': {
+                'objectType': 'person',
+                'id': 'fake:profile:user',
+                'updated': '2024-06-24T01:02:03+00:00',
+                'monetization': 'http://wal/let',
+            },
+        })
+        self.assertTrue(ATProto.send(update, 'https://bsky.brid.gy/', from_user=user))
+
+        repo = self.storage.load_repo('did:plc:user')
+        self.assert_equals({
+            '$type': 'community.lexicon.payments.webMonetization',
+            'address': 'http://wal/let',
+        }, repo.get_record('community.lexicon.payments.webMonetization', 'self'))
 
         mock_create_task.assert_called()  # atproto-commit
 

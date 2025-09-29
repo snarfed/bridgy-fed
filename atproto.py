@@ -513,13 +513,16 @@ class ATProto(User, Protocol):
             profile = cls.convert(user.obj, fetch_blobs=True, from_user=user)
             if not profile:
                 raise ValueError(f"Couldn't convert profile object {user.obj_key.id()}")
-            logger.info(f'Storing ATProto app.bsky.actor.profile self')
-            arroba.server.storage.commit(repo, Write(
+            writes = [Write(
                 action=Action.CREATE,
                 record=profile,
                 collection='app.bsky.actor.profile',
                 rkey='self',
-            ))
+            )] + derived_writes(user.obj)
+
+            logger.info(f'Storing ATProto {writes}')
+            arroba.server.storage.commit(repo, writes)
+
             uri = at_uri(did_plc.did, 'app.bsky.actor.profile', 'self')
             user.obj.add('copies', Target(uri=uri, protocol='atproto'))
             user.obj.put()
@@ -807,7 +810,6 @@ class ATProto(User, Protocol):
                 logger.info(f"Can't {verb} {base_obj.key.id()} {type}, original {copy} is in a different repo or collection")
                 return False
 
-        writes = []
         match verb:
             case 'update':
                 action = Action.UPDATE
@@ -819,8 +821,10 @@ class ATProto(User, Protocol):
                 # TODO: use lexicon's key type
                 rkey = 'self' if type == 'app.bsky.actor.profile' else next_tid()
 
-        writes.append(Write(action=action, collection=collection, rkey=rkey,
-                            record=record))
+        writes = [Write(action=action, collection=collection, rkey=rkey,
+                        record=record)
+                  ] + derived_writes(obj)
+
         logger.info(f'Storing ATProto {writes}')
 
         ndb.transactional()
@@ -1193,6 +1197,52 @@ class ATProto(User, Protocol):
                 actor['summary'] = Bluesky('unused').truncate(
                     text, url='\n\n' + source_links, punctuation=('', ''),
                     type=obj.type)
+
+
+def derived_writes(obj):
+    """Returns any "extra" writes we need for a given object/activity.
+
+    Right now, just returns a Web Monetization wallet record when an
+    actor has a ``monetization`` property.
+
+    Args:
+      obj (Object)
+
+    Returns:
+      list of arroba.repo.Write
+    """
+    if not obj.as1:
+        return []
+
+    writes = []
+    action = None
+    type = obj.as1.get('objectType')
+    verb = obj.as1.get('verb')
+    if type != 'activity' or verb == 'post':
+        action = Action.CREATE
+    elif verb == 'update':
+        action = Action.UPDATE
+    elif verb in ('delete', 'undo'):
+        action = Action.DELETE
+
+    obj_as1 = obj.as1
+    if verb in as1.CRUD_VERBS:
+        obj_as1 = as1.get_object(obj.as1)
+
+    if (action in (Action.CREATE, Action.UPDATE)
+            and obj_as1.get('objectType') in as1.ACTOR_TYPES):
+        if wallet := obj_as1.get('monetization'):
+            # https://github.com/lexicon-community/lexicon/tree/main/community/lexicon/payments
+            writes.append(Write(
+                action=action,
+                collection='community.lexicon.payments.webMonetization',
+                rkey='self',
+                record={
+                    '$type': 'community.lexicon.payments.webMonetization',
+                    'address': 'http://wal/let',
+                }))
+
+    return writes
 
 
 def create_report(*, input, from_user):
