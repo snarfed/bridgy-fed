@@ -516,8 +516,12 @@ class ATProtoTest(TestCase):
         )
 
     def test_load_bad_bsky_app_url(self):
-        self.assertIsNone(ATProto.load(
-            'https://bsky.app/profile/foo.bsky.social,[object%20Object]'))
+        for bad in (
+                'https://bsky.app/profile/foo.bsky.social,[object%20Object]',
+                'https://bsky.app/search?q=%23KEXP',
+        ):
+            with self.subTest(bad=bad):
+                self.assertIsNone(ATProto.load(bad))
 
     def test_convert_bsky_pass_through(self):
         self.store_object(id='did:plc:alice', raw=DID_DOC)

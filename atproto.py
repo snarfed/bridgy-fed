@@ -860,6 +860,8 @@ class ATProto(User, Protocol):
             id = ids.profile_id(id=id, proto=cls)
 
         elif id.startswith('https://bsky.app/'):
+            if not id.startswith('https://bsky.app/profile'):
+                return None
             try:
                 id = bluesky.web_url_to_at_uri(id)
             except ValueError as e:
