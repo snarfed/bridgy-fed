@@ -2039,9 +2039,12 @@ class WebTest(TestCase):
                     'published': published,
                 },
             }
+            eta_seconds = (int(NOW.timestamp() + 5) if id == 'b'
+                           else int(NOW.timestamp() + 10) if id == 'c'
+                           else None)
             with self.subTest(id=id):
                 self.assert_task(mock_create_task, 'receive', id=url,
-                                 our_as1=expected_as1,
+                                 our_as1=expected_as1, eta_seconds=eta_seconds,
                                  source_protocol='web', authed_as='user.com',
                                  received_at='2022-01-02T03:04:05+00:00')
 

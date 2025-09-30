@@ -2,18 +2,21 @@
 from unittest import skip
 from unittest.mock import Mock, patch
 
+from arroba.datastore_storage import AtpBlock
 import flask
 from granary import as2
 from oauth_dropins.webutil.appengine_config import error_reporting_client
+from oauth_dropins.webutil.testutil import NOW
 
 # import first so that Fake is defined before URL routes are registered
 from .testutil import ExplicitFake, Fake, OtherFake, TestCase
 
+from flask_app import app
+
 from activitypub import ActivityPub, CONNEG_HEADERS_AS2_HTML
 from atproto import ATProto
 import common
-from arroba.datastore_storage import AtpBlock
-from flask_app import app
+from memcache import PER_USER_TASK_RATES
 from models import Follower, Object, Target
 from ui import UIProtocol
 from web import Web
@@ -174,6 +177,36 @@ class CommonTest(TestCase):
         self.request_context.pop()
         common.create_task('foo')
         mock_create_task.assert_called()
+
+    @patch('oauth_dropins.webutil.appengine_config.tasks_client.create_task')
+    def test_create_task_rate_limited(self, mock_create_task):
+        common.RUN_TASKS_INLINE = False
+        # self.request_context.pop()
+
+        def assert_eta(expected):
+            actual = mock_create_task.call_args[1]['task']['schedule_time']
+            self.assertEqual(int(expected.timestamp()), actual.seconds)
+
+        now = NOW
+        delay = PER_USER_TASK_RATES['receive']
+        common.create_task('receive', authed_as='alice')
+        self.assertNotIn('schedule_time', mock_create_task.call_args[1]['task'])
+
+        common.create_task('receive', authed_as='alice')
+        assert_eta(now + delay)
+
+        common.create_task('receive', authed_as='alice')
+        assert_eta(now + delay + delay)
+
+        common.create_task('receive', authed_as='bob')
+        self.assertNotIn('schedule_time', mock_create_task.call_args[1]['task'])
+
+        common.create_task('receive', authed_as='bob')
+        assert_eta(now + delay)
+
+        # no authed_as, skips rate limiting
+        common.create_task('receive')
+        self.assertNotIn('schedule_time', mock_create_task.call_args[1]['task'])
 
     def test_bot_user_ids(self):
         self.make_user('fa.brid.gy', cls=Web, ap_subdomain='fa',

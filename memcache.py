@@ -1,4 +1,5 @@
 """Utilities for caching data in memcache."""
+from datetime import datetime, timedelta, timezone
 import functools
 import logging
 import os
@@ -17,6 +18,12 @@ logger = logging.getLogger(__name__)
 KEY_MAX_LEN = 250
 
 MEMOIZE_VERSION = 2
+
+# per-user rates for running tasks. rate limits and spreads out tasks for bursty
+# users. https://github.com/snarfed/bridgy-fed/issues/1788
+PER_USER_TASK_RATES = {
+    'receive': timedelta(seconds=5),
+}
 
 # https://pymemcache.readthedocs.io/en/latest/apidoc/pymemcache.client.base.html#pymemcache.client.base.Client.__init__
 kwargs = {
@@ -149,6 +156,45 @@ def remote_evict(entity_key):
     return util.requests_post(f'https://{PRIMARY_DOMAIN}/admin/memcache-evict',
                               headers={'Authorization': config.SECRET_KEY},
                               data={'key': entity_key.urlsafe()})
+
+
+def task_eta(queue, user_id):
+    """Get the ETA to use for a given user's task in a given queue.
+
+    Task rate limit delays are per user, stored in memcache with a key based on
+    ``queue`` and ``user_id`` and an integer value of POSIX timestamp (UTC) in
+    seconds.
+
+    Only generates ETAs for task queues in :attr:`PER_USER_TASK_RATES`. Calls for
+    other queues always return ``None``.
+
+    Background: https://github.com/snarfed/bridgy-fed/issues/1788
+
+    Args:
+      queue (str)
+      user_id (str)
+
+    Returns:
+      datetime.datetime: the ETA for this task, or ``None`` if the ETA is now
+    """
+    if not (delay := PER_USER_TASK_RATES.get(queue)):
+        return None
+
+    cache_key = key(f'task-delay-{queue}-{user_id}')
+
+    now = util.now()
+    if eta_s := memcache.incr(cache_key, int(delay.total_seconds())):
+        eta = datetime.fromtimestamp(eta_s, timezone.utc)
+        if eta > now:
+            return eta
+
+    # incr failed (key doesn't exist) or timestamp is in the past, set it to now
+    #
+    # note that this isn't synchronized; multiple callers may race and both get now
+    # as the returned ETA. that's ok, we don't depend on this for correctness in any
+    # way, just best-effort rate limiting.
+    memcache.set(cache_key, int(now.timestamp()))
+    return now
 
 
 ###########################################

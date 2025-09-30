@@ -1,4 +1,5 @@
 """Unit tests for memcache.py."""
+from datetime import timedelta
 from unittest.mock import patch
 
 from google.cloud.ndb import Key
@@ -9,7 +10,8 @@ import config
 import memcache
 from memcache import memoize, pickle_memcache
 from models import get_original_user_key, Object, Target
-from oauth_dropins.webutil.testutil import requests_response
+from oauth_dropins.webutil import util
+from oauth_dropins.webutil.testutil import NOW, requests_response
 from .testutil import Fake, TestCase
 
 
@@ -243,3 +245,40 @@ class MemcacheTest(TestCase):
             headers={'Authorization': config.SECRET_KEY},
             data={'key': key.urlsafe()},
         )])
+
+    def test_task_eta(self):
+        self.assertEqual(NOW, memcache.task_eta('receive', 'alice'))
+        self.assertEqual(NOW.timestamp(),
+                         memcache.memcache.get('task-delay-receive-alice'))
+
+        delay = memcache.PER_USER_TASK_RATES['receive']
+        delayed = NOW + delay
+        self.assertEqual(delayed, memcache.task_eta('receive', 'alice'))
+        self.assertEqual(delayed.timestamp(),
+                         memcache.memcache.get('task-delay-receive-alice'))
+
+        delayed_2x = delayed + delay
+        self.assertEqual(delayed_2x, memcache.task_eta('receive', 'alice'))
+        self.assertEqual(delayed_2x.timestamp(),
+                         memcache.memcache.get('task-delay-receive-alice'))
+
+    def test_task_eta_queue_not_rate_limited(self):
+        self.assertIsNone(memcache.task_eta('send', 'alice'))
+        self.assertIsNone(memcache.task_eta('send', 'alice'))
+        self.assertIsNone(memcache.memcache.get('task-delay-send-alice'))
+
+    def test_task_eta_memcache_in_past(self):
+        memcache.memcache.set('task-delay-receive-alice', int(NOW.timestamp() - 100))
+
+        self.assertEqual(NOW, memcache.task_eta('receive', 'alice'))
+        self.assertEqual(NOW.timestamp(),
+                         memcache.memcache.get('task-delay-receive-alice'))
+
+    def test_task_eta_multiple_users(self):
+        delay = memcache.PER_USER_TASK_RATES['receive']
+
+        self.assertEqual(NOW, memcache.task_eta('receive', 'alice'))
+        self.assertEqual(NOW, memcache.task_eta('receive', 'bob'))
+        self.assertEqual(NOW + delay, memcache.task_eta('receive', 'bob'))
+        self.assertEqual(NOW + delay + delay, memcache.task_eta('receive', 'bob'))
+        self.assertEqual(NOW + delay, memcache.task_eta('receive', 'alice'))

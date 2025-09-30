@@ -380,15 +380,29 @@ def create_task(queue, app_id=GCP_PROJECT_ID, delay=None, app=None, **params):
             },
         },
     }
+
+    eta = None
+    now = util.now()
+    if authed_as := params.get('authed_as'):
+        eta = memcache.task_eta(queue, authed_as)
+
     if delay:
-        eta_seconds = int(util.to_utc_timestamp(util.now()) + delay.total_seconds())
-        task['schedule_time'] = Timestamp(seconds=eta_seconds)
+        if not eta:
+            eta = now
+        eta += delay
+
+    delay_msg = 'now'
+    if eta and eta > now:
+        task['schedule_time'] = Timestamp(seconds=int(eta.timestamp()))
+        delay_msg = f'in {eta - now}'
 
     parent = tasks_client.queue_path(app_id, TASKS_LOCATION, queue)
     task = tasks_client.create_task(parent=parent, task=task)
-    msg = f'Added {queue} {task.name.split("/")[-1]}'
+
+    msg = f'Added {queue} {task.name.split("/")[-1]} {delay_msg}'
     if not traceparent:
         logger.info(msg)
+
     return msg, 202
 
 
