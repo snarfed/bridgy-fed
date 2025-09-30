@@ -348,7 +348,8 @@ def handle(limit=None):
 
         type, _ = op.path.strip('/').split('/', maxsplit=1)
 
-        if type in ATProto.STORE_RECORD_TYPES:
+        if type in ATProto.STORE_RECORD_TYPES and op.action in ('create', 'update'):
+            # TODO: handle deletes
             logger.info(f'Just storing {at_uri}')
             assert type not in ATProto.SUPPORTED_RECORD_TYPES, (type, record)
             Object.get_or_create(at_uri, bsky=op.record, authed_as=op.repo,
