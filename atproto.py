@@ -269,6 +269,8 @@ class ATProto(User, Protocol):
         type for type in itertools.chain(*FROM_AS1_TYPES.values())
         if '#' not in type)
     ''
+    STORE_RECORD_TYPES = frozenset(['community.lexicon.payments.webMonetization'])
+    ''
     SUPPORTS_DMS = True
     ''
     HTML_PROFILES = False

@@ -36,6 +36,7 @@ from common import (
     report_exception,
     USER_AGENT,
 )
+from models import Object
 from protocol import DELETE_TASK_DELAY
 from web import Web
 
@@ -342,6 +343,14 @@ def handle(limit=None):
         at_uri = f'at://{op.repo}/{op.path}'
 
         type, _ = op.path.strip('/').split('/', maxsplit=1)
+
+        if type in ATProto.STORE_RECORD_TYPES:
+            logger.info(f'Just storing {at_uri}')
+            assert type not in ATProto.SUPPORTED_RECORD_TYPES, (type, record)
+            Object.get_or_create(at_uri, bsky=op.record, authed_as=op.repo,
+                                 source_protocol=ATProto.LABEL)
+            return
+
         if type not in ATProto.SUPPORTED_RECORD_TYPES:
             logger.info(f'Skipping unsupported type {type}: {at_uri}')
             return

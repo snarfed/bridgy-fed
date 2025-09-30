@@ -753,3 +753,18 @@ class ATProtoFirehoseHandleTest(ATProtoTestCase):
                        path='app.bsky.feed.post/123', record=REPLY_BSKY))
         handle(limit=1)
         # just check that we return instead of raising
+
+    def test_store_record(self, mock_create_task):
+        wallet = {
+            '$type': 'community.lexicon.payments.webMonetization',
+            'address': 'http://wal/let',
+        }
+        commits.put(Op(repo='did:plc:user', action='create', seq=789,
+                       path='community.lexicon.payments.webMonetization/self',
+                       record=wallet, time='1900-02-04'))
+
+        handle(limit=1)
+        self.assert_object(
+            'at://did:plc:user/community.lexicon.payments.webMonetization/self',
+            bsky=wallet, source_protocol='atproto')
+        mock_create_task.assert_not_called()
