@@ -400,7 +400,7 @@ def create_task(queue, app_id=GCP_PROJECT_ID, delay=None, app=None, **params):
     task = tasks_client.create_task(parent=parent, task=task)
 
     msg = f'Added {queue} {task.name.split("/")[-1]} {delay_msg}'
-    if not traceparent:
+    if delay_msg or not traceparent:
         logger.info(msg)
 
     return msg, 202
