@@ -251,7 +251,8 @@ def subscribe():
                 logger.warning('commit record missing $type! {op.action} {op.repo} {op.path} {cid}')
                 logger.warning(dag_json.encode(op.record).decode())
                 continue
-            elif type not in ATProto.SUPPORTED_RECORD_TYPES:
+            elif (type not in ATProto.SUPPORTED_RECORD_TYPES
+                  and type not in ATProto.STORE_RECORD_TYPES):
                 continue
 
             def is_ours(did_or_ref, native):
@@ -294,6 +295,9 @@ def subscribe():
                     reply = op.record.get('reply')
                     if not reply or is_ours(reply['parent'], native=True):
                         commits.put(op)
+
+                elif type in ATProto.STORE_RECORD_TYPES:
+                    commits.put(op)
 
             elif op.repo not in bridged_dids:
                 # from an unbridged Bluesky user. only follows of protocol bots and

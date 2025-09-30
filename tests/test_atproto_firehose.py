@@ -211,6 +211,14 @@ class ATProtoFirehoseSubscribeTest(ATProtoTestCase):
             },
         }, repo='did:alice')
 
+    def test_create_store_record_type(self):
+        self.assertIn('community.lexicon.payments.webMonetization',
+                      ATProto.STORE_RECORD_TYPES)
+        self.assert_enqueues({
+            '$type': 'community.lexicon.payments.webMonetization',
+            'address': 'https://www.patreon.com/c/ANewSocial',
+        })
+
     def test_like_by_our_atproto_user(self):
         self.assert_enqueues({
             '$type': 'app.bsky.feed.like',
