@@ -3306,6 +3306,31 @@ Sed tortor neque, aliquet quis posuere aliquam, imperdiet sitamet […]
             'https://appview.local/xrpc/com.atproto.repo.describeRepo?repo=y.z',
             json=None, data=None, headers=ANY)
 
+    def test_datastore_client_remote_False_get_record(self):
+        self.store_object(id='did:plc:user', raw=DID_DOC)
+
+        client = DatastoreClient(remote=False)
+        self.assertEqual({}, client.com.atproto.repo.getRecord(
+            repo='did:plc:user', collection='co.l.l', rkey='post'))
+
+        post = {
+            '$type': 'app.bsky.feed.post',
+            'text': 'foo',
+        }
+        self.store_object(id='at://did:plc:user/co.l.l/post', bsky=post)
+        self.assertEqual(post, client.com.atproto.repo.getRecord(
+            repo='did:plc:user', collection='co.l.l', rkey='post')['value'])
+
+    def test_datastore_client_remote_False_resolve_handle(self):
+        client = DatastoreClient(remote=False)
+        self.assertIsNone(client.com.atproto.identity.resolveHandle(
+            handle='han.dull.brid.gy'))
+
+        self.make_user_and_repo()
+        self.assertEqual(
+            {'did': 'did:plc:user'},
+            client.com.atproto.identity.resolveHandle(handle='han.dull.brid.gy'))
+
     @patch.object(tasks_client, 'create_task')
     @patch('requests.get', side_effect=[
         requests_response({'logs': [], 'cursor': 'neckst'}),

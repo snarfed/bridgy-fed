@@ -140,9 +140,18 @@ class DatastoreClient(Client):
     ``$APPVIEW_HOST``, because ``getRecord`` passes through to ``ATProto.load``
     and then to ``ATProto.fetch``, which uses the ``appview`` global.
     """
-    def __init__(self, *args, **kwargs):
+    remote = True
+    ''
+
+    def __init__(self, remote=True, *args, **kwargs):
+        """
+        Args:
+          remote (bool): if False, don't make any external calls, only look
+            in the datastore
+        """
         super().__init__(*args, address=f'https://{os.environ["APPVIEW_HOST"]}',
                          **kwargs)
+        self.remote = remote
 
     def call(self, nsid, input=None, headers={}, **params):
         if nsid == 'com.atproto.repo.getRecord':
@@ -152,7 +161,8 @@ class DatastoreClient(Client):
             if ret := self.resolve_handle(**params):
                 return ret
 
-        return super().call(nsid, input=input, headers=headers, **params)
+        if self.remote:
+            return super().call(nsid, input=input, headers=headers, **params)
 
     def get_record(self, repo=None, collection=None, rkey=None):
         assert repo and collection and rkey, (repo, collection, rkey)
@@ -166,8 +176,9 @@ class DatastoreClient(Client):
             record = repo.get_record(collection=collection, rkey=rkey)
         else:
             # remote record that we may have a cached copy of
-            obj = ATProto.load(uri, raise_=False)
-            if not obj or not obj.bsky:
+            obj = ATProto.load(uri, remote=(None if self.remote else False),
+                               raise_=False)
+            if (not obj or not obj.bsky) and self.remote:
                 obj = ATProto.load(uri, local=False, remote=True, raise_=False)
             if obj:
                 record = obj.bsky
