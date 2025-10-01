@@ -112,7 +112,7 @@ soupsieve==2.8
 tlslite-ng==0.8.2
 tweepy==4.16.0
 typing-validation==1.2.12
-typing_extensions==4.9.0
+typing_extensions==4.15.0
 ujson==5.11.0
 update-checker==0.18.0
 uritemplate==4.2.0
