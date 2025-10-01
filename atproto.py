@@ -557,6 +557,7 @@ class ATProto(User, Protocol):
 
         Args:
           handle (str): Bluesky handle, eg ``snarfed.org.web.brid.gy``
+          did (str): ATProto DID
         """
         name = f'_atproto.{handle}.'
         val = f'"did={did}"'
