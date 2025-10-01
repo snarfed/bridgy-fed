@@ -19,7 +19,7 @@ bech32==1.2.0
 binapy==0.8.0
 blinker==1.9.0
 cachelib==0.13.0
-cachetools==5.5.2
+cachetools==6.2.0
 cbor2==5.7.0
 certifi==2025.8.3
 cffi==2.0.0
@@ -43,7 +43,7 @@ flask-sock==0.7.0
 furl==2.1.4
 google-api-core[grpc]==2.25.1
 google-api-python-client==2.182.0
-google-auth==2.40.3
+google-auth==2.41.1
 google-auth-httplib2==0.2.0
 google-cloud-appengine-logging==1.6.2
 google-cloud-audit-log==0.3.2
