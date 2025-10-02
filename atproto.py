@@ -841,7 +841,8 @@ class ATProto(User, Protocol):
 
         logger.info(f'Storing ATProto {writes}')
 
-        ndb.transactional()
+        # TODO?
+        # ndb.transactional()
         def write():
             try:
                 arroba.server.storage.commit(repo, writes)
