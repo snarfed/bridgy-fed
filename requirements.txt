@@ -73,7 +73,7 @@ Jinja2==3.1.6
 jwskate==0.12.2
 libipld==1.2.3
 lxml==6.0.2
-MarkupSafe==3.0.2
+MarkupSafe==3.0.3
 mf2py==2.0.1
 mf2util==0.5.2
 multiformats==0.3.1.post4
