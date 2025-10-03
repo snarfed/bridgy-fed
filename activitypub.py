@@ -125,7 +125,7 @@ class ActivityPub(User, Protocol):
         + tuple(as1.POST_TYPES)
         + tuple(as1.CRUD_VERBS)
         + tuple(as1.VERBS_WITH_OBJECT)
-        + ('add', 'audio', 'bookmark', 'image', 'move', 'video')
+        + ('add', 'audio', 'bookmark', 'image', 'move', 'remove', 'video')
     )
     ''
     SUPPORTED_AS2_TYPES = tuple(
@@ -1378,13 +1378,13 @@ def inbox(protocol=None, id=None):
         followee_url = unwrap(util.get_url(activity, 'object'))
         activity.setdefault('url', f'{follower_url}#followed-{followee_url}')
 
-    elif type == 'Add':
-        # a user added a new pinned post
+    elif type in ('Add', 'Remove'):
+        # a user changed their pinned posts
         # https://github.com/snarfed/bridgy-fed/issues/2102
         if target := as1.get_id(activity, 'target'):
             user = ActivityPub.get_by_id(actor_id)
             if user and user.obj and target == as1.get_id(user.obj.as1, 'featured'):
-                logger.info('Added a new pinned post, reloading profile')
+                logger.info('Modified pinned posts, reloading profile')
                 user.reload_profile()
                 return 'OK', 202
         return 'Ignored', 204

@@ -714,7 +714,13 @@ class ActivityPubTest(TestCase):
                          authed_as=ACTOR['id'],
                          received_at='2022-01-02T03:04:05+00:00')
 
-    def test_inbox_add_to_featured_reloads_profile(self, _, mock_get, __):
+    def test_inbox_add_to_featured_reloads_profile(self, *mocks):
+        return self._test_inbox_modify_featured_reloads_profile('Add', *mocks)
+
+    def test_inbox_remove_from_featured_reloads_profile(self, *mocks):
+        return self._test_inbox_modify_featured_reloads_profile('Remove', *mocks)
+
+    def _test_inbox_modify_featured_reloads_profile(self, verb, _, mock_get, __):
         user = self.make_user(ACTOR['id'], cls=ActivityPub, obj_as2={
             **ACTOR,
             'featured': {'id': 'https://orig/feat/ured'},
@@ -730,7 +736,7 @@ class ActivityPubTest(TestCase):
         ]
 
         resp = self.post('/ap/sharedInbox', json={
-            'type': 'Add',
+            'type': verb,
             'actor': ACTOR['id'],
             'target': 'https://orig/feat/ured',
         })
