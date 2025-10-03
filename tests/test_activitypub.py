@@ -714,13 +714,19 @@ class ActivityPubTest(TestCase):
                          authed_as=ACTOR['id'],
                          received_at='2022-01-02T03:04:05+00:00')
 
+    @patch('oauth_dropins.webutil.appengine_config.tasks_client.create_task')
     def test_inbox_add_to_featured_reloads_profile(self, *mocks):
         return self._test_inbox_modify_featured_reloads_profile('Add', *mocks)
 
+    @patch('oauth_dropins.webutil.appengine_config.tasks_client.create_task')
     def test_inbox_remove_from_featured_reloads_profile(self, *mocks):
         return self._test_inbox_modify_featured_reloads_profile('Remove', *mocks)
 
-    def _test_inbox_modify_featured_reloads_profile(self, verb, _, mock_get, __):
+
+    def _test_inbox_modify_featured_reloads_profile(self, verb, mock_create_task,
+                                                    _, mock_get, __):
+        common.RUN_TASKS_INLINE = False
+
         user = self.make_user(ACTOR['id'], cls=ActivityPub, obj_as2={
             **ACTOR,
             'featured': {'id': 'https://orig/feat/ured'},
@@ -743,6 +749,9 @@ class ActivityPubTest(TestCase):
         self.assertEqual(202, resp.status_code)
         self.assertEqual({'id': 'https://new/feat/ured'},
                          user.obj.key.get().as2['featured'])
+
+        self.assert_task(mock_create_task, 'receive', obj_id=ACTOR['id'],
+                         authed_as=ACTOR['id'])
 
     def test_inbox_add_to_unknown_collection_is_ignored(self, _, mock_get, __):
         user = self.make_user(ACTOR['id'], cls=ActivityPub, obj_as2=ACTOR)

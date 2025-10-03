@@ -1386,6 +1386,8 @@ def inbox(protocol=None, id=None):
             if user and user.obj and target == as1.get_id(user.obj.as1, 'featured'):
                 logger.info('Modified pinned posts, reloading profile')
                 user.reload_profile()
+                create_task(queue='receive', obj_id=user.obj_key.id(),
+                            authed_as=authed_as)
                 return 'OK', 202
         return 'Ignored', 204
 
