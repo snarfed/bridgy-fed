@@ -714,6 +714,42 @@ class ActivityPubTest(TestCase):
                          authed_as=ACTOR['id'],
                          received_at='2022-01-02T03:04:05+00:00')
 
+    def test_inbox_add_to_featured_reloads_profile(self, _, mock_get, __):
+        user = self.make_user(ACTOR['id'], cls=ActivityPub, obj_as2={
+            **ACTOR,
+            'featured': {'id': 'https://orig/feat/ured'},
+        })
+
+        mock_get.side_effect = [
+            self.as2_resp({
+                **ACTOR,
+                'featured': {'id': 'https://new/feat/ured'},
+            }),
+            self.as2_resp({'id': 'https://new/feat/ured'}),
+            requests_response(status=404),  # webfinger
+        ]
+
+        resp = self.post('/ap/sharedInbox', json={
+            'type': 'Add',
+            'actor': ACTOR['id'],
+            'target': 'https://orig/feat/ured',
+        })
+        self.assertEqual(202, resp.status_code)
+        self.assertEqual({'id': 'https://new/feat/ured'},
+                         user.obj.key.get().as2['featured'])
+
+    def test_inbox_add_to_unknown_collection_is_ignored(self, _, mock_get, __):
+        user = self.make_user(ACTOR['id'], cls=ActivityPub, obj_as2=ACTOR)
+
+        resp = self.post('/ap/sharedInbox', json={
+            'type': 'Add',
+            'actor': ACTOR['id'],
+            'target': 'https://un/known',
+        })
+        self.assertEqual(204, resp.status_code)
+        self.assert_equals(ACTOR, user.obj.key.get().as2, ignore=['@context'])
+        mock_get.assert_not_called()
+
     def test_inbox_reply_object(self, mock_head, mock_get, mock_post):
         self._test_inbox_reply(REPLY_OBJECT, mock_head, mock_get, mock_post)
 
