@@ -700,7 +700,6 @@ class ActivityPubTest(TestCase):
         self.assert_task(mock_create_task, 'receive', id=DELETE['id'],
                          source_protocol='activitypub', as2=DELETE,
                          authed_as=ACTOR['id'],
-                         received_at='2022-01-02T03:04:05+00:00',
                          eta_seconds=delayed_eta)
 
     @patch('oauth_dropins.webutil.appengine_config.tasks_client.create_task')

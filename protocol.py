@@ -1073,7 +1073,7 @@ class Protocol:
                   if k not in ('contentMap', 'replies', 'signature')}
         delay = ''
         if (received_at and request.headers.get('X-AppEngine-TaskRetryCount') == '0'
-                and obj.type != 'delete'):  # we delay deletes for 2m
+                and obj.type not in ('delete', 'undo')):  # we delay deletes/undos
             delay_s = int((util.now().replace(tzinfo=None)
                            - received_at.replace(tzinfo=None)
                            ).total_seconds())

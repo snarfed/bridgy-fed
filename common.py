@@ -363,6 +363,27 @@ def create_task(queue, app_id=GCP_PROJECT_ID, delay=None, app=None, **params):
         #                             .match(path, method='POST')
         # return app.view_functions[endpoint](**args)
 
+    # determine task ETA
+    eta = None
+    now = util.now()
+    if authed_as := params.get('authed_as'):
+        eta = memcache.task_eta(queue, authed_as)
+
+    if delay:
+        if not eta:
+            eta = now
+        eta += delay
+
+    schedule_time = None
+    delay_msg = 'now'
+    if eta and eta > now:
+        schedule_time = Timestamp(seconds=int(eta.timestamp()))
+        # we use the received_at param to measure and log our task processing delay.
+        # skip that if we're deliberately rate limiting/delaying the task.
+        params.pop('received_at', None)
+        delay_msg = f'in {eta - now}'
+
+    # construct task object
     body = urllib.parse.urlencode(sorted(params.items())).encode()
     task = {
         'app_engine_http_request': {
@@ -380,21 +401,8 @@ def create_task(queue, app_id=GCP_PROJECT_ID, delay=None, app=None, **params):
             },
         },
     }
-
-    eta = None
-    now = util.now()
-    if authed_as := params.get('authed_as'):
-        eta = memcache.task_eta(queue, authed_as)
-
-    if delay:
-        if not eta:
-            eta = now
-        eta += delay
-
-    delay_msg = 'now'
-    if eta and eta > now:
-        task['schedule_time'] = Timestamp(seconds=int(eta.timestamp()))
-        delay_msg = f'in {eta - now}'
+    if schedule_time:
+        task['schedule_time'] = schedule_time
 
     parent = tasks_client.queue_path(app_id, TASKS_LOCATION, queue)
     task = tasks_client.create_task(parent=parent, task=task)

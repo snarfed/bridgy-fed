@@ -2039,14 +2039,17 @@ class WebTest(TestCase):
                     'published': published,
                 },
             }
-            eta_seconds = (int(NOW.timestamp() + 5) if id == 'b'
-                           else int(NOW.timestamp() + 10) if id == 'c'
-                           else None)
+            # b and c get rate limited
+            if id == 'a':
+                timing_params = {'received_at': '2022-01-02T03:04:05+00:00'}
+            if id == 'b':
+                timing_params = {'eta_seconds': int(NOW.timestamp() + 5)}
+            elif id == 'c':
+                timing_params = {'eta_seconds': int(NOW.timestamp() + 10)}
             with self.subTest(id=id):
                 self.assert_task(mock_create_task, 'receive', id=url,
-                                 our_as1=expected_as1, eta_seconds=eta_seconds,
-                                 source_protocol='web', authed_as='user.com',
-                                 received_at='2022-01-02T03:04:05+00:00')
+                                 our_as1=expected_as1, source_protocol='web',
+                                 authed_as='user.com', **timing_params)
 
         # delay is average of 1h and 3h between posts
         expected_eta = NOW_SECONDS + timedelta(hours=2).total_seconds()

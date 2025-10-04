@@ -181,7 +181,6 @@ class CommonTest(TestCase):
     @patch('oauth_dropins.webutil.appengine_config.tasks_client.create_task')
     def test_create_task_rate_limited(self, mock_create_task):
         common.RUN_TASKS_INLINE = False
-        # self.request_context.pop()
 
         def assert_eta(expected):
             actual = mock_create_task.call_args[1]['task']['schedule_time']
@@ -189,11 +188,17 @@ class CommonTest(TestCase):
 
         now = NOW
         delay = PER_USER_TASK_RATES['receive']
-        common.create_task('receive', authed_as='alice')
-        self.assertNotIn('schedule_time', mock_create_task.call_args[1]['task'])
+        common.create_task('receive', authed_as='alice', received_at='foo')
 
-        common.create_task('receive', authed_as='alice')
+        task = mock_create_task.call_args[1]['task']
+        self.assertNotIn('schedule_time', task)
+        self.assertIn(b'received_at=foo', task['app_engine_http_request']['body'])
+
+        common.create_task('receive', authed_as='alice', received_at='foo')
         assert_eta(now + delay)
+        self.assertNotIn(
+            b'received_at=foo',
+            mock_create_task.call_args[1]['task']['app_engine_http_request']['body'])
 
         common.create_task('receive', authed_as='alice')
         assert_eta(now + delay + delay)

@@ -639,8 +639,7 @@ class ATProtoFirehoseHandleTest(ATProtoTestCase):
         delayed_eta = util.to_utc_timestamp(NOW) + DELETE_TASK_DELAY.total_seconds()
         self.assert_task(mock_create_task, 'receive', id=delete_id,
                          our_as1=expected_as1, source_protocol='atproto',
-                         authed_as='did:plc:user', received_at='1900-02-04',
-                         eta_seconds=delayed_eta)
+                         authed_as='did:plc:user', eta_seconds=delayed_eta)
 
     def test_delete_block(self, mock_create_task):
         commits.put(Op(repo='did:plc:user', action='delete', seq=789,
@@ -662,8 +661,7 @@ class ATProtoFirehoseHandleTest(ATProtoTestCase):
                        + DELETE_TASK_DELAY.total_seconds())
         self.assert_task(mock_create_task, 'receive', id=activity_id,
                          our_as1=expected_as1, source_protocol='atproto',
-                         authed_as='did:plc:user', received_at='1900-02-04',
-                         eta_seconds=delayed_eta)
+                         authed_as='did:plc:user', eta_seconds=delayed_eta)
 
     def test_delete_follow_to_stop_following(self, mock_create_task):
         Object(id='at://did:plc:user/app.bsky.graph.follow/123', bsky={
@@ -689,8 +687,7 @@ class ATProtoFirehoseHandleTest(ATProtoTestCase):
         delayed_eta = util.to_utc_timestamp(NOW) + DELETE_TASK_DELAY.total_seconds()
         self.assert_task(mock_create_task, 'receive', id=activity_id,
                          our_as1=expected_as1, source_protocol='atproto',
-                         authed_as='did:plc:user', received_at='1900-02-04',
-                         eta_seconds=delayed_eta)
+                         authed_as='did:plc:user', eta_seconds=delayed_eta)
 
     def test_delete_follow_to_stop_following_no_stored_follow(self, mock_create_task):
         commits.put(Op(repo='did:plc:user', action='delete', seq=789,
