@@ -146,7 +146,7 @@
 <li><a href="#bluesky-enhanced">Can I use my own domain as my Bluesky handle?</a></li>
 <li><a href="#bluesky-fields">How can I see the full text or original URL for a bridged post?</a></li>
 <li><a href="#bluesky-image-cdn">My images or videos are blank in Bluesky!</a></li>
-
+<li><a href="#bluesky-image-corrupt">My images are broken or corrupted in Bluesky!</a></li>
 <br>
 
 <p><em>From the web</em></p>
@@ -754,6 +754,11 @@ RewriteRule ^.well-known/(host-meta|webfinger).* https://fed.brid.gy/$0  [redire
 <li id="bluesky-image-cdn" class="question">My images or videos are blank in Bluesky!</li>
 <li class="answer">
 <p>This usually means that the server hosting your images is blocking or otherwise not serving them to Bluesky's CDN. To confirm this, open an affected post in <a href="https://bsky.app/">bsky.app</a>, then open one of the blank images in a new browser tab. (Right click, Open image in new tab, or something similar.) If it shows the error <code>Source image is unreachable</code> instead of the image, your server is blocking Bluesky's CDN. <a href="https://github.com/snarfed/bridgy-fed/issues/1804">GoToSocial is one known example</a>; <a href="https://bsky.app/profile/isafashion.dev/post/3lgxsllqsv22n">here's a workaround</a>. Otherwise, check your Cloudflare, CDN, server or host settings, they might be configured overly aggressively to block bots. <a href="https://github.com/bluesky-social/atproto/discussions/3451">More background.</a>
+</li>
+
+<li id="bluesky-image-corrupt" class="question">My images are broken or corrupted in Bluesky!</li>
+<li class="answer">
+<p>The Bluesky CDN has an <a href="https://github.com/bluesky-social/atproto/discussions/2845#discussioncomment-14532036">undocumented limit of 10MB for images</a>. If you post images larger than that, they may look broken or corrupted in Bluesky. We bridge them anyway, which isn't ideal, but so far we've chosen to do that instead of silently dropping these posts. <a href="https://github.com/snarfed/bridgy-fed/issues/2107#issuecomment-3342267865">We're open to feedback!</a>
 </li>
 
 
