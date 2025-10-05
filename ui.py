@@ -2,12 +2,18 @@
 
 Needed for serving /convert/ui/web/... requests.
 """
+from google.cloud import ndb
+
 from models import User
 from protocol import Protocol
 
 
 class UIProtocol(User, Protocol):
     LABEL = 'ui'
+
+    @ndb.ComputedProperty
+    def handle(self):
+        return None
 
     @classmethod
     def handle_to_id(cls, handle):
