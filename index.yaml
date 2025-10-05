@@ -17,6 +17,12 @@ indexes:
   - name: repo
   - name: seq
 
+- kind: AtpRemoteBlob
+  properties:
+  - name: cid
+  - name: updated
+    direction: desc
+
 - kind: AtpRepo
   properties:
     - name: status
