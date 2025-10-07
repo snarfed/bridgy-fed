@@ -12,7 +12,7 @@ git+https://github.com/snarfed/requests_oauth2client.git@all#egg=requests_oauth2
 git+https://github.com/snarfed/pymemcache.git@all#egg=pymemcache
 git+https://github.com/snarfed/secp256k1-py.git@setup-requires-pycparser#egg=secp256k1
 
-attrs==25.3.0
+attrs==25.4.0
 bases==0.3.0
 beautifulsoup4==4.14.2
 bech32==1.2.0
