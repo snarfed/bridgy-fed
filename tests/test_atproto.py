@@ -782,10 +782,11 @@ class ATProtoTest(TestCase):
 
         mock_get.assert_has_calls([self.req('https://my/vid')])
 
+    @patch.dict(atproto.appview.defs, {
+        'app.bsky.embed.video': {'properties': {'video': {'maxSize': 10}}},
+    })
     @patch('requests.get', return_value=requests_response(
-        'blob contents', content_type='video/mp4', headers={
-            'Content-Length': str(atproto.appview.defs['app.bsky.embed.video']['properties']['video']['maxSize'] + 1),
-        }))
+        'blob contents', content_type='video/mp4'))
     def test_convert_fetch_blobs_true_video_over_maxSize(self, mock_get):
         self.assertEqual({
             '$type': 'app.bsky.feed.post',
@@ -803,8 +804,17 @@ class ATProtoTest(TestCase):
             }],
         }), fetch_blobs=True))
 
-        self.assertEqual(0, AtpRemoteBlob.query().count())
         mock_get.assert_has_calls([self.req('https://my/vid')])
+
+        self.assert_entities_equal([
+            AtpRemoteBlob(
+                id='https://my/vid',
+                url='https://my/vid',
+                cid='bafkreicqpqncshdd27sgztqgzocd3zhhqnnsv6slvzhs5uz6f57cq6lmtq',
+                mime_type='video/mp4',
+                size=13,
+                last_fetched=NOW),
+        ], AtpRemoteBlob.query().fetch(), ignore=['created', 'updated'])
 
     @patch('requests.get', return_value=requests_response(
         'blob contents', content_type='not/ok'))
@@ -824,7 +834,15 @@ class ATProtoTest(TestCase):
             }],
         }), fetch_blobs=True))
 
-        self.assertEqual(0, AtpRemoteBlob.query().count())
+        self.assert_entities_equal([
+            AtpRemoteBlob(
+                id='https://my/vid',
+                url='https://my/vid',
+                cid='bafkreicqpqncshdd27sgztqgzocd3zhhqnnsv6slvzhs5uz6f57cq6lmtq',
+                mime_type='not/ok',
+                size=13,
+                last_fetched=NOW),
+        ], AtpRemoteBlob.query().fetch(), ignore=['created', 'updated'])
         mock_get.assert_has_calls([self.req('https://my/vid')])
 
     @patch('requests.get', return_value=requests_response(
@@ -893,8 +911,8 @@ class ATProtoTest(TestCase):
 
     def test_convert_fetch_blobs_true_existing_atp_remote_blob(self):
         cid = 'bafkreicqpqncshdd27sgztqgzocd3zhhqnnsv6slvzhs5uz6f57cq6lmtq'
-        AtpRemoteBlob(id='http://my/pic', cid=cid, size=8,
-                      mime_type='image/png').put()
+        AtpRemoteBlob(id='http://my/pic', cid=cid, size=8, mime_type='image/png',
+                      last_fetched=NOW).put()
 
         self.assert_equals({
             '$type': 'app.bsky.actor.profile',
@@ -1419,7 +1437,7 @@ Sed tortor neque, aliquet quis posuere aliquam, imperdiet sitamet […]
         Fake.fetchable = {'fake:profile:us_er': ACTOR_AS}
         user = Fake(id='fake:us_er')
         AtpRemoteBlob(id='https://alice.com/alice.jpg', mime_type='image/png',
-                      cid=BLOB_CID.encode('base32'), size=8).put()
+                      cid=BLOB_CID.encode('base32'), size=8, last_fetched=NOW).put()
 
         ATProto.create_for(user)
 
