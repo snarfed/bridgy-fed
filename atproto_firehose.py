@@ -15,7 +15,7 @@ import threading
 import time
 
 from arroba.datastore_storage import AtpRepo
-from arroba.util import parse_at_uri
+from arroba.util import at_uri, parse_at_uri
 import dag_json
 from google.cloud import ndb
 from google.cloud.ndb.exceptions import ContextError
@@ -354,6 +354,8 @@ def handle(limit=None):
             assert type not in ATProto.SUPPORTED_RECORD_TYPES, (type, record)
             Object.get_or_create(at_uri, bsky=op.record, authed_as=op.repo,
                                  source_protocol=ATProto.LABEL)
+            if type == 'community.lexicon.payments.webMonetization':
+                _handle_webMonetization(op)
             return
 
         if type not in ATProto.SUPPORTED_RECORD_TYPES:
@@ -437,3 +439,17 @@ def handle(limit=None):
             return
 
     assert False, "handle thread shouldn't reach here!"
+
+
+@ndb.transactional()
+def _handle_webMonetization(op):
+    """
+    Args:
+      op (arroba.storage.CommitOp)
+    """
+    profile_uri = at_uri(op.repo, 'app.bsky.actor.profile', 'self')
+    profile = Object.get_or_insert(profile_uri)
+    if not profile.extra_as1:
+        profile.extra_as1 = {}
+    profile.extra_as1.update({'monetization': op.record['address']})
+    profile.put()

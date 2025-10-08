@@ -760,6 +760,10 @@ class ATProtoFirehoseHandleTest(ATProtoTestCase):
         # just check that we return instead of raising
 
     def test_store_record(self, mock_create_task):
+        profile = Object(id='at://did:plc:user/app.bsky.actor.profile/self',
+                         bsky=ACTOR_PROFILE_BSKY)
+        profile.put()
+
         wallet = {
             '$type': 'community.lexicon.payments.webMonetization',
             'address': 'http://wal/let',
@@ -773,3 +777,7 @@ class ATProtoFirehoseHandleTest(ATProtoTestCase):
             'at://did:plc:user/community.lexicon.payments.webMonetization/self',
             bsky=wallet, source_protocol='atproto')
         mock_create_task.assert_not_called()
+
+        profile = profile.key.get()
+        self.assertEqual({'monetization': 'http://wal/let',}, profile.extra_as1)
+        self.assertEqual('http://wal/let', profile.as1['monetization'])
