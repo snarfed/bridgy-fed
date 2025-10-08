@@ -1115,6 +1115,9 @@ class Object(AddRemoveMixin, StringIdModel):
     raw = JsonProperty()
     'Other standalone data format, eg DID document'
 
+    extra_as1 = JsonProperty()
+    "Additional individual fields to merge into this object's AS1 representation"
+
     # TODO: remove and actually delete Objects instead!
     deleted = ndb.BooleanProperty()
     ''
@@ -1224,6 +1227,9 @@ class Object(AddRemoveMixin, StringIdModel):
 
         if util.domain_or_parent_in(obj.get('id'), IMAGE_PROXY_DOMAINS):
            as1.prefix_urls(obj, 'image', IMAGE_PROXY_URL_BASE)
+
+        if self.extra_as1:
+            obj.update(self.extra_as1)
 
         return obj
 

@@ -989,6 +989,14 @@ class ObjectTest(TestCase):
         obj = Object(our_as1={'foo': 'bar'}, as2={'x': 'y'})
         self.assertEqual({'foo': 'bar'}, obj.as1)
 
+    def test_as1_from_our_as1_extra_as1(self):
+        obj = Object(our_as1={'foo': 'bar'}, extra_as1={'x': 'y'})
+        self.assertEqual({'foo': 'bar', 'x': 'y'}, obj.as1)
+
+    def test_as1_from_as2_extra_as1(self):
+        obj = Object(as2={'foo': 'bar'}, extra_as1={'x': 'y'})
+        self.assertEqual({'foo': 'bar', 'x': 'y'}, obj.as1)
+
     def test_as1_from_as2_protocol_bot_user(self):
         self.assert_equals({
             'objectType': 'service',
