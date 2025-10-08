@@ -1256,7 +1256,7 @@ def derived_writes(obj):
                 rkey='self',
                 record={
                     '$type': 'community.lexicon.payments.webMonetization',
-                    'address': 'http://wal/let',
+                    'address': wallet,
                 }))
 
     return writes
