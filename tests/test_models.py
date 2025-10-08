@@ -980,9 +980,14 @@ class ObjectTest(TestCase):
             'inbox': 'http://mas.to/inbox',
         }, Object(as2=ACTOR).as1, ignore=['publicKey'])
 
+    def test_as1_from_our_as1(self):
         self.assertEqual({'foo': 'bar'}, Object(our_as1={'foo': 'bar'}).as1)
         self.assertEqual({'id': 'x', 'foo': 'bar'},
                          Object(id='x', our_as1={'foo': 'bar'}).as1)
+
+    def test_as1_from_our_as1_overrides_as2(self):
+        obj = Object(our_as1={'foo': 'bar'}, as2={'x': 'y'})
+        self.assertEqual({'foo': 'bar'}, obj.as1)
 
     def test_as1_from_as2_protocol_bot_user(self):
         self.assert_equals({
