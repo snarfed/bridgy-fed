@@ -157,12 +157,10 @@ def subscribe():
     client = Client(f'https://{os.environ["BGS_HOST"]}',
                     headers={'User-Agent': USER_AGENT})
 
-    for frame in client.com.atproto.sync.subscribeRepos(decode=False,
-                                                        cursor=cursor.cursor):
+    for header, payload in client.com.atproto.sync.subscribeRepos(
+            cursor=cursor.cursor):
         # parse header
-        header = libipld.decode_dag_cbor(frame)
         if header.get('op') == -1:
-            _, payload = libipld.decode_dag_cbor_multi(frame)
             logger.warning(f'Got error from relay! {payload}')
             continue
 
@@ -174,7 +172,6 @@ def subscribe():
             continue
 
         # parse payload
-        _, payload = libipld.decode_dag_cbor_multi(frame)
         repo = payload.get('repo') or payload.get('did')
         if not repo:
             logger.warning(f'Payload missing repo! {payload}')
