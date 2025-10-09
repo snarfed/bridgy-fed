@@ -1072,7 +1072,8 @@ class Protocol:
         pruned = {k: v for k, v in obj.as1.items()
                   if k not in ('contentMap', 'replies', 'signature')}
         delay = ''
-        if (received_at and request.headers.get('X-AppEngine-TaskRetryCount') == '0'
+        retry = request.headers.get('X-AppEngine-TaskRetryCount')
+        if (received_at and retry in (None, '0')
                 and obj.type not in ('delete', 'undo')):  # we delay deletes/undos
             delay_s = int((util.now().replace(tzinfo=None)
                            - received_at.replace(tzinfo=None)

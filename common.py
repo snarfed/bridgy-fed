@@ -376,7 +376,7 @@ def create_task(queue, app_id=GCP_PROJECT_ID, delay=None, app=None, **params):
 
     schedule_time = None
     delay_msg = 'now'
-    if eta and eta > now:
+    if eta and eta > now + timedelta(seconds=1):
         schedule_time = Timestamp(seconds=int(eta.timestamp()))
         # we use the received_at param to measure and log our task processing delay.
         # skip that if we're deliberately rate limiting/delaying the task.

@@ -25,7 +25,6 @@ from arroba.util import (
     TOMBSTONED,
 )
 from arroba import xrpc_repo
-import dag_json
 from flask import abort, redirect, request
 from google.cloud import dns
 from google.cloud.dns.resource_record_set import ResourceRecordSet
