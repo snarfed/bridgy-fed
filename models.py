@@ -769,7 +769,7 @@ class User(AddRemoveMixin, StringIdModel, metaclass=ProtocolUserMeta):
             return None
 
         return ids.translate_handle(handle=handle, from_=self.__class__,
-                                    to=to_proto, enhanced=False, short=short)
+                                    to=to_proto, short=short)
 
     def id_as(self, to_proto):
         """Returns this user's id in a different protocol.

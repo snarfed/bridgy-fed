@@ -255,7 +255,7 @@ def prompt(from_user, to_proto, arg, to_user):
     """Prompt a non-bridged user to bridge. No command, just the handle, alone."""
     from_proto = from_user.__class__
     try:
-        ids.translate_handle(handle=arg, from_=to_proto, to=from_user, enhanced=False)
+        ids.translate_handle(handle=arg, from_=to_proto, to=from_user)
     except ValueError as e:
         logger.warning(e)
         return f"Sorry, Bridgy Fed doesn't yet support bridging handle {arg} from {to_proto.PHRASE} to {from_proto.PHRASE}."

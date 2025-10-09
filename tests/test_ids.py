@@ -248,31 +248,12 @@ class IdsTest(TestCase):
             self.assertEqual('@us.er',translate_handle(
                 handle=handle, from_=from_, to=ActivityPub, short=True))
 
-    def test_translate_handle_enhanced(self):
-        for from_, handle, to, expected in [
-            (Web, 'user.com', ActivityPub, '@user.com@user.com'),
-            (Web, 'user.com', Fake, 'fake:handle:user.com'),
-            (ActivityPub, '@user@instance', Web, 'https://instance/@user'),
-            (ActivityPub, '@user@user', Web, 'https://user'),
-            (ActivityPub, '@user@instance', Fake, 'fake:handle:@user@instance'),
-            (ATProto, 'user.com', ActivityPub, '@user.com@user.com'),
-
-            # instance actor, protocol bot user
-            (Web, 'fed.brid.gy', ActivityPub, '@fed.brid.gy@fed.brid.gy'),
-            (Web, 'bsky.brid.gy', ActivityPub, '@bsky.brid.gy@bsky.brid.gy'),
-        ]:
-            with self.subTest(from_=from_.LABEL, to=to.LABEL):
-                self.assertEqual(expected, translate_handle(
-                    handle=handle, from_=from_, to=to, enhanced=True))
-
     @patch('ids.ATPROTO_HANDLE_DOMAINS', set(('example.com',)))
     def test_translate_handle_atproto_handle_domains_file(self):
         self.assertEqual('alice.example.com', translate_handle(
             handle='alice.example.com', from_=Web, to=ATProto))
         self.assertEqual('bob.example.com', translate_handle(
             handle='@bob@example.com', from_=ActivityPub, to=ATProto))
-
-        # TODO: enhanced True? https://github.com/snarfed/bridgy-fed/issues/1969
 
     def test_translate_object_id(self):
         self.store_object(id='http://po.st',
