@@ -17,6 +17,7 @@ from granary.tests.test_bluesky import (
     LIKE_BSKY,
     POST_AS,
     POST_BSKY,
+    POST_BSKY_IMAGES,
     REPLY_BSKY,
     REPOST_BSKY,
 )
@@ -30,6 +31,7 @@ from atproto import ATProto, Cursor
 import atproto_firehose
 from atproto_firehose import commits, handle, Op, STORE_CURSOR_FREQ
 import common
+from memcache import memcache
 from models import Object, Target
 import protocol
 from protocol import DELETE_TASK_DELAY
@@ -196,6 +198,12 @@ class ATProtoFirehoseSubscribeTest(ATProtoTestCase):
 
     def test_post_by_our_atproto_user(self):
         self.assert_enqueues(POST_BSKY)
+
+    def test_post_with_image_blob_bytes_cid_from_libipld_v2(self):
+        # https://github.com/snarfed/bridgy-fed/issues/1316
+        post = copy.deepcopy(POST_BSKY_IMAGES)
+        post['embed']['images'][0]['image']['ref'] = b'\x01Uasdf'
+        self.assert_enqueues(post)
 
     def test_post_by_other(self):
         self.assert_doesnt_enqueue(POST_BSKY, repo='did:plc:bob')
@@ -620,6 +628,42 @@ class ATProtoFirehoseHandleTest(ATProtoTestCase):
                          id='at://did:plc:user/app.bsky.feed.post/123',
                          bsky=reply, source_protocol='atproto',
                          authed_as='did:plc:user', received_at='1900-02-04')
+
+    def test_create_post_with_image_blob_bytes_cid_from_libipld_v2(
+            self, mock_create_task):
+        # https://github.com/snarfed/bridgy-fed/issues/1316
+        post_encoded = copy.deepcopy(POST_BSKY_IMAGES)
+        post_encoded['embed']['images'][0]['image']['ref'] = A_CID.encode('base32')
+
+        post_bytes = copy.deepcopy(POST_BSKY_IMAGES)
+        post_bytes['embed']['images'][0]['image']['ref'] = bytes(A_CID)
+
+        reply_encoded = copy.deepcopy(REPLY_BSKY)
+        reply_encoded['reply']['root']['cid'] = \
+            reply_encoded['reply']['parent']['cid'] = A_CID.encode('base32')
+
+        reply_bytes = copy.deepcopy(REPLY_BSKY)
+        reply_bytes['reply']['root']['cid'] = \
+            reply_bytes['reply']['parent']['cid'] = bytes(A_CID)
+
+        user_key = ATProto(id='did:plc:user').key
+
+        for record, expected in (
+                (post_bytes, post_encoded),
+                (reply_bytes, reply_encoded),
+        ):
+            with self.subTest(record=record):
+                mock_create_task.reset_mock()
+                memcache.client_pool.clear()
+
+                commits.put(Op(repo='did:plc:user', action='create', seq=789,
+                               path='app.bsky.feed.post/123', record=record,
+                               time='1900-02-04'))
+                handle(limit=1)
+                self.assert_task(mock_create_task, 'receive',
+                                 id='at://did:plc:user/app.bsky.feed.post/123',
+                                 bsky=expected, source_protocol='atproto',
+                                 authed_as='did:plc:user', received_at='1900-02-04')
 
     def test_delete_post(self, mock_create_task):
         commits.put(Op(repo='did:plc:user', action='delete', seq=789,

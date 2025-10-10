@@ -288,7 +288,6 @@ def unwrap(val, field=None):
     Returns:
       str: unwrapped url
     """
-
     if isinstance(val, dict):
         # TODO: clean up. https://github.com/snarfed/bridgy-fed/issues/967
         id = val.get('id')

@@ -22,6 +22,7 @@ from google.cloud.ndb.exceptions import ContextError
 from granary.bluesky import AT_URI_PATTERN
 from lexrpc.client import Client
 import libipld
+from multiformats import CID
 from oauth_dropins.webutil import util
 from oauth_dropins.webutil.appengine_config import ndb_client
 from oauth_dropins.webutil.appengine_info import DEBUG
@@ -213,6 +214,10 @@ def subscribe():
 
         blocks = {}  # maps base32 str CID to dict block
         if block_bytes := payload.get('blocks'):
+            # WARNING: in libipld v2+ (which we're on), this returns CIDs as raw
+            # bytes! we base32-encode those to strings later, in _handle_commit_op,
+            # via _encode_bytes_cids background:
+            # https://github.com/snarfed/bridgy-fed/issues/1316
             _, blocks = libipld.decode_car(block_bytes)
 
         # detect records from bridged ATProto users that we should handle
@@ -345,14 +350,15 @@ def _handle_commit_op(op):
       op (CommitOp)
     """
     at_uri = f'at://{op.repo}/{op.path}'
-
     type, _ = op.path.strip('/').split('/', maxsplit=1)
+
+    record = _encode_bytes_cids(op.record)
 
     if type in ATProto.STORE_RECORD_TYPES and op.action in ('create', 'update'):
         # TODO: handle deletes
         logger.info(f'Just storing {at_uri}')
         assert type not in ATProto.SUPPORTED_RECORD_TYPES, (type, record)
-        Object.get_or_create(at_uri, bsky=op.record, authed_as=op.repo,
+        Object.get_or_create(at_uri, bsky=record, authed_as=op.repo,
                              source_protocol=ATProto.LABEL)
         if type == 'community.lexicon.payments.webMonetization':
             _handle_webMonetization(op)
@@ -365,9 +371,7 @@ def _handle_commit_op(op):
     # store object, enqueue receive task
     verb = None
     if op.action in ('create', 'update'):
-        record_kwarg = {
-            'bsky': op.record,
-        }
+        record_kwarg = {'bsky': record}
         obj_id = at_uri
 
     elif op.action == 'delete':
@@ -460,3 +464,37 @@ def _handle_webMonetization(op):
         profile.extra_as1 = {}
     profile.extra_as1.update({'monetization': op.record['address']})
     profile.put()
+
+
+def _encode_bytes_cids(val):
+    """Convert bytes values in a record to base32-encoded string CIDs, in place.
+
+    This is a compatibility hack for libipld v2+. v1's ``decode_car`` returned CIDs as
+    strings, base32-encoded. v2 switched to raw bytes.
+
+    https://github.com/snarfed/bridgy-fed/issues/1316
+    https://github.com/MarshalX/python-libipld/releases/tag/v2.0.0
+
+    We JSON-encode record and include them in task HTTP request bodies, so we need to
+    encode these CIDs. One catch is that there are also bytes-valued fields in ATProto
+    records, https://atproto.com/specs/lexicon#bytes . To do this right, we'd need to
+    use the record's lexicon to introspect it determine each value's type, and do the
+    right thing. That would be a lot of work, though. :meth:`lexrpc.Base.validate` has
+    the logic, but it's not usable for arbitrary transformations like this.
+
+    Fortunately, as of now (Oct 2025), the only bytes-valued field in the app.bsky
+    lexicons is in subscribeLabels, and not in a record. So, as a hack, we try to
+    convert all bytes values to CIDs, and if that fails, let the exception propagate
+    up. (Should never happen right now.)
+
+    Args:
+      val (record dict, or other dict or list or primitive value)
+    """
+    if isinstance(val, bytes):
+        return CID.decode(val).encode('base32')  # raises ValueError if not CID
+    elif isinstance(val, dict):
+        return {k: _encode_bytes_cids(v) for k, v in val.items()}
+    elif isinstance(val, (list, tuple)):
+        return [_encode_bytes_cids(v) for v in val]
+
+    return val
