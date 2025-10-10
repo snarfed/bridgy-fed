@@ -30,6 +30,7 @@ from models import PROTOCOLS
 import nostr
 from nostr import Nostr
 from protocol import DELETE_TASK_DELAY
+from ui import UIProtocol
 
 logger = logging.getLogger(__name__)
 
@@ -81,7 +82,7 @@ def _load_users():
 
             new_bridged = []
             for proto in PROTOCOLS.values():
-                if proto and proto != Nostr:
+                if proto and proto not in (Nostr, UIProtocol):
                     # query for all users, then filter for nostr enabled
                     users = proto.query(proto.status == None,
                                         proto.enabled_protocols == 'nostr',
