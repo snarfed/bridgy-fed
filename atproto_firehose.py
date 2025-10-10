@@ -339,77 +339,86 @@ def handler():
                 # https://console.cloud.google.com/errors/detail/CIvwj_7MmsfOWw;time=P1D;locations=global?project=bridgy-federated
 
 
+def _handle_commit_op(op):
+    """
+    Args:
+      op (CommitOp)
+    """
+    at_uri = f'at://{op.repo}/{op.path}'
+
+    type, _ = op.path.strip('/').split('/', maxsplit=1)
+
+    if type in ATProto.STORE_RECORD_TYPES and op.action in ('create', 'update'):
+        # TODO: handle deletes
+        logger.info(f'Just storing {at_uri}')
+        assert type not in ATProto.SUPPORTED_RECORD_TYPES, (type, record)
+        Object.get_or_create(at_uri, bsky=op.record, authed_as=op.repo,
+                             source_protocol=ATProto.LABEL)
+        if type == 'community.lexicon.payments.webMonetization':
+            _handle_webMonetization(op)
+        return
+
+    if type not in ATProto.SUPPORTED_RECORD_TYPES:
+        logger.info(f'Skipping unsupported type {type}: {at_uri}')
+        return
+
+    # store object, enqueue receive task
+    verb = None
+    if op.action in ('create', 'update'):
+        record_kwarg = {
+            'bsky': op.record,
+        }
+        obj_id = at_uri
+
+    elif op.action == 'delete':
+        verb = (
+            'delete' if type in ('app.bsky.actor.profile', 'app.bsky.feed.post')
+            else 'stop-following' if type == 'app.bsky.graph.follow'
+            else 'undo')
+        obj_id = f'{at_uri}#{verb}'
+        record_kwarg = {
+            'our_as1': {
+                'objectType': 'activity',
+                'verb': verb,
+                'id': obj_id,
+                'actor': op.repo,
+                'object': at_uri,
+            },
+        }
+
+        # stop-following object is followee id, not follow activity's id
+        if type == 'app.bsky.graph.follow':
+            if (follow := ATProto.load(at_uri, remote=False)) and follow.bsky:
+                record_kwarg['our_as1']['object'] = follow.bsky['subject']
+            else:
+                return
+
+    else:
+        logger.error(f'Unknown action {op.action} for {op.repo} {op.path}')
+        return
+
+    if verb and verb not in ATProto.SUPPORTED_AS1_TYPES:
+        return
+
+    logger.debug(f'Got {op.seq} {op.action} {op.repo} {op.path}')
+    delay = DELETE_TASK_DELAY if op.action == 'delete' else None
+    try:
+        create_task(queue='receive', id=obj_id, source_protocol=ATProto.LABEL,
+                    authed_as=op.repo, received_at=op.time, delay=delay,
+                    **record_kwarg)
+        # when running locally, comment out above and uncomment this
+        # logger.info(f'enqueuing receive task for {at_uri}')
+    except ContextError:
+        raise  # handled in handle()
+    except BaseException:
+        report_error(obj_id, exception=True)
+
+
 def handle(limit=None):
-    def _handle(op):
-        at_uri = f'at://{op.repo}/{op.path}'
-
-        type, _ = op.path.strip('/').split('/', maxsplit=1)
-
-        if type in ATProto.STORE_RECORD_TYPES and op.action in ('create', 'update'):
-            # TODO: handle deletes
-            logger.info(f'Just storing {at_uri}')
-            assert type not in ATProto.SUPPORTED_RECORD_TYPES, (type, record)
-            Object.get_or_create(at_uri, bsky=op.record, authed_as=op.repo,
-                                 source_protocol=ATProto.LABEL)
-            if type == 'community.lexicon.payments.webMonetization':
-                _handle_webMonetization(op)
-            return
-
-        if type not in ATProto.SUPPORTED_RECORD_TYPES:
-            logger.info(f'Skipping unsupported type {type}: {at_uri}')
-            return
-
-        # store object, enqueue receive task
-        verb = None
-        if op.action in ('create', 'update'):
-            record_kwarg = {
-                'bsky': op.record,
-            }
-            obj_id = at_uri
-
-        elif op.action == 'delete':
-            verb = (
-                'delete' if type in ('app.bsky.actor.profile', 'app.bsky.feed.post')
-                else 'stop-following' if type == 'app.bsky.graph.follow'
-                else 'undo')
-            obj_id = f'{at_uri}#{verb}'
-            record_kwarg = {
-                'our_as1': {
-                    'objectType': 'activity',
-                    'verb': verb,
-                    'id': obj_id,
-                    'actor': op.repo,
-                    'object': at_uri,
-                },
-            }
-
-            # stop-following object is followee id, not follow activity's id
-            if type == 'app.bsky.graph.follow':
-                if (follow := ATProto.load(at_uri, remote=False)) and follow.bsky:
-                    record_kwarg['our_as1']['object'] = follow.bsky['subject']
-                else:
-                    return
-
-        else:
-            logger.error(f'Unknown action {op.action} for {op.repo} {op.path}')
-            return
-
-        if verb and verb not in ATProto.SUPPORTED_AS1_TYPES:
-            return
-
-        logger.debug(f'Got {op.action} {op.repo} {op.path}')
-        delay = DELETE_TASK_DELAY if op.action == 'delete' else None
-        try:
-            create_task(queue='receive', id=obj_id, source_protocol=ATProto.LABEL,
-                        authed_as=op.repo, received_at=op.time, delay=delay,
-                        **record_kwarg)
-            # when running locally, comment out above and uncomment this
-            # logger.info(f'enqueuing receive task for {at_uri}')
-        except ContextError:
-            raise  # handled in handle()
-        except BaseException:
-            report_error(obj_id, exception=True)
-
+    """
+    Args:
+      limit: integer (optional): only used in tests
+    """
     seen = 0
     while op := commits.get():
         match op.action:
@@ -424,12 +433,13 @@ def handle(limit=None):
                 if user := ATProto.get_by_id(op.repo):
                     user.put()
                     if user.obj and user.obj.bsky:
-                        _handle(Op(repo=op.repo, action='update', record=user.obj.bsky,
-                                   path='app.bsky.actor.profile/self',
-                                   seq=op.seq, time=op.time))
+                        _handle_commit_op(
+                            Op(repo=op.repo, action='update', record=user.obj.bsky,
+                               path='app.bsky.actor.profile/self', seq=op.seq,
+                               time=op.time))
 
             case _:
-                _handle(op)
+                _handle_commit_op(op)
 
         seen += 1
         if limit is not None and seen >= limit:
