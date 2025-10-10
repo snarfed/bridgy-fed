@@ -1704,8 +1704,10 @@ class ActivityPubTest(TestCase):
         got = self.client.post('/ap/sharedInbox', data=body, headers=headers)
         self.assertEqual(299, got.status_code, got.get_data(as_text=True))
 
+    # TODO: this test fails when run on its own. why?
+    @patch('activitypub.NO_AUTH_DOMAINS', ('no.auth',))
     def test_inbox_NO_AUTH_DOMAINS(self, *_):
-        id = 'https://a.gup.pe/a-group'
+        id = 'https://no.auth/a-group'
         self.store_object(id=id, as2={
             'publicKey': {
                 'owner': id,
@@ -1719,7 +1721,7 @@ class ActivityPubTest(TestCase):
             got = self.client.post('/ap/sharedInbox', data=body, headers=headers)
 
         self.assertEqual(204, got.status_code)
-        self.assertIn("we don't know how to authorize a.gup.pe activities",
+        self.assertIn("we don't know how to authorize no.auth activities",
                       ' '.join(logs.output))
 
     def test_delete_actor(self, *mocks):

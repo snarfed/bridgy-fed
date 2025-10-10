@@ -79,13 +79,13 @@ OLD_ACCOUNT_EXEMPT_DOMAINS = (
     'pixelfed.social',
 )
 
-# we can't yet authorize activities from these domains:
-# * a.gup.pe groups sign with the group's actor but use the external author as
-#   actor and attributedTo, and don't include an LD Sig
+# domains that we can't yet authorize activities from. currently none.
+#
+# historical:
+# * a.gup.pe groups signed with the group's actor but use the external author as
+#   actor and attributedTo, and don't include an LD Sig. a.gup.pe is now shut down.
 #   https://github.com/snarfed/bridgy-fed/issues/566#issuecomment-2130714037
-NO_AUTH_DOMAINS = (
-    'a.gup.pe',
-)
+NO_AUTH_DOMAINS = ()
 
 FEDI_URL_RE = re.compile(r'https://[^/]+/(@|users/)([^/@]+)(@[^/@]+)?(/(?:statuses/)?[0-9]+)?')
 
