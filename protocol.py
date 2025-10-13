@@ -36,12 +36,6 @@ from common import (
 )
 import dms
 import ids
-from ids import (
-    BOT_ACTOR_AP_IDS,
-    normalize_user_id,
-    translate_object_id,
-    translate_user_id,
-)
 import memcache
 from models import (
     DM,
@@ -333,7 +327,7 @@ class Protocol:
             is_internal = parsed.path.startswith(ids.INTERNAL_PATH_PREFIX)
             by_subdomain = Protocol.for_bridgy_subdomain(id)
             if by_subdomain and not (is_homepage or is_internal
-                                     or id in BOT_ACTOR_AP_IDS):
+                                     or id in ids.BOT_ACTOR_AP_IDS):
                 logger.debug(f'  {by_subdomain.LABEL} owns id {id}')
                 return by_subdomain
 
@@ -969,35 +963,36 @@ class Protocol:
 
         type = as1.object_type(outer_obj)
         translate(outer_obj, 'id',
-                  translate_user_id if type in as1.ACTOR_TYPES
-                  else translate_object_id)
+                  ids.translate_user_id if type in as1.ACTOR_TYPES
+                  else ids.translate_object_id)
 
         for o in inner_objs:
             is_actor = (as1.object_type(o) in as1.ACTOR_TYPES
                         or as1.get_owner(outer_obj) == o.get('id')
                         or type in ('follow', 'stop-following'))
-            translate(o, 'id', translate_user_id if is_actor else translate_object_id)
+            translate(o, 'id', (ids.translate_user_id if is_actor
+                                else ids.translate_object_id))
             obj_is_actor = o.get('verb') in as1.VERBS_WITH_ACTOR_OBJECT
-            translate(o, 'object', translate_user_id if obj_is_actor
-                      else translate_object_id)
+            translate(o, 'object', (ids.translate_user_id if obj_is_actor
+                                    else ids.translate_object_id))
 
         for o in [outer_obj] + inner_objs:
-            translate(o, 'inReplyTo', translate_object_id)
+            translate(o, 'inReplyTo', ids.translate_object_id)
             for field in 'actor', 'author', 'to', 'cc', 'bto', 'bcc':
-                translate(o, field, translate_user_id)
+                translate(o, field, ids.translate_user_id)
             for tag in as1.get_objects(o, 'tags'):
                 if tag.get('objectType') == 'mention':
-                    translate(tag, 'url', translate_user_id, uri=True)
+                    translate(tag, 'url', ids.translate_user_id, uri=True)
             for att in as1.get_objects(o, 'attachments'):
-                translate(att, 'id', translate_object_id)
+                translate(att, 'id', ids.translate_object_id)
                 url = att.get('url')
                 if url and not att.get('id'):
                     if from_cls := Protocol.for_id(url):
-                        att['id'] = translate_object_id(from_=from_cls, to=to_cls,
-                                                        id=url)
+                        att['id'] = ids.translate_object_id(from_=from_cls, to=to_cls,
+                                                            id=url)
             if feat := as1.get_object(o, 'featured'):
-                translate(feat, 'orderedItems', translate_object_id)
-                translate(feat, 'items', translate_object_id)
+                translate(feat, 'orderedItems', ids.translate_object_id)
+                translate(feat, 'items', ids.translate_object_id)
 
         outer_obj = util.trim_nulls(outer_obj)
 
@@ -1091,8 +1086,8 @@ class Protocol:
 
         assert authed_as
         assert isinstance(authed_as, str)
-        authed_as = normalize_user_id(id=authed_as, proto=from_cls)
-        actor = normalize_user_id(id=actor, proto=from_cls)
+        authed_as = ids.normalize_user_id(id=authed_as, proto=from_cls)
+        actor = ids.normalize_user_id(id=actor, proto=from_cls)
         if actor != authed_as:
             report_error("Auth: receive: authed_as doesn't match owner",
                          user=f'{id} authed_as {authed_as} owner {actor}')

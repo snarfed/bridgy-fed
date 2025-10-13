@@ -1212,6 +1212,12 @@ class ObjectTest(TestCase):
         with self.assertRaises(AssertionError):
             Object(id='not a fake', source_protocol='fake').put()
 
+    def test_put_nostr_requires_nostr_uri(self):
+        Object(id='nostr:nevent123', source_protocol='nostr').put()
+
+        with self.assertRaises(AssertionError):
+            Object(id='nevent123', source_protocol='nostr').put()
+
     def test_put_blocklisted_id(self):
         Object(id='asdf foo').put()  # ok, no source protocol
         Object(id='fake:foo', source_protocol='fake').put()  # ok, valid id

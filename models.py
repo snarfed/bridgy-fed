@@ -1267,6 +1267,9 @@ class Object(AddRemoveMixin, StringIdModel):
             assert proto.owns_id(id) is not False, \
                 f'Protocol {proto.LABEL} does not own id {id}'
 
+        if self.source_protocol == 'nostr':
+            assert id.startswith('nostr:'), id
+
         if id.startswith('at://'):
             repo, _, _ = parse_at_uri(id)
             if not repo.startswith('did:'):

@@ -35,7 +35,7 @@ from common import (
     SUPERDOMAIN,
 )
 from flask_app import app
-from ids import normalize_user_id, translate_object_id, translate_user_id
+import ids
 import memcache
 from models import Follower, Object, PROTOCOLS, Target, User
 from protocol import Protocol
@@ -242,8 +242,8 @@ class Web(User, Protocol):
         if isinstance(to_proto, str):
             to_proto = PROTOCOLS[to_proto]
 
-        converted = translate_user_id(id=self.key.id(), from_=self,
-                                      to=to_proto)
+        converted = ids.translate_user_id(id=self.key.id(), from_=self,
+                                          to=to_proto)
 
         if to_proto.LABEL == 'activitypub':
             other = 'web' if self.ap_subdomain == 'fed' else 'fed'
@@ -510,7 +510,7 @@ class Web(User, Protocol):
             logger.info(f'Skipping sending to blocklisted {target}')
             return False
 
-        source_id = translate_object_id(
+        source_id = ids.translate_object_id(
             id=obj.key.id(), from_=PROTOCOLS[obj.source_protocol], to=Web)
         source_url = quote(source_id, safe=':/%+')
         logger.info(f'Sending webmention from {source_url} to {target}')
@@ -726,7 +726,7 @@ def check_web_site():
 
     # this normalizes and lower cases domain
     try:
-        domain = normalize_user_id(id=url, proto=Web)
+        domain = ids.normalize_user_id(id=url, proto=Web)
     except (ValueError, AssertionError):
         logger.info(f'bad web id? {url}', exc_info=True)
         domain = None

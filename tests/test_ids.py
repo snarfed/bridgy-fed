@@ -54,7 +54,8 @@ class IdsTest(TestCase):
             (ActivityPub, 'https://bsky.brid.gy/ap/did:plc:456',
              Fake, 'fake:u:did:plc:456'),
             (ATProto, 'did:plc:456', ATProto, 'did:plc:456'),
-            (Nostr, 'npub123', Nostr, 'npub123'),
+            (Nostr, 'npub123', Nostr, 'nostr:npub123'),
+            (Nostr, 'nostr:npub123', Nostr, 'nostr:npub123'),
 
             # copies
             (ATProto, 'did:plc:123', Web, 'user.com'),
@@ -69,10 +70,15 @@ class IdsTest(TestCase):
             (ATProto, 'https://bsky.app/profile/user.com', ATProto, 'did:plc:123'),
             (ATProto, 'https://bsky.app/profile/did:plc:123', ATProto, 'did:plc:123'),
 
-            (Nostr, 'npub123', Web, 'https://nostr.brid.gy/web/npub123'),
-            (Nostr, 'npub123', ActivityPub, 'https://nostr.brid.gy/ap/npub123'),
+            (Nostr, 'npub123', Web, 'https://nostr.brid.gy/web/nostr:npub123'),
+            (Nostr, 'nostr:npub123', Web, 'https://nostr.brid.gy/web/nostr:npub123'),
+            (Nostr, 'npub123', ActivityPub, 'https://nostr.brid.gy/ap/nostr:npub123'),
+            (Nostr, 'nostr:npub123', ActivityPub,
+             'https://nostr.brid.gy/ap/nostr:npub123'),
             (Nostr, 'npub123', ATProto, None),
-            (Nostr, 'npub123', Fake, 'fake:u:npub123'),
+            (Nostr, 'nostr:npub123', ATProto, None),
+            (Nostr, 'npub123', Fake, 'fake:u:nostr:npub123'),
+            (Nostr, 'nostr:npub123', Fake, 'fake:u:nostr:npub123'),
 
             (ActivityPub, 'https://inst/user', Nostr, None),
             (Web, 'user.com', Nostr, None),
@@ -172,12 +178,20 @@ class IdsTest(TestCase):
             with self.subTest(id=id, proto=proto):
                 self.assertEqual(expected, ids.normalize_user_id(id=id, proto=proto))
 
+        user = Nostr(id='nostr:npub123', obj_key=Object(id='nostr:nprofileabc').key)
+        user.put()
+        self.assertEqual('nostr:npub123',
+                         ids.normalize_user_id(id='nprofileabc', proto=Nostr))
+        self.assertEqual('nostr:npub123',
+                         ids.normalize_user_id(id='nostr:nprofileabc', proto=Nostr))
+
     def test_profile_id(self):
         for proto, id, expected in [
             (ActivityPub, 'https://inst/user', 'https://inst/user'),
             (ATProto, 'did:plc:123', 'at://did:plc:123/app.bsky.actor.profile/self'),
             (Fake, 'fake:user', 'fake:profile:user'),
             (Web, 'user.com', 'https://user.com/'),
+            (Nostr, 'npub123', None),
             (Nostr, 'nostr:npub123', None),
         ]:
             with self.subTest(id=id, proto=proto):
@@ -185,6 +199,8 @@ class IdsTest(TestCase):
 
         user = Nostr(id='nostr:npub123', obj_key=Object(id='nostr:nprofileabc').key)
         user.put()
+        self.assertEqual('nostr:nprofileabc',
+                         ids.profile_id(id='npub123', proto=Nostr))
         self.assertEqual('nostr:nprofileabc',
                          ids.profile_id(id='nostr:npub123', proto=Nostr))
         self.assertEqual('nostr:nprofileabc', user.profile_id())

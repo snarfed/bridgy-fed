@@ -24,6 +24,8 @@ from common import (
     unwrap,
 )
 import models
+import nostr
+import protocol
 
 logger = logging.getLogger(__name__)
 
@@ -125,8 +127,7 @@ def translate_user_id(*, id, from_, to):
 
     # check for and handle our own subdomain-wrapped ids, eg
     # https://bsky.brid.gy/ap/did:plc:456
-    from protocol import Protocol
-    if domain_proto := Protocol.for_bridgy_subdomain(id, fed='web'):
+    if domain_proto := protocol.Protocol.for_bridgy_subdomain(id, fed='web'):
         path = urlparse(id).path.strip('/').split('/')
         if (path[0] == from_.ABBREV
                 or (from_.ABBREV == 'ap' and domain_proto.ABBREV == 'web'
@@ -155,6 +156,9 @@ def translate_user_id(*, id, from_, to):
             except (AssertionError, ValueError) as e:
                 logger.warning(e)
                 return None
+
+    if from_.LABEL == 'nostr' and not id.startswith('nostr:'):
+        id = 'nostr:' + id
 
     if from_ == to:
         return id
@@ -230,6 +234,10 @@ def normalize_user_id(*, id, proto):
     elif proto.LABEL == 'nostr':
         if not id.startswith('nostr:'):
             normalized = 'nostr:' + id
+        obj_key = models.Object(id=normalized).key
+        if user := nostr.Nostr.query(nostr.Nostr.obj_key == obj_key).get():
+            normalized = user.key.id()
+
     elif proto.LABEL in ('fake', 'efake', 'other'):
         normalized = normalized.replace(':profile:', ':')
 
@@ -256,8 +264,6 @@ def profile_id(*, id, proto):
     Returns:
       str: the profile id
     """
-    from nostr import Nostr
-
     if proto.owns_id(id) is False:
         return id
 
@@ -269,7 +275,10 @@ def profile_id(*, id, proto):
             return f'https://{id}/'
 
         case 'nostr':
-            if (user := Nostr.get_by_id(id, allow_opt_out=True)) and user.obj_key:
+            if not id.startswith('nostr:'):
+                id = 'nostr:' + id
+            if ((user := nostr.Nostr.get_by_id(id, allow_opt_out=True))
+                    and user.obj_key):
                 return user.obj_key.id()
 
         # only for unit tests
