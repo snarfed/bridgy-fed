@@ -6,7 +6,7 @@ from atproto import ATProto
 from flask_app import app
 import ids
 from ids import translate_handle, translate_object_id, translate_user_id
-from models import Target
+from models import Object, Target
 from nostr import Nostr
 from .testutil import Fake, TestCase
 from web import Web
@@ -178,10 +178,16 @@ class IdsTest(TestCase):
             (ATProto, 'did:plc:123', 'at://did:plc:123/app.bsky.actor.profile/self'),
             (Fake, 'fake:user', 'fake:profile:user'),
             (Web, 'user.com', 'https://user.com/'),
-            (Nostr, 'npub123', 'npub123'),
+            (Nostr, 'nostr:npub123', None),
         ]:
             with self.subTest(id=id, proto=proto):
                 self.assertEqual(expected, ids.profile_id(id=id, proto=proto))
+
+        user = Nostr(id='nostr:npub123', obj_key=Object(id='nostr:nprofileabc').key)
+        user.put()
+        self.assertEqual('nostr:nprofileabc',
+                         ids.profile_id(id='nostr:npub123', proto=Nostr))
+        self.assertEqual('nostr:nprofileabc', user.profile_id())
 
     def test_translate_handle(self):
         for from_, handle, to, expected in [

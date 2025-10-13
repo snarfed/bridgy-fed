@@ -474,10 +474,11 @@ class TestCase(unittest.TestCase, testutil.Asserts):
                 obj_id = ((obj_as2 or {}).get('id')
                           or util.get_url((obj_mf2 or {}), 'properties')
                           or user.profile_id())
-            user.obj_key = Object.get_or_create(
-                id=obj_id, authed_as=obj_id, our_as1=obj_as1, as2=obj_as2,
-                bsky=obj_bsky, mf2=obj_mf2, nostr=obj_nostr,
-                source_protocol=cls.LABEL).key
+            if obj_id:
+                user.obj_key = Object.get_or_create(
+                    id=obj_id, authed_as=obj_id, our_as1=obj_as1, as2=obj_as2,
+                    bsky=obj_bsky, mf2=obj_mf2, nostr=obj_nostr,
+                    source_protocol=cls.LABEL).key
 
         user.put()
         return user

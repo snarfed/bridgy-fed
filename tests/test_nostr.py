@@ -169,6 +169,11 @@ class NostrTest(TestCase):
         profile.nostr['content'] = json_dumps({'nip05': 'a@x.y'})
         self.assertEqual('a.x.y', user.handle_as_domain)
 
+    def test_profile_id(self):
+        user = Nostr(id='nostr:npub123', obj_key=Object(id='nostr:nprofileabc').key)
+        user.put()
+        self.assertEqual('nostr:nprofileabc', user.profile_id())
+
     def test_convert_actor(self):
         self.assert_equals({
             'kind': KIND_PROFILE,

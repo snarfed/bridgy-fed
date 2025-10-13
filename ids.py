@@ -244,6 +244,7 @@ def profile_id(*, id, proto):
     * Web: user.com => https://user.com/
     * ActivityPub: https://inst.ance/alice => https://inst.ance/alice
     * ATProto: did:plc:123 => at://did:plc:123/app.bsky.actor.profile/self
+    * Nostr: nostr:npub123 => nostr:nprofileabc
 
     Note that :func:`normalize_user_id` does the inverse of this, ie converts
     profile ids to user ids.
@@ -255,6 +256,8 @@ def profile_id(*, id, proto):
     Returns:
       str: the profile id
     """
+    from nostr import Nostr
+
     if proto.owns_id(id) is False:
         return id
 
@@ -264,6 +267,10 @@ def profile_id(*, id, proto):
 
         case 'web' if not (id.startswith('https://') or id.startswith('http://')):
             return f'https://{id}/'
+
+        case 'nostr':
+            if (user := Nostr.get_by_id(id, allow_opt_out=True)) and user.obj_key:
+                return user.obj_key.id()
 
         # only for unit tests
         case 'fake' if not id.startswith('fake:profile:'):
