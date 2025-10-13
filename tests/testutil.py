@@ -388,6 +388,11 @@ class TestCase(unittest.TestCase, testutil.Asserts):
         # nostr fake websocket
         FakeConnection.reset()
         nostr.connect = nostr_hub.connect = fake_connect
+        nostr_hub.nostr_pubkeys = set()
+        nostr_hub.bridged_pubkeys = set()
+        nostr_hub.pubkeys_loaded_at = datetime(1900, 1, 1)
+        nostr_hub.pubkeys_initialized.clear()
+        nostr_hub.subscribed_relays = []
 
         # system level local timezone
         os.environ['TZ'] = 'America/Los_Angeles'
