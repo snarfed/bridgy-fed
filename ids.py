@@ -228,7 +228,8 @@ def normalize_user_id(*, id, proto):
     elif proto.LABEL == 'atproto' and id.startswith('at://'):
         normalized, _, _ = parse_at_uri(id)
     elif proto.LABEL == 'nostr':
-        normalized = id.removeprefix('nostr:')
+        if not id.startswith('nostr:'):
+            normalized = 'nostr:' + id
     elif proto.LABEL in ('fake', 'efake', 'other'):
         normalized = normalized.replace(':profile:', ':')
 

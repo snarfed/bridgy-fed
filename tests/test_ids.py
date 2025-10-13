@@ -166,8 +166,8 @@ class IdsTest(TestCase):
             (Web, 'https://user.com/', 'user.com'),
             (Web, 'https://www.user.com/', 'user.com'),
             (Web, 'm.user.com', 'user.com'),
-            (Nostr, 'npub123', 'npub123'),
-            (Nostr, 'nostr:nprofile1234abcd', 'nprofile1234abcd'),
+            (Nostr, 'nostr:npub123', 'nostr:npub123'),
+            (Nostr, 'nprofile1234abcd', 'nostr:nprofile1234abcd'),
         ]:
             with self.subTest(id=id, proto=proto):
                 self.assertEqual(expected, ids.normalize_user_id(id=id, proto=proto))
