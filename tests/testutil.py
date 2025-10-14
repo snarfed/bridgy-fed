@@ -308,6 +308,8 @@ for proto in (ActivityPub, ATProto, Nostr, Web):
 requests.post(f'http://{ndb_client.host}/reset')
 with ndb_client.context():
     global_user = activitypub._INSTANCE_ACTOR = Fake.get_or_create('fake:user')
+    # make it actually generate the keypair
+    global_user.private_pem()
 
 
 class TestCase(unittest.TestCase, testutil.Asserts):
