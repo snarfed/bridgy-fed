@@ -56,7 +56,7 @@ class Nostr(User, Protocol):
     """
     ABBREV = 'nostr'
     PHRASE = 'Nostr'
-    LOGO_EMOJI = ''  # TODO
+    LOGO_EMOJI = '𓅦'  # ostrich-ish bird
     LOGO_HTML = '<img src="/static/nostr_logo.png">'
     CONTENT_TYPE = 'application/json'
     HAS_COPIES = True
@@ -67,7 +67,7 @@ class Nostr(User, Protocol):
     SUPPORTED_AS1_TYPES = frozenset(
         tuple(as1.ACTOR_TYPES)
         + tuple(as1.POST_TYPES)
-        + ('post', 'delete', 'undo')  # no update/edit (I think?)
+        + ('post', 'delete', 'undo')  # TODO: update
         + ('follow', 'like', 'share', 'stop-following')
     )
     SUPPORTS_DMS = False  # NIP-17
@@ -189,15 +189,13 @@ class Nostr(User, Protocol):
         user.add('copies', Target(uri='nostr:' + user.npub(), protocol='nostr'))
         user.put()
 
-        if user.obj and any(copy.protocol == 'nostr' for copy in user.obj.copies):
+        # create Nostr profile (kind 0 event) if necessary
+        if user.obj and user.obj.get_copy(Nostr):
             return
 
-        # create Nostr profile (kind 0 event) if necessary
-        if not user.obj or not user.obj.as1:
+        if not user.obj.as1:
             user.reload_profile()
-
-        if user.obj and not user.obj.get_copy(cls):
-            cls.send(user.obj, cls.DEFAULT_TARGET, from_user=user)
+        cls.send(user.obj, cls.DEFAULT_TARGET, from_user=user)
 
     def reload_profile(self, **kwargs):
         """Reloads this user's kind 0 profile, NIP-65 relay list, and NIP-05 id.
