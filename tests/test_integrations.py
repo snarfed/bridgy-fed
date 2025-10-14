@@ -302,14 +302,11 @@ class IntegrationTests(TestCase):
         alice = self.make_atproto_user('did:plc:alice')
         bob = self.make_ap_user('http://inst/bob', 'did:plc:bob')
 
-        self.store_object(id='http://inst/post', source_protocol='activitypub',
-                          our_as1={
-                              'objectType': 'note',
-                              'author': 'http://inst/bob',
-                          },
-                          copies=[
-            Target(uri='at://did:plc:bob/app.bsky.feed.post/123', protocol='atproto'),
-        ])
+        self.store_object(
+            id='http://inst/post', source_protocol='activitypub',
+            our_as1={'objectType': 'note', 'author': 'http://inst/bob',},
+            copies=[Target(uri='at://did:plc:bob/app.bsky.feed.post/123',
+                           protocol='atproto')])
 
         reply = {
             '$type': 'app.bsky.feed.post',
@@ -330,7 +327,6 @@ class IntegrationTests(TestCase):
 
         self.assert_ap_deliveries(mock_post, ['http://inst/bob/inbox'],
                                   from_user=alice, data={
-            '@context': 'https://www.w3.org/ns/activitystreams',
             'type': 'Create',
             'id': 'https://bsky.brid.gy/convert/ap/at://did:plc:alice/app.bsky.feed.post/456#bridgy-fed-create',
             'actor': 'https://bsky.brid.gy/ap/did:plc:alice',
@@ -344,12 +340,10 @@ class IntegrationTests(TestCase):
                 'contentMap': {'en': '<p>I hereby reply</p>'},
                 'inReplyTo': 'http://inst/post',
                 'tag': [{'type': 'Mention', 'href': 'http://inst/bob'}],
-                'to': ['https://www.w3.org/ns/activitystreams#Public'],
                 'cc': ['http://inst/bob'],
             },
-            'to': ['https://www.w3.org/ns/activitystreams#Public'],
             'cc': ['http://inst/bob'],
-        })
+        }, ignore=['@context', 'to'])
 
     @patch('requests.post', return_value=BSKY_SEND_MESSAGE_RESP)
     @patch('requests.get', return_value=BSKY_GET_CONVO_RESP)
@@ -623,17 +617,15 @@ class IntegrationTests(TestCase):
         self.assertEqual(like, Object.get_by_id('http://inst/like').as2)
 
         repo = self.storage.load_repo('did:plc:bob')
-
-        records = repo.get_contents()
-        self.assertEqual(['app.bsky.feed.like'], list(records.keys()))
-        self.assertEqual([{
+        tid = arroba.util.int_to_tid(arroba.util._tid_ts_last)
+        self.assert_equals({tid: {
             '$type': 'app.bsky.feed.like',
             'subject': {
                 'uri': 'at://did:plc:alice/app.bsky.feed.post/123',
                 'cid': arroba.util.dag_cbor_cid(POST_BSKY).encode('base32'),
             },
             'createdAt': '2022-01-02T03:04:05.000Z',
-        }], list(records['app.bsky.feed.like'].values()))
+        }}, repo.get_contents()['app.bsky.feed.like'])
 
     @patch('oauth_dropins.webutil.appengine_config.tasks_client.create_task')
     @patch('requests.post', return_value=BSKY_SEND_MESSAGE_RESP)
@@ -1601,7 +1593,6 @@ To disable these messages, reply with the text 'mute'.""",
             ['EVENT', 'sub123', post_event],
             ['EOSE', 'sub123'],
         ]
-
         nostr_hub.subscribe('wss://nos.lol', limit=2)
 
         post_id = id_to_uri('note', post_event['id'])
@@ -1645,22 +1636,18 @@ To disable these messages, reply with the text 'mute'.""",
             ['EVENT', 'sub123', post_event],
             ['EOSE', 'sub123'],
         ]
-
         nostr_hub.subscribe('wss://nos.lol', limit=2)
 
         post_id = id_to_uri('note', post_event['id'])
         repo = self.storage.load_repo('did:plc:bob')
-        records = repo.get_contents()
-        self.assertEqual(['app.bsky.feed.post'], list(records.keys()))
-        posts = list(records['app.bsky.feed.post'].values())
-        self.assertEqual(1, len(posts))
-        self.assert_equals({
+        tid = arroba.util.int_to_tid(arroba.util._tid_ts_last)
+        self.assert_equals({'app.bsky.feed.post': {tid: {
             '$type': 'app.bsky.feed.post',
             'text': 'Hello from Nostr!',
             'bridgyOriginalText': 'Hello from Nostr!',
             'bridgyOriginalUrl': post_id,
             'createdAt': '2022-01-02T03:04:05.000Z',
-        }, posts[0])
+        }}}, repo.get_contents())
 
     def test_activitypub_post_to_nostr_follower(self):
         """ActivityPub post delivered to Nostr follower.
@@ -1761,16 +1748,18 @@ To disable these messages, reply with the text 'mute'.""",
                 'created_at': NOW_SECONDS,
             }]], FakeConnection.sent, ignore=['id', 'sig'])
 
-    @patch('secrets.token_urlsafe', side_effect=['sub123', 'sub456', 'sub789', 'subabc'])
-    def test_nostr_follow_activitypub_bot_user_enables_protocol(self, _):
-        """Nostr follow of ap.brid.gy bot user enables the ActivityPub protocol.
+    @patch('requests.get', side_effect=[
+        requests_response({'names': {'bob': 'deadbeef'}}),  # NIP-05 validation
+    ])
+    @patch('secrets.token_urlsafe',
+           side_effect=['sub123', 'sub456', 'sub789', 'subabc'])
+    def test_nostr_follow_activitypub_bot_user_invalid_nip05(self, _, mock_get):
+        """Nostr follow of ap.brid.gy bot user, invalid NIP-05.
 
-        Nostr user bob@nostr.example.com (NPUB_URI)
+        Nostr user bob@nostr.example.com (NPUB_URI) without valid NIP-05
         ActivityPub bot user ap.brid.gy (NPUB_URI_2)
         """
-        ap_bot = self.make_user('ap.brid.gy', cls=Web, ap_subdomain='ap',
-                                enabled_protocols=['nostr'],
-                                nostr_key_bytes=bytes.fromhex(PRIVKEY_2))
+        ap_bot = self.make_web_user('ap.brid.gy', enabled_protocols=['nostr'])
         bob = self.make_nostr_user(enabled_protocols=[])
 
         ap_bot_profile = id_and_sign({
@@ -1786,37 +1775,79 @@ To disable these messages, reply with the text 'mute'.""",
             'content': '',
             'tags': [['p', ap_bot.hex_pubkey()]],
             'created_at': NOW_SECONDS,
-        }, privkey=ap_bot.nsec())
+        }, privkey=NSEC_URI)
 
         nostr_hub.init(subscribe=False)
 
         FakeConnection.to_receive = [
             ['EVENT', 'sub123', follow],
             ['EOSE', 'sub123'],
-            ['EVENT', 'sub456', ap_bot_profile],
-            ['EOSE', 'sub456'],
-            ['EVENT', 'sub789', ap_bot_profile],
-            ['EOSE', 'sub789'],
-            ['EVENT', 'subabc', ap_bot_profile],
-            ['EOSE', 'subabc'],
         ]
+        nostr_hub.subscribe('wss://nos.lol', limit=1)
 
+        bob = bob.key.get()
+        self.assertFalse(bob.is_enabled(ActivityPub))
+        self.assertEqual([DM(protocol='activitypub', type='no-nip05')], bob.sent_dms)
+
+    @patch('requests.post', return_value=requests_response('OK'))
+    @patch('requests.get', side_effect=[
+        requests_response({'names': {'bob': PUBKEY}}),  # NIP-05 validation
+    ])
+    @patch('secrets.token_urlsafe',
+           side_effect=['sub123', 'sub456', 'sub789', 'subabc'])
+    def test_nostr_follow_activitypub_bot_user_enables_protocol(self, _, mock_get,
+                                                                mock_post):
+        """Nostr follow of ap.brid.gy bot user enables the ActivityPub protocol.
+
+        Nostr user bob@nostr.example.com (NPUB_URI) with valid NIP-05
+        ActivityPub bot user ap.brid.gy (NPUB_URI_2)
+        """
+        ap_bot = self.make_web_user('ap.brid.gy', enabled_protocols=['nostr'])
+        bob = self.make_nostr_user(enabled_protocols=[])
+
+        ap_bot_profile = id_and_sign({
+            'kind': KIND_PROFILE,
+            'pubkey': ap_bot.hex_pubkey(),
+            'content': json_dumps({'name': 'ActivityPub', 'nip05': '_@ap.brid.gy'}),
+            'created_at': NOW_SECONDS,
+        }, privkey=ap_bot.nsec())
+
+        follow = id_and_sign({
+            'kind': KIND_CONTACTS,
+            'pubkey': bob.hex_pubkey(),
+            'content': '',
+            'tags': [['p', ap_bot.hex_pubkey()]],
+            'created_at': NOW_SECONDS,
+        }, privkey=NSEC_URI)
+
+        nostr_hub.init(subscribe=False)
+
+        FakeConnection.to_receive = [
+            ['EVENT', 'sub123', follow],
+            ['EOSE', 'sub123'],
+        ]
         nostr_hub.subscribe('wss://nos.lol', limit=1)
 
         bob = bob.key.get()
         self.assertTrue(bob.is_enabled(ActivityPub))
         self.assertEqual([DM(protocol='activitypub', type='welcome')], bob.sent_dms)
 
-    @patch('secrets.token_urlsafe', side_effect=['sub123', 'sub456', 'sub789', 'subabc'])
-    def test_nostr_follow_atproto_bot_user_enables_protocol(self, _):
+    @patch('requests.post', return_value=requests_response('OK'))
+    @patch('requests.get', side_effect=[
+        requests_response({'names': {'bob': PUBKEY}}),  # bob NIP-05 validation
+        requests_response(''),  # bob profile picture
+    ])
+    @patch('secrets.token_urlsafe',
+           side_effect=['sub123', 'sub456', 'sub789', 'subabc'])
+    def test_nostr_follow_atproto_bot_user_enables_protocol(self, _, mock_get,
+                                                            mock_post):
         """Nostr follow of bsky.brid.gy bot user enables the ATProto protocol.
 
-        Nostr user bob@nostr.example.com (NPUB_URI)
+        Nostr user bob@nostr.example.com (NPUB_URI) with valid NIP-05
         ATProto bot user bsky.brid.gy (NPUB_URI_2)
         """
-        bsky_bot = self.make_user('bsky.brid.gy', cls=Web, ap_subdomain='bsky',
-                                  enabled_protocols=['nostr'],
-                                  nostr_key_bytes=bytes.fromhex(PRIVKEY_2))
+        bsky_bot = self.make_web_user('bsky.brid.gy', enabled_protocols=['nostr'])
+        common.bot_user_ids.cache_clear()
         bob = self.make_nostr_user(enabled_protocols=[])
 
         bsky_bot_profile = id_and_sign({
@@ -1824,7 +1855,7 @@ To disable these messages, reply with the text 'mute'.""",
             'pubkey': bsky_bot.hex_pubkey(),
             'content': json_dumps({'name': 'Bluesky', 'nip05': '_@bsky.brid.gy'}),
             'created_at': NOW_SECONDS,
-        }, privkey=NSEC_URI_2)
+        }, privkey=bsky_bot.nsec())
 
         follow = id_and_sign({
             'kind': KIND_CONTACTS,
@@ -1838,15 +1869,8 @@ To disable these messages, reply with the text 'mute'.""",
 
         FakeConnection.to_receive = [
             ['EVENT', 'sub123', follow],
-            ['EVENT', 'sub456', bsky_bot_profile],
-            ['EOSE', 'sub456'],
-            ['EVENT', 'sub789', bsky_bot_profile],
-            ['EOSE', 'sub789'],
-            ['EVENT', 'subabc', bsky_bot_profile],
-            ['EOSE', 'subabc'],
             ['EOSE', 'sub123'],
         ]
-
         nostr_hub.subscribe('wss://nos.lol', limit=1)
 
         bob = bob.key.get()
@@ -1871,7 +1895,7 @@ To disable these messages, reply with the text 'mute'.""",
             'image': 'http://pic',
         }))
 
-        self.make_user(id='nostr.brid.gy', cls=Web, ap_subdomain='nostr')
+        self.make_web_user('nostr.brid.gy', enabled_protocols=['nostr'])
 
         body = json_dumps({
             'type': 'Follow',
@@ -1997,19 +2021,15 @@ To disable these messages, reply with the text 'mute'.""",
             ['EVENT', 'sub456', alice_profile],
             ['EOSE', 'sub456'],
         ]
-
         nostr_hub.subscribe('wss://nos.lol', limit=4)
 
         repo = self.storage.load_repo('did:plc:bob')
-        records = repo.get_contents()
-        self.assertEqual(['app.bsky.graph.follow'], list(records.keys()))
-        follows = list(records['app.bsky.graph.follow'].values())
-        self.assertEqual(1, len(follows))
-        self.assert_equals({
+        tid = arroba.util.int_to_tid(arroba.util._tid_ts_last)
+        self.assert_equals({'app.bsky.graph.follow': {tid: {
             '$type': 'app.bsky.graph.follow',
             'subject': 'did:plc:alice',
             'createdAt': '2022-01-02T03:04:05.000Z',
-        }, follows[0])
+        }}}, repo.get_contents())
 
     @patch('requests.post')
     def test_nostr_reply_to_activitypub_user(self, mock_post):
@@ -2058,7 +2078,6 @@ To disable these messages, reply with the text 'mute'.""",
             ['EVENT', 'sub456', alice_profile],
             ['EOSE', 'sub456'],
         ]
-
         nostr_hub.subscribe('wss://nos.lol', limit=4)
 
         reply_id = id_to_uri('note', reply['id'])
@@ -2194,7 +2213,7 @@ To disable these messages, reply with the text 'mute'.""",
             'created_at': NOW_SECONDS,
         }, privkey=alice.nsec())
 
-        alice_post_obj = self.store_object(
+        self.store_object(
             id='at://did:plc:alice/app.bsky.feed.post/123',
             source_protocol='atproto',
             copies=[Target(uri=uri_for(post), protocol='nostr')],
@@ -2207,7 +2226,8 @@ To disable these messages, reply with the text 'mute'.""",
         self.store_object(
             id=id_to_uri('nevent', post['id']),
             source_protocol='nostr',
-            copies=[Target(uri='at://did:plc:alice/app.bsky.feed.post/123', protocol='atproto')],
+            copies=[Target(uri='at://did:plc:alice/app.bsky.feed.post/123',
+                           protocol='atproto')],
             nostr=post)
 
         reply = id_and_sign({
@@ -2227,18 +2247,26 @@ To disable these messages, reply with the text 'mute'.""",
             ['EOSE', 'sub456'],
             ['EOSE', 'sub123'],
         ]
-
         nostr_hub.subscribe('wss://nos.lol', limit=2)
 
         repo = self.storage.load_repo('did:plc:bob')
-        records = repo.get_contents()
-        self.assertEqual(['app.bsky.feed.post'], list(records.keys()))
-        replies = list(records['app.bsky.feed.post'].values())
-        self.assertEqual(1, len(replies))
-        # ATProto reply contains a reply field with parent/root refs
-        self.assertEqual('Replying to Alice!', replies[0]['text'])
-        self.assertEqual('at://did:plc:alice/app.bsky.feed.post/123',
-                         replies[0]['reply']['parent']['uri'])
+        tid = arroba.util.int_to_tid(arroba.util._tid_ts_last)
+        self.assert_equals({'app.bsky.feed.post': {tid: {
+            '$type': 'app.bsky.feed.post',
+            'text': 'Replying to Alice!',
+            'createdAt': '2022-01-02T03:04:05.000Z',
+            'reply': {
+                '$type': 'app.bsky.feed.post#replyRef',
+                'root': {
+                    'uri': 'at://did:plc:alice/app.bsky.feed.post/123',
+                    'cid': 'bafyreih25jnzwc5izsjs4h5djjbw6k66vy3xerjksl34nmmrdg4ziq4v4m',
+                },
+                'parent': {
+                    'uri': 'at://did:plc:alice/app.bsky.feed.post/123',
+                    'cid': 'bafyreih25jnzwc5izsjs4h5djjbw6k66vy3xerjksl34nmmrdg4ziq4v4m',
+                },
+            },
+        }}}, repo.get_contents(), ignore=['bridgyOriginalText', 'bridgyOriginalUrl'])
 
     def test_atproto_reply_to_nostr_user(self):
         """ATProto reply to Nostr user's post.
@@ -2249,15 +2277,14 @@ To disable these messages, reply with the text 'mute'.""",
         alice = self.make_atproto_user('did:plc:alice', enabled_protocols=['nostr'])
         bob = self.make_nostr_user(enabled_protocols=['atproto'])
 
-        bob_post = id_and_sign({
+        post = id_and_sign({
             'kind': KIND_NOTE,
-            'pubkey': PUBKEY,
+            'pubkey': bob.hex_pubkey(),
             'content': 'Hello from Bob!',
             'created_at': NOW_SECONDS,
         }, privkey=NSEC_URI)
-        bob_post_id = id_to_uri('note', bob_post['id'])
-        self.store_object(id=bob_post_id, source_protocol='nostr',
-                          nostr=bob_post)
+        post_id = id_to_uri('note', post['id'])
+        self.store_object(id=post_id, source_protocol='nostr', nostr=post)
 
         reply_obj = self.store_object(
             id='at://did:plc:alice/app.bsky.feed.post/456',
@@ -2267,7 +2294,7 @@ To disable these messages, reply with the text 'mute'.""",
                 'id': 'at://did:plc:alice/app.bsky.feed.post/456',
                 'author': 'did:plc:alice',
                 'content': 'Replying to Bob!',
-                'inReplyTo': bob_post_id,
+                'inReplyTo': post_id,
             })
 
         FakeConnection.to_receive = [['OK', 'event-id', True, '']]
@@ -2278,7 +2305,7 @@ To disable these messages, reply with the text 'mute'.""",
                 'kind': KIND_NOTE,
                 'pubkey': PUBKEY_2,
                 'content': 'Replying to Bob!',
-                'tags': [['e', bob_post['id'], None, 'reply']],
+                'tags': [['e', post['id'], None, 'reply']],
                 'created_at': NOW_SECONDS,
             }]], FakeConnection.sent, ignore=['id', 'sig'])
 
@@ -2311,7 +2338,6 @@ To disable these messages, reply with the text 'mute'.""",
             ['EVENT', 'sub123', profile],
             ['EOSE', 'sub123'],
         ]
-
         nostr_hub.subscribe('wss://nos.lol', limit=2)
 
         profile_id = uri_for(profile)
@@ -2370,7 +2396,7 @@ To disable these messages, reply with the text 'mute'.""",
         self.assert_equals([[
             'EVENT', {
                 'kind': KIND_PROFILE,
-                'pubkey': PUBKEY_2,
+                'pubkey': alice.hex_pubkey(),
                 'content': json_dumps({
                     'about': 'New bio\n\n🌉 bridged from ⁂ https://inst/alice by https://fed.brid.gy/',
                     'name': 'Alice Updated',
@@ -2408,7 +2434,7 @@ To disable these messages, reply with the text 'mute'.""",
         self.assert_equals([[
             'EVENT', {
                 'kind': KIND_PROFILE,
-                'pubkey': PUBKEY_2,
+                'pubkey': alice.hex_pubkey(),
                 'content': json_dumps({
                     'about': 'New bio',
                     'name': 'Alice Updated',
@@ -2446,7 +2472,7 @@ To disable these messages, reply with the text 'mute'.""",
         self.assert_equals([[
             'EVENT', {
                 'kind': 0,
-                'pubkey': PUBKEY_2,
+                'pubkey': alice.hex_pubkey(),
                 'content': json_dumps({
                     'about': 'New bio\n\n🌉 bridged from 🦋 https://bsky.app/profile/alice.com by https://fed.brid.gy/',
                     'name': 'Alice Updated',
