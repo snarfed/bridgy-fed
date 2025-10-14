@@ -1238,7 +1238,7 @@ class ObjectTest(TestCase):
             'actor': 'fake:alice',
             'object': 'fake:bob',
         }
-        obj = Object(our_as1=follow, source_protocol='fake')
+        obj = Object(id='fake:follow', our_as1=follow, source_protocol='fake')
 
         # no matching copy users
         obj.resolve_ids()
@@ -1277,7 +1277,7 @@ class ObjectTest(TestCase):
                 }],
             },
         }
-        obj = Object(our_as1=reply, source_protocol='fake')
+        obj = Object(id='fake:reply', our_as1=reply, source_protocol='fake')
 
         # no matching copy users or objects
         obj.resolve_ids()
@@ -1301,6 +1301,7 @@ class ObjectTest(TestCase):
         self.assert_equals({
             'objectType': 'activity',
             'verb': 'post',
+            'id': 'fake:reply',
             'object': {
                 'id': 'other:reply',
                 'objectType': 'note',
@@ -1319,7 +1320,7 @@ class ObjectTest(TestCase):
             'objectType': 'note',
             'inReplyTo': ['fake:a', 'fake:b'],
         }
-        obj = Object(our_as1=note, source_protocol='fake')
+        obj = Object(id='fake:note', our_as1=note, source_protocol='fake')
 
         # no matching copy users or objects
         obj.resolve_ids()
@@ -1342,7 +1343,7 @@ class ObjectTest(TestCase):
         }, obj.our_as1)
 
     def test_resolve_ids_subdomain_urls(self):
-        obj = Object(our_as1={
+        obj = Object(id='fake:mention', our_as1={
             'objectType': 'activity',
             'verb': 'post',
             'id': 'https://fa.brid.gy/web/foo.com',
@@ -1374,7 +1375,7 @@ class ObjectTest(TestCase):
         }, obj.our_as1)
 
     def test_resolve_ids_quote_post_in_attachments(self):
-        obj = Object(source_protocol='fake', our_as1={
+        obj = Object(id='fake:quote', source_protocol='fake', our_as1={
             'objectType': 'note',
             'id': 'fake:quote',
             'attachments': [{
@@ -1409,7 +1410,7 @@ class ObjectTest(TestCase):
         })
         alice = self.make_user(id='did:plc:user', cls=ATProto)
 
-        obj = Object(our_as1={
+        obj = Object(id='fake:follow', our_as1={
             'objectType': 'activity',
             'verb': 'follow',
             'actor': 'https://bsky.app/profile/did:plc:123',
@@ -1419,6 +1420,7 @@ class ObjectTest(TestCase):
         self.assert_equals({
             'objectType': 'activity',
             'verb': 'follow',
+            'id': 'fake:follow',
             'actor': 'did:plc:123',
             'object': 'did:plc:user',
         }, obj.our_as1)
@@ -1426,7 +1428,7 @@ class ObjectTest(TestCase):
     def test_normalize_ids_block(self):
         user = self.make_user('bob.com', cls=Web)
 
-        obj = Object(our_as1={
+        obj = Object(id='fake:block', our_as1={
             'objectType': 'activity',
             'verb': 'block',
             'actor': 'fake:alice',
@@ -1436,6 +1438,7 @@ class ObjectTest(TestCase):
         self.assert_equals({
             'objectType': 'activity',
             'verb': 'block',
+            'id': 'fake:block',
             'actor': 'fake:alice',
             'object': 'bob.com',
         }, obj.our_as1)
@@ -1448,7 +1451,7 @@ class ObjectTest(TestCase):
         })
         self.make_user(id='did:plc:user', cls=ATProto)
 
-        obj = Object(our_as1={
+        obj = Object(id='fake:note', our_as1={
             'objectType': 'activity',
             'verb': 'post',
             'object': {
@@ -1466,6 +1469,7 @@ class ObjectTest(TestCase):
         self.assert_equals({
             'objectType': 'activity',
             'verb': 'post',
+            'id': 'fake:note',
             'object': {
                 'id': 'at://did:plc:user/app.bsky.feed.post/456',
                 'objectType': 'note',

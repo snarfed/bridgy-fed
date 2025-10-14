@@ -1591,6 +1591,7 @@ class Object(AddRemoveMixin, StringIdModel):
         if not self_proto:
             return
 
+        logger.debug(f'Resolving ids for {self.key.id()}')
         inner_obj = outer_obj['object'] = as1.get_object(outer_obj)
         replaced = False
 
@@ -1654,7 +1655,7 @@ class Object(AddRemoveMixin, StringIdModel):
         if not self.as1:
             return
 
-        logger.debug(f'Normalizing ids')
+        logger.debug(f'Normalizing ids for {self.key.id()}')
         outer_obj = copy.deepcopy(self.as1)
         inner_objs = as1.get_objects(outer_obj)
         replaced = False
