@@ -1687,6 +1687,97 @@ To disable these messages, reply with the text 'mute'.""",
                 'created_at': NOW_SECONDS,
             }]], FakeConnection.sent, ignore=['id', 'sig'])
 
+    # TODO
+    @skip
+    def test_activitypub_update_post_to_nostr(self):
+        """ActivityPub user updates already-bridged post, delivered to Nostr follower.
+
+        ActivityPub user https://inst/alice
+        Nostr follower bob@nostr.example.com (NPUB_URI)
+        """
+        alice = self.make_ap_user('https://inst/alice', enabled_protocols=['nostr'])
+        bob = self.make_nostr_user(enabled_protocols=['activitypub'])
+
+        Follower.get_or_create(to=alice, from_=bob)
+
+        self.store_object(
+            id='https://inst/post',
+            source_protocol='activitypub',
+            our_as1={
+                'objectType': 'note',
+                'id': 'https://inst/post',
+                'author': 'https://inst/alice',
+                'content': 'Hello from ActivityPub!',
+            },
+            copies=[Target(uri='nostr:nevent14vfqwk95np', protocol='nostr')],
+        )
+
+        FakeConnection.to_receive = [['OK', 'event-id', True, '']]
+
+        update = {
+            '@context': 'https://www.w3.org/ns/activitystreams',
+            'type': 'Update',
+            'id': 'https://inst/post#update',
+            'actor': 'https://inst/alice',
+            'object': {
+                'type': 'Note',
+                'id': 'https://inst/post',
+                'attributedTo': 'https://inst/alice',
+                'content': 'Updated content!',
+            },
+        }
+        body = json_dumps(update)
+        headers = sign('/ap/sharedInbox', body, key_id='https://inst/alice')
+        resp = self.client.post('/ap/sharedInbox', data=body, headers=headers)
+        self.assertEqual(202, resp.status_code)
+
+        self.assert_equals([[
+            'EVENT', {
+                'kind': KIND_NOTE,
+                'pubkey': alice.hex_pubkey(),
+                'content': 'Updated content!',
+                'tags': [],
+                'created_at': NOW_SECONDS,
+            }]], FakeConnection.sent, ignore=['id', 'sig'])
+
+    def test_activitypub_delete_post_to_nostr(self):
+        """ActivityPub user deletes already-bridged post, delivered to Nostr follower.
+
+        ActivityPub user https://inst/alice
+        Nostr follower bob@nostr.example.com (NPUB_URI)
+        """
+        alice = self.make_ap_user('https://inst/alice', enabled_protocols=['nostr'])
+        bob = self.make_nostr_user(enabled_protocols=['activitypub'])
+
+        Follower.get_or_create(to=alice, from_=bob)
+
+        self.store_object(
+            id='https://inst/post',
+            source_protocol='activitypub',
+            copies=[Target(uri=id_to_uri('note', 'abc123'), protocol='nostr')],
+        )
+
+        delete = {
+            '@context': 'https://www.w3.org/ns/activitystreams',
+            'type': 'Delete',
+            'id': 'https://inst/post#delete',
+            'actor': 'https://inst/alice',
+            'object': 'https://inst/post',
+        }
+        body = json_dumps(delete)
+        headers = sign('/ap/sharedInbox', body, key_id='https://inst/alice')
+        resp = self.client.post('/ap/sharedInbox', data=body, headers=headers)
+        self.assertEqual(202, resp.status_code)
+
+        self.assert_equals([[
+            'EVENT', {
+                'kind': 5,
+                'pubkey': alice.hex_pubkey(),
+                'content': '',
+                'tags': [['e', 'abc123']],
+                'created_at': NOW_SECONDS,
+            }]], FakeConnection.sent, ignore=['id', 'sig'])
+
     @patch('requests.get', side_effect=[
         requests_response("""\
 <html>

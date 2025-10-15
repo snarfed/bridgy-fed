@@ -328,7 +328,12 @@ class Nostr(User, Protocol):
 
     @classmethod
     def send(to_cls, obj, relay_url, from_user=None, **kwargs):
-        """Sends an event to a relay."""
+        """Sends an event to a relay.
+
+        Events are immutable, so all operations happen by sending a new event,
+        including updates and deletes. :meth:`granary.nostr.from_as1` translates all
+        of those, so all we have to do here is convert and send the event.
+        """
         # TODO: update
         # TODO: delete
         assert from_user
