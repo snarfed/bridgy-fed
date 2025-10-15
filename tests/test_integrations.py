@@ -84,7 +84,6 @@ BSKY_SEND_MESSAGE_RESP = requests_response({  # sendMessage
 })
 
 
-@patch('ids.COPIES_PROTOCOLS', ['atproto'])
 class IntegrationTests(TestCase):
 
     def setUp(self):
@@ -1660,29 +1659,47 @@ To disable these messages, reply with the text 'mute'.""",
 
         Follower.get_or_create(to=alice, from_=bob)
 
-        post_obj = self.store_object(
-            id='https://inst/post',
-            source_protocol='activitypub',
-            our_as1={
-                'objectType': 'note',
-                'id': 'https://inst/post',
-                'author': 'https://inst/alice',
-                'content': 'Hello from ActivityPub!',
-            })
-
         FakeConnection.to_receive = [['OK', 'event-id', True, '']]
-        self.assertTrue(Nostr.send(post_obj, Nostr.DEFAULT_TARGET, from_user=alice))
+
+        create = {
+            '@context': 'https://www.w3.org/ns/activitystreams',
+            'type': 'Create',
+            'id': 'https://inst/post#create',
+            'actor': 'https://inst/alice',
+            'object': {
+                'type': 'Note',
+                'id': 'https://inst/post',
+                'attributedTo': 'https://inst/alice',
+                'content': 'Hello from ActivityPub!',
+            },
+        }
+        body = json_dumps(create)
+        headers = sign('/ap/sharedInbox', body, key_id='https://inst/alice')
+        resp = self.client.post('/ap/sharedInbox', data=body, headers=headers)
+        self.assertEqual(202, resp.status_code)
 
         self.assert_equals([[
             'EVENT', {
                 'kind': KIND_NOTE,
-                'pubkey': PUBKEY_2,
+                'pubkey': alice.hex_pubkey(),
                 'content': 'Hello from ActivityPub!',
                 'tags': [],
                 'created_at': NOW_SECONDS,
             }]], FakeConnection.sent, ignore=['id', 'sig'])
 
-    def test_web_post_to_nostr_follower(self):
+    @patch('requests.get', side_effect=[
+        requests_response("""\
+<html>
+<body class="h-entry">
+<a class="u-url" href="https://alice.com/post"></a>
+<div class="e-content">Hello from Web!</div>
+<a class="u-author h-card" href="https://alice.com/">Alice</a>
+<a href="http://localhost/"></a>
+</body>
+</html>
+"""),
+    ])
+    def test_web_post_to_nostr_follower(self, mock_get):
         """Web post delivered to Nostr follower.
 
         Web user alice.com
@@ -1693,23 +1710,18 @@ To disable these messages, reply with the text 'mute'.""",
 
         Follower.get_or_create(to=alice, from_=bob)
 
-        post_obj = self.store_object(
-            id='https://alice.com/post',
-            source_protocol='web',
-            our_as1={
-                'objectType': 'note',
-                'id': 'https://alice.com/post',
-                'author': 'https://alice.com/',
-                'content': 'Hello from Web!',
-            })
-
         FakeConnection.to_receive = [['OK', 'event-id', True, '']]
-        self.assertTrue(Nostr.send(post_obj, Nostr.DEFAULT_TARGET, from_user=alice))
+
+        resp = self.post('/queue/webmention', data={
+            'source': 'https://alice.com/post',
+            'target': 'http://localhost/',
+        })
+        self.assertEqual(202, resp.status_code)
 
         self.assert_equals([[
             'EVENT', {
                 'kind': KIND_NOTE,
-                'pubkey': PUBKEY_2,
+                'pubkey': alice.hex_pubkey(),
                 'content': 'Hello from Web!',
                 'tags': [],
                 'created_at': NOW_SECONDS,
@@ -1726,23 +1738,22 @@ To disable these messages, reply with the text 'mute'.""",
 
         Follower.get_or_create(to=alice, from_=bob)
 
-        post_obj = self.store_object(
-            id='at://did:plc:alice/app.bsky.feed.post/123',
-            source_protocol='atproto',
-            our_as1={
-                'objectType': 'note',
-                'id': 'at://did:plc:alice/app.bsky.feed.post/123',
-                'author': 'did:plc:alice',
-                'content': 'Hello from ATProto!',
-            })
+        # need at least one repo for firehose subscriber to load DIDs and run
+        Repo.create(self.storage, 'did:unused', signing_key=ATPROTO_KEY)
 
         FakeConnection.to_receive = [['OK', 'event-id', True, '']]
-        self.assertTrue(Nostr.send(post_obj, Nostr.DEFAULT_TARGET, from_user=alice))
+
+        post = {
+            '$type': 'app.bsky.feed.post',
+            'text': 'Hello from ATProto!',
+        }
+        self.firehose(repo='did:plc:alice', action='create', seq=123,
+                      path='app.bsky.feed.post/123', record=post)
 
         self.assert_equals([[
             'EVENT', {
                 'kind': KIND_NOTE,
-                'pubkey': PUBKEY_2,
+                'pubkey': alice.hex_pubkey(),
                 'content': 'Hello from ATProto!',
                 'tags': [],
                 'created_at': NOW_SECONDS,
@@ -2277,6 +2288,8 @@ To disable these messages, reply with the text 'mute'.""",
         alice = self.make_atproto_user('did:plc:alice', enabled_protocols=['nostr'])
         bob = self.make_nostr_user(enabled_protocols=['atproto'])
 
+        Follower.get_or_create(to=alice, from_=bob)
+
         post = id_and_sign({
             'kind': KIND_NOTE,
             'pubkey': bob.hex_pubkey(),
@@ -2286,26 +2299,23 @@ To disable these messages, reply with the text 'mute'.""",
         post_id = id_to_uri('note', post['id'])
         self.store_object(id=post_id, source_protocol='nostr', nostr=post)
 
-        reply_obj = self.store_object(
-            id='at://did:plc:alice/app.bsky.feed.post/456',
-            source_protocol='atproto',
-            our_as1={
-                'objectType': 'note',
-                'id': 'at://did:plc:alice/app.bsky.feed.post/456',
-                'author': 'did:plc:alice',
-                'content': 'Replying to Bob!',
-                'inReplyTo': post_id,
-            })
+        Repo.create(self.storage, 'did:unused', signing_key=ATPROTO_KEY)
 
         FakeConnection.to_receive = [['OK', 'event-id', True, '']]
-        self.assertTrue(Nostr.send(reply_obj, Nostr.DEFAULT_TARGET, from_user=alice))
+
+        reply = {
+            '$type': 'app.bsky.feed.post',
+            'text': 'Replying to Bob!',
+        }
+        self.firehose(repo='did:plc:alice', action='create', seq=456,
+                      path='app.bsky.feed.post/456', record=reply)
 
         self.assert_equals([[
             'EVENT', {
                 'kind': KIND_NOTE,
-                'pubkey': PUBKEY_2,
+                'pubkey': alice.hex_pubkey(),
                 'content': 'Replying to Bob!',
-                'tags': [['e', post['id'], None, 'reply']],
+                'tags': [],
                 'created_at': NOW_SECONDS,
             }]], FakeConnection.sent, ignore=['id', 'sig'])
 
