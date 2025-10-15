@@ -27,6 +27,7 @@ from oauth_dropins.webutil import util
 from oauth_dropins.webutil.util import json_dumps, json_loads
 
 import common
+import ids
 from models import Object
 import nostr_hub
 from nostr import Nostr
@@ -147,6 +148,7 @@ class NostrHubTest(TestCase):
                 {'authors': [BOB_PUBKEY]},
             ]
             self.assertEqual([bob_req], FakeConnection.sent)
+            FakeConnection.sent = []
 
             relays = Object(id='nostr:neventa', nostr={
                 'kind': KIND_RELAYS,
@@ -159,12 +161,40 @@ class NostrHubTest(TestCase):
             recving.wait()
             recving.wait()
 
+        close = ['CLOSE', 'sub123']
         both_req = [
             'REQ', 'sub123',
             {'#p': [PUBKEY]},
             {'authors': [EVE_PUBKEY, BOB_PUBKEY]},
         ]
-        self.assertEqual([bob_req, both_req], FakeConnection.sent)
+        self.assertEqual([close, both_req], FakeConnection.sent)
+
+    @patch('nostr_hub.RECONNECT_DELAY', timedelta(seconds=.01))
+    def test_load_no_new_users_doesnt_reconnect(self, _, __):
+        util.now = datetime.now
+
+        recving = Barrier(2)
+        def recv(**kwargs):
+            recving.wait()
+            raise TimeoutError()
+
+        with patch.object(FakeConnection, 'recv', side_effect=recv):
+            nostr_hub.init()
+
+            req = [
+                'REQ', 'sub123',
+                {'#p': [PUBKEY]},
+                {'authors': [BOB_PUBKEY]},
+            ]
+            self.assertEqual([req], FakeConnection.sent)
+            FakeConnection.sent = []
+
+            recving.wait()
+            nostr_hub.init(subscribe=False)
+            recving.wait()
+            recving.wait()
+
+        self.assertEqual([], FakeConnection.sent)
 
     def test_subscribe_reply_to_bridged_user(self, mock_create_task, _):
         event = id_and_sign({

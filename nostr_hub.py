@@ -148,62 +148,67 @@ def subscribe(relay, limit=None):
       relay (str): URI, relay websocket adddress, starting with ``ws://`` or ``wss://``
       limit (int): return after receiving this many messages. Only used in tests.
     """
+    if not DEBUG:
+        assert limit is None
+
     with connect(relay, user_agent_header=util.user_agent,
                  open_timeout=util.HTTP_TIMEOUT, close_timeout=util.HTTP_TIMEOUT,
                  ) as ws:
-        if not DEBUG:
-            assert limit is None
-
-        last_loaded_at = pubkeys_loaded_at
-        received = 0
-        subscription = secrets.token_urlsafe(16)
-        req = json_dumps([
-            'REQ', subscription,
-            {'#p': sorted(bridged_pubkeys)},
-            {'authors': sorted(nostr_pubkeys)},
-        ])
-        logger.debug(f'{ws.remote_address} <= {req}')
-        ws.send(req)
-
         while True:
-            if pubkeys_loaded_at > last_loaded_at:
-                logger.info(f'reconnecting to {relay} to pick up new user(s)')
-                return
+            nostr_pubkeys_count = len(nostr_pubkeys)
+            bridged_pubkeys_count = len(bridged_pubkeys)
 
-            try:
-                # use timeout to make sure we periodically loop and check whether
-                # we've loaded any new users, above, and need to re-query
-                msg = ws.recv(timeout=util.HTTP_TIMEOUT)
-            except TimeoutError:
-                continue
+            received = 0
+            subscription = secrets.token_urlsafe(16)
+            req = json_dumps([
+                'REQ', subscription,
+                {'#p': sorted(bridged_pubkeys)},
+                {'authors': sorted(nostr_pubkeys)},
+            ])
+            logger.debug(f'{relay} {ws.remote_address} <= {req}')
+            ws.send(req)
 
-            logger.debug(f'{ws.remote_address} => {msg}')
-            resp = json_loads(msg)
+            while True:
+                if (nostr_pubkeys_count != len(nostr_pubkeys)
+                        or bridged_pubkeys_count != len(bridged_pubkeys)):
+                    logger.info(f're-querying to pick up new user(s)')
+                    ws.send(json_dumps(['CLOSE', subscription]))
+                    break
 
-            # https://nips.nostr.com/1
-            match resp[0]:
-                case 'EVENT':
-                    handle(resp[2])
+                try:
+                    # use timeout to make sure we periodically loop and check whether
+                    # we've loaded any new users, above, and need to re-query
+                    msg = ws.recv(timeout=util.HTTP_TIMEOUT)
+                except TimeoutError:
+                    continue
 
-                case 'CLOSED':
-                    # relay closed our query. reconnect!
+                logger.debug(f'{ws.remote_address} => {msg}')
+                resp = json_loads(msg)
+
+                # https://nips.nostr.com/1
+                match resp[0]:
+                    case 'EVENT':
+                        handle(resp[2])
+
+                    case 'CLOSED':
+                        # relay closed our query. reconnect!
+                        break
+
+                    case 'OK':
+                        # TODO: this is a response to an EVENT we sent
+                        pass
+
+                    case 'EOSE':
+                        # switching from stored results to live
+                        pass
+
+                    case 'NOTICE':
+                        # already logged this
+                        pass
+
+                received += 1
+                if limit and received >= limit:
                     return
-
-                case 'OK':
-                    # TODO: this is a response to an EVENT we sent
-                    pass
-
-                case 'EOSE':
-                    # switching from stored results to live
-                    pass
-
-                case 'NOTICE':
-                    # already logged this
-                    pass
-
-            received += 1
-            if limit and received >= limit:
-                return
 
 
 def handle(event):
