@@ -9,6 +9,7 @@ from google.cloud.ndb.exceptions import ContextError
 from granary.nostr import (
     id_to_uri,
     KIND_DELETE,
+    KIND_REACTION,
     uri_for,
     uri_to_id,
     verify,
@@ -34,6 +35,7 @@ from ui import UIProtocol
 
 logger = logging.getLogger(__name__)
 
+AUTHOR_FILTER_KINDS = list(Nostr.SUPPORTED_KINDS - {KIND_REACTION})
 RECONNECT_DELAY = timedelta(seconds=30)
 LOAD_USERS_FREQ = timedelta(seconds=10)
 
@@ -162,8 +164,14 @@ def subscribe(relay, limit=None):
             subscription = secrets.token_urlsafe(16)
             req = json_dumps([
                 'REQ', subscription,
-                {'#p': sorted(bridged_pubkeys)},
-                {'authors': sorted(nostr_pubkeys)},
+                {
+                    '#p': sorted(bridged_pubkeys),
+                    'kinds': list(Nostr.SUPPORTED_KINDS),
+                },
+                {
+                    'authors': sorted(nostr_pubkeys),
+                    'kinds': AUTHOR_FILTER_KINDS,
+                },
             ])
             logger.debug(f'{relay} {ws.remote_address} <= {req}')
             ws.send(req)

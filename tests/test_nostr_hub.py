@@ -11,6 +11,7 @@ from granary.nostr import (
     KIND_DELETE,
     KIND_NOTE,
     KIND_PROFILE,
+    KIND_REACTION,
     KIND_RELAYS,
     uri_for,
     uri_to_id,
@@ -30,6 +31,7 @@ import common
 import ids
 from models import Object
 import nostr_hub
+from nostr_hub import AUTHOR_FILTER_KINDS
 from nostr import Nostr
 from protocol import DELETE_TASK_DELAY
 from .testutil import Fake, TestCase
@@ -144,8 +146,8 @@ class NostrHubTest(TestCase):
 
             bob_req = [
                 'REQ', 'sub123',
-                {'#p': [PUBKEY]},
-                {'authors': [BOB_PUBKEY]},
+                {'#p': [PUBKEY], 'kinds': list(Nostr.SUPPORTED_KINDS)},
+                {'authors': [BOB_PUBKEY], 'kinds': AUTHOR_FILTER_KINDS},
             ]
             self.assertEqual([bob_req], FakeConnection.sent)
             FakeConnection.sent = []
@@ -164,8 +166,8 @@ class NostrHubTest(TestCase):
         close = ['CLOSE', 'sub123']
         both_req = [
             'REQ', 'sub123',
-            {'#p': [PUBKEY]},
-            {'authors': [EVE_PUBKEY, BOB_PUBKEY]},
+            {'#p': [PUBKEY], 'kinds': list(Nostr.SUPPORTED_KINDS)},
+            {'authors': [EVE_PUBKEY, BOB_PUBKEY], 'kinds': AUTHOR_FILTER_KINDS},
         ]
         self.assertEqual([close, both_req], FakeConnection.sent)
 
@@ -183,8 +185,8 @@ class NostrHubTest(TestCase):
 
             req = [
                 'REQ', 'sub123',
-                {'#p': [PUBKEY]},
-                {'authors': [BOB_PUBKEY]},
+                {'#p': [PUBKEY], 'kinds': list(Nostr.SUPPORTED_KINDS)},
+                {'authors': [BOB_PUBKEY], 'kinds': AUTHOR_FILTER_KINDS},
             ]
             self.assertEqual([req], FakeConnection.sent)
             FakeConnection.sent = []
@@ -209,8 +211,8 @@ class NostrHubTest(TestCase):
 
         self.assertEqual([
             ['REQ', 'sub123',
-             {'#p': [PUBKEY]},
-             {'authors': [BOB_PUBKEY]},
+             {'#p': [PUBKEY], 'kinds': list(Nostr.SUPPORTED_KINDS)},
+             {'authors': [BOB_PUBKEY], 'kinds': AUTHOR_FILTER_KINDS},
              ]
         ], FakeConnection.sent)
         self.assert_task(mock_create_task, 'receive',
@@ -232,8 +234,8 @@ class NostrHubTest(TestCase):
 
         self.assertEqual([
             ['REQ', 'sub123',
-             {'#p': [PUBKEY]},
-             {'authors': [BOB_PUBKEY]},
+             {'#p': [PUBKEY], 'kinds': list(Nostr.SUPPORTED_KINDS)},
+             {'authors': [BOB_PUBKEY], 'kinds': AUTHOR_FILTER_KINDS},
              ]
         ], FakeConnection.sent)
         self.assert_task(mock_create_task, 'receive',
@@ -260,8 +262,8 @@ class NostrHubTest(TestCase):
 
         self.assertEqual([
             ['REQ', 'sub123',
-             {'#p': [PUBKEY, bot_pubkey]},
-             {'authors': [BOB_PUBKEY]},
+             {'#p': [PUBKEY, bot_pubkey], 'kinds': list(Nostr.SUPPORTED_KINDS)},
+             {'authors': [BOB_PUBKEY], 'kinds': AUTHOR_FILTER_KINDS},
              ]
         ], FakeConnection.sent)
         self.assert_task(mock_create_task, 'receive',
@@ -283,8 +285,8 @@ class NostrHubTest(TestCase):
 
         self.assertEqual([
             ['REQ', 'sub123',
-             {'#p': [PUBKEY]},
-             {'authors': [BOB_PUBKEY]},
+             {'#p': [PUBKEY], 'kinds': list(Nostr.SUPPORTED_KINDS)},
+             {'authors': [BOB_PUBKEY], 'kinds': AUTHOR_FILTER_KINDS},
              ]
         ], FakeConnection.sent)
         mock_create_task.assert_not_called()
@@ -315,8 +317,8 @@ class NostrHubTest(TestCase):
 
         self.assertEqual([
             ['REQ', 'sub123',
-             {'#p': [PUBKEY]},
-             {'authors': [BOB_PUBKEY]},
+             {'#p': [PUBKEY], 'kinds': list(Nostr.SUPPORTED_KINDS)},
+             {'authors': [BOB_PUBKEY], 'kinds': AUTHOR_FILTER_KINDS},
              ]
         ], FakeConnection.sent)
         mock_create_task.assert_not_called()
@@ -337,8 +339,8 @@ class NostrHubTest(TestCase):
 
         self.assertEqual([
             ['REQ', 'sub123',
-             {'#p': [PUBKEY]},
-             {'authors': [BOB_PUBKEY]},
+             {'#p': [PUBKEY], 'kinds': list(Nostr.SUPPORTED_KINDS)},
+             {'authors': [BOB_PUBKEY], 'kinds': AUTHOR_FILTER_KINDS},
              ]
         ], FakeConnection.sent)
 

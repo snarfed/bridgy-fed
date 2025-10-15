@@ -17,8 +17,15 @@ from granary.nostr import (
     bech32_prefix_for,
     id_and_sign,
     id_to_uri,
+    KIND_ARTICLE,
+    KIND_CONTACTS,
+    KIND_DELETE,
+    KIND_GENERIC_REPOST,
+    KIND_NOTE,
     KIND_PROFILE,
+    KIND_REACTION,
     KIND_RELAYS,
+    KIND_REPOST,
     nip05_to_npub,
     uri_to_id,
 )
@@ -74,6 +81,11 @@ class Nostr(User, Protocol):
         + tuple(as1.CRUD_VERBS)
         + ('follow', 'like', 'share', 'stop-following')
     )
+    # only applies to incoming events
+    SUPPORTED_KINDS = frozenset((
+        KIND_ARTICLE, KIND_DELETE, KIND_GENERIC_REPOST, KIND_NOTE, KIND_PROFILE,
+        KIND_REACTION, KIND_RELAYS, KIND_REPOST,
+    ))
     SUPPORTS_DMS = False  # NIP-17
     HTML_PROFILES = False
 
