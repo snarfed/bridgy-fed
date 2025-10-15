@@ -15,6 +15,7 @@ from granary.nostr import (
     KIND_REPOST,
     id_and_sign,
 )
+from oauth_dropins.webutil.flask_util import NoContent
 from oauth_dropins.webutil.testutil import requests_response
 from oauth_dropins.webutil import util
 from oauth_dropins.webutil.util import json_dumps, json_loads
@@ -747,3 +748,26 @@ class NostrTest(TestCase):
 
         user.valid_nip05 = 'a@example.com'
         self.assertIsNone(user.status)
+
+    def test_check_supported(self):
+        Nostr.check_supported(Object(our_as1={
+            'objectType': 'activity',
+            'verb': 'update',
+            'object': {'objectType': 'person'},
+        }), 'send')
+
+        Nostr.check_supported(Object(our_as1={
+            'objectType': 'activity',
+            'verb': 'update',
+            'object': {
+                'objectType': 'article',
+                'content': 'foo',
+            },
+        }), 'send')
+
+        with self.assertRaises(NoContent) as e:
+            Nostr.check_supported(Object(our_as1={
+                'objectType': 'activity',
+                'verb': 'update',
+                'object': {'objectType': 'note'},
+            }), 'send')

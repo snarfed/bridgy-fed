@@ -67,7 +67,10 @@ class Nostr(User, Protocol):
     SUPPORTED_AS1_TYPES = frozenset(
         tuple(as1.ACTOR_TYPES)
         + tuple(as1.POST_TYPES)
-        + ('post', 'delete', 'undo')  # TODO: update
+        # note that update is supported for actors and articles, but not notes
+        # https://github.com/nostr-protocol/nips/issues/646
+        # we override check_supported() below to check for this
+        + tuple(as1.CRUD_VERBS)
         + ('follow', 'like', 'share', 'stop-following')
     )
     SUPPORTS_DMS = False  # NIP-17
@@ -172,6 +175,17 @@ class Nostr(User, Protocol):
                         for tag in relays.nostr.get('tags', []):
                             if tag[0] == 'r' and (len(tag) == 2 or tag[2] == 'write'):
                                 return tag[1]
+
+    @classmethod
+    def check_supported(cls, obj, direction):
+        """Update is only supported for actors and articles, not notes."""
+        super().check_supported(obj, direction)
+
+        if direction == 'send':
+            if obj.type == 'update':
+                if inner_type := as1.object_type(as1.get_object(obj.as1)):
+                    if inner_type not in list(as1.ACTOR_TYPES) + ['article']:
+                        error(f"Bridgy Fed for {cls.LABEL} doesn't support {obj.type} {inner_type} yet", status=204)
 
     @classmethod
     def create_for(cls, user):
