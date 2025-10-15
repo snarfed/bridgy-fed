@@ -15,6 +15,7 @@ from granary import as1
 import granary.nostr
 from granary.nostr import (
     bech32_prefix_for,
+    id_and_sign,
     id_to_uri,
     KIND_PROFILE,
     KIND_RELAYS,
@@ -337,8 +338,24 @@ class Nostr(User, Protocol):
 
         # convert!
         privkey = from_user.nsec() if from_user else None
-        return granary.nostr.from_as1(translated, privkey=privkey,
-                                      remote_relay=remote_relay)
+        event = granary.nostr.from_as1(translated, privkey=privkey,
+                                       remote_relay=remote_relay)
+
+        # override d tag (if any) based on original protocol-native id, not
+        # translated Nostr event id
+        event_orig_ids = granary.nostr.from_as1(obj.as1)
+        for tag in event_orig_ids['tags']:
+            if len(tag) >= 2 and tag[0] == 'd':
+                # override d tag with this one
+                event['tags'] = [tag] + [t for t in event['tags'] if t[0] != 'd']
+                if privkey:
+                    event.pop('id', None)
+                    event.pop('sig', None)
+                    id_and_sign(event, privkey)
+                else:
+                    event['id'] = id_for(event)
+
+        return event
 
     @classmethod
     def send(to_cls, obj, relay_url, from_user=None, **kwargs):
@@ -348,8 +365,6 @@ class Nostr(User, Protocol):
         including updates and deletes. :meth:`granary.nostr.from_as1` translates all
         of those, so all we have to do here is convert and send the event.
         """
-        # TODO: update
-        # TODO: delete
         assert from_user
 
         event = to_cls.convert(obj, from_user=from_user)

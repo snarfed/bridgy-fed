@@ -6,6 +6,7 @@ from unittest.mock import patch
 from google.cloud import ndb
 import granary.nostr
 from granary.nostr import (
+    KIND_ARTICLE,
     KIND_AUTH,
     KIND_CONTACTS,
     KIND_DELETE,
@@ -318,6 +319,36 @@ class NostrTest(TestCase):
             'sig': '65b42db33486f669fa4dff3dba2ed914dcda886d47177a747e5e574e1a87cd4da23b54350dba758ecd91d48625f5345c8516458c76bebf60b0de89d12fa76a11',
         }, got)
         self.assertTrue(granary.nostr.verify(got))
+
+    def test_convert_article(self):
+        obj = Object(id='fake:post', our_as1={
+            'objectType': 'article',
+            'id': 'fake:post',
+            'author': NPUB_URI,
+            'content': 'Something to say',
+            'published': '2022-01-02T03:04:05+00:00',
+        })
+
+        event = {
+            'kind': KIND_ARTICLE,
+            'id': '288da70e240bc54d34c657d49312597b867ad33a6db50e6ec8a27e4b44ff1d0d',
+            'pubkey': PUBKEY,
+            'content': 'Something to say',
+            'created_at': NOW_TS,
+            'tags': [
+                ['d', 'fake:post'],
+                ['published_at', str(NOW_TS)],
+            ],
+            'sig': '1365f0f26f403bf8e979061dcd658a41267012e66241744cad2af9e278097a70acffb4276ecfa358e740e1c656db206a4f97bbd90798df03720e4507248d40c9',
+        }
+
+        self.assert_equals(event, Nostr.convert(obj, from_user=self.user))
+
+        # should still use the object id in the d tag even if we have
+        # a mapping to Nostr event id
+        obj.copies = [Target(uri='nostr:note123', protocol='nostr')]
+        obj.put()
+        self.assert_equals(event, Nostr.convert(obj, from_user=self.user))
 
     def test_send_note(self):
         obj = Object(id='fake:note', our_as1={
