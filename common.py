@@ -55,6 +55,7 @@ PROTOCOL_DOMAINS = (
     'ap.brid.gy',
     'atproto.brid.gy',
     'bsky.brid.gy',
+    'nostr.brid.gy',
     'web.brid.gy',
 )
 if DEBUG:
@@ -62,7 +63,6 @@ if DEBUG:
         'efake.brid.gy',
         'fa.brid.gy',
         'other.brid.gy',
-        'nostr.brid.gy',
     )
 OTHER_DOMAINS = (
     'bridgy-federated.appspot.com',
