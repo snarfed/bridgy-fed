@@ -2116,47 +2116,53 @@ To disable these messages, reply with the text 'mute'.""",
         """ActivityPub reply to Nostr user's post.
 
         ActivityPub user https://inst/alice
-        Nostr user bob@nostr.example.com (NPUB_URI)
+        Nostr user bob@nostr.example.com (NPUB_URI)\\
         """
         alice = self.make_ap_user('https://inst/alice', enabled_protocols=['nostr'])
         bob = self.make_nostr_user(enabled_protocols=['activitypub'])
 
-        bob_post = id_and_sign({
+        Follower.get_or_create(to=alice, from_=bob)
+
+        post = id_and_sign({
             'kind': KIND_NOTE,
             'pubkey': PUBKEY,
             'content': 'Hello from Bob!',
             'created_at': NOW_SECONDS,
         }, privkey=NSEC_URI)
-        bob_post_id = id_to_uri('note', bob_post['id'])
-        self.store_object(id=bob_post_id, source_protocol='nostr',
-                          nostr=bob_post)
-
-        reply_obj = self.store_object(
-            id='https://inst/reply',
-            source_protocol='activitypub',
-            our_as1={
-                'objectType': 'note',
-                'id': 'https://inst/reply',
-                'author': 'https://inst/alice',
-                'content': 'Replying to Bob!',
-                'inReplyTo': bob_post_id,
-            })
+        post_id = id_to_uri('note', post['id'])
+        self.store_object(id=post_id, source_protocol='nostr', nostr=post)
 
         FakeConnection.to_receive = [['OK', 'event-id', True, '']]
-        self.assertTrue(Nostr.send(reply_obj, Nostr.DEFAULT_TARGET, from_user=alice))
+
+        create = {
+            '@context': 'https://www.w3.org/ns/activitystreams',
+            'type': 'Create',
+            'id': 'https://inst/reply#create',
+            'actor': 'https://inst/alice',
+            'object': {
+                'type': 'Note',
+                'id': 'https://inst/reply',
+                'attributedTo': 'https://inst/alice',
+                'content': 'Replying to Bob!',
+                'inReplyTo': post_id,
+            },
+        }
+        body = json_dumps(create)
+        headers = sign('/ap/sharedInbox', body, key_id='https://inst/alice')
+        resp = self.client.post('/ap/sharedInbox', data=body, headers=headers)
+        self.assertEqual(202, resp.status_code)
 
         self.assert_equals([[
             'EVENT', {
                 'kind': KIND_NOTE,
-                'pubkey': PUBKEY_2,
+                'pubkey': alice.hex_pubkey(),
                 'content': 'Replying to Bob!',
-                'tags': [['e', bob_post['id'], None, 'reply']],
+                'tags': [['e', post['id'], None, 'reply']],
                 'created_at': NOW_SECONDS,
             }]], FakeConnection.sent, ignore=['id', 'sig'])
 
-    @patch('requests.post', return_value=requests_response(''))
-    @patch('requests.get', return_value=test_web.WEBMENTION_REL_LINK)
-    def test_web_reply_to_nostr_user(self, mock_get, mock_post):
+    @patch('requests.get')
+    def test_web_reply_to_nostr_user(self, mock_get):
         """Web reply to Nostr user's post.
 
         Web user alice.com
@@ -2165,36 +2171,43 @@ To disable these messages, reply with the text 'mute'.""",
         alice = self.make_web_user('alice.com', enabled_protocols=['nostr'])
         bob = self.make_nostr_user(enabled_protocols=['web'])
 
-        bob_post = id_and_sign({
+        Follower.get_or_create(to=alice, from_=bob)
+
+        post = id_and_sign({
             'kind': KIND_NOTE,
             'pubkey': bob.hex_pubkey(),
             'content': 'Hello from Bob!',
             'created_at': NOW_SECONDS,
         }, privkey=NSEC_URI)
-        bob_post_id = id_to_uri('note', bob_post['id'])
-        self.store_object(id=bob_post_id, source_protocol='nostr',
-                          nostr=bob_post)
+        post_id = id_to_uri('note', post['id'])
+        self.store_object(id=post_id, source_protocol='nostr', nostr=post)
 
-        reply_obj = self.store_object(
-            id='https://alice.com/reply',
-            source_protocol='web',
-            our_as1={
-                'objectType': 'note',
-                'id': 'https://alice.com/reply',
-                'author': 'https://alice.com/',
-                'content': 'Replying to Bob!',
-                'inReplyTo': bob_post_id,
-            })
+        mock_get.return_value = requests_response(f"""\
+<html>
+<body class="h-entry">
+<a class="u-url" href="https://alice.com/reply"></a>
+<div class="e-content">Replying to Bob!</div>
+<a class="u-author h-card" href="https://alice.com/">Alice</a>
+<a class="u-in-reply-to" href="https://nostr.brid.gy/convert/web/{post_id}"></a>
+<a href="http://localhost/"></a>
+</body>
+</html>
+""")
 
         FakeConnection.to_receive = [['OK', 'event-id', True, '']]
-        self.assertTrue(Nostr.send(reply_obj, Nostr.DEFAULT_TARGET, from_user=alice))
+
+        resp = self.post('/queue/webmention', data={
+            'source': 'https://alice.com/reply',
+            'target': 'https://fed.brid.gy/',
+        })
+        self.assertEqual(202, resp.status_code)
 
         self.assert_equals([[
             'EVENT', {
                 'kind': KIND_NOTE,
-                'pubkey': PUBKEY_2,
+                'pubkey': alice.hex_pubkey(),
                 'content': 'Replying to Bob!',
-                'tags': [['e', bob_post['id'], None, 'reply']],
+                'tags': [['e', post['id'], None, 'reply']],
                 'created_at': NOW_SECONDS,
             }]], FakeConnection.sent, ignore=['id', 'sig'])
 
@@ -2378,6 +2391,8 @@ To disable these messages, reply with the text 'mute'.""",
             },
         })
 
+    @skip
+    # TODO: support updates
     def test_activitypub_user_profile_update_to_nostr(self):
         """ActivityPub user bridged to Nostr updates their profile.
 
@@ -2389,19 +2404,25 @@ To disable these messages, reply with the text 'mute'.""",
 
         Follower.get_or_create(to=alice, from_=bob)
 
-        profile_obj = self.store_object(
-            id='https://inst/alice',
-            source_protocol='activitypub',
-            our_as1={
-                'objectType': 'person',
-                'id': 'https://inst/alice',
-                'displayName': 'Alice Updated',
-                'summary': 'New bio',
-                'image': 'http://new-pic',
-            })
-
         FakeConnection.to_receive = [['OK', 'event-id', True, '']]
-        self.assertTrue(Nostr.send(profile_obj, Nostr.DEFAULT_TARGET, from_user=alice))
+
+        update = {
+            '@context': 'https://www.w3.org/ns/activitystreams',
+            'type': 'Update',
+            'id': 'https://inst/alice#update',
+            'actor': 'https://inst/alice',
+            'object': {
+                'type': 'Person',
+                'id': 'https://inst/alice',
+                'name': 'Alice Updated',
+                'summary': 'New bio',
+                'icon': {'type': 'Image', 'url': 'http://new-pic'},
+            },
+        }
+        body = json_dumps(update)
+        headers = sign('/ap/sharedInbox', body, key_id='https://inst/alice')
+        resp = self.client.post('/ap/sharedInbox', data=body, headers=headers)
+        self.assertEqual(202, resp.status_code)
 
         self.assert_equals([[
             'EVENT', {

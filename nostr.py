@@ -329,6 +329,8 @@ class Nostr(User, Protocol):
     @classmethod
     def send(to_cls, obj, relay_url, from_user=None, **kwargs):
         """Sends an event to a relay."""
+        # TODO: update
+        # TODO: delete
         assert from_user
 
         event = to_cls.convert(obj, from_user=from_user)
