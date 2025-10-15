@@ -42,7 +42,7 @@ import requests
 from common import GCP_PROJECT_ID, long_to_base64, NDB_CONTEXT_KWARGS, TASKS_LOCATION
 import ids
 import models
-from models import KEY_BITS, Object, PROTOCOLS, Target, User
+from models import KEY_BITS, Object, DEBUG_PROTOCOLS, PROTOCOLS, Target, User
 import nostr
 import nostr_hub
 import protocol
@@ -50,6 +50,11 @@ import router
 
 logger = logging.getLogger(__name__)
 logging.getLogger('memcache').setLevel(logging.INFO)
+
+# TODO: remove once we've done this in models.py for prod
+PROTOCOLS['nostr'] = nostr.Nostr
+assert DEBUG_PROTOCOLS[-1] == 'nostr'
+DEBUG_PROTOCOLS = DEBUG_PROTOCOLS[:-1]
 
 ATPROTO_KEY = arroba.util.new_key(2349823483510)  # deterministic seed
 
