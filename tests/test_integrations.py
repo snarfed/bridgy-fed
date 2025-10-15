@@ -1,7 +1,6 @@
 """Integration tests."""
 import copy
 from datetime import datetime
-from unittest import skip
 from unittest.mock import ANY, patch
 
 from arroba.datastore_storage import AtpSequence, DatastoreStorage
@@ -13,6 +12,7 @@ from dns.resolver import NXDOMAIN
 import google.cloud.dns.client
 from granary import as2, bluesky
 from granary.nostr import (
+    KIND_ARTICLE,
     KIND_CONTACTS,
     KIND_NOTE,
     KIND_PROFILE,
@@ -1659,8 +1659,6 @@ To disable these messages, reply with the text 'mute'.""",
 
         Follower.get_or_create(to=alice, from_=bob)
 
-        FakeConnection.to_receive = [['OK', 'event-id', True, '']]
-
         create = {
             '@context': 'https://www.w3.org/ns/activitystreams',
             'type': 'Create',
@@ -1687,10 +1685,8 @@ To disable these messages, reply with the text 'mute'.""",
                 'created_at': NOW_SECONDS,
             }]], FakeConnection.sent, ignore=['id', 'sig'])
 
-    # TODO
-    @skip
-    def test_activitypub_update_post_to_nostr(self):
-        """ActivityPub user updates already-bridged post, delivered to Nostr follower.
+    def test_activitypub_update_article_to_nostr(self):
+        """ActivityPub user updates article, delivered to Nostr follower.
 
         ActivityPub user https://inst/alice
         Nostr follower bob@nostr.example.com (NPUB_URI)
@@ -1703,26 +1699,20 @@ To disable these messages, reply with the text 'mute'.""",
         self.store_object(
             id='https://inst/post',
             source_protocol='activitypub',
-            our_as1={
-                'objectType': 'note',
-                'id': 'https://inst/post',
-                'author': 'https://inst/alice',
-                'content': 'Hello from ActivityPub!',
-            },
             copies=[Target(uri='nostr:nevent14vfqwk95np', protocol='nostr')],
         )
 
         FakeConnection.to_receive = [['OK', 'event-id', True, '']]
 
         update = {
-            '@context': 'https://www.w3.org/ns/activitystreams',
             'type': 'Update',
             'id': 'https://inst/post#update',
             'actor': 'https://inst/alice',
             'object': {
-                'type': 'Note',
+                'type': 'Article',
                 'id': 'https://inst/post',
                 'attributedTo': 'https://inst/alice',
+                'displayName': 'My article',
                 'content': 'Updated content!',
             },
         }
@@ -1733,10 +1723,10 @@ To disable these messages, reply with the text 'mute'.""",
 
         self.assert_equals([[
             'EVENT', {
-                'kind': KIND_NOTE,
+                'kind': KIND_ARTICLE,
                 'pubkey': alice.hex_pubkey(),
                 'content': 'Updated content!',
-                'tags': [],
+                'tags': [['d', 'https://inst/post']],
                 'created_at': NOW_SECONDS,
             }]], FakeConnection.sent, ignore=['id', 'sig'])
 
@@ -2482,8 +2472,6 @@ To disable these messages, reply with the text 'mute'.""",
             },
         })
 
-    @skip
-    # TODO: support updates
     def test_activitypub_user_profile_update_to_nostr(self):
         """ActivityPub user bridged to Nostr updates their profile.
 
@@ -2522,7 +2510,7 @@ To disable these messages, reply with the text 'mute'.""",
                 'content': json_dumps({
                     'about': 'New bio\n\n🌉 bridged from ⁂ https://inst/alice by https://fed.brid.gy/',
                     'name': 'Alice Updated',
-                    'picture': 'http://new-pic',
+                    'picture': 'http://new-pic/',
                 }, ensure_ascii=False),
                 'tags': [],
                 'created_at': NOW_SECONDS,
