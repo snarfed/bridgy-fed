@@ -29,7 +29,7 @@ import protocol
 
 logger = logging.getLogger(__name__)
 
-# Protocols to check User.copies and Object.copies before translating
+# Protocols to check User.copies and Object.copies before translating.
 # populated in models.reset_protocol_properties
 COPIES_PROTOCOLS = None
 
@@ -178,7 +178,7 @@ def translate_user_id(*, id, from_, to):
 
     match from_.LABEL, to.LABEL:
         case _, 'atproto' | 'nostr':
-            logger.debug(f"Can't translate user id {id} to {to.LABEL} , haven't copied it there yet!")
+            logger.debug(f"Can't translate user id {id} to {to.LABEL}, haven't copied it there yet!")
             return None
 
         case 'web', 'activitypub':
@@ -430,7 +430,7 @@ def translate_object_id(*, id, from_, to):
 
     match from_.LABEL, to.LABEL:
         case _, 'atproto' | 'nostr':
-            logger.debug(f"Can't translate object id {id} to {to.LABEL} , haven't copied it there yet!")
+            logger.debug(f"Can't translate object id {id} to {to.LABEL}, haven't copied it there yet!")
             return id
 
         case 'web', 'activitypub':
