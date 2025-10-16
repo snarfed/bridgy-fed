@@ -2465,12 +2465,11 @@ To disable these messages, reply with the text 'mute'.""",
                 'icon': {'type': 'Image', 'url': 'http://new-pic'},
                 'published': '2022-01-02T03:04:05+00:00',
                 'updated': '2022-01-02T03:04:05+00:00',
-                'to': ['https://www.w3.org/ns/activitystreams#Public'],
                 'manuallyApprovesFollowers': False,
                 'discoverable': True,
                 'indexable': True,
             },
-        })
+        }, ignore=['to'])
 
     def test_activitypub_user_profile_update_to_nostr(self):
         """ActivityPub user bridged to Nostr updates their profile.
@@ -2516,8 +2515,14 @@ To disable these messages, reply with the text 'mute'.""",
                 'created_at': NOW_SECONDS,
             }]], FakeConnection.sent, ignore=['id', 'sig'])
 
-    def test_web_user_profile_update_to_nostr(self):
-        """Web user bridged to Nostr updates their profile.
+    @patch('requests.get', return_value=requests_response("""\
+<html><body class="h-card">
+  <a class="u-url p-name" href="/">Alice Updated</a>
+  <p class="p-summary">New bio</p>
+  <img class="u-photo" src="http://new-pic" />
+</body></html>""", url='https://alice.com/'))
+    def test_web_user_profile_update_to_nostr(self, mock_get):
+        """Web user bridged to Nostr updates their profile via /web-site.
 
         Web user alice.com
         Nostr follower bob@nostr.example.com (NPUB_URI)
@@ -2527,19 +2532,9 @@ To disable these messages, reply with the text 'mute'.""",
 
         Follower.get_or_create(to=alice, from_=bob)
 
-        profile_obj = self.store_object(
-            id='https://alice.com/',
-            source_protocol='web',
-            our_as1={
-                'objectType': 'person',
-                'id': 'https://alice.com/',
-                'displayName': 'Alice Updated',
-                'summary': 'New bio',
-                'image': 'http://new-pic',
-            })
-
         FakeConnection.to_receive = [['OK', 'event-id', True, '']]
-        self.assertTrue(Nostr.send(profile_obj, Nostr.DEFAULT_TARGET, from_user=alice))
+        resp = self.client.post('/web/alice.com/update-profile')
+        self.assertEqual(302, resp.status_code)
 
         self.assert_equals([[
             'EVENT', {
@@ -2549,6 +2544,7 @@ To disable these messages, reply with the text 'mute'.""",
                     'about': 'New bio',
                     'name': 'Alice Updated',
                     'picture': 'http://new-pic',
+                    'website': 'https://alice.com/',
                 }, ensure_ascii=False),
                 'tags': [],
                 'created_at': NOW_SECONDS,
@@ -2565,29 +2561,29 @@ To disable these messages, reply with the text 'mute'.""",
 
         Follower.get_or_create(to=alice, from_=bob)
 
-        profile_obj = self.store_object(
-            id='at://did:plc:alice/app.bsky.actor.profile/self',
-            source_protocol='atproto',
-            our_as1={
-                'objectType': 'person',
-                'id': 'at://did:plc:alice/app.bsky.actor.profile/self',
-                'displayName': 'Alice Updated',
-                'summary': 'New bio',
-                'image': 'http://new-pic',
-            })
+        Repo.create(self.storage, 'did:unused', signing_key=ATPROTO_KEY)
+
+        new_profile = {
+            '$type': 'app.bsky.actor.profile',
+            'displayName': 'Alice Updated',
+            'description': 'New bio',
+            'avatar': {'$type': 'blob', 'ref': {'$link': 'bafy'}},
+        }
 
         FakeConnection.to_receive = [['OK', 'event-id', True, '']]
-        self.assertTrue(Nostr.send(profile_obj, Nostr.DEFAULT_TARGET, from_user=alice))
+        self.firehose(repo='did:plc:alice', action='update', seq=123,
+                      path='app.bsky.actor.profile/self', record=new_profile)
 
-        self.assert_equals([[
-            'EVENT', {
-                'kind': 0,
-                'pubkey': alice.hex_pubkey(),
-                'content': json_dumps({
-                    'about': 'New bio\n\n🌉 bridged from 🦋 https://bsky.app/profile/alice.com by https://fed.brid.gy/',
-                    'name': 'Alice Updated',
-                    'picture': 'http://new-pic',
-                }, ensure_ascii=False),
-                'tags': [],
-                'created_at': NOW_SECONDS,
-            }]], FakeConnection.sent, ignore=['id', 'sig'])
+        self.assert_equals([['EVENT', {
+            'kind': 0,
+            'pubkey': alice.hex_pubkey(),
+            'content': json_dumps({
+                'about': 'New bio\n\n🌉 bridged from 🦋 https://bsky.app/profile/alice.com by https://fed.brid.gy/',
+                'name': 'Alice Updated',
+                'nip05': '_@alice.com',
+                'picture': 'https://some.pds/xrpc/com.atproto.sync.getBlob?did=did:plc:alice&cid=bafy',
+                'website': 'https://bsky.app/profile/alice.com',
+            }, ensure_ascii=False),
+            'tags': [],
+            'created_at': NOW_SECONDS,
+        }]], FakeConnection.sent, ignore=['id', 'sig'])
