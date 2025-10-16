@@ -698,7 +698,7 @@ class NostrTest(TestCase):
 
         self.assertIsNone(user.obj_key)
         self.assertIsNone(user.relays)
-        self.assertIsNone(user.valid_nip05)
+        self.assertEqual('old', user.valid_nip05)
         self.assertIsNone(Nostr.target_for(Object(nostr=NOTE_NOSTR)))
 
     @patch('secrets.token_urlsafe', return_value='towkin')
@@ -758,7 +758,8 @@ class NostrTest(TestCase):
         self.assert_req(mock_get, 'https://example.com/.well-known/nostr.json?name=a')
         self.assertIsNone(user.valid_nip05)
 
-    def test_status(self):
+    @patch('requests.get', return_value=requests_response(''))  # NIP-05 checks
+    def test_status(self, _):
         self.assertEqual('no-profile', Nostr().status)
         self.assertEqual('no-profile', Nostr(valid_nip05='a@example.com').status)
 

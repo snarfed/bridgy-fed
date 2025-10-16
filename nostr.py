@@ -87,7 +87,7 @@ class Nostr(User, Protocol):
     DEFAULT_TARGET = 'wss://nos.lol'
     REQUIRES_AVATAR = True
     REQUIRES_NAME = True
-    DEFAULT_ENABLED_PROTOCOLS = ('web',)
+    DEFAULT_ENABLED_PROTOCOLS = ()  # TODO: add back 'web' for launch?
     SUPPORTED_AS1_TYPES = frozenset(
         tuple(as1.ACTOR_TYPES)
         + tuple(as1.POST_TYPES)
@@ -143,6 +143,20 @@ class Nostr(User, Protocol):
     def status(self):
         if not self.obj or not self.obj.as1:
             return 'no-profile'
+
+        # check NIP-05
+        nip05 = self.nip_05()
+        if not nip05:
+            self.valid_nip05 = None
+        elif nip05 != self.valid_nip05:
+            self.valid_nip05 = None
+            try:
+                if nip05_to_npub(nip05) == self.npub():
+                    self.valid_nip05 = nip05
+            except BaseException as e:
+                code, _ = util.interpret_http_exception(e)
+                if not code:
+                    logger.info(e)
 
         if not self.valid_nip05 or self.valid_nip05 != self.nip_05():
             return 'no-nip05'
@@ -273,17 +287,7 @@ class Nostr(User, Protocol):
             if profile and relays:
                 break
 
-        # check NIP-05
-        self.valid_nip05 = None
-        if nip05 := self.nip_05():
-            try:
-                if nip05_to_npub(nip05) == self.npub():
-                    self.valid_nip05 = nip05
-            except BaseException as e:
-                code, _ = util.interpret_http_exception(e)
-                if not code:
-                    logger.info(e)
-
+        # re-checks NIP-05 in status()
         self.put()
 
     @classmethod
