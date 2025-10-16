@@ -1400,7 +1400,7 @@ def inbox(protocol=None, id=None):
     if as2.is_server_actor(actor):
         all_protocols = [proto.LABEL for proto in set(PROTOCOLS.values())
                          if proto not in (ActivityPub, UIProtocol, None)]
-        user = ActivityPub.get_or_create(actor_id, propagate=True,
+        user = ActivityPub.get_or_create(actor_id, propagate=False,
                                          enabled_protocols=all_protocols)
         if user and not user.existing:
             logger.info(f'Automatically enabled AP server actor {actor_id}')
