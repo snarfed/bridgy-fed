@@ -8,6 +8,7 @@ Nostr Object key ids are NIP-21 nostr:... URIs.
 https://nips.nostr.com/21
 """
 import logging
+from datetime import timezone
 
 from google.cloud import ndb
 from google.cloud.ndb.query import OR
@@ -30,8 +31,8 @@ from granary.nostr import (
     uri_to_id,
 )
 from oauth_dropins.webutil import flask_util
-from oauth_dropins.webutil import util
 from oauth_dropins.webutil.flask_util import get_required_param
+from oauth_dropins.webutil.models import StringIdModel
 from oauth_dropins.webutil import util
 from oauth_dropins.webutil.util import add, json_dumps, json_loads
 from requests import RequestException
@@ -54,6 +55,21 @@ from protocol import Protocol
 import web
 
 logger = logging.getLogger(__name__)
+
+
+class NostrRelay(StringIdModel):
+    """The last ``created_at`` we've seen from a given relay.
+
+    Key id is full relay URI, eg ``wss://nos.lol``. Used in ``nostr_hub``.
+
+    https://nips.nostr.com/1#from-client-to-relay-sending-events-and-creating-subscriptions
+    """
+    since = ndb.IntegerProperty()
+    ''
+    created = ndb.DateTimeProperty(auto_now_add=True, tzinfo=timezone.utc)
+    ''
+    updated = ndb.DateTimeProperty(auto_now=True, tzinfo=timezone.utc)
+    ''
 
 
 class Nostr(User, Protocol):

@@ -25,14 +25,16 @@ from granary.tests.test_nostr import (
     PUBKEY,
 )
 from oauth_dropins.webutil import util
+from oauth_dropins.webutil.testutil import NOW
 from oauth_dropins.webutil.util import json_dumps, json_loads
+from websockets.exceptions import ConnectionClosedOK, ConnectionClosedError
 
 import common
 import ids
 from models import Object
 import nostr_hub
 from nostr_hub import AUTHOR_FILTER_KINDS
-from nostr import Nostr
+from nostr import Nostr, NostrRelay
 from protocol import DELETE_TASK_DELAY
 from .testutil import Fake, TestCase
 from web import Web
@@ -147,6 +149,7 @@ class NostrHubTest(TestCase):
 
         with patch.object(FakeConnection, 'recv', side_effect=recv):
             nostr_hub.init()
+            recving.wait()
 
             bob_req = [
                 'REQ', 'sub123',
@@ -162,7 +165,6 @@ class NostrHubTest(TestCase):
             }).put()
             eve = self.make_nostr('eve', EVE_NSEC_URI, EVE_NPUB_URI, relays=relays)
 
-            recving.wait()
             nostr_hub.init(subscribe=False)
             recving.wait()
             recving.wait()
@@ -175,6 +177,55 @@ class NostrHubTest(TestCase):
         ]
         self.assertEqual([close, both_req], FakeConnection.sent)
 
+    def test_subscribe_connection_closed_reconnect(self, mock_create_task, _):
+        event = id_and_sign({
+            'pubkey': BOB_PUBKEY,
+            'kind': KIND_NOTE,
+            'content': 'Hello Alice!',
+            'tags': [['p', PUBKEY]],
+            'created_at': 678,
+        }, privkey=BOB_NSEC_URI)
+
+        self.serve_and_subscribe([event])
+
+        FakeConnection.relays = []
+        self.serve_and_subscribe([])
+
+        self.assertEqual([
+            ['REQ', 'sub123',
+             {'#p': [PUBKEY], 'kinds': list(Nostr.SUPPORTED_KINDS)},
+             {'authors': [BOB_PUBKEY], 'kinds': AUTHOR_FILTER_KINDS},
+             ],
+            ['REQ', 'sub123',
+             {'#p': [PUBKEY], 'kinds': list(Nostr.SUPPORTED_KINDS), 'since': 678},
+             {'authors': [BOB_PUBKEY], 'kinds': AUTHOR_FILTER_KINDS, 'since': 678},
+             ],
+        ], FakeConnection.sent)
+
+        self.assertEqual(678, NostrRelay.get_by_id('wss://reelaay').since)
+
+    def test_subscribe_stored_relay_with_since(self, _, __):
+        event = id_and_sign({
+            'pubkey': BOB_PUBKEY,
+            'kind': KIND_NOTE,
+            'content': 'Hello Alice!',
+            'created_at': 678,
+        }, privkey=BOB_NSEC_URI)
+
+        relay = NostrRelay(id='wss://reelaay', since=321,
+                           updated=NOW - timedelta(seconds=999))
+        relay.put()
+        self.serve_and_subscribe([event])
+
+        self.assertEqual([
+            ['REQ', 'sub123',
+             {'#p': [PUBKEY], 'kinds': list(Nostr.SUPPORTED_KINDS), 'since': 321},
+             {'authors': [BOB_PUBKEY], 'kinds': AUTHOR_FILTER_KINDS, 'since': 321},
+             ],
+        ], FakeConnection.sent)
+
+        self.assertEqual(678, relay.key.get().since)
+
     @patch('nostr_hub.RECONNECT_DELAY', timedelta(seconds=.01))
     def test_load_no_new_users_doesnt_reconnect(self, _, __):
         util.now = datetime.now
@@ -186,6 +237,7 @@ class NostrHubTest(TestCase):
 
         with patch.object(FakeConnection, 'recv', side_effect=recv):
             nostr_hub.init()
+            recving.wait()
 
             req = [
                 'REQ', 'sub123',
@@ -195,7 +247,6 @@ class NostrHubTest(TestCase):
             self.assertEqual([req], FakeConnection.sent)
             FakeConnection.sent = []
 
-            recving.wait()
             nostr_hub.init(subscribe=False)
             recving.wait()
             recving.wait()

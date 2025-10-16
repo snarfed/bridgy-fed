@@ -28,7 +28,7 @@ from common import (
     report_exception,
 )
 from models import PROTOCOLS
-from nostr import Nostr
+from nostr import Nostr, NostrRelay
 from protocol import DELETE_TASK_DELAY
 from ui import UIProtocol
 
@@ -37,6 +37,7 @@ logger = logging.getLogger(__name__)
 AUTHOR_FILTER_KINDS = list(Nostr.SUPPORTED_KINDS - {KIND_REACTION})
 RECONNECT_DELAY = timedelta(seconds=30)
 LOAD_USERS_FREQ = timedelta(seconds=10)
+STORE_RELAY_SINCE_FREQ = timedelta(seconds=10)
 
 # global: _load_pubkeys populates them, subscribe uses them
 nostr_pubkeys = set()
@@ -106,34 +107,34 @@ def _load_users():
             report_exception()
 
 
-def add_relay(relay):
+def add_relay(uri):
     """Subscribes to a new relay if we're not already connected to it.
 
     Args:
-      relay (str): URI, relay websocket adddress, starting with ``ws://`` or ``wss://``
+      uri (str): URI, relay websocket adddress, starting with ``ws://`` or ``wss://``
     """
-    if Nostr.is_blocklisted(relay):
-        logger.warning(f'Not subscribing to relay {relay}')
+    if Nostr.is_blocklisted(uri):
+        logger.warning(f'Not subscribing to relay {uri}')
         return
 
     with subscribed_relays_lock:
-        if relay not in subscribed_relays:
-            subscribed_relays.append(relay)
-            Thread(target=subscriber, daemon=True, args=(relay,)).start()
+        if uri not in subscribed_relays:
+            subscribed_relays.append(uri)
+            Thread(target=subscriber, daemon=True, args=(uri,)).start()
 
 
-def subscriber(relay):
+def subscriber(uri):
     """Wrapper around :func:`_subscribe` that catches exceptions and reconnects.
 
     Args:
-      relay (str): URI, relay websocket adddress, starting with ``ws://`` or ``wss://``
+      uri (str): URI, relay websocket adddress, starting with ``ws://`` or ``wss://``
     """
-    logger.info(f'started thread to subscribe to relay {relay}')
+    logger.info(f'started thread to subscribe to relay {uri}')
 
     with ndb_client.context(**NDB_CONTEXT_KWARGS):
          while True:
              try:
-                 subscribe(relay)
+                 subscribe(uri)
              except (ConnectionClosed, TimeoutError) as err:
                  logger.warning(err)
                  logger.info(f'disconnected! waiting {RECONNECT_DELAY}, then reconnecting')
@@ -142,17 +143,19 @@ def subscriber(relay):
                  report_exception()
 
 
-def subscribe(relay, limit=None):
+def subscribe(uri, limit=None):
     """Subscribes to relay(s), backfeeds responses to our users' activities.
 
     Args:
-      relay (str): URI, relay websocket adddress, starting with ``ws://`` or ``wss://``
+      uri (str): URI, relay websocket adddress, starting with ``ws://`` or ``wss://``
       limit (int): return after receiving this many messages. Only used in tests.
     """
     if not DEBUG:
         assert limit is None
 
-    with connect(relay, user_agent_header=util.user_agent,
+    relay = NostrRelay.get_or_insert(uri)
+
+    with connect(uri, user_agent_header=util.user_agent,
                  open_timeout=util.HTTP_TIMEOUT, close_timeout=util.HTTP_TIMEOUT,
                  ) as ws:
         while True:
@@ -161,7 +164,7 @@ def subscribe(relay, limit=None):
 
             received = 0
             subscription = secrets.token_urlsafe(16)
-            req = json_dumps([
+            req = [
                 'REQ', subscription,
                 {
                     '#p': sorted(bridged_pubkeys),
@@ -171,8 +174,20 @@ def subscribe(relay, limit=None):
                     'authors': sorted(nostr_pubkeys),
                     'kinds': AUTHOR_FILTER_KINDS,
                 },
-            ])
-            logger.debug(f'{relay} {ws.remote_address} <= {req}')
+            ]
+            # ideally this should prevent us seeing and handling many duplicate
+            # events. since is compared against events' created_at, though, which is
+            # client-provided, so malicious clients could publish events in the
+            # future, which would always come back as results. is there any way to
+            # handle/prevent that?
+            #
+            # some discussion in https://github.com/nostr-protocol/nips/issues/407 ,
+            # but I don't fully follow it, and it doesn't have a solution anyway.
+            if relay.since:
+                req[2]['since'] = req[3]['since'] = relay.since
+
+            req = json_dumps(req)
+            logger.debug(f'{uri} {ws.remote_address} <= {req}')
             ws.send(req)
 
             while True:
@@ -196,11 +211,21 @@ def subscribe(relay, limit=None):
                 match resp[0]:
                     case 'EVENT':
                         event = resp[2]
+
+                        if created_at := event.get('created_at'):
+                            relay.since = int(created_at)
+                            elapsed = util.now() - relay.updated
+                            if elapsed > STORE_RELAY_SINCE_FREQ:
+                                behind_s = util.now().timestamp() - relay.since
+                                logger.info(f"updating {uri}'s since to {relay.since}, {behind_s} s behind")
+                                relay.put()
+
                         if event.get('kind') in Nostr.SUPPORTED_KINDS:
                             handle(event)
 
                     case 'CLOSED':
                         # relay closed our query. reconnect!
+                        relay.put()
                         break
 
                     case 'OK':
@@ -217,6 +242,7 @@ def subscribe(relay, limit=None):
 
                 received += 1
                 if limit and received >= limit:
+                    relay.put()
                     return
 
 
