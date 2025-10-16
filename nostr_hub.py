@@ -28,7 +28,6 @@ from common import (
     report_exception,
 )
 from models import PROTOCOLS
-import nostr
 from nostr import Nostr
 from protocol import DELETE_TASK_DELAY
 from ui import UIProtocol
@@ -196,7 +195,9 @@ def subscribe(relay, limit=None):
                 # https://nips.nostr.com/1
                 match resp[0]:
                     case 'EVENT':
-                        handle(resp[2])
+                        event = resp[2]
+                        if event.get('kind') in Nostr.SUPPORTED_KINDS:
+                            handle(event)
 
                     case 'CLOSED':
                         # relay closed our query. reconnect!

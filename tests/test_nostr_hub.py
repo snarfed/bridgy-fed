@@ -323,6 +323,24 @@ class NostrHubTest(TestCase):
         ], FakeConnection.sent)
         mock_create_task.assert_not_called()
 
+    def test_subscribe_unsupported_kind(self, mock_create_task, _):
+        event = id_and_sign({
+            'pubkey': BOB_PUBKEY,
+            'kind': 99,
+            'content': 'Hello world!',
+            'created_at': NOW_TS,
+        }, privkey=BOB_NSEC_URI)
+
+        self.serve_and_subscribe([event])
+
+        self.assertEqual([
+            ['REQ', 'sub123',
+             {'#p': [PUBKEY], 'kinds': list(Nostr.SUPPORTED_KINDS)},
+             {'authors': [BOB_PUBKEY], 'kinds': AUTHOR_FILTER_KINDS},
+             ]
+        ], FakeConnection.sent)
+        mock_create_task.assert_not_called()
+
     def test_subscribe_delete_event(self, mock_create_task, _):
         event = id_and_sign({
             'pubkey': BOB_PUBKEY,
