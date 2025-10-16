@@ -102,6 +102,7 @@ class NostrHubTest(TestCase):
     def test_init_subscribe_to_relays(self, _, __):
         self.assertEqual([], FakeConnection.relays)
         nostr_hub.init()
+        FakeConnection.connected.acquire(timeout=10)
         self.assertEqual([Nostr.DEFAULT_TARGET], FakeConnection.relays)
 
         relays_a = Object(id='nostr:neventa', nostr={
@@ -113,12 +114,14 @@ class NostrHubTest(TestCase):
 
         FakeConnection.reset()
         nostr_hub.init()
+        FakeConnection.connected.acquire(timeout=10)
         self.assertEqual(['wss://a'], FakeConnection.relays)
 
         eve = self.make_nostr('eve', EVE_NSEC_URI, EVE_NPUB_URI, relays=relays_a)
 
         FakeConnection.reset()
         nostr_hub.init()
+        FakeConnection.connected.acquire(timeout=.1)  # should time out
         self.assertEqual([], FakeConnection.relays)
 
         relays_b = Object(id='nostr:neventb', nostr={
@@ -130,6 +133,7 @@ class NostrHubTest(TestCase):
 
         FakeConnection.reset()
         nostr_hub.init()
+        FakeConnection.connected.acquire(timeout=10)
         self.assertEqual(['wss://b'], FakeConnection.relays)
 
     @patch('nostr_hub.RECONNECT_DELAY', timedelta(seconds=.01))
