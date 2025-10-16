@@ -62,6 +62,10 @@ DEBUG_PROTOCOLS = (
     'efake',
     'other',
     # TODO: move to PROTOCOLS for launch
+    #
+    # can't do this yet because we create AP server/instance actors automatically
+    # bridged into all protocols
+    # activitypub.py:1403
     'nostr',
 )
 if DEBUG:

@@ -100,7 +100,8 @@ class Nostr(User, Protocol):
     # only applies to incoming events
     SUPPORTED_KINDS = frozenset((
         KIND_ARTICLE, KIND_CONTACTS, KIND_DELETE, KIND_GENERIC_REPOST, KIND_NOTE,
-        KIND_PROFILE, KIND_REACTION, KIND_RELAYS, KIND_REPOST,))
+        KIND_PROFILE, KIND_REACTION, KIND_RELAYS, KIND_REPOST,
+    ))
     SUPPORTS_DMS = False  # NIP-17
     HTML_PROFILES = False
 
