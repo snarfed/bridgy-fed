@@ -57,6 +57,7 @@ else:
         logging.getLogger(logger).setLevel(logging.DEBUG)
 
     logging.getLogger('lexrpc.flask_server').setLevel(logging.INFO)
+    logging.getLogger('lexrpc.server').setLevel(logging.INFO)
 
 
 # for debugging ndb. also needs NDB_DEBUG env var, set in *.yaml.
