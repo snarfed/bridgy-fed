@@ -296,7 +296,7 @@ class PagesTest(TestCase):
             'objectType': 'activity',
             'verb': 'update',
             'id': 'fake:profile:user#bridgy-fed-update-2022-01-02T03:04:05+00:00',
-            'actor': {**actor, 'id': 'fake:user'},
+            'actor': 'fake:user',
             'object': actor,
         }
         self.assertEqual([('other:bob:target', update)], OtherFake.sent)
@@ -365,7 +365,7 @@ class PagesTest(TestCase):
             'objectType': 'activity',
             'verb': 'update',
             'id': 'https://user.com/#bridgy-fed-update-2022-01-02T03:04:05+00:00',
-            'actor': {**actor_as1, 'id': 'user.com'},
+            'actor': 'user.com',
             'object': actor_as1,
         })], Fake.sent)
 
@@ -397,7 +397,7 @@ class PagesTest(TestCase):
             'objectType': 'activity',
             'verb': 'update',
             'id': 'https://user.com/#bridgy-fed-update-2022-01-02T03:04:05+00:00',
-            'actor': {**actor_as1, 'id': 'user.com'},
+            'actor': 'user.com',
             'object': actor_as1,
         })], Fake.sent)
 

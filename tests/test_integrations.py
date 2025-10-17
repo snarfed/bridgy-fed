@@ -2394,18 +2394,21 @@ To disable these messages, reply with the text 'mute'.""",
             }]], FakeConnection.sent, ignore=['id', 'sig'])
 
     @patch('requests.post')
-    def test_nostr_user_profile_update(self, mock_post):
-        """Nostr user updates their profile.
+    @patch('requests.get', return_value= requests_response({
+        'names': {'bob': PUBKEY},
+    }))
+    def test_nostr_user_profile_update_to_activitypub(self, mock_get, mock_post):
+        """Nostr user updates their profile, delivered to AP follower.
 
         Nostr user bob@nostr.example.com (NPUB_URI)
         ActivityPub follower https://inst/alice
         """
         bob = self.make_nostr_user(enabled_protocols=['activitypub'])
+        bob_orig_obj_key = bob.obj_key
         alice = self.make_ap_user('https://inst/alice')
+        Follower.get_or_create(to=bob, from_=alice)
 
         nostr_hub.init(subscribe=False)
-
-        Follower.get_or_create(to=bob, from_=alice)
 
         profile = id_and_sign({
             'kind': KIND_PROFILE,
@@ -2414,9 +2417,11 @@ To disable these messages, reply with the text 'mute'.""",
                 'name': 'Bob Updated',
                 'about': 'New bio',
                 'picture': 'http://new-pic',
+                'nip05': 'bob@new.example.com',
             }),
             'created_at': NOW_SECONDS,
         }, privkey=NSEC_URI)
+        self.assertNotEqual(uri_to_id(bob_orig_obj_key.id()), profile['id'])
 
         FakeConnection.to_receive = [
             ['EVENT', 'sub123', profile],
@@ -2424,22 +2429,27 @@ To disable these messages, reply with the text 'mute'.""",
         ]
         nostr_hub.subscribe('wss://nos.lol', limit=2)
 
+        bob = bob.key.get()
+        self.assertEqual(id_to_uri('nprofile', profile['id']), bob.obj_key.id())
+        self.assertEqual('bob@new.example.com', bob.valid_nip05)
+        self.assertIsNone(bob.status)
+
         profile_id = uri_for(profile)
+        npub = NPUB_URI.removeprefix('nostr:')
         self.assert_ap_deliveries(mock_post, ['https://inst/alice/inbox'],
                                   from_user=bob, data={
             'type': 'Update',
             'id': f'https://nostr.brid.gy/convert/ap/{profile_id}#bridgy-fed-update-2022-01-02T03:04:05+00:00',
-            'actor': 'https://nostr.brid.gy/ap/nostr:npub1xtqxrxulvesqhjfgavrgp2jh3fqlc94l80akqr2pcm8xwv7d2vxqdvp2h2',
-            'to': ['https://www.w3.org/ns/activitystreams#Public'],
+            'actor': f'https://nostr.brid.gy/ap/{NPUB_URI}',
             'object': {
                 'type': 'Person',
-                'id': f'https://nostr.brid.gy/ap/{profile_id}',
-                'inbox': f'https://nostr.brid.gy/ap/{profile_id}/inbox',
-                'outbox': f'https://nostr.brid.gy/ap/{profile_id}/outbox',
+                'id': f'https://nostr.brid.gy/ap/{NPUB_URI}',
+                'inbox': f'https://nostr.brid.gy/ap/{NPUB_URI}/inbox',
+                'outbox': f'https://nostr.brid.gy/ap/{NPUB_URI}/outbox',
                 'name': 'Bob Updated',
-                'preferredUsername': 'bob.nostr.example.com',
-                'summary': 'New bio<br><br>🌉 bridged from 𓅦 <a title="nostr:nprofile1tcv7lzp49amr59xsndxzg3a3exgvpm5u4s5djng6zmsevgm9my5qguc6ql" href="nostr:nprofile1tcv7lzp49amr59xsndxzg3a3exgvpm5u4s5djng6zmsevgm9my5qguc6ql">nostr:nprofile1...</a> by <a href="https://fed.brid.gy/">Bridgy Fed</a>',
-                'url': 'http://localhost/r/https://coracle.social/people/nprofile1hexzh04meejwg3c6hdg270s992ct0xntxw9zkcnz3crgnnqn8q5sj30g2p',
+                'preferredUsername': 'bob.new.example.com',
+                'summary': f'New bio<br><br>🌉 <a href="https://fed.brid.gy/nostr/bob@new.example.com">bridged</a> from 𓅦 <a href="https://coracle.social/people/{npub}">bob@new.example.com</a> by <a href="https://fed.brid.gy/">Bridgy Fed</a>',
+                'url': f'http://localhost/r/https://coracle.social/people/{npub}',
                 'attachment': [{'type': 'Image', 'url': 'http://new-pic'}],
                 'image': {'type': 'Image', 'url': 'http://new-pic'},
                 'icon': {'type': 'Image', 'url': 'http://new-pic'},
@@ -2449,7 +2459,7 @@ To disable these messages, reply with the text 'mute'.""",
                 'discoverable': True,
                 'indexable': True,
             },
-        }, ignore=['to'])
+        }, ignore=['@context', 'to'])
 
     def test_activitypub_user_profile_update_to_nostr(self):
         """ActivityPub user bridged to Nostr updates their profile.

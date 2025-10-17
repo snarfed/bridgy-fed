@@ -1033,6 +1033,7 @@ class Protocol:
         if not obj.as1:
             error('No object data provided')
 
+        orig_obj = obj
         id = None
         if obj.key and obj.key.id():
             id = obj.key.id()
@@ -1227,8 +1228,10 @@ class Protocol:
                 return dms.receive(from_user=from_user, obj=obj)
 
         # fetch actor if necessary
+        is_user = (inner_obj_id in (from_user.key.id(), from_user.profile_id())
+                   or from_user.is_profile(orig_obj))
         if (actor and actor.keys() == set(['id'])
-                and obj.type not in ('delete', 'undo')):
+                and not is_user and obj.type not in ('delete', 'undo')):
             logger.debug('Fetching actor so we have name, profile photo, etc')
             actor_obj = from_cls.load(ids.profile_id(id=actor['id'], proto=from_cls),
                                       raise_=False)
@@ -1278,30 +1281,33 @@ class Protocol:
 
             from_cls.handle_follow(obj, from_user=from_user)
 
+        # on update of the user's own actor/profile, set user.obj and store user back
+        # to datastore so that we recalculate computed properties like status etc
+        if is_user:
+            if obj.type == 'update' and crud_obj:
+                logger.info("update of the user's profile, re-storing user")
+                from_user.obj = crud_obj
+                from_user.put()
+
         # deliver to targets
         resp = from_cls.deliver(obj, from_user=from_user, crud_obj=crud_obj)
 
-        # handle update/delete of the user's own actor/profile
-        if inner_obj_id in (from_user.key.id(), from_user.profile_id()):
-            if obj.type == 'update' and crud_obj:
-                # set user.obj and store user back to datastore so that we
-                # recalculate computed properties like status, handle, etc
-                    from_user.obj = crud_obj
-                    from_user.put()
+        # on user deleting themselves, deactivate their followers/followings.
+        # https://github.com/snarfed/bridgy-fed/issues/1304
+        #
+        # do this *after* delivering because delivery finds targets based on
+        # stored Followers
+        if is_user and obj.type == 'delete':
+            for proto in from_user.enabled_protocols:
+                from_user.disable_protocol(PROTOCOLS[proto])
 
-            elif obj.type == 'delete':
-                # actor is deleting themselves. deactivate their followers/followings
-                # https://github.com/snarfed/bridgy-fed/issues/1304
-                for proto in from_user.enabled_protocols:
-                    from_user.disable_protocol(PROTOCOLS[proto])
-
-                logger.info(f'Deactivating Followers from or to {from_user.key.id()}')
-                followers = Follower.query(
-                    OR(Follower.to == from_user.key, Follower.from_ == from_user.key)
-                    ).fetch()
-                for f in followers:
-                    f.status = 'inactive'
-                ndb.put_multi(followers)
+            logger.info(f'Deactivating Followers from or to {from_user.key.id()}')
+            followers = Follower.query(
+                OR(Follower.to == from_user.key, Follower.from_ == from_user.key)
+            ).fetch()
+            for f in followers:
+                f.status = 'inactive'
+            ndb.put_multi(followers)
 
         memcache.memcache.set(memcache_key, 'done', expire=7 * 24 * 60 * 60)  # 1w
         return resp

@@ -976,9 +976,8 @@ class ProtocolTest(TestCase):
     def test_convert_object_adds_source_links_to_create_update(self):
         self.make_user(cls=Web, id='efake.brid.gy',
                        copies=[Target(protocol='other', uri='other:bot')])
-        # alice = ExplicitFake(id='efake:alice')
         alice = self.make_user('efake:alice', cls=ExplicitFake, obj_as1={
-            'id': 'other:foo:alice', 'foo': 'bar'})
+            'id': 'efake:profile:alice', 'foo': 'bar'})
 
         for verb in 'post', 'update':
             self.assertEqual({
@@ -2670,14 +2669,14 @@ class ProtocolReceiveTest(TestCase):
         other = Follower.get_or_create(to=self.user, from_=self.bob)
         self.assertEqual(3, Follower.query().count())
 
-        _, code = OtherFake.receive_as1({
+        body, code = OtherFake.receive_as1({
             'objectType': 'activity',
             'verb': 'delete',
             'id': 'other:delete',
             'actor': 'other:alice',
             'object': 'other:alice',
         })
-        self.assertEqual(202, code)
+        self.assertEqual(202, code, body)
 
         self.assertEqual(3, Follower.query().count())
         self.assertEqual('inactive', follower.key.get().status)
@@ -2801,7 +2800,7 @@ class ProtocolReceiveTest(TestCase):
             'objectType': 'activity',
             'verb': 'update',
             'id': 'other:alice#bridgy-fed-update-2022-01-02T03:04:05+00:00',
-            'actor': profile,
+            'actor': 'other:alice',
             'object': profile,
         })], Fake.sent)
 
