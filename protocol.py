@@ -118,6 +118,8 @@ class Protocol:
     """bool: whether this protocol supports HTML in profile descriptions. If False, profile descriptions should be plain text."""
     SEND_REPLIES_TO_ORIG_POSTS_MENTIONS = False
     """bool: whether replies to this protocol should include the original post's mentions as delivery targets"""
+    BOTS_FOLLOW_BACK = False
+    """bool: when a user on this protocol follows a bot user to enable bridging, does the bot follow them back?"""
 
     @classmethod
     @property
@@ -1264,7 +1266,7 @@ class Protocol:
                     from_cls.respond_to_follow('reject', follower=from_user,
                                                followee=bot, follow=obj)
                     raise
-                proto.bot_follow(from_user)
+                proto.bot_maybe_follow_back(from_user)
 
             from_cls.handle_follow(obj, from_user=from_user)
 
@@ -1372,8 +1374,8 @@ class Protocol:
                            protocol=follower.LABEL, user=followee.key.urlsafe())
 
     @classmethod
-    def bot_follow(bot_cls, user):
-        """Follow a user from a protocol bot user.
+    def bot_maybe_follow_back(bot_cls, user):
+        """Follow a user from a protocol bot user, if their protocol needs that.
 
         ...so that the protocol starts sending us their activities, if it needs
         a follow for that (eg ActivityPub).
@@ -1381,6 +1383,9 @@ class Protocol:
         Args:
           user (User)
         """
+        if not user.BOTS_FOLLOW_BACK:
+            return
+
         from web import Web
         bot = Web.get_by_id(bot_cls.bot_user_id())
         now = util.now().isoformat()

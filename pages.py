@@ -321,7 +321,7 @@ def enable(user=None):
                 flash(f"Couldn't enable bridging to {proto.PHRASE}: {msg}")
                 return redirect('/settings', code=302)
 
-            proto.bot_follow(user)
+            proto.bot_maybe_follow_back(user)
             enabled.append(proto)
 
     if enabled:

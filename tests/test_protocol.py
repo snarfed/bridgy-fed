@@ -1137,10 +1137,17 @@ class ProtocolTest(TestCase):
             },
         })], Fake.sent)
 
-    def test_bot_follow(self):
+    @patch.object(Fake, 'BOTS_FOLLOW_BACK', False)
+    def test_bot_maybe_follow_back(self):
         self.make_user(id='fa.brid.gy', cls=Web)
         user = self.make_user(id='fake:user', cls=Fake, obj_id='fake:user')
-        Fake.bot_follow(user)
+        Fake.bot_maybe_follow_back(user)
+        self.assertEqual([], Fake.sent)
+
+    def test_bot_maybe_follow_back_false(self):
+        self.make_user(id='fa.brid.gy', cls=Web)
+        user = self.make_user(id='fake:user', cls=Fake, obj_id='fake:user')
+        Fake.bot_maybe_follow_back(user)
 
         self.assertEqual([('fake:user:target', {
             'objectType': 'activity',
@@ -1150,11 +1157,11 @@ class ProtocolTest(TestCase):
             'object': 'fake:user',
         })], Fake.sent)
 
-    def test_bot_follow_user_missing_obj(self):
+    def test_bot_maybe_follow_back_user_missing_obj(self):
         self.make_user(id='fa.brid.gy', cls=Web)
         user = Fake(id='fake:user')
         assert not user.obj
-        Fake.bot_follow(user)
+        Fake.bot_maybe_follow_back(user)
         self.assertEqual([], Fake.sent)
 
     def test_check_can_migrate_out(self, *_):

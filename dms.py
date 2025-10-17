@@ -164,7 +164,7 @@ def help(from_user, to_proto):
 @command(['yes', 'ok', 'start'], user_bridged=False)
 def start(from_user, to_proto):
     from_user.enable_protocol(to_proto)
-    to_proto.bot_follow(from_user)
+    to_proto.bot_maybe_follow_back(from_user)
 
 
 @command(['no', 'stop'])

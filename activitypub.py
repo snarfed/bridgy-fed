@@ -138,6 +138,8 @@ class ActivityPub(User, Protocol):
     'https://github.com/snarfed/bridgy-fed/issues/1608 , https://github.com/snarfed/bridgy-fed/issues/1218'
     HTML_PROFILES = True
     ''
+    BOTS_FOLLOW_BACK = True
+    ''
 
     webfinger_addr = ndb.StringProperty()
     """Populated by :meth:`reload_profile`."""
