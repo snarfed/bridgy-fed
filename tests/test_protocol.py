@@ -1094,6 +1094,7 @@ class ProtocolTest(TestCase):
         })
         proto.check_supported(dm, 'receive')
 
+    @patch.object(Fake, 'SUPPORTS_DMS', True)
     def test_dm_gets_reply_that_we_dont_support_dms(self):
         # DM from fake:alice to other:bob
         alice = self.make_user(id='fake:alice', cls=Fake, obj_as1={'x': 'y'})

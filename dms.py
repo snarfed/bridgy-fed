@@ -300,6 +300,9 @@ def maybe_send(*, from_, to_user, text, type=None, in_reply_to=None):
       type (str): optional, one of DM.TYPES
       in_reply_to (str): optional, ``id`` of a DM to reply to
     """
+    if not to_user.SUPPORTS_DMS:
+        return
+
     from_proto = from_
     if not isinstance(from_, User):
         assert issubclass(from_, protocol.Protocol)

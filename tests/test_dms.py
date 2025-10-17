@@ -57,7 +57,7 @@ DM_ALICE_MIGRATE = {
 }
 ALICE_MIGRATE_CONFIRMATION = """OK, we'll migrate your bridged account on other-phrase to <a class="h-card u-author mention" rel="me" href="web:other:new-alice" title="other:handle:new-alice">other:handle:new-alice</a>."""
 
-@mock.patch.object(Fake, 'SUPPORTS_DMS', True)
+@patch.object(Fake, 'SUPPORTS_DMS', True)
 class DmsTest(TestCase):
 
     def make_alice_bob(self):
@@ -161,6 +161,16 @@ class DmsTest(TestCase):
         maybe_send(from_=Web, to_user=user, text='nope', type='welcome')
         self.assertEqual([], OtherFake.sent)
         self.assertEqual([], user.sent_dms)
+
+    def test_maybe_send_to_SUPPORTS_DMS_False(self):
+        self.make_user(id='other.brid.gy', cls=Web)
+        user = self.make_user(id='fake:user', cls=Fake, obj_as1={'x': 'y'})
+
+        with patch.object(Fake, 'SUPPORTS_DMS', False):
+            maybe_send(from_=OtherFake, to_user=user, text='hi hi hi', type='welcome')
+
+        self.assertEqual([], Fake.sent)
+        self.assertEqual([], OtherFake.sent)
 
     def test_receive_empty(self):
         self.make_user(id='other.brid.gy', cls=Web)
@@ -343,7 +353,7 @@ class DmsTest(TestCase):
         self.assert_replied(OtherFake, alice, '?', "Couldn't find user other:handle:bob on other-phrase")
         self.assertEqual([], OtherFake.sent)
 
-    @mock.patch.object(OtherFake, 'REQUIRES_NAME', True)
+    @patch.object(OtherFake, 'REQUIRES_NAME', True)
     def test_receive_prompt_user_not_eligible(self):
         self.make_user(id='efake.brid.gy', cls=Web)
         self.make_user(id='other.brid.gy', cls=Web)
@@ -412,7 +422,7 @@ class DmsTest(TestCase):
         self.assertEqual([], OtherFake.sent)
         self.assertEqual([], Fake.sent)
 
-    @mock.patch.object(dms, 'REQUESTS_LIMIT_USER', 2)
+    @patch.object(dms, 'REQUESTS_LIMIT_USER', 2)
     def test_receive_prompt_request_rate_limit(self):
         alice, bob = self.make_alice_bob()
         eve = self.make_user(id='other:eve', cls=OtherFake, obj_as1={'x': 'y'})
@@ -458,7 +468,7 @@ class DmsTest(TestCase):
         self.assertEqual([], OtherFake.sent)
         self.assert_replied(OtherFake, user, '?', "Couldn't find user fake:eve on other-phrase")
 
-    @mock.patch('ids.translate_handle', side_effect=ValueError('nope'))
+    @patch('ids.translate_handle', side_effect=ValueError('nope'))
     def test_receive_prompt_not_supported_in_target_protocol(self, _):
         alice, bob = self.make_alice_bob()
         obj = Object(our_as1=DM_ALICE_REQUESTS_BOB)
@@ -516,7 +526,7 @@ class DmsTest(TestCase):
         self.assertEqual(('OK', 200), receive(from_user=alice, obj=obj))
         self.assert_replied(Fake, alice, '?', "Sorry, Bridgy Fed doesn't support custom usernames for fake-phrase yet.")
 
-    @mock.patch.object(OtherFake, 'set_username', side_effect=RuntimeError('nopey'))
+    @patch.object(OtherFake, 'set_username', side_effect=RuntimeError('nopey'))
     def test_receive_username_fails(self, _):
         self.make_user(id='other.brid.gy', cls=Web)
         alice = self.make_user(id='efake:alice', cls=ExplicitFake,
