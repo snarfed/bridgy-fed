@@ -51,11 +51,6 @@ import router
 logger = logging.getLogger(__name__)
 logging.getLogger('memcache').setLevel(logging.INFO)
 
-# TODO: remove once we've done this in models.py for prod
-PROTOCOLS['nostr'] = nostr.Nostr
-assert DEBUG_PROTOCOLS[-1] == 'nostr'
-DEBUG_PROTOCOLS = DEBUG_PROTOCOLS[:-1]
-
 ATPROTO_KEY = arroba.util.new_key(2349823483510)  # deterministic seed
 
 NOTE = {

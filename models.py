@@ -51,6 +51,7 @@ PROTOCOLS = {label: None for label in (
     'ap',
     'atproto',
     'bsky',
+    'nostr',
     'ostatus',
     'web',
     'webmention',
@@ -61,12 +62,6 @@ DEBUG_PROTOCOLS = (
     'fake',
     'efake',
     'other',
-    # TODO: move to PROTOCOLS for launch
-    #
-    # can't do this yet because we create AP server/instance actors automatically
-    # bridged into all protocols
-    # activitypub.py:1403
-    'nostr',
 )
 if DEBUG:
     PROTOCOLS.update({label: None for label in DEBUG_PROTOCOLS})
@@ -140,9 +135,7 @@ class Target(ndb.Model):
     """
     uri = ndb.StringProperty(required=True)
     ''
-    # TODO: remove for Nostr launch
-    protocol = ndb.StringProperty(choices=list(PROTOCOLS.keys()) + ['nostr'],
-                                  required=True)
+    protocol = ndb.StringProperty(choices=list(PROTOCOLS.keys()), required=True)
     ''
 
     def __eq__(self, other):
@@ -182,9 +175,7 @@ class DM(ndb.Model):
       * unsupported-handle-ap
       * welcome
     """
-    # TODO: remove for Nostr launch
-    protocol = ndb.StringProperty(choices=list(PROTOCOLS.keys()) + ['nostr'],
-                                  required=True)
+    protocol = ndb.StringProperty(choices=list(PROTOCOLS.keys()), required=True)
     ''
 
     def __eq__(self, other):
@@ -371,8 +362,7 @@ class User(AddRemoveMixin, StringIdModel, metaclass=ProtocolUserMeta):
     """Set to True to manually disable this user. Set to False to override spam filters and forcibly enable this user."""
 
     enabled_protocols = ndb.StringProperty(repeated=True,
-                                           # TODO: remove for Nostr launch
-                                           choices=list(PROTOCOLS.keys()) + ['nostr'])
+                                           choices=list(PROTOCOLS.keys()))
     """Protocols that this user has explicitly opted into.
 
     Protocols that don't require explicit opt in are omitted here.
@@ -1097,8 +1087,7 @@ class Object(AddRemoveMixin, StringIdModel):
     feed = ndb.KeyProperty(repeated=True)
     'User who should see this in their feeds, eg followers of its creator'
 
-    # TODO: remove for Nostr launch
-    source_protocol = ndb.StringProperty(choices=list(PROTOCOLS.keys()) + ['nostr'])
+    source_protocol = ndb.StringProperty(choices=list(PROTOCOLS.keys()))
     """The protocol this object originally came from.
 
     TODO: nail down whether this is :attr:`ABBREV`` or :attr:`LABEL`
