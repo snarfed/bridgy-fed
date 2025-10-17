@@ -926,6 +926,21 @@ class User(AddRemoveMixin, StringIdModel, metaclass=ProtocolUserMeta):
         """
         return ids.profile_id(id=self.key.id(), proto=self)
 
+    def is_profile(self, obj):
+        """Returns True if ``obj`` is this user's profile/actor, False otherwise.
+
+        Args:
+          obj (Object)
+
+        Returns:
+          bool:
+        """
+        if obj.key.id() in (self.key.id(), self.profile_id()):
+            return True
+
+        if self.obj_key and obj.key.id() == self.obj_key.id():
+            return True
+
     def reload_profile(self, **kwargs):
         """Reloads this user's identity and profile from their native protocol.
 

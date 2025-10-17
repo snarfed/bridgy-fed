@@ -79,6 +79,22 @@ class NostrTest(TestCase):
         self.assertEqual('https://coracle.social/people/nprofile123',
                          Nostr(obj_key=Object(id='nostr:nprofile123').key).web_url())
 
+    def test_is_profile(self):
+        user = Nostr(id=NPUB_URI)
+
+        self.assertFalse(user.is_profile(Object(id='x')))
+        self.assertFalse(user.is_profile(Object(id='nostr:npub789')))
+
+        self.assertTrue(user.is_profile(Object(id=NPUB_URI)))
+
+        user.obj_key = Object(id='nostr:nprofile456').key
+        self.assertTrue(user.is_profile(Object(id='nostr:nprofile456')))
+
+        self.assertTrue(user.is_profile(Object(id='unused', nostr={
+            'pubkey': user.hex_pubkey(),
+            'kind': KIND_PROFILE,
+        })))
+
     def test_nip_05(self):
         self.assertIsNone(Nostr().nip_05())
 

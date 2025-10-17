@@ -174,6 +174,15 @@ class Nostr(User, Protocol):
             return granary.nostr.Nostr.user_url(
                 self.obj_key.id().removeprefix("nostr:"))
 
+    def is_profile(self, obj):
+        if super().is_profile(obj):
+            return True
+
+        if (obj and obj.nostr
+                and obj.nostr.get('pubkey') == self.hex_pubkey()
+                and obj.nostr.get('kind') == KIND_PROFILE):
+            return True
+
     @classmethod
     def owns_id(cls, id):
         return id.startswith('nostr:') or bool(granary.nostr.is_bech32(id))

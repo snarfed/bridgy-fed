@@ -260,6 +260,9 @@ class Web(User, Protocol):
     def is_web_url(self, url):
         return super().is_web_url(url, ignore_www=True)
 
+    def is_profile(self, obj):
+        return self.is_web_url(obj.key.id())
+
     def user_page_path(self, rest=None, **kwargs):
         """Always prefer domain (id)."""
         kwargs['prefer_id'] = True

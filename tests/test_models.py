@@ -712,12 +712,21 @@ class UserTest(TestCase):
         user.remove_copies_on(OtherFake)
         self.assertEqual([Target(protocol='fake', uri='fake:y')], user.copies)
 
+    def test_is_profile(self):
+        user = Fake(id='fake:user')
+
+        self.assertFalse(user.is_profile(Object(id='x')))
+        self.assertFalse(user.is_profile(Object(id='fake:other')))
+        self.assertFalse(user.is_profile(Object(id='other:user')))
+
+        self.assertTrue(user.is_profile(Object(id='fake:user')))
+        self.assertTrue(user.is_profile(Object(id='fake:profile:user')))
+
+        user.obj_key = Object(id='my:profile').key
+        self.assertTrue(user.is_profile(Object(id='my:profile')))
+
 
 class ObjectTest(TestCase):
-
-    def setUp(self):
-        super().setUp()
-        self.user = None
 
     def test_target_hashable(self):
         target = Target(protocol='ui', uri='http://foo')

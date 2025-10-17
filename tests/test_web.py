@@ -2791,6 +2791,14 @@ Current vs expected:<pre>- http://this/404s
         self.assertTrue(self.user.is_web_url('https://www.user.com/'))
         self.assertFalse(self.user.is_web_url('https://other.com/'))
 
+    def test_is_profile(self, *_):
+        for bad in 'x', 'a.b':
+            self.assertFalse(self.user.is_profile(Object(id=bad)))
+
+        for good in ('user.com', 'https://user.com', 'https://user.com/',
+                     'http://user.com'):
+            self.assertTrue(self.user.is_profile(Object(id=good)))
+
     def test_handle_as(self, *_):
         self.user.ap_subdomain = 'web'
 
