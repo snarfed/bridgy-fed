@@ -99,9 +99,7 @@ class NostrTest(TestCase):
         self.assertIsNone(Nostr().nip_05())
 
         for expected, event in (
-                (None, {'kind': KIND_NOTE}),
                 (None, {'kind': KIND_PROFILE}),
-                (None, {'kind': KIND_NOTE, 'content': '{"nip05":"foo"}'}),
                 (None, {'kind': KIND_PROFILE, 'content': '{"name":"Alice"}'}),
                 ('foo', {'kind': KIND_PROFILE, 'content': '{"nip05":"foo"}'}),
                 ('_@foo', {'kind': KIND_PROFILE, 'content': '{"nip05":"_@foo"}'}),
@@ -110,6 +108,12 @@ class NostrTest(TestCase):
             with self.subTest(event=event):
                 obj = Object(id='x', nostr={**event, 'pubkey': PUBKEY})
                 self.assertEqual(expected, Nostr(obj_key=obj.put()).nip_05())
+
+        user = Nostr(obj=Object(id='unused', our_as1={'username': 'a@foo'}))
+        self.assertEqual('a@foo', user.nip_05())
+
+        user.obj.our_as1['username'] = 'foo'
+        self.assertEqual('_@foo', user.nip_05())
 
     def test_handle(self):
         self.assertIsNone(Nostr().handle)

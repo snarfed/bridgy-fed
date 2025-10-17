@@ -164,10 +164,20 @@ class Nostr(User, Protocol):
         return super().status
 
     def nip_05(self):
-        if self.obj and self.obj.nostr and self.obj.nostr.get('kind') == KIND_PROFILE:
+        if not self.obj:
+            return
+
+        if self.obj.nostr:
+            assert self.obj.nostr.get('kind') == KIND_PROFILE
             content = json_loads(self.obj.nostr.get('content', '{}'))
             if nip05 := content.get('nip05'):
                 return nip05
+
+        elif self.obj.as1:
+            if username := self.obj.as1.get('username'):
+                if '@' not in username:
+                    username = '_@' + username
+                return username
 
     def web_url(self):
         if self.obj_key:
