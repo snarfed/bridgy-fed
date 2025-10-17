@@ -663,7 +663,7 @@ class Protocol:
         assert from_user
 
         obj.our_as1 = copy.deepcopy(obj.as1)
-        actor = (as1.get_object(obj.as1) if obj.as1.get('verb') in as1.CRUD_VERBS
+        actor = (as1.get_object(obj.as1) if obj.type in as1.CRUD_VERBS
                  else obj.as1)
         actor['objectType'] = 'person'
 
@@ -1107,6 +1107,14 @@ class Protocol:
             from_user.reload_profile()
         else:
             # load actor user
+            #
+            # TODO: we should maybe eventually allow non-None status users here if
+            # this is a profile update, so that we store the user again below and
+            # re-calculate its status. right now, if a bridged user updates their
+            # profile and invalidates themselves, eg by removing their profile
+            # picture, and then updates again to make themselves valid again, we'll
+            # ignore the second update. they'll have to un-bridge and re-bridge
+            # themselves to get back working again.
             from_user = from_cls.get_or_create(id=actor, allow_opt_out=internal)
 
         if not internal and (not from_user or from_user.manual_opt_out):
@@ -1273,21 +1281,27 @@ class Protocol:
         # deliver to targets
         resp = from_cls.deliver(obj, from_user=from_user, crud_obj=crud_obj)
 
-        # if this is a user, deactivate its followers/followings
-        # https://github.com/snarfed/bridgy-fed/issues/1304
-        if obj.type == 'delete':
-            if user_key := from_cls.key_for(id=inner_obj_id):
-                if user := user_key.get():
-                    for proto in user.enabled_protocols:
-                        user.disable_protocol(PROTOCOLS[proto])
+        # handle update/delete of the user's own actor/profile
+        if inner_obj_id in (from_user.key.id(), from_user.profile_id()):
+            if obj.type == 'update' and crud_obj:
+                # set user.obj and store user back to datastore so that we
+                # recalculate computed properties like status, handle, etc
+                    from_user.obj = crud_obj
+                    from_user.put()
 
-                    logger.info(f'Deactivating Followers from or to {user_key.id()}')
-                    followers = Follower.query(
-                        OR(Follower.to == user_key, Follower.from_ == user_key)
-                        ).fetch()
-                    for f in followers:
-                        f.status = 'inactive'
-                    ndb.put_multi(followers)
+            elif obj.type == 'delete':
+                # actor is deleting themselves. deactivate their followers/followings
+                # https://github.com/snarfed/bridgy-fed/issues/1304
+                for proto in from_user.enabled_protocols:
+                    from_user.disable_protocol(PROTOCOLS[proto])
+
+                logger.info(f'Deactivating Followers from or to {from_user.key.id()}')
+                followers = Follower.query(
+                    OR(Follower.to == from_user.key, Follower.from_ == from_user.key)
+                    ).fetch()
+                for f in followers:
+                    f.status = 'inactive'
+                ndb.put_multi(followers)
 
         memcache.memcache.set(memcache_key, 'done', expire=7 * 24 * 60 * 60)  # 1w
         return resp

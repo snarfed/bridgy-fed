@@ -285,6 +285,11 @@ def profile_id(*, id, proto):
         case 'fake' if not id.startswith('fake:profile:'):
             return id.replace('fake:', 'fake:profile:')
 
+        # TODO
+        # also see TODO in ProtocolReceiveTest.setUp
+        # case 'fake' | 'efake' | 'other' if ':profile:' not in id:
+        #     return id.replace(':', ':profile:')
+
         case _:
             return id
 

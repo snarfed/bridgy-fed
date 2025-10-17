@@ -1188,6 +1188,8 @@ class ProtocolReceiveTest(TestCase):
 
     def setUp(self):
         super().setUp()
+        # TODO: switch these to :profile: to test actor id vs profile id
+        # also see TODO in ids.profile_id
         self.user = self.make_user('fake:user', cls=Fake, obj_id='fake:user')
         self.alice = self.make_user('other:alice', cls=OtherFake, obj_id='other:alice')
         self.bob = self.make_user('other:bob', cls=OtherFake, obj_id='other:bob')
@@ -2835,6 +2837,31 @@ class ProtocolReceiveTest(TestCase):
                            )
         self.assertIsNone(Object.get_by_id(
             'fake:profile:user#bridgy-fed-update-2022-01-02T03:04:05+00:00'))
+
+    def test_update_profile_user_with_status_rewrites_user(self):
+        """Profile update for a user with non-null status. Store the user again.
+
+        ...so that we recompute computed properties based on the profile object.
+        """
+        self.assertIsNone(self.alice.status)
+
+        update = {
+            'objectType': 'activity',
+            'verb': 'update',
+            'id': 'other:update',
+            'actor': 'other:alice',
+            'object': {
+                'objectType': 'person',
+                'id': 'other:alice',
+                'displayName': 'Ms. Baz #nobridge',
+            },
+        }
+        _, status = OtherFake.receive_as1(update)
+        self.assertEqual(204, status)
+
+        alice = self.alice.key.get()
+        self.assertEqual('nobridge', alice.status)
+        self.assertEqual(update['object'], alice.obj.as1)
 
     def test_mention_object(self, *mocks):
         self.alice.obj.our_as1 = {'id': 'other:alice', 'objectType': 'person'}
