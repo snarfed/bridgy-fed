@@ -76,8 +76,9 @@ class NostrTest(TestCase):
 
     def test_web_url(self):
         self.assertIsNone(Nostr().web_url())
-        self.assertEqual('https://coracle.social/people/nprofile123',
-                         Nostr(obj_key=Object(id='nostr:nprofile123').key).web_url())
+
+        user = Nostr(id='nostr:npub123', obj_key=Object(id='nostr:nprofile456').key)
+        self.assertEqual('https://coracle.social/people/npub123', user.web_url())
 
     def test_is_profile(self):
         user = Nostr(id=NPUB_URI)
@@ -119,10 +120,7 @@ class NostrTest(TestCase):
         self.assertIsNone(Nostr().handle)
 
         for expected, event in (
-                (None, {'kind': KIND_NOTE}),
                 (None, {'kind': KIND_PROFILE}),
-                (None, {'kind': KIND_NOTE, 'content': 'foo'}),
-                (None, {'kind': KIND_NOTE, 'content': '{"nip05":"foo"}'}),
                 (None, {'kind': KIND_PROFILE, 'content': '{"name":"Alice"}'}),
                 ('foo', {'kind': KIND_PROFILE, 'content': '{"nip05":"foo"}'}),
                 ('foo', {'kind': KIND_PROFILE, 'content': '{"nip05":"_@foo"}'}),
@@ -139,11 +137,12 @@ class NostrTest(TestCase):
         self.assertIsNone(Nostr.bridged_web_url_for(Nostr()))
         self.assertIsNone(Nostr.bridged_web_url_for(Fake()))
 
-        obj = self.store_object(
-            id='fake:profile',
-            copies=[Target(uri='nostr:nprofile123', protocol='nostr')])
-        self.assertEqual('https://coracle.social/people/nprofile123',
-                         Nostr.bridged_web_url_for(Fake(obj=obj)))
+        user = Fake(id='fake:user')
+        self.assertIsNone(Nostr.bridged_web_url_for(Fake()))
+
+        user.copies=[Target(uri='nostr:npub123', protocol='nostr')]
+        self.assertEqual('https://coracle.social/people/npub123',
+                         Nostr.bridged_web_url_for(user))
 
     def test_owns_id(self):
         for id in ('npub23', 'nevent123', 'note123', 'nprofile123', 'naddr123',

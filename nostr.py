@@ -180,9 +180,8 @@ class Nostr(User, Protocol):
                 return username
 
     def web_url(self):
-        if self.obj_key:
-            return granary.nostr.Nostr.user_url(
-                self.obj_key.id().removeprefix("nostr:"))
+        if self.key:
+            return granary.nostr.Nostr.user_url(self.key.id().removeprefix("nostr:"))
 
     def is_profile(self, obj):
         if super().is_profile(obj):
@@ -223,9 +222,9 @@ class Nostr(User, Protocol):
 
     @classmethod
     def bridged_web_url_for(cls, user, fallback=False):
-        if not isinstance(user, cls) and user.obj:
-            if nprofile := user.obj.get_copy(cls):
-                return granary.nostr.Nostr.user_url(nprofile)
+        if not isinstance(user, cls):
+            if npub := user.get_copy(cls):
+                return granary.nostr.Nostr.user_url(npub)
 
     @classmethod
     def target_for(cls, obj, shared=False):
