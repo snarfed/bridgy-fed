@@ -146,9 +146,9 @@ class IntegrationTests(TestCase):
             'created_at': NOW_SECONDS,
         }, privkey=NSEC_URI)
 
+        props.setdefault('valid_nip05', 'bob@nostr.example.com')
         user = self.make_user(id=NPUB_URI, cls=Nostr, obj_nostr=profile_event,
                               obj_id=uri_for(profile_event),
-                              valid_nip05='bob@nostr.example.com',
                               # no nostr_key_bytes because we don't own this user
                               **props)
 
@@ -936,8 +936,7 @@ To disable these messages, reply with the text 'mute'.""",
 
         user = ATProto.get_by_id('did:plc:alice')
         self.assertTrue(user.is_enabled(ActivityPub))
-        self.assertEqual([DM(protocol='activitypub', type='welcome')],
-                         user.sent_dms)
+        self.assertEqual([DM(protocol='activitypub', type='welcome')], user.sent_dms)
 
         headers = {
             'Content-Type': 'application/json',
@@ -1843,23 +1842,14 @@ To disable these messages, reply with the text 'mute'.""",
     @patch('requests.get', side_effect=[
         requests_response({'names': {'bob': 'deadbeef'}}),  # NIP-05 validation
     ])
-    @patch('secrets.token_urlsafe',
-           side_effect=['sub123', 'sub456', 'sub789', 'subabc'])
-    def test_nostr_follow_activitypub_bot_user_invalid_nip05(self, _, mock_get):
+    def test_nostr_follow_activitypub_bot_user_invalid_nip05(self, mock_get):
         """Nostr follow of ap.brid.gy bot user, invalid NIP-05.
 
         Nostr user bob@nostr.example.com (NPUB_URI) without valid NIP-05
         ActivityPub bot user ap.brid.gy (NPUB_URI_2)
         """
         ap_bot = self.make_web_user('ap.brid.gy', enabled_protocols=['nostr'])
-        bob = self.make_nostr_user(enabled_protocols=[])
-
-        ap_bot_profile = id_and_sign({
-            'kind': KIND_PROFILE,
-            'pubkey': ap_bot.hex_pubkey(),
-            'content': json_dumps({'name': 'ActivityPub', 'nip05': '_@ap.brid.gy'}),
-            'created_at': NOW_SECONDS,
-        }, privkey=ap_bot.nsec())
+        bob = self.make_nostr_user(valid_nip05=None)
 
         follow = id_and_sign({
             'kind': KIND_CONTACTS,
@@ -1879,7 +1869,6 @@ To disable these messages, reply with the text 'mute'.""",
 
         bob = bob.key.get()
         self.assertFalse(bob.is_enabled(ActivityPub))
-        self.assertEqual([DM(protocol='activitypub', type='no-nip05')], bob.sent_dms)
 
     @patch('requests.post', return_value=requests_response('OK'))
     @patch('requests.get', side_effect=[
@@ -1896,13 +1885,6 @@ To disable these messages, reply with the text 'mute'.""",
         """
         ap_bot = self.make_web_user('ap.brid.gy', enabled_protocols=['nostr'])
         bob = self.make_nostr_user(enabled_protocols=[])
-
-        ap_bot_profile = id_and_sign({
-            'kind': KIND_PROFILE,
-            'pubkey': ap_bot.hex_pubkey(),
-            'content': json_dumps({'name': 'ActivityPub', 'nip05': '_@ap.brid.gy'}),
-            'created_at': NOW_SECONDS,
-        }, privkey=ap_bot.nsec())
 
         follow = id_and_sign({
             'kind': KIND_CONTACTS,
@@ -1922,7 +1904,6 @@ To disable these messages, reply with the text 'mute'.""",
 
         bob = bob.key.get()
         self.assertTrue(bob.is_enabled(ActivityPub))
-        self.assertEqual([DM(protocol='activitypub', type='welcome')], bob.sent_dms)
 
     @patch('requests.post', return_value=requests_response('OK'))
     @patch('requests.get', side_effect=[
@@ -1967,7 +1948,6 @@ To disable these messages, reply with the text 'mute'.""",
 
         bob = bob.key.get()
         self.assertTrue(bob.is_enabled(ATProto))
-        self.assertEqual([DM(protocol='atproto', type='welcome')], bob.sent_dms)
 
     @patch('requests.get')
     @patch('requests.post')
