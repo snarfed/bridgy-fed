@@ -245,12 +245,10 @@ class NostrTest(TestCase):
 
         self.assert_equals({
             'kind': KIND_NOTE,
-            'id': 'ddaa744f04433c978af112e5b9d1affb514a745e4734c267bcd54492b02ba908',
+            'id': '2ecd824add055bcb36b9babf479e0f822888cc733215ade8021fedf38730b73c',
             'pubkey': PUBKEY,
             'content': 'I hereby reply',
-            'tags': [
-                ['e', ID, 'reelaay', 'reply'],
-            ],
+            'tags': [['e', ID, 'reelaay']],
             'created_at': NOW_TS,
         }, Nostr._convert(Object(our_as1={
             'objectType': 'note',

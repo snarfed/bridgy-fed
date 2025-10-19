@@ -2218,7 +2218,7 @@ To disable these messages, reply with the text 'mute'.""",
                 'kind': KIND_NOTE,
                 'pubkey': alice.hex_pubkey(),
                 'content': 'Replying to Bob!',
-                'tags': [['e', post['id'], None, 'reply']],
+                'tags': [['e', post['id'], None]],
                 'created_at': NOW_SECONDS,
             }]], FakeConnection.sent, ignore=['id', 'sig'])
 
@@ -2268,7 +2268,7 @@ To disable these messages, reply with the text 'mute'.""",
                 'kind': KIND_NOTE,
                 'pubkey': alice.hex_pubkey(),
                 'content': 'Replying to Bob!',
-                'tags': [['e', post['id'], None, 'reply']],
+                'tags': [['e', post['id'], None]],
                 'created_at': NOW_SECONDS,
             }]], FakeConnection.sent, ignore=['id', 'sig'])
 
