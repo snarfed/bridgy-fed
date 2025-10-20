@@ -243,7 +243,7 @@ class OtherFake(Fake):
     LOGO_EMOJI = '⏎'
     DEFAULT_ENABLED_PROTOCOLS = ('fake',)
     DEFAULT_SERVE_USER_PAGES = False
-    SUPPORTED_AS1_TYPES = Fake.SUPPORTED_AS1_TYPES - set(('accept',))
+    SUPPORTED_AS1_TYPES = Fake.SUPPORTED_AS1_TYPES - set(('accept', 'flag'))
     SUPPORTS_DMS = True
     SEND_REPLIES_TO_ORIG_POSTS_MENTIONS = True
     HTML_PROFILES = True

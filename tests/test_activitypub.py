@@ -1888,13 +1888,13 @@ class ActivityPubTest(TestCase):
         self.assertEqual(204, got.status_code)
 
         actor = ActivityPub.get_by_id('https://mas.to/actor')
-        self.assertCountEqual(['other', 'fake'], actor.enabled_protocols)
+        self.assertCountEqual(['fake'], actor.enabled_protocols)
 
     @patch('activitypub.PROTOCOLS', new={'fake': Fake, 'other': OtherFake})
     def test_inbox_existing_server_actor_adds_enabled_protocols(
             self, mock_head, mock_get, mock_post):
         server_actor = self.make_user('https://mas.to/actor', cls=ActivityPub,
-                                      enabled_protocols=['ui'], obj_as2=add_key({
+                                      obj_as2=add_key({
                                           'id': 'https://mas.to/actor',
                                           'type': 'Person',
                                       }))
@@ -1910,7 +1910,7 @@ class ActivityPubTest(TestCase):
         self.assertEqual(204, got.status_code)
 
         actor = ActivityPub.get_by_id('https://mas.to/actor')
-        self.assertCountEqual(['ui', 'fake', 'other'], actor.enabled_protocols)
+        self.assertCountEqual(['fake'], actor.enabled_protocols)
 
     # https://github.com/snarfed/bridgy-fed/security/advisories/GHSA-37r7-jqmr-3472
     def test_inbox_actor_auth_check_activity_id_different_domain(

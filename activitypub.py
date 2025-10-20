@@ -1397,13 +1397,14 @@ def inbox(protocol=None, id=None):
         id = f'{actor_id}#{type}-{obj_id or ""}-{util.now().isoformat()}'
         logger.info(f'Generated synthetic activity id {id}')
 
-    # automatically bridge server aka instance actors
+    # automatically bridge server aka instance actors into protocols that support flags
     # https://codeberg.org/fediverse/fep/src/branch/main/fep/d556/fep-d556.md
     if as2.is_server_actor(actor):
-        all_protocols = [proto.LABEL for proto in set(PROTOCOLS.values())
-                         if proto not in (ActivityPub, UIProtocol, None)]
-        user = ActivityPub.get_or_create(actor_id, propagate=False,
-                                         enabled_protocols=all_protocols)
+        flag_protocols = [proto.LABEL for proto in set(PROTOCOLS.values())
+                          if proto and proto != ActivityPub
+                          and 'flag' in proto.SUPPORTED_AS1_TYPES]
+        user = ActivityPub.get_or_create(actor_id, propagate=True,
+                                         enabled_protocols=flag_protocols)
         if user and not user.existing:
             logger.info(f'Automatically enabled AP server actor {actor_id}')
 
