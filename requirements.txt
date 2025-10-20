@@ -42,7 +42,7 @@ flask-gae-static==1.0
 flask-sock==0.7.0
 furl==2.1.4
 google-api-core[grpc]==2.25.1
-google-api-python-client==2.184.0
+google-api-python-client==2.185.0
 google-auth==2.41.1
 google-auth-httplib2==0.2.0
 google-cloud-appengine-logging==1.7.0
