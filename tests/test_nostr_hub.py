@@ -424,3 +424,40 @@ class NostrHubTest(TestCase):
                          authed_as=BOB_NPUB_URI,
                          nostr=event,
                          eta_seconds=delayed_eta)
+
+    def test_subscribe_relays_event(self, mock_create_task, _):
+        event = id_and_sign({
+            'pubkey': BOB_PUBKEY,
+            'kind': KIND_RELAYS,
+            'content': '',
+            'tags': [
+                ['r', 'wss://relay1.example.com'],
+                ['r', 'wss://relay2.example.com'],
+            ],
+            'created_at': NOW_TS,
+        }, privkey=BOB_NSEC_URI)
+
+        self.serve_and_subscribe([event])
+
+        mock_create_task.assert_not_called()
+
+        obj = Object.get_by_id(uri_for(event))
+        self.assertEqual(event, obj.nostr)
+        self.assertEqual('nostr', obj.source_protocol)
+        self.assertEqual(obj.key, self.bob.key.get().relays)
+
+    def test_subscribe_relays_event_not_nostr_user(self, mock_create_task, _):
+        event = id_and_sign({
+            'pubkey': EVE_PUBKEY,
+            'kind': KIND_RELAYS,
+            'content': '',
+            'tags': [
+                ['r', 'wss://relay1.example.com'],
+            ],
+            'created_at': NOW_TS,
+        }, privkey=EVE_NSEC_URI)
+
+        self.serve_and_subscribe([event])
+
+        mock_create_task.assert_not_called()
+        self.assertIsNone(Object.get_by_id(uri_for(event)))

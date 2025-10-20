@@ -10,6 +10,7 @@ from granary.nostr import (
     id_to_uri,
     KIND_DELETE,
     KIND_REACTION,
+    KIND_RELAYS,
     uri_for,
     uri_to_id,
     verify,
@@ -27,7 +28,7 @@ from common import (
     report_error,
     report_exception,
 )
-from models import PROTOCOLS
+from models import Object, PROTOCOLS
 from nostr import Nostr, NostrRelay
 from protocol import DELETE_TASK_DELAY
 from ui import UIProtocol
@@ -276,7 +277,17 @@ def handle(event):
     except (TypeError, ValueError):
         logger.info(f'bad id {id} or pubkey {pubkey}')
         return
+
     logger.debug(f'Got Nostr event {obj_id} from {pubkey}')
+
+    # special case relay events, just store them
+    if event.get('kind') == KIND_RELAYS and pubkey in nostr_pubkeys:
+        obj = Object.get_or_create(obj_id, nostr=event, authed_as=npub_uri,
+                                   source_protocol=Nostr.LABEL)
+        if user := Nostr.get_by_id(npub_uri):
+            user.relays = obj.key
+            user.put()
+        return
 
     delay = DELETE_TASK_DELAY if event.get('kind') == KIND_DELETE else None
     try:
