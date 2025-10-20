@@ -23,6 +23,7 @@ from oauth_dropins.webutil.util import json_dumps, json_loads
 from secp256k1 import PrivateKey, PublicKey
 from websockets.exceptions import ConnectionClosedOK, WebSocketException
 
+from activitypub import ActivityPub
 import common
 from flask_app import app
 import ids
@@ -215,6 +216,64 @@ class NostrTest(TestCase):
             'image': 'http://alice/pic',
             'username': 'alice',
         })))
+
+    def test_convert_web_user_actor(self):
+        user = self.make_user('alice.com', cls=Web, obj_as1={
+            'objectType': 'person',
+            'displayName': 'Ms Alice',
+            'summary': 'It me',
+        })
+
+        self.assert_equals({
+            'kind': KIND_PROFILE,
+            'pubkey': user.hex_pubkey(),
+            'content': json_dumps({
+                'name': 'Ms Alice',
+                'about': 'It me',
+            }, sort_keys=True),
+            'tags': [],
+            'created_at': NOW_TS,
+        }, Nostr.convert(user.obj, from_user=user), ignore=['id', 'sig'])
+
+    def test_convert_activitypub_user_actor(self):
+        user = self.make_user('http://in.st/alice', cls=ActivityPub, obj_as2={
+            'type': 'Person',
+            'id': 'http://in.st/alice',
+            'name': 'Ms Alice',
+            'summary': 'It me',
+            'preferredUsername': 'alice',
+        })
+
+        self.assert_equals({
+            'kind': KIND_PROFILE,
+            'pubkey': user.hex_pubkey(),
+            'content': json_dumps({
+                'name': 'Ms Alice',
+                'about': 'It me\n\n🌉 bridged from ⁂ http://in.st/alice by https://fed.brid.gy/',
+            }, sort_keys=True, ensure_ascii=False),
+            'tags': [],
+            'created_at': NOW_TS,
+        }, Nostr.convert(user.obj, from_user=user), ignore=['id', 'sig'])
+
+    def test_convert_activitypub_instance_actor(self):
+        user = self.make_user('http://in.st/actor', cls=ActivityPub, obj_as2={
+            'type': 'Person',
+            'id': 'http://in.st/actor',
+            'name': 'Ms Alice',
+            'summary': 'It me',
+            'preferredUsername': 'alice',
+        })
+
+        self.assert_equals({
+            'kind': KIND_PROFILE,
+            'pubkey': user.hex_pubkey(),
+            'content': json_dumps({
+                'name': 'Ms Alice',
+                'about': 'It me\n\n🌉 bridged from ⁂ http://in.st/actor by https://fed.brid.gy/',
+            }, sort_keys=True, ensure_ascii=False),
+            'tags': [],
+            'created_at': NOW_TS,
+        }, Nostr.convert(user.obj, from_user=user), ignore=['id', 'sig'])
 
     def test_convert_note(self):
         self.assert_equals({
@@ -452,9 +511,8 @@ class NostrTest(TestCase):
             'pubkey': PUBKEY,
             'id': profile_id,
             'content': json_dumps({
-                # TODO: bot handle formatting. and are there @-mentions in Nostr
-                # profiles?
-                'about': 'foo bar\n\n🌉 bridged from 📣 web:efake:alice, follow @_@efake.brid.gy to interact',
+                # no @-mentions in Nostr profiles 🤷
+                'about': 'foo bar\n\n🌉 bridged from 📣 web:efake:alice, follow @efake.brid.gy to interact',
                 'name':'Alice',
             }, ensure_ascii=False),
             'created_at': NOW_TS,

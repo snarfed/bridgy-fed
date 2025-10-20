@@ -251,6 +251,7 @@ class IdsTest(TestCase):
             (Web, 'fed.brid.gy', ActivityPub, '@fed.brid.gy@fed.brid.gy'),
             (Web, 'bsky.brid.gy', ActivityPub, '@bsky.brid.gy@bsky.brid.gy'),
             (Web, 'ap.brid.gy', ATProto, 'ap.brid.gy'),
+            (Web, 'ap.brid.gy', Nostr, 'ap.brid.gy'),
         ]:
             with self.subTest(from_=from_.LABEL, handle=handle, to=to.LABEL):
                 self.assertEqual(expected, translate_handle(

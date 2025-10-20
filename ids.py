@@ -359,7 +359,7 @@ def translate_handle(*, handle, from_, to, short=False):
 
         case _, 'nostr':
             if handle == PRIMARY_DOMAIN or handle in PROTOCOL_DOMAINS:
-                return f'_@{handle}'
+                return handle
 
             output = flattened_user_at_domain()
 

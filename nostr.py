@@ -418,7 +418,7 @@ class Nostr(User, Protocol):
         assert from_user
 
         event = to_cls.convert(obj, from_user=from_user)
-        assert event.get('pubkey') == from_user.hex_pubkey(), event
+        assert event.get('pubkey') == from_user.hex_pubkey(), (event, from_user.key)
         assert event.get('sig'), event
 
         logger.debug(f'connecting to {relay_url}')

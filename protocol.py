@@ -656,6 +656,7 @@ class Protocol:
         Uses HTML for protocols that support it, plain text otherwise.
 
         Args:
+          cls (Protocol subclass): protocol that the user is bridging into
           obj (models.Object): user's actor/profile object
           from_user (models.User): user (actor) this activity/object is from
         """
