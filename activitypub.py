@@ -594,8 +594,9 @@ class ActivityPub(User, Protocol):
             raise ValueError(f'No profile object for {user.key.id()}')
 
         logger.info(f"Adding {from_user_id} to {user.key.id()} 's alsoKnownAs")
-        user.obj.our_as1 = user.obj.as1
-        util.add(user.obj.our_as1.setdefault('alsoKnownAs', []), from_user_id)
+        if not user.obj.extra_as1:
+            user.obj.extra_as1 = {}
+        util.add(user.obj.extra_as1.setdefault('alsoKnownAs', []), from_user_id)
         user.obj.put()
 
     @classmethod
