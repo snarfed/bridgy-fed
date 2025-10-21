@@ -1067,6 +1067,15 @@ class ProtocolTest(TestCase):
                     'content': 'x',
                 }), 'receive')
 
+        # followers-only activities from NON_PUBLIC_DOMAINS should be allowed
+        Fake.check_supported(Object(our_as1={
+            'id': 'https://bird.makeup/post',
+            'objectType': 'note',
+            'author': 'https://bird.makeup/user',
+            'to': ['https://bird.makeup/user/followers'],
+            'content': 'x',
+        }), 'receive')
+
         # blank content and no video/audio/image
         for obj in (
                 {'objectType': 'note'},

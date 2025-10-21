@@ -59,6 +59,13 @@ MEMCACHE_LEASE_EXPIRATION = timedelta(seconds=25)
 LIMITED_DOMAINS = (os.getenv('LIMITED_DOMAINS', '').split()
                    or util.load_file_lines('limited_domains'))
 
+# domains to allow non-public activities from
+NON_PUBLIC_DOMAINS = (
+    # bridged from twitter (X). bird.makeup federates tweets as followers-only, but
+    # they're public on twitter itself
+    'bird.makeup',
+)
+
 DONT_STORE_AS1_TYPES = as1.CRUD_VERBS | set((
     'accept',
     'reject',
@@ -2004,8 +2011,9 @@ Hi! You <a href="{inner_obj_as1.get('url') or inner_obj_id}">recently {verb}</a>
             # not eg likes or follows, since Mastodon doesn't currently mark those
             # as explicitly public.
             elif (obj.type in set(('post', 'update')) | as1.POST_TYPES | as1.ACTOR_TYPES
-                      and not as1.is_public(obj.as1, unlisted=False)):
-                  error('Bridgy Fed only supports public activities', status=204)
+                  and not util.domain_or_parent_in(crud_obj.get('id'), NON_PUBLIC_DOMAINS)
+                  and not as1.is_public(obj.as1, unlisted=False)):
+                error('Bridgy Fed only supports public activities', status=204)
 
 
 @cloud_tasks_only(log=None)
