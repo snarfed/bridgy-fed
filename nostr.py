@@ -18,6 +18,7 @@ from granary.nostr import (
     bech32_prefix_for,
     id_and_sign,
     id_to_uri,
+    is_bech32,
     KIND_ARTICLE,
     KIND_CONTACTS,
     KIND_DELETE,
@@ -27,6 +28,7 @@ from granary.nostr import (
     KIND_REACTION,
     KIND_RELAYS,
     KIND_REPOST,
+    ID_RE,
     nip05_to_npub,
     uri_to_id,
 )
@@ -75,8 +77,7 @@ class NostrRelay(StringIdModel):
 class Nostr(User, Protocol):
     """Nostr class.
 
-    Key id is NIP-21 nostr:npub... bech32 npub URI.
-    https://github.com/nostr-protocol/nips/blob/master/19.md
+    Key id is hex pubkey with nostr: prefix.
     """
     ABBREV = 'nostr'
     PHRASE = 'Nostr'
@@ -111,8 +112,14 @@ class Nostr(User, Protocol):
     """NIP-05 identifier that we've resolved and verified."""
 
     def _pre_put_hook(self):
-        """Validates that the id is a bech32-encoded nostr:npub id."""
-        assert self.key.id().startswith('nostr:npub'), self.key.id()
+        """Validates that the id is a hex pubkey with nostr: prefix.
+
+        ...and also that we aren't storing a private key for this user since we don't
+        have their private key.
+        """
+        assert self.key.id().startswith('nostr:'), self.key.id()
+        assert ID_RE.match(self.key.id().removeprefix('nostr:')), self.key.id()
+        assert not self.nostr_key_bytes, self.key.id()
         return super()._pre_put_hook()
 
     def hex_pubkey(self):
@@ -121,7 +128,7 @@ class Nostr(User, Protocol):
         Returns:
           str:
         """
-        return uri_to_id(self.key.id())
+        return self.key.id().removeprefix('nostr:')
 
     def npub(self):
         """Returns the user's bech32-encoded ActivityPub public secp256k1 key.
@@ -129,7 +136,7 @@ class Nostr(User, Protocol):
         Returns:
           str:
         """
-        return self.key.id().removeprefix('nostr:')
+        return id_to_uri('npub', self.hex_pubkey()).removeprefix('nostr:')
 
     @ndb.ComputedProperty
     def handle(self):
@@ -137,7 +144,7 @@ class Nostr(User, Protocol):
         if nip05 := self.nip_05():
             return nip05.removeprefix('_@')
         elif self.key:
-            return self.key.id().removeprefix('nostr:')
+            return self.npub()
 
     @ndb.ComputedProperty
     def status(self):
@@ -181,7 +188,7 @@ class Nostr(User, Protocol):
 
     def web_url(self):
         if self.key:
-            return granary.nostr.Nostr.user_url(self.key.id().removeprefix("nostr:"))
+            return granary.nostr.Nostr.user_url(self.npub())
 
     def is_profile(self, obj):
         if super().is_profile(obj):
@@ -194,7 +201,12 @@ class Nostr(User, Protocol):
 
     @classmethod
     def owns_id(cls, id):
-        return id.startswith('nostr:') or bool(granary.nostr.is_bech32(id))
+        if id.startswith('nostr:'):
+            return True
+        elif is_bech32(id) or ID_RE.match(id):
+            return None
+
+        return False
 
     @classmethod
     def owns_handle(cls, handle, allow_internal=False):
@@ -218,18 +230,19 @@ class Nostr(User, Protocol):
         elif handle.startswith('npub'):
             return handle
 
-        return granary.nostr.nip05_to_npub(handle)
+        return 'nostr:' + uri_to_id(nip05_to_npub(handle))
 
     @classmethod
     def bridged_web_url_for(cls, user, fallback=False):
         if not isinstance(user, cls):
-            if npub := user.get_copy(cls):
-                return granary.nostr.Nostr.user_url(npub)
+            if id := user.get_copy(cls):
+                return granary.nostr.Nostr.user_url(
+                    id_to_uri('npub', id).removeprefix('nostr:'))
 
     @classmethod
     def target_for(cls, obj, shared=False):
         """Returns the first NIP-65 relay for the given object's author."""
-        if obj and (id := as1.get_owner(obj.as1)) and id.startswith('nostr:npub'):
+        if obj and (id := as1.get_owner(obj.as1)) and id.startswith('nostr:'):
             if user := Nostr.get_or_create(id, allow_opt_out=True):
                 if user.relays and (relays := user.relays.get()):
                     if relays.nostr:
@@ -261,7 +274,7 @@ class Nostr(User, Protocol):
             return
 
         logger.info(f'adding Nostr copy user {user.npub()} for {user.key}')
-        user.add('copies', Target(uri='nostr:' + user.npub(), protocol='nostr'))
+        user.add('copies', Target(uri='nostr:' + user.hex_pubkey(), protocol='nostr'))
         user.put()
 
         # create Nostr profile (kind 0 event) if necessary
@@ -292,15 +305,14 @@ class Nostr(User, Protocol):
         profile = relays = None
         for event in events:
             kind = event.get('kind')
-            obj = Object(id=id_to_uri('nevent', event['id']), nostr=event,
-                         source_protocol='nostr')
-
             if kind == KIND_PROFILE and not profile:
-                profile = obj
-                self.obj_key = profile.put()
+                profile = Object.get_or_create('nostr:' + event['id'], nostr=event,
+                                               source_protocol='nostr')
+                self.obj_key = profile.key
             elif kind == KIND_RELAYS and not relays:
-                relays = obj
-                self.relays = relays.put()
+                relays = Object.get_or_create('nostr:' + event['id'], nostr=event,
+                                               source_protocol='nostr')
+                self.relays = relays.key
 
             if profile and relays:
                 break
@@ -334,23 +346,17 @@ class Nostr(User, Protocol):
           bool: True if the object was fetched and populated successfully,
             False otherwise
         """
-        uri = obj.key.id()
-        if not cls.owns_id(uri):
-            logger.info(f"Nostr can't fetch {uri}")
+        if not cls.owns_id(obj.key.id()):
+            logger.info(f"Nostr can't fetch {obj.key.id()}")
             return False
 
-        bech32_id = uri.removeprefix('nostr:')
-        is_profile = bech32_id.startswith('npub') or bech32_id.startswith('nprofile')
-        hex_id = uri_to_id(uri)
-        filter = ({'authors': [hex_id], 'kinds': [KIND_PROFILE]} if is_profile
-                  else {'ids': [hex_id]})
-
+        id = obj.key.id().removeprefix('nostr:')
         client = granary.nostr.Nostr()
         relay = cls.target_for(obj)
         logger.debug(f'connecting to {relay}')
         with connect(relay, open_timeout=util.HTTP_TIMEOUT,
                      close_timeout=util.HTTP_TIMEOUT) as websocket:
-            events = client.query(websocket, filter)
+            events = client.query(websocket, {'ids': [id]})
 
         if not events:
             return False
@@ -380,7 +386,7 @@ class Nostr(User, Protocol):
         remote_relay = ''
         if remote_obj := granary.nostr.Nostr().base_object(obj_as1):
             if id := remote_obj.get('id'):
-                if id.startswith('nostr:npub'):
+                if id.startswith('nostr:'):
                     obj = Object(our_as1={'objectType': 'person', 'id': id})
                 else:
                     obj = Nostr.load(id)
@@ -435,8 +441,7 @@ class Nostr(User, Protocol):
                 return False
 
         obj.copies = [copy for copy in obj.copies if copy.protocol != 'nostr']
-        uri = id_to_uri(bech32_prefix_for(event), event['id'])
-        obj.add('copies', Target(uri=uri, protocol=to_cls.LABEL))
+        obj.add('copies', Target(uri='nostr:' + event['id'], protocol=to_cls.LABEL))
         obj.put()
 
         return True
@@ -464,9 +469,7 @@ def nip_05():
                               proto.key == ndb.Key(proto, name),
                               )).get()
         if user and user.is_enabled(Nostr):
-            if npub := user.get_copy(Nostr):
-                return {
-                    'names': {name: uri_to_id(npub)},
-                }
+            if uri := user.get_copy(Nostr):
+                return {'names': {name: uri.removeprefix('nostr:')}}
 
     raise NotFound()

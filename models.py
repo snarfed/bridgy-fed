@@ -1264,37 +1264,44 @@ class Object(AddRemoveMixin, StringIdModel):
 
     def _pre_put_hook(self):
         """
-        * Validate that at:// URIs have DID repos
+        * Validate that at:// URIs have DIDs
+        * Validate that Nostr ids are nostr:[hex] ids
         * Set/remove the activity label
         * Strip @context from as2 (we don't do LD) to save disk space
         """
-        id = self.key.id()
-
-        if self.source_protocol not in (None, 'ui'):
-            proto = PROTOCOLS[self.source_protocol]
-            assert proto.owns_id(id) is not False, \
-                f'Protocol {proto.LABEL} does not own id {id}'
-
-        if self.source_protocol == 'nostr':
-            assert id.startswith('nostr:'), id
-
-        if id.startswith('at://'):
-            repo, _, _ = parse_at_uri(id)
-            if not repo.startswith('did:'):
-                # TODO: if we hit this, that means the AppView gave us an AT URI
-                # with a handle repo/authority instead of DID. that's surprising!
-                # ...if so, and if we need to handle it, add a new
-                # arroba.did.canonicalize_at_uri() function, then use it here,
-                # or before.
-                raise ValueError(
-                    f'at:// URI ids must have DID repos; got {id}')
-
         if self.as2:
            self.as2.pop('@context', None)
            for field in 'actor', 'attributedTo', 'author', 'object':
                for val in util.get_list(self.as2, field):
                    if isinstance(val, dict):
                        val.pop('@context', None)
+
+        def check_id(id, proto):
+            if proto in (None, 'ui'):
+                return
+
+            assert PROTOCOLS[proto].owns_id(id) is not False, \
+                f'Protocol {PROTOCOLS[proto].LABEL} does not own id {id}'
+
+            if proto == 'nostr':
+                assert id.startswith('nostr:'), id
+                assert granary.nostr.ID_RE.match(id.removeprefix('nostr:')), id
+
+            elif proto == 'atproto':
+                assert id.startswith('at://') or id.startswith('did:'), id
+                if id.startswith('at://'):
+                    repo, _, _ = parse_at_uri(id)
+                    if not repo.startswith('did:'):
+                        # TODO: if we hit this, that means the AppView gave us an AT
+                        # URI with a handle repo/authority instead of DID. that's
+                        # surprising! ...if so, and if we need to handle it, add a
+                        # new arroba.did.canonicalize_at_uri() function, then use it
+                        # here, or before.
+                        raise ValueError(f'at:// URI ids must have DID repos; got {id}')
+
+        check_id(self.key.id(), self.source_protocol)
+        for target in self.copies:
+            check_id(target.uri, target.protocol)
 
     def _post_put_hook(self, future):
         # TODO: assert that as1 id is same as key id? in pre put hook?

@@ -40,12 +40,19 @@ from granary.tests.test_nostr import (
     NOTE_NOSTR,
     NOW_TS,
     NPUB_URI,
+    NPUB_URI_2,
     NSEC_URI,
+    NSEC_URI_2,
     PRIVKEY,
+    PRIVKEY_2,
     PUBKEY,
-    URI,
+    PUBKEY_2,
+    PUBKEY_URI,
+    PUBKEY_URI_2,
 )
 from .testutil import ExplicitFake, Fake, TestCase
+
+ID_URI = 'nostr:' + ID
 
 
 class NostrTest(TestCase):
@@ -58,39 +65,44 @@ class NostrTest(TestCase):
         self.user = self.make_user(
             'fake:user', cls=Fake, nostr_key_bytes=self.key.private_key,
             enabled_protocols=['nostr'],
-            copies=[Target(uri=NPUB_URI, protocol='nostr')])
+            copies=[Target(uri=PUBKEY_URI, protocol='nostr')])
 
     def test_pre_put_hook(self):
-        Nostr(id='nostr:npub123').put()
+        Nostr(id=ID_URI).put()
 
         with self.assertRaises(AssertionError):
             Nostr(id='foo').put()
 
+        with self.assertRaises(AssertionError):
+            Nostr(id=ID_URI, nostr_key_bytes=b'x').put()
+
     def test_hex_pubkey(self):
-        self.assertEqual(PUBKEY, Nostr(id=NPUB_URI).hex_pubkey())
+        self.assertEqual(PUBKEY, Nostr(id=PUBKEY_URI).hex_pubkey())
 
     def test_npub(self):
-        self.assertEqual('npub123', Nostr(id='nostr:npub123').npub())
+        self.assertEqual(NPUB_URI.removeprefix('nostr:'),
+                         Nostr(id=PUBKEY_URI).npub())
 
     def test_id_uri(self):
-        self.assertEqual('nostr:npub123', Nostr(id='nostr:npub123').id_uri())
+        self.assertEqual(PUBKEY_URI, Nostr(id=PUBKEY_URI).id_uri())
 
     def test_web_url(self):
         self.assertIsNone(Nostr().web_url())
 
-        user = Nostr(id='nostr:npub123', obj_key=Object(id='nostr:nprofile456').key)
-        self.assertEqual('https://coracle.social/people/npub123', user.web_url())
+        user = Nostr(id=PUBKEY_URI, obj_key=Object(id=ID_URI).key)
+        self.assertEqual(f'https://coracle.social/people/{NPUB_URI.removeprefix("nostr:")}',
+                         user.web_url())
 
     def test_is_profile(self):
-        user = Nostr(id=NPUB_URI)
+        user = Nostr(id=PUBKEY_URI)
 
         self.assertFalse(user.is_profile(Object(id='x')))
-        self.assertFalse(user.is_profile(Object(id='nostr:npub789')))
+        self.assertFalse(user.is_profile(Object(id=PUBKEY_URI_2)))
 
-        self.assertTrue(user.is_profile(Object(id=NPUB_URI)))
+        self.assertTrue(user.is_profile(Object(id=PUBKEY_URI)))
 
-        user.obj_key = Object(id='nostr:nprofile456').key
-        self.assertTrue(user.is_profile(Object(id='nostr:nprofile456')))
+        user.obj_key = Object(id=ID_URI).key
+        self.assertTrue(user.is_profile(Object(id=ID_URI)))
 
         self.assertTrue(user.is_profile(Object(id='unused', nostr={
             'pubkey': user.hex_pubkey(),
@@ -131,8 +143,8 @@ class NostrTest(TestCase):
                 user = Nostr(obj_key=obj.put())
                 self.assertEqual(expected, user.handle)
                 if expected is None:
-                    user.key = ndb.Key(Nostr, 'nostr:npub123')
-                    self.assertEqual('npub123', user.handle)
+                    user.key = ndb.Key(Nostr, PUBKEY_URI)
+                    self.assertEqual(NPUB_URI.removeprefix('nostr:'), user.handle)
 
     def test_bridged_web_url_for(self):
         self.assertIsNone(Nostr.bridged_web_url_for(Nostr()))
@@ -141,20 +153,22 @@ class NostrTest(TestCase):
         user = Fake(id='fake:user')
         self.assertIsNone(Nostr.bridged_web_url_for(Fake()))
 
-        user.copies=[Target(uri='nostr:npub123', protocol='nostr')]
-        self.assertEqual('https://coracle.social/people/npub123',
-                         Nostr.bridged_web_url_for(user))
+        user.copies=[Target(uri=PUBKEY_URI, protocol='nostr')]
+        self.assertEqual(
+            f'https://coracle.social/people/{NPUB_URI.removeprefix("nostr:")}',
+            Nostr.bridged_web_url_for(user))
 
     def test_owns_id(self):
-        for id in ('npub23', 'nevent123', 'note123', 'nprofile123', 'naddr123',
-                   'nostr:nevent123'):
-            with self.subTest(id=id):
-                self.assertTrue(Nostr.owns_id(id))
+        self.assertTrue(Nostr.owns_id(PUBKEY_URI))
+        self.assertTrue(Nostr.owns_id(NPUB_URI))
+
+        self.assertIsNone(Nostr.owns_id(PUBKEY))
+        self.assertIsNone(Nostr.owns_id(NPUB_URI.removeprefix('nostr:')))
 
         for id in ('abc', 'did:abc', 'foo.com', 'https://foo.com/',
                    'https://foo.com/bar', 'at://did:abc/x.y.z/123'):
             with self.subTest(id=id):
-                self.assertFalse(Nostr.owns_id(id))
+                self.assertEqual(False, Nostr.owns_id(id))
 
     def test_owns_handle(self):
         for handle in ('user@domain', 'user@domain.com', 'user.com@domain.com',
@@ -172,29 +186,30 @@ class NostrTest(TestCase):
                 self.assertEqual(False, Nostr.owns_handle(handle))
 
     @patch('requests.get', return_value=requests_response({
-        'names': {'alice': 'b0635d'},
+        'names': {'alice': PUBKEY},
     }))
     def test_handle_to_id(self, _):
-        self.assertEqual('npub1kp346yk70h6', Nostr.handle_to_id('alice@example.com'))
+        self.assertEqual(PUBKEY_URI, Nostr.handle_to_id('alice@example.com'))
 
     def test_handle_as_domain(self):
-        self.assertEqual('npub789', Nostr(id='nostr:npub789').handle_as_domain)
+        self.assertEqual(NPUB_URI.removeprefix('nostr:'),
+                         Nostr(id=PUBKEY_URI).handle_as_domain)
 
         profile = Object(id='x', nostr={
             'kind': KIND_PROFILE,
             'pubkey': PUBKEY,
             'content': json_dumps({'nip05': '_@x.y'}),
         })
-        user = Nostr(id='nostr:npub789', obj_key=profile.put())
+        user = Nostr(id=PUBKEY_URI, obj_key=profile.put())
         self.assertEqual('x.y', user.handle_as_domain)
 
         profile.nostr['content'] = json_dumps({'nip05': 'a@x.y'})
         self.assertEqual('a.x.y', user.handle_as_domain)
 
     def test_profile_id(self):
-        user = Nostr(id='nostr:npub123', obj_key=Object(id='nostr:nprofileabc').key)
+        user = Nostr(id=PUBKEY_URI, obj_key=Object(id=ID_URI).key)
         user.put()
-        self.assertEqual('nostr:nprofileabc', user.profile_id())
+        self.assertEqual(ID_URI, user.profile_id())
 
     def test_convert_actor(self):
         self.assert_equals({
@@ -210,7 +225,7 @@ class NostrTest(TestCase):
             'created_at': NOW_TS,
         }, Nostr._convert(Object(our_as1={
             'objectType': 'person',
-            'id': NPUB_URI,
+            'id': PUBKEY_URI,
             'displayName': 'Alice',
             'summary': 'It me',
             'image': 'http://alice/pic',
@@ -285,56 +300,62 @@ class NostrTest(TestCase):
             'tags': [],
         }, Nostr._convert(Object(our_as1={
             'objectType': 'note',
-            'id': 'nostr:note1z24swknlsf',
-            'author': NPUB_URI,
+            'id': ID_URI,
+            'author': PUBKEY_URI,
             'content': 'Something to say',
             'published': '2022-01-02T03:04:05+00:00',
         })))
 
     def test_convert_reply(self):
-        Object(id=URI, nostr={
+        note_obj = Object(id=f'nostr:{ID}', nostr={
             'kind': KIND_NOTE,
-            'pubkey': 'abc123',  # npub140qjxm63yry
-        }).put()
-        relays = Object(id='nostr:nevent123', nostr={
+            'id': ID,
+            'pubkey': PUBKEY,
+            'content': 'original note',
+            'created_at': NOW_TS,
+            'tags': [],
+        }, source_protocol='nostr')
+        note_obj.put()
+        relays_obj = Object(id=ID_URI, nostr={
             'kind': KIND_RELAYS,
             'tags': [['r', 'reelaay']],
-        }).put()
-        Nostr(id='nostr:npub140qjxm63yry', relays=relays).put()
+        }, source_protocol='nostr')
+        user = Nostr(id=PUBKEY_URI, relays=relays_obj.put())
+        user.put()
 
         self.assert_equals({
             'kind': KIND_NOTE,
-            'id': '2ecd824add055bcb36b9babf479e0f822888cc733215ade8021fedf38730b73c',
+            'id': '38f03954ec140648e1025f53ad23948794ed99f6de44d0d50c6e529322bf62ca',
             'pubkey': PUBKEY,
             'content': 'I hereby reply',
-            'tags': [['e', ID, 'reelaay']],
+            'tags': [['e', ID, None]],
             'created_at': NOW_TS,
         }, Nostr._convert(Object(our_as1={
             'objectType': 'note',
             'id': 'http://foo/bar',
-            'author': NPUB_URI,
+            'author': PUBKEY_URI,
             'content': 'I hereby reply',
-            'inReplyTo': URI,
+            'inReplyTo': f'nostr:{ID}',
         })))
 
     def test_convert_repost(self):
         Object(id=NOTE_AS1['id'], nostr=NOTE_NOSTR).put()
-        relays = Object(id='nostr:nevent123', nostr={
+        relays = Object(id=ID_URI, nostr={
             'kind': KIND_RELAYS,
             'tags': [['r', 'reelaay']],
         }).put()
-        Nostr(id=NPUB_URI, relays=relays).put()
+        Nostr(id=PUBKEY_URI, relays=relays).put()
 
         note_event = copy.copy(NOTE_NOSTR)
         del note_event['sig']
         self.assert_equals({
             'kind': KIND_REPOST,
-            'id': 'ac3f207afeb7687fe71522fb350dd983ac388d6bf5e85079b9edb2a7cd4f956c',
-            'pubkey': 'abc123',  # npub140qjxm63yry,
+            'id': '82c500a5864dcdd4060e3393afca4b82b7a617ea4595267cd58e213f9f12d151',
+            'pubkey': PUBKEY_2,
             'content': json_dumps(note_event, sort_keys=True),
             'tags': [
                 # id for Nostr version of original post object, below
-                ['e', NOTE_NOSTR['id'], 'reelaay', 'mention'],
+                ['e', NOTE_NOSTR['id'], None, 'mention'],
                 ['p', PUBKEY],
             ],
             'created_at': NOW_TS,
@@ -342,37 +363,39 @@ class NostrTest(TestCase):
             'objectType': 'activity',
             'verb': 'share',
             'id': 'http://foo/bar',
-            'author': 'nostr:npub140qjxm63yry',
+            'author': PUBKEY_URI_2,
             'content': 'I hereby reply',
             'object': NOTE_AS1,
         })))
 
     def test_convert_follow(self):
-        relays = Object(id='nostr:nevent123', nostr={
+        relays = Object(id=ID_URI, nostr={
             'kind': KIND_RELAYS,
             'tags': [['r', 'reelaay']],
         }).put()
-        Nostr(id='nostr:npub1xnxsce33j3', relays=relays).put()
+        Nostr(id=ID_URI, relays=relays).put()
 
+        test_pubkey_1 = '34cd' + '0' * 60
+        test_pubkey_2 = '98fe' + '0' * 60
         self.assert_equals({
             'kind': KIND_CONTACTS,
-            'id': 'b772f7125a61bdce7cbce6925dd73d66914a3451655a7c3469cbac0626da9d82',
+            'id': 'ae3426a4b8ceb0201769b5ddecc9415a9c11ac6a25b66367f6695b6b253380b1',
             'pubkey': PUBKEY,
             'content': 'not important',
             'tags': [
-                ['p', '34cd', 'reelaay', ''],
-                ['p', '98fe', 'reelaay', 'bob'],
+                ['p', test_pubkey_1, None, ''],
+                ['p', test_pubkey_2, None, 'bob'],
             ],
             'created_at': NOW_TS,
         }, Nostr._convert(Object(our_as1={
             'objectType': 'activity',
             'verb': 'follow',
-            'id': 'nostr:nevent1z24spd6d40',
-            'actor': NPUB_URI,
+            'id': ID_URI,
+            'actor': PUBKEY_URI,
             'published': '2022-01-02T03:04:05+00:00',
             'object': [
-                'nostr:npub1xnxsce33j3',
-                {'id': 'nostr:npub1nrlqrdny0w', 'displayName': 'bob'},
+                f'nostr:{test_pubkey_1}',
+                {'id': f'nostr:{test_pubkey_2}', 'displayName': 'bob'},
             ],
             'content': 'not important',
         })))
@@ -381,7 +404,7 @@ class NostrTest(TestCase):
         got = Nostr._convert(Object(our_as1={
             'objectType': 'note',
             'id': 'fake:post',
-            'author': NPUB_URI,
+            'author': PUBKEY_URI,
             'content': 'Something to say',
             'published': '2022-01-02T03:04:05+00:00',
         }), from_user=self.user)
@@ -400,7 +423,7 @@ class NostrTest(TestCase):
         obj = Object(id='fake:post', our_as1={
             'objectType': 'article',
             'id': 'fake:post',
-            'author': NPUB_URI,
+            'author': PUBKEY_URI,
             'content': 'Something to say',
             'published': '2022-01-02T03:04:05+00:00',
         })
@@ -422,7 +445,7 @@ class NostrTest(TestCase):
 
         # should still use the object id in the d tag even if we have
         # a mapping to Nostr event id
-        obj.copies = [Target(uri='nostr:note123', protocol='nostr')]
+        obj.copies = [Target(uri='nostr:' + ID, protocol='nostr')]
         obj.put()
         self.assert_equals(event, Nostr.convert(obj, from_user=self.user))
 
@@ -452,13 +475,12 @@ class NostrTest(TestCase):
         self.assert_equals(['reeelaaay'], FakeConnection.relays)
         self.assert_equals([['EVENT', expected]], FakeConnection.sent)
         self.assertTrue(granary.nostr.verify(expected))
-        self.assertEqual(
-            [Target(uri=granary.nostr.id_to_uri('note', id), protocol='nostr')],
-            obj.key.get().copies)
+        self.assertEqual([Target(uri='nostr:' + id, protocol='nostr')],
+                         obj.key.get().copies)
 
     def test_send_profile_has_existing_copy(self):
         obj = Object(id='fake:note',
-                     copies=[Target(uri='nostr:nprofile123', protocol='nostr')],
+                     copies=[Target(uri=ID_URI, protocol='nostr')],
                      our_as1={
                          'objectType': 'person',
                          'displayName': 'alice',
@@ -485,14 +507,13 @@ class NostrTest(TestCase):
         self.assert_equals(['reeelaaay'], FakeConnection.relays)
         self.assert_equals([['EVENT', expected]], FakeConnection.sent,
                            ignore=['sig'])
-        self.assertEqual(
-            [Target(uri=granary.nostr.id_to_uri('nprofile', id), protocol='nostr')],
-            obj.key.get().copies)
+        self.assertEqual([Target(uri='nostr:' + id, protocol='nostr')],
+                         obj.key.get().copies)
 
     @patch('secp256k1._gen_private_key', return_value=bytes.fromhex(PRIVKEY))
     def test_create_for(self, _):
         self.make_user(cls=Web, id='efake.brid.gy',
-                       copies=[Target(protocol='nostr', uri='nostr:npub123')])
+                       copies=[Target(protocol='nostr', uri=PUBKEY_URI)])
         alice = self.make_user('efake:alice', cls=ExplicitFake, obj_as1={
             'objectType': 'person',
             'displayName': 'Alice',
@@ -523,7 +544,7 @@ class NostrTest(TestCase):
         Nostr.create_for(self.user)
 
         got = self.user.key.get()
-        self.assertEqual([Target(uri=NPUB_URI, protocol='nostr')], got.copies)
+        self.assertEqual([Target(uri=PUBKEY_URI, protocol='nostr')], got.copies)
 
         self.assertEqual(0, len(FakeConnection.sent))
 
@@ -541,7 +562,7 @@ class NostrTest(TestCase):
         Nostr.create_for(alice)
 
         got = alice.key.get()
-        self.assertEqual([Target(uri=NPUB_URI, protocol='nostr')], got.copies)
+        self.assertEqual([Target(uri=PUBKEY_URI, protocol='nostr')], got.copies)
 
         self.assertEqual(1, len(FakeConnection.sent))
         event_type, event = FakeConnection.sent[0]
@@ -553,7 +574,7 @@ class NostrTest(TestCase):
             'objectType': 'person',
             'displayName': 'Alice',
         })
-        alice.obj.copies = [Target(uri='nostr:nevent123', protocol='nostr')]
+        alice.obj.copies = [Target(uri=ID_URI, protocol='nostr')]
         alice.obj.put()
 
         Nostr.create_for(alice)
@@ -569,26 +590,11 @@ class NostrTest(TestCase):
             ['EOSE', 'towkin'],
         ]
 
-        obj = Object(id=URI)
+        obj = Object(id=ID_URI)
         self.assertTrue(Nostr.fetch(obj))
         self.assertEqual(NOTE_NOSTR, obj.nostr)
         self.assertEqual([
             ['REQ', 'towkin', {'ids': [ID], 'limit': 20}],
-            ['CLOSE', 'towkin'],
-        ], FakeConnection.sent)
-
-    @patch('secrets.token_urlsafe', return_value='towkin')
-    def test_fetch_npub(self, _):
-        FakeConnection.to_receive = [
-            ['EVENT', 'towkin', NOTE_NOSTR],
-            ['EOSE', 'towkin'],
-        ]
-
-        obj = Object(id=NPUB_URI)
-        self.assertTrue(Nostr.fetch(obj))
-        self.assertEqual(NOTE_NOSTR, obj.nostr)
-        self.assertEqual([
-            ['REQ', 'towkin', {'authors': [PUBKEY], 'kinds': [0], 'limit': 20}],
             ['CLOSE', 'towkin'],
         ], FakeConnection.sent)
 
@@ -598,7 +604,7 @@ class NostrTest(TestCase):
             ['EOSE', 'towkin'],
         ]
 
-        obj = Object(id=URI)
+        obj = Object(id=ID_URI)
         self.assertFalse(Nostr.fetch(obj))
         self.assertIsNone(obj.nostr)
         self.assertEqual([
@@ -609,7 +615,7 @@ class NostrTest(TestCase):
     def test_fetch_error(self):
         FakeConnection.send_err = WebSocketException('Failed to connect')
 
-        obj = Object(id=URI)
+        obj = Object(id=ID_URI)
         with self.assertRaises(WebSocketException):
             Nostr.fetch(obj)
 
@@ -622,7 +628,7 @@ class NostrTest(TestCase):
 
     def test_nip_05_fake_user_by_handle(self):
         user = self.make_user('fake:alice', cls=Fake, enabled_protocols=['nostr'],
-                             copies=[Target(uri=NPUB_URI, protocol='nostr')])
+                             copies=[Target(uri=PUBKEY_URI, protocol='nostr')])
         self.assertEqual('fake-handle-alice', user.handle_as_domain)
 
         resp = self.get('/.well-known/nostr.json?name=fake-handle-alice',
@@ -635,7 +641,7 @@ class NostrTest(TestCase):
 
     def test_nip_05_web_user(self):
         user = self.make_user('user.com', cls=Web, enabled_protocols=['nostr'],
-                             copies=[Target(uri=NPUB_URI, protocol='nostr')])
+                             copies=[Target(uri=PUBKEY_URI, protocol='nostr')])
 
         resp = self.get('/.well-known/nostr.json?name=user.com',
                         base_url='https://web.brid.gy')
@@ -647,7 +653,7 @@ class NostrTest(TestCase):
 
     def test_nip_05_user_nostr_not_enabled(self):
         user = self.make_user('fake:disabled', cls=Fake,
-                             copies=[Target(uri=NPUB_URI, protocol='nostr')])
+                             copies=[Target(uri=PUBKEY_URI, protocol='nostr')])
 
         resp = self.get('/.well-known/nostr.json?name=fake:disabled',
                         base_url='https://fa.brid.gy')
@@ -670,16 +676,16 @@ class NostrTest(TestCase):
         self.assertEqual(400, resp.status_code)
 
     def test_nip_05_native_nostr_user_ignored(self):
-        nostr_user = self.make_user('nostr:npub123', cls=Nostr)
+        nostr_user = self.make_user(PUBKEY_URI, cls=Nostr)
 
-        for name in ('npub123', 'nostr:npub123', 'nostr-npub123'):
+        for name in (NPUB_URI.removeprefix('nostr:'), PUBKEY_URI, f'nostr-{PUBKEY}'):
             with self.subTest(name=name):
                 resp = self.get(f'/.well-known/nostr.json?name={name}',
                                 base_url='https://nostr.brid.gy')
                 self.assertEqual(404, resp.status_code)
 
     def test_target_for_existing_user(self):
-        relays = Object(id='nostr:nevent123', nostr={
+        relays = Object(id=ID_URI, nostr={
             'kind': KIND_RELAYS,
             'tags': [
                 ['r', 'wss://a', 'read'],
@@ -687,7 +693,7 @@ class NostrTest(TestCase):
             ],
         })
         relays.put()
-        self.make_user(NPUB_URI, cls=Nostr, relays=relays.key)
+        self.make_user(PUBKEY_URI, cls=Nostr, relays=relays.key)
 
         self.assertEqual('wss://b', Nostr.target_for(Object(nostr=NOTE_NOSTR)))
 
@@ -700,7 +706,7 @@ class NostrTest(TestCase):
         self.assertEqual('wss://c', Nostr.target_for(Object(nostr=NOTE_NOSTR)))
 
     def test_target_for_no_relays_object(self):
-        self.make_user(NPUB_URI, cls=Nostr)
+        self.make_user(PUBKEY_URI, cls=Nostr)
         self.assertIsNone(Nostr.target_for(Object(nostr=NOTE_NOSTR)))
 
     def test_target_for_no_author(self):
@@ -744,7 +750,7 @@ class NostrTest(TestCase):
             ['EOSE', 'towkin'],
         ]
 
-        user = Nostr(id=NPUB_URI)
+        user = Nostr(id=PUBKEY_URI)
         user.reload_profile()
 
         self.assertEqual([
@@ -768,7 +774,7 @@ class NostrTest(TestCase):
             ['EOSE', 'towkin'],
         ]
 
-        user = Nostr(id=NPUB_URI, valid_nip05='old')
+        user = Nostr(id=PUBKEY_URI, valid_nip05='old')
         user.reload_profile()
 
         self.assertIsNone(user.obj_key)
@@ -789,7 +795,7 @@ class NostrTest(TestCase):
             ['EOSE', 'towkin'],
         ]
 
-        user = Nostr(id=NPUB_URI, valid_nip05='old')
+        user = Nostr(id=PUBKEY_URI, valid_nip05='old')
         user.reload_profile()
         self.assertIsNone(user.valid_nip05)
 
@@ -807,7 +813,7 @@ class NostrTest(TestCase):
             ['EOSE', 'towkin'],
         ]
 
-        user = Nostr(id=NPUB_URI, valid_nip05='old')
+        user = Nostr(id=PUBKEY_URI, valid_nip05='old')
         user.reload_profile()
 
         self.assert_req(mock_get, 'https://example.com/.well-known/nostr.json?name=a')
@@ -827,7 +833,7 @@ class NostrTest(TestCase):
             ['EOSE', 'towkin'],
         ]
 
-        user = Nostr(id=NPUB_URI, valid_nip05='old')
+        user = Nostr(id=PUBKEY_URI, valid_nip05='old')
         user.reload_profile()
 
         self.assert_req(mock_get, 'https://example.com/.well-known/nostr.json?name=a')
@@ -838,7 +844,7 @@ class NostrTest(TestCase):
         self.assertEqual('no-profile', Nostr().status)
         self.assertEqual('no-profile', Nostr(valid_nip05='a@example.com').status)
 
-        profile = Object(id='nostr:foo', nostr=id_and_sign({
+        profile = Object(id=ID_URI, nostr=id_and_sign({
             'kind': KIND_PROFILE,
             'pubkey': PUBKEY,
             'content': json_dumps({
@@ -847,7 +853,7 @@ class NostrTest(TestCase):
                 'nip05': 'a@example.com',
             }),
         }, privkey=NSEC_URI))
-        user = Nostr(id='nostr:npubalice', obj_key=profile.put())
+        user = Nostr(id=PUBKEY_URI, obj_key=profile.put())
         self.assertEqual('no-nip05', user.status)
 
         user.valid_nip05 = 'nope@example.com'

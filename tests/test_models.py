@@ -30,7 +30,14 @@ from protocol import Protocol
 from web import Web
 
 from granary.nostr import bech32_prefix_for, is_bech32
-from granary.tests.test_nostr import PRIVKEY, PUBKEY, NPUB_URI, NSEC_URI
+from granary.tests.test_nostr import (
+    ID,
+    NPUB_URI,
+    NSEC_URI,
+    PRIVKEY,
+    PUBKEY,
+    PUBKEY_URI,
+)
 from .test_activitypub import ACTOR
 from .test_atproto import DID_DOC
 
@@ -579,7 +586,7 @@ class UserTest(TestCase):
         self.assertTrue(user.is_enabled(Web))
         self.assertIsNone(user.status)
 
-        # manual opt out should still take precedence thoough
+        # manual opt out should still take precedence though
         user.manual_opt_out = True
         self.assertFalse(user.is_enabled(Web))
         self.assertEqual('opt-out', user.status)
@@ -1136,14 +1143,14 @@ class ObjectTest(TestCase):
     def test_as1_from_nostr_note(self):
         obj = Object(id='nostr:note123', nostr={
             'kind': 1,
-            'id': '12ab',
+            'id': ID,
             'content': 'Something to say',
             'created_at': 1641092645,
             'tags': [],
         })
         self.assert_equals({
             'objectType': 'note',
-            'id': 'nostr:note1z24swknlsf',
+            'id': f'nostr:{ID}',
             'content': 'Something to say',
             'published': '2022-01-02T03:04:05+00:00',
         }, obj.as1)
@@ -1170,12 +1177,15 @@ class ObjectTest(TestCase):
 
     def test_validate_id(self):
         # DID repo ids
-        Object(id='at://did:plc:123/app.bsky.feed.post/abc').put()
-        Object(id='at://did:plc:foo.com/app.bsky.actor.profile/self').put()
+        Object(id='at://did:plc:123/app.bsky.feed.post/abc',
+               source_protocol='atproto').put()
+        Object(id='at://did:plc:foo.com/app.bsky.actor.profile/self',
+               source_protocol='atproto').put()
 
         with self.assertRaises(ValueError):
             # non-DID (bare handle) repo id
-            Object(id='at://foo.com/app.bsky.feed.post/abc').put()
+            Object(id='at://foo.com/app.bsky.feed.post/abc',
+                   source_protocol='atproto').put()
 
     def test_put_strips_context(self):
         # no actor/object
@@ -1221,11 +1231,14 @@ class ObjectTest(TestCase):
         with self.assertRaises(AssertionError):
             Object(id='not a fake', source_protocol='fake').put()
 
-    def test_put_nostr_requires_nostr_uri(self):
-        Object(id='nostr:nevent123', source_protocol='nostr').put()
+    def test_put_nostr_requires_hex_id_with_nostr_uri(self):
+        Object(id=PUBKEY_URI, source_protocol='nostr').put()
 
         with self.assertRaises(AssertionError):
-            Object(id='nevent123', source_protocol='nostr').put()
+            Object(id=PUBKEY, source_protocol='nostr').put()
+
+        with self.assertRaises(AssertionError):
+            Object(id=NPUB_URI, source_protocol='nostr').put()
 
     def test_put_blocklisted_id(self):
         Object(id='asdf foo').put()  # ok, no source protocol

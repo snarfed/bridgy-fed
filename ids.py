@@ -13,6 +13,7 @@ from cachetools import cached, LRUCache
 from flask import request
 from google.cloud.ndb.query import FilterNode, Query
 from granary.bluesky import BSKY_APP_URL_RE, web_url_to_at_uri
+import granary.nostr
 from oauth_dropins.webutil import util
 
 from common import (
@@ -157,8 +158,11 @@ def translate_user_id(*, id, from_, to):
                 logger.warning(e)
                 return None
 
-    if from_.LABEL == 'nostr' and not id.startswith('nostr:'):
-        id = 'nostr:' + id
+    if from_.LABEL == 'nostr':
+        if granary.nostr.is_bech32(id):
+            id = granary.nostr.uri_to_id(id)
+        if not id.startswith('nostr:'):
+            id = 'nostr:' + id
 
     if from_ == to:
         return id
@@ -232,8 +236,6 @@ def normalize_user_id(*, id, proto):
     elif proto.LABEL == 'atproto' and id.startswith('at://'):
         normalized, _, _ = parse_at_uri(id)
     elif proto.LABEL == 'nostr':
-        if not id.startswith('nostr:'):
-            normalized = 'nostr:' + id
         obj_key = models.Object(id=normalized).key
         if user := nostr.Nostr.query(nostr.Nostr.obj_key == obj_key).get():
             normalized = user.key.id()

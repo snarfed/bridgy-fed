@@ -1,6 +1,8 @@
 """Unit tests for ids.py."""
 from unittest.mock import patch
 
+from granary.tests.test_nostr import ID, NPUB_URI, PUBKEY, PUBKEY_URI
+
 from activitypub import ActivityPub
 from atproto import ATProto
 from flask_app import app
@@ -10,6 +12,13 @@ from models import Object, Target
 from nostr import Nostr
 from .testutil import Fake, TestCase
 from web import Web
+
+NOSTR_ID_0 = 'nostr:0' + 'a' * 63
+NOSTR_ID_1 = 'nostr:1' + 'a' * 63
+NOSTR_ID_2 = 'nostr:2' + 'a' * 63
+NOSTR_ID_3 = 'nostr:3' + 'a' * 63
+NPUB = NPUB_URI.removeprefix('nostr:')
+ID_URI = 'nostr:' + ID
 
 
 class IdsTest(TestCase):
@@ -54,8 +63,8 @@ class IdsTest(TestCase):
             (ActivityPub, 'https://bsky.brid.gy/ap/did:plc:456',
              Fake, 'fake:u:did:plc:456'),
             (ATProto, 'did:plc:456', ATProto, 'did:plc:456'),
-            (Nostr, 'npub123', Nostr, 'nostr:npub123'),
-            (Nostr, 'nostr:npub123', Nostr, 'nostr:npub123'),
+            (Nostr, ID, Nostr, ID_URI),
+            (Nostr, ID_URI, Nostr, ID_URI),
 
             # copies
             (ATProto, 'did:plc:123', Web, 'user.com'),
@@ -70,15 +79,14 @@ class IdsTest(TestCase):
             (ATProto, 'https://bsky.app/profile/user.com', ATProto, 'did:plc:123'),
             (ATProto, 'https://bsky.app/profile/did:plc:123', ATProto, 'did:plc:123'),
 
-            (Nostr, 'npub123', Web, 'https://nostr.brid.gy/web/nostr:npub123'),
-            (Nostr, 'nostr:npub123', Web, 'https://nostr.brid.gy/web/nostr:npub123'),
-            (Nostr, 'npub123', ActivityPub, 'https://nostr.brid.gy/ap/nostr:npub123'),
-            (Nostr, 'nostr:npub123', ActivityPub,
-             'https://nostr.brid.gy/ap/nostr:npub123'),
-            (Nostr, 'npub123', ATProto, None),
-            (Nostr, 'nostr:npub123', ATProto, None),
-            (Nostr, 'npub123', Fake, 'fake:u:nostr:npub123'),
-            (Nostr, 'nostr:npub123', Fake, 'fake:u:nostr:npub123'),
+            (Nostr, ID, Web, f'https://nostr.brid.gy/web/{ID_URI}'),
+            (Nostr, ID_URI, Web, f'https://nostr.brid.gy/web/{ID_URI}'),
+            (Nostr, ID, ActivityPub, f'https://nostr.brid.gy/ap/{ID_URI}'),
+            (Nostr, ID_URI, ActivityPub, f'https://nostr.brid.gy/ap/{ID_URI}'),
+            (Nostr, ID, ATProto, None),
+            (Nostr, ID_URI, ATProto, None),
+            (Nostr, ID, Fake, f'fake:u:{ID_URI}'),
+            (Nostr, ID_URI, Fake, f'fake:u:{ID_URI}'),
 
             (ActivityPub, 'https://inst/user', Nostr, None),
             (Web, 'user.com', Nostr, None),
@@ -172,18 +180,19 @@ class IdsTest(TestCase):
             (Web, 'https://user.com/', 'user.com'),
             (Web, 'https://www.user.com/', 'user.com'),
             (Web, 'm.user.com', 'user.com'),
-            (Nostr, 'nostr:npub123', 'nostr:npub123'),
-            (Nostr, 'nprofile1234abcd', 'nostr:nprofile1234abcd'),
+            (Nostr, PUBKEY, PUBKEY_URI),
+            (Nostr, NPUB, PUBKEY_URI),
+            (Nostr, NPUB_URI, PUBKEY_URI),
         ]:
             with self.subTest(id=id, proto=proto):
                 self.assertEqual(expected, ids.normalize_user_id(id=id, proto=proto))
 
-        user = Nostr(id='nostr:npub123', obj_key=Object(id='nostr:nprofileabc').key)
+        user = Nostr(id=PUBKEY_URI, obj_key=Object(id=NOSTR_ID_0).key)
         user.put()
-        self.assertEqual('nostr:npub123',
-                         ids.normalize_user_id(id='nprofileabc', proto=Nostr))
-        self.assertEqual('nostr:npub123',
-                         ids.normalize_user_id(id='nostr:nprofileabc', proto=Nostr))
+        self.assertEqual(PUBKEY_URI,
+                         ids.normalize_user_id(id=NOSTR_ID_0.removeprefix('nostr:'),
+                                               proto=Nostr))
+        self.assertEqual(PUBKEY_URI, ids.normalize_user_id(id=NOSTR_ID_0, proto=Nostr))
 
     def test_profile_id(self):
         for proto, id, expected in [
@@ -191,19 +200,18 @@ class IdsTest(TestCase):
             (ATProto, 'did:plc:123', 'at://did:plc:123/app.bsky.actor.profile/self'),
             (Fake, 'fake:user', 'fake:profile:user'),
             (Web, 'user.com', 'https://user.com/'),
-            (Nostr, 'npub123', None),
-            (Nostr, 'nostr:npub123', None),
+            (Nostr, NPUB, None),
+            (Nostr, NPUB_URI, None),
         ]:
             with self.subTest(id=id, proto=proto):
                 self.assertEqual(expected, ids.profile_id(id=id, proto=proto))
 
-        user = Nostr(id='nostr:npub123', obj_key=Object(id='nostr:nprofileabc').key)
+        user = Nostr(id=PUBKEY_URI, obj_key=Object(id=NOSTR_ID_0).key)
         user.put()
-        self.assertEqual('nostr:nprofileabc',
-                         ids.profile_id(id='npub123', proto=Nostr))
-        self.assertEqual('nostr:nprofileabc',
-                         ids.profile_id(id='nostr:npub123', proto=Nostr))
-        self.assertEqual('nostr:nprofileabc', user.profile_id())
+        self.assertEqual(NOSTR_ID_0, ids.profile_id(id=PUBKEY_URI, proto=Nostr))
+        self.assertEqual(NOSTR_ID_0, ids.profile_id(
+            id=PUBKEY_URI.removeprefix('nostr:'), proto=Nostr))
+        self.assertEqual(NOSTR_ID_0, user.profile_id())
 
     def test_translate_handle(self):
         for from_, handle, to, expected in [
@@ -279,17 +287,17 @@ class IdsTest(TestCase):
             handle='@bob@example.com', from_=ActivityPub, to=ATProto))
 
     def test_translate_object_id(self):
-        self.store_object(id='http://po.st',
-                          copies=[Target(uri='at://did/web/post', protocol='atproto'),
-                                  Target(uri='nostr:123web', protocol='nostr')])
-        self.store_object(id='https://inst/post',
-                          copies=[Target(uri='at://did/ap/post', protocol='atproto'),
-                                  Target(uri='nostr:123ap', protocol='atproto')])
-        self.store_object(id='fake:post',
-                          copies=[Target(uri='at://did/fa/post', protocol='atproto'),
-                                  Target(uri='nostr:123fa', protocol='nostr')])
-        self.store_object(id='nostr:123',
-                          copies=[Target(uri='at://did/no/post', protocol='atproto')])
+        self.store_object(id='http://po.st', copies=[
+            Target(uri='at://did:abc/web/post', protocol='atproto'),
+            Target(uri=NOSTR_ID_0, protocol='nostr')])
+        self.store_object(id='https://inst/post', copies=[
+            Target(uri='at://did:abc/ap/post', protocol='atproto'),
+            Target(uri=NOSTR_ID_1, protocol='nostr')])
+        self.store_object(id='fake:post', copies=[
+            Target(uri='at://did:abc/fa/post', protocol='atproto'),
+            Target(uri=NOSTR_ID_2, protocol='nostr')])
+        self.store_object(id=NOSTR_ID_3, copies=[
+            Target(uri='at://did:abc/no/post', protocol='atproto')])
 
         # DID doc and ATProto, used to resolve handle in bsky.app URL
         did = self.store_object(id='did:plc:123', raw={
@@ -303,22 +311,22 @@ class IdsTest(TestCase):
             (ActivityPub, 'https://inst/post', Fake, 'fake:o:ap:https://inst/post'),
             (ActivityPub, 'https://inst/post',
              Web, 'https://ap.brid.gy/convert/web/https://inst/post'),
-            (ATProto, 'at://did/atp/post', ATProto, 'at://did/atp/post'),
-            (Nostr, 'nostr:123', Nostr, 'nostr:123'),
+            (ATProto, 'at://did:abc/atp/post', ATProto, 'at://did:abc/atp/post'),
+            (Nostr, NOSTR_ID_3, Nostr, NOSTR_ID_3),
 
             # copies
-            (ActivityPub, 'https://inst/post', ATProto, 'at://did/ap/post'),
-            (ATProto, 'at://did/web/post', Web, 'http://po.st'),
-            (ATProto, 'at://did/ap/post', ActivityPub, 'https://inst/post'),
-            (ATProto, 'at://did/fa/post', Fake, 'fake:post'),
-            (ATProto, 'at://did/no/post', Nostr, 'nostr:123'),
-            (Nostr, 'nostr:123web', Web, 'http://po.st'),
-            (Nostr, 'nostr:123ap', ActivityPub, 'https://inst/post'),
-            (Nostr, 'nostr:123fa', Fake, 'fake:post'),
-            (Nostr, 'nostr:123', ATProto, 'at://did/no/post'),
-            (Web, 'http://po.st', ATProto, 'at://did/web/post'),
-            (Web, 'http://po.st', Nostr, 'nostr:123web'),
-            (Fake, 'fake:post', Nostr, 'nostr:123fa'),
+            (ActivityPub, 'https://inst/post', ATProto, 'at://did:abc/ap/post'),
+            (ATProto, 'at://did:abc/web/post', Web, 'http://po.st'),
+            (ATProto, 'at://did:abc/ap/post', ActivityPub, 'https://inst/post'),
+            (ATProto, 'at://did:abc/fa/post', Fake, 'fake:post'),
+            (ATProto, 'at://did:abc/no/post', Nostr, NOSTR_ID_3),
+            (Nostr, NOSTR_ID_0, Web, 'http://po.st'),
+            (Nostr, NOSTR_ID_1, ActivityPub, 'https://inst/post'),
+            (Nostr, NOSTR_ID_2, Fake, 'fake:post'),
+            (Nostr, NOSTR_ID_3, ATProto, 'at://did:abc/no/post'),
+            (Web, 'http://po.st', ATProto, 'at://did:abc/web/post'),
+            (Web, 'http://po.st', Nostr, NOSTR_ID_0),
+            (Fake, 'fake:post', Nostr, NOSTR_ID_2),
 
             # no copies
             (ATProto, 'did:plc:x', Web, 'https://bsky.brid.gy/convert/web/did:plc:x'),
@@ -331,7 +339,7 @@ class IdsTest(TestCase):
             (ATProto, 'did:plc:x', Nostr, 'did:plc:x'),
             (Fake, 'fake:post',
              ActivityPub, 'https://fa.brid.gy/convert/ap/fake:post'),
-            (Fake, 'fake:post', ATProto, 'at://did/fa/post'),
+            (Fake, 'fake:post', ATProto, 'at://did:abc/fa/post'),
             (Fake, 'fake:post', Fake, 'fake:post'),
             (Fake, 'fake:post', Web, 'https://fa.brid.gy/convert/web/fake:post'),
             (Fake, 'fake:other-post', Nostr, 'fake:other-post'),
