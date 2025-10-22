@@ -76,7 +76,10 @@ OLD_ACCOUNT_EXEMPT_DOMAINS = (
     'channel.org',
     'mo-me.social',
     'newsmast.community',
+    'newsmast.org',
+    'patchwork.io',
     'pixelfed.social',
+    'thebristolcable.social',
 )
 
 # domains that we can't yet authorize activities from. currently none.
