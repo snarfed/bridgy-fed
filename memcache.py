@@ -44,7 +44,7 @@ else:
     logger.info('Using production Memorystore memcache')
     memcache = PooledClient(**kwargs)
     pickle_memcache = PooledClient(serde=PickleSerde(), **kwargs)
-    global_cache = MemcacheCache(memcache)
+    global_cache = MemcacheCache(memcache, strict_read=False, strict_write=False)
 
 
 def key(key):
