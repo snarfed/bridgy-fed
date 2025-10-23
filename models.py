@@ -1324,15 +1324,7 @@ class Object(AddRemoveMixin, StringIdModel):
           :class:`werkzeug.exceptions.Forbidden` if ``authed_as`` doesn't match
             the existing object
         """
-        key_id = id
-        if len(key_id) > _MAX_KEYPART_BYTES:
-            # TODO: handle Unicode chars. naive approach is to UTF-8 encode,
-            # truncate, then decode, but that might cut mid character. easier to just
-            # hope/assume the URL is already URL-encoded.
-            key_id = key_id[:_MAX_KEYPART_BYTES]
-            logger.warning(f'Truncating id to {_MAX_KEYPART_BYTES} chars: {key_id}')
-
-        obj = super().get_by_id(key_id, **kwargs)
+        obj = super().get_by_id(maybe_truncate_key_id(id), **kwargs)
 
         if obj and obj.as1 and authed_as:
             # authorization: check that the authed user is allowed to modify
@@ -1377,14 +1369,7 @@ class Object(AddRemoveMixin, StringIdModel):
           :class:`werkzeug.exceptions.Forbidden` if ``authed_as`` doesn't match
             the existing object
         """
-        key_id = id
-        if len(key_id) > _MAX_KEYPART_BYTES:
-            # TODO: handle Unicode chars. naive approach is to UTF-8 encode,
-            # truncate, then decode, but that might cut mid character. easier to just
-            # hope/assume the URL is already URL-encoded.
-            key_id = key_id[:_MAX_KEYPART_BYTES]
-            logger.warning(f'Truncating id to {_MAX_KEYPART_BYTES} chars: {key_id}')
-
+        key_id = maybe_truncate_key_id(id)
         obj = cls.get_by_id(key_id, authed_as=authed_as)
 
         if not obj:
@@ -2059,3 +2044,16 @@ def fetch_page(query, model_class, by=None):
         new_before = new_before.isoformat()
 
     return results, new_before, new_after
+
+
+def maybe_truncate_key_id(id):
+    """Returns id, truncated to ``_MAX_KEYPART_BYTES`` if it's longer."""
+    if len(id) > _MAX_KEYPART_BYTES:
+        # TODO: handle Unicode chars. naive approach is to UTF-8 encode,
+        # truncate, then decode, but that might cut mid character. easier to just
+        # hope/assume the URL is already URL-encoded.
+        truncated = id[:_MAX_KEYPART_BYTES]
+        logger.warning(f'Truncating id {id} to {_MAX_KEYPART_BYTES} chars: {truncated}')
+        return truncated
+
+    return id
