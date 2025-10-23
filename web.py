@@ -12,6 +12,7 @@ import brevity
 from flask import redirect, request
 from google.cloud import ndb
 from google.cloud.ndb import ComputedProperty
+from google.cloud.ndb.key import _MAX_KEYPART_BYTES
 from granary import as1, as2, atom, microformats2, rss
 import mf2util
 from oauth_dropins.webutil import flask_util, util
@@ -37,6 +38,7 @@ from common import (
 from flask_app import app
 import ids
 import memcache
+import models
 from models import Follower, Object, PROTOCOLS, Target, User
 from protocol import Protocol
 
@@ -554,6 +556,9 @@ class Web(User, Protocol):
           kwargs: ignored
         """
         url = obj.key.id()
+
+        if (id := models.maybe_truncate_key_id(url)) != url:
+            obj.key = Object(id=id).key
 
         if not util.is_web(url) or not util.is_url(url):
             logger.info(f'{url} is not a URL')

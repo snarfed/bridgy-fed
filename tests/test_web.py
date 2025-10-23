@@ -7,6 +7,7 @@ import arroba.server
 from arroba.util import at_uri
 from flask import get_flashed_messages
 from google.cloud import ndb
+from google.cloud.ndb.key import _MAX_KEYPART_BYTES
 from granary import as1, as2, atom, microformats2, rss
 from granary.source import html_to_text
 from oauth_dropins.webutil import util
@@ -3182,6 +3183,16 @@ class WebUtilTest(TestCase):
 
         self.assertEqual(NOTE_MF2, obj.mf2)
         self.assertNotIn('uid', obj.mf2['properties'])
+
+    def test_load_url_id_is_too_long(self, mock_get, _):
+        mock_get.return_value = requests_response(NOTE_HTML)
+
+        url = 'https://user.com/' + 'x' * _MAX_KEYPART_BYTES
+        obj = Web.load(url)
+        self.assertEqual('https://user.com/' + 'x' * (_MAX_KEYPART_BYTES - 17),
+                         obj.key.id())
+        self.assert_equals(NOTE_MF2, obj.mf2)
+        mock_get.assert_has_calls([self.req(url)])
 
     def test_fetch_user_homepage(self, mock_get, __):
         mock_get.return_value = ACTOR_HTML_RESP
