@@ -336,7 +336,7 @@ class PagesTest(TestCase):
     @patch('requests.get', return_value=ACTOR_HTML_RESP)
     def test_update_profile_web(self, mock_get):
         self.user.obj.copies = [
-            Target(protocol='fake', uri='fa:profile:web:user.com'),
+            Target(protocol='fake', uri='fake:profile:web:user.com'),
             Target(protocol='other', uri='other:profile:web:user.com'),
         ]
         self.user.enabled_protocols = ['other']
@@ -375,7 +375,7 @@ class PagesTest(TestCase):
         ACTOR_HTML, url='https://www.user.com/'))
     def test_update_profile_web_www(self, mock_get):
         self.user.obj.copies = [
-            Target(protocol='fake', uri='fa:profile:web:user.com'),
+            Target(protocol='fake', uri='fake:profile:web:user.com'),
         ]
         self.user.obj.put()
         Follower.get_or_create(from_=self.make_user('fake:user', cls=Fake),
@@ -405,7 +405,8 @@ class PagesTest(TestCase):
         ACTOR_HTML.replace('Ms. ☕ Baz', 'Ms. ☕ Baz #nobridge'),
         url='https://user.com/'))
     def test_update_profile_web_delete(self, mock_get):
-        self.user.obj.copies = [Target(protocol='fake', uri='fa:profile:web:user.com')]
+        self.user.obj.copies = [Target(protocol='fake',
+                                       uri='fake:profile:web:user.com')]
         self.user.obj.put()
         Follower.get_or_create(from_=self.make_user('fake:user', cls=Fake),
                                to=self.user)

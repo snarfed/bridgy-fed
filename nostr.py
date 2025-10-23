@@ -307,11 +307,13 @@ class Nostr(User, Protocol):
             kind = event.get('kind')
             if kind == KIND_PROFILE and not profile:
                 profile = Object.get_or_create('nostr:' + event['id'], nostr=event,
-                                               source_protocol='nostr')
+                                               source_protocol='nostr',
+                                               authed_as=self.key.id())
                 self.obj_key = profile.key
             elif kind == KIND_RELAYS and not relays:
                 relays = Object.get_or_create('nostr:' + event['id'], nostr=event,
-                                               source_protocol='nostr')
+                                               source_protocol='nostr',
+                                               authed_as=self.key.id())
                 self.relays = relays.key
 
             if profile and relays:
@@ -386,11 +388,8 @@ class Nostr(User, Protocol):
         remote_relay = ''
         if remote_obj := granary.nostr.Nostr().base_object(obj_as1):
             if id := remote_obj.get('id'):
-                if id.startswith('nostr:'):
-                    obj = Object(our_as1={'objectType': 'person', 'id': id})
-                else:
-                    obj = Nostr.load(id)
-                remote_relay = to_cls.target_for(obj)
+                base_obj = Nostr.load(id)
+                remote_relay = to_cls.target_for(base_obj)
 
         # convert!
         privkey = from_user.nsec() if from_user else None
@@ -421,6 +420,7 @@ class Nostr(User, Protocol):
         including updates and deletes. :meth:`granary.nostr.from_as1` translates all
         of those, so all we have to do here is convert and send the event.
         """
+        assert obj
         assert from_user
 
         event = to_cls.convert(obj, from_user=from_user)

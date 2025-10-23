@@ -1670,7 +1670,6 @@ class Protocol:
                     logger.info(msg)
                     continue
 
-
             util.add(to_protocols, proto)
 
         # process direct targets

@@ -2670,7 +2670,8 @@ class ProtocolReceiveTest(TestCase):
         self.assertEqual([], Fake.sent)
 
     def test_delete_actor(self):
-        self.alice.obj.copies = [Target(protocol='fake', uri='fa:profile:other:alice')]
+        self.alice.obj.copies = [Target(protocol='fake',
+                                        uri='fake:profile:other:alice')]
         self.alice.obj.put()
 
         follower = Follower.get_or_create(to=self.user, from_=self.alice)

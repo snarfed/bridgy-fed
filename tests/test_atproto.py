@@ -1231,7 +1231,7 @@ Sed tortor neque, aliquet quis posuere aliquam, imperdiet sitamet […]
             'id': 'fake:user',
         }, copies=[
             Target(uri='at://did:plc:old/app.bsky.actor.profile/self', protocol='atproto'),
-            Target(uri='some:other:copy', protocol='other'),
+            Target(uri='other:copy', protocol='other'),
         ])
 
         repo = self.storage.load_repo('did:plc:user')
@@ -1298,7 +1298,7 @@ Sed tortor neque, aliquet quis posuere aliquam, imperdiet sitamet […]
         obj = self.user.obj.key.get()
         self.assertCountEqual([
             Target(uri=profile_at_uri, protocol='atproto'),
-            Target(uri='some:other:copy', protocol='other'),
+            Target(uri='other:copy', protocol='other'),
         ], obj.copies)
         self.assert_task(mock_create_task, 'receive', authed_as='fake:user',
                          obj_id='fake:profile:user')

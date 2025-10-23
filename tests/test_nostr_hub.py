@@ -7,13 +7,11 @@ from unittest.mock import patch
 
 from granary.nostr import (
     id_and_sign,
-    id_to_uri,
     KIND_DELETE,
     KIND_NOTE,
     KIND_PROFILE,
     KIND_REACTION,
     KIND_RELAYS,
-    uri_for,
     uri_to_id,
 )
 from granary.tests.test_nostr import (
@@ -40,13 +38,10 @@ from .testutil import Fake, TestCase
 from web import Web
 
 BOB_PUBKEY = 'be7e55eb264470903bbcf1d02ea417b5e1d2cd788cd6155f8e0b361a2bea76ed'
-BOB_NPUB_URI = 'nostr:npub1hel9t6exg3cfqwau78gzafqhkhsa9ntc3ntp2huwpvmp52l2wmksdr85t7'
 BOB_NSEC_URI = 'nostr:nsec1al80skcswjnwpukq3cw24x9rvdwyel8qls6kcled3q9ethqflu4q30070v'
 EVE_PUBKEY = 'bd19ea0297facfe0e766f08995a0a92ca1ea52bf5f664fe2487f7894a7b0a7ff'
-EVE_NPUB_URI = 'nostr:npub1h5v75q5hlt87pemx7zyetg9f9js7554ltanylcjg0aufffas5lls5m6tcf'
 EVE_NSEC_URI = 'nostr:nsec1ger8dg42xau7ctdaduv6wse8apzueqgye3l7ta6dcj4j7w07lqdq4d9rey'
 FRANK_PUBKEY = '2032dba5fdf02ba4223381075da4ba7dc6cf976aacb2ca658f13e00d834a0e29'
-FRANK_NPUB_URI = 'nostr:npub1yqedhf0a7q46gg3nsyr4mf960hrvl9m24jev5ev0z0sqmq62pc5stypxxz'
 FRANK_NSEC_URI = 'nostr:nsec12hj6ylwt5kypmq6hs7tssy3h68hdy5kvwj9qwhgv60vh6qdud8vsd5c3ln'
 
 
@@ -61,20 +56,21 @@ class NostrHubTest(TestCase):
             'fake:alice', cls=Fake, enabled_protocols=['nostr'],
             nostr_key_bytes=bytes.fromhex(PRIVKEY))
 
-        self.bob = self.make_nostr('bob', BOB_NSEC_URI, BOB_NPUB_URI)
+        self.bob = self.make_nostr('bob', BOB_NSEC_URI, BOB_PUBKEY)
 
-    def make_nostr(self, name, nsec, npub, **props):
+    def make_nostr(self, name, nsec, pubkey, **props):
         nip05 = f'{name}@example.com'
-        profile = Object(id=f'nostr:nprofile{name}', nostr=id_and_sign({
+        pubkey_uri = f'nostr:{pubkey}'
+        profile = Object(id=pubkey_uri, nostr=id_and_sign({
             'kind': KIND_PROFILE,
-            'pubkey': uri_to_id(npub),
+            'pubkey': pubkey,
             'content': json_dumps({
                 'name': name.capitalize(),
                 'picture': f'http://{name}/pic',
                 'nip05': nip05,
             }),
         }, privkey=nsec))
-        return self.make_user(npub, cls=Nostr, enabled_protocols=['fake'],
+        return self.make_user(pubkey_uri, cls=Nostr, enabled_protocols=['fake'],
                               obj_key=profile.put(), valid_nip05=nip05, **props)
 
     def serve_and_subscribe(self, events):
@@ -95,7 +91,7 @@ class NostrHubTest(TestCase):
 
         eve = self.make_user('fake:eve', cls=Fake, enabled_protocols=['nostr'],
                              nostr_key_bytes=bytes.fromhex(uri_to_id(EVE_NSEC_URI)))
-        frank = self.make_nostr('frank', FRANK_NSEC_URI, FRANK_NPUB_URI)
+        frank = self.make_nostr('frank', FRANK_NSEC_URI, FRANK_PUBKEY)
 
         nostr_hub.init(subscribe=False)
         self.assertEqual(set((PUBKEY, EVE_PUBKEY)), nostr_hub.bridged_pubkeys)
@@ -119,7 +115,7 @@ class NostrHubTest(TestCase):
         FakeConnection.connected.acquire(timeout=10)
         self.assertEqual(['wss://a'], FakeConnection.relays)
 
-        eve = self.make_nostr('eve', EVE_NSEC_URI, EVE_NPUB_URI, relays=relays_a)
+        eve = self.make_nostr('eve', EVE_NSEC_URI, EVE_PUBKEY, relays=relays_a)
 
         FakeConnection.reset()
         nostr_hub.init()
@@ -130,8 +126,7 @@ class NostrHubTest(TestCase):
             'kind': KIND_RELAYS,
             'tags': [['r', 'wss://b']],
         }).put()
-        frank = self.make_nostr('frank', FRANK_NSEC_URI, FRANK_NPUB_URI,
-                                relays=relays_b)
+        frank = self.make_nostr('frank', FRANK_NSEC_URI, FRANK_PUBKEY, relays=relays_b)
 
         FakeConnection.reset()
         nostr_hub.init()
@@ -163,7 +158,7 @@ class NostrHubTest(TestCase):
                 'kind': KIND_RELAYS,
                 'tags': [['r', Nostr.DEFAULT_TARGET]],
             }).put()
-            eve = self.make_nostr('eve', EVE_NSEC_URI, EVE_NPUB_URI, relays=relays)
+            eve = self.make_nostr('eve', EVE_NSEC_URI, EVE_PUBKEY, relays=relays)
 
             nostr_hub.init(subscribe=False)
             recving.wait()
@@ -271,9 +266,9 @@ class NostrHubTest(TestCase):
              ]
         ], FakeConnection.sent)
         self.assert_task(mock_create_task, 'receive',
-                         id=id_to_uri('note', event['id']),
+                         id='nostr:' + event['id'],
                          source_protocol='nostr',
-                         authed_as=EVE_NPUB_URI,
+                         authed_as=f'nostr:{EVE_PUBKEY}',
                          nostr=event)
 
     def test_subscribe_post_from_native_nostr_user(self, mock_create_task, _):
@@ -294,9 +289,9 @@ class NostrHubTest(TestCase):
              ]
         ], FakeConnection.sent)
         self.assert_task(mock_create_task, 'receive',
-                         id=id_to_uri('note', event['id']),
+                         id='nostr:' + event['id'],
                          source_protocol='nostr',
-                         authed_as=BOB_NPUB_URI,
+                         authed_as=f'nostr:{BOB_PUBKEY}',
                          nostr=event)
 
     def test_subscribe_mention_protocol_bot(self, mock_create_task, _):
@@ -322,9 +317,9 @@ class NostrHubTest(TestCase):
              ]
         ], FakeConnection.sent)
         self.assert_task(mock_create_task, 'receive',
-                         id=id_to_uri('note', event['id']),
+                         id='nostr:' + event['id'],
                          source_protocol='nostr',
-                         authed_as=FRANK_NPUB_URI,
+                         authed_as=f'nostr:{FRANK_PUBKEY}',
                          nostr=event)
 
     def test_subscribe_unrelated_event(self, mock_create_task, _):
@@ -419,9 +414,9 @@ class NostrHubTest(TestCase):
 
         delayed_eta = NOW_TS + DELETE_TASK_DELAY.total_seconds()
         self.assert_task(mock_create_task, 'receive',
-                         id=uri_for(event),
+                         id='nostr:' + event['id'],
                          source_protocol='nostr',
-                         authed_as=BOB_NPUB_URI,
+                         authed_as=f'nostr:{BOB_PUBKEY}',
                          nostr=event,
                          eta_seconds=delayed_eta)
 
@@ -441,7 +436,7 @@ class NostrHubTest(TestCase):
 
         mock_create_task.assert_not_called()
 
-        obj = Object.get_by_id(uri_for(event))
+        obj = Object.get_by_id('nostr:' + event['id'])
         self.assertEqual(event, obj.nostr)
         self.assertEqual('nostr', obj.source_protocol)
         self.assertEqual(obj.key, self.bob.key.get().relays)
@@ -460,4 +455,4 @@ class NostrHubTest(TestCase):
         self.serve_and_subscribe([event])
 
         mock_create_task.assert_not_called()
-        self.assertIsNone(Object.get_by_id(uri_for(event)))
+        self.assertIsNone(Object.get_by_id('nostr:' + event['id']))

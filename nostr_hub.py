@@ -7,7 +7,6 @@ import time
 
 from google.cloud.ndb.exceptions import ContextError
 from granary.nostr import (
-    id_to_uri,
     KIND_DELETE,
     KIND_REACTION,
     KIND_RELAYS,
@@ -271,20 +270,15 @@ def handle(event):
         logger.debug(f'bad id or sig for {id}')
         return
 
-    try:
-        obj_id = uri_for(event)
-        npub_uri = id_to_uri('npub', pubkey)
-    except (TypeError, ValueError):
-        logger.info(f'bad id {id} or pubkey {pubkey}')
-        return
-
-    logger.debug(f'Got Nostr event {obj_id} from {pubkey}')
+    logger.debug(f'Got Nostr event {id} from {pubkey}')
+    obj_id = 'nostr:' + id
+    authed_as = 'nostr:' + pubkey
 
     # special case relay events, just store them
     if event.get('kind') == KIND_RELAYS and pubkey in nostr_pubkeys:
-        obj = Object.get_or_create(obj_id, nostr=event, authed_as=npub_uri,
+        obj = Object.get_or_create(obj_id, nostr=event, authed_as=authed_as,
                                    source_protocol=Nostr.LABEL)
-        if user := Nostr.get_by_id(npub_uri):
+        if user := Nostr.get_by_id(authed_as):
             user.relays = obj.key
             user.put()
         return
@@ -292,7 +286,7 @@ def handle(event):
     delay = DELETE_TASK_DELAY if event.get('kind') == KIND_DELETE else None
     try:
         create_task(queue='receive', id=obj_id, source_protocol=Nostr.LABEL,
-                    authed_as=npub_uri, nostr=event, delay=delay)
+                    authed_as=authed_as, nostr=event, delay=delay)
         # when running locally, comment out above and uncomment this
         # logger.info(f'enqueuing receive task for {obj_id}')
     except ContextError:

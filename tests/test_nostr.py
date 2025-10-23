@@ -350,12 +350,11 @@ class NostrTest(TestCase):
         del note_event['sig']
         self.assert_equals({
             'kind': KIND_REPOST,
-            'id': '82c500a5864dcdd4060e3393afca4b82b7a617ea4595267cd58e213f9f12d151',
             'pubkey': PUBKEY_2,
             'content': json_dumps(note_event, sort_keys=True),
             'tags': [
                 # id for Nostr version of original post object, below
-                ['e', NOTE_NOSTR['id'], None, 'mention'],
+                ['e', NOTE_NOSTR['id'], 'reelaay', 'mention'],
                 ['p', PUBKEY],
             ],
             'created_at': NOW_TS,
@@ -366,7 +365,7 @@ class NostrTest(TestCase):
             'author': PUBKEY_URI_2,
             'content': 'I hereby reply',
             'object': NOTE_AS1,
-        })))
+        })), ignore=['id'])
 
     def test_convert_follow(self):
         relays = Object(id=ID_URI, nostr={
@@ -693,9 +692,12 @@ class NostrTest(TestCase):
             ],
         })
         relays.put()
-        self.make_user(PUBKEY_URI, cls=Nostr, relays=relays.key)
+        user = self.make_user(PUBKEY_URI, cls=Nostr, relays=relays.key)
 
         self.assertEqual('wss://b', Nostr.target_for(Object(nostr=NOTE_NOSTR)))
+
+        actor = {'objectType': 'person', 'id': user.key.id()}
+        self.assertEqual('wss://b', Nostr.target_for(Object(our_as1=actor)))
 
         relays.nostr['tags'] = [
             ['r', 'wss://a', 'read'],
@@ -704,6 +706,7 @@ class NostrTest(TestCase):
         ]
         relays.put()
         self.assertEqual('wss://c', Nostr.target_for(Object(nostr=NOTE_NOSTR)))
+        self.assertEqual('wss://c', Nostr.target_for(Object(our_as1=actor)))
 
     def test_target_for_no_relays_object(self):
         self.make_user(PUBKEY_URI, cls=Nostr)
