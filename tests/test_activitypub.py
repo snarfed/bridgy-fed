@@ -336,8 +336,6 @@ def sign(path, body, key_id, host='localhost'):
     return hs.sign(headers, method='POST', path=path)
 
 
-# @patch.object(Fake, 'HAS_COPIES', False)
-# @patch.object(OtherFake, 'HAS_COPIES', False)
 @patch('requests.post')
 @patch('requests.get')
 @patch('requests.head')
@@ -346,8 +344,7 @@ class ActivityPubTest(TestCase):
     def setUp(self):
         super().setUp()
 
-        self.user = self.make_user('user.com', cls=Web, has_hcard=True,
-                                   has_redirects=True,
+        self.user = self.make_user('user.com', cls=Web, has_redirects=True,
                                    obj_as1={**ACTOR_AS1, 'id': 'https://user.com/'})
         self.swentel_key = ndb.Key(ActivityPub, 'https://mas.to/users/swentel')
         self.masto_actor_key = ndb.Key(ActivityPub, 'https://mas.to/me')
@@ -1344,8 +1341,7 @@ class ActivityPubTest(TestCase):
             ignore=['created', 'updated'])
 
         self.assert_user(ActivityPub, 'https://mas.to/users/swentel', obj_as2=ACTOR)
-        self.assert_user(Web, 'user.com', last_webmention_in=NOW,
-                         has_hcard=True, has_redirects=True)
+        self.assert_user(Web, 'user.com', last_webmention_in=NOW, has_redirects=True)
 
     def test_inbox_follow_use_instead_strip_www(self, mock_head, mock_get, mock_post):
         self.make_user('www.user.com', cls=Web, use_instead=self.user.key)
@@ -2486,7 +2482,7 @@ class ActivityPubTest(TestCase):
 class ActivityPubUtilsTest(TestCase):
     def setUp(self):
         super().setUp()
-        self.user = self.make_user('user.com', cls=Web, has_hcard=True, obj_as2=ACTOR)
+        self.user = self.make_user('user.com', cls=Web, obj_as2=ACTOR)
 
     def test_put_validates_id(self, *_):
         for bad in (

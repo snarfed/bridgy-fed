@@ -2526,7 +2526,6 @@ class WebTest(TestCase):
         with self.subTest(redirects=redirects, hcard=hcard, actor=actor,
                           redirects_error=redirects_error):
             self.assert_equals(redirects, self.user.has_redirects)
-            self.assert_equals(hcard, self.user.has_hcard)
             if actor is None:
                 assert not self.user.obj or not self.user.obj.as1
             else:
@@ -2865,7 +2864,6 @@ Current vs expected:<pre>- http://this/404s
         self.assert_equals('/web/user.com', got.headers['Location'])
 
         user = Web.get_by_id('user.com')
-        self.assertTrue(user.has_hcard)
         self.assertEqual('person', user.obj.as1['objectType'])
 
         self.assert_task(mock_create_task, 'poll-feed', domain='user.com')

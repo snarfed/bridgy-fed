@@ -51,7 +51,7 @@ class ProtocolTest(TestCase):
 
     def setUp(self):
         super().setUp()
-        self.user = self.make_user('foo.com', cls=Web, has_hcard=True)
+        self.user = self.make_user('foo.com', cls=Web)
 
     def tearDown(self):
         PROTOCOLS.pop('greedy', None)

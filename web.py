@@ -138,8 +138,6 @@ class Web(User, Protocol):
     ''
     redirects_error = ndb.TextProperty()
     ''
-    has_hcard = ndb.BooleanProperty()
-    'Currently unused, and I think now always ends up as ``True``. TODO: remove?'
     last_webmention_in = ndb.DateTimeProperty(tzinfo=timezone.utc)
     ''
     last_polled_feed = ndb.DateTimeProperty(tzinfo=timezone.utc)
@@ -173,6 +171,7 @@ class Web(User, Protocol):
     # OLD. some stored entities still have these; do not reuse.
     # superfeedr_subscribed = ndb.DateTimeProperty(tzinfo=timezone.utc)
     # superfeedr_subscribed_feed = ndb.StringProperty()
+    # has_hcard = ndb.BooleanProperty()
 
     @classmethod
     def _get_kind(cls):
@@ -377,11 +376,8 @@ class Web(User, Protocol):
             pass
 
         # check home page
-        self.has_hcard = False
         if not getattr(self, 'existing', None) == False:  # ie this is a new user
             self.reload_profile(gateway=True, raise_=False)
-        if self.obj and self.obj.as1:
-            self.has_hcard = True
 
         self.put()
         return self
