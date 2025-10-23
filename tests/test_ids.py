@@ -6,6 +6,7 @@ from granary.tests.test_nostr import ID, NPUB_URI, PUBKEY, PUBKEY_URI
 from activitypub import ActivityPub
 from atproto import ATProto
 from flask_app import app
+from google.cloud.ndb.key import _MAX_KEYPART_BYTES
 import ids
 from ids import translate_handle, translate_object_id, translate_user_id
 from models import Object, Target
@@ -193,6 +194,23 @@ class IdsTest(TestCase):
                          ids.normalize_user_id(id=NOSTR_ID_0.removeprefix('nostr:'),
                                                proto=Nostr))
         self.assertEqual(PUBKEY_URI, ids.normalize_user_id(id=NOSTR_ID_0, proto=Nostr))
+
+    def test_normalize_object_id(self):
+        for proto, id, expected in [
+            (ActivityPub, 'https://inst/user', 'https://inst/user'),
+            (ATProto, 'https://bsky.app/profile/did:plc:123/post/abc',
+             'at://did:plc:123/app.bsky.feed.post/abc'),
+            (Fake, 'fake:obj', 'fake:obj'),
+            (Web, 'https://user.com/', 'https://user.com/'),
+            (Web, 'https://user.com/foo', 'https://user.com/foo'),
+            (Web, 'https://user.com/' + 'x' * _MAX_KEYPART_BYTES,
+             'https://user.com/' + 'x' * (_MAX_KEYPART_BYTES - 17)),
+            (Nostr, PUBKEY, PUBKEY_URI),
+            (Nostr, NPUB, PUBKEY_URI),
+            (Nostr, NPUB_URI, PUBKEY_URI),
+        ]:
+            with self.subTest(id=id, proto=proto):
+                self.assertEqual(expected, ids.normalize_object_id(id=id, proto=proto))
 
     def test_profile_id(self):
         for proto, id, expected in [

@@ -11,6 +11,7 @@ from urllib.parse import urljoin, urlparse
 from arroba.util import parse_at_uri
 from cachetools import cached, LRUCache
 from flask import request
+from google.cloud.ndb.key import _MAX_KEYPART_BYTES
 from google.cloud.ndb.query import FilterNode, Query
 from granary.bluesky import BSKY_APP_URL_RE, web_url_to_at_uri
 import granary.nostr
@@ -246,6 +247,45 @@ def normalize_user_id(*, id, proto):
     return normalized
 
 
+def normalize_object_id(*, id, proto):
+    """Normalizes an object id to its canonical representation in a given protocol.
+
+    TODO: this is currently unused. Use it! in...Object.normalize_ids? Protocol.load?
+    more?
+
+    Examples:
+
+    * Web:
+      * https://user.com/... (over 1500 chars) => truncated at 1500 chars
+    * ATProto:
+      * https://bsky.app/profile/did:plc:123/post/abc =>
+        at://did:plc:123/app.bsky.feed.post/abc
+
+    Note that :func:`profile_id` is a narrower inverse of this; it converts
+    user ids to profile ids.
+
+    Args:
+      id (str)
+      proto (protocol.Protocol)
+
+    Returns:
+      str: the normalized object id
+    """
+    normalized = translate_object_id(id=id, from_=proto, to=proto)
+
+    if proto.LABEL == 'web':
+        if len(normalized) > _MAX_KEYPART_BYTES:
+            normalized = models.maybe_truncate_key_id(normalized)
+
+    elif proto.LABEL == 'nostr':
+        if granary.nostr.is_bech32(normalized):
+            normalized = granary.nostr.uri_to_id(normalized)
+        if granary.nostr.ID_RE.match(normalized):
+            normalized = 'nostr:' + normalized
+
+    return normalized
+
+
 def profile_id(*, id, proto):
     """Returns the profile object id for a given user id.
 
@@ -407,7 +447,7 @@ def translate_object_id(*, id, from_, to):
     if from_.owns_id(id) is False and from_.LABEL != 'ui':
         return id
 
-    # bsky.app profile URL to DID
+    # bsky.app profile URL to at:// URI
     if to.LABEL == 'atproto':
         if match := BSKY_APP_URL_RE.match(id):
             repo = match.group('id')
