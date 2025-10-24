@@ -271,19 +271,20 @@ def normalize_object_id(*, id, proto):
     Returns:
       str: the normalized object id
     """
-    normalized = translate_object_id(id=id, from_=proto, to=proto)
+    id = translate_object_id(id=id, from_=proto, to=proto)
 
     if proto.LABEL == 'web':
-        if len(normalized) > _MAX_KEYPART_BYTES:
-            normalized = models.maybe_truncate_key_id(normalized)
+        id = id.split('\n')[0]
+        if len(id) > _MAX_KEYPART_BYTES:
+            id = models.maybe_truncate_key_id(id)
 
     elif proto.LABEL == 'nostr':
-        if granary.nostr.is_bech32(normalized):
-            normalized = granary.nostr.uri_to_id(normalized)
-        if granary.nostr.ID_RE.match(normalized):
-            normalized = 'nostr:' + normalized
+        if granary.nostr.is_bech32(id):
+            id = granary.nostr.uri_to_id(id)
+        if granary.nostr.ID_RE.match(id):
+            id = 'nostr:' + id
 
-    return normalized
+    return id
 
 
 def profile_id(*, id, proto):

@@ -203,6 +203,7 @@ class IdsTest(TestCase):
             (Fake, 'fake:obj', 'fake:obj'),
             (Web, 'https://user.com/', 'https://user.com/'),
             (Web, 'https://user.com/foo', 'https://user.com/foo'),
+            (Web, 'https://user.com/foo\nbar', 'https://user.com/foo'),
             (Web, 'https://user.com/' + 'x' * _MAX_KEYPART_BYTES,
              'https://user.com/' + 'x' * (_MAX_KEYPART_BYTES - 17)),
             (Nostr, PUBKEY, PUBKEY_URI),
