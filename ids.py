@@ -240,7 +240,6 @@ def normalize_user_id(*, id, proto):
         obj_key = models.Object(id=normalized).key
         if user := nostr.Nostr.query(nostr.Nostr.obj_key == obj_key).get():
             normalized = user.key.id()
-
     elif proto.LABEL in ('fake', 'efake', 'other'):
         normalized = normalized.replace(':profile:', ':')
 

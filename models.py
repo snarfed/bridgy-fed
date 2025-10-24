@@ -476,7 +476,10 @@ class User(AddRemoveMixin, StringIdModel, metaclass=ProtocolUserMeta):
 
             if not propagate:
                 if changed:
-                    user.put()
+                    try:
+                        user.put()
+                    except AssertionError as e:
+                        error(f'Bad {cls.__name__} id {id} : {e}')
                 return user
 
         else:  # new, not existing
@@ -489,7 +492,11 @@ class User(AddRemoveMixin, StringIdModel, metaclass=ProtocolUserMeta):
 
             user = cls(id=id, **kwargs)
             user.existing = False
-            user.reload_profile(gateway=True, raise_=False)
+            try:
+                user.reload_profile(gateway=True, raise_=False)
+            except AssertionError as e:
+                error(f'Bad {cls.__name__} id {id} : {e}')
+
             if user.status and not allow_opt_out:
                 return None
 

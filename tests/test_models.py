@@ -13,7 +13,7 @@ from granary.tests.test_bluesky import ACTOR_AS, ACTOR_PROFILE_BSKY
 from oauth_dropins.webutil.appengine_config import tasks_client
 from oauth_dropins.webutil.testutil import NOW, requests_response
 from oauth_dropins.webutil import util
-from werkzeug.exceptions import Forbidden
+from werkzeug.exceptions import BadRequest, Forbidden
 
 # import first so that Fake is defined before URL routes are registered
 from .testutil import ExplicitFake, Fake, OtherFake, TestCase
@@ -184,6 +184,21 @@ class UserTest(TestCase):
 
     def test_get_or_create_new_opted_out(self):
         self.assertIsNone(Fake.get_or_create('fake:user', manual_opt_out=True))
+
+    @patch.object(Fake, 'put', side_effect=AssertionError('foo'))
+    def test_get_or_create_new_put_asserts(self, _):
+        with self.assertRaises(BadRequest):
+            Fake.get_or_create('fake:a')
+
+    def test_get_or_create_existing_put_asserts(self):
+        ExplicitFake(id='fake:a').put()
+
+        with patch.object(ExplicitFake, 'put', side_effect=AssertionError('foo')):
+            with self.assertRaises(BadRequest):
+                ExplicitFake.get_or_create('efake:a',
+                                           obj_key=Object(id='efake:profile').put())
+            with self.assertRaises(BadRequest):
+                ExplicitFake.get_or_create('efake:a', propagate=True)
 
     def test_public_pem(self):
         user = Fake(id='fake:a')
