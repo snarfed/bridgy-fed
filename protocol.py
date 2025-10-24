@@ -1884,6 +1884,8 @@ Hi! You <a href="{inner_obj_as1.get('url') or inner_obj_id}">recently {verb}</a>
         assert local or remote is not False
         # logger.debug(f'Loading Object {id} local={local} remote={remote}')
 
+        id = ids.normalize_object_id(id=id, proto=cls)
+
         obj = orig_as1 = None
         if local:
             obj = Object.get_by_id(id)

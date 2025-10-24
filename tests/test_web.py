@@ -3189,10 +3189,11 @@ class WebUtilTest(TestCase):
 
         url = 'https://user.com/' + 'x' * _MAX_KEYPART_BYTES
         obj = Web.load(url)
-        self.assertEqual('https://user.com/' + 'x' * (_MAX_KEYPART_BYTES - 17),
-                         obj.key.id())
+
+        truncated = 'https://user.com/' + 'x' * (_MAX_KEYPART_BYTES - 17)
+        self.assertEqual(truncated, obj.key.id())
         self.assert_equals(NOTE_MF2, obj.mf2)
-        mock_get.assert_has_calls([self.req(url)])
+        mock_get.assert_has_calls([self.req(truncated)])
 
     def test_fetch_user_homepage(self, mock_get, __):
         mock_get.return_value = ACTOR_HTML_RESP
