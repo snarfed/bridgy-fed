@@ -456,18 +456,18 @@ class NostrTest(TestCase):
             'published': '2019-12-02T03:04:05+00:00',
         })
 
-        id = '941a6c6fe92768bc9935ad2fe8f29df4934d551b63f4e7c6038df758c0a5602f'
+        id = '4a57c7a1dde3bfe13076db485c4f09756e54447f6389dbf6864d4139bc40a214'
         expected = {
             'kind': KIND_NOTE,
             'id': id,
             'pubkey': PUBKEY,
             'content': 'Something to say',
-            'created_at': 1575255845,
+            'created_at': NOW_TS,
             'tags': [],
-            'sig': '43bfafe0b0b6911ee0246906e23fb7eb857be1daa8cafdd521ad9eb33d0da981435f9b0adda92917881de5373baa64a5c2db11ab9c29b2ef2edfa94463261a14',
+            'sig': '65b42db33486f669fa4dff3dba2ed914dcda886d47177a747e5e574e1a87cd4da23b54350dba758ecd91d48625f5345c8516458c76bebf60b0de89d12fa76a11',
         }
         FakeConnection.to_receive = [
-            ['OK', id, True],
+            ['OK', id, True, ''],
         ]
 
         self.assertTrue(Nostr.send(obj, 'reeelaaay', from_user=self.user))
@@ -476,6 +476,20 @@ class NostrTest(TestCase):
         self.assertTrue(granary.nostr.verify(expected))
         self.assertEqual([Target(uri='nostr:' + id, protocol='nostr')],
                          obj.key.get().copies)
+
+    def test_send_rejected_by_relay(self):
+        obj = Object(id='fake:note', our_as1={
+            'objectType': 'note',
+            'author': 'fake:user',
+            'content': 'Something to say',
+            'published': '2019-12-02T03:04:05+00:00',
+        })
+
+        FakeConnection.to_receive = [
+            ['OK', 'id', False, 'blocked: reason here'],
+        ]
+
+        self.assertFalse(Nostr.send(obj, 'reeelaaay', from_user=self.user))
 
     def test_send_profile_has_existing_copy(self):
         obj = Object(id='fake:note',
@@ -495,11 +509,11 @@ class NostrTest(TestCase):
                 'about': '🌉 bridged from 🤡 fake:note by https://fed.brid.gy/',
                 'name': 'alice',
             }, ensure_ascii=False),
-            'created_at': 1641092645,
+            'created_at': NOW_TS,
             'tags': [],
         }
         FakeConnection.to_receive = [
-            ['OK', id, True],
+            ['OK', id, True, ''],
         ]
 
         self.assertTrue(Nostr.send(obj, 'reeelaaay', from_user=self.user))
@@ -521,7 +535,7 @@ class NostrTest(TestCase):
 
         profile_id = 'c3f5ade6dc03c6d802bb3188567ee2f9c6424c7552d58ed7c4551c1c7e356c2d'
         FakeConnection.to_receive = [
-            ['OK', profile_id, True],
+            ['OK', profile_id, True, ''],
         ]
 
         Nostr.create_for(alice)
@@ -555,7 +569,7 @@ class NostrTest(TestCase):
                                })
 
         FakeConnection.to_receive = [
-            ['OK', 'fakeid', True],
+            ['OK', 'fakeid', True, ''],
         ]
 
         Nostr.create_for(alice)

@@ -434,13 +434,20 @@ class Nostr(User, Protocol):
                 msg = ['EVENT', event]
                 logger.debug(f'{websocket.remote_address} <= {event}')
                 websocket.send(json_dumps(msg))
+
                 resp = websocket.recv(timeout=util.HTTP_TIMEOUT)
                 logger.debug(f'{websocket.remote_address} => {resp}')
+
+                resp = json_loads(resp)
+                if resp[:3] != ['OK', event['id'], True]:
+                    logger.warning('relay rejected event!')
+                    return False
+
             except ConnectionClosedOK as cc:
                 logger.warning(cc)
                 return False
 
-        obj.copies = [copy for copy in obj.copies if copy.protocol != 'nostr']
+        obj.remove_copies_on(to_cls)
         obj.add('copies', Target(uri='nostr:' + event['id'], protocol=to_cls.LABEL))
         obj.put()
 
