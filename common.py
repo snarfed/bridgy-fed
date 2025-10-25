@@ -429,7 +429,9 @@ def report_error(msg, *, exception=False, **kwargs):
         if DEBUG and exception:
             raise
         else:
-            logger.error(msg, exc_info=exception)
+            # must be at warning level. logging with exception at error level or
+            # above will report to prod error reporting
+            logger.warning(msg, exc_info=exception)
             return
 
     http_context = build_flask_context(request) if has_request_context() else None
