@@ -21,8 +21,7 @@ from google.protobuf.timestamp_pb2 import Timestamp
 from granary import as2
 from oauth_dropins.webutil import util, webmention
 from oauth_dropins.webutil.appengine_config import error_reporting_client, tasks_client
-from oauth_dropins.webutil import appengine_info
-from oauth_dropins.webutil.appengine_info import DEBUG
+from oauth_dropins.webutil.appengine_info import DEBUG, LOCAL_SERVER
 from oauth_dropins.webutil import flask_util
 from oauth_dropins.webutil.util import interpret_http_exception, json_dumps
 from negotiator import ContentNegotiator, AcceptParameters, ContentType
@@ -347,7 +346,7 @@ def create_task(queue, app_id=GCP_PROJECT_ID, delay=None, app=None, **params):
     except RuntimeError:  # not currently in a request context
         authorization = traceparent = ''
 
-    if RUN_TASKS_INLINE or appengine_info.LOCAL_SERVER:
+    if RUN_TASKS_INLINE or LOCAL_SERVER:
         logger.info(f'Running task inline: {queue} {params}')
         if not app:
             from router import app
@@ -426,11 +425,11 @@ def report_error(msg, *, exception=False, **kwargs):
 
     Duplicated in ``bridgy.util``.
     """
-    if DEBUG:
-        if exception:
+    if DEBUG or LOCAL_SERVER:
+        if DEBUG and exception:
             raise
         else:
-            logger.error(msg)
+            logger.error(msg, exc_info=exception)
             return
 
     http_context = build_flask_context(request) if has_request_context() else None
