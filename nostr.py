@@ -277,7 +277,7 @@ class Nostr(User, Protocol):
         user.add('copies', Target(uri='nostr:' + user.hex_pubkey(), protocol='nostr'))
         user.put()
 
-        # create Nostr profile (kind 0 event) if necessary
+        # create profile (kind 0) and relays (kind 10002) events if necessary
         if user.obj and user.obj.get_copy(Nostr):
             return
 
@@ -377,6 +377,9 @@ class Nostr(User, Protocol):
         Returns:
           dict: JSON Nostr event
         """
+        if obj.nostr:
+            return obj.nostr
+
         obj_as1 = obj.as1
         translated = to_cls.translate_ids(obj_as1)
 
@@ -426,29 +429,41 @@ class Nostr(User, Protocol):
         event = to_cls.convert(obj, from_user=from_user)
         assert event.get('pubkey') == from_user.hex_pubkey(), (event, from_user.key)
         assert event.get('sig'), event
+        id = event['id']
+
+        events = [event]
+        # if this is a profile event, add a relays event
+        if event['kind'] == KIND_PROFILE:
+            events.append(id_and_sign({
+                'kind': KIND_RELAYS,
+                'pubkey': from_user.hex_pubkey(),
+                'tags': ['r', to_cls.DEFAULT_TARGET],
+                'content': '',
+            }, from_user.nsec()))
 
         logger.debug(f'connecting to {relay_url}')
         with connect(relay_url, open_timeout=util.HTTP_TIMEOUT,
                      close_timeout=util.HTTP_TIMEOUT) as websocket:
             try:
-                msg = ['EVENT', event]
-                logger.debug(f'{websocket.remote_address} <= {event}')
-                websocket.send(json_dumps(msg))
+                for event in events:
+                    msg = ['EVENT', event]
+                    logger.debug(f'{websocket.remote_address} <= {event}')
+                    websocket.send(json_dumps(msg))
 
-                resp = websocket.recv(timeout=util.HTTP_TIMEOUT)
-                logger.debug(f'{websocket.remote_address} => {resp}')
+                    resp = websocket.recv(timeout=util.HTTP_TIMEOUT)
+                    logger.debug(f'{websocket.remote_address} => {resp}')
 
-                resp = json_loads(resp)
-                if resp[:3] != ['OK', event['id'], True]:
-                    logger.warning('relay rejected event!')
-                    return False
+                    resp = json_loads(resp)
+                    if resp[:3] != ['OK', event['id'], True]:
+                        logger.warning('relay rejected event!')
+                        return False
 
             except ConnectionClosedOK as cc:
                 logger.warning(cc)
                 return False
 
         obj.remove_copies_on(to_cls)
-        obj.add('copies', Target(uri='nostr:' + event['id'], protocol=to_cls.LABEL))
+        obj.add('copies', Target(uri='nostr:' + id, protocol=to_cls.LABEL))
         obj.put()
 
         return True

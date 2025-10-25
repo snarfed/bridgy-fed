@@ -492,7 +492,7 @@ class NostrTest(TestCase):
         self.assertFalse(Nostr.send(obj, 'reeelaaay', from_user=self.user))
 
     def test_send_profile_has_existing_copy(self):
-        obj = Object(id='fake:note',
+        obj = Object(id='fake:alice',
                      copies=[Target(uri=ID_URI, protocol='nostr')],
                      our_as1={
                          'objectType': 'person',
@@ -500,27 +500,38 @@ class NostrTest(TestCase):
                      })
         obj.put()
 
-        id = '13d6ebaa1c81003083152f55e976698ccfbe1abd8caecc9fa449dc75bf946879'
-        expected = {
-            'kind': KIND_PROFILE,
-            'id': id,
-            'pubkey': PUBKEY,
-            'content': json_dumps({
-                'about': '🌉 bridged from 🤡 fake:note by https://fed.brid.gy/',
-                'name': 'alice',
-            }, ensure_ascii=False),
-            'created_at': NOW_TS,
-            'tags': [],
-        }
+        profile_id = '37e4ed37a09bbb2e0b68cb3b175c14edeb14021e830f436fe2c816e4b7654588'
+        relays_id = 'c5c7f469d830fe0dd11234495ed8752a3060adca7b4b50f03c2989544d9a28b1'
+        expected = [
+            ['EVENT', {
+                'kind': KIND_PROFILE,
+                'id': profile_id,
+                'pubkey': PUBKEY,
+                'content': json_dumps({
+                    'about': '🌉 bridged from 🤡 fake:alice by https://fed.brid.gy/',
+                    'name': 'alice',
+                }, ensure_ascii=False),
+                'created_at': NOW_TS,
+                'tags': [],
+            }],
+            ['EVENT', {
+                'kind': KIND_RELAYS,
+                'pubkey': PUBKEY,
+                'id': relays_id,
+                'created_at': NOW_TS,
+                'tags': ['r', 'wss://nos.lol'],
+                'content': '',
+            }],
+        ]
         FakeConnection.to_receive = [
-            ['OK', id, True, ''],
+            ['OK', profile_id, True, ''],
+            ['OK', relays_id, True, ''],
         ]
 
         self.assertTrue(Nostr.send(obj, 'reeelaaay', from_user=self.user))
         self.assert_equals(['reeelaaay'], FakeConnection.relays)
-        self.assert_equals([['EVENT', expected]], FakeConnection.sent,
-                           ignore=['sig'])
-        self.assertEqual([Target(uri='nostr:' + id, protocol='nostr')],
+        self.assert_equals(expected, FakeConnection.sent, ignore=['sig'])
+        self.assertEqual([Target(uri='nostr:' + profile_id, protocol='nostr')],
                          obj.key.get().copies)
 
     @patch('secp256k1._gen_private_key', return_value=bytes.fromhex(PRIVKEY))
@@ -533,25 +544,37 @@ class NostrTest(TestCase):
             'summary': 'foo bar'
         })
 
-        profile_id = 'c3f5ade6dc03c6d802bb3188567ee2f9c6424c7552d58ed7c4551c1c7e356c2d'
+        profile_id = '42995ba6f7c7fe0ff58e6f08cb0561f40174f3fd688b54ae033cc62f552045a6'
+        relays_id = 'c5c7f469d830fe0dd11234495ed8752a3060adca7b4b50f03c2989544d9a28b1'
         FakeConnection.to_receive = [
             ['OK', profile_id, True, ''],
+            ['OK', relays_id, True, ''],
         ]
 
         Nostr.create_for(alice)
 
-        self.assert_equals([['EVENT', {
-            'kind': KIND_PROFILE,
-            'pubkey': PUBKEY,
-            'id': profile_id,
-            'content': json_dumps({
-                # no @-mentions in Nostr profiles 🤷
-                'about': 'foo bar\n\n🌉 bridged from 📣 web:efake:alice, follow @efake.brid.gy to interact',
-                'name':'Alice',
-            }, ensure_ascii=False),
-            'created_at': NOW_TS,
-            'tags': [],
-        }]], FakeConnection.sent, ignore=['id', 'sig'])
+        self.assert_equals([
+            ['EVENT', {
+                'kind': KIND_PROFILE,
+                'pubkey': PUBKEY,
+                'id': profile_id,
+                'content': json_dumps({
+                    # no @-mentions in Nostr profiles 🤷
+                    'about': 'foo bar\n\n🌉 bridged from 📣 web:efake:alice, follow @efake.brid.gy to interact',
+                    'name':'Alice',
+                }, ensure_ascii=False),
+                'created_at': NOW_TS,
+                'tags': [],
+            }],
+            ['EVENT', {
+                'kind': KIND_RELAYS,
+                'pubkey': PUBKEY,
+                'id': relays_id,
+                'created_at': NOW_TS,
+                'tags': ['r', 'wss://nos.lol'],
+                'content': '',
+            }],
+        ], FakeConnection.sent, ignore=['sig'])
 
     def test_create_for_already_has_nostr_copy(self):
         Nostr.create_for(self.user)
