@@ -318,6 +318,7 @@ class NostrTest(TestCase):
         note_obj.put()
         relays_obj = Object(id=ID_URI, nostr={
             'kind': KIND_RELAYS,
+            'pubkey': PUBKEY,
             'tags': [['r', 'reelaay']],
         }, source_protocol='nostr')
         user = Nostr(id=PUBKEY_URI, relays=relays_obj.put())
@@ -325,10 +326,10 @@ class NostrTest(TestCase):
 
         self.assert_equals({
             'kind': KIND_NOTE,
-            'id': '38f03954ec140648e1025f53ad23948794ed99f6de44d0d50c6e529322bf62ca',
+            'id': '2ecd824add055bcb36b9babf479e0f822888cc733215ade8021fedf38730b73c',
             'pubkey': PUBKEY,
             'content': 'I hereby reply',
-            'tags': [['e', ID, None]],
+            'tags': [['e', ID, 'reelaay']],
             'created_at': NOW_TS,
         }, Nostr._convert(Object(our_as1={
             'objectType': 'note',
@@ -342,6 +343,7 @@ class NostrTest(TestCase):
         Object(id=NOTE_AS1['id'], nostr=NOTE_NOSTR).put()
         relays = Object(id=ID_URI, nostr={
             'kind': KIND_RELAYS,
+            'pubkey': PUBKEY,
             'tags': [['r', 'reelaay']],
         }).put()
         Nostr(id=PUBKEY_URI, relays=relays).put()
@@ -370,6 +372,7 @@ class NostrTest(TestCase):
     def test_convert_follow(self):
         relays = Object(id=ID_URI, nostr={
             'kind': KIND_RELAYS,
+            'pubkey': PUBKEY,
             'tags': [['r', 'reelaay']],
         }).put()
         Nostr(id=ID_URI, relays=relays).put()
@@ -723,6 +726,7 @@ class NostrTest(TestCase):
     def test_target_for_existing_user(self):
         relays = Object(id=ID_URI, nostr={
             'kind': KIND_RELAYS,
+            'pubkey': PUBKEY,
             'tags': [
                 ['r', 'wss://a', 'read'],
                 ['r', 'wss://b'],

@@ -1159,6 +1159,7 @@ class ObjectTest(TestCase):
         obj = Object(id='nostr:note123', nostr={
             'kind': 1,
             'id': ID,
+            'pubkey': PUBKEY,
             'content': 'Something to say',
             'created_at': 1641092645,
             'tags': [],
@@ -1166,6 +1167,7 @@ class ObjectTest(TestCase):
         self.assert_equals({
             'objectType': 'note',
             'id': f'nostr:{ID}',
+            'author': PUBKEY_URI,
             'content': 'Something to say',
             'published': '2022-01-02T03:04:05+00:00',
         }, obj.as1)

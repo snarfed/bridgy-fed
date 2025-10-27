@@ -105,6 +105,7 @@ class NostrHubTest(TestCase):
 
         relays_a = Object(id='nostr:neventa', nostr={
             'kind': KIND_RELAYS,
+            'pubkey': BOB_PUBKEY,
             'tags': [['r', 'wss://a']],
         }).put()
         self.bob.relays = relays_a
@@ -124,6 +125,7 @@ class NostrHubTest(TestCase):
 
         relays_b = Object(id='nostr:neventb', nostr={
             'kind': KIND_RELAYS,
+            'pubkey': FRANK_PUBKEY,
             'tags': [['r', 'wss://b']],
         }).put()
         frank = self.make_nostr('frank', FRANK_NSEC_URI, FRANK_PUBKEY, relays=relays_b)
@@ -156,6 +158,7 @@ class NostrHubTest(TestCase):
 
             relays = Object(id='nostr:neventa', nostr={
                 'kind': KIND_RELAYS,
+                'pubkey': EVE_PUBKEY,
                 'tags': [['r', Nostr.DEFAULT_TARGET]],
             }).put()
             eve = self.make_nostr('eve', EVE_NSEC_URI, EVE_PUBKEY, relays=relays)
