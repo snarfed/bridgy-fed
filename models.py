@@ -87,7 +87,7 @@ GET_ORIGINALS_CACHE_EXPIRATION = timedelta(days=1)
 FOLLOWERS_CACHE_EXPIRATION = timedelta(hours=2)
 
 # See https://www.cloudimage.io/
-IMAGE_PROXY_URL_BASE = 'https://aujtzahimq.cloudimg.io/v7/'
+IMAGE_PROXY_URL_BASE = 'https://xaasg3w5.cloudimg.io/'
 IMAGE_PROXY_DOMAINS = ('threads.net',)
 
 USER_STATUS_DESCRIPTIONS = {  # keep in sync with DM.type!

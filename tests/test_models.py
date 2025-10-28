@@ -1175,7 +1175,7 @@ class ObjectTest(TestCase):
     def test_as1_image_proxy_domain(self):
         self.assert_equals({
             'id': 'https://www.threads.net/foo',
-            'image': 'https://aujtzahimq.cloudimg.io/v7/http://pic?x&y',
+            'image': 'https://xaasg3w5.cloudimg.io/http://pic?x&y',
         }, Object(our_as1={
             'id': 'https://www.threads.net/foo',
             'image': 'http://pic?x&y',
@@ -1184,8 +1184,8 @@ class ObjectTest(TestCase):
         self.assert_equals({
             'id': 'https://www.threads.net/foo',
             'image': [
-                'https://aujtzahimq.cloudimg.io/v7/http://pic/1',
-                {'url': 'https://aujtzahimq.cloudimg.io/v7/http://pic/2'},
+                'https://xaasg3w5.cloudimg.io/http://pic/1',
+                {'url': 'https://xaasg3w5.cloudimg.io/http://pic/2'},
             ],
         }, Object(our_as1={
             'id': 'https://www.threads.net/foo',
