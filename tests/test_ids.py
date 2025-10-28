@@ -299,11 +299,13 @@ class IdsTest(TestCase):
                 handle=handle, from_=from_, to=ActivityPub, short=True))
 
     @patch('ids.ATPROTO_HANDLE_DOMAINS', set(('example.com',)))
-    def test_translate_handle_atproto_handle_domains_file(self):
+    def test_translate_handle_atproto_handle_domains(self):
         self.assertEqual('alice.example.com', translate_handle(
             handle='alice.example.com', from_=Web, to=ATProto))
         self.assertEqual('bob.example.com', translate_handle(
             handle='@bob@example.com', from_=ActivityPub, to=ATProto))
+        self.assertEqual('bob.example.com', translate_handle(
+            handle='bob@example.com', from_=Nostr, to=ATProto))
 
     def test_translate_object_id(self):
         self.store_object(id='http://po.st', copies=[
