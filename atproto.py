@@ -988,7 +988,7 @@ class ATProto(User, Protocol):
                     if blob.width and blob.height:
                         aspect_ratios[url] = (blob.width, blob.height)
                 except (RequestException, ValidationError) as e:
-                    logger.info(f'failed, skipping {url} : {e}')
+                    logger.info(f'blob failed, skipping it: {url} : {e}')
 
         if fetch_blobs:
             for o in obj.as1, as1.get_object(obj.as1):
