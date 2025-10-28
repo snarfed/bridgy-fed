@@ -36,7 +36,9 @@ env_variables:
   MOD_SERVICE_DID: did:plc:ar7c4by46qjdydhdevvrndac
   MEMCACHE_HOST: '10.126.144.3'
   # ...or test against labeler.dholms.xyz / did:plc:vzxheqfwpbi3lxbgdh22js66
-  BLOB_REFETCH_TYPES: ''
+
+  # this disables blob refetching
+  # BLOB_REFETCH_TYPES: ''
 
   # https://github.com/googleapis/python-ndb/blob/c55ec62b5153787404488b046c4bf6ffa02fee64/google/cloud/ndb/utils.py#L78-L81
   # NDB_DEBUG: true
