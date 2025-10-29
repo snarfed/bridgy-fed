@@ -294,7 +294,7 @@ def profile_id(*, id, proto):
     * Web: user.com => https://user.com/
     * ActivityPub: https://inst.ance/alice => https://inst.ance/alice
     * ATProto: did:plc:123 => at://did:plc:123/app.bsky.actor.profile/self
-    * Nostr: nostr:npub123 => nostr:nprofileabc
+    * Nostr: nostr:ab12 (pubkey) => nostr:cd34 (profile event)
 
     Note that :func:`normalize_user_id` does the inverse of this, ie converts
     profile ids to user ids.

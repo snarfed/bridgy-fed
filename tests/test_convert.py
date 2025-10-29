@@ -102,7 +102,7 @@ class ConvertTest(testutil.TestCase):
         self.assertEqual(OtherFake.CONTENT_TYPE, resp.content_type)
         self.assertEqual({
             'id': 'other:post',
-            'actor': 'other:u:efake:user',
+            'actor': 'other:copy:efake:user',
         }, json_loads(resp.get_data()))
 
     def test_fake_to_other_no_object_owner(self):

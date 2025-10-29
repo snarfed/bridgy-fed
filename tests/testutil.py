@@ -459,9 +459,20 @@ class TestCase(unittest.TestCase, testutil.Asserts):
         if cls == Web and not obj_mf2:
             kwargs.setdefault('last_webmention_in', testutil.NOW)
 
-        if 'nostr' in kwargs.get('enabled_protocols', []):
+        enabled = kwargs.get('enabled_protocols', [])
+        if 'nostr' in enabled:
             kwargs.setdefault('nostr_key_bytes', bytes.fromhex(PRIVKEY))
 
+        def make_copies(id):
+            copies = []
+            for proto in enabled:
+                if proto in ('fake', 'other', 'efake'):
+                    copies.append(Target(protocol=proto, uri=f'{proto}:copy:{id}'))
+                else:
+                    logger.warning(f'!!! POSSIBLE TEST ISSUE: made {id} with {proto} enabled but no copy id')
+            return copies
+
+        kwargs.setdefault('copies', make_copies(id))
         user = cls(id=id,
                    mod=global_user.mod,
                    public_exponent=global_user.public_exponent,
@@ -481,7 +492,7 @@ class TestCase(unittest.TestCase, testutil.Asserts):
                 user.obj_key = Object.get_or_create(
                     id=obj_id, authed_as=obj_id, our_as1=obj_as1, as2=obj_as2,
                     bsky=obj_bsky, mf2=obj_mf2, nostr=obj_nostr,
-                    source_protocol=cls.LABEL).key
+                    source_protocol=cls.LABEL, copies=make_copies(obj_id)).key
 
         user.put()
         return user

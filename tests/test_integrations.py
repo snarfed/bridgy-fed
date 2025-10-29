@@ -2443,7 +2443,8 @@ To disable these messages, reply with the text 'mute'.""",
         nostr_hub.subscribe('wss://nos.lol', limit=2)
 
         bob = bob.key.get()
-        self.assertEqual('nostr:' + profile['id'], bob.obj_key.id())
+        # TODO: stop overriding Nostr profile event Object with user's pubkey
+        self.assertEqual(PUBKEY_URI, bob.obj_key.id())
         self.assertEqual('bob@new.example.com', bob.valid_nip05)
         self.assertIsNone(bob.status)
 

@@ -1130,7 +1130,8 @@ class Protocol:
             error(f"Couldn't load actor {actor}", status=204)
 
         # if this is an object, ie not an activity, wrap it in a create or update
-        obj = from_cls.handle_bare_object(obj, authed_as=authed_as)
+        obj = from_cls.handle_bare_object(obj, authed_as=authed_as,
+                                          from_user=from_user)
         obj.add('users', from_user.key)
 
         inner_obj_as1 = as1.get_object(obj.as1)
@@ -1438,7 +1439,7 @@ class Protocol:
                            user=bot.key.urlsafe())
 
     @classmethod
-    def handle_bare_object(cls, obj, authed_as=None):
+    def handle_bare_object(cls, obj, *, authed_as, from_user):
         """If obj is a bare object, wraps it in a create or update activity.
 
         Checks if we've seen it before.
@@ -1446,6 +1447,7 @@ class Protocol:
         Args:
           obj (models.Object)
           authed_as (str): authenticated actor id who sent this activity
+          from_user (models.User): user (actor) this activity/object is from
 
         Returns:
           models.Object: ``obj`` if it's an activity, otherwise a new object
@@ -1457,14 +1459,18 @@ class Protocol:
         obj_actor = ids.normalize_user_id(id=as1.get_owner(obj.as1), proto=cls)
         now = util.now().isoformat()
 
-        # occasionally we override the object, eg if this is a profile object
-        # coming in via a user with use_instead set
         obj_as1 = obj.as1
-        if obj_id := obj.key.id():
-            if obj_as1_id := obj_as1.get('id'):
-                if obj_id != obj_as1_id:
-                    logger.info(f'Overriding AS1 object id {obj_as1_id} with Object id {obj_id}')
-                    obj_as1['id'] = obj_id
+
+        if is_actor and (obj_id := obj.key.id()) and (obj_as1_id := obj_as1.get('id')):
+            # this is a profile object coming in via a user with use_instead set.
+            # override the object's id to be the final user id, after following
+            # use_instead.
+            actor_user_id = ids.normalize_user_id(id=obj_as1_id, proto=from_user)
+            if (obj_id != obj_as1_id
+                    and actor_user_id == authed_as
+                    and obj_id == from_user.profile_id()):
+                logger.info(f'Overriding AS1 object id {obj_as1_id} with Object id {obj_id}')
+                obj_as1['id'] = obj_id
 
         # this is a raw post; wrap it in a create or update activity
         if obj.changed or is_actor:
@@ -1647,10 +1653,10 @@ class Protocol:
                     if not (orig := original_objs.get(id)):
                         continue
                     elif isinstance(orig, proto):
-                        logger.info(f'Allowing {label} for original post {id}')
+                        logger.info(f'Allowing {label} for original {id}')
                         break
                     elif orig.get_copy(proto):
-                        logger.info(f'Allowing {label}, original post {id} was bridged there')
+                        logger.info(f'Allowing {label}, original {id} was bridged there')
                         break
 
                     if (origs_could_bridge is not False

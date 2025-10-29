@@ -11,6 +11,14 @@ from google.cloud import ndb
 from google.cloud.ndb.global_cache import _InProcessGlobalCache
 from granary import as2
 from granary.tests.test_bluesky import ACTOR_PROFILE_BSKY
+from granary.tests.test_nostr import (
+    ID,
+    KIND_PROFILE,
+    KIND_RELAYS,
+    PUBKEY,
+    PUBKEY_URI,
+    URI,
+)
 from oauth_dropins.webutil import appengine_info, util
 from oauth_dropins.webutil.appengine_config import ndb_client
 from oauth_dropins.webutil.flask_util import NoContent, NotModified
@@ -30,6 +38,7 @@ from common import ErrorButDoNotRetryTask
 import memcache
 import models
 from models import DM, Follower, Object, PROTOCOLS, Target, User
+from nostr import Nostr
 import protocol
 from protocol import Protocol
 from ui import UIProtocol
@@ -2813,6 +2822,63 @@ class ProtocolReceiveTest(TestCase):
             'actor': 'other:alice',
             'object': profile,
         })], Fake.sent)
+
+    def test_update_nostr_profile(self):
+        orig_profile = {
+            'id': ID,
+            'kind': KIND_PROFILE,
+            'pubkey': PUBKEY,
+            'content': json_dumps({
+                'name': 'Orig Eve',
+                'nip05': '_@eve.com',
+                'picture': 'http://eve/pic',
+            }, sort_keys=True),
+        }
+        eve = self.make_user(PUBKEY_URI, cls=Nostr, enabled_protocols=['other'],
+                             obj_nostr=orig_profile, obj_id=PUBKEY_URI,
+                             valid_nip05='_@eve.com')
+        Follower.get_or_create(to=eve, from_=self.alice)
+
+        new_profile = {
+            'id': ID,
+            'kind': KIND_PROFILE,
+            'pubkey': PUBKEY,
+            'content': json_dumps({
+                'name': 'New Eve',
+                'nip05': '_@eve.com',
+                'picture': 'http://eve/pic',
+            }, sort_keys=True),
+        }
+
+        id_2_uri = 'nostr:' + 'f' + ID[1:]
+        Nostr.receive(Object(id=id_2_uri, source_protocol='nostr', nostr=new_profile),
+                      authed_as=PUBKEY_URI)
+
+        # stored profile object
+        new_profile_as1 = {
+            'objectType': 'person',
+            'id': PUBKEY_URI,
+            'displayName': 'New Eve',
+            'username': 'eve.com',
+            'image': ['http://eve/pic'],
+            'updated': '2022-01-02T03:04:05+00:00',
+        }
+        # TODO: the nostr property is still the original profile event. ideally
+        # we should update it too or clear it
+        self.assert_object(
+            PUBKEY_URI, our_as1=new_profile_as1, source_protocol='nostr',
+            copies=[Target(protocol='other', uri=f'other:copy:{PUBKEY_URI}')],
+            users=[eve.key], deleted=False, ignore=['nostr'])
+        self.assertEqual(Object(id=PUBKEY_URI).key, eve.key.get().obj_key)
+
+        # delivery to alice
+        self.assertEqual([('other:alice:target', {
+            'objectType': 'activity',
+            'verb': 'update',
+            'id': id_2_uri +'#bridgy-fed-update-2022-01-02T03:04:05+00:00',
+            'actor': PUBKEY_URI,
+            'object': new_profile_as1,
+        })], OtherFake.sent)
 
     def test_update_profile_empty_object(self):
         profile = self.store_object(id='other:profile:alice', source_protocol='other')
