@@ -35,7 +35,7 @@ from ui import UIProtocol
 logger = logging.getLogger(__name__)
 
 AUTHOR_FILTER_KINDS = list(Nostr.SUPPORTED_KINDS - {KIND_REACTION})
-RECONNECT_DELAY = timedelta(seconds=30)
+RECONNECT_DELAY = timedelta(seconds=10)
 LOAD_USERS_FREQ = timedelta(seconds=10)
 STORE_RELAY_SINCE_FREQ = timedelta(seconds=10)
 

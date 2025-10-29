@@ -354,7 +354,8 @@ class Nostr(User, Protocol):
 
         id = obj.key.id().removeprefix('nostr:')
         client = granary.nostr.Nostr()
-        relay = cls.target_for(obj)
+        relay = cls.target_for(obj) or cls.DEFAULT_TARGET
+        assert relay
         logger.debug(f'connecting to {relay}')
         with connect(relay, open_timeout=util.HTTP_TIMEOUT,
                      close_timeout=util.HTTP_TIMEOUT) as websocket:

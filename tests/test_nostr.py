@@ -632,6 +632,7 @@ class NostrTest(TestCase):
         obj = Object(id=ID_URI)
         self.assertTrue(Nostr.fetch(obj))
         self.assertEqual(NOTE_NOSTR, obj.nostr)
+        self.assertEqual([Nostr.DEFAULT_TARGET], FakeConnection.relays)
         self.assertEqual([
             ['REQ', 'towkin', {'ids': [ID], 'limit': 20}],
             ['CLOSE', 'towkin'],
@@ -646,6 +647,7 @@ class NostrTest(TestCase):
         obj = Object(id=ID_URI)
         self.assertFalse(Nostr.fetch(obj))
         self.assertIsNone(obj.nostr)
+        self.assertEqual([Nostr.DEFAULT_TARGET], FakeConnection.relays)
         self.assertEqual([
             ['REQ', 'towkin', {'ids': [ID], 'limit': 20}],
             ['CLOSE', 'towkin'],
@@ -659,6 +661,7 @@ class NostrTest(TestCase):
             Nostr.fetch(obj)
 
         self.assertIsNone(obj.nostr)
+        self.assertEqual([Nostr.DEFAULT_TARGET], FakeConnection.relays)
 
     def test_fetch_invalid_id(self):
         for id in '', 'not-a-nostr-id', 'https://example.com':
