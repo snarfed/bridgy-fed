@@ -2890,7 +2890,7 @@ class ProtocolReceiveTest(TestCase):
 
     def test_update_profile_use_instead(self):
         user_instead = self.make_user('fake:user-instead', cls=Fake,
-                                       use_instead=self.user.key)
+                                      use_instead=self.user.key)
 
         profile = {
             'objectType': 'person',
@@ -2903,7 +2903,9 @@ class ProtocolReceiveTest(TestCase):
         # profile object
         self.assert_object('fake:profile:user',
                            our_as1={
-                               **profile,
+                               'objectType': 'person',
+                               'id': 'fake:profile:user',
+                               'foo': 'bar',
                                'updated': '2022-01-02T03:04:05+00:00',
                            },
                            source_protocol='fake',

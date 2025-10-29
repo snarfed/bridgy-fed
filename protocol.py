@@ -1129,6 +1129,15 @@ class Protocol:
         if not internal and (not from_user or from_user.manual_opt_out):
             error(f"Couldn't load actor {actor}", status=204)
 
+        # check if this is a profile object coming in via a user with use_instead
+        # set. if so, override the object's id to be the final user id (from_user's),
+        # after following use_instead.
+        if obj.type in as1.ACTOR_TYPES and from_user.key.id() != actor:
+            as1_id = obj.as1.get('id')
+            if ids.normalize_user_id(id=as1_id, proto=from_user) == actor:
+                logger.info(f'Overriding AS1 object id {as1_id} with Object id {from_user.profile_id()}')
+                obj.our_as1 = {**obj.as1, 'id': from_user.profile_id()}
+
         # if this is an object, ie not an activity, wrap it in a create or update
         obj = from_cls.handle_bare_object(obj, authed_as=authed_as,
                                           from_user=from_user)
@@ -1459,19 +1468,6 @@ class Protocol:
         obj_actor = ids.normalize_user_id(id=as1.get_owner(obj.as1), proto=cls)
         now = util.now().isoformat()
 
-        obj_as1 = obj.as1
-
-        if is_actor and (obj_id := obj.key.id()) and (obj_as1_id := obj_as1.get('id')):
-            # this is a profile object coming in via a user with use_instead set.
-            # override the object's id to be the final user id, after following
-            # use_instead.
-            actor_user_id = ids.normalize_user_id(id=obj_as1_id, proto=from_user)
-            if (obj_id != obj_as1_id
-                    and actor_user_id == authed_as
-                    and obj_id == from_user.profile_id()):
-                logger.info(f'Overriding AS1 object id {obj_as1_id} with Object id {obj_id}')
-                obj_as1['id'] = obj_id
-
         # this is a raw post; wrap it in a create or update activity
         if obj.changed or is_actor:
             if obj.changed:
@@ -1491,7 +1487,7 @@ class Protocol:
                     # https://socialhub.activitypub.rocks/t/what-could-be-the-reason-that-my-update-activity-does-not-work/2893/4
                     # https://github.com/mastodon/documentation/pull/1150
                     'updated': now,
-                    **obj_as1,
+                    **obj.as1,
                 },
             }
             logger.debug(f'  AS1: {json_dumps(update_as1, indent=2)}')
@@ -1507,7 +1503,7 @@ class Protocol:
                 'verb': 'post',
                 'id': create_id,
                 'actor': obj_actor,
-                'object': obj_as1,
+                'object': obj.as1,
                 'published': now,
             }
             logger.info(f'Wrapping in post')
