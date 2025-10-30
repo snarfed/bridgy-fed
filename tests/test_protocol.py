@@ -2101,7 +2101,53 @@ class ProtocolReceiveTest(TestCase):
 
         self.assertIsNone(Object.get_by_id(
             'fake:post#bridgy-fed-update-2022-01-02T03:04:05+00:00'))
-        self.assertEqual([], Fake.sent)
+        self.assertEqual([
+            ('other:alice:target', {
+                'objectType': 'activity',
+                'verb': 'update',
+                'id': 'fake:post#bridgy-fed-update-2022-01-02T03:04:05+00:00',
+                'actor': 'fake:user',
+                'object': {
+                    'author': 'fake:user',
+                    'content': 'second',
+                    'id': 'fake:post',
+                    'objectType': 'note',
+                    'updated': '2022-01-02T03:04:05+00:00',
+                },
+            }),
+            ('other:bob:target', {
+                'id': 'fake:post#bridgy-fed-update-2022-01-02T03:04:05+00:00',
+                'objectType': 'activity',
+                'verb': 'update',
+                'actor': 'fake:user',
+                'object': {
+                    'author': 'fake:user',
+                    'content': 'second',
+                    'id': 'fake:post',
+                    'objectType': 'note',
+                    'updated': '2022-01-02T03:04:05+00:00',
+                },
+            })], OtherFake.sent)
+
+    def test_post_bare_object_already_created_not_changed(self):
+        self.make_followers()
+
+        post_as1 = {
+            'id': 'fake:post',
+            'objectType': 'note',
+            'author': 'fake:user',
+            'content': 'first',
+        }
+        copy = Target(uri='other:post', protocol='other')
+        self.store_object(id='fake:post', our_as1=post_as1, source_protocol='fake',
+                          copies=[copy])
+
+        _, code = Fake.receive_as1(post_as1)
+        self.assertEqual(204, code)
+
+        self.assertIsNone(Object.get_by_id(
+            'fake:post#bridgy-fed-update-2022-01-02T03:04:05+00:00'))
+        self.assertEqual([], OtherFake.sent)
 
     def test_update_post_fetch_object(self):
         post = {

@@ -1641,6 +1641,11 @@ class Protocol:
                 report_error(f'unknown enabled protocol {label} for {from_user.key.id()}')
                 continue
 
+            if (obj.type == 'post' and (orig := original_objs.get(inner_obj_id))
+                    and orig.get_copy(proto)):
+                logger.info(f'Already created {id} on {label}, cowardly refusing to create there again')
+                continue
+
             if proto.HAS_COPIES and (obj.type in ('update', 'delete', 'share', 'undo')
                                      or is_reply):
                 origs_could_bridge = None
