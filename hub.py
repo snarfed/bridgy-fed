@@ -1,4 +1,5 @@
 """Single-instance hub for long-lived server and subscription connections."""
+from datetime import datetime
 from functools import lru_cache
 from ipaddress import ip_address, ip_network
 import logging
@@ -135,6 +136,7 @@ def gethostbyaddr(addr):
 def hub_admin():
     return render_template(
         'hub.html',
+        datetime=datetime,
         firehose=firehose,
         gethostbyaddr=gethostbyaddr,
         len=len,

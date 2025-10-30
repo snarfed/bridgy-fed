@@ -5,6 +5,7 @@ import secrets
 from threading import Event, Lock, Thread, Timer
 import time
 
+from google.cloud.ndb import context
 from google.cloud.ndb.exceptions import ContextError
 from granary.nostr import (
     KIND_DELETE,
@@ -45,8 +46,8 @@ bridged_pubkeys = set()
 pubkeys_loaded_at = datetime(1900, 1, 1)
 pubkeys_initialized = Event()
 
-# string relay websocket adddress URIs
-subscribed_relays = []
+# maps string relay websocket address URI to NostrRelay
+subscribed_relays = {}
 subscribed_relays_lock = Lock()
 
 
@@ -59,7 +60,9 @@ def init(subscribe=True):
     pubkeys_initialized.clear()
 
     if subscribe:
-        add_relay(Nostr.DEFAULT_TARGET)
+        ctx = context.get_context(raise_context_error=False)
+        with ctx.use() if ctx else ndb_client.context(**NDB_CONTEXT_KWARGS):
+            add_relay(Nostr.DEFAULT_TARGET)
 
 
 def _load_users():
@@ -119,22 +122,23 @@ def add_relay(uri):
 
     with subscribed_relays_lock:
         if uri not in subscribed_relays:
-            subscribed_relays.append(uri)
-            Thread(target=subscriber, daemon=True, args=(uri,)).start()
+            relay = NostrRelay.get_or_insert(uri)
+            subscribed_relays[uri] = relay
+            Thread(target=subscriber, daemon=True, args=(relay,)).start()
 
 
-def subscriber(uri):
+def subscriber(relay):
     """Wrapper around :func:`_subscribe` that catches exceptions and reconnects.
 
     Args:
-      uri (str): URI, relay websocket adddress, starting with ``ws://`` or ``wss://``
+      relay (NostrRelay)
     """
-    logger.info(f'started thread to subscribe to relay {uri}')
+    logger.info(f'started thread to subscribe to relay {relay.key.id()}')
 
     with ndb_client.context(**NDB_CONTEXT_KWARGS):
         while True:
             try:
-                subscribe(uri)
+                subscribe(relay)
             except (ConnectionClosed, TimeoutError) as err:
                 logger.warning(err)
                 logger.info(f'disconnected! waiting {RECONNECT_DELAY}, then reconnecting')
@@ -144,18 +148,17 @@ def subscriber(uri):
             time.sleep(RECONNECT_DELAY.total_seconds())
 
 
-def subscribe(uri, limit=None):
+def subscribe(relay, limit=None):
     """Subscribes to relay(s), backfeeds responses to our users' activities.
 
     Args:
-      uri (str): URI, relay websocket adddress, starting with ``ws://`` or ``wss://``
+      relay (NostrRelay)
       limit (int): return after receiving this many messages. Only used in tests.
     """
     if not DEBUG:
         assert limit is None
 
-    relay = NostrRelay.get_or_insert(uri)
-
+    uri = relay.key.id()
     with connect(uri, user_agent_header=util.user_agent,
                  open_timeout=util.HTTP_TIMEOUT, close_timeout=util.HTTP_TIMEOUT,
                  ) as ws:

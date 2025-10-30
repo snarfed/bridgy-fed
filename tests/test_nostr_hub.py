@@ -80,7 +80,8 @@ class NostrHubTest(TestCase):
             ['EVENT', 'sub123', event] for event in events
         ] + [['EOSE', 'sub123']]
 
-        nostr_hub.subscribe('wss://reelaay', limit=len(events) + 1)
+        relay = NostrRelay.get_or_insert('wss://reelaay')
+        nostr_hub.subscribe(relay, limit=len(events) + 1)
 
         self.assertEqual(['wss://reelaay'], FakeConnection.relays)
 

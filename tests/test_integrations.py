@@ -47,7 +47,7 @@ from atproto import ATProto, Cursor
 import atproto_firehose
 import common
 from models import DM, Follower, Object, Target
-from nostr import Nostr
+from nostr import Nostr, NostrRelay
 import nostr_hub
 from web import Web
 
@@ -1601,7 +1601,7 @@ To disable these messages, reply with the text 'mute'.""",
             ['EVENT', 'sub123', post_event],
             ['EOSE', 'sub123'],
         ]
-        nostr_hub.subscribe('wss://nos.lol', limit=2)
+        nostr_hub.subscribe(NostrRelay.get_or_insert('wss://nos.lol'), limit=2)
 
         post_id = 'nostr:' + post_event['id']
         self.assert_ap_deliveries(mock_post, ['https://inst/alice/inbox'],
@@ -1644,7 +1644,7 @@ To disable these messages, reply with the text 'mute'.""",
             ['EVENT', 'sub123', post_event],
             ['EOSE', 'sub123'],
         ]
-        nostr_hub.subscribe('wss://nos.lol', limit=2)
+        nostr_hub.subscribe(NostrRelay.get_or_insert('wss://nos.lol'), limit=2)
 
         repo = self.storage.load_repo('did:plc:bob')
         tid = arroba.util.int_to_tid(arroba.util._tid_ts_last)
@@ -1874,7 +1874,7 @@ To disable these messages, reply with the text 'mute'.""",
             ['EVENT', 'sub123', follow],
             ['EOSE', 'sub123'],
         ]
-        nostr_hub.subscribe('wss://nos.lol', limit=1)
+        nostr_hub.subscribe(NostrRelay.get_or_insert('wss://nos.lol'), limit=1)
 
         bob = bob.key.get()
         self.assertFalse(bob.is_enabled(ActivityPub))
@@ -1909,7 +1909,7 @@ To disable these messages, reply with the text 'mute'.""",
             ['EVENT', 'sub123', follow],
             ['EOSE', 'sub123'],
         ]
-        nostr_hub.subscribe('wss://nos.lol', limit=1)
+        nostr_hub.subscribe(NostrRelay.get_or_insert('wss://nos.lol'), limit=1)
 
         bob = bob.key.get()
         self.assertTrue(bob.is_enabled(ActivityPub))
@@ -1953,7 +1953,7 @@ To disable these messages, reply with the text 'mute'.""",
             ['EVENT', 'sub123', follow],
             ['EOSE', 'sub123'],
         ]
-        nostr_hub.subscribe('wss://nos.lol', limit=1)
+        nostr_hub.subscribe(NostrRelay.get_or_insert('wss://nos.lol'), limit=1)
 
         bob = bob.key.get()
         self.assertTrue(bob.is_enabled(ATProto))
@@ -2056,7 +2056,7 @@ To disable these messages, reply with the text 'mute'.""",
             ['EVENT', 'sub456', alice_profile],
             ['EOSE', 'sub456'],
         ]
-        nostr_hub.subscribe('wss://nos.lol', limit=4)
+        nostr_hub.subscribe(NostrRelay.get_or_insert('wss://nos.lol'), limit=4)
 
         follow_id = 'nostr:' + follow["id"]
         self.assert_ap_deliveries(mock_post, ['https://inst/alice/inbox'],
@@ -2102,7 +2102,7 @@ To disable these messages, reply with the text 'mute'.""",
             ['EVENT', 'sub456', alice_profile],
             ['EOSE', 'sub456'],
         ]
-        nostr_hub.subscribe('wss://nos.lol', limit=4)
+        nostr_hub.subscribe(NostrRelay.get_or_insert('wss://nos.lol'), limit=4)
 
         repo = self.storage.load_repo('did:plc:bob')
         tid = arroba.util.int_to_tid(arroba.util._tid_ts_last)
@@ -2159,7 +2159,7 @@ To disable these messages, reply with the text 'mute'.""",
             ['EVENT', 'sub456', alice_profile],
             ['EOSE', 'sub456'],
         ]
-        nostr_hub.subscribe('wss://nos.lol', limit=4)
+        nostr_hub.subscribe(NostrRelay.get_or_insert('wss://nos.lol'), limit=4)
 
         reply_id = 'nostr:' + reply['id']
         self.assert_ap_deliveries(mock_post, ['https://inst/alice/inbox'],
@@ -2345,7 +2345,7 @@ To disable these messages, reply with the text 'mute'.""",
             ['EOSE', 'sub456'],
             ['EOSE', 'sub123'],
         ]
-        nostr_hub.subscribe('wss://nos.lol', limit=2)
+        nostr_hub.subscribe(NostrRelay.get_or_insert('wss://nos.lol'), limit=2)
 
         repo = self.storage.load_repo('did:plc:bob')
         tid = arroba.util.int_to_tid(arroba.util._tid_ts_last)
@@ -2440,7 +2440,7 @@ To disable these messages, reply with the text 'mute'.""",
             ['EVENT', 'sub123', profile],
             ['EOSE', 'sub123'],
         ]
-        nostr_hub.subscribe('wss://nos.lol', limit=2)
+        nostr_hub.subscribe(NostrRelay.get_or_insert('wss://nos.lol'), limit=2)
 
         bob = bob.key.get()
         # TODO: stop overriding Nostr profile event Object with user's pubkey

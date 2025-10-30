@@ -395,7 +395,7 @@ class TestCase(unittest.TestCase, testutil.Asserts):
         nostr_hub.bridged_pubkeys = set()
         nostr_hub.pubkeys_loaded_at = datetime(1900, 1, 1)
         nostr_hub.pubkeys_initialized.clear()
-        nostr_hub.subscribed_relays = []
+        nostr_hub.subscribed_relays = {}
 
         # system level local timezone
         os.environ['TZ'] = 'America/Los_Angeles'
