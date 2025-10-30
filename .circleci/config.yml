@@ -10,6 +10,10 @@ parameters:
     type: enum
     enum: ["hub", "default"]
     default: "default"
+  deploy-flags:
+    type: string
+    description: additional flags for gcloud app deploy, eg --no-promote or --no-stop-previous-version
+    default: ""
 
 jobs:
   build:
@@ -97,17 +101,17 @@ jobs:
                 ver=`gcloud app versions list --hide-no-traffic --service=router --format='value(id)'`
                 instances=`gcloud app instances list --service=router --version=${ver} --format='value(id)' |wc -l`
                 sed -E "s/min_num_instances: [0-9]+/min_num_instances: ${instances}/" < router.yaml > router.provisioned.yaml
-                gcloud -q app deploy index.yaml queue.yaml router.provisioned.yaml
+                gcloud -q app deploy << pipeline.parameters.deploy-flags >> index.yaml queue.yaml router.provisioned.yaml
 
                 # deploy frontend
-                gcloud -q app deploy --no-cache app.yaml
+                gcloud -q app deploy --no-cache << pipeline.parameters.deploy-flags >> app.yaml
 
                 # drop router back to min_num_instances 1
                 ver=`gcloud app versions list --hide-no-traffic --service=router --format='value(id)'`
                 /tmp/linux_amd64/oauth2l curl --scope=cloud-platform --credentials=/tmp/service_account_creds.json --url "https://appengine.googleapis.com/v1/apps/bridgy-federated/services/router/versions/${ver}?updateMask=automaticScaling.minTotalInstances" -- -X PATCH --data '{"automaticScaling": {"minTotalInstances": 1}, "env": "flexible"}' -H 'Content-Type: application/json'
 
               else
-                gcloud -q app deploy hub.yaml
+                gcloud -q app deploy << pipeline.parameters.deploy-flags >> hub.yaml
               fi
             fi
 
