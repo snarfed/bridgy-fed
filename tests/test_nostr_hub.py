@@ -74,7 +74,7 @@ class NostrHubTest(TestCase):
                               obj_key=profile.put(), valid_nip05=nip05, **props)
 
     def serve_and_subscribe(self, events):
-        nostr_hub.init(subscribe=False)
+        nostr_hub._load_users()
 
         FakeConnection.to_receive = [
             ['EVENT', 'sub123', event] for event in events
@@ -86,7 +86,7 @@ class NostrHubTest(TestCase):
         self.assertEqual(['wss://reelaay'], FakeConnection.relays)
 
     def test_init_load_users(self, _, __):
-        nostr_hub.init(subscribe=False)
+        nostr_hub._load_users()
         self.assertEqual(set((PUBKEY,)), nostr_hub.bridged_pubkeys)
         self.assertEqual(set((BOB_PUBKEY,)), nostr_hub.nostr_pubkeys)
 
@@ -94,13 +94,13 @@ class NostrHubTest(TestCase):
                              nostr_key_bytes=bytes.fromhex(uri_to_id(EVE_NSEC_URI)))
         frank = self.make_nostr('frank', FRANK_NSEC_URI, FRANK_PUBKEY)
 
-        nostr_hub.init(subscribe=False)
+        nostr_hub._load_users()
         self.assertEqual(set((PUBKEY, EVE_PUBKEY)), nostr_hub.bridged_pubkeys)
         self.assertEqual(set((BOB_PUBKEY, FRANK_PUBKEY)), nostr_hub.nostr_pubkeys)
 
     def test_init_subscribe_to_relays(self, _, __):
         self.assertEqual([], FakeConnection.relays)
-        nostr_hub.init()
+        nostr_hub.init(subscribe=True)
         FakeConnection.connected.acquire(timeout=10)
         self.assertEqual([Nostr.DEFAULT_TARGET], FakeConnection.relays)
 
@@ -113,14 +113,14 @@ class NostrHubTest(TestCase):
         self.bob.put()
 
         FakeConnection.reset()
-        nostr_hub.init()
+        nostr_hub.init(subscribe=True)
         FakeConnection.connected.acquire(timeout=10)
         self.assertEqual(['wss://a'], FakeConnection.relays)
 
         eve = self.make_nostr('eve', EVE_NSEC_URI, EVE_PUBKEY, relays=relays_a)
 
         FakeConnection.reset()
-        nostr_hub.init()
+        nostr_hub.init(subscribe=True)
         FakeConnection.connected.acquire(timeout=.1)  # should time out
         self.assertEqual([], FakeConnection.relays)
 
@@ -132,7 +132,7 @@ class NostrHubTest(TestCase):
         frank = self.make_nostr('frank', FRANK_NSEC_URI, FRANK_PUBKEY, relays=relays_b)
 
         FakeConnection.reset()
-        nostr_hub.init()
+        nostr_hub.init(subscribe=True)
         FakeConnection.connected.acquire(timeout=10)
         self.assertEqual(['wss://b'], FakeConnection.relays)
 
@@ -146,7 +146,7 @@ class NostrHubTest(TestCase):
             raise TimeoutError()
 
         with patch.object(FakeConnection, 'recv', side_effect=recv):
-            nostr_hub.init()
+            nostr_hub.init(subscribe=True)
             recving.wait()
 
             bob_req = [
@@ -164,7 +164,7 @@ class NostrHubTest(TestCase):
             }).put()
             eve = self.make_nostr('eve', EVE_NSEC_URI, EVE_PUBKEY, relays=relays)
 
-            nostr_hub.init(subscribe=False)
+            nostr_hub._load_users()
             recving.wait()
             recving.wait()
 
@@ -235,7 +235,7 @@ class NostrHubTest(TestCase):
             raise TimeoutError()
 
         with patch.object(FakeConnection, 'recv', side_effect=recv):
-            nostr_hub.init()
+            nostr_hub.init(subscribe=True)
             recving.wait()
 
             req = [
@@ -246,7 +246,7 @@ class NostrHubTest(TestCase):
             self.assertEqual([req], FakeConnection.sent)
             FakeConnection.sent = []
 
-            nostr_hub.init(subscribe=False)
+            nostr_hub._load_users()
             recving.wait()
             recving.wait()
 

@@ -51,17 +51,23 @@ subscribed_relays = {}
 subscribed_relays_lock = Lock()
 
 
+def ndb_context():
+    if ctx := context.get_context(raise_context_error=False):
+        return ctx.use()
+
+    return ndb_client.context(**NDB_CONTEXT_KWARGS)
+
+
 def init(subscribe=True):
     logger.info('Starting _load_users timer')
     # run in a separate thread since it needs to make its own NDB
     # context when it runs in the timer thread
-    Thread(target=_load_users, daemon=True).start()
+    Thread(target=_load_users, daemon=True, name='nostr_hub._load_users').start()
     pubkeys_initialized.wait()
     pubkeys_initialized.clear()
 
     if subscribe:
-        ctx = context.get_context(raise_context_error=False)
-        with ctx.use() if ctx else ndb_client.context(**NDB_CONTEXT_KWARGS):
+        with ndb_context():
             add_relay(Nostr.DEFAULT_TARGET)
 
 
@@ -71,7 +77,7 @@ def _load_users():
     if not DEBUG:
         Timer(LOAD_USERS_FREQ.total_seconds(), _load_users).start()
 
-    with ndb_client.context(**NDB_CONTEXT_KWARGS):
+    with ndb_context():
         try:
             loaded_at = util.now().replace(tzinfo=None)
 
@@ -124,7 +130,8 @@ def add_relay(uri):
         if uri not in subscribed_relays:
             relay = NostrRelay.get_or_insert(uri)
             subscribed_relays[uri] = relay
-            Thread(target=subscriber, daemon=True, args=(relay,)).start()
+            Thread(target=subscriber, daemon=True, args=(relay,),
+                   name=f'nostr_hub.subscriber {uri}').start()
 
 
 def subscriber(relay):
@@ -135,7 +142,7 @@ def subscriber(relay):
     """
     logger.info(f'started thread to subscribe to relay {relay.key.id()}')
 
-    with ndb_client.context(**NDB_CONTEXT_KWARGS):
+    with ndb_context():
         while True:
             try:
                 subscribe(relay)
@@ -144,6 +151,9 @@ def subscriber(relay):
                 logger.info(f'disconnected! waiting {RECONNECT_DELAY}, then reconnecting')
             except BaseException as err:
                 report_exception()
+
+            if DEBUG:
+                return
 
             time.sleep(RECONNECT_DELAY.total_seconds())
 

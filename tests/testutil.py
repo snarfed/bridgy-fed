@@ -6,6 +6,7 @@ import logging
 import os
 import random
 import re
+import threading
 import unittest
 from unittest.mock import ANY, call
 from urllib.parse import parse_qs, urlencode
@@ -404,6 +405,12 @@ class TestCase(unittest.TestCase, testutil.Asserts):
         self.app_context.pop()
         self.ndb_context.__exit__(None, None, None)
         self.client.__exit__(None, None, None)
+
+        main = threading.main_thread()
+        for thread in threading.enumerate():
+            if thread is not main:
+                thread.join()
+
         super().tearDown()
 
         # this breaks if it's before super().tearDown(). why?!
