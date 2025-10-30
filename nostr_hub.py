@@ -212,18 +212,10 @@ def subscribe(relay, limit=None):
                 resp = json_loads(msg)
 
                 # https://nips.nostr.com/1
+                event = None
                 match resp[0]:
                     case 'EVENT':
                         event = resp[2]
-
-                        if created_at := event.get('created_at'):
-                            relay.since = int(created_at)
-                            elapsed = util.now() - relay.updated
-                            if elapsed > STORE_RELAY_SINCE_FREQ:
-                                behind_s = util.now().timestamp() - relay.since
-                                logger.info(f"updating {uri}'s since to {relay.since}, {behind_s} s behind")
-                                relay.put()
-
                         if event.get('kind') in Nostr.SUPPORTED_KINDS:
                             handle(event)
 
@@ -244,6 +236,16 @@ def subscribe(relay, limit=None):
                         # already logged this
                         pass
 
+                # update stored relay timestamp if it's been a while
+                if event and (created_at := event.get('created_at')):
+                    relay.since = int(created_at)
+                    elapsed = util.now() - relay.updated
+                    if elapsed > STORE_RELAY_SINCE_FREQ:
+                        behind_s = util.now().timestamp() - relay.since
+                        logger.info(f"updating {uri}'s since to {relay.since}, {behind_s} s behind")
+                        relay.put()
+
+                # for unit tests
                 received += 1
                 if limit and received >= limit:
                     relay.put()
