@@ -127,7 +127,7 @@ class ATProtoFirehoseSubscribeTest(ATProtoTestCase):
         # alice is non-Bluesky, bridged
         # bob is Bluesky, not bridged
         self.user = self.make_bridged_atproto_user()
-        AtpRepo(id='did:alice', head='', signing_key_pem=b'').put()
+        AtpRepo(id='did:plc:alice', head='', signing_key_pem=b'').put()
         self.store_object(id='did:plc:bob', raw=DID_DOC)
         ATProto(id='did:plc:bob').put()
 
@@ -214,10 +214,10 @@ class ATProtoFirehoseSubscribeTest(ATProtoTestCase):
             '$type': 'app.bsky.feed.post',
             'reply': {
                 '$type': 'app.bsky.feed.post#replyRef',
-                'parent': {'uri': 'at://did:alice/app.bsky.feed.post/tid'},
+                'parent': {'uri': 'at://did:plc:alice/app.bsky.feed.post/tid'},
                 'root': {'uri': '-'},
             },
-        }, repo='did:alice')
+        }, repo='did:plc:alice')
 
     def test_create_store_record_type(self):
         self.assertIn('community.lexicon.payments.webMonetization',
@@ -230,7 +230,7 @@ class ATProtoFirehoseSubscribeTest(ATProtoTestCase):
     def test_like_by_our_atproto_user(self):
         self.assert_enqueues({
             '$type': 'app.bsky.feed.like',
-            'subject': {'uri': 'at://did:alice/app.bsky.feed.post/tid'},
+            'subject': {'uri': 'at://did:plc:alice/app.bsky.feed.post/tid'},
         })
 
     def test_like_by_our_atproto_user_of_non_bridged_user(self):
@@ -250,7 +250,7 @@ class ATProtoFirehoseSubscribeTest(ATProtoTestCase):
             'reply': {
                 '$type': 'app.bsky.feed.post#replyRef',
                 'parent': {
-                    'uri': 'at://did:alice/app.bsky.feed.post/tid',
+                    'uri': 'at://did:plc:alice/app.bsky.feed.post/tid',
                     # test that we handle CIDs
                     'cid': A_CID.encode(),
                 },
@@ -275,7 +275,7 @@ class ATProtoFirehoseSubscribeTest(ATProtoTestCase):
             '$type': 'app.bsky.feed.post',
             'reply': {
                 '$type': 'app.bsky.feed.post#replyRef',
-                'root': {'uri': 'at://did:alice/app.bsky.feed.post/tid'},
+                'root': {'uri': 'at://did:plc:alice/app.bsky.feed.post/tid'},
                 'parent': {'uri': '-'},
             },
         })
@@ -295,7 +295,7 @@ class ATProtoFirehoseSubscribeTest(ATProtoTestCase):
             '$type': 'app.bsky.feed.post',
             'reply': {
                 '$type': 'app.bsky.feed.post#replyRef',
-                'parent': {'uri': 'at://did:alice/app.bsky.feed.post/tid'},
+                'parent': {'uri': 'at://did:plc:alice/app.bsky.feed.post/tid'},
             },
         }, repo='did:plc:bob')
 
@@ -322,7 +322,7 @@ class ATProtoFirehoseSubscribeTest(ATProtoTestCase):
             '$type': 'app.bsky.feed.post',
             'embed': {
                 '$type': 'app.bsky.embed.record',
-                'record': {'uri': 'at://did:alice/app.bsky.feed.post/tid'},
+                'record': {'uri': 'at://did:plc:alice/app.bsky.feed.post/tid'},
             },
         }, repo='did:plc:bob')
 
@@ -349,11 +349,11 @@ class ATProtoFirehoseSubscribeTest(ATProtoTestCase):
             '$type': 'app.bsky.feed.post',
             'reply': {
                 '$type': 'app.bsky.feed.post#replyRef',
-                'parent': {'uri': 'at://did:alice/app.bsky.feed.post/tid1'},
+                'parent': {'uri': 'at://did:plc:alice/app.bsky.feed.post/tid1'},
             },
             'embed': {
                 '$type': 'app.bsky.embed.record',
-                'record': {'uri': 'at://did:alice/app.bsky.feed.post/tid2'},
+                'record': {'uri': 'at://did:plc:alice/app.bsky.feed.post/tid2'},
             },
         }, repo='did:plc:bob')
 
@@ -364,7 +364,7 @@ class ATProtoFirehoseSubscribeTest(ATProtoTestCase):
                 '$type': 'app.bsky.richtext.facet',
                 'features': [{
                     '$type': 'app.bsky.richtext.facet#mention',
-                    'did': 'did:alice',
+                    'did': 'did:plc:alice',
                 }],
             }],
         }, repo='did:plc:bob')
@@ -372,7 +372,7 @@ class ATProtoFirehoseSubscribeTest(ATProtoTestCase):
     def test_like_of_our_user(self):
         self.assert_enqueues({
             '$type': 'app.bsky.feed.like',
-            'subject': {'uri': 'at://did:alice/app.bsky.feed.post/tid'},
+            'subject': {'uri': 'at://did:plc:alice/app.bsky.feed.post/tid'},
         })
 
     def test_like_of_other(self):
@@ -384,7 +384,7 @@ class ATProtoFirehoseSubscribeTest(ATProtoTestCase):
     def test_repost_of_our_user(self):
         self.assert_enqueues({
             '$type': 'app.bsky.feed.repost',
-            'subject': {'uri': 'at://did:alice/app.bsky.feed.post/tid'},
+            'subject': {'uri': 'at://did:plc:alice/app.bsky.feed.post/tid'},
         })
 
     def test_repost_of_other(self):
@@ -396,7 +396,7 @@ class ATProtoFirehoseSubscribeTest(ATProtoTestCase):
     def test_follow_of_our_user(self):
         self.assert_enqueues({
             '$type': 'app.bsky.graph.follow',
-            'subject': 'did:alice',
+            'subject': 'did:plc:alice',
         })
 
     def test_follow_of_other(self):
@@ -421,7 +421,7 @@ class ATProtoFirehoseSubscribeTest(ATProtoTestCase):
     def test_block_of_our_user(self):
         self.assert_enqueues({
             '$type': 'app.bsky.graph.block',
-            'subject': 'did:alice',
+            'subject': 'did:plc:alice',
         })
 
     def test_block_of_other(self):
@@ -447,7 +447,7 @@ class ATProtoFirehoseSubscribeTest(ATProtoTestCase):
     def test_update_like_of_our_user(self):
         self.assert_enqueues(action='update', record={
             '$type': 'app.bsky.feed.like',
-            'subject': {'uri': 'at://did:alice/app.bsky.feed.post/tid'},
+            'subject': {'uri': 'at://did:plc:alice/app.bsky.feed.post/tid'},
         })
 
     def test_profile_update_by_our_atproto_user(self):
@@ -507,7 +507,7 @@ class ATProtoFirehoseSubscribeTest(ATProtoTestCase):
 
         self.assert_enqueues(action='update', record={
             '$type': 'app.bsky.feed.like',
-            'subject': {'uri': 'at://did:alice/app.bsky.feed.post/tid'},
+            'subject': {'uri': 'at://did:plc:alice/app.bsky.feed.post/tid'},
         })
         self.assertEqual(
             'https://bgs.local/xrpc/com.atproto.sync.subscribeRepos?cursor=5',
@@ -766,7 +766,7 @@ class ATProtoFirehoseHandleTest(ATProtoTestCase):
                        path='app.bsky.graph.listitem/123', record={
                            '$type': 'app.bsky.graph.listitem',
                            'subject': 'did:bob',
-                           'list': 'at://did:alice/app.bsky.graph.list/456',
+                           'list': 'at://did:plc:alice/app.bsky.graph.list/456',
                            'a_cid': A_CID,  # check that we encode this ok
                        }))
         handle(limit=1)

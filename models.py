@@ -17,10 +17,11 @@ from flask import request
 from google.cloud import ndb
 from google.cloud.ndb.key import _MAX_KEYPART_BYTES
 from granary import as1, as2, atom, bluesky, microformats2
-from granary.bluesky import AT_URI_PATTERN, BSKY_APP_URL_RE
+from granary.bluesky import BSKY_APP_URL_RE
 import granary.nostr
 from granary.source import html_to_text
 import humanize
+from lexrpc.base import AT_URI_RE
 from oauth_dropins.webutil import util
 from oauth_dropins.webutil.appengine_info import DEBUG
 from oauth_dropins.webutil.flask_util import error
@@ -1906,7 +1907,7 @@ def fetch_objects(query, by=None, user=None):
                 handle = match.group('id')
                 if match.group('tid'):
                     suffix = "'s post"
-            elif match := AT_URI_PATTERN.match(url):
+            elif match := AT_URI_RE.match(url):
                 handle = match.group('repo')
                 if coll := match.group('collection'):
                     suffix = f"'s {COLLECTION_TO_TYPE.get(coll) or 'post'}"

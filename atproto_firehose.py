@@ -19,7 +19,7 @@ from arroba.util import at_uri, parse_at_uri
 import dag_json
 from google.cloud import ndb
 from google.cloud.ndb.exceptions import ContextError
-from granary.bluesky import AT_URI_PATTERN
+from lexrpc.base import AT_URI_RE
 from lexrpc.client import Client
 import libipld
 from multiformats import CID
@@ -269,7 +269,7 @@ def subscribe():
                 """
                 did = None
                 if isinstance(did_or_ref, dict):
-                    if match := AT_URI_PATTERN.match(did_or_ref['uri']):
+                    if match := AT_URI_RE.match(did_or_ref['uri']):
                         did = match.group('repo')
                 else:
                     did = did_or_ref
