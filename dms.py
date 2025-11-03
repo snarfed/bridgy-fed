@@ -196,6 +196,7 @@ def username(from_user, to_proto, arg):
 
 @command(['block'], arg=True, user_bridged=True)
 def block(from_user, to_proto, arg):
+    # duplicated in unblock
     try:
         # first, try interpreting as a user handle or id
         blockee = _load_user(arg, to_proto)
@@ -219,12 +220,21 @@ def block(from_user, to_proto, arg):
     link = (blockee.user_link() if isinstance(blockee, User)
             else util.pretty_link(blockee.as1.get('url') or '',
                                   text=blockee.as1.get('displayName')))
-
     return f"""OK, you're now blocking {link} on {to_proto.PHRASE}."""
 
 
-@command(['unblock'], arg='handle_or_id', user_bridged=True)
-def unblock(from_user, to_proto, arg, to_user):
+@command(['unblock'], arg=True, user_bridged=True)
+def unblock(from_user, to_proto, arg):
+    # duplicated in block
+    try:
+        # first, try interpreting as a user handle or id
+        blockee = _load_user(arg, to_proto)
+    except BadRequest:
+        # may not be a user, see if it's a list
+        blockee = to_proto.load(arg)
+        if not blockee or blockee.type != 'collection':
+            return f"{arg} doesn't look like a user or list on {to_proto.PHRASE}"
+
     id = f'{from_user.key.id()}#bridgy-fed-unblock-{util.now().isoformat()}'
     obj = Object(id=id, source_protocol=from_user.LABEL, our_as1={
         'objectType': 'activity',
@@ -235,12 +245,16 @@ def unblock(from_user, to_proto, arg, to_user):
             'objectType': 'activity',
             'verb': 'block',
             'actor': from_user.key.id(),
-            'object': to_user.key.id(),
+            'object': blockee.key.id(),
         },
     })
     obj.put()
     from_user.deliver(obj, from_user=from_user)
-    return f"""OK, you're not blocking {to_user.user_link()} on {to_proto.PHRASE}."""
+
+    link = (blockee.user_link() if isinstance(blockee, User)
+            else util.pretty_link(blockee.as1.get('url') or '',
+                                  text=blockee.as1.get('displayName')))
+    return f"""OK, you're not blocking {link} on {to_proto.PHRASE}."""
 
 
 @command(['migrate-to'], arg='handle_or_id', user_bridged=True)
@@ -417,7 +431,7 @@ def _load_user(handle_or_id, proto):
       protocol (Protocol subclass)
 
     Returns:
-      modelsUser or None:
+      models.User or None:
     """
     if proto.owns_id(handle_or_id) is not False:
         return proto.get_or_create(handle_or_id, allow_opt_out=True)
