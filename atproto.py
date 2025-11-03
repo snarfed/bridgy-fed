@@ -775,20 +775,27 @@ class ATProto(User, Protocol):
             # for undo of block without id (eg from dms.unblock()), find and delete
             # *all* block records with the given object (subject)
             # https://github.com/snarfed/bridgy-fed/issues/2073
-            blocked_did = as1.get_object(base_obj_as1).get('id')
-            if not blocked_did:
+            blockee = as1.get_object(base_obj_as1).get('id')
+            if not blockee:
                 logger.error('no object.object for undo block')
                 return False
 
-            logger.info(f'Deleting app.bsky.graph.blocks for subject {blocked_did}')
+            if blockee.startswith('did:'):
+                collection = 'app.bsky.graph.block'
+            elif parse_at_uri(blockee)[1] == 'app.bsky.graph.list':
+                collection = 'app.bsky.graph.listblock'
+            else:
+                logger.warning(f"unknown block object {blockee}")
+                return
+
+            logger.info(f'Deleting {collection}s for subject {blockee}')
             writes = []
             resp = xrpc_repo.list_records({}, repo=did, limit=None,
-                                          collection='app.bsky.graph.block')
+                                          collection=collection)
             for record in resp['records']:
-                if record['value']['subject'] == blocked_did:
+                if record['value']['subject'] == blockee:
                     _, _, rkey = parse_at_uri(record['uri'])
-                    writes.append(Write(action=Action.DELETE,
-                                        collection='app.bsky.graph.block',
+                    writes.append(Write(action=Action.DELETE, collection=collection,
                                         rkey=rkey))
 
             arroba.server.storage.commit(repo, writes)

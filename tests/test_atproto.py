@@ -2814,6 +2814,48 @@ Sed tortor neque, aliquet quis posuere aliquam, imperdiet sitamet […]
         mock_create_task.assert_called()  # atproto-commit
 
     @patch.object(tasks_client, 'create_task', return_value=Task(name='my task'))
+    def test_send_undo_block_of_list_without_id_deletes_all_listblocks(self, mock_create_task):
+        """Undo of block without id deletes all listblock records for that subject."""
+        user = self.make_user_and_repo()
+
+        # two listblock records with the same subject
+        repo = self.storage.load_repo('did:plc:user')
+        arroba.server.storage.commit(repo, [
+            Write(action=Action.CREATE, collection='app.bsky.graph.listblock',
+                  rkey='a', record={
+                      '$type': 'app.bsky.graph.listblock',
+                      'subject': 'at://did:plc:bob/app.bsky.graph.list/foo',
+                      'createdAt': '2022-01-01T00:00:00.000Z',
+                  }),
+            Write(action=Action.CREATE, collection='app.bsky.graph.listblock',
+                  rkey='b', record={
+                      '$type': 'app.bsky.graph.listblock',
+                      'subject': 'at://did:plc:bob/app.bsky.graph.list/foo',
+                      'createdAt': '2022-01-02T00:00:00.000Z',
+                  }),
+        ])
+
+        # undo of block of list without id. this is the shape dms.unblock sends
+        undo = Object(id='fake:undo', source_protocol='fake', our_as1={
+            'objectType': 'activity',
+            'verb': 'undo',
+            'actor': 'fake:user',
+            'object': {
+                'objectType': 'activity',
+                'verb': 'block',
+                'actor': 'fake:user',
+                'object': 'at://did:plc:bob/app.bsky.graph.list/foo',
+            },
+        })
+        self.assertTrue(ATProto.send(undo, 'https://bsky.brid.gy/'))
+
+        # both block records should be deleted
+        repo = self.storage.load_repo('did:plc:user')
+        self.assertIsNone(repo.get_record('app.bsky.graph.listblock', 'a'))
+        self.assertIsNone(repo.get_record('app.bsky.graph.listblock', 'b'))
+        mock_create_task.assert_called()  # atproto-commit
+
+    @patch.object(tasks_client, 'create_task', return_value=Task(name='my task'))
     def test_send_block_of_list_at_uri(self, mock_create_task):
         user = self.make_user_and_repo()
         obj = Object(id='fake:follow', source_protocol='fake', our_as1={
