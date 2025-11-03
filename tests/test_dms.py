@@ -692,6 +692,53 @@ class DmsTest(TestCase):
             'object': 'other:bob',
         })], OtherFake.sent)
 
+    def test_receive_block_of_list(self):
+        alice, bob = self.make_alice_bob()
+
+        OtherFake.fetchable = {
+            'other:list': {
+                'objectType': 'collection',
+                'id': 'other:list',
+                'displayName': 'Myy Listt',
+                'url': 'other:web:list',
+            },
+        }
+
+        obj = Object(our_as1={
+            **DM_BASE,
+            'content': 'block other:list',
+        })
+        self.assertEqual(('OK', 200), receive(from_user=alice, obj=obj))
+
+        self.assert_replied(OtherFake, alice, '?', """OK, you're now blocking <a href="other:web:list">Myy Listt</a> on other-phrase.""")
+        self.assertEqual([('other:list:target', {
+            'objectType': 'activity',
+            'verb': 'block',
+            'id': 'efake:alice#bridgy-fed-block-2022-01-02T03:04:05+00:00',
+            'actor': 'efake:alice',
+            'object': 'other:list',
+        })], OtherFake.sent)
+        self.assertEqual(['other:list'], OtherFake.fetched)
+
+    def test_receive_block_bad_arg(self):
+        alice, _ = self.make_alice_bob()
+
+        OtherFake.fetchable = {
+            'other:note': {
+                'objectType': 'note',
+                'id': 'other:note',
+            },
+        }
+
+        obj = Object(our_as1={
+            **DM_ALICE_BLOCK_BOB,
+            'content': 'block other:note',
+        })
+        self.assertEqual(('OK', 200), receive(from_user=alice, obj=obj))
+
+        self.assert_replied(OtherFake, alice, '?', "other:note doesn't look like a user or list on other-phrase")
+        self.assertEqual([], OtherFake.sent)
+
     def test_receive_unblock(self):
         alice, bob = self.make_alice_bob()
 

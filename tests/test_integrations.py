@@ -106,11 +106,13 @@ class IntegrationTests(TestCase):
 
         return user
 
-    def make_atproto_user(self, did, enabled_protocols=['activitypub']):
-        self.store_object(id=did, raw=DID_DOC)
+    def make_atproto_user(self, did, enabled_protocols=['activitypub'],
+                          raw=None, **props):
+        self.store_object(id=did, raw=raw or DID_DOC)
         user = self.make_user(id=did, cls=ATProto,
                               obj_bsky=test_atproto.ACTOR_PROFILE_BSKY,
-                              enabled_protocols=enabled_protocols)
+                              enabled_protocols=enabled_protocols,
+                              **props)
         if 'nostr' in enabled_protocols:
             self.make_nostr_copy(user)
         return user
@@ -1056,6 +1058,90 @@ To disable these messages, reply with the text 'mute'.""",
         self.assertFalse(user.is_enabled(ATProto))
 
         self.assertEqual('deactivated', self.storage.load_repo('did:plc:alice').status)
+
+    @patch('requests.post')
+    @patch('requests.get')
+    def test_activitypub_block_list_dm_to_atproto(self, mock_get, mock_post):
+        """AP DM to @bsky.brid.gy with 'block LIST_URL' creates a listblock record.
+
+        ActivityPub user @alice@inst , https://inst/alice , did:plc:alice
+        DM is https://inst/dm
+        """
+        alice = self.make_ap_user('https://inst/alice', 'did:plc:alice')
+        bsky_bot = self.make_user(id='bsky.brid.gy', cls=Web, ap_subdomain='bsky',
+                                  enabled_protocols=['atproto'])
+
+        # list owner
+        bob = self.make_atproto_user('did:plc:bob', raw={
+            **DID_DOC,
+            'id': 'did:plc:bob',
+            'alsoKnownAs': ['at://bob.com'],
+        })
+
+        list_getRecord = requests_response({
+            'uri': 'at://did:plc:bob/app.bsky.actor.profile/self',
+            'cid': 'list+sidd',
+            'value': {
+                '$type': 'app.bsky.graph.list',
+                'name': 'My stuff',
+                'purpose': 'app.bsky.graph.defs#curatelist',
+                'createdAt': '2001-02-03T04:05:06.000Z',
+            },
+        })
+        mock_get.side_effect=[
+            list_getRecord,
+            list_getRecord,
+        ]
+
+        # deliver DM
+        body = json_dumps({
+            'type': 'Create',
+            'id': 'https://inst/dm-create',
+            'actor': 'https://inst/alice',
+            'object': {
+                'type': 'Note',
+                'id': 'https://inst/dm',
+                'attributedTo': 'https://inst/alice',
+                'content': 'block https://bsky.app/profile/bob.com/lists/abc',
+                'to': ['https://bsky.brid.gy/bsky.brid.gy'],
+            },
+        })
+        headers = sign('/bsky.brid.gy/inbox', body, key_id='https://inst/alice')
+        resp = self.client.post('/bsky.brid.gy/inbox', data=body, headers=headers)
+        self.assertEqual(200, resp.status_code)
+
+        # check listblock record was created
+        repo = self.storage.load_repo('did:plc:alice')
+        tid = arroba.util.int_to_tid(arroba.util._tid_ts_last)
+        self.assertEqual({'app.bsky.graph.listblock': {
+            tid: {
+                '$type': 'app.bsky.graph.listblock',
+                'subject': 'at://did:plc:bob/app.bsky.graph.list/abc',
+                'createdAt': '2022-01-02T03:04:05.000Z',
+            },
+        }}, repo.get_contents())
+
+        # check reply DM was sent
+        message = """<p>OK, you're now blocking <a href="https://bsky.app/profile/did:plc:bob/lists/abc">My stuff</a> on Bluesky.</p>"""
+        self.assert_ap_deliveries(mock_post, ['https://inst/alice/inbox'],
+                                  from_user=bsky_bot, data={
+            'type': 'Create',
+            'id': 'https://bsky.brid.gy/r/https://bsky.brid.gy/#bridgy-fed-dm-?-https://inst/alice-2022-01-02T03:04:05+00:00-create',
+            'actor': 'https://bsky.brid.gy/bsky.brid.gy',
+            'object': {
+                'type': 'Note',
+                'id': 'https://bsky.brid.gy/r/https://bsky.brid.gy/#bridgy-fed-dm-?-https://inst/alice-2022-01-02T03:04:05+00:00',
+                'attributedTo': 'https://bsky.brid.gy/bsky.brid.gy',
+                'content': message,
+                'contentMap': {'en': message},
+                'inReplyTo': 'https://inst/dm',
+                'published': '2022-01-02T03:04:05+00:00',
+                'tag': [{'href': 'https://inst/alice', 'type': 'Mention'}],
+                'to': ['https://inst/alice'],
+            },
+            'published': '2022-01-02T03:04:05+00:00',
+            'to': ['https://inst/alice'],
+        })
 
     @patch('requests.get', side_effect=[
         # alice profile picture

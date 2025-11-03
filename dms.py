@@ -4,6 +4,7 @@ import logging
 
 from granary import as1, source
 from oauth_dropins.webutil import util
+from werkzeug.exceptions import BadRequest
 
 from collections import namedtuple
 import common
@@ -132,8 +133,8 @@ def help_text(from_user, to_proto):
 <li><em>mute</em>: disable notifications
 <li><em>username [domain]</em>: set a custom domain username (handle)
 <li><em>[handle or ID]</em>: ask me to DM a user on {to_proto.PHRASE} to request that they bridge their account into {from_user.PHRASE}
-<li><em>block [handle or ID]</em>: block a user on {to_proto.PHRASE} who's not bridged here
-<li><em>unblock [handle or ID]</em>: unblock a user on {to_proto.PHRASE} who's not bridged here
+<li><em>block [handle or ID or list URL]</em>: block a user who's not bridged here, or a list, on {to_proto.PHRASE}
+<li><em>unblock [handle or ID or list URL]</em>: unblock a user who's not bridged here, or a list, on {to_proto.PHRASE}
 {extra}
 <li><em>help</em>: print this message
 </ul>"""
@@ -195,18 +196,31 @@ def username(from_user, to_proto, arg):
 
 @command(['block'], arg=True, user_bridged=True)
 def block(from_user, to_proto, arg):
-    to_user = _load_user(arg, to_proto)
+    try:
+        # first, try interpreting as a user handle or id
+        blockee = _load_user(arg, to_proto)
+    except BadRequest:
+        # may not be a user, see if it's a list
+        blockee = to_proto.load(arg)
+        if not blockee or blockee.type != 'collection':
+            return f"{arg} doesn't look like a user or list on {to_proto.PHRASE}"
+
     id = f'{from_user.key.id()}#bridgy-fed-block-{util.now().isoformat()}'
     obj = Object(id=id, source_protocol=from_user.LABEL, our_as1={
         'objectType': 'activity',
         'verb': 'block',
         'id': id,
         'actor': from_user.key.id(),
-        'object': to_user.key.id(),
+        'object': blockee.key.id(),
     })
     obj.put()
     from_user.deliver(obj, from_user=from_user)
-    return f"""OK, you're now blocking {to_user.user_link()} on {to_proto.PHRASE}."""
+
+    link = (blockee.user_link() if isinstance(blockee, User)
+            else util.pretty_link(blockee.as1.get('url') or '',
+                                  text=blockee.as1.get('displayName')))
+
+    return f"""OK, you're now blocking {link} on {to_proto.PHRASE}."""
 
 
 @command(['unblock'], arg='handle_or_id', user_bridged=True)

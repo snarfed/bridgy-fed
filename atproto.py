@@ -278,7 +278,7 @@ class ATProto(User, Protocol):
     SUPPORTED_RECORD_TYPES = frozenset(
         type for type in itertools.chain(*FROM_AS1_TYPES.values())
         if '#' not in type)
-    ''
+    'Which incoming record lexicons we should accept from the firehose.'
     STORE_RECORD_TYPES = frozenset(['community.lexicon.payments.webMonetization'])
     ''
     SUPPORTS_DMS = True
