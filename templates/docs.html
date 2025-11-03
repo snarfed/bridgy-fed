@@ -99,6 +99,7 @@
 <li><a href="#delete">How do I delete a post?</a></li>
 <li><a href="#notifs">What happens when someone replies or interacts with me?</a></li>
 <li><a href="#block">How do I block someone in another network who's not bridged into mine?</a></li>
+<li><a href="#blocklist">How do I subscribe to a blocklist?</a></li>
 <li><a href="#enhanced">The <code>*.brid.gy</code> domain in my bridged account is ugly. Can I use my own domain instead?</a></li>
 <li><a href="#dm-commands">What commands can I DM the bot account?</a></li>
 <li><a href="#dm-request">I want to follow someone, but they're not bridged!</a></li>
@@ -443,6 +444,12 @@
 <p>If you change your mind, you can unblock them with the <code>unblock</code> command, eg <code>unblock badguy.bsky.social</code>.
 </li>
 
+<li id="blocklist" class="question">How do I subscribe to a blocklist?</li>
+<li class="answer">
+<p>Blocklists are currently supported on Bluesky. If you're on another network and bridged into Bluesky, use the <code>block</code> <a href="#dm-commands">DM command</a> with a Bluesky list URL to block that list. For example, to block <a href="https://bsky.app/profile/snarfed.org/lists/3ku4roau2e42l">this list</a>, DM the text <code>block https://bsky.app/profile/snarfed.org/lists/3ku4roau2e42l</code> to the Bridgy Fed bot account <code>@bsky.brid.gy</code>.</p>
+<p>If you change your mind, you can unblock a list with the <code>unblock</code> command, eg <code>unblock https://bsky.app/profile/snarfed.org/lists/3ku4roau2e42l</code>.
+</li>
+
 <li id="enhanced" class="question">The <code>*.brid.gy</code> domain in my bridged account's handle is ugly. Can I get rid of it and use my own domain/web site instead?</li>
 <li class="answer">
 <p>Yes! Many supported networks let you use <a href="https://indieweb.org/personal-domain">your own domain</a> as your handle one way or another. This takes a bit of technical setup with DNS or a web server, but it's very doable. Here are instructions for <a href="#bluesky-enhanced">web sites and fediverse accounts bridged into Bluesky</a>, and for <a href="#fediverse-enhanced">web sites bridged into the fediverse</a>.</p>
@@ -460,8 +467,8 @@
 <li><em>username [domain]</em>: <a href="#bluesky-enhanced">set a custom domain username (aka handle)</a>
 <li><em>[handle]</em>: <a href="#dm-request">ask it to DM a user to request that they bridge their account</a>
 <li><em>did</em>: get your bridged Bluesky account's <a href="https://atproto.com/guides/identity#identifiers">DID</a> (only supported with the Bluesky bot)
-<li><em>block [handle]</em>: <a href="#block">block a user on another network who's not bridged into your network</a>
-<li><em>unblock [handle]</em>: <a href="#block">unblock a user on another network who's not bridged into your network</a>
+<li><em>block [handle or list URL]</em>: <a href="#block">block a user who's not bridged, or a list, on another network</a>
+<li><em>unblock [handle or list URL]</em>: <a href="#block">unblock a user who's not bridged, or a list, on another network</a>
 <!-- <li><em>migrate-to [handle]</em>: <a href="#migrate-to">migrate your bridged account out of Bridgy Fed to a native account</a> -->
 </ul>
 </li>
