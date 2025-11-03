@@ -149,8 +149,8 @@ def help_text(from_user, to_proto):
 <li><em>mute</em>: disable notifications
 <li><em>username [domain]</em>: set a custom domain username (handle)
 <li><em>[handle or ID]</em>: ask me to DM a user on {to_proto.PHRASE} to request that they bridge their account into {from_user.PHRASE}
-<li><em>block [handle or ID or list URL]...</em>: block one or more users who aren't bridged here, or lists, on {to_proto.PHRASE}
-<li><em>unblock [handle or ID or list URL]...</em>: unblock one or more users who aren't bridged here, or lists, on {to_proto.PHRASE}
+<li><em>block [handle or ID or list URL]...</em>: block one or more users who aren't bridged here, and/or lists, on {to_proto.PHRASE}
+<li><em>unblock [handle or ID or list URL]...</em>: unblock one or more users who aren't bridged here, and/or lists, on {to_proto.PHRASE}
 {extra}
 <li><em>help</em>: print this message
 </ul>"""
