@@ -747,6 +747,34 @@ class UserTest(TestCase):
         user.obj_key = Object(id='my:profile').key
         self.assertTrue(user.is_profile(Object(id='my:profile')))
 
+    def test_reload_profile(self):
+        Fake.fetchable = {'fake:profile:user': {'new': 'stuff'}}
+
+        user = self.make_user('fake:user', cls=Fake, obj_key=Object(id='fake:old').key)
+
+        user.reload_profile()
+        self.assertEqual(['fake:profile:user'], Fake.fetched)
+
+        user = user.key.get()
+        self.assertEqual(Object(id='fake:profile:user').key, user.obj_key)
+        self.assertEqual({
+            'id': 'fake:profile:user',
+            'new': 'stuff',
+        }, user.obj.as1)
+
+    def test_reload_profile_not_actor(self):
+        Fake.fetchable = {'fake:profile:post': {
+            'objectType': 'note',
+            'id': 'fake:post',
+        }}
+        user = Fake(id='fake:post')
+
+        with self.assertRaises(AssertionError):
+            user.reload_profile()
+
+        self.assertEqual(['fake:profile:post'], Fake.fetched)
+        self.assertIsNone(user.key.get())
+
 
 class ObjectTest(TestCase):
 

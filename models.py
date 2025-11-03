@@ -959,6 +959,8 @@ class User(AddRemoveMixin, StringIdModel, metaclass=ProtocolUserMeta):
         """
         obj = self.load(self.profile_id(), remote=True, **kwargs)
         if obj:
+            if obj.type:
+                assert obj.type in as1.ACTOR_TYPES, obj.type
             self.obj = obj
 
         # write the user so that we re-populate any computed properties
