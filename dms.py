@@ -69,21 +69,9 @@ def command(names, arg=False, user_bridged=None, handle_bridged=None):
             to_user = None
 
             if arg == 'handle_or_id':
-                if to_proto.owns_id(cmd_arg) is not False:
-                    if not (to_user := to_proto.get_or_create(cmd_arg, allow_opt_out=True)):
-                        # Skip trying as a handle, assuming that a valid ID
-                        # never happens to be a valid handle of another user
-                        # at the same time in any supported protocol.
-                        return reply(f"Couldn't find user {cmd_arg} on {to_proto.PHRASE}")
-                else:
-                    logging.info(f"doesn't look like an ID, trying as a handle")
-
-                    if not to_proto.owns_handle(cmd_arg) and cmd_arg.startswith('@'):
-                        logging.info(f"doesn't look like a handle, trying without leading @")
-                        cmd_arg = cmd_arg.removeprefix('@')
-
-                    if not (to_user := load_user_by_handle(to_proto, cmd_arg)):
-                        return reply(f"Couldn't find user {cmd_arg} on {to_proto.PHRASE}")
+                cmd_arg = cmd_arg.removeprefix('@')
+                if not (to_user := _load_user(cmd_arg, to_proto)):
+                    return reply(f"Couldn't find user {cmd_arg} on {to_proto.PHRASE}")
 
             if to_user:
                 from_proto = from_user.__class__
@@ -205,8 +193,9 @@ def username(from_user, to_proto, arg):
     return f"Your username in {to_proto.PHRASE} has been set to {from_user.user_link(proto=to_proto, name=False, handle=True)}. It should appear soon!"
 
 
-@command(['block'], arg='handle_or_id', user_bridged=True)
-def block(from_user, to_proto, arg, to_user):
+@command(['block'], arg=True, user_bridged=True)
+def block(from_user, to_proto, arg):
+    to_user = _load_user(arg, to_proto)
     id = f'{from_user.key.id()}#bridgy-fed-block-{util.now().isoformat()}'
     obj = Object(id=id, source_protocol=from_user.LABEL, our_as1={
         'objectType': 'activity',
@@ -406,19 +395,26 @@ def receive(*, from_user, obj):
     return r'¯\_(ツ)_/¯', 204
 
 
-def load_user_by_handle(proto, handle):
-    """
+def _load_user(handle_or_id, proto):
+    """Loads the user with the given handle or id.
+
     Args:
-      proto (protocol.Protocol)
-      handle (str)
+      handle_or_id (str)
+      protocol (Protocol subclass)
 
     Returns:
-      models.User or None
+      modelsUser or None:
     """
-    if proto.owns_handle(handle) is False:
+    if proto.owns_id(handle_or_id) is not False:
+        return proto.get_or_create(handle_or_id, allow_opt_out=True)
+
+    logging.info(f"doesn't look like an ID, trying as a handle")
+
+    handle_or_id = handle_or_id.removeprefix('@')
+    if proto.owns_handle(handle_or_id) is False:
         return None
 
-    if id := proto.handle_to_id(handle):
+    if id := proto.handle_to_id(handle_or_id):
         if user := proto.get_or_create(id, allow_opt_out=True):
             if user.obj and user.obj.as1:
                 return user
