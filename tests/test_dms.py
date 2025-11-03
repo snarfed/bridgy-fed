@@ -739,6 +739,70 @@ class DmsTest(TestCase):
         self.assert_replied(OtherFake, alice, '?', "other:note doesn't look like a user or list on other-phrase")
         self.assertEqual([], OtherFake.sent)
 
+    def test_receive_block_multiple_users(self):
+        alice, bob = self.make_alice_bob()
+        eve = self.make_user(id='other:eve', cls=OtherFake, obj_as1={'x': 'y'})
+
+        obj = Object(our_as1={
+            **DM_BASE,
+            'content': 'block other:handle:bob other:handle:eve',
+        })
+        self.assertEqual(('OK', 200), receive(from_user=alice, obj=obj))
+
+        self.assert_replied(OtherFake, alice, '?', """OK, you're now blocking <a class="h-card u-author mention" rel="me" href="web:other:bob" title="other:handle:bob">other:handle:bob</a>, <a class="h-card u-author mention" rel="me" href="web:other:eve" title="other:handle:eve">other:handle:eve</a> on other-phrase.""")
+        self.assertEqual([
+            ('other:bob:target', {
+                'objectType': 'activity',
+                'verb': 'block',
+                'id': 'efake:alice#bridgy-fed-block-2022-01-02T03:04:05+00:00',
+                'actor': 'efake:alice',
+                'object': 'other:bob',
+            }),
+            ('other:eve:target', {
+                'objectType': 'activity',
+                'verb': 'block',
+                'id': 'efake:alice#bridgy-fed-block-2022-01-02T03:04:05+00:00',
+                'actor': 'efake:alice',
+                'object': 'other:eve',
+            }),
+        ], OtherFake.sent)
+
+    def test_receive_block_multiple_mixed(self):
+        alice, bob = self.make_alice_bob()
+
+        OtherFake.fetchable = {
+            'other:list': {
+                'objectType': 'collection',
+                'id': 'other:list',
+                'displayName': 'Myy Listt',
+                'url': 'other:web:list',
+            },
+        }
+
+        obj = Object(our_as1={
+            **DM_BASE,
+            'content': 'block other:handle:bob other:list',
+        })
+        self.assertEqual(('OK', 200), receive(from_user=alice, obj=obj))
+
+        self.assert_replied(OtherFake, alice, '?', """OK, you're now blocking <a class="h-card u-author mention" rel="me" href="web:other:bob" title="other:handle:bob">other:handle:bob</a>, <a href="other:web:list">Myy Listt</a> on other-phrase.""")
+        self.assertEqual([
+            ('other:bob:target', {
+                'objectType': 'activity',
+                'verb': 'block',
+                'id': 'efake:alice#bridgy-fed-block-2022-01-02T03:04:05+00:00',
+                'actor': 'efake:alice',
+                'object': 'other:bob',
+            }),
+            ('other:list:target', {
+                'objectType': 'activity',
+                'verb': 'block',
+                'id': 'efake:alice#bridgy-fed-block-2022-01-02T03:04:05+00:00',
+                'actor': 'efake:alice',
+                'object': 'other:list',
+            }),
+        ], OtherFake.sent)
+
     def test_receive_unblock_user(self):
         alice, bob = self.make_alice_bob()
 
@@ -815,6 +879,89 @@ class DmsTest(TestCase):
 
         self.assert_replied(OtherFake, alice, '?', "other:note doesn't look like a user or list on other-phrase")
         self.assertEqual([], OtherFake.sent)
+
+    def test_receive_unblock_multiple_users(self):
+        alice, bob = self.make_alice_bob()
+        eve = self.make_user(id='other:eve', cls=OtherFake, obj_as1={'x': 'y'})
+
+        obj = Object(our_as1={
+            **DM_BASE,
+            'content': 'unblock other:handle:bob other:handle:eve',
+        })
+        self.assertEqual(('OK', 200), receive(from_user=alice, obj=obj))
+
+        self.assert_replied(OtherFake, alice, '?', """OK, you're not blocking <a class="h-card u-author mention" rel="me" href="web:other:bob" title="other:handle:bob">other:handle:bob</a>, <a class="h-card u-author mention" rel="me" href="web:other:eve" title="other:handle:eve">other:handle:eve</a> on other-phrase.""")
+        self.assertEqual([
+            ('other:bob:target', {
+                'objectType': 'activity',
+                'verb': 'undo',
+                'id': 'efake:alice#bridgy-fed-unblock-2022-01-02T03:04:05+00:00',
+                'actor': 'efake:alice',
+                'object': {
+                    'objectType': 'activity',
+                    'verb': 'block',
+                    'actor': 'efake:alice',
+                    'object': 'other:bob',
+                },
+            }),
+            ('other:eve:target', {
+                'objectType': 'activity',
+                'verb': 'undo',
+                'id': 'efake:alice#bridgy-fed-unblock-2022-01-02T03:04:05+00:00',
+                'actor': 'efake:alice',
+                'object': {
+                    'objectType': 'activity',
+                    'verb': 'block',
+                    'actor': 'efake:alice',
+                    'object': 'other:eve',
+                },
+            })], OtherFake.sent)
+
+    def test_receive_unblock_multiple_mixed(self):
+        alice, bob = self.make_alice_bob()
+
+        OtherFake.fetchable = {
+            'other:list': {
+                'objectType': 'collection',
+                'id': 'other:list',
+                'displayName': 'Myy Listt',
+                'url': 'other:web:list',
+            },
+        }
+
+        obj = Object(our_as1={
+            **DM_BASE,
+            'content': 'unblock other:handle:bob other:list',
+        })
+        self.assertEqual(('OK', 200), receive(from_user=alice, obj=obj))
+
+        self.assert_replied(OtherFake, alice, '?', """OK, you're not blocking <a class="h-card u-author mention" rel="me" href="web:other:bob" title="other:handle:bob">other:handle:bob</a>, <a href="other:web:list">Myy Listt</a> on other-phrase.""")
+        self.assertEqual([
+            ('other:bob:target', {
+                'objectType': 'activity',
+                'verb': 'undo',
+                'id': 'efake:alice#bridgy-fed-unblock-2022-01-02T03:04:05+00:00',
+                'actor': 'efake:alice',
+                'object': {
+                    'objectType': 'activity',
+                    'verb': 'block',
+                    'actor': 'efake:alice',
+                    'object': 'other:bob',
+                },
+            }),
+            ('other:list:target', {
+                'objectType': 'activity',
+                'verb': 'undo',
+                'id': 'efake:alice#bridgy-fed-unblock-2022-01-02T03:04:05+00:00',
+                'actor': 'efake:alice',
+                'object': {
+                    'objectType': 'activity',
+                    'verb': 'block',
+                    'actor': 'efake:alice',
+                    'object': 'other:list',
+                },
+            }),
+        ], OtherFake.sent)
 
     def test_receive_migrate_to(self):
         alice, bob = self.make_alice_bob()

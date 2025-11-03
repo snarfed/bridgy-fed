@@ -24,7 +24,7 @@ REQUESTS_LIMIT_USER = 10
 _commands = {}
 
 
-def command(names, arg=False, user_bridged=None, handle_bridged=None):
+def command(names, arg=False, user_bridged=None, handle_bridged=None, multiple=False):
     """Function decorator. Defines and registers a DM command.
 
     Args:
@@ -38,17 +38,23 @@ def command(names, arg=False, user_bridged=None, handle_bridged=None):
       handle_bridged (bool): whether the handle arg should be bridged. ``True``
         for yes, ``False`` for no, ``None` for either, ``'eligible'`` for
         not bridged but eligible.
+      multiple (bool): whether this command accepts multiple arguments. If ``True``,
+        pass them as ``args`` instead of ``arg``
 
     The decorated function should have the signature:
       (from_user, to_proto, arg=None, to_user=None) => (str, None)
+      or if multiple=True:
+      (from_user, to_proto, args=None, to_users=None) => (str, None)
 
     If it returns a string, that text is sent to the user as a reply to their DM.
 
     Args for the decorated function:
       from_user (models.User): the user who sent the DM
       to_proto (protocol.Protocol): the protocol bot account they sent it to
-      arg (str or None): the argument to the command, if any
-      to_user (models.User or None): the user for the argument, if it's a handle
+      arg (str or None): the argument to the command, if any (if multiple=False)
+      args (list of str or None): the arguments to the command (if multiple=True)
+      to_user (models.User or None): the user for the argument, if it's a handle (if multiple=False)
+      to_users (list of models.User or None): the users for the arguments (if multiple=True)
 
     The decorated function returns:
       str: text to reply to the user in a DM, if any
@@ -56,38 +62,40 @@ def command(names, arg=False, user_bridged=None, handle_bridged=None):
     assert arg in (False, True, 'handle_or_id'), arg
     if handle_bridged is not None:
         assert arg == 'handle_or_id', arg
+    if multiple:
+        assert arg, 'multiple requires arg to be set'
 
     def decorator(fn):
-        def wrapped(from_user, to_proto, cmd, cmd_arg, dm_as1):
+        def wrapped(from_user, to_proto, cmd, cmd_args, dm_as1):
             def reply(text, type=None):
                 maybe_send(from_=to_proto, to_user=from_user, text=text,
                            type=type, in_reply_to=dm_as1.get('id'))
                 return 'OK', 200
 
-            if arg and not cmd_arg:
+            if arg and not cmd_args:
                 return reply(f'{cmd} command needs an argument<br><br>{help_text(from_user, to_proto)}')
 
-            to_user = None
-
+            to_users = []
+            # TODO: extract out into separate fn
             if arg == 'handle_or_id':
-                cmd_arg = cmd_arg.removeprefix('@')
-                if not (to_user := _load_user(cmd_arg, to_proto)):
-                    return reply(f"Couldn't find user {cmd_arg} on {to_proto.PHRASE}")
-
-            if to_user:
+                cmd_args = [a.removeprefix('@') for a in cmd_args]
                 from_proto = from_user.__class__
-                enabled = to_user.is_enabled(from_proto)
-                if handle_bridged is True and not enabled:
-                    return reply(f'{to_user.user_link(proto=from_proto)} is not bridged into {from_proto.PHRASE}.')
-                elif handle_bridged in (False, 'eligible') and enabled:
-                    return reply(f'{to_user.user_link(proto=from_proto)} is already bridged into {from_proto.PHRASE}.')
-                elif handle_bridged == 'eligible' and to_user.status:
-                    to_user.reload_profile()
-                    if to_user.status:
-                        because = ''
-                        if desc := models.USER_STATUS_DESCRIPTIONS.get(to_user.status):
-                            because = f' because their {desc}'
-                        return reply(f"{to_user.user_link()} on {to_proto.PHRASE} isn't eligible for bridging into {from_proto.PHRASE}{because}.")
+                for cmd_arg in cmd_args:
+                    if not (to_user := _load_user(cmd_arg.removeprefix('@'), to_proto)):
+                        return reply(f"Couldn't find user {cmd_arg} on {to_proto.PHRASE}")
+                    to_users.append(to_user)
+                    enabled = to_user.is_enabled(from_proto)
+                    if handle_bridged is True and not enabled:
+                        return reply(f'{to_user.user_link(proto=from_proto)} is not bridged into {from_proto.PHRASE}.')
+                    elif handle_bridged in (False, 'eligible') and enabled:
+                        return reply(f'{to_user.user_link(proto=from_proto)} is already bridged into {from_proto.PHRASE}.')
+                    elif handle_bridged == 'eligible' and to_user.status:
+                        to_user.reload_profile()
+                        if to_user.status:
+                            because = ''
+                            if desc := models.USER_STATUS_DESCRIPTIONS.get(to_user.status):
+                                because = f' because their {desc}'
+                            return reply(f"{to_user.user_link()} on {to_proto.PHRASE} isn't eligible for bridging into {from_proto.PHRASE}{because}.")
 
             from_user_enabled = from_user.is_enabled(to_proto)
             if user_bridged is True and not from_user_enabled:
@@ -96,10 +104,18 @@ def command(names, arg=False, user_bridged=None, handle_bridged=None):
                 return reply(f"Looks like you're already bridged to {to_proto.PHRASE}!")
             # dispatch!
             kwargs = {}
-            if arg and cmd_arg:
-                kwargs['arg'] = cmd_arg
+            if arg:
+                if multiple:
+                    kwargs['args'] = cmd_args
+                else:
+                    kwargs['arg'] = cmd_args[0]
+
             if arg == 'handle_or_id':
-                kwargs['to_user'] = to_user
+                if multiple:
+                    kwargs['to_users'] = to_users
+                else:
+                    kwargs['to_user'] = to_users[0]
+
             reply_text = fn(from_user, to_proto, **kwargs)
             if reply_text:
                 reply(reply_text)
@@ -133,8 +149,8 @@ def help_text(from_user, to_proto):
 <li><em>mute</em>: disable notifications
 <li><em>username [domain]</em>: set a custom domain username (handle)
 <li><em>[handle or ID]</em>: ask me to DM a user on {to_proto.PHRASE} to request that they bridge their account into {from_user.PHRASE}
-<li><em>block [handle or ID or list URL]</em>: block a user who's not bridged here, or a list, on {to_proto.PHRASE}
-<li><em>unblock [handle or ID or list URL]</em>: unblock a user who's not bridged here, or a list, on {to_proto.PHRASE}
+<li><em>block [handle or ID or list URL]...</em>: block one or more users who aren't bridged here, or lists, on {to_proto.PHRASE}
+<li><em>unblock [handle or ID or list URL]...</em>: unblock one or more users who aren't bridged here, or lists, on {to_proto.PHRASE}
 {extra}
 <li><em>help</em>: print this message
 </ul>"""
@@ -194,67 +210,83 @@ def username(from_user, to_proto, arg):
     return f"Your username in {to_proto.PHRASE} has been set to {from_user.user_link(proto=to_proto, name=False, handle=True)}. It should appear soon!"
 
 
-@command(['block'], arg=True, user_bridged=True)
-def block(from_user, to_proto, arg):
+@command(['block'], arg=True, user_bridged=True, multiple=True)
+def block(from_user, to_proto, args):
     # duplicated in unblock
-    try:
-        # first, try interpreting as a user handle or id
-        blockee = _load_user(arg, to_proto)
-    except BadRequest:
-        # may not be a user, see if it's a list
-        blockee = to_proto.load(arg)
-        if not blockee or blockee.type != 'collection':
-            return f"{arg} doesn't look like a user or list on {to_proto.PHRASE}"
+    links = []
+    for arg in args:
+        try:
+            # first, try interpreting as a user handle or id
+            blockee = _load_user(arg, to_proto)
+        except BadRequest:
+            # may not be a user, see if it's a list
+            blockee = to_proto.load(arg)
+            if not blockee or blockee.type != 'collection':
+                return f"{arg} doesn't look like a user or list on {to_proto.PHRASE}"
 
-    id = f'{from_user.key.id()}#bridgy-fed-block-{util.now().isoformat()}'
-    obj = Object(id=id, source_protocol=from_user.LABEL, our_as1={
-        'objectType': 'activity',
-        'verb': 'block',
-        'id': id,
-        'actor': from_user.key.id(),
-        'object': blockee.key.id(),
-    })
-    obj.put()
-    from_user.deliver(obj, from_user=from_user)
-
-    link = (blockee.user_link() if isinstance(blockee, User)
-            else util.pretty_link(blockee.as1.get('url') or '',
-                                  text=blockee.as1.get('displayName')))
-    return f"""OK, you're now blocking {link} on {to_proto.PHRASE}."""
-
-
-@command(['unblock'], arg=True, user_bridged=True)
-def unblock(from_user, to_proto, arg):
-    # duplicated in block
-    try:
-        # first, try interpreting as a user handle or id
-        blockee = _load_user(arg, to_proto)
-    except BadRequest:
-        # may not be a user, see if it's a list
-        blockee = to_proto.load(arg)
-        if not blockee or blockee.type != 'collection':
-            return f"{arg} doesn't look like a user or list on {to_proto.PHRASE}"
-
-    id = f'{from_user.key.id()}#bridgy-fed-unblock-{util.now().isoformat()}'
-    obj = Object(id=id, source_protocol=from_user.LABEL, our_as1={
-        'objectType': 'activity',
-        'verb': 'undo',
-        'id': id,
-        'actor': from_user.key.id(),
-        'object': {
+        id = f'{from_user.key.id()}#bridgy-fed-block-{util.now().isoformat()}'
+        obj = Object(id=id, source_protocol=from_user.LABEL, our_as1={
             'objectType': 'activity',
             'verb': 'block',
+            'id': id,
             'actor': from_user.key.id(),
             'object': blockee.key.id(),
-        },
-    })
-    obj.put()
-    from_user.deliver(obj, from_user=from_user)
+        })
+        obj.put()
+        from_user.deliver(obj, from_user=from_user)
 
-    link = (blockee.user_link() if isinstance(blockee, User)
-            else util.pretty_link(blockee.as1.get('url') or '',
-                                  text=blockee.as1.get('displayName')))
-    return f"""OK, you're not blocking {link} on {to_proto.PHRASE}."""
+        link = (blockee.user_link() if isinstance(blockee, User)
+                else util.pretty_link(blockee.as1.get('url') or '',
+                                      text=blockee.as1.get('displayName')))
+        links.append(link)
+
+    if len(links) == 1:
+        return f"""OK, you're now blocking {links[0]} on {to_proto.PHRASE}."""
+    else:
+        links_str = ', '.join(links)
+        return f"""OK, you're now blocking {links_str} on {to_proto.PHRASE}."""
+
+
+@command(['unblock'], arg=True, user_bridged=True, multiple=True)
+def unblock(from_user, to_proto, args):
+    # duplicated in block
+    links = []
+    for arg in args:
+        try:
+            # first, try interpreting as a user handle or id
+            blockee = _load_user(arg, to_proto)
+        except BadRequest:
+            # may not be a user, see if it's a list
+            blockee = to_proto.load(arg)
+            if not blockee or blockee.type != 'collection':
+                return f"{arg} doesn't look like a user or list on {to_proto.PHRASE}"
+
+        id = f'{from_user.key.id()}#bridgy-fed-unblock-{util.now().isoformat()}'
+        obj = Object(id=id, source_protocol=from_user.LABEL, our_as1={
+            'objectType': 'activity',
+            'verb': 'undo',
+            'id': id,
+            'actor': from_user.key.id(),
+            'object': {
+                'objectType': 'activity',
+                'verb': 'block',
+                'actor': from_user.key.id(),
+                'object': blockee.key.id(),
+            },
+        })
+        obj.put()
+        from_user.deliver(obj, from_user=from_user)
+
+        link = (blockee.user_link() if isinstance(blockee, User)
+                else util.pretty_link(blockee.as1.get('url') or '',
+                                      text=blockee.as1.get('displayName')))
+        links.append(link)
+
+    if len(links) == 1:
+        return f"""OK, you're not blocking {links[0]} on {to_proto.PHRASE}."""
+    else:
+        links_str = ', '.join(links)
+        return f"""OK, you're not blocking {links_str} on {to_proto.PHRASE}."""
 
 
 @command(['migrate-to'], arg='handle_or_id', user_bridged=True)
@@ -409,16 +441,16 @@ def receive(*, from_user, obj):
         logger.debug(f'  first token is bot mention, removing')
         tokens = tokens[1:]
 
-    if not tokens or len(tokens) > 2:
+    if not tokens:
         return r'¯\_(ツ)_/¯', 204
 
     if fn := _commands.get(tokens[0]):
         return fn(from_user, to_proto, dm_as1=inner_as1,
-                  cmd=tokens[0], cmd_arg=tokens[1] if len(tokens) == 2 else None)
+                  cmd=tokens[0], cmd_args=tokens[1:] if len(tokens) > 1 else [])
     elif len(tokens) == 1:
         fn = _commands.get(None)
         assert fn, tokens[0]
-        return fn(from_user, to_proto, dm_as1=inner_as1, cmd=None, cmd_arg=tokens[0])
+        return fn(from_user, to_proto, dm_as1=inner_as1, cmd=None, cmd_args=[tokens[0]])
 
     return r'¯\_(ツ)_/¯', 204
 
