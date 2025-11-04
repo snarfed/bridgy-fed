@@ -427,6 +427,10 @@ class Nostr(User, Protocol):
         assert obj
         assert from_user
 
+        if obj.type in ('post', 'update'):
+            if not (obj := to_cls.load(as1.get_id(obj.as1, 'object'))):
+                return False
+
         event = to_cls.convert(obj, from_user=from_user)
         assert event.get('pubkey') == from_user.hex_pubkey(), (event, from_user.key)
         assert event.get('sig'), event

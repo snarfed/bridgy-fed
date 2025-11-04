@@ -451,7 +451,7 @@ class NostrTest(TestCase):
         obj.put()
         self.assert_equals(event, Nostr.convert(obj, from_user=self.user))
 
-    def test_send_note(self):
+    def test_send_bare_note(self):
         obj = Object(id='fake:note', our_as1={
             'objectType': 'note',
             'author': 'fake:user',
@@ -479,6 +479,42 @@ class NostrTest(TestCase):
         self.assertTrue(granary.nostr.verify(expected))
         self.assertEqual([Target(uri='nostr:' + id, protocol='nostr')],
                          obj.key.get().copies)
+
+    def test_send_note_create(self):
+        note = self.store_object(id='fake:note', our_as1={
+            'objectType': 'note',
+            'author': 'fake:user',
+            'content': 'Something to say',
+            'published': '2019-12-02T03:04:05+00:00',
+        })
+        create = Object(id='fake:create', our_as1={
+            'objectType': 'activity',
+            'verb': 'post',
+            'author': 'fake:user',
+            'object': note.as1,
+        })
+
+        id = '4a57c7a1dde3bfe13076db485c4f09756e54447f6389dbf6864d4139bc40a214'
+        expected = {
+            'kind': KIND_NOTE,
+            'id': id,
+            'pubkey': PUBKEY,
+            'content': 'Something to say',
+            'created_at': NOW_TS,
+            'tags': [],
+            'sig': '65b42db33486f669fa4dff3dba2ed914dcda886d47177a747e5e574e1a87cd4da23b54350dba758ecd91d48625f5345c8516458c76bebf60b0de89d12fa76a11',
+        }
+        FakeConnection.to_receive = [
+            ['OK', id, True, ''],
+        ]
+
+        self.assertTrue(Nostr.send(create, 'reeelaaay', from_user=self.user))
+        self.assert_equals(['reeelaaay'], FakeConnection.relays)
+        self.assert_equals([['EVENT', expected]], FakeConnection.sent)
+        self.assertTrue(granary.nostr.verify(expected))
+        self.assertEqual([Target(uri='nostr:' + id, protocol='nostr')],
+                         note.key.get().copies)
+        self.assertIsNone(create.key.get())
 
     def test_send_rejected_by_relay(self):
         obj = Object(id='fake:note', our_as1={
