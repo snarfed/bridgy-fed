@@ -2048,7 +2048,7 @@ Sed tortor neque, aliquet quis posuere aliquam, imperdiet sitamet […]
         mock_create_task.assert_called()  # atproto-commit
 
     @patch.object(tasks_client, 'create_task', return_value=Task(name='my task'))
-    def test_send_note_existing_repo(self, mock_create_task):
+    def test_send_bare_note_existing_repo(self, mock_create_task):
         user = self.make_user_and_repo()
         obj = Object(id='fake:post', source_protocol='fake', our_as1=NOTE_AS)
         self.assertTrue(ATProto.send(obj, 'https://bsky.brid.gy'))
@@ -2063,6 +2063,31 @@ Sed tortor neque, aliquet quis posuere aliquam, imperdiet sitamet […]
         at_uri = f'at://{did}/app.bsky.feed.post/{last_tid}'
         self.assertEqual([Target(uri=at_uri, protocol='atproto')],
                          Object.get_by_id(id='fake:post').copies)
+
+        mock_create_task.assert_called()  # atproto-commit
+
+    @patch.object(tasks_client, 'create_task', return_value=Task(name='my task'))
+    def test_send_create_note_existing_repo(self, mock_create_task):
+        user = self.make_user_and_repo()
+        obj = Object(id='fake:create', source_protocol='fake', our_as1={
+            'objectType': 'activity',
+            'verb': 'post',
+            'actor': 'fake:user',
+            'object': NOTE_AS,
+        })
+        self.assertTrue(ATProto.send(obj, 'https://bsky.brid.gy'))
+
+        # check repo, record
+        did = user.key.get().get_copy(ATProto)
+        repo = self.storage.load_repo(did)
+        last_tid = arroba.util.int_to_tid(arroba.util._tid_ts_last)
+        record = repo.get_record('app.bsky.feed.post', last_tid)
+        self.assertEqual(NOTE_BSKY, record)
+
+        at_uri = f'at://{did}/app.bsky.feed.post/{last_tid}'
+        self.assertEqual([Target(uri=at_uri, protocol='atproto')],
+                         Object.get_by_id(id='fake:post').copies)
+        self.assertIsNone(Object.get_by_id(id='fake:create'))
 
         mock_create_task.assert_called()  # atproto-commit
 
@@ -2304,7 +2329,7 @@ Sed tortor neque, aliquet quis posuere aliquam, imperdiet sitamet […]
 
     @patch.object(tasks_client, 'create_task', return_value=Task(name='my task'))
     def test_send_update_note(self, mock_create_task):
-        self.test_send_note_existing_repo()
+        self.test_send_bare_note_existing_repo()
         mock_create_task.reset_mock()
 
         note = Object.get_by_id('fake:post')
@@ -2406,7 +2431,7 @@ Sed tortor neque, aliquet quis posuere aliquam, imperdiet sitamet […]
         mock_create_task.assert_called()  # atproto-commit
 
     def test_send_update_doesnt_exist(self):
-        self.test_send_note_existing_repo()
+        self.test_send_bare_note_existing_repo()
         user = self.make_user_and_repo()
 
         update = Object(id='fake:update', source_protocol='fake', our_as1={
@@ -2421,7 +2446,7 @@ Sed tortor neque, aliquet quis posuere aliquam, imperdiet sitamet […]
         self.assertFalse(ATProto.send(update, 'https://bsky.brid.gy'))
 
     def test_send_update_wrong_repo(self):
-        self.test_send_note_existing_repo()
+        self.test_send_bare_note_existing_repo()
 
         orig = Object.get_by_id('fake:post')
         _, _, rkey = arroba.util.parse_at_uri(orig.copies[0].uri)
@@ -2447,7 +2472,7 @@ Sed tortor neque, aliquet quis posuere aliquam, imperdiet sitamet […]
 
     @patch.object(tasks_client, 'create_task', return_value=Task(name='my task'))
     def test_send_delete_note(self, mock_create_task):
-        self.test_send_note_existing_repo()
+        self.test_send_bare_note_existing_repo()
         mock_create_task.reset_mock()
 
         delete = Object(id='fake:delete', source_protocol='fake', our_as1={
