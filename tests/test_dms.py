@@ -723,6 +723,18 @@ class DmsTest(TestCase):
     def test_receive_block_bad_arg(self):
         alice, _ = self.make_alice_bob()
 
+        obj = Object(our_as1={
+            **DM_ALICE_BLOCK_BOB,
+            'content': 'block not@handle-format',
+        })
+        self.assertEqual(('OK', 200), receive(from_user=alice, obj=obj))
+
+        self.assert_replied(OtherFake, alice, '?', "not@handle-format doesn't look like a user or list on other-phrase")
+        self.assertEqual([], OtherFake.sent)
+
+    def test_receive_block_wrong_type(self):
+        alice, _ = self.make_alice_bob()
+
         OtherFake.fetchable = {
             'other:note': {
                 'objectType': 'note',
@@ -861,7 +873,7 @@ class DmsTest(TestCase):
         })], OtherFake.sent)
         self.assertEqual(['other:list'], OtherFake.fetched)
 
-    def test_receive_unblock_bad_arg(self):
+    def test_receive_unblock_wrong_type(self):
         alice, _ = self.make_alice_bob()
 
         OtherFake.fetchable = {
@@ -878,6 +890,18 @@ class DmsTest(TestCase):
         self.assertEqual(('OK', 200), receive(from_user=alice, obj=obj))
 
         self.assert_replied(OtherFake, alice, '?', "other:note doesn't look like a user or list on other-phrase")
+        self.assertEqual([], OtherFake.sent)
+
+    def test_receive_unblock_bad_arg(self):
+        alice, _ = self.make_alice_bob()
+
+        obj = Object(our_as1={
+            **DM_ALICE_BLOCK_BOB,
+            'content': 'unblock not@handle-format',
+        })
+        self.assertEqual(('OK', 200), receive(from_user=alice, obj=obj))
+
+        self.assert_replied(OtherFake, alice, '?', "not@handle-format doesn't look like a user or list on other-phrase")
         self.assertEqual([], OtherFake.sent)
 
     def test_receive_unblock_multiple_users(self):

@@ -215,11 +215,15 @@ def block(from_user, to_proto, args):
     # duplicated in unblock
     links = []
     for arg in args:
+        blockee = None
         try:
             # first, try interpreting as a user handle or id
             blockee = _load_user(arg, to_proto)
         except BadRequest:
-            # may not be a user, see if it's a list
+            pass
+
+        # may not be a user, see if it's a list
+        if not blockee:
             blockee = to_proto.load(arg)
             if not blockee or blockee.type != 'collection':
                 return f"{arg} doesn't look like a user or list on {to_proto.PHRASE}"
@@ -252,11 +256,15 @@ def unblock(from_user, to_proto, args):
     # duplicated in block
     links = []
     for arg in args:
+        blockee = None
         try:
             # first, try interpreting as a user handle or id
             blockee = _load_user(arg, to_proto)
         except BadRequest:
-            # may not be a user, see if it's a list
+            pass
+
+        # may not be a user, see if it's a list
+        if not blockee:
             blockee = to_proto.load(arg)
             if not blockee or blockee.type != 'collection':
                 return f"{arg} doesn't look like a user or list on {to_proto.PHRASE}"
