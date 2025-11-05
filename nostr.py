@@ -442,7 +442,7 @@ class Nostr(User, Protocol):
             events.append(id_and_sign({
                 'kind': KIND_RELAYS,
                 'pubkey': from_user.hex_pubkey(),
-                'tags': ['r', to_cls.DEFAULT_TARGET],
+                'tags': [['r', to_cls.DEFAULT_TARGET]],
                 'content': '',
             }, from_user.nsec()))
 

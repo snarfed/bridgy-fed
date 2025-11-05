@@ -540,7 +540,7 @@ class NostrTest(TestCase):
         obj.put()
 
         profile_id = '37e4ed37a09bbb2e0b68cb3b175c14edeb14021e830f436fe2c816e4b7654588'
-        relays_id = 'c5c7f469d830fe0dd11234495ed8752a3060adca7b4b50f03c2989544d9a28b1'
+        relays_id = 'b644499566c9940eaa54de876ebebfcc0a0edbd029faa693aa0e1ab489a99ddf'
         expected = [
             ['EVENT', {
                 'kind': KIND_PROFILE,
@@ -558,7 +558,7 @@ class NostrTest(TestCase):
                 'pubkey': PUBKEY,
                 'id': relays_id,
                 'created_at': NOW_TS,
-                'tags': ['r', 'wss://nos.lol'],
+                'tags': [['r', 'wss://nos.lol']],
                 'content': '',
             }],
         ]
@@ -584,7 +584,7 @@ class NostrTest(TestCase):
         })
 
         profile_id = '42995ba6f7c7fe0ff58e6f08cb0561f40174f3fd688b54ae033cc62f552045a6'
-        relays_id = 'c5c7f469d830fe0dd11234495ed8752a3060adca7b4b50f03c2989544d9a28b1'
+        relays_id = 'b644499566c9940eaa54de876ebebfcc0a0edbd029faa693aa0e1ab489a99ddf'
         FakeConnection.to_receive = [
             ['OK', profile_id, True, ''],
             ['OK', relays_id, True, ''],
@@ -610,7 +610,7 @@ class NostrTest(TestCase):
                 'pubkey': PUBKEY,
                 'id': relays_id,
                 'created_at': NOW_TS,
-                'tags': ['r', 'wss://nos.lol'],
+                'tags': [['r', 'wss://nos.lol']],
                 'content': '',
             }],
         ], FakeConnection.sent, ignore=['sig'])
