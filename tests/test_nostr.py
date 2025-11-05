@@ -40,6 +40,7 @@ from granary.tests.test_nostr import (
     NOTE_AS1,
     NOTE_NOSTR,
     NOW_TS,
+    NPUB,
     NPUB_URI,
     NPUB_URI_2,
     NSEC_URI,
@@ -82,8 +83,7 @@ class NostrTest(TestCase):
         self.assertEqual(PUBKEY, Nostr(id=PUBKEY_URI).hex_pubkey())
 
     def test_npub(self):
-        self.assertEqual(NPUB_URI.removeprefix('nostr:'),
-                         Nostr(id=PUBKEY_URI).npub())
+        self.assertEqual(NPUB, Nostr(id=PUBKEY_URI).npub())
 
     def test_id_uri(self):
         self.assertEqual(PUBKEY_URI, Nostr(id=PUBKEY_URI).id_uri())
@@ -92,8 +92,7 @@ class NostrTest(TestCase):
         self.assertIsNone(Nostr().web_url())
 
         user = Nostr(id=PUBKEY_URI, obj_key=Object(id=ID_URI).key)
-        self.assertEqual(f'https://coracle.social/people/{NPUB_URI.removeprefix("nostr:")}',
-                         user.web_url())
+        self.assertEqual(f'https://coracle.social/people/{NPUB}', user.web_url())
 
     def test_is_profile(self):
         user = Nostr(id=PUBKEY_URI)
@@ -146,7 +145,7 @@ class NostrTest(TestCase):
                 self.assertEqual(expected, user.handle)
                 if expected is None:
                     user.key = ndb.Key(Nostr, PUBKEY_URI)
-                    self.assertEqual(NPUB_URI.removeprefix('nostr:'), user.handle)
+                    self.assertEqual(NPUB, user.handle)
 
     def test_bridged_web_url_for(self):
         self.assertIsNone(Nostr.bridged_web_url_for(Nostr()))
@@ -156,16 +155,15 @@ class NostrTest(TestCase):
         self.assertIsNone(Nostr.bridged_web_url_for(Fake()))
 
         user.copies=[Target(uri=PUBKEY_URI, protocol='nostr')]
-        self.assertEqual(
-            f'https://coracle.social/people/{NPUB_URI.removeprefix("nostr:")}',
-            Nostr.bridged_web_url_for(user))
+        self.assertEqual(f'https://coracle.social/people/{NPUB}',
+                         Nostr.bridged_web_url_for(user))
 
     def test_owns_id(self):
         self.assertTrue(Nostr.owns_id(PUBKEY_URI))
         self.assertTrue(Nostr.owns_id(NPUB_URI))
 
         self.assertIsNone(Nostr.owns_id(PUBKEY))
-        self.assertIsNone(Nostr.owns_id(NPUB_URI.removeprefix('nostr:')))
+        self.assertIsNone(Nostr.owns_id(NPUB))
 
         for id in ('abc', 'did:abc', 'foo.com', 'https://foo.com/',
                    'https://foo.com/bar', 'at://did:abc/x.y.z/123'):
@@ -194,8 +192,7 @@ class NostrTest(TestCase):
         self.assertEqual(PUBKEY_URI, Nostr.handle_to_id('alice@example.com'))
 
     def test_handle_as_domain(self):
-        self.assertEqual(NPUB_URI.removeprefix('nostr:'),
-                         Nostr(id=PUBKEY_URI).handle_as_domain)
+        self.assertEqual(NPUB, Nostr(id=PUBKEY_URI).handle_as_domain)
 
         profile = Object(id='x', nostr={
             'kind': KIND_PROFILE,
@@ -786,7 +783,7 @@ class NostrTest(TestCase):
     def test_nip_05_native_nostr_user_ignored(self):
         nostr_user = self.make_user(PUBKEY_URI, cls=Nostr)
 
-        for name in (NPUB_URI.removeprefix('nostr:'), PUBKEY_URI, f'nostr-{PUBKEY}'):
+        for name in (NPUB, PUBKEY_URI, f'nostr-{PUBKEY}'):
             with self.subTest(name=name):
                 resp = self.get(f'/.well-known/nostr.json?name={name}',
                                 base_url='https://nostr.brid.gy')

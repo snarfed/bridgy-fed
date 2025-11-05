@@ -17,7 +17,6 @@ from granary.nostr import (
 from granary.tests.test_nostr import (
     FakeConnection,
     NOW_TS,
-    NPUB_URI,
     NSEC_URI,
     PRIVKEY,
     PUBKEY,
