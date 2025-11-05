@@ -1611,6 +1611,7 @@ class Protocol:
                 inner_obj_id = from_user.profile_id()
             original_ids = [inner_obj_id]
 
+        # maps id to Object
         original_objs = {}
         for id in original_ids:
             if proto := Protocol.for_id(id):
@@ -1658,6 +1659,9 @@ class Protocol:
                         break
                     elif orig.get_copy(proto):
                         logger.info(f'Allowing {label}, original {id} was bridged there')
+                        break
+                    elif from_user.is_profile(orig):
+                        logger.info(f"Allowing {label}, this is the user's profile")
                         break
 
                     if (origs_could_bridge is not False

@@ -2490,13 +2490,15 @@ class ProtocolReceiveTest(TestCase):
         }
         self.assertEqual(('OK', 202), Fake.receive_as1(update_as1))
 
-        self.assert_object('fake:reply',
-                           our_as1=reply_as1,
-                           type='note',
-                           users=[self.user.key],
-                           notify=[eve.key],
-                           deleted=False,
-                           )
+        self.assert_object(
+            'fake:reply',
+            our_as1=reply_as1,
+            type='note',
+            copies=[{'protocol': 'other', 'uri': 'other:o:fa:fake:reply'}],
+            users=[self.user.key],
+            notify=[eve.key],
+            deleted=False,
+        )
         self.assertIsNone(Object.get_by_id('fake:update'))
         self.assertEqual([('other:post:target', update_as1)], OtherFake.sent)
 
@@ -2840,9 +2842,8 @@ class ProtocolReceiveTest(TestCase):
             'displayName': 'Ms. ☕ Baz',
             'summary': 'first',
         }
-        self.alice.obj = self.store_object(
-            id='other:alice',
-            copies = [Target(protocol='fake', uri='fake:profile:other:alice')])
+        self.alice.obj = self.store_object(id='other:alice', our_as1=profile,
+                                           source_protocol='other')
         self.alice.put()
 
         Follower.get_or_create(to=self.alice, from_=self.user)
@@ -2853,14 +2854,14 @@ class ProtocolReceiveTest(TestCase):
 
         # profile object
         profile['updated'] = '2022-01-02T03:04:05+00:00'
-        self.assert_object('other:alice',
-                           our_as1=profile,
-                           users=[self.alice.key],
-                           copies=[Target(protocol='fake',
-                                          uri='fake:profile:other:alice')],
-                           source_protocol='other',
-                           deleted=False,
-                           )
+        self.assert_object(
+            'other:alice',
+            our_as1=profile,
+            users=[self.alice.key],
+            copies=[Target(protocol='fake', uri='fake:o:other:other:alice')],
+            source_protocol='other',
+            deleted=False,
+        )
         self.assertEqual([('fake:shared:target', {
             'objectType': 'activity',
             'verb': 'update',
