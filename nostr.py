@@ -384,6 +384,10 @@ class Nostr(User, Protocol):
         obj_as1 = obj.as1
         translated = to_cls.translate_ids(obj_as1)
 
+        if from_user and from_user.is_profile(obj):
+            # username gets set as nip05
+            translated['username'] = from_user.handle_as(Nostr)
+
         # find first relay (target) for referenced user (follow of, in reply to,
         # repost of)
         if as1.object_type(obj_as1) in as1.CRUD_VERBS:

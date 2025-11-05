@@ -2021,7 +2021,10 @@ To disable these messages, reply with the text 'mute'.""",
         bsky_bot_profile = id_and_sign({
             'kind': KIND_PROFILE,
             'pubkey': bsky_bot.hex_pubkey(),
-            'content': json_dumps({'name': 'Bluesky', 'nip05': '_@bsky.brid.gy'}),
+            'content': json_dumps({
+                'name': 'Bluesky',
+                'nip05': '_@bsky.brid.gy',
+            }),
             'created_at': NOW_SECONDS,
         }, privkey=bsky_bot.nsec())
 
@@ -2122,7 +2125,10 @@ To disable these messages, reply with the text 'mute'.""",
         alice_profile = id_and_sign({
             'kind': KIND_PROFILE,
             'pubkey': alice.hex_pubkey(),
-            'content': json_dumps({'name': 'Alice', 'nip05': 'alice@inst'}),
+            'content': json_dumps({
+                'name': 'Alice',
+                'nip05': 'alice.inst@ap.brid.gy',
+            }),
             'created_at': NOW_SECONDS,
         }, privkey=alice.nsec())
 
@@ -2168,7 +2174,9 @@ To disable these messages, reply with the text 'mute'.""",
             'kind': KIND_PROFILE,
             'pubkey': alice.hex_pubkey(),
             'content': json_dumps({
-                'name': 'Alice', 'nip05': 'alice.bsky.social'}),
+                'name': 'Alice',
+                'nip05': 'alice.bsky.social@bsky.brid.gy',
+            }),
             'created_at': NOW_SECONDS,
         }, privkey=alice.nsec())
 
@@ -2235,7 +2243,10 @@ To disable these messages, reply with the text 'mute'.""",
         alice_profile = id_and_sign({
             'kind': KIND_PROFILE,
             'pubkey': alice.hex_pubkey(),
-            'content': json_dumps({'name': 'Alice', 'nip05': 'alice@inst'}),
+            'content': json_dumps({
+                'name': 'Alice',
+                'nip05': 'alice.inst@ap.brid.gy',
+            }),
             'created_at': NOW_SECONDS,
         }, privkey=alice.nsec())
 
@@ -2384,7 +2395,10 @@ To disable these messages, reply with the text 'mute'.""",
         alice_profile = id_and_sign({
             'kind': KIND_PROFILE,
             'pubkey': alice.hex_pubkey(),
-            'content': json_dumps({'name': 'Alice', 'nip05': 'alice.bsky.social'}),
+            'content': json_dumps({
+                'name': 'Alice',
+                'nip05': 'alice.bsky.social@bsky.brid.gy',
+            }),
             'created_at': NOW_SECONDS,
         }, privkey=alice.nsec())
 
@@ -2632,6 +2646,7 @@ To disable these messages, reply with the text 'mute'.""",
                 'content': json_dumps({
                     'about': 'New bio',
                     'name': 'Alice Updated',
+                    'nip05': 'alice.com@web.brid.gy',
                     'picture': 'http://new-pic',
                     'website': 'https://alice.com/',
                 }, ensure_ascii=False),
@@ -2669,7 +2684,7 @@ To disable these messages, reply with the text 'mute'.""",
             'content': json_dumps({
                 'about': 'New bio\n\n🌉 bridged from 🦋 https://bsky.app/profile/alice.com by https://fed.brid.gy/',
                 'name': 'Alice Updated',
-                'nip05': '_@alice.com',
+                'nip05': 'alice.com@bsky.brid.gy',
                 'picture': 'https://some.pds/xrpc/com.atproto.sync.getBlob?did=did:plc:alice&cid=bafy',
                 'website': 'https://bsky.app/profile/alice.com',
             }, ensure_ascii=False),

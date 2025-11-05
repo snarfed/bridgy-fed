@@ -24,6 +24,7 @@ from secp256k1 import PrivateKey, PublicKey
 from websockets.exceptions import ConnectionClosedOK, WebSocketException
 
 from activitypub import ActivityPub
+from atproto import ATProto
 import common
 from flask_app import app
 import ids
@@ -51,6 +52,7 @@ from granary.tests.test_nostr import (
     PUBKEY_URI_2,
 )
 from .testutil import ExplicitFake, Fake, TestCase
+from .test_atproto import DID_DOC
 
 ID_URI = 'nostr:' + ID
 
@@ -245,6 +247,7 @@ class NostrTest(TestCase):
             'content': json_dumps({
                 'name': 'Ms Alice',
                 'about': 'It me',
+                'nip05': 'alice.com@web.brid.gy',
             }, sort_keys=True),
             'tags': [],
             'created_at': NOW_TS,
@@ -265,6 +268,7 @@ class NostrTest(TestCase):
             'content': json_dumps({
                 'name': 'Ms Alice',
                 'about': 'It me\n\n🌉 bridged from ⁂ http://in.st/alice by https://fed.brid.gy/',
+                'nip05': 'alice.in.st@ap.brid.gy',
             }, sort_keys=True, ensure_ascii=False),
             'tags': [],
             'created_at': NOW_TS,
@@ -276,7 +280,7 @@ class NostrTest(TestCase):
             'id': 'http://in.st/actor',
             'name': 'Ms Alice',
             'summary': 'It me',
-            'preferredUsername': 'alice',
+            'preferredUsername': 'instance-actor',
         })
 
         self.assert_equals({
@@ -285,6 +289,31 @@ class NostrTest(TestCase):
             'content': json_dumps({
                 'name': 'Ms Alice',
                 'about': 'It me\n\n🌉 bridged from ⁂ http://in.st/actor by https://fed.brid.gy/',
+                'nip05': 'instance-actor.in.st@ap.brid.gy',
+            }, sort_keys=True, ensure_ascii=False),
+            'tags': [],
+            'created_at': NOW_TS,
+        }, Nostr.convert(user.obj, from_user=user), ignore=['id', 'sig'])
+
+    def test_convert_atproto_actor(self):
+        self.store_object(id='did:plc:alice', raw={
+            **DID_DOC,
+            'alsoKnownAs': ['at://han.dull'],
+        })
+        user = self.make_user('did:plc:alice', cls=ATProto, obj_bsky={
+            '$type': 'app.bsky.actor.profile',
+            'displayName': 'Alice',
+            'description': 'hi there',
+        })
+
+        self.assert_equals({
+            'kind': KIND_PROFILE,
+            'pubkey': user.hex_pubkey(),
+            'content': json_dumps({
+                'name': 'Alice',
+                'about': 'hi there\n\n🌉 bridged from 🦋 https://bsky.app/profile/han.dull by https://fed.brid.gy/',
+                'nip05': 'han.dull@bsky.brid.gy',
+                'website':'https://bsky.app/profile/han.dull',
             }, sort_keys=True, ensure_ascii=False),
             'tags': [],
             'created_at': NOW_TS,
@@ -403,7 +432,7 @@ class NostrTest(TestCase):
         })))
 
     def test_convert_note_from_user_sign(self):
-        got = Nostr._convert(Object(our_as1={
+        got = Nostr._convert(Object(id='fake:post', our_as1={
             'objectType': 'note',
             'id': 'fake:post',
             'author': PUBKEY_URI,
@@ -583,7 +612,7 @@ class NostrTest(TestCase):
             'summary': 'foo bar'
         })
 
-        profile_id = '42995ba6f7c7fe0ff58e6f08cb0561f40174f3fd688b54ae033cc62f552045a6'
+        profile_id = 'e9fb90a5bc5732be166ad28e8b61c1864190a309db1333291516d43f0c273826'
         relays_id = 'b644499566c9940eaa54de876ebebfcc0a0edbd029faa693aa0e1ab489a99ddf'
         FakeConnection.to_receive = [
             ['OK', profile_id, True, ''],
@@ -601,6 +630,7 @@ class NostrTest(TestCase):
                     # no @-mentions in Nostr profiles 🤷
                     'about': 'foo bar\n\n🌉 bridged from 📣 web:efake:alice, follow @efake.brid.gy to interact',
                     'name':'Alice',
+                    'nip05': 'efake-handle-alice@efake.brid.gy',
                 }, ensure_ascii=False),
                 'created_at': NOW_TS,
                 'tags': [],
