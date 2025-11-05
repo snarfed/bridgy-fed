@@ -223,6 +223,13 @@ def render(template, **vars):
     Args:
       template (str): file name
     """
+    if user := vars.get('user'):
+        vars['bridged_protos'] = [
+            proto for proto in set(PROTOCOLS.values())
+            if proto and not isinstance(user, proto)
+            and proto.LABEL not in ('ui', 'web')
+            and user.is_enabled(proto)]
+
     return render_template(template, **TEMPLATE_VARS, logins=get_logins(), **vars)
 
 
