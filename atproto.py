@@ -829,6 +829,11 @@ class ATProto(User, Protocol):
             if copy_did != did or (type and collection != type):
                 logger.info(f"Can't {verb} {base_obj.key.id()} {type}, original {copy} is in a different repo or collection")
                 return False
+        else:
+            # create or other verb
+            if base_obj and (copy := base_obj.get_copy(to_cls)):
+                logger.info(f'already has ATProto copy {copy}, cowardly refusing to create again')
+                return False
 
         match verb:
             case 'update':
