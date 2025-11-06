@@ -972,6 +972,29 @@ class NostrTest(TestCase):
         user.valid_nip05 = 'a@example.com'
         self.assertIsNone(user.status)
 
+    @patch('requests.get', return_value=requests_response({'names': {'a': PUBKEY_2}}))
+    def test_status_unsets_valid_nip05_on_other_users(self, mock_get):
+        user1 = self.make_user(id=PUBKEY_URI, cls=Nostr, valid_nip05='a@example.com')
+        user1.put()
+        self.assertEqual('a@example.com', user1.valid_nip05)
+
+        profile = Object(id=ID, nostr=id_and_sign({
+            'kind': KIND_PROFILE,
+            'pubkey': PUBKEY_2,
+            'content': json_dumps({
+                'name': 'Bob',
+                'picture': 'http://bob/pic',
+                'nip05': 'a@example.com',
+            }),
+        }, privkey=NSEC_URI_2))
+        user2 = self.make_user(id=PUBKEY_URI_2, cls=Nostr, obj_key=profile.put())
+        user2.put()
+
+        self.assertEqual('a@example.com', user2.valid_nip05)
+        self.assert_req(mock_get, 'https://example.com/.well-known/nostr.json?name=a')
+
+        self.assertIsNone(user1.key.get().valid_nip05)
+
     def test_check_supported(self):
         Nostr.check_supported(Object(our_as1={
             'objectType': 'activity',

@@ -165,6 +165,16 @@ class Nostr(User, Protocol):
                 if not code:
                     logger.info(e)
 
+            if self.valid_nip05:
+                # unset this NIP-05 on any other Nostr users that currently have it
+                others = Nostr.query(Nostr.valid_nip05 == nip05).fetch()
+                to_put = []
+                for other in others:
+                    if other.key.id() != self.key.id():
+                        other.valid_nip05 = None
+                        to_put.append(other)
+                ndb.put_multi(to_put)
+
         if not self.valid_nip05 or self.valid_nip05 != self.nip_05():
             return 'no-nip05'
 
