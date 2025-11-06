@@ -275,7 +275,6 @@ class NostrHubTest(TestCase):
                          nostr=event)
 
     def test_subscribe_post_from_native_nostr_user(self, mock_create_task, _):
-        # Create a post event from Bob - need to use test PUBKEY that matches NSEC_URI
         event = id_and_sign({
             'pubkey': BOB_PUBKEY,
             'kind': KIND_NOTE,
@@ -459,3 +458,14 @@ class NostrHubTest(TestCase):
 
         mock_create_task.assert_not_called()
         self.assertIsNone(Object.get_by_id('nostr:' + event['id']))
+
+    def test_subscribe_dedupe_on_id(self, mock_create_task, _):
+        event = id_and_sign({
+            'pubkey': BOB_PUBKEY,
+            'kind': KIND_NOTE,
+            'content': 'Hello world!',
+            'created_at': NOW_TS,
+        }, privkey=BOB_NSEC_URI)
+
+        self.serve_and_subscribe([event, event])
+        mock_create_task.assert_called_once()

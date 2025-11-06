@@ -5,6 +5,7 @@ import secrets
 from threading import Event, Lock, Thread, Timer
 import time
 
+import cachetools
 from google.cloud.ndb import context
 from google.cloud.ndb.exceptions import ContextError
 from granary.nostr import (
@@ -45,6 +46,10 @@ nostr_pubkeys = set()
 bridged_pubkeys = set()
 pubkeys_loaded_at = datetime(1900, 1, 1)
 pubkeys_initialized = Event()
+
+seen_ids = cachetools.TTLCache(maxsize=1_000_000,
+                               ttl=timedelta(weeks=1).total_seconds())
+seen_ids_lock = Lock()
 
 # maps string relay websocket address URI to NostrRelay
 subscribed_relays = {}
@@ -227,7 +232,13 @@ def subscribe(relay, limit=None):
                     case 'EVENT':
                         event = resp[2]
                         if event.get('kind') in Nostr.SUPPORTED_KINDS:
-                            handle(event)
+                            with seen_ids_lock:
+                                id = event.get('id')
+                                if not (seen := id in seen_ids):
+                                    seen_ids[id] = True
+
+                            if not seen:
+                                handle(event)
 
                     case 'CLOSED':
                         # relay closed our query. reconnect!

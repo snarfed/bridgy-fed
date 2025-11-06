@@ -16,6 +16,7 @@ from arroba import did
 import arroba.util
 from arroba.util import datetime_to_tid
 from bs4 import MarkupResemblesLocatorWarning
+import cachetools
 import dag_cbor.random
 from google.cloud import ndb
 from google.protobuf.timestamp_pb2 import Timestamp
@@ -397,6 +398,7 @@ class TestCase(unittest.TestCase, testutil.Asserts):
         nostr_hub.pubkeys_loaded_at = datetime(1900, 1, 1)
         nostr_hub.pubkeys_initialized.clear()
         nostr_hub.subscribed_relays = {}
+        nostr_hub.seen_ids = cachetools.TTLCache(maxsize=1000, ttl=1000)
 
         # system level local timezone
         os.environ['TZ'] = 'America/Los_Angeles'
