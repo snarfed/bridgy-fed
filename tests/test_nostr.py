@@ -503,8 +503,26 @@ class NostrTest(TestCase):
         self.assert_equals(['reeelaaay'], FakeConnection.relays)
         self.assert_equals([['EVENT', expected]], FakeConnection.sent)
         self.assertTrue(granary.nostr.verify(expected))
-        self.assertEqual([Target(uri='nostr:' + id, protocol='nostr')],
-                         obj.key.get().copies)
+        expected_copy = [Target(uri='nostr:' + id, protocol='nostr')]
+        self.assertEqual(expected_copy, obj.key.get().copies)
+
+        # send again should reuse the same event
+        FakeConnection.sent = []
+        FakeConnection.relays = []
+
+        FakeConnection.to_receive = [
+            ['OK', id, True, ''],
+        ]
+
+        # we shouldn't call now()
+        with patch('granary.nostr.util.now') as mock_now:
+            self.assertTrue(Nostr.send(obj, 'other-relay', from_user=self.user))
+
+        mock_now.assert_not_called()
+        self.assert_equals(['other-relay'], FakeConnection.relays)
+        self.assert_equals([['EVENT', expected]], FakeConnection.sent)
+        self.assertTrue(granary.nostr.verify(expected))
+        self.assertEqual(expected_copy, obj.key.get().copies)
 
     def test_send_note_create(self):
         note = self.store_object(id='fake:note', our_as1={

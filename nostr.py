@@ -440,12 +440,29 @@ class Nostr(User, Protocol):
         """
         assert obj
         assert from_user
+        assert obj.source_protocol != 'nostr'
 
         if obj.type in ('post', 'update'):
             if not (obj := to_cls.load(as1.get_id(obj.as1, 'object'))):
                 return False
 
-        event = to_cls.convert(obj, from_user=from_user)
+        # store and reuse converted Nostr event across sends. granary.nostr.from_as1
+        # sets created_at to now, so if we convert fresh each time, we'll generate
+        # new events with different ids.
+        if not obj.nostr:
+            @ndb.transactional()
+            def convert():
+                nonlocal obj
+                stored = obj.key.get()
+                if stored:
+                    obj = stored
+                if not obj.nostr:
+                    obj.nostr = to_cls.convert(obj, from_user=from_user)
+                    obj.put()
+            convert()
+
+        event = obj.nostr
+        assert event
         assert event.get('pubkey') == from_user.hex_pubkey(), (event, from_user.key)
         assert event.get('sig'), event
         id = event['id']
