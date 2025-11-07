@@ -187,6 +187,7 @@ class NostrTest(TestCase):
 
     @patch('requests.get', return_value=requests_response({
         'names': {'alice': PUBKEY},
+        'relays': {PUBKEY: ['wss://nos.lol']},
     }))
     def test_handle_to_id(self, _):
         self.assertEqual(PUBKEY_URI, Nostr.handle_to_id('alice@example.com'))
@@ -760,6 +761,7 @@ class NostrTest(TestCase):
         self.assertEqual('application/json', resp.headers['Content-Type'])
         self.assert_equals({
             'names': {'fake-handle-alice': PUBKEY},
+            'relays': {PUBKEY: ['wss://nos.lol']},
         }, resp.json)
 
     def test_nip_05_web_user(self):
@@ -772,6 +774,7 @@ class NostrTest(TestCase):
         self.assertEqual('application/json', resp.headers['Content-Type'])
         self.assert_equals({
             'names': {'user.com': PUBKEY},
+            'relays': {PUBKEY: ['wss://nos.lol']},
         }, resp.json)
 
     def test_nip_05_user_nostr_not_enabled(self):

@@ -528,6 +528,10 @@ def nip_05():
                               )).get()
         if user and user.is_enabled(Nostr):
             if uri := user.get_copy(Nostr):
-                return {'names': {name: uri.removeprefix('nostr:')}}
+                id = uri.removeprefix('nostr:')
+                return {
+                    'names': {name: id},
+                    'relays': {id: [Nostr.DEFAULT_TARGET]},
+                }
 
     raise NotFound()
