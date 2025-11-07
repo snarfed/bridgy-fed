@@ -92,7 +92,7 @@ class NostrTest(TestCase):
         self.assertIsNone(Nostr().web_url())
 
         user = Nostr(id=PUBKEY_URI, obj_key=Object(id=ID_URI).key)
-        self.assertEqual(f'https://coracle.social/people/{NPUB}', user.web_url())
+        self.assertEqual(f'https://njump.me/{NPUB}', user.web_url())
 
     def test_is_profile(self):
         user = Nostr(id=PUBKEY_URI)
@@ -155,8 +155,7 @@ class NostrTest(TestCase):
         self.assertIsNone(Nostr.bridged_web_url_for(Fake()))
 
         user.copies=[Target(uri=PUBKEY_URI, protocol='nostr')]
-        self.assertEqual(f'https://coracle.social/people/{NPUB}',
-                         Nostr.bridged_web_url_for(user))
+        self.assertEqual(f'https://njump.me/{NPUB}', Nostr.bridged_web_url_for(user))
 
     def test_owns_id(self):
         self.assertTrue(Nostr.owns_id(PUBKEY_URI))
