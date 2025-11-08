@@ -409,10 +409,17 @@ class Nostr(User, Protocol):
                 base_obj = Nostr.load(id)
                 remote_relay = to_cls.target_for(base_obj)
 
+        # NIP-48 proxy tag with original protocol's id
+        proxy_tag = None
+        if ((orig_id := obj_as1.get('id')) and not orig_id.startswith('nostr:')
+                and obj.source_protocol):
+            proxy_tag = (orig_id, obj.source_protocol)
+
         # convert!
         privkey = from_user.nsec() if from_user else None
         event = granary.nostr.from_as1(translated, privkey=privkey,
-                                       remote_relay=remote_relay)
+                                       remote_relay=remote_relay,
+                                       proxy_tag=proxy_tag)
 
         # override d tag (if any) based on original protocol-native id, not
         # translated Nostr event id

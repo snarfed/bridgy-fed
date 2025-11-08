@@ -246,7 +246,7 @@ class NostrTest(TestCase):
                 'about': 'It me',
                 'nip05': 'alice.com@web.brid.gy',
             }, sort_keys=True),
-            'tags': [],
+            'tags': [['proxy', 'https://alice.com/', 'web']],
             'created_at': NOW_TS,
         }, Nostr.convert(user.obj, from_user=user), ignore=['id', 'sig'])
 
@@ -267,7 +267,7 @@ class NostrTest(TestCase):
                 'about': 'It me\n\n🌉 bridged from ⁂ http://in.st/alice by https://fed.brid.gy/',
                 'nip05': 'alice.in.st@ap.brid.gy',
             }, sort_keys=True, ensure_ascii=False),
-            'tags': [],
+            'tags': [['proxy', 'http://in.st/alice', 'activitypub']],
             'created_at': NOW_TS,
         }, Nostr.convert(user.obj, from_user=user), ignore=['id', 'sig'])
 
@@ -288,7 +288,7 @@ class NostrTest(TestCase):
                 'about': 'It me\n\n🌉 bridged from ⁂ http://in.st/actor by https://fed.brid.gy/',
                 'nip05': 'instance-actor.in.st@ap.brid.gy',
             }, sort_keys=True, ensure_ascii=False),
-            'tags': [],
+            'tags': [['proxy', 'http://in.st/actor', 'activitypub']],
             'created_at': NOW_TS,
         }, Nostr.convert(user.obj, from_user=user), ignore=['id', 'sig'])
 
@@ -312,25 +312,25 @@ class NostrTest(TestCase):
                 'nip05': 'han.dull@bsky.brid.gy',
                 'website':'https://bsky.app/profile/han.dull',
             }, sort_keys=True, ensure_ascii=False),
-            'tags': [],
+            'tags': [['proxy', 'did:plc:alice', 'atproto']],
             'created_at': NOW_TS,
         }, Nostr.convert(user.obj, from_user=user), ignore=['id', 'sig'])
 
     def test_convert_note(self):
         self.assert_equals({
             'kind': KIND_NOTE,
-            'id': '4a57c7a1dde3bfe13076db485c4f09756e54447f6389dbf6864d4139bc40a214',
+            'id': 'd2c60861c1690d306532e116d4cdf85e613c14d6ba838ee80540d595bcd1fa30',
             'pubkey': PUBKEY,
             'content': 'Something to say',
             'created_at': NOW_TS,
-            'tags': [],
+            'tags': [['proxy', 'fake:note', 'fake']],
         }, Nostr._convert(Object(our_as1={
             'objectType': 'note',
-            'id': ID_URI,
+            'id': 'fake:note',
             'author': PUBKEY_URI,
             'content': 'Something to say',
             'published': '2022-01-02T03:04:05+00:00',
-        })))
+        }, source_protocol='fake')))
 
     def test_convert_reply(self):
         note_obj = Object(id=f'nostr:{ID}', nostr={
@@ -435,15 +435,15 @@ class NostrTest(TestCase):
             'author': PUBKEY_URI,
             'content': 'Something to say',
             'published': '2022-01-02T03:04:05+00:00',
-        }), from_user=self.user)
+        }, source_protocol='fake'), from_user=self.user)
         self.assert_equals({
             'kind': KIND_NOTE,
-            'id': '4a57c7a1dde3bfe13076db485c4f09756e54447f6389dbf6864d4139bc40a214',
+            'id': 'cc4ea26a0a615a509059e38089a8c582fcf9df6e8a8d4e48ec474dac9de1b44f',
             'pubkey': PUBKEY,
             'content': 'Something to say',
             'created_at': NOW_TS,
-            'tags': [],
-            'sig': '65b42db33486f669fa4dff3dba2ed914dcda886d47177a747e5e574e1a87cd4da23b54350dba758ecd91d48625f5345c8516458c76bebf60b0de89d12fa76a11',
+            'tags': [['proxy', 'fake:post', 'fake']],
+            'sig': '64bbe5dab3554ec3992434bf6405cde379bbc485cdc08b3b25d3c803e0c96eb9ad1cf046d87bd9836adcf27f1ecba32e080d6e5d6132ff17890ca07e6d0afe33',
         }, got)
         self.assertTrue(granary.nostr.verify(got))
 
@@ -454,19 +454,20 @@ class NostrTest(TestCase):
             'author': PUBKEY_URI,
             'content': 'Something to say',
             'published': '2022-01-02T03:04:05+00:00',
-        })
+        }, source_protocol='fake')
 
         event = {
             'kind': KIND_ARTICLE,
-            'id': '288da70e240bc54d34c657d49312597b867ad33a6db50e6ec8a27e4b44ff1d0d',
+            'id': '9a199b8bb3a5ededd976152c467a3341028d4bbeb7352e7c4374fcdf6fe10c5c',
             'pubkey': PUBKEY,
             'content': 'Something to say',
             'created_at': NOW_TS,
             'tags': [
                 ['d', 'fake:post'],
+                ['proxy', 'fake:post', 'fake'],
                 ['published_at', str(NOW_TS)],
             ],
-            'sig': '1365f0f26f403bf8e979061dcd658a41267012e66241744cad2af9e278097a70acffb4276ecfa358e740e1c656db206a4f97bbd90798df03720e4507248d40c9',
+            'sig': '7717ffa8302698cb1e9002f1ba07c2d250a55b6a769b69a00281e74d275f5193a03bbd5eff5e7456db0c205551743d88228b3db98695c08c4e3c45bb6086c535',
         }
 
         self.assert_equals(event, Nostr.convert(obj, from_user=self.user))
@@ -483,17 +484,17 @@ class NostrTest(TestCase):
             'author': 'fake:user',
             'content': 'Something to say',
             'published': '2019-12-02T03:04:05+00:00',
-        })
+        }, source_protocol='fake')
 
-        id = '4a57c7a1dde3bfe13076db485c4f09756e54447f6389dbf6864d4139bc40a214'
+        id = 'd2c60861c1690d306532e116d4cdf85e613c14d6ba838ee80540d595bcd1fa30'
         expected = {
             'kind': KIND_NOTE,
             'id': id,
             'pubkey': PUBKEY,
             'content': 'Something to say',
             'created_at': NOW_TS,
-            'tags': [],
-            'sig': '65b42db33486f669fa4dff3dba2ed914dcda886d47177a747e5e574e1a87cd4da23b54350dba758ecd91d48625f5345c8516458c76bebf60b0de89d12fa76a11',
+            'tags': [['proxy', 'fake:note', 'fake']],
+            'sig': '9e51ec376b6dcbed4d64403c0d3dca0539bd222641ade55164a81706188c6a8a96506ef05caaf9ead5dfa44f7822187f4a68b2c27305075b88f6aee1befc71a2',
         }
         FakeConnection.to_receive = [
             ['OK', id, True, ''],
@@ -530,23 +531,23 @@ class NostrTest(TestCase):
             'author': 'fake:user',
             'content': 'Something to say',
             'published': '2019-12-02T03:04:05+00:00',
-        })
+        }, source_protocol='fake')
         create = Object(id='fake:create', our_as1={
             'objectType': 'activity',
             'verb': 'post',
             'author': 'fake:user',
             'object': note.as1,
-        })
+        }, source_protocol='fake')
 
-        id = '4a57c7a1dde3bfe13076db485c4f09756e54447f6389dbf6864d4139bc40a214'
+        id = 'd2c60861c1690d306532e116d4cdf85e613c14d6ba838ee80540d595bcd1fa30'
         expected = {
             'kind': KIND_NOTE,
             'id': id,
             'pubkey': PUBKEY,
             'content': 'Something to say',
             'created_at': NOW_TS,
-            'tags': [],
-            'sig': '65b42db33486f669fa4dff3dba2ed914dcda886d47177a747e5e574e1a87cd4da23b54350dba758ecd91d48625f5345c8516458c76bebf60b0de89d12fa76a11',
+            'tags': [['proxy', 'fake:note', 'fake']],
+            'sig': '9e51ec376b6dcbed4d64403c0d3dca0539bd222641ade55164a81706188c6a8a96506ef05caaf9ead5dfa44f7822187f4a68b2c27305075b88f6aee1befc71a2',
         }
         FakeConnection.to_receive = [
             ['OK', id, True, ''],
@@ -580,10 +581,10 @@ class NostrTest(TestCase):
                      our_as1={
                          'objectType': 'person',
                          'displayName': 'alice',
-                     })
+                     }, source_protocol='fake')
         obj.put()
 
-        profile_id = '37e4ed37a09bbb2e0b68cb3b175c14edeb14021e830f436fe2c816e4b7654588'
+        profile_id = '392e4188c957ca77f349a883db44c99abf9f967e701ee1dff92a6e1633491da6'
         relays_id = 'b644499566c9940eaa54de876ebebfcc0a0edbd029faa693aa0e1ab489a99ddf'
         expected = [
             ['EVENT', {
@@ -595,7 +596,7 @@ class NostrTest(TestCase):
                     'name': 'alice',
                 }, ensure_ascii=False),
                 'created_at': NOW_TS,
-                'tags': [],
+                'tags': [['proxy', 'fake:alice', 'fake']],
             }],
             ['EVENT', {
                 'kind': KIND_RELAYS,
@@ -627,7 +628,7 @@ class NostrTest(TestCase):
             'summary': 'foo bar'
         })
 
-        profile_id = 'e9fb90a5bc5732be166ad28e8b61c1864190a309db1333291516d43f0c273826'
+        profile_id = '0082e20d054d4f8eb7dde6798bdedfc29c26edbe9fcab2de352e881e94ba5f82'
         relays_id = 'b644499566c9940eaa54de876ebebfcc0a0edbd029faa693aa0e1ab489a99ddf'
         FakeConnection.to_receive = [
             ['OK', profile_id, True, ''],
@@ -648,7 +649,7 @@ class NostrTest(TestCase):
                     'nip05': 'efake-handle-alice@efake.brid.gy',
                 }, ensure_ascii=False),
                 'created_at': NOW_TS,
-                'tags': [],
+                'tags': [['proxy', 'efake:alice', 'efake']],
             }],
             ['EVENT', {
                 'kind': KIND_RELAYS,

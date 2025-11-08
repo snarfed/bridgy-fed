@@ -12,6 +12,7 @@ from dns.resolver import NXDOMAIN
 import google.cloud.dns.client
 from granary import as2, bluesky
 from granary.nostr import (
+    bech32_encode,
     KIND_ARTICLE,
     KIND_CONTACTS,
     KIND_NOTE,
@@ -25,6 +26,7 @@ from granary.tests.test_bluesky import ACTOR_PROFILE_BSKY, POST_BSKY
 from granary.tests.test_nostr import (
     FakeConnection,
     ID,
+    NPUB,
     NPUB_URI,
     NSEC_URI,
     PRIVKEY,
@@ -590,7 +592,6 @@ class IntegrationTests(TestCase):
     @patch('oauth_dropins.webutil.appengine_config.tasks_client.create_task')
     @patch('requests.get', side_effect=[
         # getRecord of original post
-        # alice profile
         requests_response({
             'uri': 'at://did:plc:alice/app.bsky.feed.post/123',
             'cid': 'sydd',
@@ -1702,6 +1703,7 @@ To disable these messages, reply with the text 'mute'.""",
                 'content': '<p>Hello from Nostr!</p>',
                 'contentMap': {'en': '<p>Hello from Nostr!</p>'},
                 'published': '2022-01-02T03:04:05+00:00',
+                'url': f'http://localhost/r/https://njump.me/{bech32_encode("note", post_event["id"])}',
             },
             'published': '2022-01-02T03:04:05+00:00',
         }, ignore=['@context', 'to'])
@@ -1738,7 +1740,7 @@ To disable these messages, reply with the text 'mute'.""",
             '$type': 'app.bsky.feed.post',
             'text': 'Hello from Nostr!',
             'bridgyOriginalText': 'Hello from Nostr!',
-            'bridgyOriginalUrl': 'nostr:' + post_event['id'],
+            'bridgyOriginalUrl': f'https://njump.me/{bech32_encode("note", post_event["id"])}',
             'createdAt': '2022-01-02T03:04:05.000Z',
         }}}, repo.get_contents())
 
@@ -1775,7 +1777,7 @@ To disable these messages, reply with the text 'mute'.""",
                 'kind': KIND_NOTE,
                 'pubkey': alice.hex_pubkey(),
                 'content': 'Hello from ActivityPub!',
-                'tags': [],
+                'tags': [['proxy', 'https://inst/post', 'activitypub']],
                 'created_at': NOW_SECONDS,
             }, alice.nsec())]], FakeConnection.sent)
 
@@ -1820,7 +1822,10 @@ To disable these messages, reply with the text 'mute'.""",
                 'kind': KIND_ARTICLE,
                 'pubkey': alice.hex_pubkey(),
                 'content': 'Updated content!',
-                'tags': [['d', 'https://inst/post']],
+                'tags': [
+                    ['d', 'https://inst/post'],
+                    ['proxy', 'https://inst/post', 'activitypub'],
+                ],
                 'created_at': NOW_SECONDS,
             }, privkey=alice.nsec())]], FakeConnection.sent)
 
@@ -1858,7 +1863,10 @@ To disable these messages, reply with the text 'mute'.""",
                 'kind': 5,
                 'pubkey': alice.hex_pubkey(),
                 'content': '',
-                'tags': [['e', ID]],
+                'tags': [
+                    ['proxy', 'https://inst/post', 'activitypub'],
+                    ['e', ID],
+                ],
                 'created_at': NOW_SECONDS,
             }, privkey=alice.nsec())]], FakeConnection.sent)
 
@@ -1898,7 +1906,7 @@ To disable these messages, reply with the text 'mute'.""",
                 'kind': KIND_NOTE,
                 'pubkey': alice.hex_pubkey(),
                 'content': 'Hello from Web!',
-                'tags': [],
+                'tags': [['proxy', 'https://alice.com/post', 'web']],
                 'created_at': NOW_SECONDS,
             }, privkey=alice.nsec())]], FakeConnection.sent)
 
@@ -1930,7 +1938,8 @@ To disable these messages, reply with the text 'mute'.""",
                 'kind': KIND_NOTE,
                 'pubkey': alice.hex_pubkey(),
                 'content': 'Hello from ATProto!',
-                'tags': [],
+                'tags': [['proxy', 'at://did:plc:alice/app.bsky.feed.post/123',
+                          'atproto']],
                 'created_at': NOW_SECONDS,
             }, privkey=alice.nsec())]], FakeConnection.sent)
 
@@ -1966,13 +1975,9 @@ To disable these messages, reply with the text 'mute'.""",
         self.assertFalse(bob.is_enabled(ActivityPub))
 
     @patch('requests.post', return_value=requests_response('OK'))
-    @patch('requests.get', side_effect=[
-        requests_response({'names': {'bob': PUBKEY}}),  # NIP-05 validation
-    ])
     @patch('secrets.token_urlsafe',
            side_effect=['sub123', 'sub456', 'sub789', 'subabc'])
-    def test_nostr_follow_activitypub_bot_user_enables_protocol(self, _, mock_get,
-                                                                mock_post):
+    def test_nostr_follow_activitypub_bot_user_enables_protocol(self, _, mock_post):
         """Nostr follow of ap.brid.gy bot user enables the ActivityPub protocol.
 
         Nostr user bob@nostr.example.com (NPUB_URI) with valid NIP-05
@@ -2002,7 +2007,6 @@ To disable these messages, reply with the text 'mute'.""",
 
     @patch('requests.post', return_value=requests_response('OK'))
     @patch('requests.get', side_effect=[
-        requests_response({'names': {'bob': PUBKEY}}),  # bob NIP-05 validation
         requests_response(''),  # bob profile picture
     ])
     @patch('secrets.token_urlsafe',
@@ -2273,6 +2277,7 @@ To disable these messages, reply with the text 'mute'.""",
                 'content': '<p>Replying to Alice!</p>',
                 'contentMap': {'en': '<p>Replying to Alice!</p>'},
                 'inReplyTo': 'https://inst/post',
+                'url': f'http://localhost/r/https://njump.me/{bech32_encode("note", reply["id"])}',
                 'tag': [{'type': 'Mention', 'href': 'https://inst/alice'}],
                 'published': '2022-01-02T03:04:05+00:00',
                 'cc': ['https://inst/alice'],
@@ -2324,7 +2329,10 @@ To disable these messages, reply with the text 'mute'.""",
                 'kind': KIND_NOTE,
                 'pubkey': alice.hex_pubkey(),
                 'content': 'Replying to Bob!',
-                'tags': [['e', post['id'], 'reelaay']],
+                'tags': [
+                    ['proxy', 'https://inst/reply', 'activitypub'],
+                    ['e', post['id'], 'reelaay'],
+                ],
                 'created_at': NOW_SECONDS,
             }, privkey=alice.nsec())]
         ] * 2, FakeConnection.sent)
@@ -2377,7 +2385,10 @@ To disable these messages, reply with the text 'mute'.""",
                 'kind': KIND_NOTE,
                 'pubkey': alice.hex_pubkey(),
                 'content': 'Replying to Bob!',
-                'tags': [['e', post['id'], 'reelaay']],
+                'tags': [
+                    ['proxy', 'https://alice.com/reply', 'web'],
+                    ['e', post['id'], 'reelaay'],
+                ],
                 'created_at': NOW_SECONDS,
             }, privkey=alice.nsec())],
         ] * 2, FakeConnection.sent)
@@ -2502,12 +2513,13 @@ To disable these messages, reply with the text 'mute'.""",
                 'kind': KIND_NOTE,
                 'pubkey': alice.hex_pubkey(),
                 'content': 'Replying to Bob!',
-                'tags': [],
+                'tags': [['proxy', 'at://did:plc:alice/app.bsky.feed.post/456',
+                          'atproto']],
                 'created_at': NOW_SECONDS,
             }, privkey=alice.nsec())]], FakeConnection.sent)
 
     @patch('requests.post')
-    @patch('requests.get', return_value= requests_response({
+    @patch('requests.get', return_value=requests_response({
         'names': {'bob': PUBKEY},
     }))
     def test_nostr_user_profile_update_to_activitypub(self, mock_get, mock_post):
@@ -2548,7 +2560,6 @@ To disable these messages, reply with the text 'mute'.""",
         self.assertEqual('bob@new.example.com', bob.valid_nip05)
         self.assertIsNone(bob.status)
 
-        npub = NPUB_URI.removeprefix('nostr:')
         self.assert_ap_deliveries(mock_post, ['https://inst/alice/inbox'],
                                   from_user=bob, data={
             'type': 'Update',
@@ -2561,9 +2572,17 @@ To disable these messages, reply with the text 'mute'.""",
                 'outbox': f'https://nostr.brid.gy/ap/{PUBKEY_URI}/outbox',
                 'name': 'Bob Updated',
                 'preferredUsername': 'bob.new.example.com',
-                'summary': f'New bio<br><br>🌉 <a href="https://fed.brid.gy/nostr/bob@new.example.com">bridged</a> from 𓅦 <a href="https://njump.me/{npub}">bob@new.example.com</a> by <a href="https://fed.brid.gy/">Bridgy Fed</a>',
-                'url': f'http://localhost/r/https://njump.me/{npub}',
-                'attachment': [{'type': 'Image', 'url': 'http://new-pic'}],
+                'summary': f'New bio<br><br>🌉 <a href="https://fed.brid.gy/nostr/bob@new.example.com">bridged</a> from 𓅦 <a href="https://njump.me/{NPUB}">bob@new.example.com</a> by <a href="https://fed.brid.gy/">Bridgy Fed</a>',
+                'url': 'http://localhost/r/https://njump.me/bob@new.example.com',
+                'attachment': [{
+                    'name': 'Link',
+                    'type': 'PropertyValue',
+                    'value': '<a rel="me" href="https://njump.me/bob@new.example.com"><span class="invisible">https://</span>njump.me/bob@new.example.com</a>'
+                }, {
+                    'type': 'Image',
+                    'url': 'http://new-pic',
+                },
+                ],
                 'image': {'type': 'Image', 'url': 'http://new-pic'},
                 'icon': {'type': 'Image', 'url': 'http://new-pic'},
                 'published': '2022-01-02T03:04:05+00:00',
@@ -2614,7 +2633,7 @@ To disable these messages, reply with the text 'mute'.""",
                     'name': 'Alice Updated',
                     'picture': 'http://new-pic/',
                 }, ensure_ascii=False),
-                'tags': [],
+                'tags': [['proxy', 'https://inst/alice', 'activitypub']],
                 'created_at': NOW_SECONDS,
             }, privkey=alice.nsec())]], FakeConnection.sent)
 
@@ -2650,7 +2669,7 @@ To disable these messages, reply with the text 'mute'.""",
                     'picture': 'http://new-pic',
                     'website': 'https://alice.com/',
                 }, ensure_ascii=False),
-                'tags': [],
+                'tags': [['proxy', 'https://alice.com/', 'web']],
                 'created_at': NOW_SECONDS,
             }, privkey=alice.nsec())]], FakeConnection.sent)
 
@@ -2688,6 +2707,6 @@ To disable these messages, reply with the text 'mute'.""",
                 'picture': 'https://some.pds/xrpc/com.atproto.sync.getBlob?did=did:plc:alice&cid=bafy',
                 'website': 'https://bsky.app/profile/alice.com',
             }, ensure_ascii=False),
-            'tags': [],
+            'tags': [['proxy', 'did:plc:alice', 'atproto']],
             'created_at': NOW_SECONDS,
         }, privkey=alice.nsec())]], FakeConnection.sent)

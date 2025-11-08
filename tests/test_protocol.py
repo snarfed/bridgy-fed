@@ -2909,6 +2909,7 @@ class ProtocolReceiveTest(TestCase):
             'username': 'eve.com',
             'image': ['http://eve/pic'],
             'updated': '2022-01-02T03:04:05+00:00',
+            'urls': ['https://njump.me/eve.com'],
         }
         # TODO: the nostr property is still the original profile event. ideally
         # we should update it too or clear it

@@ -942,7 +942,7 @@ class Protocol:
           obj (dict): AS1 object or activity (not :class:`models.Object`!)
 
         Returns:
-          dict: wrapped AS1 version of ``obj``
+          dict: translated AS1 version of ``obj``
         """
         assert to_cls != Protocol
         if not obj:

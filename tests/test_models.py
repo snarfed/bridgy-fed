@@ -37,6 +37,7 @@ from granary.tests.test_nostr import (
     PRIVKEY,
     PUBKEY,
     PUBKEY_URI,
+    URI,
 )
 from .test_activitypub import ACTOR
 from .test_atproto import DID_DOC
@@ -1198,6 +1199,7 @@ class ObjectTest(TestCase):
             'author': PUBKEY_URI,
             'content': 'Something to say',
             'published': '2022-01-02T03:04:05+00:00',
+            'url': f'https://njump.me/{URI.removeprefix("nostr:")}',
         }, obj.as1)
 
     def test_as1_image_proxy_domain(self):
