@@ -1649,6 +1649,7 @@ def nodeinfo():
         'protocols': [
             'activitypub',
             'atprotocol',
+            'nostr',
             'webmention',
         ],
         'services': {
