@@ -7,8 +7,9 @@ https://github.com/nostr-protocol/nips#list
 Nostr Object key ids are NIP-21 nostr:... URIs.
 https://nips.nostr.com/21
 """
-import logging
 from datetime import timezone
+import logging
+from urllib.parse import urlparse, urlunparse
 
 from google.cloud import ndb
 from google.cloud.ndb.query import OR
@@ -30,7 +31,6 @@ from granary.nostr import (
     KIND_REPOST,
     ID_RE,
     nip05_to_npub,
-    normalize_relay_uri,
     uri_to_id,
 )
 from oauth_dropins.webutil import flask_util
@@ -547,3 +547,37 @@ def nip_05():
                 }
 
     raise NotFound()
+
+
+def normalize_relay_uri(uri):
+    """Returns a normalized relay URI.
+
+    Right now, just adds a trailing slash if the URI has no path, and removes the port
+    if it's explicitly provided and redundant, ie ``:443`` for ``wss://`` or ``:80``
+    for ``ws://``.
+
+    https://github.com/nostr-protocol/nips/issues/1876
+    https://github.com/nostr-protocol/nips/issues/1198
+
+    Args:
+        uri (str)
+
+    Returns:
+        str: normalized URI
+    """
+    if not uri or Nostr.is_blocklisted(uri):
+        return None
+
+    parsed = urlparse(uri)
+
+    # remove redundant port
+    if ((parsed.scheme == 'wss' and parsed.port == 443)
+            or (parsed.scheme == 'ws' and parsed.port == 80)):
+        netloc = parsed.hostname
+    else:
+        netloc = parsed.netloc
+
+    # add trailing slash if no path
+    path = parsed.path or '/'
+
+    return urlunparse(parsed._replace(netloc=netloc, path=path))

@@ -1053,3 +1053,32 @@ class NostrTest(TestCase):
                 'verb': 'update',
                 'object': {'objectType': 'note'},
             }), 'send')
+
+    @patch('protocol.DEBUG', False)
+    def test_normalize_relay_uri(self):
+        for uri, expected in (
+            (None, None),
+            ('', None),
+            ('wss://re.lay', 'wss://re.lay/'),
+            ('wss://re.lay/', 'wss://re.lay/'),
+            ('wss://re.lay:443', 'wss://re.lay/'),
+            ('wss://re.lay:443/', 'wss://re.lay/'),
+            ('wss://re.lay:8443', 'wss://re.lay:8443/'),
+            ('wss://re.lay:8443/foo', 'wss://re.lay:8443/foo'),
+            ('wss://re.lay:443/foo', 'wss://re.lay/foo'),
+            ('ws://re.lay', 'ws://re.lay/'),
+            ('ws://re.lay/', 'ws://re.lay/'),
+            ('ws://re.lay:80', 'ws://re.lay/'),
+            ('ws://re.lay:80/', 'ws://re.lay/'),
+            ('ws://re.lay:8080', 'ws://re.lay:8080/'),
+            ('ws://re.lay:8080/foo', 'ws://re.lay:8080/foo'),
+            ('ws://re.lay:80/foo', 'ws://re.lay/foo'),
+            ('wss://re.lay/path/to/relay', 'wss://re.lay/path/to/relay'),
+            ('wss://re.lay:443/path/to/relay', 'wss://re.lay/path/to/relay'),
+            # blocklisted
+            ('wss://localhost', None),
+            ('wss://abc.onion/', None),
+            ('wss://fed.brid.gy:443/', None),
+        ):
+            with self.subTest(uri=uri):
+                self.assertEqual(expected, nostr.normalize_relay_uri(uri))

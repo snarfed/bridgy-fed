@@ -12,7 +12,6 @@ from granary.nostr import (
     KIND_DELETE,
     KIND_REACTION,
     KIND_RELAYS,
-    normalize_relay_uri,
     uri_for,
     uri_to_id,
     verify,
@@ -31,7 +30,7 @@ from common import (
     report_exception,
 )
 from models import Object, PROTOCOLS
-from nostr import Nostr, NostrRelay
+from nostr import normalize_relay_uri, Nostr, NostrRelay
 from protocol import DELETE_TASK_DELAY
 from ui import UIProtocol
 
