@@ -5,8 +5,10 @@
 """
 from datetime import timedelta
 import logging
+import re
 from urllib.parse import urljoin, urlparse
 
+from common import DOMAIN_RE
 from flask import render_template, request
 from granary import as2
 from oauth_dropins.webutil import flask_util, util
@@ -25,6 +27,7 @@ from common import (
 )
 from flask_app import app
 from protocol import Protocol
+import web
 from web import Web
 
 SUBSCRIBE_LINK_REL = 'http://ostatus.org/schema/1.0/subscribe'
@@ -56,48 +59,55 @@ class Webfinger(flask_util.XrdOrJrd):
         if resource in ('', '/', f'acct:{host}', f'acct:@{host}'):
             error('Expected other domain, not *.brid.gy')
 
-        cls = None
+        proto = None
         try:
             username, server = util.parse_acct_uri(resource)
             id = server
-            cls = Protocol.for_bridgy_subdomain(id, fed='web')
-            if cls:
+            proto = Protocol.for_bridgy_subdomain(id, fed='web')
+            if proto:
                 id = username
         except ValueError:
             id = username = server = urlparse(resource).netloc or resource
 
         if id == PRIMARY_DOMAIN or id in PROTOCOL_DOMAINS:
-            cls = Web
-        elif not cls:
-            cls = Protocol.for_request(fed='web')
+            proto = Web
+        elif not proto:
+            proto = Protocol.for_request(fed='web')
 
-        if not cls:
+        if not proto:
             error(f"Couldn't determine protocol for f{resource}")
 
         # is this a handle?
-        if cls.owns_id(id) is False:
-            logger.info(f'{id} is not a {cls.LABEL} id')
+        if proto.owns_id(id) is False:
+            logger.info(f'{id} is not a {proto.LABEL} id')
             handle = id
             id = None
-            if cls.owns_handle(handle) is not False:
-                logger.info('  ...might be a handle, trying to resolve')
-                id = cls.handle_to_id(handle)
+
+            if web.is_valid_domain(handle):
+                logger.info(f'  looking for handle_as_domain')
+                if key := proto.query(proto.handle_as_domain == handle)\
+                               .get(keys_only=True):
+                    id = key.id()
+
+            if not id and proto.owns_handle(handle) is not False:
+                logger.info('  might be a handle, trying to resolve')
+                id = proto.handle_to_id(handle)
 
         if not id:
-            error(f'{resource} is not a valid handle for a {cls.LABEL} user',
+            error(f'{resource} is not a valid handle for a {proto.LABEL} user',
                   status=404)
 
-        logger.info(f'Protocol {cls.LABEL}, user id {id}')
+        logger.info(f'Protocol {proto.LABEL}, user id {id}')
 
-        user = cls.get_by_id(id)
+        user = proto.get_by_id(id)
         if (not user
                 or not user.is_enabled(activitypub.ActivityPub)
-                or (cls == Web and username not in (user.key.id(), user.username()))):
-            error(f'No {cls.LABEL} user found for {id}', status=404)
+                or (proto == Web and username not in (user.key.id(), user.username()))):
+            error(f'No {proto.LABEL} user found for {id}', status=404)
 
         ap_handle = user.handle_as('activitypub')
         if not ap_handle:
-            error(f'{cls.LABEL} user {id} has no handle', status=404)
+            error(f'{proto.LABEL} user {id} has no handle', status=404)
 
         # backward compatibility for initial Web users whose AP actor ids are on
         # fed.brid.gy, not web.brid.gy
@@ -166,7 +176,7 @@ class Webfinger(flask_util.XrdOrJrd):
                 # https://www.w3.org/TR/activitypub/#sharedInbox
                 'rel': 'sharedInbox',
                 'type': as2.CONTENT_TYPE_LD_PROFILE,
-                'href': common.subdomain_wrap(cls, '/ap/sharedInbox'),
+                'href': common.subdomain_wrap(proto, '/ap/sharedInbox'),
             },
 
             # remote follow

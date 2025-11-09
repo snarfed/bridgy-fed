@@ -4,17 +4,23 @@ from unittest.mock import patch
 import urllib.parse
 
 from granary.as2 import CONTENT_TYPE, CONTENT_TYPE_LD_PROFILE
+from granary.nostr import KIND_PROFILE
+from granary.tests.test_bluesky import ACTOR_PROFILE_BSKY
+from granary.tests.test_nostr import ID, NPUB, PUBKEY, PUBKEY_URI
 from oauth_dropins.webutil import util
 from oauth_dropins.webutil.testutil import requests_response
 
 # import first so that Fake is defined before URL routes are registered
 from .testutil import ExplicitFake, Fake, TestCase
 
+from atproto import ATProto
 from models import PROTOCOLS
+from nostr import Nostr
 import protocol
 from web import Web
 from webfinger import fetch, fetch_actor_url
 
+from .test_atproto import DID_DOC
 from . import test_web
 
 
@@ -354,6 +360,120 @@ class WebfingerTest(TestCase):
             self.assertEqual(404, got.status_code)
         finally:
             PROTOCOLS.pop('nohandle')
+
+    def test_atproto_user(self):
+        self.store_object(id='did:plc:user', raw={
+            **DID_DOC,
+            'alsoKnownAs': ['at://han.dull'],
+        })
+        self.user = self.make_user(
+            'did:plc:user', cls=ATProto, enabled_protocols=['activitypub'],
+            obj_bsky=ACTOR_PROFILE_BSKY)
+
+        got = self.client.get(
+            '/.well-known/webfinger?resource=acct:han.dull@bsky.brid.gy')
+        self.assertEqual(200, got.status_code, got.get_data(as_text=True))
+        self.assert_equals({
+            'subject': 'acct:han.dull@bsky.brid.gy',
+            'aliases': ['https://bsky.app/profile/han.dull', 'https://han.dull/'],
+            'links': [{
+                'rel': 'http://webfinger.net/rel/profile-page',
+                'type': 'text/html',
+                'href': 'https://bsky.app/profile/han.dull',
+            }, {
+                'rel': 'http://webfinger.net/rel/profile-page',
+                'type': 'text/html',
+                'href': 'https://han.dull/',
+            }, {
+                'rel': 'http://webfinger.net/rel/avatar',
+                'href': 'https://some.pds/xrpc/com.atproto.sync.getBlob?did=did:plc:user&cid=bafkreicqpqncshdd27sgztqgzocd3zhhqnnsv6slvzhs5uz6f57cq6lmtq',
+            }, {
+                'rel': 'http://webfinger.net/rel/avatar',
+                'href': 'https://some.pds/xrpc/com.atproto.sync.getBlob?did=did:plc:user&cid=bafyjrot',
+            }, {
+                'rel': 'canonical_uri',
+                'type': 'text/html',
+                'href': 'https://bsky.app/profile/han.dull',
+            }, {
+                'rel': 'self',
+                'type': 'application/ld+json; profile="https://www.w3.org/ns/activitystreams"',
+                'href': 'https://bsky.brid.gy/ap/did:plc:user',
+            }, {
+                'rel': 'self',
+                'type': 'application/activity+json',
+                'href': 'https://bsky.brid.gy/ap/did:plc:user',
+            }, {
+                'rel': 'inbox',
+                'type': 'application/ld+json; profile="https://www.w3.org/ns/activitystreams"',
+                'href': 'https://bsky.brid.gy/ap/did:plc:user/inbox',
+            }, {
+                'rel': 'sharedInbox',
+                'type': 'application/ld+json; profile="https://www.w3.org/ns/activitystreams"',
+                'href': 'https://bsky.brid.gy/ap/sharedInbox',
+            }, {
+                'rel': 'http://ostatus.org/schema/1.0/subscribe',
+                'template': 'https://fed.brid.gy/bsky/han.dull?url={uri}',
+            }],
+        } , got.json)
+
+    def test_nostr_user(self):
+        user = self.make_user(
+            PUBKEY_URI, cls=Nostr, enabled_protocols=['activitypub'],
+            valid_nip05='alice@examp.ly', obj_nostr={
+                'kind': KIND_PROFILE,
+                'id': ID,
+                'pubkey': PUBKEY,
+                'content': util.json_dumps({
+                    'name': 'Alice',
+                    'nip05': 'alice@examp.ly',
+                'picture': 'http://alice/pic',
+                }),
+                'tags': [],
+            })
+        self.assertEqual('alice.examp.ly', user.handle_as_domain)
+
+        got = self.client.get(
+            '/.well-known/webfinger?resource=acct:alice.examp.ly@nostr.brid.gy')
+        self.assertEqual(200, got.status_code, got.get_data(as_text=True))
+        self.assert_equals({
+            'subject': 'acct:alice.examp.ly@nostr.brid.gy',
+            'aliases': ['https://njump.me/alice@examp.ly', f'https://njump.me/{NPUB}'],
+            'links': [{
+                'rel': 'http://webfinger.net/rel/profile-page',
+                'type': 'text/html',
+                'href': 'https://njump.me/alice@examp.ly',
+            }, {
+                'rel': 'http://webfinger.net/rel/profile-page',
+                'type': 'text/html',
+                'href': f'https://njump.me/{NPUB}',
+            }, {
+                'rel': 'http://webfinger.net/rel/avatar',
+                'href': 'http://alice/pic',
+            }, {
+                'rel': 'canonical_uri',
+                'type': 'text/html',
+                'href': 'https://njump.me/alice@examp.ly',
+            }, {
+                'rel': 'self',
+                'type': 'application/ld+json; profile="https://www.w3.org/ns/activitystreams"',
+                'href': f'https://nostr.brid.gy/ap/{PUBKEY_URI}',
+            }, {
+                'rel': 'self',
+                'type': 'application/activity+json',
+                'href': f'https://nostr.brid.gy/ap/{PUBKEY_URI}',
+            }, {
+                'rel': 'inbox',
+                'type': 'application/ld+json; profile="https://www.w3.org/ns/activitystreams"',
+                'href': f'https://nostr.brid.gy/ap/{PUBKEY_URI}/inbox',
+            }, {
+                'rel': 'sharedInbox',
+                'type': 'application/ld+json; profile="https://www.w3.org/ns/activitystreams"',
+                'href': 'https://nostr.brid.gy/ap/sharedInbox',
+            }, {
+                'rel': 'http://ostatus.org/schema/1.0/subscribe',
+                'template': 'https://fed.brid.gy/nostr/alice@examp.ly?url={uri}',
+            }],
+        } , got.json)
 
     # skip _pre_put_hook since it doesn't allow internal domains
     @patch.object(Web, '_pre_put_hook', new=lambda self: None)

@@ -496,6 +496,7 @@ class TestCase(unittest.TestCase, testutil.Asserts):
             if not obj_id:
                 obj_id = ((obj_as2 or {}).get('id')
                           or util.get_url((obj_mf2 or {}), 'properties')
+                          or (('nostr:' + obj_nostr['id']) if obj_nostr else None)
                           or user.profile_id())
             if obj_id:
                 user.obj_key = Object.get_or_create(
