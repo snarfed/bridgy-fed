@@ -138,6 +138,9 @@ class Nostr(User, Protocol):
         """
         return id_to_uri('npub', self.hex_pubkey()).removeprefix('nostr:')
 
+    def id_uri(self):
+        return id_to_uri('npub', self.hex_pubkey())
+
     @ndb.ComputedProperty
     def handle(self):
         """Returns the NIP-05 identity from the user's profile event."""
