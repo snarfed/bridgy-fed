@@ -1144,6 +1144,9 @@ def postprocess_as2_actor(actor, user):
     if not id or user.is_web_url(id) or unwrap(id) in (
             user_id, user.profile_id(), f'www.{user_id}'):
         id = actor['id'] = user.id_as(ActivityPub)
+        actor['@context'] = util.get_list(actor, '@context')
+        add(actor['@context'], AKA_CONTEXT)
+        add(actor.setdefault('alsoKnownAs', []), user.id_uri())
 
     # required by ActivityPub
     # https://www.w3.org/TR/activitypub/#actor-objects
@@ -1270,10 +1273,6 @@ def actor(handle_or_id):
         'type': 'Person',
     }
     actor = postprocess_as2_actor(actor, user=user)
-
-    actor['@context'] = util.get_list(actor, '@context')
-    add(actor['@context'], AKA_CONTEXT)
-    add(actor.setdefault('alsoKnownAs', []), user.id_uri())
 
     actor.update({
         'id': id,

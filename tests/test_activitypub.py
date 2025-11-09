@@ -27,6 +27,7 @@ from .testutil import ExplicitFake, Fake, global_user, OtherFake, TestCase
 import activitypub
 from activitypub import (
     ActivityPub,
+    AKA_CONTEXT,
     instance_actor,
     postprocess_as2,
     postprocess_as2_actor,
@@ -58,7 +59,7 @@ ACTOR = {
 }
 ACTOR_AS1 = as2.to_as1(ACTOR)
 ACTOR_BASE = {
-    '@context': as2.CONTEXT + [activitypub.SECURITY_CONTEXT, activitypub.AKA_CONTEXT],
+    '@context': as2.CONTEXT + [SECURITY_CONTEXT, AKA_CONTEXT],
     'type': 'Person',
     'id': 'http://localhost/user.com',
     'url': 'http://localhost/r/https://user.com/',
@@ -83,7 +84,7 @@ ACTOR_BASE_FULL = {
     }],
 }
 ACTOR_FAKE = {
-    '@context': as2.CONTEXT + [activitypub.SECURITY_CONTEXT, activitypub.AKA_CONTEXT],
+    '@context': as2.CONTEXT + [AKA_CONTEXT, SECURITY_CONTEXT],
     'type': 'Person',
     'id': 'https://fa.brid.gy/ap/fake:user',
     'url': 'https://fa.brid.gy/r/web:fake:user',
@@ -102,8 +103,8 @@ ACTOR_FAKE_USER = {
     '@context': as2.CONTEXT + [
         as2.DISCOVERABLE_INDEXABLE_CONTEXT,
         as2.PROPERTY_VALUE_CONTEXT,
-        activitypub.SECURITY_CONTEXT,
-        activitypub.AKA_CONTEXT,
+        SECURITY_CONTEXT,
+        AKA_CONTEXT,
     ],
     'name': 'fake-handle-user',
     'type': 'Person',
@@ -2881,7 +2882,7 @@ class ActivityPubUtilsTest(TestCase):
                          got['url'])
 
     def test_postprocess_as2_actor_doesnt_duplicate_security_context(self):
-        self.assert_equals([SECURITY_CONTEXT], postprocess_as2_actor({
+        self.assert_equals([SECURITY_CONTEXT, AKA_CONTEXT], postprocess_as2_actor({
             '@context': [SECURITY_CONTEXT],
         }, user=self.user)['@context'])
 

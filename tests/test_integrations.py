@@ -2568,6 +2568,7 @@ To disable these messages, reply with the text 'mute'.""",
             'object': {
                 'type': 'Person',
                 'id': f'https://nostr.brid.gy/ap/{PUBKEY_URI}',
+                'alsoKnownAs': [NPUB_URI],
                 'inbox': f'https://nostr.brid.gy/ap/{PUBKEY_URI}/inbox',
                 'outbox': f'https://nostr.brid.gy/ap/{PUBKEY_URI}/outbox',
                 'name': 'Bob Updated',

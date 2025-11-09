@@ -90,6 +90,7 @@ ACTOR_AS1_UNWRAPPED_URLS = {
 ACTOR_AS2 = {
     'type': 'Person',
     'id': 'http://localhost/user.com',
+    'alsoKnownAs': ['https://user.com/'],
     'url': 'http://localhost/r/https://user.com/',
     'name': 'Ms. ☕ Baz',
     'preferredUsername': 'user.com',
