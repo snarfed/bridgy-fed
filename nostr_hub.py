@@ -12,6 +12,7 @@ from granary.nostr import (
     KIND_DELETE,
     KIND_REACTION,
     KIND_RELAYS,
+    normalize_relay_uri,
     uri_for,
     uri_to_id,
     verify,
@@ -127,6 +128,7 @@ def add_relay(uri):
     Args:
       uri (str): URI, relay websocket adddress, starting with ``ws://`` or ``wss://``
     """
+    uri = normalize_relay_uri(uri)
     if Nostr.is_blocklisted(uri):
         logger.warning(f'Not subscribing to relay {uri}')
         return

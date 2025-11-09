@@ -114,7 +114,7 @@ class NostrHubTest(TestCase):
         FakeConnection.reset()
         nostr_hub.init(subscribe=True)
         FakeConnection.connected.acquire(timeout=10)
-        self.assertEqual(['wss://a'], FakeConnection.relays)
+        self.assertEqual(['wss://a/'], FakeConnection.relays)
 
         eve = self.make_nostr('eve', EVE_NSEC_URI, EVE_PUBKEY, relays=relays_a)
 
@@ -133,7 +133,7 @@ class NostrHubTest(TestCase):
         FakeConnection.reset()
         nostr_hub.init(subscribe=True)
         FakeConnection.connected.acquire(timeout=10)
-        self.assertEqual(['wss://b'], FakeConnection.relays)
+        self.assertEqual(['wss://b/'], FakeConnection.relays)
 
     @patch('nostr_hub.RECONNECT_DELAY', timedelta(seconds=.01))
     def test_load_new_user_makes_existing_subscribers_reconnect(self, _, __):
@@ -469,3 +469,15 @@ class NostrHubTest(TestCase):
 
         self.serve_and_subscribe([event, event])
         mock_create_task.assert_called_once()
+
+    def test_add_relay_normalizes_uri(self, _, __):
+        for uri in (
+                'wss://re.lay',
+                'wss://re.lay/',
+                'wss://re.lay:443',
+                'wss://re.lay:443/',
+        ):
+            with self.subTest(uri=uri):
+                nostr_hub.add_relay(uri)
+                self.assertEqual(['wss://re.lay/'],
+                                 list(nostr_hub.subscribed_relays.keys()))

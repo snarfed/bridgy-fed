@@ -30,6 +30,7 @@ from granary.nostr import (
     KIND_REPOST,
     ID_RE,
     nip05_to_npub,
+    normalize_relay_uri,
     uri_to_id,
 )
 from oauth_dropins.webutil import flask_util
@@ -85,7 +86,7 @@ class Nostr(User, Protocol):
     LOGO_HTML = '<img src="/static/nostr_logo.png">'
     CONTENT_TYPE = 'application/json'
     HAS_COPIES = True
-    DEFAULT_TARGET = 'wss://nos.lol'
+    DEFAULT_TARGET = 'wss://nos.lol/'
     REQUIRES_AVATAR = True
     REQUIRES_NAME = True
     DEFAULT_ENABLED_PROTOCOLS = ()  # TODO: add back 'web' for launch?
@@ -261,7 +262,7 @@ class Nostr(User, Protocol):
                     if relays.nostr:
                         for tag in relays.nostr.get('tags', []):
                             if tag[0] == 'r' and (len(tag) == 2 or tag[2] == 'write'):
-                                return tag[1]
+                                return normalize_relay_uri(tag[1])
 
     @classmethod
     def check_supported(cls, obj, direction):
@@ -306,7 +307,7 @@ class Nostr(User, Protocol):
         https://nips.nostr.com/5
         """
         client = granary.nostr.Nostr()
-        relay = self.target_for(self.obj) or self.DEFAULT_TARGET
+        relay = normalize_relay_uri(self.target_for(self.obj) or self.DEFAULT_TARGET)
         logger.debug(f'connecting to {relay}')
         with connect(relay, open_timeout=util.HTTP_TIMEOUT,
                      close_timeout=util.HTTP_TIMEOUT) as websocket:
@@ -367,7 +368,7 @@ class Nostr(User, Protocol):
 
         id = obj.key.id().removeprefix('nostr:')
         client = granary.nostr.Nostr()
-        relay = cls.target_for(obj) or cls.DEFAULT_TARGET
+        relay = normalize_relay_uri(cls.target_for(obj) or cls.DEFAULT_TARGET)
         assert relay
         logger.debug(f'connecting to {relay}')
         with connect(relay, open_timeout=util.HTTP_TIMEOUT,
@@ -448,6 +449,7 @@ class Nostr(User, Protocol):
         including updates and deletes. :meth:`granary.nostr.from_as1` translates all
         of those, so all we have to do here is convert and send the event.
         """
+        relay_url = normalize_relay_uri(relay_url)
         assert obj
         assert from_user
         assert obj.source_protocol != 'nostr'

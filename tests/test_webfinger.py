@@ -20,7 +20,7 @@ import protocol
 from web import Web
 from webfinger import fetch, fetch_actor_url
 
-from .test_atproto import DID_DOC
+from . import test_atproto
 from . import test_web
 
 
@@ -363,7 +363,7 @@ class WebfingerTest(TestCase):
 
     def test_atproto_user(self):
         self.store_object(id='did:plc:user', raw={
-            **DID_DOC,
+            **test_atproto.DID_DOC,
             'alsoKnownAs': ['at://han.dull'],
         })
         self.user = self.make_user(

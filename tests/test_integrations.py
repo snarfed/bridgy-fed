@@ -2379,7 +2379,7 @@ To disable these messages, reply with the text 'mute'.""",
         })
         self.assertEqual(202, resp.status_code)
 
-        self.assert_equals(['wss://nos.lol', 'reelaay'], FakeConnection.relays)
+        self.assert_equals(['wss://nos.lol/', 'reelaay'], FakeConnection.relays)
         self.assert_equals([
             ['EVENT', id_and_sign({
                 'kind': KIND_NOTE,

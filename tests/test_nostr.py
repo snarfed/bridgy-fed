@@ -186,7 +186,7 @@ class NostrTest(TestCase):
 
     @patch('requests.get', return_value=requests_response({
         'names': {'alice': PUBKEY},
-        'relays': {PUBKEY: ['wss://nos.lol']},
+        'relays': {PUBKEY: [Nostr.DEFAULT_TARGET]},
     }))
     def test_handle_to_id(self, _):
         self.assertEqual(PUBKEY_URI, Nostr.handle_to_id('alice@example.com'))
@@ -585,7 +585,7 @@ class NostrTest(TestCase):
         obj.put()
 
         profile_id = '392e4188c957ca77f349a883db44c99abf9f967e701ee1dff92a6e1633491da6'
-        relays_id = 'b644499566c9940eaa54de876ebebfcc0a0edbd029faa693aa0e1ab489a99ddf'
+        relays_id = 'fdbc2df2541a3f9471097b1dd936badc79ebb82c15e19379e722b4a1310f2630'
         expected = [
             ['EVENT', {
                 'kind': KIND_PROFILE,
@@ -603,7 +603,7 @@ class NostrTest(TestCase):
                 'pubkey': PUBKEY,
                 'id': relays_id,
                 'created_at': NOW_TS,
-                'tags': [['r', 'wss://nos.lol']],
+                'tags': [['r', Nostr.DEFAULT_TARGET]],
                 'content': '',
             }],
         ]
@@ -629,7 +629,7 @@ class NostrTest(TestCase):
         })
 
         profile_id = '0082e20d054d4f8eb7dde6798bdedfc29c26edbe9fcab2de352e881e94ba5f82'
-        relays_id = 'b644499566c9940eaa54de876ebebfcc0a0edbd029faa693aa0e1ab489a99ddf'
+        relays_id = 'fdbc2df2541a3f9471097b1dd936badc79ebb82c15e19379e722b4a1310f2630'
         FakeConnection.to_receive = [
             ['OK', profile_id, True, ''],
             ['OK', relays_id, True, ''],
@@ -656,7 +656,7 @@ class NostrTest(TestCase):
                 'pubkey': PUBKEY,
                 'id': relays_id,
                 'created_at': NOW_TS,
-                'tags': [['r', 'wss://nos.lol']],
+                'tags': [['r', Nostr.DEFAULT_TARGET]],
                 'content': '',
             }],
         ], FakeConnection.sent, ignore=['sig'])
@@ -761,7 +761,7 @@ class NostrTest(TestCase):
         self.assertEqual('application/json', resp.headers['Content-Type'])
         self.assert_equals({
             'names': {'fake-handle-alice': PUBKEY},
-            'relays': {PUBKEY: ['wss://nos.lol']},
+            'relays': {PUBKEY: [Nostr.DEFAULT_TARGET]},
         }, resp.json)
 
     def test_nip_05_web_user(self):
@@ -774,7 +774,7 @@ class NostrTest(TestCase):
         self.assertEqual('application/json', resp.headers['Content-Type'])
         self.assert_equals({
             'names': {'user.com': PUBKEY},
-            'relays': {PUBKEY: ['wss://nos.lol']},
+            'relays': {PUBKEY: [Nostr.DEFAULT_TARGET]},
         }, resp.json)
 
     def test_nip_05_user_nostr_not_enabled(self):
@@ -822,10 +822,10 @@ class NostrTest(TestCase):
         relays.put()
         user = self.make_user(PUBKEY_URI, cls=Nostr, relays=relays.key)
 
-        self.assertEqual('wss://b', Nostr.target_for(Object(nostr=NOTE_NOSTR)))
+        self.assertEqual('wss://b/', Nostr.target_for(Object(nostr=NOTE_NOSTR)))
 
         actor = {'objectType': 'person', 'id': user.key.id()}
-        self.assertEqual('wss://b', Nostr.target_for(Object(our_as1=actor)))
+        self.assertEqual('wss://b/', Nostr.target_for(Object(our_as1=actor)))
 
         relays.nostr['tags'] = [
             ['r', 'wss://a', 'read'],
@@ -833,8 +833,8 @@ class NostrTest(TestCase):
             ['r', 'wss://b'],
         ]
         relays.put()
-        self.assertEqual('wss://c', Nostr.target_for(Object(nostr=NOTE_NOSTR)))
-        self.assertEqual('wss://c', Nostr.target_for(Object(our_as1=actor)))
+        self.assertEqual('wss://c/', Nostr.target_for(Object(nostr=NOTE_NOSTR)))
+        self.assertEqual('wss://c/', Nostr.target_for(Object(our_as1=actor)))
 
     def test_target_for_no_relays_object(self):
         self.make_user(PUBKEY_URI, cls=Nostr)
@@ -848,6 +848,21 @@ class NostrTest(TestCase):
 
     def test_target_for_no_as1(self):
         self.assertIsNone(Nostr.target_for(Object()))
+
+    def test_target_for_normalizes_uri(self):
+        relays = Object(id=ID_URI, nostr={
+            'kind': KIND_RELAYS,
+            'pubkey': PUBKEY,
+            'tags': [['r', 'wss://re.lay:443']],
+        })
+        relays.put()
+        user = self.make_user(PUBKEY_URI, cls=Nostr, relays=relays.key)
+
+        self.assertEqual('wss://re.lay/', Nostr.target_for(Object(nostr=NOTE_NOSTR)))
+
+        relays.nostr['tags'] = [['r', 'ws://re.lay2:80', 'write']]
+        relays.put()
+        self.assertEqual('ws://re.lay2/', Nostr.target_for(Object(nostr=NOTE_NOSTR)))
 
     @patch('secrets.token_urlsafe', return_value='towkin')
     @patch('requests.get', return_value=requests_response({'names': {'a': PUBKEY}}))
@@ -896,7 +911,7 @@ class NostrTest(TestCase):
 
         self.assertEqual(profile, user.obj_key.get().nostr)
         self.assertEqual(relays, user.relays.get().nostr)
-        self.assertEqual('wss://b', Nostr.target_for(Object(nostr=NOTE_NOSTR)))
+        self.assertEqual('wss://b/', Nostr.target_for(Object(nostr=NOTE_NOSTR)))
         self.assertEqual('a@example.com', user.valid_nip05)
 
     @patch('secrets.token_urlsafe', return_value='towkin')
