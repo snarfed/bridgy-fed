@@ -163,6 +163,7 @@ class Nostr(User, Protocol):
             self.valid_nip05 = None
             try:
                 if nip05_to_npub(nip05) == self.npub():
+                    logger.info(f'resolved valid NIP-05 {nip05} for {self.key}')
                     self.valid_nip05 = nip05
             except BaseException as e:
                 code, _ = util.interpret_http_exception(e)
@@ -175,6 +176,7 @@ class Nostr(User, Protocol):
                 to_put = []
                 for other in others:
                     if other.key.id() != self.key.id():
+                        logger.info(f'removing NIP-05 {other.valid_nip05} from {other.key}')
                         other.valid_nip05 = None
                         to_put.append(other)
                 ndb.put_multi(to_put)
@@ -465,9 +467,7 @@ class Nostr(User, Protocol):
             @ndb.transactional()
             def convert():
                 nonlocal obj
-                stored = obj.key.get()
-                if stored:
-                    obj = stored
+                obj = obj.key.get() or obj
                 if not obj.nostr:
                     obj.nostr = to_cls.convert(obj, from_user=from_user)
                     obj.put()
