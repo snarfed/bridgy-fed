@@ -18,6 +18,9 @@ https://mastodon.social/users/snarfed
 https://pixelfed.social/users/quillmatiq
 https://pixelfed.social/users/snarfed
 
+nostr:7dcc73e9f32356da460ab01a9db54c7c8a082fb07db4ac2d44bc10608ef05cbe  # snarfed.org
+nostr:86062523fd96df9a06132675a446455448517e840a624798030eb70a25e1bd26  # test@snarfed.org
+
 # Susan
 susanmernit.com
 did:plc:rovjobylvcwmjg5vdld6jhsb  # smernit.bsky.social
