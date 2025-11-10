@@ -549,9 +549,9 @@ class Protocol:
         ``to_cls.translate_ids(obj.as1)`` before converting it to this Protocol's
         format.
 
-        NOTE: if this protocol's ``HAS_COPIES`` is True, and this method creates
-        a copy and sends it, it *must* add that copy to the *object*'s (not
-        activity's) :attr:`copies`, and store it back in the datastore!
+        NOTE: if this protocol's ``HAS_COPIES`` is True, and this method creates a
+        copy and sends it, it *must* add that copy to the *object*'s (not activity's)
+        :attr:`copies`, and store it back in the datastore, *in a transaction*!
 
         Args:
           obj (models.Object): with activity to send

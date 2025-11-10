@@ -852,27 +852,28 @@ class ATProto(User, Protocol):
 
         logger.info(f'Storing ATProto {writes}')
 
-        # TODO?
-        # ndb.transactional()
-        def write():
-            try:
-                arroba.server.storage.commit(repo, writes)
-            except (ValueError, InactiveRepo) as e:
-                # update and delete raise ValueError if no record exists for this
-                # collection/rkey
-                logger.warning(e)
-                return False
+        try:
+            arroba.server.storage.commit(repo, writes)
+        except (ValueError, InactiveRepo) as e:
+            # update and delete raise ValueError if no record exists for this
+            # collection/rkey
+            logger.warning(e)
+            return False
 
-            logger.info(f'  seq {repo.head.seq}')
+        logger.info(f'  seq {repo.head.seq}')
 
-            if verb not in ('delete', 'undo'):
-                at_uri = f'at://{did}/{type}/{rkey}'
-                base_obj.add('copies', Target(uri=at_uri, protocol=to_cls.LABEL))
+        if verb not in ('delete', 'undo'):
+            ndb.transactional()
+            def add_copy():
+                nonlocal base_obj
+                base_obj = base_obj.key.get() or base_obj
+                base_obj.add('copies', Target(uri=at_uri(did, type, rkey),
+                                              protocol=to_cls.LABEL))
                 base_obj.put()
 
-            return True
+            add_copy()
 
-        return write()
+        return True
 
     @classmethod
     def load(cls, id, did_doc=False, **kwargs):

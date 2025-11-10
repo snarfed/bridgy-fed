@@ -54,7 +54,7 @@ from common import (
 from flask_app import app
 import ids
 from models import Object, PROTOCOLS, Target, User
-from protocol import Protocol
+from protocol import Protocol, STORE_AS1_TYPES
 import web
 
 logger = logging.getLogger(__name__)
@@ -510,9 +510,16 @@ class Nostr(User, Protocol):
                 logger.warning(cc)
                 return False
 
-        obj.remove_copies_on(to_cls)
-        obj.add('copies', Target(uri='nostr:' + id, protocol=to_cls.LABEL))
-        obj.put()
+        if obj.type in STORE_AS1_TYPES:
+            ndb.transactional()
+            def add_copy():
+                nonlocal obj
+                obj = obj.key.get() or obj
+                obj.remove_copies_on(to_cls)
+                obj.add('copies', Target(uri='nostr:' + id, protocol=to_cls.LABEL))
+                obj.put()
+
+            add_copy()
 
         return True
 
