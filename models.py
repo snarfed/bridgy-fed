@@ -1318,10 +1318,11 @@ class Object(AddRemoveMixin, StringIdModel):
         logger.debug(f'Wrote {self.key}')
 
         # for Nostr copies. TODO: remove
-        if self.key.id() in common.BETA_USER_IDS:
-            logger.info(f'Wrote {self}')
-            import traceback
-            logger.info(''.join(traceback.format_stack()))
+        for user in self.users:
+            if user.id() in common.BETA_USER_IDS:
+                logger.info(f'Wrote {self}')
+                import traceback
+                logger.info(''.join(traceback.format_stack()))
 
     @classmethod
     def get_by_id(cls, id, authed_as=None, **kwargs):
