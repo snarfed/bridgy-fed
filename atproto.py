@@ -865,11 +865,10 @@ class ATProto(User, Protocol):
         if verb not in ('delete', 'undo'):
             ndb.transactional()
             def add_copy():
-                nonlocal base_obj
-                base_obj = base_obj.key.get() or base_obj
-                base_obj.add('copies', Target(uri=at_uri(did, type, rkey),
-                                              protocol=to_cls.LABEL))
-                base_obj.put()
+                o = base_obj.key.get(use_cache=False) or base_obj
+                o.add('copies', Target(uri=at_uri(did, type, rkey),
+                                       protocol=to_cls.LABEL))
+                o.put()
 
             add_copy()
 

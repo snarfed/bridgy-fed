@@ -513,11 +513,10 @@ class Nostr(User, Protocol):
         if obj.type in STORE_AS1_TYPES:
             ndb.transactional()
             def add_copy():
-                nonlocal obj
-                obj = obj.key.get() or obj
-                obj.remove_copies_on(to_cls)
-                obj.add('copies', Target(uri='nostr:' + id, protocol=to_cls.LABEL))
-                obj.put()
+                o = obj.key.get(use_cache=False) or obj
+                o.remove_copies_on(to_cls)
+                o.add('copies', Target(uri='nostr:' + id, protocol=to_cls.LABEL))
+                o.put()
 
             add_copy()
 
