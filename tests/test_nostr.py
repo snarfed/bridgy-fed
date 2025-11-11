@@ -382,7 +382,7 @@ class NostrTest(TestCase):
             'content': json_dumps(note_event, sort_keys=True),
             'tags': [
                 # id for Nostr version of original post object, below
-                ['e', NOTE_NOSTR['id'], 'reelaay', 'mention'],
+                ['e', NOTE_NOSTR['id'], 'reelaay', '', PUBKEY],
                 ['p', PUBKEY],
             ],
             'created_at': NOW_TS,
