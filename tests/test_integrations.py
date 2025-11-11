@@ -10,6 +10,7 @@ from arroba.storage import SUBSCRIBE_REPOS_NSID
 import arroba.util
 from dns.resolver import NXDOMAIN
 import google.cloud.dns.client
+from google.cloud import ndb
 from granary import as2, bluesky
 from granary.nostr import (
     bech32_encode,
@@ -1743,6 +1744,57 @@ To disable these messages, reply with the text 'mute'.""",
             'createdAt': '2022-01-02T03:04:05.000Z',
         }}}, repo.get_contents())
 
+    def test_tx(self):
+        import threading, time
+        from oauth_dropins.webutil.appengine_config import ndb_client
+        from common import NDB_CONTEXT_KWARGS
+        import logging
+        from google.cloud.ndb.context import get_context
+
+        # works without this, fails with it
+        Object(id='foo').put()
+
+        obja = Object(id='foo')
+        objn = Object(id='foo')
+
+        def add_copy_a():
+            with ndb_client.context(**NDB_CONTEXT_KWARGS):
+                @ndb.transactional()
+                def go():
+                    nonlocal obja
+                    obja = obja.key.get() or obj
+                    obja.add('copies', Target(uri='at://did:plc:foo', protocol='atproto'))
+                    time.sleep(1)
+                    obja.put()
+                    util.d('a', obja)
+                go()
+
+        def add_copy_n():
+            with ndb_client.context(**NDB_CONTEXT_KWARGS):
+                @ndb.transactional()
+                def go():
+                    nonlocal objn
+                    objn = objn.key.get() or obj
+                    objn.add('copies', Target(uri='nostr:' + ID, protocol='nostr'))
+                    time.sleep(1)
+                    objn.put()
+                    util.d('n', objn)
+                go()
+
+        first = threading.Thread(target=add_copy_a)
+        first.start()
+        second = threading.Thread(target=add_copy_n)
+        second.start()
+
+        first.join()
+        second.join()
+
+        def finish():
+            got = Object.get_by_id('foo', use_cache=False)
+            self.assertEqual(2, len(got.copies))
+
+        finish()
+
     def test_activitypub_post_to_nostr_and_atproto_follower(self):
         """ActivityPub post delivered to Nostr and ATProto followers.
 
@@ -1750,13 +1802,14 @@ To disable these messages, reply with the text 'mute'.""",
         Nostr follower bob@nostr.example.com (NPUB_URI)
         ATProto follower did:plc:eve
         """
+
         alice = self.make_ap_user('https://inst/alice', did='did:plc:alice',
                                   enabled_protocols=['nostr', 'atproto'])
         bob = self.make_nostr_user()
         eve = self.make_atproto_user('did:plc:eve')
 
-        Follower.get_or_create(to=alice, from_=bob)
         Follower.get_or_create(to=alice, from_=eve)
+        Follower.get_or_create(to=alice, from_=bob)
 
         expected_event = id_and_sign({
             'kind': KIND_NOTE,
@@ -1782,7 +1835,19 @@ To disable these messages, reply with the text 'mute'.""",
         }
         body = json_dumps(create)
         headers = sign('/ap/sharedInbox', body, key_id='https://inst/alice')
+
+
+        # orig_add = Object.add
+
+        # import time
+        # def add(*args, **kwargs):
+        #     print('sleeping')
+        #     time.sleep(1)
+        #     return orig_add(*args, **kwargs)
+
+        # with patch.object(Object, 'add', side_effect=add):
         resp = self.client.post('/ap/sharedInbox', data=body, headers=headers)
+
         self.assertEqual(202, resp.status_code)
 
         # check that we sent to Nostr

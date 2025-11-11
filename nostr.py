@@ -467,7 +467,11 @@ class Nostr(User, Protocol):
             @ndb.transactional()
             def convert():
                 nonlocal obj
-                obj = obj.key.get() or obj
+                # use_cache=False shouldn't be necessary here, but oddly it is,
+                # ndb seems to use the cache inside txes even though it shouldn't
+                # https://github.com/googleapis/python-ndb/issues/751
+                # https://github.com/googleapis/python-ndb/issues/888 ?
+                obj = obj.key.get(use_cache=False) or obj
                 if not obj.nostr:
                     obj.nostr = to_cls.convert(obj, from_user=from_user)
                     obj.put()
@@ -513,6 +517,10 @@ class Nostr(User, Protocol):
         if obj.type in STORE_AS1_TYPES:
             ndb.transactional()
             def add_copy():
+                # use_cache=False shouldn't be necessary here, but oddly it is,
+                # ndb seems to use the cache inside txes even though it shouldn't
+                # https://github.com/googleapis/python-ndb/issues/751
+                # https://github.com/googleapis/python-ndb/issues/888 ?
                 o = obj.key.get(use_cache=False) or obj
                 o.remove_copies_on(to_cls)
                 o.add('copies', Target(uri='nostr:' + id, protocol=to_cls.LABEL))
