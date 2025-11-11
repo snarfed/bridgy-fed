@@ -865,11 +865,11 @@ class ATProto(User, Protocol):
         if verb not in ('delete', 'undo'):
             ndb.transactional()
             def add_copy():
-                # use_cache=False shouldn't be necessary here, but oddly it is,
-                # ndb seems to use the cache inside txes even though it shouldn't
+                # read_consistency=ndb.STRONG shouldn't be necessary here, but oddly
+                # it is, ndb seems to use cache inside txes even though it shouldn't
                 # https://github.com/googleapis/python-ndb/issues/751
                 # https://github.com/googleapis/python-ndb/issues/888 ?
-                o = base_obj.key.get(use_cache=False) or base_obj
+                o = base_obj.key.get(read_consistency=ndb.STRONG) or base_obj
                 o.add('copies', Target(uri=at_uri(did, type, rkey),
                                        protocol=to_cls.LABEL))
                 o.put()
