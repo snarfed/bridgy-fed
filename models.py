@@ -1317,13 +1317,6 @@ class Object(AddRemoveMixin, StringIdModel):
         # TODO: assert that as1 id is same as key id? in pre put hook?
         logger.debug(f'Wrote {self.key}')
 
-        # for Nostr copies. TODO: remove
-        for user in self.users:
-            if user.id() in common.BETA_USER_IDS:
-                logger.info(f'Wrote {self}')
-                import traceback
-                logger.info(''.join(traceback.format_stack()))
-
     @classmethod
     def get_by_id(cls, id, authed_as=None, **kwargs):
         """Fetches the :class:`Object` with the given id, if it exists.
