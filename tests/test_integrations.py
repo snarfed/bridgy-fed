@@ -152,7 +152,7 @@ class IntegrationTests(TestCase):
                 'name': 'Bob',
                 'about': 'Nostr user',
                 'picture': 'http://pic',
-                'nip05': 'bob@nostr.example.com',
+                'nip05': 'bob@nos.tr',
             }),
             'created_at': NOW_SECONDS,
         }, privkey=NSEC_URI)
@@ -166,7 +166,7 @@ class IntegrationTests(TestCase):
         }, privkey=NSEC_URI)
         relays_key = Object(id=relays['id'], nostr=relays).put()
 
-        props.setdefault('valid_nip05', 'bob@nostr.example.com')
+        props.setdefault('valid_nip05', 'bob@nos.tr')
         user = self.make_user(id=PUBKEY_URI, cls=Nostr, obj_nostr=profile,
                               obj_id='nostr:' + profile['id'],
                               # no nostr_key_bytes because we don't own this user
@@ -1674,7 +1674,7 @@ To disable these messages, reply with the text 'mute'.""",
     def test_nostr_post_to_activitypub_follower(self, mock_post):
         """Nostr post delivered to ActivityPub follower.
 
-        Nostr user bob@nostr.example.com (NPUB_URI) (bob)
+        Nostr user bob@nos.tr (NPUB_URI) (bob)
         ActivityPub follower https://inst/alice
         """
         bob = self.make_nostr_user(enabled_protocols=['activitypub'])
@@ -1718,7 +1718,7 @@ To disable these messages, reply with the text 'mute'.""",
     def test_nostr_post_to_atproto_follower(self):
         """Nostr post delivered to ATProto follower.
 
-        Nostr user bob@nostr.example.com (NPUB_URI)
+        Nostr user bob@nos.tr (NPUB_URI)
         ATProto follower did:plc:alice
         """
         bob = self.make_nostr_user(enabled_protocols=['atproto'], did='did:plc:bob')
@@ -1755,7 +1755,7 @@ To disable these messages, reply with the text 'mute'.""",
         """ActivityPub post delivered to Nostr and ATProto followers.
 
         ActivityPub user https://inst/alice
-        Nostr follower bob@nostr.example.com (NPUB_URI)
+        Nostr follower bob@nos.tr (NPUB_URI)
         ATProto follower did:plc:eve
         """
 
@@ -1831,7 +1831,7 @@ To disable these messages, reply with the text 'mute'.""",
         """ActivityPub user updates article, delivered to Nostr follower.
 
         ActivityPub user https://inst/alice
-        Nostr follower bob@nostr.example.com (NPUB_URI)
+        Nostr follower bob@nos.tr (NPUB_URI)
         """
         alice = self.make_ap_user('https://inst/alice', enabled_protocols=['nostr'])
         bob = self.make_nostr_user(enabled_protocols=['activitypub'])
@@ -1883,7 +1883,7 @@ To disable these messages, reply with the text 'mute'.""",
         """ActivityPub user deletes already-bridged post, delivered to Nostr follower.
 
         ActivityPub user https://inst/alice
-        Nostr follower bob@nostr.example.com (NPUB_URI)
+        Nostr follower bob@nos.tr (NPUB_URI)
         """
         alice = self.make_ap_user('https://inst/alice', enabled_protocols=['nostr'])
         bob = self.make_nostr_user(enabled_protocols=['activitypub'])
@@ -1936,7 +1936,7 @@ To disable these messages, reply with the text 'mute'.""",
         """Web post delivered to Nostr follower.
 
         Web user alice.com
-        Nostr follower bob@nostr.example.com (NPUB_URI)
+        Nostr follower bob@nos.tr (NPUB_URI)
         """
         alice = self.make_web_user('alice.com', enabled_protocols=['nostr'])
         bob = self.make_nostr_user(enabled_protocols=['web'])
@@ -1967,7 +1967,7 @@ To disable these messages, reply with the text 'mute'.""",
         """ATProto post delivered to Nostr follower.
 
         ATProto user did:plc:alice
-        Nostr follower bob@nostr.example.com (NPUB_URI)
+        Nostr follower bob@nos.tr (NPUB_URI)
         """
         alice = self.make_atproto_user('did:plc:alice', enabled_protocols=['nostr'])
         bob = self.make_nostr_user(enabled_protocols=['atproto'])
@@ -2005,7 +2005,7 @@ To disable these messages, reply with the text 'mute'.""",
     def test_nostr_follow_activitypub_bot_user_invalid_nip05(self, mock_get):
         """Nostr follow of ap.brid.gy bot user, invalid NIP-05.
 
-        Nostr user bob@nostr.example.com (NPUB_URI) without valid NIP-05
+        Nostr user bob@nos.tr (NPUB_URI) without valid NIP-05
         ActivityPub bot user ap.brid.gy (NPUB_URI_2)
         """
         ap_bot = self.make_web_user('ap.brid.gy', enabled_protocols=['nostr'])
@@ -2036,7 +2036,7 @@ To disable these messages, reply with the text 'mute'.""",
     def test_nostr_follow_activitypub_bot_user_enables_protocol(self, _, mock_post):
         """Nostr follow of ap.brid.gy bot user enables the ActivityPub protocol.
 
-        Nostr user bob@nostr.example.com (NPUB_URI) with valid NIP-05
+        Nostr user bob@nos.tr (NPUB_URI) with valid NIP-05
         ActivityPub bot user ap.brid.gy (NPUB_URI_2)
         """
         ap_bot = self.make_web_user('ap.brid.gy', enabled_protocols=['nostr'])
@@ -2071,7 +2071,7 @@ To disable these messages, reply with the text 'mute'.""",
                                                             mock_post):
         """Nostr follow of bsky.brid.gy bot user enables the ATProto protocol.
 
-        Nostr user bob@nostr.example.com (NPUB_URI) with valid NIP-05
+        Nostr user bob@nos.tr (NPUB_URI) with valid NIP-05
         ATProto bot user bsky.brid.gy (NPUB_URI_2)
         """
         bsky_bot = self.make_web_user('bsky.brid.gy', enabled_protocols=['nostr'])
@@ -2171,7 +2171,7 @@ To disable these messages, reply with the text 'mute'.""",
     def test_nostr_follow_activitypub_user(self, mock_get, mock_post):
         """Nostr follow of a normal ActivityPub user.
 
-        Nostr user bob@nostr.example.com (NPUB_URI)
+        Nostr user bob@nos.tr (NPUB_URI)
         ActivityPub user https://inst/alice
         """
         alice = self.make_ap_user('https://inst/alice', enabled_protocols=['nostr'])
@@ -2224,7 +2224,7 @@ To disable these messages, reply with the text 'mute'.""",
     def test_nostr_follow_atproto_user(self):
         """Nostr follow of a normal ATProto user.
 
-        Nostr user bob@nostr.example.com (NPUB_URI)
+        Nostr user bob@nos.tr (NPUB_URI)
         ATProto user did:plc:alice
         """
         alice = self.make_atproto_user('did:plc:alice', enabled_protocols=['nostr'])
@@ -2270,7 +2270,7 @@ To disable these messages, reply with the text 'mute'.""",
     def test_nostr_reply_to_activitypub_user(self, mock_post):
         """Nostr reply to ActivityPub user's post.
 
-        Nostr user bob@nostr.example.com (NPUB_URI)
+        Nostr user bob@nos.tr (NPUB_URI)
         ActivityPub user https://inst/alice
         """
         alice = self.make_ap_user('https://inst/alice', enabled_protocols=['nostr'])
@@ -2344,7 +2344,7 @@ To disable these messages, reply with the text 'mute'.""",
         """ActivityPub reply to Nostr user's post.
 
         ActivityPub user https://inst/alice
-        Nostr user bob@nostr.example.com (NPUB_URI)
+        Nostr user bob@nos.tr (NPUB_URI)
         """
         alice = self.make_ap_user('https://inst/alice', enabled_protocols=['nostr'])
         bob = self.make_nostr_user(enabled_protocols=['activitypub'])
@@ -2401,7 +2401,7 @@ To disable these messages, reply with the text 'mute'.""",
         """Web reply to Nostr user's post.
 
         Web user alice.com
-        Nostr user bob@nostr.example.com (NPUB_URI)
+        Nostr user bob@nos.tr (NPUB_URI)
         """
         alice = self.make_web_user('alice.com', enabled_protocols=['nostr'])
         bob = self.make_nostr_user(enabled_protocols=['web'])
@@ -2457,7 +2457,7 @@ To disable these messages, reply with the text 'mute'.""",
     def test_nostr_reply_to_atproto_user(self, _):
         """Nostr reply to ATProto user's post.
 
-        Nostr user bob@nostr.example.com (NPUB_URI)
+        Nostr user bob@nos.tr (NPUB_URI)
         ATProto user did:plc:alice
         """
         alice = self.make_atproto_user('did:plc:alice', enabled_protocols=['nostr'])
@@ -2541,7 +2541,7 @@ To disable these messages, reply with the text 'mute'.""",
         """ATProto reply to Nostr user's post.
 
         ATProto user did:plc:alice
-        Nostr user bob@nostr.example.com (NPUB_URI)
+        Nostr user bob@nos.tr (NPUB_URI)
         """
         alice = self.make_atproto_user('did:plc:alice', enabled_protocols=['nostr'])
         bob = self.make_nostr_user(enabled_protocols=['atproto'])
@@ -2588,7 +2588,7 @@ To disable these messages, reply with the text 'mute'.""",
     def test_nostr_user_profile_update_to_activitypub(self, mock_get, mock_post):
         """Nostr user updates their profile, delivered to AP follower.
 
-        Nostr user bob@nostr.example.com (NPUB_URI)
+        Nostr user bob@nos.tr (NPUB_URI)
         ActivityPub follower https://inst/alice
         """
         bob = self.make_nostr_user(enabled_protocols=['activitypub'])
@@ -2661,7 +2661,7 @@ To disable these messages, reply with the text 'mute'.""",
         """ActivityPub user bridged to Nostr updates their profile.
 
         ActivityPub user https://inst/alice
-        Nostr follower bob@nostr.example.com (NPUB_URI)
+        Nostr follower bob@nos.tr (NPUB_URI)
         """
         alice = self.make_ap_user('https://inst/alice', enabled_protocols=['nostr'])
         bob = self.make_nostr_user(enabled_protocols=['activitypub'])
@@ -2725,7 +2725,7 @@ To disable these messages, reply with the text 'mute'.""",
         """Web user bridged to Nostr updates their profile via /web-site.
 
         Web user alice.com
-        Nostr follower bob@nostr.example.com (NPUB_URI)
+        Nostr follower bob@nos.tr (NPUB_URI)
         """
         alice = self.make_web_user('alice.com', enabled_protocols=['nostr'])
         bob = self.make_nostr_user(enabled_protocols=['web'])
@@ -2769,7 +2769,7 @@ To disable these messages, reply with the text 'mute'.""",
         """ATProto user bridged to Nostr updates their profile.
 
         ATProto user did:plc:alice
-        Nostr follower bob@nostr.example.com (NPUB_URI)
+        Nostr follower bob@nos.tr (NPUB_URI)
         """
         alice = self.make_atproto_user('did:plc:alice', enabled_protocols=['nostr'])
         bob = self.make_nostr_user(enabled_protocols=['atproto'])
