@@ -1744,57 +1744,6 @@ To disable these messages, reply with the text 'mute'.""",
             'createdAt': '2022-01-02T03:04:05.000Z',
         }}}, repo.get_contents())
 
-    def test_tx(self):
-        import threading, time
-        from oauth_dropins.webutil.appengine_config import ndb_client
-        from common import NDB_CONTEXT_KWARGS
-        import logging
-        from google.cloud.ndb.context import get_context
-
-        # works without this, fails with it
-        Object(id='foo').put()
-
-        obja = Object(id='foo')
-        objn = Object(id='foo')
-
-        def add_copy_a():
-            with ndb_client.context(**NDB_CONTEXT_KWARGS):
-                @ndb.transactional()
-                def go():
-                    nonlocal obja
-                    obja = obja.key.get() or obj
-                    obja.add('copies', Target(uri='at://did:plc:foo', protocol='atproto'))
-                    time.sleep(1)
-                    obja.put()
-                    util.d('a', obja)
-                go()
-
-        def add_copy_n():
-            with ndb_client.context(**NDB_CONTEXT_KWARGS):
-                @ndb.transactional()
-                def go():
-                    nonlocal objn
-                    objn = objn.key.get() or obj
-                    objn.add('copies', Target(uri='nostr:' + ID, protocol='nostr'))
-                    time.sleep(1)
-                    objn.put()
-                    util.d('n', objn)
-                go()
-
-        first = threading.Thread(target=add_copy_a)
-        first.start()
-        second = threading.Thread(target=add_copy_n)
-        second.start()
-
-        first.join()
-        second.join()
-
-        def finish():
-            got = Object.get_by_id('foo', use_cache=False)
-            self.assertEqual(2, len(got.copies))
-
-        finish()
-
     def test_activitypub_post_to_nostr_and_atproto_follower(self):
         """ActivityPub post delivered to Nostr and ATProto followers.
 
