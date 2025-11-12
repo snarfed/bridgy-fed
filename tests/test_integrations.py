@@ -94,14 +94,16 @@ class IntegrationTests(TestCase):
         self.storage = DatastoreStorage()
 
     def make_ap_user(self, ap_id, did=None, **props):
+        actor = {
+            'type': 'Person',
+            'id': ap_id,
+            'name': 'My Name',
+            'image': 'http://pic',
+            'inbox': f'{ap_id}/inbox',
+            'preferredUsername': 'alice',
+        }
         user = self.make_user(id=ap_id, cls=ActivityPub,
-                              obj_as2=add_key({
-                                  'type': 'Person',
-                                  'id': ap_id,
-                                  'name': 'My Name',
-                                  'image': 'http://pic',
-                                  'inbox': f'{ap_id}/inbox',
-                              }), **props)
+                              obj_as2=add_key(actor), **props)
         if did:
             self.make_atproto_copy(user, did)
         if 'nostr' in props.get('enabled_protocols', []):
@@ -109,9 +111,13 @@ class IntegrationTests(TestCase):
 
         return user
 
-    def make_atproto_user(self, did, enabled_protocols=['activitypub'],
-                          raw=None, **props):
-        self.store_object(id=did, raw=raw or {**DID_DOC, 'id': did})
+    def make_atproto_user(self, did, handle='alice.com',
+                          enabled_protocols=['activitypub'], raw=None, **props):
+        self.store_object(id=did, raw=raw or {
+            **DID_DOC,
+            'id': did,
+            'alsoKnownAs': ['at://' + handle],
+        })
         user = self.make_user(id=did, cls=ATProto,
                               obj_bsky=test_atproto.ACTOR_PROFILE_BSKY,
                               enabled_protocols=enabled_protocols,
@@ -181,6 +187,7 @@ class IntegrationTests(TestCase):
         did_doc = copy.deepcopy(test_atproto.DID_DOC)
         did_doc['service'][0]['serviceEndpoint'] = ATProto.DEFAULT_TARGET
         did_doc['id'] = did
+        did_doc['alsoKnownAs'] = ['at://' + user.handle_as(ATProto)]
 
         self.store_object(id=did, raw=did_doc)
         if user.obj.as1:
@@ -413,7 +420,7 @@ class IntegrationTests(TestCase):
         args, kwargs = mock_post.call_args_list[1]
         self.assertEqual(('https://chat.local/xrpc/chat.bsky.convo.sendMessage',), args)
         text = kwargs['json']['message']['text']
-        self.assertTrue(text.startswith("""Hi! You recently replied to My Name, who's bridged here from the fediverse."""), text)
+        self.assertTrue(text.startswith("""Hi! You recently replied to My Name · @alice@inst, who's bridged here from the fediverse."""), text)
 
     @patch('requests.post', return_value=requests_response(''))
     @patch('requests.get', return_value=test_web.WEBMENTION_REL_LINK)
@@ -2668,7 +2675,8 @@ To disable these messages, reply with the text 'mute'.""",
                 'about': 'New bio\n\n🌉 bridged from ⁂ https://inst/alice by https://fed.brid.gy/',
                 'name': 'Alice Updated',
                 'picture': 'http://new-pic/',
-            }, ensure_ascii=False),
+                'nip05': 'alice.inst@ap.brid.gy',
+            }, ensure_ascii=False, sort_keys=True),
             'tags': [['proxy', 'https://inst/alice', 'activitypub']],
             'created_at': NOW_SECONDS,
         }, privkey=alice.nsec())

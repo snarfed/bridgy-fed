@@ -477,7 +477,7 @@ class TestCase(unittest.TestCase, testutil.Asserts):
             for proto in enabled:
                 if proto in ('fake', 'other', 'efake'):
                     copies.append(Target(protocol=proto, uri=f'{proto}:copy:{id}'))
-                else:
+                elif PROTOCOLS[proto].HAS_COPIES:
                     logger.warning(f'!!! POSSIBLE TEST ISSUE: made {id} with {proto} enabled but no copy id')
             return copies
 
