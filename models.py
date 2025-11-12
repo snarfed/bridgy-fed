@@ -418,7 +418,7 @@ class User(AddRemoveMixin, StringIdModel, metaclass=ProtocolUserMeta):
         """
         user = cls._get_by_id(id, **kwargs)
         if user and user.use_instead:
-            logger.info(f'{user.key} use_instead => {user.use_instead}')
+            logger.debug(f'{user.key} use_instead => {user.use_instead}')
             user = user.use_instead.get()
 
         if not user:
