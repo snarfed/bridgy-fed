@@ -10,6 +10,8 @@ from google.cloud.ndb import tasklets
 from google.cloud.tasks_v2.types import Task
 from granary.bluesky import NO_UNAUTHENTICATED_LABEL
 from granary.tests.test_bluesky import ACTOR_AS, ACTOR_PROFILE_BSKY
+import granary.nostr
+from granary.nostr import KIND_NOTE, KIND_PROFILE
 from oauth_dropins.webutil.appengine_config import tasks_client
 from oauth_dropins.webutil.testutil import NOW, requests_response
 from oauth_dropins.webutil import util
@@ -32,12 +34,17 @@ from web import Web
 from granary.nostr import bech32_prefix_for, is_bech32
 from granary.tests.test_nostr import (
     ID,
+    NPUB_2,
     NPUB_URI,
+    NPUB_URI_2,
     NSEC_URI,
     PRIVKEY,
     PUBKEY,
+    PUBKEY_2,
     PUBKEY_URI,
+    PUBKEY_URI_2,
     URI,
+    URI_NEVENT,
 )
 from .test_activitypub import ACTOR
 from .test_atproto import DID_DOC
@@ -1201,6 +1208,43 @@ class ObjectTest(TestCase):
             'published': '2022-01-02T03:04:05+00:00',
             'url': f'https://njump.me/{URI.removeprefix("nostr:")}',
         }, obj.as1)
+
+    def test_as1_from_nostr_nip27_mentions(self):
+        self.make_user('http://in.st/alice', cls=ActivityPub,
+                       obj_as1={'username': 'alice'},
+                       copies=[Target(uri=PUBKEY_URI, protocol='nostr')])
+
+        self.make_user(PUBKEY_URI_2, cls=Nostr, obj_nostr={
+            'kind': KIND_PROFILE,
+            'id': ID,
+            'pubkey': PUBKEY_2,
+            'content': util.json_dumps({'nip05': 'bob@foo.bar'}),
+        })
+
+        nprofile_uri_2 = granary.nostr.id_to_uri
+        obj = Object(id='nostr:note123', nostr={
+            'kind': KIND_NOTE,
+            'id': ID,
+            'pubkey': PUBKEY,
+            'content': f'hi {NPUB_URI} and {NPUB_URI_2} but not {URI_NEVENT} ok',
+        })
+
+        self.assertEqual(f'hi @alice@in.st and bob@foo.bar but not {URI_NEVENT} ok',
+                         obj.as1['content'])
+        self.assertEqual([
+            {'objectType': 'mention', 'url': 'http://in.st/alice'},
+            {'objectType': 'mention', 'url': NPUB_URI_2},
+        ], obj.as1['tags'])
+
+    def test_as1_from_nostr_nip27_mentions_not_found(self):
+        obj = Object(id='nostr:note123', nostr={
+            'kind': 1,
+            'id': ID,
+            'pubkey': PUBKEY,
+            'content': f'Hello {NPUB_URI}!',
+        })
+        self.assertEqual(f'Hello {NPUB_URI}!', obj.as1['content'])
+        self.assertNotIn('tags', obj.as1)
 
     def test_as1_image_proxy_domain(self):
         self.assert_equals({

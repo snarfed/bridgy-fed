@@ -871,7 +871,9 @@ class User(AddRemoveMixin, StringIdModel, metaclass=ProtocolUserMeta):
         return self.handle_or_id()
 
     def web_url(self):
-        """Returns this user's web URL (homepage), eg ``https://foo.com/``.
+        """Returns this user's user-facing profile page URL.
+
+        ...eg ``https://bsky.app/profile/snarfed.org`` or ``https://foo.com/``.
 
         To be implemented by subclasses.
 
@@ -1235,6 +1237,27 @@ class Object(AddRemoveMixin, StringIdModel):
 
         elif self.nostr:
             obj = granary.nostr.to_as1(self.nostr)
+
+            # convert NIP-27 user mentions in content to AS1 tags, and replace
+            # URIs in content with mentioned users' handles
+            #
+            # can't easily do this in granary.nostr.to_as1 because we need to fetch
+            # the Nostr user
+            for match in granary.nostr.URI_RE.finditer(obj.get('content') or ''):
+                if match['prefix'] not in ('npub', 'nprofile'):
+                    continue
+                uri = match.group(0)
+                id = 'nostr:' + granary.nostr.uri_to_id(uri)
+                if user_key := get_original_user_key(id):
+                    user = user_key.get()
+                else:
+                    user = PROTOCOLS['nostr'].get_or_create(id, allow_opt_out=True)
+                if user and user.obj:
+                    obj['content'] = obj['content'].replace(uri, user.handle_or_id())
+                    obj.setdefault('tags', []).append({
+                        'objectType': 'mention',
+                        'url': user.id_uri(),
+                    })
 
         else:
             return None
