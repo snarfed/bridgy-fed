@@ -1205,6 +1205,7 @@ class ObjectTest(TestCase):
             'id': f'nostr:{ID}',
             'author': PUBKEY_URI,
             'content': 'Something to say',
+            'content_is_html': False,
             'published': '2022-01-02T03:04:05+00:00',
             'url': f'https://njump.me/{URI.removeprefix("nostr:")}',
         }, obj.as1)
