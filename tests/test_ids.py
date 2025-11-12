@@ -1,7 +1,7 @@
 """Unit tests for ids.py."""
 from unittest.mock import patch
 
-from granary.tests.test_nostr import ID, NPUB_URI, PUBKEY, PUBKEY_URI
+from granary.tests.test_nostr import ID, NPUB, NPUB_URI, PUBKEY, PUBKEY_URI
 
 from activitypub import ActivityPub
 from atproto import ATProto
@@ -18,7 +18,6 @@ NOSTR_ID_0 = 'nostr:0' + 'a' * 63
 NOSTR_ID_1 = 'nostr:1' + 'a' * 63
 NOSTR_ID_2 = 'nostr:2' + 'a' * 63
 NOSTR_ID_3 = 'nostr:3' + 'a' * 63
-NPUB = NPUB_URI.removeprefix('nostr:')
 ID_URI = 'nostr:' + ID
 
 
@@ -64,8 +63,10 @@ class IdsTest(TestCase):
             (ActivityPub, 'https://bsky.brid.gy/ap/did:plc:456',
              Fake, 'fake:u:did:plc:456'),
             (ATProto, 'did:plc:456', ATProto, 'did:plc:456'),
-            (Nostr, ID, Nostr, ID_URI),
-            (Nostr, ID_URI, Nostr, ID_URI),
+            (Nostr, PUBKEY, Nostr, PUBKEY_URI),
+            (Nostr, PUBKEY_URI, Nostr, PUBKEY_URI),
+            (Nostr, NPUB, Nostr, PUBKEY_URI),
+            (Nostr, NPUB_URI, Nostr, PUBKEY_URI),
 
             # copies
             (ATProto, 'did:plc:123', Web, 'user.com'),
@@ -182,6 +183,7 @@ class IdsTest(TestCase):
             (Web, 'https://www.user.com/', 'user.com'),
             (Web, 'm.user.com', 'user.com'),
             (Nostr, PUBKEY, PUBKEY_URI),
+            (Nostr, PUBKEY_URI, PUBKEY_URI),
             (Nostr, NPUB, PUBKEY_URI),
             (Nostr, NPUB_URI, PUBKEY_URI),
         ]:
@@ -207,6 +209,7 @@ class IdsTest(TestCase):
             (Web, 'https://user.com/' + 'x' * _MAX_KEYPART_BYTES,
              'https://user.com/' + 'x' * (_MAX_KEYPART_BYTES - 17)),
             (Nostr, PUBKEY, PUBKEY_URI),
+            (Nostr, PUBKEY_URI, PUBKEY_URI),
             (Nostr, NPUB, PUBKEY_URI),
             (Nostr, NPUB_URI, PUBKEY_URI),
         ]:
