@@ -2,6 +2,7 @@
 from unittest import mock
 from unittest.mock import patch
 
+from activitypub import ActivityPub
 from atproto import ATProto
 import common
 from common import memcache
@@ -12,6 +13,7 @@ from models import DM, Follower, Object, Target, User
 from web import Web
 
 from oauth_dropins.webutil.flask_util import NotModified
+from oauth_dropins.webutil import util
 from oauth_dropins.webutil.util import json_dumps, json_loads
 from .testutil import ExplicitFake, Fake, OtherFake, TestCase
 from .test_atproto import DID_DOC
@@ -476,6 +478,49 @@ class DmsTest(TestCase):
         self.assertEqual(('OK', 200), receive(from_user=alice, obj=obj))
         self.assert_replied(OtherFake, alice, '?', "Sorry, Bridgy Fed doesn't yet support bridging handle other:handle:bob from other-phrase to efake-phrase.")
         self.assertEqual([], OtherFake.sent)
+
+    @patch('requests.post')
+    def test_receive_prompt_for_activitypub(self, mock_post):
+        self.make_user(id='ap.brid.gy', cls=Web)
+        self.make_user(id='efake.brid.gy', cls=Web)
+        alice = self.make_user(id='efake:alice', cls=ExplicitFake,
+                               enabled_protocols=['activitypub'], obj_as1={'x': 'y'})
+        bob = self.make_user(id='http://in.st/bob', cls=ActivityPub,
+                             webfinger_addr='@bob@in.st', obj_as1={
+                                 'inbox': 'http://in.st/bob/inbox',
+                                 'image': 'http://pic',
+                             })
+
+        obj = Object(our_as1={
+            'objectType': 'note',
+            'id': 'efake:dm',
+            'actor': 'efake:alice',
+            'to': ['ap.brid.gy'],
+            'content': '@bob@in.st',
+        })
+        self.assertEqual(('OK', 200), receive(from_user=alice, obj=obj))
+
+        self.assert_ap_deliveries(mock_post, ['http://in.st/bob/inbox'],
+                                  from_user=alice, data={
+            'type': 'Create',
+            'actor': 'https://web.brid.gy/efake.brid.gy',
+            'object': {
+                'type': 'Note',
+                'attributedTo': 'https://web.brid.gy/efake.brid.gy',
+                'content': """\
+<p>Hi! <a class="h-card u-author mention" rel="me" href="https://efake.brid.gy/ap/efake:alice" title="efake:handle:alice &middot; @efake-handle-alice@efake.brid.gy"><span style="unicode-bidi: isolate">efake:handle:alice</span> &middot; @efake-handle-alice@efake.brid.gy</a> is using Bridgy Fed to bridge their account from efake-phrase into the fediverse, and they'd like to follow you. You can bridge your account into efake-phrase by following this account. <a href="https://fed.brid.gy/docs">See the docs</a> for more information.
+<p>If you do nothing, your account won't be bridged, and users on efake-phrase won't be able to see or interact with you.
+<p>Bridgy Fed will only send you this message once.""",
+                'tag': [{
+                    'type': 'Mention',
+                    'href': 'http://in.st/bob',
+                }],
+                'to': ['http://in.st/bob'],
+            },
+            'to': ['http://in.st/bob'],
+        }, ignore=['@context', 'id', 'url', 'contentMap', 'published'])
+
+        self.assert_replied(ActivityPub, alice, '?', """Got it! We'll send <a class="h-card u-author mention" rel="me" href="http://in.st/bob" title="@bob@in.st">@bob@in.st</a> a message and say that you hope they'll enable the bridge. Fingers crossed!""")
 
     def test_receive_username(self):
         self.make_user(id='other.brid.gy', cls=Web)

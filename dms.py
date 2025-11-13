@@ -78,10 +78,9 @@ def command(names, arg=False, user_bridged=None, handle_bridged=None, multiple=F
             to_users = []
             # TODO: extract out into separate fn
             if arg == 'handle_or_id':
-                cmd_args = [a.removeprefix('@') for a in cmd_args]
                 from_proto = from_user.__class__
                 for cmd_arg in cmd_args:
-                    if not (to_user := _load_user(cmd_arg.removeprefix('@'), to_proto)):
+                    if not (to_user := _load_user(cmd_arg, to_proto)):
                         return reply(f"Couldn't find user {cmd_arg} on {to_proto.PHRASE}")
                     to_users.append(to_user)
                     enabled = to_user.is_enabled(from_proto)
@@ -312,7 +311,7 @@ def prompt(from_user, to_proto, arg, to_user):
     """Prompt a non-bridged user to bridge. No command, just the handle, alone."""
     from_proto = from_user.__class__
     try:
-        ids.translate_handle(handle=arg, from_=to_proto, to=from_user)
+        ids.translate_handle(handle=to_user.handle, from_=to_proto, to=from_user)
     except ValueError as e:
         logger.warning(e)
         return f"Sorry, Bridgy Fed doesn't yet support bridging handle {arg} from {to_proto.PHRASE} to {from_proto.PHRASE}."
@@ -478,9 +477,10 @@ def _load_user(handle_or_id, proto):
 
     logging.info(f"doesn't look like an ID, trying as a handle")
 
-    handle_or_id = handle_or_id.removeprefix('@')
     if proto.owns_handle(handle_or_id) is False:
-        return None
+        handle_or_id = handle_or_id.removeprefix('@')
+        if proto.owns_handle(handle_or_id) is False:
+            return None
 
     if id := proto.handle_to_id(handle_or_id):
         if user := proto.get_or_create(id, allow_opt_out=True):
