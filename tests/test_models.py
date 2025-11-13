@@ -1210,43 +1210,6 @@ class ObjectTest(TestCase):
             'url': f'https://njump.me/{URI.removeprefix("nostr:")}',
         }, obj.as1)
 
-    def test_as1_from_nostr_nip27_mentions(self):
-        self.make_user('http://in.st/alice', cls=ActivityPub,
-                       obj_as1={'username': 'alice'},
-                       copies=[Target(uri=PUBKEY_URI, protocol='nostr')])
-
-        self.make_user(PUBKEY_URI_2, cls=Nostr, obj_nostr={
-            'kind': KIND_PROFILE,
-            'id': ID,
-            'pubkey': PUBKEY_2,
-            'content': util.json_dumps({'nip05': 'bob@foo.bar'}),
-        })
-
-        nprofile_uri_2 = granary.nostr.id_to_uri
-        obj = Object(id='nostr:note123', nostr={
-            'kind': KIND_NOTE,
-            'id': ID,
-            'pubkey': PUBKEY,
-            'content': f'hi {NPUB_URI} and {NPUB_URI_2} but not {URI_NEVENT} ok',
-        })
-
-        self.assertEqual(f'hi @alice@in.st and bob@foo.bar but not {URI_NEVENT} ok',
-                         obj.as1['content'])
-        self.assertEqual([
-            {'objectType': 'mention', 'url': 'http://in.st/alice'},
-            {'objectType': 'mention', 'url': NPUB_URI_2},
-        ], obj.as1['tags'])
-
-    def test_as1_from_nostr_nip27_mentions_not_found(self):
-        obj = Object(id='nostr:note123', nostr={
-            'kind': 1,
-            'id': ID,
-            'pubkey': PUBKEY,
-            'content': f'Hello {NPUB_URI}!',
-        })
-        self.assertEqual(f'Hello {NPUB_URI}!', obj.as1['content'])
-        self.assertNotIn('tags', obj.as1)
-
     def test_as1_image_proxy_domain(self):
         self.assert_equals({
             'id': 'https://www.threads.net/foo',

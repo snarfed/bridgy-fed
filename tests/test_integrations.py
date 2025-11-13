@@ -96,7 +96,7 @@ class IntegrationTests(TestCase):
         super().setUp()
         self.storage = DatastoreStorage()
 
-    def make_ap_user(self, ap_id, did=None, **props):
+    def make_ap_user(self, ap_id, did=None, nostr_key_bytes=None, **props):
         actor = {
             'type': 'Person',
             'id': ap_id,
@@ -110,11 +110,11 @@ class IntegrationTests(TestCase):
         if did:
             self.make_atproto_copy(user, did)
         if 'nostr' in props.get('enabled_protocols', []):
-            self.make_nostr_copy(user)
+            self.make_nostr_copy(user, key_bytes=nostr_key_bytes)
 
         return user
 
-    def make_atproto_user(self, did, handle='alice.com',
+    def make_atproto_user(self, did, handle='alice.com', nostr_key_bytes=None, 
                           enabled_protocols=['activitypub'], raw=None, **props):
         self.store_object(id=did, raw=raw or {
             **DID_DOC,
@@ -126,10 +126,11 @@ class IntegrationTests(TestCase):
                               enabled_protocols=enabled_protocols,
                               **props)
         if 'nostr' in enabled_protocols:
-            self.make_nostr_copy(user)
+            self.make_nostr_copy(user, key_bytes=nostr_key_bytes)
         return user
 
-    def make_web_user(self, domain, did=None, enabled_protocols=['activitypub']):
+    def make_web_user(self, domain, did=None, enabled_protocols=['activitypub'],
+                      nostr_key_bytes=None):
         ap_subdomain = (domain.removesuffix('.brid.gy')
                         if domain.endswith('.brid.gy')
                         else None)
@@ -143,7 +144,7 @@ class IntegrationTests(TestCase):
         if did:
             self.make_atproto_copy(user, did)
         if 'nostr' in enabled_protocols:
-            self.make_nostr_copy(user)
+            self.make_nostr_copy(user, key_bytes=nostr_key_bytes)
 
         return user
 
@@ -199,9 +200,8 @@ class IntegrationTests(TestCase):
             user.obj.add('copies', Target(uri=profile_id, protocol='atproto'))
             user.obj.put()
 
-    def make_nostr_copy(self, user):
-        if not user.nostr_key_bytes:
-            user.nostr_key_bytes = bytes.fromhex(PRIVKEY_2)
+    def make_nostr_copy(self, user, key_bytes=None):
+        user.nostr_key_bytes = key_bytes or bytes.fromhex(PRIVKEY_2)
         assert not user.get_copy(Nostr)
         user.add('copies', Target(uri='nostr:' + user.hex_pubkey(), protocol='nostr'))
         user.put()
@@ -2386,7 +2386,7 @@ To disable these messages, reply with the text 'mute'.""",
         }}}, repo.get_contents())
 
     @patch('requests.post')
-    def test_nostr_reply_to_activitypub_user(self, mock_post):
+    def test_nostr_reply_to_activitypub(self, mock_post):
         """Nostr reply to ActivityPub user's post.
 
         Nostr user bob@nos.tr (NPUB_URI)
