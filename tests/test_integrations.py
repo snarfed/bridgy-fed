@@ -20,6 +20,7 @@ from granary.nostr import (
     KIND_PROFILE,
     KIND_RELAYS,
     id_and_sign,
+    id_to_uri,
     uri_for,
     uri_to_id,
 )
@@ -86,6 +87,8 @@ BSKY_SEND_MESSAGE_RESP = requests_response({  # sendMessage
     # ...
 })
 
+PRIVKEY_3 = 'd5143bd06a9fb020f1a73719b558693a557c881b256d64d27fdf2721e0176af2'
+PUBKEY_3 = 'efb9b857ef962ae97f4d98e54e15c65883d4af98212eb48c7d3772ba5e54e813'
 
 class IntegrationTests(TestCase):
 
@@ -197,7 +200,8 @@ class IntegrationTests(TestCase):
             user.obj.put()
 
     def make_nostr_copy(self, user):
-        user.nostr_key_bytes = bytes.fromhex(PRIVKEY_2)
+        if not user.nostr_key_bytes:
+            user.nostr_key_bytes = bytes.fromhex(PRIVKEY_2)
         assert not user.get_copy(Nostr)
         user.add('copies', Target(uri='nostr:' + user.hex_pubkey(), protocol='nostr'))
         user.put()
@@ -1750,6 +1754,121 @@ To disable these messages, reply with the text 'mute'.""",
             'bridgyOriginalUrl': f'https://njump.me/{bech32_encode("note", post_event["id"])}',
             'createdAt': '2022-01-02T03:04:05.000Z',
         }}}, repo.get_contents())
+
+    @patch('requests.post')
+    def test_nostr_post_mentions_activitypub_and_atproto_users(self, mock_post):
+        """Nostr post with NIP-27 mentions delivered to AP and ATProto users.
+
+        Nostr user bob@nos.tr (PUBKEY_URI)
+        ActivityPub follower https://inst/alice (bridged to Nostr)
+        ATProto follower did:plc:charlie (bridged to Nostr)
+        """
+        bob = self.make_nostr_user(enabled_protocols=['activitypub', 'atproto'],
+                                   did='did:plc:bob')
+        self.assertEqual(PUBKEY, bob.hex_pubkey())
+        alice = self.make_ap_user('https://inst/alice', did='did:plc:alice',
+                                  enabled_protocols=['nostr', 'atproto'],
+                                  nostr_key_bytes=bytes.fromhex(PRIVKEY_2))
+        charlie = self.make_atproto_user('did:plc:charlie', handle='charl.ie',
+                                         enabled_protocols=['nostr', 'activitypub'],
+                                         nostr_key_bytes=bytes.fromhex(PRIVKEY_3))
+
+        alice_uri = 'nostr:' + alice.npub()
+        bob_uri = 'nostr:' + bob.npub()
+        charlie_uri = 'nostr:' + charlie.npub()
+
+        nostr_hub.init(subscribe=False)
+
+        post_event = id_and_sign({
+            'kind': KIND_NOTE,
+            'pubkey': bob.hex_pubkey(),
+            'content': f'Hi {bob_uri} and {alice_uri} and {charlie_uri}!',
+            'created_at': NOW_SECONDS,
+        }, privkey=NSEC_URI)
+
+        FakeConnection.to_receive = [
+            ['EVENT', 'sub123', post_event],
+            ['EOSE', 'sub123'],
+        ]
+
+        nostr_hub.subscribe(NostrRelay.get_or_insert('wss://nos.lol'), limit=2)
+
+        post_id = 'nostr:' + post_event["id"]
+
+        # check AP delivery has Mention tags and handles in content
+        self.assert_ap_deliveries(mock_post, ['https://inst/alice/inbox'],
+                                  from_user=bob, data={
+            'type': 'Create',
+            'id': f'https://nostr.brid.gy/convert/ap/{post_id}#bridgy-fed-create',
+            'actor': f'https://nostr.brid.gy/ap/{bob.key.id()}',
+            'object': {
+                'type': 'Note',
+                'id': f'https://nostr.brid.gy/convert/ap/{post_id}',
+                'attributedTo': f'https://nostr.brid.gy/ap/{bob.key.id()}',
+                'content': f'<p>Hi <a class="mention h-card" href="https://nostr.brid.gy/ap/{bob.key.id()}">{bob_uri}</a> and <a class="mention h-card" href="https://inst/alice">{alice_uri}</a> and <a class="mention h-card" href="https://bsky.brid.gy/ap/did:plc:charlie">{charlie_uri}</a>!</p>',
+                'tag': [{
+                    'type': 'Mention',
+                    'href': f'https://nostr.brid.gy/ap/{bob.key.id()}',
+                    'name': bob_uri,
+                }, {
+                    'type': 'Mention',
+                    'href': 'https://inst/alice',
+                    'name': alice_uri,
+                }, {
+                    'type': 'Mention',
+                    'href': 'https://bsky.brid.gy/ap/did:plc:charlie',
+                    'name': charlie_uri,
+                }],
+                'published': '2022-01-02T03:04:05+00:00',
+                'url': f'http://localhost/r/https://njump.me/{bech32_encode("note", post_event["id"])}',
+                'cc': ['https://inst/alice'],
+            },
+            'published': '2022-01-02T03:04:05+00:00',
+            'cc': ['https://inst/alice'],
+        }, ignore=['@context', 'to', 'contentMap'])
+
+        # check ATProto delivery has mention facets and handles in content
+        bob_repo = self.storage.load_repo('did:plc:bob')
+        tid = arroba.util.int_to_tid(arroba.util._tid_ts_last)
+        text = f'Hi {bob_uri} and {alice_uri} and {charlie_uri}!'
+        self.assert_equals({'app.bsky.feed.post': {tid: {
+            '$type': 'app.bsky.feed.post',
+            'text': text,
+            'bridgyOriginalText': text,
+            'bridgyOriginalUrl': f'https://njump.me/{bech32_encode("note", post_event["id"])}',
+            'createdAt': '2022-01-02T03:04:05.000Z',
+            'facets': [{
+                '$type': 'app.bsky.richtext.facet',
+                'features': [{
+                    '$type': 'app.bsky.richtext.facet#mention',
+                    'did': 'did:plc:bob',
+                }],
+                'index': {
+                    'byteStart': 3,
+                    'byteEnd': 72,
+                },
+            }, {
+                '$type': 'app.bsky.richtext.facet',
+                'features': [{
+                    '$type': 'app.bsky.richtext.facet#mention',
+                    'did': 'did:plc:alice',
+                }],
+                'index': {
+                    'byteStart': 77,
+                    'byteEnd': 146,
+                },
+            }, {
+                '$type': 'app.bsky.richtext.facet',
+                'features': [{
+                    '$type': 'app.bsky.richtext.facet#mention',
+                    'did': 'did:plc:charlie',
+                }],
+                'index': {
+                    'byteStart': 151,
+                    'byteEnd': 220,
+                },
+            }],
+        }}}, bob_repo.get_contents())
 
     def test_activitypub_post_to_nostr_and_atproto_follower(self):
         """ActivityPub post delivered to Nostr and ATProto followers.

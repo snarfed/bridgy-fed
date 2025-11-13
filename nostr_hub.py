@@ -67,7 +67,8 @@ def init(subscribe=True):
     logger.info('Starting _load_users timer')
     # run in a separate thread since it needs to make its own NDB
     # context when it runs in the timer thread
-    Thread(target=_load_users, daemon=True, name='nostr_hub._load_users').start()
+    Thread(target=_load_users, daemon=True, name='nostr_hub._load_users',
+           kwargs={'subscribe': subscribe}).start()
     pubkeys_initialized.wait()
     pubkeys_initialized.clear()
 
@@ -76,7 +77,7 @@ def init(subscribe=True):
             add_relay(Nostr.DEFAULT_TARGET)
 
 
-def _load_users():
+def _load_users(subscribe=True):
     global pubkeys_loaded_at
 
     if not DEBUG:
@@ -93,7 +94,7 @@ def _load_users():
             Nostr.load_multi(new_nostr)
             for user in new_nostr:
                 nostr_pubkeys.add(uri_to_id(user.key.id()))
-                if target := Nostr.target_for(user.obj):
+                if subscribe and (target := Nostr.target_for(user.obj)):
                     add_relay(target)
 
             new_bridged = []

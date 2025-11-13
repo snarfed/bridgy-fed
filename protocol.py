@@ -1693,9 +1693,13 @@ class Protocol:
                 logger.debug(f'{target_id} is blocklisted')
                 continue
 
-            orig_obj = target_proto.load(target_id, raise_=False)
+            target_obj_id = target_id
+            if target_id in mentioned_urls:
+                target_obj_id = ids.profile_id(id=target_id, proto=target_proto)
+
+            orig_obj = target_proto.load(target_obj_id, raise_=False)
             if not orig_obj or not orig_obj.as1:
-                logger.info(f"Couldn't load {target_id}")
+                logger.info(f"Couldn't load {target_obj_id}")
                 continue
 
             target_author_key = (target_proto(id=target_id).key
