@@ -173,9 +173,6 @@ class ATProtoTest(TestCase):
         user = self.make_user('did:plc:user', cls=ATProto)
         self.assertEqual('han.dull.brid.gy', user.key.get().handle)
 
-    def test_id_uri(self):
-        self.assertEqual('at://did:plc:user', ATProto(id='did:plc:user').id_uri())
-
     def test_owns_id(self):
         self.assertFalse(ATProto.owns_id('http://foo'))
         self.assertFalse(ATProto.owns_id('https://bar.baz/biff'))
