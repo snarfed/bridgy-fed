@@ -440,7 +440,7 @@ class ProtocolTest(TestCase):
         loaded = Fake.load('foo')
         self.assertEqual({'fetched': 'x', 'id': 'foo'}, loaded.our_as1)
 
-    @patch('oauth_dropins.webutil.models.MAX_ENTITY_SIZE', new=50)
+    @patch('protocol.MAX_ENTITY_SIZE', new=50)
     def test_load_too_big(self):
         Fake.fetchable['fake:foo'] = {
             'objectType': 'note',
@@ -908,6 +908,133 @@ class ProtocolTest(TestCase):
     def test_translate_ids_multiple_inReplyTo(self):
         obj = {'inReplyTo': ['foo', 'bar']}
         self.assertEqual(obj, Fake.translate_ids(obj))
+
+    def test_translate_mention_handles(self):
+        self.make_user('fake:alice', cls=Fake)
+        self.make_user('other:bob', cls=OtherFake)
+        self.make_user('efake:eve', cls=ExplicitFake)
+
+        content = 'Hi abc and def #and xyz!'
+        obj = {
+            'id': 'fake:note',
+            'content': content,
+            'tags': [{
+                'objectType': 'mention',
+                'url': 'fake:alice',
+                'startIndex': 3,
+                'length': 3,
+            }, {
+                'objectType': 'mention',
+                'url': 'other:bob',
+                'startIndex': 11,
+                'length': 3,
+            }, {
+                'objectType': 'unknown',
+                'url': 'foo:bar',
+            }, {
+                'objectType': 'hashtag',
+                'startIndex': 15,
+                'length': 4,
+            }, {
+                'objectType': 'mention',
+                'url': 'efake:eve',
+                'startIndex': 20,
+                'length': 3,
+            }],
+            'contentMap': {
+                'foo': 'bar',
+                'baz': content,
+            },
+        }
+
+        fake_content = 'Hi fake:handle:alice and fake:handle:other:handle:bob #and fake:handle:efake:handle:eve!'
+        self.assertEqual({
+            'id': 'fake:note',
+            'content': fake_content,
+            'tags': [{
+                'objectType': 'mention',
+                'url': 'fake:alice',
+                'displayName': 'fake:handle:alice',
+                'startIndex': 3,
+                'length': 17,
+            }, {
+                'objectType': 'mention',
+                'url': 'other:bob',
+                'displayName': 'fake:handle:other:handle:bob',
+                'startIndex': 25,
+                'length': 28,
+            }, {
+                'objectType': 'unknown',
+                'url': 'foo:bar',
+            }, {
+                'objectType': 'hashtag',
+                'startIndex': 54,
+                'length': 4,
+            }, {
+                'objectType': 'mention',
+                'url': 'efake:eve',
+                'displayName': 'fake:handle:efake:handle:eve',
+                'startIndex': 59,
+                'length': 28,
+            }],
+            'contentMap': {
+                'foo': 'bar',
+                'baz': fake_content,
+            },
+        }, Fake.translate_mention_handles(obj))
+
+        efake_content = 'Hi efake:handle:fake:handle:alice and efake:handle:other:handle:bob #and efake:handle:eve!'
+        expected_efake = {
+            'id': 'fake:note',
+            'content': efake_content,
+            'tags': [{
+                'objectType': 'mention',
+                'url': 'fake:alice',
+                'displayName': 'efake:handle:fake:handle:alice',
+                'startIndex': 3,
+                'length': 30,
+            }, {
+                'objectType': 'mention',
+                'url': 'other:bob',
+                'displayName': 'efake:handle:other:handle:bob',
+                'startIndex': 38,
+                'length': 29,
+            }, {
+                'objectType': 'unknown',
+                'url': 'foo:bar',
+            }, {
+                'objectType': 'hashtag',
+                'startIndex': 68,
+                'length': 4,
+            }, {
+                'objectType': 'mention',
+                'url': 'efake:eve',
+                'displayName': 'efake:handle:eve',
+                'startIndex': 73,
+                'length': 16,
+            }],
+            'contentMap': {
+                'foo': 'bar',
+                'baz': efake_content,
+            },
+        }
+        self.assertEqual(expected_efake, ExplicitFake.translate_mention_handles(obj))
+
+        create = {
+            'objectType': 'activity',
+            'verb': 'post',
+            'object': obj,
+        }
+        self.assertEqual({
+            **create,
+            'object': expected_efake,
+        }, ExplicitFake.translate_mention_handles(create))
+
+        obj_as_html = {
+            **obj,
+            'content_is_html': True,
+        }
+        self.assertEqual(obj_as_html, Fake.translate_mention_handles(obj_as_html))
 
     def test_convert_object_is_from_user_adds_source_links(self):
         self.make_user(cls=Web, id='fa.brid.gy',

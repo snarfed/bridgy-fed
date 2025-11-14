@@ -103,7 +103,7 @@ class IntegrationTests(TestCase):
             'name': 'My Name',
             'image': 'http://pic',
             'inbox': f'{ap_id}/inbox',
-            'preferredUsername': 'alice',
+            'preferredUsername': did.split(':')[-1] if did else 'alice',
         }
         user = self.make_user(id=ap_id, cls=ActivityPub,
                               obj_as2=add_key(actor), **props)
@@ -114,7 +114,7 @@ class IntegrationTests(TestCase):
 
         return user
 
-    def make_atproto_user(self, did, handle='alice.com', nostr_key_bytes=None, 
+    def make_atproto_user(self, did, handle='alice.com', nostr_key_bytes=None,
                           enabled_protocols=['activitypub'], raw=None, **props):
         self.store_object(id=did, raw=raw or {
             **DID_DOC,
@@ -188,7 +188,11 @@ class IntegrationTests(TestCase):
 
         Repo.create(self.storage, did, signing_key=ATPROTO_KEY)
 
-        did_doc = copy.deepcopy(test_atproto.DID_DOC)
+        handle = did.split(':')[-1] + '.com'
+        did_doc = copy.deepcopy({
+            **DID_DOC,
+            'alsoKnownAs': ['at://' + handle],
+        })
         did_doc['service'][0]['serviceEndpoint'] = ATProto.DEFAULT_TARGET
         did_doc['id'] = did
         did_doc['alsoKnownAs'] = ['at://' + user.handle_as(ATProto)]
@@ -424,7 +428,7 @@ class IntegrationTests(TestCase):
         args, kwargs = mock_post.call_args_list[1]
         self.assertEqual(('https://chat.local/xrpc/chat.bsky.convo.sendMessage',), args)
         text = kwargs['json']['message']['text']
-        self.assertTrue(text.startswith("""Hi! You recently replied to My Name · @alice@inst, who's bridged here from the fediverse."""), text)
+        self.assertTrue(text.startswith("""Hi! You recently replied to My Name · @bob@inst, who's bridged here from the fediverse."""), text)
 
     @patch('requests.post', return_value=requests_response(''))
     @patch('requests.get', return_value=test_web.WEBMENTION_REL_LINK)
@@ -1356,11 +1360,8 @@ To disable these messages, reply with the text 'mute'.""",
         self.firehose(repo='did:plc:alice', action='create', seq=123,
                       path='app.bsky.feed.post/123', record=post)
 
-        self.assertEqual(1, mock_post.call_count)
-        args, kwargs = mock_post.call_args
-        self.assertEqual((bob.obj.as2['inbox'],), args)
-        self.assert_equals({
-            '@context': 'https://www.w3.org/ns/activitystreams',
+        self.assert_ap_deliveries(mock_post, ['https://inst/bob/inbox'],
+                                  from_user=alice, data={
             'type': 'Create',
             'id': 'https://bsky.brid.gy/convert/ap/at://did:plc:alice/app.bsky.feed.post/123#bridgy-fed-create',
             'actor': 'https://bsky.brid.gy/ap/did:plc:alice',
@@ -1370,14 +1371,14 @@ To disable these messages, reply with the text 'mute'.""",
                 'id': 'https://bsky.brid.gy/convert/ap/at://did:plc:alice/app.bsky.feed.post/123',
                 'url': 'http://localhost/r/https://bsky.app/profile/did:plc:alice/post/123',
                 'attributedTo': 'https://bsky.brid.gy/ap/did:plc:alice',
-                'content': '<p>maybe if <a class="mention h-card" href="https://inst/bob">@bob.inst.ap.brid.gy</a> and Alf meet up</p>',
+                'content': '<p>maybe if <a class="mention h-card" href="https://inst/bob">@bob@inst</a> and Alf meet up</p>',
                 'tag': [{
                     'type': 'Mention',
-                    'name': '@bob.inst.ap.brid.gy',
+                    'name': '@bob@inst',
                     'href': 'https://inst/bob',
                 }],
             },
-        }, json_loads(kwargs['data']), ignore=['@context', 'contentMap', 'to', 'cc'])
+        }, ignore=['@context', 'contentMap', 'to', 'cc'])
 
     @patch('requests.post')
     @patch('requests.get')
@@ -1544,7 +1545,11 @@ To disable these messages, reply with the text 'mute'.""",
             }],
         }, ActivityPub.convert(obj), ignore=['@context', 'attributedTo', 'to'])
 
-    def test_convert_with_html_content_from_atproto_to_activitypub(self):
+    @patch('requests.get', side_effect=[
+        requests_response({**DID_DOC, 'alsoKnownAs': ['at://b.az']}),
+        requests_response(PROFILE_GETRECORD),
+    ])
+    def test_convert_with_html_content_from_atproto_to_activitypub(self, mock_get):
         obj = Object(id='at://xyz', source_protocol='atproto', bsky={
             '$type': 'app.bsky.feed.post',
             'text': '#foo bar @baz',
@@ -1582,15 +1587,14 @@ To disable these messages, reply with the text 'mute'.""",
             }],
         })
 
+        expected_content = '<p><a class="hashtag" rel="tag" href="https://bsky.app/search?q=%23foo">#foo</a> <a href="http://bar">bar</a> <a class="mention h-card" href="https://bsky.brid.gy/ap/https://bsky.app/profile/did:plc:baz">@b.az@bsky.brid.gy</a></p>'
         expected = {
             'type': 'Note',
             'id': 'https://bsky.brid.gy/convert/ap/at://xyz',
             'url': 'http://localhost/r/https://bsky.app/profile/xyz',
             'attributedTo': 'xyz',
-            'content': '<p><a class="hashtag" rel="tag" href="https://bsky.app/search?q=%23foo">#foo</a> <a href="http://bar">bar</a> <a class="mention h-card" href="https://bsky.brid.gy/ap/https://bsky.app/profile/did:plc:baz">@baz</a></p>',
-            'contentMap': {
-                'en': '<p><a class="hashtag" rel="tag" href="https://bsky.app/search?q=%23foo">#foo</a> <a href="http://bar">bar</a> <a class="mention h-card" href="https://bsky.brid.gy/ap/https://bsky.app/profile/did:plc:baz">@baz</a></p>',
-            },
+            'content': expected_content,
+            'contentMap': {'en': expected_content},
             'tag': [{
                 'type': 'Hashtag',
                 'name': '#foo',
@@ -1601,7 +1605,7 @@ To disable these messages, reply with the text 'mute'.""",
                 'url': 'http://bar',
             }, {
                 'type': 'Mention',
-                'name': '@baz',
+                'name': '@b.az@bsky.brid.gy',
                 'href': 'https://bsky.brid.gy/ap/https://bsky.app/profile/did:plc:baz',
             }],
             'url': [
@@ -1616,7 +1620,11 @@ To disable these messages, reply with the text 'mute'.""",
         self.assert_equals(expected, ActivityPub.convert(obj),
                            ignore=['@context', 'to'])
 
-    def test_convert_quote_with_html_content_from_atproto_to_activitypub(self):
+    @patch('requests.get', side_effect=[
+        requests_response({**DID_DOC, 'alsoKnownAs': ['at://def.io']}),
+        requests_response(PROFILE_GETRECORD),
+    ])
+    def test_convert_quote_with_html_content_from_atproto_to_activitypub(self, _):
         obj = Object(id='at://xyz', source_protocol='atproto', bsky={
             '$type': 'app.bsky.feed.post',
             'text': "a @b c",
@@ -1641,20 +1649,19 @@ To disable these messages, reply with the text 'mute'.""",
             }],
         })
 
+        expected_content = '<p>a <a class="mention h-card" href="https://bsky.brid.gy/ap/https://bsky.app/profile/did:plc:def">@def.io@bsky.brid.gy</a> c<span class="quote-inline"><br><br>RE: <a href="https://bsky.app/profile/did:plc:abc/post/123">https://bsky.app/profile/did:plc:abc/post/123</a></span></p>'
         expected = {
             'type': 'Note',
             'id': 'https://bsky.brid.gy/convert/ap/at://xyz',
             'url': 'http://localhost/r/https://bsky.app/profile/xyz',
             'attributedTo': 'xyz',
-            'content': '<p>a <a class="mention h-card" href="https://bsky.brid.gy/ap/https://bsky.app/profile/did:plc:def">@b</a> c<span class="quote-inline"><br><br>RE: <a href="https://bsky.app/profile/did:plc:abc/post/123">https://bsky.app/profile/did:plc:abc/post/123</a></span></p>',
-            'contentMap': {
-                'en': '<p>a <a class="mention h-card" href="https://bsky.brid.gy/ap/https://bsky.app/profile/did:plc:def">@b</a> c<span class="quote-inline"><br><br>RE: <a href="https://bsky.app/profile/did:plc:abc/post/123">https://bsky.app/profile/did:plc:abc/post/123</a></span></p>',
-            },
+            'content': expected_content,
+            'contentMap': {'en': expected_content},
             'quoteUrl': 'https://bsky.brid.gy/convert/ap/at://did:plc:abc/app.bsky.feed.post/123',
             '_misskey_quote': 'https://bsky.brid.gy/convert/ap/at://did:plc:abc/app.bsky.feed.post/123',
             'tag': [{
                 'type': 'Mention',
-                'name': '@b',
+                'name': '@def.io@bsky.brid.gy',
                 'href': 'https://bsky.brid.gy/ap/https://bsky.app/profile/did:plc:def',
             }, {
                 'type': 'Link',
@@ -1805,19 +1812,19 @@ To disable these messages, reply with the text 'mute'.""",
                 'type': 'Note',
                 'id': f'https://nostr.brid.gy/convert/ap/{post_id}',
                 'attributedTo': f'https://nostr.brid.gy/ap/{bob.key.id()}',
-                'content': f'<p>Hi <a class="mention h-card" href="https://nostr.brid.gy/ap/{bob.key.id()}">{bob_uri}</a> and <a class="mention h-card" href="https://inst/alice">{alice_uri}</a> and <a class="mention h-card" href="https://bsky.brid.gy/ap/did:plc:charlie">{charlie_uri}</a>!</p>',
+                'content': f'<p>Hi <a class="mention h-card" href="https://nostr.brid.gy/ap/{bob.key.id()}">@bob.nos.tr@nostr.brid.gy</a> and <a class="mention h-card" href="https://inst/alice">@alice@inst</a> and <a class="mention h-card" href="https://bsky.brid.gy/ap/did:plc:charlie">@charl.ie@bsky.brid.gy</a>!</p>',
                 'tag': [{
                     'type': 'Mention',
                     'href': f'https://nostr.brid.gy/ap/{bob.key.id()}',
-                    'name': bob_uri,
+                    'name': '@bob.nos.tr@nostr.brid.gy',
                 }, {
                     'type': 'Mention',
                     'href': 'https://inst/alice',
-                    'name': alice_uri,
+                    'name': '@alice@inst',
                 }, {
                     'type': 'Mention',
                     'href': 'https://bsky.brid.gy/ap/did:plc:charlie',
-                    'name': charlie_uri,
+                    'name': '@charl.ie@bsky.brid.gy',
                 }],
                 'published': '2022-01-02T03:04:05+00:00',
                 'url': f'http://localhost/r/https://njump.me/{bech32_encode("note", post_event["id"])}',
@@ -1830,7 +1837,7 @@ To disable these messages, reply with the text 'mute'.""",
         # check ATProto delivery has mention facets and handles in content
         bob_repo = self.storage.load_repo('did:plc:bob')
         tid = arroba.util.int_to_tid(arroba.util._tid_ts_last)
-        text = f'Hi {bob_uri} and {alice_uri} and {charlie_uri}!'
+        text = 'Hi bob.nos.tr.nostr.brid.gy and alice.inst.ap.brid.gy and charl.ie!'
         self.assert_equals({'app.bsky.feed.post': {tid: {
             '$type': 'app.bsky.feed.post',
             'text': text,
@@ -1845,7 +1852,7 @@ To disable these messages, reply with the text 'mute'.""",
                 }],
                 'index': {
                     'byteStart': 3,
-                    'byteEnd': 72,
+                    'byteEnd': 27,
                 },
             }, {
                 '$type': 'app.bsky.richtext.facet',
@@ -1854,8 +1861,8 @@ To disable these messages, reply with the text 'mute'.""",
                     'did': 'did:plc:alice',
                 }],
                 'index': {
-                    'byteStart': 77,
-                    'byteEnd': 146,
+                    'byteStart': 32,
+                    'byteEnd': 53,
                 },
             }, {
                 '$type': 'app.bsky.richtext.facet',
@@ -1864,8 +1871,8 @@ To disable these messages, reply with the text 'mute'.""",
                     'did': 'did:plc:charlie',
                 }],
                 'index': {
-                    'byteStart': 151,
-                    'byteEnd': 220,
+                    'byteStart': 58,
+                    'byteEnd': 66,
                 },
             }],
         }}}, bob_repo.get_contents())

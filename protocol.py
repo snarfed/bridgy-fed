@@ -1,4 +1,5 @@
 """Base protocol class and common code."""
+from bs4 import BeautifulSoup
 import copy
 from datetime import datetime, timedelta, timezone
 import logging
@@ -13,10 +14,10 @@ from google.cloud import ndb
 from google.cloud.ndb import OR
 from google.cloud.ndb.model import _entity_to_protobuf
 from granary import as1, as2, source
-from granary.source import html_to_text
+from granary.source import HTML_ENTITY_RE, html_to_text
 from oauth_dropins.webutil.appengine_info import DEBUG
 from oauth_dropins.webutil.flask_util import cloud_tasks_only
-from oauth_dropins.webutil import models
+from oauth_dropins.webutil.models import MAX_ENTITY_SIZE
 from oauth_dropins.webutil import util
 from oauth_dropins.webutil.util import json_dumps, json_loads
 from requests import RequestException
@@ -40,6 +41,7 @@ import memcache
 from models import (
     DM,
     Follower,
+    get_original_user_key,
     Object,
     PROTOCOLS,
     PROTOCOLS_BY_KIND,
@@ -948,7 +950,7 @@ class Protocol:
         if not obj:
             return obj
 
-        outer_obj = copy.deepcopy(obj)
+        outer_obj = to_cls.translate_mention_handles(copy.deepcopy(obj))
         inner_objs = outer_obj['object'] = as1.get_objects(outer_obj)
 
         def translate(elem, field, fn, uri=False):
@@ -1012,6 +1014,68 @@ class Protocol:
                 outer_obj['object'] = outer_obj['object'][0]
 
         return outer_obj
+
+    @classmethod
+    def translate_mention_handles(cls, obj):
+        """Translates @-mentions in ``obj.content`` to this protocol's handles.
+
+        Specifically, for each ``mention`` tag in the object's tags that has
+        ``startIndex`` and ``length``, replaces it in ``obj.content`` with that
+        user's translated handle in this protocol and updates the tag's location.
+
+        Called by :meth:`Protocol.translate_ids`.
+
+        If ``obj.content`` is HTML, does nothing.
+
+        Args:
+          obj (dict): AS2 object
+
+        Returns:
+          dict: modified AS2 object
+        """
+        if not obj:
+            return None
+
+        obj = copy.deepcopy(obj)
+        obj['object'] = [cls.translate_mention_handles(o)
+                                for o in as1.get_objects(obj)]
+        if len(obj['object']) == 1:
+            obj['object'] = obj['object'][0]
+
+        content = obj.get('content')
+        tags = obj.get('tags')
+        if (not content or not tags
+                or obj.get('content_is_html')
+                or bool(BeautifulSoup(content, 'html.parser').find())
+                or HTML_ENTITY_RE.search(content)):
+            return util.trim_nulls(obj)
+
+        indexed = [tag for tag in tags if tag.get('startIndex') and tag.get('length')]
+
+        offset = 0
+        for tag in sorted(indexed, key=lambda t: t['startIndex']):
+            tag['startIndex'] += offset
+            if tag.get('objectType') == 'mention' and (id := tag['url']):
+                if proto := Protocol.for_id(id):
+                    id = ids.normalize_user_id(id=id, proto=proto)
+                    if key := get_original_user_key(id):
+                        user = key.get()
+                    else:
+                        user = proto.get_or_create(id, allow_opt_out=True)
+                    if user:
+                        start = tag['startIndex']
+                        end = start + tag['length']
+                        if handle := user.handle_as(cls):
+                            content = content[:start] + handle + content[end:]
+                            offset += len(handle) - tag['length']
+                            tag.update({
+                                'displayName': handle,
+                                'length': len(handle),
+                            })
+
+        obj['tags'] = tags
+        as2.set_content(obj, content)  # sets content *and* contentMap
+        return util.trim_nulls(obj)
 
     @classmethod
     def receive(from_cls, obj, authed_as=None, internal=False, received_at=None):
@@ -1944,8 +2008,8 @@ Hi! You <a href="{inner_obj_as1.get('url') or inner_obj_id}">recently {verb}</a>
 
         # https://stackoverflow.com/a/3042250/186123
         size = len(_entity_to_protobuf(obj)._pb.SerializeToString())
-        if size > models.MAX_ENTITY_SIZE:
-            logger.warning(f'Object is too big! {size} bytes is over {models.MAX_ENTITY_SIZE}')
+        if size > MAX_ENTITY_SIZE:
+            logger.warning(f'Object is too big! {size} bytes is over {MAX_ENTITY_SIZE}')
             return None
 
         obj.resolve_ids()

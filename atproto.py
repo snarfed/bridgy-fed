@@ -1030,9 +1030,11 @@ class ATProto(User, Protocol):
 
         # convert! using our records in the datastore and fetching code instead
         # of granary's
+        translated = cls.translate_ids(obj.as1)
+
         client = DatastoreClient()
         try:
-            ret = bluesky.from_as1(cls.translate_ids(obj.as1), blobs=blobs,
+            ret = bluesky.from_as1(translated, blobs=blobs,
                                    aspects=aspect_ratios, client=client,
                                    original_fields_prefix='bridgy',
                                    as_embed=obj.type == 'article', raise_=True)

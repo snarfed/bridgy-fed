@@ -63,6 +63,7 @@ class IdsTest(TestCase):
             (ActivityPub, 'https://bsky.brid.gy/ap/did:plc:456',
              Fake, 'fake:u:did:plc:456'),
             (ATProto, 'did:plc:456', ATProto, 'did:plc:456'),
+            (ATProto, 'https://bsky.app/profile/did:plc:456', ATProto, 'did:plc:456'),
             (Nostr, PUBKEY, Nostr, PUBKEY_URI),
             (Nostr, PUBKEY_URI, Nostr, PUBKEY_URI),
             (Nostr, NPUB, Nostr, PUBKEY_URI),
