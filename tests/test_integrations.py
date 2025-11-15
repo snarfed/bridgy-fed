@@ -16,6 +16,7 @@ from granary.nostr import (
     bech32_encode,
     KIND_ARTICLE,
     KIND_CONTACTS,
+    KIND_DELETE,
     KIND_NOTE,
     KIND_PROFILE,
     KIND_RELAYS,
@@ -148,15 +149,15 @@ class IntegrationTests(TestCase):
 
         return user
 
-    def make_nostr_user(self, did=None, **props):
+    def make_nostr_user(self, nip05='bob@nos.tr', did=None, **props):
         profile = id_and_sign({
             'kind': KIND_PROFILE,
             'pubkey': PUBKEY,
             'content': json_dumps({
-                'name': 'Bob',
+                'name': nip05.split('@')[0].capitalize(),
                 'about': 'Nostr user',
                 'picture': 'http://pic',
-                'nip05': 'bob@nos.tr',
+                'nip05': nip05,
             }),
             'created_at': NOW_SECONDS,
         }, privkey=NSEC_URI)
@@ -170,7 +171,7 @@ class IntegrationTests(TestCase):
         }, privkey=NSEC_URI)
         relays_key = Object(id=relays['id'], nostr=relays).put()
 
-        props.setdefault('valid_nip05', 'bob@nos.tr')
+        props.setdefault('valid_nip05', nip05)
         user = self.make_user(id=PUBKEY_URI, cls=Nostr, obj_nostr=profile,
                               obj_id='nostr:' + profile['id'],
                               # no nostr_key_bytes because we don't own this user
@@ -1767,8 +1768,8 @@ To disable these messages, reply with the text 'mute'.""",
         """Nostr post with NIP-27 mentions delivered to AP and ATProto users.
 
         Nostr user bob@nos.tr (PUBKEY_URI)
-        ActivityPub follower https://inst/alice (bridged to Nostr)
-        ATProto follower did:plc:charlie (bridged to Nostr)
+        ActivityPub user https://inst/alice (bridged to Nostr)
+        ATProto user did:plc:charlie (bridged to Nostr)
         """
         bob = self.make_nostr_user(enabled_protocols=['activitypub', 'atproto'],
                                    did='did:plc:bob')
@@ -1876,6 +1877,78 @@ To disable these messages, reply with the text 'mute'.""",
                 },
             }],
         }}}, bob_repo.get_contents())
+
+    @patch('requests.post')
+    def test_nostr_delete_post_to_activitypub_and_atproto(self, mock_post):
+        """Nostr delete of a post, sent to AP and ATProto.
+
+        Nostr user alice@nos.tr (PUBKEY_URI)
+        AP follower https://inst/bob
+        """
+        alice = self.make_nostr_user(nip05='alice@nos.tr', did='did:plc:alice',
+                                     enabled_protocols=['activitypub', 'atproto'])
+        self.assertEqual(PUBKEY, alice.hex_pubkey())
+        bob = self.make_ap_user('https://inst/bob')
+
+        Follower.get_or_create(to=alice, from_=bob)
+
+        repo = self.storage.load_repo('did:plc:alice')
+        record = {
+            '$type': 'app.bsky.feed.post',
+            'text': 'hello world',
+            'createdAt': '2022-01-02T03:04:05.000Z',
+        }
+        self.storage.commit(repo, arroba.repo.Write(
+            action=arroba.storage.Action.CREATE,
+            collection='app.bsky.feed.post',
+            rkey='abc',
+            record=record,
+        ))
+        at_uri = 'at://did:plc:alice/app.bsky.feed.post/abc'
+        self.assertEqual({'app.bsky.feed.post': {'abc': record}}, repo.get_contents())
+
+        note = id_and_sign({
+            'kind': KIND_NOTE,
+            'pubkey': PUBKEY,
+            'content': 'hello world',
+            'created_at': NOW_SECONDS,
+        }, privkey=NSEC_URI)
+
+        obj_id = 'nostr:' + note['id']
+        self.store_object(id=obj_id, nostr=note, source_protocol='nostr',
+                          copies=[Target(uri=at_uri, protocol='atproto')])
+
+        # delete!
+        delete = id_and_sign({
+            'kind': KIND_DELETE,
+            'pubkey': PUBKEY,
+            'tags': [['e', note['id']]],
+            'content': '',
+            'created_at': NOW_SECONDS,
+        }, privkey=NSEC_URI)
+
+        FakeConnection.to_receive = [
+            ['EVENT', 'sub123', delete],
+            ['EOSE', 'sub123'],
+        ]
+
+        nostr_hub.init(subscribe=False)
+        nostr_hub.subscribe(NostrRelay.get_or_insert('wss://nos.lol'), limit=2)
+
+        # ATProto delete
+        repo = self.storage.load_repo('did:plc:alice')
+        self.assertEqual({}, repo.get_contents())
+
+        # AP delivery
+        self.assert_ap_deliveries(mock_post, ['https://inst/bob/inbox'],
+                                  from_user=alice, data={
+            'type': 'Delete',
+            'id': f'https://nostr.brid.gy/convert/ap/nostr:{delete["id"]}',
+            'actor': f'https://nostr.brid.gy/ap/{PUBKEY_URI}',
+            'object': f'https://nostr.brid.gy/convert/ap/{obj_id}',
+            'published': NOW.isoformat(),
+            'to': ['https://www.w3.org/ns/activitystreams#Public'],
+        }, ignore=['@context', 'to'])
 
     def test_activitypub_post_to_nostr_and_atproto_follower(self):
         """ActivityPub post delivered to Nostr and ATProto followers.

@@ -1447,7 +1447,7 @@ class Object(AddRemoveMixin, StringIdModel):
         """Returns a query parameter dict representing this :class:`Object`."""
         form = {}
 
-        for json_prop in 'as2', 'bsky', 'mf2', 'our_as1', 'raw':
+        for json_prop in 'as2', 'bsky', 'mf2', 'nostr', 'our_as1', 'raw':
             if val := getattr(self, json_prop, None):
                 form[json_prop] = json_dumps(val, sort_keys=True)
 
