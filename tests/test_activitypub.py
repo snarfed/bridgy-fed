@@ -605,6 +605,11 @@ class ActivityPubTest(TestCase):
                               headers={'Accept': as2.CONTENT_TYPE})
         self.assertEqual(404, got.status_code, got.get_data(as_text=True))
 
+    def test_actor_not_web_no_ap_prefix(self, _, __, ___):
+        got = self.client.get('/user.com', base_url='https://nostr.brid.gy/',
+                              headers={'Accept': as2.CONTENT_TYPE})
+        self.assertEqual(404, got.status_code)
+
     def test_instance_actor_fetch(self, *_):
         def reset_instance_actor():
             activitypub._INSTANCE_ACTOR = testutil.global_user

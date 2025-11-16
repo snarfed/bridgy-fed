@@ -1245,12 +1245,17 @@ def _load_user(handle_or_id, create=False):
 # WARNING: the user page handler in pages.py overrides this for fediverse
 # addresses with leading @ character. be careful when changing this route!
 @app.get(f'/ap/<handle_or_id>')
-# special case Web users on fed.brid.gy subdomain without /ap/web/ prefix, for
+# special case Web users on fed.brid.gy subdomain without /ap/ prefix, for
 # backward compatibility
 @app.get(f'/<regex("{DOMAIN_RE}"):handle_or_id>')
 @flask_util.headers(CACHE_CONTROL_VARY_ACCEPT)
 def actor(handle_or_id):
     """Serves a user's AS2 actor from the datastore."""
+    if (not request.path.startswith('/ap/')
+            and request.path.strip('/') not in PROTOCOL_DOMAINS  # bot accounts
+            and request.host not in ('fed.brid.gy', 'web.brid.gy', 'localhost')):
+        return '', 404
+
     user = _load_user(handle_or_id, create=True)
     proto = user
 
