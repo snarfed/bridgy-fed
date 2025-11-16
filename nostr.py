@@ -246,7 +246,18 @@ class Nostr(User, Protocol):
         elif handle.startswith('npub'):
             return handle
 
-        return 'nostr:' + uri_to_id(nip05_to_npub(handle))
+        try:
+            npub = nip05_to_npub(handle)
+        except ValueError as e:
+            logger.info(e)
+            return None
+        except BaseException as e:
+            code, _ = util.interpret_http_exception(e)
+            if code:
+                return None
+            raise
+
+        return 'nostr:' + uri_to_id(npub)
 
     @classmethod
     def bridged_web_url_for(cls, user, fallback=False):

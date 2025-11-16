@@ -20,6 +20,7 @@ from oauth_dropins.webutil.flask_util import NoContent
 from oauth_dropins.webutil.testutil import requests_response
 from oauth_dropins.webutil import util
 from oauth_dropins.webutil.util import json_dumps, json_loads
+import requests
 from secp256k1 import PrivateKey, PublicKey
 from websockets.exceptions import ConnectionClosedOK, WebSocketException
 
@@ -184,12 +185,21 @@ class NostrTest(TestCase):
             with self.subTest(handle=handle):
                 self.assertEqual(False, Nostr.owns_handle(handle))
 
-    @patch('requests.get', return_value=requests_response({
-        'names': {'alice': PUBKEY},
-        'relays': {PUBKEY: [Nostr.DEFAULT_TARGET]},
-    }))
-    def test_handle_to_id(self, _):
+    @patch('requests.get')
+    def test_handle_to_id(self, mock_get):
+        nip05_resp = requests_response({
+            'names': {'alice': PUBKEY},
+            'relays': {PUBKEY: [Nostr.DEFAULT_TARGET]},
+        })
+        mock_get.side_effect = [
+            nip05_resp,
+            nip05_resp,
+            requests.ConnectionError('foo')
+        ]
+
         self.assertEqual(PUBKEY_URI, Nostr.handle_to_id('alice@example.com'))
+        self.assertIsNone(Nostr.handle_to_id('unknown@example.com'))
+        self.assertIsNone(Nostr.handle_to_id('unknown@unknown.com'))
 
     def test_handle_as_domain(self):
         self.assertEqual(NPUB, Nostr(id=PUBKEY_URI).handle_as_domain)
