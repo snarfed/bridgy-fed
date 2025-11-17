@@ -63,9 +63,9 @@ LIMITED_DOMAINS = (os.getenv('LIMITED_DOMAINS', '').split()
 
 # domains to allow non-public activities from
 NON_PUBLIC_DOMAINS = (
-    # bridged from twitter (X). bird.makeup federates tweets as followers-only, but
-    # they're public on twitter itself
-    'bird.makeup',
+    # bridged from twitter (X). bird.makeup, kilogram.makeup, etc federate
+    # tweets as followers-only, but they're public on twitter itself
+    '.makeup',
 )
 
 DONT_STORE_AS1_TYPES = as1.CRUD_VERBS | set((
