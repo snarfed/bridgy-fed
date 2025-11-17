@@ -25,15 +25,14 @@
 </head>
 
 <body id="{{ body_id }}">
+
+<div id="messages">
 {% with messages = get_flashed_messages() %}
-{% if messages %}
-  <div id="messages">
   {% for message in messages %}
     <div class="message shadow">{{ message|safe }}</div>
   {% endfor %}
-  </div>
-{% endif %}
 {% endwith %}
+</div>
 
 <main class="tp-main lead
              {% if body_id == 'front' %} container-fluid

@@ -20,17 +20,14 @@
   {% if url %} <a rel="me" href="{{ url }}"> {% endif %}
     <span class="logo">{{ (proto.LOGO_HTML or proto.LOGO_EMOJI)|safe }}</span>
     <span style="unicode-bidi: isolate">{{ util.ellipsize(handle, chars=40) }}</span>
-  {% if url %}
     </a>
-  {% else %}
-    <button class="btn btn-default btn-copy glyphicon glyphicon-duplicate"
-            onclick="navigator.clipboard.writeText('{{ handle }}')"
-            title="Copy {{ handle }} to clipboard"> </button>
-  {% endif %}
+  <button class="btn btn-default btn-copy glyphicon glyphicon-duplicate"
+          onclick="copy('{{ handle }}')"
+          title="Copy {{ handle }} to clipboard"></button>
   {% if proto.HAS_COPIES %}
     {% set did = user.npub() if proto == Nostr else user.get_copy(proto) %}
     <button class="btn btn-default btn-copy glyphicon glyphicon-tag"
-            onclick="navigator.clipboard.writeText('{{ did }}')"
+            onclick="copy('{{ did }}')"
             title="Copy {{ did }} to clipboard"></button>
   {% endif %}
   {% if not loop.last %}

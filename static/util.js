@@ -105,3 +105,9 @@ function getDisabledCheckboxes() {
 
   return disabledCheckboxes;
 }
+
+// Copies a string to the clipboard and flashes a message saying so.
+function copy(val) {
+  navigator.clipboard.writeText(val)
+  document.getElementById('messages').innerHTML = `<div class="message shadow">Copied <em>${val}</em> to the clipboard.</div>`
+}

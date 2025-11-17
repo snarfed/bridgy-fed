@@ -490,7 +490,7 @@ button[disabled]:hover, input[disabled]:hover {
   color: #66A0D0;
   background-color: transparent;
   border-color: transparent !important;
-  padding: 3px 6px;
+  padding: 3px;
 }
 
 .btn-default:hover, .btn-default:hover:focus {
