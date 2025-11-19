@@ -176,6 +176,14 @@ def subscribe(relay, limit=None):
         assert limit is None
 
     uri = relay.key.id()
+
+    # connect's default max_size kwarg value (for websocket frames) is 1MB, which is
+    # probably fine, but we could consider increasing it if we come across bigger
+    # events. we also call connect in a few different places in granary.nostr, so
+    # we'd need to update those too, or centralize them.
+    #
+    # https://websockets.readthedocs.io/en/stable/reference/legacy/client.html#websockets.legacy.client.connect
+    # https://websockets.readthedocs.io/en/stable/reference/legacy/common.html#websockets.legacy.protocol.WebSocketCommonProtocol
     with connect(uri, user_agent_header=util.user_agent,
                  open_timeout=util.HTTP_TIMEOUT, close_timeout=util.HTTP_TIMEOUT,
                  ) as ws:
