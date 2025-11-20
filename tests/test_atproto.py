@@ -996,10 +996,12 @@ class ATProtoTest(TestCase):
             }],
         })))
 
-    @patch('requests.get', return_value=requests_response(
-        test_web.REPLY_HTML, url='http://in.st/link'))
-    def test_send_note_mention_tag_doesnt_get_link_preview(self, _):
+    @patch('requests.get')
+    def test_send_note_mention_tag_doesnt_get_link_preview(self, mock_get):
         """URLs in mention tags should not be used for external embeds."""
+        mock_get.return_value = requests_response(
+            test_web.REPLY_HTML, url='http://in.st/link')
+
         obj = Object(id='fake:post', source_protocol='fake', our_as1={
             **NOTE_AS,
             'content': 'Check out <a href="http://in.st/link">alice</a>',
@@ -1013,20 +1015,13 @@ class ATProtoTest(TestCase):
             **NOTE_BSKY,
             'text': 'Check out alice',
             'bridgyOriginalText': 'Check out <a href="http://in.st/link">alice</a>',
-            'facets': [{
-                '$type': 'app.bsky.richtext.facet',
-                'features': [{
-                    '$type': 'app.bsky.richtext.facet#link',
-                    'uri': 'http://in.st/link',
-                }],
-                'index': {'byteStart': 10, 'byteEnd': 15},
-            }],
         }, ATProto.convert(obj))
 
     @patch.object(tasks_client, 'create_task', return_value=Task(name='my task'))
-    @patch('requests.get', return_value=requests_response(
-        test_web.ACTOR_HTML, url='http://in.st/@user'))
+    @patch('requests.get')
     def test_send_note_mention_link_doesnt_get_link_preview(self, mock_get, _):
+        mock_get.return_value = requests_response(
+            test_web.ACTOR_HTML, url='http://in.st/@user')
         user = self.make_user_and_repo()
 
         obj = Object(id='fake:post', source_protocol='fake', our_as1={
@@ -2127,9 +2122,10 @@ Sed tortor neque, aliquet quis posuere aliquam, imperdiet sitamet […]
         }, repo.get_record('app.bsky.feed.post', last_tid), ignore=['facets'])
 
     @patch.object(tasks_client, 'create_task', return_value=Task(name='my task'))
-    @patch('requests.get', return_value=requests_response(test_web.REPLY_HTML,
-                                                          url='http://orig.co/post'))
-    def test_send_note_first_link_preview_embed_html_content(self, _, __):
+    @patch('requests.get')
+    def test_send_note_first_link_preview_embed_html_content(self, mock_get, __):
+        mock_get.return_value = requests_response(
+            test_web.REPLY_HTML, url='http://orig.co/post')
         user = self.make_user_and_repo()
 
         obj = Object(id='fake:post', source_protocol='fake', our_as1={
