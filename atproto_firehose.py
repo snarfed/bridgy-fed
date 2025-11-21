@@ -436,7 +436,7 @@ def handle(limit=None):
                 ATProto.load(op.repo, did_doc=True, remote=True)
                 if user := ATProto.get_by_id(op.repo):
                     user.put()
-                    if user.obj and user.obj.bsky:
+                    if user.obj and user.obj.as1:
                         _handle_commit_op(
                             Op(repo=op.repo, action='update', record=user.obj.bsky,
                                path='app.bsky.actor.profile/self', seq=op.seq,
