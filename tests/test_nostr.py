@@ -585,6 +585,47 @@ class NostrTest(TestCase):
 
         self.assertFalse(Nostr.send(obj, 'reeelaaay', from_user=self.user))
 
+    def test_send_note_with_mentions(self):
+        nostr_user = self.make_user(PUBKEY_URI, cls=Nostr, valid_nip05='bob@nos.tr')
+
+        obj = Object(id='fake:note', our_as1={
+            'objectType': 'note',
+            'author': 'fake:user',
+            'content': 'a @fake:handle:user @bob@xyz b',
+            'tags': [{
+                'objectType': 'mention',
+                'url': 'fake:user',
+                'displayName': '@fake:handle:user@server',
+            }, {
+                'objectType': 'mention',
+                'url': PUBKEY_URI_2,
+                'displayName': '@bob',
+            }],
+        }, source_protocol='fake')
+
+        id = 'b7376c77969d77c49a347ff31729bf2ac6905fe2cd1fb8c14a365e0ac88b0c5b'
+        expected = {
+            'kind': KIND_NOTE,
+            'id': id,
+            'pubkey': PUBKEY,
+            'content': f'a {NPUB_URI} {NPUB_URI_2} b',
+            'created_at': NOW_TS,
+            'tags': [
+                ['p', PUBKEY],
+                ['p', PUBKEY_2],
+                ['proxy', 'fake:note', 'fake'],
+            ],
+        }
+        FakeConnection.to_receive = [
+            ['OK', id, True, ''],
+        ]
+
+        self.assertTrue(Nostr.send(obj, 'reeelaaay', from_user=self.user))
+        self.assert_equals(['reeelaaay'], FakeConnection.relays)
+        self.assert_equals([['EVENT', expected]], FakeConnection.sent, ignore=['sig'])
+        expected_copy = [Target(uri='nostr:' + id, protocol='nostr')]
+        self.assertEqual(expected_copy, obj.key.get().copies)
+
     def test_send_profile_has_existing_copy(self):
         obj = Object(id='fake:alice',
                      copies=[Target(uri=ID_URI, protocol='nostr')],

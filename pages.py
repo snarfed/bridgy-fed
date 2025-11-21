@@ -31,7 +31,7 @@ from werkzeug.exceptions import NotFound
 import activitypub
 from activitypub import ActivityPub
 import atproto
-from atproto import ATProto, BlueskyOAuthStart
+from atproto import ATProto
 import common
 from common import (
     CACHE_CONTROL,

@@ -35,6 +35,7 @@ from granary.tests.test_nostr import (
     PRIVKEY,
     PUBKEY,
     PUBKEY_URI,
+    NPUB_2,
     NPUB_URI_2,
     NSEC_URI_2,
     PRIVKEY_2,
@@ -90,6 +91,8 @@ BSKY_SEND_MESSAGE_RESP = requests_response({  # sendMessage
 
 PRIVKEY_3 = 'd5143bd06a9fb020f1a73719b558693a557c881b256d64d27fdf2721e0176af2'
 PUBKEY_3 = 'efb9b857ef962ae97f4d98e54e15c65883d4af98212eb48c7d3772ba5e54e813'
+NPUB_3 = 'npub1a7ums4l0jc4wjl6dnrj5u9wxtzpaftucyyhtfrraxaet5hj5aqfsmzn5d9'
+NPUB_URI_3 = 'nostr:' + NPUB_3
 
 class IntegrationTests(TestCase):
 
@@ -177,6 +180,8 @@ class IntegrationTests(TestCase):
                               # no nostr_key_bytes because we don't own this user
                               relays=relays_key, **props)
 
+        if 'atproto' in props.get('enabled_protocols', []):
+            assert did
         if did:
             self.make_atproto_copy(user, did)
 
@@ -1990,17 +1995,6 @@ To disable these messages, reply with the text 'mute'.""",
         }
         body = json_dumps(create)
         headers = sign('/ap/sharedInbox', body, key_id='https://inst/alice')
-
-
-        # orig_add = Object.add
-
-        # import time
-        # def add(*args, **kwargs):
-        #     print('sleeping')
-        #     time.sleep(1)
-        #     return orig_add(*args, **kwargs)
-
-        # with patch.object(Object, 'add', side_effect=add):
         resp = self.client.post('/ap/sharedInbox', data=body, headers=headers)
 
         self.assertEqual(202, resp.status_code)
@@ -2025,6 +2019,122 @@ To disable these messages, reply with the text 'mute'.""",
             Target(protocol='atproto', uri=expected_at_uri),
             Target(protocol='nostr', uri='nostr:' + expected_event['id']),
         ], Object.get_by_id('https://inst/post').copies)
+
+    def test_activitypub_post_mentions_self_atproto_and_nostr_users(self):
+        """ActivityPub post with mentions of self, ATProto and Nostr users.
+
+        ActivityPub user https://inst/alice (bridged to ATProto and Nostr)
+        ATProto user did:plc:bob (bridged to Nostr)
+        Nostr user PUBKEY_URI (bridged to ATProto)
+        """
+        alice = self.make_ap_user('https://inst/alice', did='did:plc:alice',
+                                  enabled_protocols=['nostr', 'atproto'],
+                                  nostr_key_bytes=bytes.fromhex(PRIVKEY_2))
+        bob = self.make_atproto_user('did:plc:bob', handle='bob.com',
+                                     enabled_protocols=['nostr'],
+                                     nostr_key_bytes=bytes.fromhex(PRIVKEY_3))
+        charlie = self.make_nostr_user(nip05='charlie@nos.tr', did='did:plc:charlie',
+                                       enabled_protocols=['atproto'])
+
+        expected_nostr_event = id_and_sign({
+            'kind': KIND_NOTE,
+            'pubkey': PUBKEY_2,
+            'content': f'hi nostr:{NPUB_2} nostr:{NPUB_3} nostr:{NPUB}!',
+            'tags': [
+                ['proxy', 'https://inst/post', 'activitypub'],
+                ['p', PUBKEY_2],
+                ['p', PUBKEY_3],
+                ['p', PUBKEY],
+            ],
+            'created_at': NOW_SECONDS,
+        }, privkey=NSEC_URI_2)
+        FakeConnection.to_receive = [
+            ['OK', expected_nostr_event['id'], True, ''],
+            ['OK', expected_nostr_event['id'], True, ''],
+        ]
+
+        # post from AP with mentions
+        html_content = f"""<p>hi \
+<span class="h-card" translate="no"><a href="https://inst/alice" class="u-url mention">@<span>alice</span></a></span> \
+<span class="h-card" translate="no"><a href="https://bsky.brid.gy/r/https://bsky.app/profile/bob.com" class="u-url mention">@<span>bob.com</span></a></span> \
+<span class="h-card" translate="no"><a href="https://nostr.brid.gy/ap/{charlie.key.id()}" class="u-url mention">@<span>charlie.nos.tr</span></a></span>\
+!</p>"""
+        create = {
+            'type': 'Create',
+            'id': 'https://inst/post#create',
+            'actor': 'https://inst/alice',
+            'object': {
+                'type': 'Note',
+                'id': 'https://inst/post',
+                'attributedTo': 'https://inst/alice',
+                'content': html_content,
+                'tag': [{
+                    'type': 'Mention',
+                    'href': 'https://inst/alice',
+                    'name': '@alice',
+                }, {
+                    'type': 'Mention',
+                    'href': 'https://bsky.brid.gy/ap/did:plc:bob',
+                    'name': '@bob.com@bsky.brid.gy',
+                }, {
+                    'type': 'Mention',
+                    'href': f'https://nostr.brid.gy/ap/{charlie.key.id()}',
+                    'name': '@charlie.nos.tr@nostr.brid.gy',
+                }],
+            },
+        }
+        body = json_dumps(create)
+        headers = sign('/ap/sharedInbox', body, key_id='https://inst/alice')
+        resp = self.client.post('/ap/sharedInbox', data=body, headers=headers)
+        self.assertEqual(202, resp.status_code)
+
+        # check that we sent to ATProto with mention facets for all three
+        repo = self.storage.load_repo('did:plc:alice')
+        tid = arroba.util.int_to_tid(arroba.util._tid_ts_last)
+        self.assert_equals({'app.bsky.feed.post': {tid: {
+            '$type': 'app.bsky.feed.post',
+            'text': 'hi @alice @bob.com @charlie.nos.tr!',
+            'bridgyOriginalText': html_content,
+            'bridgyOriginalUrl': 'https://inst/post',
+            'createdAt': '2022-01-02T03:04:05.000Z',
+            'facets': [{
+                '$type': 'app.bsky.richtext.facet',
+                'features': [{
+                    '$type': 'app.bsky.richtext.facet#mention',
+                    'did': 'did:plc:alice',
+                }],
+                'index': {
+                    'byteStart': 3,
+                    'byteEnd': 9,
+                },
+            }, {
+                '$type': 'app.bsky.richtext.facet',
+                'features': [{
+                    '$type': 'app.bsky.richtext.facet#mention',
+                    'did': 'did:plc:bob',
+                }],
+                'index': {
+                    'byteStart': 10,
+                    'byteEnd': 18,
+                },
+            }, {
+                '$type': 'app.bsky.richtext.facet',
+                'features': [{
+                    '$type': 'app.bsky.richtext.facet#mention',
+                    'did': 'did:plc:charlie',
+                }],
+                'index': {
+                    'byteStart': 19,
+                    'byteEnd': 34,
+                },
+            }],
+        }}}, repo.get_contents())
+
+        # check that we sent to Nostr with NIP-27 URIs for all three mentions
+        self.assert_equals([
+            ['EVENT', expected_nostr_event],
+            ['EVENT', expected_nostr_event],
+        ], FakeConnection.sent)
 
     def test_activitypub_update_article_to_nostr(self):
         """ActivityPub user updates article, delivered to Nostr follower.
@@ -2169,7 +2279,7 @@ To disable these messages, reply with the text 'mute'.""",
         Nostr follower bob@nos.tr (NPUB_URI)
         """
         alice = self.make_atproto_user('did:plc:alice', enabled_protocols=['nostr'])
-        bob = self.make_nostr_user(enabled_protocols=['atproto'])
+        bob = self.make_nostr_user()
 
         Follower.get_or_create(to=alice, from_=bob)
 
@@ -2743,7 +2853,7 @@ To disable these messages, reply with the text 'mute'.""",
         Nostr user bob@nos.tr (NPUB_URI)
         """
         alice = self.make_atproto_user('did:plc:alice', enabled_protocols=['nostr'])
-        bob = self.make_nostr_user(enabled_protocols=['atproto'])
+        bob = self.make_nostr_user(enabled_protocols=['atproto'], did='did:plc:bob')
 
         Follower.get_or_create(to=alice, from_=bob)
 
@@ -2971,7 +3081,7 @@ To disable these messages, reply with the text 'mute'.""",
         Nostr follower bob@nos.tr (NPUB_URI)
         """
         alice = self.make_atproto_user('did:plc:alice', enabled_protocols=['nostr'])
-        bob = self.make_nostr_user(enabled_protocols=['atproto'])
+        bob = self.make_nostr_user(enabled_protocols=['atproto'], did='did:plc:bob')
 
         Follower.get_or_create(to=alice, from_=bob)
 
