@@ -135,6 +135,7 @@
 <li><a href="#bluesky-follow-fediverse">How do I find a bridged fediverse account?</a></li>
 <li><a href="#bluesky-follow-web">How do I find a bridged web site?</a></li>
 <li><a href="#bluesky-reply-controls">Can I use Bluesky's reply controls?</a></li>
+<li><a href="#bluesky-pbc-moderation">Is Bridgy Fed subject to Bluesky PBC's moderation? If Bluesky bans someone, and they move to a different PDS, can they still use Bridgy Fed?</a></li>
 
 <br>
 
@@ -709,6 +710,11 @@ RewriteRule ^.well-known/(host-meta|webfinger).* https://fed.brid.gy/$0  [redire
 <li id="bluesky-reply-controls" class="question">Can I use Bluesky's reply controls?</li>
 <li class="answer">
 <p>Yes! Bluesky's <a href="https://bsky.app/profile/safety.bsky.app/post/3khhw67cxqg22">reply controls</a> apply to accounts bridged from the web and the fediverse as well as to native Bluesky accounts. Those platforms don't have reply controls, so if you bridge your Bluesky account and post with reply controls, people on the fediverse and the web will still be able to reply, but those replies won't show up in Bluesky.</p>
+</li>
+
+<li id="bluesky-pbc-moderation" class="question">Is Bridgy Fed subject to Bluesky PBC's moderation? If Bluesky bans someone, and they move to a different PDS, can they still use Bridgy Fed?</li>
+<li class="answer">
+<p>No, and yes. <a href="https://bsky.social/about/faq">Bluesky PBC</a> (the company) controls which accounts can use their servers (PDS, relay, appview), but they <a href="https://pfrazee.leaflet.pub/3lz4sgu7iec2k">don't control</a> <a href="https://whtwnd.com/bnewbold.net/3m2j6ccx2bs2t">everything else</a> on the <a href="https://atproto.com/">AT Protocol</a> network. Bridgy Fed operates at the protocol level, not the API level, so if Bluesky PBC moderates or bans an account, Bridgy Fed can still see and bridge that account and its activity.</p>
 </li>
 
 
