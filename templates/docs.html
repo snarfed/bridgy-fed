@@ -584,20 +584,20 @@
 
 <li id="mastodon-link-verification" class="question">How do I verify my profile links (ie get green checks) in Mastodon?</li>
 <li class="answer">
-<p><a href="https://docs.joinmastodon.org/user/profile/#verification">Mastodon's verified profile links</a> with ✅ green checks are fun! If you've bridged your web site into the fediverse, <a href="https://docs.joinmastodon.org/user/profile/#verification"></a>follow these steps to get one:</p>
+<p><a href="https://docs.joinmastodon.org/user/profile/#verification">Mastodon's verified profile links</a> with ✅ green checks are fun! If you're bridged into the fediverse, and you have a web site, follow these steps to get one:</p>
 
 <ul>
-<li>Add a <a href="https://indieweb.org/rel-me"><code>rel=me</code> link</a> on your site that points to <code>https://web.brid.gy/r/https://[DOMAIN]/</code> for your domain, eg <code>https://web.brid.gy/r/https://snarfed.org/</code></li>
-<li>Click the <button class="btn btn-default glyphicon glyphicon-refresh"></button> button on your Bridgy Fed <a href="#user-page">user page</a> to update your profile on all of your followers' instances.</li>
+<li>Add a link to your web site to the account you've bridged to the fediverse. (If you bridged your web site itself, skip this.)
+<li><em>If you're coming from Bluesky:</em> add a <a href="https://indieweb.org/rel-me"><code>rel=me</code> link</a> (it can be invisible) to your web site's home page that points to <code>https://bsky.brid.gy/ap/[DID]</code>, where <code>[DID]</code> is <a href="https://internect.info/">your Bluesky account's DID</a>, eg <code>https://bsky.brid.gy/ap/did:plc:fdme4gb7mu7zrie7peay7tst</code>.</li>
+<li><em>If you're coming from the web:</em> add a <a href="https://indieweb.org/rel-me"><code>rel=me</code> link</a> (it can be invisible) to your web site's home page that points to <code>https://web.brid.gy/[DOMAIN]</code>, where <code>[DOMAIN]</code> is your site's domain, eg <code>https://web.brid.gy/snarfed.org</code>.</li>
+<li>On your Bridgy Fed <a href="#user-page">user page</a>, click the <button class="btn btn-default glyphicon glyphicon-refresh"></button> button to update your profile, then copy your fediverse handle.</li>
 <li>Log into any Mastodon instance where you have an account.</li>
-<li>Search for your fediverse handle, eg <code>@snarfed.org@snarfed.org</code>.</li>
-<li>Click on your fediverse user in the search results.</li>
-<li>Wait a minute or two (or ten 😐), then refresh the page. You should see a green check on the profile link for your web site.</li>
+<li>Search for your fediverse handle.</li>
+<li>Click on your bridged fediverse account in the search results.</li>
+<li>Wait a few minutes, then refresh the page. You should see a green check on the profile link for your web site.</li>
 </ul>
 
 <p>When you're logged into a Mastodon instance, <a href="#fediverse-follow-web">searching for your bridged web site</a> triggers that instance to check and verify its profile link(s) in the background. This only works when you're logged in with a native Mastodon account. Also, each instance does this independently; verified links are not synched across instances.</p>
-
-<p>Mastodon link verification can sometimes be finicky and unreliable. If this doesn't work for you, and you've waited a while, try changing your <code>rel=me</code> link to <code>https://web.brid.gy/[DOMAIN]</code> instead, eg <code>https://web.brid.gy/snarfed.org</code>, and then try the rest of the steps above again.</p>
 
 </li>
 
