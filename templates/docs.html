@@ -124,7 +124,9 @@
 <li><a href="#mastodon-link-verification">How do I verify my profile links (ie get green checks) in Mastodon?</a></li>
 <li><a href="#fediverse-enhanced">Can I use my own domain as my fediverse handle?</a></li>
 <li><a href="#fediverse-delete">I disabled my bridged profile, or deleted a post, but it's still visible in the fediverse!</a></li>
+<li><a href="#fediverse-mastodon-order">Mastodon is showing bridged posts in the wrong order!</a></li>
 <li><a href="#instance-subdomains">Could other networks' instances get their own brid.gy subdomains, so that fediverse admins can federate with or block them individually?</a></li>
+
 <br>
 
 <p><em>From Bluesky</em></p>
@@ -656,6 +658,13 @@ RewriteRule ^.well-known/(host-meta|webfinger).* https://fed.brid.gy/$0  [redire
 <li id="fediverse-delete" class="question">I disabled my bridged profile, or deleted a post, but it's still visible in the fediverse!</li>
 <li class="answer">
 <p>Sadly, this is a somewhat inherent part of the fediverse itself. When you disable the bridge for your account, Bridgy Fed sends <code>Delete</code>s to every fediverse instance where you had a follower, but it doesn't currently know about other instances that may have loaded and cached your profile. Same with posts bridged into the fediverse that you later delete. Those cached profiles and posts will eventually disappear over time.
+</li>
+
+<li id="fediverse-mastodon-order" class="question">Mastodon is showing bridged posts in the wrong order!</li>
+<li class="answer">
+<p>This is an unfortunate Mastodon quirk. All posts bridged to the fediverse have the correct timestamps, and posts in threads are connected in the right order, but Mastodon instances don't use those to sort posts in timelines. Mastodon sorts based on when it first received each post. This is usually chronological, but not always, since the internet isn't always perfectly reliable. Network hiccoughs, retries, out-of-order delivery, internal processing delays, asynchronous background processing, etc.
+<p>This is only a problem in timelines and feeds. Replies should still show up in the right order when you view a post or thread.
+<p><a href="https://github.com/mastodon/mastodon/issues/33747"></a>Background <a href="https://github.com/snarfed/bridgy-fed/discussions/1724">in these</a> <a href="https://github.com/mastodon/mastodon/issues/15912#issuecomment-1465692557">GitHub</a> <a href="https://github.com/mastodon/mastodon/issues/4030">issues</a>.
 </li>
 
 <li id="instance-subdomains" class="question">Could other networks' instances get their own brid.gy subdomains, so that admins can federate with or block them individually?</li>
