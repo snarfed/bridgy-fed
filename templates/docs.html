@@ -1077,10 +1077,22 @@ To receive likes, reposts, replies, @-mentions, and follows from other networks,
 
 <li id="api" class="question">Does Bridgy Fed have an API? Can I integrate my client or service or other tool with it?</li>
 <li class="answer">
-<p>Yes! Bridgy Fed is a first class participant in the protocols it supports, so for most purposes, we recommend that you interact with it natively via those protocols. However, if you want to go the extra mile, there are ways to make your project Bridgy Fed aware and improve your users' experience.
-<p>The first thing we recommend is to detect bridged users, show that they're bridged and where they're coming from, and offer additional ways to interact with them. For example, if you have a multi-protocol client, and a user navigates to a bridged account or post, you can show the original account or post instead, in its native protocol.
-<p>Similarly, if you detect that a post is bridged and has been truncated, you can show the full-length original text, even if you don't support its native protocol.
-<p>Read on for more details, and <a href="https://www.anew.social/contact/">feel free to reach out to us</a>, we're always happy to talk!
+<p>Yes! Bridgy Fed is a first class participant in the networks and protocols it supports, so for most purposes, we recommend that you interact with it natively via those protocols. However, if you want to go the extra mile, there are ways to make your project Bridgy Fed aware and improve your users' experience.
+<p>The main thing we recommend is to <a href="https://blog.anew.social/bridging-identity-with-account-links/">use account links and post links</a>, small bits of metadata that point to a given account or post on other networks. You can look for these inside objects when you fetch or receive them, and if you create or edit accounts and posts, you can add them yourself. Specifically:
+
+<ul>
+<li>When you see a new account, check whether it has any account links. If it does, show those links to the user.
+  <ul>
+  <li>Bonus: include the logo for each linked account’s network.
+  <li>Bonus: fetch the linked account(s) and check that they have link(s) back. Include user-visible indicators on the links that verify.
+  </ul>
+<li>Do the same for posts and post links.
+<li>Let your users set their own account links (aka aliases).
+<li>If you <a href="https://blog.anew.social/bridging-vs-cross-posting/">cross-post or bridge</a>, set account and post links automatically.
+<li>If an account or post specifies its canonical version, prefer to fetch and render that version, since it will usually have the highest fidelity.
+</ul>
+
+The exact metadata for account and post links varies by network. Read on for details.
 </li>
 
 <li id="identify-bridged-account" class="question">How can I tell if an account is bridged?</li>
