@@ -243,11 +243,7 @@ def block(from_user, to_proto, args):
                                       text=blockee.as1.get('displayName')))
         links.append(link)
 
-    if len(links) == 1:
-        return f"""OK, you're now blocking {links[0]} on {to_proto.PHRASE}."""
-    else:
-        links_str = ', '.join(links)
-        return f"""OK, you're now blocking {links_str} on {to_proto.PHRASE}."""
+    return f"""OK, you're now blocking {', '.join(links)} on {to_proto.PHRASE}."""
 
 
 @command(['unblock'], arg=True, user_bridged=True, multiple=True)
@@ -289,11 +285,7 @@ def unblock(from_user, to_proto, args):
                                       text=blockee.as1.get('displayName')))
         links.append(link)
 
-    if len(links) == 1:
-        return f"""OK, you're not blocking {links[0]} on {to_proto.PHRASE}."""
-    else:
-        links_str = ', '.join(links)
-        return f"""OK, you're not blocking {links_str} on {to_proto.PHRASE}."""
+    return f"""OK, you're not blocking {', '.join(links)} on {to_proto.PHRASE}."""
 
 
 @command(['migrate-to'], arg='handle_or_id', user_bridged=True)
