@@ -22,7 +22,7 @@ from oauth_dropins.webutil import util
 from oauth_dropins.webutil.util import json_dumps, json_loads
 from requests import RequestException
 import werkzeug.exceptions
-from werkzeug.exceptions import BadGateway, HTTPException
+from werkzeug.exceptions import BadGateway, BadRequest, HTTPException
 
 import common
 from common import (
@@ -2094,6 +2094,91 @@ Hi! You <a href="{inner_obj_as1.get('url') or inner_obj_id}">recently {verb}</a>
                   and not util.domain_or_parent_in(crud_obj.get('id'), NON_PUBLIC_DOMAINS)
                   and not as1.is_public(obj.as1, unlisted=False)):
                 error('Bridgy Fed only supports public activities', status=204)
+
+    @classmethod
+    def block(cls, from_user, arg):
+        """Blocks a user or list.
+
+        Args:
+          from_user (models.User): user doing the blocking
+          arg (str): handle or id of user/list to block
+
+        Returns:
+          models.User or models.Object: user or list that was blocked
+
+        Raises:
+          ValueError: if arg doesn't look like a user or list on this protocol
+        """
+        blockee = None
+        try:
+            # first, try interpreting as a user handle or id
+            blockee = dms._load_user(arg, cls)
+        except BadRequest:
+            pass
+
+        # may not be a user, see if it's a list
+        if not blockee:
+            blockee = cls.load(arg)
+            if not blockee or blockee.type != 'collection':
+                raise ValueError(f"{arg} doesn't look like a user or list on {cls.PHRASE}")
+
+        id = f'{from_user.key.id()}#bridgy-fed-block-{util.now().isoformat()}'
+        obj = Object(id=id, source_protocol=from_user.LABEL, our_as1={
+            'objectType': 'activity',
+            'verb': 'block',
+            'id': id,
+            'actor': from_user.key.id(),
+            'object': blockee.key.id(),
+        })
+        obj.put()
+        from_user.deliver(obj, from_user=from_user)
+
+        return blockee
+
+    @classmethod
+    def unblock(cls, from_user, arg):
+        """Unblocks a user or list.
+
+        Args:
+          from_user (models.User): user doing the unblocking
+          arg (str): handle or id of user/list to unblock
+
+        Returns:
+          models.User or models.Object: user or list that was blocked
+
+        Raises:
+          ValueError: if arg doesn't look like a user or list on this protocol
+        """
+        blockee = None
+        try:
+            # first, try interpreting as a user handle or id
+            blockee = dms._load_user(arg, cls)
+        except BadRequest:
+            pass
+
+        # may not be a user, see if it's a list
+        if not blockee:
+            blockee = cls.load(arg)
+            if not blockee or blockee.type != 'collection':
+                raise ValueError(f"{arg} doesn't look like a user or list on {cls.PHRASE}")
+
+        id = f'{from_user.key.id()}#bridgy-fed-unblock-{util.now().isoformat()}'
+        obj = Object(id=id, source_protocol=from_user.LABEL, our_as1={
+            'objectType': 'activity',
+            'verb': 'undo',
+            'id': id,
+            'actor': from_user.key.id(),
+            'object': {
+                'objectType': 'activity',
+                'verb': 'block',
+                'actor': from_user.key.id(),
+                'object': blockee.key.id(),
+            },
+        })
+        obj.put()
+        from_user.deliver(obj, from_user=from_user)
+
+        return blockee
 
 
 @cloud_tasks_only(log=None)

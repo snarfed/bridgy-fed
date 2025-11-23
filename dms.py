@@ -212,79 +212,30 @@ def username(from_user, to_proto, arg):
 @command(['block'], arg=True, user_bridged=True, multiple=True)
 def block(from_user, to_proto, args):
     # duplicated in unblock
-    links = []
-    for arg in args:
-        blockee = None
-        try:
-            # first, try interpreting as a user handle or id
-            blockee = _load_user(arg, to_proto)
-        except BadRequest:
-            pass
+    try:
+        blockees = [to_proto.block(from_user, arg) for arg in args]
+    except ValueError as e:
+        return str(e)
 
-        # may not be a user, see if it's a list
-        if not blockee:
-            blockee = to_proto.load(arg)
-            if not blockee or blockee.type != 'collection':
-                return f"{arg} doesn't look like a user or list on {to_proto.PHRASE}"
-
-        id = f'{from_user.key.id()}#bridgy-fed-block-{util.now().isoformat()}'
-        obj = Object(id=id, source_protocol=from_user.LABEL, our_as1={
-            'objectType': 'activity',
-            'verb': 'block',
-            'id': id,
-            'actor': from_user.key.id(),
-            'object': blockee.key.id(),
-        })
-        obj.put()
-        from_user.deliver(obj, from_user=from_user)
-
-        link = (blockee.user_link() if isinstance(blockee, User)
-                else util.pretty_link(blockee.as1.get('url') or '',
-                                      text=blockee.as1.get('displayName')))
-        links.append(link)
-
+    links = [blockee.user_link() if isinstance(blockee, User)
+             else util.pretty_link(blockee.as1.get('url') or '',
+                                   text=blockee.as1.get('displayName'))
+             for blockee in blockees]
     return f"""OK, you're now blocking {', '.join(links)} on {to_proto.PHRASE}."""
 
 
 @command(['unblock'], arg=True, user_bridged=True, multiple=True)
 def unblock(from_user, to_proto, args):
     # duplicated in block
-    links = []
-    for arg in args:
-        blockee = None
-        try:
-            # first, try interpreting as a user handle or id
-            blockee = _load_user(arg, to_proto)
-        except BadRequest:
-            pass
+    try:
+        blockees = [to_proto.unblock(from_user, arg) for arg in args]
+    except ValueError as e:
+        return str(e)
 
-        # may not be a user, see if it's a list
-        if not blockee:
-            blockee = to_proto.load(arg)
-            if not blockee or blockee.type != 'collection':
-                return f"{arg} doesn't look like a user or list on {to_proto.PHRASE}"
-
-        id = f'{from_user.key.id()}#bridgy-fed-unblock-{util.now().isoformat()}'
-        obj = Object(id=id, source_protocol=from_user.LABEL, our_as1={
-            'objectType': 'activity',
-            'verb': 'undo',
-            'id': id,
-            'actor': from_user.key.id(),
-            'object': {
-                'objectType': 'activity',
-                'verb': 'block',
-                'actor': from_user.key.id(),
-                'object': blockee.key.id(),
-            },
-        })
-        obj.put()
-        from_user.deliver(obj, from_user=from_user)
-
-        link = (blockee.user_link() if isinstance(blockee, User)
-                else util.pretty_link(blockee.as1.get('url') or '',
-                                      text=blockee.as1.get('displayName')))
-        links.append(link)
-
+    links = [blockee.user_link() if isinstance(blockee, User)
+             else util.pretty_link(blockee.as1.get('url') or '',
+                                   text=blockee.as1.get('displayName'))
+             for blockee in blockees]
     return f"""OK, you're not blocking {', '.join(links)} on {to_proto.PHRASE}."""
 
 
