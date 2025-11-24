@@ -402,7 +402,8 @@ def block(user=None):
     proto = Protocol.for_id(target)
     if not proto:
         proto, _ = Protocol.for_handle(target)
-
+    if not proto:
+        proto, _ = Protocol.for_handle(target.removeprefix('@'))
     if not proto:
         flash(f"Can't recognize {target}")
     elif isinstance(user, proto):
