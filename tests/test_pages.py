@@ -1,4 +1,3 @@
-
 """Unit tests for pages.py."""
 from unittest import skip
 from unittest.mock import patch
@@ -937,6 +936,39 @@ class PagesTest(TestCase):
         self.assertEqual(['Setting username on other-phrase to yoozer...'],
                          get_flashed_messages())
         self.assertEqual('yoozer', OtherFake.usernames['http://b.c/a'])
+
+    def test_block(self):
+        user = self.make_user('http://b.c/a', cls=ActivityPub,
+                              enabled_protocols=['fake'], obj_as2={
+            'id': 'http://b.c/a',
+            'preferredUsername': 'a',
+        })
+        auth = MastodonAuth(id='@a@b.c', access_token_str='',
+                            user_json='{"uri":"http://b.c/a"}').put()
+
+        Fake.fetchable = {'fake:eve': {
+            'objectType': 'person',
+            'id': 'fake:eve',
+        }}
+
+        with self.client.session_transaction() as sess:
+            sess[LOGINS_SESSION_KEY] = [('MastodonAuth', '@a@b.c')]
+
+        resp = self.client.post('/settings/block', data={
+            'key': user.key.urlsafe().decode(),
+            'target': 'fake:eve',
+        })
+        self.assertEqual(302, resp.status_code)
+        self.assertEqual('/settings', resp.headers['Location'])
+        self.assertEqual(["""OK, you're now blocking <a class="h-card u-author mention" rel="me" href="web:fake:eve" title="fake:handle:eve">fake:handle:eve</a> on fake-phrase."""], get_flashed_messages())
+
+        self.assert_equals([('fake:eve:target', {
+            'objectType': 'activity',
+            'verb': 'block',
+            'id': 'http://b.c/a#bridgy-fed-block-2022-01-02T03:04:05+00:00',
+            'actor': 'http://b.c/a',
+            'object': 'fake:eve',
+        })], Fake.sent)
 
     def test_toggle_notifs(self):
         user = self.make_user('http://b.c/a', cls=ActivityPub, send_notifs='none',

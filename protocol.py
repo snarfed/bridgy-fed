@@ -2109,6 +2109,8 @@ Hi! You <a href="{inner_obj_as1.get('url') or inner_obj_id}">recently {verb}</a>
         Raises:
           ValueError: if arg doesn't look like a user or list on this protocol
         """
+        logger.info(f'user {from_user.key.id()} trying to block {arg}')
+
         blockee = None
         try:
             # first, try interpreting as a user handle or id
@@ -2120,8 +2122,11 @@ Hi! You <a href="{inner_obj_as1.get('url') or inner_obj_id}">recently {verb}</a>
         if not blockee:
             blockee = cls.load(arg)
             if not blockee or blockee.type != 'collection':
-                raise ValueError(f"{arg} doesn't look like a user or list on {cls.PHRASE}")
+                err = f"{arg} doesn't look like a user or list on {cls.PHRASE}"
+                logger.warning(err)
+                raise ValueError(err)
 
+        logger.info(f'  blocking {blockee.key.id()}')
         id = f'{from_user.key.id()}#bridgy-fed-block-{util.now().isoformat()}'
         obj = Object(id=id, source_protocol=from_user.LABEL, our_as1={
             'objectType': 'activity',
@@ -2149,6 +2154,8 @@ Hi! You <a href="{inner_obj_as1.get('url') or inner_obj_id}">recently {verb}</a>
         Raises:
           ValueError: if arg doesn't look like a user or list on this protocol
         """
+        logger.info(f'user {from_user.key.id()} trying to block {arg}')
+
         blockee = None
         try:
             # first, try interpreting as a user handle or id
@@ -2160,8 +2167,11 @@ Hi! You <a href="{inner_obj_as1.get('url') or inner_obj_id}">recently {verb}</a>
         if not blockee:
             blockee = cls.load(arg)
             if not blockee or blockee.type != 'collection':
-                raise ValueError(f"{arg} doesn't look like a user or list on {cls.PHRASE}")
+                err = f"{arg} doesn't look like a user or list on {cls.PHRASE}"
+                logger.warning(err)
+                raise ValueError(err)
 
+        logger.info(f'  unblocking {blockee.key.id()}')
         id = f'{from_user.key.id()}#bridgy-fed-unblock-{util.now().isoformat()}'
         obj = Object(id=id, source_protocol=from_user.LABEL, our_as1={
             'objectType': 'activity',

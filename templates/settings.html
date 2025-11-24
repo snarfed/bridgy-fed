@@ -46,6 +46,19 @@
     </p>
     {% endif %}
 
+{#
+    {% if user.enabled_protocols %}
+    <p>
+      <form method="post" action="/settings/block">
+        <input name="key" type="hidden" value="{{ user.key.urlsafe().decode() }}" />
+        <label for="target">Block:</label>
+        <input id="target" type="text" name="target" placeholder="user or blocklist" />
+        <input type="submit" value="Go" class="btn btn-default" />
+      </form>
+    </p>
+    {% endif %}
+#}
+
     <p>
       <form method="post" action="/settings/toggle-notifs">
         <input name="key" type="hidden" value="{{ user.key.urlsafe().decode() }}" />

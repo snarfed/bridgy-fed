@@ -386,6 +386,40 @@ def set_username(user=None):
     return redirect('/settings', code=302)
 
 
+@app.post('/settings/block')
+@require_login
+def block(user=None):
+    """Blocks a user or blocklist.
+
+    Args:
+      target (models.User)
+
+    Query params:
+      target (str)
+    """
+    target = flask_util.get_required_param('target')
+
+    proto = Protocol.for_id(target)
+    if not proto:
+        proto, _ = Protocol.for_handle(target)
+
+    if not proto:
+        flash(f"Can't recognize {target}")
+    elif isinstance(user, proto):
+        flash(f'{target} is on {proto.PHRASE}! You can block them there.')
+    else:
+        # block!
+        blockees = [proto.block(user, arg) for arg in target.strip().split()]
+        links = [blockee.user_link() if isinstance(blockee, models.User)
+                 else util.pretty_link(blockee.as1.get('url') or '',
+                                       text=blockee.as1.get('displayName'))
+                 for blockee in blockees]
+        flash(f"""OK, you're now blocking {', '.join(links)} on {proto.PHRASE}.""",
+              escape=False)
+
+    return redirect('/settings', code=302)
+
+
 @app.post('/settings/toggle-notifs')
 @require_login
 def toggle_notifs(user=None):
