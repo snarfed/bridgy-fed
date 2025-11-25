@@ -30,7 +30,7 @@ import common
 from flask_app import app
 import ids
 from ids import translate_handle, translate_object_id, translate_user_id
-from models import Object, Target
+from models import Follower, Object, Target
 import nostr
 from nostr import Nostr
 from web import Web
@@ -44,14 +44,17 @@ from granary.tests.test_nostr import (
     NPUB,
     NPUB_URI,
     NPUB_URI_2,
+    NPUB_URI_3,
     NSEC_URI,
     NSEC_URI_2,
     PRIVKEY,
     PRIVKEY_2,
     PUBKEY,
     PUBKEY_2,
+    PUBKEY_3,
     PUBKEY_URI,
     PUBKEY_URI_2,
+    PUBKEY_URI_3,
 )
 from .testutil import ExplicitFake, Fake, TestCase
 from .test_atproto import DID_DOC
@@ -437,6 +440,34 @@ class NostrTest(TestCase):
             ],
             'content': 'not important',
         })))
+
+    def test_convert_multiple_follows(self):
+        self.user.nostr_key_bytes = None
+        self.user.put()
+
+        # these should be added to the follow event
+        Follower(from_=self.user.key, to=Nostr(id=PUBKEY_URI_2).key).put()
+        Follower(from_=self.user.key, to=Nostr(id=PUBKEY_URI_3).key).put()
+        # these shouldn't
+        Follower(from_=self.user.key, to=Nostr(id=ID_URI).key, status='inactive').put()
+        Follower(from_=self.user.key, to=ExplicitFake(id='efake:eve').key).put()
+
+        self.assert_equals({
+            'kind': KIND_CONTACTS,
+            'pubkey': self.user.hex_pubkey(),
+            'content': '',
+            'tags': [
+                ['p', PUBKEY, '', ''],
+                ['p', PUBKEY_2, '', ''],
+                ['p', PUBKEY_3, '', ''],
+            ],
+            'created_at': NOW_TS,
+        }, Nostr._convert(Object(id='fake:follow', our_as1={
+            'objectType': 'activity',
+            'verb': 'follow',
+            'actor': 'fake:user',
+            'object': PUBKEY_URI,
+        }), from_user=self.user), ignore=['id', 'sig'])
 
     def test_convert_note_from_user_sign(self):
         got = Nostr._convert(Object(id='fake:post', our_as1={

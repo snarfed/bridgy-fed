@@ -53,7 +53,7 @@ from common import (
 )
 from flask_app import app
 import ids
-from models import Object, PROTOCOLS, Target, User
+from models import Follower, Object, PROTOCOLS, Target, User
 from protocol import Protocol, STORE_AS1_TYPES
 import web
 
@@ -424,7 +424,7 @@ class Nostr(User, Protocol):
         if remote_obj := granary.nostr.Nostr().base_object(obj_as1):
             if id := remote_obj.get('id'):
                 base_obj = Nostr.load(id)
-                remote_relay = to_cls.target_for(base_obj)
+                remote_relay = to_cls.target_for(base_obj) or ''
 
         # NIP-48 proxy tag with original protocol's id
         proxy_tag = None
@@ -437,6 +437,21 @@ class Nostr(User, Protocol):
         event = granary.nostr.from_as1(translated, privkey=privkey,
                                        remote_relay=remote_relay,
                                        proxy_tag=proxy_tag)
+
+        # for outbound follows (kind 3 events), include *all* followed users
+        util.d(obj.type, obj.as1.get('actor'), from_user.key.id())
+        if (from_user and obj.type == 'follow'
+                and obj.as1.get('actor') == from_user.key.id()):
+            logging.info(f"adding all of {from_user.key.id()}'s follows")
+            # TODO: limit
+            for follower in Follower.query(
+                    Follower.from_ == from_user.key,
+                    # Follower.to._kind == Nostr,
+                    Follower.to >= ndb.Key('Nostr', chr(0)),
+                    Follower.to < ndb.Key('Nosts', chr(0)),
+                    Follower.status == 'active'):
+                pubkey = follower.to.id().removeprefix('nostr:')
+                util.add(event['tags'], ['p', pubkey, remote_relay or '', ''])
 
         # override d tag (if any) based on original protocol-native id, not
         # translated Nostr event id
