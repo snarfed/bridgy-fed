@@ -260,9 +260,6 @@ def normalize_object_id(*, id, proto):
       * https://bsky.app/profile/did:plc:123/post/abc =>
         at://did:plc:123/app.bsky.feed.post/abc
 
-    Note that :func:`profile_id` is a narrower inverse of this; it converts
-    user ids to profile ids.
-
     Args:
       id (str)
       proto (protocol.Protocol)
