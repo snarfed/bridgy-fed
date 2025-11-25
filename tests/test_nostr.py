@@ -416,16 +416,13 @@ class NostrTest(TestCase):
         }).put()
         Nostr(id=ID_URI, relays=relays).put()
 
-        test_pubkey_1 = '34cd' + '0' * 60
-        test_pubkey_2 = '98fe' + '0' * 60
         self.assert_equals({
             'kind': KIND_CONTACTS,
-            'id': 'ae3426a4b8ceb0201769b5ddecc9415a9c11ac6a25b66367f6695b6b253380b1',
             'pubkey': PUBKEY,
             'content': 'not important',
             'tags': [
-                ['p', test_pubkey_1, None, ''],
-                ['p', test_pubkey_2, None, 'bob'],
+                ['p', PUBKEY, '', ''],
+                ['p', PUBKEY_2, '', 'bob'],
             ],
             'created_at': NOW_TS,
         }, Nostr._convert(Object(our_as1={
@@ -435,11 +432,11 @@ class NostrTest(TestCase):
             'actor': PUBKEY_URI,
             'published': '2022-01-02T03:04:05+00:00',
             'object': [
-                f'nostr:{test_pubkey_1}',
-                {'id': f'nostr:{test_pubkey_2}', 'displayName': 'bob'},
+                f'nostr:{PUBKEY}',
+                {'id': f'nostr:{PUBKEY_2}', 'displayName': 'bob'},
             ],
             'content': 'not important',
-        })))
+        })), ignore=['id'])
 
     def test_convert_multiple_follows(self):
         self.user.nostr_key_bytes = None

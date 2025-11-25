@@ -441,7 +441,6 @@ class Nostr(User, Protocol):
                                        proxy_tag=proxy_tag)
 
         # for outbound follows (kind 3 events), include *all* followed users
-        util.d(obj.type, obj.as1.get('actor'), from_user.key.id())
         if (from_user and obj.type == 'follow'
                 and obj.as1.get('actor') == from_user.key.id()):
             logging.info(f"adding all of {from_user.key.id()}'s follows")
