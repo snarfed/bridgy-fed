@@ -99,9 +99,11 @@ class Nostr(User, Protocol):
         + tuple(as1.CRUD_VERBS)
         + ('follow', 'like', 'share', 'stop-following')
     )
-    # only applies to incoming events
+    # only applies to incoming events, in nostr_hub.
+    # TODO: add KIND_CONTACTS once we're ready to handle it.
+    # https://github.com/snarfed/bridgy-fed/issues/2203
     SUPPORTED_KINDS = frozenset((
-        KIND_ARTICLE, KIND_CONTACTS, KIND_DELETE, KIND_GENERIC_REPOST, KIND_NOTE,
+        KIND_ARTICLE, KIND_DELETE, KIND_GENERIC_REPOST, KIND_NOTE,
         KIND_PROFILE, KIND_REACTION, KIND_RELAYS, KIND_REPOST,
     ))
     SUPPORTS_DMS = False  # NIP-17
