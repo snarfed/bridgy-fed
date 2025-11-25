@@ -1,7 +1,7 @@
 """Datastore model classes."""
 import copy
 from datetime import timedelta, timezone
-from functools import lru_cache
+from functools import cached_property, lru_cache
 import itertools
 import json
 import logging
@@ -9,6 +9,8 @@ import random
 import re
 from threading import Lock
 from urllib.parse import quote, urlparse
+import csv
+import io
 
 from arroba.util import parse_at_uri
 import cachetools
@@ -1126,6 +1128,8 @@ class Object(AddRemoveMixin, StringIdModel):
     'ActivityStreams 2, for ActivityPub'
     bsky = JsonProperty()
     'AT Protocol lexicon, for Bluesky'
+    csv = ndb.TextProperty()
+    'Other standalone CSV data, eg domain blocklist.'
     mf2 = JsonProperty()
     'HTML microformats2 item (*not* top level parse object with ``items`` field)'
     nostr = JsonProperty()
@@ -1726,6 +1730,34 @@ class Object(AddRemoveMixin, StringIdModel):
 
         if replaced:
             self.our_as1 = util.trim_nulls(outer_obj)
+
+    @cached_property
+    def domain_blocklist(self):
+        """Returns the domains in the domain blocklist in :attr:`csv`.
+
+        Extracts the 'domain' or '#domain' column and returns its values as a
+        list.
+
+        Returns:
+          list of str: domain names, or empty list if :attr:`csv` isn't
+            populated, or can't be parsed, or has neither of those columns.
+        """
+        if not self.csv:
+            return []
+
+        try:
+            reader = csv.DictReader(io.StringIO(self.csv))
+        except csv.Error:
+            return []
+
+        if 'domain' in reader.fieldnames:
+            col = 'domain'
+        elif '#domain' in reader.fieldnames:
+            col = '#domain'
+        else:
+            return []
+
+        return [row[col] for row in reader if row[col]]
 
 
 class Follower(ndb.Model):

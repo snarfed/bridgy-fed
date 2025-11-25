@@ -1698,6 +1698,57 @@ class ObjectTest(TestCase):
             },
         }, like)
 
+    def test_domain_blocklist(self):
+        obj = Object()
+        self.assertEqual([], obj.domain_blocklist)
+
+        obj.csv = """\
+domain
+foo.com
+bar.org
+"""
+        del obj.domain_blocklist
+        self.assertEqual(['foo.com', 'bar.org'], obj.domain_blocklist)
+
+        obj.csv = """\
+#domain
+baz.net
+blah.io
+"""
+        del obj.domain_blocklist
+        self.assertEqual(['baz.net', 'blah.io'], obj.domain_blocklist)
+
+        obj.csv = """\
+domain,#domain
+foo.com,ignored.com
+bar.org,another.org
+"""
+        del obj.domain_blocklist
+        self.assertEqual(['foo.com', 'bar.org'], obj.domain_blocklist)
+
+        obj.csv = """\
+not_a_domain
+foo.com
+"""
+        del obj.domain_blocklist
+        self.assertEqual([], obj.domain_blocklist)
+
+        obj.csv = """\
+domain
+foo.com
+,
+bar.org
+"""
+        del obj.domain_blocklist
+        self.assertEqual(['foo.com', 'bar.org'], obj.domain_blocklist)
+
+        # unparseable
+        obj.csv = """\
+"bad"csv
+"""
+        del obj.domain_blocklist
+        self.assertEqual([], obj.domain_blocklist)
+
 
 class FollowerTest(TestCase):
 
