@@ -36,10 +36,13 @@ from granary.tests.test_nostr import (
     PUBKEY,
     PUBKEY_URI,
     NPUB_2,
+    NPUB_3,
     NPUB_URI_2,
     NSEC_URI_2,
     PRIVKEY_2,
+    PRIVKEY_3,
     PUBKEY_2,
+    PUBKEY_3,
     PUBKEY_URI_2,
 )
 from oauth_dropins.webutil.flask_util import NoContent
@@ -89,10 +92,6 @@ BSKY_SEND_MESSAGE_RESP = requests_response({  # sendMessage
     # ...
 })
 
-PRIVKEY_3 = 'd5143bd06a9fb020f1a73719b558693a557c881b256d64d27fdf2721e0176af2'
-PUBKEY_3 = 'efb9b857ef962ae97f4d98e54e15c65883d4af98212eb48c7d3772ba5e54e813'
-NPUB_3 = 'npub1a7ums4l0jc4wjl6dnrj5u9wxtzpaftucyyhtfrraxaet5hj5aqfsmzn5d9'
-NPUB_URI_3 = 'nostr:' + NPUB_3
 
 class IntegrationTests(TestCase):
 
