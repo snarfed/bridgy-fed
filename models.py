@@ -377,6 +377,9 @@ class User(AddRemoveMixin, StringIdModel, metaclass=ProtocolUserMeta):
     send_notifs = ndb.StringProperty(default='all', choices=('all', 'none'))
     """Which notifications we should send this user."""
 
+    domain_blocklists = ndb.KeyProperty(kind='Object', repeated=True)
+    ''
+
     created = ndb.DateTimeProperty(auto_now_add=True)
     ''
     updated = ndb.DateTimeProperty(auto_now=True)
@@ -1093,6 +1096,31 @@ class User(AddRemoveMixin, StringIdModel, metaclass=ProtocolUserMeta):
                                        Follower.status == 'active')\
                                 .count_async()
         return num_followers.get_result(), num_following.get_result()
+
+    def add_domain_blocklist(self, url):
+        """Adds a domain blocklist to this user.
+
+        Loads the CSV at the given URL adds it to :attr:`domain_blocklists` if it's
+        not already there.
+
+        Args:
+          url (str): URL of CSV blocklist to add
+
+        Returns:
+          bool: True if added, False if the URL couldn't be loaded, None if
+            it was already present
+        """
+        from web import Web
+
+        if Object(id=maybe_truncate_key_id(url)).key in self.domain_blocklists:
+            return
+
+        obj = Web.load(url, csv=True)
+        if not obj:
+            return False
+
+        self.domain_blocklists.append(obj.key)
+        return True
 
 
 # WARNING: AddRemoveMixin *must* be before StringIdModel here so that its __init__

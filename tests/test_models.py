@@ -783,6 +783,37 @@ class UserTest(TestCase):
         self.assertEqual(['fake:profile:post'], Fake.fetched)
         self.assertIsNone(user.key.get())
 
+    @patch('requests.get', return_value=requests_response(
+        'domain\nfoo\nbar', headers={'Content-Type': 'text/csv'}))
+    def test_add_domain_blocklist(self, mock_get):
+        self.assertEqual([], self.user.domain_blocklists)
+
+        self.assertTrue(self.user.add_domain_blocklist('https://exam.pl/1'))
+        self.assertEqual([Object(id='https://exam.pl/1').key],
+                         self.user.domain_blocklists)
+        self.assert_req(mock_get, 'https://exam.pl/1')
+
+        mock_get.reset_mock()
+        self.assertTrue(self.user.add_domain_blocklist('https://exam.pl/2'))
+        self.assertEqual(
+            [Object(id='https://exam.pl/1').key, Object(id='https://exam.pl/2').key],
+            self.user.domain_blocklists)
+        self.assert_req(mock_get, 'https://exam.pl/2')
+
+        # add 1 again should be a noop
+        mock_get.reset_mock()
+        self.assertFalse(self.user.add_domain_blocklist('https://exam.pl/1'))
+        self.assertEqual(
+            [Object(id='https://exam.pl/1').key, Object(id='https://exam.pl/2').key],
+            self.user.domain_blocklists)
+        mock_get.assert_not_called()
+
+    @patch('requests.get', return_value=requests_response('not found', status=404))
+    def test_add_domain_blocklist_load_fails(self, mock_get):
+        self.assertFalse(self.user.add_domain_blocklist('https://exam.pl/list'))
+        self.assert_req(mock_get, 'https://exam.pl/list')
+        self.assertEqual([], self.user.domain_blocklists)
+
 
 class ObjectTest(TestCase):
 

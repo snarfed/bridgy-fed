@@ -669,7 +669,7 @@ class Web(User, Protocol):
                 logger.debug(f'Got: {author}')
                 if author:
                     props['author'] = util.trim_nulls([{
-                        "type": ["h-card"],
+                        "type": ['h-card'],
                         'properties': {
                             field: [author[field]] if author.get(field) else []
                             for field in ('name', 'photo', 'url')
