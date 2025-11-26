@@ -1971,7 +1971,7 @@ Hi! You <a href="{inner_obj_as1.get('url') or inner_obj_id}">recently {verb}</a>
             if not obj:
                 # logger.debug(f' {id} not in datastore')
                 pass
-            elif obj.as1 or obj.raw or obj.deleted:
+            elif obj.as1 or obj.csv or obj.raw or obj.deleted:
                 # logger.debug(f'  {id} got from datastore')
                 obj.new = False
 

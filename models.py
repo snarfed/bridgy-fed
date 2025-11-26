@@ -1410,7 +1410,7 @@ class Object(AddRemoveMixin, StringIdModel):
                         dirty = True
             elif val is not None and val != getattr(obj, prop):
                 setattr(obj, prop, val)
-                if (prop in ('as2', 'bsky', 'mf2', 'nostr', 'raw')
+                if (prop in ('as2', 'bsky', 'csv', 'mf2', 'nostr', 'raw')
                         and not props.get('our_as1')):
                     obj.our_as1 = None
                 dirty = True

@@ -536,7 +536,7 @@ class Web(User, Protocol):
 
     @classmethod
     def fetch(cls, obj, gateway=False, check_backlink=False,
-              authorship_fetch_mf2=True, metaformats=None, **kwargs):
+              authorship_fetch_mf2=True, metaformats=None, csv=False, **kwargs):
         """Fetches a URL over HTTP and extracts its microformats2.
 
         Follows redirects, but doesn't change the original URL in ``obj``'s id!
@@ -547,12 +547,14 @@ class Web(User, Protocol):
         See :meth:`Protocol.fetch` for other background.
 
         Args:
+          obj (Object)
           gateway (bool): passed through to
             :func:`oauth_dropins.webutil.util.fetch_mf2`
           check_backlink (bool): optional, whether to require a link to Bridgy
             Fed. Ignored if the URL is a homepage, ie has no path.
           authorship_fetch_mf2 (bool): optional, when running the authorship
             algorithm, fetch author URL if necessary
+          csv (bool): if True, fetch CSV instead of microformatted HTML
           kwargs: ignored
         """
         url = obj.key.id()
@@ -567,6 +569,9 @@ class Web(User, Protocol):
         if (cls.is_blocklisted(url, allow_internal=True)
                 or util.domain_or_parent_in(url, FETCH_BLOCKLIST)):
             return False
+
+        if csv:
+            return cls._fetch_csv(obj, url, gateway=gateway)
 
         is_homepage = urlparse(url).path.strip('/') == ''
         if is_homepage:
@@ -672,6 +677,29 @@ class Web(User, Protocol):
                     }])
 
         obj.mf2 = entry
+        return True
+
+    @classmethod
+    def _fetch_csv(cls, obj, url, gateway=False):
+        """Fetches a CSV URL over HTTP.
+
+        See :meth:`fetch` for background.
+
+        Args:
+          obj (Object)
+          url (str)
+          gateway (bool): passed through to
+            :func:`oauth_dropins.webutil.util.requests_get`
+        """
+        resp = util.requests_get(url, gateway=gateway)
+
+        type = common.content_type(resp)
+        if type not in ('text/csv', 'text/plain'):
+            logging.warning(f'{url} is {type}, expected text/csv or text/plain')
+            return False
+
+        obj.csv = resp.text
+        obj.source_protocol = 'web'
         return True
 
     @classmethod

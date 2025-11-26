@@ -3560,3 +3560,18 @@ class WebUtilTest(TestCase):
             Object(id='http://foo', source_protocol='web')))
         self.assertEqual('http://foo', Web.target_for(
             Object(id='http://foo', source_protocol='web'), shared=True))
+
+    def test_load_csv(self, mock_get, __):
+        mock_get.return_value = requests_response(
+            'a,b,c\n1,2,3', content_type='text/csv; charset=utf-8')
+        ret = Web.load('https://foo.com/bar', csv=True)
+
+        for obj in ret, Object.get_by_id('https://foo.com/bar'):
+            self.assertEqual('a,b,c\n1,2,3', obj.csv)
+            self.assertEqual('web', obj.source_protocol)
+
+    def test_fetch_csv_wrong_content_type(self, mock_get, __):
+        mock_get.return_value = requests_response(
+            'a,b,c\n1,2,3', content_type='text/html')
+        self.assertIsNone(Web.load('https://foo.com/bar', csv=True))
+        self.assertIsNone(Object.get_by_id('https://foo.com/bar'))
