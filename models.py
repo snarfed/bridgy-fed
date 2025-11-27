@@ -377,7 +377,7 @@ class User(AddRemoveMixin, StringIdModel, metaclass=ProtocolUserMeta):
     send_notifs = ndb.StringProperty(default='all', choices=('all', 'none'))
     """Which notifications we should send this user."""
 
-    domain_blocklists = ndb.KeyProperty(kind='Object', repeated=True)
+    blocks = ndb.KeyProperty(kind='Object', repeated=True)
     ''
 
     created = ndb.DateTimeProperty(auto_now_add=True)
@@ -1100,7 +1100,7 @@ class User(AddRemoveMixin, StringIdModel, metaclass=ProtocolUserMeta):
     def add_domain_blocklist(self, url):
         """Adds a domain blocklist to this user.
 
-        Loads the CSV at the given URL adds it to :attr:`domain_blocklists` if it's
+        Loads the CSV at the given URL adds it to :attr:`blocks` if it's
         not already there.
 
         Args:
@@ -1112,14 +1112,14 @@ class User(AddRemoveMixin, StringIdModel, metaclass=ProtocolUserMeta):
         """
         from web import Web
 
-        if Object(id=maybe_truncate_key_id(url)).key in self.domain_blocklists:
+        if Object(id=maybe_truncate_key_id(url)).key in self.blocks:
             return
 
         obj = Web.load(url, csv=True)
         if not obj:
             return False
 
-        self.domain_blocklists.append(obj.key)
+        self.blocks.append(obj.key)
         return True
 
 
