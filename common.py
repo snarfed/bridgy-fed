@@ -91,6 +91,15 @@ DOMAIN_BLOCKLIST = (
     'youtube.com',
 )
 
+# canaries that Seirdy inserts into their blocklists
+# https://seirdy.one/posts/2023/05/02/fediverse-blocklists/#important-modifications-before-importing
+DOMAIN_BLOCKLIST_CANARIES = (
+    '000delete.this.line.if.you.have.read.the.documentation.on.seirdy.one',
+    'canary.tier1.example.com',
+    'canary.tier0.example.com',
+    'canary.fedinuke.example.com',
+)
+
 SMTP_HOST = 'smtp.gmail.com'
 SMTP_PORT = 587
 

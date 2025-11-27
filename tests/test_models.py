@@ -1744,6 +1744,7 @@ bar.org
         obj.csv = """\
 #domain
 baz.net
+canary.tier1.example.com
 blah.io
 """
         del obj.domain_blocklist

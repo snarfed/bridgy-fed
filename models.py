@@ -35,6 +35,7 @@ import secp256k1
 import common
 from common import (
     base64_to_long,
+    DOMAIN_BLOCKLIST_CANARIES,
     DOMAIN_RE,
     long_to_base64,
     OLD_ACCOUNT_AGE,
@@ -1785,8 +1786,8 @@ class Object(AddRemoveMixin, StringIdModel):
         else:
             return []
 
-        return [row[col] for row in reader if row[col]]
-
+        return [row[col] for row in reader
+                if row[col] and row[col] not in DOMAIN_BLOCKLIST_CANARIES]
 
 class Follower(ndb.Model):
     """A follower of a Bridgy Fed user."""
