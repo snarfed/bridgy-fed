@@ -267,8 +267,15 @@ class ATProtoTest(TestCase):
         self.assertIsNone(ATProto.bridged_web_url_for(fake))
 
         fake.copies = [Target(uri='did:plc:user', protocol='atproto')]
-        self.store_object(id='did:plc:user', raw=DID_DOC)
+        did_doc = self.store_object(id='did:plc:user', raw=DID_DOC)
         self.assertEqual('https://bsky.app/profile/han.dull.brid.gy',
+                         ATProto.bridged_web_url_for(fake))
+
+        # bsky.app doesn't fully support IDNs in profile URLs yet, so use punycode
+        # https://github.com/snarfed/bridgy-fed/issues/2222
+        did_doc.raw['alsoKnownAs'] = ['at://ꩰ.com']
+        did_doc.put()
+        self.assertEqual('https://bsky.app/profile/xn--8r9a.com',
                          ATProto.bridged_web_url_for(fake))
 
     def test_pds_for_did_no_doc(self):

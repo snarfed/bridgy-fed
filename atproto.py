@@ -25,6 +25,7 @@ from arroba.util import (
     TOMBSTONED,
 )
 from arroba import xrpc_repo
+from domain2idna import domain2idna
 from flask import abort, redirect, request
 from google.cloud import dns
 from google.cloud.dns.resource_record_set import ResourceRecordSet
@@ -348,7 +349,9 @@ class ATProto(User, Protocol):
         """
         if not isinstance(user, ATProto):
             if did := user.get_copy(ATProto):
-                return Bluesky.user_url(did_to_handle(did) or did)
+                # bsky.app doesn't fully support IDNs in profile URLs yet, so use
+                # punycode. https://github.com/snarfed/bridgy-fed/issues/2222
+                return Bluesky.user_url(domain2idna(did_to_handle(did)) or did)
 
         return super().bridged_web_url_for(user, fallback=fallback)
 
