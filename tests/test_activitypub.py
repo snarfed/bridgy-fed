@@ -48,7 +48,7 @@ from . import test_webfinger
 
 ACTOR = {
     '@context': as2.CONTEXT,
-    'id': 'https://mas.to/users/swentel',
+    'id': 'https://mas.to/users/foo',
     'type': 'Person',
     'inbox': 'http://mas.to/inbox',
     'name': 'Mrs. ☕ Foo',
@@ -119,7 +119,7 @@ REPLY_OBJECT = {
     'content': 'A ☕ reply',
     'id': 'http://mas.to/reply/id',
     'url': 'http://mas.to/reply',
-    'attributedTo': 'https://mas.to/users/swentel',
+    'attributedTo': 'https://mas.to/users/foo',
     'inReplyTo': 'https://user.com/post',
     'to': [as2.PUBLIC_AUDIENCE],
 }
@@ -148,7 +148,7 @@ NOTE = {
     '@context': as2.CONTEXT,
     'type': 'Create',
     'id': 'http://mas.to/note/as2',
-    'actor': 'https://mas.to/users/swentel',
+    'actor': 'https://mas.to/users/foo',
     'object': NOTE_OBJECT,
 }
 MENTION_OBJECT = copy.deepcopy(NOTE_OBJECT)
@@ -249,8 +249,8 @@ ACCEPT = {
         'type': 'Follow',
         'id': 'https://mas.to/follow',
         'object': 'http://localhost/user.com',
-        'actor': 'https://mas.to/users/swentel',
-        'url': 'https://mas.to/users/swentel#followed-user.com',
+        'actor': 'https://mas.to/users/foo',
+        'url': 'https://mas.to/users/foo#followed-user.com',
         'to': [as2.PUBLIC_AUDIENCE],
     },
    'to': [as2.PUBLIC_AUDIENCE],
@@ -260,23 +260,23 @@ UNDO_FOLLOW_WRAPPED = {
     '@context': as2.CONTEXT,
     'id': 'https://mas.to/6d1b',
     'type': 'Undo',
-    'actor': 'https://mas.to/users/swentel',
+    'actor': 'https://mas.to/users/foo',
     'object': FOLLOW_WRAPPED,
 }
 
 DELETE = {
     '@context': as2.CONTEXT,
-    'id': 'https://mas.to/users/swentel#delete',
+    'id': 'https://mas.to/users/foo#delete',
     'type': 'Delete',
-    'actor': 'https://mas.to/users/swentel',
-    'object': 'https://mas.to/users/swentel',
+    'actor': 'https://mas.to/users/foo',
+    'object': 'https://mas.to/users/foo',
 }
 
 UPDATE_PERSON = {
     '@context': as2.CONTEXT,
     'id': 'https://mas.to/person#update',
     'type': 'Update',
-    'actor': 'https://mas.to/users/swentel',
+    'actor': 'https://mas.to/users/foo',
     'object': {
         'type': 'Person',
         'id': 'https://mas.to/person',
@@ -286,7 +286,7 @@ UPDATE_NOTE = {
     '@context': as2.CONTEXT,
     'id': 'https://mas.to/note#update',
     'type': 'Update',
-    'actor': 'https://mas.to/users/swentel',
+    'actor': 'https://mas.to/users/foo',
     'object': {
         'type': 'Note',
         'id': 'https://mas.to/note',
@@ -347,7 +347,7 @@ class ActivityPubTest(TestCase):
 
         self.user = self.make_user('user.com', cls=Web, has_redirects=True,
                                    obj_as1={**ACTOR_AS1, 'id': 'https://user.com/'})
-        self.swentel_key = ndb.Key(ActivityPub, 'https://mas.to/users/swentel')
+        self.foo_key = ndb.Key(ActivityPub, 'https://mas.to/users/foo')
         self.masto_actor_key = ndb.Key(ActivityPub, 'https://mas.to/me')
 
         self.key_id_obj = Object(id='http://mas.to/key/id', as2={
@@ -774,7 +774,7 @@ class ActivityPubTest(TestCase):
                            source_protocol='activitypub',
                            our_as1=as2.to_as1(REPLY_OBJECT),
                            type='comment',
-                           users=[self.swentel_key],
+                           users=[self.foo_key],
                            notify=[self.user.key],
                            deleted=False,
                            )
@@ -787,14 +787,14 @@ class ActivityPubTest(TestCase):
                            our_as1=as2.to_as1(REPLY_OBJECT),
                            type='comment',
                            notify=[self.user.key],
-                           users=[self.swentel_key],
+                           users=[self.foo_key],
                            deleted=False,
                            )
 
     def test_inbox_reply_create_activity(self, mock_head, mock_get, mock_post):
         create = {
             **REPLY,
-            'actor': 'https://mas.to/users/swentel',
+            'actor': 'https://mas.to/users/foo',
         }
         self._test_inbox_reply(create, mock_head, mock_get, mock_post)
 
@@ -803,7 +803,7 @@ class ActivityPubTest(TestCase):
                            our_as1=as2.to_as1(REPLY_OBJECT),
                            type='comment',
                            notify=[self.user.key],
-                           users=[self.swentel_key],
+                           users=[self.foo_key],
                            deleted=False,
                            )
 
@@ -992,7 +992,7 @@ class ActivityPubTest(TestCase):
         self.assert_object(REPOST_FULL['id'],
                            source_protocol='activitypub',
                            our_as1=expected_as1,
-                           users=[self.swentel_key],
+                           users=[self.foo_key],
                            type='share',
                            )
     def test_shared_inbox_repost_of_fediverse(self, mock_head, mock_get, mock_post):
@@ -1021,7 +1021,7 @@ class ActivityPubTest(TestCase):
                            source_protocol='activitypub',
                            as2=REPOST,
                            copies=[copy],
-                           users=[self.swentel_key],
+                           users=[self.foo_key],
                            feed=[self.user.key],
                            type='share',
                            ignore=['our_as1'],
@@ -1086,7 +1086,7 @@ class ActivityPubTest(TestCase):
         # bot user
         self.make_user('efake.brid.gy', cls=Web, ap_subdomain='efake')
 
-        user = self.make_user('https://mas.to/users/swentel', cls=ActivityPub,
+        user = self.make_user('https://mas.to/users/foo', cls=ActivityPub,
                               obj_as2=ACTOR)
         self.assertFalse(user.is_enabled(ExplicitFake))
 
@@ -1097,12 +1097,12 @@ class ActivityPubTest(TestCase):
         _, code = ActivityPub.receive(Object(id=id, as2={
             'type': 'Follow',
             'id': id,
-            'actor': 'https://mas.to/users/swentel',
+            'actor': 'https://mas.to/users/foo',
             'object': 'https://efake.brid.gy/efake.brid.gy',
-        }), authed_as='https://mas.to/users/swentel')
+        }), authed_as='https://mas.to/users/foo')
         self.assertEqual(204, code)
 
-        self.assertEqual(['https://mas.to/users/swentel'],
+        self.assertEqual(['https://mas.to/users/foo'],
                          ExplicitFake.created_for)
         user = user.key.get()
         self.assertTrue(user.is_enabled(ExplicitFake))
@@ -1199,11 +1199,11 @@ class ActivityPubTest(TestCase):
 
         follow = {
             **FOLLOW_WITH_ACTOR,
-            'url': 'https://mas.to/users/swentel#followed-user.com',
+            'url': 'https://mas.to/users/foo#followed-user.com',
             'object': 'user.com'
         }
         self.assert_object('https://mas.to/follow',
-                           users=[self.swentel_key],
+                           users=[self.foo_key],
                            notify=[self.user.key],
                            source_protocol='activitypub',
                            our_as1=as2.to_as1(follow),
@@ -1219,16 +1219,16 @@ class ActivityPubTest(TestCase):
             },
         }
         accept = copy.deepcopy(ACCEPT)
-        accept['object']['url'] = 'https://mas.to/users/swentel#followed-https://user.com/'
+        accept['object']['url'] = 'https://mas.to/users/foo#followed-https://user.com/'
         self._test_inbox_follow_accept(follow, accept, *mocks)
 
         follow.update({
             'actor': ACTOR,
-            'url': 'https://mas.to/users/swentel#followed-https://user.com/',
+            'url': 'https://mas.to/users/foo#followed-https://user.com/',
         })
         follow['object']['id'] = 'user.com'
         self.assert_object('https://mas.to/follow',
-                           users=[self.swentel_key],
+                           users=[self.foo_key],
                            notify=[self.user.key],
                            source_protocol='activitypub',
                            our_as1=as2.to_as1(follow),
@@ -1239,7 +1239,7 @@ class ActivityPubTest(TestCase):
         follow = {
             'type': 'Follow',
             'id': 'https://mas.to/follow',
-            'actor': 'https://mas.to/users/swentel',
+            'actor': 'https://mas.to/users/foo',
             'object': 'http://localhost/user.com',
             'to': ['http://localhost/user.com'],
         }
@@ -1252,9 +1252,9 @@ class ActivityPubTest(TestCase):
             'object': {
                 'type': 'Follow',
                 'id': 'https://mas.to/follow',
-                'actor': 'https://mas.to/users/swentel',
+                'actor': 'https://mas.to/users/foo',
                 'object': 'http://localhost/user.com',
-                'url': 'https://mas.to/users/swentel#followed-user.com',
+                'url': 'https://mas.to/users/foo#followed-user.com',
                 'to': ['http://localhost/user.com']
             },
             'to': ['https://www.w3.org/ns/activitystreams#Public']
@@ -1266,14 +1266,14 @@ class ActivityPubTest(TestCase):
                                        mock_head, mock_get, mock_post,
                                        inbox_path='/ap/sharedInbox')
 
-        url = 'https://mas.to/users/swentel#followed-user.com'
+        url = 'https://mas.to/users/foo#followed-user.com'
         follow = {
             **FOLLOW_WITH_ACTOR,
             'url': url,
             'object': 'user.com',
         }
         self.assert_object('https://mas.to/follow',
-                           users=[self.swentel_key],
+                           users=[self.foo_key],
                            notify=[self.user.key],
                            source_protocol='activitypub',
                            our_as1=as2.to_as1(follow),
@@ -1289,14 +1289,14 @@ class ActivityPubTest(TestCase):
         self._test_inbox_follow_accept(FOLLOW_WRAPPED, ACCEPT,
                                        mock_head, mock_get, mock_post)
 
-        url = 'https://mas.to/users/swentel#followed-user.com'
+        url = 'https://mas.to/users/foo#followed-user.com'
         follow = {
             **FOLLOW_WITH_ACTOR,
             'url': url,
             'object': 'user.com',
         }
         self.assert_object('https://mas.to/follow',
-                           users=[self.swentel_key],
+                           users=[self.foo_key],
                            notify=[self.user.key],
                            source_protocol='activitypub',
                            our_as1=as2.to_as1(follow),
@@ -1346,7 +1346,7 @@ class ActivityPubTest(TestCase):
             Follower.query().fetch(),
             ignore=['created', 'updated'])
 
-        self.assert_user(ActivityPub, 'https://mas.to/users/swentel', obj_as2=ACTOR)
+        self.assert_user(ActivityPub, 'https://mas.to/users/foo', obj_as2=ACTOR)
         self.assert_user(Web, 'user.com', last_webmention_in=NOW, has_redirects=True)
 
     def test_inbox_follow_use_instead_strip_www(self, mock_head, mock_get, mock_post):
@@ -1382,7 +1382,7 @@ class ActivityPubTest(TestCase):
 
         # double check that follow Object doesn't have www
         self.assertEqual('active', follower.status)
-        self.assertEqual('https://mas.to/users/swentel#followed-user.com',
+        self.assertEqual('https://mas.to/users/foo#followed-user.com',
                          follower.follow.get().as2['url'])
 
     def test_inbox_follow_web_brid_gy_subdomain(self, mock_head, mock_get, mock_post):
@@ -1416,8 +1416,8 @@ class ActivityPubTest(TestCase):
                 'type': 'Follow',
                 'id': 'https://mas.to/follow',
                 'object': 'http://localhost/user.com',
-                'actor': 'https://mas.to/users/swentel',
-                'url': 'https://mas.to/users/swentel#followed-user.com',
+                'actor': 'https://mas.to/users/foo',
+                'url': 'https://mas.to/users/foo#followed-user.com',
             },
         }, json_loads(kwargs['data']), ignore=['to', '@context'])
 
@@ -1552,7 +1552,7 @@ class ActivityPubTest(TestCase):
         }
         self.assert_object(id,
                            our_as1=expected,
-                           users=[self.swentel_key],
+                           users=[self.foo_key],
                            source_protocol='activitypub',
                            )
         self.assertIsNone(Object.get_by_id(bad_url))
@@ -1695,7 +1695,7 @@ class ActivityPubTest(TestCase):
     def test_inbox_http_sig_is_not_actor_author(self, mock_head, mock_get, mock_post):
         mock_get.side_effect = [
             self.as2_resp({**ACTOR, 'id': 'https://mas.to/alice'}),
-            self.as2_resp(ACTOR),  # swentel
+            self.as2_resp(ACTOR),  # foo
         ]
 
         body = json_dumps({
@@ -1760,7 +1760,7 @@ class ActivityPubTest(TestCase):
         mock_get.assert_not_called()
 
     def test_delete_note(self, _, mock_get, ___):
-        self.make_user('https://mas.to/users/swentel', cls=ActivityPub, obj_as2=ACTOR)
+        self.make_user('https://mas.to/users/foo', cls=ActivityPub, obj_as2=ACTOR)
         obj = Object(id='http://mas.to/obj', as2=NOTE, source_protocol='activitypub')
         obj.put()
 
@@ -1796,12 +1796,12 @@ class ActivityPubTest(TestCase):
 
         note_as1 = as2.to_as1({
             **UPDATE_NOTE['object'],
-            'author': {'id': 'https://mas.to/users/swentel'},
+            'author': {'id': 'https://mas.to/users/foo'},
         })
         self.assert_object('https://mas.to/note',
                            type='note',
                            our_as1=note_as1,
-                           users=[self.swentel_key],
+                           users=[self.foo_key],
                            source_protocol='activitypub',
                            deleted=False,
                            )
@@ -1927,7 +1927,7 @@ class ActivityPubTest(TestCase):
             got = self.post('/user.com/inbox', json={
                 'id': 'http://no.pe/like',
                 'type': 'Like',
-                'actor': 'https://mas.to/users/swentel',
+                'actor': 'https://mas.to/users/foo',
                 'object': 'https://mas.to/note/as2',
             })
 
@@ -1947,7 +1947,7 @@ class ActivityPubTest(TestCase):
             got = self.post('/user.com/inbox', json={
                 'id': 'http://mas.to/create',
                 'type': 'Create',
-                'actor': 'https://mas.to/users/swentel',
+                'actor': 'https://mas.to/users/foo',
                 'object': {
                     **NOTE_OBJECT,
                     'id': 'https://no.pe/note',
@@ -3544,8 +3544,8 @@ class ActivityPubUtilsTest(TestCase):
         self.assertEqual('@me@mas.to', user.handle)
 
         user.obj.as2 = ACTOR
-        self.assertEqual('@swentel@mas.to', user.handle_as(ActivityPub))
-        self.assertEqual('@swentel@mas.to', user.handle)
+        self.assertEqual('@foo@mas.to', user.handle_as(ActivityPub))
+        self.assertEqual('@foo@mas.to', user.handle)
 
         user = ActivityPub(id='https://mas.to/users/alice')
         self.assertEqual('@alice@mas.to', user.handle_as(ActivityPub))

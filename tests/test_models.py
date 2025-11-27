@@ -1072,7 +1072,7 @@ class ObjectTest(TestCase):
     def test_as1_from_as2(self):
         self.assert_equals({
             'objectType': 'person',
-            'id': 'https://mas.to/users/swentel',
+            'id': 'https://mas.to/users/foo',
             'displayName': 'Mrs. ☕ Foo',
             'image': [{'url': 'https://user.com/me.jpg'}],
             'inbox': 'http://mas.to/inbox',
