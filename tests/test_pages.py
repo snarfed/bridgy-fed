@@ -73,6 +73,44 @@ class PagesTest(TestCase):
         super().setUp()
         self.user = self.make_user('user.com', cls=Web, has_redirects=True)
 
+    def make_logged_in_mastodon_user(self, **props):
+        """
+        Returns:
+          (user, auth entity) tuple:
+        """
+        auth = MastodonAuth(id='@a@b.c', access_token_str='',
+                            user_json='{"uri":"http://b.c/a"}').put()
+
+        with self.client.session_transaction() as sess:
+            sess[LOGINS_SESSION_KEY] = (sess.get(LOGINS_SESSION_KEY, [])
+                                        + [('MastodonAuth', '@a@b.c')])
+
+        user = self.make_user('http://b.c/a', cls=ActivityPub, obj_as1={
+            'id': 'http://b.c/a',
+            'username': 'a',
+            'image': 'http://pic',
+        }, **props)
+
+        return user, auth
+
+    def make_logged_in_bluesky_user(self, **props):
+        """
+        Returns:
+          (user, auth entity) tuple:
+        """
+        auth = BlueskyAuth(id='did:plc:abc', user_json='{}').put()
+
+        with self.client.session_transaction() as sess:
+            sess[LOGINS_SESSION_KEY] = (sess.get(LOGINS_SESSION_KEY, [])
+                                        + [('BlueskyAuth', 'did:plc:abc')])
+
+        self.store_object(id='did:plc:abc', raw={'alsoKnownAs': ['at://ab.c']})
+        user = self.make_user('did:plc:abc', cls=ATProto, obj_bsky={
+            '$type': 'app.bsky.actor.profile',
+        }, **props)
+
+        return user, auth
+
     def test_user(self):
         got = self.client.get('/web/user.com', base_url='https://fed.brid.gy/')
         self.assert_equals(200, got.status_code)
@@ -720,8 +758,7 @@ class PagesTest(TestCase):
                          get_flashed_messages())
 
     def test_logout(self):
-        with self.client.session_transaction() as sess:
-            sess[LOGINS_SESSION_KEY] = [('BlueskyAuth', 'did:abc')]
+        self.make_logged_in_bluesky_user()
 
         resp = self.client.post('/logout')
         self.assertEqual(302, resp.status_code)
@@ -734,24 +771,8 @@ class PagesTest(TestCase):
         self.assertEqual('/login', resp.headers['Location'])
 
     def test_settings(self):
-        self.make_user('http://b.c/a', cls=ActivityPub, enabled_protocols=['fake'],
-                       obj_as2={
-                           'id': 'http://b.c/a',
-                           'preferredUsername': 'a',
-                           'icon': 'http://b/c/a.jpg',
-                       })
-        self.store_object(id='did:plc:abc', raw={'alsoKnownAs': ['at://ab.c']})
-        self.make_user('did:plc:abc', cls=ATProto)
-
-        BlueskyAuth(id='did:plc:abc', user_json='{}').put()
-        MastodonAuth(id='@a@b.c', access_token_str='',
-                     user_json='{"uri":"http://b.c/a"}').put()
-
-        with self.client.session_transaction() as sess:
-            sess[LOGINS_SESSION_KEY] = [
-                ('BlueskyAuth', 'did:plc:abc'),
-                ('MastodonAuth', '@a@b.c'),
-            ]
+        self.make_logged_in_mastodon_user(enabled_protocols=['fake'])
+        self.make_logged_in_bluesky_user()
 
         resp = self.client.get('/settings')
         self.assertEqual(200, resp.status_code)
@@ -764,17 +785,9 @@ class PagesTest(TestCase):
 
     def test_settings_private_status(self):
         # the enable switch should be enabled even if the user is status=private
-        self.make_user('http://b.c/a', cls=ActivityPub, obj_as1={
-            'image': 'http://pic',
-            'to': [{'alias': '@private'}],
-        })
-        MastodonAuth(id='@a@b.c', access_token_str='',
-                     user_json='{"uri":"http://b.c/a"}').put()
-
-        with self.client.session_transaction() as sess:
-            sess[LOGINS_SESSION_KEY] = [
-                ('MastodonAuth', '@a@b.c'),
-            ]
+        user, _ = self.make_logged_in_mastodon_user()
+        user.obj.our_as1['to'] = [{'alias': '@private'}]
+        user.obj.put()
 
         resp = self.client.get('/settings')
         self.assertEqual(200, resp.status_code)
@@ -783,17 +796,13 @@ class PagesTest(TestCase):
         self.assert_multiline_in(
             'Not bridging because your account is set as private', body)
         self.assert_multiline_in(
-            '<input id="None-switch" type="checkbox" onClick="bridgingSwitch(event)" >', body)
+            '<input id="@a@b.c-switch" type="checkbox" onClick="bridgingSwitch(event)" >', body)
 
     @patch('requests.get')
     def test_settings_on_login_create_new_user(self, mock_get):
         mock_get.return_value = self.as2_resp(ACTOR_AS2)
 
-        auth = MastodonAuth(id='@a@b.c', access_token_str='',
-                            user_json='{"uri":"http://b.c/a"}').put()
-
-        with self.client.session_transaction() as sess:
-            sess[LOGINS_SESSION_KEY] = [('MastodonAuth', '@a@b.c')]
+        _, auth = self.make_logged_in_mastodon_user()
 
         resp = self.client.get(f'/settings?auth_entity={auth.urlsafe().decode()}')
         self.assertEqual(200, resp.status_code)
@@ -813,12 +822,7 @@ class PagesTest(TestCase):
         }),
     ])
     def test_settings_on_login_reload_profile(self, mock_get):
-        self.store_object(id='did:plc:abc', raw={'alsoKnownAs': ['at://ab.c']})
-        user = self.make_user('did:plc:abc', cls=ATProto)
-        auth = BlueskyAuth(id='did:plc:abc', user_json='{}').put()
-
-        with self.client.session_transaction() as sess:
-            sess[LOGINS_SESSION_KEY] = [('BlueskyAuth', 'did:plc:abc')]
+        user, auth = self.make_logged_in_bluesky_user()
 
         resp = self.client.get(f'/settings?auth_entity={auth.urlsafe().decode()}')
         self.assertEqual(200, resp.status_code)
@@ -836,17 +840,7 @@ class PagesTest(TestCase):
     })
     def test_enable(self):
         bot = self.make_user(id='efake.brid.gy', cls=Web)
-        user = self.make_user('http://b.c/a', cls=ActivityPub, obj_as2={
-            'id': 'http://b.c/a',
-            'preferredUsername': 'a',
-            'icon': 'http://b/c/a.jpg',
-        })
-
-        auth = MastodonAuth(id='@a@b.c', access_token_str='',
-                            user_json='{"uri":"http://b.c/a"}').put()
-
-        with self.client.session_transaction() as sess:
-            sess[LOGINS_SESSION_KEY] = [('MastodonAuth', '@a@b.c')]
+        user, _ = self.make_logged_in_mastodon_user()
 
         resp = self.client.post('/settings/enable', data={
             'key': user.key.urlsafe().decode(),
@@ -860,12 +854,7 @@ class PagesTest(TestCase):
         self.assertEqual(['http://b.c/a'], ExplicitFake.created_for)
 
     def test_enable_not_logged_in(self):
-        self.store_object(id='did:plc:abc', raw={})
-        user = self.make_user('did:plc:abc', cls=ATProto, enabled_protocols=[])
-        BlueskyAuth(id='did:plc:abc', user_json='{}').put()
-
-        with self.client.session_transaction() as sess:
-            sess[LOGINS_SESSION_KEY] = [('BlueskyAuth', 'did:plc:abc')]
+        user, _ = self.make_logged_in_bluesky_user()
 
         resp = self.client.post('/settings/enable', data={
             'key': ExplicitFake(id='efake:user').key.urlsafe().decode(),
@@ -876,34 +865,19 @@ class PagesTest(TestCase):
         self.assertEqual([], ExplicitFake.created_for)
 
     def test_disable(self):
-        self.store_object(id='did:plc:abc', raw={})
-        self.store_object(id='at://did:plc:abc/app.bsky.actor.profile/self',
-                          our_as1={})
-        user = self.make_user('did:plc:abc', cls=ATProto, enabled_protocols=['efake'])
-        BlueskyAuth(id='did:plc:abc', user_json='{}').put()
-
-        with self.client.session_transaction() as sess:
-            sess[LOGINS_SESSION_KEY] = [('BlueskyAuth', 'did:plc:abc')]
+        user, auth = self.make_logged_in_bluesky_user(enabled_protocols=['efake'])
 
         resp = self.client.post('/settings/disable', data={
             'key': user.key.urlsafe().decode(),
         })
         self.assertEqual(302, resp.status_code)
         self.assertEqual('/settings', resp.headers['Location'])
-        self.assertEqual(['Disabled bridging did:plc:abc to efake-phrase.'],
+        self.assertEqual(['Disabled bridging ab.c to efake-phrase.'],
                          get_flashed_messages())
         self.assertEqual([], user.key.get().enabled_protocols)
 
     def test_disable_not_logged_in(self):
-        user = self.make_user('http://b.c/a', cls=ActivityPub,
-                              enabled_protocols=['efake'], obj_as2={
-                                  'id': 'http://b.c/a',
-                              })
-        MastodonAuth(id='@a@b.c', access_token_str='',
-                     user_json='{"uri":"http://b.c/a"}').put()
-
-        with self.client.session_transaction() as sess:
-            sess[LOGINS_SESSION_KEY] = [('MastodonAuth', '@a@b.c')]
+        user, _ = self.make_logged_in_mastodon_user(enabled_protocols=['efake'])
 
         resp = self.client.post('/settings/disable', data={
             'key': ExplicitFake(id='efake:user').key.urlsafe().decode(),
@@ -913,18 +887,7 @@ class PagesTest(TestCase):
         self.assertEqual(['efake'], user.key.get().enabled_protocols)
 
     def test_set_username(self):
-        user = self.make_user('http://b.c/a', cls=ActivityPub,
-                              enabled_protocols=['other'], obj_as2={
-            'id': 'http://b.c/a',
-            'preferredUsername': 'a',
-            'icon': 'http://b/c/a.jpg',
-        })
-
-        auth = MastodonAuth(id='@a@b.c', access_token_str='',
-                            user_json='{"uri":"http://b.c/a"}').put()
-
-        with self.client.session_transaction() as sess:
-            sess[LOGINS_SESSION_KEY] = [('MastodonAuth', '@a@b.c')]
+        user, _ = self.make_logged_in_mastodon_user(enabled_protocols=['other'])
 
         resp = self.client.post('/settings/set-username', data={
             'key': user.key.urlsafe().decode(),
@@ -938,21 +901,12 @@ class PagesTest(TestCase):
         self.assertEqual('yoozer', OtherFake.usernames['http://b.c/a'])
 
     def test_block(self):
-        user = self.make_user('http://b.c/a', cls=ActivityPub,
-                              enabled_protocols=['fake'], obj_as2={
-            'id': 'http://b.c/a',
-            'preferredUsername': 'a',
-        })
-        auth = MastodonAuth(id='@a@b.c', access_token_str='',
-                            user_json='{"uri":"http://b.c/a"}').put()
+        user, _ = self.make_logged_in_mastodon_user(enabled_protocols=['fake'])
 
         Fake.fetchable = {'fake:eve': {
             'objectType': 'person',
             'id': 'fake:eve',
         }}
-
-        with self.client.session_transaction() as sess:
-            sess[LOGINS_SESSION_KEY] = [('MastodonAuth', '@a@b.c')]
 
         resp = self.client.post('/settings/block', data={
             'key': user.key.urlsafe().decode(),
@@ -971,13 +925,7 @@ class PagesTest(TestCase):
         })], Fake.sent)
 
     def test_toggle_notifs(self):
-        user = self.make_user('http://b.c/a', cls=ActivityPub, send_notifs='none',
-                              obj_as2={'id': 'http://b.c/a', 'preferredUsername': 'a'})
-        auth = MastodonAuth(id='@a@b.c', access_token_str='',
-                            user_json='{"uri":"http://b.c/a"}').put()
-
-        with self.client.session_transaction() as sess:
-            sess[LOGINS_SESSION_KEY] = [('MastodonAuth', '@a@b.c')]
+        user, _ = self.make_logged_in_mastodon_user(send_notifs='none')
 
         # toggle on
         resp = self.client.post('/settings/toggle-notifs', data={
