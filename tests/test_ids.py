@@ -171,12 +171,31 @@ class IdsTest(TestCase):
                 self.assertEqual('https://bsky.brid.gy/on-bsky.com', translate_user_id(
                     id='on-bsky.com', from_=Web, to=ActivityPub))
 
+    def test_translate_user_id_not_user_id(self):
+        for proto, id in [
+            (ATProto, 'at://did:plc:123/app.bsky.feed.post/456'),
+            (ATProto, 'https://bsky.app/profile/han.dull/post/456'),
+            (ATProto, 'https://bsky.app/profile/han.dull/lists/abc'),
+        ]:
+            with self.subTest(id=id, proto=proto.LABEL):
+                got = ids.translate_user_id(id=id, from_=proto, to=proto)
+                self.assertEqual(id, got)
+
     def test_normalize_user_id(self):
         for proto, id, expected in [
             (ActivityPub, 'https://inst/user', 'https://inst/user'),
             (ATProto, 'did:plc:456', 'did:plc:456'),
             (ATProto, 'https://bsky.app/profile/did:plc:123', 'did:plc:123'),
+            (ATProto, 'at://did:plc:123', 'did:plc:123'),
             (ATProto, 'at://did:plc:123/app.bsky.actor.profile/self', 'did:plc:123'),
+            (ATProto, 'https://bsky.app/profile/did:plc:123/post/456',
+             'https://bsky.app/profile/did:plc:123/post/456'),
+            (ATProto, 'at://did:plc:123/app.bsky.feed.post/456',
+             'at://did:plc:123/app.bsky.feed.post/456'),
+            (ATProto, 'https://bsky.app/profile/han.dull/post/456',
+             'https://bsky.app/profile/han.dull/post/456'),
+            (ATProto, 'https://bsky.app/profile/han.dull/lists/abc',
+             'https://bsky.app/profile/han.dull/lists/abc'),
             (Fake, 'fake:user', 'fake:user'),
             (Fake, 'fake:profile:user', 'fake:user'),
             (Web, 'user.com', 'user.com'),
@@ -188,7 +207,7 @@ class IdsTest(TestCase):
             (Nostr, NPUB, PUBKEY_URI),
             (Nostr, NPUB_URI, PUBKEY_URI),
         ]:
-            with self.subTest(id=id, proto=proto):
+            with self.subTest(id=id, proto=proto.LABEL):
                 self.assertEqual(expected, ids.normalize_user_id(id=id, proto=proto))
 
         user = Nostr(id=PUBKEY_URI, obj_key=Object(id=NOSTR_ID_0).key)
@@ -197,6 +216,15 @@ class IdsTest(TestCase):
                          ids.normalize_user_id(id=NOSTR_ID_0.removeprefix('nostr:'),
                                                proto=Nostr))
         self.assertEqual(PUBKEY_URI, ids.normalize_user_id(id=NOSTR_ID_0, proto=Nostr))
+
+    def test_normalize_user_id_not_user_id(self):
+        for proto, id in [
+            (ATProto, 'at://did:plc:123/app.bsky.feed.post/456'),
+            (ATProto, 'https://bsky.app/profile/han.dull/post/456'),
+            (ATProto, 'https://bsky.app/profile/han.dull/lists/abc'),
+        ]:
+            with self.subTest(id=id, proto=proto.LABEL):
+                self.assertEqual(id, ids.normalize_user_id(id=id, proto=proto))
 
     def test_normalize_object_id(self):
         for proto, id, expected in [
@@ -214,7 +242,7 @@ class IdsTest(TestCase):
             (Nostr, NPUB, PUBKEY_URI),
             (Nostr, NPUB_URI, PUBKEY_URI),
         ]:
-            with self.subTest(id=id, proto=proto):
+            with self.subTest(id=id, proto=proto.LABEL):
                 self.assertEqual(expected, ids.normalize_object_id(id=id, proto=proto))
 
     def test_profile_id(self):
@@ -226,7 +254,7 @@ class IdsTest(TestCase):
             (Nostr, NPUB, None),
             (Nostr, NPUB_URI, None),
         ]:
-            with self.subTest(id=id, proto=proto):
+            with self.subTest(id=id, proto=proto.LABEL):
                 self.assertEqual(expected, ids.profile_id(id=id, proto=proto))
 
         user = Nostr(id=PUBKEY_URI, obj_key=Object(id=NOSTR_ID_0).key)

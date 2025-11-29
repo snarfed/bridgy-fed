@@ -147,7 +147,7 @@ def translate_user_id(*, id, from_, to):
 
     # bsky.app profile URL to DID
     if to.LABEL == 'atproto':
-        if match := BSKY_APP_URL_RE.match(id):
+        if (match := BSKY_APP_URL_RE.match(id)) and not match['type']:
             repo = match.group('id')
             if repo.startswith('did:'):
                 return repo
@@ -210,6 +210,9 @@ def translate_user_id(*, id, from_, to):
 def normalize_user_id(*, id, proto):
     """Normalizes a user id to its canonical representation in a given protocol.
 
+    TODO: what should this return if id is not a valid user id in proto?
+    TODO: add and use new is_user_id function for this ^
+
     Examples:
 
     * Web:
@@ -235,7 +238,9 @@ def normalize_user_id(*, id, proto):
     if proto.LABEL == 'web':
         normalized = util.domain_from_link(normalized)
     elif proto.LABEL == 'atproto' and id.startswith('at://'):
-        normalized, _, _ = parse_at_uri(id)
+        repo, coll, tid = parse_at_uri(id)
+        if repo and (not coll or coll == 'app.bsky.actor.profile'):
+            normalized = repo
     elif proto.LABEL == 'nostr':
         obj_key = models.Object(id=normalized).key
         if user := nostr.Nostr.query(nostr.Nostr.obj_key == obj_key).get():
@@ -248,9 +253,6 @@ def normalize_user_id(*, id, proto):
 
 def normalize_object_id(*, id, proto):
     """Normalizes an object id to its canonical representation in a given protocol.
-
-    TODO: this is currently unused. Use it! in...Object.normalize_ids? Protocol.load?
-    more?
 
     Examples:
 

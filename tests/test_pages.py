@@ -945,7 +945,7 @@ class PagesTest(TestCase):
         self.assertEqual(302, resp.status_code)
         self.assertEqual('/settings', resp.headers['Location'])
         self.assertEqual(
-            ['400 Bad Request: Bad ATProto id https://bsky.app/xyz/456 : https://bsky.app/xyz/456 is not valid did:plc or did:web'],
+            ["https://bsky.app/xyz/456 doesn't look like a user or list on Bluesky, or we couldn't fetch it"],
             get_flashed_messages())
 
     def test_toggle_notifs(self):
