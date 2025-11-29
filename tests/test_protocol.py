@@ -1348,6 +1348,20 @@ class ProtocolTest(TestCase):
             orig_obj_id='at://did:plc:user/app.bsky.actor.profile/self',
             url='https://atproto.brid.gy', user=alice.key.urlsafe())
 
+    @patch('oauth_dropins.webutil.appengine_config.tasks_client.create_task')
+    @patch('requests.get', return_value=requests_response(status=404))
+    def test_block_activitypub_webfinger_lookup_fails(self, mock_get, mock_create_task):
+        common.RUN_TASKS_INLINE = False
+
+        alice = self.make_user(id='http://inst/alice', cls=ActivityPub,
+                               obj_as2={'type': 'Person', 'inbox': 'http://alice/in'})
+
+        Object(id='did:plc:user', raw=DID_DOC).put()
+        bob = self.make_user(id='did:plc:user', cls=ATProto)
+
+        with self.assertRaises(ValueError):
+            ActivityPub.block(bob, '@alice@inst')
+
 
 class ProtocolReceiveTest(TestCase):
 

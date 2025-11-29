@@ -924,6 +924,30 @@ class PagesTest(TestCase):
             'object': 'fake:eve',
         })], Fake.sent)
 
+    def test_block_unrecognized(self):
+        user, _ = self.make_logged_in_mastodon_user(enabled_protocols=['fake'])
+
+        resp = self.client.post('/settings/block', data={
+            'key': user.key.urlsafe().decode(),
+            'target': 'foo bar',
+        })
+        self.assertEqual(302, resp.status_code)
+        self.assertEqual('/settings', resp.headers['Location'])
+        self.assertEqual(["Can't recognize foo bar"], get_flashed_messages())
+
+    def test_block_atproto_unrecognized(self):
+        user, _ = self.make_logged_in_mastodon_user(enabled_protocols=['atproto'])
+
+        resp = self.client.post('/settings/block', data={
+            'key': user.key.urlsafe().decode(),
+            'target': 'https://bsky.app/xyz/456',
+        })
+        self.assertEqual(302, resp.status_code)
+        self.assertEqual('/settings', resp.headers['Location'])
+        self.assertEqual(
+            ['400 Bad Request: Bad ATProto id https://bsky.app/xyz/456 : https://bsky.app/xyz/456 is not valid did:plc or did:web'],
+            get_flashed_messages())
+
     def test_toggle_notifs(self):
         user, _ = self.make_logged_in_mastodon_user(send_notifs='none')
 

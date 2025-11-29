@@ -41,7 +41,7 @@ from common import (
     render_template,
 )
 from flask_app import app
-from flask import redirect, session
+from flask import redirect
 import ids
 import memcache
 import models
@@ -262,7 +262,7 @@ def logout():
     """Logs the user out of all current login sessions."""
     oauth_dropins.logout()
     flash(f"OK, you're now logged out.")
-    return redirect('/', code=302)
+    return redirect('/')
 
 
 @app.route('/settings')
@@ -295,7 +295,7 @@ def settings():
             users.append(user)
 
     if not users:
-        return redirect('/login', code=302)
+        return redirect('/login')
 
     return render(
         'settings.html',
@@ -326,7 +326,7 @@ def enable(user=None):
                     if resp.is_json:
                         msg = resp.json['error']
                 flash(f"Couldn't enable bridging to {proto.PHRASE}: {msg}")
-                return redirect('/settings', code=302)
+                return redirect('/settings')
 
             proto.bot_maybe_follow_back(user)
             enabled.append(proto)
@@ -336,7 +336,7 @@ def enable(user=None):
     else:
         flash(f'{user.handle_or_id()} is already bridging.')
 
-    return redirect('/settings', code=302)
+    return redirect('/settings')
 
 
 @app.post('/settings/disable')
@@ -349,7 +349,7 @@ def disable(user=None):
     """
     if not user.enabled_protocols:
         flash(f'{user.handle_or_id()} is not currently bridging.')
-        return redirect('/settings', code=302)
+        return redirect('/settings')
 
     enabled = list(user.enabled_protocols)
     for proto in user.enabled_protocols:
@@ -357,7 +357,7 @@ def disable(user=None):
         user.disable_protocol(PROTOCOLS[proto])
 
     flash(f'Disabled bridging {user.handle_or_id()} to {",".join(PROTOCOLS[p].PHRASE for p in enabled)}.')
-    return redirect('/settings', code=302)
+    return redirect('/settings')
 
 
 @app.post('/settings/set-username')
@@ -383,7 +383,7 @@ def set_username(user=None):
     except (ValueError, RuntimeError) as e:
         flash(f"Couldn't set username on {proto.PHRASE} to {username}: {e}")
 
-    return redirect('/settings', code=302)
+    return redirect('/settings')
 
 
 @app.post('/settings/block')
@@ -406,19 +406,27 @@ def block(user=None):
         proto, _ = Protocol.for_handle(target.removeprefix('@'))
     if not proto:
         flash(f"Can't recognize {target}")
+        return redirect('/settings')
     elif isinstance(user, proto):
         flash(f'{target} is on {proto.PHRASE}! You can block them there.')
-    else:
-        # block!
-        blockees = [proto.block(user, arg) for arg in target.strip().split()]
-        links = [blockee.user_link() if isinstance(blockee, models.User)
-                 else util.pretty_link(blockee.as1.get('url') or '',
-                                       text=blockee.as1.get('displayName'))
-                 for blockee in blockees]
-        flash(f"""OK, you're now blocking {', '.join(links)} on {proto.PHRASE}.""",
-              escape=False)
+        return redirect('/settings')
 
-    return redirect('/settings', code=302)
+    # block!
+    blockees = []
+    for arg in target.strip().split():
+        try:
+            blockees.append(proto.block(user, arg))
+        except ValueError as err:
+            flash(str(err))
+            return redirect('/settings')
+
+    links = [blockee.user_link() if isinstance(blockee, models.User)
+             else util.pretty_link(blockee.as1.get('url') or '',
+                                   text=blockee.as1.get('displayName'))
+             for blockee in blockees]
+    flash(f"""OK, you're now blocking {', '.join(links)} on {proto.PHRASE}.""",
+          escape=False)
+    return redirect('/settings')
 
 
 @app.post('/settings/toggle-notifs')
@@ -439,7 +447,7 @@ def toggle_notifs(user=None):
     user.put()
 
     flash(f'DM notifications {verb} for {user.handle_or_id()}.')
-    return redirect('/settings', code=302)
+    return redirect('/settings')
 
 
 @app.get(f'/<any({",".join(PROTOCOLS)}):protocol>/<id>')
@@ -510,7 +518,7 @@ def find_user_page():
         flash(f"User {id} on {proto.PHRASE} isn't signed up.")
         return render('find_user_page.html'), 404
 
-    return redirect(user.user_page_path(), code=302)
+    return redirect(user.user_page_path())
 
 
 @app.post(f'/<any({",".join(PROTOCOLS)}):protocol>/<id>/update-profile')
@@ -524,11 +532,11 @@ def update_profile(protocol, id):
     except (requests.RequestException, werkzeug.exceptions.HTTPException) as e:
         _, msg = util.interpret_http_exception(e)
         flash(f"Couldn't update profile for {link}: {msg}", escape=False)
-        return redirect(user.user_page_path(), code=302)
+        return redirect(user.user_page_path())
 
     if not user.obj:
         flash(f"Couldn't update profile for {link}", escape=False)
-        return redirect(user.user_page_path(), code=302)
+        return redirect(user.user_page_path())
 
     common.create_task(queue='receive', obj_id=user.obj_key.id(),
                        authed_as=user.key.id())
@@ -545,7 +553,7 @@ def update_profile(protocol, id):
                 except (AssertionError, ValueError, RuntimeError, NotImplementedError):
                     pass
 
-    return redirect(user.user_page_path(), code=302)
+    return redirect(user.user_page_path())
 
 
 @app.get(f'/<any({",".join(PROTOCOLS)}):protocol>/<id>/<any(followers,following):collection>')
