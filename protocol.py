@@ -2114,6 +2114,7 @@ Hi! You <a href="{inner_obj_as1.get('url') or inner_obj_id}">recently {verb}</a>
         blockee = None
         try:
             # first, try interpreting as a user handle or id
+            # TODO: move out of dms
             blockee = dms._load_user(arg, cls)
         except BadRequest:
             pass

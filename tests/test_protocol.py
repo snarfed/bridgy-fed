@@ -1309,24 +1309,45 @@ class ProtocolTest(TestCase):
         Fake.bot_maybe_follow_back(user)
         self.assertEqual([], Fake.sent)
 
-    def test_check_can_migrate_out(self, *_):
+    def test_check_can_migrate_out(self):
         fake = Fake(id='fake:user', enabled_protocols=['other'])
         OtherFake.check_can_migrate_out(fake, 'other:user')
 
-    def test_check_can_migrate_out_bad_user_id(self, *_):
+    def test_check_can_migrate_out_bad_user_id(self):
         fake = Fake(id='fake:user', enabled_protocols=['other'])
         with self.assertRaises(ValueError):
             OtherFake.check_can_migrate_out(self.user, 'at://did:xyz')
 
-    def test_check_can_migrate_out_user_not_enabled(self, *_):
+    def test_check_can_migrate_out_user_not_enabled(self):
         fake = Fake(id='fake:user', enabled_protocols=['efake'])
         with self.assertRaises(ValueError):
             OtherFake.check_can_migrate_out(fake, 'https://in.st/eve')
 
-    def test_check_can_migrate_out_same_protocol(self, *_):
+    def test_check_can_migrate_out_same_protocol(self):
         fake = Fake(id='fake:user', enabled_protocols=['other'])
         with self.assertRaises(ValueError):
             Fake.check_can_migrate_out(fake, 'fake:eve')
+
+    @patch('oauth_dropins.webutil.appengine_config.tasks_client.create_task')
+    def test_block_atproto_bsky_app_url(self, mock_create_task):
+        common.RUN_TASKS_INLINE = False
+
+        Object(id='did:plc:user', raw=DID_DOC).put()
+        self.make_user(id='did:plc:user', cls=ATProto, obj_bsky={
+            '$type': 'app.bsky.actor.profile',
+        })
+
+        alice = self.make_user(id='fake:alice', cls=Fake, obj_id='fake:alice',
+                               enabled_protocols=['atproto'])
+
+        ATProto.block(alice, 'https://bsky.app/profile/han.dull.brid.gy')
+
+        self.assert_task(
+            mock_create_task, 'send', protocol='atproto',
+            obj_id='fake:alice#bridgy-fed-block-2022-01-02T03:04:05+00:00',
+            orig_obj_id='at://did:plc:user/app.bsky.actor.profile/self',
+            url='https://atproto.brid.gy', user=alice.key.urlsafe())
+
 
 class ProtocolReceiveTest(TestCase):
 

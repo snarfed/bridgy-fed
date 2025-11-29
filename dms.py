@@ -416,7 +416,8 @@ def _load_user(handle_or_id, proto):
       models.User or None:
     """
     if proto.owns_id(handle_or_id) is not False:
-        return proto.get_or_create(handle_or_id, allow_opt_out=True)
+        id = ids.normalize_user_id(id=handle_or_id, proto=proto)
+        return proto.get_or_create(id, allow_opt_out=True)
 
     logging.info(f"doesn't look like an ID, trying as a handle")
 
