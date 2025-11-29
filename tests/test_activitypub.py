@@ -2520,7 +2520,7 @@ class ActivityPubUtilsTest(TestCase):
         for addr in ('user@instance', 'user@instance.com', 'user.com@instance.com',
                      'user@instance', 'user@sub.do.main'):
             with self.subTest(handle=addr):
-                self.assertEqual(False, ActivityPub.owns_handle(addr))
+                self.assertIsNone(ActivityPub.owns_handle(addr))
 
             handle = '@' + addr
             with self.subTest(handle=handle):

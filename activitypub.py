@@ -257,9 +257,9 @@ class ActivityPub(User, Protocol):
         https://datatracker.ietf.org/doc/html/rfc7033#section-3.1
         https://datatracker.ietf.org/doc/html/rfc7033#section-4.5
         """
-        if (handle and handle[0] == '@'
-                and cls.is_user_at_domain(handle[1:], allow_internal=allow_internal)):
-            return True
+        if handle and cls.is_user_at_domain(handle.removeprefix('@'),
+                                            allow_internal=allow_internal):
+            return True if handle.startswith('@') else None
 
         return False
 
