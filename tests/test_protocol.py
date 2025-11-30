@@ -1329,6 +1329,18 @@ class ProtocolTest(TestCase):
             Fake.check_can_migrate_out(fake, 'fake:eve')
 
     @patch('oauth_dropins.webutil.appengine_config.tasks_client.create_task')
+    def test_block_bad_url(self, mock_create_task):
+        common.RUN_TASKS_INLINE = False
+
+        alice = self.make_user(id='fake:alice', cls=Fake, obj_id='fake:alice',
+                               enabled_protocols=['activitypub'])
+
+        with self.assertRaises(ValueError):
+            ActivityPub.block(alice, 'in.st/@alice')
+
+        mock_create_task.assert_not_called()
+
+    @patch('oauth_dropins.webutil.appengine_config.tasks_client.create_task')
     def test_block_atproto_bsky_app_url(self, mock_create_task):
         common.RUN_TASKS_INLINE = False
 
