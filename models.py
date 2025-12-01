@@ -458,6 +458,9 @@ class User(AddRemoveMixin, StringIdModel, metaclass=ProtocolUserMeta):
         """
         assert cls != User
 
+        # TODO?
+        # id = ids.normalize_user_id(id=id, proto=cls)
+
         user = cls.get_by_id(id, allow_opt_out=True)
         if user:  # existing
             if reload:
@@ -1097,6 +1100,28 @@ class User(AddRemoveMixin, StringIdModel, metaclass=ProtocolUserMeta):
                                        Follower.status == 'active')\
                                 .count_async()
         return num_followers.get_result(), num_following.get_result()
+
+    def is_blocking(self, user_id):
+        """Returns True if this user is is blocking ``user_id``, False otherwise.
+
+        Looks at domain blocklists in :attr:`blocks`. Eventually we can add support
+        for blocking individual users in that too.
+
+        Args:
+          user_id (str)
+
+        Returns:
+          bool:
+        """
+        if not util.is_url(user_id) and not re.match(DOMAIN_RE, user_id):
+            return False
+
+        domain = util.domain_from_link(user_id)
+        blocklists = ndb.get_multi(key for key in self.blocks
+                                   if key.kind() == 'Object')
+        for list in blocklists:
+            if util.domain_or_parent_in(domain, list.domain_blocklist):
+                return True
 
     def add_domain_blocklist(self, url):
         """Adds a domain blocklist to this user.

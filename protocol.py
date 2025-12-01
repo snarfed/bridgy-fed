@@ -1883,6 +1883,10 @@ Hi! You <a href="{inner_obj_as1.get('url') or inner_obj_id}">recently {verb}</a>
 
             # collect targets for followers
             for user in users:
+                if user.is_blocking(from_user.key.id()):
+                    logger.debug(f'  {user.key.id()} blocks {from_user.key.id()}')
+                    continue
+
                 # TODO: should we pass remote=False through here to Protocol.load?
                 target = user.target_for(user.obj, shared=True) if user.obj else None
                 if not target:
@@ -1923,6 +1927,10 @@ Hi! You <a href="{inner_obj_as1.get('url') or inner_obj_id}">recently {verb}</a>
             if util.is_web(url) and util.domain_from_link(url) in source_domains:
                 logger.info(f'Skipping same-domain target {url}')
                 continue
+            elif from_user.is_blocking(url):
+                logger.debug(f'{from_user.key.id()} blocks {url}')
+                continue
+
             target, obj = candidates[url]
             targets[target] = obj
 

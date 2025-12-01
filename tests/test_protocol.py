@@ -2083,6 +2083,45 @@ class ProtocolReceiveTest(TestCase):
             Target(uri='https://atproto.brid.gy', protocol='atproto'): None,
         }, Fake.targets(create, crud_obj=note, from_user=self.user))
 
+    def test_targets_excludes_blocklisted(self):
+        # bob, eve, and frank follow alice
+        alice = self.make_user('fake://ali.ce', cls=Fake, obj_id='fake://ali.ce')
+        bob = self.make_user('other://b.ob', cls=OtherFake, obj_id='other://b.ob')
+        eve = self.make_user('other://e.ve', cls=OtherFake, obj_id='other://e.ve')
+        frank = self.make_user('other://fra.nk', cls=OtherFake,
+                               obj_id='other://fra.nk')
+
+        for follower in bob, eve, frank:
+            Follower.get_or_create(to=alice, from_=follower)
+
+        # alice blocks frank
+        blocklist = self.store_object(id='https://list1', csv='domain\nfra.nk')
+        alice.blocks = [blocklist.key]
+        alice.put()
+
+        # eve blocks alice
+        blocklist = self.store_object(id='https://list2', csv='domain\nali.ce')
+        eve.blocks = [blocklist.key]
+        eve.put()
+
+        # alice posts to followers
+        note = Object(id='fake:note', our_as1={
+            'id': 'fake:post',
+            'objectType': 'note',
+            'author': 'fake://ali.ce',
+        })
+        create = Object(id='fake:create', our_as1={
+            'id': 'fake:create',
+            'objectType': 'activity',
+            'verb': 'post',
+            'actor': 'fake://ali.ce',
+            'object': note.our_as1,
+        })
+        self.assertEqual([
+            # not eve or frank
+            Target(protocol='other', uri='other://b.ob:target'),
+        ], list(Fake.targets(create, from_user=alice, crud_obj=note)))
+
     def test_create_post_dont_deliver_to_follower_if_protocol_isnt_enabled(self):
         # user who hasn't enabled either Fake or OtherFake, so we shouldn't
         # deliver to followers on those protocols
@@ -4143,7 +4182,7 @@ class ProtocolReceiveTest(TestCase):
     @patch('protocol.LIMITED_DOMAINS', ['lim.it'])
     @patch.object(ATProto, 'send')
     @patch('requests.get')
-    def test_inbox_limited_domain_create_without_follow_no_atproto(
+    def test_limited_domain_create_without_follow_no_atproto(
             self, mock_get, mock_send):
         actor = 'https://lim.it/alice'
         user = self.make_user(id=actor, cls=ActivityPub, enabled_protocols=['atproto'])
