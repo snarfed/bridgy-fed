@@ -2083,7 +2083,7 @@ class ProtocolReceiveTest(TestCase):
             Target(uri='https://atproto.brid.gy', protocol='atproto'): None,
         }, Fake.targets(create, crud_obj=note, from_user=self.user))
 
-    def test_targets_excludes_blocklisted(self):
+    def test_targets_excludes_blocklisted_followers(self):
         # bob, eve, and frank follow alice
         alice = self.make_user('fake://ali.ce', cls=Fake, obj_id='fake://ali.ce')
         bob = self.make_user('other://b.ob', cls=OtherFake, obj_id='other://b.ob')
@@ -2121,6 +2121,47 @@ class ProtocolReceiveTest(TestCase):
             # not eve or frank
             Target(protocol='other', uri='other://b.ob:target'),
         ], list(Fake.targets(create, from_user=alice, crud_obj=note)))
+
+    def test_targets_excludes_blocklisted_direct_targets(self):
+        OtherFake.fetchable = {
+            'other://b.ob/': {'objectType': 'person', 'id': 'other://b.ob'},
+            'other://e.ve/': {'objectType': 'person', 'id': 'other://e.ve'},
+            'other://fra.nk/': {'objectType': 'person', 'id': 'other://fra.nk'},
+            'other://e.ve/note': {
+                'objectType': 'note',
+                'id': 'other://e.ve/note',
+                'author': 'other://e.ve/',
+            },
+        }
+
+        blocklist = self.store_object(id='https://list1', csv='domain\nfra.nk\ne.ve')
+        self.user.blocks = [blocklist.key]
+        self.user.put()
+
+        note = Object(id='fake:note', our_as1={
+            'id': 'fake:post',
+            'objectType': 'note',
+            'author': 'fake:user',
+            'inReplyTo': 'other://e.ve/note',
+            'tags': [{
+                'objectType': 'mention',
+                'url': 'other://fra.nk',
+            }, {
+                'objectType': 'mention',
+                'url': 'other://b.ob',
+            }],
+        })
+        create = Object(id='fake:create', our_as1={
+            'id': 'fake:create',
+            'objectType': 'activity',
+            'verb': 'post',
+            'actor': 'fake:user',
+            'object': note.our_as1,
+        })
+        self.assertEqual([
+            # not eve or frank
+            Target(protocol='other', uri='other://b.ob/:target'),
+        ], list(Fake.targets(create, from_user=self.user, crud_obj=note)))
 
     def test_create_post_dont_deliver_to_follower_if_protocol_isnt_enabled(self):
         # user who hasn't enabled either Fake or OtherFake, so we shouldn't
