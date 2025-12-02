@@ -96,13 +96,13 @@ def convert(to, _, from_=None):
 
     # check that this object's owner isn't blocking the authed user, if any
     if owner_id := as1.get_owner(obj.as1):
-        if fetcher := to_proto.authed_user_for_request():
-            if owner := from_proto.get_by_id(owner_id, allow_opt_out=True):
-                try:
-                    if owner.is_blocking(fetcher):
-                        error('', status=403)
-                except RuntimeError as err:
-                    error(str(err), status=403)
+        try:
+            fetcher = to_proto.authed_user_for_request()
+        except RuntimeError as err:
+            error(str(err), status=401)
+        if fetcher and (owner := from_proto.get_by_id(owner_id, allow_opt_out=True)):
+            if owner.is_blocking(fetcher):
+                error('', status=403)
 
     # convert and serve
     return to_proto.convert(obj), {

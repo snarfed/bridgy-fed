@@ -435,9 +435,8 @@ class ActivityPubTest(TestCase):
         got = self.client.get('/foo.json')
         self.assertEqual(404, got.status_code)
 
-    def test_actor_blocklisted_signer(self, _, mock_get, __):
+    def test_actor_blocklisted_signer(self, *_):
         self.make_user(ACTOR['id'], cls=ActivityPub, obj_as2=ACTOR)
-        mock_get.return_value = self.as2_resp(ACTOR)
         self.assertEqual('mas.to', util.domain_from_link(ACTOR['id']))
 
         blocklist = Object(id='https://list', csv='domain\nmas.to').put()
@@ -445,8 +444,16 @@ class ActivityPubTest(TestCase):
         self.user.put()
 
         headers = sign(path='/user.com', body='', key_id=ACTOR['id'], method='GET')
-        got = self.client.get('/user.com', data='', headers=headers)
+        got = self.client.get('/user.com', headers=headers)
         self.assertEqual(403, got.status_code)
+
+    def test_actor_bad_signature(self, *_):
+        self.make_user(ACTOR['id'], cls=ActivityPub, obj_as2=ACTOR)
+
+        headers = sign(path='/user.com', body='', key_id=ACTOR['id'], method='GET')
+        headers['signature'] += 'foo'
+        got = self.client.get('/user.com', headers=headers)
+        self.assertEqual(401, got.status_code)
 
     def test_actor_no_conneg_redirect_to_profile(self, _, __, ___):
         got = self.client.get('/user.com')

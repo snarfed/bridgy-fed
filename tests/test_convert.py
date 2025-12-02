@@ -431,13 +431,10 @@ A ☕ reply
                                base_url='https://fed.brid.gy/')
         self.assertEqual(404, resp.status_code)
 
-    @patch('requests.get')
-    def test_activitypub_to_web_blocklisted_signer(self, mock_get):
+    def test_activitypub_to_web_blocklisted_signer(self):
         actor = test_activitypub.add_key(copy.deepcopy(test_activitypub.ACTOR))
         self.make_user(actor['id'], cls=ActivityPub, obj_as2=actor)
         self.assertEqual('mas.to', domain_from_link(actor['id']))
-
-        mock_get.return_value = self.as2_resp(actor)
 
         blocklist = Object(id='http://list', csv='domain\nmas.to').put()
         self.make_user('fake:user', cls=Fake, enabled_protocols=['activitypub'],
@@ -450,3 +447,18 @@ A ☕ reply
                                         host='fa.brid.gy', key_id=actor['id'])
         resp = self.client.get(path, headers=headers)
         self.assertEqual(403, resp.status_code)
+
+    @patch('requests.get')
+    def test_activitypub_to_web_bad_signature(self, mock_get):
+        actor = test_activitypub.add_key(copy.deepcopy(test_activitypub.ACTOR))
+        mock_get.return_value = self.as2_resp(actor)
+
+        self.make_user('fake:user', cls=Fake, enabled_protocols=['activitypub'])
+        Object(id='fake:note', our_as1={'author': 'fake:user'}).put()
+
+        path = '/convert/ap/fake:note'
+        headers = test_activitypub.sign(path=path, body='', method='GET',
+                                        host='fa.brid.gy', key_id=actor['id'])
+        headers['signature'] += 'foo'
+        resp = self.client.get(path, headers=headers)
+        self.assertEqual(401, resp.status_code)

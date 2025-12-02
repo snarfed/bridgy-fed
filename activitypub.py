@@ -1260,7 +1260,7 @@ def actor(handle_or_id):
         signer = ActivityPub.authed_user_for_request()
         if signer and user.is_blocking(signer):
             return '', 403
-    except RuntimeException as err:
+    except RuntimeError as err:
         error(str(err), status=401)
 
     as2_type = as2_request_type()
