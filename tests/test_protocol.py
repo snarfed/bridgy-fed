@@ -251,6 +251,7 @@ class ProtocolTest(TestCase):
         }, loaded.our_as1)
         self.assertFalse(loaded.changed)
         self.assertTrue(loaded.new)
+        self.assertFalse(loaded.is_csv)
 
         self.assertIsNotNone(Object.get_by_id('foo'))
         self.assertEqual(['foo'], Fake.fetched)

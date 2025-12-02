@@ -3248,6 +3248,7 @@ class WebUtilTest(TestCase):
 
         self.assert_equals(ACTOR_MF2, obj.mf2, ignore=['rel-urls', 'url'])
         self.assert_equals(ACTOR_AS1_UNWRAPPED, obj.as1, ignore=['author'])
+        self.assertFalse(obj.is_csv)
 
     def test_fetch_user_homepage_metaformats_mf2_but_no_hcard(self, mock_get, __):
         html = ACTOR_HTML_METAFORMATS.replace('</html>', """\
@@ -3569,6 +3570,7 @@ class WebUtilTest(TestCase):
         for obj in ret, Object.get_by_id('https://foo.com/bar'):
             self.assertEqual('a,b,c\n1,2,3', obj.csv)
             self.assertEqual('web', obj.source_protocol)
+            self.assertTrue(obj.csv)
 
     def test_fetch_csv_wrong_content_type(self, mock_get, __):
         mock_get.return_value = requests_response(

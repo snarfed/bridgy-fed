@@ -1198,6 +1198,8 @@ class Object(AddRemoveMixin, StringIdModel):
 
     extra_as1 = JsonProperty()
     "Additional individual fields to merge into this object's AS1 representation"
+    is_csv = ndb.BooleanProperty()
+    "Whether this object is a CSV. Needed because :attr:`csv` isn't indexed."
 
     # TODO: remove and actually delete Objects instead!
     deleted = ndb.BooleanProperty()

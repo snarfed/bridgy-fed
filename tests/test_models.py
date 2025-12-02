@@ -789,8 +789,7 @@ class UserTest(TestCase):
         self.assertEqual([], self.user.blocks)
 
         self.assertTrue(self.user.add_domain_blocklist('https://exam.pl/1'))
-        self.assertEqual([Object(id='https://exam.pl/1').key],
-                         self.user.blocks)
+        self.assertEqual([Object(id='https://exam.pl/1').key], self.user.blocks)
         self.assert_req(mock_get, 'https://exam.pl/1')
 
         mock_get.reset_mock()

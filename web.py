@@ -698,8 +698,7 @@ class Web(User, Protocol):
             logging.warning(f'{url} is {type}, expected text/csv or text/plain')
             return False
 
-        obj.csv = resp.text
-        obj.source_protocol = 'web'
+        obj.populate(csv=resp.text, is_csv=True, source_protocol='web')
         return True
 
     @classmethod
