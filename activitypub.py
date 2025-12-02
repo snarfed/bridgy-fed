@@ -674,15 +674,12 @@ class ActivityPub(User, Protocol):
             raise ValueError(msg)
 
     @classmethod
-    def authed_user_for_request(cls, activity):
+    def authed_user_for_request(cls):
         """Returns the AP actor id of the user who signed the current request.
 
         Verifies the current request's HTTP Signature. Logs details of the result.
 
         https://swicg.github.io/activitypub-http-signature/
-
-        Args:
-          activity (dict): AS2 activity
 
         Returns:
           str or None: signing AP actor id, or None if the request isn't signed
@@ -729,8 +726,9 @@ class ActivityPub(User, Protocol):
         try:
             key_actor = cls._load_key(key_id)
         except BadGateway:
-            obj_id = as1.get_object(activity).get('id')
-            if (activity.get('type') == 'Delete' and obj_id
+            activity = request.json
+            if (activity and activity.get('type') == 'Delete'
+                    and (obj_id := as1.get_object(activity).get('id'))
                     and key_id == fragmentless(obj_id)):
                 logger.debug('Object/actor being deleted is also keyId')
                 key_actor = Object.get_or_create(
@@ -1259,7 +1257,7 @@ def actor(handle_or_id):
     # *optionally* check HTTP signature. if the request is signed by a user or domain
     # *that this object's owner is blocking, reject the fetch.
     try:
-        signer = ActivityPub.authed_user_for_request({})
+        signer = ActivityPub.authed_user_for_request()
         if signer and user.is_blocking(signer):
             logger.info(f'Rejecting fetch, {user.key} is blocking {signer}')
             return '', 403
@@ -1374,7 +1372,7 @@ def inbox(protocol=None, id=None):
     # check signature, auth
     authed_as = None
     try:
-        authed_as = ActivityPub.authed_user_for_request(activity)
+        authed_as = ActivityPub.authed_user_for_request()
     except RuntimeError as err:
         error(str(err), status=401)
 

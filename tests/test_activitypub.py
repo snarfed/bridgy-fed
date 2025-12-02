@@ -1681,7 +1681,7 @@ class ActivityPubTest(TestCase):
 
         with app.test_request_context('/ap/sharedInbox', method='POST',
                                       data=body, headers=headers):
-            self.assertEqual(actor, ActivityPub.authed_user_for_request(None))
+            self.assertEqual(actor, ActivityPub.authed_user_for_request())
 
     def test_inbox_ignore_forward_with_ld_sig(self, _, __, ___):
         self.make_user(ACTOR['id'], cls=ActivityPub, obj_as2=ACTOR)

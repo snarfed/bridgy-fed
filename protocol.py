@@ -251,15 +251,12 @@ class Protocol:
         raise NotImplementedError()
 
     @classmethod
-    def authed_user_for_request(cls, activity):
+    def authed_user_for_request(cls):
         """Returns the authenticated user id for the current request.
 
 
         Checks authentication on the current request, eg HTTP Signature for
         ActivityPub. To be implemented by subclasses.
-
-        Args:
-          activity (dict): AS2 activity, optional
 
         Returns:
           str: authenticated user id, or None if there is no authentication
