@@ -1259,11 +1259,9 @@ def actor(handle_or_id):
     try:
         signer = ActivityPub.authed_user_for_request()
         if signer and user.is_blocking(signer):
-            logger.info(f'Rejecting fetch, {user.key} is blocking {signer}')
             return '', 403
-    except RuntimeException:
-        # missing or bad signature; fail open
-        pass
+    except RuntimeException as err:
+        error(str(err), status=401)
 
     as2_type = as2_request_type()
     if not as2_type:

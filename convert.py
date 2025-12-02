@@ -22,7 +22,7 @@ from common import (
 )
 from flask_app import app
 import memcache
-from models import Object, PROTOCOLS
+from models import PROTOCOLS
 from protocol import Protocol
 from web import Web
 
@@ -94,9 +94,15 @@ def convert(to, _, from_=None):
 
     check_bridged_to(obj, to_proto=to_proto)
 
-    # STATE:
-    # * move AP verify_signature to new Protocol.authenticated_user_for_request
-    # * load object's owner user, check that they're not blocklisting authed user
+    # check that this object's owner isn't blocking the authed user, if any
+    if owner_id := as1.get_owner(obj.as1):
+        if fetcher := to_proto.authed_user_for_request():
+            if owner := from_proto.get_by_id(owner_id, allow_opt_out=True):
+                try:
+                    if owner.is_blocking(fetcher):
+                        error('', status=403)
+                except RuntimeError as err:
+                    error(str(err), status=403)
 
     # convert and serve
     return to_proto.convert(obj), {

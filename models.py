@@ -1123,6 +1123,7 @@ class User(AddRemoveMixin, StringIdModel, metaclass=ProtocolUserMeta):
                                    if key.kind() == 'Object')
         for list in blocklists:
             if util.domain_or_parent_in(domain, list.domain_blocklist):
+                logger.info(f'{self.key.id()} is blocking {user_id}')
                 return True
 
     def add_domain_blocklist(self, url):
