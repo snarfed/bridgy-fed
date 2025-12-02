@@ -322,7 +322,7 @@ def add_key(obj):
     return obj
 
 
-def sign(path, body, key_id, host='localhost'):
+def sign(path, body, key_id, host='localhost', method='POST'):
     """Constructs HTTP Signature, returns headers."""
     digest = b64encode(sha256(body.encode()).digest()).decode()
     headers = {
@@ -334,7 +334,7 @@ def sign(path, body, key_id, host='localhost'):
     hs = HeaderSigner(key_id, global_user.private_pem().decode(),
                       algorithm='rsa-sha256', sign_header='signature',
                       headers=('Date', 'Host', 'Digest', '(request-target)'))
-    return hs.sign(headers, method='POST', path=path)
+    return hs.sign(headers, method=method, path=path)
 
 
 @patch('requests.post')
@@ -434,6 +434,19 @@ class ActivityPubTest(TestCase):
     def test_actor_blocked_tld(self, _, __, ___):
         got = self.client.get('/foo.json')
         self.assertEqual(404, got.status_code)
+
+    def test_actor_blocklisted_signer(self, _, mock_get, __):
+        self.make_user(ACTOR['id'], cls=ActivityPub, obj_as2=ACTOR)
+        mock_get.return_value = self.as2_resp(ACTOR)
+        self.assertEqual('mas.to', util.domain_from_link(ACTOR['id']))
+
+        blocklist = Object(id='https://list', csv='domain\nmas.to').put()
+        self.user.blocks = [blocklist]
+        self.user.put()
+
+        headers = sign(path='/user.com', body='', key_id=ACTOR['id'], method='GET')
+        got = self.client.get('/user.com', data='', headers=headers)
+        self.assertEqual(403, got.status_code)
 
     def test_actor_no_conneg_redirect_to_profile(self, _, __, ___):
         got = self.client.get('/user.com')

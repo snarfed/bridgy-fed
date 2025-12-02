@@ -94,6 +94,10 @@ def convert(to, _, from_=None):
 
     check_bridged_to(obj, to_proto=to_proto)
 
+    # STATE:
+    # * move AP verify_signature to new Protocol.authenticated_user_for_request
+    # * load object's owner user, check that they're not blocklisting authed user
+
     # convert and serve
     return to_proto.convert(obj), {
         'Content-Type': to_proto.CONTENT_TYPE,

@@ -26,7 +26,7 @@ from oauth_dropins.webutil.util import add, fragmentless, json_dumps, json_loads
 import requests
 from requests import TooManyRedirects
 from requests.models import DEFAULT_REDIRECT_LIMIT
-from werkzeug.exceptions import BadGateway
+from werkzeug.exceptions import BadGateway, HTTPException
 
 from flask_app import app
 import common
@@ -1259,6 +1259,17 @@ def actor(handle_or_id):
 
     user = _load_user(handle_or_id, create=True)
     proto = user
+
+    # *optionally* check HTTP signature. if the request is signed by a user or domain
+    # *that this object's owner is blocking, reject the fetch.
+    try:
+        signer = ActivityPub.verify_signature({})
+        if signer and user.is_blocking(signer):
+            logger.info(f'Rejecting fetch, {user.key} is blocking {signer}')
+            return '', 403
+    except HTTPException as e:
+        # missing or bad signature; fail open
+        pass
 
     as2_type = as2_request_type()
     if not as2_type:
