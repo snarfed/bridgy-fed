@@ -1116,7 +1116,9 @@ class User(AddRemoveMixin, StringIdModel, metaclass=ProtocolUserMeta):
         if not util.is_url(user_id) and not re.match(DOMAIN_RE, user_id):
             return False
 
+        # TODO: also handle? target, eg ATProto PDS?
         domain = util.domain_from_link(user_id)
+        # TODO: short circuit if domain(s) are all None/empty
         blocklists = ndb.get_multi(key for key in self.blocks
                                    if key.kind() == 'Object')
         for list in blocklists:

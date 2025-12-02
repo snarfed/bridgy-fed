@@ -1207,6 +1207,7 @@ def postprocess_as2_actor(actor, user):
     return actor
 
 
+# TODO: unify with dms._load_user?
 def _load_user(handle_or_id, create=False):
     if handle_or_id == PRIMARY_DOMAIN or handle_or_id in PROTOCOL_DOMAINS:
         from web import Web

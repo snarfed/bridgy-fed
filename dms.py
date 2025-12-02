@@ -405,6 +405,7 @@ def receive(*, from_user, obj):
     return r'¯\_(ツ)_/¯', 204
 
 
+# TODO: move to models?
 def _load_user(handle_or_id, proto):
     """Loads the user with the given handle or id.
 
