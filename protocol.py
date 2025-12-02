@@ -251,6 +251,26 @@ class Protocol:
         raise NotImplementedError()
 
     @classmethod
+    def authed_user_for_request(cls, activity):
+        """Returns the authenticated user id for the current request.
+
+
+        Checks authentication on the current request, eg HTTP Signature for
+        ActivityPub. To be implemented by subclasses.
+
+        Args:
+          activity (dict): AS2 activity, optional
+
+        Returns:
+          str: authenticated user id, or None if there is no authentication
+
+        Raises:
+          RuntimeError: if the request's authentication (eg signature) is
+          invalid or otherwise can't be verified
+        """
+        return None
+
+    @classmethod
     def key_for(cls, id, allow_opt_out=False):
         """Returns the :class:`google.cloud.ndb.Key` for a given id's :class:`models.User`.
 

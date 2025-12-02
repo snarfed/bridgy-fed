@@ -674,14 +674,10 @@ class ActivityPub(User, Protocol):
             raise ValueError(msg)
 
     @classmethod
-    def verify_signature(cls, activity):
-        """Verifies the current request's HTTP Signature.
+    def authed_user_for_request(cls, activity):
+        """Returns the AP actor id of the user who signed the current request.
 
-        Raises :class:`werkzeug.exceptions.HTTPError` if the signature is
-        missing or invalid, otherwise does nothing and returns the id of the
-        actor whose key signed the request.
-
-        Logs details of the result.
+        Verifies the current request's HTTP Signature. Logs details of the result.
 
         https://swicg.github.io/activitypub-http-signature/
 
@@ -689,15 +685,18 @@ class ActivityPub(User, Protocol):
           activity (dict): AS2 activity
 
         Returns:
-          str: signing AP actor id
+          str or None: signing AP actor id, or None if the request isn't signed
+
+        Raises:
+          RuntimeError: if the signature is invalid or can't be verified
         """
         headers = dict(request.headers)  # copy so we can modify below
         sig = headers.get('Signature')
         if not sig:
             if appengine_info.DEBUG:
                 logger.info('No HTTP Signature, allowing due to DEBUG=true')
-                return
-            error('No HTTP Signature', status=401)
+                return '-'
+            return None
 
         logger.debug('Verifying HTTP Signature')
         logger.debug(f'Headers: {json_dumps(headers, indent=2)}')
@@ -706,7 +705,7 @@ class ActivityPub(User, Protocol):
         sig_fields = parse_signature_header(sig)
         key_id = fragmentless(sig_fields.get('keyid'))
         if not key_id:
-            error('sig missing keyId', status=401)
+            raise RuntimeError('sig missing keyId')
 
         # TODO: right now, assume hs2019 is rsa-sha256. the real answer is...
         # ...complicated and unclear. 🤷
@@ -721,11 +720,11 @@ class ActivityPub(User, Protocol):
 
         digest = headers.get('Digest') or ''
         if not digest:
-            error('Missing Digest', status=401)
+            raise RuntimeError('Missing Digest')
 
         expected = b64encode(sha256(request.data).digest()).decode()
         if digest.removeprefix('SHA-256=').removeprefix('sha-256=') != expected:
-            error('Invalid Digest', status=401)
+            raise RuntimeError('Invalid Digest')
 
         try:
             key_actor = cls._load_key(key_id)
@@ -743,12 +742,12 @@ class ActivityPub(User, Protocol):
         if key_actor and key_actor.deleted:
             abort(202, f'Ignoring, signer {key_id} is already deleted')
         elif not key_actor or not key_actor.as1:
-            error(f"Couldn't load {key_id} to verify signature", status=401)
+            raise RuntimeError(f"Couldn't load {key_id} to verify signature")
 
         # don't ActivityPub.convert since we don't want to postprocess_as2
         key = as2.from_as1(key_actor.as1).get('publicKey', {}).get('publicKeyPem')
         if not key:
-            error(f'No public key for {key_id}', status=401)
+            raise RuntimeError(f'No public key for {key_id}')
 
         # can't use request.full_path because it includes a trailing ? even if
         # it wasn't in the request. https://github.com/pallets/flask/issues/2867
@@ -762,12 +761,12 @@ class ActivityPub(User, Protocol):
                                       sign_header='signature',
                                       ).verify()
         except BaseException as e:
-            error(f'sig verification failed: {e}', status=401)
+            raise RuntimeError(f'sig verification failed: {e}')
 
         if verified:
             logger.debug('sig ok')
         else:
-            error('sig failed', status=401)
+            raise RuntimeError('sig failed')
 
         return key_actor.key.id()
 
@@ -776,6 +775,7 @@ class ActivityPub(User, Protocol):
         """Loads the ActivityPub actor for a given ``keyId``.
 
         https://swicg.github.io/activitypub-http-signature/#how-to-obtain-a-signature-s-public-key
+
         Args:
           key_id (str): ``keyId`` from an HTTP Signature
           follow_owner (bool): whether to follow ``owner``/``controller`` fields
@@ -1259,11 +1259,11 @@ def actor(handle_or_id):
     # *optionally* check HTTP signature. if the request is signed by a user or domain
     # *that this object's owner is blocking, reject the fetch.
     try:
-        signer = ActivityPub.verify_signature({})
+        signer = ActivityPub.authed_user_for_request({})
         if signer and user.is_blocking(signer):
             logger.info(f'Rejecting fetch, {user.key} is blocking {signer}')
             return '', 403
-    except HTTPException as e:
+    except RuntimeException:
         # missing or bad signature; fail open
         pass
 
@@ -1372,9 +1372,15 @@ def inbox(protocol=None, id=None):
             return '', 204
 
     # check signature, auth
-    authed_as = ActivityPub.verify_signature(activity)
+    authed_as = None
+    try:
+        authed_as = ActivityPub.authed_user_for_request(activity)
+    except RuntimeError as err:
+        error(str(err), status=401)
 
-    if util.domain_or_parent_in(authed_as, NO_AUTH_DOMAINS):
+    if not authed_as:
+        error('No HTTP Signature', status=401)
+    elif util.domain_or_parent_in(authed_as, NO_AUTH_DOMAINS):
         error(f"Ignoring, sorry, we don't know how to authorize {util.domain_from_link(authed_as)} activities yet. https://github.com/snarfed/bridgy-fed/issues/566", status=204)
 
     # if we need the LD Sig to authorize this activity, bail out, we don't do
