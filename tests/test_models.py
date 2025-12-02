@@ -814,6 +814,23 @@ class UserTest(TestCase):
         self.assert_req(mock_get, 'https://exam.pl/list')
         self.assertEqual([], self.user.blocks)
 
+    def test_is_blocking(self):
+        self.assertFalse(self.user.is_blocking('http://foo.com/bar'))
+
+        blocklist = Object(id='https://list', csv='domain\nfoo.com\nphoo.com').put()
+        self.user.blocks = [blocklist]
+
+        self.assertTrue(self.user.is_blocking('http://foo.com/bar'))
+        self.assertTrue(self.user.is_blocking('http://phoo.com/bar'))
+        self.assertTrue(self.user.is_blocking('https://foo.com'))
+
+        self.assertTrue(self.user.is_blocking('http://sub.foo.com/page'))
+
+        self.assertFalse(self.user.is_blocking('http://bar.com/page'))
+
+        self.assertFalse(self.user.is_blocking('not-a-url'))
+        self.assertFalse(self.user.is_blocking(''))
+
 
 class ObjectTest(TestCase):
 
