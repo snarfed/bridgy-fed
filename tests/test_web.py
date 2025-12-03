@@ -12,7 +12,7 @@ from granary import as1, as2, atom, microformats2, rss
 from granary.source import html_to_text
 from oauth_dropins.webutil import util
 from oauth_dropins.webutil import appengine_info
-from oauth_dropins.webutil.flask_util import NoContent
+from oauth_dropins.webutil.flask_util import APP_ENGINE_CRON_HEADER, NoContent
 from oauth_dropins.webutil.testutil import NOW, NOW_SECONDS, requests_response
 from oauth_dropins.webutil.util import json_dumps, json_loads
 import requests
@@ -3577,3 +3577,24 @@ class WebUtilTest(TestCase):
             'a,b,c\n1,2,3', content_type='text/html')
         self.assertIsNone(Web.load('https://foo.com/bar', csv=True))
         self.assertIsNone(Object.get_by_id('https://foo.com/bar'))
+
+    def test_reload_csvs(self, mock_get, _):
+        mock_get.return_value = requests_response(
+            'domain\nfoo.com\nbar.org', headers={'Content-Type': 'text/csv'})
+
+        Object(id='https://li.st/1', csv='domain\nold.com', is_csv=True).put()
+        Object(id='https://li.st/2', csv='domain\nold.org', is_csv=True).put()
+        Object(id='https://not-csv', is_csv=False).put()
+
+        got = self.client.get('/cron/reload-csvs',
+                              headers={APP_ENGINE_CRON_HEADER: ''})
+        self.assertEqual(200, got.status_code)
+
+        self.assertEqual(2, mock_get.call_count)
+        self.assertEqual('https://li.st/1', mock_get.call_args_list[0][0][0])
+        self.assertEqual('https://li.st/2', mock_get.call_args_list[1][0][0])
+
+        list1 = Object.get_by_id('https://li.st/1')
+        list2 = Object.get_by_id('https://li.st/2')
+        self.assertEqual('domain\nfoo.com\nbar.org', list1.csv)
+        self.assertEqual('domain\nfoo.com\nbar.org', list2.csv)

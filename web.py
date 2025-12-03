@@ -1105,3 +1105,19 @@ def webmention_discover(url, **kwargs):
     # discard the response since we don't use it and it's occasionally too big for
     # memcache
     return webmention.discover(url, **kwargs)._replace(response=None)
+
+
+@app.get('/cron/reload-csvs')
+@cloud_tasks_only(log=None)
+def reload_csvs():
+    """Reloads all CSV :class:`models.Object`s.
+
+    Queries for all Objects with ``is_csv`` True and reloads each one from its
+    original URL.
+    """
+    logger.info('Reloading CSV Objects')
+
+    for key in Object.query(Object.is_csv == True).iter(keys_only=True):
+        Web.load(key.id(), csv=True, remote=True)
+
+    return 'OK'
