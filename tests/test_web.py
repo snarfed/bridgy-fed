@@ -3586,8 +3586,7 @@ class WebUtilTest(TestCase):
         Object(id='https://li.st/2', csv='domain\nold.org', is_csv=True).put()
         Object(id='https://not-csv', is_csv=False).put()
 
-        got = self.client.get('/cron/reload-csvs',
-                              headers={APP_ENGINE_CRON_HEADER: ''})
+        got = self.get('/cron/reload-csvs', headers={APP_ENGINE_CRON_HEADER: ''})
         self.assertEqual(200, got.status_code)
 
         self.assertEqual(2, mock_get.call_count)

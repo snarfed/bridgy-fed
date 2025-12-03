@@ -1107,7 +1107,6 @@ def webmention_discover(url, **kwargs):
     return webmention.discover(url, **kwargs)._replace(response=None)
 
 
-@app.get('/cron/reload-csvs')
 @cloud_tasks_only(log=None)
 def reload_csvs():
     """Reloads all CSV :class:`models.Object`s.

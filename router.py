@@ -35,6 +35,7 @@ app.add_url_rule('/queue/notify', view_func=notifications.notify_task, methods=[
 app.add_url_rule('/queue/webmention', view_func=web.webmention_task, methods=['POST'])
 app.add_url_rule('/cron/atproto-poll-chat', view_func=atproto.poll_chat_task,
                  methods=['GET'])
+app.add_url_rule('/cron/reload-csvs', view_func=web.reload_csvs, methods=['GET'])
 # app.add_url_rule('/router/eval', view_func=pages.python_eval, methods=['POST'])
 
 
