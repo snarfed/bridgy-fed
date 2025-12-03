@@ -431,7 +431,7 @@ A ☕ reply
                                base_url='https://fed.brid.gy/')
         self.assertEqual(404, resp.status_code)
 
-    def test_activitypub_to_web_blocklisted_signer(self):
+    def test_fake_to_activitypub_blocklisted_signer(self):
         actor = test_activitypub.add_key(copy.deepcopy(test_activitypub.ACTOR))
         self.make_user(actor['id'], cls=ActivityPub, obj_as2=actor)
         self.assertEqual('mas.to', domain_from_link(actor['id']))
@@ -449,7 +449,7 @@ A ☕ reply
         self.assertEqual(403, resp.status_code)
 
     @patch('requests.get')
-    def test_activitypub_to_web_bad_signature(self, mock_get):
+    def test_fake_to_activitypub_bad_signature(self, mock_get):
         actor = test_activitypub.add_key(copy.deepcopy(test_activitypub.ACTOR))
         mock_get.return_value = self.as2_resp(actor)
 

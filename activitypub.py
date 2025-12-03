@@ -674,12 +674,15 @@ class ActivityPub(User, Protocol):
             raise ValueError(msg)
 
     @classmethod
-    def authed_user_for_request(cls):
+    def authed_user_for_request(cls, log_level=logging.DEBUG):
         """Returns the AP actor id of the user who signed the current request.
 
         Verifies the current request's HTTP Signature. Logs details of the result.
 
         https://swicg.github.io/activitypub-http-signature/
+
+        Args:
+          log_level (int)
 
         Returns:
           str or None: signing AP actor id, or None if the request isn't signed
@@ -695,14 +698,13 @@ class ActivityPub(User, Protocol):
                 return '-'
             return None
 
-        logger.debug('Verifying HTTP Signature')
-        logger.debug(f'Headers: {json_dumps(headers, indent=2)}')
-
         # parse_signature_header lower-cases all keys
         sig_fields = parse_signature_header(sig)
         key_id = fragmentless(sig_fields.get('keyid'))
         if not key_id:
             raise RuntimeError('sig missing keyId')
+
+        logger.log(log_level, f'Verifying HTTP Signature: {request.url} {key_id} {json_dumps(headers, indent=2)}')
 
         # TODO: right now, assume hs2019 is rsa-sha256. the real answer is...
         # ...complicated and unclear. 🤷
@@ -730,7 +732,7 @@ class ActivityPub(User, Protocol):
             if (activity and activity.get('type') == 'Delete'
                     and (obj_id := as1.get_object(activity).get('id'))
                     and key_id == fragmentless(obj_id)):
-                logger.debug('Object/actor being deleted is also keyId')
+                logger.log(log_level, 'Object/actor being deleted is also keyId')
                 key_actor = Object.get_or_create(
                     id=key_id, authed_as=key_id, source_protocol='activitypub',
                     deleted=True)
@@ -750,7 +752,7 @@ class ActivityPub(User, Protocol):
         # can't use request.full_path because it includes a trailing ? even if
         # it wasn't in the request. https://github.com/pallets/flask/issues/2867
         path_query = request.url.removeprefix(request.host_url.rstrip('/'))
-        logger.debug(f'Verifying signature for {path_query} with key {sig_fields["keyid"]}')
+        logger.log(log_level, f'Verifying signature for {path_query} with key {sig_fields["keyid"]}')
         try:
             verified = HeaderVerifier(headers, key,
                                       required_headers=['Digest'],
@@ -762,7 +764,7 @@ class ActivityPub(User, Protocol):
             raise RuntimeError(f'sig verification failed: {e}')
 
         if verified:
-            logger.debug('sig ok')
+            logger.log(log_level, 'sig ok')
         else:
             raise RuntimeError('sig failed')
 
@@ -1257,7 +1259,9 @@ def actor(handle_or_id):
     # *optionally* check HTTP signature. if the request is signed by a user or domain
     # *that this object's owner is blocking, reject the fetch.
     try:
-        signer = ActivityPub.authed_user_for_request()
+        beta_user = user.key.id() in common.BETA_USER_IDS
+        signer = ActivityPub.authed_user_for_request(
+            log_level=logging.INFO if beta_user else logging.DEBUG)
         if signer and user.is_blocking(signer):
             return '', 403
     except RuntimeError as err:
