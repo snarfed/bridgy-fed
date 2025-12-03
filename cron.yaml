@@ -5,3 +5,7 @@ cron:
 - description: poll for Bluesky chat messages to @ap.brid.gy
   url: /cron/atproto-poll-chat?proto=activitypub
   schedule: every 1 minutes
+
+- description: reload CSV objects, eg domain blocklists
+  url: /cron/reload-csvs
+  schedule: every 24 hours
