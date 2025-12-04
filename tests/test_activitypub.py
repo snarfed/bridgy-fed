@@ -83,6 +83,16 @@ ACTOR_BASE_FULL = {
         'value': '<a rel="me" href="https://user.com"><span class="invisible">https://</span>user.com</a>',
     }],
 }
+ACTOR_FULL = {
+    **ACTOR_BASE_FULL,
+    'type': 'Person',
+    'name': 'Mrs. ☕ Foo',
+    'summary': '',
+    'icon': {'type': 'Image', 'url': 'https://user.com/me.jpg'},
+    'image': {'type': 'Image', 'url': 'https://user.com/me.jpg'},
+    'discoverable': True,
+    'indexable': True,
+}
 ACTOR_FAKE = {
     '@context': as2.CONTEXT + [AKA_CONTEXT, SECURITY_CONTEXT],
     'type': 'Person',
@@ -329,11 +339,16 @@ def sign(path, body, key_id, host='localhost', method='POST'):
         'Date': 'Sun, 02 Jan 2022 03:04:05 GMT',
         'Host': host,
         'Content-Type': as2.CONTENT_TYPE,
-        'Digest': f'SHA-256={digest}',
     }
+    required_headers = ['Date', 'Host', '(request-target)']
+
+    if method == 'POST':
+        headers['Digest'] = f'SHA-256={digest}'
+        required_headers.append('Digest')
+
     hs = HeaderSigner(key_id, global_user.private_pem().decode(),
                       algorithm='rsa-sha256', sign_header='signature',
-                      headers=('Date', 'Host', 'Digest', '(request-target)'))
+                      headers=required_headers)
     return hs.sign(headers, method=method, path=path)
 
 
@@ -420,20 +435,23 @@ class ActivityPubTest(TestCase):
         self.assertEqual(200, got.status_code)
         self.assertEqual(as2.CONTENT_TYPE, got.headers['Content-Type'])
         self.assertEqual('Accept', got.headers['Vary'])
-        self.assert_equals({
-            **ACTOR_BASE_FULL,
-            'type': 'Person',
-            'name': 'Mrs. ☕ Foo',
-            'summary': '',
-            'icon': {'type': 'Image', 'url': 'https://user.com/me.jpg'},
-            'image': {'type': 'Image', 'url': 'https://user.com/me.jpg'},
-            'discoverable': True,
-            'indexable': True,
-        }, got.json, ignore=['@context', 'attachment', 'publicKey'])
+        self.assert_equals(ACTOR_FULL, got.json,
+                           ignore=['@context', 'attachment', 'publicKey'])
 
     def test_actor_blocked_tld(self, _, __, ___):
         got = self.client.get('/foo.json')
         self.assertEqual(404, got.status_code)
+
+    def test_actor_signed(self, *_):
+        self.make_user(ACTOR['id'], cls=ActivityPub, obj_as2=ACTOR)
+
+        headers = sign(path='/user.com', body='', key_id=ACTOR['id'], method='GET')
+        headers['Accept'] = as2.CONTENT_TYPE
+
+        got = self.client.get('/user.com', headers=headers)
+        self.assertEqual(200, got.status_code)
+        self.assert_equals(ACTOR_FULL, got.json,
+                           ignore=['@context', 'attachment', 'publicKey'])
 
     def test_actor_blocklisted_signer(self, *_):
         self.make_user(ACTOR['id'], cls=ActivityPub, obj_as2=ACTOR)

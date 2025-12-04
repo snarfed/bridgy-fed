@@ -449,6 +449,25 @@ A ☕ reply
         self.assertEqual(403, resp.status_code)
 
     @patch('requests.get')
+    def test_fake_to_activitypub_signed(self, mock_get):
+        actor = test_activitypub.add_key(copy.deepcopy(test_activitypub.ACTOR))
+        mock_get.return_value = self.as2_resp(actor)
+
+        self.make_user('fake:user', cls=Fake, enabled_protocols=['activitypub'])
+        Object(id='fake:note', our_as1={'author': 'fake:user'}).put()
+
+        path = '/convert/ap/fake:note'
+        headers = test_activitypub.sign(path=path, body='', method='GET',
+                                        host='fa.brid.gy', key_id=actor['id'])
+        resp = self.client.get(path, headers=headers)
+        self.assertEqual(200, resp.status_code)
+        self.assert_equals({
+            'id': 'https://fa.brid.gy/convert/ap/fake:note',
+            'attributedTo': 'https://fa.brid.gy/ap/fake:user',
+            'to': ['https://www.w3.org/ns/activitystreams#Public'],
+        }, resp.json, ignore=['@context'])
+
+    @patch('requests.get')
     def test_fake_to_activitypub_bad_signature(self, mock_get):
         actor = test_activitypub.add_key(copy.deepcopy(test_activitypub.ACTOR))
         mock_get.return_value = self.as2_resp(actor)

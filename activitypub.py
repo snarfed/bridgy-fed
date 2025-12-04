@@ -717,13 +717,16 @@ class ActivityPub(User, Protocol):
             headers['Signature'] = headers['Signature'].replace(
                 'algorithm="hs2019"', 'algorithm=rsa-sha256')
 
-        digest = headers.get('Digest') or ''
-        if not digest:
-            raise RuntimeError('Missing Digest')
+        required_headers = []
+        if request.method == 'POST':
+            required_headers = ['Digest']
+            digest = headers.get('Digest')
+            if not digest:
+                raise RuntimeError('Missing Digest')
 
-        expected = b64encode(sha256(request.data).digest()).decode()
-        if digest.removeprefix('SHA-256=').removeprefix('sha-256=') != expected:
-            raise RuntimeError('Invalid Digest')
+            expected = b64encode(sha256(request.data).digest()).decode()
+            if digest.removeprefix('SHA-256=').removeprefix('sha-256=') != expected:
+                raise RuntimeError('Invalid Digest')
 
         try:
             key_actor = cls._load_key(key_id)
@@ -755,11 +758,9 @@ class ActivityPub(User, Protocol):
         logger.log(log_level, f'Verifying signature for {path_query} with key {sig_fields["keyid"]}')
         try:
             verified = HeaderVerifier(headers, key,
-                                      required_headers=['Digest'],
-                                      method=request.method,
-                                      path=path_query,
-                                      sign_header='signature',
-                                      ).verify()
+                                      required_headers=required_headers,
+                                      method=request.method, path=path_query,
+                                      sign_header='signature').verify()
         except BaseException as e:
             raise RuntimeError(f'sig verification failed: {e}')
 
