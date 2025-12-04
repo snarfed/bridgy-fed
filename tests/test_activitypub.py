@@ -473,6 +473,16 @@ class ActivityPubTest(TestCase):
         got = self.client.get('/user.com', headers=headers)
         self.assertEqual(401, got.status_code)
 
+    def test_actor_signature_key_id_fetch_fails(self, _, mock_get, __):
+        mock_get.return_value = requests_response(status=429)
+
+        headers = sign(path='/user.com', body='', key_id='http://inst/signer',
+                       method='GET')
+        got = self.client.get('/user.com', headers=headers)
+        self.assertEqual(502, got.status_code)
+
+        self.assertEqual(('http://inst/signer',), mock_get.call_args[0])
+
     def test_actor_no_conneg_redirect_to_profile(self, _, __, ___):
         got = self.client.get('/user.com')
         self.assertEqual(302, got.status_code)
@@ -617,7 +627,6 @@ class ActivityPubTest(TestCase):
         self.assertEqual(404, got.status_code)
 
     def test_actor_protocol_bot_user(self, *_):
-        """Web users are special cased to drop the /web/ prefix."""
         actor_as2 = json_loads(util.read('bsky.brid.gy.as2.json'))
         self.make_user('bsky.brid.gy', cls=Web, ap_subdomain='bsky',
                        obj_as2=copy.deepcopy(actor_as2),
@@ -642,6 +651,19 @@ class ActivityPubTest(TestCase):
         got = self.client.get('/web.brid.gy', base_url='https://web.brid.gy/',
                               headers={'Accept': as2.CONTENT_TYPE})
         self.assertEqual(404, got.status_code, got.get_data(as_text=True))
+
+    @patch('oauth_dropins.webutil.appengine_info.DEBUG', False)
+    def test_actor_protocol_bot_user_skip_sig_check(self, *_):
+        self.make_user(ACTOR['id'], cls=ActivityPub, obj_as2=ACTOR)
+        self.make_user('bsky.brid.gy', cls=Web, ap_subdomain='bsky')
+
+        headers = sign(path='/user.com', body='', key_id=ACTOR['id'], method='GET',
+                       host='bsky.brid.gy')
+        headers['signature'] += 'foo'
+
+        got = self.client.get('/bsky.brid.gy', base_url='https://bsky.brid.gy/',
+                              headers={**headers, 'Accept': as2.CONTENT_TYPE})
+        self.assertEqual(200, got.status_code, got.headers)
 
     def test_actor_not_web_no_ap_prefix(self, _, __, ___):
         got = self.client.get('/user.com', base_url='https://nostr.brid.gy/',

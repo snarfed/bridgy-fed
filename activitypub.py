@@ -731,9 +731,9 @@ class ActivityPub(User, Protocol):
         try:
             key_actor = cls._load_key(key_id)
         except BadGateway:
-            activity = request.json
-            if (activity and activity.get('type') == 'Delete'
-                    and (obj_id := as1.get_object(activity).get('id'))
+            if (request.method == 'POST' and request.is_json
+                    and request.json and request.json.get('type') == 'Delete'
+                    and (obj_id := as1.get_object(request.json).get('id'))
                     and key_id == fragmentless(obj_id)):
                 logger.log(log_level, 'Object/actor being deleted is also keyId')
                 key_actor = Object.get_or_create(
@@ -1257,16 +1257,17 @@ def actor(handle_or_id):
     user = _load_user(handle_or_id, create=True)
     proto = user
 
-    # *optionally* check HTTP signature. if the request is signed by a user or domain
-    # *that this object's owner is blocking, reject the fetch.
-    try:
-        beta_user = user.key.id() in common.BETA_USER_IDS
-        signer = ActivityPub.authed_user_for_request(
-            log_level=logging.INFO if beta_user else logging.DEBUG)
-        if signer and user.is_blocking(signer):
-            return '', 403
-    except RuntimeError as err:
-        error(str(err), status=401)
+    if user.key.id() not in PROTOCOL_DOMAINS + (PRIMARY_DOMAIN,):
+        # *optionally* check HTTP signature. if the request is signed by a user or
+        # domain that this object's owner is blocking, reject the fetch.
+        try:
+            beta_user = user.key.id() in common.BETA_USER_IDS
+            signer = ActivityPub.authed_user_for_request(
+                log_level=logging.INFO if beta_user else logging.DEBUG)
+            if signer and user.is_blocking(signer):
+                return '', 403
+        except RuntimeError as err:
+            error(str(err), status=401)
 
     as2_type = as2_request_type()
     if not as2_type:

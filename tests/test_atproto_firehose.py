@@ -419,6 +419,7 @@ class ATProtoFirehoseSubscribeTest(ATProtoTestCase):
         })
 
     def test_block_of_our_user(self):
+        # TODO: this hangs with libipld 3.3.1
         self.assert_enqueues({
             '$type': 'app.bsky.graph.block',
             'subject': 'did:plc:alice',
