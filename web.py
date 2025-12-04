@@ -360,9 +360,8 @@ class Web(User, Protocol):
                     resp = util.requests_get(
                         urljoin(self.web_url(), '/.well-known/host-meta'),
                         gateway=False)
-                    content_type = resp.headers.get('Content-Type', '').split(';')[0]
                     if (resp.status_code == 200
-                            and content_type in HOST_META_CONTENT_TYPES
+                            and common.content_type(resp) in HOST_META_CONTENT_TYPES
                             and domain_from_link(resp.url) not in common.DOMAINS):
                         logger.info(f"{domain} serves Webfinger! probably a fediverse server")
                         self.redirects_error = OWNS_WEBFINGER
