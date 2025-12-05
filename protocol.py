@@ -271,8 +271,6 @@ class Protocol:
     def key_for(cls, id, allow_opt_out=False):
         """Returns the :class:`google.cloud.ndb.Key` for a given id's :class:`models.User`.
 
-        To be implemented by subclasses. Canonicalizes the id if necessary.
-
         If called via `Protocol.key_for`, infers the appropriate protocol with
         :meth:`for_id`. If called with a concrete subclass, uses that subclass
         as is.
@@ -1446,7 +1444,7 @@ class Protocol:
 
             to_key = to_cls.key_for(to_id)
             if not to_key:
-                logger.info(f'Skipping invalid {from_cls.LABEL} user key: {from_id}')
+                logger.info(f'Skipping invalid {to_cls.LABEL} user key: {to_id}')
                 continue
 
             to_user = to_cls.get_or_create(id=to_key.id())
