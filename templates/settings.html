@@ -39,7 +39,7 @@
       <form method="post" action="/settings/set-username">
         <input name="key" type="hidden" value="{{ user.key.urlsafe().decode() }}" />
         <input name="protocol" type="hidden" value="atproto" />
-        <label for="username">Set Bluesky handle:</label>
+        <label for="username"><a href="/docs#bluesky-enhanced">Set Bluesky handle</a>:</label>
         <input id="username" type="text" name="username" placeholder ="your.domain" />
         <input type="submit" value="Go" class="btn btn-default" />
       </form>
@@ -47,21 +47,19 @@
     {% endif %}
 
 
-    {% if user.enabled_protocols %}
     <p>
       <form method="post" action="/settings/block">
         <input name="key" type="hidden" value="{{ user.key.urlsafe().decode() }}" />
-        <label for="target">Block:</label>
+        <label for="target"><a href="/docs#block">Block</a>:</label>
         <input id="target" type="text" name="target" placeholder="user or blocklist" />
         <input type="submit" value="Go" class="btn btn-default" />
       </form>
     </p>
-    {% endif %}
 
     <p>
       <form method="post" action="/settings/toggle-notifs">
         <input name="key" type="hidden" value="{{ user.key.urlsafe().decode() }}" />
-        DM notifications from unbridged accounts:
+        <a href="/docs#notifs">DM notifications from unbridged accounts</a>:
 
         <label class="switch" id="{{ user.handle }}-notifs-wrapper">
           <input id="{{ user.handle }}-switch" type="checkbox"
