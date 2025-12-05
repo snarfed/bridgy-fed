@@ -50,7 +50,7 @@ from common import (
 )
 import ids
 import memcache
-from models import fetch_objects, Follower, Object, PROTOCOLS, User
+from models import fetch_objects, Follower, load_user, Object, PROTOCOLS, User
 from protocol import activity_id_memcache_key, DELETE_TASK_DELAY, Protocol
 from ui import UIProtocol
 import webfinger
@@ -1204,7 +1204,6 @@ def postprocess_as2_actor(actor, user):
     return actor
 
 
-# TODO: unify with dms._load_user?
 def _load_user(handle_or_id, create=False):
     if handle_or_id == PRIMARY_DOMAIN or handle_or_id in PROTOCOL_DOMAINS:
         from web import Web
@@ -1215,26 +1214,23 @@ def _load_user(handle_or_id, create=False):
     if not proto:
         error(f"Couldn't determine protocol", status=404)
 
-    if proto.owns_id(handle_or_id) is False:
-        if proto.owns_handle(handle_or_id) is False:
-            error(f"{handle_or_id} doesn't look like a {proto.LABEL} id or handle",
-                  status=404)
-        id = proto.handle_to_id(handle_or_id)
-        if not id:
-            error(f"Couldn't resolve {handle_or_id} as a {proto.LABEL} handle",
-                  status=404)
-    else:
-        id = handle_or_id
-
-    assert id
     try:
-        user = proto.get_or_create(id) if create else proto.get_by_id(id)
-    except ValueError as e:
+        user = load_user(handle_or_id, proto, create=create)
+    except (ValueError, AttributeError) as e:
         logging.warning(e)
         user = None
 
-    if not user or not user.is_enabled(ActivityPub):
-        error(f'{proto.LABEL} user {id} not found', status=404)
+    if not user:
+        if proto.owns_id(handle_or_id) is False:
+            if proto.owns_handle(handle_or_id) is False:
+                error(f"{handle_or_id} doesn't look like a {proto.LABEL} id or handle",
+                      status=404)
+            error(f"Couldn't resolve {handle_or_id} as a {proto.LABEL} handle",
+                  status=404)
+        error(f'{proto.LABEL} user {handle_or_id} not found', status=404)
+
+    if not user.is_enabled(ActivityPub):
+        error(f'{proto.LABEL} user {user.key.id()} not found', status=404)
 
     return user
 

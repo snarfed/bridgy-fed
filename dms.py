@@ -12,7 +12,7 @@ from common import create_task, DOMAINS
 import ids
 import memcache
 import models
-from models import Object, PROTOCOLS, User
+from models import load_user, Object, PROTOCOLS, User
 import protocol
 
 logger = logging.getLogger(__name__)
@@ -80,7 +80,7 @@ def command(names, arg=False, user_bridged=None, handle_bridged=None, multiple=F
             if arg == 'handle_or_id':
                 from_proto = from_user.__class__
                 for cmd_arg in cmd_args:
-                    if not (to_user := _load_user(cmd_arg, to_proto)):
+                    if not (to_user := load_user(cmd_arg, to_proto, allow_opt_out=True)):
                         return reply(f"Couldn't find user {cmd_arg} on {to_proto.PHRASE}")
                     to_users.append(to_user)
                     enabled = to_user.is_enabled(from_proto)
@@ -403,31 +403,3 @@ def receive(*, from_user, obj):
         return fn(from_user, to_proto, dm_as1=inner_as1, cmd=None, cmd_args=[tokens[0]])
 
     return r'¯\_(ツ)_/¯', 204
-
-
-# TODO: move to models?
-def _load_user(handle_or_id, proto):
-    """Loads the user with the given handle or id.
-
-    Args:
-      handle_or_id (str)
-      protocol (Protocol subclass)
-
-    Returns:
-      models.User or None:
-    """
-    if proto.owns_id(handle_or_id) is not False:
-        id = ids.normalize_user_id(id=handle_or_id, proto=proto)
-        return proto.get_or_create(id, allow_opt_out=True)
-
-    logging.info(f"doesn't look like an ID, trying as a handle")
-
-    if proto.owns_handle(handle_or_id) is False:
-        handle_or_id = handle_or_id.removeprefix('@')
-        if proto.owns_handle(handle_or_id) is False:
-            return None
-
-    if id := proto.handle_to_id(handle_or_id):
-        if user := proto.get_or_create(id, allow_opt_out=True):
-            if user.obj and user.obj.as1:
-                return user

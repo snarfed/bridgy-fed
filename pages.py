@@ -90,6 +90,7 @@ with app.test_request_context('/'):
     USER_NOT_FOUND_HTML = render_template('user_not_found.html', **TEMPLATE_VARS)
 
 
+# TODO: unify with models.load_user
 def load_user(protocol, id):
     """Loads and returns the current request's user.
 
@@ -138,7 +139,7 @@ def load_user(protocol, id):
             return user
 
     if redirect_user:
-        error('', status=302, location=user.user_page_path())
+        error('', status=302, location=redirect_user.user_page_path())
 
     # TODO: switch back to USER_NOT_FOUND_HTML
     # not easy via exception/abort because this uses Werkzeug's built in

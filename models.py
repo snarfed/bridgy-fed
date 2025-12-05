@@ -2149,6 +2149,57 @@ def fetch_page(query, model_class, by=None):
     return results, new_before, new_after
 
 
+# TODO: switch create default to False
+def load_user(handle_or_id, proto=None, create=True, allow_opt_out=False):
+    """Loads a user by handle or id.
+
+    Args:
+      handle_or_id (str): user handle or id
+      proto (Protocol subclass or None): protocol to use. If None, will try to
+        determine protocol via Protocol.for_id and Protocol.for_handle
+      create (bool): if True, use get_or_create; if False, use get_by_id
+      allow_opt_out (bool): whether to allow the user if they're currently opted out
+
+    Returns:
+      User or None:
+    """
+    import protocol
+
+    logger.debug(f'loading {handle_or_id}')
+
+    if proto is None:
+        proto = (protocol.Protocol.for_id(handle_or_id)
+                 or protocol.Protocol.for_handle(handle_or_id))
+        if not proto:
+            return None
+
+    if proto.owns_id(handle_or_id) is not False:
+        id = ids.normalize_user_id(id=handle_or_id, proto=proto)
+        return (proto.get_or_create(id, allow_opt_out=allow_opt_out) if create
+                else proto.get_by_id(id, allow_opt_out=allow_opt_out))
+
+    logger.debug(f"doesn't look like a {proto} ID, trying as a handle")
+
+    if proto.owns_handle(handle_or_id) is False:
+        handle_or_id = handle_or_id.removeprefix('@')
+        if proto.owns_handle(handle_or_id) is False:
+            return None
+
+    if user := proto.query(proto.handle == handle_or_id).get():
+        if not user.status or allow_opt_out:
+            return user
+
+    if create:
+        id = proto.handle_to_id(handle_or_id)
+        if not id:
+            return None
+        user = proto.get_or_create(id, allow_opt_out=allow_opt_out)
+        if user and user.obj and user.obj.as1:
+            return user
+
+    return None
+
+
 def maybe_truncate_key_id(id):
     """Returns id, truncated to ``_MAX_KEYPART_BYTES`` if it's longer."""
     if len(id) > _MAX_KEYPART_BYTES:

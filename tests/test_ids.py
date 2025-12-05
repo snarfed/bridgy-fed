@@ -186,6 +186,8 @@ class IdsTest(TestCase):
             (ActivityPub, 'https://inst/user', 'https://inst/user'),
             (ATProto, 'did:plc:456', 'did:plc:456'),
             (ATProto, 'https://bsky.app/profile/did:plc:123', 'did:plc:123'),
+            # TODO
+            # (ATProto, 'https://bsky.app/profile/han.dull', 'did:plc:123'),
             (ATProto, 'at://did:plc:123', 'did:plc:123'),
             (ATProto, 'at://did:plc:123/app.bsky.actor.profile/self', 'did:plc:123'),
             (ATProto, 'https://bsky.app/profile/did:plc:123/post/456',
