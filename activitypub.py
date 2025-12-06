@@ -1216,18 +1216,8 @@ def _load_user(handle_or_id, create=False):
 
     try:
         user = load_user(handle_or_id, proto, create=create)
-    except (ValueError, AttributeError) as e:
-        logging.warning(e)
-        user = None
-
-    if not user:
-        if proto.owns_id(handle_or_id) is False:
-            if proto.owns_handle(handle_or_id) is False:
-                error(f"{handle_or_id} doesn't look like a {proto.LABEL} id or handle",
-                      status=404)
-            error(f"Couldn't resolve {handle_or_id} as a {proto.LABEL} handle",
-                  status=404)
-        error(f'{proto.LABEL} user {handle_or_id} not found', status=404)
+    except (AttributeError, RuntimeError, ValueError) as e:
+        error(str(e), status=404)
 
     if not user.is_enabled(ActivityPub):
         error(f'{proto.LABEL} user {user.key.id()} not found', status=404)

@@ -2140,7 +2140,7 @@ Hi! You <a href="{inner_obj_as1.get('url') or inner_obj_id}">recently {verb}</a>
         try:
             # first, try interpreting as a user handle or id
             blockee = load_user(arg, cls, create=True, allow_opt_out=True)
-        except (AssertionError, BadRequest) as err:
+        except (AssertionError, AttributeError, BadRequest, RuntimeError, ValueError) as err:
             logger.info(err)
 
         # may not be a user, see if it's a list
@@ -2185,8 +2185,8 @@ Hi! You <a href="{inner_obj_as1.get('url') or inner_obj_id}">recently {verb}</a>
         try:
             # first, try interpreting as a user handle or id
             blockee = load_user(arg, cls, create=True, allow_opt_out=True)
-        except BadRequest:
-            pass
+        except (AssertionError, AttributeError, BadRequest, RuntimeError, ValueError) as err:
+            logger.info(err)
 
         # may not be a user, see if it's a list
         if not blockee:

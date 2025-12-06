@@ -2157,10 +2157,13 @@ def load_user(handle_or_id, proto=None, create=False, allow_opt_out=False):
       proto (Protocol subclass or None): protocol to use. If None, will try to
         determine protocol via Protocol.for_id and Protocol.for_handle
       create (bool): if True, use get_or_create; if False, use get_by_id
-      allow_opt_out (bool): whether to allow the user if they're currently opted out
+      allow_opt_out (bool): whether to return a user if they're currently opted out
 
     Returns:
-      User or None:
+      User:
+
+    Raises:
+      RuntimeError: if no matching user was found
     """
     import protocol
 
@@ -2176,12 +2179,15 @@ def load_user(handle_or_id, proto=None, create=False, allow_opt_out=False):
         if handle_or_id.startswith('@'):
             return load_user(handle_or_id.removeprefix('@'), create=create,
                              allow_opt_out=allow_opt_out)
-        return None
+        raise RuntimeError(f"Couldn't determine network for {handle_or_id}")
 
     if proto.owns_id(handle_or_id) is not False:
         id = ids.normalize_user_id(id=handle_or_id, proto=proto)
-        return (proto.get_or_create(id, allow_opt_out=allow_opt_out) if create
+        user = (proto.get_or_create(id, allow_opt_out=allow_opt_out) if create
                 else proto.get_by_id(id, allow_opt_out=allow_opt_out))
+        if not user:
+            raise RuntimeError(f"Couldn't load {handle_or_id} on {proto.PHRASE}")
+        return user
 
     logger.debug(f"doesn't look like a {proto.LABEL} ID, trying as a handle")
 
@@ -2189,7 +2195,7 @@ def load_user(handle_or_id, proto=None, create=False, allow_opt_out=False):
         if handle_or_id.startswith('@'):
             return load_user(handle_or_id.removeprefix('@'), create=create,
                              proto=proto, allow_opt_out=allow_opt_out)
-        return None
+        raise RuntimeError(f"{handle_or_id} doesn't look like an id or handle on {proto.PHRASE}")
 
     for user in proto.query(proto.handle == handle_or_id):
         # some users may have an old handle stored and indexed, but they've changed
@@ -2204,12 +2210,12 @@ def load_user(handle_or_id, proto=None, create=False, allow_opt_out=False):
     if create:
         id = proto.handle_to_id(handle_or_id)
         if not id:
-            return None
+            raise RuntimeError(f"{handle_or_id} doesn't look like a handle on {proto.PHRASE}")
         user = proto.get_or_create(id, allow_opt_out=allow_opt_out)
         if user and user.obj and user.obj.as1:
             return user
 
-    return None
+    raise RuntimeError(f"Couldn't find {handle_or_id} on {proto.PHRASE}")
 
 
 def maybe_truncate_key_id(id):

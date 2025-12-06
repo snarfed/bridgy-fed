@@ -90,7 +90,7 @@ with app.test_request_context('/'):
     USER_NOT_FOUND_HTML = render_template('user_not_found.html', **TEMPLATE_VARS)
 
 
-def load_user(protocol, id):
+def load_user(proto, id):
     """Loads and returns the current request's user.
 
     Args:
@@ -106,10 +106,14 @@ def load_user(protocol, id):
     assert id
 
     if id in PROTOCOL_DOMAINS:
-        error(f'{protocol} user {id} not found', status=404)
+        error(f'{proto} user {id} not found', status=404)
 
-    user = models.load_user(id, create=False)
-    if user and (user.enabled_protocols or user.DEFAULT_SERVE_USER_PAGES):
+    try:
+        user = models.load_user(id, proto=PROTOCOLS[proto], create=False)
+    except (AttributeError, RuntimeError, ValueError) as err:
+        error(str(err), status=404)
+
+    if user.enabled_protocols or user.DEFAULT_SERVE_USER_PAGES:
         assert not user.use_instead
         return user
 
@@ -117,7 +121,7 @@ def load_user(protocol, id):
     # not easy via exception/abort because this uses Werkzeug's built in
     # NotFound exception subclass, and we'd need to make it implement
     # get_body to return arbitrary HTML.
-    error(f'{protocol} user {id} not found', status=404)
+    error(f'{proto} user {id} not found', status=404)
 
 
 def require_login(fn):

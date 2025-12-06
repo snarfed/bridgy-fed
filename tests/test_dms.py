@@ -352,7 +352,7 @@ class DmsTest(TestCase):
 
         obj = Object(our_as1=DM_ALICE_REQUESTS_BOB)
         self.assertEqual(('OK', 200), receive(from_user=alice, obj=obj))
-        self.assert_replied(OtherFake, alice, '?', "Couldn't find user other:handle:bob on other-phrase")
+        self.assert_replied(OtherFake, alice, '?', "Couldn't find other:handle:bob on other-phrase")
         self.assertEqual([], OtherFake.sent)
 
     @patch.object(OtherFake, 'REQUIRES_NAME', True)
@@ -468,7 +468,7 @@ class DmsTest(TestCase):
         self.assertEqual(('OK', 200), receive(from_user=user, obj=obj))
         self.assertEqual([], ExplicitFake.sent)
         self.assertEqual([], OtherFake.sent)
-        self.assert_replied(OtherFake, user, '?', "Couldn't find user fake:eve on other-phrase")
+        self.assert_replied(OtherFake, user, '?', "fake:eve doesn't look like an id or handle on other-phrase")
 
     @patch('ids.translate_handle', side_effect=ValueError('nope'))
     def test_receive_prompt_not_supported_in_target_protocol(self, _):
