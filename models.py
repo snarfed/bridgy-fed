@@ -2149,8 +2149,7 @@ def fetch_page(query, model_class, by=None):
     return results, new_before, new_after
 
 
-# TODO: switch create default to False
-def load_user(handle_or_id, proto=None, create=True, allow_opt_out=False):
+def load_user(handle_or_id, proto=None, create=False, allow_opt_out=False):
     """Loads a user by handle or id.
 
     Args:

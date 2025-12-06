@@ -90,7 +90,6 @@ with app.test_request_context('/'):
     USER_NOT_FOUND_HTML = render_template('user_not_found.html', **TEMPLATE_VARS)
 
 
-# TODO: unify with models.load_user
 def load_user(protocol, id):
     """Loads and returns the current request's user.
 

@@ -80,7 +80,8 @@ def command(names, arg=False, user_bridged=None, handle_bridged=None, multiple=F
             if arg == 'handle_or_id':
                 from_proto = from_user.__class__
                 for cmd_arg in cmd_args:
-                    if not (to_user := load_user(cmd_arg, to_proto, allow_opt_out=True)):
+                    if not (to_user := load_user(cmd_arg, to_proto, create=True,
+                                                 allow_opt_out=True)):
                         return reply(f"Couldn't find user {cmd_arg} on {to_proto.PHRASE}")
                     to_users.append(to_user)
                     enabled = to_user.is_enabled(from_proto)
