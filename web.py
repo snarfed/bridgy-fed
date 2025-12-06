@@ -44,11 +44,6 @@ from protocol import Protocol
 
 logger = logging.getLogger(__name__)
 
-# https://github.com/snarfed/bridgy-fed/issues/314
-WWW_DOMAINS = frozenset((
-    'www.jvt.me',
-))
-
 FEED_TYPES = {
     atom.CONTENT_TYPE.split(';')[0]: 'atom',
     rss.CONTENT_TYPE.split(';')[0]: 'rss',
@@ -321,7 +316,8 @@ class Web(User, Protocol):
         domain = self.key.id()
         logger.info(f'Verifying {domain}')
 
-        if domain.startswith('www.') and domain not in WWW_DOMAINS:
+        if (domain.startswith('www.')
+                and domain.removeprefix('www.') not in ids.WWW_DOMAINS):
             # if root domain serves ok, use it instead
             # https://github.com/snarfed/bridgy-fed/issues/314
             root = domain.removeprefix('www.')

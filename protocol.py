@@ -2184,7 +2184,7 @@ Hi! You <a href="{inner_obj_as1.get('url') or inner_obj_id}">recently {verb}</a>
         blockee = None
         try:
             # first, try interpreting as a user handle or id
-            blockee = load_user(arg, cls)
+            blockee = load_user(arg, cls, allow_opt_out=True)
         except BadRequest:
             pass
 

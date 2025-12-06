@@ -113,7 +113,7 @@ class PagesTest(TestCase):
 
     def test_user(self):
         got = self.client.get('/web/user.com', base_url='https://fed.brid.gy/')
-        self.assert_equals(200, got.status_code)
+        self.assert_equals(200, got.status_code, got.headers)
 
     def test_user_fake(self):
         self.make_user('fake:foo', cls=Fake)
@@ -252,8 +252,9 @@ class PagesTest(TestCase):
         self.make_user('bar.com', cls=Web, use_instead=self.user.key)
 
         got = self.client.get('/web/bar.com')
-        self.assert_equals(302, got.status_code)
-        self.assert_equals('/web/user.com', got.headers['Location'])
+        self.assert_equals(200, got.status_code)
+        body = got.get_data(as_text=True)
+        self.assertIn('user.com', body)
 
         got = self.client.get('/web/user.com')
         self.assert_equals(200, got.status_code)

@@ -2167,27 +2167,40 @@ def load_user(handle_or_id, proto=None, create=True, allow_opt_out=False):
 
     logger.debug(f'loading {handle_or_id}')
 
-    if proto is None:
-        proto = (protocol.Protocol.for_id(handle_or_id)
-                 or protocol.Protocol.for_handle(handle_or_id))
-        if not proto:
-            return None
+    if not proto:
+        if not (proto := protocol.Protocol.for_id(handle_or_id)):
+            proto, id = protocol.Protocol.for_handle(handle_or_id)
+            if id:
+                handle_or_id = id
+
+    if not proto:
+        if handle_or_id.startswith('@'):
+            return load_user(handle_or_id.removeprefix('@'), create=create,
+                             allow_opt_out=allow_opt_out)
+        return None
 
     if proto.owns_id(handle_or_id) is not False:
         id = ids.normalize_user_id(id=handle_or_id, proto=proto)
         return (proto.get_or_create(id, allow_opt_out=allow_opt_out) if create
                 else proto.get_by_id(id, allow_opt_out=allow_opt_out))
 
-    logger.debug(f"doesn't look like a {proto} ID, trying as a handle")
+    logger.debug(f"doesn't look like a {proto.LABEL} ID, trying as a handle")
 
     if proto.owns_handle(handle_or_id) is False:
-        handle_or_id = handle_or_id.removeprefix('@')
-        if proto.owns_handle(handle_or_id) is False:
-            return None
+        if handle_or_id.startswith('@'):
+            return load_user(handle_or_id.removeprefix('@'), create=create,
+                             proto=proto, allow_opt_out=allow_opt_out)
+        return None
 
-    if user := proto.query(proto.handle == handle_or_id).get():
-        if not user.status or allow_opt_out:
-            return user
+    for user in proto.query(proto.handle == handle_or_id):
+        # some users may have an old handle stored and indexed, but they've changed
+        # their handle since then, so check again in memory
+        if user.handle == handle_or_id:
+            if user.use_instead:
+                logger.debug(f'{user.key} use_instead => {user.use_instead}')
+                user = user.use_instead.get()
+            if not user.status or allow_opt_out:
+                return user
 
     if create:
         id = proto.handle_to_id(handle_or_id)

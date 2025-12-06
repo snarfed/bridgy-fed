@@ -67,6 +67,11 @@ ATPROTO_HANDLE_DOMAINS = (
     'music-social.com',
 )
 
+# https://github.com/snarfed/bridgy-fed/issues/314
+WWW_DOMAINS = frozenset((
+    'jvt.me',
+))
+
 
 def validate(id, from_, to):
     """Validates args.
@@ -237,6 +242,9 @@ def normalize_user_id(*, id, proto):
 
     if proto.LABEL == 'web':
         normalized = util.domain_from_link(normalized)
+        if normalized in WWW_DOMAINS:
+            return 'www.' + normalized
+        return normalized
     elif proto.LABEL == 'atproto' and id.startswith('at://'):
         repo, coll, tid = parse_at_uri(id)
         if repo and (not coll or coll == 'app.bsky.actor.profile'):

@@ -109,37 +109,10 @@ def load_user(protocol, id):
     if id in PROTOCOL_DOMAINS:
         error(f'{protocol} user {id} not found', status=404)
 
-    cls = PROTOCOLS[protocol]
-
-    if cls.ABBREV == 'ap' and not id.startswith('@'):
-        id = '@' + id
-    elif cls.ABBREV == 'bsky':
-        id = id.removeprefix('@')
-
-    filters = [cls.key == cls(id=id).key]
-    if cls.ABBREV != 'web':
-        # also query by handle, except for web. Web.handle is custom username, which
-        # isn't unique
-        filters.append(cls.handle == id)
-
-    redirect_user = None
-    for user in cls.query(OR(*filters)):
-        if user.use_instead:
-            if not (user := user.use_instead.get()):
-                continue
-
-        if id not in (user.key.id(), user.handle):
-            # keep looking for an exact match. if we don't find one, we'll redirect
-            # to this one later
-            redirect_user = user
-            continue
-        elif not user.status and (user.enabled_protocols
-                                  or user.DEFAULT_SERVE_USER_PAGES):
-            assert not user.use_instead
-            return user
-
-    if redirect_user:
-        error('', status=302, location=redirect_user.user_page_path())
+    user = models.load_user(id, create=False)
+    if user and (user.enabled_protocols or user.DEFAULT_SERVE_USER_PAGES):
+        assert not user.use_instead
+        return user
 
     # TODO: switch back to USER_NOT_FOUND_HTML
     # not easy via exception/abort because this uses Werkzeug's built in
@@ -457,6 +430,9 @@ def toggle_notifs(user=None):
 @app.get(f'/ap/@<id>', defaults={'protocol': 'ap'})
 @canonicalize_request_domain(common.PROTOCOL_DOMAINS, common.PRIMARY_DOMAIN)
 def profile(protocol, id):
+    if protocol == 'ap':
+        id = '@' + id
+
     user = load_user(protocol, id)
     query = Object.query(Object.users == user.key)
     objects, before, after = fetch_objects(query, by=Object.updated, user=user)
