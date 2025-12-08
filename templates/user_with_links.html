@@ -15,12 +15,12 @@
 
 {% for proto in bridged_protos %}
   {% set url = proto.bridged_web_url_for(user) %}
-  {% set handle = user.handle_as(proto) %}
+  {% set handle = user.handle_as(proto) or user.handle_or_id() %}
   <nobr title="{{ proto.__name__ }} (bridged): {{ handle }}">
   {% if url %} <a rel="me" href="{{ url }}"> {% endif %}
     <span class="logo">{{ (proto.LOGO_HTML or proto.LOGO_EMOJI)|safe }}</span>
     <span style="unicode-bidi: isolate">{{ util.ellipsize(handle, chars=40) }}</span>
-    </a>
+   {% if url %} </a> {% endif %}
   <button class="btn btn-default btn-copy glyphicon glyphicon-duplicate"
           onclick="copy('{{ handle }}')"
           title="Copy {{ handle }} to clipboard"></button>
