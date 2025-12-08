@@ -266,7 +266,7 @@ class ActivityPub(User, Protocol):
     @classmethod
     def handle_to_id(cls, handle):
         """Looks in the datastore first, then queries WebFinger."""
-        assert cls.owns_handle(handle)
+        assert cls.owns_handle(handle) is not False, (cls.LABEL, handle)
 
         if not handle.startswith('@'):
             handle = '@' + handle

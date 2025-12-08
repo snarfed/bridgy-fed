@@ -2595,6 +2595,8 @@ class ActivityPubUtilsTest(TestCase):
         self.make_user(id='http://inst.com/@user', cls=ActivityPub)
         self.assertEqual('http://inst.com/@user',
                          ActivityPub.handle_to_id('@user@inst.com'))
+        self.assertEqual('http://inst.com/@user',
+                         ActivityPub.handle_to_id('user@inst.com'))
 
     @patch('requests.get')
     def test_handle_to_id_fetch(self, mock_get):
