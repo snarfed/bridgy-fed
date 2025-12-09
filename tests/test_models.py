@@ -365,7 +365,7 @@ class UserTest(TestCase):
         self.assertEqual('fake:user', user.id_as(Fake))
         self.assertEqual('fake:user', user.id_as('fake'))
 
-        self.assertEqual('web:fake:user', user.id_as('ap'))
+        self.assertEqual('https://fa.brid.gy/ap/fake:user', user.id_as('ap'))
         user.enabled_protocols = ['activitypub']
         user.put()
         self.assertEqual('https://fa.brid.gy/ap/fake:user', user.id_as('ap'))

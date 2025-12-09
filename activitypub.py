@@ -1204,7 +1204,7 @@ def postprocess_as2_actor(actor, user):
     return actor
 
 
-def _load_user(handle_or_id, create=False):
+def _load_user(handle_or_id, create=False, allow_opt_out=False):
     if handle_or_id == PRIMARY_DOMAIN or handle_or_id in PROTOCOL_DOMAINS:
         from web import Web
         proto = Web
@@ -1215,12 +1215,13 @@ def _load_user(handle_or_id, create=False):
         error(f"Couldn't determine protocol", status=404)
 
     try:
-        user = load_user(handle_or_id, proto, create=create)
+        user = load_user(handle_or_id, proto, create=create,
+                         allow_opt_out=allow_opt_out)
     except (AttributeError, RuntimeError, ValueError) as e:
         error(str(e), status=404)
 
-    if not user.is_enabled(ActivityPub):
-        error(f'{proto.LABEL} user {user.key.id()} not found', status=404)
+    if not allow_opt_out and (user.status or not user.is_enabled(ActivityPub)):
+        error(f'{proto.LABEL} user {handle_or_id} not found', status=404)
 
     return user
 
@@ -1240,8 +1241,13 @@ def actor(handle_or_id):
             and request.host not in ('fed.brid.gy', 'web.brid.gy', 'localhost')):
         return '', 404
 
-    user = _load_user(handle_or_id, create=True)
+    user = _load_user(handle_or_id, create=True, allow_opt_out=True)
     proto = user
+
+    # allow non-AS2 fetches even for disabled users, just redirect to bsky.app profile
+    as2_type = as2_request_type()
+    if not as2_type:
+        return redirect(user.web_url(), code=302)
 
     if user.key.id() not in PROTOCOL_DOMAINS + (PRIMARY_DOMAIN,):
         # *optionally* check HTTP signature. if the request is signed by a user or
@@ -1255,9 +1261,8 @@ def actor(handle_or_id):
         except RuntimeError as err:
             error(str(err), status=401)
 
-    as2_type = as2_request_type()
-    if not as2_type:
-        return redirect(user.web_url(), code=302)
+    if user.status or not user.is_enabled(ActivityPub):
+        error(f'{proto.LABEL} user {handle_or_id} not found', status=404)
 
     if proto.LABEL == 'web' and request.path.startswith('/ap/'):
         # we started out with web users' AP ids as fed.brid.gy/[domain], so we

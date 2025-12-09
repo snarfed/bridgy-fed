@@ -462,6 +462,7 @@ class ActivityPubTest(TestCase):
         self.user.put()
 
         headers = sign(path='/user.com', body='', key_id=ACTOR['id'], method='GET')
+        headers['Accept'] = as2.CONTENT_TYPE
         got = self.client.get('/user.com', headers=headers)
         self.assertEqual(403, got.status_code)
 
@@ -470,6 +471,7 @@ class ActivityPubTest(TestCase):
 
         headers = sign(path='/user.com', body='', key_id=ACTOR['id'], method='GET')
         headers['signature'] += 'foo'
+        headers['Accept'] = as2.CONTENT_TYPE
         got = self.client.get('/user.com', headers=headers)
         self.assertEqual(401, got.status_code)
 
@@ -478,6 +480,7 @@ class ActivityPubTest(TestCase):
 
         headers = sign(path='/user.com', body='', key_id='http://inst/signer',
                        method='GET')
+        headers['Accept'] = as2.CONTENT_TYPE
         got = self.client.get('/user.com', headers=headers)
         self.assertEqual(502, got.status_code)
 
@@ -562,8 +565,17 @@ class ActivityPubTest(TestCase):
     def test_actor_activitypub_not_enabled(self, *_):
         obj = self.store_object(id='did:plc:user', raw={'foo': 'baz'})
         self.make_user('did:plc:user', cls=ATProto, obj_key=obj.key)
+
+        # AS2 fetch 404s
+        got = self.client.get('/ap/did:plc:user', base_url='https://bsky.brid.gy/',
+                              headers={'Accept': as2.CONTENT_TYPE})
+        self.assertEqual(404, got.status_code, got.get_data(as_text=True))
+
+        # non-AS2 fetch redirects to profile
         got = self.client.get('/ap/did:plc:user', base_url='https://bsky.brid.gy/')
-        self.assertEqual(404, got.status_code)
+        self.assertEqual(302, got.status_code, got.get_data(as_text=True))
+        self.assertEqual('https://bsky.app/profile/did:plc:user',
+                         got.headers['Location'])
 
     def test_actor_atproto_no_handle(self, *_):
         self.store_object(id='did:plc:user', raw={'foo': 'bar'})
@@ -617,8 +629,10 @@ class ActivityPubTest(TestCase):
         got = self.client.get('/user.com', headers={'Accept': as2.CONTENT_TYPE})
         self.assertEqual(404, got.status_code)
 
+        # non-AS2 fetch redirects to web site
         got = self.client.get('/user.com')
-        self.assertEqual(404, got.status_code)
+        self.assertEqual(302, got.status_code)
+        self.assertEqual('https://user.com/', got.headers['Location'])
 
     def test_actor_bad_id(self, *_):
         # Web.get_or_create => urllib.parse.urlparse raises
@@ -3477,15 +3491,14 @@ class ActivityPubUtilsTest(TestCase):
         self.assertEqual({
             '@context': as2.CONTEXT,
             'type': 'Note',
-            'content': '<p>hello <a class="mention h-card" href="https://bsky.app/profile/did:plc:5zspv27pk4iqtrl2ql2nykjh">@snarfed2.bsky.social</a></p>',
-            'contentMap': {'en': '<p>hello <a class="mention h-card" href="https://bsky.app/profile/did:plc:5zspv27pk4iqtrl2ql2nykjh">@snarfed2.bsky.social</a></p>'},
+            'content': '<p>hello <a class="mention h-card" href="https://bsky.brid.gy/ap/did:plc:5zspv27pk4iqtrl2ql2nykjh">@snarfed2.bsky.social</a></p>',
+            'contentMap': {'en': '<p>hello <a class="mention h-card" href="https://bsky.brid.gy/ap/did:plc:5zspv27pk4iqtrl2ql2nykjh">@snarfed2.bsky.social</a></p>'},
             'tag': [{
                 'type': 'Mention',
                 'name': '@snarfed2.bsky.social',
-                'href': 'https://bsky.app/profile/did:plc:5zspv27pk4iqtrl2ql2nykjh',
+                'href': 'https://bsky.brid.gy/ap/did:plc:5zspv27pk4iqtrl2ql2nykjh',
             }],
             'to': ['https://www.w3.org/ns/activitystreams#Public'],
-            'cc': ['https://bsky.app/profile/did:plc:5zspv27pk4iqtrl2ql2nykjh'],
         }, ActivityPub.convert(obj))
 
     def test_convert_pinned_post_featured_collection_ids(self):
