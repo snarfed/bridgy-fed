@@ -89,16 +89,16 @@ def command(names, arg=False, user_bridged=None, handle_bridged=None, multiple=F
                     to_users.append(to_user)
                     enabled = to_user.is_enabled(from_proto)
                     if handle_bridged is True and not enabled:
-                        return reply(f'{to_user.user_link(proto=from_proto)} is not bridged into {from_proto.PHRASE}.')
+                        return reply(f'{to_user.html_link(proto=from_proto)} is not bridged into {from_proto.PHRASE}.')
                     elif handle_bridged in (False, 'eligible') and enabled:
-                        return reply(f'{to_user.user_link(proto=from_proto)} is already bridged into {from_proto.PHRASE}.')
+                        return reply(f'{to_user.html_link(proto=from_proto)} is already bridged into {from_proto.PHRASE}.')
                     elif handle_bridged == 'eligible' and to_user.status:
                         to_user.reload_profile()
                         if to_user.status:
                             because = ''
                             if desc := models.USER_STATUS_DESCRIPTIONS.get(to_user.status):
                                 because = f' because their {desc}'
-                            return reply(f"{to_user.user_link()} on {to_proto.PHRASE} isn't eligible for bridging into {from_proto.PHRASE}{because}.")
+                            return reply(f"{to_user.html_link()} on {to_proto.PHRASE} isn't eligible for bridging into {from_proto.PHRASE}{because}.")
 
             from_user_enabled = from_user.is_enabled(to_proto)
             if user_bridged is True and not from_user_enabled:
@@ -210,7 +210,7 @@ def username(from_user, to_proto, arg):
     except (ValueError, RuntimeError) as e:
         return str(e)
 
-    return f"Your username in {to_proto.PHRASE} has been set to {from_user.user_link(proto=to_proto, name=False, handle=True)}. It should appear soon!"
+    return f"Your username in {to_proto.PHRASE} has been set to {from_user.html_link(proto=to_proto, name=False, handle=True)}. It should appear soon!"
 
 
 @command(['block'], arg=True, user_bridged=True, multiple=True)
@@ -221,7 +221,7 @@ def block(from_user, to_proto, args):
     except ValueError as e:
         return str(e)
 
-    links = [blockee.user_link() if isinstance(blockee, User)
+    links = [blockee.html_link() if isinstance(blockee, User)
              else util.pretty_link(blockee.as1.get('url') or '',
                                    text=blockee.as1.get('displayName'))
              for blockee in blockees]
@@ -236,7 +236,7 @@ def unblock(from_user, to_proto, args):
     except ValueError as e:
         return str(e)
 
-    links = [blockee.user_link() if isinstance(blockee, User)
+    links = [blockee.html_link() if isinstance(blockee, User)
              else util.pretty_link(blockee.as1.get('url') or '',
                                    text=blockee.as1.get('displayName'))
              for blockee in blockees]
@@ -250,7 +250,7 @@ def migrate_to(from_user, to_proto, arg, to_user):
     except ValueError as e:
         return str(e)
 
-    return f"OK, we'll migrate your bridged account on {to_proto.PHRASE} to {to_user.user_link()}."
+    return f"OK, we'll migrate your bridged account on {to_proto.PHRASE} to {to_user.html_link()}."
 
 
 @command(None, arg='handle_or_id', user_bridged=True, handle_bridged='eligible')
@@ -266,7 +266,7 @@ def prompt(from_user, to_proto, arg, to_user):
     if (models.DM(protocol=from_proto.LABEL, type='request_bridging')
           in to_user.sent_dms):
         # already requested
-        return f"We've already sent {to_user.user_link()} a DM. Fingers crossed!"
+        return f"We've already sent {to_user.html_link()} a DM. Fingers crossed!"
 
     # check and update rate limits
     attempts_key = f'dm-user-requests-{from_user.LABEL}-{from_user.key.id()}'
@@ -282,10 +282,10 @@ def prompt(from_user, to_proto, arg, to_user):
 
     # send the DM request!
     maybe_send(from_=from_proto, to_user=to_user, type='request_bridging', text=f"""\
-<p>Hi! {from_user.user_link(proto=to_proto, proto_fallback=True)} is using Bridgy Fed to bridge their account from {from_proto.PHRASE} into {to_proto.PHRASE}, and they'd like to follow you. You can bridge your account into {from_proto.PHRASE} by following this account. <a href="https://fed.brid.gy/docs">See the docs</a> for more information.
+<p>Hi! {from_user.html_link(proto=to_proto, proto_fallback=True)} is using Bridgy Fed to bridge their account from {from_proto.PHRASE} into {to_proto.PHRASE}, and they'd like to follow you. You can bridge your account into {from_proto.PHRASE} by following this account. <a href="https://fed.brid.gy/docs">See the docs</a> for more information.
 <p>If you do nothing, your account won't be bridged, and users on {from_proto.PHRASE} won't be able to see or interact with you.
 <p>Bridgy Fed will only send you this message once.""")
-    return f"Got it! We'll send {to_user.user_link()} a message and say that you hope they'll enable the bridge. Fingers crossed!"
+    return f"Got it! We'll send {to_user.html_link()} a message and say that you hope they'll enable the bridge. Fingers crossed!"
 
 
 def maybe_send(*, from_, to_user, text, type=None, in_reply_to=None):

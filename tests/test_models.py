@@ -276,61 +276,61 @@ class UserTest(TestCase):
         self.assertEqual('/fa/fake:handle:foo', fake_foo.user_page_path())
         self.assertEqual('/fa/fake:foo', fake_foo.user_page_path(prefer_id=True))
 
-    def test_user_link_pictures_true(self):
+    def test_html_link_pictures_true(self):
         self.assert_multiline_equals(
             '<span class="logo" title="Web">🌐</span> <a class="h-card u-author mention" rel="me" href="https://y.za/" title="y.za"><span style="unicode-bidi: isolate">y.za</span></a>',
-            self.user.user_link(pictures=True, handle=False))
+            self.user.html_link(pictures=True, handle=False))
 
         self.user.obj = Object(id='a', as2=ACTOR)
         self.assert_multiline_equals(
             '<span class="logo" title="Web">🌐</span> <a class="h-card u-author mention" rel="me" href="https://y.za/" title="Mrs. ☕ Foo"><img src="https://user.com/me.jpg" class="profile"> <span style="unicode-bidi: isolate">Mrs. ☕ Foo</span></a>',
-            self.user.user_link(pictures=True, handle=False))
+            self.user.html_link(pictures=True, handle=False))
 
-    def test_user_link_pictures_false(self):
+    def test_html_link_pictures_false(self):
         self.user.obj = Object(id='a', as2=ACTOR)
         self.assert_multiline_equals(
             '<a class="h-card u-author mention" rel="me" href="https://y.za/" title="Mrs. ☕ Foo"><span style="unicode-bidi: isolate">Mrs. ☕ Foo</span></a>',
-            self.user.user_link(pictures=False, handle=False))
+            self.user.html_link(pictures=False, handle=False))
 
-    def test_user_link_handle_true(self):
+    def test_html_link_handle_true(self):
         self.user.obj = Object(id='a', as2=ACTOR)
         self.assert_multiline_equals(
             '<a class="h-card u-author mention" rel="me" href="https://y.za/" title="Mrs. ☕ Foo &middot; y.za"><span style="unicode-bidi: isolate">Mrs. ☕ Foo</span> &middot; y.za</a>',
-            self.user.user_link(pictures=False, handle=True))
+            self.user.html_link(pictures=False, handle=True))
 
-    def test_user_link_name_false(self):
+    def test_html_link_name_false(self):
         self.user.obj = Object(id='a', as2=ACTOR)
         self.assert_multiline_equals(
             '<a class="h-card u-author mention" rel="me" href="https://y.za/" title="y.za">y.za</a>',
-            self.user.user_link(pictures=False, name=False))
+            self.user.html_link(pictures=False, name=False))
 
-    def test_user_link_dont_duplicate_handle_as_name(self):
+    def test_html_link_dont_duplicate_handle_as_name(self):
         self.assert_multiline_equals(
             '<a class="h-card u-author mention" rel="me" href="https://y.za/" title="y.za">y.za</a>',
-            self.user.user_link(pictures=False, name=True, handle=True))
+            self.user.html_link(pictures=False, name=True, handle=True))
 
-    def test_user_link_proto(self):
+    def test_html_link_proto(self):
         self.user.obj = Object(id='y.za', as2=ACTOR)
         self.assert_multiline_equals(
             '<a class="h-card u-author mention" rel="me" href="web:fake:y.za" title="Mrs. ☕ Foo &middot; fake:handle:y.za"><span style="unicode-bidi: isolate">Mrs. ☕ Foo</span> &middot; fake:handle:y.za</a>',
-            self.user.user_link(proto=Fake, handle=True))
+            self.user.html_link(proto=Fake, handle=True))
 
-    def test_user_link_proto_activitypub_short(self):
+    def test_html_link_proto_activitypub_short(self):
         user = Fake(id='fake:x', enabled_protocols=['activitypub'])
         user.obj = Object(id='fake:profile:x', as2=ACTOR)
         self.assert_multiline_equals(
             '<a class="h-card u-author mention" rel="me" href="https://fa.brid.gy/ap/fake:x" title="@fake-handle-x@fa.brid.gy">@fake-handle-x</a>',
-            user.user_link(proto=ActivityPub, handle='short', name=False))
+            user.html_link(proto=ActivityPub, handle='short', name=False))
 
-    def test_user_link_proto_fallback(self):
+    def test_html_link_proto_fallback(self):
         self.user.obj = Object(id='y.za', as2=ACTOR)
         self.assert_multiline_equals(
             '<a class="h-card u-author mention" rel="me" href="http://localhost/y.za" title="Mrs. ☕ Foo &middot; @y.za@web.brid.gy"><span style="unicode-bidi: isolate">Mrs. ☕ Foo</span> &middot; @y.za@web.brid.gy</a>',
-            self.user.user_link(proto=ActivityPub, proto_fallback=True, handle=True))
+            self.user.html_link(proto=ActivityPub, proto_fallback=True, handle=True))
 
-    def test_user_link_proto_not_enabled(self):
+    def test_html_link_proto_not_enabled(self):
         with self.assertRaises(AssertionError):
-            self.user.user_link(proto=ExplicitFake)
+            self.user.html_link(proto=ExplicitFake)
 
     def test_is_web_url(self):
         for url in 'y.za', '//y.za', 'http://y.za', 'https://y.za':

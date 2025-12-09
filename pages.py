@@ -397,7 +397,7 @@ def block(user=None):
             flash(str(err))
             return redirect('/settings')
 
-    links = [blockee.user_link() if isinstance(blockee, models.User)
+    links = [blockee.html_link() if isinstance(blockee, models.User)
              else util.pretty_link(blockee.as1.get('url') or '',
                                    text=blockee.as1.get('displayName'))
              for blockee in blockees]
