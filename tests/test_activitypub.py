@@ -3843,11 +3843,7 @@ class ActivityPubUtilsTest(TestCase):
         dm.put()
         self.assertTrue(ActivityPub.send(dm, ACTOR['inbox'], from_user=bot))
 
-        self.assertEqual(1, len(mock_post.call_args_list))
-        args, kwargs = mock_post.call_args_list[0]
-        self.assertEqual((ACTOR['inbox'],), args)
-        self.assertEqual({
-            '@context': as2.CONTEXT,
+        self.assert_ap_deliveries(mock_post, (ACTOR['inbox'],), {
             'type': 'Note',
             'id': 'http://localhost/r/https://internal.brid.gy/dm',
             'attributedTo': 'https://web.brid.gy/web.brid.gy',
@@ -3858,8 +3854,27 @@ class ActivityPubUtilsTest(TestCase):
                 'rel': 'canonical',
                 'type': 'Link',
             }],
-            'to': [ACTOR['id']],
-        }, json_loads(kwargs['data']))
+        }, ignore=['@context', 'to'])
+
+    @patch('requests.post')
+    def test_send_delete_user_translates_actor_to_enabled_protocol(self, mock_post):
+        alice = self.make_user('fake:alice', cls=Fake, obj_id='fake:profile:alice')
+
+        delete = Object(id='fake:delete', our_as1={
+            'id': 'fake:delete',
+            'objectType': 'activity',
+            'verb': 'delete',
+            'actor': 'fake:alice',
+            'object': 'fake:alice',
+        })
+        self.assertTrue(ActivityPub.send(delete, 'http://inst/inbox', from_user=alice))
+
+        self.assert_ap_deliveries(mock_post, ('http://inst/inbox',), {
+            'type': 'Delete',
+            'id': 'https://fa.brid.gy/convert/ap/fake:delete',
+            'actor': 'https://fa.brid.gy/ap/fake:alice',
+            'object': 'https://fa.brid.gy/ap/fake:alice',
+        }, ignore=['@context', 'to'])
 
     def test_nodeinfo(self):
         # just check that it doesn't crash

@@ -95,13 +95,14 @@ class IdsTest(TestCase):
             (Web, 'user.com', Nostr, None),
             (Fake, 'fake:user', Nostr, None),
 
-            # user, not enabled, no copy
-            (ATProto, 'did:plc:000', ActivityPub, 'https://bsky.app/profile/zero.com'),
-
-            (Fake, 'fake:user', ActivityPub, 'web:fake:user'),
-            (Fake, 'fake:user', ATProto, 'did:plc:789'),
+            # not enabled for target protocol, shouldn't matter
+            (ATProto, 'did:plc:0', ActivityPub, 'https://bsky.brid.gy/ap/did:plc:0'),
+            (Fake, 'fake:user', ActivityPub, 'https://fa.brid.gy/ap/fake:user'),
             (Fake, 'fake:user', Fake, 'fake:user'),
-            (Fake, 'fake:user', Web, 'web:fake:user'),
+            (Fake, 'fake:user', Web, 'https://fa.brid.gy/web/fake:user'),
+            (Fake, 'fake:user', ATProto, 'did:plc:789'),
+            # ...except when we don't have a copy
+            (Fake, 'fake:bob', ATProto, None),
 
             (Web, 'user.com', ActivityPub, 'http://localhost/user.com'),
             (Web, 'https://user.com/', ActivityPub, 'http://localhost/user.com'),
