@@ -711,7 +711,7 @@ class Protocol:
 
         if cls.HTML_PROFILES:
             if bot_user and from_user.LABEL not in cls.DEFAULT_ENABLED_PROTOCOLS:
-                mention = bot_user.user_link(proto=cls, name=False, handle='short')
+                mention = bot_user.html_link(proto=cls, name=False, handle='short')
                 suffix = f', follow {mention} to interact'
             else:
                 suffix = f' by <a href="https://{PRIMARY_DOMAIN}/">Bridgy Fed</a>'
@@ -1799,7 +1799,7 @@ class Protocol:
                                 else ('mentioned', 'mentions'))
                             dms.maybe_send(from_=target_proto, to_user=from_user,
                                            type='replied_to_bridged_user', text=f"""\
-Hi! You <a href="{inner_obj_as1.get('url') or inner_obj_id}">recently {verb}</a> {target_author.user_link()}, who's bridged here from {target_proto.PHRASE}. If you want them to see your {noun}, you can bridge your account into {target_proto.PHRASE} by following this account. <a href="https://fed.brid.gy/docs">See the docs</a> for more information.""")
+Hi! You <a href="{inner_obj_as1.get('url') or inner_obj_id}">recently {verb}</a> {target_author.html_link()}, who's bridged here from {target_proto.PHRASE}. If you want them to see your {noun}, you can bridge your account into {target_proto.PHRASE} by following this account. <a href="https://fed.brid.gy/docs">See the docs</a> for more information.""")
 
                 continue
 

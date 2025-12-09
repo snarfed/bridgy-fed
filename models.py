@@ -734,7 +734,7 @@ class User(AddRemoveMixin, StringIdModel, metaclass=ProtocolUserMeta):
 
         if to_proto.LABEL not in self.enabled_protocols:
             self.enabled_protocols.append(to_proto.LABEL)
-            dms.maybe_send(from_=to_proto, to_user=self, type='welcome', text=f"""Welcome to Bridgy Fed! Your account will soon be bridged to {to_proto.PHRASE} at {self.user_link(proto=to_proto, name=False)}. <a href="https://fed.brid.gy/docs">See the docs</a> and <a href="https://{common.PRIMARY_DOMAIN}{self.user_page_path()}">your user page</a> for more information. To disable this and delete your bridged profile, block this account.""")
+            dms.maybe_send(from_=to_proto, to_user=self, type='welcome', text=f"""Welcome to Bridgy Fed! Your account will soon be bridged to {to_proto.PHRASE} at {self.html_link(proto=to_proto, name=False)}. <a href="https://fed.brid.gy/docs">See the docs</a> and <a href="https://{common.PRIMARY_DOMAIN}{self.user_page_path()}">your user page</a> for more information. To disable this and delete your bridged profile, block this account.""")
             self.put()
 
         msg = f'Enabled {to_proto.LABEL} for {self.key.id()} : {self.user_page_path()}'
@@ -1014,7 +1014,7 @@ class User(AddRemoveMixin, StringIdModel, metaclass=ProtocolUserMeta):
             if copy.protocol in (proto.LABEL, proto.ABBREV):
                 return copy.uri
 
-    def user_link(self, name=True, handle=True, pictures=False, logo=None,
+    def html_link(self, name=True, handle=True, pictures=False, logo=None,
                   proto=None, proto_fallback=False):
         """Returns a pretty HTML link to the user's profile.
 
@@ -1382,6 +1382,17 @@ class Object(AddRemoveMixin, StringIdModel):
         # TODO: assert that as1 id is same as key id? in pre put hook?
         logger.debug(f'Wrote {self.key}')
 
+    def html_link(self):
+        """Returns an HTML link to this object's user-facing web URL, if any.
+
+        Returns:
+          str or None:
+        """
+        if self.as1 and (url := self.as1.get('url')):
+            return util.pretty_link(url, text=self.as1.get('displayName'))
+        elif util.is_web(self.key.id()):
+            return util.pretty_link(self.key.id())
+
     @classmethod
     def get_by_id(cls, id, authed_as=None, **kwargs):
         """Fetches the :class:`Object` with the given id, if it exists.
@@ -1541,7 +1552,7 @@ class Object(AddRemoveMixin, StringIdModel):
     def actor_link(self, image=True, sized=False, user=None):
         """Returns a pretty HTML link with the actor's name and picture.
 
-        TODO: unify with :meth:`User.user_link`?
+        TODO: unify with :meth:`User.html_link`?
 
         Args:
           image (bool): whether to include an ``img`` tag with the actor's picture
@@ -1556,7 +1567,7 @@ class Object(AddRemoveMixin, StringIdModel):
 
         if user and user.key in self.users:
             # outbound; show a nice link to the user
-            return user.user_link(handle=False, pictures=True)
+            return user.html_link(handle=False, pictures=True)
 
         proto = PROTOCOLS.get(self.source_protocol)
 

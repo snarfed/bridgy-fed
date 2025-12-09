@@ -1797,6 +1797,20 @@ bar.org
         del obj.domain_blocklist
         self.assertEqual([], obj.domain_blocklist)
 
+    def test_html_link(self):
+        for obj in (
+                Object(id='a', our_as1={'url': 'http://x'}),
+                Object(id='http://x', csv='a\nb'),
+                Object(id='http://x'),
+        ):
+            self.assertEqual('<a href="http://x">x</a>', obj.html_link())
+
+        obj = Object(id='a', our_as1={'url': 'http://x', 'displayName': 'My obj'})
+        self.assertEqual('<a href="http://x">My obj</a>', obj.html_link())
+
+        self.assertIsNone(Object(id='a').html_link())
+        self.assertIsNone(Object(id='a', our_as1={'b': 'c'}).html_link())
+
 
 class FollowerTest(TestCase):
 
