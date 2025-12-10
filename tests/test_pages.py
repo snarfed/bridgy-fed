@@ -915,7 +915,7 @@ class PagesTest(TestCase):
         })
         self.assertEqual(302, resp.status_code)
         self.assertEqual('/settings', resp.headers['Location'])
-        self.assertEqual(["""OK, you're now blocking <a class="h-card u-author mention" rel="me" href="web:fake:eve" title="fake:handle:eve">fake:handle:eve</a> on fake-phrase."""], get_flashed_messages())
+        self.assertEqual(["""OK, you're now blocking <a class="h-card u-author mention" rel="me" href="web:fake:eve" title="fake:handle:eve">fake:handle:eve</a>."""], get_flashed_messages())
 
         self.assert_equals([('fake:eve:target', {
             'objectType': 'activity',
@@ -934,7 +934,10 @@ class PagesTest(TestCase):
         })
         self.assertEqual(302, resp.status_code)
         self.assertEqual('/settings', resp.headers['Location'])
-        self.assertEqual(["Can't recognize foo bar"], get_flashed_messages())
+        self.assertEqual([
+            "foo doesn't look like a user or list, or we couldn't fetch it",
+            "bar doesn't look like a user or list, or we couldn't fetch it",
+        ], get_flashed_messages())
 
     def test_block_atproto_unrecognized(self):
         user, _ = self.make_logged_in_mastodon_user(enabled_protocols=['atproto'])
@@ -948,6 +951,24 @@ class PagesTest(TestCase):
         self.assertEqual(
             ["https://bsky.app/xyz/456 doesn't look like a user or list on Bluesky, or we couldn't fetch it"],
             get_flashed_messages())
+
+    @patch('requests.get', return_value=requests_response(
+            'domain\nfoo.com\nbar.org', headers={'Content-Type': 'text/csv'}))
+    def test_block_csv_blocklist(self, mock_get):
+        user, _ = self.make_logged_in_bluesky_user(enabled_protocols=['activitypub'])
+
+        resp = self.client.post('/settings/block', data={
+            'key': user.key.urlsafe().decode(),
+            'target': 'http://li.st/a',
+        })
+        self.assertEqual(302, resp.status_code)
+        self.assertEqual('/settings', resp.headers['Location'])
+        self.assertEqual(["""OK, you're now blocking <a href="http://li.st/a">li.st/a</a>."""], get_flashed_messages())
+
+        list = Object.get_by_id('http://li.st/a')
+        self.assertEqual('domain\nfoo.com\nbar.org', list.csv)
+        self.assertTrue(list.is_csv)
+        self.assertEqual([list.key], user.key.get().blocks)
 
     def test_toggle_notifs(self):
         user, _ = self.make_logged_in_mastodon_user(send_notifs='none')

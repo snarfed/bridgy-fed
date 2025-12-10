@@ -375,34 +375,17 @@ def block(user=None):
       target (str)
     """
     target = flask_util.get_required_param('target')
-
-    proto = Protocol.for_id(target)
-    if not proto:
-        proto, _ = Protocol.for_handle(target)
-    if not proto:
-        proto, _ = Protocol.for_handle(target.removeprefix('@'))
-    if not proto:
-        flash(f"Can't recognize {target}")
-        return redirect('/settings')
-    elif isinstance(user, proto):
-        flash(f'{target} is on {proto.PHRASE}! You can block them there.')
-        return redirect('/settings')
-
-    # block!
-    blockees = []
+    links = []
     for arg in target.strip().split():
         try:
-            blockees.append(proto.block(user, arg))
+            result = Protocol.block(user, arg)
+            links.append(result.html_link())
         except ValueError as err:
             flash(str(err))
-            return redirect('/settings')
 
-    links = [blockee.html_link() if isinstance(blockee, models.User)
-             else util.pretty_link(blockee.as1.get('url') or '',
-                                   text=blockee.as1.get('displayName'))
-             for blockee in blockees]
-    flash(f"""OK, you're now blocking {', '.join(links)} on {proto.PHRASE}.""",
-          escape=False)
+    if links:
+        flash(f"""OK, you're now blocking {', '.join(links)}.""", escape=False)
+
     return redirect('/settings')
 
 
