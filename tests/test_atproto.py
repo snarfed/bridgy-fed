@@ -1455,6 +1455,7 @@ Sed tortor neque, aliquet quis posuere aliquam, imperdiet sitamet […]
             '$type': 'app.bsky.actor.profile',
             'displayName': 'Alice',
             'description': 'hi there\n\n🌉 bridged from 🤡 web:fake:us_er by https://fed.brid.gy/',
+            'website': 'https://alice.com/',
             'bridgyOriginalDescription': 'hi there',
             'bridgyOriginalUrl': 'https://alice.com/',
             'avatar': {
@@ -1512,6 +1513,7 @@ Sed tortor neque, aliquet quis posuere aliquam, imperdiet sitamet […]
             '$type': 'app.bsky.actor.profile',
             'displayName': 'Alice',
             'description': 'hi there\n\n🌉 bridged from 🤡 web:fake:user by https://fed.brid.gy/',
+            'website': 'https://alice.com/',
             'pinnedPost': {
                 'uri': f'at://{did}/app.bsky.feed.post/{last_tid}',
                 'cid': 'bafyreibjhbhznld7ogitdeub3ptk3cnkaegz3oma46ys5ljnaaec3sylpq',
@@ -1560,6 +1562,7 @@ Sed tortor neque, aliquet quis posuere aliquam, imperdiet sitamet […]
             '$type': 'app.bsky.actor.profile',
             'displayName': 'Alice',
             'description': 'hi there\n\n🌉 bridged from 🤡 web:fake:user by https://fed.brid.gy/',
+            'website': 'https://alice.com/',
         }, repo.get_record('app.bsky.actor.profile', 'self'),
         ignore=['bridgyOriginalDescription', 'bridgyOriginalUrl', 'labels'])
 
@@ -1587,6 +1590,7 @@ Sed tortor neque, aliquet quis posuere aliquam, imperdiet sitamet […]
             '$type': 'app.bsky.actor.profile',
             'displayName': 'Alice',
             'description': 'hi there\n\n🌉 bridged from 🤡 web:fake:user by https://fed.brid.gy/',
+            'website': 'https://alice.com/',
         }, repo.get_record('app.bsky.actor.profile', 'self'),
         ignore=['bridgyOriginalDescription', 'bridgyOriginalUrl', 'labels'])
         self.assert_equals({
@@ -2023,6 +2027,7 @@ Sed tortor neque, aliquet quis posuere aliquam, imperdiet sitamet […]
             '$type': 'app.bsky.actor.profile',
             'displayName': 'Alice',
             'description': 'hi there\n\n🌉 bridged from 🤡 web:fake:user by https://fed.brid.gy/',
+            'website': 'https://alice.com/',
             'bridgyOriginalDescription': 'hi there',
             'bridgyOriginalUrl': 'https://alice.com/',
             'avatar': {

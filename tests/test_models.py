@@ -131,6 +131,7 @@ class UserTest(TestCase):
             '$type': 'app.bsky.actor.profile',
             'displayName': 'Alice',
             'description': 'hi there\n\n🌉 bridged from 🤡 web:fake:user by https://fed.brid.gy/',
+            'website': 'https://alice.com/',
             'bridgyOriginalDescription': 'hi there',
             'bridgyOriginalUrl': 'https://alice.com/',
             'labels': {
