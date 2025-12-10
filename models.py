@@ -489,6 +489,7 @@ class User(AddRemoveMixin, StringIdModel, metaclass=ProtocolUserMeta):
                     try:
                         user.put()
                     except AssertionError as e:
+                        logger.debug(e)
                         error(f'Bad {cls.__name__} id {id} : {e}')
                 return user
 
@@ -505,6 +506,7 @@ class User(AddRemoveMixin, StringIdModel, metaclass=ProtocolUserMeta):
             try:
                 user.reload_profile(gateway=True, raise_=False)
             except AssertionError as e:
+                logger.debug(e)
                 error(f'Bad {cls.__name__} id {id} : {e}')
 
             if user.status and not allow_opt_out:
@@ -1136,20 +1138,38 @@ class User(AddRemoveMixin, StringIdModel, metaclass=ProtocolUserMeta):
           url (str): URL of CSV blocklist to add
 
         Returns:
-          bool: True if added, False if the URL couldn't be loaded, None if
-            it was already present
+          Object: CSV blocklist, or None if it couldn't be loaded
         """
         from web import Web
 
-        if Object(id=maybe_truncate_key_id(url)).key in self.blocks:
-            return
+        key = Object(id=maybe_truncate_key_id(url)).key
+        if key in self.blocks:
+            return key.get()
 
-        obj = Web.load(url, csv=True)
-        if not obj:
-            return False
+        if obj := Web.load(url, csv=True):
+            self.blocks.append(obj.key)
+            self.put()
+            return obj
 
-        self.blocks.append(obj.key)
-        return True
+    def remove_domain_blocklist(self, url):
+        """Removes a domain blocklist from this user.
+
+        Args:
+          url (str): URL of CSV blocklist to remove
+
+        Returns:
+          Object: CSV blocklist, or None if it couldn't be loaded
+        """
+        from web import Web
+
+        key = Object(id=maybe_truncate_key_id(url)).key
+        if key in self.blocks:
+            self.blocks.remove(key)
+            self.put()
+            return key.get()
+
+        if obj := Web.load(url, csv=True):
+            return obj
 
 
 # WARNING: AddRemoveMixin *must* be before StringIdModel here so that its __init__

@@ -788,30 +788,41 @@ class UserTest(TestCase):
     def test_add_domain_blocklist(self, mock_get):
         self.assertEqual([], self.user.blocks)
 
-        self.assertTrue(self.user.add_domain_blocklist('https://exam.pl/1'))
-        self.assertEqual([Object(id='https://exam.pl/1').key], self.user.blocks)
+        key1 = Object(id='https://exam.pl/1').key
+        self.assertEqual(key1, self.user.add_domain_blocklist('https://exam.pl/1').key)
+        self.assertEqual([key1], self.user.blocks)
         self.assert_req(mock_get, 'https://exam.pl/1')
 
         mock_get.reset_mock()
-        self.assertTrue(self.user.add_domain_blocklist('https://exam.pl/2'))
-        self.assertEqual(
-            [Object(id='https://exam.pl/1').key, Object(id='https://exam.pl/2').key],
-            self.user.blocks)
+        key2 = Object(id='https://exam.pl/2').key
+        self.assertEqual(key2, self.user.add_domain_blocklist('https://exam.pl/2').key)
+        self.assertEqual([key1, key2], self.user.blocks)
         self.assert_req(mock_get, 'https://exam.pl/2')
 
         # add 1 again should be a noop
         mock_get.reset_mock()
-        self.assertFalse(self.user.add_domain_blocklist('https://exam.pl/1'))
-        self.assertEqual(
-            [Object(id='https://exam.pl/1').key, Object(id='https://exam.pl/2').key],
-            self.user.blocks)
+        self.assertEqual(key1, self.user.add_domain_blocklist('https://exam.pl/1').key)
+        self.assertEqual([key1, key2], self.user.blocks)
         mock_get.assert_not_called()
 
     @patch('requests.get', return_value=requests_response('not found', status=404))
     def test_add_domain_blocklist_load_fails(self, mock_get):
-        self.assertFalse(self.user.add_domain_blocklist('https://exam.pl/list'))
+        self.assertIsNone(self.user.add_domain_blocklist('https://exam.pl/list'))
         self.assert_req(mock_get, 'https://exam.pl/list')
         self.assertEqual([], self.user.blocks)
+
+    @patch('requests.get', return_value=requests_response(
+        'domain\nfoo\nbar', headers={'Content-Type': 'text/csv'}))
+    def test_remove_domain_blocklist(self, mock_get):
+        self.assertEqual([], self.user.blocks)
+        key1 = Object(id='https://exam.pl/1').key
+        self.assertEqual(key1, self.user.remove_domain_blocklist('https://exam.pl/1').key)
+        self.assertEqual([], self.user.blocks)
+
+        key2 = Object(id='https://exam.pl/2').key
+        self.user.blocks = [key2, key1]
+        self.assertEqual(key1, self.user.remove_domain_blocklist('https://exam.pl/1').key)
+        self.assertEqual([key2], self.user.blocks)
 
     def test_is_blocking(self):
         self.assertFalse(self.user.is_blocking('http://foo.com/bar'))
