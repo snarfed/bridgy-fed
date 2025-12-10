@@ -2141,7 +2141,7 @@ Hi! You <a href="{inner_obj_as1.get('url') or inner_obj_id}">recently {verb}</a>
         err = None
         try:
             # first, try interpreting as a user handle or id
-            blockee = load_user(arg, cls, create=True, allow_opt_out=True)
+            blockee = load_user(arg, proto=cls, create=True, allow_opt_out=True)
         except (AssertionError, AttributeError, BadRequest, RuntimeError, ValueError) as err:
             logger.info(err)
 
@@ -2149,6 +2149,8 @@ Hi! You <a href="{inner_obj_as1.get('url') or inner_obj_id}">recently {verb}</a>
         if not blockee:
             blockee = cls.load(arg)
             if not blockee or blockee.type != 'collection':
+                if blocklist := from_user.add_domain_blocklist(arg):
+                    return blocklist
                 err = f"{arg} doesn't look like a user or list on {cls.PHRASE}, or we couldn't fetch it"
                 logger.warning(err)
                 raise ValueError(err)
@@ -2176,12 +2178,12 @@ Hi! You <a href="{inner_obj_as1.get('url') or inner_obj_id}">recently {verb}</a>
           arg (str): handle or id of user/list to unblock
 
         Returns:
-          models.User or models.Object: user or list that was blocked
+          models.User or models.Object: user or list that was unblocked
 
         Raises:
           ValueError: if arg doesn't look like a user or list on this protocol
         """
-        logger.info(f'user {from_user.key.id()} trying to block {arg}')
+        logger.info(f'user {from_user.key.id()} trying to unblock {arg}')
 
         blockee = None
         try:
@@ -2194,6 +2196,8 @@ Hi! You <a href="{inner_obj_as1.get('url') or inner_obj_id}">recently {verb}</a>
         if not blockee:
             blockee = cls.load(arg)
             if not blockee or blockee.type != 'collection':
+                if blocklist := from_user.remove_domain_blocklist(arg):
+                    return blocklist
                 err = f"{arg} doesn't look like a user or list on {cls.PHRASE}"
                 logger.warning(err)
                 raise ValueError(err)

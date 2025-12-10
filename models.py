@@ -1410,8 +1410,8 @@ class Object(AddRemoveMixin, StringIdModel):
         """
         if self.as1 and (url := self.as1.get('url')):
             return util.pretty_link(url, text=self.as1.get('displayName'))
-        elif util.is_web(self.key.id()):
-            return util.pretty_link(self.key.id())
+
+        return util.pretty_link(self.key.id())
 
     @classmethod
     def get_by_id(cls, id, authed_as=None, **kwargs):
@@ -2200,7 +2200,7 @@ def load_user(handle_or_id, proto=None, create=False, allow_opt_out=False):
 
     logger.debug(f'loading {handle_or_id}')
 
-    if not proto:
+    if not proto or proto is protocol.Protocol:
         if not (proto := protocol.Protocol.for_id(handle_or_id)):
             proto, id = protocol.Protocol.for_handle(handle_or_id)
             if id:

@@ -1379,6 +1379,29 @@ class ProtocolTest(TestCase):
         with self.assertRaises(ValueError):
             ActivityPub.block(bob, '@alice@inst')
 
+    @patch('requests.get', return_value=requests_response(
+        'domain\nfoo\nbar', content_type='text/csv'))
+    def test_block_csv_blocklist(self, mock_get):
+        user = self.make_user(id='fake:user', cls=Fake)
+
+        blocklist = Fake.block(user, 'http://li.st/a')
+        self.assertEqual('http://li.st/a', blocklist.key.id())
+        self.assertEqual('domain\nfoo\nbar', blocklist.csv)
+        self.assertTrue(blocklist.is_csv)
+
+        user = user.key.get()
+        self.assertEqual([blocklist.key], user.blocks)
+
+    def test_unblock_csv_blocklist(self):
+        key = Object(id='http://li.st/a').put()
+        user = self.make_user(id='fake:user', cls=Fake, blocks=[key])
+
+        blocklist = Fake.unblock(user, 'http://li.st/a')
+        self.assertEqual('http://li.st/a', blocklist.key.id())
+
+        user = user.key.get()
+        self.assertEqual([], user.blocks)
+
 
 class ProtocolReceiveTest(TestCase):
 
