@@ -1953,7 +1953,7 @@ Hi! You <a href="{inner_obj_as1.get('url') or inner_obj_id}">recently {verb}</a>
         return targets
 
     @classmethod
-    def load(cls, id, remote=None, local=True, raise_=True, **kwargs):
+    def load(cls, id, remote=None, local=True, raise_=True, csv=False, **kwargs):
         """Loads and returns an Object from datastore or HTTP fetch.
 
         Sets the :attr:`new` and :attr:`changed` attributes if we know either
@@ -1972,6 +1972,7 @@ Hi! You <a href="{inner_obj_as1.get('url') or inner_obj_id}">recently {verb}</a>
           raise_ (bool): if False, catches any :class:`request.RequestException`
             or :class:`HTTPException` raised by :meth:`fetch()` and returns
             ``None`` instead
+          csv (bool): whether to specifically load a CSV object
           kwargs: passed through to :meth:`fetch()`
 
         Returns:
@@ -1991,13 +1992,12 @@ Hi! You <a href="{inner_obj_as1.get('url') or inner_obj_id}">recently {verb}</a>
 
         obj = orig_as1 = None
         if local:
-            obj = Object.get_by_id(id)
-            if not obj:
-                # logger.debug(f' {id} not in datastore')
-                pass
-            elif obj.as1 or obj.csv or obj.raw or obj.deleted:
-                # logger.debug(f'  {id} got from datastore')
-                obj.new = False
+            if obj := Object.get_by_id(id):
+                if csv and not obj.is_csv:
+                    return None
+                elif obj.as1 or obj.csv or obj.raw or obj.deleted:
+                    # logger.debug(f'  {id} got from datastore')
+                    obj.new = False
 
         if remote is False:
             return obj
@@ -2020,7 +2020,7 @@ Hi! You <a href="{inner_obj_as1.get('url') or inner_obj_id}">recently {verb}</a>
                 obj.changed = False
 
         try:
-            fetched = cls.fetch(obj, **kwargs)
+            fetched = cls.fetch(obj, csv=csv, **kwargs)
         except (RequestException, HTTPException) as e:
             if raise_:
                 raise
@@ -2028,6 +2028,8 @@ Hi! You <a href="{inner_obj_as1.get('url') or inner_obj_id}">recently {verb}</a>
             return None
 
         if not fetched:
+            return None
+        elif csv and not obj.is_csv:
             return None
 
         # https://stackoverflow.com/a/3042250/186123
