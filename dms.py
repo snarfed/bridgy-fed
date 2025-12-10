@@ -216,30 +216,30 @@ def username(from_user, to_proto, arg):
 @command(['block'], arg=True, user_bridged=True, multiple=True)
 def block(from_user, to_proto, args):
     # duplicated in unblock
-    try:
-        blockees = [to_proto.block(from_user, arg) for arg in args]
-    except ValueError as e:
-        return str(e)
+    links = []
 
-    links = [blockee.html_link() if isinstance(blockee, User)
-             else util.pretty_link(blockee.as1.get('url') or '',
-                                   text=blockee.as1.get('displayName'))
-             for blockee in blockees]
+    for arg in args:
+        try:
+            result = to_proto.block(from_user, arg)
+            links.append(result.html_link())
+        except ValueError as e:
+            return str(e)
+
     return f"""OK, you're now blocking {', '.join(links)} on {to_proto.PHRASE}."""
 
 
 @command(['unblock'], arg=True, user_bridged=True, multiple=True)
 def unblock(from_user, to_proto, args):
     # duplicated in block
-    try:
-        blockees = [to_proto.unblock(from_user, arg) for arg in args]
-    except ValueError as e:
-        return str(e)
+    links = []
 
-    links = [blockee.html_link() if isinstance(blockee, User)
-             else util.pretty_link(blockee.as1.get('url') or '',
-                                   text=blockee.as1.get('displayName'))
-             for blockee in blockees]
+    for arg in args:
+        try:
+            result = to_proto.unblock(from_user, arg)
+            links.append(result.html_link())
+        except ValueError as e:
+            return str(e)
+
     return f"""OK, you're not blocking {', '.join(links)} on {to_proto.PHRASE}."""
 
 

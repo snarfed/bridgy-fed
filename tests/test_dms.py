@@ -14,6 +14,7 @@ from web import Web
 
 from oauth_dropins.webutil.flask_util import NotModified
 from oauth_dropins.webutil import util
+from oauth_dropins.webutil.testutil import requests_response
 from oauth_dropins.webutil.util import json_dumps, json_loads
 from .testutil import ExplicitFake, Fake, OtherFake, TestCase
 from .test_atproto import DID_DOC
@@ -860,6 +861,26 @@ class DmsTest(TestCase):
             }),
         ], OtherFake.sent)
 
+    @patch('requests.get', return_value=requests_response(
+            'domain\nfoo.com\nbar.org', headers={'Content-Type': 'text/csv'}))
+    def test_receive_block_csv_blocklist(self, mock_get):
+        alice, _ = self.make_alice_bob()
+
+        obj = Object(our_as1={
+            **DM_BASE,
+            'content': 'block http://li.st/a',
+        })
+        self.assertEqual(('OK', 200), receive(from_user=alice, obj=obj))
+
+        self.assert_replied(OtherFake, alice, '?', """OK, you're now blocking <a href="http://li.st/a">li.st/a</a> on other-phrase.""")
+
+        list = Object.get_by_id('http://li.st/a')
+        self.assertEqual('domain\nfoo.com\nbar.org', list.csv)
+        self.assertTrue(list.is_csv)
+
+        alice = ExplicitFake.get_by_id('efake:alice')
+        self.assertEqual([list.key], alice.blocks)
+
     def test_receive_unblock_user(self):
         alice, bob = self.make_alice_bob()
 
@@ -948,6 +969,23 @@ class DmsTest(TestCase):
 
         self.assert_replied(OtherFake, alice, '?', "not@handle-format doesn't look like a user or list on other-phrase")
         self.assertEqual([], OtherFake.sent)
+
+    def test_receive_unblock_csv_blocklist(self):
+        alice, _ = self.make_alice_bob()
+
+        blocklist = Object(id='http://li.st/a', csv='domain\nfoo.com\nbar.org').put()
+        alice.blocks = [blocklist]
+        alice.put()
+
+        obj = Object(our_as1={
+            **DM_BASE,
+            'content': 'unblock http://li.st/a',
+        })
+        self.assertEqual(('OK', 200), receive(from_user=alice, obj=obj))
+
+        self.assert_replied(OtherFake, alice, '?', """OK, you're not blocking <a href="http://li.st/a">li.st/a</a> on other-phrase.""")
+        alice = ExplicitFake.get_by_id('efake:alice')
+        self.assertEqual([], alice.blocks)
 
     def test_receive_unblock_multiple_users(self):
         alice, bob = self.make_alice_bob()
