@@ -46,7 +46,6 @@
     </p>
     {% endif %}
 
-
     <p>
       <form method="post" action="/settings/block">
         <input name="key" type="hidden" value="{{ user.key.urlsafe().decode() }}" />
@@ -55,6 +54,17 @@
         <input type="submit" value="Go" class="btn btn-default" />
       </form>
     </p>
+
+    {% if domain_blocklists %}
+    <p>
+      Currently subscribed to these domain blocklists:
+      <ul>
+        {% for blocklist in domain_blocklists %}
+        <li>{{ blocklist.html_link()|safe }}</li>
+        {% endfor %}
+      </ul>
+    </p>
+    {% endif %} {# domain_blocklists #}
 
     <p>
       <form method="post" action="/settings/toggle-notifs">

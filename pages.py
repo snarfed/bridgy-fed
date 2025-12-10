@@ -7,6 +7,7 @@ import re
 import time
 
 from flask import request
+from google.cloud import ndb
 from google.cloud.ndb import tasklets
 from google.cloud.ndb.key import Key
 from google.cloud.ndb.query import OR
@@ -273,6 +274,11 @@ def settings():
 
     if not users:
         return redirect('/login')
+
+    domain_blocklists = None
+    if user.blocks:
+        domain_blocklists = [obj for obj in ndb.get_multi(user.blocks[:PAGE_SIZE])
+                             if getattr(obj, 'is_csv', None)]
 
     return render(
         'settings.html',

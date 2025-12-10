@@ -834,6 +834,20 @@ class PagesTest(TestCase):
             'cid': 'bafyreigd',
         }, user.obj.bsky)
 
+    def test_settings_subscribed_csv_blocklists(self):
+        user, auth = self.make_logged_in_mastodon_user(
+            enabled_protocols=['fake'], blocks=[
+                Object(id='http://foo', is_csv=True).put(),
+                Object(id='http://bar', is_csv=True).put(),
+            ])
+
+        resp = self.client.get('/settings')
+        self.assertEqual(200, resp.status_code)
+        body = resp.get_data(as_text=True)
+        self.assert_multiline_in('Currently subscribed to these domain blocklists:', body)
+        self.assert_multiline_in('<a href="http://foo">foo</a>', body)
+        self.assert_multiline_in('<a href="http://bar">bar</a>', body)
+
     @patch('pages.PROTOCOLS', new={
         'activitypub': ActivityPub,
         'efake': ExplicitFake,
