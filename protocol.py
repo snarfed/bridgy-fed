@@ -2137,23 +2137,32 @@ Hi! You <a href="{inner_obj_as1.get('url') or inner_obj_id}">recently {verb}</a>
         """
         logger.info(f'user {from_user.key.id()} trying to block {arg}')
 
+        def fail(msg):
+            logger.warning(msg)
+            raise ValueError(msg)
+
         blockee = None
-        err = None
         try:
             # first, try interpreting as a user handle or id
             blockee = load_user(arg, proto=cls, create=True, allow_opt_out=True)
         except (AssertionError, AttributeError, BadRequest, RuntimeError, ValueError) as err:
             logger.info(err)
 
+        if type(from_user) == type(blockee):
+            fail(f'{blockee.html_link()} is on {from_user.PHRASE}! Try blocking them there.')
+
         # may not be a user, see if it's a list
         if not blockee:
-            blockee = cls.load(arg)
-            if not blockee or blockee.type != 'collection':
+            if not cls or cls == Protocol:
+                cls = Protocol.for_id(arg)
+
+            if cls and (blockee := cls.load(arg)) and blockee.type == 'collection':
+                if blockee.source_protocol == from_user.LABEL:
+                    fail(f'{blockee.html_link()} is on {from_user.PHRASE}! Try blocking it there.')
+            else:
                 if blocklist := from_user.add_domain_blocklist(arg):
                     return blocklist
-                err = f"{arg} doesn't look like a user or list on {cls.PHRASE}, or we couldn't fetch it"
-                logger.warning(err)
-                raise ValueError(err)
+                fail(f"{arg} doesn't look like a user or list{' on ' + cls.PHRASE if cls else ''}, or we couldn't fetch it")
 
         logger.info(f'  blocking {blockee.key.id()}')
         id = f'{from_user.key.id()}#bridgy-fed-block-{util.now().isoformat()}'
@@ -2184,6 +2193,9 @@ Hi! You <a href="{inner_obj_as1.get('url') or inner_obj_id}">recently {verb}</a>
           ValueError: if arg doesn't look like a user or list on this protocol
         """
         logger.info(f'user {from_user.key.id()} trying to unblock {arg}')
+        def fail(msg):
+            logger.warning(msg)
+            raise ValueError(msg)
 
         blockee = None
         try:
@@ -2192,15 +2204,21 @@ Hi! You <a href="{inner_obj_as1.get('url') or inner_obj_id}">recently {verb}</a>
         except (AssertionError, AttributeError, BadRequest, RuntimeError, ValueError) as err:
             logger.info(err)
 
+        if type(from_user) == type(blockee):
+            fail(f'{blockee.html_link()} is on {from_user.PHRASE}! Try unblocking them there.')
+
         # may not be a user, see if it's a list
         if not blockee:
-            blockee = cls.load(arg)
-            if not blockee or blockee.type != 'collection':
+            if not cls or cls == Protocol:
+                cls = Protocol.for_id(arg)
+
+            if cls and (blockee := cls.load(arg)) and blockee.type == 'collection':
+                if blockee.source_protocol == from_user.LABEL:
+                    fail(f'{blockee.html_link()} is on {from_user.PHRASE}! Try blocking it there.')
+            else:
                 if blocklist := from_user.remove_domain_blocklist(arg):
                     return blocklist
-                err = f"{arg} doesn't look like a user or list on {cls.PHRASE}"
-                logger.warning(err)
-                raise ValueError(err)
+                fail(f"{arg} doesn't look like a user or list{' on ' + cls.PHRASE if cls else ''}, or we couldn't fetch it")
 
         logger.info(f'  unblocking {blockee.key.id()}')
         id = f'{from_user.key.id()}#bridgy-fed-unblock-{util.now().isoformat()}'

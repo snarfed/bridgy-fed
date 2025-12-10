@@ -1402,6 +1402,50 @@ class ProtocolTest(TestCase):
         user = user.key.get()
         self.assertEqual([], user.blocks)
 
+    def test_block_unblock_user_on_same_protocol(self):
+        alice = self.make_user(id='fake:alice', cls=Fake)
+        bob = self.make_user(id='fake:bob', cls=Fake)
+
+        with self.assertRaises(ValueError):
+            Fake.block(alice, 'fake:bob')
+
+        with self.assertRaises(ValueError):
+            Fake.unblock(alice, 'fake:bob')
+
+    def test_block_unblock_user_on_same_protocol_infer_protocol(self):
+        alice = self.make_user(id='fake:alice', cls=Fake)
+        bob = self.make_user(id='fake:bob', cls=Fake)
+
+        with self.assertRaises(ValueError):
+            Protocol.block(alice, 'fake:bob')
+
+        with self.assertRaises(ValueError):
+            Protocol.unblock(alice, 'fake:bob')
+
+    def test_block_unblock_blocklist_on_same_protocol(self):
+        alice = self.make_user(id='fake:alice', cls=Fake)
+        Fake.fetchable['fake:blocklist'] = Fake.fetchable['fake:profile:blocklist'] = {
+            'objectType': 'collection',
+        }
+
+        with self.assertRaises(ValueError):
+            Fake.block(alice, 'fake:blocklist')
+
+        with self.assertRaises(ValueError):
+            Fake.unblock(alice, 'fake:blocklist')
+
+    def test_block_unblock_blocklist_on_same_protocol_infer_protocol(self):
+        alice = self.make_user(id='fake:alice', cls=Fake)
+        Fake.fetchable['fake:blocklist'] = Fake.fetchable['fake:profile:blocklist'] = {
+            'objectType': 'collection',
+        }
+
+        with self.assertRaises(ValueError):
+            Protocol.block(alice, 'fake:blocklist')
+
+        with self.assertRaises(ValueError):
+            Protocol.unblock(alice, 'fake:blocklist')
+
 
 class ProtocolReceiveTest(TestCase):
 

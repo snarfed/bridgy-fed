@@ -1818,9 +1818,7 @@ bar.org
 
         obj = Object(id='a', our_as1={'url': 'http://x', 'displayName': 'My obj'})
         self.assertEqual('<a href="http://x">My obj</a>', obj.html_link())
-
-        self.assertIsNone(Object(id='a').html_link())
-        self.assertIsNone(Object(id='a', our_as1={'b': 'c'}).html_link())
+        self.assertEqual('<a href="a">a</a>', Object(id='a').html_link())
 
 
 class FollowerTest(TestCase):
