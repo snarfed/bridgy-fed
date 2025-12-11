@@ -218,7 +218,11 @@ def subscribe():
             # bytes! we base32-encode those to strings later, in _handle_commit_op,
             # via _encode_bytes_cids background:
             # https://github.com/snarfed/bridgy-fed/issues/1316
-            _, blocks = libipld.decode_car(block_bytes)
+            try:
+                _, blocks = libipld.decode_car(block_bytes)
+            except (TypeError, ValueError) as e:
+                report_error('Failed decoding blocks, skipping event', exception=True)
+                continue
 
         # detect records from bridged ATProto users that we should handle
         for p_op in payload.get('ops', []):

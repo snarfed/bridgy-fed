@@ -513,6 +513,15 @@ class ATProtoFirehoseSubscribeTest(ATProtoTestCase):
             'https://bgs.local/xrpc/com.atproto.sync.subscribeRepos?cursor=5',
             FakeWebsocketClient.url)
 
+    @patch.object(common.error_reporting_client, 'report_exception')
+    @patch('common.DEBUG', new=False)  # for report_error
+    def test_decode_blocks_fails(self, _):
+        FakeWebsocketClient.setup_receive(Op(repo='did:plc:user', action='create',
+                                             path='y', seq=4, record={'foo': 'bar'}))
+        FakeWebsocketClient.to_receive[0][1]['blocks'] = b'bad!!!'
+        self.subscribe()
+        self.assertTrue(commits.empty())
+
     def test_load_dids_updated_atproto_user(self):
         self.cursor.cursor = 1
         self.cursor.put()
