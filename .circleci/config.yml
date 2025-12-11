@@ -98,6 +98,7 @@ jobs:
                 # number, let it soak while we deploy the frontend, *then* drop it
                 # back down to 1.
                 # https://github.com/snarfed/bridgy-fed/issues/1771
+                # https://docs.cloud.google.com/appengine/docs/admin-api/reference/rest/v1/apps.services.versions
                 ver=`gcloud app versions list --hide-no-traffic --service=router --format='value(id)'`
                 instances=`gcloud app instances list --service=router --version=${ver} --format='value(id)' |wc -l`
                 sed -E "s/min_num_instances: [0-9]+/min_num_instances: ${instances}/" < router.yaml > router.provisioned.yaml
