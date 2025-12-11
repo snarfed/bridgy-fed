@@ -409,6 +409,9 @@ class ActivityPub(User, Protocol):
         if not util.is_web(url):
             logger.info(f'{url} is not a URL')
             return False
+        elif '#' in url:
+            logger.info(f'{url} has a fragment, cowardly refusing to fetch')
+            return False
 
         resp, obj.as2 = cls._get(url, headers=CONNEG_HEADERS_AS2_HTML)
         if obj.as2:

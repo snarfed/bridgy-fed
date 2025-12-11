@@ -3240,6 +3240,11 @@ class ActivityPubUtilsTest(TestCase):
         self.assertFalse(ActivityPub.fetch(obj))
         self.assertIsNone(obj.as1)
 
+    def test_fetch_id_with_fragment(self):
+        obj = Object(id='http://inst/obj#frag')
+        self.assertFalse(ActivityPub.fetch(obj))
+        self.assertIsNone(obj.as1)
+
     @patch('requests.get')
     def test_fetch_multiply_valued_type(self, mock_get):
         # BandWagon sends this, eg https://bandwagon.fm/683df9a103137839d85d1579
