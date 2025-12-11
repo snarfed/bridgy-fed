@@ -585,7 +585,7 @@ def serve_feed(*, objects, format, user, title, as_snippets=False, quiet=False):
     objects = [obj for obj in objects if not obj.deleted]
     if quiet:
         objects = [obj for obj in objects if obj.type not in
-                   ('delete', 'follow', 'stop-following', 'like', 'share',
+                   ('delete', 'follow', 'stop-following', 'like', 'person', 'share',
                     'undo', 'update')]
 
     if as_snippets:
