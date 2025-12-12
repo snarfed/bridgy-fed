@@ -20,7 +20,7 @@ queue:
 
 - name: receive
   rate: 500/s
-  max_concurrent_requests: 2000
+  max_concurrent_requests: 5000
   retry_parameters:
     task_retry_limit: 4
     # WARNING: keep this above protocol.MEMCACHE_LEASE_EXPIRATION!
@@ -29,7 +29,7 @@ queue:
 
 - name: send
   rate: 500/s
-  max_concurrent_requests: 2000
+  max_concurrent_requests: 150
   retry_parameters:
     task_retry_limit: 2
     min_backoff_seconds: 30
