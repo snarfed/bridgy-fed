@@ -448,13 +448,12 @@ def report_error(msg, *, exception=False, **kwargs):
 
     try:
         if exception:
-            logger.error('', exc_info=True)
-            error_reporting_client.report_exception(
-                http_context=http_context, **kwargs)
+            logger.error(msg, exc_info=True)
+            error_reporting_client.report_exception(msg, http_context=http_context,
+                                                    **kwargs)
         else:
             logger.error(msg)
-            error_reporting_client.report(
-                msg, http_context=http_context, **kwargs)
+            error_reporting_client.report(msg, http_context=http_context, **kwargs)
     except BaseException:
         kwargs['exception'] = exception
         logger.warning(f'Failed to report error! {kwargs}', exc_info=exception)
