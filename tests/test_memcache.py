@@ -246,6 +246,12 @@ class MemcacheTest(TestCase):
             data={'key': key.urlsafe()},
         )])
 
+    def test_evict_raw(self):
+        memcache.memcache.add('foo', 'bar')
+        self.assertEqual('bar', memcache.memcache.get('foo'))
+        memcache.evict_raw('foo')
+        self.assertIsNone(memcache.memcache.get('foo'))
+
     def test_task_eta(self):
         self.assertEqual(NOW, memcache.task_eta('receive', 'alice'))
         self.assertEqual(NOW.timestamp(),

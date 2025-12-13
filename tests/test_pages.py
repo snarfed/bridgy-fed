@@ -32,6 +32,7 @@ from activitypub import ActivityPub
 from atproto import ATProto
 import common
 import config
+import memcache
 from models import Object, Follower, Target
 from web import Web
 
@@ -1008,7 +1009,7 @@ class PagesTest(TestCase):
                          get_flashed_messages())
         self.assertEqual('none', user.key.get().send_notifs)
 
-    def test_memcache_evict(self):
+    def test_memcache_evict_key(self):
         self.user.key.get()
         self.assertIsNotNone(self.user.key.get(use_cache=False, use_datastore=False,
                                                use_global_cache=True))
@@ -1019,6 +1020,15 @@ class PagesTest(TestCase):
         self.assertEqual(200, resp.status_code)
         self.assertIsNone(self.user.key.get(use_cache=False, use_datastore=False,
                                             use_global_cache=True))
+
+    def test_memcache_evict_raw(self):
+        memcache.memcache.add('foo', 'bar')
+        self.assertEqual('bar', memcache.memcache.get('foo'))
+
+        resp = self.client.post('/admin/memcache-evict', data={'raw': 'foo'},
+                                headers={'Authorization': config.SECRET_KEY})
+        self.assertEqual(200, resp.status_code)
+        self.assertIsNone(memcache.memcache.get('foo'))
 
     def test_memcache_evict_bad_auth(self):
         self.user.key.get()

@@ -142,6 +142,15 @@ def evict(entity_key):
     global_cache.delete([global_cache_key(entity_key._key)])
 
 
+def evict_raw(key):
+    """Evict a key from memcache.
+
+    Args:
+      key (str)
+    """
+    memcache.delete(key)
+
+
 def remote_evict(entity_key):
     """Send a request to production Bridgy Fed to evict an entity from memcache.
 

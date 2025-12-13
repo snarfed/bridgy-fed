@@ -652,7 +652,11 @@ def memcache_evict():
     if request.headers.get('Authorization') != app.config['SECRET_KEY']:
         return '', 401
 
-    key = Key(urlsafe=flask_util.get_required_param('key'))
-    memcache.evict(key)
+    if key := request.values.get('key'):
+        memcache.evict(Key(urlsafe=key))
+    elif raw := request.values.get('raw'):
+        memcache.evict_raw(raw)
+    else:
+        error('either key or raw are required')
 
     return ''
