@@ -647,6 +647,20 @@ def blog_redirect(host, path):
     return MovedPermanently(location=f'https://{host}/{path}')
 
 
+@app.get('/admin/memcache-get')
+def memcache_get():
+    if request.headers.get('Authorization') != app.config['SECRET_KEY']:
+        return '', 401
+
+    if key := request.values.get('key'):
+        return repr(Key(urlsafe=key).get(use_cache=False, use_datastore=False,
+                                         use_global_cache=True))
+    elif raw := request.values.get('raw'):
+        return repr(memcache.memcache.get(raw))
+    else:
+        error('either key or raw are required')
+
+
 @app.post('/admin/memcache-evict')
 def memcache_evict():
     if request.headers.get('Authorization') != app.config['SECRET_KEY']:
@@ -654,9 +668,9 @@ def memcache_evict():
 
     if key := request.values.get('key'):
         memcache.evict(Key(urlsafe=key))
+        return ''
     elif raw := request.values.get('raw'):
-        memcache.evict_raw(raw)
+        deleted = memcache.evict_raw(raw)
+        return 'deleted' if deleted else 'not found'
     else:
         error('either key or raw are required')
-
-    return ''

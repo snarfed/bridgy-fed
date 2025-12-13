@@ -147,8 +147,11 @@ def evict_raw(key):
 
     Args:
       key (str)
+
+    Returns:
+      bool: whether the key existed and was deleted
     """
-    memcache.delete(key)
+    return memcache.delete(key)
 
 
 def remote_evict(entity_key):
