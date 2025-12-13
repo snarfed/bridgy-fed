@@ -1480,16 +1480,17 @@ The exact metadata for account and post links varies by network. Read on for det
 
 <p>Here's how we translate <em>user identity</em> between protocols. Specifically, each cell shows how a user in a given column is identified to the protocol in a given row. These identities uniquely identify users, and are intended primarily to be machine readable and usable. (Scroll down for the equivalent table for translating human-meaningful user handles.)</p>
 
-<p>Note that Bridgy Fed generates some of these ids itself behind the scenes, notably <a href="https://atproto.com/specs/did-plc"><code>did:plc</code>s</a> for Bluesky/AT Protocol and <a href="https://github.com/nostr-protocol/nips/blob/master/19.md#bare-keys-and-ids">npub</a></code> public keys</a> for Nostr.</p>
+<p>Note that Bridgy Fed generates some of these ids itself behind the scenes, notably AT Protocol <a href="https://atproto.com/specs/did-plc"><code>did:plc</code>s</a>, Nostr <a href="https://github.com/nostr-protocol/nips/blob/master/19.md#bare-keys-and-ids">npub</a></code> public keys</a>, and Farcaster <a href="https://docs.farcaster.xyz/learn/what-is-farcaster/accounts">fids</a>.</p>
 
 <table>
 <thead>
 <tr>
   <th></th>
-  <th>Web</th>
+  <th>Web domain</th>
   <th>ActivityPub</th>
   <th>AT Protocol</th>
   <th>Nostr</th>
+  <th>Farcaster</th>
 </tr>
 </thead>
 <tbody>
@@ -1497,18 +1498,15 @@ The exact metadata for account and post links varies by network. Read on for det
 <tr>
   <th>Web URL</th>
   <td class="na">-</td>
-  <td class="done">Fediverse profile URL</td>
-  <td class="done"><code>https://bsky.app/profile/[<a href="https://atproto.com/specs/handle">handle</a>]</code><br>
-    (<a href="https://github.com/bluesky-social/atproto/discussions/1652">can we avoid hard-coding bsky.app?</a>)</td>
-  <td><a href="https://github.com/nostr-protocol/nips/blob/master/05.md">NIP-05</a> domain or BF user page</td>
-</tr>
-
-<tr>
-  <th>WebFinger <a href="https://docs.joinmastodon.org/user/signup/#address">address</a></th>
-  <td class="done"><code>@[domain]@web.brid.gy</code></td>
-  <td class="na">-</td>
-  <td class="done"><code>@[<a href="https://atproto.com/specs/handle">handle</a>]@bsky.brid.gy</code></td>
-  <td><code>@[<a href="https://github.com/nostr-protocol/nips/blob/master/05.md">NIP-05</a> or <a href="https://github.com/nostr-protocol/nips/blob/master/19.md#bare-keys-and-ids">npub</a>]@nostr.brid.gy</code></td>
+  <td class="done">AP actor id</td>
+  <td class="done"><code>https://bsky.brid.gy/web/[<a href="https://atproto.com/specs/did">did</a>]</code></td>
+  <td class="done">
+    <a href="https://github.com/nostr-protocol/nips/blob/master/05.md">NIP-05</a> domain or<br>
+  <code>https://nostr.brid.gy/web/[<a href="https://github.com/nostr-protocol/nips/blob/master/19.md#bare-keys-and-ids">npub</a>]</code>
+  </td>
+  <td>
+    <code>https://fc.brid.gy/web/[<a href="https://docs.farcaster.xyz/learn/what-is-farcaster/accounts">fid</a>]</code>
+  </td>
 </tr>
 
 <tr>
@@ -1516,7 +1514,8 @@ The exact metadata for account and post links varies by network. Read on for det
   <td class="done"><code>https://web.brid.gy/ap/[domain]</code></td>
   <td class="na">-</td>
   <td class="done"><code>https://bsky.brid.gy/ap/[<a href="https://atproto.com/specs/did">did</a>]</code></td>
-  <td><code>https://nostr.brid.gy/ap/[<a href="https://github.com/nostr-protocol/nips/blob/master/19.md#bare-keys-and-ids">npub</a>]</code></td>
+  <td class="done"><code>https://nostr.brid.gy/ap/[<a href="https://github.com/nostr-protocol/nips/blob/master/19.md#bare-keys-and-ids">npub</a>]</code></td>
+  <td><code>https://fc.brid.gy/ap/[<a href="https://docs.farcaster.xyz/learn/what-is-farcaster/accounts">fid</a>]</code></td>
 </tr>
 
 <tr>
@@ -1524,14 +1523,25 @@ The exact metadata for account and post links varies by network. Read on for det
   <td class="done"><a href="https://atproto.com/specs/did-plc"><code>did:plc</code></a></td>
   <td class="done"><a href="https://atproto.com/specs/did-plc"><code>did:plc</code></a></td>
   <td class="na">-</td>
+  <td class="done"><a href="https://atproto.com/specs/did-plc"><code>did:plc</code></a></td>
   <td><a href="https://atproto.com/specs/did-plc"><code>did:plc</code></a></td>
 </tr>
 
 <tr>
   <th>Nostr</th>
+  <td class="done"><code><a href="https://github.com/nostr-protocol/nips/blob/master/19.md#bare-keys-and-ids">npub</a></code></td>
+  <td class="done"><code><a href="https://github.com/nostr-protocol/nips/blob/master/19.md#bare-keys-and-ids">npub</a></code></td>
+  <td class="done"><code><a href="https://github.com/nostr-protocol/nips/blob/master/19.md#bare-keys-and-ids">npub</a></code></td>
+  <td class="na">-</td>
   <td><code><a href="https://github.com/nostr-protocol/nips/blob/master/19.md#bare-keys-and-ids">npub</a></code></td>
-  <td><code><a href="https://github.com/nostr-protocol/nips/blob/master/19.md#bare-keys-and-ids">npub</a></code></td>
-  <td><code><a href="https://github.com/nostr-protocol/nips/blob/master/19.md#bare-keys-and-ids">npub</a></code></td>
+</tr>
+
+<tr>
+  <th>Farcaster</th>
+  <td><a href="https://docs.farcaster.xyz/learn/what-is-farcaster/accounts">fid</a></td>
+  <td><a href="https://docs.farcaster.xyz/learn/what-is-farcaster/accounts">fid</a></td>
+  <td><a href="https://docs.farcaster.xyz/learn/what-is-farcaster/accounts">fid</a></td>
+  <td><a href="https://docs.farcaster.xyz/learn/what-is-farcaster/accounts">fid</a></td>
   <td class="na">-</td>
 </tr>
 
@@ -1549,9 +1559,10 @@ The exact metadata for account and post links varies by network. Read on for det
   <th></th>
   <th></th>
   <th>Web</th>
-  <th>ActivityPub</th>
+  <th><a href="https://docs.joinmastodon.org/user/signup/#address">WebFinger</a></th>
   <th>AT Protocol</th>
   <th>Nostr</th>
+  <th>Farcaster</th>
 </tr>
 </thead>
 <tbody>
@@ -1562,22 +1573,28 @@ The exact metadata for account and post links varies by network. Read on for det
   <td class="na">-</td>
   <td class="done">Fediverse profile URL</td>
   <td class="done">bare <a href="https://atproto.com/specs/handle">handle</a></td>
-  <td><a href="https://github.com/nostr-protocol/nips/blob/master/05.md">NIP-05</a> domain or BF user page</td>
+  <td class="done"><a href="https://github.com/nostr-protocol/nips/blob/master/05.md">NIP-05</a> domain</td>
+  <td><code>[<a href="https://docs.farcaster.xyz/learn/what-is-farcaster/usernames#onchain-ens-fnames">username</a>]</code> (fully qualified)</td>
 </tr>
 
 <tr>
-  <th rowspan="2">AP <a href="https://docs.joinmastodon.org/user/signup/#address">address</a></th>
+  <th rowspan="2">
+    <a href="https://docs.joinmastodon.org/user/signup/#address">WebFinger</a>
+  </th>
   <th class="subhead">basic</th>
   <td class="done"><code>@[domain]@web.brid.gy</code></td>
   <td rowspan="2" class="na">-</td>
   <td class="done"><code>@[<a href="https://atproto.com/specs/handle">handle</a>]@bsky.brid.gy</code></td>
-  <td><code>@[<a href="https://github.com/nostr-protocol/nips/blob/master/05.md">NIP-05</a> or <a href="https://github.com/nostr-protocol/nips/blob/master/19.md#bare-keys-and-ids">npub</a>]@nostr.brid.gy</code></td>
+  <td class="done"><code>@[<a href="https://github.com/nostr-protocol/nips/blob/master/05.md">NIP-05</a> or <a href="https://github.com/nostr-protocol/nips/blob/master/19.md#bare-keys-and-ids">npub</a>]@nostr.brid.gy</code></td>
+  <td><code>@[<a href="https://docs.farcaster.xyz/learn/what-is-farcaster/usernames#onchain-ens-fnames">username</a>]@fc.brid.gy</code></td>
 </tr>
+
 <tr>
   <th class="subhead">enhanced</th>
   <td class="done"><code>@[domain]@[domain]</code></td>
   <td><code>@[<a href="https://atproto.com/specs/handle">handle</a>]@[<a href="https://atproto.com/specs/handle">handle</a>]</code></td>
-  <td><code>@[<a href="https://github.com/nostr-protocol/nips/blob/master/05.md">NIP-05</a>]</code></td>
+  <td><code>@[<a href="https://github.com/nostr-protocol/nips/blob/master/05.md">NIP-05</a>]@[<a href="https://github.com/nostr-protocol/nips/blob/master/05.md">NIP-05</a>]</code></td>
+  <td>?</td>
 </tr>
 
 <tr>
@@ -1586,31 +1603,54 @@ The exact metadata for account and post links varies by network. Read on for det
   <td class="done"><code>[domain].web.brid.gy</code></td>
   <td class="done"><code>[username].[instance].ap.brid.gy</code></td>
   <td rowspan="2" class="na">-</td>
-  <td><code>[<a href="https://github.com/nostr-protocol/nips/blob/master/05.md">NIP-05</a> or <a href="https://github.com/nostr-protocol/nips/blob/master/19.md#bare-keys-and-ids">npub</a>].nostr.brid.gy</code><br>
-(convert <code>@</code> to <code>.</code>)</td>
-
+  <td class="done"><code>[<a href="https://github.com/nostr-protocol/nips/blob/master/05.md">NIP-05</a> or <a href="https://github.com/nostr-protocol/nips/blob/master/19.md#bare-keys-and-ids">npub</a>].nostr.brid.gy</code><br>
+(convert <code>@</code> in NIP-05 to <code>.</code>)</td>
+  <td><code>[<a href="https://docs.farcaster.xyz/learn/what-is-farcaster/usernames#onchain-ens-fnames">username</a>].fc.brid.gy</code></td>
 </tr>
+
 <tr>
   <th class="subhead">enhanced</th>
   <td class="done">bare domain</td>
   <td class="done">bare domain</td>
   <td>bare <a href="https://github.com/nostr-protocol/nips/blob/master/05.md">NIP-05</a> domain<br>
 (<code>_</code> username)</td>
+  <td>?</td>
 </tr>
 
 <tr>
   <th rowspan="2">Nostr <a href="https://github.com/nostr-protocol/nips/blob/master/05.md">NIP-05</a> domain</th>
   <th class="subhead">basic</th>
-  <td><code>[domain]@web.brid.gy</code></td>
-  <td><code>[username].[instance]@ap.brid.gy</code></td>
-  <td><code>[<a href="https://atproto.com/specs/handle">handle</a>]@bsky.brid.gy</code></td>
+  <td class="done"><code>[domain]@web.brid.gy</code></td>
+  <td class="done"><code>[username].[instance]@ap.brid.gy</code></td>
+  <td class="done"><code>[<a href="https://atproto.com/specs/handle">handle</a>]@bsky.brid.gy</code></td>
   <td rowspan="2" class="na">-</td>
+  <td><code>[<a href="https://docs.farcaster.xyz/learn/what-is-farcaster/usernames#onchain-ens-fnames">username</a>]@fc.brid.gy</code></td>
 </tr>
+
 <tr>
   <th class="subhead">enhanced</th>
   <td>bare domain</td>
   <td><code>[username]@[instance]</code></td>
-  <td>bare <a href="https://atproto.com/specs/handle0">handle</a></td>
+  <td>bare <a href="https://atproto.com/specs/handle">handle</a></td>
+  <td>?</td>
+</tr>
+
+<tr>
+  <th rowspan="2">Farcaster</th>
+  <th class="subhead">basic</th>
+  <td><code>[domain].fcast.id</code></td>
+  <td><code>[username].[instance].fcast.id</code></td>
+  <td><code>[<a href="https://atproto.com/specs/handle">handle</a>].fcast.id</code></td>
+  <td><code>[<a href="https://github.com/nostr-protocol/nips/blob/master/05.md">NIP-05</a> or <a href="https://github.com/nostr-protocol/nips/blob/master/19.md#bare-keys-and-ids">npub</a>].fcast.id</code></td>
+  <td rowspan="2" class="na">-</td>
+</tr>
+
+<tr>
+  <th class="subhead">enhanced</th>
+  <td><code><a href="https://docs.farcaster.xyz/learn/what-is-farcaster/usernames#onchain-ens-fnames">[domain.eth]</a></code></td>
+  <td><code><a href="https://docs.farcaster.xyz/learn/what-is-farcaster/usernames#onchain-ens-fnames">[domain.eth]</a></code></td>
+  <td><code><a href="https://docs.farcaster.xyz/learn/what-is-farcaster/usernames#onchain-ens-fnames">[domain.eth]</a></code></td>
+  <td><code><a href="https://docs.farcaster.xyz/learn/what-is-farcaster/usernames#onchain-ens-fnames">[domain.eth]</a></code></td>
 </tr>
 
 </tbody>
@@ -1627,6 +1667,7 @@ The exact metadata for account and post links varies by network. Read on for det
   <th>ActivityPub<br><code>@me@instance.com</code></th>
   <th>AT Protocol<br><code>me.com</code></th>
   <th>Nostr<br><code>me@domain.com</code><br><code>[_@]me.com</code></th>
+  <th>Nostr<br><code>me.fcast.id</code><code>me.eth</code></th>
 </tr>
 </thead>
 <tbody>
@@ -1639,6 +1680,7 @@ The exact metadata for account and post links varies by network. Read on for det
     (varies by instance)</td>
   <td class="done"><code>me.com</code></td>
   <td>?<br><code>me.com</code></td>
+  <td><code></code></td>
 </tr>
 
 <tr>
@@ -1648,13 +1690,17 @@ The exact metadata for account and post links varies by network. Read on for det
   <td rowspan="2" class="na">-</td>
   <td class="done"><code>@me.com@bsky.brid.gy</code></td>
   <td><code>@me[domain.]com@nostr.brid.gy</code></td>
+  <td><code></code></td>
 </tr>
 <tr>
   <th class="subhead">enhanced</th>
   <td class="done"><code>@me.com@me.com</code></td>
   <td><code>@me.com@me.com</code></td>
-  <td><code>@me@domain.com</code><br>
-      <code>@me.com@me.com</code></td>
+  <td>
+    <code>@me@domain.com</code><br>
+    <code>@me.com@me.com</code>
+  </td>
+  <td><code></code></td>
 </tr>
 
 <tr>
@@ -1664,12 +1710,14 @@ The exact metadata for account and post links varies by network. Read on for det
   <td class="done"><code>me.instance.com.ap.brid.gy</code></td>
   <td rowspan="2" class="na">-</td>
   <td><code>me.[domain.]com.nostr.brid.gy</code></td>
+  <td><code></code></td>
 </tr>
 <tr>
   <th class="subhead">enhanced</th>
   <td class="done"><code>me.com</code></td>
   <td class="done"><code>me.com</code></td>
   <td><code>me.[domain.]com</code></td>
+  <td><code></code></td>
 </tr>
 
 <tr>
@@ -1679,12 +1727,14 @@ The exact metadata for account and post links varies by network. Read on for det
   <td><code>me.instance.com@ap.brid.gy</code></td>
   <td><code>me.com@bsky.brid.gy</code></td>
   <td rowspan="2" class="na">-</td>
+  <td><code></code></td>
 </tr>
 <tr>
   <th class="subhead">enhanced</th>
   <td><code>[_@]me.com</code></td>
   <td><code>[_@]me.instance.com</code></td>
   <td><code>[_@]me.com</code></td>
+  <td><code></code></td>
 </tr>
 
 </tbody>
@@ -1709,9 +1759,15 @@ The exact metadata for account and post links varies by network. Read on for det
 <tr>
   <th rowspan="2">Web</th>
   <th class="subhead">user</th>
-  <td><a href="https://snarfed.org/">https://snarfed.org/</a></td>
-  <td class="maybe">http(s) URL with empty path</td>
-  <td rowspan="2"><code>HTTP GET</code> succeeds and returns HTML</td>
+  <td>
+    snarfed.org<br>
+    <a href="https://snarfed.org/">https://snarfed.org/</a>
+  </td>
+  <td>
+    <span class="yes">domain</span>,<br>
+    <span class="maybe">http(s) URL with empty path</span>
+  </td>
+  <td rowspan="2" class="yes"><code>HTTP GET</code> succeeds and returns HTML</td>
 </tr>
 <tr>
   <th class="subhead">object</th>
@@ -1724,12 +1780,12 @@ The exact metadata for account and post links varies by network. Read on for det
   <th class="subhead">user</th>
   <td><a href="https://indieweb.social/users/snarfed">https://indieweb.social/users/snarfed</a></td>
   <td rowspan="2" class="maybe">http(s) URL</td>
-  <td><code>HTTP GET</code> <a href="https://www.w3.org/TR/activitypub/#retrieving-objects">with AS2 conneg</a> returns valid AS2 with <a href="https://www.w3.org/TR/activitystreams-core/#actors"><code>Actor type</code></a></td>
+  <td class="yes"><code>HTTP GET</code> <a href="https://www.w3.org/TR/activitypub/#retrieving-objects">with AS2 conneg</a> returns valid AS2 with <a href="https://www.w3.org/TR/activitystreams-core/#actors"><code>Actor type</code></a></td>
 </tr>
 <tr>
   <th class="subhead">object</th>
   <td><a href="https://mitra.social/post/01885fad-85ee-c6c3-191e-0a4f132c8113">https://mitra.social/post/01885fad</a></td>
-  <td><code>HTTP GET</code> <a href="https://www.w3.org/TR/activitypub/#retrieving-objects">with AS2 conneg</a> returns valid AS2 with <a href="https://www.w3.org/TR/activitystreams-core/#actors"><code>non-Actor type</code></a></td>
+  <td class="yes"><code>HTTP GET</code> <a href="https://www.w3.org/TR/activitypub/#retrieving-objects">with AS2 conneg</a> returns valid AS2 with <a href="https://www.w3.org/TR/activitystreams-core/#actors"><code>non-Actor type</code></a></td>
 </tr>
 
 
@@ -1740,10 +1796,11 @@ The exact metadata for account and post links varies by network. Read on for det
     <code>did:plc:abc123</code><br>
     <code>did:web:snarfed.org</code>
   </td>
-  <td class="yes"><a href="https://atproto.com/specs/did-plc"><code>did:plc</code></a> or <a href="https://w3c-ccg.github.io/did-method-web/"><code>did:web:</code></a> prefix<br>
-    <nobr>(TODO: <a href="https://atproto.com/specs/handle">domain handles</a>)</nobr>
+  <td class="yes">
+    <a href="https://atproto.com/specs/did-plc"><code>did:plc</code></a>
+    or <a href="https://w3c-ccg.github.io/did-method-web/"><code>did:web</code></a>
   </td>
-  <td class="done">
+  <td class="yes">
     <a href="https://github.com/did-method-plc/did-method-plc#did-resolution">resolve <code>did:plc</code></a>,<br>
     <a href="https://w3c-ccg.github.io/did-method-web/#read-resolve">resolve <code>did:web</code></a>
   </td>
@@ -1752,7 +1809,7 @@ The exact metadata for account and post links varies by network. Read on for det
   <th class="subhead">object</th>
   <td><code>at://did:plc:asdf/post/abc-123</code></td>
   <td class="yes"><a href="https://atproto.com/specs/at-uri-scheme"><code>at://</code> URI</a></td>
-  <td><a href="https://github.com/snarfed/atproto/blob/main/lexicons/com/atproto/repo/getRecord.json"><code>com.atproto.repo.getRecord</code></a> XRPC</td>
+  <td class="yes"><a href="https://github.com/snarfed/atproto/blob/main/lexicons/com/atproto/repo/getRecord.json"><code>com.atproto.repo.getRecord</code></a> XRPC</td>
 </tr>
 
 
@@ -1760,28 +1817,64 @@ The exact metadata for account and post links varies by network. Read on for det
   <th rowspan="2">Nostr</th>
   <th class="subhead">user</th>
   <td>
-    <code>abc123...</code> (<a href="https://github.com/nostr-protocol/nips/blob/master/01.md#events-and-signatures">32 chars</a>)<br>
-    <code>npub10hx886...</code> (<a href="https://github.com/nostr-protocol/nips/blob/master/19.md">bech32</a>)
+    <code>nostr:...</code><br>
+    <code>abc123...</code><br>
+    <code>npub10hx886...</code>
   </td>
   <td>
-    <span class="maybe">32 char hex</span> or
-    <a href="https://github.com/nostr-protocol/nips/blob/master/19.md#bare-keys-and-ids" class="yes"><code>npub</code> prefix</a>
-    <nobr>(TODO: <a href="https://github.com/nostr-protocol/nips/blob/master/05.md">NIP-05</a> domains)</nobr>
+    <a class="yes" href="https://nips.nostr.com/21">NIP-21 URI</a><br>
+    <span class="maybe"><a href="https://github.com/nostr-protocol/nips/blob/master/01.md#events-and-signatures">32 char hex</a></span><br>
+    <a href="https://github.com/nostr-protocol/nips/blob/master/19.md#bare-keys-and-ids" class="yes"><code>npub</code> or <code>nprofile</code> NIP-19</a>
   </td>
-  <td><a href="https://github.com/nostr-protocol/nips/blob/master/65.md">NIP-65</a> or <a href="https://github.com/nostr-protocol/nips/blob/master/39.md">NIP-39</a> lookup</td>
+  <td class="yes">
+    <a href="https://github.com/nostr-protocol/nips/blob/master/65.md">NIP-65</a> lookup +
+    <a href="https://github.com/nostr-protocol/nips/blob/master/01.md#from-client-to-relay-sending-events-and-creating-subscriptions">REQ</a></code> request
+  </td>
 </tr>
 <tr>
   <th class="subhead">object</th>
   <td>
-    <code>def456...</code> (<a href="https://github.com/nostr-protocol/nips/blob/master/01.md#events-and-signatures">32 chars</a>)<br>
-    <code>nevent10hx886...</code> (<a href="https://github.com/nostr-protocol/nips/blob/master/19.md">bech32</a>)<br>
-    <code>note10hx886...</code> (<a href="https://github.com/nostr-protocol/nips/blob/master/19.md">bech32</a>)
+    <code>nostr:...</code><br>
+    <code>def456...</code><br>
+    <code>nevent10hx886...</code>
   </td>
   <td>
-    <span class="maybe">32 char hex</span> or
-    <a href="https://github.com/nostr-protocol/nips/blob/master/19.md#bare-keys-and-ids" class="yes"><code>nevent</code>, <code>note</code>, etc</a> prefix</a>
+    <a class="yes" href="https://nips.nostr.com/21">NIP-21 URI</a><br>
+    <span class="maybe"><a href="https://github.com/nostr-protocol/nips/blob/master/01.md#events-and-signatures">32 char hex</a></span><br>
+    <a href="https://github.com/nostr-protocol/nips/blob/master/19.md#bare-keys-and-ids" class="yes"><code>nevent</code> or <code>note</code> NIP-19</a>
   </td>
-  <td><code><a href="https://github.com/nostr-protocol/nips/blob/master/01.md#from-client-to-relay-sending-events-and-creating-subscriptions">REQ</a></code> request</td>
+  <td class="yes"><code><a href="https://github.com/nostr-protocol/nips/blob/master/01.md#from-client-to-relay-sending-events-and-creating-subscriptions">REQ</a></code> request</td>
+</tr>
+
+
+<tr>
+  <th rowspan="2">Farcaster</th>
+  <th class="subhead">user</th>
+  <td>
+    <code>12433</code><br>
+    <code>farcaster://12433</code>
+  </td>
+  <td>
+    <span class="maybe">uint64 <a href="https://docs.farcaster.xyz/learn/what-is-farcaster/accounts">fid</a></span><br>
+    <a class="yes" href="https://github.com/farcasterxyz/protocol/discussions/123"><code>farcaster:</code> URI</a>
+  </td>
+  <td><a href="https://snapchain.farcaster.xyz/reference/grpcapi/userdata"><code>GetUserDataByFid</code></a> gRPC to <a href="https://docs.farcaster.xyz/learn/architecture/overview#offchain">hub</a></td>
+</tr>
+<tr>
+  <th class="subhead">object</th>
+  <td>
+    -<br>
+    <code>farcaster://12433/0x123abc...</code>
+  </td>
+  <td>
+    <a class="maybe" href="https://github.com/farcasterxyz/protocol/blob/main/docs%2FSPECIFICATION.md#hashing">20-byte BLAKE3 hash</a><br>
+    <a class="yes" href="https://github.com/farcasterxyz/protocol/discussions/123"><code>farcaster:</code> URI</a>
+  </td>
+  <td>
+    <a href="https://snapchain.farcaster.xyz/reference/grpcapi/casts"><code>GetCast</code></a>,
+    <a href="https://snapchain.farcaster.xyz/reference/grpcapi/reactions"><code>GetReaction</code></a>,
+    etc gRPCs to <a href="https://docs.farcaster.xyz/learn/architecture/overview#offchain">hub</a>
+  </td>
 </tr>
 
 </tbody>
@@ -1809,28 +1902,28 @@ The exact metadata for account and post links varies by network. Read on for det
       <em>enhanced</em>: user's site serves and redirects <a href="https://webfinger.net/">WebFinger</a> to fed.brid.gy
   </td>
   <td class="done">resolve <a href="https://www.w3.org/TR/did-core/">DID</a>, serve DID document with fed.brid.gy <a href="https://atproto.com/guides/data-repos">PDS</a></td>
-  <td><a href="https://github.com/nostr-protocol/nips/blob/master/39.md">NIP-39</a> (kind 0) query to BF (or other?) relay</td>
+  <td class="done"><a href="https://github.com/nostr-protocol/nips/blob/master/39.md">NIP-39</a> (kind 0) query to BF (or other?) relay</td>
 </tr>
 <tr>
   <th>User discovery outbound</th>
   <td class="done">Fetch home page, parse <code><a href="https://microformats.org/wiki/h-card">h-card</a></code></td>
   <td class="done">look up <a href="https://webfinger.net/">WebFinger</a>, fetch <a href="https://www.w3.org/TR/activitypub/#actors">AP actor</a></td>
   <td class="done">resolve <a href="https://www.w3.org/TR/did-core/">DID</a>, subscribe to <a href="https://atproto.com/guides/data-repos">PDS</a> repo, extract profile object?</td>
-  <td>discover user's relays with <a href="https://github.com/nostr-protocol/nips/blob/master/65.md">NIP-65</a>, query <a href="https://github.com/nostr-protocol/nips/blob/master/39.md">NIP-39</a> to get profile</td>
+  <td class="done">discover user's relays with <a href="https://github.com/nostr-protocol/nips/blob/master/65.md">NIP-65</a>, query <a href="https://github.com/nostr-protocol/nips/blob/master/39.md">NIP-39</a> to get profile</td>
 </tr>
 <tr>
   <th>Publish inbound</th>
   <td class="done"><a href="https://webmention.net/">webmention</a> to fed.brid.gy</td>
   <td class="done">deliver to fed.brid.gy <a href="https://www.w3.org/TR/activitypub/#inbox">inbox</a>, user or shared</td>
   <td class="done">receive post via <a href="https://docs.bsky.app/docs/advanced-guides/firehose">firehose</a> from relay</td>
-  <td>publish <a href="https://github.com/nostr-protocol/nips/blob/master/01.md#events-and-signatures">event</a> to BF relay</td>
+  <td class="done">publish <a href="https://github.com/nostr-protocol/nips/blob/master/01.md#events-and-signatures">event</a> to BF relay</td>
 </tr>
 <tr>
   <th>Publish outbound</th>
   <td class="done">serve on BF user page followings <code><a href="https://microformats.org/wiki/h-feed">h-feed</a></code></td>
   <td class="done">deliver to recipient's <a href="https://www.w3.org/TR/activitypub/#inbox">inbox</a></td>
   <td class="done">serve commit via <a href="https://atproto.com/lexicons/com-atproto-sync"><code>subscribeRepos</code> XRPCs</a> to subscribing <a href="https://bsky.social/about/blog/5-5-2023-federation-architecture">relays</a></td>
-  <td>serve to subscribers</td>
+  <td class="done">serve to subscribers</td>
 </tr>
 <tr>
   <th>Follow inbound</th>
@@ -1838,25 +1931,25 @@ The exact metadata for account and post links varies by network. Read on for det
       <em>code</em>: <a href="https://webmention.net/">webmention</a> with <code><a href="https://indieweb.org/follow#How_to_publish">u-follow-of</a></code></td>
   <td class="done"><code><a href="https://www.w3.org/TR/activitystreams-vocabulary/#dfn-follow">Follow</a></code> activity delivered to BF user <a href="https://www.w3.org/TR/activitypub/#inbox">inbox</a></td>
   <td class="done">receive follow via <a href="https://docs.bsky.app/docs/advanced-guides/firehose">firehose</a> from relay</td>
-  <td>user's client sends <code><a href="https://github.com/nostr-protocol/nips/blob/master/01.md#from-client-to-relay-sending-events-and-creating-subscriptions">REQ</a></code> to BF relay</td>
+  <td class="done">user's client sends <code><a href="https://github.com/nostr-protocol/nips/blob/master/01.md#from-client-to-relay-sending-events-and-creating-subscriptions">REQ</a></code> to BF relay</td>
 </tr>
 <tr>
   <th>Follow outbound</th>
   <td class="done"><a href="https://webmention.net/">webmention</a> with BF proxy HTML page as source</td>
   <td class="done">deliver <code><a href="https://www.w3.org/TR/activitystreams-vocabulary/#dfn-follow">Follow</a></code> to followee's <a href="https://www.w3.org/TR/activitypub/#inbox">inbox</a></td>
   <td class="done">call <code><a href="https://atproto.com/lexicons/com-atproto-sync#comatprotosyncsubscriberepos">sync.subscribeRepos</a></code> on followee's <a href="https://atproto.com/guides/data-repos">PDS</a>?</td>
-  <td>discover followee's relay(s) with <a href="https://github.com/nostr-protocol/nips/blob/master/65.md">NIP-65</a>, send them a <code><a href="https://github.com/nostr-protocol/nips/blob/master/01.md#from-client-to-relay-sending-events-and-creating-subscriptions">REQ</a></code></td>
+  <td class="done">discover followee's relay(s) with <a href="https://github.com/nostr-protocol/nips/blob/master/65.md">NIP-65</a>, send them a <code><a href="https://github.com/nostr-protocol/nips/blob/master/01.md#from-client-to-relay-sending-events-and-creating-subscriptions">REQ</a></code></td>
 </tr>
 <tr>
   <th>Response inbound</th>
   <td class="done"><a href="https://webmention.net/">webmention</a> to a BF proxy page</td>
   <td class="done"><code><a href="https://www.w3.org/TR/activitystreams-vocabulary/#dfn-create">Create</a></code>, <code><a href="https://www.w3.org/TR/activitystreams-vocabulary/#dfn-like">Like</a></code>, <code><a href="https://www.w3.org/TR/activitystreams-vocabulary/#dfn-announce">Announce</a></code> delivered to BF user <a href="https://www.w3.org/TR/activitypub/#inbox">inbox</a></td>
   <td class="done">receive response via <a href="https://docs.bsky.app/docs/advanced-guides/firehose">firehose</a> from relay</td>
-  <td><a href="https://github.com/nostr-protocol/nips/blob/master/10.md">NIP-10</a> response <a href="https://github.com/nostr-protocol/nips/blob/master/01.md#events-and-signatures">event</a> received at BF relay or other relay</td>
+  <td class="done"><a href="https://github.com/nostr-protocol/nips/blob/master/10.md">NIP-10</a> response <a href="https://github.com/nostr-protocol/nips/blob/master/01.md#events-and-signatures">event</a> received at BF relay or other relay</td>
 </tr>
 <tr>
   <th>Response outbound</th>
-  <td colspan="4">same as follow outbound, with the corresponding response data type</td>
+  <td colspan="5">same as follow outbound, with the corresponding response data type</td>
 </tr>
 </tbody>
 </table>
