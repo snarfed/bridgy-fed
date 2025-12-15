@@ -225,7 +225,7 @@ class ATProtoFirehoseSubscribeTest(ATProtoTestCase):
         self.assert_enqueues({
             '$type': 'community.lexicon.payments.webMonetization',
             'address': 'https://www.patreon.com/c/ANewSocial',
-        })
+        }, path='community.lexicon.payments.webMonetization/self')
 
     def test_like_by_our_atproto_user(self):
         self.assert_enqueues({
@@ -812,7 +812,7 @@ class ATProtoFirehoseHandleTest(ATProtoTestCase):
         handle(limit=1)
         # just check that we return instead of raising
 
-    def test_store_record(self, mock_create_task):
+    def test_just_store_create_record(self, mock_create_task):
         profile = Object(id='at://did:plc:user/app.bsky.actor.profile/self',
                          bsky=ACTOR_PROFILE_BSKY)
         profile.put()
@@ -829,6 +829,34 @@ class ATProtoFirehoseHandleTest(ATProtoTestCase):
         self.assert_object(
             'at://did:plc:user/community.lexicon.payments.webMonetization/self',
             bsky=wallet, source_protocol='atproto')
+        mock_create_task.assert_not_called()
+
+        profile = profile.key.get()
+        self.assertEqual({'monetization': 'http://wal/let',}, profile.extra_as1)
+        self.assertEqual('http://wal/let', profile.as1['monetization'])
+
+    def test_just_store_update_record(self, mock_create_task):
+        profile = Object(id='at://did:plc:user/app.bsky.actor.profile/self',
+                         bsky=ACTOR_PROFILE_BSKY,
+                         extra_as1={'monetization': 'http://or/ig'})
+        profile.put()
+
+        id = 'at://did:plc:user/community.lexicon.payments.webMonetization/self'
+        Object(id=id, source_protocol='atproto', bsky={
+            '$type': 'community.lexicon.payments.webMonetization',
+            'address': 'http://or/ig',
+        }).put()
+
+        wallet = {
+            '$type': 'community.lexicon.payments.webMonetization',
+            'address': 'http://wal/let',
+        }
+        commits.put(Op(repo='did:plc:user', action='update', seq=789,
+                       path='community.lexicon.payments.webMonetization/self',
+                       record=wallet, time='1900-02-04'))
+
+        handle(limit=1)
+        self.assert_object(id, bsky=wallet, source_protocol='atproto')
         mock_create_task.assert_not_called()
 
         profile = profile.key.get()

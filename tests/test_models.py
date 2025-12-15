@@ -974,7 +974,7 @@ class ObjectTest(TestCase):
 
     def test_get_or_create_authed_as_different_protocol(self):
         obj = Object(id='https://si.te/x', source_protocol='activitypub',
-                     our_as1={'foo': 'bar'})
+                     our_as1={'foo': 'bar', 'author': 'alice'})
         obj.put()
 
         with self.assertRaises(Forbidden):

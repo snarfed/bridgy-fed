@@ -360,7 +360,7 @@ def _handle_commit_op(op):
 
     if type in ATProto.STORE_RECORD_TYPES and op.action in ('create', 'update'):
         # TODO: handle deletes
-        logger.info(f'Just storing {at_uri}')
+        logger.debug(f'Just storing {op.seq} {op.action} {op.repo} {op.path}')
         assert type not in ATProto.SUPPORTED_RECORD_TYPES, (type, record)
         Object.get_or_create(at_uri, bsky=record, authed_as=op.repo,
                              source_protocol=ATProto.LABEL)
