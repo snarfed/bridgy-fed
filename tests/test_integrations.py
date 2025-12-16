@@ -2459,7 +2459,7 @@ To disable these messages, reply with the text 'mute'.""",
         requests_response(PROFILE_GETRECORD),  # alice profile
         BSKY_GET_CONVO_RESP,
     ])
-    @patch('requests.post')
+    @patch('requests.post', return_value=BSKY_SEND_MESSAGE_RESP)
     def test_atproto_follow_nostr_bot_user_enables_protocol(self, mock_post, mock_get,
                                                             mock_create_task):
         """ATProto follow of nostr.brid.gy enables the Nostr protocol.
