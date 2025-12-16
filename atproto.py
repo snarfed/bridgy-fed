@@ -219,7 +219,8 @@ def did_to_handle(did, remote=None):
     Returns:
       str: handle, or None
     """
-    if did_obj := ATProto.load(did, did_doc=True, remote=remote):
+    assert did.startswith('did:'), did
+    if did_obj := ATProto.load(did, raw=True, remote=remote):
         return get_handle(did_obj.raw)
 
 
@@ -341,7 +342,7 @@ class ATProto(User, Protocol):
         """Reloads this user's DID doc along with their profile object."""
         # load DID doc first so that when we write the ATProto, it populates
         # the new handle
-        self.load(self.key.id(), did_doc=True, remote=True, **kwargs)
+        self.load(self.key.id(), raw=True, remote=True, **kwargs)
         super().reload_profile(**kwargs)
 
     @classmethod
@@ -408,7 +409,7 @@ class ATProto(User, Protocol):
                 else:
                     return None
 
-            did_obj = ATProto.load(repo, did_doc=True)
+            did_obj = ATProto.load(repo, raw=True)
             if did_obj:
                 return cls.pds_for(did_obj)
             # TODO: what should we do if the DID doesn't exist? should we return
@@ -652,7 +653,7 @@ class ATProto(User, Protocol):
         arroba.server.storage.write_event(repo=repo, type='identity', handle=username)
 
         # refresh our stored DID doc and repo handle
-        to_cls.load(copy_did, did_doc=True, remote=True)
+        to_cls.load(copy_did, raw=True, remote=True)
         repo.handle = username
 
     @classmethod
@@ -727,9 +728,9 @@ class ATProto(User, Protocol):
         user = from_cls.get_or_create(from_key.id(), allow_opt_out=allow_opt_out,
                                       propagate=True)
         did = user.get_copy(ATProto)
-        assert did
+        assert did and did.startswith('did:'), did
         logger.info(f'{user.key.id()} is {did}')
-        did_doc = to_cls.load(did, did_doc=True)
+        did_doc = to_cls.load(did, raw=True)
         pds = to_cls.pds_for(did_doc)
         if not pds or util.domain_from_link(pds) not in DOMAINS:
             logger.warning(f'  PDS {pds} is not us')
@@ -883,17 +884,12 @@ class ATProto(User, Protocol):
         return True
 
     @classmethod
-    def load(cls, id, did_doc=False, **kwargs):
-        """Thin wrapper that converts DIDs and bsky.app URLs to at:// URIs.
+    def load(cls, id, **kwargs):
+        """Thin wrapper that converts bsky.app URLs to at:// URIs."""
+        # legacy
+        assert 'did_doc' not in kwargs
 
-        Args:
-          did_doc (bool): if True, loads and returns a DID document object
-            instead of an ``app.bsky.actor.profile/self``.
-        """
-        if id.startswith('did:') and not did_doc:
-            id = ids.profile_id(id=id, proto=cls)
-
-        elif id.startswith('https://bsky.app/'):
+        if id.startswith('https://bsky.app/'):
             if not id.startswith('https://bsky.app/profile'):
                 return None
             try:
@@ -945,7 +941,7 @@ class ATProto(User, Protocol):
             repo = cls.handle_to_id(repo)
             if not repo:
                 return False
-            assert repo.startswith('did:')
+            assert repo.startswith('did:'), repo
             obj.key = ndb.Key(Object, id.replace(f'at://{handle}', f'at://{repo}'))
 
         try:
@@ -1131,12 +1127,14 @@ class ATProto(User, Protocol):
         Raises:
           ValueError: if the repo hasn't been imported yet
         """
+        assert from_user_id.startswith('did:')
+
         if not (repo := arroba.server.storage.load_repo(from_user_id)):
             msg = f"Please import {from_user_id}'s repo first"
             logger.error(msg)
             raise ValueError(msg)
 
-        did_doc = cls.load(from_user_id, did_doc=True)
+        did_doc = cls.load(from_user_id, raw=True)
         assert did_doc, from_user_id
         aka = did_doc.raw.get('alsoKnownAs') or []
         util.add(aka, user.id_uri())

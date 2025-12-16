@@ -432,12 +432,12 @@ def handle(limit=None):
         match op.action:
             case 'account':
                 # reload DID doc
-                ATProto.load(op.repo, did_doc=True, remote=True)
+                ATProto.load(op.repo, raw=True, remote=True)
 
             case 'identity':
                 # reload DID doc, update user's computed handle property, send actor
                 # update to followers
-                ATProto.load(op.repo, did_doc=True, remote=True)
+                ATProto.load(op.repo, raw=True, remote=True)
                 if user := ATProto.get_by_id(op.repo):
                     user.put()
                     if user.obj and user.obj.as1:

@@ -237,8 +237,16 @@ class ATProtoTest(TestCase):
     def test_reload_profile(self, mock_get):
         user = ATProto(id='did:plc:user')
         user.reload_profile()
+
+        expected_obj_key = Object(id='at://did:plc:user/app.bsky.actor.profile/self').key
+        self.assertEqual(expected_obj_key, user.obj_key)
+        self.assertEqual(expected_obj_key, user.key.get().obj_key)
+
         self.assertEqual({**ACTOR_PROFILE_BSKY, 'cid': 'bafyreigd'}, user.obj.bsky)
-        self.assertEqual(DID_DOC, Object.get_by_id('did:plc:user').raw)
+        obj = Object.get_by_id('did:plc:user')
+        self.assertEqual(DID_DOC, obj.raw)
+        self.assertIsNone(obj.bsky)
+        self.assertIsNone(obj.our_as1)
 
     @patch('requests.get', side_effect=[
         requests_response({**DID_DOC, 'alsoKnownAs': ['at://new.handle']}),
@@ -456,13 +464,14 @@ class ATProtoTest(TestCase):
 
     def test_load_did_doc(self):
         obj = self.store_object(id='did:plc:user', raw=DID_DOC)
-        self.assert_entities_equal(obj, ATProto.load('did:plc:user', did_doc=True))
+        self.assert_entities_equal(obj, ATProto.load('did:plc:user', raw=True))
 
-    def test_load_did_doc_false_loads_profile(self):
+    def test_load_profile(self):
         did_doc = self.store_object(id='did:plc:user', raw=DID_DOC)
-        profile = self.store_object(id='at://did:plc:user/app.bsky.actor.profile/self',
-                                    bsky=ACTOR_PROFILE_BSKY)
-        self.assert_entities_equal(profile, ATProto.load('did:plc:user'))
+
+        id = 'at://did:plc:user/app.bsky.actor.profile/self'
+        profile = self.store_object(id=id, bsky=ACTOR_PROFILE_BSKY)
+        self.assert_entities_equal(profile, ATProto.load(id))
 
     @patch('dns.resolver.resolve', side_effect=NXDOMAIN())
     @patch('requests.get', side_effect=[
@@ -1958,7 +1967,7 @@ Sed tortor neque, aliquet quis posuere aliquam, imperdiet sitamet […]
         did = user.get_copy(ATProto)
         assert did
         self.assertIn(Target(uri=did, protocol='atproto'), user.copies)
-        did_obj = ATProto.load(did, did_doc=True)
+        did_obj = ATProto.load(did, raw=True)
         self.assertEqual('http://localhost',
                          did_obj.raw['service'][0]['serviceEndpoint'])
 

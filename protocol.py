@@ -1953,7 +1953,8 @@ Hi! You <a href="{inner_obj_as1.get('url') or inner_obj_id}">recently {verb}</a>
         return targets
 
     @classmethod
-    def load(cls, id, remote=None, local=True, raise_=True, csv=False, **kwargs):
+    def load(cls, id, remote=None, local=True, raise_=True, raw=False, csv=False,
+             **kwargs):
         """Loads and returns an Object from datastore or HTTP fetch.
 
         Sets the :attr:`new` and :attr:`changed` attributes if we know either
@@ -1972,7 +1973,10 @@ Hi! You <a href="{inner_obj_as1.get('url') or inner_obj_id}">recently {verb}</a>
           raise_ (bool): if False, catches any :class:`request.RequestException`
             or :class:`HTTPException` raised by :meth:`fetch()` and returns
             ``None`` instead
+          raw (bool): whether to load this as a "raw" id, as is, without
+            normalizing to an on-protocol object id. Exact meaning varies by subclass.
           csv (bool): whether to specifically load a CSV object
+            TODO: merge this into raw, using returned Content-Type?
           kwargs: passed through to :meth:`fetch()`
 
         Returns:
@@ -1988,7 +1992,8 @@ Hi! You <a href="{inner_obj_as1.get('url') or inner_obj_id}">recently {verb}</a>
         assert local or remote is not False
         # logger.debug(f'Loading Object {id} local={local} remote={remote}')
 
-        id = ids.normalize_object_id(id=id, proto=cls)
+        if not raw:
+            id = ids.normalize_object_id(id=id, proto=cls)
 
         obj = orig_as1 = None
         if local:
