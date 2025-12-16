@@ -413,7 +413,8 @@ class Nostr(User, Protocol):
         obj_as1 = obj.as1
         translated = to_cls.translate_ids(obj_as1)
 
-        if from_user and from_user.is_profile(obj):
+        is_user = from_user and from_user.is_profile(obj)
+        if is_user:
             # username gets set as nip05
             translated['username'] = from_user.handle_as(Nostr)
 
@@ -432,7 +433,10 @@ class Nostr(User, Protocol):
         proxy_tag = None
         if ((orig_id := obj_as1.get('id')) and not orig_id.startswith('nostr:')
                 and obj.source_protocol):
-            proxy_tag = (orig_id, obj.source_protocol)
+            if is_user:
+                orig_id = from_user.id_uri()
+            proto = PROTOCOLS[obj.source_protocol]
+            proxy_tag = [orig_id, obj.source_protocol]
 
         # convert!
         privkey = from_user.nsec() if from_user else None

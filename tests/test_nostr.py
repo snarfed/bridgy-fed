@@ -707,7 +707,7 @@ class NostrTest(TestCase):
             'summary': 'foo bar'
         })
 
-        profile_id = '0082e20d054d4f8eb7dde6798bdedfc29c26edbe9fcab2de352e881e94ba5f82'
+        profile_id = '455b77145dfa62fe1d4627159118e4743890a854beddd273e6804530f7120f50'
         relays_id = 'fdbc2df2541a3f9471097b1dd936badc79ebb82c15e19379e722b4a1310f2630'
         FakeConnection.to_receive = [
             ['OK', profile_id, True, ''],
@@ -728,7 +728,7 @@ class NostrTest(TestCase):
                     'nip05': 'efake-handle-alice@efake.brid.gy',
                 }, ensure_ascii=False),
                 'created_at': NOW_TS,
-                'tags': [['proxy', 'efake:alice', 'efake']],
+                'tags': [['proxy', 'uri:efake:alice', 'efake']],
             }],
             ['EVENT', {
                 'kind': KIND_RELAYS,
