@@ -231,10 +231,12 @@ class IdsTest(TestCase):
 
     def test_normalize_object_id(self):
         for proto, id, expected in [
-            (ActivityPub, 'https://inst/user', 'https://inst/user'),
+            (ActivityPub, 'https://inst/obj', 'https://inst/obj'),
             (ATProto, 'https://bsky.app/profile/did:plc:123/post/abc',
              'at://did:plc:123/app.bsky.feed.post/abc'),
             (Fake, 'fake:obj', 'fake:obj'),
+            (Fake, 'fake:alice', 'fake:profile:alice'),
+            (Web, 'user.com', 'https://user.com/'),
             (Web, 'https://user.com/', 'https://user.com/'),
             (Web, 'https://user.com/foo', 'https://user.com/foo'),
             (Web, 'https://user.com/foo\nbar', 'https://user.com/foo'),
@@ -252,6 +254,8 @@ class IdsTest(TestCase):
         for proto, id, expected in [
             (ActivityPub, 'https://inst/user', 'https://inst/user'),
             (ATProto, 'did:plc:123', 'at://did:plc:123/app.bsky.actor.profile/self'),
+            (ATProto, 'at://did:plc:123/app.bsky.actor.profile/self',
+             'at://did:plc:123/app.bsky.actor.profile/self'),
             (Fake, 'fake:user', 'fake:profile:user'),
             (Web, 'user.com', 'https://user.com/'),
             (Nostr, NPUB, None),

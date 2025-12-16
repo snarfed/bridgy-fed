@@ -18,6 +18,7 @@ import granary.nostr
 from oauth_dropins.webutil import util
 
 from common import (
+    DOMAIN_RE,
     LOCAL_DOMAINS,
     PRIMARY_DOMAIN,
     PROTOCOL_DOMAINS,
@@ -259,10 +260,14 @@ def normalize_user_id(*, id, proto):
 def normalize_object_id(*, id, proto):
     """Normalizes an object id to its canonical representation in a given protocol.
 
+    If ``id`` is a user id, and this protocol's profile objects have different ids
+    than their user ids, returns the profile id.
+
     Examples:
 
     * Web:
       * https://user.com/... (over 1500 chars) => truncated at 1500 chars
+      * user.com => https://user.com/
     * ATProto:
       * https://bsky.app/profile/did:plc:123/post/abc =>
         at://did:plc:123/app.bsky.feed.post/abc
@@ -279,13 +284,22 @@ def normalize_object_id(*, id, proto):
     if proto.LABEL == 'web':
         id = id.split('\n')[0]
         if len(id) > _MAX_KEYPART_BYTES:
-            id = models.maybe_truncate_key_id(id)
+            return models.maybe_truncate_key_id(id)
+        elif re.fullmatch(DOMAIN_RE, id):
+            return profile_id(id=id, proto=proto)
 
     elif proto.LABEL == 'nostr':
         if granary.nostr.is_bech32(id):
             id = granary.nostr.uri_to_id(id)
         if granary.nostr.ID_RE.match(id):
-            id = 'nostr:' + id
+            return 'nostr:' + id
+
+    elif proto.LABEL == 'fake':
+        username = id.split(':', 1)[1]
+        # TODO: thiis will cause hard-to-debug test failures if we ever use other
+        # test Fake user usernames
+        if username in ('alice', 'bob', 'eve', 'frank', 'user'):
+            return profile_id(id=id, proto=proto)
 
     return id
 
@@ -314,7 +328,7 @@ def profile_id(*, id, proto):
         return id
 
     match proto.LABEL:
-        case 'atproto':
+        case 'atproto' if id.startswith('did:'):
             return f'at://{id}/app.bsky.actor.profile/self'
 
         case 'web' if not (id.startswith('https://') or id.startswith('http://')):
@@ -327,14 +341,11 @@ def profile_id(*, id, proto):
                     and user.obj_key):
                 return user.obj_key.id()
 
-        # only for unit tests
-        case 'fake' if not id.startswith('fake:profile:'):
+        # test data. fake users have different ids from their profile objects;
+        # other and efake are the same.
+        case 'fake':
+            assert ':profile:' not in id
             return id.replace('fake:', 'fake:profile:')
-
-        # TODO
-        # also see TODO in ProtocolReceiveTest.setUp
-        # case 'fake' | 'efake' | 'other' if ':profile:' not in id:
-        #     return id.replace(':', ':profile:')
 
         case _:
             return id
