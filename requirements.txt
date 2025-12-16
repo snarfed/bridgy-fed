@@ -85,7 +85,7 @@ packaging==25.0
 pbr==7.0.3
 pkce==1.0.3
 praw==7.8.1
-prawcore==2.4.0
+prawcore==3.0.2
 proto-plus==1.26.1
 protobuf==6.33.2
 pyasn1==0.6.1
