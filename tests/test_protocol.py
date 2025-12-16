@@ -22,8 +22,9 @@ from granary.tests.test_nostr import (
 from oauth_dropins.webutil import appengine_info, util
 from oauth_dropins.webutil.appengine_config import ndb_client
 from oauth_dropins.webutil.flask_util import NoContent, NotModified
-from oauth_dropins.webutil.testutil import NOW, requests_response
+from oauth_dropins.webutil.testutil import NOW, NOW_SECONDS, requests_response
 from oauth_dropins.webutil.util import json_dumps
+from pymemcache.exceptions import MemcacheUnexpectedCloseError
 import requests
 from werkzeug.exceptions import BadRequest
 
@@ -4781,9 +4782,8 @@ class ProtocolReceiveTest(TestCase):
         self.bob.use_instead = self.alice.key
         self.bob.put()
 
-        target = Target(uri='fake:target', protocol='fake')
         self.store_object(id='fake:note', our_as1={
-            'id': 'fake:post',
+            'id': 'fake:note',
             'objectType': 'note',
             'content': 'foo',
         })
@@ -4793,6 +4793,31 @@ class ProtocolReceiveTest(TestCase):
             'url': 'fake:target',
             'user': self.bob.key.urlsafe(),
         })
+        self.assertEqual(200, resp.status_code)
 
         _, kwargs = mock_send.call_args
         self.assertEqual('other:alice', kwargs['from_user'].key.id())
+
+    @patch('oauth_dropins.webutil.appengine_config.tasks_client.create_task')
+    @patch.object(Fake, 'send', side_effect=MemcacheUnexpectedCloseError())
+    def test_send_task_memcache_exception_reenqueues_with_delay(
+            self, mock_send, mock_create_task):
+        common.RUN_TASKS_INLINE = False
+
+        self.store_object(id='fake:note', our_as1={
+            'id': 'fake:note',
+            'objectType': 'note',
+            'content': 'foo',
+        })
+
+        params = {
+            'protocol': 'fake',
+            'obj_id': 'fake:note',
+            'url': 'fake:target',
+            'user': self.user.key.urlsafe(),
+        }
+        resp = self.post('/queue/send', data=params)
+        self.assertEqual(204, resp.status_code)
+
+        expected_eta = NOW_SECONDS + protocol.MEMCACHE_DOWN_TASK_DELAY.total_seconds()
+        self.assert_task(mock_create_task, 'send', eta_seconds=expected_eta, **params)

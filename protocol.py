@@ -20,6 +20,11 @@ from oauth_dropins.webutil.flask_util import cloud_tasks_only
 from oauth_dropins.webutil.models import MAX_ENTITY_SIZE
 from oauth_dropins.webutil import util
 from oauth_dropins.webutil.util import json_dumps, json_loads
+from pymemcache.exceptions import (
+    MemcacheServerError,
+    MemcacheUnexpectedCloseError,
+    MemcacheUnknownError,
+)
 from requests import RequestException
 import werkzeug.exceptions
 from werkzeug.exceptions import BadGateway, BadRequest, HTTPException
@@ -56,6 +61,7 @@ DELETE_TASK_DELAY = timedelta(minutes=1)
 CREATE_MAX_AGE = timedelta(weeks=2)
 # WARNING: keep this below the receive queue's min_backoff_seconds in queue.yaml!
 MEMCACHE_LEASE_EXPIRATION = timedelta(seconds=25)
+MEMCACHE_DOWN_TASK_DELAY = timedelta(minutes=5)
 
 # require a follow for users on these domains before we deliver anything from
 # them other than their profile
@@ -2347,6 +2353,14 @@ def send_task():
     try:
         sent = PROTOCOLS[protocol].send(obj, url, from_user=user,
                                         orig_obj_id=form.get('orig_obj_id'))
+    except (MemcacheServerError, MemcacheUnexpectedCloseError,
+            MemcacheUnknownError) as e:
+        # our memorystore instance is probably undergoing maintenance. re-enqueue
+        # task with a delay.
+        # https://docs.cloud.google.com/memorystore/docs/memcached/about-maintenance
+        report_error(f'memcache error on send task, re-enqueuing in {MEMCACHE_DOWN_TASK_DELAY}: {e}')
+        common.create_task(queue='send', delay=MEMCACHE_DOWN_TASK_DELAY, **form)
+        sent = False
     except BaseException as e:
         code, body = util.interpret_http_exception(e)
         if not code and not body:
