@@ -1037,8 +1037,8 @@ class ObjectTest(TestCase):
         self.assertIn('Alice', got)
 
     def test_actor_link_object_in_datastore(self):
-        Object(id='fake:alice', as2={'name': 'Alice'}).put()
-        obj = Object(id='fake:bob', source_protocol='fake',
+        Object(id='fake:profile:alice', as2={'name': 'Alice'}).put()
+        obj = Object(id='fake:post', source_protocol='fake',
                      our_as1={'actor': 'fake:alice'})
         self.assertIn('Alice', obj.actor_link())
 
@@ -1175,12 +1175,14 @@ class ObjectTest(TestCase):
             'alsoKnownAs': ['at://alice.com'],
         })
 
-        obj = Object(id='at://did:web:alice.com/app.bsky.actor.profile/self', bsky={
+        profile_id = 'at://did:web:alice.com/app.bsky.actor.profile/self'
+        obj = Object(id=profile_id, bsky={
             **ACTOR_PROFILE_BSKY,
             'banner': None,
         })
         self.assert_equals({
             **ACTOR_AS,
+            'id': profile_id,
             'username': 'alice.com',
             'url': 'https://bsky.app/profile/alice.com',
             'urls': ['https://bsky.app/profile/alice.com', 'https://alice.com/'],

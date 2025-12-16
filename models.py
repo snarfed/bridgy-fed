@@ -1444,12 +1444,13 @@ class Object(AddRemoveMixin, StringIdModel):
                       if owner]
             if obj.type in as1.ACTOR_TYPES:
                 owners.append(id)
-            if (owners
-                    and ids.normalize_user_id(id=authed_as, proto=proto) not in owners
-                    and ids.profile_id(id=authed_as, proto=proto) not in owners):
+
+            user_id = ids.normalize_user_id(id=authed_as, proto=proto)
+            profile_id = ids.profile_id(id=authed_as, proto=proto)
+            if owners and user_id not in owners and profile_id not in owners:
                 report_error("Auth: Object: authed_as doesn't match owner",
-                             user=f'{id} authed_as {authed_as} owners {owners}')
-                error(f"authed user {authed_as} isn't object owner {owners}",
+                             user=f'{user_id} {profile_id} authed_as {authed_as} owners {owners}')
+                error(f"authed user {authed_as} ({user_id} {profile_id}) isn't object owner {owners}",
                       status=403)
 
         return obj

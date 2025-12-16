@@ -543,8 +543,6 @@ class IntegrationTests(TestCase):
 """),
         # alice.com handle resolution, HTTPS method
         requests_response('did:plc:alice', content_type='text/plain'),
-        # alice profile
-        requests_response(PROFILE_GETRECORD),
         # alice DID
         requests_response(DID_DOC),
         # alice profile
@@ -907,8 +905,9 @@ To disable these messages, reply with the text 'mute'.""",
         # shouldn't have set DNS, we're using HTTP for handle resolution
         mock_dns_changes.assert_not_called()
 
+    @patch('requests.post')  # for Reject, DM explaining why not
     @patch('requests.get')
-    def test_activitypub_follow_bsky_bot_bad_username_error(self, mock_get):
+    def test_activitypub_follow_bsky_bot_bad_username_error(self, mock_get, mock_post):
         """AP follow of @bsky.brid.gy@bsky.brid.gy from bad username fails.
 
         ActivityPub user @_alice_@inst , https://inst/_alice_
@@ -923,7 +922,7 @@ To disable these messages, reply with the text 'mute'.""",
             'image': 'http://pic',
             'inbox': 'http://inst/inbox',
         }))
-        self.make_user(id='bsky.brid.gy', cls=Web, ap_subdomain='bsky')
+        bsky_bot = self.make_user(id='bsky.brid.gy', cls=Web, ap_subdomain='bsky')
 
         # deliver follow
         body = json_dumps({
@@ -1113,9 +1112,10 @@ To disable these messages, reply with the text 'mute'.""",
         mock_get.side_effect=[
             list_getRecord,
             list_getRecord,
+            list_getRecord,
         ]
 
-        # deliver DM
+        # check DM was delivered
         body = json_dumps({
             'type': 'Create',
             'id': 'https://inst/dm-create',
@@ -1521,7 +1521,10 @@ To disable these messages, reply with the text 'mute'.""",
             }, data=None, headers=ANY)
 
     def test_atproto_convert_hashtag_to_activitypub_preserves_bsky_app_link(self):
-        obj = Object(id='at://xyz', bsky={
+        alice = self.make_atproto_user('did:plc:alice')
+        bob = self.make_ap_user('https://inst/bob', 'did:plc:bob')
+
+        obj = Object(id='at://did:plc:alice/post/123', bsky={
             '$type': 'app.bsky.feed.post',
             'text': 'My #original post',
             'facets': [{
@@ -1538,12 +1541,11 @@ To disable these messages, reply with the text 'mute'.""",
         })
         self.assert_equals({
             'type': 'Note',
-            'id': 'https://bsky.brid.gy/convert/ap/at://xyz',
+            'id': 'https://bsky.brid.gy/convert/ap/at://did:plc:alice/post/123',
             'content': '<p>My <a class="hashtag" rel="tag" href="https://bsky.app/search?q=%23original">#original</a> post</p>',
             'contentMap': {
                 'en': '<p>My <a class="hashtag" rel="tag" href="https://bsky.app/search?q=%23original">#original</a> post</p>',
             },
-            'url': 'http://localhost/r/https://bsky.app/profile/xyz',
             'tag': [{
                 'type': 'Hashtag',
                 'name': '#original',
@@ -1556,9 +1558,13 @@ To disable these messages, reply with the text 'mute'.""",
         requests_response(PROFILE_GETRECORD),
     ])
     def test_convert_with_html_content_from_atproto_to_activitypub(self, mock_get):
-        obj = Object(id='at://xyz', source_protocol='atproto', bsky={
+        alice = self.make_atproto_user('did:plc:alice')
+        alice = self.make_atproto_user('did:plc:bob', handle='b.ob')
+
+        obj = Object(id='at://did:plc:alice/post/123', source_protocol='atproto',
+                     bsky={
             '$type': 'app.bsky.feed.post',
-            'text': '#foo bar @baz',
+            'text': '#foo bar @bob',
             'langs': ['en'],
             'facets': [{
                 '$type': 'app.bsky.richtext.facet',
@@ -1584,7 +1590,7 @@ To disable these messages, reply with the text 'mute'.""",
                 '$type': 'app.bsky.richtext.facet',
                 'features': [{
                     '$type': 'app.bsky.richtext.facet#mention',
-                    'did': 'did:plc:baz',
+                    'did': 'did:plc:bob',
                 }],
                 'index': {
                     'byteStart': 9,
@@ -1593,12 +1599,11 @@ To disable these messages, reply with the text 'mute'.""",
             }],
         })
 
-        expected_content = '<p><a class="hashtag" rel="tag" href="https://bsky.app/search?q=%23foo">#foo</a> <a href="http://bar">bar</a> <a class="mention h-card" href="https://bsky.brid.gy/ap/https://bsky.app/profile/did:plc:baz">@b.az@bsky.brid.gy</a></p>'
+        expected_content = '<p><a class="hashtag" rel="tag" href="https://bsky.app/search?q=%23foo">#foo</a> <a href="http://bar">bar</a> <a class="mention h-card" href="https://bsky.brid.gy/ap/https://bsky.app/profile/did:plc:bob">@b.ob@bsky.brid.gy</a></p>'
         expected = {
             'type': 'Note',
-            'id': 'https://bsky.brid.gy/convert/ap/at://xyz',
-            'url': 'http://localhost/r/https://bsky.app/profile/xyz',
-            'attributedTo': 'xyz',
+            'id': 'https://bsky.brid.gy/convert/ap/at://did:plc:alice/post/123',
+            'attributedTo': 'https://bsky.brid.gy/ap/did:plc:alice',
             'content': expected_content,
             'contentMap': {'en': expected_content},
             'tag': [{
@@ -1611,27 +1616,25 @@ To disable these messages, reply with the text 'mute'.""",
                 'url': 'http://bar',
             }, {
                 'type': 'Mention',
-                'name': '@b.az@bsky.brid.gy',
-                'href': 'https://bsky.brid.gy/ap/https://bsky.app/profile/did:plc:baz',
+                'name': '@b.ob@bsky.brid.gy',
+                'href': 'https://bsky.brid.gy/ap/https://bsky.app/profile/did:plc:bob',
             }],
-            'url': [
-                'http://localhost/r/https://bsky.app/profile/xyz',
-                {
-                    'type': 'Link',
-                    'rel': 'canonical',
-                    'href': 'at://xyz',
-                },
-            ],
+            'url': [{
+                'type': 'Link',
+                'rel': 'canonical',
+                'href': 'at://did:plc:alice/post/123',
+            }],
         }
         self.assert_equals(expected, ActivityPub.convert(obj),
                            ignore=['@context', 'to'])
 
-    @patch('requests.get', side_effect=[
-        requests_response({**DID_DOC, 'alsoKnownAs': ['at://def.io']}),
-        requests_response(PROFILE_GETRECORD),
-    ])
-    def test_convert_quote_with_html_content_from_atproto_to_activitypub(self, _):
-        obj = Object(id='at://xyz', source_protocol='atproto', bsky={
+    def test_convert_quote_with_html_content_from_atproto_to_activitypub(self):
+        self.make_atproto_user('did:plc:alice', handle='alice.com')
+        self.make_atproto_user('did:plc:bob', handle='b.ob')
+        self.make_atproto_user('did:plc:eve', handle='e.ve')
+
+        obj = Object(id='at://did:plc:alice/post/123', source_protocol='atproto',
+                     bsky={
             '$type': 'app.bsky.feed.post',
             'text': "a @b c",
             'langs': ['en'],
@@ -1639,14 +1642,14 @@ To disable these messages, reply with the text 'mute'.""",
                 '$type': 'app.bsky.embed.record',
                 'record': {
                     'cid': 'bafyfoo',
-                    'uri': 'at://did:plc:abc/app.bsky.feed.post/123',
+                    'uri': 'at://did:plc:bob/app.bsky.feed.post/123',
                 },
             },
             'facets': [{
                 '$type': 'app.bsky.richtext.facet',
                 'features': [{
                     '$type': 'app.bsky.richtext.facet#mention',
-                    'did': 'did:plc:def',
+                    'did': 'did:plc:eve',
                 }],
                 'index': {
                     'byteStart': 2,
@@ -1655,34 +1658,31 @@ To disable these messages, reply with the text 'mute'.""",
             }],
         })
 
-        expected_content = '<p>a <a class="mention h-card" href="https://bsky.brid.gy/ap/https://bsky.app/profile/did:plc:def">@def.io@bsky.brid.gy</a> c<span class="quote-inline"><br><br>RE: <a href="https://bsky.app/profile/did:plc:abc/post/123">https://bsky.app/profile/did:plc:abc/post/123</a></span></p>'
+        expected_content = '<p>a <a class="mention h-card" href="https://bsky.brid.gy/ap/https://bsky.app/profile/did:plc:eve">@e.ve@bsky.brid.gy</a> c<span class="quote-inline"><br><br>RE: <a href="https://bsky.app/profile/did:plc:bob/post/123">https://bsky.app/profile/did:plc:bob/post/123</a></span></p>'
         expected = {
             'type': 'Note',
-            'id': 'https://bsky.brid.gy/convert/ap/at://xyz',
+            'id': 'https://bsky.brid.gy/convert/ap/at://did:plc:alice/post/123',
             'url': 'http://localhost/r/https://bsky.app/profile/xyz',
-            'attributedTo': 'xyz',
+            'attributedTo': 'https://bsky.brid.gy/ap/did:plc:alice',
             'content': expected_content,
             'contentMap': {'en': expected_content},
-            'quoteUrl': 'https://bsky.brid.gy/convert/ap/at://did:plc:abc/app.bsky.feed.post/123',
-            '_misskey_quote': 'https://bsky.brid.gy/convert/ap/at://did:plc:abc/app.bsky.feed.post/123',
+            'quoteUrl': 'https://bsky.brid.gy/convert/ap/at://did:plc:bob/app.bsky.feed.post/123',
+            '_misskey_quote': 'https://bsky.brid.gy/convert/ap/at://did:plc:bob/app.bsky.feed.post/123',
             'tag': [{
                 'type': 'Mention',
-                'name': '@def.io@bsky.brid.gy',
-                'href': 'https://bsky.brid.gy/ap/https://bsky.app/profile/did:plc:def',
+                'name': '@e.ve@bsky.brid.gy',
+                'href': 'https://bsky.brid.gy/ap/https://bsky.app/profile/did:plc:eve',
             }, {
                 'type': 'Link',
-                'href': 'https://bsky.brid.gy/convert/ap/at://did:plc:abc/app.bsky.feed.post/123',
-                'name': 'RE: https://bsky.app/profile/did:plc:abc/post/123',
+                'href': 'https://bsky.brid.gy/convert/ap/at://did:plc:bob/app.bsky.feed.post/123',
+                'name': 'RE: https://bsky.app/profile/did:plc:bob/post/123',
                 'mediaType': 'application/ld+json; profile="https://www.w3.org/ns/activitystreams"',
             }],
-            'url': [
-                'http://localhost/r/https://bsky.app/profile/xyz',
-                {
-                    'type': 'Link',
-                    'rel': 'canonical',
-                    'href': 'at://xyz',
-                },
-            ],
+            'url': [{
+                'type': 'Link',
+                'rel': 'canonical',
+                'href': 'at://did:plc:alice/post/123',
+            }],
         }
         self.assert_equals(expected, ActivityPub.convert(obj),
                            ignore=['@context', 'to'])

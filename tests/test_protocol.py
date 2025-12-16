@@ -242,26 +242,26 @@ class ProtocolTest(TestCase):
         assert ActivityPub.is_user_at_domain('user@web.brid.gy', allow_internal=True)
 
     def test_load(self):
-        Fake.fetchable['foo'] = {'x': 'y'}
+        Fake.fetchable['fake:foo'] = {'x': 'y'}
 
-        loaded = Fake.load('foo')
+        loaded = Fake.load('fake:foo')
         self.assertEqual({
-            'id': 'foo',
+            'id': 'fake:foo',
             'x': 'y',
         }, loaded.our_as1)
         self.assertFalse(loaded.changed)
         self.assertTrue(loaded.new)
         self.assertFalse(loaded.is_csv)
 
-        self.assertIsNotNone(Object.get_by_id('foo'))
-        self.assertEqual(['foo'], Fake.fetched)
+        self.assertIsNotNone(Object.get_by_id('fake:foo'))
+        self.assertEqual(['fake:foo'], Fake.fetched)
 
     def test_load_existing(self):
-        self.store_object(id='foo', our_as1={'x': 'y'})
+        self.store_object(id='fake:foo', our_as1={'x': 'y'})
 
-        loaded = Fake.load('foo')
+        loaded = Fake.load('fake:foo')
         self.assertEqual({
-            'id': 'foo',
+            'id': 'fake:foo',
             'x': 'y',
         }, loaded.our_as1)
         self.assertFalse(loaded.changed)
@@ -270,9 +270,9 @@ class ProtocolTest(TestCase):
         self.assertEqual([], Fake.fetched)
 
     def test_load_existing_empty_deleted(self):
-        stored = self.store_object(id='foo', deleted=True)
+        stored = self.store_object(id='fake:foo', deleted=True)
 
-        loaded = Fake.load('foo')
+        loaded = Fake.load('fake:foo')
         self.assert_entities_equal(stored, loaded)
         self.assertFalse(loaded.changed)
         self.assertFalse(loaded.new)
@@ -280,24 +280,24 @@ class ProtocolTest(TestCase):
         self.assertEqual([], Fake.fetched)
 
     def test_load_remote_true_existing_empty(self):
-        Fake.fetchable['foo'] = {'x': 'y'}
-        Object(id='foo', our_as1={}).put()
+        Fake.fetchable['fake:foo'] = {'x': 'y'}
+        Object(id='fake:foo', our_as1={}).put()
 
-        loaded = Fake.load('foo', remote=True)
-        self.assertEqual({'id': 'foo', 'x': 'y'}, loaded.as1)
+        loaded = Fake.load('fake:foo', remote=True)
+        self.assertEqual({'id': 'fake:foo', 'x': 'y'}, loaded.as1)
         self.assertTrue(loaded.changed)
         self.assertFalse(loaded.new)
-        self.assertEqual(['foo'], Fake.fetched)
+        self.assertEqual(['fake:foo'], Fake.fetched)
 
     def test_load_remote_true_new_empty(self):
-        Fake.fetchable['foo'] = None
-        self.store_object(id='foo', our_as1={'x': 'y'})
+        Fake.fetchable['fake:foo'] = None
+        self.store_object(id='fake:foo', our_as1={'x': 'y'})
 
-        loaded = Fake.load('foo', remote=True)
+        loaded = Fake.load('fake:foo', remote=True)
         self.assertIsNone(loaded.as1)
         self.assertTrue(loaded.changed)
         self.assertFalse(loaded.new)
-        self.assertEqual(['foo'], Fake.fetched)
+        self.assertEqual(['fake:foo'], Fake.fetched)
 
     def test_load_remote_true_unchanged(self):
         obj = self.store_object(id='fake:foo', our_as1={'x': 'stored'},
@@ -312,26 +312,26 @@ class ProtocolTest(TestCase):
         self.assertEqual(['fake:foo'], Fake.fetched)
 
     def test_load_remote_true_local_false(self):
-        Fake.fetchable['foo'] = our_as1={'x': 'y'}
+        Fake.fetchable['fake:foo'] = our_as1={'x': 'y'}
 
-        loaded = Fake.load('foo', local=False, remote=True)
-        self.assertEqual({'id': 'foo', 'x': 'y'}, loaded.as1)
+        loaded = Fake.load('fake:foo', local=False, remote=True)
+        self.assertEqual({'id': 'fake:foo', 'x': 'y'}, loaded.as1)
         self.assertIsNone(loaded.changed)
         self.assertIsNone(loaded.new)
-        self.assertEqual(['foo'], Fake.fetched)
+        self.assertEqual(['fake:foo'], Fake.fetched)
 
     def test_load_remote_true_changed(self):
-        self.store_object(id='foo', our_as1={'content': 'stored'})
-        Fake.fetchable['foo'] = {'content': 'new'}
+        self.store_object(id='fake:foo', our_as1={'content': 'stored'})
+        Fake.fetchable['fake:foo'] = {'content': 'new'}
 
-        loaded = Fake.load('foo', remote=True)
+        loaded = Fake.load('fake:foo', remote=True)
         self.assertEqual({
-            'id': 'foo',
+            'id': 'fake:foo',
             'content': 'new',
         }, loaded.our_as1)
         self.assertTrue(loaded.changed)
         self.assertFalse(loaded.new)
-        self.assertEqual(['foo'], Fake.fetched)
+        self.assertEqual(['fake:foo'], Fake.fetched)
 
     @patch('requests.get', return_value=ACTOR_HTML_RESP)
     def test_load_remote_true_clear_our_as1(self, _):
@@ -368,28 +368,28 @@ class ProtocolTest(TestCase):
         self.assertFalse(loaded.new)
 
     def test_load_remote_false(self):
-        self.assertIsNone(Fake.load('nope', remote=False))
+        self.assertIsNone(Fake.load('fake:nope', remote=False))
         self.assertEqual([], Fake.fetched)
 
-        obj = self.store_object(id='foo', our_as1={'content': 'stored'})
-        self.assert_entities_equal(obj, Fake.load('foo', remote=False))
+        obj = self.store_object(id='fake:foo', our_as1={'content': 'stored'})
+        self.assert_entities_equal(obj, Fake.load('fake:foo', remote=False))
         self.assertEqual([], Fake.fetched)
 
     def test_load_remote_false_existing_object_empty(self):
-        obj = self.store_object(id='foo')
-        self.assert_entities_equal(obj, Protocol.load('foo', remote=False))
+        obj = self.store_object(id='fake:foo')
+        self.assert_entities_equal(obj, Protocol.load('fake:foo', remote=False))
 
     def test_load_local_false_missing(self):
-        self.assertIsNone(Fake.load('foo', local=False))
-        self.assertEqual(['foo'], Fake.fetched)
+        self.assertIsNone(Fake.load('fake:foo', local=False))
+        self.assertEqual(['fake:foo'], Fake.fetched)
 
     def test_load_local_false_existing(self):
-        self.store_object(id='foo', our_as1={'content': 'stored'}, source_protocol='ui')
+        self.store_object(id='fake:foo', our_as1={'content': 'stored'}, source_protocol='ui')
 
-        Fake.fetchable['foo'] = {'foo': 'bar'}
-        Fake.load('foo', local=False)
-        self.assert_object('foo', source_protocol='fake', our_as1={'foo': 'bar'})
-        self.assertEqual(['foo'], Fake.fetched)
+        Fake.fetchable['fake:foo'] = {'foo': 'bar'}
+        Fake.load('fake:foo', local=False)
+        self.assert_object('fake:foo', source_protocol='fake', our_as1={'foo': 'bar'})
+        self.assertEqual(['fake:foo'], Fake.fetched)
 
     def test_load_remote_false_local_false_assert(self):
         with self.assertRaises(AssertionError):
@@ -429,17 +429,17 @@ class ProtocolTest(TestCase):
         self.assertEqual([], Fake.fetched)
 
     def test_load_refresh(self):
-        Fake.fetchable['foo'] = {'fetched': 'x'}
+        Fake.fetchable['fake:foo'] = {'fetched': 'x'}
 
         too_old = (NOW.replace(tzinfo=None)
                    - protocol.OBJECT_REFRESH_AGE
                    - timedelta(days=1))
         with patch('models.Object.updated._now', return_value=too_old):
-            obj = Object(id='foo', our_as1={'orig': 'y'})
+            obj = Object(id='fake:foo', our_as1={'orig': 'y'})
             obj.put()
 
-        loaded = Fake.load('foo')
-        self.assertEqual({'fetched': 'x', 'id': 'foo'}, loaded.our_as1)
+        loaded = Fake.load('fake:foo')
+        self.assertEqual({'fetched': 'x', 'id': 'fake:foo'}, loaded.our_as1)
 
     @patch('protocol.MAX_ENTITY_SIZE', new=50)
     def test_load_too_big(self):
@@ -1453,7 +1453,7 @@ class ProtocolReceiveTest(TestCase):
         super().setUp()
         # TODO: switch these to :profile: to test actor id vs profile id
         # also see TODO in ids.profile_id
-        self.user = self.make_user('fake:user', cls=Fake, obj_id='fake:user')
+        self.user = self.make_user('fake:user', cls=Fake, obj_id='fake:profile:user')
         self.alice = self.make_user('other:alice', cls=OtherFake, obj_id='other:alice')
         self.bob = self.make_user('other:bob', cls=OtherFake, obj_id='other:bob')
 
@@ -2495,7 +2495,7 @@ class ProtocolReceiveTest(TestCase):
         _, status = Fake.receive_as1(update)
         self.assertEqual(204, status)
 
-        self.assertEqual(['fake:profile:user', 'fake:post'], Fake.fetched)
+        self.assertEqual(['fake:post'], Fake.fetched)
         self.assert_object('fake:post', our_as1=post, type='note')
         self.assertIsNone(Object.get_by_id('fake:update'))
 
@@ -2512,7 +2512,7 @@ class ProtocolReceiveTest(TestCase):
         with self.assertRaises(ErrorButDoNotRetryTask):
             Fake.receive_as1(update)
 
-        self.assertEqual(['fake:profile:user', 'fake:post'], Fake.fetched)
+        self.assertEqual(['fake:post'], Fake.fetched)
         self.assertIsNone(Object.get_by_id('fake:update'))
 
     def test_create_reply(self):
@@ -3161,7 +3161,44 @@ class ProtocolReceiveTest(TestCase):
             ('other:bob:target', update_as1),
         ], OtherFake.sent)
 
-    def test_update_profile_bare_object(self):
+    def test_update_profile_bare_object_user_id_is_not_profile_id(self):
+        profile = {
+            'objectType': 'person',
+            'id': 'fake:profile:user',
+            'displayName': 'Ms. ☕ Baz',
+            'summary': 'first',
+        }
+        self.user.obj = self.store_object(id='fake:profile:user', our_as1=profile,
+                                           source_protocol='fake')
+        self.user.put()
+
+        Follower.get_or_create(to=self.user, from_=self.alice)
+
+        # unchanged from what's already in the datastore. we should send update
+        # anyway (instead of create) since it's an actor.
+        Fake.receive_as1(profile)
+
+        self.assertEqual('fake:profile:user', self.user.key.get().obj_key.id())
+
+        # profile object
+        profile['updated'] = '2022-01-02T03:04:05+00:00'
+        self.assert_object(
+            'fake:profile:user',
+            our_as1=profile,
+            users=[self.user.key],
+            copies=[Target(protocol='other', uri='other:o:fa:fake:profile:user')],
+            source_protocol='fake',
+            deleted=False,
+        )
+        self.assertEqual([('other:alice:target', {
+            'objectType': 'activity',
+            'verb': 'update',
+            'id': 'fake:profile:user#bridgy-fed-update-2022-01-02T03:04:05+00:00',
+            'actor': 'fake:user',
+            'object': profile,
+        })], OtherFake.sent)
+
+    def test_update_profile_bare_object_user_id_is_profile_id(self):
         profile = {
             'objectType': 'person',
             'id': 'other:alice',
@@ -3177,6 +3214,8 @@ class ProtocolReceiveTest(TestCase):
         # unchanged from what's already in the datastore. we should send update
         # anyway (instead of create) since it's an actor.
         OtherFake.receive_as1(profile)
+
+        self.assertEqual('other:alice', self.alice.key.get().obj_key.id())
 
         # profile object
         profile['updated'] = '2022-01-02T03:04:05+00:00'
@@ -3195,6 +3234,46 @@ class ProtocolReceiveTest(TestCase):
             'actor': 'other:alice',
             'object': profile,
         })], Fake.sent)
+
+    @patch('requests.get', side_effect=[
+        requests_response(DID_DOC),
+        requests_response({
+            'uri': 'at://did:plc:user/app.bsky.actor.profile/self',
+            'cid': 'bafyreigd',
+            'value': ACTOR_PROFILE_BSKY,
+        }),
+    ])
+    def test_update_atproto_profile(self, mock_get):
+        self.store_object(id='did:plc:eve', raw={**DID_DOC, 'id': 'at://did:plc:eve'})
+        profile_id = 'at://did:plc:eve/app.bsky.actor.profile/self'
+        profile = self.store_object(id=profile_id, bsky=ACTOR_PROFILE_BSKY,
+                                    source_protocol='atproto')
+        eve = self.make_user('did:plc:eve', cls=ATProto, obj_key=profile.key)
+
+        Follower.get_or_create(to=eve, from_=self.alice)
+
+        # unchanged from what's already in the datastore. we should send update
+        # anyway (instead of create) since it's an actor.
+        ATProto.receive(profile, authed_as='did:plc:eve')
+
+        self.assertEqual(profile_id, eve.key.get().obj_key.id())
+
+        # profile object
+        self.assertEqual(profile_id, profile.as1['id'])
+        self.assert_object(profile_id,
+            our_as1=profile.as1,
+            users=[eve.key],
+            copies=[Target(protocol='other', uri='other:o:bsky:at://did:plc:eve/app.bsky.actor.profile/self')],
+            source_protocol='atproto',
+            deleted=False,
+        )
+        self.assertEqual([('other:alice:target', {
+            'objectType': 'activity',
+            'verb': 'update',
+            'id': 'at://did:plc:eve/app.bsky.actor.profile/self#bridgy-fed-update-2022-01-02T03:04:05+00:00',
+            'actor': 'did:plc:eve',
+            'object': profile.as1,
+        })], OtherFake.sent)
 
     def test_update_nostr_profile(self):
         orig_profile = {

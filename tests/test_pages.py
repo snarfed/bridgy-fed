@@ -919,9 +919,9 @@ class PagesTest(TestCase):
     def test_block(self):
         user, _ = self.make_logged_in_mastodon_user(enabled_protocols=['fake'])
 
-        Fake.fetchable = {'fake:eve': {
+        Fake.fetchable = {'fake:profile:eve': {
             'objectType': 'person',
-            'id': 'fake:eve',
+            'id': 'fake:profile:eve',
         }}
 
         resp = self.client.post('/settings/block', data={

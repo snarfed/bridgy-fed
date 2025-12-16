@@ -1383,7 +1383,7 @@ class Protocol:
         # to datastore so that we recalculate computed properties like status etc
         if is_user:
             if obj.type == 'update' and crud_obj:
-                logger.info("update of the user's profile, re-storing user")
+                logger.info(f"update of the user's profile, re-storing user with obj_key {crud_obj.key.id()}")
                 from_user.obj = crud_obj
                 from_user.put()
 
@@ -1774,7 +1774,10 @@ class Protocol:
                 continue
 
             target_obj_id = target_id
-            if target_id in mentioned_urls:
+            if target_id in mentioned_urls or obj.type in as1.VERBS_WITH_ACTOR_OBJECT:
+                # not ideal. this can sometimes be a non-user, eg blocking a
+                # blocklist. ok right now since profile_id() returns its input id
+                # unchanged if it doesn't look like a user id, but that's brittle.
                 target_obj_id = ids.profile_id(id=target_id, proto=target_proto)
 
             orig_obj = target_proto.load(target_obj_id, raise_=False)
