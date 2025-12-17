@@ -71,7 +71,6 @@ import web
 logger = logging.getLogger(__name__)
 
 from arroba import datastore_storage
-datastore_storage.MEMCACHE_SEQUENCE_ALLOCATION = 'shadow'
 datastore_storage.memcache = memcache.memcache
 arroba.server.storage = DatastoreStorage(ndb_client=ndb_client,
                                          ndb_context_kwargs=common.NDB_CONTEXT_KWARGS)

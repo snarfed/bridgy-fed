@@ -12,7 +12,7 @@ from unittest.mock import ANY, call
 from urllib.parse import parse_qs, urlencode
 import warnings
 
-from arroba import did
+from arroba import datastore_storage, did
 import arroba.util
 from arroba.util import datetime_to_tid
 from bs4 import MarkupResemblesLocatorWarning
@@ -383,11 +383,13 @@ class TestCase(unittest.TestCase, testutil.Asserts):
             'BGS_HOST': 'bgs.local',
             'PDS_HOST': 'pds.local',
             'PLC_HOST': 'plc.local',
+            'MEMCACHE_SEQUENCE_ALLOCATION': 'true',
             'MOD_SERVICE_HOST': 'mod.service.local',
             'MOD_SERVICE_DID': 'did:mod-service',
             'CHAT_HOST': 'chat.local',
             'CHAT_DID': 'did:chat',
         })
+        arroba.datastore_storage.MEMCACHE_SEQUENCE_ALLOCATION = True
         atproto.appview.address = 'https://appview.local'
 
         # nostr fake websocket
