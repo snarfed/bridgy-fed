@@ -1069,6 +1069,8 @@ class NostrTest(TestCase):
         self.assertEqual('no-profile', Nostr().status)
         self.assertEqual('no-profile', Nostr(valid_nip05='a@example.com').status)
 
+        self.assertIsNone(Nostr(manual_opt_out=False).status)
+
         profile = Object(id=ID_URI, nostr=id_and_sign({
             'kind': KIND_PROFILE,
             'pubkey': PUBKEY,

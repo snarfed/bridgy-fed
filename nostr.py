@@ -154,7 +154,9 @@ class Nostr(User, Protocol):
 
     @ndb.ComputedProperty
     def status(self):
-        if not self.obj or not self.obj.as1:
+        if self.manual_opt_out is False:
+            return None
+        elif not self.obj or not self.obj.as1:
             return 'no-profile'
 
         # check NIP-05
