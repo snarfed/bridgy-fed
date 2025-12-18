@@ -47,6 +47,7 @@ logger = logging.getLogger(__name__)
 FEED_TYPES = {
     atom.CONTENT_TYPE.split(';')[0]: 'atom',
     rss.CONTENT_TYPE.split(';')[0]: 'rss',
+    rss.CONTENT_TYPE_RDF.split(';')[0]: 'rss',
     # https://stackoverflow.com/questions/4832357/whats-the-difference-between-text-xml-vs-application-xml-for-webservice-respons
     'application/xml': 'xml',
     'text/xml': 'xml',
