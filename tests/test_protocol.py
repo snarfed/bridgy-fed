@@ -3926,6 +3926,7 @@ class ProtocolReceiveTest(TestCase):
 
         models.get_original_user_key.cache_clear()
         models.get_original_object_key.cache_clear()
+        memcache.memcache.client_pool.clear()
         memcache.pickle_memcache.client_pool.clear()
 
         self.assertEqual(('OK', 202), Fake.receive_as1(reply, new=True))

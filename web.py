@@ -1068,6 +1068,11 @@ def webmention_task():
                          else 'author')
                 obj.our_as1[field] = user.web_url()
 
+    # always default to handling web objects. we might have fetched them before for a
+    # link preview, or something else, so if the Object already exists, that doesn't
+    # guarantee that we've run receive on it
+    # https://github.com/snarfed/bridgy-fed/issues/1835
+    obj.new = True
     try:
         return Web.receive(obj, authed_as=user.key.id(), internal=internal)
     except ValueError as e:

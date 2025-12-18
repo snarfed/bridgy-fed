@@ -1152,11 +1152,8 @@ class Protocol:
             memcache_key, 'leased', noreply=False,
             expire=int(MEMCACHE_LEASE_EXPIRATION.total_seconds()))
 
-        # short circuit if we've already seen this activity id.
-        # (don't do this for bare objects since we need to check further down
-        # whether they've been updated since we saw them last.)
-        if (obj.as1.get('objectType') == 'activity'
-            and 'force' not in request.values
+        # short circuit if we've already seen this activity id
+        if ('force' not in request.values
             and (not leased
                  or (obj.new is False and obj.changed is False))):
             error(f'Already seen this activity {id}', status=204)
@@ -1580,9 +1577,7 @@ class Protocol:
             return Object(id=id, our_as1=update_as1,
                           source_protocol=obj.source_protocol)
 
-        if (obj.new
-                # HACK: force query param here is specific to webmention
-                or 'force' in request.form):
+        if obj.new or 'force' in request.values:
             create_id = f'{obj.key.id()}#bridgy-fed-create'
             create_as1 = {
                 'objectType': 'activity',

@@ -27,7 +27,9 @@ import common
 from common import CONTENT_TYPE_HTML, TASKS_LOCATION
 from flask_app import app
 import ids
+import memcache
 from models import Follower, Object, Target
+import protocol
 import web
 from web import OWNS_WEBFINGER, Web
 from . import test_activitypub
@@ -860,7 +862,6 @@ class WebTest(TestCase):
                            type='comment',
                            deleted=False,
                            )
-
     def test_update_reply(self, mock_get, mock_post):
         self.make_followers()
 
@@ -900,10 +901,13 @@ class WebTest(TestCase):
         self.assert_ap_deliveries(mock_post, ['https://mas.to/inbox'], REPOST_AS2,
                                ignore=['cc'])
 
-    def test_skip_update_if_content_unchanged(self, mock_get, mock_post):
+    def test_skip_update_if_already_handled_and_content_unchanged(
+            self, mock_get, mock_post):
         """https://github.com/snarfed/bridgy-fed/issues/78"""
         self.store_object(id='https://user.com/reply', mf2=REPLY_MF2)
-        self.store_object(id='https://user.com/reply#bridgy-fed-create')
+
+        key = protocol.activity_id_memcache_key('https://user.com/reply')
+        memcache.memcache.set(key, 'leased')
 
         mock_get.side_effect = ACTIVITYPUB_GETS
 
@@ -913,6 +917,11 @@ class WebTest(TestCase):
         })
         self.assertEqual(204, got.status_code)
         mock_post.assert_not_called()
+
+    def test_create_if_fetched_but_not_yet_handled(self, mock_get, mock_post):
+        """https://github.com/snarfed/bridgy-fed/issues/1835"""
+        self.store_object(id='https://user.com/reply', mf2=REPLY_MF2)
+        self.test_create_reply()
 
     def test_force_with_content_unchanged_sends_create(self, mock_get, mock_post):
         Object(id='https://user.com/reply', mf2=REPLY_MF2).put()
