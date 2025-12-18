@@ -4,7 +4,7 @@ from datetime import datetime
 from unittest import skip
 from unittest.mock import ANY, patch
 
-from arroba.datastore_storage import AtpSequence, DatastoreStorage
+from arroba.datastore_storage import DatastoreStorage
 from arroba import firehose
 from arroba.repo import Repo
 from arroba.storage import SUBSCRIBE_REPOS_NSID
@@ -1435,7 +1435,7 @@ To disable these messages, reply with the text 'mute'.""",
 
         repo = self.storage.load_repo('did:plc:alice')
         self.storage.deactivate_repo(repo)
-        last_seq = AtpSequence.last(firehose.SUBSCRIBE_REPOS_NSID)
+        last_seq = self.storage.last_seq(firehose.SUBSCRIBE_REPOS_NSID)
 
         bob = self.make_atproto_user('did:plc:bob')
         Follower.get_or_create(to=alice, from_=bob)
@@ -1457,7 +1457,7 @@ To disable these messages, reply with the text 'mute'.""",
 
         self.assertFalse(alice.key.get().is_enabled(ATProto))
         self.assertEqual('deactivated', self.storage.load_repo('did:plc:alice').status)
-        self.assertEqual(last_seq, AtpSequence.last(firehose.SUBSCRIBE_REPOS_NSID))
+        self.assertEqual(last_seq, self.storage.last_seq(firehose.SUBSCRIBE_REPOS_NSID))
 
     @patch('requests.post', side_effect=[
         requests_response('OK'),       # create DID
