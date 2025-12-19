@@ -38,6 +38,7 @@ from oauth_dropins.webutil import appengine_info
 from oauth_dropins.webutil.testutil import requests_response
 from oauth_dropins.webutil.util import json_dumps, json_loads
 import requests
+from werkzeug.exceptions import HTTPException
 
 # other modules are imported _after_ Fake etc classes is defined so that it's in
 # PROTOCOLS when URL routes are registered.
@@ -234,7 +235,11 @@ class Fake(User, protocol.Protocol):
         obj = Object(id=our_as1['id'], our_as1=our_as1, source_protocol=cls.LABEL)
         obj.new = kwargs.pop('new', True)
         obj.changed = kwargs.pop('changed', None)
-        return cls.receive(obj, **kwargs)
+        try:
+            return cls.receive(obj, **kwargs)
+        except HTTPException as e:
+            resp = e.get_response()
+            return resp.get_data(as_text=True) if resp else '', e.code
 
 
 class OtherFake(Fake):

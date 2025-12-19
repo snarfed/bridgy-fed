@@ -1259,8 +1259,8 @@ class ProtocolTest(TestCase):
             'content': 'Hello Bob!',
         }
 
-        with self.assertRaises(NoContent):
-            Fake.receive_as1(dm)
+        _, code = Fake.receive_as1(dm)
+        self.assertEqual(204, code)
 
         alice = alice.key.get()
         self.assertEqual([DM(protocol='other', type='dms_not_supported-other:bob')],
@@ -1523,8 +1523,8 @@ class ProtocolReceiveTest(TestCase):
                 'Item2': 'https://pandacap.azurewebsites.net/#transient-abc-123',
             }],
         }
-        with self.assertRaises(ErrorButDoNotRetryTask):
-            Fake.receive_as1(create_as1)
+        _, code = Fake.receive_as1(create_as1)
+        self.assertEqual(299, code)
 
         self.assertEqual([], OtherFake.sent)
 
@@ -1620,25 +1620,21 @@ class ProtocolReceiveTest(TestCase):
         self.assertEqual(ATProto.DEFAULT_TARGET, url)
 
     def test_post_not_public_ignored(self):
-        with self.assertRaises(NoContent):
-            Fake.receive_as1({
-                'id': 'fake:post',
-                'objectType': 'note',
-                'author': 'fake:user',
-                'to': ['fake:user/followers'],
-            })
-
+        Fake.receive_as1({
+            'id': 'fake:post',
+            'objectType': 'note',
+            'author': 'fake:user',
+            'to': ['fake:user/followers'],
+        })
         self.assertIsNone(Object.get_by_id('fake:post'))
 
     def test_post_unlisted_ignored(self):
-        with self.assertRaises(NoContent):
-            Fake.receive_as1({
-                'id': 'fake:post',
-                'objectType': 'note',
-                'author': 'fake:user',
-                'to': ['@unlisted'],
-            })
-
+        Fake.receive_as1({
+            'id': 'fake:post',
+            'objectType': 'note',
+            'author': 'fake:user',
+            'to': ['@unlisted'],
+        })
         self.assertIsNone(Object.get_by_id('fake:post'))
 
     @patch.object(ATProto, 'send')
@@ -1676,18 +1672,18 @@ class ProtocolReceiveTest(TestCase):
             'author': 'other:alice',
         })
 
-        with self.assertRaises(NotModified):  # 304 retry
-            _, code = Fake.receive_as1({
-                'id': 'fake:reply',
-                'objectType': 'note',
-                'actor': 'fake:user',
-                'inReplyTo': 'other:post',
-                'content': 'foo',
-                'tags': [{
-                    'objectType': 'mention',
-                    'url': 'other:bob'
-                }],
-            })
+        _, code = Fake.receive_as1({
+            'id': 'fake:reply',
+            'objectType': 'note',
+            'actor': 'fake:user',
+            'inReplyTo': 'other:post',
+            'content': 'foo',
+            'tags': [{
+                'objectType': 'mention',
+                'url': 'other:bob'
+            }],
+        })
+        self.assertEqual(304, code)  # retry
 
         self.assertEqual(0, mock_send.call_count)
         self.assertEqual([], Fake.sent)
@@ -1710,14 +1706,14 @@ class ProtocolReceiveTest(TestCase):
         # return an error code that Cloud Tasks considers a failure, so that the task
         # gets retried later, hopefully after the OP is bridged
         # https://github.com/snarfed/bridgy-fed/issues/1361
-        with self.assertRaises(NotModified):
-            _, code = OtherFake.receive_as1({
-                'id': 'other:reply',
-                'objectType': 'note',
-                'actor': 'other:bob',
-                'inReplyTo': 'other:post',
-                'content': 'foo',
-            })
+        _, code = OtherFake.receive_as1({
+            'id': 'other:reply',
+            'objectType': 'note',
+            'actor': 'other:bob',
+            'inReplyTo': 'other:post',
+            'content': 'foo',
+        })
+        self.assertEqual(304, code)
 
         self.assertEqual([], ExplicitFake.sent)
         self.assertEqual([], OtherFake.sent)
@@ -1863,14 +1859,14 @@ class ProtocolReceiveTest(TestCase):
         # return an error code that Cloud Tasks considers a failure, so that the task
         # gets retried later, hopefully after the OP is bridged
         # https://github.com/snarfed/bridgy-fed/issues/1361
-        with self.assertRaises(NotModified):  # 304 retry
-            _, code = Fake.receive_as1({
-                'id': 'fake:repost',
-                'objectType': 'activity',
-                'verb': 'share',
-                'actor': 'fake:user',
-                'object': 'other:post',
-            })
+        _, code = Fake.receive_as1({
+            'id': 'fake:repost',
+            'objectType': 'activity',
+            'verb': 'share',
+            'actor': 'fake:user',
+            'object': 'other:post',
+        })
+        self.assertEqual(304, code)
 
         self.assertEqual(0, mock_send.call_count)
         self.assertEqual([], Fake.sent)
@@ -1962,14 +1958,14 @@ class ProtocolReceiveTest(TestCase):
         self.store_object(id='did:plc:bob', raw=DID_DOC)
         bob = self.make_user('did:plc:bob', cls=ATProto, obj_bsky=ACTOR_PROFILE_BSKY)
 
-        with self.assertRaises(ErrorButDoNotRetryTask):
-            _, code = ExplicitFake.receive_as1({
-                'id': 'efake:follow',
-                'objectType': 'activity',
-                'verb': 'follow',
-                'actor': 'efake:alice',
-                'object': 'did:plc:bob',
-            })
+        _, code = ExplicitFake.receive_as1({
+            'id': 'efake:follow',
+            'objectType': 'activity',
+            'verb': 'follow',
+            'actor': 'efake:alice',
+            'object': 'did:plc:bob',
+        })
+        self.assertEqual(299, code)
 
         mock_send.assert_not_called()
         self.assertEqual([], ExplicitFake.sent)
@@ -2049,7 +2045,8 @@ class ProtocolReceiveTest(TestCase):
             'actor': 'fake:user',
             'object': 'other:orig',
         }
-        Fake.fetchable['fake:share'] = share
+        self.store_object(id='fake:share', our_as1=share,
+                          copies=[Target(uri='other:share', protocol='other')])
 
         obj = Object(id='fake:undo', our_as1={
             'objectType': 'activity',
@@ -2061,6 +2058,7 @@ class ProtocolReceiveTest(TestCase):
             Target(protocol='other', uri='other:alice:target'),
             Target(protocol='other', uri='other:bob:target'),
             Target(protocol='other', uri='other:orig:target'),
+            Target(protocol='other', uri='other:share:target'),
         }, Fake.targets(obj, from_user=self.user).keys())
 
     def test_targets_skip_unknown_enabled_protocol(self):
@@ -2349,14 +2347,14 @@ class ProtocolReceiveTest(TestCase):
         }
         self.store_object(id='fake:post', our_as1=post_as1, source_protocol='fake')
 
-        with self.assertRaises(ErrorButDoNotRetryTask):
-            Fake.receive_as1({
-                'id': 'fake:update',
-                'objectType': 'activity',
-                'verb': 'update',
-                'actor': 'fake:other',
-                'object': post_as1,
-            }, authed_as='fake:eve')
+        _, code = Fake.receive_as1({
+            'id': 'fake:update',
+            'objectType': 'activity',
+            'verb': 'update',
+            'actor': 'fake:other',
+            'object': post_as1,
+        }, authed_as='fake:eve')
+        self.assertEqual(299, code)
 
     def test_update_post(self):
         self.make_followers()
@@ -2510,8 +2508,8 @@ class ProtocolReceiveTest(TestCase):
             'actor': 'fake:user',
             'object': 'fake:post',
         }
-        with self.assertRaises(ErrorButDoNotRetryTask):
-            Fake.receive_as1(update)
+        _, code = Fake.receive_as1(update)
+        self.assertEqual(299, code)
 
         self.assertEqual(['fake:post'], Fake.fetched)
         self.assertIsNone(Object.get_by_id('fake:update'))
@@ -2922,14 +2920,14 @@ class ProtocolReceiveTest(TestCase):
         self.assertEqual([], Fake.sent)
 
     def test_repost_no_object_error(self):
-        with self.assertRaises(ErrorButDoNotRetryTask):
-            Fake.receive_as1({
-                'id': 'fake:share',
-                'objectType': 'activity',
-                'verb': 'share',
-                'actor': 'fake:user',
-                'object': None,
+        _, code = Fake.receive_as1({
+            'id': 'fake:share',
+            'objectType': 'activity',
+            'verb': 'share',
+            'actor': 'fake:user',
+            'object': None,
         })
+        self.assertEqual(299, code)
 
     def test_like(self):
         OtherFake.fetchable['other:post'] = {
@@ -2958,14 +2956,14 @@ class ProtocolReceiveTest(TestCase):
         self.assertEqual([('other:post:target', like_obj.as1)], OtherFake.sent)
 
     def test_like_no_object_error(self):
-        with self.assertRaises(ErrorButDoNotRetryTask):
-            Fake.receive_as1({
-                'id': 'fake:like',
-                'objectType': 'activity',
-                'verb': 'like',
-                'actor': 'fake:user',
-                'object': None,
+        _, code = Fake.receive_as1({
+            'id': 'fake:like',
+            'objectType': 'activity',
+            'verb': 'like',
+            'actor': 'fake:user',
+            'object': None,
         })
+        self.assertEqual(299, code)
 
     def test_delete(self):
         self.make_followers()
@@ -3041,14 +3039,14 @@ class ProtocolReceiveTest(TestCase):
             'author': 'fake:user',
         })
 
-        with self.assertRaises(ErrorButDoNotRetryTask):
-            Fake.receive_as1({
-                'objectType': 'activity',
-                'verb': 'delete',
-                'id': 'fake:delete',
-                'actor': 'fake:user',
-                'object': 'fake:post',
-            }, authed_as='fake:eve')
+        _, code = Fake.receive_as1({
+            'objectType': 'activity',
+            'verb': 'delete',
+            'id': 'fake:delete',
+            'actor': 'fake:user',
+            'object': 'fake:post',
+        }, authed_as='fake:eve')
+        self.assertEqual(299, code)
 
         self.assertFalse(Object.get_by_id('fake:post').deleted)
         self.assertEqual([], Fake.sent)
@@ -3352,7 +3350,8 @@ class ProtocolReceiveTest(TestCase):
             'foo': 'bar',
         }
         obj = Object(id='fake:profile:user', source_protocol='fake', our_as1=profile)
-        Fake.receive(obj)
+        _, code = Fake.receive(obj)
+        self.assertEqual(204, code)
 
         # profile object
         self.assert_object('fake:profile:user',
@@ -3509,51 +3508,51 @@ class ProtocolReceiveTest(TestCase):
         self.assertEqual([], OtherFake.sent)
 
     def test_follow_no_actor(self):
-        with self.assertRaises(ErrorButDoNotRetryTask):
-            Fake.receive_as1({
-                'id': 'fake:follow',
-                'objectType': 'activity',
-                'verb': 'follow',
-                'object': 'fake:user',
-            })
+        _, code = Fake.receive_as1({
+            'id': 'fake:follow',
+            'objectType': 'activity',
+            'verb': 'follow',
+            'object': 'fake:user',
+        })
+        self.assertEqual(299, code)
 
         self.assertEqual([], Follower.query().fetch())
         self.assertEqual([], Fake.sent)
 
     def test_follow_no_object(self):
-        with self.assertRaises(ErrorButDoNotRetryTask):
-            Fake.receive_as1({
-                'id': 'other:follow',
-                'objectType': 'activity',
-                'verb': 'follow',
-                'actor': 'other:alice',
-            })
+        _, code = Fake.receive_as1({
+            'id': 'other:follow',
+            'objectType': 'activity',
+            'verb': 'follow',
+            'actor': 'other:alice',
+        })
+        self.assertEqual(299, code)
 
         self.assertEqual([], Follower.query().fetch())
         self.assertEqual([], Fake.sent)
 
     def test_follow_object_unknown_protocol(self):
-        with self.assertRaises(ErrorButDoNotRetryTask):
-            Fake.receive_as1({
-                'id': 'other:follow',
-                'objectType': 'activity',
-                'verb': 'follow',
-                'actor': 'other:alice',
-                'object': 'unknown:bob',
-            })
+        _, code = Fake.receive_as1({
+            'id': 'other:follow',
+            'objectType': 'activity',
+            'verb': 'follow',
+            'actor': 'other:alice',
+            'object': 'unknown:bob',
+        })
+        self.assertEqual(299, code)
 
         self.assertEqual([], Follower.query().fetch())
         self.assertEqual([], Fake.sent)
 
     def test_follow_cant_fetch_follower(self):
-        with self.assertRaises(ErrorButDoNotRetryTask):
-            Fake.receive_as1({
-                'id': 'fake:follow',
-                'objectType': 'activity',
-                'verb': 'follow',
-                'actor': 'fake:eve',
-                'object': 'other:bob'
-            })
+        _, code = Fake.receive_as1({
+            'id': 'fake:follow',
+            'objectType': 'activity',
+            'verb': 'follow',
+            'actor': 'fake:eve',
+            'object': 'other:bob'
+        })
+        self.assertEqual(299, code)
 
         self.assertEqual([], Fake.sent)
         self.assertEqual([], OtherFake.sent)
@@ -3568,8 +3567,8 @@ class ProtocolReceiveTest(TestCase):
             'object': 'fake:follow'
         }
 
-        with self.assertRaises(NoContent):
-            _, status = OtherFake.receive_as1(accept_as1)
+        _, status = OtherFake.receive_as1(accept_as1)
+        self.assertEqual(204, status)
 
         self.assertEqual([], Fake.sent)
         self.assertEqual([], OtherFake.sent)
@@ -3651,8 +3650,8 @@ class ProtocolReceiveTest(TestCase):
             'actor': 'other:alice',
             'object': 'not a known id format',
         }
-        with self.assertRaises(ErrorButDoNotRetryTask):
-            OtherFake.receive_as1(stop_following_as1)
+        _, code = OtherFake.receive_as1(stop_following_as1)
+        self.assertEqual(299, code)
 
         self.assertEqual([], OtherFake.sent)
 
@@ -3703,14 +3702,14 @@ class ProtocolReceiveTest(TestCase):
             'object': 'fake:post',
         })
 
-        with self.assertRaises(ErrorButDoNotRetryTask):
-            Fake.receive_as1({
-                'objectType': 'activity',
-                'verb': 'undo',
-                'id': 'fake:undo',
-                'actor': 'fake:user',
-                'object': 'fake:repost',
-            }, authed_as='fake:eve')
+        _, code = Fake.receive_as1({
+            'objectType': 'activity',
+            'verb': 'undo',
+            'id': 'fake:undo',
+            'actor': 'fake:user',
+            'object': 'fake:repost',
+        }, authed_as='fake:eve')
+        self.assertEqual(299, code)
 
         self.assertFalse(Object.get_by_id('fake:repost').deleted)
         self.assertEqual([], Fake.sent)
@@ -3766,14 +3765,14 @@ class ProtocolReceiveTest(TestCase):
         self.user.copies = [Target(uri='other:user', protocol='other')]
         self.user.put()
 
-        with self.assertRaises(NoContent):
-            OtherFake.receive_as1({
-                'id': 'other:follow',
-                'objectType': 'activity',
-                'verb': 'follow',
-                'actor': 'fake:user',
-                'object': 'other:alice',
-            })
+        _, code = OtherFake.receive_as1({
+            'id': 'other:follow',
+            'objectType': 'activity',
+            'verb': 'follow',
+            'actor': 'fake:user',
+            'object': 'other:alice',
+        })
+        self.assertEqual(204, code)
         self.assertEqual([], OtherFake.sent)
         self.assertEqual([], Fake.sent)
         self.assertIsNone(Object.get_by_id('other:follow'))
@@ -3805,14 +3804,14 @@ class ProtocolReceiveTest(TestCase):
         self.assertEqual(0, Follower.query().count())
 
     def test_activity_id_blocklisted(self):
-        with self.assertRaises(ErrorButDoNotRetryTask):
-            Fake.receive_as1({
-                'objectType': 'activity',
-                'verb': 'delete',
-                'id': 'fake:blocklisted:delete',
-                'actor': 'fake:user',
-                'object': 'fake:foo',
-            })
+        _, code = Fake.receive_as1({
+            'objectType': 'activity',
+            'verb': 'delete',
+            'id': 'fake:blocklisted:delete',
+            'actor': 'fake:user',
+            'object': 'fake:foo',
+        })
+        self.assertEqual(299, code)
 
     def test_resolve_ids_follow(self):
         self.alice.obj.our_as1 = {'x': 'y'}
@@ -3865,6 +3864,7 @@ class ProtocolReceiveTest(TestCase):
         obj = Object(id='fake:share', our_as1=share, source_protocol='fake')
         _, code = Fake.receive(obj, authed_as='fake:user')
         self.assertEqual(204, code)
+
         self.assert_equals(share, obj.our_as1)
 
         # matching copy object
@@ -4155,8 +4155,8 @@ class ProtocolReceiveTest(TestCase):
             'actor': 'efake:user',
             'object': 'efake:bot',
         }
-        with self.assertRaises(ErrorButDoNotRetryTask):
-            _, code = ExplicitFake.receive_as1(follow_as1)
+        _, code = ExplicitFake.receive_as1(follow_as1)
+        self.assertEqual(299, code)
 
         user = user.key.get()
         self.assertEqual('requires-name', user.status)
@@ -4197,8 +4197,8 @@ class ProtocolReceiveTest(TestCase):
             'actor': 'efake:user-nope',
             'object': 'efake:bot',
         }
-        with self.assertRaises(ErrorButDoNotRetryTask):
-            _, code = ExplicitFake.receive_as1(follow_as1)
+        _, code = ExplicitFake.receive_as1(follow_as1)
+        self.assertEqual(299, code)
 
         user = user.key.get()
         self.assertFalse(user.is_enabled(Fake))
@@ -4261,13 +4261,13 @@ class ProtocolReceiveTest(TestCase):
     def test_too_old(self):
         Follower.get_or_create(to=self.user, from_=self.alice)
 
-        with self.assertRaises(NoContent):
-            Fake.receive_as1({
-                'id': 'fake:post',
-                'objectType': 'note',
-                'author': 'fake:user',
-                'published': '2021-12-14T03:04:05+00:00',  # NOW - 2w
-            })
+        _, code = Fake.receive_as1({
+            'id': 'fake:post',
+            'objectType': 'note',
+            'author': 'fake:user',
+            'published': '2021-12-14T03:04:05+00:00',  # NOW - 2w
+        })
+        self.assertEqual(204, code)
         self.assertIsNone(Object.get_by_id('fake:post'))
 
         self.assertEqual([], Fake.sent)
@@ -4276,13 +4276,13 @@ class ProtocolReceiveTest(TestCase):
     def test_too_old_published_without_timezone(self):
         Follower.get_or_create(to=self.user, from_=self.alice)
 
-        with self.assertRaises(NoContent):
-            Fake.receive_as1({
-                'id': 'fake:post',
-                'objectType': 'note',
-                'author': 'fake:user',
-                'published': '2021-12-14T03:04:05',  # NOW - 2w
-            })
+        _, code = Fake.receive_as1({
+            'id': 'fake:post',
+            'objectType': 'note',
+            'author': 'fake:user',
+            'published': '2021-12-14T03:04:05',  # NOW - 2w
+        })
+        self.assertEqual(204, code)
         self.assertIsNone(Object.get_by_id('fake:post'))
 
         self.assertEqual([], Fake.sent)
@@ -4564,14 +4564,14 @@ class ProtocolReceiveTest(TestCase):
             'author': 'other:bob',
         }
 
-        with self.assertRaises(ErrorButDoNotRetryTask):
-            Fake.receive_as1({
-                'id': 'fake:like',
-                'objectType': 'activity',
-                'verb': 'like',
-                'actor': 'fake:user',
-                'object': 'fake:post',
-            }, authed_as='fake:other')
+        _, code = Fake.receive_as1({
+            'id': 'fake:like',
+            'objectType': 'activity',
+            'verb': 'like',
+            'actor': 'fake:user',
+            'object': 'fake:post',
+        }, authed_as='fake:other')
+        self.assertEqual(299, code)
 
         self.assertIsNone(Object.get_by_id('fake:like'))
 
@@ -4580,13 +4580,12 @@ class ProtocolReceiveTest(TestCase):
         self.user.obj.our_as1 = {'summary': '#nobridge'}
         self.user.obj.put()
 
-        with self.assertRaises(NoContent):
-            Fake.receive_as1({
-                'id': 'fake:post',
-                'objectType': 'note',
-                'author': 'fake:user',
-            })
-
+        _, code = Fake.receive_as1({
+            'id': 'fake:post',
+            'objectType': 'note',
+            'author': 'fake:user',
+        })
+        self.assertEqual(204, code)
         self.assertEqual([], Fake.sent)
 
     @patch('oauth_dropins.webutil.appengine_config.tasks_client.create_task')
@@ -4615,10 +4614,10 @@ class ProtocolReceiveTest(TestCase):
 
         for activity in event, post_event, add:
             with self.subTest(activity=activity):
-                with self.assertRaises(NoContent):
-                    Fake.receive_as1(activity)
-                    self.assertEqual([], Fake.sent)
-                    mock_create_task.assert_not_called()
+                _, status = Fake.receive_as1(activity)
+                self.assertEqual(204, status)
+                self.assertEqual([], Fake.sent)
+                mock_create_task.assert_not_called()
 
     @patch('oauth_dropins.webutil.appengine_config.tasks_client.create_task')
     def test_create_post_send_tasks(self, mock_create_task):
