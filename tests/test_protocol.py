@@ -1902,7 +1902,9 @@ class ProtocolReceiveTest(TestCase):
             'id': 'other:orig',
             'actor': 'other:user',
         })
-        self.store_object(id='fake:share', source_protocol='fake', our_as1={
+        self.store_object(id='fake:share', source_protocol='fake',
+                          copies=[Target(uri='other:share', protocol='other')],
+                          our_as1={
             'objectType': 'activity',
             'verb': 'share',
             'id': 'fake:share',
@@ -1923,6 +1925,7 @@ class ProtocolReceiveTest(TestCase):
             ('other:alice:target', undo_as1),
             ('other:bob:target', undo_as1),
             ('other:orig:target', undo_as1),
+            ('other:share:target', undo_as1),
         ], OtherFake.sent)
 
     @patch.object(ATProto, 'send', return_value=True)
@@ -3668,6 +3671,8 @@ class ProtocolReceiveTest(TestCase):
         }
         self.assertEqual(('OK', 202), Fake.receive_as1(block_as1))
         self.assertEqual([('other:bob:target', block_as1)], OtherFake.sent)
+        self.assertEqual([Target(protocol='other', uri='other:o:fa:fake:block')],
+                         Object.get_by_id('fake:block').copies)
 
     def test_undo_block(self):
         eve = self.make_user(id='other:eve', cls=OtherFake,
@@ -3906,6 +3911,8 @@ class ProtocolReceiveTest(TestCase):
                 'url': 'fake:bob',
             }],
         }
+        self.store_object(id='fake:post',
+                          copies=[Target(uri='other:post', protocol='other')])
 
         # no matching copies
         _, code = Fake.receive_as1(reply)
@@ -3930,15 +3937,9 @@ class ProtocolReceiveTest(TestCase):
         memcache.pickle_memcache.client_pool.clear()
 
         self.assertEqual(('OK', 202), Fake.receive_as1(reply, new=True))
-        self.assertEqual({
-            'id': 'fake:reply',
-            'objectType': 'note',
-            'author': 'fake:user',
-            'content': 'foo',
-            'inReplyTo': [
-                'fake:unknown-post',
-                'fake:post',
-            ],
+
+        other_reply = {
+            **reply,
             'tags': [{
                 'objectType': 'mention',
                 'url': 'other:alice',
@@ -3946,7 +3947,21 @@ class ProtocolReceiveTest(TestCase):
                 'objectType': 'mention',
                 'url': 'other:bob',
             }],
-        }, Object.get_by_id('fake:reply').our_as1)
+        }
+        # TODO: this seems wrong, we shouldn't overwrite the Object to convert
+        # mentions to an arbitrary non-native protocol (other), right?
+        self.assertEqual(other_reply, Object.get_by_id('fake:reply').our_as1)
+
+        other_reply_create = {
+            'objectType': 'activity',
+            'verb': 'post',
+            'id': 'fake:reply#bridgy-fed-create',
+            'actor': 'fake:user',
+            'object': other_reply,
+            'published': '2022-01-02T03:04:05+00:00',
+        }
+        self.assertEqual([('other:bob:target', other_reply_create)],
+                         OtherFake.sent)
 
     def test_follow_and_block_bot_user_sets_enabled_protocols(self):
         # bot user
@@ -3972,14 +3987,15 @@ class ProtocolReceiveTest(TestCase):
         ExplicitFake.fetchable = {'efake:user': {'profile': 'info'}}
 
         # fake protocol isn't enabled yet, block should be a noop
-        self.assertEqual(('OK', 200), ExplicitFake.receive_as1(block))
+        _, code = ExplicitFake.receive_as1(block)
+        self.assertEqual(200, code)
         user = user.key.get()
         self.assertEqual([], user.enabled_protocols)
         self.assertEqual([], Fake.created_for)
 
         # follow should add to enabled_protocols
         _, code = ExplicitFake.receive_as1(follow)
-        self.assertEqual(204, code)
+        self.assertEqual(202, code)
         user = user.key.get()
         self.assertEqual({
             'id': 'efake:user',
@@ -4022,7 +4038,7 @@ class ProtocolReceiveTest(TestCase):
         follow['id'] += '2'
         Fake.created_for = []
         _, code = ExplicitFake.receive_as1(follow)
-        self.assertEqual(204, code)
+        self.assertEqual(202, code)
         user = user.key.get()
         self.assertEqual(['fake'], user.enabled_protocols)
         self.assertTrue(user.is_enabled(Fake))
@@ -4073,7 +4089,7 @@ class ProtocolReceiveTest(TestCase):
             'actor': 'efake:user',
             'object': 'fa.brid.gy',
         })
-        self.assertEqual(204, code)
+        self.assertEqual(202, code)
 
         user = user.key.get()
         self.assertTrue(user.is_enabled(Fake))
@@ -4105,7 +4121,7 @@ class ProtocolReceiveTest(TestCase):
             'actor': 'efake:user',
             'object': 'efake:bot',
         })
-        self.assertEqual(204, code)
+        self.assertEqual(202, code)
 
         user = user.key.get()
         self.assertTrue(user.is_enabled(Fake))
@@ -4133,7 +4149,7 @@ class ProtocolReceiveTest(TestCase):
             'actor': 'efake:user',
             'object': 'efake:bot',
         })
-        self.assertEqual(204, code)
+        self.assertEqual(202, code)
 
         user = user.key.get()
         self.assertIsNone(user.status)
@@ -4245,17 +4261,19 @@ class ProtocolReceiveTest(TestCase):
         self.assertTrue(user.is_enabled(Fake))
         self.assertEqual([copy], user.copies)
 
+        # block disables fake
         self.assertEqual(('OK', 200), ExplicitFake.receive_as1(block))
         user = user.key.get()
         self.assertFalse(user.is_enabled(Fake))
         self.assertEqual([copy], user.copies)
 
-        # fake protocol isn't enabled yet, block should be a noop
+        # follow enables fake
         ExplicitFake.fetchable = {'efake:user': {'profile': 'info'}}
         _, code = ExplicitFake.receive_as1(follow)
-        self.assertEqual(204, code)
+        self.assertEqual(202, code)
         user = user.key.get()
         self.assertEqual(['fake'], user.enabled_protocols)
+        self.assertEqual([copy], user.copies)
         self.assertEqual(['efake:user'], Fake.created_for)
 
     def test_too_old(self):
@@ -4357,7 +4375,7 @@ class ProtocolReceiveTest(TestCase):
             self.as2_resp(actor),
         ]
 
-        _, code = got = ActivityPub.receive(Object(our_as1={
+        _, code = ActivityPub.receive(Object(our_as1={
             'id': 'https://lim.it/alice#update',
             'objectType': 'activity',
             'verb': 'update',

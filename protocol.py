@@ -1379,6 +1379,8 @@ class Protocol:
                                                followee=bot, follow=obj)
                     raise
                 proto.bot_maybe_follow_back(from_user)
+                from_cls.handle_follow(obj, from_user=from_user)
+                return 'OK', 202
 
             from_cls.handle_follow(obj, from_user=from_user)
 
@@ -1622,7 +1624,11 @@ class Protocol:
             targets = {t: obj for t, obj in targets.items()
                        if t.protocol == to_proto.LABEL}
         if not targets:
-            return r'No targets, nothing to do ¯\_(ツ)_/¯', 204
+            # don't raise via error() because we call deliver in code paths where
+            # we want to continue after
+            msg = r'No targets, nothing to do ¯\_(ツ)_/¯'
+            logger.info(msg)
+            return msg, 204
 
         # store object that targets() updated
         if crud_obj and crud_obj.dirty:
@@ -1662,7 +1668,7 @@ class Protocol:
 
         Returns:
           dict: maps :class:`models.Target` to original (in response to)
-          :class:`models.Object`, if any, otherwise None
+          :class:`models.Object`
         """
         logger.debug('Finding recipients and their targets')
 
@@ -1716,7 +1722,7 @@ class Protocol:
         logger.info(f'Raw targets: {target_uris}')
 
         # which protocols should we allow delivering to?
-        to_protocols = []
+        to_protocols = []  # elements are Protocol subclasses
         for label in (list(from_user.DEFAULT_ENABLED_PROTOCOLS)
                       + from_user.enabled_protocols):
             if not (proto := PROTOCOLS.get(label)):
@@ -1763,6 +1769,8 @@ class Protocol:
                     continue
 
             util.add(to_protocols, proto)
+
+        logger.info(f'allowed protocols {[p.LABEL for p in to_protocols]}')
 
         # process direct targets
         for target_id in target_uris:
@@ -1855,8 +1863,13 @@ Hi! You <a href="{inner_obj_as1.get('url') or inner_obj_id}">recently {verb}</a>
             else:
                 inner_obj = Object(id=inner_obj_id, our_as1=inner_obj_as1)
             if inner_obj:
-                targets.update(from_cls.targets(inner_obj, from_user=from_user,
-                                                internal=True))
+                for target, target_obj in from_cls.targets(
+                        inner_obj, from_user=from_user, internal=True).items():
+                    targets[target] = target_obj
+                    util.add(to_protocols, PROTOCOLS[target.protocol])
+
+        if not to_protocols:
+            return {}
 
         logger.info(f'Direct targets: {[t.uri for t in targets.keys()]}')
 
@@ -1867,9 +1880,10 @@ Hi! You <a href="{inner_obj_as1.get('url') or inner_obj_id}">recently {verb}</a>
             return targets
 
         followers = []
+        is_undo_block = obj.type == 'undo' and inner_obj_as1.get('verb') == 'block'
         if (obj.type in ('post', 'update', 'delete', 'move', 'share', 'undo')
-                and (not is_reply or is_self_reply)):
-            logger.info(f'Delivering to followers of {user_key}')
+                and (not is_reply or is_self_reply) and not is_undo_block):
+            logger.info(f'Delivering to followers of {user_key} on {[p.LABEL for p in to_protocols]}')
             followers = []
             for f in Follower.query(Follower.to == user_key,
                                     Follower.status == 'active'):

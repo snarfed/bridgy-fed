@@ -1174,7 +1174,7 @@ class ActivityPubTest(TestCase):
             'actor': 'https://mas.to/users/foo',
             'object': 'https://efake.brid.gy/efake.brid.gy',
         }), authed_as='https://mas.to/users/foo')
-        self.assertEqual(204, code)
+        self.assertEqual(202, code)
 
         self.assertEqual(['https://mas.to/users/foo'],
                          ExplicitFake.created_for)

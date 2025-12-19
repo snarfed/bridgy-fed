@@ -789,7 +789,7 @@ To disable these messages, reply with the text 'mute'.""",
         })
         headers = sign('/bsky.brid.gy/inbox', body, key_id='https://inst/alice')
         resp = self.client.post('/bsky.brid.gy/inbox', data=body, headers=headers)
-        self.assertEqual(204, resp.status_code)
+        self.assertEqual(202, resp.status_code)
 
         # check results
         user = ActivityPub.get_by_id('https://inst/alice')
@@ -1411,16 +1411,13 @@ To disable these messages, reply with the text 'mute'.""",
         self.firehose(repo='did:plc:alice', action='delete', seq=123,
                       path='app.bsky.graph.block/123')
 
-        self.assertEqual(1, mock_post.call_count)
-        args, kwargs = mock_post.call_args
-        self.assertEqual((bob.obj.as2['inbox'],), args)
-        self.assert_equals({
-            '@context': 'https://www.w3.org/ns/activitystreams',
+        self.assert_ap_deliveries(mock_post, [bob.obj.as2['inbox']], from_user=alice,
+                                  data={
             'type': 'Undo',
             'id': 'https://bsky.brid.gy/convert/ap/at://did:plc:alice/app.bsky.graph.block/123#undo',
             'actor': 'https://bsky.brid.gy/ap/did:plc:alice',
             'object': 'https://bsky.brid.gy/convert/ap/at://did:plc:alice/app.bsky.graph.block/123',
-        }, json_loads(kwargs['data']), ignore=['@context', 'contentMap', 'to', 'cc'])
+        }, ignore=['@context', 'contentMap', 'to', 'cc'])
 
     def test_activitypub_like_by_disabled_user_of_atproto_post(self):
         """AP like of Bluesky post by an AP user who's not enabled for ATProto.
@@ -2448,7 +2445,7 @@ To disable these messages, reply with the text 'mute'.""",
         })
         headers = sign('/nostr.brid.gy/inbox', body, key_id='https://inst/alice')
         resp = self.client.post('/nostr.brid.gy/inbox', data=body, headers=headers)
-        self.assertEqual(204, resp.status_code)
+        self.assertEqual(202, resp.status_code)
 
         user = ActivityPub.get_by_id('https://inst/alice')
         self.assertTrue(user.is_enabled(Nostr))
