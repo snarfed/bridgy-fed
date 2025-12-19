@@ -1841,12 +1841,11 @@ class ProtocolReceiveTest(TestCase):
         self.assertEqual([], ExplicitFake.sent)
         self.assertEqual([], Fake.sent)
 
-    @patch.object(ATProto, 'send', return_value=True)
-    def test_repost_of_not_bridged_post_fails_for_retry(self, mock_send):
-        self.user.enabled_protocols = ['atproto']
+    def test_repost_of_not_bridged_post_last_retry_skips_unbridged_protocol(self):
+        self.user.enabled_protocols = ['other', 'efake']
         self.user.put()
 
-        self.alice.enabled_protocols = ['atproto']
+        self.alice.enabled_protocols = ['other', 'efake']
         self.alice.put()
 
         self.store_object(id='other:post', source_protocol='other', our_as1={
@@ -1855,22 +1854,25 @@ class ProtocolReceiveTest(TestCase):
             'author': 'other:alice',
         })
 
-        # we might be in the middle of bridging the original post. so, make sure we
-        # return an error code that Cloud Tasks considers a failure, so that the task
-        # gets retried later, hopefully after the OP is bridged
-        # https://github.com/snarfed/bridgy-fed/issues/1361
-        _, code = Fake.receive_as1({
+        with app.test_request_context('/', headers={
+                protocol.TASK_ATTEMPTS_HEADER: str(protocol.TASK_ATTEMPTS_RECEIVE),
+        }):
+            _, code = Fake.receive_as1({
+                'id': 'fake:repost',
+                'objectType': 'activity',
+                'verb': 'share',
+                'actor': 'fake:user',
+                'object': 'other:post',
+            })
+
+        self.assertEqual(202, code)
+        self.assertEqual([('other:post:target', {
+            'actor': 'fake:user',
             'id': 'fake:repost',
+            'object': 'other:post',
             'objectType': 'activity',
             'verb': 'share',
-            'actor': 'fake:user',
-            'object': 'other:post',
-        })
-        self.assertEqual(304, code)
-
-        self.assertEqual(0, mock_send.call_count)
-        self.assertEqual([], Fake.sent)
-        self.assertEqual([], OtherFake.sent)
+        })], OtherFake.sent)
 
     def test_repost_of_not_bridged_user_skips_enabled_protocol_with_followers(self):
         self.alice.enabled_protocols = ['efake']

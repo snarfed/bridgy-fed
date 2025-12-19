@@ -22,6 +22,7 @@ queue:
   rate: 500/s
   max_concurrent_requests: 5000
   retry_parameters:
+    # WARNING: keep this in sync protocol.RECEIVE_TASK_ATTEMPTS (- 1)!
     task_retry_limit: 4
     # WARNING: keep this above protocol.MEMCACHE_LEASE_EXPIRATION!
     min_backoff_seconds: 30
