@@ -62,7 +62,8 @@ CREATE_MAX_AGE = timedelta(weeks=2)
 # WARNING: keep this below the receive queue's min_backoff_seconds in queue.yaml!
 MEMCACHE_LEASE_EXPIRATION = timedelta(seconds=25)
 MEMCACHE_DOWN_TASK_DELAY = timedelta(minutes=5)
-# WARNING: keep this in sync with queue.yaml's receive task_retry_limit (+ 1)!
+# WARNING: keep this in sync with queue.yaml's receive and webmention
+# task_retry_limit (+ 1)!
 TASK_ATTEMPTS_RECEIVE = 5
 # https://docs.cloud.google.com/tasks/docs/creating-appengine-handlers#reading-headers
 TASK_ATTEMPTS_HEADER = 'X-AppEngine-TaskExecutionCount'
