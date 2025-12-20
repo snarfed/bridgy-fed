@@ -1768,8 +1768,7 @@ class ActivityPubTest(TestCase):
 
     def test_inbox_http_sig_is_not_actor_author(self, mock_head, mock_get, mock_post):
         mock_get.side_effect = [
-            self.as2_resp({**ACTOR, 'id': 'https://mas.to/alice'}),
-            self.as2_resp(ACTOR),  # foo
+            self.as2_resp(ACTOR),  # https://mas.to/users/foo
         ]
 
         body = json_dumps({
@@ -1780,7 +1779,6 @@ class ActivityPubTest(TestCase):
         got = self.client.post('/ap/sharedInbox', data=body, headers=headers)
         self.assertEqual(299, got.status_code, got.get_data(as_text=True))
 
-    # TODO: this test fails when run on its own. why?
     @patch('activitypub.NO_AUTH_DOMAINS', ('no.auth',))
     def test_inbox_NO_AUTH_DOMAINS(self, *_):
         id = 'https://no.auth/a-group'
@@ -1951,6 +1949,8 @@ class ActivityPubTest(TestCase):
         mock_get.side_effect = [
             actor,
             actor,
+            self.as2_resp(NOTE),
+            self.as2_resp(NOTE),
             self.as2_resp(NOTE),
         ]
 
@@ -3193,6 +3193,19 @@ class ActivityPubUtilsTest(TestCase):
         mock_get.assert_has_calls((
             self.as2_req('http://orig'),
             self.as2_req('http://as2', headers=as2.CONNEG_HEADERS),
+        ))
+
+    @patch('requests.get')
+    def test_fetch_returns_different_id(self, mock_get):
+        mock_get.return_value = self.as2_resp({'id': 'http://returned'})
+
+        obj = Object(id='http://requested')
+        self.assertTrue(ActivityPub.fetch(obj))
+        self.assertEqual({'id': 'http://returned'}, obj.as2)
+        self.assertEqual('http://returned', obj.key.id())
+
+        mock_get.assert_has_calls((
+            self.as2_req('http://requested'),
         ))
 
     @patch('requests.get')

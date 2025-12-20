@@ -235,14 +235,18 @@ class ConvertTest(testutil.TestCase):
 
     @patch('requests.get')
     def test_activitypub_to_web_fetch(self, mock_get):
-        mock_get.return_value = self.as2_resp(as2.from_as1(COMMENT))
         url = 'https://user.com/bar?baz=baj&biff'
+        mock_get.return_value = self.as2_resp(as2.from_as1({**COMMENT, 'id': url}))
 
         resp = self.client.get(f'/convert/web/{url}',
                                base_url='https://ap.brid.gy/')
         self.assertEqual(200, resp.status_code, resp.get_data(as_text=True))
         self.assertEqual(CONTENT_TYPE_HTML, resp.content_type)
-        self.assert_multiline_equals(HTML, resp.get_data(as_text=True),
+
+        expected = HTML.replace(
+            '<span class="p-uid">tag:fake.com:123456</span>',
+            '<span class="p-uid">https://ap.brid.gy/convert/web/https://user.com/bar?baz=baj&biff</span>')
+        self.assert_multiline_equals(expected, resp.get_data(as_text=True),
                                      ignore_blanks=True)
 
         mock_get.assert_has_calls((self.as2_req(url),))

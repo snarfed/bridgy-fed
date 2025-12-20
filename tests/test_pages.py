@@ -802,7 +802,8 @@ class PagesTest(TestCase):
 
     @patch('requests.get')
     def test_settings_on_login_create_new_user(self, mock_get):
-        mock_get.return_value = self.as2_resp(ACTOR_AS2)
+        actor_as2 = {**ACTOR_AS2, 'id': 'http://b.c/a'}
+        mock_get.return_value = self.as2_resp(actor_as2)
 
         _, auth = self.make_logged_in_mastodon_user()
 
@@ -810,7 +811,7 @@ class PagesTest(TestCase):
         self.assertEqual(200, resp.status_code)
 
         user = ActivityPub.get_by_id('http://b.c/a', allow_opt_out=True)
-        self.assertEqual(ACTOR_AS2, user.obj.as2)
+        self.assertEqual(actor_as2, user.obj.as2)
 
         body = resp.get_data(as_text=True)
         self.assert_multiline_in('Not bridging because your account doesn&#39;t have a profile picture', body)

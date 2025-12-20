@@ -215,7 +215,7 @@ REPLY_HTML = """\
 <div class="h-entry">
 <p class="e-content p-name">
 <a class="u-in-reply-to" href="http://no.tt/fediverse"></a>
-<a class="u-in-reply-to" href="https://mas.to/toot">foo ☕ bar</a>
+<a class="u-in-reply-to" href="https://mas.to/toot/id">foo ☕ bar</a>
 <a href="http://localhost/"></a>
 </p>
 <a class="p-author h-card" href="https://user.com/">Ms. ☕ Baz</a>
@@ -270,12 +270,12 @@ AS2_CREATE = {
         'name': 'foo ☕ bar',
         'content': """\
 <p><a class="u-in-reply-to" href="http://no.tt/fediverse"></a>
-<a class="u-in-reply-to" href="https://mas.to/toot">foo ☕ bar</a>
+<a class="u-in-reply-to" href="https://mas.to/toot/id">foo ☕ bar</a>
 <a href="http://localhost/"></a></p>""",
         'contentMap': {
             'en': """\
 <p><a class="u-in-reply-to" href="http://no.tt/fediverse"></a>
-<a class="u-in-reply-to" href="https://mas.to/toot">foo ☕ bar</a>
+<a class="u-in-reply-to" href="https://mas.to/toot/id">foo ☕ bar</a>
 <a href="http://localhost/"></a></p>""",
         },
         'inReplyTo': 'https://mas.to/toot/id',
@@ -847,7 +847,7 @@ class WebTest(TestCase):
             self.req('https://user.com/reply'),
             self.as2_req('http://no.tt/fediverse'),
             self.req('http://no.tt/fediverse'),
-            self.as2_req('https://mas.to/toot'),
+            self.as2_req('https://mas.to/toot/id'),
             self.as2_req('https://mas.to/author'),
         ))
 
@@ -971,7 +971,7 @@ class WebTest(TestCase):
             self.req('https://user.com/reply'),
             self.as2_req('http://no.tt/fediverse'),
             self.req('http://no.tt/fediverse'),
-            self.as2_req('https://mas.to/toot'),
+            self.as2_req('https://mas.to/toot/id'),
             self.as2_req('https://mas.to/author'),
         ))
 
@@ -1055,7 +1055,7 @@ class WebTest(TestCase):
             self.req('https://user.com/reply'),
             self.as2_req('http://no.tt/fediverse'),
             self.req('http://no.tt/fediverse'),
-            self.as2_req('https://mas.to/toot'),
+            self.as2_req('https://mas.to/toot/id'),
             self.as2_req('https://mas.to/toot/id', headers=as2.CONNEG_HEADERS),
             self.as2_req('https://mas.to/author'),
         ))
@@ -1133,7 +1133,7 @@ class WebTest(TestCase):
         missing_url = requests_response("""\
 <html>
 <body class="h-entry">
-<a class="u-repost-of p-name" href="https://mas.to/toot">reposted!</a>
+<a class="u-repost-of p-name" href="https://mas.to/toot/id">reposted!</a>
 <a class="p-author h-card" href="https://user.com/">Ms. ☕ Baz</a>
 <a href="http://localhost/"></a>
 </body>
@@ -1158,7 +1158,7 @@ class WebTest(TestCase):
 <html>
 <body class="h-entry">
 <a class="u-url" href="https://unused"></a>
-<a class="u-repost-of p-name" href="https://mas.to/toot">reposted!</a>
+<a class="u-repost-of p-name" href="https://mas.to/toot/id">reposted!</a>
 <a class="p-author h-card" href="https://user.com/">Ms. ☕ Baz</a>
 <a href="http://localhost/"></a>
 </body>
@@ -1194,7 +1194,9 @@ class WebTest(TestCase):
 </body>
 </html>
 """, url='https://user.com/repost')
-        mock_get.side_effect = [repost, ACTOR, TOOT_AS2, ACTOR]
+        # extra TOOT_AS2 fetches because its id is https://mas.to/toot/id which is
+        # different from https://mas.to/toot, the target of the mf2 repost
+        mock_get.side_effect = [repost, ACTOR, TOOT_AS2, TOOT_AS2, TOOT_AS2, ACTOR]
         mock_post.return_value = requests_response('abc xyz')
 
         got = self.post('/queue/webmention', data={

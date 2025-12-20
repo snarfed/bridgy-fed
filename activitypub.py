@@ -376,6 +376,9 @@ class ActivityPub(User, Protocol):
         url is HTML and it has a ``rel-alternate`` link with an AS2 content
         type, fetches and returns that URL.
 
+        If the fetched AS2 object's ``id`` is different from ``obj.id``, this
+        method overwrites ``obj.id`` with the fetched id!
+
         Includes an HTTP Signature with the request.
 
         * https://w3c.github.io/activitypub/#authorization
@@ -415,6 +418,8 @@ class ActivityPub(User, Protocol):
 
         resp, obj.as2 = cls._get(url, headers=CONNEG_HEADERS_AS2_HTML)
         if obj.as2:
+            if (got_id := obj.as2.get('id')) and got_id != url:
+                obj.key = Object(id=got_id).key
             return True
         elif not resp:
             return False
@@ -435,6 +440,8 @@ class ActivityPub(User, Protocol):
         if not obj.as2:
             return False
 
+        if (got_id := obj.as2.get('id')) and got_id != url:
+            obj.key = Object(id=got_id).key
         return True
 
     @classmethod
