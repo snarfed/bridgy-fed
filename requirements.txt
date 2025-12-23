@@ -8,7 +8,6 @@ git+https://github.com/snarfed/lexrpc.git#egg=lexrpc
 git+https://github.com/snarfed/mox3.git#egg=mox3
 git+https://github.com/snarfed/negotiator.git@py3#egg=negotiator
 git+https://github.com/snarfed/oauth-dropins.git#egg=oauth_dropins
-git+https://github.com/snarfed/requests_oauth2client.git@all#egg=requests_oauth2client
 git+https://github.com/snarfed/pymemcache.git@all#egg=pymemcache
 git+https://github.com/snarfed/secp256k1-py.git@setup-requires-pycparser#egg=secp256k1
 
@@ -103,6 +102,7 @@ PyYAML==6.0.3
 redis==6.4.0
 requests==2.32.5
 requests-oauthlib==2.0.0
+requests_oauth2client==1.8.0
 rsa==4.9.1
 sgmllib3k==1.0.0
 simple-websocket==1.1.0
