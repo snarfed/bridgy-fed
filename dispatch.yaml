@@ -10,6 +10,12 @@ dispatch:
   - url: "*/hub/*"
     service: hub
 
+  # Bounce's task queues.
+  #
+  # An alternative would be hostname. Right now, Bounce's tasks get sent to
+  # bounce-migrate.uc.r.appspot.com, BF's to *.bridgy-federated.uc.r.appspot.com.
+  # (as of 12/26/2025 they all go to atproto-hub.bridgy-federated.uc.r.appspot.com,
+  # oddly, even if they don't come from hub, its service name is hub anyway. odd.)
   - url: "*/queue/review"
     service: bounce
 
