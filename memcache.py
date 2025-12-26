@@ -35,13 +35,13 @@ kwargs = {
 }
 
 if appengine_info.DEBUG or appengine_info.LOCAL_SERVER:
-    logger.info('Using in memory mock memcache')
+    logger.info(f'Using in memory mock memcache: {kwargs}')
     memcache = PooledClient(max_pool_size=1, **kwargs)
     pickle_memcache = PooledClient(max_pool_size=1, serde=PickleSerde(), **kwargs)
     memcache.client_class = pickle_memcache.client_class = MockMemcacheClient
     global_cache = _InProcessGlobalCache()
 else:
-    logger.info('Using production Memorystore memcache')
+    logger.info(f'Using production Memorystore memcache: {kwargs}')
     memcache = PooledClient(**kwargs)
     pickle_memcache = PooledClient(serde=PickleSerde(), **kwargs)
     global_cache = MemcacheCache(memcache, strict_read=False, strict_write=False)
