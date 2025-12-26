@@ -1,26 +1,29 @@
 # https://cloud.google.com/appengine/docs/flexible/reference/dispatch-yaml?tab=python
 
 dispatch:
-  - url: "*/admin/hub"
+  - url: "*.brid.gy/admin/hub"
     service: hub
 
-  - url: "*/queue/atproto-commit"
+  - url: "*.brid.gy/queue/atproto-commit"
     service: hub
 
-  - url: "*/hub/*"
+  - url: "*.brid.gy/hub/*"
     service: hub
 
-  - url: "*/queue/*"
+  - url: "*.brid.gy/queue/*"
     service: router
 
-  - url: "*/cron/*"
+  - url: "*.brid.gy/cron/*"
     service: router
 
-  - url: "*/router/*"
+  - url: "*.brid.gy/router/*"
     service: router
 
-  - url: "*/xrpc/com.atproto.repo.importRepo"
+  - url: "*.brid.gy/xrpc/com.atproto.repo.importRepo"
     service: router
 
-  - url: "*/xrpc/com.atproto.sync.subscribeRepos"
+  - url: "*.brid.gy/xrpc/com.atproto.sync.subscribeRepos"
     service: hub
+
+  - url: "bounce.anew.social/*"
+    service: bounce
