@@ -153,6 +153,15 @@ class Nostr(User, Protocol):
             return self.npub()
 
     @ndb.ComputedProperty
+    def valid_nip05_domain(self):
+        """Domain from the NIP-05 identifier that we've resolved and verified.
+
+        Only needed so that we can query against it.
+        """
+        if self.valid_nip05 and '@' in self.valid_nip05:  # should we assert @ ?
+            return self.valid_nip05.split('@')[1]
+
+    @ndb.ComputedProperty
     def status(self):
         if self.manual_opt_out is False:
             return None
