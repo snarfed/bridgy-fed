@@ -4,19 +4,25 @@ dispatch:
   - url: "*.brid.gy/admin/hub"
     service: hub
 
-  - url: "*.brid.gy/queue/atproto-commit"
+  - url: "*/queue/atproto-commit"
     service: hub
 
-  - url: "*.brid.gy/hub/*"
+  - url: "*/hub/*"
     service: hub
 
-  - url: "*.brid.gy/queue/*"
+  - url: "*/queue/review"
+    service: bounce
+
+  - url: "*/queue/migrate"
+    service: bounce
+
+  - url: "*/queue/*"
     service: router
 
-  - url: "*.brid.gy/cron/*"
+  - url: "*/cron/*"
     service: router
 
-  - url: "*.brid.gy/router/*"
+  - url: "*/router/*"
     service: router
 
   - url: "*.brid.gy/xrpc/com.atproto.repo.importRepo"
