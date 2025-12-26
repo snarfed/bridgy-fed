@@ -55,11 +55,11 @@
       </form>
     </p>
 
-    {% if domain_blocklists %}
+    {% if user.domain_blocklists %}
     <p>
       Currently subscribed to these domain blocklists:
       <ul>
-        {% for blocklist in domain_blocklists %}
+        {% for blocklist in user.domain_blocklists %}
         <li>{{ blocklist.html_link()|safe }}</li>
         {% endfor %}
       </ul>

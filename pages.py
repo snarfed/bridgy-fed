@@ -270,15 +270,14 @@ def settings():
     for (login, _), user in zip(logins_and_user_keys, loaded):
         if user:
             user.logo = site_logo(login)
+            if user.blocks:
+                user.domain_blocklists = [
+                    obj for obj in ndb.get_multi(user.blocks[:PAGE_SIZE])
+                    if getattr(obj, 'is_csv', None)]
             users.append(user)
 
     if not users:
         return redirect('/login')
-
-    domain_blocklists = None
-    if user.blocks:
-        domain_blocklists = [obj for obj in ndb.get_multi(user.blocks[:PAGE_SIZE])
-                             if getattr(obj, 'is_csv', None)]
 
     return render(
         'settings.html',

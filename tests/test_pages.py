@@ -105,9 +105,13 @@ class PagesTest(TestCase):
             sess[LOGINS_SESSION_KEY] = (sess.get(LOGINS_SESSION_KEY, [])
                                         + [('BlueskyAuth', 'did:plc:abc')])
 
-        self.store_object(id='did:plc:abc', raw={'alsoKnownAs': ['at://ab.c']})
+        self.store_object(id='did:plc:abc', raw={
+            **DID_DOC,
+            'alsoKnownAs': ['at://ab.c'],
+        })
         user = self.make_user('did:plc:abc', cls=ATProto, obj_bsky={
             '$type': 'app.bsky.actor.profile',
+            'avatar': {'ref': 'bafyk123'},
         }, **props)
 
         return user, auth
@@ -781,7 +785,7 @@ class PagesTest(TestCase):
 
         body = resp.get_data(as_text=True)
         self.assert_multiline_in('<a href="/ap/@a@b.c">Bridging: </a>', body)
-        self.assert_multiline_in('<a class="h-card u-author mention" rel="me" href="https://bsky.app/profile/ab.c" title="ab.c">ab.c</a>', body)
+        self.assert_multiline_in('<a class="h-card u-author mention" rel="me" href="https://bsky.app/profile/ab.c" title="ab.c"><img src="https://some.pds/xrpc/com.atproto.sync.getBlob?did=did:plc:abc&cid=bafyk123" class="profile"> ab.c</a>', body)
         # TODO: bring back
         # self.assert_multiline_in('Not bridging.', body)
 
@@ -837,6 +841,7 @@ class PagesTest(TestCase):
         }, user.obj.bsky)
 
     def test_settings_subscribed_csv_blocklists(self):
+        self.make_logged_in_bluesky_user(enabled_protocols=['efake'])
         user, auth = self.make_logged_in_mastodon_user(
             enabled_protocols=['fake'], blocks=[
                 Object(id='http://foo', is_csv=True).put(),
@@ -847,8 +852,11 @@ class PagesTest(TestCase):
         self.assertEqual(200, resp.status_code)
         body = resp.get_data(as_text=True)
         self.assert_multiline_in('Currently subscribed to these domain blocklists:', body)
+        self.assertEqual(1, body.count('Currently subscribed to these domain blocklists:'))
         self.assert_multiline_in('<a href="http://foo">foo</a>', body)
+        self.assertEqual(1, body.count('<a href="http://foo">foo</a>'))
         self.assert_multiline_in('<a href="http://bar">bar</a>', body)
+        self.assertEqual(1, body.count('<a href="http://bar">bar</a>'))
 
     @patch('pages.PROTOCOLS', new={
         'activitypub': ActivityPub,
