@@ -54,13 +54,17 @@ from werkzeug.exceptions import HTTPException, NotFound
 import common
 from common import (
     CACHE_CONTROL,
-    DOMAIN_RE,
-    DOMAINS,
     error,
     FlashErrors,
-    PRIMARY_DOMAIN,
-    SUPERDOMAIN,
     USER_AGENT,
+)
+import domains
+from domains import (
+    DOMAIN_RE,
+    DOMAINS,
+    PRIMARY_DOMAIN,
+    PROTOCOL_DOMAINS,
+    SUPERDOMAIN,
 )
 from flask_app import app
 import ids
@@ -257,7 +261,7 @@ class ATProto(User, Protocol):
     ''
     LOGO_HTML = '<img src="/oauth_dropins_static/bluesky.svg">'
     ''
-    DEFAULT_TARGET = f'https://atproto{common.SUPERDOMAIN}'
+    DEFAULT_TARGET = f'https://atproto{SUPERDOMAIN}'
     """Note that PDS hostname is atproto.brid.gy here, not bsky.brid.gy. Bluesky
     team currently has our hostname as atproto.brid.gy in their federation
     test. also note that PDS URL shouldn't include trailing slash.
@@ -301,7 +305,7 @@ class ATProto(User, Protocol):
             assert id.removeprefix('did:plc:')
         elif id.startswith('did:web:'):
             domain = id.removeprefix('did:web:')
-            assert (re.match(common.DOMAIN_RE, domain)
+            assert (DOMAIN_RE.fullmatch(domain)
                     and not Protocol.is_blocklisted(domain)), domain
         else:
             assert False, f'{id} is not valid did:plc or did:web'
@@ -475,7 +479,7 @@ class ATProto(User, Protocol):
         # create new DID
         # PDS URL shouldn't include trailing slash!
         # https://atproto.com/specs/did#did-documents
-        pds_url = common.host_url().rstrip('/') if DEBUG else cls.DEFAULT_TARGET
+        pds_url = domains.host_url().rstrip('/') if DEBUG else cls.DEFAULT_TARGET
         logger.info(f'Creating new did:plc for {user.key.id()} {handle} {pds_url}')
         did_plc = did.create_plc(handle, pds_url=pds_url, post_fn=util.requests_post,
                                  also_known_as=user.id_uri())
@@ -1409,10 +1413,9 @@ def poll_chat_task():
 
 
 @app.get(f'/hashtag/<hashtag>')
-@flask_util.headers(common.CACHE_CONTROL)
+@flask_util.headers(CACHE_CONTROL)
 def hashtag_redirect(hashtag):
-    if (util.domain_from_link(request.host_url) ==
-            f'{ATProto.ABBREV}{common.SUPERDOMAIN}'):
+    if util.domain_from_link(request.host_url) == f'{ATProto.ABBREV}{SUPERDOMAIN}':
         try:
             return redirect(f'https://bsky.app/search?q=%23{hashtag}')
         except ValueError as e:
@@ -1422,7 +1425,7 @@ def hashtag_redirect(hashtag):
 
 
 @app.get('/.well-known/atproto-did')
-@flask_util.headers(common.CACHE_CONTROL)
+@flask_util.headers(CACHE_CONTROL)
 def atproto_did():
     """Programmatic handle resolution for bridged users.
 
@@ -1463,7 +1466,7 @@ def atproto_did():
 #
 @app.get('/.well-known/oauth-protected-resource')
 @app.get('/.well-known/oauth-authorization-server')
-@flask_util.headers(common.CACHE_CONTROL)
+@flask_util.headers(CACHE_CONTROL)
 def no_oauth():
     return "Sorry, Bridgy Fed doesn't serve OAuth. https://fed.brid.gy/docs#use-like-normal", 404
 
@@ -1480,7 +1483,7 @@ class BlueskyOAuthCallback(FlashErrors, oauth_dropins.bluesky.OAuthCallback):
 
 
 @app.get('/oauth/bluesky/client-metadata.json')
-@canonicalize_request_domain(common.PROTOCOL_DOMAINS, common.PRIMARY_DOMAIN)
+@canonicalize_request_domain(PROTOCOL_DOMAINS, PRIMARY_DOMAIN)
 @flask_util.headers(CACHE_CONTROL)
 def bluesky_oauth_client_metadata():
     """https://docs.bsky.app/docs/advanced-guides/oauth-client#client-and-server-metadata"""

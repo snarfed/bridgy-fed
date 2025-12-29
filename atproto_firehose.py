@@ -32,11 +32,11 @@ from atproto import ATProto, Cursor, DatastoreClient
 from common import (
     create_task,
     NDB_CONTEXT_KWARGS,
-    PROTOCOL_DOMAINS,
     report_error,
     report_exception,
     USER_AGENT,
 )
+from domains import PROTOCOL_DOMAINS
 from models import Object
 from protocol import DELETE_TASK_DELAY
 from web import Web

@@ -8,7 +8,6 @@ import logging
 import re
 from urllib.parse import urljoin, urlparse
 
-from common import DOMAIN_RE
 from flask import render_template, request
 from granary import as2
 from oauth_dropins.webutil import flask_util, util
@@ -18,11 +17,13 @@ from requests import RequestException
 
 import activitypub
 import common
-from common import (
-    CACHE_CONTROL,
+from common import CACHE_CONTROL
+import domains
+from domains import (
     LOCAL_DOMAINS,
     PRIMARY_DOMAIN,
     PROTOCOL_DOMAINS,
+    subdomain_wrap,
     SUPERDOMAIN,
 )
 from flask_app import app
@@ -52,10 +53,10 @@ class Webfinger(flask_util.XrdOrJrd):
         # logger.debug(f'Headers: {list(request.headers.items())}')
 
         resource = flask_util.get_required_param('resource').strip()
-        resource = resource.removeprefix(common.host_url())
+        resource = resource.removeprefix(domains.host_url())
 
         # handle Bridgy Fed actor URLs, eg https://fed.brid.gy/snarfed.org
-        host = util.domain_from_link(common.host_url())
+        host = util.domain_from_link(domains.host_url())
         if resource in ('', '/', f'acct:{host}', f'acct:@{host}'):
             error('Expected other domain, not *.brid.gy')
 
@@ -114,7 +115,7 @@ class Webfinger(flask_util.XrdOrJrd):
         subdomain = request.host.split('.')[0]
         if (user.LABEL == 'web'
                 and subdomain not in (LOCAL_DOMAINS + (user.ap_subdomain,))):
-            url = urljoin(f'https://{user.ap_subdomain}{common.SUPERDOMAIN}/',
+            url = urljoin(f'https://{user.ap_subdomain}{SUPERDOMAIN}/',
                           request.full_path)
             raise Found(location=url)
 
@@ -176,7 +177,7 @@ class Webfinger(flask_util.XrdOrJrd):
                 # https://www.w3.org/TR/activitypub/#sharedInbox
                 'rel': 'sharedInbox',
                 'type': as2.CONTENT_TYPE_LD_PROFILE,
-                'href': common.subdomain_wrap(proto, '/ap/sharedInbox'),
+                'href': subdomain_wrap(proto, '/ap/sharedInbox'),
             },
 
             # remote follow
@@ -186,10 +187,10 @@ class Webfinger(flask_util.XrdOrJrd):
                 'rel': 'http://ostatus.org/schema/1.0/subscribe',
                 # always use fed.brid.gy for UI pages, not protocol subdomain
                 # TODO: switch to:
-                # 'template': common.host_url(user.user_page_path('?url={uri}')),
+                # 'template': domains.host_url(user.user_page_path('?url={uri}')),
                 # the problem is that user_page_path() uses handle_or_id, which uses
                 # custom username instead of domain, which may not be unique
-                'template': f'https://{common.PRIMARY_DOMAIN}' +
+                'template': f'https://{PRIMARY_DOMAIN}' +
                             user.user_page_path('?url={uri}'),
             }]
         })
@@ -210,7 +211,7 @@ class HostMeta(flask_util.XrdOrJrd):
         return 'host-meta'
 
     def template_vars(self):
-        return {'host_uri': common.host_url()}
+        return {'host_uri': domains.host_url()}
 
     def dispatch_request(self, **kwargs):
         """Add the Cache-Control header."""
@@ -225,7 +226,7 @@ class HostMeta(flask_util.XrdOrJrd):
 @flask_util.headers(CACHE_CONTROL)
 def host_meta_xrds():
     """Renders and serves the ``/.well-known/host-meta.xrds`` XRDS-Simple file."""
-    return render_template('host-meta.xrds', host_uri=common.host_url()), {
+    return render_template('host-meta.xrds', host_uri=domains.host_url()), {
         'Content-Type': 'application/xrds+xml',
     }
 

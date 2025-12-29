@@ -12,6 +12,8 @@ from pymemcache.client.base import PooledClient
 from pymemcache.serde import PickleSerde
 from pymemcache.test.utils import MockMemcacheClient
 
+from domains import PRIMARY_DOMAIN
+
 logger = logging.getLogger(__name__)
 
 # https://github.com/memcached/memcached/wiki/Commands#standard-protocol
@@ -163,8 +165,6 @@ def remote_evict(entity_key):
     Returns:
       requests.Response:
     """
-    from common import PRIMARY_DOMAIN
-
     return util.requests_post(f'https://{PRIMARY_DOMAIN}/admin/memcache-evict',
                               headers={'Authorization': config.SECRET_KEY},
                               data={'key': entity_key.urlsafe()})

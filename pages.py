@@ -36,10 +36,13 @@ from atproto import ATProto
 import common
 from common import (
     CACHE_CONTROL,
-    DOMAIN_RE,
     ErrorButDoNotRetryTask,
-    PROTOCOL_DOMAINS,
     render_template,
+)
+from domains import (
+    BLOG_REDIRECT_DOMAINS,
+    PRIMARY_DOMAIN,
+    PROTOCOL_DOMAINS,
 )
 from flask_app import app
 from flask import redirect
@@ -61,16 +64,6 @@ from web import Web
 import webfinger
 
 logger = logging.getLogger(__name__)
-
-BLOG_REDIRECT_DOMAINS = (
-    'snarfed.org',
-    # would be nice to do this! but we're currently on their default theme, which
-    # doesn't have microformats:
-    # https://indieweb.org/Ghost#Rejected_microformats2_markup_in_default_theme
-    # ...also it's usually nicer to write custom microblog posts, instead of posting
-    # the blog post itself, which will usually get rendered as just the title and link
-    # 'blog.anew.social',
-)
 
 TEMPLATE_VARS = {
     'ActivityPub': ActivityPub,
@@ -212,7 +205,7 @@ def render(template, **vars):
 
 
 @app.route('/')
-@canonicalize_request_domain(common.PROTOCOL_DOMAINS, common.PRIMARY_DOMAIN)
+@canonicalize_request_domain(PROTOCOL_DOMAINS, PRIMARY_DOMAIN)
 @flask_util.headers(CACHE_CONTROL)
 def front_page():
     """View for the front page."""
@@ -220,7 +213,7 @@ def front_page():
 
 
 @app.route('/docs')
-@canonicalize_request_domain(common.PROTOCOL_DOMAINS, common.PRIMARY_DOMAIN)
+@canonicalize_request_domain(PROTOCOL_DOMAINS, PRIMARY_DOMAIN)
 @flask_util.headers(CACHE_CONTROL)
 def docs():
     """View for the docs page."""
@@ -228,7 +221,7 @@ def docs():
 
 
 @app.route('/login')
-@canonicalize_request_domain(common.PROTOCOL_DOMAINS, common.PRIMARY_DOMAIN)
+@canonicalize_request_domain(PROTOCOL_DOMAINS, PRIMARY_DOMAIN)
 @flask_util.headers(CACHE_CONTROL)
 def login():
     """View for the front page."""
@@ -244,7 +237,7 @@ def logout():
 
 
 @app.route('/settings')
-@canonicalize_request_domain(common.PROTOCOL_DOMAINS, common.PRIMARY_DOMAIN)
+@canonicalize_request_domain(PROTOCOL_DOMAINS, PRIMARY_DOMAIN)
 def settings():
     """User settings page. Requires logged in session."""
     auth_entity = request.args.get('auth_entity')
@@ -419,7 +412,7 @@ def toggle_notifs(user=None):
 # WARNING: this overrides the /ap/... actor URL route in activitypub.py, *only*
 # for handles with leading @ character. be careful when changing this route!
 @app.get(f'/ap/@<id>', defaults={'protocol': 'ap'})
-@canonicalize_request_domain(common.PROTOCOL_DOMAINS, common.PRIMARY_DOMAIN)
+@canonicalize_request_domain(PROTOCOL_DOMAINS, PRIMARY_DOMAIN)
 def profile(protocol, id):
     if protocol == 'ap':
         id = '@' + id
@@ -432,7 +425,7 @@ def profile(protocol, id):
 
 
 @app.get(f'/<any({",".join(PROTOCOLS)}):protocol>/<id>/home')
-@canonicalize_request_domain(common.PROTOCOL_DOMAINS, common.PRIMARY_DOMAIN)
+@canonicalize_request_domain(PROTOCOL_DOMAINS, PRIMARY_DOMAIN)
 def home(protocol, id):
     user = load_user(protocol, id)
     query = Object.query(Object.feed == user.key)
@@ -444,7 +437,7 @@ def home(protocol, id):
 
 
 @app.get(f'/<any({",".join(PROTOCOLS)}):protocol>/<id>/notifications')
-@canonicalize_request_domain(common.PROTOCOL_DOMAINS, common.PRIMARY_DOMAIN)
+@canonicalize_request_domain(PROTOCOL_DOMAINS, PRIMARY_DOMAIN)
 def notifications(protocol, id):
     user = load_user(protocol, id)
 
@@ -490,7 +483,7 @@ def find_user_page():
 
 
 @app.post(f'/<any({",".join(PROTOCOLS)}):protocol>/<id>/update-profile')
-@canonicalize_request_domain(common.PROTOCOL_DOMAINS, common.PRIMARY_DOMAIN)
+@canonicalize_request_domain(PROTOCOL_DOMAINS, PRIMARY_DOMAIN)
 def update_profile(protocol, id):
     user = load_user(protocol, id)
     link = f'<a href="{user.web_url()}">{user.handle_or_id()}</a>'
@@ -525,7 +518,7 @@ def update_profile(protocol, id):
 
 
 @app.get(f'/<any({",".join(PROTOCOLS)}):protocol>/<id>/<any(followers,following):collection>')
-@canonicalize_request_domain(common.PROTOCOL_DOMAINS, common.PRIMARY_DOMAIN)
+@canonicalize_request_domain(PROTOCOL_DOMAINS, PRIMARY_DOMAIN)
 def followers_or_following(protocol, id, collection):
     user = load_user(protocol, id)
     id = user.key.id()
@@ -553,7 +546,7 @@ def followers_or_following(protocol, id, collection):
 
 
 @app.get(f'/<any({",".join(PROTOCOLS)}):protocol>/<id>/feed')
-@canonicalize_request_domain(common.PROTOCOL_DOMAINS, common.PRIMARY_DOMAIN)
+@canonicalize_request_domain(PROTOCOL_DOMAINS, PRIMARY_DOMAIN)
 @flask_util.headers(CACHE_CONTROL)
 def feed(protocol, id):
     user = load_user(protocol, id)
@@ -634,7 +627,7 @@ def serve_feed(*, objects, format, user, title, as_snippets=False, quiet=False):
 
 
 @app.get('/log')
-@canonicalize_request_domain(common.PROTOCOL_DOMAINS, common.PRIMARY_DOMAIN)
+@canonicalize_request_domain(PROTOCOL_DOMAINS, PRIMARY_DOMAIN)
 @flask_util.headers(CACHE_CONTROL)
 def log():
     return logs.log()

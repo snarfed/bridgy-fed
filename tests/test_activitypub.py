@@ -35,6 +35,7 @@ from activitypub import (
 )
 from atproto import ATProto
 import common
+import domains
 from flask_app import app
 import memcache
 from models import Follower, Object, Target
@@ -690,7 +691,7 @@ class ActivityPubTest(TestCase):
         self.addCleanup(reset_instance_actor)
 
         actor_as2 = json_loads(util.read('fed.brid.gy.as2.json'))
-        self.make_user(common.PRIMARY_DOMAIN, cls=Web, obj_as2=actor_as2,
+        self.make_user(domains.PRIMARY_DOMAIN, cls=Web, obj_as2=actor_as2,
                        obj_id='https://fed.brid.gy/', ap_subdomain='fed',
                        has_redirects=True)
 
@@ -3359,7 +3360,7 @@ class ActivityPubUtilsTest(TestCase):
 
     def test_convert_actor_as1_no_from_user(self):
         obj = Object(our_as1=ACTOR_AS1)
-        self.assert_equals(ACTOR, common.unwrap(ActivityPub.convert(obj)),
+        self.assert_equals(ACTOR, domains.unwrap(ActivityPub.convert(obj)),
                            ignore=['to', 'attachment', 'publicKey'])
 
     def test_convert_actor_as1_proxy_link(self):
@@ -3382,7 +3383,7 @@ class ActivityPubUtilsTest(TestCase):
         self.store_object(id='https://user.com/', source_protocol='web')
 
         obj = Object(our_as1=as2.to_as1(FOLLOW))
-        self.assert_equals(FOLLOW, common.unwrap(ActivityPub.convert(obj)),
+        self.assert_equals(FOLLOW, domains.unwrap(ActivityPub.convert(obj)),
                            ignore=['to', 'publicKey'])
 
     def test_convert_profile_update_as1_no_from_user(self):
@@ -3394,7 +3395,7 @@ class ActivityPubUtilsTest(TestCase):
         self.assert_equals({
             'type': 'Update',
             'object': ACTOR,
-        }, common.unwrap(ActivityPub.convert(obj)),
+        }, domains.unwrap(ActivityPub.convert(obj)),
             ignore=['to', 'attachment', 'publicKey'])
 
     def test_convert_compact_actor_attributedTo_author(self):

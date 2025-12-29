@@ -15,6 +15,7 @@ from oauth_dropins.webutil.flask_util import error, flash
 from activitypub import ActivityPub
 from flask_app import app
 import common
+from domains import DOMAINS
 from models import Follower, Object, PROTOCOLS
 from protocol import Protocol
 from web import Web
@@ -109,7 +110,7 @@ class FollowCallback(indieauth.Callback):
             # fetch_actor_url flashed an error message
             return redirect(user.user_page_path('following'))
 
-        if util.domain_or_parent_in(as2_url, common.DOMAINS):
+        if util.domain_or_parent_in(as2_url, DOMAINS):
             proto = Protocol.for_id(as2_url)
             flash(f"{addr} is a bridged account. Try following them on {proto.PHRASE}!")
             return redirect(user.user_page_path('following'))

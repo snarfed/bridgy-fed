@@ -4,11 +4,11 @@ Needed for serving /convert/ui/web/... requests.
 """
 from google.cloud import ndb
 
-from models import User
-from protocol import Protocol
+import models
+import protocol
 
 
-class UIProtocol(User, Protocol):
+class UIProtocol(models.User, protocol.Protocol):
     LABEL = 'ui'
 
     @ndb.ComputedProperty

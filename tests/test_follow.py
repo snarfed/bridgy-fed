@@ -15,7 +15,7 @@ import requests
 from .testutil import Fake, TestCase
 
 from activitypub import ActivityPub
-from common import unwrap
+from domains import unwrap
 import ids
 from models import Follower, Object
 from web import Web

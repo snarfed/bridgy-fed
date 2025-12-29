@@ -8,11 +8,11 @@ from werkzeug.exceptions import BadRequest
 
 from collections import namedtuple
 import common
-from common import create_task, DOMAINS
+from common import create_task
+from domains import DOMAINS
 import ids
 import memcache
 import models
-from models import load_user, Object, PROTOCOLS, User
 import protocol
 
 logger = logging.getLogger(__name__)
@@ -81,8 +81,8 @@ def command(names, arg=False, user_bridged=None, handle_bridged=None, multiple=F
                 from_proto = from_user.__class__
                 for cmd_arg in cmd_args:
                     try:
-                        to_user = load_user(cmd_arg, to_proto, create=True,
-                                            allow_opt_out=True)
+                        to_user = models.load_user(cmd_arg, to_proto, create=True,
+                                                   allow_opt_out=True)
                     except (AttributeError, RuntimeError, ValueError) as err:
                         return reply(str(err))
                     assert to_user
@@ -198,7 +198,7 @@ def mute(from_user, to_proto):
 @command(['did'], user_bridged=True)
 def did(from_user, to_proto):
     if to_proto.LABEL == 'atproto':
-        return f'Your DID is <code>{from_user.get_copy(PROTOCOLS["atproto"])}</code>'
+        return f'Your DID is <code>{from_user.get_copy(models.PROTOCOLS["atproto"])}</code>'
 
 
 @command(['username', 'handle'], arg=True, user_bridged=True)
@@ -307,7 +307,7 @@ def maybe_send(*, from_, to_user, text, type=None, in_reply_to=None):
         return
 
     from_proto = from_
-    if not isinstance(from_, User):
+    if not isinstance(from_, models.User):
         assert issubclass(from_, protocol.Protocol)
         from web import Web
         if not (from_ := Web.get_by_id(from_.bot_user_id())):
@@ -340,7 +340,7 @@ def maybe_send(*, from_, to_user, text, type=None, in_reply_to=None):
         'published': now,
         'to': [to_user.key.id()],
     }
-    Object(id=dm_id, our_as1=dm_as1).put()
+    models.Object(id=dm_id, our_as1=dm_as1).put()
 
     create_id = f'{dm_id}-create'
     create_as1 = {

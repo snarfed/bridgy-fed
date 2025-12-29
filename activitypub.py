@@ -35,16 +35,18 @@ from common import (
     CACHE_CONTROL_VARY_ACCEPT,
     CONTENT_TYPE_HTML,
     create_task,
-    DOMAINS,
-    DOMAIN_RE,
     error,
     FlashErrors,
-    host_url,
+    report_error,
+)
+import domains
+from domains import (
+    DOMAINS,
+    DOMAIN_RE,
     LOCAL_DOMAINS,
     PRIMARY_DOMAIN,
     PROTOCOL_DOMAINS,
     redirect_wrap,
-    report_error,
     subdomain_wrap,
     unwrap,
 )
@@ -1242,7 +1244,7 @@ def _load_user(handle_or_id, create=False, allow_opt_out=False):
 @app.get(f'/ap/<handle_or_id>')
 # special case Web users on fed.brid.gy subdomain without /ap/ prefix, for
 # backward compatibility
-@app.get(f'/<regex("{DOMAIN_RE}"):handle_or_id>')
+@app.get(f'/<regex("{DOMAIN_RE.pattern}"):handle_or_id>')
 @flask_util.headers(CACHE_CONTROL_VARY_ACCEPT)
 def actor(handle_or_id):
     """Serves a user's AS2 actor from the datastore."""
@@ -1316,7 +1318,7 @@ def actor(handle_or_id):
 # source protocol in path; primarily for backcompat
 @app.post(f'/ap/<protocol>/<id>/inbox')
 # special case Web users on fed subdomain without /ap/web/ prefix
-@app.post(f'/<regex("{DOMAIN_RE}"):id>/inbox')
+@app.post(f'/<regex("{DOMAIN_RE.pattern}"):id>/inbox')
 def inbox(protocol=None, id=None):
     """Handles ActivityPub inbox delivery."""
     # parse and validate AS2 activity
@@ -1446,7 +1448,7 @@ def inbox(protocol=None, id=None):
 @app.get(f'/ap/<id>/<any(followers,following):collection>')
 # special case Web users on fed.brid.gy subdomain without /ap/web/ prefix, for
 # backward compatibility
-@app.route(f'/<regex("{DOMAIN_RE}"):id>/<any(followers,following):collection>',
+@app.route(f'/<regex("{DOMAIN_RE.pattern}"):id>/<any(followers,following):collection>',
            methods=['GET', 'HEAD'])
 @flask_util.headers(CACHE_CONTROL)
 def follower_collection(id, collection):
@@ -1517,7 +1519,7 @@ def follower_collection(id, collection):
 @app.get(f'/ap/<id>/outbox')
 # special case Web users on fed.brid.gy subdomain without /ap/web/ prefix, for
 # backward compatibility
-@app.route(f'/<regex("{DOMAIN_RE}"):id>/outbox', methods=['GET', 'HEAD'])
+@app.route(f'/<regex("{DOMAIN_RE.pattern}"):id>/outbox', methods=['GET', 'HEAD'])
 @flask_util.headers(CACHE_CONTROL)
 def outbox(id):
     """Serves a user's AP outbox.
@@ -1618,7 +1620,7 @@ def featured(id):
 
 
 @app.get('/.well-known/nodeinfo')
-@flask_util.canonicalize_request_domain(common.PROTOCOL_DOMAINS, common.PRIMARY_DOMAIN)
+@flask_util.canonicalize_request_domain(PROTOCOL_DOMAINS, PRIMARY_DOMAIN)
 @flask_util.headers(CACHE_CONTROL)
 def nodeinfo_jrd():
     """
@@ -1627,7 +1629,7 @@ def nodeinfo_jrd():
     return {
         'links': [{
             'rel': 'http://nodeinfo.diaspora.software/ns/schema/2.1',
-            'href': common.host_url('nodeinfo.json'),
+            'href': domains.host_url('nodeinfo.json'),
         }, {
             "rel": "https://www.w3.org/ns/activitystreams#Application",
             "href": instance_actor().id_as(ActivityPub),
@@ -1638,7 +1640,7 @@ def nodeinfo_jrd():
 
 
 @app.get('/nodeinfo.json')
-@flask_util.canonicalize_request_domain(common.PROTOCOL_DOMAINS, common.PRIMARY_DOMAIN)
+@flask_util.canonicalize_request_domain(PROTOCOL_DOMAINS, PRIMARY_DOMAIN)
 @memcache.memoize(expire=datetime.timedelta(hours=1))
 @flask_util.headers(CACHE_CONTROL)
 def nodeinfo():
@@ -1707,7 +1709,7 @@ def nodeinfo():
 
 
 @app.get('/api/v1/instance')
-@flask_util.canonicalize_request_domain(common.PROTOCOL_DOMAINS, common.PRIMARY_DOMAIN)
+@flask_util.canonicalize_request_domain(PROTOCOL_DOMAINS, PRIMARY_DOMAIN)
 @flask_util.headers(CACHE_CONTROL)
 def instance_info():
     """

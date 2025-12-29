@@ -35,12 +35,16 @@ import secp256k1
 import common
 from common import (
     base64_to_long,
-    DOMAIN_BLOCKLIST_CANARIES,
-    DOMAIN_RE,
     long_to_base64,
     OLD_ACCOUNT_AGE,
-    PROTOCOL_DOMAINS,
     report_error,
+)
+import domains
+from domains import (
+    DOMAIN_BLOCKLIST_CANARIES,
+    DOMAIN_RE,
+    PRIMARY_DOMAIN,
+    PROTOCOL_DOMAINS,
     unwrap,
 )
 import ids
@@ -206,7 +210,7 @@ class ProtocolUserMeta(type(ndb.Model)):
 def reset_protocol_properties():
     """Recreates various protocol properties to include choices from ``PROTOCOLS``."""
     abbrevs = f'({"|".join(PROTOCOLS.keys())}|fed)'
-    common.SUBDOMAIN_BASE_URL_RE = re.compile(
+    domains.SUBDOMAIN_BASE_URL_RE = re.compile(
         rf'^https?://({abbrevs}\.brid\.gy|localhost(:8080)?)/(convert/|r/)?({abbrevs}/)?(?P<path>.+)')
     ids.COPIES_PROTOCOLS = tuple(label for label, proto in PROTOCOLS.items()
                                  if proto and proto.HAS_COPIES)
@@ -736,7 +740,7 @@ class User(AddRemoveMixin, StringIdModel, metaclass=ProtocolUserMeta):
 
         if to_proto.LABEL not in self.enabled_protocols:
             self.enabled_protocols.append(to_proto.LABEL)
-            dms.maybe_send(from_=to_proto, to_user=self, type='welcome', text=f"""Welcome to Bridgy Fed! Your account will soon be bridged to {to_proto.PHRASE} at {self.html_link(proto=to_proto, name=False)}. <a href="https://fed.brid.gy/docs">See the docs</a> and <a href="https://{common.PRIMARY_DOMAIN}{self.user_page_path()}">your user page</a> for more information. To disable this and delete your bridged profile, block this account.""")
+            dms.maybe_send(from_=to_proto, to_user=self, type='welcome', text=f"""Welcome to Bridgy Fed! Your account will soon be bridged to {to_proto.PHRASE} at {self.html_link(proto=to_proto, name=False)}. <a href="https://fed.brid.gy/docs">See the docs</a> and <a href="https://{PRIMARY_DOMAIN}{self.user_page_path()}">your user page</a> for more information. To disable this and delete your bridged profile, block this account.""")
             self.put()
 
         msg = f'Enabled {to_proto.LABEL} for {self.key.id()} : {self.user_page_path()}'
@@ -1115,7 +1119,7 @@ class User(AddRemoveMixin, StringIdModel, metaclass=ProtocolUserMeta):
         Returns:
           bool:
         """
-        if not util.is_url(user_id) and not re.match(DOMAIN_RE, user_id):
+        if not util.is_url(user_id) and not DOMAIN_RE.fullmatch(user_id):
             return False
 
         if not (domain := util.domain_from_link(user_id)):
@@ -1280,7 +1284,7 @@ class Object(AddRemoveMixin, StringIdModel):
         def use_urls_as_ids(obj):
             """If id field is missing or not a URL, use the url field."""
             id = obj.get('id')
-            if not id or not (util.is_web(id) or re.match(DOMAIN_RE, id)):
+            if not id or not (util.is_web(id) or DOMAIN_RE.fullmatch(id)):
                 if url := util.get_url(obj):
                     obj['id'] = url
 

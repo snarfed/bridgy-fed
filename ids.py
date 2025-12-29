@@ -17,7 +17,7 @@ from granary.bluesky import BSKY_APP_URL_RE, web_url_to_at_uri
 import granary.nostr
 from oauth_dropins.webutil import util
 
-from common import (
+from domains import (
     DOMAIN_RE,
     LOCAL_DOMAINS,
     PRIMARY_DOMAIN,
@@ -27,7 +27,6 @@ from common import (
     unwrap,
 )
 import models
-import nostr
 import protocol
 
 logger = logging.getLogger(__name__)
@@ -236,6 +235,8 @@ def normalize_user_id(*, id, proto):
     Returns:
       str: the normalized user id
     """
+    import nostr
+
     normalized = translate_user_id(id=id, from_=proto, to=proto)
 
     if proto.LABEL == 'web':
@@ -285,7 +286,7 @@ def normalize_object_id(*, id, proto):
         id = id.split('\n')[0]
         if len(id) > _MAX_KEYPART_BYTES:
             return models.maybe_truncate_key_id(id)
-        elif re.fullmatch(DOMAIN_RE, id):
+        elif DOMAIN_RE.fullmatch(id):
             return profile_id(id=id, proto=proto)
 
     elif proto.LABEL == 'nostr':
@@ -324,6 +325,8 @@ def profile_id(*, id, proto):
     Returns:
       str: the profile id
     """
+    import nostr
+
     if proto.owns_id(id) is False:
         return id
 

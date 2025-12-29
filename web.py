@@ -29,11 +29,15 @@ import common
 from common import (
     CACHE_CONTROL,
     create_task,
+    render_template,
+)
+import domains
+from domains import (
     DOMAIN_RE,
     DOMAINS,
+    host_url,
     PRIMARY_DOMAIN,
     PROTOCOL_DOMAINS,
-    render_template,
     SUPERDOMAIN,
 )
 from flask_app import app
@@ -69,7 +73,7 @@ HOST_META_CONTENT_TYPES = {
     'application/jrd+json',
 }
 
-# in addition to common.DOMAIN_BLOCKLIST
+# in addition to domains.DOMAIN_BLOCKLIST
 FETCH_BLOCKLIST = (
     'bsky.app',
 )
@@ -85,7 +89,7 @@ def is_valid_domain(domain, allow_internal=True):
 
     Valid means TLD is ok, not blacklisted, etc.
     """
-    if not domain or not re.match(DOMAIN_RE, domain):
+    if not domain or not DOMAIN_RE.fullmatch(domain):
         # logger.debug(f"{domain} doesn't look like a domain")
         return False
 
@@ -294,7 +298,7 @@ class Web(User, Protocol):
 
     @ndb.ComputedProperty
     def status(self):
-        if self.key.id() in common.DOMAINS:
+        if self.key.id() in DOMAINS:
             return None
 
         if self.manual_opt_out is False:
@@ -349,8 +353,8 @@ class Web(User, Protocol):
         try:
             url = urljoin(self.web_url(), path)
             resp = util.requests_get(url, gateway=False)
-            domain_urls = ([f'https://{domain}/' for domain in common.DOMAINS] +
-                           [common.host_url()])
+            domain_urls = ([f'https://{domain}/' for domain in DOMAINS]
+                           + [domains.host_url()])
             expected = [urljoin(url, path) for url in domain_urls]
             if resp.url:
                 got = urllib.parse.unquote(resp.url)
@@ -363,7 +367,7 @@ class Web(User, Protocol):
                         gateway=False)
                     if (resp.status_code == 200
                             and common.content_type(resp) in HOST_META_CONTENT_TYPES
-                            and domain_from_link(resp.url) not in common.DOMAINS):
+                            and domain_from_link(resp.url) not in DOMAINS):
                         logger.info(f"{domain} serves Webfinger! probably a fediverse server")
                         self.redirects_error = OWNS_WEBFINGER
                     else:
@@ -529,7 +533,7 @@ class Web(User, Protocol):
     @classmethod
     def load(cls, id, **kwargs):
         """Wrap :meth:`Protocol.load` to convert domains to homepage URLs."""
-        if re.match(DOMAIN_RE, id):
+        if DOMAIN_RE.fullmatch(id):
             id = f'https://{id}/'
 
         return super().load(id, **kwargs)
@@ -583,7 +587,7 @@ class Web(User, Protocol):
                     return True
                 return False
 
-        require_backlink = (common.host_url().rstrip('/')
+        require_backlink = (domains.host_url().rstrip('/')
                             if check_backlink and not is_homepage
                             else None)
         if metaformats is None:
@@ -1018,7 +1022,7 @@ def webmention_task():
     logger.info(f'webmention from {domain}')
 
     internal = request.headers.get('Authorization') == app.config['SECRET_KEY']
-    if domain in common.DOMAINS and not internal:
+    if domain in DOMAINS and not internal:
         error(f'URL not supported: {source}')
 
     user = Web.get_by_id(domain)

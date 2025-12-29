@@ -29,83 +29,23 @@ import requests
 import werkzeug.exceptions
 from werkzeug.exceptions import HTTPException
 
+from domains import (
+    DOMAIN_RE,
+    DOMAINS,
+    LOCAL_DOMAINS,
+    OTHER_DOMAINS,
+    PROTOCOL_DOMAINS,
+    PRIMARY_DOMAIN,
+    SUBDOMAIN_BASE_URL_RE,
+    SUPERDOMAIN,
+)
 import memcache
 
 logger = logging.getLogger(__name__)
 
-# allow hostname chars (a-z, 0-9, -), allow arbitrary unicode (eg ☃.net), don't
-# allow specific chars that we'll often see in webfinger, AP handles, etc. (@, :)
-# https://stackoverflow.com/questions/10306690/what-is-a-regular-expression-which-will-match-a-valid-domain-name-without-a-subd
-#
-# TODO: preprocess with domain2idna, then narrow this to just [a-z0-9-]
-# TODO: unify with oauth_dropins.webutil.util.DOMAIN_RE?
-DOMAIN_RE = r'^([^/:;@?!\'.]+\.)+[^/:@_?!\'.]+$'
-
 CONTENT_TYPE_HTML = 'text/html; charset=utf-8'
 
 GCP_PROJECT_ID = 'bridgy-federated'  # used in create_task
-
-PRIMARY_DOMAIN = 'fed.brid.gy'
-# protocol-specific subdomains are under this "super"domain
-SUPERDOMAIN = '.brid.gy'
-# TODO: add a Flask route decorator version of util.canonicalize_domain, then
-# use it to canonicalize most UI routes from these to fed.brid.gy.
-# TODO: unify with models.PROTOCOLS
-PROTOCOL_DOMAINS = (
-    'ap.brid.gy',
-    'atproto.brid.gy',
-    'bsky.brid.gy',
-    'nostr.brid.gy',
-    'web.brid.gy',
-)
-if DEBUG:
-    PROTOCOL_DOMAINS += (
-        'efake.brid.gy',
-        'fa.brid.gy',
-        'other.brid.gy',
-    )
-OTHER_DOMAINS = (
-    'bridgy-federated.appspot.com',
-    'bridgy-federated.uc.r.appspot.com',
-)
-LOCAL_DOMAINS = (
-  'localhost',
-  'localhost:8080',
-  'my.dev.com:8080',
-)
-DOMAINS = (PRIMARY_DOMAIN,) + PROTOCOL_DOMAINS + OTHER_DOMAINS + LOCAL_DOMAINS
-# TODO: unify with manual_opt_out
-# TODO: unify with Bridgy's
-DOMAIN_BLOCKLIST = (
-    'bsky.social',
-    'facebook.com',
-    'fb.com',
-    'instagram.com',
-    'reddit.com',
-    'rumble.com',  # serves infinite HTTP 307 redirects to GCP
-    't.co',
-    'tiktok.com',
-    'twitter.com',
-    'x.com',
-    'youtu.be',
-    'youtube.com',
-)
-
-# canaries that Seirdy inserts into their blocklists
-# https://seirdy.one/posts/2023/05/02/fediverse-blocklists/#important-modifications-before-importing
-DOMAIN_BLOCKLIST_CANARIES = (
-    '000delete.this.line.if.you.have.read.the.documentation.on.seirdy.one',
-    'canary.tier1.example.com',
-    'canary.tier0.example.com',
-    'canary.fedinuke.example.com',
-)
-
-SMTP_HOST = 'smtp.gmail.com'
-SMTP_PORT = 587
-
-# populated in models.reset_protocol_properties
-SUBDOMAIN_BASE_URL_RE = None
-ID_FIELDS = ('id', 'object', 'actor', 'author', 'inReplyTo', 'url')
 
 CACHE_CONTROL = {'Cache-Control': 'public, max-age=3600'}  # 1 hour
 CACHE_CONTROL_VARY_ACCEPT = {**CACHE_CONTROL, 'Vary': 'Accept'}
@@ -186,17 +126,6 @@ def long_to_base64(x):
     return base64.urlsafe_b64encode(number.long_to_bytes(x))
 
 
-def host_url(path_query=None):
-    base = request.host_url
-    if (util.domain_or_parent_in(request.host, OTHER_DOMAINS)
-            # when running locally against prod datastore
-            or (not DEBUG and request.host in LOCAL_DOMAINS)):
-        base = f'https://{PRIMARY_DOMAIN}'
-
-    assert base
-    return urljoin(base, path_query)
-
-
 def error(err, status=400, exc_info=None, **kwargs):
     """Like :func:`oauth_dropins.webutil.flask_util.error`, but wraps body in JSON."""
     msg = str(err)
@@ -237,88 +166,6 @@ def content_type(resp):
         # as2.CONTENT_TYPE_LD, we end up accepting non-AS2 JSON-LD, eg:
         # Content-Type: application/ld+json; charset=UTF-8
         return type.split(';')[0]
-
-
-def redirect_wrap(url, domain=None):
-    """Returns a URL on our domain that redirects to this URL.
-
-    ...to satisfy Mastodon's non-standard domain matching requirement. :(
-
-    Args:
-      url (str)
-      domain (str): optional Bridgy Fed domain to use. Must be in :attr:`DOMAINS`
-
-    * https://github.com/snarfed/bridgy-fed/issues/16#issuecomment-424799599
-    * https://github.com/tootsuite/mastodon/pull/6219#issuecomment-429142747
-
-    Returns:
-      str: redirect url
-    """
-    if not url or util.domain_from_link(url) in DOMAINS:
-        return url
-
-    path = '/r/' + url
-
-    if domain:
-        assert domain in DOMAINS, (domain, url)
-        return urljoin(f'https://{domain}/', path)
-
-    return host_url(path)
-
-
-def subdomain_wrap(proto, path=None):
-    """Returns the URL for a given path on this protocol's subdomain.
-
-    Eg for the path ``foo/bar`` on ActivityPub, returns
-    ``https://ap.brid.gy/foo/bar``.
-
-    Args:
-      proto (subclass of :class:`protocol.Protocol`)
-
-    Returns:
-      str: URL
-    """
-    subdomain = proto.ABBREV if proto and proto.ABBREV else 'fed'
-    return urljoin(f'https://{subdomain}{SUPERDOMAIN}/', path)
-
-
-def unwrap(val, field=None):
-    """Removes our subdomain/redirect wrapping from a URL, if it's there.
-
-    ``val`` may be a string, dict, or list. dicts and lists are unwrapped
-    recursively.
-
-    Strings that aren't wrapped URLs are left unchanged.
-
-    Args:
-      val (str or dict or list)
-      field (str): optional field name for this value
-
-    Returns:
-      str: unwrapped url
-    """
-    if isinstance(val, dict):
-        # TODO: clean up. https://github.com/snarfed/bridgy-fed/issues/967
-        id = val.get('id')
-        if (isinstance(id, str)
-                and urlparse(id).path.strip('/') in DOMAINS + ('',)
-                and util.domain_from_link(id) in DOMAINS):
-            # protocol bot user, don't touch its URLs
-            return {**val, 'id': unwrap(id)}
-
-        return {f: unwrap(v, field=f) for f, v in val.items()}
-
-    elif isinstance(val, list):
-        return [unwrap(v) for v in val]
-
-    elif isinstance(val, str):
-        if match := SUBDOMAIN_BASE_URL_RE.match(val):
-            unwrapped = match.group('path')
-            if field in ID_FIELDS and re.fullmatch(DOMAIN_RE, unwrapped):
-                return f'https://{unwrapped}/'
-            return unwrapped
-
-    return val
 
 
 def create_task(queue, app_id=GCP_PROJECT_ID, delay=None, app=None, **params):
@@ -494,7 +341,7 @@ PROFILE_ID_RE = re.compile(
       /users?/[^/]+$ |
       /app.bsky.actor.profile/self$ |
       ^did:[a-z0-9:.]+$ |
-      ^https://{DOMAIN_RE[1:-1]}/?$
+      ^https://{DOMAIN_RE.pattern}/?$
     """, re.VERBOSE)
 
 def global_cache_timeout_policy(key):

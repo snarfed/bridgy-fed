@@ -45,12 +45,8 @@ from websockets.sync.client import connect
 from werkzeug.exceptions import NotFound
 
 import common
-from common import (
-    DOMAIN_RE,
-    DOMAINS,
-    error,
-    USER_AGENT,
-)
+from common import error
+from domains import DOMAINS
 from flask_app import app
 import ids
 from models import Follower, Object, PROTOCOLS, Target, User

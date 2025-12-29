@@ -31,20 +31,21 @@ from werkzeug.exceptions import BadGateway, BadRequest, HTTPException
 
 import common
 from common import (
-    DOMAIN_BLOCKLIST,
-    DOMAIN_RE,
-    DOMAINS,
     ErrorButDoNotRetryTask,
+    report_error,
+)
+from domains import (
+    DOMAINS,
+    LOCAL_DOMAINS,
     PRIMARY_DOMAIN,
     PROTOCOL_DOMAINS,
-    report_error,
-    subdomain_wrap,
+    SUPERDOMAIN,
 )
 import dms
+from domains import DOMAIN_BLOCKLIST
 import ids
 import memcache
 from models import (
-    DM,
     Follower,
     get_original_user_key,
     load_user,
@@ -181,10 +182,10 @@ class Protocol:
                   if util.is_web(domain_or_url)
                   else domain_or_url)
 
-        if domain == common.PRIMARY_DOMAIN or domain in common.LOCAL_DOMAINS:
+        if domain == PRIMARY_DOMAIN or domain in LOCAL_DOMAINS:
             return PROTOCOLS[fed] if isinstance(fed, str) else fed
-        elif domain and domain.endswith(common.SUPERDOMAIN):
-            label = domain.removesuffix(common.SUPERDOMAIN)
+        elif domain and domain.endswith(SUPERDOMAIN):
+            label = domain.removesuffix(SUPERDOMAIN)
             return PROTOCOLS.get(label)
 
     @classmethod
@@ -205,7 +206,7 @@ class Protocol:
         external HTTP fetches to fetch the id itself or otherwise perform
         discovery.
 
-        Returns False if the id's domain is in :const:`common.DOMAIN_BLOCKLIST`.
+        Returns False if the id's domain is in :const:`domains.DOMAIN_BLOCKLIST`.
 
         Args:
           id (str)
@@ -550,7 +551,7 @@ class Protocol:
         Returns:
           str:
         """
-        return f'{cls.ABBREV}{common.SUPERDOMAIN}'
+        return f'{cls.ABBREV}{SUPERDOMAIN}'
 
     @classmethod
     def create_for(cls, user):
@@ -2295,8 +2296,7 @@ def receive_task():
     form = request.form.to_dict()
 
     authed_as = form.pop('authed_as', None)
-    internal = (authed_as == common.PRIMARY_DOMAIN
-                or authed_as in common.PROTOCOL_DOMAINS)
+    internal = authed_as == PRIMARY_DOMAIN or authed_as in PROTOCOL_DOMAINS
 
     obj = Object.from_request()
     assert obj

@@ -25,6 +25,7 @@ from activitypub import ActivityPub
 from atproto import ATProto
 import common
 from common import CONTENT_TYPE_HTML, TASKS_LOCATION
+import domains
 from flask_app import app
 import ids
 import memcache
