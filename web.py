@@ -28,6 +28,7 @@ from werkzeug.exceptions import BadGateway, BadRequest, HTTPException, NotFound
 import common
 from common import (
     CACHE_CONTROL,
+    create_task,
     DOMAIN_RE,
     DOMAINS,
     PRIMARY_DOMAIN,
@@ -210,7 +211,7 @@ class Web(User, Protocol):
             return None
 
         if not user.existing and not is_bot:
-            common.create_task(queue='poll-feed', domain=user.key.id())
+            create_task(queue='poll-feed', domain=user.key.id())
 
         return user
 
@@ -790,17 +791,13 @@ def check_web_site():
         flash(f'{url} looks like a fediverse server! Try a normal web site.')
         return render_template('enter_web_site.html'), 400
 
-    common.create_task(queue='poll-feed', domain=domain)
+    create_task(queue='poll-feed', domain=domain)
     return redirect(user.user_page_path())
 
 
 @app.post('/webmention')
 def webmention_external():
-    """Handles inbound webmention, enqueue task to process.
-
-    Use a task queue to deliver to followers because we send to each inbox in
-    serial, which can take a long time with many followers/instances.
-    """
+    """Handles inbound webmentions, enqueues tasks to process."""
     common.log_request()
 
     source = flask_util.get_required_param('source').strip()
@@ -820,7 +817,7 @@ def webmention_external():
     user.last_webmention_in = util.now()
     user.put()
 
-    return common.create_task('webmention', **request.form)
+    return create_task('webmention', **request.form)
 
 
 def poll_feed(user, feed_url, rel_type):
@@ -911,9 +908,9 @@ def poll_feed(user, feed_url, rel_type):
                 obj['image'] = [img for img in as1.get_ids(post.as1, 'image')
                                 if img not in profile_images]
 
-        common.create_task(queue='receive', id=id, our_as1=activity,
-                           source_protocol=Web.ABBREV, authed_as=user.key.id(),
-                           received_at=util.now().isoformat())
+        create_task(queue='receive', id=id, our_as1=activity,
+                    source_protocol=Web.ABBREV, authed_as=user.key.id(),
+                    received_at=util.now().isoformat())
 
     return activities
 
@@ -997,8 +994,8 @@ def poll_feed_task():
                       (user.last_polled_feed if user.last_polled_feed and activities
                        else user.created.replace(tzinfo=timezone.utc)))
 
-    common.create_task(queue='poll-feed', delay=delay, domain=user.key.id(),
-                       last_polled=user.last_polled_feed.isoformat())
+    create_task(queue='poll-feed', delay=delay, domain=user.key.id(),
+                last_polled=user.last_polled_feed.isoformat())
     return 'OK', status
 
 
@@ -1031,8 +1028,7 @@ def webmention_task():
 
     # fetch source page
     try:
-        # remote=True to force fetch, local=True to populate new/changed attrs
-        obj = Web.load(source, local=True, remote=True,
+        obj = Web.load(source, remote=True,  # ...to force fetch
                        check_backlink=not appengine_info.LOCAL_SERVER)
     except BadRequest as e:
         error(str(e.description), status=304)
