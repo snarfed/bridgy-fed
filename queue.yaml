@@ -5,31 +5,31 @@ total_storage_limit: 10G
 queue:
 
 - name: atproto-commit
-  rate: 300/s
-  max_concurrent_requests: 25
+  rate: 500/s
+  max_concurrent_requests: 2000
   retry_parameters:
     task_retry_limit: 0
 
 - name: webmention
   rate: 500/s
-  max_concurrent_requests: 10
+  max_concurrent_requests: 2000
   retry_parameters:
-    # WARNING: keep this in sync with webmention above
-    # and with protocol.RECEIVE_TASK_ATTEMPTS (- 1)!
+    # WARNING: keep this in sync with receive below
+    # and with protocol.TASK_ATTEMPTS_RECEIVE (- 1)!
     task_retry_limit: 4
     min_backoff_seconds: 30
     max_doublings: 2
 
 - name: receive
   rate: 500/s
-  max_concurrent_requests: 5000
+  max_concurrent_requests: 2000
   retry_parameters:
     # WARNING: keep this in sync with webmention above
-    # and with protocol.RECEIVE_TASK_ATTEMPTS (- 1)!
+    # and with protocol.TASK_ATTEMPTS_RECEIVE (- 1)!
     task_retry_limit: 4
     # WARNING: keep this above protocol.MEMCACHE_LEASE_EXPIRATION!
     min_backoff_seconds: 30
-    max_doublings: 4
+    max_doublings: 2
 
 - name: send
   rate: 500/s
@@ -41,15 +41,15 @@ queue:
 
 - name: poll-feed
   rate: 50/s
-  max_concurrent_requests: 200
+  max_concurrent_requests: 2000
   retry_parameters:
     task_retry_limit: 2
     min_backoff_seconds: 300
     max_doublings: 2
 
 - name: notify
-  rate: 5/s
-  max_concurrent_requests: 5
+  rate: 500/s
+  max_concurrent_requests: 2000
   retry_parameters:
     task_retry_limit: 2
     min_backoff_seconds: 300
