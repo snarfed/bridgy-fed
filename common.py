@@ -336,14 +336,6 @@ def global_cache_policy(key):
     return True
 
 
-PROFILE_ID_RE = re.compile(
-    fr"""
-      /users?/[^/]+$ |
-      /app.bsky.actor.profile/self$ |
-      ^did:[a-z0-9:.]+$ |
-      ^https://{DOMAIN_RE.pattern}/?$
-    """, re.VERBOSE)
-
 def global_cache_timeout_policy(key):
     """Cache everything for 2h.
 
