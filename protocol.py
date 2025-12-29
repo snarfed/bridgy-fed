@@ -1187,7 +1187,8 @@ class Protocol:
         assert isinstance(authed_as, str)
         authed_as = ids.normalize_user_id(id=authed_as, proto=from_cls)
         actor = ids.normalize_user_id(id=actor, proto=from_cls)
-        if actor != authed_as:
+        # TODO: remove internal here once we've fixed #2237
+        if actor != authed_as and not internal:
             report_error("Auth: receive: authed_as doesn't match owner",
                          user=f'{id} authed_as {authed_as} owner {actor}')
             error(f"actor {actor} isn't authed user {authed_as}")
