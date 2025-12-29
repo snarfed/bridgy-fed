@@ -1855,7 +1855,7 @@ class ProtocolReceiveTest(TestCase):
         })
 
         with app.test_request_context('/', headers={
-                protocol.TASK_ATTEMPTS_HEADER: str(protocol.TASK_ATTEMPTS_RECEIVE),
+                protocol.TASK_RETRIES_HEADER: str(protocol.TASK_RETRIES_RECEIVE),
         }):
             _, code = Fake.receive_as1({
                 'id': 'fake:repost',

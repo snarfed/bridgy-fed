@@ -15,7 +15,7 @@ queue:
   max_concurrent_requests: 2000
   retry_parameters:
     # WARNING: keep this in sync with receive below
-    # and with protocol.TASK_ATTEMPTS_RECEIVE (- 1)!
+    # and with protocol.TASK_RETRIES_RECEIVE!
     task_retry_limit: 4
     min_backoff_seconds: 30
     max_doublings: 2
@@ -25,7 +25,7 @@ queue:
   max_concurrent_requests: 2000
   retry_parameters:
     # WARNING: keep this in sync with webmention above
-    # and with protocol.TASK_ATTEMPTS_RECEIVE (- 1)!
+    # and with protocol.TASK_RETRIES_RECEIVE!
     task_retry_limit: 4
     # WARNING: keep this above protocol.MEMCACHE_LEASE_EXPIRATION!
     min_backoff_seconds: 30

@@ -62,11 +62,10 @@ CREATE_MAX_AGE = timedelta(weeks=2)
 # WARNING: keep this below the receive queue's min_backoff_seconds in queue.yaml!
 MEMCACHE_LEASE_EXPIRATION = timedelta(seconds=25)
 MEMCACHE_DOWN_TASK_DELAY = timedelta(minutes=5)
-# WARNING: keep this in sync with queue.yaml's receive and webmention
-# task_retry_limit (+ 1)!
-TASK_ATTEMPTS_RECEIVE = 5
+# WARNING: keep this in sync with queue.yaml's receive and webmention task_retry_limit!
+TASK_RETRIES_RECEIVE = 4
 # https://docs.cloud.google.com/tasks/docs/creating-appengine-handlers#reading-headers
-TASK_ATTEMPTS_HEADER = 'X-AppEngine-TaskExecutionCount'
+TASK_RETRIES_HEADER = 'X-AppEngine-TaskRetryCount'
 
 # require a follow for users on these domains before we deliver anything from
 # them other than their profile
@@ -1765,8 +1764,8 @@ class Protocol:
                 else:
                     msg = f"original object(s) {original_ids} weren't bridged to {label}"
                     last_retry = False
-                    if attempts := request.headers.get(TASK_ATTEMPTS_HEADER):
-                        last_retry = int(attempts) >= TASK_ATTEMPTS_RECEIVE
+                    if retries := request.headers.get(TASK_RETRIES_HEADER):
+                        last_retry = int(retries) >= TASK_RETRIES_RECEIVE
 
                     if (proto.LABEL not in from_user.DEFAULT_ENABLED_PROTOCOLS
                             and origs_could_bridge and not last_retry):
