@@ -18,7 +18,7 @@ queue:
     # and with protocol.TASK_RETRIES_RECEIVE!
     task_retry_limit: 4
     min_backoff_seconds: 30
-    max_doublings: 2
+    max_doublings: 1
 
 - name: receive
   rate: 500/s
@@ -29,7 +29,7 @@ queue:
     task_retry_limit: 4
     # WARNING: keep this above protocol.MEMCACHE_LEASE_EXPIRATION!
     min_backoff_seconds: 30
-    max_doublings: 2
+    max_doublings: 1
 
 - name: send
   rate: 500/s
