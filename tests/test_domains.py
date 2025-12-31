@@ -3,6 +3,7 @@ from domains import (
     host_url,
     redirect_wrap,
     subdomain_wrap,
+    tldextract,
     unwrap,
 )
 from flask_app import app
@@ -78,3 +79,14 @@ class DomainsTest(TestCase):
 
         with app.test_request_context(base_url='https://bsky.brid.gy', path='/foo'):
             self.assertEqual('https://bsky.brid.gy/asdf', host_url('asdf'))
+
+    def test_tld_extract(self):
+        for domain in (
+            'bbc.co.uk',
+            'www.bbc.co.uk',
+            'foo.bbc.co.uk',
+            'foo.bar.bbc.co.uk',
+        ):
+            with self.subTest(domain=domain):
+                self.assertEqual('bbc.co.uk',
+                                 tldextract(domain).top_domain_under_registry_suffix)

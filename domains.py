@@ -5,6 +5,7 @@ from urllib.parse import urljoin, urlparse
 from flask import request
 from oauth_dropins.webutil.appengine_info import DEBUG, LOCAL_SERVER
 from oauth_dropins.webutil import util
+from tldextract import TLDExtract
 
 # allow hostname chars (a-z, 0-9, -), allow arbitrary unicode (eg ☃.net), don't
 # allow specific chars that we'll often see in webfinger, AP handles, etc. (@, :)
@@ -83,6 +84,11 @@ BLOG_REDIRECT_DOMAINS = (
     # ...also it's usually nicer to write custom microblog posts, instead of posting
     # the blog post itself, which will usually get rendered as just the title and link
 )
+
+# Public Suffix List, via tldextract package, which bundles it
+# https://publicsuffix.org/
+# https://github.com/john-kurkowski/tldextract?tab=readme-ov-file#how-to-use-a-local-suffix-list
+tldextract = TLDExtract(fallback_to_snapshot=True, suffix_list_urls=(), cache_dir=None)
 
 
 def redirect_wrap(url, domain=None):
