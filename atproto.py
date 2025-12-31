@@ -79,7 +79,9 @@ logger = logging.getLogger(__name__)
 # number from the datastore instead of memcache, we'd allocate a duplicate from
 # memcache and collide. So, force it on, and crash if it's explicitly off or shadow.
 # https://github.com/snarfed/bridgy-fed/issues/2269
-assert os.getenv('MEMCACHE_SEQUENCE_ALLOCATION') in (None, 'true')
+memcache_alloc = os.getenv('MEMCACHE_SEQUENCE_ALLOCATION', '').lower()
+assert memcache_alloc in ('', 'true'), memcache_alloc
+os.environ['MEMCACHE_SEQUENCE_ALLOCATION'] = 'true'
 datastore_storage.MEMCACHE_SEQUENCE_ALLOCATION = True
 datastore_storage.memcache = memcache.memcache
 arroba.server.storage = DatastoreStorage(ndb_client=ndb_client,

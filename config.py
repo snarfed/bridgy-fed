@@ -65,7 +65,8 @@ else:
 # memcache and collide. atproto.py forces it on; just check that it's not explicitly
 # off here.
 # https://github.com/snarfed/bridgy-fed/issues/2269
-assert os.getenv('MEMCACHE_SEQUENCE_ALLOCATION') in (None, 'true')
+memcache_alloc = os.getenv('MEMCACHE_SEQUENCE_ALLOCATION', '').lower()
+assert memcache_alloc in ('', 'true'), memcache_alloc
 
 
 # for debugging ndb. also needs NDB_DEBUG env var, set in *.yaml.
