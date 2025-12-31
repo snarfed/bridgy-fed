@@ -75,6 +75,12 @@ import web
 
 logger = logging.getLogger(__name__)
 
+# Bridgy Fed uses memcache sequence number allocation. If we ever allocate a sequence
+# number from the datastore instead of memcache, we'd allocate a duplicate from
+# memcache and collide. So, force it on, and crash if it's explicitly off or shadow.
+# https://github.com/snarfed/bridgy-fed/issues/2269
+assert os.getenv('MEMCACHE_SEQUENCE_ALLOCATION') in (None, 'true')
+datastore_storage.MEMCACHE_SEQUENCE_ALLOCATION = True
 datastore_storage.memcache = memcache.memcache
 arroba.server.storage = DatastoreStorage(ndb_client=ndb_client,
                                          ndb_context_kwargs=common.NDB_CONTEXT_KWARGS)

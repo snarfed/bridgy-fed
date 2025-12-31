@@ -60,6 +60,14 @@ else:
     logging.getLogger('lexrpc.server').setLevel(logging.INFO)
 
 
+# Bridgy Fed uses memcache sequence number allocation. If we ever allocate a sequence
+# number from the datastore instead of memcache, we'd allocate a duplicate from
+# memcache and collide. atproto.py forces it on; just check that it's not explicitly
+# off here.
+# https://github.com/snarfed/bridgy-fed/issues/2269
+assert os.getenv('MEMCACHE_SEQUENCE_ALLOCATION') in (None, 'true')
+
+
 # for debugging ndb. also needs NDB_DEBUG env var, set in *.yaml.
 # https://github.com/googleapis/python-ndb/blob/c55ec62b5153787404488b046c4bf6ffa02fee64/google/cloud/ndb/utils.py#L78-L81
 # logging.getLogger('google.cloud').propagate = True
