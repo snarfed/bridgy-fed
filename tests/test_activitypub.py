@@ -827,8 +827,20 @@ class ActivityPubTest(TestCase):
         self.assertEqual({'id': 'https://new/feat/ured'},
                          user.obj.key.get().as2['featured'])
 
-        self.assert_task(mock_create_task, 'receive', obj_id=ACTOR['id'],
-                         authed_as=ACTOR['id'])
+        id = 'https://mas.to/users/foo#bridgy-fed-update-2022-01-02T03:04:05+00:00'
+        self.assert_task(
+            mock_create_task, 'receive', id=id, source_protocol='activitypub',
+            authed_as=ACTOR['id'], our_as1={
+'actor': 'https://mas.to/users/foo',
+                'objectType': 'activity',
+                'verb': 'update',
+                'id': id,
+                'object': add_key({
+                    **ACTOR_AS1,
+                    'featured': {'id': 'https://new/feat/ured'},
+                    'updated': '2022-01-02T03:04:05+00:00',
+                }),
+            })
 
     def test_inbox_add_to_unknown_collection_is_ignored(self, _, mock_get, __):
         user = self.make_user(ACTOR['id'], cls=ActivityPub, obj_as2=ACTOR)

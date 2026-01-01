@@ -1415,8 +1415,12 @@ def inbox(protocol=None, id=None):
             if user and user.obj and target == as1.get_id(user.obj.as1, 'featured'):
                 logger.info('Modified pinned posts, reloading profile')
                 user.reload_profile()
-                create_task(queue='receive', obj_id=user.obj_key.id(),
-                            authed_as=authed_as)
+                # enqueue an update, not the bare profile object, so that it gets
+                # a unique id and doesn't get de-duped
+                update = ActivityPub.handle_bare_object(user.obj, authed_as=authed_as,
+                                                        from_user=user)
+                create_task(queue='receive', authed_as=authed_as,
+                            **update.to_request())
                 return 'OK', 202
         return 'Ignored', 204
 
