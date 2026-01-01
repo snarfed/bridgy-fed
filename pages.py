@@ -499,8 +499,10 @@ def update_profile(protocol, id):
         flash(f"Couldn't update profile for {link}", escape=False)
         return redirect(user.user_page_path())
 
-    common.create_task(queue='receive', obj_id=user.obj_key.id(),
-                       authed_as=user.key.id())
+    # enqueue an update, not the bare profile object, so that it gets
+    # a unique id and doesn't get de-duped
+    update = user.handle_bare_object(user.obj, authed_as=user.key.id(), from_user=user)
+    common.create_task(queue='receive', authed_as=user.key.id(), **update.to_request())
     flash(f'Updating profile from {link}...', escape=False)
 
     if user.LABEL == 'web':

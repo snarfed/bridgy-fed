@@ -361,11 +361,12 @@ class PagesTest(TestCase):
 
         user = self.make_user('fake:user', cls=Fake)
 
-        Fake.fetchable = {'fake:profile:user': {
+        profile = {
             'objectType': 'person',
             'id': 'fake:user',
             'displayName': 'Ms User',
-        }}
+        }
+        Fake.fetchable = {'fake:profile:user': profile}
 
         # use handle in URL to check that we use key id as authed_as below
         got = self.client.post('/fa/fake:handle:user/update-profile')
@@ -373,8 +374,16 @@ class PagesTest(TestCase):
         self.assert_equals('/fa/fake:handle:user', got.headers['Location'])
 
         self.assert_equals(['fake:profile:user'], Fake.fetched)
-        self.assert_task(mock_create_task, 'receive', obj_id='fake:profile:user',
-                         authed_as='fake:user')
+        id = 'fake:profile:user#bridgy-fed-update-2022-01-02T03:04:05+00:00'
+        self.assert_task(
+            mock_create_task, 'receive', source_protocol='fake', id=id,
+            authed_as='fake:user', our_as1={
+                'objectType': 'activity',
+                'verb': 'update',
+                'id': id,
+                'actor': 'fake:user',
+                'object': {**profile, 'updated': '2022-01-02T03:04:05+00:00'},
+            })
 
     @patch('requests.get', return_value=ACTOR_HTML_RESP)
     def test_update_profile_web(self, mock_get):
@@ -393,17 +402,13 @@ class PagesTest(TestCase):
 
         user = self.user.key.get()
         self.assertIsNone(user.status)
-        expected_mf2 = copy.deepcopy(ACTOR_MF2_REL_URLS)
-        expected_mf2['rel-urls']['https://user.com/webmention'] = {
-            'rels': ['webmention'],
-            'text': '',
-        }
-        self.assertEqual(expected_mf2, user.obj.mf2)
 
         actor_as1 = {
             **ACTOR_AS1_UNWRAPPED_URLS,
+            'id': 'user.com',
             'updated': '2022-01-02T03:04:05+00:00',
         }
+        self.assertEqual(actor_as1, user.obj.as1)
         self.assertEqual([('fake:shared:target', {
             'objectType': 'activity',
             'verb': 'update',
@@ -430,6 +435,7 @@ class PagesTest(TestCase):
 
         actor_as1 = {
             **ACTOR_AS1_UNWRAPPED_URLS,
+            'id': 'user.com',
             'updated': '2022-01-02T03:04:05+00:00',
             'urls': [
                 {'value': 'https://user.com/', 'displayName': 'Ms. ☕ Baz'},
