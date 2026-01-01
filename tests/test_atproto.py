@@ -1950,9 +1950,15 @@ Sed tortor neque, aliquet quis posuere aliquam, imperdiet sitamet […]
         repo = arroba.server.storage.load_repo('did:plc:user')
         self.assertEqual('han.dull.brid.gy', repo.handle)
 
-    def test_set_username_unchanged(self):
-        user = self.make_user_and_repo(enabled_protocols=['atproto'])
-        self.assertTrue(ATProto.set_username(user, 'han.dull.brid.gy'))
+    def test_set_username_unchanged_still_runs(self):
+        orig_create = Repo.create
+
+        def repo_create(*args, **kwargs):
+            kwargs['handle'] = 'ne.w'
+            return orig_create(*args, **kwargs)
+
+        with patch.object(Repo, 'create', side_effect=repo_create) as mock_create:
+            self.test_set_username()
 
     @patch('google.cloud.dns.client.ManagedZone', autospec=True)
     @patch.object(tasks_client, 'create_task', return_value=Task(name='my task'))

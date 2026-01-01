@@ -647,7 +647,7 @@ class ATProto(User, Protocol):
             logger.info(f'{repo.did} is {repo.status}, giving up')
             return False
         elif username == repo.handle:
-            return True
+            logger.info(f'repo {repo.did} already has handle {username}, setting anyway')
 
         # resolve_handle checks that username is a valid domain
         resolved = did.resolve_handle(username, get_fn=util.requests_get)
