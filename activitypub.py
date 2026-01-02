@@ -22,7 +22,13 @@ import oauth_dropins.pixelfed
 import oauth_dropins.threads
 from oauth_dropins.webutil import appengine_info, flask_util, util
 from oauth_dropins.webutil.flask_util import FlashErrors, MovedPermanently
-from oauth_dropins.webutil.util import add, fragmentless, json_dumps, json_loads
+from oauth_dropins.webutil.util import (
+    add,
+    domain_from_link,
+    fragmentless,
+    json_dumps,
+    json_loads,
+)
 import requests
 from requests import TooManyRedirects
 from requests.models import DEFAULT_REDIRECT_LIMIT
@@ -170,7 +176,7 @@ class ActivityPub(User, Protocol):
         id = self.key.id()
         assert id
         assert util.is_web(id), f'{id} is not a URL'
-        domain = util.domain_from_link(id)
+        domain = domain_from_link(id)
         assert domain, 'missing domain'
         assert not self.is_blocklisted(domain), f'{id} is a blocked domain'
 
@@ -361,7 +367,7 @@ class ActivityPub(User, Protocol):
         return signed_post(inbox_url, data=activity, from_user=from_user).ok
 
     @classmethod
-    def fetch(cls, obj, **_):
+    def fetch(cls, obj, use_fetched_id=True, **_):
         """Tries to fetch an AS2 object.
 
         Assumes ``obj.id`` is a URL. Any fragment at the end is stripped before
@@ -379,7 +385,8 @@ class ActivityPub(User, Protocol):
         type, fetches and returns that URL.
 
         If the fetched AS2 object's ``id`` is different from ``obj.id``, this
-        method overwrites ``obj.id`` with the fetched id!
+        method defaults to overwriting ``obj.id`` with the fetched id! You can
+        disable that with ``use_fetched_id=False``.
 
         Includes an HTTP Signature with the request.
 
@@ -398,6 +405,8 @@ class ActivityPub(User, Protocol):
         Args:
           obj (models.Object): with the id to fetch. Fills data into the as2
             property.
+          use_fetched_id (bool): whether to override ``obj``'s key id with the
+            returned object's id if it differs. Defaults to False.
           kwargs: ignored
 
         Returns:
@@ -426,8 +435,10 @@ class ActivityPub(User, Protocol):
             resp, obj.as2 = cls._get(url, **kwargs)
             if obj.as2:
                 # accept an object with a different id *if* it's from the same origin
-                if ((got_id := obj.as2.get('id')) and got_id != url
-                    and util.domain_from_link(got_id) == util.domain_from_link(url)):
+                if (use_fetched_id
+                        and (got_id := obj.as2.get('id'))
+                        and got_id != url
+                        and domain_from_link(got_id) == domain_from_link(url)):
                     logger.info(f'overriding fetched id {url} with returned id {got_id}')
                     obj.key = Object(id=got_id).key
                 return True
@@ -808,7 +819,7 @@ class ActivityPub(User, Protocol):
         """
         assert '#' not in key_id
 
-        actor = cls.load(key_id)
+        actor = cls.load(key_id, use_fetched_id=False)
         if not actor:
             return None
 
@@ -874,7 +885,7 @@ def signed_request(fn, url, data=None, headers=None, from_user=None,
         'Date': util.now().strftime('%a, %d %b %Y %H:%M:%S GMT'),
         # required by Mastodon
         # https://github.com/tootsuite/mastodon/pull/14556#issuecomment-674077648
-        'Host': util.domain_from_link(url, minimize=False),
+        'Host': domain_from_link(url, minimize=False),
         'Content-Type': as2.CONTENT_TYPE_LD_PROFILE,
         # required for HTTP Signature and Mastodon
         'Digest': f'SHA-256={b64encode(sha256(data or b"").digest()).decode()}',
@@ -996,7 +1007,7 @@ def postprocess_as2(activity, orig_obj=None, wrap=True):
         # some fediverse servers (eg Misskey) require activity id and actor id
         # to be on the same domain
         # https://github.com/snarfed/bridgy-fed/issues/1093#issuecomment-2299247639
-        redirect_domain = util.domain_from_link(as1.get_id(activity, 'actor'))
+        redirect_domain = domain_from_link(as1.get_id(activity, 'actor'))
         if redirect_domain not in DOMAINS:
             redirect_domain = None
         activity['id'] = redirect_wrap(activity.get('id'), domain=redirect_domain)
@@ -1355,7 +1366,7 @@ def inbox(protocol=None, id=None):
     if ActivityPub.owns_id(actor_id) is False:
         error(f'Bad ActivityPub actor id {actor_id}', status=400)
 
-    actor_domain = util.domain_from_link(actor_id)
+    actor_domain = domain_from_link(actor_id)
     # temporary, see emails w/Michael et al, and
     # https://github.com/snarfed/bridgy-fed/issues/1686
     if actor_domain == 'newsmast.community' and type == 'Undo':
@@ -1366,19 +1377,19 @@ def inbox(protocol=None, id=None):
         error(f'Bad ActivityPub activity id {id}', status=400)
 
     obj_id = obj.get('id')
-    if id and actor_domain != util.domain_from_link(id):
+    if id and actor_domain != domain_from_link(id):
         report_error(f'Auth: actor and activity on different domains: {json_dumps(activity, indent=2)}',
                      user=f'actor {actor_id} activity {id}')
         return f'actor {actor_id} and activity {id} on different domains', 403
     elif (type in as2.CRUD_VERBS and obj_id
-          and actor_domain != util.domain_from_link(obj_id)):
+          and actor_domain != domain_from_link(obj_id)):
         report_error(f'Auth: actor and object on different domains {json_dumps(activity, indent=2)}',
                      user=f'actor {actor_id} object {obj_id}')
         return f'actor {actor_id} and object {obj_id} on different domains', 403
 
     # are we already processing or done with this activity?
     if id:
-        domain = util.domain_from_link(id)
+        domain = domain_from_link(id)
         if memcache.memcache.get(activity_id_memcache_key(id)):
             logger.info(f'Already seen {id}')
             return '', 204
@@ -1393,7 +1404,7 @@ def inbox(protocol=None, id=None):
     if not authed_as:
         error('No HTTP Signature', status=401)
     elif util.domain_or_parent_in(authed_as, NO_AUTH_DOMAINS):
-        error(f"Ignoring, sorry, we don't know how to authorize {util.domain_from_link(authed_as)} activities yet. https://github.com/snarfed/bridgy-fed/issues/566", status=204)
+        error(f"Ignoring, sorry, we don't know how to authorize {domain_from_link(authed_as)} activities yet. https://github.com/snarfed/bridgy-fed/issues/566", status=204)
 
     # if we need the LD Sig to authorize this activity, bail out, we don't do
     # those yet

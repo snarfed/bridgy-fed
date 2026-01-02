@@ -1658,6 +1658,36 @@ class ActivityPubTest(TestCase):
             self.as2_req('http://mas.to/key/id'),
         ))
 
+    def test_inbox_verify_sig_fetch_key_returns_partial_actor(self, _, mock_get, __):
+        orig_actor_as2 = add_key({
+            'id': 'https://mas.to/users/foo',
+            'orig': 'actor',
+        })
+        self.make_user(cls=ActivityPub, id='https://mas.to/users/foo',
+                       obj_as2=orig_actor_as2)
+
+        # public key fetch returns partial actor object with key and actor's id
+        # https://github.com/snarfed/bridgy-fed/issues/2266
+        # self.assertEqual('https://mas.to/users/foo', self.key_id_obj.as2['id'])
+        mock_get.return_value = self.as2_resp(add_key({
+            'id': 'https://mas.to/users/foo',
+            'partial': 'actor',
+        }))
+
+        # valid signature
+        body = json_dumps(NOTE)
+        headers = sign('/ap/sharedInbox', body, key_id='http://mas.to/key/id')
+        resp = self.client.post('/ap/sharedInbox', data=body, headers=headers)
+        self.assertEqual(204, resp.status_code, resp.get_data(as_text=True))
+        mock_get.assert_has_calls((
+            self.as2_req('http://mas.to/key/id'),
+        ))
+
+        # actor object shouldn't have been overridden by key
+        # https://github.com/snarfed/bridgy-fed/issues/2266
+        self.assert_object('https://mas.to/users/foo', as2=orig_actor_as2,
+                           source_protocol='activitypub')
+
     def test_inbox_verify_sig_fetch_key_fails(self, _, mock_get, __):
         # https://console.cloud.google.com/errors/detail/COLzgISI47vpMg?project=bridgy-federated
         # bad keyId, requests would raise InvalidURL
@@ -1670,7 +1700,34 @@ class ActivityPubTest(TestCase):
         self.assertEqual(400, resp.status_code, resp.get_data(as_text=True))
 
     @patch('oauth_dropins.webutil.appengine_info.DEBUG', False)
-    def test_inbox_verify_sig_stored_key(self, *_):
+    @patch('oauth_dropins.webutil.appengine_config.tasks_client.create_task')
+    def test_inbox_verify_sig_stored_key(self, mock_create_task, _, mock_get, __):
+        common.RUN_TASKS_INLINE = False
+
+        # stored actor and key object with actor's id in AS2
+        orig_actor_as2 = add_key({
+            'id': 'https://mas.to/users/foo',
+            'orig': 'profile',
+        })
+        self.make_user(cls=ActivityPub, id='https://mas.to/users/foo',
+                       obj_as2=orig_actor_as2)
+        self.key_id_obj.put()
+
+        # valid signature
+        body = json_dumps({**NOTE, 'actor': 'https://mas.to/users/foo'})
+        headers = sign('/ap/sharedInbox', body, key_id='http://mas.to/key/id')
+
+        resp = self.client.post('/ap/sharedInbox', data=body, headers=headers)
+        self.assertEqual(202, resp.status_code, resp.get_data(as_text=True))
+        mock_get.assert_not_called()
+
+        # actor object shouldn't have been overridden by key
+        # https://github.com/snarfed/bridgy-fed/issues/2266
+        self.assert_object('https://mas.to/users/foo', as2=orig_actor_as2,
+                           source_protocol='activitypub')
+
+    @patch('oauth_dropins.webutil.appengine_info.DEBUG', False)
+    def test_inbox_verify_sig_stored_key_missing_publicKey(self, *_):
         body = json_dumps({**NOTE, 'actor': 'http://mas.to/key/id'})
         headers = sign('/ap/sharedInbox', body, key_id='http://mas.to/key/id')
 
