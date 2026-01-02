@@ -1,4 +1,4 @@
-"""Utilities for working with DNS domain names."""
+"""Utilities for working with DNS domain names; constants for our own domains."""
 import re
 from urllib.parse import urljoin, urlparse
 

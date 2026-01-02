@@ -29,6 +29,7 @@ import requests
 import werkzeug.exceptions
 from werkzeug.exceptions import HTTPException
 
+import config
 from domains import (
     DOMAIN_RE,
     DOMAINS,
@@ -363,6 +364,31 @@ def log_request():
     Limits each value to 1000 chars."""
     logger.info(f'Params:\n' + '\n'.join(
         f'{k} = {v[:1000]}' for k, v in request.values.items()))
+
+
+def secret_key_auth(fn):
+  """Flask decorator that returns HTTP 401 if the request isn't authorized.
+
+  Right now this only handles internal authorization: the ``Authorization`` header
+  has to be set to the Flask secret key in the ``flask_secret_key`` file.
+
+  Ignored if ``LOCAL_SERVER`` is True.
+
+  Must be used *below* :meth:`flask.Flask.route`, eg::
+
+      @app.route('/path')
+      @cloud_tasks_only()
+      def handler():
+          ...
+  """
+  @functools.wraps(fn)
+  def decorated(*args, **kwargs):
+      if request.headers.get('Authorization') != config.SECRET_KEY:
+          return '', 401
+
+      return fn(*args, **kwargs)
+
+  return decorated
 
 
 class FlashErrors(View):

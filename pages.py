@@ -38,6 +38,7 @@ from common import (
     CACHE_CONTROL,
     ErrorButDoNotRetryTask,
     render_template,
+    secret_key_auth,
 )
 from domains import (
     BLOG_REDIRECT_DOMAINS,
@@ -642,10 +643,8 @@ def blog_redirect(host, path):
 
 
 @app.get('/admin/memcache-get')
+@secret_key_auth
 def memcache_get():
-    if request.headers.get('Authorization') != app.config['SECRET_KEY']:
-        return '', 401
-
     if key := request.values.get('key'):
         return repr(Key(urlsafe=key).get(use_cache=False, use_datastore=False,
                                          use_global_cache=True))
@@ -656,10 +655,8 @@ def memcache_get():
 
 
 @app.post('/admin/memcache-evict')
+@secret_key_auth
 def memcache_evict():
-    if request.headers.get('Authorization') != app.config['SECRET_KEY']:
-        return '', 401
-
     if key := request.values.get('key'):
         memcache.evict(Key(urlsafe=key))
         return ''
