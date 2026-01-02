@@ -361,7 +361,7 @@ class ActivityPub(User, Protocol):
         return signed_post(inbox_url, data=activity, from_user=from_user).ok
 
     @classmethod
-    def fetch(cls, obj, **kwargs):
+    def fetch(cls, obj, **_):
         """Tries to fetch an AS2 object.
 
         Assumes ``obj.id`` is a URL. Any fragment at the end is stripped before
@@ -410,23 +410,33 @@ class ActivityPub(User, Protocol):
             ``requests_response`` attribute with the last
             :class:`requests.Response` we received.
         """
-        url = obj.key.id()
-        if not util.is_web(url):
-            logger.info(f'{url} is not a URL')
+        id = obj.key.id()
+        if not util.is_web(id):
+            logger.info(f'{id} is not a URL')
             return False
-        elif '#' in url:
-            logger.info(f'{url} has a fragment, cowardly refusing to fetch')
+        elif '#' in id:
+            logger.info(f'{id} has a fragment, cowardly refusing to fetch')
             return False
 
-        resp, obj.as2 = cls._get(url, headers=CONNEG_HEADERS_AS2_HTML)
-        if obj.as2:
-            if (got_id := obj.as2.get('id')) and got_id != url:
-                obj.key = Object(id=got_id).key
-            return True
-        elif not resp:
-            return False
+        resp = None
+
+        def _fetch(url, **kwargs):
+            nonlocal resp
+
+            resp, obj.as2 = cls._get(url, **kwargs)
+            if obj.as2:
+                if (got_id := obj.as2.get('id')) and got_id != url:
+                    obj.key = Object(id=got_id).key
+                return True
+            elif not resp:
+                return False
+
+        fetched = _fetch(id, headers=CONNEG_HEADERS_AS2_HTML)
+        if fetched in (True, False):
+            return fetched
 
         # look in HTML to find AS2 link
+        assert resp
         if common.content_type(resp) != 'text/html':
             logger.debug('no AS2 available')
             return False
@@ -438,13 +448,7 @@ class ActivityPub(User, Protocol):
             logger.debug('no AS2 available')
             return False
 
-        _, obj.as2 = cls._get(link['href'])
-        if not obj.as2:
-            return False
-
-        if (got_id := obj.as2.get('id')) and got_id != url:
-            obj.key = Object(id=got_id).key
-        return True
+        return _fetch(link['href'])
 
     @classmethod
     def _get(cls, url, headers=as2.CONNEG_HEADERS):
