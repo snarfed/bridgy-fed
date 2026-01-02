@@ -1014,10 +1014,13 @@ class ObjectTest(TestCase):
                 ("""\
         title="Alice">
           <img class="profile" src="http://pic/" />
-          <span style="unicode-bidi: isolate">Alice</span>""", {'actor': {
-              'name': 'Alice',
-              'icon': {'type': 'Image', 'url': 'http://pic'},
-          }}),
+          <span style="unicode-bidi: isolate">Alice</span>""", {
+              'actor': {
+                  'type': 'Person',
+                  'name': 'Alice',
+                  'icon': {'type': 'Image', 'url': 'http://pic'},
+              },
+          }),
         ):
             with self.subTest(expected=expected, as2=as2):
                 obj = Object(id='x', as2=as2)
