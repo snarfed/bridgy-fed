@@ -3209,16 +3209,29 @@ class ActivityPubUtilsTest(TestCase):
         ))
 
     @patch('requests.get')
-    def test_fetch_returns_different_id(self, mock_get):
-        mock_get.return_value = self.as2_resp({'id': 'http://returned'})
+    def test_fetch_returns_different_id_on_same_domain(self, mock_get):
+        mock_get.return_value = self.as2_resp({'id': 'http://orig/456'})
 
-        obj = Object(id='http://requested')
+        obj = Object(id='http://orig/123')
         self.assertTrue(ActivityPub.fetch(obj))
-        self.assertEqual({'id': 'http://returned'}, obj.as2)
-        self.assertEqual('http://returned', obj.key.id())
+        self.assertEqual({'id': 'http://orig/456'}, obj.as2)
+        self.assertEqual('http://orig/456', obj.key.id())
 
         mock_get.assert_has_calls((
-            self.as2_req('http://requested'),
+            self.as2_req('http://orig/123'),
+        ))
+
+    @patch('requests.get')
+    def test_fetch_returns_different_id_on_different_domain(self, mock_get):
+        mock_get.return_value = self.as2_resp({'id': 'http://new/123'})
+
+        obj = Object(id='http://orig/123')
+        self.assertTrue(ActivityPub.fetch(obj))
+        self.assertEqual({'id': 'http://new/123'}, obj.as2)
+        self.assertEqual('http://orig/123', obj.key.id())
+
+        mock_get.assert_has_calls((
+            self.as2_req('http://orig/123'),
         ))
 
     @patch('requests.get')

@@ -425,7 +425,10 @@ class ActivityPub(User, Protocol):
 
             resp, obj.as2 = cls._get(url, **kwargs)
             if obj.as2:
-                if (got_id := obj.as2.get('id')) and got_id != url:
+                # accept an object with a different id *if* it's from the same origin
+                if ((got_id := obj.as2.get('id')) and got_id != url
+                    and util.domain_from_link(got_id) == util.domain_from_link(url)):
+                    logger.info(f'overriding fetched id {url} with returned id {got_id}')
                     obj.key = Object(id=got_id).key
                 return True
             elif not resp:
