@@ -6,6 +6,7 @@ import logging
 import re
 import time
 
+import arroba.server
 from flask import request
 from google.cloud import ndb
 from google.cloud.ndb import tasklets
@@ -644,6 +645,7 @@ def blog_redirect(host, path):
 
 @app.get('/admin/memcache-get')
 @secret_key_auth
+@flask_util.headers({'Content-Type': 'text/plain'})
 def memcache_get():
     if key := request.values.get('key'):
         return repr(Key(urlsafe=key).get(use_cache=False, use_datastore=False,
@@ -656,6 +658,7 @@ def memcache_get():
 
 @app.post('/admin/memcache-evict')
 @secret_key_auth
+@flask_util.headers({'Content-Type': 'text/plain'})
 def memcache_evict():
     if key := request.values.get('key'):
         memcache.evict(Key(urlsafe=key))
@@ -665,3 +668,21 @@ def memcache_evict():
         return 'deleted' if deleted else 'not found'
     else:
         error('either key or raw are required')
+
+
+@app.post('/admin/alloc-seq')
+@secret_key_auth
+@flask_util.headers({'Content-Type': 'text/plain'})
+def alloc_seq():
+    nsid = flask_util.get_required_param('nsid')
+    result = arroba.server.storage.allocate_seq(nsid)
+    return str(result)
+
+
+@app.get('/admin/last-seq')
+@secret_key_auth
+@flask_util.headers({'Content-Type': 'text/plain'})
+def last_seq():
+    nsid = flask_util.get_required_param('nsid')
+    result = arroba.server.storage.last_seq(nsid)
+    return str(result)
