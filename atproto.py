@@ -7,7 +7,7 @@ import itertools
 import logging
 import os
 import re
-from urllib.parse import urlparse
+from urllib.parse import urljoin, urlparse
 
 from arroba import did
 from arroba.did import get_handle
@@ -20,7 +20,7 @@ from arroba.datastore_storage import (
 )
 from arroba.repo import Repo, Write
 import arroba.server
-from arroba.storage import Action, CommitData
+from arroba.storage import Action, CommitData, Sequences
 from arroba.util import (
     at_uri,
     dag_cbor_cid,
@@ -63,6 +63,7 @@ from common import (
     FlashErrors,
     USER_AGENT,
 )
+import config
 import domains
 from domains import (
     DOMAIN_RE,
@@ -144,6 +145,55 @@ def chat_client(*, repo, method, **kwargs):
     })
     kwargs.setdefault('truncate', True)
     return Client(f'https://{os.environ["CHAT_HOST"]}', **kwargs)
+
+
+class RemoteSequences(Sequences):
+    """Sequence number implementation that uses remote HTTP endpoints.
+
+    Makes requests to ``/admin/sequences/alloc`` and ``/admin/sequences/last``
+    to allocate and retrieve sequence numbers.
+
+    Used for local shells and scripts, outside GCP.
+    """
+    def __init__(self, base_url):
+        """Constructor.
+
+        Args:
+          base_url (str): base URL for the remote server, eg ``https://fed.brid.gy/``
+        """
+        super().__init__()
+        self.base_url = base_url
+
+    def allocate(self, nsid):
+        """Allocates a sequence number via HTTP POST.
+
+        Args:
+          nsid (str): subscription XRPC method this sequence number is for
+
+        Returns:
+          int:
+        """
+        resp = util.requests_post(urljoin(self.base_url, '/admin/sequences/alloc'),
+                                  data={'nsid': nsid},
+                                  headers={'Authorization': config.SECRET_KEY})
+        resp.raise_for_status()
+        return int(resp.text)
+
+    def last(self, nsid):
+        """Gets the last sequence number via HTTP GET.
+
+        Args:
+          nsid (str): subscription XRPC method this sequence number is for
+
+        Returns:
+          int or None:
+        """
+        resp = util.requests_get(urljoin(self.base_url, '/admin/sequences/last'),
+                                 params={'nsid': nsid},
+                                 headers={'Authorization': config.SECRET_KEY})
+        resp.raise_for_status()
+        text = resp.text.strip()
+        return int(text) if text and text != 'None' else None
 
 
 class DatastoreClient(Client):

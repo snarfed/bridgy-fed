@@ -41,6 +41,7 @@ from atproto import (
     DNS_ZONE,
 )
 import common
+import config
 from models import Follower, Object, PROTOCOLS, Target
 import protocol
 from .testutil import ATPROTO_KEY, ExplicitFake, Fake, TestCase
@@ -120,6 +121,61 @@ SEND_MESSAGE_OUTPUT = {  # sendMessage
     'text': 'hello world',
 }
 
+
+class RemoteSequencesTest(TestCase):
+
+    def setUp(self):
+        super().setUp()
+        self.sequences = atproto.RemoteSequences('https://fed.brid.gy/')
+
+    def check_call(self, mock, endpoint):
+        params = ({'data': {'nsid': 'foo.bar'}} if endpoint == 'alloc'
+                  else {'params': {'nsid': 'foo.bar'}})
+        mock.assert_called_once_with(
+            f'https://fed.brid.gy/admin/sequences/{endpoint}',
+            headers={
+                'Authorization': config.SECRET_KEY,
+                'User-Agent': common.USER_AGENT,
+            },
+            timeout=15,
+            stream=True,
+            **params)
+
+    @patch('requests.post', return_value=requests_response('1'))
+    def test_allocate(self, mock_post):
+        result = self.sequences.allocate('foo.bar')
+        self.assertEqual(1, result)
+        self.check_call(mock_post, 'alloc')
+
+    @patch('requests.post', return_value=requests_response('42'))
+    def test_allocate_strips_trailing_slash(self, mock_post):
+        self.assertEqual(42, self.sequences.allocate('foo.bar'))
+        self.check_call(mock_post, 'alloc')
+
+    @patch('requests.post', return_value=requests_response(status=404))
+    def test_allocate_fails(self, mock_post):
+        with self.assertRaises(HTTPError):
+            self.sequences.allocate('foo.bar')
+
+    @patch('requests.get', return_value=requests_response('5'))
+    def test_last(self, mock_get):
+        self.assertEqual(5, self.sequences.last('foo.bar'))
+        self.check_call(mock_get, 'last')
+
+    @patch('requests.get', return_value=requests_response('None'))
+    def test_last_none(self, mock_get):
+        self.assertIsNone(self.sequences.last('foo.bar'))
+        self.check_call(mock_get, 'last')
+
+    @patch('requests.get', return_value=requests_response(''))
+    def test_last_empty(self, mock_get):
+        self.assertIsNone(self.sequences.last('foo.bar'))
+        self.check_call(mock_get, 'last')
+
+    @patch('requests.get', return_value=requests_response(status=404))
+    def test_last_fails(self, mock_post):
+        with self.assertRaises(HTTPError):
+            self.sequences.last('foo.bar')
 
 @patch('ids.COPIES_PROTOCOLS', ['atproto'])
 class ATProtoTest(TestCase):
