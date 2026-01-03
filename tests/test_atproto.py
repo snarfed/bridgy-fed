@@ -126,7 +126,7 @@ class ATProtoTest(TestCase):
 
     def setUp(self):
         super().setUp()
-        self.storage = DatastoreStorage()
+        self.storage = arroba.server.storage  # convenience
         common.RUN_TASKS_INLINE = False
         arroba.util.now = lambda tz=timezone.utc: NOW.replace(tzinfo=tz)
 

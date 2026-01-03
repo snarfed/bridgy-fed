@@ -98,7 +98,7 @@ class IntegrationTests(TestCase):
 
     def setUp(self):
         super().setUp()
-        self.storage = DatastoreStorage()
+        self.storage = arroba.server.storage  # convenience
 
     def make_ap_user(self, ap_id, did=None, nostr_key_bytes=None, **props):
         actor = {

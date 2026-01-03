@@ -7,6 +7,7 @@ import os
 import re
 import traceback
 
+import arroba.datastore_storage
 from oauth_dropins.webutil import appengine_config, appengine_info, util
 
 # This is primarily for flashed messages, since we don't use session data
@@ -62,11 +63,11 @@ else:
 
 # Bridgy Fed uses memcache sequence number allocation. If we ever allocate a sequence
 # number from the datastore instead of memcache, we'd allocate a duplicate from
-# memcache and collide. atproto.py forces it on; just check that it's not explicitly
-# off here.
+# memcache and collide. To make extra sure we don't do that, delete the datastore
+# sequence number allocator.
 # https://github.com/snarfed/bridgy-fed/issues/2269
-memcache_alloc = os.getenv('MEMCACHE_SEQUENCE_ALLOCATION', '').lower()
-assert memcache_alloc in ('', 'true'), memcache_alloc
+if getattr(arroba.datastore_storage, 'DatastoreSequences', None):
+    del arroba.datastore_storage.DatastoreSequences
 
 
 # for debugging ndb. also needs NDB_DEBUG env var, set in *.yaml.
