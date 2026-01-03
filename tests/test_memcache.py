@@ -241,7 +241,7 @@ class MemcacheTest(TestCase):
         key = Fake(id='fake:foo').key
         memcache.remote_evict(key)
         mock_post.assert_has_calls([self.req(
-            'https://fed.brid.gy/admin/memcache-evict',
+            'https://fed.brid.gy/admin/memcache/evict',
             headers={'Authorization': config.SECRET_KEY},
             data={'key': key.urlsafe()},
         )])

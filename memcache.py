@@ -165,7 +165,7 @@ def remote_evict(entity_key):
     Returns:
       requests.Response:
     """
-    return util.requests_post(f'https://{PRIMARY_DOMAIN}/admin/memcache-evict',
+    return util.requests_post(f'https://{PRIMARY_DOMAIN}/admin/memcache/evict',
                               headers={'Authorization': config.SECRET_KEY},
                               data={'key': entity_key.urlsafe()})
 

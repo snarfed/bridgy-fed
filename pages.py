@@ -643,7 +643,7 @@ def blog_redirect(host, path):
     return MovedPermanently(location=f'https://{host}/{path}')
 
 
-@app.get('/admin/memcache-get')
+@app.get('/admin/memcache/get')
 @secret_key_auth
 @flask_util.headers({'Content-Type': 'text/plain'})
 def memcache_get():
@@ -656,7 +656,7 @@ def memcache_get():
         error('either key or raw are required')
 
 
-@app.post('/admin/memcache-evict')
+@app.post('/admin/memcache/evict')
 @secret_key_auth
 @flask_util.headers({'Content-Type': 'text/plain'})
 def memcache_evict():
@@ -670,7 +670,7 @@ def memcache_evict():
         error('either key or raw are required')
 
 
-@app.post('/admin/alloc-seq')
+@app.post('/admin/sequences/alloc')
 @secret_key_auth
 @flask_util.headers({'Content-Type': 'text/plain'})
 def alloc_seq():
@@ -679,7 +679,7 @@ def alloc_seq():
     return str(result)
 
 
-@app.get('/admin/last-seq')
+@app.get('/admin/sequences/last')
 @secret_key_auth
 @flask_util.headers({'Content-Type': 'text/plain'})
 def last_seq():
