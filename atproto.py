@@ -12,7 +12,12 @@ from urllib.parse import urlparse
 from arroba import did
 from arroba.did import get_handle
 from arroba import datastore_storage
-from arroba.datastore_storage import AtpRemoteBlob, AtpRepo, DatastoreStorage
+from arroba.datastore_storage import (
+    AtpRemoteBlob,
+    AtpRepo,
+    DatastoreStorage,
+    MemcacheSequences,
+)
 from arroba.repo import Repo, Write
 import arroba.server
 from arroba.storage import Action, CommitData
@@ -77,7 +82,7 @@ logger = logging.getLogger(__name__)
 
 # Bridgy Fed uses memcache sequence number allocation. If we ever allocate a sequence
 # number from the datastore instead of memcache, we'd allocate a duplicate from
-# memcache and collide. So, force it on, and crash if it's explicitly off or shadow.
+# memcache and collide. So, force it on, and crash if it's explicitly off.
 # https://github.com/snarfed/bridgy-fed/issues/2269
 memcache_alloc = os.getenv('MEMCACHE_SEQUENCE_ALLOCATION', '').lower()
 assert memcache_alloc in ('', 'true'), memcache_alloc
@@ -86,6 +91,7 @@ datastore_storage.MEMCACHE_SEQUENCE_ALLOCATION = True
 datastore_storage.memcache = memcache.memcache
 arroba.server.storage = DatastoreStorage(ndb_client=ndb_client,
                                          ndb_context_kwargs=common.NDB_CONTEXT_KWARGS)
+assert isinstance(arroba.server.storage.sequences, MemcacheSequences)
 
 appview = Client(f'https://{os.environ["APPVIEW_HOST"]}',
                  headers={'User-Agent': USER_AGENT})

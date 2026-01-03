@@ -675,7 +675,7 @@ def memcache_evict():
 @flask_util.headers({'Content-Type': 'text/plain'})
 def alloc_seq():
     nsid = flask_util.get_required_param('nsid')
-    result = arroba.server.storage.allocate_seq(nsid)
+    result = arroba.server.storage.sequences.allocate(nsid)
     return str(result)
 
 
@@ -684,5 +684,5 @@ def alloc_seq():
 @flask_util.headers({'Content-Type': 'text/plain'})
 def last_seq():
     nsid = flask_util.get_required_param('nsid')
-    result = arroba.server.storage.last_seq(nsid)
+    result = arroba.server.storage.sequences.last(nsid)
     return str(result)

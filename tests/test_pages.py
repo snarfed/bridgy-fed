@@ -1108,7 +1108,7 @@ class PagesTest(TestCase):
         self.assertEqual(200, resp.status_code)
         self.assertEqual('None', resp.get_data(as_text=True))
 
-        got = arroba.server.storage.allocate_seq('foo.bar')
+        got = arroba.server.storage.sequences.allocate('foo.bar')
         resp = self.client.get('/admin/sequences/last?nsid=foo.bar',
                                headers={'Authorization': config.SECRET_KEY})
         self.assertEqual(200, resp.status_code)

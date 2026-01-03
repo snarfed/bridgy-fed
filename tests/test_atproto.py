@@ -1616,13 +1616,13 @@ Sed tortor neque, aliquet quis posuere aliquam, imperdiet sitamet […]
 
     def test_create_for_already_exists_active(self):
         self.make_user_and_repo()
-        orig_seq = self.storage.last_seq(SUBSCRIBE_REPOS_NSID)
+        orig_seq = self.storage.sequences.last(SUBSCRIBE_REPOS_NSID)
 
         # should be a noop
         ATProto.create_for(self.user)
 
         # check that we didn't generate an #account event or anything else
-        self.assertEqual(orig_seq, self.storage.last_seq(SUBSCRIBE_REPOS_NSID))
+        self.assertEqual(orig_seq, self.storage.sequences.last(SUBSCRIBE_REPOS_NSID))
 
     @patch('atproto.DEBUG', new=False)
     @patch.object(atproto.dns_discovery_api, 'resourceRecordSets')
@@ -1648,7 +1648,7 @@ Sed tortor neque, aliquet quis posuere aliquam, imperdiet sitamet […]
         self.assertIsNone(repo.status)
 
         # check #account event
-        seq = self.storage.last_seq(SUBSCRIBE_REPOS_NSID)
+        seq = self.storage.sequences.last(SUBSCRIBE_REPOS_NSID)
         self.assertEqual({
             '$type': 'com.atproto.sync.subscribeRepos#account',
             'seq': seq,
@@ -1731,7 +1731,7 @@ Sed tortor neque, aliquet quis posuere aliquam, imperdiet sitamet […]
         self.assertIsNone(repo.status)
 
         # check #account and #sync events
-        seq = self.storage.last_seq(SUBSCRIBE_REPOS_NSID)
+        seq = self.storage.sequences.last(SUBSCRIBE_REPOS_NSID)
         events = list(self.storage.read_events_by_seq(seq - 1))
         self.assertEqual({
             '$type': 'com.atproto.sync.subscribeRepos#account',
@@ -1888,7 +1888,7 @@ Sed tortor neque, aliquet quis posuere aliquam, imperdiet sitamet […]
         self.assertEqual('ne.w', repo.handle)
 
         # check #identity event
-        seq = self.storage.last_seq(SUBSCRIBE_REPOS_NSID)
+        seq = self.storage.sequences.last(SUBSCRIBE_REPOS_NSID)
         self.assertEqual({
             '$type': 'com.atproto.sync.subscribeRepos#identity',
             'seq': seq,
@@ -3050,7 +3050,7 @@ Sed tortor neque, aliquet quis posuere aliquam, imperdiet sitamet […]
         did = self.user.key.get().get_copy(ATProto)
         assert did
 
-        seq = self.storage.last_seq(SUBSCRIBE_REPOS_NSID)
+        seq = self.storage.sequences.last(SUBSCRIBE_REPOS_NSID)
         self.assertEqual({
             '$type': 'com.atproto.sync.subscribeRepos#account',
             'seq': seq,

@@ -893,7 +893,7 @@ To disable these messages, reply with the text 'mute'.""",
         self.assertEqual(did, repo.did)
         self.assertEqual('alice.in.st', repo.handle)
 
-        seq = self.storage.last_seq(SUBSCRIBE_REPOS_NSID)
+        seq = self.storage.sequences.last(SUBSCRIBE_REPOS_NSID)
         self.assertIn({
             '$type': 'com.atproto.sync.subscribeRepos#identity',
             'seq': ANY,
@@ -1432,7 +1432,7 @@ To disable these messages, reply with the text 'mute'.""",
 
         repo = self.storage.load_repo('did:plc:alice')
         self.storage.deactivate_repo(repo)
-        last_seq = self.storage.last_seq(firehose.SUBSCRIBE_REPOS_NSID)
+        last_seq = self.storage.sequences.last(firehose.SUBSCRIBE_REPOS_NSID)
 
         bob = self.make_atproto_user('did:plc:bob')
         Follower.get_or_create(to=alice, from_=bob)
@@ -1454,11 +1454,13 @@ To disable these messages, reply with the text 'mute'.""",
 
         self.assertFalse(alice.key.get().is_enabled(ATProto))
         self.assertEqual('deactivated', self.storage.load_repo('did:plc:alice').status)
-        self.assertEqual(last_seq, self.storage.last_seq(firehose.SUBSCRIBE_REPOS_NSID))
+
+        last = self.storage.sequences.last(firehose.SUBSCRIBE_REPOS_NSID)
+        self.assertEqual(last_seq, last)
 
     @patch('requests.post', side_effect=[
-        requests_response('OK'),       # create DID
-        requests_response({  # createReport
+        requests_response('OK'),  # create DID
+        requests_response({       # createReport
             'id': 3,
             'reportedBy': 'did:plc:alice',
             'reasonType': 'com.atproto.moderation.defs#reasonOther',
