@@ -85,8 +85,12 @@ logger = logging.getLogger(__name__)
 # number from the datastore instead of memcache, we'd allocate a duplicate from
 # memcache and collide. So, make sure it's on.
 # https://github.com/snarfed/bridgy-fed/issues/2269
+sequences = MemcacheSequences(
+    memcache=memcache.memcache,
+    ndb_client=ndb_client,
+    ndb_context_kwargs=common.NDB_CONTEXT_KWARGS)
 arroba.server.storage = DatastoreStorage(
-    sequences=MemcacheSequences(memcache=memcache.memcache),
+    sequences=sequences,
     ndb_client=ndb_client,
     ndb_context_kwargs=common.NDB_CONTEXT_KWARGS)
 
