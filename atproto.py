@@ -166,6 +166,7 @@ class RemoteSequences(Sequences):
           base_url (str): base URL for the remote server, eg ``https://fed.brid.gy/``
         """
         super().__init__()
+        assert base_url
         self.base_url = base_url
 
     def allocate(self, nsid):
@@ -177,11 +178,15 @@ class RemoteSequences(Sequences):
         Returns:
           int:
         """
-        resp = util.requests_post(urljoin(self.base_url, '/admin/sequences/alloc'),
-                                  data={'nsid': nsid},
+        url = urljoin(self.base_url, '/admin/sequences/alloc')
+        logger.info(f'allocating seq via remote: {url}')
+        resp = util.requests_post(url, data={'nsid': nsid},
                                   headers={'Authorization': config.SECRET_KEY})
         resp.raise_for_status()
-        return int(resp.text)
+
+        seq = int(resp.text.strip())
+        logger.info(f'  allocated seq {seq}')
+        return seq
 
     def last(self, nsid):
         """Gets the last sequence number via HTTP GET.
