@@ -1908,9 +1908,14 @@ Hi! You <a href="{inner_obj_as1.get('url') or inner_obj_id}">recently {verb}</a>
                         and not (proto.HAS_COPIES and proto.DEFAULT_TARGET)):
                     followers.append(f)
 
+            logger.info(f'  loaded {len(followers)} followers')
+
             user_keys = [f.from_ for f in followers]
             users = [u for u in ndb.get_multi(user_keys) if u]
+            logger.info(f'  loaded {len(users)} users')
+
             User.load_multi(users)
+            logger.info(f'  loaded user objects')
 
             if (not followers and
                 (util.domain_or_parent_in(from_user.key.id(), LIMITED_DOMAINS)
@@ -1926,6 +1931,8 @@ Hi! You <a href="{inner_obj_as1.get('url') or inner_obj_id}">recently {verb}</a>
                         write_obj.dirty = True
 
             # collect targets for followers
+            target_obj = (original_objs.get(inner_obj_id)
+                          if obj.type == 'share' else None)
             for user in users:
                 if user.is_blocking(from_user.key.id()):
                     logger.debug(f'  {user.key.id()} blocks {from_user.key.id()}')
@@ -1941,9 +1948,9 @@ Hi! You <a href="{inner_obj_as1.get('url') or inner_obj_id}">recently {verb}</a>
                 # ...but preserve our PDS URL without trailing slash in path
                 # https://atproto.com/specs/did#did-documents
                 target = util.dedupe_urls([target], trailing_slash=False)[0]
+                targets[Target(protocol=user.LABEL, uri=target)] = target_obj
 
-                targets[Target(protocol=user.LABEL, uri=target)] = \
-                    Object.get_by_id(inner_obj_id) if obj.type == 'share' else None
+            logger.info(f'  collected {len(targets)} targets')
 
         # deliver to enabled HAS_COPIES protocols proactively
         if obj.type in ('post', 'update', 'delete', 'share'):
