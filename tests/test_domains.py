@@ -53,6 +53,14 @@ class DomainsTest(TestCase):
         self.assert_equals({'object': {'id': 'https://foo.com/'}},
                            unwrap({'object': {'id': 'https://fa.brid.gy/foo.com'}}))
 
+    def test_unwrap_internal(self):
+        self.assert_equals(
+            {'object': 'https://ap.brid.gy/internal/foo'},
+            unwrap({'object': 'https://ap.brid.gy/internal/foo',}))
+        self.assert_equals(
+            {'object': {'id': 'https://ap.brid.gy/internal/foo'}},
+            unwrap({'object': {'id': 'https://ap.brid.gy/internal/foo'}}))
+
     def test_unwrap_local_actor_urls(self):
         self.assert_equals({'object': 'https://foo.com/'},
                            unwrap({'object': 'http://localhost/foo.com'}))

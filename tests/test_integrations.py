@@ -1090,7 +1090,7 @@ To disable these messages, reply with the text 'mute'.""",
         """
         alice = self.make_ap_user('https://inst/alice', 'did:plc:alice')
         bsky_bot = self.make_user(id='bsky.brid.gy', cls=Web, ap_subdomain='bsky',
-                                  enabled_protocols=['atproto'])
+                                  enabled_protocols=['activitypub'])
 
         # list owner
         bob = self.make_atproto_user('did:plc:bob', raw={
@@ -2270,6 +2270,58 @@ To disable these messages, reply with the text 'mute'.""",
         self.assert_equals([
             Target(protocol='nostr', uri='nostr:' + expected_event['id']),
         ], Object.get_by_id('https://alice.com/post').copies)
+
+    @patch('requests.post')
+    @patch('requests.get')
+    def test_web_blog_redirect_post_to_activitypub_follower(self, mock_get, mock_post):
+        """Blog redirect: webmention from bsky.brid.gy/internal/snarfed.org/post.
+
+        Protocol bot user bsky.brid.gy
+        ActivityPub follower https://inst/alice
+        """
+        bsky_bot = self.make_user(id='bsky.brid.gy', cls=Web, ap_subdomain='bsky',
+                                  enabled_protocols=['activitypub'])
+        alice = self.make_ap_user('https://inst/alice')
+        Follower.get_or_create(to=bsky_bot, from_=alice)
+
+        mock_get.return_value = requests_response("""\
+<html>
+<body>
+<div class="h-entry">
+  <div class="e-content p-name">Hello from my blog!</div>
+  <a class="u-url" href="https://snarfed.org/post"></a>
+</div>
+<a href="http://localhost/"></a>
+</body>
+</html>
+""", redirected_url=['https://bsky.brid.gy/internal/snarfed.org/post',
+                     'https://snarfed.org/post'])
+
+        mock_post.return_value = requests_response('')
+
+        resp = self.post('/queue/webmention', data={
+            'source': 'https://bsky.brid.gy/internal/snarfed.org/post',
+        }, headers={'Authorization': common.config.SECRET_KEY})
+        self.assertEqual(202, resp.status_code)
+
+        self.assert_ap_deliveries(mock_post, ['https://inst/alice/inbox'],
+                                  from_user=bsky_bot, data={
+            'type': 'Create',
+            'id': 'https://bsky.brid.gy/internal/snarfed.org/post#bridgy-fed-create-2022-01-02T03:04:05+00:00',
+            'actor': 'https://bsky.brid.gy/bsky.brid.gy',
+            'published': '2022-01-02T03:04:05+00:00',
+            'object': {
+                'type': 'Note',
+                'id': 'https://bsky.brid.gy/internal/snarfed.org/post',
+                'url': 'https://bsky.brid.gy/internal/snarfed.org/post',
+                'attributedTo': 'https://bsky.brid.gy/bsky.brid.gy',
+                'name': 'Hello from my blog!',
+                'content': '<p>Hello from my blog!</p>',
+                'contentMap': {'en': '<p>Hello from my blog!</p>'},
+                'to': ['https://www.w3.org/ns/activitystreams#Public'],
+            },
+            'to': ['https://www.w3.org/ns/activitystreams#Public'],
+        }, ignore=['@context'])
 
     def test_atproto_post_to_nostr_follower(self):
         """ATProto post delivered to Nostr follower.

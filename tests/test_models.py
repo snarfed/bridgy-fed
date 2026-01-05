@@ -1266,7 +1266,7 @@ class ObjectTest(TestCase):
         self.assertEqual({
             'objectType': 'note',
             'id': 'https://bsky.brid.gy/internal/snarfed.org/post',
-            'url': 'http://snarfed.org/post',
+            'url': 'https://bsky.brid.gy/internal/snarfed.org/post',
             'actor': 'bsky.brid.gy',
             'author': 'bsky.brid.gy',
         }, obj.as1)

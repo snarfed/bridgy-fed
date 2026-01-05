@@ -171,7 +171,9 @@ def unwrap(val, field=None):
     elif isinstance(val, str):
         if match := SUBDOMAIN_BASE_URL_RE.match(val):
             unwrapped = match.group('path')
-            if field in id_fields and DOMAIN_RE.fullmatch(unwrapped):
+            if unwrapped.startswith('internal/'):  # blog redirect URL, eg snarfed.org
+                return val
+            elif field in id_fields and DOMAIN_RE.fullmatch(unwrapped):
                 return f'https://{unwrapped}/'
             return unwrapped
 

@@ -1327,9 +1327,11 @@ class Object(AddRemoveMixin, StringIdModel):
 
             if self.key and (proto := Protocol.for_bridgy_subdomain(self.key.id())):
                 if util.domain_or_parent_in(as1.get_owner(obj), BLOG_REDIRECT_DOMAINS):
+                    logger.info(f'overriding actor/author with {proto.bot_user_id()}')
                     obj['actor'] = obj['author'] = proto.bot_user_id()
                 if util.domain_or_parent_in(obj.get('id'), BLOG_REDIRECT_DOMAINS):
-                    obj['id'] = self.key.id()
+                    logger.info(f'overriding id/url with {self.key.id()}')
+                    obj['id'] = obj['url'] = self.key.id()
 
         elif self.nostr:
             obj = granary.nostr.to_as1(self.nostr)
