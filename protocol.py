@@ -2053,6 +2053,8 @@ Hi! You <a href="{inner_obj_as1.get('url') or inner_obj_id}">recently {verb}</a>
             obj.our_as1 = None
             obj.new = False
         else:
+            if cls == Protocol:
+                return None
             obj = Object(id=id)
             if local:
                 # logger.debug(f'  {id} not in datastore')

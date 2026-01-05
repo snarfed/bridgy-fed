@@ -454,6 +454,9 @@ class ProtocolTest(TestCase):
         self.store_object(id='http://the/id', our_as1={'foo': 'bar'}, is_csv=False)
         self.assertIsNone(Web.load('http://the/id', csv=True))
 
+    def test_load_Protocol_class_not_existing_fails(self):
+        self.assertIsNone(Protocol.load('fake:obj'))
+
     def test_actor_key(self):
         user = self.make_user(id='fake:a', cls=Fake)
         a_key = user.key

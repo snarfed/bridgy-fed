@@ -427,6 +427,11 @@ A ☕ reply
         self.assert_multiline_equals(HTML, resp.get_data(as_text=True),
                                      ignore_blanks=True)
 
+    def test_fed_subdomain_object_not_stored(self):
+        resp = self.client.get('/convert/fake/fake:obj',
+                               base_url='https://fed.brid.gy/')
+        self.assertEqual(404, resp.status_code)
+
     def test_missing_protocols(self):
         resp = self.client.get('/convert/https:/user.com/post')
         self.assertEqual(404, resp.status_code)
