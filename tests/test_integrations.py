@@ -268,7 +268,7 @@ class IntegrationTests(TestCase):
                                   from_user=alice, data={
             '@context': 'https://www.w3.org/ns/activitystreams',
             'type': 'Create',
-            'id': 'https://bsky.brid.gy/convert/ap/at://did:plc:alice/app.bsky.feed.post/123#bridgy-fed-create',
+            'id': 'https://bsky.brid.gy/convert/ap/at://did:plc:alice/app.bsky.feed.post/123#bridgy-fed-create-2022-01-02T03:04:05+00:00',
             'actor': 'https://bsky.brid.gy/ap/did:plc:alice',
             'published': '2022-01-02T03:04:05+00:00',
             'object': {
@@ -362,7 +362,7 @@ class IntegrationTests(TestCase):
         self.assert_ap_deliveries(mock_post, ['http://inst/bob/inbox'],
                                   from_user=alice, data={
             'type': 'Create',
-            'id': 'https://bsky.brid.gy/convert/ap/at://did:plc:alice/app.bsky.feed.post/456#bridgy-fed-create',
+            'id': 'https://bsky.brid.gy/convert/ap/at://did:plc:alice/app.bsky.feed.post/456#bridgy-fed-create-2022-01-02T03:04:05+00:00',
             'actor': 'https://bsky.brid.gy/ap/did:plc:alice',
             'published': '2022-01-02T03:04:05+00:00',
             'object': {
@@ -513,7 +513,7 @@ class IntegrationTests(TestCase):
 
         self.assert_req(mock_get, 'https://bob.com/post')
         self.assert_req(mock_post, 'https://bob.com/webmention', data={
-            'source': 'https://bsky.brid.gy/convert/web/at://did:plc:alice/app.bsky.feed.post/456%23bridgy-fed-create',
+            'source': 'https://bsky.brid.gy/convert/web/at://did:plc:alice/app.bsky.feed.post/456%23bridgy-fed-create-2022-01-02T03:04:05+00:00',
             'target': 'https://bob.com/post',
         }, allow_redirects=False, headers={'Accept': '*/*'})
 
@@ -1369,7 +1369,7 @@ To disable these messages, reply with the text 'mute'.""",
         self.assert_ap_deliveries(mock_post, ['https://inst/bob/inbox'],
                                   from_user=alice, data={
             'type': 'Create',
-            'id': 'https://bsky.brid.gy/convert/ap/at://did:plc:alice/app.bsky.feed.post/123#bridgy-fed-create',
+            'id': 'https://bsky.brid.gy/convert/ap/at://did:plc:alice/app.bsky.feed.post/123#bridgy-fed-create-2022-01-02T03:04:05+00:00',
             'actor': 'https://bsky.brid.gy/ap/did:plc:alice',
             'published': '2022-01-02T03:04:05+00:00',
             'object': {
@@ -1717,7 +1717,7 @@ To disable these messages, reply with the text 'mute'.""",
         self.assert_ap_deliveries(mock_post, ['https://inst/alice/inbox'],
                                   from_user=bob, data={
             'type': 'Create',
-            'id': f'https://nostr.brid.gy/convert/ap/{post_id}#bridgy-fed-create',
+            'id': f'https://nostr.brid.gy/convert/ap/{post_id}#bridgy-fed-create-2022-01-02T03:04:05+00:00',
             'actor': f'https://nostr.brid.gy/ap/{bob.key.id()}',
             'object': {
                 'type': 'Note',
@@ -1811,7 +1811,7 @@ To disable these messages, reply with the text 'mute'.""",
         self.assert_ap_deliveries(mock_post, ['https://inst/alice/inbox'],
                                   from_user=bob, data={
             'type': 'Create',
-            'id': f'https://nostr.brid.gy/convert/ap/{post_id}#bridgy-fed-create',
+            'id': f'https://nostr.brid.gy/convert/ap/{post_id}#bridgy-fed-create-2022-01-02T03:04:05+00:00',
             'actor': f'https://nostr.brid.gy/ap/{bob.key.id()}',
             'object': {
                 'type': 'Note',
@@ -2638,7 +2638,7 @@ To disable these messages, reply with the text 'mute'.""",
         self.assert_ap_deliveries(mock_post, ['https://inst/alice/inbox'],
                                   from_user=bob, data={
             'type': 'Create',
-            'id': f'https://nostr.brid.gy/convert/ap/{reply_id}#bridgy-fed-create',
+            'id': f'https://nostr.brid.gy/convert/ap/{reply_id}#bridgy-fed-create-2022-01-02T03:04:05+00:00',
             'actor': f'https://nostr.brid.gy/ap/{PUBKEY_URI}',
             'published': '2022-01-02T03:04:05+00:00',
             'cc': ['https://inst/alice'],

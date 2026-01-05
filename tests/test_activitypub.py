@@ -915,7 +915,7 @@ class ActivityPubTest(TestCase):
 
         convert_id = reply['id']
         if reply['type'] != 'Create':
-            convert_id += '%23bridgy-fed-create'
+            convert_id += '%23bridgy-fed-create-2022-01-02T03:04:05+00:00'
 
         self.assert_req(
             mock_post,
@@ -948,7 +948,7 @@ class ActivityPubTest(TestCase):
             [('fake:post:target', {
                 'objectType': 'activity',
                 'verb': 'post',
-                'id': 'http://mas.to/reply#bridgy-fed-create',
+                'id': 'http://mas.to/reply#bridgy-fed-create-2022-01-02T03:04:05+00:00',
                 'published': '2022-01-02T03:04:05+00:00',
                 'object': as2.to_as1(reply),
                 'actor': as2.to_as1(ACTOR),
@@ -971,7 +971,7 @@ class ActivityPubTest(TestCase):
             headers={'Accept': '*/*'},
             allow_redirects=False,
             data={
-                'source': f'https://ap.brid.gy/convert/web/{REPLY_OBJECT["id"]}%23bridgy-fed-create',
+                'source': f'https://ap.brid.gy/convert/web/{REPLY_OBJECT["id"]}%23bridgy-fed-create-2022-01-02T03:04:05+00:00',
                 'target': 'https://user.com/',
             },
         )

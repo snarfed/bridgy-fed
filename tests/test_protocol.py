@@ -1583,11 +1583,11 @@ class ProtocolReceiveTest(TestCase):
             deleted=False,
         )
 
-        self.assertIsNone(Object.get_by_id('fake:post#bridgy-fed-create'))
+        self.assertIsNone(Object.get_by_id('fake:post#bridgy-fed-create-2022-01-02T03:04:05+00:00'))
         self.assertEqual('other:alice:target', OtherFake.sent[0][0])
         self.assertEqual('other:bob:target', OtherFake.sent[1][0])
-        self.assertEqual('fake:post#bridgy-fed-create', OtherFake.sent[0][1]['id'])
-        self.assertEqual('fake:post#bridgy-fed-create', OtherFake.sent[1][1]['id'])
+        self.assertEqual('fake:post#bridgy-fed-create-2022-01-02T03:04:05+00:00', OtherFake.sent[0][1]['id'])
+        self.assertEqual('fake:post#bridgy-fed-create-2022-01-02T03:04:05+00:00', OtherFake.sent[1][1]['id'])
 
     def test_create_post_bare_object_from_copy_user(self):
         # https://console.cloud.google.com/errors/detail/CIaI78mDj7DucA;time=P1D;locations=global?project=bridgy-federated
@@ -1616,7 +1616,7 @@ class ProtocolReceiveTest(TestCase):
 
         self.assertEqual(1, mock_send.call_count)
         [obj, url], _ = mock_send.call_args
-        self.assertEqual('fake:post#bridgy-fed-create', obj.key.id())
+        self.assertEqual('fake:post#bridgy-fed-create-2022-01-02T03:04:05+00:00', obj.key.id())
         self.assertEqual(ATProto.DEFAULT_TARGET, url)
 
     def test_post_not_public_ignored(self):
@@ -2258,7 +2258,7 @@ class ProtocolReceiveTest(TestCase):
 
         self.assertEqual([], Fake.sent)
         self.assertEqual([], OtherFake.sent)
-        obj = Object.get_by_id('efake:post#bridgy-fed-create')
+        obj = Object.get_by_id('efake:post#bridgy-fed-create-2022-01-02T03:04:05+00:00')
 
     def test_create_post_use_instead(self):
         self.make_user('fake:not-this', cls=Fake, use_instead=self.user.key, obj_mf2={
@@ -2285,7 +2285,7 @@ class ProtocolReceiveTest(TestCase):
         post_as1 = {
             'objectType': 'activity',
             'verb': 'post',
-            'id': 'fake:post#bridgy-fed-create',
+            'id': 'fake:post#bridgy-fed-create-2022-01-02T03:04:05+00:00',
             'actor': 'fake:user',
             'object': note_as1,
             'published': '2022-01-02T03:04:05+00:00',
@@ -2585,14 +2585,14 @@ class ProtocolReceiveTest(TestCase):
         )
 
         create_as1 = {
-            'id': 'fake:reply#bridgy-fed-create',
+            'id': 'fake:reply#bridgy-fed-create-2022-01-02T03:04:05+00:00',
             'objectType': 'activity',
             'verb': 'post',
             'actor': 'fake:user',
             'object': reply_as1,
             'published': '2022-01-02T03:04:05+00:00',
         }
-        self.assertIsNone(Object.get_by_id('fake:reply#bridgy-fed-create'))
+        self.assertIsNone(Object.get_by_id('fake:reply#bridgy-fed-create-2022-01-02T03:04:05+00:00'))
         self.assertEqual([('other:post:target', create_as1)], OtherFake.sent)
 
     def test_create_reply_to_self_delivers_to_followers(self):
@@ -2624,7 +2624,7 @@ class ProtocolReceiveTest(TestCase):
             deleted=False,
         )
 
-        self.assertIsNone(Object.get_by_id('fake:reply#bridgy-fed-create'))
+        self.assertIsNone(Object.get_by_id('fake:reply#bridgy-fed-create-2022-01-02T03:04:05+00:00'))
         self.assertEqual([], Fake.sent)
 
     def test_create_reply_to_other_protocol(self):
@@ -2658,7 +2658,7 @@ class ProtocolReceiveTest(TestCase):
         self.assertEqual([('other:post:target', {
             'objectType': 'activity',
             'verb': 'post',
-            'id': 'fake:reply#bridgy-fed-create',
+            'id': 'fake:reply#bridgy-fed-create-2022-01-02T03:04:05+00:00',
             'published': '2022-01-02T03:04:05+00:00',
             'actor': 'fake:user',
             'object': reply_as1,
@@ -2726,7 +2726,7 @@ class ProtocolReceiveTest(TestCase):
         expected_create = {
             'objectType': 'activity',
             'verb': 'post',
-            'id': 'efake:reply#bridgy-fed-create',
+            'id': 'efake:reply#bridgy-fed-create-2022-01-02T03:04:05+00:00',
             'published': '2022-01-02T03:04:05+00:00',
             'actor': 'efake:user',
             'object': reply_as1,
@@ -2779,7 +2779,7 @@ class ProtocolReceiveTest(TestCase):
         inboxes = ('http://alice/in', 'http://bob/in', 'http://eve/in')
         self.assert_ap_deliveries(mock_post, inboxes, {
             'type': 'Create',
-            'id': 'https://fa.brid.gy/convert/ap/fake:reply#bridgy-fed-create',
+            'id': 'https://fa.brid.gy/convert/ap/fake:reply#bridgy-fed-create-2022-01-02T03:04:05+00:00',
             'actor': 'https://fa.brid.gy/ap/fake:frank',
             'object': {
                 'type': 'Note',
@@ -2867,7 +2867,7 @@ class ProtocolReceiveTest(TestCase):
 
         quote_as1['attachments'][0]['id'] = 'fake:post'
         self.assertEqual([('fake:post:target', {
-            'id': 'other:quote#bridgy-fed-create',
+            'id': 'other:quote#bridgy-fed-create-2022-01-02T03:04:05+00:00',
             'objectType': 'activity',
             'verb': 'post',
             'actor': 'other:alice',
@@ -3429,11 +3429,11 @@ class ProtocolReceiveTest(TestCase):
                            deleted=False,
                            )
 
-        self.assertIsNone(Object.get_by_id('fake:post#bridgy-fed-create'))
+        self.assertIsNone(Object.get_by_id('fake:post#bridgy-fed-create-2022-01-02T03:04:05+00:00'))
         self.assertEqual('other:alice:target', OtherFake.sent[0][0])
         self.assertEqual('other:bob:target', OtherFake.sent[1][0])
-        self.assertEqual('fake:mention#bridgy-fed-create', OtherFake.sent[0][1]['id'])
-        self.assertEqual('fake:mention#bridgy-fed-create', OtherFake.sent[1][1]['id'])
+        self.assertEqual('fake:mention#bridgy-fed-create-2022-01-02T03:04:05+00:00', OtherFake.sent[0][1]['id'])
+        self.assertEqual('fake:mention#bridgy-fed-create-2022-01-02T03:04:05+00:00', OtherFake.sent[1][1]['id'])
 
     def test_follow(self):
         self._test_follow()
@@ -3957,7 +3957,7 @@ class ProtocolReceiveTest(TestCase):
         other_reply_create = {
             'objectType': 'activity',
             'verb': 'post',
-            'id': 'fake:reply#bridgy-fed-create',
+            'id': 'fake:reply#bridgy-fed-create-2022-01-02T03:04:05+00:00',
             'actor': 'fake:user',
             'object': other_reply,
             'published': '2022-01-02T03:04:05+00:00',
@@ -4422,21 +4422,21 @@ class ProtocolReceiveTest(TestCase):
         self.store_object(id='fake:post', our_as1=note, source_protocol='fake')
 
         create = {
-            'id': 'fake:post#bridgy-fed-create',
+            'id': 'fake:post#bridgy-fed-create-2022-01-02T03:04:05+00:00',
             'objectType': 'activity',
             'verb': 'post',
             'object': note,
             'actor': 'fake:other',
         }
-        self.store_object(id='fake:post#bridgy-fed-create',
+        self.store_object(id='fake:post#bridgy-fed-create-2022-01-02T03:04:05+00:00',
                           source_protocol='fake', our_as1=create)
 
         resp = self.post('/queue/receive', data={
-            'obj_id': 'fake:post#bridgy-fed-create',
+            'obj_id': 'fake:post#bridgy-fed-create-2022-01-02T03:04:05+00:00',
             'authed_as': 'fake:other',
         }, headers={'X-AppEngine-TaskRetryCount': '0'})
         self.assertEqual(204, resp.status_code)
-        obj = Object.get_by_id('fake:post#bridgy-fed-create')
+        obj = Object.get_by_id('fake:post#bridgy-fed-create-2022-01-02T03:04:05+00:00')
 
     def test_receive_task_handler_properties(self):
         note = {
@@ -4446,7 +4446,7 @@ class ProtocolReceiveTest(TestCase):
             'content': 'foo',
         }
         create = {
-            'id': 'fake:post#bridgy-fed-create',
+            'id': 'fake:post#bridgy-fed-create-2022-01-02T03:04:05+00:00',
             'objectType': 'activity',
             'verb': 'post',
             'object': note,
@@ -4462,7 +4462,7 @@ class ProtocolReceiveTest(TestCase):
 
         obj = Object.get_by_id('fake:post')
         self.assertEqual(note, obj.our_as1)
-        self.assertIsNone(Object.get_by_id('fake:post#bridgy-fed-create'))
+        self.assertIsNone(Object.get_by_id('fake:post#bridgy-fed-create-2022-01-02T03:04:05+00:00'))
 
     @patch.object(Fake, 'receive', side_effect=requests.ConnectionError('foo'))
     def test_receive_task_handler_connection_error(self, _):
@@ -4653,7 +4653,7 @@ class ProtocolReceiveTest(TestCase):
         self.assertEqual(('OK', 202), Fake.receive_as1(note_as1))
 
         create_as1 = {
-            'id': 'fake:post#bridgy-fed-create',
+            'id': 'fake:post#bridgy-fed-create-2022-01-02T03:04:05+00:00',
             'objectType': 'activity',
             'verb': 'post',
             'actor': 'fake:user',
@@ -4662,11 +4662,11 @@ class ProtocolReceiveTest(TestCase):
         }
         self.assertEqual(2, mock_create_task.call_count)
         self.assert_task(mock_create_task, 'send', source_protocol='fake',
-                         protocol='other', id='fake:post#bridgy-fed-create',
+                         protocol='other', id='fake:post#bridgy-fed-create-2022-01-02T03:04:05+00:00',
                          our_as1=create_as1, url='other:alice:target',
                          user=self.user.key.urlsafe())
         self.assert_task(mock_create_task, 'send', source_protocol='fake',
-                         protocol='other', id='fake:post#bridgy-fed-create',
+                         protocol='other', id='fake:post#bridgy-fed-create-2022-01-02T03:04:05+00:00',
                          our_as1=create_as1, url='other:bob:target',
                          user=self.user.key.urlsafe())
 
@@ -4701,7 +4701,7 @@ class ProtocolReceiveTest(TestCase):
                            )
 
         create_as1 = {
-            'id': 'fake:reply#bridgy-fed-create',
+            'id': 'fake:reply#bridgy-fed-create-2022-01-02T03:04:05+00:00',
             'objectType': 'activity',
             'verb': 'post',
             'actor': 'fake:user',
@@ -4710,7 +4710,7 @@ class ProtocolReceiveTest(TestCase):
         }
         self.assert_task(mock_create_task, 'send', source_protocol='fake',
                          protocol='other', orig_obj_id='other:post',
-                         id='fake:reply#bridgy-fed-create', our_as1=create_as1,
+                         id='fake:reply#bridgy-fed-create-2022-01-02T03:04:05+00:00', our_as1=create_as1,
                          url='other:post:target', user=self.user.key.urlsafe())
 
         self.assertEqual([], OtherFake.sent)

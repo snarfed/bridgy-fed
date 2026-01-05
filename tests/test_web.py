@@ -232,7 +232,7 @@ REPLY_AS1['author']['id'] = 'user.com'
 CREATE_REPLY_AS1 = {
     'objectType': 'activity',
     'verb': 'post',
-    'id': 'https://user.com/reply#bridgy-fed-create',
+    'id': 'https://user.com/reply#bridgy-fed-create-2022-01-02T03:04:05+00:00',
     'actor': ACTOR_AS1_UNWRAPPED,
     'object': REPLY_AS1,
     'published': '2022-01-02T03:04:05+00:00',
@@ -262,7 +262,7 @@ ACTOR = TestCase.as2_resp({
 AS2_CREATE = {
     '@context': 'https://www.w3.org/ns/activitystreams',
     'type': 'Create',
-    'id': 'http://localhost/r/https://user.com/reply#bridgy-fed-create',
+    'id': 'http://localhost/r/https://user.com/reply#bridgy-fed-create-2022-01-02T03:04:05+00:00',
     'actor': 'http://localhost/user.com',
     'published': '2022-01-02T03:04:05+00:00',
     'object': {
@@ -384,7 +384,7 @@ NOTE_AS1['author']['id'] = 'user.com'
 CREATE_AS1 = {
     'objectType': 'activity',
     'verb': 'post',
-    'id': 'https://user.com/post#bridgy-fed-create',
+    'id': 'https://user.com/post#bridgy-fed-create-2022-01-02T03:04:05+00:00',
     'actor': ACTOR_AS1_UNWRAPPED,
     'object': copy.deepcopy(NOTE_AS1),
     'published': '2022-01-02T03:04:05+00:00',
@@ -401,7 +401,7 @@ NOTE_AS2 = {
 CREATE_AS2 = {
     '@context': 'https://www.w3.org/ns/activitystreams',
     'type': 'Create',
-    'id': 'http://localhost/r/https://user.com/post#bridgy-fed-create',
+    'id': 'http://localhost/r/https://user.com/post#bridgy-fed-create-2022-01-02T03:04:05+00:00',
     'actor': 'http://localhost/user.com',
     'object': NOTE_AS2,
     'published': '2022-01-02T03:04:05+00:00',
@@ -1305,7 +1305,7 @@ class WebTest(TestCase):
 
         inboxes = ('https://inbox', 'https://public/inbox', 'https://shared/inbox')
         create_as2 = copy.deepcopy(CREATE_AS2)
-        create_as2['id'] = 'http://localhost/r/https://www.user.com/post#bridgy-fed-create'
+        create_as2['id'] = 'http://localhost/r/https://www.user.com/post#bridgy-fed-create-2022-01-02T03:04:05+00:00'
         create_as2['object']['id'] = 'http://localhost/r/https://www.user.com/post'
         self.assert_ap_deliveries(mock_post, inboxes, create_as2)
 

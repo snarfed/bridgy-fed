@@ -1586,7 +1586,7 @@ class Protocol:
                           source_protocol=obj.source_protocol)
 
         if obj.new or 'force' in request.values:
-            create_id = f'{obj.key.id()}#bridgy-fed-create'
+            create_id = f'{obj.key.id()}#bridgy-fed-create-{now}'
             create_as1 = {
                 'objectType': 'activity',
                 'verb': 'post',
