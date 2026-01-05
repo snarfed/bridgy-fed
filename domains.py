@@ -59,7 +59,6 @@ DOMAIN_BLOCKLIST = (
     'onion', # we don't support Tor. (yet! :P)
     'reddit.com',
     'rumble.com',  # serves infinite HTTP 307 redirects to GCP
-    'substack.com',
     't.co',
     'tiktok.com',
     'twitter.com',
