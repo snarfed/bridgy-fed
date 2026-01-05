@@ -499,6 +499,8 @@ def translate_object_id(*, id, from_, to):
             return id
 
         case 'web', 'activitypub':
+            if protocol.Protocol.for_bridgy_subdomain(id, fed='web'):
+                return id
             return urljoin(web_ap_base_domain(util.domain_from_link(id)), f'/r/{id}')
 
         case _, 'activitypub' | 'web':
