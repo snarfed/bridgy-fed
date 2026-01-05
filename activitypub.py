@@ -316,9 +316,9 @@ class ActivityPub(User, Protocol):
 
         actor = obj.as1
         if shared:
-            shared_inbox = (actor.get('endpoints') or {}).get('sharedInbox')
-            if shared_inbox:
-                return shared_inbox
+            if endpoints := actor.get('endpoints'):
+                if shared_inbox := endpoints.get('sharedInbox'):
+                    return shared_inbox
 
         return actor.get('publicInbox') or actor.get('inbox')
 
