@@ -769,6 +769,13 @@ class PagesTest(TestCase):
         self.assertEqual(['User fake:&lt;script&gt;alert("xss")&lt;/script&gt; on fake-phrase isn\'t signed up.'],
                          get_flashed_messages())
 
+    def test_find_user_page_invalid_nostr_bech32(self):
+        """Test that invalid nostr bech32 ids don't crash."""
+        got = self.client.post('/user-page', data={'id': 'npubinvalid'})
+        self.assert_equals(404, got.status_code)
+        self.assertEqual(["User npubinvalid on Nostr isn't signed up."],
+                         get_flashed_messages())
+
     def test_logout(self):
         self.make_logged_in_bluesky_user()
 
