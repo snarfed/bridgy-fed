@@ -815,11 +815,11 @@ To disable these messages, reply with the text 'mute'.""",
 <p>Welcome to Bridgy Fed! Your account will soon be bridged to Bluesky at <a class="h-card u-author mention" rel="me" href="https://bsky.app/profile/alice.wf.com.ap.brid.gy" title="alice.wf.com.ap.brid.gy">alice.wf.com.ap.brid.gy</a>. <a href="https://fed.brid.gy/docs">See the docs</a> and <a href="https://fed.brid.gy/ap/@alice@wf.com">your user page</a> for more information. To disable this and delete your bridged profile, block this account.</p>"""
         self.assert_equals({
             'type': 'Create',
-            'id': 'https://bsky.brid.gy/r/https://bsky.brid.gy/#bridgy-fed-dm-welcome-https://inst/alice-2022-01-02T03:04:05+00:00-create',
+            'id': 'https://bsky.brid.gy/#bridgy-fed-dm-welcome-https://inst/alice-2022-01-02T03:04:05+00:00-create',
             'actor': 'https://bsky.brid.gy/bsky.brid.gy',
             'object': {
                 'type': 'Note',
-                'id': 'https://bsky.brid.gy/r/https://bsky.brid.gy/#bridgy-fed-dm-welcome-https://inst/alice-2022-01-02T03:04:05+00:00',
+                'id': 'https://bsky.brid.gy/#bridgy-fed-dm-welcome-https://inst/alice-2022-01-02T03:04:05+00:00',
                 'attributedTo': 'https://bsky.brid.gy/bsky.brid.gy',
                 'content': message,
                 'contentMap': {'en': message},
@@ -839,7 +839,7 @@ To disable these messages, reply with the text 'mute'.""",
         self.assert_equals(('http://inst/inbox',), args)
         self.assert_equals({
             'type': 'Follow',
-            'id': 'https://bsky.brid.gy/r/https://bsky.brid.gy/#follow-back-https://inst/alice-2022-01-02T03:04:05+00:00',
+            'id': 'https://bsky.brid.gy/#follow-back-https://inst/alice-2022-01-02T03:04:05+00:00',
             'actor': 'https://bsky.brid.gy/bsky.brid.gy',
             'object': 'https://inst/alice',
         }, json_loads(kwargs['data']), ignore=['to', '@context'])
@@ -1148,11 +1148,11 @@ To disable these messages, reply with the text 'mute'.""",
         self.assert_ap_deliveries(mock_post, ['https://inst/alice/inbox'],
                                   from_user=bsky_bot, data={
             'type': 'Create',
-            'id': 'https://bsky.brid.gy/r/https://bsky.brid.gy/#bridgy-fed-dm-?-https://inst/alice-2022-01-02T03:04:05+00:00-create',
+            'id': 'https://bsky.brid.gy/#bridgy-fed-dm-?-https://inst/alice-2022-01-02T03:04:05+00:00-create',
             'actor': 'https://bsky.brid.gy/bsky.brid.gy',
             'object': {
                 'type': 'Note',
-                'id': 'https://bsky.brid.gy/r/https://bsky.brid.gy/#bridgy-fed-dm-?-https://inst/alice-2022-01-02T03:04:05+00:00',
+                'id': 'https://bsky.brid.gy/#bridgy-fed-dm-?-https://inst/alice-2022-01-02T03:04:05+00:00',
                 'attributedTo': 'https://bsky.brid.gy/bsky.brid.gy',
                 'content': message,
                 'contentMap': {'en': message},

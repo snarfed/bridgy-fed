@@ -1255,6 +1255,22 @@ class ObjectTest(TestCase):
         })
         self.assertEqual('z.com', obj.as1['id'])
 
+    def test_as1_from_mf2_blog_redirect_domain_overrides_author_id(self):
+        obj = Object(id='https://bsky.brid.gy/internal/snarfed.org/post', mf2={
+            'properties': {
+                'url': ['http://snarfed.org/post'],
+                'author': [{'properties': {'url': ['http://snarfed.org/']}}],
+            },
+            'url': 'http://snarfed.org/post',
+        })
+        self.assertEqual({
+            'objectType': 'note',
+            'id': 'https://bsky.brid.gy/internal/snarfed.org/post',
+            'url': 'http://snarfed.org/post',
+            'actor': 'bsky.brid.gy',
+            'author': 'bsky.brid.gy',
+        }, obj.as1)
+
     def test_as1_from_nostr_note(self):
         obj = Object(id='nostr:note123', nostr={
             'kind': 1,

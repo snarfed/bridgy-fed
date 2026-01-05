@@ -41,6 +41,7 @@ from common import (
 )
 import domains
 from domains import (
+    BLOG_REDIRECT_DOMAINS,
     DOMAIN_BLOCKLIST_CANARIES,
     DOMAIN_RE,
     PRIMARY_DOMAIN,
@@ -1281,6 +1282,8 @@ class Object(AddRemoveMixin, StringIdModel):
 
     @property
     def as1(self):
+        from protocol import Protocol
+
         def use_urls_as_ids(obj):
             """If id field is missing or not a URL, use the url field."""
             id = obj.get('id')
@@ -1321,6 +1324,12 @@ class Object(AddRemoveMixin, StringIdModel):
             if url := self.mf2.get('url'):
                 obj['id'] = (self.key.id() if self.key and '#' in self.key.id()
                              else url)
+
+            if self.key and (proto := Protocol.for_bridgy_subdomain(self.key.id())):
+                if util.domain_or_parent_in(as1.get_owner(obj), BLOG_REDIRECT_DOMAINS):
+                    obj['actor'] = obj['author'] = proto.bot_user_id()
+                if util.domain_or_parent_in(obj.get('id'), BLOG_REDIRECT_DOMAINS):
+                    obj['id'] = self.key.id()
 
         elif self.nostr:
             obj = granary.nostr.to_as1(self.nostr)
