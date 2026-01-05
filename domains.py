@@ -47,13 +47,15 @@ LOCAL_DOMAINS = (
   'my.dev.com:8080',
 )
 DOMAINS = (PRIMARY_DOMAIN,) + PROTOCOL_DOMAINS + OTHER_DOMAINS + LOCAL_DOMAINS
+
+# note that these are used for link fetching for previews as well as delivery targets
+#
 # TODO: unify with manual_opt_out
 # TODO: unify with Bridgy's
 DOMAIN_BLOCKLIST = (
     'bsky.social',
     'facebook.com',
     'fb.com',
-    'github.com',
     'google.com',
     'instagram.com',
     'onion', # we don't support Tor. (yet! :P)
