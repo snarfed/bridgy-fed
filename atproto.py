@@ -41,6 +41,7 @@ from granary import as1, as2, bluesky
 from granary.bluesky import Bluesky, FROM_AS1_TYPES, to_external_embed
 from granary.source import html_to_text, INCLUDE_LINK, Source
 from lexrpc import Client, ValidationError
+from lexrpc.base import AT_URI_RE, DID_RE
 from requests import RequestException
 import oauth_dropins.bluesky
 from oauth_dropins.webutil import util
@@ -389,9 +390,8 @@ class ATProto(User, Protocol):
 
     @classmethod
     def owns_id(cls, id):
-        return (id.startswith('at://')
-                or id.startswith('did:plc:')
-                or id.startswith('did:web:')
+        return (bool(AT_URI_RE.match(id))
+                or bool(DID_RE.fullmatch(id))
                 or id.startswith('https://bsky.app/'))
 
     @classmethod

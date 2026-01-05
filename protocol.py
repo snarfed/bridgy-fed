@@ -194,13 +194,14 @@ class Protocol:
 
         To be implemented by subclasses.
 
-        IDs are string identities that uniquely identify users, and are intended
-        primarily to be machine readable and usable. Compare to handles, which
-        are human-chosen, human-meaningful, and often but not always unique.
+        IDs are string identities that uniquely identify users or objects, and
+        are intended primarily to be machine readable and usable. Compare to
+        handles, which are human-chosen, human-meaningful, and often but not
+        always unique.
 
         Some protocols' ids are more or less deterministic based on the id
-        format, eg AT Protocol owns ``at://`` URIs. Others, like http(s) URLs,
-        could be owned by eg Web or ActivityPub.
+        format, eg AT Protocol owns ``at://`` URIs and DIDs. Others, like
+        http(s) URLs, could be owned by eg Web or ActivityPub.
 
         This should be a quick guess without expensive side effects, eg no
         external HTTP fetches to fetch the id itself or otherwise perform
@@ -209,7 +210,7 @@ class Protocol:
         Returns False if the id's domain is in :const:`domains.DOMAIN_BLOCKLIST`.
 
         Args:
-          id (str)
+          id (str): user id or object id
 
         Returns:
           bool or None:

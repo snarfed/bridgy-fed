@@ -44,6 +44,7 @@ from protocol import DELETE_TASK_DELAY
 from web import Web
 
 # have to import module, not attrs, to avoid circular import
+from . import test_atproto
 from . import test_web
 from . import test_webfinger
 
@@ -3524,32 +3525,33 @@ class ActivityPubUtilsTest(TestCase):
             'cc': ['bob.com'],
         })))
 
-    def test_convert_quote_post(self):
-        obj = Object(id='at://did:alice/app.bsky.feed.post/123', bsky={
+    @patch('requests.get', return_value=requests_response(test_atproto.DID_DOC))
+    def test_convert_quote_post(self, _):
+        obj = Object(id='at://did:plc:alice/app.bsky.feed.post/123', bsky={
             '$type': 'app.bsky.feed.post',
             'text': 'foo bar',
             'embed': {
                 '$type': 'app.bsky.embed.record',
                 'record': {
                     'cid': 'bafyreih...',
-                    'uri': 'at://did:bob/app.bsky.feed.post/456'
+                    'uri': 'at://did:plc:bob/app.bsky.feed.post/456'
                 }
             },
         })
 
         self.assert_equals({
             'type': 'Note',
-            'id': 'https://bsky.brid.gy/convert/ap/at://did:alice/app.bsky.feed.post/123',
-            'url': 'http://localhost/r/https://bsky.app/profile/did:alice/post/123',
-            'content': '<p>foo bar<span class="quote-inline"><br><br>RE: <a href="https://bsky.app/profile/did:bob/post/456">https://bsky.app/profile/did:bob/post/456</a></span></p>',
-            'attributedTo': 'did:alice',
-            '_misskey_quote': 'https://bsky.brid.gy/convert/ap/at://did:bob/app.bsky.feed.post/456',
-            'quoteUrl': 'https://bsky.brid.gy/convert/ap/at://did:bob/app.bsky.feed.post/456',
+            'id': 'https://bsky.brid.gy/convert/ap/at://did:plc:alice/app.bsky.feed.post/123',
+            'url': 'http://localhost/r/https://bsky.app/profile/did:plc:alice/post/123',
+            'content': '<p>foo bar<span class="quote-inline"><br><br>RE: <a href="https://bsky.app/profile/did:plc:bob/post/456">https://bsky.app/profile/did:plc:bob/post/456</a></span></p>',
+            'attributedTo': 'https://bsky.brid.gy/ap/did:plc:alice',
+            '_misskey_quote': 'https://bsky.brid.gy/convert/ap/at://did:plc:bob/app.bsky.feed.post/456',
+            'quoteUrl': 'https://bsky.brid.gy/convert/ap/at://did:plc:bob/app.bsky.feed.post/456',
             'tag': [{
                 'type': 'Link',
                 'mediaType': as2.CONTENT_TYPE_LD_PROFILE,
-                'href': 'https://bsky.brid.gy/convert/ap/at://did:bob/app.bsky.feed.post/456',
-                'name': 'RE: https://bsky.app/profile/did:bob/post/456',
+                'href': 'https://bsky.brid.gy/convert/ap/at://did:plc:bob/app.bsky.feed.post/456',
+                'name': 'RE: https://bsky.app/profile/did:plc:bob/post/456',
             }],
         }, ActivityPub.convert(obj), ignore=['contentMap', 'to'])
 
@@ -3558,11 +3560,11 @@ class ActivityPubUtilsTest(TestCase):
         # https://github.com/snarfed/bridgy-fed/issues/1637
         self.assert_equals({
             'type': 'Note',
-            'id': 'https://bsky.brid.gy/convert/ap/at://did:bob/app.bsky.feed.post/456',
-            'url': 'http://localhost/r/https://bsky.app/profile/did:bob/post/456',
-            'attributedTo': 'did:bob',
+            'id': 'https://bsky.brid.gy/convert/ap/at://did:plc:bob/app.bsky.feed.post/456',
+            'url': 'http://localhost/r/https://bsky.app/profile/did:plc:bob/post/456',
+            'attributedTo': 'https://bsky.brid.gy/ap/did:plc:bob',
             'content': '<p>foo bar<br><br><a href="http://a.li/nc">a linc</a></p>',
-        }, ActivityPub.convert(Object(id='at://did:bob/app.bsky.feed.post/456', bsky={
+        }, ActivityPub.convert(Object(id='at://did:plc:bob/app.bsky.feed.post/456', bsky={
             "$type": "app.bsky.feed.post",
             "text": "foo bar",
             "embed": {

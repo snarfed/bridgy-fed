@@ -234,8 +234,10 @@ class ATProtoTest(TestCase):
         self.assertFalse(ATProto.owns_id('http://foo'))
         self.assertFalse(ATProto.owns_id('https://bar.baz/biff'))
         self.assertFalse(ATProto.owns_id('e45fab982'))
+        self.assertFalse(ATProto.owns_id('did:plc:user/rss'))
+        self.assertFalse(ATProto.owns_id('did:web:bar.com/collection'))
 
-        self.assertTrue(ATProto.owns_id('at://did:plc:user/bar/123'))
+        self.assertTrue(ATProto.owns_id('at://did:plc:user/app.bsky.feed.post/123'))
         self.assertTrue(ATProto.owns_id('did:plc:user'))
         self.assertTrue(ATProto.owns_id('did:web:bar.com'))
         self.assertTrue(ATProto.owns_id(
@@ -429,7 +431,7 @@ class ATProtoTest(TestCase):
 
     def test_target_for_user_no_stored_did(self):
         self.assertEqual('https://atproto.brid.gy', ATProto.target_for(
-            Object(id='at://foo')))
+            Object(id='at://did:plc:foo/app.bsky.feed.post/123')))
         self.assertIsNone(ATProto.target_for(Object(id='fake:post')))
 
     @patch('requests.get', return_value=requests_response({'foo': 'bar'}))

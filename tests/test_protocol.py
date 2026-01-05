@@ -117,7 +117,7 @@ class ProtocolTest(TestCase):
                 ('https://[DOMAIN]/', None),
                 ('#bridgy-fed-foo', None),
                 ('fake:foo', Fake),
-                ('at://foo', ATProto),
+                ('at://did:plc:foo', ATProto),
                 # TODO: remove? should we require normalized ids?
                 ('https://ap.brid.gy/foo/bar', ActivityPub),
                 ('https://web.brid.gy/foo/bar', Web),
@@ -194,7 +194,8 @@ class ProtocolTest(TestCase):
 
     @patch('requests.get')
     def test_for_id_synthetic(self, mock_get):
-        self.assertEqual(ATProto, Protocol.for_id('at://did/coll/rkey#bridgy-fed-xyz'))
+        self.assertEqual(ATProto, Protocol.for_id(
+            'at://did:plc:foo/coll/rkey#bridgy-fed-xyz'))
         self.assertEqual(Fake, Protocol.for_id('fake:post#bridgy-fed-delete-abc'))
 
         Object(id='http://in.st/post', source_protocol='activitypub').put()

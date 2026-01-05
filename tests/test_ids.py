@@ -348,16 +348,16 @@ class IdsTest(TestCase):
 
     def test_translate_object_id(self):
         self.store_object(id='http://po.st', copies=[
-            Target(uri='at://did:abc/web/post', protocol='atproto'),
+            Target(uri='at://did:plc:abc/web/post', protocol='atproto'),
             Target(uri=NOSTR_ID_0, protocol='nostr')])
         self.store_object(id='https://inst/post', copies=[
-            Target(uri='at://did:abc/ap/post', protocol='atproto'),
+            Target(uri='at://did:plc:abc/ap/post', protocol='atproto'),
             Target(uri=NOSTR_ID_1, protocol='nostr')])
         self.store_object(id='fake:post', copies=[
-            Target(uri='at://did:abc/fa/post', protocol='atproto'),
+            Target(uri='at://did:plc:abc/fa/post', protocol='atproto'),
             Target(uri=NOSTR_ID_2, protocol='nostr')])
         self.store_object(id=NOSTR_ID_3, copies=[
-            Target(uri='at://did:abc/no/post', protocol='atproto')])
+            Target(uri='at://did:plc:abc/no/post', protocol='atproto')])
 
         # DID doc and ATProto, used to resolve handle in bsky.app URL
         did = self.store_object(id='did:plc:123', raw={
@@ -371,26 +371,27 @@ class IdsTest(TestCase):
             (ActivityPub, 'https://inst/post', Fake, 'fake:o:ap:https://inst/post'),
             (ActivityPub, 'https://inst/post',
              Web, 'https://ap.brid.gy/convert/web/https://inst/post'),
-            (ATProto, 'at://did:abc/atp/post', ATProto, 'at://did:abc/atp/post'),
+            (ATProto, 'at://did:plc:abc/atp/post', ATProto, 'at://did:plc:abc/atp/post'),
             (Nostr, NOSTR_ID_3, Nostr, NOSTR_ID_3),
 
             # copies
-            (ActivityPub, 'https://inst/post', ATProto, 'at://did:abc/ap/post'),
-            (ATProto, 'at://did:abc/web/post', Web, 'http://po.st'),
-            (ATProto, 'at://did:abc/ap/post', ActivityPub, 'https://inst/post'),
-            (ATProto, 'at://did:abc/fa/post', Fake, 'fake:post'),
-            (ATProto, 'at://did:abc/no/post', Nostr, NOSTR_ID_3),
+            (ActivityPub, 'https://inst/post', ATProto, 'at://did:plc:abc/ap/post'),
+            (ATProto, 'at://did:plc:abc/web/post', Web, 'http://po.st'),
+            (ATProto, 'at://did:plc:abc/ap/post', ActivityPub, 'https://inst/post'),
+            (ATProto, 'at://did:plc:abc/fa/post', Fake, 'fake:post'),
+            (ATProto, 'at://did:plc:abc/no/post', Nostr, NOSTR_ID_3),
             (Nostr, NOSTR_ID_0, Web, 'http://po.st'),
             (Nostr, NOSTR_ID_1, ActivityPub, 'https://inst/post'),
             (Nostr, NOSTR_ID_2, Fake, 'fake:post'),
-            (Nostr, NOSTR_ID_3, ATProto, 'at://did:abc/no/post'),
-            (Web, 'http://po.st', ATProto, 'at://did:abc/web/post'),
+            (Nostr, NOSTR_ID_3, ATProto, 'at://did:plc:abc/no/post'),
+            (Web, 'http://po.st', ATProto, 'at://did:plc:abc/web/post'),
             (Web, 'http://po.st', Nostr, NOSTR_ID_0),
             (Fake, 'fake:post', Nostr, NOSTR_ID_2),
 
             # no copies
             (ATProto, 'did:plc:x', Web, 'https://bsky.brid.gy/convert/web/did:plc:x'),
-            (ATProto, 'did:plc:x', ActivityPub, 'https://bsky.brid.gy/convert/ap/did:plc:x'),
+            (ATProto, 'did:plc:x',
+             ActivityPub, 'https://bsky.brid.gy/convert/ap/did:plc:x'),
             (ATProto, 'did:plc:x', Fake, 'fake:o:bsky:did:plc:x'),
             (ATProto, 'https://bsky.app/profile/user.com/post/456',
              ATProto, 'at://did:plc:123/app.bsky.feed.post/456'),
@@ -399,7 +400,7 @@ class IdsTest(TestCase):
             (ATProto, 'did:plc:x', Nostr, 'did:plc:x'),
             (Fake, 'fake:post',
              ActivityPub, 'https://fa.brid.gy/convert/ap/fake:post'),
-            (Fake, 'fake:post', ATProto, 'at://did:abc/fa/post'),
+            (Fake, 'fake:post', ATProto, 'at://did:plc:abc/fa/post'),
             (Fake, 'fake:post', Fake, 'fake:post'),
             (Fake, 'fake:post', Web, 'https://fa.brid.gy/convert/web/fake:post'),
             (Fake, 'fake:other-post', Nostr, 'fake:other-post'),
