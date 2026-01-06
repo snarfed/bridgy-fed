@@ -1012,6 +1012,8 @@ class Protocol:
                         or type in ('follow', 'stop-following'))
             translate(o, 'id', (ids.translate_user_id if is_actor
                                 else ids.translate_object_id))
+            # TODO: need to handle both user and object ids here
+            # https://github.com/snarfed/bridgy-fed/issues/2281
             obj_is_actor = o.get('verb') in as1.VERBS_WITH_ACTOR_OBJECT
             translate(o, 'object', (ids.translate_user_id if obj_is_actor
                                     else ids.translate_object_id))
@@ -1768,6 +1770,7 @@ class Protocol:
                     msg = f"original object(s) {original_ids} weren't bridged to {label}"
                     last_retry = False
                     if retries := request.headers.get(TASK_RETRIES_HEADER):
+                        logger.info(f'last retry! skipping {proto.LABEL} and continuing')
                         last_retry = int(retries) >= TASK_RETRIES_RECEIVE
 
                     if (proto.LABEL not in from_user.DEFAULT_ENABLED_PROTOCOLS
@@ -1868,7 +1871,7 @@ Hi! You <a href="{inner_obj_as1.get('url') or inner_obj_id}">recently {verb}</a>
                     write_obj.dirty = True
 
         if obj.type == 'undo':
-            logger.debug('Object is an undo; adding targets for inner object')
+            logger.info('Object is an undo; adding targets for inner object')
             if set(inner_obj_as1.keys()) == {'id'}:
                 inner_obj = from_cls.load(inner_obj_id, raise_=False)
             else:

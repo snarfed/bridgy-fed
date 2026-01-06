@@ -40,6 +40,7 @@ class DomainsTest(TestCase):
         for input, expected in [
                 ('https://fa.brid.gy/ap/fake:foo', 'fake:foo'),
                 ('https://bsky.brid.gy/convert/ap/did:plc:123', 'did:plc:123'),
+                ('https://web.brid.gy/foo.com', 'foo.com'),
                 # preserve protocol bot user ids
                 ('https://fed.brid.gy/', 'https://fed.brid.gy/'),
                 ('https://fa.brid.gy/', 'https://fa.brid.gy/'),
