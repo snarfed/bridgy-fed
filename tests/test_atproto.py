@@ -44,7 +44,7 @@ import common
 import config
 from models import Follower, Object, PROTOCOLS, Target
 import protocol
-from .testutil import ATPROTO_KEY, ExplicitFake, Fake, TestCase
+from .testutil import ATPROTO_KEY, ExplicitFake, Fake, OtherFake, TestCase
 from . import test_activitypub
 from . import test_web
 from web import Web
@@ -186,16 +186,16 @@ class ATProtoTest(TestCase):
         common.RUN_TASKS_INLINE = False
         arroba.util.now = lambda tz=timezone.utc: NOW.replace(tzinfo=tz)
 
-    def make_user_and_repo(self, cls=Fake, id='fake:user', **kwargs):
-        atp_copy = Target(uri='did:plc:user', protocol='atproto')
+    def make_user_and_repo(self, cls=Fake, id='fake:user', did='did:plc:user',
+                           **kwargs):
+        atp_copy = Target(uri=did, protocol='atproto')
         self.user = self.make_user(id=id, cls=cls, copies=[atp_copy], **kwargs)
 
-        did_doc = copy.deepcopy(DID_DOC)
+        did_doc = copy.deepcopy({**DID_DOC, 'id': did})
         did_doc['service'][0]['serviceEndpoint'] = ATProto.DEFAULT_TARGET
-        self.store_object(id='did:plc:user', raw=did_doc)
-        self.repo = Repo.create(
-            self.storage, 'did:plc:user', handle='han.dull.brid.gy',
-            signing_key=ATPROTO_KEY, rotation_key=ATPROTO_KEY)
+        self.store_object(id=did, raw=did_doc)
+        self.repo = Repo.create(self.storage, did, handle='han.dull.brid.gy',
+                                signing_key=ATPROTO_KEY, rotation_key=ATPROTO_KEY)
 
         return self.user
 
@@ -2930,6 +2930,46 @@ Sed tortor neque, aliquet quis posuere aliquam, imperdiet sitamet […]
 
         repo = self.storage.load_repo('did:plc:user')
         self.assertNotIn('app.bsky.graph.block', repo.get_contents())
+        mock_create_task.assert_called()  # atproto-commit
+
+    @patch.object(tasks_client, 'create_task', return_value=Task(name='my task'))
+    def test_send_undo_block_of_non_atproto_account(self, mock_create_task):
+        """Undo of block of non-ATProto user bridged into ATProto.
+
+        Should still delete matching stored block records, if any.
+        """
+        alice = self.make_user_and_repo(cls=Fake, id='fake:alice', did='did:plc:alice',
+                                        enabled_protocols=['atproto'])
+        bob = self.make_user_and_repo(cls=OtherFake, id='other:bob', did='did:plc:bob',
+                                      enabled_protocols=['atproto'])
+
+        repo = self.storage.load_repo('did:plc:alice')
+        arroba.server.storage.commit(repo, [
+            Write(action=Action.CREATE, collection='app.bsky.graph.block', rkey='123',
+                  record={
+                      '$type': 'app.bsky.graph.block',
+                      'subject': 'did:plc:bob',
+                      'createdAt': '2022-01-02T00:00:00.000Z',
+                  }),
+        ])
+
+        # undo of block without id. this is the shape dms.unblock sends
+        undo = Object(id='fake:undo', source_protocol='fake', our_as1={
+            'objectType': 'activity',
+            'verb': 'undo',
+            'actor': 'fake:alice',
+            'object': {
+                'objectType': 'activity',
+                'verb': 'block',
+                'actor': 'fake:user',
+                'object': 'other:bob',
+            },
+        })
+        self.assertTrue(ATProto.send(undo, 'https://bsky.brid.gy/'))
+
+        # block record should be deleted
+        repo = self.storage.load_repo('did:plc:alice')
+        self.assertIsNone(repo.get_record('app.bsky.graph.block', '123'))
         mock_create_task.assert_called()  # atproto-commit
 
     @patch.object(tasks_client, 'create_task', return_value=Task(name='my task'))

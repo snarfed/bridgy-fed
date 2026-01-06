@@ -1419,6 +1419,57 @@ To disable these messages, reply with the text 'mute'.""",
             'object': 'https://bsky.brid.gy/convert/ap/at://did:plc:alice/app.bsky.graph.block/123',
         }, ignore=['@context', 'contentMap', 'to', 'cc'])
 
+    @patch('requests.post')
+    @patch('requests.get')
+    def test_activitypub_undo_block_of_atproto(self, mock_get, mock_post):
+        """ActivityPub undo of a block of an ATProto user.
+
+        ActivityPub user alice@inst, https://inst/alice, did:plc:alice
+        ATProto user bob.com, did:plc:bob
+        """
+        alice = self.make_ap_user('https://inst/alice', 'did:plc:alice')
+        bob = self.make_atproto_user('did:plc:bob')
+
+        # create a block record in alice's ATProto repo
+        repo = self.storage.load_repo('did:plc:alice')
+        tid = arroba.util.int_to_tid(arroba.util._tid_ts_last)
+        self.storage.commit(repo, arroba.repo.Write(
+            action=arroba.storage.Action.CREATE,
+            collection='app.bsky.graph.block',
+            rkey=tid,
+            record={
+                '$type': 'app.bsky.graph.block',
+                'subject': 'did:plc:bob',
+                'createdAt': '2022-01-02T03:04:05.000Z',
+            },
+        ))
+
+        block_obj = self.store_object(
+            id='https://inst/block',
+            source_protocol='activitypub',
+            our_as1={
+                'objectType': 'activity',
+                'verb': 'block',
+                'id': 'https://inst/block',
+                'actor': 'https://inst/alice',
+                'object': 'did:plc:bob',
+            },
+            copies=[Target(uri=f'at://did:plc:alice/app.bsky.graph.block/{tid}',
+                          protocol='atproto')])
+
+        body = json_dumps({
+            'type': 'Undo',
+            'id': 'https://inst/undo-block',
+            'actor': 'https://inst/alice',
+            'object': 'https://inst/block',
+        })
+        headers = sign('/ap/sharedInbox', body, key_id='https://inst/alice')
+        resp = self.client.post('/ap/sharedInbox', data=body, headers=headers)
+        self.assertEqual(202, resp.status_code)
+
+        repo = self.storage.load_repo('did:plc:alice')
+        self.assertIsNone(repo.get_record('app.bsky.graph.block', tid))
+
     def test_activitypub_like_by_disabled_user_of_atproto_post(self):
         """AP like of Bluesky post by an AP user who's not enabled for ATProto.
 

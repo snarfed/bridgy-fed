@@ -853,6 +853,12 @@ class ATProto(User, Protocol):
             # *all* block records with the given object (subject)
             # https://github.com/snarfed/bridgy-fed/issues/2073
             blockee = as1.get_object(base_obj_as1).get('id')
+            if not (blockee_proto := Protocol.for_id(blockee)):
+                logger.error(f"can't determine protocol for {blockee}")
+                return False
+            blockee = (
+                ids.translate_user_id(id=blockee, from_=blockee_proto, to=to_cls)
+                or ids.translate_object_id(id=blockee, from_=blockee_proto, to=to_cls))
             if not blockee:
                 logger.error('no object.object for undo block')
                 return False
