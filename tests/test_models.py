@@ -842,6 +842,20 @@ class UserTest(TestCase):
         self.assertFalse(self.user.is_blocking('not-a-url'))
         self.assertFalse(self.user.is_blocking(''))
 
+    @patch('requests.get', return_value=requests_response('foo'))#, content_type='text/csv'))
+    def test_load_user_web(self, _):
+        self.assertEqual(self.user, models.load_user('y.za'))
+        self.assertEqual(self.user, models.load_user('@y.za'))
+        self.assertEqual(self.user, models.load_user('https://y.za/'))
+
+        with self.assertRaises(RuntimeError):
+            models.load_user('https://y.za/not/homepage')
+
+        # self.assertIsNotNone(Object.get_by_id('https://y.za/not/homepage'))
+        self.store_object(id='https://y.za/not/homepage', source_protocol='web')#, our_as1={'foo': 'bar'})
+        with self.assertRaises(RuntimeError):
+            models.load_user('https://y.za/not/homepage')
+
 
 class ObjectTest(TestCase):
 

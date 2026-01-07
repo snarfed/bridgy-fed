@@ -2238,6 +2238,13 @@ def load_user(handle_or_id, proto=None, create=False, allow_opt_out=False):
         raise RuntimeError(f"Couldn't determine network for {handle_or_id}")
 
     if proto.owns_id(handle_or_id) is not False:
+        if proto.LABEL == 'web' and util.is_web(handle_or_id):
+            is_homepage = urlparse(handle_or_id).path.strip('/') == ''
+            if not is_homepage:
+                raise RuntimeError(f"{handle_or_id} isn't a web domain or homepage URL")
+
+        # TODO: handle user vs object ids here. this incorrectly assumes that it's
+        # a user id. https://github.com/snarfed/bridgy-fed/issues/2281
         id = ids.normalize_user_id(id=handle_or_id, proto=proto)
         user = (proto.get_or_create(id, allow_opt_out=allow_opt_out) if create
                 else proto.get_by_id(id, allow_opt_out=allow_opt_out))
@@ -2245,13 +2252,13 @@ def load_user(handle_or_id, proto=None, create=False, allow_opt_out=False):
             raise RuntimeError(f"Couldn't load {handle_or_id} on {proto.PHRASE}")
         return user
 
-    logger.debug(f"doesn't look like a {proto.LABEL} ID, trying as a handle")
+    logger.debug(f"doesn't look like a {proto.LABEL} user ID, trying as a handle")
 
     if proto.owns_handle(handle_or_id) is False:
         if handle_or_id.startswith('@'):
             return load_user(handle_or_id.removeprefix('@'), create=create,
                              proto=proto, allow_opt_out=allow_opt_out)
-        raise RuntimeError(f"{handle_or_id} doesn't look like an id or handle on {proto.PHRASE}")
+        raise RuntimeError(f"{handle_or_id} doesn't look like a user id or handle on {proto.PHRASE}")
 
     for user in proto.query(proto.handle == handle_or_id):
         # some users may have an old handle stored and indexed, but they've changed
