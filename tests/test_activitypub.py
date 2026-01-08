@@ -3525,8 +3525,10 @@ class ActivityPubUtilsTest(TestCase):
             'cc': ['bob.com'],
         })))
 
-    @patch('requests.get', return_value=requests_response(test_atproto.DID_DOC))
-    def test_convert_quote_post(self, _):
+    @patch('requests.get')
+    def test_convert_quote_post(self, mock_get):
+        mock_get.return_value = requests_response(test_atproto.DID_DOC)
+
         obj = Object(id='at://did:plc:alice/app.bsky.feed.post/123', bsky={
             '$type': 'app.bsky.feed.post',
             'text': 'foo bar',

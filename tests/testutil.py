@@ -13,6 +13,7 @@ from urllib.parse import parse_qs, urlencode
 import warnings
 
 from arroba import did
+from arroba.datastore_storage import MemcacheSequences
 import arroba.util
 from arroba.util import datetime_to_tid
 from bs4 import MarkupResemblesLocatorWarning
@@ -42,6 +43,7 @@ from werkzeug.exceptions import HTTPException
 
 # other modules are imported _after_ Fake etc classes is defined so that it's in
 # PROTOCOLS when URL routes are registered.
+import atproto
 from common import GCP_PROJECT_ID, long_to_base64, NDB_CONTEXT_KWARGS, TASKS_LOCATION
 import ids
 import models
@@ -394,6 +396,7 @@ class TestCase(unittest.TestCase, testutil.Asserts):
             'CHAT_DID': 'did:chat',
         })
         atproto.appview.address = 'https://appview.local'
+        atproto.init(MemcacheSequences)
 
         # nostr fake websocket
         FakeConnection.reset()

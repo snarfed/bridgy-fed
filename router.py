@@ -1,6 +1,7 @@
 """Background service for processing receive, send, poll-feed, etc tasks."""
 from pathlib import Path
 
+from arroba.datastore_storage import MemcacheSequences
 from flask import Flask
 from oauth_dropins.webutil import (
     appengine_config,
@@ -18,6 +19,7 @@ import notifications
 import pages
 import protocol
 
+atproto.init(MemcacheSequences)
 models.reset_protocol_properties()
 
 # Flask app

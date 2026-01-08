@@ -46,7 +46,7 @@ from requests import RequestException
 import oauth_dropins.bluesky
 from oauth_dropins.webutil import util
 from oauth_dropins.webutil.appengine_config import ndb_client
-from oauth_dropins.webutil.appengine_info import DEBUG
+from oauth_dropins.webutil.appengine_info import DEBUG, TESTING
 from oauth_dropins.webutil import flask_util
 from oauth_dropins.webutil.flask_util import (
     canonicalize_request_domain,
@@ -55,6 +55,7 @@ from oauth_dropins.webutil.flask_util import (
 )
 from oauth_dropins.webutil.models import StringIdModel
 from oauth_dropins.webutil.util import add, json_dumps, json_loads
+from pymemcache.test.utils import MockMemcacheClient
 from werkzeug.exceptions import HTTPException, NotFound
 
 import common
@@ -82,19 +83,7 @@ import web
 
 logger = logging.getLogger(__name__)
 
-# Bridgy Fed uses memcache sequence number allocation. If we ever allocate a sequence
-# number from the datastore instead of memcache, we'd allocate a duplicate from
-# memcache and collide. So, make sure it's on.
-# https://github.com/snarfed/bridgy-fed/issues/2269
-sequences = MemcacheSequences(
-    memcache=memcache.memcache,
-    ndb_client=ndb_client,
-    ndb_context_kwargs=common.NDB_CONTEXT_KWARGS)
-arroba.server.storage = DatastoreStorage(
-    sequences=sequences,
-    ndb_client=ndb_client,
-    ndb_context_kwargs=common.NDB_CONTEXT_KWARGS)
-
+arroba.server.storage = None  # initialized in init() below
 appview = Client(f'https://{os.environ["APPVIEW_HOST"]}',
                  headers={'User-Agent': USER_AGENT})
 LEXICONS = appview.defs
@@ -116,6 +105,37 @@ logger.info(f'Using GCP DNS project {DNS_GCP_PROJECT} zone {DNS_ZONE}')
 dns_client = dns.Client(project=DNS_GCP_PROJECT)
 # "Discovery API" https://github.com/googleapis/google-api-python-client
 dns_discovery_api = googleapiclient.discovery.build('dns', 'v1')
+
+
+def init(sequences_cls):
+    """Connect arroba's storage and sequence numbers.
+
+    Bridgy Fed uses memcache sequence number allocation in production. If we ever
+    allocated a sequence number from the datastore instead of memcache, we'd allocate
+    a duplicate from memcache and collide. So, we make all services that use this
+    module explicitly initialize it with the sequence number class they need.
+
+    https://github.com/snarfed/bridgy-fed/issues/2269
+
+    Args:
+      sequences_cls: :class:`arroba.storage.Sequences` subclass
+    """
+    if sequences_cls == MemcacheSequences:
+        if not DEBUG and not TESTING:
+            assert memcache.memcache.client_class != MockMemcacheClient
+        sequences = MemcacheSequences(
+            memcache=memcache.memcache,
+            ndb_client=ndb_client,
+            ndb_context_kwargs=common.NDB_CONTEXT_KWARGS)
+    elif sequences_cls == RemoteSequences:
+        sequences = RemoteSequences(base_url='https://fed.brid.gy/')
+    else:
+        assert False, f'unsupported sequences class {sequences_cls}'
+
+    arroba.server.storage = DatastoreStorage(
+        sequences=sequences,
+        ndb_client=ndb_client,
+        ndb_context_kwargs=common.NDB_CONTEXT_KWARGS)
 
 
 def oauth_client_metadata():

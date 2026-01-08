@@ -18,7 +18,7 @@ import argparse
 import logging
 import sys
 
-imprt arroba.server
+import arroba.server
 from google.cloud import ndb
 from oauth_dropins.webutil import appengine_info
 appengine_info.DEBUG = False
@@ -35,7 +35,7 @@ from web import Web
 appengine_config.error_reporting_client.host = 'localhost:9999'
 appengine_config.error_reporting_client.secure = False
 
-arroba.server.storage.sequences = atproto.RemoteSequences(base_url='https://fed.brid.gy/')
+atproto.init(atproto.RemoteSequences)
 
 # logging.basicConfig(level=logging.DEBUG)
 

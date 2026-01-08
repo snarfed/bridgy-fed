@@ -10,6 +10,7 @@ import threading
 from threading import Thread, Timer
 
 from arroba import firehose
+from arroba.datastore_storage import MemcacheSequences
 import arroba.server
 import config
 from flask import Flask, render_template
@@ -54,6 +55,7 @@ ATPROTO_HANDLE_THREADS = 10
 
 logger = logging.getLogger(__name__)
 
+atproto.init(MemcacheSequences)
 models.reset_protocol_properties()
 
 
