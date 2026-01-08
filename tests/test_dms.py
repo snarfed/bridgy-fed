@@ -469,7 +469,7 @@ class DmsTest(TestCase):
         self.assertEqual(('OK', 200), receive(from_user=user, obj=obj))
         self.assertEqual([], ExplicitFake.sent)
         self.assertEqual([], OtherFake.sent)
-        self.assert_replied(OtherFake, user, '?', "fake:eve doesn't look like an id or handle on other-phrase")
+        self.assert_replied(OtherFake, user, '?', "fake:eve doesn't look like a user id or handle on other-phrase")
 
     @patch('ids.translate_handle', side_effect=ValueError('nope'))
     def test_receive_prompt_not_supported_in_target_protocol(self, _):
