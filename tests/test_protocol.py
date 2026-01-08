@@ -2243,6 +2243,45 @@ class ProtocolReceiveTest(TestCase):
             Target(protocol='other', uri='other://b.ob/:target'),
         ], list(Fake.targets(create, from_user=self.user, crud_obj=note)))
 
+    @patch('requests.get', return_value=requests_response())
+    def test_targets_dedupe_url_case_normalization(self, _):
+        """Target URLs should be normalized (eg lowercase domain) before lookup.
+
+        https://console.cloud.google.com/errors/detail/CJDioeXAld2m4gE;locations=global;time=P30D?project=bridgy-federated"""
+        self.make_user('https://in.st/eve', cls=ActivityPub, obj_as2={
+            'type': 'Person',
+            'id': 'https://in.st/eve',
+            # capital letter in hostname; should be normalized to lower case
+            'inbox': 'https://In.St/eve/inbox',
+        })
+        self.user.enabled_protocols = ['activitypub']
+        self.user.put()
+
+        self.store_object(id='https://in.st/post',
+                          source_protocol='activitypub', our_as1={
+            'objectType': 'note',
+            'id': 'https://in.st/post',
+            'author': 'https://in.st/eve',
+        })
+
+        note = Object(id='fake:note', our_as1={
+            'id': 'fake:reply',
+            'objectType': 'note',
+            'author': 'fake:user',
+            'inReplyTo': 'https://in.st/post',
+        })
+        create = Object(id='fake:create', our_as1={
+            'id': 'fake:create',
+            'objectType': 'activity',
+            'verb': 'post',
+            'actor': 'fake:user',
+            'object': note.our_as1,
+        })
+
+        self.assertEqual(
+            [Target(uri='https://in.st/eve/inbox', protocol='activitypub')],
+            list(Fake.targets(create, from_user=self.user, crud_obj=note)))
+
     def test_create_post_dont_deliver_to_follower_if_protocol_isnt_enabled(self):
         # user who hasn't enabled either Fake or OtherFake, so we shouldn't
         # deliver to followers on those protocols

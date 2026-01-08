@@ -1688,7 +1688,7 @@ class Protocol:
 
         target_uris = as1.targets(obj.as1)
         orig_obj = None
-        targets = {}  # maps Target to Object or None
+        targets = {}  # maps Target (with *normalized* uri) to Object or None
         owner = as1.get_owner(obj.as1)
         allow_opt_out = (obj.type == 'delete')
         inner_obj_as1 = as1.get_object(obj.as1)
@@ -1841,6 +1841,7 @@ Hi! You <a href="{inner_obj_as1.get('url') or inner_obj_id}">recently {verb}</a>
                 if proto in to_protocols:
                     # copies generally won't have their own Objects
                     if target := proto.target_for(Object(id=copy.uri)):
+                        target = util.normalize_url(target, trailing_slash=False)
                         logger.debug(f'Adding target {target} for copy {copy.uri} of original {target_id}')
                         targets[Target(protocol=copy.protocol, uri=target)] = orig_obj
 
@@ -1854,6 +1855,7 @@ Hi! You <a href="{inner_obj_as1.get('url') or inner_obj_id}">recently {verb}</a>
                 logger.error(f"Can't find delivery target for {target_id}")
                 continue
 
+            target = util.normalize_url(target, trailing_slash=False)
             logger.debug(f'Target for {target_id} is {target}')
             # only use orig_obj for inReplyTos, like/repost objects, reply's original
             # post's mentions, etc
@@ -1945,13 +1947,9 @@ Hi! You <a href="{inner_obj_as1.get('url') or inner_obj_id}">recently {verb}</a>
                 # TODO: should we pass remote=False through here to Protocol.load?
                 target = user.target_for(user.obj, shared=True) if user.obj else None
                 if not target:
-                    # logger.error(f'Follower {user.key} has no delivery target')
                     continue
 
-                # normalize URL (lower case hostname, etc)
-                # ...but preserve our PDS URL without trailing slash in path
-                # https://atproto.com/specs/did#did-documents
-                target = util.dedupe_urls([target], trailing_slash=False)[0]
+                target = util.normalize_url(target, trailing_slash=False)
                 targets[Target(protocol=user.LABEL, uri=target)] = target_obj
 
             logger.info(f'  collected {len(targets)} targets')
@@ -1964,7 +1962,6 @@ Hi! You <a href="{inner_obj_as1.get('url') or inner_obj_id}">recently {verb}</a>
                     targets.setdefault(
                         Target(protocol=proto.LABEL, uri=proto.DEFAULT_TARGET), None)
 
-        # de-dupe targets, discard same-domain
         # maps string target URL to (Target, Object) tuple
         candidates = {t.uri: (t, obj) for t, obj in targets.items()}
         # maps Target to Object or None
