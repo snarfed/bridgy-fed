@@ -574,6 +574,11 @@ a.active-tab + a {
   border-left: 1px solid lightgray;
 }
 
+/* temporary, until we announce */
+#blocklist-buttons {
+  display: none;
+}
+
 #blocklist-buttons input[type="submit"]:hover {
   background-color: lightcoral;
   color: white;
