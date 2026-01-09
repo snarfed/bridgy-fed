@@ -46,7 +46,7 @@ from requests import RequestException
 import oauth_dropins.bluesky
 from oauth_dropins.webutil import util
 from oauth_dropins.webutil.appengine_config import ndb_client
-from oauth_dropins.webutil.appengine_info import DEBUG, TESTING
+from oauth_dropins.webutil.appengine_info import DEBUG, LOCAL_SERVER, TESTING
 from oauth_dropins.webutil import flask_util
 from oauth_dropins.webutil.flask_util import (
     canonicalize_request_domain,
@@ -121,7 +121,11 @@ def init(sequences_cls):
       sequences_cls: :class:`arroba.storage.Sequences` subclass
     """
     if sequences_cls == MemcacheSequences:
-        if not DEBUG and not TESTING:
+        if LOCAL_SERVER:
+            logger.warning('MemcacheSequences requested! Not connecting arroba to datastore!')
+            assert arroba.server.storage is None
+            return
+        elif not DEBUG and not TESTING:
             assert memcache.memcache.client_class != MockMemcacheClient
         sequences = MemcacheSequences(
             memcache=memcache.memcache,
