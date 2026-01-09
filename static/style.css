@@ -375,7 +375,6 @@ form input {
   .user-items > .row > .col-sm-9,
   .user-items > .row > .col-sm-10 {
     display: table-cell;
-    float: none;
     text-align: left;
     border-spacing: 0;
   }
