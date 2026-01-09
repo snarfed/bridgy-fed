@@ -43,6 +43,8 @@ from common import (
 )
 from domains import (
     BLOG_REDIRECT_DOMAINS,
+    DomainBlocklist,
+    KNOWN_DOMAIN_BLOCKLISTS,
     PRIMARY_DOMAIN,
     PROTOCOL_DOMAINS,
 )
@@ -265,10 +267,16 @@ def settings():
     for (login, _), user in zip(logins_and_user_keys, loaded):
         if user:
             user.logo = site_logo(login)
-            if user.blocks:
-                user.domain_blocklists = [
-                    obj for obj in ndb.get_multi(user.blocks[:PAGE_SIZE])
-                    if getattr(obj, 'is_csv', None)]
+            user.domain_blocklists = []
+
+            for obj in ndb.get_multi(user.blocks[:PAGE_SIZE]):
+                if getattr(obj, 'is_csv', None):
+                    url = obj.key.id()
+                    user.domain_blocklists.append(
+                        KNOWN_DOMAIN_BLOCKLISTS.get(url)
+                        or DomainBlocklist(name=url.split('/')[-1],
+                                           about_url=url, csv_url=url))
+
             users.append(user)
 
     if not users:
@@ -277,6 +285,7 @@ def settings():
     return render(
         'settings.html',
         **locals(),
+        KNOWN_DOMAIN_BLOCKLISTS=KNOWN_DOMAIN_BLOCKLISTS,
         USER_STATUS_DESCRIPTIONS=USER_STATUS_DESCRIPTIONS,
     )
 

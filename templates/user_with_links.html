@@ -4,7 +4,8 @@
     {% set logo = None %}
   {% endif %}
   {{ user.html_link(pictures=True, logo=logo)|safe }}
-  <form method="post" action="{{ user.user_page_path('update-profile', prefer_id=True) }}">
+  <form method="post" class="update-profile"
+        action="{{ user.user_page_path('update-profile', prefer_id=True) }}">
     <button id="update-profile-button" type="submit" title="Update profile"
             class="btn btn-default glyphicon glyphicon-refresh"></button>
   </form>

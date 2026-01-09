@@ -137,6 +137,12 @@ pre .value, code .value, code.value {
   text-align: left;
 }
 
+form.settings-item, #block-row, #blocklist-buttons input[type="submit"] {
+  display: revert;
+  margin-top: .5em;
+  margin-bottom: .5em;
+}
+
 #blogposts, #publishes, #webmentions, #user {
   margin-top: 1em;
 }
@@ -568,6 +574,15 @@ a.active-tab + a {
   border-left: 1px solid lightgray;
 }
 
+#blocklist-buttons input[type="submit"]:hover {
+  background-color: lightcoral;
+  color: white;
+}
+
+#blocklist-buttons a:hover {
+  text-decoration: none;
+}
+
 .disable-button {
   border-color: red;
   color: red;
@@ -879,7 +894,6 @@ a img.shadow:hover
   width: 60px;
   height: 34px;
   margin-left: 10px;
-  margin-bottom: 15px;
 }
 
 /* Hide default HTML checkbox */

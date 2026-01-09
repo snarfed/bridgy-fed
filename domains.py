@@ -1,4 +1,5 @@
 """Utilities for working with DNS domain names; constants for our own domains."""
+from collections import namedtuple
 import re
 from urllib.parse import urljoin, urlparse
 
@@ -77,6 +78,40 @@ DOMAIN_BLOCKLIST_CANARIES = (
     'canary.tier0.example.com',
     'canary.fedinuke.example.com',
 )
+
+# Domain blocklist CSVs that we show shortcuts for on /settings
+DomainBlocklist = namedtuple('DomainBlocklist', ('name', 'about_url', 'csv_url'))
+_KNOWN_DOMAIN_BLOCKLISTS = tuple(DomainBlocklist(*args) for args in ((
+    'IFTAS DNI',
+    'https://about.iftas.org/library/iftas-dni-list/',
+    'https://about.iftas.org/wp-content/uploads/2025/10/iftas-dni-latest.csv',
+), (
+    'IFTAS AUD',
+    'https://about.iftas.org/library/iftas-abandoned-and-unmanaged-domain-list/',
+    'https://about.iftas.org/wp-content/uploads/2025/10/iftas-abandoned-unmanaged-latest.csv',
+), (
+    'Oliphant Unified',
+    'https://writer.oliphant.social/oliphant/the-oliphant-social-blocklist',
+    'https://codeberg.org/oliphant/blocklists/raw/branch/main/blocklists/mastodon/_unified_tier0_blocklist.csv',
+), (
+    'Garden Fence',
+    'https://gardenfence.github.io/',
+    'https://raw.githubusercontent.com/gardenfence/blocklist/refs/heads/main/gardenfence-fediblocksync.csv',
+), (
+    'Sierdy Tier 0',
+    'https://seirdy.one/posts/2023/05/02/fediverse-blocklists/',
+    'https://seirdy.one/pb/tier0.csv',
+), (
+    'The Bad Space',  # 90%
+    'https://tweaking.thebad.space/about',
+    'https://tweaking.thebad.space/exports/mastodon/90',
+# ), (
+#     'The Bad Space 50%',
+#     'https://tweaking.thebad.space/about',
+#     'https://tweaking.thebad.space/exports/mastodon/50',
+)))
+KNOWN_DOMAIN_BLOCKLISTS = {bl.csv_url: bl for bl in _KNOWN_DOMAIN_BLOCKLISTS}
+
 
 # domains that we allow to post as the protocol bot accounts
 # https://github.com/snarfed/bridgy-fed/#how-to-post-as-the-protocol-bot-accounts-apbridgy-bskybridgy-etc
