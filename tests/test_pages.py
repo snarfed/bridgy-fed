@@ -870,6 +870,9 @@ class PagesTest(TestCase):
         self.assertEqual(1, body.count('<a href="http://foo">foo</a>'))
         self.assert_multiline_in('<a href="http://bar">bar</a>', body)
         self.assertEqual(1, body.count('<a href="http://bar">bar</a>'))
+        self.assertIn('action="/settings/unblock"', body)
+        self.assertIn('name="target" value="http://foo"', body)
+        self.assertIn('name="target" value="http://bar"', body)
 
     @patch('pages.PROTOCOLS', new={
         'activitypub': ActivityPub,

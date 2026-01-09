@@ -12,95 +12,99 @@
 {% for user in users %}
 {% set logo = user.logo %}
 <div class="profile-row">
-  <div class="row">
-    {% include 'user_with_links.html' %}
-  </div>
+  {% include 'user_with_links.html' %}
+  <br><br>
 
-  <div class="row">
-    {% if user.enabled_protocols and not user.status %}  {# Bridging: on #}
-      <span id="{{ user.handle }}-switch-disabled-notice" class="disabled-notice"></span>
-      <a href="{{ user.user_page_path() }}">Bridging: </a>
-      <!-- to {{ user.enabled_protocols|join(', ') }} -->
-      <form method="post" action="/settings/disable"
-            onsubmit="return window.confirm('Are you sure you want to disable bridging? Disabling has effects that can\'t easily be reversed, even if you later re-enable bridging. For example, disabling removes all fediverse followers.')" />
-        <input name="key" type="hidden" value="{{ user.key.urlsafe().decode() }}" />
-        <label class="switch" id="{{ user.handle }}-switch-wrapper">
-          <input id="{{ user.handle }}-switch" type="checkbox" checked onClick="bridgingSwitch(event)">
-          <span class="slider round"></span>
-        </label>
-        <noscript>
-          <input type="submit" value="Disable" class="btn btn-default disable-button" />
-        </noscript>
+  {% if user.enabled_protocols and not user.status %}  {# Bridging: on #}
+    <span id="{{ user.handle }}-switch-disabled-notice" class="disabled-notice"></span>
+    <a href="{{ user.user_page_path() }}">Bridging: </a>
+    <!-- to {{ user.enabled_protocols|join(', ') }} -->
+    <form method="post" action="/settings/disable"
+          onsubmit="return window.confirm('Are you sure you want to disable bridging? Disabling has effects that can\'t easily be reversed, even if you later re-enable bridging. For example, disabling removes all fediverse followers.')" />
+      <input name="key" type="hidden" value="{{ user.key.urlsafe().decode() }}" />
+      <label class="switch" id="{{ user.handle }}-switch-wrapper">
+        <input id="{{ user.handle }}-switch" type="checkbox" checked onClick="bridgingSwitch(event)">
+        <span class="slider round"></span>
+      </label>
+      <noscript>
+        <input type="submit" value="Disable" class="btn btn-default disable-button" />
+      </noscript>
+    </form>
+    <br>
+
+  {# TODO: generalize #}
+  {% if 'atproto' in user.enabled_protocols %}
+    <form method="post" action="/settings/set-username">
+      <input name="key" type="hidden" value="{{ user.key.urlsafe().decode() }}" />
+      <input name="protocol" type="hidden" value="atproto" />
+      <label for="username"><a href="/docs#bluesky-enhanced">Set Bluesky handle</a>:</label>
+      <input id="username" type="text" name="username" placeholder ="your.domain" />
+      <input type="submit" value="Go" class="btn btn-default" />
+    </form>
+    <br>
+  {% endif %}
+
+  <form method="post" action="/settings/block">
+    <input name="key" type="hidden" value="{{ user.key.urlsafe().decode() }}" />
+    <label for="target"><a href="/docs#block">Block</a>:</label>
+    <input id="target" type="text" name="target" placeholder="user or blocklist" />
+    <input type="submit" value="Go" class="btn btn-default" />
+  </form>
+  <br>
+
+  {% if user.domain_blocklists %}
+  <p>
+    Currently subscribed to these domain blocklists:
+  </p>
+  <ul class="user-items">
+    {% for blocklist in user.domain_blocklists %}
+    <li class="row">
+      <span class="col-xs-10 col-sm-10 col-lg-6">
+        {{ blocklist.html_link()|safe }}
+      </span>
+      <form method="post" action="/settings/unblock" class="col-xs-2 col-sm-1 col-lg-1">
+        <input type="hidden" name="key" value="{{ user.key.urlsafe().decode() }}" />
+        <input type="hidden" name="target" value="{{ blocklist.key.id() }}" />
+        <input type="submit" title="Unblock" value="✖" class="btn delete-item" />
       </form>
+    </li>
+    {% endfor %}
+  </ul>
+  {% endif %} {# domain_blocklists #}
 
-    {# TODO: generalize #}
-    {% if 'atproto' in user.enabled_protocols %}
-    <p>
-      <form method="post" action="/settings/set-username">
-        <input name="key" type="hidden" value="{{ user.key.urlsafe().decode() }}" />
-        <input name="protocol" type="hidden" value="atproto" />
-        <label for="username"><a href="/docs#bluesky-enhanced">Set Bluesky handle</a>:</label>
-        <input id="username" type="text" name="username" placeholder ="your.domain" />
-        <input type="submit" value="Go" class="btn btn-default" />
-      </form>
-    </p>
-    {% endif %}
+    <form method="post" action="/settings/toggle-notifs">
+      <input name="key" type="hidden" value="{{ user.key.urlsafe().decode() }}" />
+      <a href="/docs#notifs">DM notifications from unbridged accounts</a>:
 
-    <p>
-      <form method="post" action="/settings/block">
-        <input name="key" type="hidden" value="{{ user.key.urlsafe().decode() }}" />
-        <label for="target"><a href="/docs#block">Block</a>:</label>
-        <input id="target" type="text" name="target" placeholder="user or blocklist" />
-        <input type="submit" value="Go" class="btn btn-default" />
-      </form>
-    </p>
+      <label class="switch" id="{{ user.handle }}-notifs-wrapper">
+        <input id="{{ user.handle }}-switch" type="checkbox"
+               onClick="event.currentTarget.closest('form').submit()"
+               {% if user.send_notifs == 'all' %}checked{% endif %} />
+        <span class="slider round"></span>
+      </label>
+      <noscript>
+        <input type="submit" class="btn btn-default"
+               value="{{ 'Enable' if user.send_notifs == 'none' else 'Disable' }}" />
+      </noscript>
+    </form>
+    <br>
 
-    {% if user.domain_blocklists %}
-    <p>
-      Currently subscribed to these domain blocklists:
-      <ul>
-        {% for blocklist in user.domain_blocklists %}
-        <li>{{ blocklist.html_link()|safe }}</li>
-        {% endfor %}
-      </ul>
-    </p>
-    {% endif %} {# domain_blocklists #}
-
-    <p>
-      <form method="post" action="/settings/toggle-notifs">
-        <input name="key" type="hidden" value="{{ user.key.urlsafe().decode() }}" />
-        <a href="/docs#notifs">DM notifications from unbridged accounts</a>:
-
-        <label class="switch" id="{{ user.handle }}-notifs-wrapper">
-          <input id="{{ user.handle }}-switch" type="checkbox"
-                 onClick="event.currentTarget.closest('form').submit()"
-                 {% if user.send_notifs == 'all' %}checked{% endif %} />
-          <span class="slider round"></span>
-        </label>
-        <noscript>
-          <input type="submit" class="btn btn-default"
-                 value="{{ 'Enable' if user.send_notifs == 'none' else 'Disable' }}" />
-        </noscript>
-      </form>
-    </p>
-
-    {% else %}  {# Bridging: off #}
-      <label id="{{ user.handle }}-switch-disabled-notice" class="disabled-notice"></label>
-      Bridging:
-      <form method="post" action="/settings/enable">
-        <input name="key" type="hidden" value="{{ user.key.urlsafe().decode() }}" />
-        <label class="switch" id="{{ user.handle }}-switch-wrapper">
-          <input id="{{ user.handle }}-switch" type="checkbox" onClick="bridgingSwitch(event)" {% if user.status and user.status != 'private' %}disabled="true"{% endif %}>
-          <span class="slider round"></span>
-        </label>
-        <noscript>
-          <input type="submit" value="Enable" class="btn btn-default enable-button"
-             {% if user.status and user.status != 'private' %}disabled="true"{% endif %} />
-        </noscript>
-      </form>
-      {% if user.status %} Not bridging because your {{ USER_STATUS_DESCRIPTIONS[user.status] }}{% endif %}
-    {% endif %}
-  </div>
+  {% else %}  {# Bridging: off #}
+    <label id="{{ user.handle }}-switch-disabled-notice" class="disabled-notice"></label>
+    Bridging:
+    <form method="post" action="/settings/enable">
+      <input name="key" type="hidden" value="{{ user.key.urlsafe().decode() }}" />
+      <label class="switch" id="{{ user.handle }}-switch-wrapper">
+        <input id="{{ user.handle }}-switch" type="checkbox" onClick="bridgingSwitch(event)" {% if user.status and user.status != 'private' %}disabled="true"{% endif %}>
+        <span class="slider round"></span>
+      </label>
+      <noscript>
+        <input type="submit" value="Enable" class="btn btn-default enable-button"
+           {% if user.status and user.status != 'private' %}disabled="true"{% endif %} />
+      </noscript>
+    </form>
+    {% if user.status %} Not bridging because your {{ USER_STATUS_DESCRIPTIONS[user.status] }}{% endif %}
+  {% endif %}
 </div>
 {% endfor %}
 
