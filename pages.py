@@ -368,8 +368,10 @@ def set_username(user=None):
 def block(user=None):
     """Blocks a user or blocklist.
 
+    TODO: unify with :func:`unblock`?
+
     Args:
-      target (models.User)
+      user (models.User): current logged in user, provided by :func:`require_login`
 
     Query params:
       target (str)
@@ -385,6 +387,34 @@ def block(user=None):
 
     if links:
         flash(f"""OK, you're now blocking {', '.join(links)}.""", escape=False)
+
+    return redirect('/settings')
+
+
+@app.post('/settings/unblock')
+@require_login
+def unblock(user=None):
+    """Unblocks a user or blocklist.
+
+    TODO: unify with :func:`block`?
+
+    Args:
+      user (models.User): current logged in user, provided by :func:`require_login`
+
+    Query params:
+      target (str)
+    """
+    target = flask_util.get_required_param('target')
+    links = []
+    for arg in target.strip().split():
+        try:
+            result = Protocol.unblock(user, arg)
+            links.append(result.html_link())
+        except ValueError as err:
+            flash(str(err))
+
+    if links:
+        flash(f"""OK, you're not blocking {', '.join(links)}.""", escape=False)
 
     return redirect('/settings')
 

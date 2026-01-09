@@ -962,33 +962,6 @@ class PagesTest(TestCase):
             'object': 'fake:eve',
         })], Fake.sent)
 
-    def test_block_unrecognized(self):
-        user, _ = self.make_logged_in_mastodon_user(enabled_protocols=['fake'])
-
-        resp = self.client.post('/settings/block', data={
-            'key': user.key.urlsafe().decode(),
-            'target': 'foo bar',
-        })
-        self.assertEqual(302, resp.status_code)
-        self.assertEqual('/settings', resp.headers['Location'])
-        self.assertEqual([
-            "foo doesn't look like a user or list, or we couldn't fetch it",
-            "bar doesn't look like a user or list, or we couldn't fetch it",
-        ], get_flashed_messages())
-
-    def test_block_atproto_unrecognized(self):
-        user, _ = self.make_logged_in_mastodon_user(enabled_protocols=['atproto'])
-
-        resp = self.client.post('/settings/block', data={
-            'key': user.key.urlsafe().decode(),
-            'target': 'https://bsky.app/xyz/456',
-        })
-        self.assertEqual(302, resp.status_code)
-        self.assertEqual('/settings', resp.headers['Location'])
-        self.assertEqual(
-            ["https://bsky.app/xyz/456 doesn't look like a user or list on Bluesky, or we couldn't fetch it"],
-            get_flashed_messages())
-
     @patch('requests.get', return_value=requests_response(
             'domain\nfoo.com\nbar.org', headers={'Content-Type': 'text/csv'}))
     def test_block_csv_blocklist(self, mock_get):
@@ -1006,6 +979,90 @@ class PagesTest(TestCase):
         self.assertEqual('domain\nfoo.com\nbar.org', list.csv)
         self.assertTrue(list.is_csv)
         self.assertEqual([list.key], user.key.get().blocks)
+
+    def test_unblock(self):
+        user, _ = self.make_logged_in_mastodon_user(enabled_protocols=['fake'])
+
+        Fake.fetchable = {'fake:profile:eve': {
+            'objectType': 'person',
+            'id': 'fake:profile:eve',
+        }}
+
+        resp = self.client.post('/settings/unblock', data={
+            'key': user.key.urlsafe().decode(),
+            'target': 'fake:eve',
+        })
+        self.assertEqual(302, resp.status_code)
+        self.assertEqual('/settings', resp.headers['Location'])
+        self.assertEqual(["""OK, you're not blocking <a class="h-card u-author mention" rel="me" href="web:fake:eve" title="fake:handle:eve">fake:handle:eve</a>."""], get_flashed_messages())
+
+        self.assert_equals([('fake:eve:target', {
+            'objectType': 'activity',
+            'verb': 'undo',
+            'id': 'http://b.c/a#bridgy-fed-unblock-2022-01-02T03:04:05+00:00',
+            'actor': 'http://b.c/a',
+            'object': {
+                'objectType': 'activity',
+                'verb': 'block',
+                'actor': 'http://b.c/a',
+                'object': 'fake:eve',
+            },
+        })], Fake.sent)
+
+    def test_unblock_csv_blocklist(self):
+        list = self.store_object(id='http://li.st/a', source_protocol='web',
+                                 is_csv=True)
+        user, _ = self.make_logged_in_bluesky_user(enabled_protocols=['activitypub'],
+                                                   blocks=[list.key])
+
+        resp = self.client.post('/settings/unblock', data={
+            'key': user.key.urlsafe().decode(),
+            'target': 'http://li.st/a',
+        })
+        self.assertEqual(302, resp.status_code)
+        self.assertEqual('/settings', resp.headers['Location'])
+        self.assertEqual(["""OK, you're not blocking <a href="http://li.st/a">li.st/a</a>."""], get_flashed_messages())
+
+        self.assertEqual([], user.key.get().blocks)
+
+    def test_block_unrecognized(self):
+        self._test_block_or_unblock_unrecognized('/settings/block')
+
+    def test_unblock_unrecognized(self):
+        self._test_block_or_unblock_unrecognized('/settings/unblock')
+
+    def _test_block_or_unblock_unrecognized(self, path):
+        user, _ = self.make_logged_in_mastodon_user(enabled_protocols=['fake'])
+
+        resp = self.client.post(path, data={
+            'key': user.key.urlsafe().decode(),
+            'target': 'foo bar',
+        })
+        self.assertEqual(302, resp.status_code)
+        self.assertEqual('/settings', resp.headers['Location'])
+        self.assertEqual([
+            "foo doesn't look like a user or list, or we couldn't fetch it",
+            "bar doesn't look like a user or list, or we couldn't fetch it",
+        ], get_flashed_messages())
+
+    def test_block_atproto_unrecognized(self):
+        self._test_block_or_unblock_atproto_unrecognized('/settings/block')
+
+    def test_unblock_atproto_unrecognized(self):
+        self._test_block_or_unblock_atproto_unrecognized('/settings/unblock')
+
+    def _test_block_or_unblock_atproto_unrecognized(self, path):
+        user, _ = self.make_logged_in_mastodon_user(enabled_protocols=['atproto'])
+
+        resp = self.client.post(path, data={
+            'key': user.key.urlsafe().decode(),
+            'target': 'https://bsky.app/xyz/456',
+        })
+        self.assertEqual(302, resp.status_code)
+        self.assertEqual('/settings', resp.headers['Location'])
+        self.assertEqual(
+            ["https://bsky.app/xyz/456 doesn't look like a user or list on Bluesky, or we couldn't fetch it"],
+            get_flashed_messages())
 
     def test_toggle_notifs(self):
         user, _ = self.make_logged_in_mastodon_user(send_notifs='none')
