@@ -575,7 +575,7 @@ a.active-tab + a {
 }
 
 /* temporary, until we announce */
-#blocklist-buttons {
+.blocklist-buttons {
   display: none;
 }
 
