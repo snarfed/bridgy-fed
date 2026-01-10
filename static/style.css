@@ -575,8 +575,13 @@ a.active-tab + a {
 }
 
 /* temporary, until we announce */
-.blocklist-buttons {
-  display: none;
+/* .blocklist-buttons { */
+/*   display: none; */
+/* } */
+
+.blocklist-buttons input[type="submit"] {
+  margin-top: .2em;
+  margin-bottom: .2em;
 }
 
 .blocklist-buttons input[type="submit"]:hover {
