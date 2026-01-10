@@ -1423,10 +1423,12 @@ class Object(AddRemoveMixin, StringIdModel):
         Returns:
           str or None:
         """
-        if self.as1 and (url := self.as1.get('url')):
-            return util.pretty_link(url, text=self.as1.get('displayName'))
+        self_as1 = self.as1 or {}
+        if self.extra_as1:
+            self_as1.update(self.extra_as1)
 
-        return util.pretty_link(self.key.id())
+        url = self_as1.get('url') or self.key.id()
+        return util.pretty_link(url, text=self_as1.get('displayName'))
 
     @classmethod
     def get_by_id(cls, id, authed_as=None, **kwargs):

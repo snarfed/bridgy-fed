@@ -1856,6 +1856,9 @@ bar.org
         self.assertEqual('<a href="http://x">My obj</a>', obj.html_link())
         self.assertEqual('<a href="a">a</a>', Object(id='a').html_link())
 
+        obj = Object(id='a', extra_as1={'displayName': 'b', 'url': 'c'})
+        self.assertEqual('<a href="c">b</a>', obj.html_link())
+
 
 class FollowerTest(TestCase):
 
