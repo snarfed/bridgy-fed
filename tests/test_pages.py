@@ -815,7 +815,7 @@ class PagesTest(TestCase):
         self.assert_multiline_in(
             'Not bridging because your account is set as private', body)
         self.assert_multiline_in(
-            '<input id="@a@b.c-switch" type="checkbox" onClick="bridgingSwitch(event)" >', body)
+            f'<input id="{user.key.urlsafe().decode()}-switch" type="checkbox" onClick="bridgingSwitch(event)" >', body)
 
     @patch('requests.get')
     def test_settings_on_login_create_new_user(self, mock_get):

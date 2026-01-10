@@ -579,12 +579,12 @@ a.active-tab + a {
   display: none;
 }
 
-#blocklist-buttons input[type="submit"]:hover {
+.blocklist-buttons input[type="submit"]:hover {
   background-color: lightcoral;
   color: white;
 }
 
-#blocklist-buttons a:hover {
+.blocklist-buttons a:hover {
   text-decoration: none;
 }
 

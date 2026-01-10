@@ -80,6 +80,7 @@ DOMAIN_BLOCKLIST_CANARIES = (
 )
 
 # Domain blocklist CSVs that we show shortcuts for on /settings
+# (name and about_url here are duplicated in Object.extra_as1 in the datastore)
 DomainBlocklist = namedtuple('DomainBlocklist', ('name', 'about_url', 'csv_url'))
 _KNOWN_DOMAIN_BLOCKLISTS = tuple(DomainBlocklist(*args) for args in ((
     'IFTAS DNI',

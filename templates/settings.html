@@ -20,6 +20,7 @@ $(document).ready(function() {
 
 {% for user in users %}
 {% set logo = user.logo %}
+{% set key = user.key.urlsafe().decode() %}
 <div class="profile-row">
   {% include 'user_with_links.html' %}
   <br><br>
@@ -29,11 +30,11 @@ $(document).ready(function() {
 
     <form method="post" action="/settings/disable" class="settings-item"
           onsubmit="return window.confirm('Are you sure you want to disable bridging? Disabling has effects that can\'t easily be reversed, even if you later re-enable bridging. For example, disabling removes all fediverse followers.')" />
-      <span id="{{ user.handle }}-switch-disabled-notice" class="disabled-notice"></span>
+      <span id="{{ key }}-switch-disabled-notice" class="disabled-notice"></span>
       <a href="{{ user.user_page_path() }}">Bridging: </a>
-      <input name="key" type="hidden" value="{{ user.key.urlsafe().decode() }}" />
-      <label class="switch" id="{{ user.handle }}-switch-wrapper">
-        <input id="{{ user.handle }}-switch" type="checkbox" checked onClick="bridgingSwitch(event)">
+      <input name="key" type="hidden" value="{{ key }}" />
+      <label class="switch" id="{{ key }}-switch-wrapper">
+        <input id="{{ key }}-switch" type="checkbox" checked onClick="bridgingSwitch(event)">
         <span class="slider round"></span>
       </label>
       <noscript>
@@ -44,7 +45,7 @@ $(document).ready(function() {
     {# TODO: generalize #}
     {% if 'atproto' in user.enabled_protocols %}
       <form method="post" action="/settings/set-username" class="settings-item">
-        <input name="key" type="hidden" value="{{ user.key.urlsafe().decode() }}" />
+        <input name="key" type="hidden" value="{{ key }}" />
         <input name="protocol" type="hidden" value="atproto" />
         <label for="username"><a href="/docs#bluesky-enhanced">Set Bluesky handle</a>:</label>
         <input id="username" type="text" name="username" placeholder ="your.domain" />
@@ -53,11 +54,11 @@ $(document).ready(function() {
     {% endif %}
 
     <form method="post" action="/settings/toggle-notifs" class="settings-item">
-      <input name="key" type="hidden" value="{{ user.key.urlsafe().decode() }}" />
+      <input name="key" type="hidden" value="{{ key }}" />
       <a href="/docs#notifs">DM notifications from unbridged accounts</a>:
 
-      <label class="switch" id="{{ user.handle }}-notifs-wrapper">
-        <input id="{{ user.handle }}-switch" type="checkbox"
+      <label class="switch" id="{{ key }}-notifs-wrapper">
+        <input id="{{ key }}-switch" type="checkbox"
                onClick="event.currentTarget.closest('form').submit()"
                {% if user.send_notifs == 'all' %}checked{% endif %} />
         <span class="slider round"></span>
@@ -68,32 +69,35 @@ $(document).ready(function() {
       </noscript>
     </form>
 
-    <div id="block-row" class="row">
+    <div id="{{ key }}-block-row" class="row">
     <form method="post" action="/settings/block"
           class="settings-item col-sm-12 col-md-5">
-      <input name="key" type="hidden" value="{{ user.key.urlsafe().decode() }}" />
-      <label for="target"><a href="/docs#block">Block</a>:</label>
-      <input id="target" type="text" name="target" placeholder="user or blocklist" />
+      <input name="key" type="hidden" value="{{ key }}" />
+      <label for="{{ key }}-target"><a href="/docs#block">Block</a>:</label>
+      <input id="{{ key }}-target" type="text" name="target" placeholder="user or blocklist" />
       <input type="submit" value="Go" class="btn btn-default" />
     </form>
 
-    <div id="blocklist-buttons" class="panel-group row col-sm-12 col-md-7">
+    <div id="{{ key }}-blocklist-buttons"
+         class="blocklist-buttons panel-group row col-sm-12 col-md-7">
       <div class="panel panel-default">
         <div class="panel-heading">
-          <a data-toggle="collapse" data-parent="#blocklist-buttons"
-             href="#blocklist-buttons-panel" aria-expanded="false">
+          <a data-toggle="collapse" data-parent="#{{ key }}-blocklist-buttons"
+             href="#{{ key }}-blocklist-buttons-panel" aria-expanded="false">
             ▸ Domain blocklists
           </a>
         </div>
-        <div id="blocklist-buttons-panel" class="panel-collapse collapse">
+        <div id="{{ key }}-blocklist-buttons-panel"
+             class="panel-collapse collapse">
           <div class="panel-body">
             {% for blocklist in KNOWN_DOMAIN_BLOCKLISTS.values() %}
               {% if blocklist not in user.domain_blocklists %}
               <form method="post" action="/settings/block" class="col-xs-6 col-lg-4">
                 <nobr>
-                <input name="key" type="hidden" value="{{ user.key.urlsafe().decode() }}" />
+                <input name="key" type="hidden" value="{{ key }}" />
                 <input name="target" type="hidden" value="{{ blocklist.csv_url }}" />
-                <input type="submit" value="{{ blocklist.name }}" class="btn btn-default"
+                <input type="submit" value="{{ blocklist.name }}"
+                       class="btn btn-default"
                        title="Subscribe to {{ blocklist.name }}" />
                 <a href="{{ blocklist.about_url }}" target="_blank">ⓘ</a>
                 </nobr>
@@ -117,7 +121,7 @@ $(document).ready(function() {
           <a href="{{ blocklist.about_url }}">{{ blocklist.name }}</a>
         </span>
         <form method="post" action="/settings/unblock" class="col-xs-2 col-sm-1 col-lg-1">
-          <input type="hidden" name="key" value="{{ user.key.urlsafe().decode() }}" />
+          <input type="hidden" name="key" value="{{ key }}" />
           <input type="hidden" name="target" value="{{ blocklist.csv_url }}" />
           <input type="submit" title="Unblock {{ blocklist.name }}" value="✖" class="btn delete-item" />
         </form>
@@ -128,12 +132,12 @@ $(document).ready(function() {
 
 
   {% else %}  {# Bridging: off #}
-    <label id="{{ user.handle }}-switch-disabled-notice" class="disabled-notice"></label>
+    <label id="{{ key }}-switch-disabled-notice" class="disabled-notice"></label>
     Bridging:
     <form method="post" action="/settings/enable" class="settings-item">
-      <input name="key" type="hidden" value="{{ user.key.urlsafe().decode() }}" />
-      <label class="switch" id="{{ user.handle }}-switch-wrapper">
-        <input id="{{ user.handle }}-switch" type="checkbox" onClick="bridgingSwitch(event)" {% if user.status and user.status != 'private' %}disabled="true"{% endif %}>
+      <input name="key" type="hidden" value="{{ key }}" />
+      <label class="switch" id="{{ key }}-switch-wrapper">
+        <input id="{{ key }}-switch" type="checkbox" onClick="bridgingSwitch(event)" {% if user.status and user.status != 'private' %}disabled="true"{% endif %}>
         <span class="slider round"></span>
       </label>
       <noscript>
