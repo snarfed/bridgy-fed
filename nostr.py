@@ -46,6 +46,7 @@ from werkzeug.exceptions import NotFound
 
 import common
 from common import error
+import domains
 from domains import DOMAINS
 from flask_app import app
 import ids
@@ -149,13 +150,15 @@ class Nostr(User, Protocol):
             return self.npub()
 
     @ndb.ComputedProperty
-    def valid_nip05_domain(self):
+    def valid_nip05_pay_level_domain(self):
         """Domain from the NIP-05 identifier that we've resolved and verified.
 
         Only needed so that we can query against it.
         """
         if self.valid_nip05 and '@' in self.valid_nip05:  # should we assert @ ?
-            return self.valid_nip05.split('@')[1]
+            if extract := domains.tldextract(self.valid_nip05.split('@')[1]):
+                if extract.top_domain_under_public_suffix:
+                    return extract.top_domain_under_public_suffix
 
     @ndb.ComputedProperty
     def status(self):

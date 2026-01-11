@@ -992,7 +992,7 @@ class NostrTest(TestCase):
         self.assertEqual(relays, user.relays.get().nostr)
         self.assertEqual('wss://b/', Nostr.target_for(Object(nostr=NOTE_NOSTR)))
         self.assertEqual('a@example.com', user.valid_nip05)
-        self.assertEqual('example.com', user.valid_nip05_domain)
+        self.assertEqual('example.com', user.valid_nip05_pay_level_domain)
 
     @patch('secrets.token_urlsafe', return_value='towkin')
     def test_reload_profile_no_events(self, _):
@@ -1006,7 +1006,7 @@ class NostrTest(TestCase):
         self.assertIsNone(user.obj_key)
         self.assertIsNone(user.relays)
         self.assertEqual('old', user.valid_nip05)
-        self.assertIsNone(user.valid_nip05_domain)
+        self.assertIsNone(user.valid_nip05_pay_level_domain)
         self.assertIsNone(Nostr.target_for(Object(nostr=NOTE_NOSTR)))
 
     @patch('secrets.token_urlsafe', return_value='towkin')
@@ -1025,7 +1025,7 @@ class NostrTest(TestCase):
         user = Nostr(id=PUBKEY_URI, valid_nip05='old')
         user.reload_profile()
         self.assertIsNone(user.valid_nip05)
-        self.assertIsNone(user.valid_nip05_domain)
+        self.assertIsNone(user.valid_nip05_pay_level_domain)
 
     @patch('secrets.token_urlsafe', return_value='towkin')
     @patch('requests.get', return_value=requests_response({'names': {'a': 'cba321'}}))
@@ -1046,7 +1046,7 @@ class NostrTest(TestCase):
 
         self.assert_req(mock_get, 'https://example.com/.well-known/nostr.json?name=a')
         self.assertIsNone(user.valid_nip05)
-        self.assertIsNone(user.valid_nip05_domain)
+        self.assertIsNone(user.valid_nip05_pay_level_domain)
 
     @patch('secrets.token_urlsafe', return_value='towkin')
     @patch('requests.get', side_effect=OSError('nope'))
@@ -1067,7 +1067,7 @@ class NostrTest(TestCase):
 
         self.assert_req(mock_get, 'https://example.com/.well-known/nostr.json?name=a')
         self.assertIsNone(user.valid_nip05)
-        self.assertIsNone(user.valid_nip05_domain)
+        self.assertIsNone(user.valid_nip05_pay_level_domain)
 
     @patch('requests.get', return_value=requests_response(''))  # NIP-05 checks
     def test_status(self, _):
@@ -1091,16 +1091,15 @@ class NostrTest(TestCase):
 
         user.valid_nip05 = 'nope@example.com'
         self.assertEqual('no-nip05', user.status)
-        self.assertIsNone(user.valid_nip05_domain)
+        self.assertIsNone(user.valid_nip05_pay_level_domain)
 
         user.valid_nip05 = 'a@example.com'
         self.assertIsNone(user.status)
-        self.assertEqual('example.com', user.valid_nip05_domain)
+        self.assertEqual('example.com', user.valid_nip05_pay_level_domain)
 
     @patch('requests.get', return_value=requests_response({'names': {'a': PUBKEY_2}}))
     def test_status_unsets_valid_nip05_on_other_users(self, mock_get):
         user1 = self.make_user(id=PUBKEY_URI, cls=Nostr, valid_nip05='a@example.com')
-        user1.put()
         self.assertEqual('a@example.com', user1.valid_nip05)
 
         profile = Object(id=ID, nostr=id_and_sign({
@@ -1113,15 +1112,21 @@ class NostrTest(TestCase):
             }),
         }, privkey=NSEC_URI_2))
         user2 = self.make_user(id=PUBKEY_URI_2, cls=Nostr, obj_key=profile.put())
-        user2.put()
 
         self.assertEqual('a@example.com', user2.valid_nip05)
-        self.assertEqual('example.com', user2.valid_nip05_domain)
+        self.assertEqual('example.com', user2.valid_nip05_pay_level_domain)
         self.assert_req(mock_get, 'https://example.com/.well-known/nostr.json?name=a')
 
         user1 = user1.key.get()
         self.assertIsNone(user1.valid_nip05)
-        self.assertIsNone(user1.valid_nip05_domain)
+        self.assertIsNone(user1.valid_nip05_pay_level_domain)
+
+    def test_valid_nip05_pay_level_domain(self):
+        user = Nostr(valid_nip05='a@foo.bar.com')
+        self.assertEqual('bar.com', user.valid_nip05_pay_level_domain)
+
+        user = Nostr(valid_nip05='a@foo.bar.co.uk')
+        self.assertEqual('bar.co.uk', user.valid_nip05_pay_level_domain)
 
     def test_check_supported(self):
         Nostr.check_supported(Object(our_as1={
