@@ -96,7 +96,7 @@ def command(names, arg=False, user_bridged=None, handle_bridged=None, multiple=F
                         to_user.reload_profile()
                         if to_user.status:
                             because = ''
-                            if desc := models.USER_STATUS_DESCRIPTIONS.get(to_user.status):
+                            if desc := to_user.status_description():
                                 because = f' because their {desc}'
                             return reply(f"{to_user.html_link()} on {to_proto.PHRASE} isn't eligible for bridging into {from_proto.PHRASE}{because}.")
 

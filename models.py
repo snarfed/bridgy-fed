@@ -99,7 +99,8 @@ FOLLOWERS_CACHE_EXPIRATION = timedelta(hours=2)
 IMAGE_PROXY_URL_BASE = 'https://xaasg3w5.cloudimg.io/'
 IMAGE_PROXY_DOMAINS = ('threads.net',)
 
-USER_STATUS_DESCRIPTIONS = {  # keep in sync with DM.type!
+# used by User.status_description. formatted with format(user=...)
+USER_STATUS_DESCRIPTIONS = {  # keep in sync with DM.type's docstring!
     'moved': 'account has migrated to another account',
     'no-feed-or-webmention': "web site doesn't have an RSS or Atom feed or webmention endpoint",
     'nobot': "profile has 'nobot' in it",
@@ -107,6 +108,7 @@ USER_STATUS_DESCRIPTIONS = {  # keep in sync with DM.type!
     'no-nip05': "account's NIP-05 identifier is missing or invalid",
     'no-profile': 'profile is missing or empty',
     'opt-out': 'account or instance has requested to be opted out',
+    'over-handle-domain-limit': "handle's domain {user.handle_pay_level_domain} has too many users on it",
     'owns-webfinger': 'web site looks like a fediverse instance because it already serves Webfinger',
     'private': 'account is set as private or protected',
     'requires-avatar': "account doesn't have a profile picture",
@@ -174,6 +176,7 @@ class DM(ndb.Model):
       * no-nip05
       * no-profile
       * opt-out
+      * over-handle-domain-limit
       * owns-webfinger
       * private
       * replied_to_bridged_user
@@ -663,6 +666,17 @@ class User(AddRemoveMixin, StringIdModel, metaclass=ProtocolUserMeta):
         if '#nobot' in summary or '#nobot' in name:
             return 'nobot'
 
+    def status_description(self):
+        """Returns a human-readable description of this user's status.
+
+        ...or None if this user's status is None, or a description isn't available.
+
+        Returns:
+          str
+        """
+        if desc := USER_STATUS_DESCRIPTIONS.get(self.status):
+            return desc.format(user=self)
+
     def is_enabled(self, to_proto, explicit=False):
         """Returns True if this user can be bridged to a given protocol.
 
@@ -721,7 +735,7 @@ class User(AddRemoveMixin, StringIdModel, metaclass=ProtocolUserMeta):
         # !!! WARNING: keep in sync with User.status!
         ineligible = """Hi! Your account isn't eligible for bridging yet because your {desc}. <a href="https://fed.brid.gy/docs#troubleshooting">More details here.</a> You can try again once that's fixed by unfollowing and re-following this account."""
         if self.status and self.status not in ('nobot', 'private'):
-            if desc := USER_STATUS_DESCRIPTIONS.get(self.status):
+            if desc := user.status_description():
                 dms.maybe_send(from_=to_proto, to_user=self, type=self.status,
                                text=ineligible.format(desc=desc))
             common.error(f'Nope, user {self.key.id()} is {self.status}', status=299)
