@@ -611,6 +611,22 @@ class User(AddRemoveMixin, StringIdModel, metaclass=ProtocolUserMeta):
         return ids.handle_as_domain(self.handle)
 
     @ndb.ComputedProperty
+    def handle_pay_level_domain(self):
+        """This user's handle's pay-level domain.
+
+        Pay-level domains are domains at the registrar level, usually (but not
+        always) one level below a TLD. For example, bar.com is the pay-level domain
+        for both foo.bar.com and baz.bar.com, and bbc.co.uk is the pay-level domain
+        for www.bbc.co.uk.
+
+        Only needed so that we can query against it.
+        """
+        if self.handle_as_domain:
+            if extract := domains.tldextract(self.handle_as_domain):
+                if extract.top_domain_under_public_suffix:
+                    return extract.top_domain_under_public_suffix
+
+    @ndb.ComputedProperty
     def status(self):
         """Whether this user is blocked or opted out.
 

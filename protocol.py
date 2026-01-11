@@ -141,6 +141,8 @@ class Protocol:
     """bool: whether replies to this protocol should include the original post's mentions as delivery targets"""
     BOTS_FOLLOW_BACK = False
     """bool: when a user on this protocol follows a bot user to enable bridging, does the bot follow them back?"""
+    HANDLES_PER_PAY_LEVEL_DOMAIN = None
+    """int: how many users to allow with handles on the same pay-level domain. None for no limit."""
 
     @classmethod
     @property

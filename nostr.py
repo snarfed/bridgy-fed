@@ -105,6 +105,7 @@ class Nostr(User, Protocol):
     ))
     SUPPORTS_DMS = False  # NIP-17
     HTML_PROFILES = False
+    HANDLES_PER_PAY_LEVEL_DOMAIN = 3
 
     relays = ndb.KeyProperty(kind='Object')
     """NIP-65 kind 10002 event with this user's relays."""
@@ -148,17 +149,6 @@ class Nostr(User, Protocol):
             return nip05.removeprefix('_@')
         elif self.key:
             return self.npub()
-
-    @ndb.ComputedProperty
-    def valid_nip05_pay_level_domain(self):
-        """Domain from the NIP-05 identifier that we've resolved and verified.
-
-        Only needed so that we can query against it.
-        """
-        if self.valid_nip05 and '@' in self.valid_nip05:  # should we assert @ ?
-            if extract := domains.tldextract(self.valid_nip05.split('@')[1]):
-                if extract.top_domain_under_public_suffix:
-                    return extract.top_domain_under_public_suffix
 
     @ndb.ComputedProperty
     def status(self):

@@ -33,6 +33,7 @@ from ids import translate_handle, translate_object_id, translate_user_id
 from models import Follower, Object, Target
 import nostr
 from nostr import Nostr
+from protocol import Protocol
 from web import Web
 
 from granary.tests.test_nostr import (
@@ -998,7 +999,7 @@ class NostrTest(TestCase):
         self.assertEqual(relays, user.relays.get().nostr)
         self.assertEqual('wss://b/', Nostr.target_for(Object(nostr=NOTE_NOSTR)))
         self.assertEqual('alice@foo.com', user.valid_nip05)
-        self.assertEqual('foo.com', user.valid_nip05_pay_level_domain)
+        self.assertEqual('foo.com', user.handle_pay_level_domain)
 
     @patch('secrets.token_urlsafe', return_value='towkin')
     def test_reload_profile_no_events(self, _):
@@ -1012,7 +1013,7 @@ class NostrTest(TestCase):
         self.assertIsNone(user.obj_key)
         self.assertIsNone(user.relays)
         self.assertEqual('old', user.valid_nip05)
-        self.assertIsNone(user.valid_nip05_pay_level_domain)
+        self.assertIsNone(user.handle_pay_level_domain)
         self.assertIsNone(Nostr.target_for(Object(nostr=NOTE_NOSTR)))
 
     @patch('secrets.token_urlsafe', return_value='towkin')
@@ -1031,7 +1032,7 @@ class NostrTest(TestCase):
         user = Nostr(id=PUBKEY_URI, valid_nip05='old')
         user.reload_profile()
         self.assertIsNone(user.valid_nip05)
-        self.assertIsNone(user.valid_nip05_pay_level_domain)
+        self.assertIsNone(user.handle_pay_level_domain)
 
     @patch('secrets.token_urlsafe', return_value='towkin')
     @patch('requests.get', return_value=requests_response({
@@ -1054,7 +1055,7 @@ class NostrTest(TestCase):
 
         self.assert_req(mock_get, 'https://foo.com/.well-known/nostr.json?name=alice')
         self.assertIsNone(user.valid_nip05)
-        self.assertIsNone(user.valid_nip05_pay_level_domain)
+        self.assertIsNone(user.handle_pay_level_domain)
 
     @patch('secrets.token_urlsafe', return_value='towkin')
     @patch('requests.get', side_effect=OSError('nope'))
@@ -1070,7 +1071,7 @@ class NostrTest(TestCase):
 
         self.assert_req(mock_get, 'https://foo.com/.well-known/nostr.json?name=alice')
         self.assertIsNone(user.valid_nip05)
-        self.assertIsNone(user.valid_nip05_pay_level_domain)
+        self.assertIsNone(user.handle_pay_level_domain)
 
     @patch('requests.get', return_value=requests_response(''))  # NIP-05 checks
     def test_status(self, _):
@@ -1087,11 +1088,11 @@ class NostrTest(TestCase):
 
         user.valid_nip05 = 'nope@foo.com'
         self.assertEqual('no-nip05', user.status)
-        self.assertIsNone(user.valid_nip05_pay_level_domain)
+        self.assertIsNone(user.handle_pay_level_domain)
 
         user.valid_nip05 = 'alice@foo.com'
         self.assertIsNone(user.status)
-        self.assertEqual('foo.com', user.valid_nip05_pay_level_domain)
+        self.assertEqual('foo.com', user.handle_pay_level_domain)
 
     @patch('requests.get', return_value=requests_response({
         'names': {'alice': PUBKEY_2},
@@ -1106,19 +1107,19 @@ class NostrTest(TestCase):
         bob = self.make_user(id=PUBKEY_URI_2, cls=Nostr, obj_key=profile_obj.key)
 
         self.assertEqual('alice@foo.com', bob.valid_nip05)
-        self.assertEqual('foo.com', bob.valid_nip05_pay_level_domain)
+        self.assertEqual('foo.com', bob.handle_pay_level_domain)
         self.assert_req(mock_get, 'https://foo.com/.well-known/nostr.json?name=alice')
 
         alice = alice.key.get()
         self.assertIsNone(alice.valid_nip05)
-        self.assertIsNone(alice.valid_nip05_pay_level_domain)
+        self.assertIsNone(alice.handle_pay_level_domain)
 
-    def test_valid_nip05_pay_level_domain(self):
+    def test_handle_pay_level_domain(self):
         user = Nostr(valid_nip05='a@foo.bar.com')
-        self.assertEqual('bar.com', user.valid_nip05_pay_level_domain)
+        self.assertEqual('bar.com', user.handle_pay_level_domain)
 
         user = Nostr(valid_nip05='a@foo.bar.co.uk')
-        self.assertEqual('bar.co.uk', user.valid_nip05_pay_level_domain)
+        self.assertEqual('bar.co.uk', user.handle_pay_level_domain)
 
     def test_check_supported(self):
         Nostr.check_supported(Object(our_as1={

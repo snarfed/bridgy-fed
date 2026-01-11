@@ -353,6 +353,13 @@ class UserTest(TestCase):
     def test_handle(self):
         self.assertEqual('y.za', self.user.handle)
 
+    def test_handle_pay_level_domain(self):
+        self.assertEqual('foo.com', Web(id='foo.com').handle_pay_level_domain)
+        self.assertEqual('foo.com', Web(id='bar.foo.com').handle_pay_level_domain)
+        self.assertEqual('foo.com', Fake(id='fake:a@foo.com').handle_pay_level_domain)
+        self.assertEqual('foo.com', Fake(id='fake:b.foo.com').handle_pay_level_domain)
+        self.assertIsNone(Fake(id='fake:eve').handle_pay_level_domain)
+
     def test_handle_as_domain(self):
         self.assertEqual('fake-handle-user', Fake(id='fake:user').handle_as_domain)
         self.assertEqual('fake-handle-user', Fake(id='fake:uSeR').handle_as_domain)
