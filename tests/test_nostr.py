@@ -74,6 +74,21 @@ class NostrTest(TestCase):
             enabled_protocols=['nostr'],
             copies=[Target(uri=PUBKEY_URI, protocol='nostr')])
 
+    def make_profile(self, pubkey=PUBKEY, privkey=NSEC_URI, nip05='alice@foo.com'):
+        """
+        Returns:
+          dict: JSON profile event
+        """
+        return id_and_sign({
+            'kind': KIND_PROFILE,
+            'pubkey': pubkey,
+            'content': json_dumps({
+                'name': 'Alice',
+                'picture': 'http://alice/pic',
+                'nip05': nip05,
+            }),
+        }, privkey=privkey)
+
     def test_pre_put_hook(self):
         Nostr(id=ID_URI).put()
 
@@ -200,8 +215,8 @@ class NostrTest(TestCase):
             requests.ConnectionError('foo')
         ]
 
-        self.assertEqual(PUBKEY_URI, Nostr.handle_to_id('alice@example.com'))
-        self.assertIsNone(Nostr.handle_to_id('unknown@example.com'))
+        self.assertEqual(PUBKEY_URI, Nostr.handle_to_id('alice@foo.com'))
+        self.assertIsNone(Nostr.handle_to_id('unknown@foo.com'))
         self.assertIsNone(Nostr.handle_to_id('unknown@unknown.com'))
 
     def test_handle_as_domain(self):
@@ -825,7 +840,7 @@ class NostrTest(TestCase):
         self.assertEqual([Nostr.DEFAULT_TARGET], FakeConnection.relays)
 
     def test_fetch_invalid_id(self):
-        for id in '', 'not-a-nostr-id', 'https://example.com':
+        for id in '', 'not-a-nostr-id', 'https://foo.com':
             with self.subTest(id=id):
                 self.assertFalse(Nostr.fetch(Object(id=id)))
 
@@ -944,20 +959,11 @@ class NostrTest(TestCase):
         self.assertEqual('ws://re.lay2/', Nostr.target_for(Object(nostr=NOTE_NOSTR)))
 
     @patch('secrets.token_urlsafe', return_value='towkin')
-    @patch('requests.get', return_value=requests_response({'names': {'a': PUBKEY}}))
+    @patch('requests.get', return_value=requests_response({
+        'names': {'alice': PUBKEY},
+    }))
     def test_reload_profile(self, mock_get, _):
-        profile = id_and_sign({
-            'kind': KIND_PROFILE,
-            'pubkey': PUBKEY,
-            'content': json_dumps({
-                'name': 'Alice',
-                'about': 'Test user',
-                'picture': 'http://alice/pic',
-                'nip05': 'a@example.com',
-            }),
-            'created_at': NOW_TS,
-            'tags': [],
-        }, privkey=NSEC_URI)
+        profile = self.make_profile()
         relays = id_and_sign({
             'kind': KIND_RELAYS,
             'pubkey': PUBKEY,
@@ -986,13 +992,13 @@ class NostrTest(TestCase):
             }],
             ['CLOSE', 'towkin'],
         ], FakeConnection.sent)
-        self.assert_req(mock_get, 'https://example.com/.well-known/nostr.json?name=a')
+        self.assert_req(mock_get, 'https://foo.com/.well-known/nostr.json?name=alice')
 
         self.assertEqual(profile, user.obj_key.get().nostr)
         self.assertEqual(relays, user.relays.get().nostr)
         self.assertEqual('wss://b/', Nostr.target_for(Object(nostr=NOTE_NOSTR)))
-        self.assertEqual('a@example.com', user.valid_nip05)
-        self.assertEqual('example.com', user.valid_nip05_pay_level_domain)
+        self.assertEqual('alice@foo.com', user.valid_nip05)
+        self.assertEqual('foo.com', user.valid_nip05_pay_level_domain)
 
     @patch('secrets.token_urlsafe', return_value='towkin')
     def test_reload_profile_no_events(self, _):
@@ -1028,12 +1034,14 @@ class NostrTest(TestCase):
         self.assertIsNone(user.valid_nip05_pay_level_domain)
 
     @patch('secrets.token_urlsafe', return_value='towkin')
-    @patch('requests.get', return_value=requests_response({'names': {'a': 'cba321'}}))
+    @patch('requests.get', return_value=requests_response({
+        'names': {'alice': 'cba321'},
+    }))
     def test_reload_profile_nip05_wrong_pubkey(self, mock_get, _):
         profile = id_and_sign({
             'kind': KIND_PROFILE,
             'pubkey': PUBKEY,
-            'content': json_dumps({'nip05': 'a@example.com'}),
+            'content': json_dumps({'nip05': 'alice@foo.com'}),
         }, privkey=NSEC_URI)
 
         FakeConnection.to_receive = [
@@ -1044,19 +1052,14 @@ class NostrTest(TestCase):
         user = Nostr(id=PUBKEY_URI, valid_nip05='old')
         user.reload_profile()
 
-        self.assert_req(mock_get, 'https://example.com/.well-known/nostr.json?name=a')
+        self.assert_req(mock_get, 'https://foo.com/.well-known/nostr.json?name=alice')
         self.assertIsNone(user.valid_nip05)
         self.assertIsNone(user.valid_nip05_pay_level_domain)
 
     @patch('secrets.token_urlsafe', return_value='towkin')
     @patch('requests.get', side_effect=OSError('nope'))
     def test_reload_profile_nip05_fetch_error(self, mock_get, _):
-        profile = id_and_sign({
-            'kind': KIND_PROFILE,
-            'pubkey': PUBKEY,
-            'content': json_dumps({'nip05': 'a@example.com'}),
-        }, privkey=NSEC_URI)
-
+        profile = self.make_profile()
         FakeConnection.to_receive = [
             ['EVENT', 'towkin', profile],
             ['EOSE', 'towkin'],
@@ -1065,61 +1068,50 @@ class NostrTest(TestCase):
         user = Nostr(id=PUBKEY_URI, valid_nip05='old')
         user.reload_profile()
 
-        self.assert_req(mock_get, 'https://example.com/.well-known/nostr.json?name=a')
+        self.assert_req(mock_get, 'https://foo.com/.well-known/nostr.json?name=alice')
         self.assertIsNone(user.valid_nip05)
         self.assertIsNone(user.valid_nip05_pay_level_domain)
 
     @patch('requests.get', return_value=requests_response(''))  # NIP-05 checks
     def test_status(self, _):
         self.assertEqual('no-profile', Nostr().status)
-        self.assertEqual('no-profile', Nostr(valid_nip05='a@example.com').status)
+        self.assertEqual('no-profile', Nostr(valid_nip05='alice@foo.com').status)
 
         self.assertIsNone(Nostr(manual_opt_out=False).status)
 
-        profile = Object(id=ID_URI, nostr=id_and_sign({
-            'kind': KIND_PROFILE,
-            'pubkey': PUBKEY,
-            'content': json_dumps({
-                'name': 'Alice',
-                'picture': 'http://alice/pic',
-                'nip05': 'a@example.com',
-            }),
-        }, privkey=NSEC_URI))
-        user = Nostr(id=PUBKEY_URI, obj_key=profile.put())
+        profile = self.make_profile()
+        profile_obj = self.store_object(id=profile['id'], nostr=self.make_profile())
+        user = Nostr(id=PUBKEY_URI, obj_key=profile_obj.key)
         self.assertEqual('no-nip05', user.status)
         self.assertIsNone(user.valid_nip05)
 
-        user.valid_nip05 = 'nope@example.com'
+        user.valid_nip05 = 'nope@foo.com'
         self.assertEqual('no-nip05', user.status)
         self.assertIsNone(user.valid_nip05_pay_level_domain)
 
-        user.valid_nip05 = 'a@example.com'
+        user.valid_nip05 = 'alice@foo.com'
         self.assertIsNone(user.status)
-        self.assertEqual('example.com', user.valid_nip05_pay_level_domain)
+        self.assertEqual('foo.com', user.valid_nip05_pay_level_domain)
 
-    @patch('requests.get', return_value=requests_response({'names': {'a': PUBKEY_2}}))
+    @patch('requests.get', return_value=requests_response({
+        'names': {'alice': PUBKEY_2},
+    }))
     def test_status_unsets_valid_nip05_on_other_users(self, mock_get):
-        user1 = self.make_user(id=PUBKEY_URI, cls=Nostr, valid_nip05='a@example.com')
-        self.assertEqual('a@example.com', user1.valid_nip05)
+        alice = self.make_user(id=PUBKEY_URI, cls=Nostr, valid_nip05='alice@foo.com')
+        self.assertEqual('alice@foo.com', alice.valid_nip05)
 
-        profile = Object(id=ID, nostr=id_and_sign({
-            'kind': KIND_PROFILE,
-            'pubkey': PUBKEY_2,
-            'content': json_dumps({
-                'name': 'Bob',
-                'picture': 'http://bob/pic',
-                'nip05': 'a@example.com',
-            }),
-        }, privkey=NSEC_URI_2))
-        user2 = self.make_user(id=PUBKEY_URI_2, cls=Nostr, obj_key=profile.put())
+        profile = self.make_profile(pubkey=PUBKEY_2, privkey=NSEC_URI_2,
+                                    nip05='alice@foo.com')
+        profile_obj = self.store_object(id=profile['id'], nostr=profile)
+        bob = self.make_user(id=PUBKEY_URI_2, cls=Nostr, obj_key=profile_obj.key)
 
-        self.assertEqual('a@example.com', user2.valid_nip05)
-        self.assertEqual('example.com', user2.valid_nip05_pay_level_domain)
-        self.assert_req(mock_get, 'https://example.com/.well-known/nostr.json?name=a')
+        self.assertEqual('alice@foo.com', bob.valid_nip05)
+        self.assertEqual('foo.com', bob.valid_nip05_pay_level_domain)
+        self.assert_req(mock_get, 'https://foo.com/.well-known/nostr.json?name=alice')
 
-        user1 = user1.key.get()
-        self.assertIsNone(user1.valid_nip05)
-        self.assertIsNone(user1.valid_nip05_pay_level_domain)
+        alice = alice.key.get()
+        self.assertIsNone(alice.valid_nip05)
+        self.assertIsNone(alice.valid_nip05_pay_level_domain)
 
     def test_valid_nip05_pay_level_domain(self):
         user = Nostr(valid_nip05='a@foo.bar.com')
