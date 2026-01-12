@@ -55,9 +55,10 @@ ATPROTO_HANDLE_THREADS = 10
 
 logger = logging.getLogger(__name__)
 
-atproto.init(MemcacheSequences)
 models.reset_protocol_properties()
 
+if not DEBUG and not LOCAL_SERVER:
+    atproto.init(MemcacheSequences)
 
 # start ATProto firehose consumer and server threads, Nostr relay subscribers
 #

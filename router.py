@@ -19,8 +19,10 @@ import notifications
 import pages
 import protocol
 
-atproto.init(MemcacheSequences)
 models.reset_protocol_properties()
+
+if not appengine_info.DEBUG and not appengine_info.LOCAL_SERVER:
+    atproto.init(MemcacheSequences)
 
 # Flask app
 app = Flask(__name__)
