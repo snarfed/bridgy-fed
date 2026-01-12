@@ -88,6 +88,7 @@ OLD_ACCOUNT_EXEMPT_DOMAINS = (
     'patchwork.io',
     'pixelfed.social',
     'thebristolcable.social',
+    'theforkiverse.com',
 )
 
 # domains that we can't yet authorize activities from. currently none.
