@@ -110,6 +110,14 @@ _KNOWN_DOMAIN_BLOCKLISTS = tuple(DomainBlocklist(*args) for args in ((
 #     'The Bad Space 50%',
 #     'https://tweaking.thebad.space/about',
 #     'https://tweaking.thebad.space/exports/mastodon/50',
+# ), (
+#     'Threads moderated servers',
+#     'https://www.threads.com/moderated_servers',
+#     'no CSV :(',  # https://cryptpad.fr/file/#/2/file/PaHtsLUr5zoxhdYtx0Otripi/
+# ), (
+#     'IFTAS CARIAD',
+#     'https://connect.iftas.org/library/iftas-documentation/cariad-policy/',
+#     'limited to Mastodon moderators',
 )))
 KNOWN_DOMAIN_BLOCKLISTS = {bl.csv_url: bl for bl in _KNOWN_DOMAIN_BLOCKLISTS}
 
