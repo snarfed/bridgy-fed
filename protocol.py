@@ -1942,7 +1942,7 @@ Hi! You <a href="{inner_obj_as1.get('url') or inner_obj_id}">recently {verb}</a>
             target_obj = (original_objs.get(inner_obj_id)
                           if obj.type == 'share' else None)
             for user in users:
-                if user.is_blocking(from_user.key.id()):
+                if user.is_blocking(from_user):
                     logger.debug(f'  {user.key.id()} blocks {from_user.key.id()}')
                     continue
 

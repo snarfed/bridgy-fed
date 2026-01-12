@@ -874,7 +874,7 @@ class UserTest(TestCase):
         self.assertEqual(key1, self.user.remove_domain_blocklist('https://exam.pl/1').key)
         self.assertEqual([key2], self.user.blocks)
 
-    def test_is_blocking(self):
+    def test_is_blocking_url(self):
         self.assertFalse(self.user.is_blocking('http://foo.com/bar'))
 
         blocklist = Object(id='https://list', csv='domain\nfoo.com\nphoo.com').put()
@@ -890,8 +890,28 @@ class UserTest(TestCase):
 
         self.assertFalse(self.user.is_blocking('not-a-url'))
         self.assertFalse(self.user.is_blocking(''))
+        self.assertFalse(self.user.is_blocking(None))
 
-    @patch('requests.get', return_value=requests_response('foo'))#, content_type='text/csv'))
+    def test_is_blocking_user(self):
+        alice = self.make_user('fake:alice.com', cls=Fake)
+        self.assertFalse(self.user.is_blocking(alice))
+
+        blocklist = Object(id='https://list', csv='domain\nfoo.com\nphoo.com').put()
+        self.user.blocks = [blocklist]
+
+        self.assertFalse(self.user.is_blocking(alice))
+        self.assertTrue(self.user.is_blocking(Fake(id='fake:a.phoo.com')))
+
+        with patch.object(Fake, 'handle_as_domain', 'b.phoo.com'):
+            self.assertTrue(self.user.is_blocking(alice))
+
+        with patch.object(alice, 'target_for', return_value='c.d.phoo.com'):
+            self.assertTrue(self.user.is_blocking(alice))
+
+        with patch.object(alice, 'target_for', return_value=None):
+            self.assertFalse(self.user.is_blocking(alice))
+
+    @patch('requests.get', return_value=requests_response('foo'))
     def test_load_user_web(self, _):
         self.assertEqual(self.user, models.load_user('y.za'))
         self.assertEqual(self.user, models.load_user('@y.za'))
@@ -900,8 +920,7 @@ class UserTest(TestCase):
         with self.assertRaises(RuntimeError):
             models.load_user('https://y.za/not/homepage')
 
-        # self.assertIsNotNone(Object.get_by_id('https://y.za/not/homepage'))
-        self.store_object(id='https://y.za/not/homepage', source_protocol='web')#, our_as1={'foo': 'bar'})
+        self.store_object(id='https://y.za/not/homepage', source_protocol='web')
         with self.assertRaises(RuntimeError):
             models.load_user('https://y.za/not/homepage')
 
