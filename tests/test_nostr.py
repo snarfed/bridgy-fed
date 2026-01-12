@@ -1055,7 +1055,6 @@ class NostrTest(TestCase):
 
         self.assert_req(mock_get, 'https://foo.com/.well-known/nostr.json?name=alice')
         self.assertIsNone(user.valid_nip05)
-        self.assertIsNone(user.handle_pay_level_domain)
 
     @patch('secrets.token_urlsafe', return_value='towkin')
     @patch('requests.get', side_effect=OSError('nope'))
@@ -1071,7 +1070,6 @@ class NostrTest(TestCase):
 
         self.assert_req(mock_get, 'https://foo.com/.well-known/nostr.json?name=alice')
         self.assertIsNone(user.valid_nip05)
-        self.assertIsNone(user.handle_pay_level_domain)
 
     @patch('requests.get', return_value=requests_response(''))  # NIP-05 checks
     def test_status(self, _):
@@ -1088,7 +1086,6 @@ class NostrTest(TestCase):
 
         user.valid_nip05 = 'nope@foo.com'
         self.assertEqual('no-nip05', user.status)
-        self.assertIsNone(user.handle_pay_level_domain)
 
         user.valid_nip05 = 'alice@foo.com'
         self.assertIsNone(user.status)
@@ -1113,13 +1110,6 @@ class NostrTest(TestCase):
         alice = alice.key.get()
         self.assertIsNone(alice.valid_nip05)
         self.assertIsNone(alice.handle_pay_level_domain)
-
-    def test_handle_pay_level_domain(self):
-        user = Nostr(valid_nip05='a@foo.bar.com')
-        self.assertEqual('bar.com', user.handle_pay_level_domain)
-
-        user = Nostr(valid_nip05='a@foo.bar.co.uk')
-        self.assertEqual('bar.co.uk', user.handle_pay_level_domain)
 
     def test_check_supported(self):
         Nostr.check_supported(Object(our_as1={

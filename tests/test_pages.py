@@ -800,7 +800,7 @@ class PagesTest(TestCase):
         self.assert_multiline_in('<a href="/ap/@a@b.c">Bridging: </a>', body)
         self.assert_multiline_in('<a class="h-card u-author mention" rel="me" href="https://bsky.app/profile/ab.c" title="ab.c"><img src="https://some.pds/xrpc/com.atproto.sync.getBlob?did=did:plc:abc&cid=bafyk123" class="profile"> ab.c</a>', body)
         # TODO: bring back
-        # self.assert_multiline_in('Not bridging.', body)
+        # self.assert_multiline_in('Not bridging', body)
 
     def test_settings_private_status(self):
         # the enable switch should be enabled even if the user is status=private
@@ -812,8 +812,8 @@ class PagesTest(TestCase):
         self.assertEqual(200, resp.status_code)
 
         body = resp.get_data(as_text=True)
-        self.assert_multiline_in(
-            'Not bridging because your account is set as private', body)
+        self.assert_multiline_in('Not bridging', body)
+        self.assert_multiline_in('because your account is set as private', body)
         self.assert_multiline_in(
             f'<input id="{user.key.urlsafe().decode()}-switch" type="checkbox" onClick="bridgingSwitch(event)" >', body)
 
@@ -831,7 +831,8 @@ class PagesTest(TestCase):
         self.assertEqual(actor_as2, user.obj.as2)
 
         body = resp.get_data(as_text=True)
-        self.assert_multiline_in('Not bridging because your account doesn&#39;t have a profile picture', body)
+        self.assert_multiline_in('Not bridging', body)
+        self.assert_multiline_in('because your account doesn&#39;t have a profile picture', body)
 
     @patch('requests.get', side_effect=[
         requests_response(DID_DOC),

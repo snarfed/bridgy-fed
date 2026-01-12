@@ -360,6 +360,48 @@ class UserTest(TestCase):
         self.assertEqual('foo.com', Fake(id='fake:b.foo.com').handle_pay_level_domain)
         self.assertIsNone(Fake(id='fake:eve').handle_pay_level_domain)
 
+
+    @patch.object(Fake, 'HANDLES_PER_PAY_LEVEL_DOMAIN', 2)
+    def test_handles_per_pay_level_domain(self):
+        alice = self.make_user(id='fake:alice.foo.com', cls=Fake, obj_as1={'x': 'y'})
+        self.assertEqual('foo.com', alice.handle_pay_level_domain)
+        self.assertIsNone(alice.status)
+
+        frank = self.make_user(id='fake:frank.foo.com', cls=Fake, obj_as1={'x': 'y'},
+                               manual_opt_out=True)
+        self.assertEqual('foo.com', frank.handle_pay_level_domain)
+        self.assertEqual('opt-out', frank.status)
+
+        bob = self.make_user(id='fake:bob.foo.com', cls=Fake, obj_as1={'x': 'y'})
+        self.assertEqual('foo.com', bob.handle_pay_level_domain)
+        self.assertIsNone(bob.status)
+
+        self.assertEqual(
+            3, Fake.query(Fake.handle_pay_level_domain == 'foo.com').count())
+
+        # new user over the max on this pay level domain
+        eve = self.make_user(id='fake:eve.foo.com', cls=Fake, obj_as1={'x': 'y'})
+        self.assertEqual(models.OVER_LIMIT, eve.handle_pay_level_domain)
+        self.assertEqual('over-handle-domain-limit', eve.status)
+        self.assertEqual("handle's domain has too many users on it",
+                         eve.status_description())
+
+        # original users should still be ok
+        for user in alice, bob:
+            user = user.key.get()
+            self.assertEqual('foo.com', user.handle_pay_level_domain)
+            self.assertIsNone(user.status)
+
+        # TODO
+        # changing frank's status should trigger recomputing handle_pay_level_domain
+        #
+        # frank.manual_opt_out = False
+        # # ???
+        # # frank.put()
+        # # frank = frank.key.get()
+        # self.assertEqual(models.OVER_LIMIT, frank.handle_pay_level_domain)
+        # self.assertEqual('over-handle-domain-limit', frank.status)
+
     def test_handle_as_domain(self):
         self.assertEqual('fake-handle-user', Fake(id='fake:user').handle_as_domain)
         self.assertEqual('fake-handle-user', Fake(id='fake:uSeR').handle_as_domain)

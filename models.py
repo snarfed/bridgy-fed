@@ -27,7 +27,12 @@ from lexrpc.base import AT_URI_RE
 from oauth_dropins.webutil import util
 from oauth_dropins.webutil.appengine_info import DEBUG
 from oauth_dropins.webutil.flask_util import error
-from oauth_dropins.webutil.models import EncryptedProperty, JsonProperty, StringIdModel
+from oauth_dropins.webutil.models import (
+    EncryptedProperty,
+    JsonProperty,
+    stored_value,
+    StringIdModel,
+)
 from oauth_dropins.webutil.util import ellipsize, json_dumps, json_loads
 from requests import RequestException
 import secp256k1
@@ -99,7 +104,7 @@ FOLLOWERS_CACHE_EXPIRATION = timedelta(hours=2)
 IMAGE_PROXY_URL_BASE = 'https://xaasg3w5.cloudimg.io/'
 IMAGE_PROXY_DOMAINS = ('threads.net',)
 
-# used by User.status_description. formatted with format(user=...)
+# used by User.status_description. values are formatted with format(user=...)
 USER_STATUS_DESCRIPTIONS = {  # keep in sync with DM.type's docstring!
     'moved': 'account has migrated to another account',
     'no-feed-or-webmention': "web site doesn't have an RSS or Atom feed or webmention endpoint",
@@ -108,7 +113,7 @@ USER_STATUS_DESCRIPTIONS = {  # keep in sync with DM.type's docstring!
     'no-nip05': "account's NIP-05 identifier is missing or invalid",
     'no-profile': 'profile is missing or empty',
     'opt-out': 'account or instance has requested to be opted out',
-    'over-handle-domain-limit': "handle's domain {user.handle_pay_level_domain} has too many users on it",
+    'over-handle-domain-limit': "handle's domain has too many users on it",
     'owns-webfinger': 'web site looks like a fediverse instance because it already serves Webfinger',
     'private': 'account is set as private or protected',
     'requires-avatar': "account doesn't have a profile picture",
@@ -116,6 +121,9 @@ USER_STATUS_DESCRIPTIONS = {  # keep in sync with DM.type's docstring!
     'requires-old-account': f"account is less than {humanize.naturaldelta(OLD_ACCOUNT_AGE)} old",
     'unsupported-handle-ap': f"<a href='https://fed.brid.gy/docs#fediverse-get-started'>username has characters that Bridgy Fed doesn't currently support</a>",
 }
+# used as the User.handle_pay_level_domain value when there are too many users on
+# the pay-level domain
+OVER_LIMIT = 'too-many'
 
 logger = logging.getLogger(__name__)
 
@@ -608,6 +616,9 @@ class User(AddRemoveMixin, StringIdModel, metaclass=ProtocolUserMeta):
         Returns:
           str or None: if handle is None
         """
+        if not hasattr(self, '_stored_handle_as_domain'):
+            self._stored_handle_as_domain = stored_value(self, 'handle_as_domain')
+
         return ids.handle_as_domain(self.handle)
 
     @ndb.ComputedProperty
@@ -619,12 +630,30 @@ class User(AddRemoveMixin, StringIdModel, metaclass=ProtocolUserMeta):
         for both foo.bar.com and baz.bar.com, and bbc.co.uk is the pay-level domain
         for www.bbc.co.uk.
 
-        Only needed so that we can query against it.
+        WARNING: this is only set for the first accounts created before hitting the
+        :attr:`Protocol.HANDLES_PER_PAY_LEVEL_DOMAIN` limit for their pay-level
+        domain. Accounts after that limit will have 'too-many' as their value.
         """
+        last_pld = stored_value(self, 'handle_pay_level_domain')
+
+        if self.handle_as_domain == self._stored_handle_as_domain:
+            # handle is unchanged. use our existing stored value for
+            # handle_pay_level_domain to avoid re-querying the datastore for other
+            # users on the same domain
+            return last_pld
+
         if self.handle_as_domain:
             if extract := domains.tldextract(self.handle_as_domain):
-                if extract.top_domain_under_public_suffix:
-                    return extract.top_domain_under_public_suffix
+                if cur_pld := extract.top_domain_under_public_suffix:
+                    if cur_pld == last_pld or not self.HANDLES_PER_PAY_LEVEL_DOMAIN:
+                        return cur_pld
+                    num_others = self.query(User.handle_pay_level_domain == cur_pld,
+                                            User.status == None).count()
+                    if num_others < self.HANDLES_PER_PAY_LEVEL_DOMAIN:
+                        return cur_pld
+                    else:
+                        return OVER_LIMIT
+
 
     @ndb.ComputedProperty
     def status(self):
@@ -632,6 +661,10 @@ class User(AddRemoveMixin, StringIdModel, metaclass=ProtocolUserMeta):
 
         Optional. See :attr:`USER_STATUS_DESCRIPTIONS` for possible values.
         """
+        # TODO
+        # if not hasattr(self, '_stored_status'):
+        #     self._stored_status = stored_value(self, 'status')
+
         if self.manual_opt_out:
             return 'opt-out'
         elif self.manual_opt_out is False:
@@ -667,6 +700,13 @@ class User(AddRemoveMixin, StringIdModel, metaclass=ProtocolUserMeta):
         # #nobridge overrides enabled_protocols
         if '#nobridge' in summary or '#nobridge' in name:
             return 'nobridge'
+
+        if self.HANDLES_PER_PAY_LEVEL_DOMAIN:
+            # TODO
+            # if self._stored_status:
+            #     self._values.pop('handle_pay_level_domain', None)
+            if self.handle_pay_level_domain == OVER_LIMIT:
+                return 'over-handle-domain-limit'
 
         # user has explicitly opted in. should go after spam filter (REQUIRES_*)
         # checks, but before is_public and #nobot
@@ -751,7 +791,7 @@ class User(AddRemoveMixin, StringIdModel, metaclass=ProtocolUserMeta):
         # !!! WARNING: keep in sync with User.status!
         ineligible = """Hi! Your account isn't eligible for bridging yet because your {desc}. <a href="https://fed.brid.gy/docs#troubleshooting">More details here.</a> You can try again once that's fixed by unfollowing and re-following this account."""
         if self.status and self.status not in ('nobot', 'private'):
-            if desc := user.status_description():
+            if desc := self.status_description():
                 dms.maybe_send(from_=to_proto, to_user=self, type=self.status,
                                text=ineligible.format(desc=desc))
             common.error(f'Nope, user {self.key.id()} is {self.status}', status=299)
