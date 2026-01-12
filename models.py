@@ -1208,7 +1208,8 @@ class User(AddRemoveMixin, StringIdModel, metaclass=ProtocolUserMeta):
         blocklists = ndb.get_multi(key for key in self.blocks
                                    if key.kind() == 'Object')
         for list in blocklists:
-            if util.domain_or_parent_in(domain, list.domain_blocklist):
+            if (not util.domain_or_parent_in(domain, domains.DOMAINS)
+                    and util.domain_or_parent_in(domain, list.domain_blocklist)):
                 logger.info(f'{self.key.id()} is blocking {id}')
                 return True
 

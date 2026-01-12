@@ -877,8 +877,8 @@ class UserTest(TestCase):
     def test_is_blocking_url(self):
         self.assertFalse(self.user.is_blocking('http://foo.com/bar'))
 
-        blocklist = Object(id='https://list', csv='domain\nfoo.com\nphoo.com').put()
-        self.user.blocks = [blocklist]
+        blocklist = Object(id='https://list', csv='domain\nfoo.com\nphoo.com')
+        self.user.blocks = [blocklist.put()]
 
         self.assertTrue(self.user.is_blocking('http://foo.com/bar'))
         self.assertTrue(self.user.is_blocking('http://phoo.com/bar'))
@@ -891,6 +891,11 @@ class UserTest(TestCase):
         self.assertFalse(self.user.is_blocking('not-a-url'))
         self.assertFalse(self.user.is_blocking(''))
         self.assertFalse(self.user.is_blocking(None))
+
+    def test_is_blocking_brid_gy_domain(self):
+        blocklist = Object(id='https://list', csv='domain\nfoo.com\nap.brid.gy')
+        self.user.blocks = [blocklist.put()]
+        self.assertFalse(self.user.is_blocking('alice.in.st.ap.brid.gy'))
 
     def test_is_blocking_user(self):
         alice = self.make_user('fake:alice.com', cls=Fake)
