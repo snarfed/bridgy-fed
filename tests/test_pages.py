@@ -942,6 +942,22 @@ class PagesTest(TestCase):
                          get_flashed_messages())
         self.assertEqual('yoozer', OtherFake.usernames['http://b.c/a'])
 
+    @patch.object(OtherFake, 'set_username', side_effect=RuntimeError('<em>foo</em>'))
+    def test_set_username_fails(self, _):
+        user, _ = self.make_logged_in_mastodon_user(enabled_protocols=['other'])
+
+        resp = self.client.post('/settings/set-username', data={
+            'key': user.key.urlsafe().decode(),
+            'protocol': 'other',
+            'username': 'yoozer',
+        })
+        self.assertEqual(302, resp.status_code)
+        self.assertEqual('/settings', resp.headers['Location'])
+        self.assertEqual(
+            ["Couldn't set username on other-phrase to yoozer: <em>foo</em>"],
+            get_flashed_messages())
+        self.assertEqual({}, OtherFake.usernames)
+
     def test_block(self):
         user, _ = self.make_logged_in_mastodon_user(enabled_protocols=['fake'])
 

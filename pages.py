@@ -367,7 +367,8 @@ def set_username(user=None):
     except NotImplementedError:
         flash(f"Custom usernames aren't supported on {proto.PHRASE}.")
     except (ValueError, RuntimeError) as e:
-        flash(f"Couldn't set username on {proto.PHRASE} to {username}: {e}")
+        flash(f"Couldn't set username on {proto.PHRASE} to {username}: {e}",
+              escape=False)
 
     return redirect('/settings')
 
