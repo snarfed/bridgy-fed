@@ -1121,6 +1121,15 @@ def reload_csvs():
     logger.info('Reloading CSV Objects')
 
     for key in Object.query(Object.is_csv == True).iter(keys_only=True):
-        Web.load(key.id(), csv=True, remote=True)
+        try:
+            result = Web.load(key.id(), csv=True, remote=True)
+            if result is None:
+                logger.warning(f"couldn't reload {key.id()}")
+        except BaseException as e:
+            code, body = util.interpret_http_exception(e)
+            if code:
+                logger.warning(f'error reloading {key.id()}: {e}')
+            else:
+                raise
 
     return 'OK'

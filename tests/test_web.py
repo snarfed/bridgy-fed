@@ -3609,3 +3609,44 @@ class WebUtilTest(TestCase):
         list2 = Object.get_by_id('https://li.st/2')
         self.assertEqual('domain\nfoo.com\nbar.org', list1.csv)
         self.assertEqual('domain\nfoo.com\nbar.org', list2.csv)
+
+    def test_reload_csvs_error(self, mock_get, _):
+        mock_get.side_effect = [
+            requests.exceptions.SSLError('foo'),
+            requests_response('domain\nnew.net', headers={'Content-Type': 'text/csv'}),
+        ]
+
+        a = self.store_object(id='https://li.st/a', csv='domain\nold.com', is_csv=True)
+        b = self.store_object(id='https://li.st/b', csv='domain\nold.org', is_csv=True)
+
+        got = self.get('/cron/reload-csvs', headers={APP_ENGINE_CRON_HEADER: ''})
+        self.assertEqual(200, got.status_code)
+
+        self.assertEqual(2, mock_get.call_count)
+        self.assertEqual('domain\nold.com', a.key.get().csv)
+        self.assertEqual('domain\nnew.net', b.key.get().csv)
+
+    def test_reload_csvs_load_returns_false(self, mock_get, _):
+        mock_get.side_effect = [
+            requests_response('not a csv', headers={'Content-Type': 'text/html'}),
+            requests_response('domain\nnew.net', headers={'Content-Type': 'text/csv'}),
+        ]
+
+        a = self.store_object(id='https://li.st/a', csv='domain\nold.com', is_csv=True)
+        b = self.store_object(id='https://li.st/b', csv='domain\nold.org', is_csv=True)
+
+        got = self.get('/cron/reload-csvs', headers={APP_ENGINE_CRON_HEADER: ''})
+        self.assertEqual(200, got.status_code)
+
+        self.assertEqual(2, mock_get.call_count)
+        self.assertEqual('domain\nold.com', a.key.get().csv)
+        self.assertEqual('domain\nnew.net', b.key.get().csv)
+
+    def test_reload_csvs_reraise_non_http_exception(self, mock_get, _):
+        mock_get.side_effect = ValueError('unexpected error')
+
+        self.store_object(id='https://li.st/a', csv='domain\nold.com', is_csv=True)
+        self.store_object(id='https://li.st/b', csv='domain\nold.org', is_csv=True)
+
+        got = self.get('/cron/reload-csvs', headers={APP_ENGINE_CRON_HEADER: ''})
+        self.assertEqual(500, got.status_code)
