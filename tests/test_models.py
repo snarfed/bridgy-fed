@@ -110,6 +110,7 @@ class UserTest(TestCase):
         Fake.fetchable = {
             'fake:profile:user': {
                 **ACTOR_AS,
+                'id': 'fake:profile:user',
                 'image': None,  # don't try to fetch as blob
             },
         }
@@ -142,9 +143,9 @@ class UserTest(TestCase):
 
         obj = Object.get_by_id('fake:profile:user')
         self.assertEqual([
+            Target(protocol='other', uri='other:o:fa:fake:profile:user'),
             Target(protocol='atproto',
                    uri=at_uri(did, 'app.bsky.actor.profile', 'self')),
-            Target(protocol='other', uri='other:o:fa:fake:profile:user'),
         ], obj.copies)
 
         mock_create_task.assert_called()
@@ -1809,7 +1810,6 @@ class ObjectTest(TestCase):
 
     def test_hydrate_note(self):
         self.store_object(id='fake:alice', our_as1=ACTOR_AS)
-        # self.store_object(id='fake:post', our_as1=)
 
         note = {
             'objectType': 'note',

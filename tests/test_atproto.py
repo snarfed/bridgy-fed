@@ -1501,7 +1501,10 @@ Sed tortor neque, aliquet quis posuere aliquam, imperdiet sitamet […]
 
         self.make_user(cls=Web, id='fa.brid.gy',
                        copies=[Target(protocol='atproto', uri='did:fa')])
-        Fake.fetchable = {'fake:profile:us_er': ACTOR_AS}
+        Fake.fetchable = {'fake:profile:us_er': {
+            **ACTOR_AS,
+            'id': 'fake:profile:us_er',
+        }}
         user = Fake(id='fake:us_er')
         AtpRemoteBlob(id='https://alice.com/alice.jpg', mime_type='image/png',
                       cid=BLOB_CID.encode('base32'), size=8, last_fetched=NOW).put()
@@ -1510,7 +1513,7 @@ Sed tortor neque, aliquet quis posuere aliquam, imperdiet sitamet […]
 
         # check user, repo
         did = user.key.get().get_copy(ATProto)
-        self.assertEqual([Target(uri=did, protocol='atproto')], user.copies)
+        self.assertIn(Target(uri=did, protocol='atproto'), user.copies)
         repo = arroba.server.storage.load_repo(did)
 
         # check DNS record
@@ -1544,8 +1547,8 @@ Sed tortor neque, aliquet quis posuere aliquam, imperdiet sitamet […]
         }, repo.get_record('chat.bsky.actor.declaration', 'self'))
 
         uri = arroba.util.at_uri(did, 'app.bsky.actor.profile', 'self')
-        self.assertEqual([Target(uri=uri, protocol='atproto')],
-                         Object.get_by_id(id='fake:profile:us_er').copies)
+        self.assertIn(Target(uri=uri, protocol='atproto'),
+                      Object.get_by_id(id='fake:profile:us_er').copies)
 
         mock_create_task.assert_called()  # atproto-commit
 
@@ -1557,12 +1560,14 @@ Sed tortor neque, aliquet quis posuere aliquam, imperdiet sitamet […]
         Fake.fetchable = {
             'fake:profile:user': {
                 **ACTOR_AS,
+                'id': 'fake:profile:user',
                 'featured': {'items': ['fake:pinned']},
                 'image': [],
             },
             'fake:pinned': {
                 'objectType': 'note',
                 'id': 'fake:pinned',
+                'author': 'fake:user',
                 'content': 'My pinned post',
             },
         }
@@ -1604,6 +1609,7 @@ Sed tortor neque, aliquet quis posuere aliquam, imperdiet sitamet […]
         Fake.fetchable = {
             'fake:profile:user': {
                 **ACTOR_AS,
+                'id': 'fake:profile:user',
                 'featured': {'items': ['fake:pinned']},
                 'image': [],
             },
@@ -1642,6 +1648,7 @@ Sed tortor neque, aliquet quis posuere aliquam, imperdiet sitamet […]
         Fake.fetchable = {
             'fake:profile:user': {
                 **ACTOR_AS,
+                'id': 'fake:profile:user',
                 'image': [],
                 'monetization': 'http://wal/let',
             },
@@ -1762,7 +1769,10 @@ Sed tortor neque, aliquet quis posuere aliquam, imperdiet sitamet […]
         rrsets.list.return_value = list_ = MagicMock()
         list_.execute.return_value = {'rrsets': []}
 
-        Fake.fetchable = {'fake:profile:user': ACTOR_AS}
+        Fake.fetchable = {'fake:profile:user': {
+            **ACTOR_AS,
+            'id': 'fake:profile:user',
+        }}
 
         user = self.make_user_and_repo()
         orig_did = user.get_copy(ATProto)
@@ -2087,7 +2097,10 @@ Sed tortor neque, aliquet quis posuere aliquam, imperdiet sitamet […]
                                                  _, __):
         user = self.make_user(id='fake:user', cls=Fake, enabled_protocols=['atproto'],
                               obj_as1={})
-        Fake.fetchable = {'fake:profile:user': ACTOR_AS}
+        Fake.fetchable = {'fake:profile:user': {
+            **ACTOR_AS,
+            'id': 'fake:profile:user',
+        }}
 
         obj = Object(id='fake:post', source_protocol='fake', our_as1=NOTE_AS)
         self.assertTrue(ATProto.send(obj, 'https://bsky.brid.gy/'))

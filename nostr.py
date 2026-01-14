@@ -546,7 +546,7 @@ class Nostr(User, Protocol):
                 return False
 
         if obj.type in STORE_AS1_TYPES:
-            ndb.transactional()
+            @ndb.transactional()
             def add_copy():
                 # read_consistency=ndb.STRONG shouldn't be necessary here, but oddly
                 # it is, ndb seems to use cache inside txes even though it shouldn't

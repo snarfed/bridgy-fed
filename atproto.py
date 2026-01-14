@@ -598,52 +598,25 @@ class ATProto(User, Protocol):
         }
         initial_writes = [Write(action=Action.CREATE, record=chat_declaration,
                                 collection='chat.bsky.actor.declaration', rkey='self')]
-
-        # create pinned post
-        if user.obj and user.obj.as1:
-            featured_collection = as1.get_object(user.obj.as1, 'featured')
-            if featured_id := as1.get_id(featured_collection, 'items'):
-                logger.info(f'Fetching and storing pinned post {featured_id}')
-                if featured_obj := user.load(featured_id):
-                    if post := cls.convert(featured_obj, fetch_blobs=True,
-                                           from_user=user):
-                        rkey = next_tid()
-                        initial_writes.append(Write(action=Action.CREATE, record=post,
-                                                    collection='app.bsky.feed.post',
-                                                    rkey=rkey))
-                        uri = f'at://{did_plc.did}/app.bsky.feed.post/{rkey}'
-                        featured_obj.add('copies', Target(uri=uri, protocol=cls.LABEL))
-                        featured_obj.put()
-                    else:
-                        logger.warning(f"Couldn't convert pinned post {featured_id}")
-
         arroba.server.storage.commit(repo, initial_writes)
+
+        # don't add the copy id until the end, here, until we've fully
+        # successfully created the DID, repo, etc
+        user.add('copies', Target(uri=did_plc.did, protocol='atproto'))
+        user.put()
 
         # create user profile. can't include this in initial writes because
         # bluesky.to_as1 in convert fetches the pinned post, which with our
         # DatastoreClient looks it up as an ATProto record in the repo.
         if user.obj and user.obj.as1:
-            profile = cls.convert(user.obj, fetch_blobs=True, from_user=user)
-            if not profile:
-                raise ValueError(f"Couldn't convert profile object {user.obj_key.id()}")
-            writes = [Write(
-                action=Action.CREATE,
-                record=profile,
-                collection='app.bsky.actor.profile',
-                rkey='self',
-            )] + derived_writes(user.obj)
-
-            logger.info(f'Storing ATProto {writes}')
-            arroba.server.storage.commit(repo, writes)
-
-            uri = at_uri(did_plc.did, 'app.bsky.actor.profile', 'self')
-            user.obj.add('copies', Target(uri=uri, protocol='atproto'))
-            user.obj.put()
-
-        # don't add the copy id until the end, here, until we've fully
-        # successfully created the repo, profile, etc
-        user.add('copies', Target(uri=did_plc.did, protocol='atproto'))
-        user.put()
+            create_profile = Object(our_as1={
+                'objectType': 'activity',
+                'verb': 'post',
+                'actor': user.key.id(),
+                'object': user.obj.as1,
+            }, source_protocol=user.LABEL)
+            if not cls.send(create_profile, pds_url, from_user=user):
+                logger.warning(f"couldn't create profile {user.obj_key.id()}")
 
     @classmethod
     def set_dns(cls, handle, did):
@@ -981,7 +954,7 @@ class ATProto(User, Protocol):
         logger.info(f'  seq {repo.head.seq}')
 
         if verb not in ('delete', 'undo'):
-            ndb.transactional()
+            @ndb.transactional()
             def add_copy():
                 # read_consistency=ndb.STRONG shouldn't be necessary here, but oddly
                 # it is, ndb seems to use cache inside txes even though it shouldn't
