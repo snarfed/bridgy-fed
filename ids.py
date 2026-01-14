@@ -27,7 +27,6 @@ from domains import (
     unwrap,
 )
 import models
-import protocol
 
 logger = logging.getLogger(__name__)
 
@@ -130,11 +129,13 @@ def translate_user_id(*, id, from_, to):
     Returns:
       str: the corresponding id in ``to``
     """
+    from protocol import Protocol
+
     id, from_, to = validate(id, from_, to)
 
     # check for and handle our own subdomain-wrapped ids, eg
     # https://bsky.brid.gy/ap/did:plc:456
-    if domain_proto := protocol.Protocol.for_bridgy_subdomain(id, fed='web'):
+    if domain_proto := Protocol.for_bridgy_subdomain(id, fed='web'):
         path = urlparse(id).path.strip('/').split('/')
         if (path[0] == from_.ABBREV
                 or (from_.ABBREV == 'ap' and domain_proto.ABBREV == 'web'
@@ -461,6 +462,8 @@ def translate_object_id(*, id, from_, to):
     Returns:
       str: the corresponding id in ``to``
     """
+    from protocol import Protocol
+
     id, from_, to = validate(id, from_, to)
     if from_.owns_id(id) is False and from_.LABEL != 'ui':
         return id
@@ -499,7 +502,7 @@ def translate_object_id(*, id, from_, to):
             return id
 
         case 'web', 'activitypub':
-            if protocol.Protocol.for_bridgy_subdomain(id, fed='web'):
+            if Protocol.for_bridgy_subdomain(id, fed='web'):
                 return id
             return urljoin(web_ap_base_domain(util.domain_from_link(id)), f'/r/{id}')
 
