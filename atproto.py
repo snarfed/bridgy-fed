@@ -797,6 +797,17 @@ class ATProto(User, Protocol):
                     base_obj = Object(id=base_id, source_protocol=obj.source_protocol)
                 base_obj.our_as1 = base_obj_as1
 
+                # profile update. if it has a pinned post that's not bridged, do that
+                # first, before calling convert below
+                if base_obj_as1.get('objectType') in as1.ACTOR_TYPES:
+                    feat_as1 = as1.get_object(base_obj_as1, 'featured')
+                    if feat_id := as1.get_id(feat_as1, 'items'):
+                        from_cls = PROTOCOLS[obj.source_protocol]
+                        if ((feat_obj := from_cls.load(feat_id))
+                                and not feat_obj.get_copy(ATProto)):
+                            logger.info(f'first, creating pinned post {feat_id}')
+                            ATProto.send(feat_obj, pds_url, from_user=from_user)
+
         elif type == 'stop-following':
             assert from_user
             to_id = as1.get_object(obj.as1).get('id')
