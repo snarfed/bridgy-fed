@@ -889,7 +889,8 @@ class ATProto(User, Protocol):
                     writes.append(Write(action=Action.DELETE, collection=collection,
                                         rkey=rkey))
 
-            arroba.server.storage.commit(repo, writes)
+            with memcache.Lease(f'atproto-send-{did}'):
+                arroba.server.storage.commit(repo, writes)
             return True
 
         elif recip := as1.recipient_if_dm(obj.as1):
@@ -944,7 +945,8 @@ class ATProto(User, Protocol):
         logger.info(f'Storing ATProto {writes}')
 
         try:
-            arroba.server.storage.commit(repo, writes)
+            with memcache.Lease(f'atproto-send-{did}'):
+                arroba.server.storage.commit(repo, writes)
         except (ValueError, InactiveRepo) as e:
             # update and delete raise ValueError if no record exists for this
             # collection/rkey
