@@ -175,10 +175,10 @@ def remote_evict(entity_key):
 
 
 class Lease:
-    """Memcache-based distributed lease/lock.
+    """Memcache-based advisory lease.
 
-    Uses memcache's atomic add operation to implement a lease with automatic
-    expiration. Can be used as a context manager. Not reusable.
+    Uses memcache's atomic add operation to implement a lease with blocking acquire
+    and automatic expiration. Can be used as a context manager. Not reusable.
 
     Example:
         lease = Lease('key', 'val')
@@ -189,8 +189,9 @@ class Lease:
       key (str)
       retries (int)
       initial_retry_delay (timedelta)
-      expiration (timedelta): how long to hold the lease
+      expiration (timedelta): how long to wait before automatically releasing
       expires_at (datetime): if the lease is held, when it will expire
+
     """
     def __init__(self, key, expiration=timedelta(minutes=5), retries=6,
                  initial_retry_delay=timedelta(seconds=5)):
@@ -198,7 +199,8 @@ class Lease:
 
         Args:
           key (str): memcache key to use for the lease
-          expiration (timedelta): how long to hold the lease
+          expiration (timedelta): how long to wait before automatically releasing
+          expires_at (datetime): if the lease is held, when it will expire
           retries (int): number of times to retry acquiring the lease
           initial_retry_delay (timedelta): initial delay between retries; doubles
             each retry
