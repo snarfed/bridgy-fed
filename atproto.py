@@ -889,8 +889,7 @@ class ATProto(User, Protocol):
                     writes.append(Write(action=Action.DELETE, collection=collection,
                                         rkey=rkey))
 
-            with memcache.Lease(f'atproto-send-{did}'):
-                arroba.server.storage.commit(repo, writes)
+            arroba.server.storage.commit(repo, writes)
             return True
 
         elif recip := as1.recipient_if_dm(obj.as1):
@@ -945,15 +944,7 @@ class ATProto(User, Protocol):
         logger.info(f'Storing ATProto {writes}')
 
         try:
-            # serialize commits per repo. constructing and writing the commits can
-            # take some time, so without serializing, we hit datastore contention,
-            # which makes us drop sequence numbers, since they're allocated before
-            # the commit transaction, and those delay hub from emitting commit events
-            # over the firehose while it waits for the skipped seqs, and sometimes
-            # those delays mean we drop events entirely.
-            # https://github.com/snarfed/arroba/issues/74
-            with memcache.Lease(f'atproto-send-{did}'):
-                arroba.server.storage.commit(repo, writes)
+            arroba.server.storage.commit(repo, writes)
         except (ValueError, InactiveRepo) as e:
             # update and delete raise ValueError if no record exists for this
             # collection/rkey

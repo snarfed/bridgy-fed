@@ -1,6 +1,5 @@
 """Unit tests for memcache.py."""
 from datetime import timedelta
-import time
 from unittest.mock import patch
 
 from google.cloud.ndb import Key
@@ -9,7 +8,7 @@ from arroba.datastore_storage import AtpRepo
 
 import config
 import memcache
-from memcache import Lease, memoize, pickle_memcache
+from memcache import memoize, pickle_memcache
 from models import get_original_user_key, Object, Target
 from oauth_dropins.webutil import util
 from oauth_dropins.webutil.testutil import NOW, requests_response
@@ -289,79 +288,3 @@ class MemcacheTest(TestCase):
         self.assertEqual(NOW + delay, memcache.task_eta('receive', 'bob'))
         self.assertEqual(NOW + delay + delay, memcache.task_eta('receive', 'bob'))
         self.assertEqual(NOW + delay, memcache.task_eta('receive', 'alice'))
-
-
-@patch('memcache.time.sleep')
-class LeaseTest(TestCase):
-    def test_acquire_and_release(self, _):
-        lease = Lease('kee')
-        lease.acquire()
-        self.assertAlmostEqual(NOW + timedelta(minutes=5), lease.expires_at,
-                               delta=timedelta(seconds=1))
-        self.assertEqual('locked', memcache.memcache.get('kee'))
-
-        lease.release()
-        self.assertIsNone(memcache.memcache.get('kee'))
-
-    def test_context_manager(self, _):
-        with Lease('kee') as lease:
-            self.assertAlmostEqual(NOW + timedelta(minutes=5), lease.expires_at,
-                                   delta=timedelta(seconds=1))
-            self.assertEqual('locked', memcache.memcache.get('kee'))
-
-        self.assertIsNone(memcache.memcache.get('kee'))
-
-    def test_acquire_retry_succeeds(self, _):
-        # another worker holds the lease
-        memcache.memcache.add('kee', 'locked')
-
-        # simulate expiration by deleting after first attempt
-        original_add = memcache.memcache.add
-        attempts = [0]
-        def mock_add(key, value, **kwargs):
-            attempts[0] += 1
-            if attempts[0] > 1:  # second attempt
-                memcache.memcache.delete('kee')
-            return original_add(key, value, **kwargs)
-
-        with patch.object(memcache.memcache, 'add', side_effect=mock_add):
-            lease = Lease('kee', retries=2,
-                          initial_retry_delay=timedelta(seconds=0.1))
-            lease.acquire()
-
-        self.assertIsNotNone(NOW, lease.expires_at)
-        self.assertEqual('locked', memcache.memcache.get('kee'))
-        lease.release()
-
-    def test_acquire_retry_fails(self, _):
-        # another worker holds the lease with long expiration
-        memcache.memcache.add('kee', 'locked', expire=999)
-
-        lease = Lease('kee', retries=2,
-                      initial_retry_delay=timedelta(seconds=0.1))
-
-        with self.assertRaises(RuntimeError) as ctx:
-            lease.acquire()
-
-        self.assertIn("couldn't acquire memcache lease kee after 3 attempts",
-                      str(ctx.exception))
-        self.assertIsNone(lease.expires_at)
-
-    def test_release_without_acquire(self, _):
-        lease = Lease('kee')
-        with self.assertRaises(AssertionError):
-            lease.release()
-
-    def test_release_after_expiration(self, _):
-        lease = Lease('kee', retries=1,
-                      initial_retry_delay=timedelta(seconds=0.1))
-        lease.acquire()
-
-        # simulate expiration by setting expires_at far in the past
-        lease.expires_at = NOW - timedelta(seconds=9999)
-
-        # another worker could have acquired it
-        memcache.memcache.set('kee', 'locked')
-
-        lease.release()  # should not delete vals2's lease
-        self.assertEqual('locked', memcache.memcache.get('kee'))
