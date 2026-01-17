@@ -6,6 +6,7 @@ datastore.dat*
 /docs/_build/
 encrypted_property_key
 flask_secret_key
+iframely_api_key_md5
 /l
 /local*
 limited_domains

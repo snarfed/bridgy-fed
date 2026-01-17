@@ -85,6 +85,7 @@ jobs:
               echo $REPO_TOKEN > repo_token
               echo $THREADS_APP_ID > threads_app_id
               echo $THREADS_APP_SECRET > threads_app_secret
+              echo $IFRAMELY_API_KEY_MD5 > iframely_api_key_md5
 
               service='<< pipeline.parameters.service >>'
               gcloud config set project bridgy-federated

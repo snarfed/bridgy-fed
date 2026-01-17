@@ -69,6 +69,8 @@ import webfinger
 
 logger = logging.getLogger(__name__)
 
+IFRAMELY_API_KEY_MD5 = util.read('iframely_api_key_md5')
+
 TEMPLATE_VARS = {
     'ActivityPub': ActivityPub,
     'as1': as1,
@@ -668,6 +670,28 @@ def serve_feed(*, objects, format, user, title, as_snippets=False, quiet=False):
         body = rss.from_activities(activities, actor=actor, title=title,
                                    feed_url=request.url)
         return body, {'Content-Type': rss.CONTENT_TYPE}
+
+
+@app.get(f'/<any({",".join(PROTOCOLS)}):protocol>/<user_id>/respond')
+@canonicalize_request_domain(PROTOCOL_DOMAINS, PRIMARY_DOMAIN)
+def respond(protocol, user_id):
+    """Lets a user reply to, like, or repost an unbridged post.
+
+    Query params:
+      obj_id (str): Object id
+      user_id (str): User id
+      user_proto (str): User protocol
+    """
+    user = load_user(protocol, user_id)
+
+    # TODO: auth
+
+    obj = Object.get_by_id(get_required_param('obj_id'))
+    if not obj:
+        error('', status=404)
+
+    return render('respond.html', user=user, obj=obj,
+                  IFRAMELY_API_KEY_MD5=IFRAMELY_API_KEY_MD5)
 
 
 @app.get('/log')

@@ -1201,3 +1201,33 @@ class PagesTest(TestCase):
     def test_sequences_last_bad_auth(self):
         resp = self.client.get('/admin/sequences/last', data={'nsid': 'foo.bar'})
         self.assertEqual(401, resp.status_code)
+
+    def test_respond(self):
+        self.make_user('fake:user', cls=Fake)
+        self.store_object(id='other:post', our_as1={
+            'objectType': 'note',
+            'content': 'foo bar',
+            'url': 'https://other/post',
+        })
+
+        resp = self.client.get('/fake/fake:user/respond?obj_id=other:post')
+        self.assertEqual(200, resp.status_code)
+
+        html = resp.get_data(as_text=True)
+        self.assertIn('https://other/post', html)
+        self.assertIn('fake:user', html)
+
+    def test_respond_object_not_found(self):
+        self.make_user('fake:user', cls=Fake)
+        resp = self.client.get('/fake/fake:user/respond?obj_id=other:nope')
+        self.assertEqual(404, resp.status_code)
+
+    def test_respond_user_not_found(self):
+        self.store_object(id='fake:post', our_as1={
+            'objectType': 'note',
+            'content': 'foo bar',
+            'url': 'https://other/post',
+        })
+
+        resp = self.client.get('/fake/fake:nope/respond?obj_id=other:post')
+        self.assertEqual(404, resp.status_code)
