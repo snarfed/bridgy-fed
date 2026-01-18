@@ -1203,24 +1203,55 @@ class PagesTest(TestCase):
         resp = self.client.get('/admin/sequences/last', data={'nsid': 'foo.bar'})
         self.assertEqual(401, resp.status_code)
 
-    def test_respond(self):
-        self.make_user('fake:user', cls=Fake)
+    @patch('oauth_dropins.webutil.util.now', return_value=datetime.now())
+    def test_respond(self, _):
+        user = self.make_user('fake:user', cls=Fake)
         self.store_object(id='other:post', our_as1={
             'objectType': 'note',
             'content': 'foo bar',
             'url': 'https://other/post',
         })
+        token = common.make_jwt(user=user, scope='respond')
 
-        resp = self.client.get('/fake/fake:user/respond?obj_id=other:post')
+        resp = self.client.get(
+            f'/fake/fake:user/respond?obj_id=other:post&token={token}')
         self.assertEqual(200, resp.status_code)
 
         html = resp.get_data(as_text=True)
         self.assertIn('https://other/post', html)
         self.assertIn('fake:user', html)
+        self.assertIn(token, html)
 
-    def test_respond_object_not_found(self):
+    def test_respond_missing_token(self):
         self.make_user('fake:user', cls=Fake)
-        resp = self.client.get('/fake/fake:user/respond?obj_id=other:nope')
+        self.store_object(id='other:post')
+
+        resp = self.client.get('/fake/fake:user/respond?obj_id=other:post')
+        self.assertEqual(400, resp.status_code)
+
+    def test_respond_wrong_user(self):
+        user = self.make_user('fake:alice', cls=Fake)
+        self.make_user('fake:bob', cls=Fake)
+        token = common.make_jwt(user=user, scope='respond')
+        self.store_object(id='other:post')
+
+        resp = self.client.get(
+            f'/fake/fake:bob/respond?obj_id=other:post&token={token}')
+        self.assertEqual(401, resp.status_code)
+
+    def test_respond_invalid_token(self):
+        self.make_user('fake:user', cls=Fake)
+        self.store_object(id='other:post')
+
+        resp = self.client.get(
+            '/fake/fake:user/respond?obj_id=other:post&token=invalid')
+        self.assertEqual(401, resp.status_code)
+
+    @patch('oauth_dropins.webutil.util.now', return_value=datetime.now())
+    def test_respond_object_not_found(self, _):
+        user = self.make_user('fake:user', cls=Fake)
+        token = common.make_jwt(user=user, scope='respond')
+        resp = self.client.get(f'/fake/fake:user/respond?obj_id=other:nope&token={token}')
         self.assertEqual(404, resp.status_code)
 
     def test_respond_user_not_found(self):
@@ -1230,7 +1261,7 @@ class PagesTest(TestCase):
             'url': 'https://other/post',
         })
 
-        resp = self.client.get('/fake/fake:nope/respond?obj_id=other:post')
+        resp = self.client.get('/fake/fake:nope/respond?obj_id=other:post&token=fake-token')
         self.assertEqual(404, resp.status_code)
 
     @patch('oauth_dropins.webutil.util.now', return_value=datetime.now())

@@ -25,17 +25,20 @@ key is the MD5 hash of our API key
 <div class="row">
   <form method="post" action="respond/like">
     <input type="hidden" name="obj_id" value="{{ obj.key.id() }}" />
+    <input type="hidden" name="token" value="{{ token }}" />
     <button type="submit" class="btn btn-default">❤️ Like</button>
   </form>
 
   <form method="post" action="respond/repost">
     <input type="hidden" name="obj_id" value="{{ obj.key.id() }}" />
+    <input type="hidden" name="token" value="{{ token }}" />
     <button type="submit" class="btn btn-default">🔁 Repost</button>
   </form>
 </div>
 
 <form method="post" action="respond/reply">
   <input type="hidden" name="obj_id" value="{{ obj.key.id() }}" />
+  <input type="hidden" name="token" value="{{ token }}" />
   <div class="row">
     {% set maxlength = 300 if obj.source_protocol == 'atproto'
            else 500 if obj.source_protocol == 'activitypub'

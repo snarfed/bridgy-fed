@@ -14,6 +14,7 @@ from google.cloud.ndb.key import Key
 from google.cloud.ndb.query import OR
 from google.cloud.ndb.model import get_multi, Model
 from granary import as1, as2, atom, microformats2, rss
+import jwt
 import oauth_dropins
 from oauth_dropins.webutil import flask_util, logs, util
 from oauth_dropins.webutil.flask_util import (
@@ -41,6 +42,7 @@ from common import (
     render_template,
     secret_key_auth,
     user_auth,
+    verify_jwt,
 )
 from domains import (
     BLOG_REDIRECT_DOMAINS,
@@ -680,17 +682,21 @@ def respond(protocol, user_id):
 
     Query params:
       obj_id (str): Object id
-      user_id (str): User id
-      user_proto (str): User protocol
+      token (str): JWT token for user authentication
     """
     user = load_user(protocol, user_id)
 
-    # TODO: auth
+    token = get_required_param('token')
+    try:
+        verify_jwt(token, user_id=user_id, scope='respond')
+    except (jwt.InvalidTokenError, ValueError) as err:
+        logger.error(f'Bad token: {err}')
+        error('Unauthorized', status=401)
 
     if not (obj := Object.get_by_id(get_required_param('obj_id'))):
         error('Object not found', status=404)
 
-    return render('respond.html', user=user, obj=obj,
+    return render('respond.html', user=user, obj=obj, token=token,
                   IFRAMELY_API_KEY_MD5=IFRAMELY_API_KEY_MD5)
 
 
