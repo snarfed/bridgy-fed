@@ -449,7 +449,8 @@ def make_jwt(*, user, scope, expiration=timedelta(weeks=1)):
 def verify_jwt(token, *, user_id, scope):
     """Verifies a per-user JWT and checks that it matches a given user and scope.
 
-    Raises an exception if the JWT doesn't verify or match, otherwise returns None.
+    Raises the appropriate werkzeug HTTPException if the JWT doesn't verify or match,
+    otherwise returns None.
 
     Args:
       token (str)
@@ -457,7 +458,9 @@ def verify_jwt(token, *, user_id, scope):
       scope (str)
 
     Raises:
-      ValueError or jwt.InvalidTokenError
+      werkzeug.exceptions.Unauthorized: if the token is invalid
+      werkzeug.exceptions.Forbidden: if the token is valid but for the wrong user or
+        scope
     """
     decoded = jwt.decode(token, key=ENCRYPTED_PROPERTY_KEY_BYTES,
                          algorithms=['HS256'])

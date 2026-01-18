@@ -1205,63 +1205,52 @@ class PagesTest(TestCase):
 
     @patch('oauth_dropins.webutil.util.now', return_value=datetime.now())
     def test_respond(self, _):
-        user = self.make_user('fake:user', cls=Fake)
-        self.store_object(id='other:post', our_as1={
-            'objectType': 'note',
-            'content': 'foo bar',
-            'url': 'https://other/post',
-        })
-        token = common.make_jwt(user=user, scope='respond')
+        self.store_object(id='other:post', our_as1={'url': 'https://other/post'})
+        token = common.make_jwt(user=self.user, scope='respond')
 
         resp = self.client.get(
-            f'/fake/fake:user/respond?obj_id=other:post&token={token}')
+            f'/web/user.com/respond?obj_id=other:post&token={token}')
         self.assertEqual(200, resp.status_code)
 
         html = resp.get_data(as_text=True)
         self.assertIn('https://other/post', html)
-        self.assertIn('fake:user', html)
+        self.assertIn('user.com', html)
         self.assertIn(token, html)
 
     def test_respond_missing_token(self):
-        self.make_user('fake:user', cls=Fake)
         self.store_object(id='other:post')
-
-        resp = self.client.get('/fake/fake:user/respond?obj_id=other:post')
+        resp = self.client.get('/web/user.com/respond?obj_id=other:post')
         self.assertEqual(400, resp.status_code)
 
     def test_respond_wrong_user(self):
-        user = self.make_user('fake:alice', cls=Fake)
-        self.make_user('fake:bob', cls=Fake)
-        token = common.make_jwt(user=user, scope='respond')
+        self.make_user('fake:alice', cls=Fake)
+        token = common.make_jwt(user=self.user, scope='respond')
         self.store_object(id='other:post')
 
         resp = self.client.get(
-            f'/fake/fake:bob/respond?obj_id=other:post&token={token}')
+            f'/fake/fake:alice/respond?obj_id=other:post&token={token}')
         self.assertEqual(401, resp.status_code)
 
     def test_respond_invalid_token(self):
-        self.make_user('fake:user', cls=Fake)
         self.store_object(id='other:post')
 
         resp = self.client.get(
-            '/fake/fake:user/respond?obj_id=other:post&token=invalid')
+            '/web/user.com/respond?obj_id=other:post&token=invalid')
         self.assertEqual(401, resp.status_code)
 
     @patch('oauth_dropins.webutil.util.now', return_value=datetime.now())
     def test_respond_object_not_found(self, _):
-        user = self.make_user('fake:user', cls=Fake)
-        token = common.make_jwt(user=user, scope='respond')
-        resp = self.client.get(f'/fake/fake:user/respond?obj_id=other:nope&token={token}')
+        token = common.make_jwt(user=self.user, scope='respond')
+        resp = self.client.get(
+            f'/web/user.com/respond?obj_id=other:nope&token={token}')
         self.assertEqual(404, resp.status_code)
 
-    def test_respond_user_not_found(self):
-        self.store_object(id='fake:post', our_as1={
-            'objectType': 'note',
-            'content': 'foo bar',
-            'url': 'https://other/post',
-        })
-
-        resp = self.client.get('/fake/fake:nope/respond?obj_id=other:post&token=fake-token')
+    @patch('oauth_dropins.webutil.util.now', return_value=datetime.now())
+    def test_respond_user_not_found(self, _):
+        self.store_object(id='fake:post')
+        token = common.make_jwt(user=Fake(id='fake:user'), scope='respond')
+        resp = self.client.get(
+            f'/fake/fake:user/respond?obj_id=other:post&token={token}')
         self.assertEqual(404, resp.status_code)
 
     @patch('oauth_dropins.webutil.util.now', return_value=datetime.now())
@@ -1269,32 +1258,31 @@ class PagesTest(TestCase):
     def test_respond_reply(self, mock_create_task, _):
         common.RUN_TASKS_INLINE = False
 
-        user = self.make_user('fake:user', cls=Fake)
         self.store_object(id='fake:post')
 
-        resp = self.client.post('/fake/fake:user/respond/reply', data={
+        resp = self.client.post('/web/user.com/respond/reply', data={
             'obj_id': 'fake:post',
             'content': 'test reply',
-            'token': common.make_jwt(user=user, scope='respond'),
+            'token': common.make_jwt(user=self.user, scope='respond'),
         })
         self.assertEqual(302, resp.status_code)
-        self.assertEqual('/fa/fake:handle:user', resp.headers['Location'])
+        self.assertEqual('/web/user.com', resp.headers['Location'])
         self.assertEqual(['Sending reply...'], get_flashed_messages())
 
-        id = f'http://localhost/fake/fake:user/respond/reply#bridgy-fed-create-{util.now().isoformat()}'
+        id = f'http://localhost/web/user.com/respond/reply#bridgy-fed-create-{util.now().isoformat()}'
         self.assert_task(mock_create_task, 'receive', source_protocol='ui',
-                         authed_as='fake:user', id=id, our_as1={
+                         authed_as='user.com', id=id, our_as1={
             'objectType': 'comment',
             'id': id,
             'inReplyTo': 'fake:post',
             'content': 'test reply',
-            'author': 'fake:user',
+            'author': 'user.com',
         })
 
     def test_respond_reply_missing_token(self):
         user = self.make_user('fake:user', cls=Fake)
         obj = self.store_object(id='fake:post')
-        resp = self.client.post('/fake/fake:user/respond/reply', data={
+        resp = self.client.post('/web/user.com/respond/reply', data={
             'obj_id': 'fake:post',
             'content': 'test reply',
         })
@@ -1314,7 +1302,7 @@ class PagesTest(TestCase):
 
     def test_respond_reply_invalid_token(self):
         self.make_user('fake:user', cls=Fake)
-        resp = self.client.post('/fake/fake:user/respond/reply', data={
+        resp = self.client.post('/web/user.com/respond/reply', data={
             'obj_id': 'fake:post',
             'content': 'test reply',
             'token': 'invalid-token',
@@ -1337,43 +1325,39 @@ class PagesTest(TestCase):
     def test_respond_like(self, mock_create_task, _):
         common.RUN_TASKS_INLINE = False
 
-        user = self.make_user('fake:user', cls=Fake)
         self.store_object(id='fake:post')
 
-        resp = self.client.post('/fake/fake:user/respond/like', data={
+        resp = self.client.post('/web/user.com/respond/like', data={
             'obj_id': 'fake:post',
-            'token': common.make_jwt(user=user, scope='respond'),
+            'token': common.make_jwt(user=self.user, scope='respond'),
         })
         self.assertEqual(302, resp.status_code)
-        self.assertEqual('/fa/fake:handle:user', resp.headers['Location'])
+        self.assertEqual('/web/user.com', resp.headers['Location'])
         self.assertEqual(['Sending like...'], get_flashed_messages())
 
-        id = f'http://localhost/fake/fake:user/respond/like#bridgy-fed-create-{util.now().isoformat()}'
+        id = f'http://localhost/web/user.com/respond/like#bridgy-fed-create-{util.now().isoformat()}'
         self.assert_task(mock_create_task, 'receive', source_protocol='ui',
-                         authed_as='fake:user', id=id, our_as1={
+                         authed_as='user.com', id=id, our_as1={
             'objectType': 'activity',
             'verb': 'like',
             'id': id,
             'object': 'fake:post',
-            'actor': 'fake:user',
+            'actor': 'user.com',
         })
 
     def test_respond_like_missing_token(self):
         user = self.make_user('fake:user', cls=Fake)
         self.store_object(id='fake:post')
-        resp = self.client.post('/fake/fake:user/respond/like', data={
+        resp = self.client.post('/web/user.com/respond/like', data={
             'obj_id': 'fake:post',
         })
         self.assertEqual(400, resp.status_code)
 
     @patch('oauth_dropins.webutil.util.now', return_value=datetime.now())
     def test_respond_like_wrong_user(self, _):
-        user = self.make_user('fake:alice', cls=Fake)
-        token = common.make_jwt(user=user, scope='respond')
-
         resp = self.client.post('/fake/fake:bob/respond/like', data={
             'obj_id': 'fake:post',
-            'token': token,
+            'token': common.make_jwt(user=self.user, scope='respond'),
         })
         self.assertEqual(403, resp.status_code)
 
@@ -1382,42 +1366,38 @@ class PagesTest(TestCase):
     def test_respond_repost(self, mock_create_task, _):
         common.RUN_TASKS_INLINE = False
 
-        user = self.make_user('fake:user', cls=Fake)
         self.store_object(id='fake:post')
 
-        resp = self.client.post('/fake/fake:user/respond/repost', data={
+        resp = self.client.post('/web/user.com/respond/repost', data={
             'obj_id': 'fake:post',
-            'token': common.make_jwt(user=user, scope='respond'),
+            'token': common.make_jwt(user=self.user, scope='respond'),
         })
         self.assertEqual(302, resp.status_code)
-        self.assertEqual('/fa/fake:handle:user', resp.headers['Location'])
+        self.assertEqual('/web/user.com', resp.headers['Location'])
         self.assertEqual(['Sending repost...'], get_flashed_messages())
 
-        id = f'http://localhost/fake/fake:user/respond/repost#bridgy-fed-create-{util.now().isoformat()}'
+        id = f'http://localhost/web/user.com/respond/repost#bridgy-fed-create-{util.now().isoformat()}'
         self.assert_task(mock_create_task, 'receive', source_protocol='ui',
-                         authed_as='fake:user', id=id, our_as1={
+                         authed_as='user.com', id=id, our_as1={
             'objectType': 'activity',
             'verb': 'share',
             'id': id,
             'object': 'fake:post',
-            'actor': 'fake:user',
+            'actor': 'user.com',
         })
 
     def test_respond_repost_missing_token(self):
         user = self.make_user('fake:user', cls=Fake)
         self.store_object(id='fake:post')
-        resp = self.client.post('/fake/fake:user/respond/repost', data={
+        resp = self.client.post('/web/user.com/respond/repost', data={
             'obj_id': 'fake:post',
         })
         self.assertEqual(400, resp.status_code)
 
     @patch('oauth_dropins.webutil.util.now', return_value=datetime.now())
     def test_respond_repost_wrong_user(self, _):
-        user = self.make_user('fake:alice', cls=Fake)
-        token = common.make_jwt(user=user, scope='respond')
-
         resp = self.client.post('/fake/fake:bob/respond/repost', data={
             'obj_id': 'fake:post',
-            'token': token,
+            'token': common.make_jwt(user=self.user, scope='respond'),
         })
         self.assertEqual(403, resp.status_code)

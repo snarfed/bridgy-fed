@@ -677,6 +677,7 @@ def serve_feed(*, objects, format, user, title, as_snippets=False, quiet=False):
 
 @app.get(f'/<any({",".join(PROTOCOLS)}):protocol>/<user_id>/respond')
 @canonicalize_request_domain(PROTOCOL_DOMAINS, PRIMARY_DOMAIN)
+@user_auth('respond')
 def respond(protocol, user_id):
     """Lets a user reply to, like, or repost an unbridged post.
 
@@ -686,21 +687,16 @@ def respond(protocol, user_id):
     """
     user = load_user(protocol, user_id)
 
-    token = get_required_param('token')
-    try:
-        verify_jwt(token, user_id=user_id, scope='respond')
-    except (jwt.InvalidTokenError, ValueError) as err:
-        logger.error(f'Bad token: {err}')
-        error('Unauthorized', status=401)
-
     if not (obj := Object.get_by_id(get_required_param('obj_id'))):
         error('Object not found', status=404)
 
-    return render('respond.html', user=user, obj=obj, token=token,
+    return render('respond.html', user=user, obj=obj,
+                  token=get_required_param('token'),
                   IFRAMELY_API_KEY_MD5=IFRAMELY_API_KEY_MD5)
 
 
 @app.post(f'/<any({",".join(PROTOCOLS)}):protocol>/<user_id>/respond/reply')
+@canonicalize_request_domain(PROTOCOL_DOMAINS, PRIMARY_DOMAIN)
 @user_auth('respond')
 def respond_reply(protocol, user_id):
     """Creates a reply activity.
@@ -731,6 +727,7 @@ def respond_reply(protocol, user_id):
 
 
 @app.post(f'/<any({",".join(PROTOCOLS)}):protocol>/<user_id>/respond/like')
+@canonicalize_request_domain(PROTOCOL_DOMAINS, PRIMARY_DOMAIN)
 @user_auth('respond')
 def respond_like(protocol, user_id):
     """Creates a like activity.
@@ -760,6 +757,7 @@ def respond_like(protocol, user_id):
 
 
 @app.post(f'/<any({",".join(PROTOCOLS)}):protocol>/<user_id>/respond/repost')
+@canonicalize_request_domain(PROTOCOL_DOMAINS, PRIMARY_DOMAIN)
 @user_auth('respond')
 def respond_repost(protocol, user_id):
     """Creates a repost/share activity.
