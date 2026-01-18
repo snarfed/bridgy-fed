@@ -19,10 +19,11 @@ from google.cloud import ndb
 from google.cloud.ndb.key import Key
 from google.protobuf.timestamp_pb2 import Timestamp
 from granary import as2
-from oauth_dropins.webutil import util, webmention
+import jwt
+from oauth_dropins.webutil import flask_util, util, webmention
 from oauth_dropins.webutil.appengine_config import error_reporting_client, tasks_client
 from oauth_dropins.webutil.appengine_info import DEBUG, LOCAL_SERVER
-from oauth_dropins.webutil import flask_util
+from oauth_dropins.webutil.models import ENCRYPTED_PROPERTY_KEY_BYTES
 from oauth_dropins.webutil.util import interpret_http_exception, json_dumps
 from negotiator import ContentNegotiator, AcceptParameters, ContentType
 import requests
@@ -367,28 +368,68 @@ def log_request():
 
 
 def secret_key_auth(fn):
-  """Flask decorator that returns HTTP 401 if the request isn't authorized.
+    """Flask decorator that returns HTTP 401 if the request isn't authorized.
 
-  Right now this only handles internal authorization: the ``Authorization`` header
-  has to be set to the Flask secret key in the ``flask_secret_key`` file.
+    Right now this only handles internal authorization: the ``Authorization`` header
+    has to be set to the Flask secret key in the ``flask_secret_key`` file.
 
-  Ignored if ``LOCAL_SERVER`` is True.
+    Ignored if ``LOCAL_SERVER`` is True.
 
-  Must be used *below* :meth:`flask.Flask.route`, eg::
+    Must be used *below* :meth:`flask.Flask.route`, eg::
 
-      @app.route('/path')
-      @cloud_tasks_only()
-      def handler():
-          ...
-  """
-  @functools.wraps(fn)
-  def decorated(*args, **kwargs):
-      if request.headers.get('Authorization') != config.SECRET_KEY:
-          return '', 401
+        @app.route('/path')
+        @cloud_tasks_only()
+        def handler():
+            ...
+    """
+    @functools.wraps(fn)
+    def decorated(*args, **kwargs):
+        if request.headers.get('Authorization') != config.SECRET_KEY:
+            return '', 401
 
-      return fn(*args, **kwargs)
+        return fn(*args, **kwargs)
 
-  return decorated
+    return decorated
+
+
+def make_jwt(*, user, scope, expiration=timedelta(weeks=1)):
+    """Makes a per-user JWT signed by our EncryptedProperty symmetric key.
+
+    Args:
+      user (User)
+      scope (str)
+      expiration (timedelta)
+
+    Returns:
+      str:
+    """
+    return jwt.encode({
+      'sub': user.key.id(),
+      'scope': scope,
+      'exp': util.now() + expiration,
+    }, key=ENCRYPTED_PROPERTY_KEY_BYTES, algorithm='HS256')
+
+
+def verify_jwt(token, *, user, scope):
+    """Verifies a per-user JWT and checks that it matches a given user and scope.
+
+    Raises an exception if the JWT doesn't verify or match, otherwise returns None.
+
+    Args:
+      token (str)
+      user (User)
+      scope (str)
+
+    Raises:
+      ValueError or jwt.InvalidTokenError
+    """
+    decoded = jwt.decode(token, key=ENCRYPTED_PROPERTY_KEY_BYTES,
+                         algorithms=['HS256'])
+
+    if (sub := decoded.get('sub')) != user.key.id():
+      raise ValueError(f'expected {user.key.id()}, got {sub}')
+    elif (token_scope := decoded.get('scope')) != scope:
+      raise ValueError(f'expected {scope}, got {token_scope}')
 
 
 class FlashErrors(View):
