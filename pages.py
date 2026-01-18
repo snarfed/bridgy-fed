@@ -41,7 +41,6 @@ from common import (
     ErrorButDoNotRetryTask,
     render_template,
     secret_key_auth,
-    user_auth,
     verify_jwt,
 )
 from domains import (
@@ -130,7 +129,7 @@ def load_user(proto, id):
 def require_login(fn):
     """Decorator that requires and loads the current request's logged in user.
 
-    Passes the userin the ``user`` kwarg, as a :class:`models.User`.
+    Passes the user in the ``user`` kwarg, as a :class:`models.User`.
 
     HTTP POST params:
       key (str): url-safe ndb key
@@ -150,6 +149,48 @@ def require_login(fn):
         return fn(*args, user=user, **kwargs)
 
     return wrapper
+
+
+def require_token(scope):
+    """Decorator that loads a user and checks that they're authorized by token.
+
+    Expects a ``user_id`` kwarg. Loads the matching user and replaces it with a
+    ``user`` kwarg passed to the handler with the loaded :class:`User`.
+
+    The per-user JWT should be in the ``token`` query param or form arg.
+
+    Must be used *below* :meth:`flask.Flask.route`, eg:
+
+        @app.route('/path')
+        @require_token('respond')
+        def handler():
+            ...
+
+    Args:
+      scope (str): expected scope that the JWT must match
+    """
+    def decorator(fn):
+        @wraps(fn)
+        def decorated(*args, protocol=None, user_id=None, **kwargs):
+            assert protocol
+            assert user_id
+            user = load_user(protocol, user_id)
+
+            try:
+                verify_jwt(flask_util.get_required_param('token'),
+                           user_id=user.key.id(), scope=scope)
+            except jwt.InvalidTokenError as err:
+                logger.error(err)
+                error('Bad token', status=401)
+            except ValueError as err:
+                logger.error(err)
+                error('Not authorized', status=403)
+
+            return fn(*args, user=user, **kwargs)
+
+        return decorated
+
+    return decorator
 
 
 def get_logins():
@@ -677,16 +718,14 @@ def serve_feed(*, objects, format, user, title, as_snippets=False, quiet=False):
 
 @app.get(f'/<any({",".join(PROTOCOLS)}):protocol>/<user_id>/respond')
 @canonicalize_request_domain(PROTOCOL_DOMAINS, PRIMARY_DOMAIN)
-@user_auth('respond')
-def respond(protocol, user_id):
+@require_token('respond')
+def respond(user):
     """Lets a user reply to, like, or repost an unbridged post.
 
     Query params:
       obj_id (str): Object id
       token (str): JWT token for user authentication
     """
-    user = load_user(protocol, user_id)
-
     if not (obj := Object.get_by_id(get_required_param('obj_id'))):
         error('Object not found', status=404)
 
@@ -697,16 +736,14 @@ def respond(protocol, user_id):
 
 @app.post(f'/<any({",".join(PROTOCOLS)}):protocol>/<user_id>/respond/reply')
 @canonicalize_request_domain(PROTOCOL_DOMAINS, PRIMARY_DOMAIN)
-@user_auth('respond')
-def respond_reply(protocol, user_id):
+@require_token('respond')
+def respond_reply(user):
     """Creates a reply activity.
 
     Form params:
       obj_id (str): Object id to reply to
       content (str): reply text content
     """
-    user = load_user(protocol, user_id)
-
     if not (obj := Object.get_by_id(get_required_param('obj_id'))):
         error('Object not found', status=404)
 
@@ -728,15 +765,13 @@ def respond_reply(protocol, user_id):
 
 @app.post(f'/<any({",".join(PROTOCOLS)}):protocol>/<user_id>/respond/like')
 @canonicalize_request_domain(PROTOCOL_DOMAINS, PRIMARY_DOMAIN)
-@user_auth('respond')
-def respond_like(protocol, user_id):
+@require_token('respond')
+def respond_like(user):
     """Creates a like activity.
 
     Form params:
       obj_id (str): Object id to like
     """
-    user = load_user(protocol, user_id)
-
     if not (obj := Object.get_by_id(get_required_param('obj_id'))):
         error('Object not found', status=404)
 
@@ -758,15 +793,13 @@ def respond_like(protocol, user_id):
 
 @app.post(f'/<any({",".join(PROTOCOLS)}):protocol>/<user_id>/respond/repost')
 @canonicalize_request_domain(PROTOCOL_DOMAINS, PRIMARY_DOMAIN)
-@user_auth('respond')
-def respond_repost(protocol, user_id):
+@require_token('respond')
+def respond_repost(user):
     """Creates a repost/share activity.
 
     Form params:
       obj_id (str): Object id to repost
     """
-    user = load_user(protocol, user_id)
-
     if not (obj := Object.get_by_id(get_required_param('obj_id'))):
         error('Object not found', status=404)
 
