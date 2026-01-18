@@ -55,6 +55,9 @@ jobs:
       - run:
           name: Build and test
           command: |
+            # base64 decodes to 32 bytes
+            echo 1234567890123456789012345678901234657890123= > encrypted_property_key
+
             CLOUDSDK_CORE_PROJECT=brid-gy gcloud emulators firestore start --host-port=:8089 --database-mode=datastore-mode < /dev/null >& /tmp/firestore-emulator.log &
             sleep 5s
             python -m coverage run --source=. --omit=appengine_config.py,logs.py,tests/\* -m unittest discover
