@@ -1,6 +1,7 @@
 """Send DM notifications of replies, quote posts, mentions from unbridged users."""
 from datetime import timedelta
 import logging
+from urllib.parse import urljoin
 
 from flask import request
 from google.cloud import ndb
@@ -9,6 +10,7 @@ from oauth_dropins.webutil import appengine_info, util
 from oauth_dropins.webutil.flask_util import cloud_tasks_only
 
 import common
+from domains import PRIMARY_DOMAIN
 import dms
 from memcache import memcache, key
 from models import Object, PROTOCOLS
@@ -120,11 +122,20 @@ def notify_task():
 
     objs = ndb.get_multi(Object(id=id).key for id in notifs)
 
+    is_beta = user.key.id() in common.BETA_USER_IDS
+    token = common.make_jwt(user=user, scope='respond')
+
     message = f"<p>Hi! Here are your recent interactions from people who aren't bridged into {user.PHRASE}:\n<ul>\n"
     for obj in objs:
         url = as1.get_url(obj.as1) or obj.key.id()
         assert url
-        message += f'<li>{util.pretty_link(url)}\n'
+        line = util.pretty_link(url)
+        if is_beta:
+            respond_url = urljoin(
+                f'https://{PRIMARY_DOMAIN}/',
+                user.user_page_path(f'respond?obj_id={obj.key.id()}&token={token}'))
+            line += f' ({util.pretty_link(respond_url, "respond")})'
+        message += f'<li>{line}\n'
     message += "</ul>\n<p>To disable these messages, reply with the text 'mute'."
 
     logger.info(f'sending notifications DM for {user_id}')
