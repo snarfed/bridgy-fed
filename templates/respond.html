@@ -23,22 +23,19 @@ key is the MD5 hash of our API key
 </div>
 
 <div class="row">
-  <form method="post" action="like">
+  <form method="post" action="respond/like">
     <input type="hidden" name="obj_id" value="{{ obj.key.id() }}" />
-    <input type="hidden" name="user_key" value="{{ user.key.urlsafe().decode() }}" />
     <button type="submit" class="btn btn-default">❤️ Like</button>
   </form>
 
-  <form method="post" action="repost">
+  <form method="post" action="respond/repost">
     <input type="hidden" name="obj_id" value="{{ obj.key.id() }}" />
-    <input type="hidden" name="user_key" value="{{ user.key.urlsafe().decode() }}" />
     <button type="submit" class="btn btn-default">🔁 Repost</button>
   </form>
 </div>
 
-<form method="post" action="reply">
+<form method="post" action="respond/reply">
   <input type="hidden" name="obj_id" value="{{ obj.key.id() }}" />
-  <input type="hidden" name="user_key" value="{{ user.key.urlsafe().decode() }}" />
   <div class="row">
     {% set maxlength = 300 if obj.source_protocol == 'atproto'
            else 500 if obj.source_protocol == 'activitypub'

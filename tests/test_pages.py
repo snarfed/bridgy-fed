@@ -1231,3 +1231,85 @@ class PagesTest(TestCase):
 
         resp = self.client.get('/fake/fake:nope/respond?obj_id=other:post')
         self.assertEqual(404, resp.status_code)
+
+    @patch.object(tasks_client, 'create_task', return_value=Task(name='my task'))
+    def test_respond_reply(self, mock_create_task):
+        common.RUN_TASKS_INLINE = False
+
+        user = self.make_user('fake:user', cls=Fake)
+        obj = self.store_object(id='fake:post', our_as1={
+            'objectType': 'note',
+            'content': 'hello world',
+        })
+
+        resp = self.client.post('/fake/fake:user/respond/reply', data={
+            'obj_id': 'fake:post',
+            'content': 'test reply',
+        })
+        self.assertEqual(302, resp.status_code)
+        self.assertEqual('/fa/fake:handle:user', resp.headers['Location'])
+        self.assertEqual(['Sending reply...'], get_flashed_messages())
+
+        id = 'http://localhost/fake/fake:user/respond/reply#bridgy-fed-create-2022-01-02T03:04:05+00:00'
+        self.assert_task(mock_create_task, 'receive', source_protocol='ui',
+                         authed_as='fake:user', id=id, our_as1={
+            'objectType': 'comment',
+            'id': id,
+            'inReplyTo': 'fake:post',
+            'content': 'test reply',
+            'author': 'fake:user',
+        })
+
+    @patch.object(tasks_client, 'create_task', return_value=Task(name='my task'))
+    def test_respond_like(self, mock_create_task):
+        common.RUN_TASKS_INLINE = False
+
+        user = self.make_user('fake:user', cls=Fake)
+        obj = self.store_object(id='fake:post', our_as1={
+            'objectType': 'note',
+            'content': 'hello world',
+        })
+
+        resp = self.client.post('/fake/fake:user/respond/like', data={
+            'obj_id': 'fake:post',
+        })
+        self.assertEqual(302, resp.status_code)
+        self.assertEqual('/fa/fake:handle:user', resp.headers['Location'])
+        self.assertEqual(['Sending like...'], get_flashed_messages())
+
+        id = 'http://localhost/fake/fake:user/respond/like#bridgy-fed-create-2022-01-02T03:04:05+00:00'
+        self.assert_task(mock_create_task, 'receive', source_protocol='ui',
+                         authed_as='fake:user', id=id, our_as1={
+            'objectType': 'activity',
+            'verb': 'like',
+            'id': id,
+            'object': 'fake:post',
+            'actor': 'fake:user',
+        })
+
+    @patch.object(tasks_client, 'create_task', return_value=Task(name='my task'))
+    def test_respond_repost(self, mock_create_task):
+        common.RUN_TASKS_INLINE = False
+
+        user = self.make_user('fake:user', cls=Fake)
+        obj = self.store_object(id='fake:post', our_as1={
+            'objectType': 'note',
+            'content': 'hello world',
+        })
+
+        resp = self.client.post('/fake/fake:user/respond/repost', data={
+            'obj_id': 'fake:post',
+        })
+        self.assertEqual(302, resp.status_code)
+        self.assertEqual('/fa/fake:handle:user', resp.headers['Location'])
+        self.assertEqual(['Sending repost...'], get_flashed_messages())
+
+        id = 'http://localhost/fake/fake:user/respond/repost#bridgy-fed-create-2022-01-02T03:04:05+00:00'
+        self.assert_task(mock_create_task, 'receive', source_protocol='ui',
+                         authed_as='fake:user', id=id, our_as1={
+            'objectType': 'activity',
+            'verb': 'share',
+            'id': id,
+            'object': 'fake:post',
+            'actor': 'fake:user',
+        })

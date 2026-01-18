@@ -686,12 +686,96 @@ def respond(protocol, user_id):
 
     # TODO: auth
 
-    obj = Object.get_by_id(get_required_param('obj_id'))
-    if not obj:
-        error('', status=404)
+    if not (obj := Object.get_by_id(get_required_param('obj_id'))):
+        error('Object not found', status=404)
 
     return render('respond.html', user=user, obj=obj,
                   IFRAMELY_API_KEY_MD5=IFRAMELY_API_KEY_MD5)
+
+
+@app.post(f'/<any({",".join(PROTOCOLS)}):protocol>/<user_id>/respond/reply')
+def respond_reply(protocol, user_id):
+    """Creates a reply activity.
+
+    Form params:
+      obj_id (str): Object id to reply to
+      content (str): reply text content
+    """
+    user = load_user(protocol, user_id)
+
+    if not (obj := Object.get_by_id(get_required_param('obj_id'))):
+        error('Object not found', status=404)
+
+    id = f'{request.url}#bridgy-fed-create-{util.now().isoformat()}'
+    our_as1 = {
+        'objectType': 'comment',
+        'id': id,
+        'inReplyTo': obj.key.id(),
+        'content': get_required_param('content'),
+        'author': user.key.id(),
+    }
+
+    common.create_task(queue='receive', id=id, our_as1=our_as1,
+                       source_protocol='ui', authed_as=user.key.id())
+
+    flash('Sending reply...')
+    return redirect(user.user_page_path())
+
+
+@app.post(f'/<any({",".join(PROTOCOLS)}):protocol>/<user_id>/respond/like')
+def respond_like(protocol, user_id):
+    """Creates a like activity.
+
+    Form params:
+      obj_id (str): Object id to like
+    """
+    user = load_user(protocol, user_id)
+
+    if not (obj := Object.get_by_id(get_required_param('obj_id'))):
+        error('Object not found', status=404)
+
+    id = f'{request.url}#bridgy-fed-create-{util.now().isoformat()}'
+    our_as1 = {
+        'objectType': 'activity',
+        'verb': 'like',
+        'id': id,
+        'object': obj.key.id(),
+        'actor': user.key.id(),
+    }
+
+    common.create_task(queue='receive', id=id, our_as1=our_as1,
+                       source_protocol='ui', authed_as=user.key.id())
+
+    flash('Sending like...')
+    return redirect(user.user_page_path())
+
+
+@app.post(f'/<any({",".join(PROTOCOLS)}):protocol>/<user_id>/respond/repost')
+def respond_repost(protocol, user_id):
+    """Creates a repost/share activity.
+
+    Form params:
+      obj_id (str): Object id to repost
+    """
+    user = load_user(protocol, user_id)
+
+    if not (obj := Object.get_by_id(get_required_param('obj_id'))):
+        error('Object not found', status=404)
+
+    id = f'{request.url}#bridgy-fed-create-{util.now().isoformat()}'
+    our_as1 = {
+        'objectType': 'activity',
+        'verb': 'share',
+        'id': id,
+        'object': obj.key.id(),
+        'actor': user.key.id(),
+    }
+
+    common.create_task(queue='receive', id=id, our_as1=our_as1,
+                       source_protocol='ui', authed_as=user.key.id())
+
+    flash('Sending repost...')
+    return redirect(user.user_page_path())
 
 
 @app.get('/log')
