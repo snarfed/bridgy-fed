@@ -392,42 +392,6 @@ def secret_key_auth(fn):
     return decorated
 
 
-def user_auth(scope):
-    """Flask decorator that returns HTTP 401 if the request isn't user-JWT-authorized.
-
-    The per-user JWT should be in the ``token`` query param or form arg. It should
-    match the user in the ``user_id`` kwarg to the handler function.
-
-    Must be used *below* :meth:`flask.Flask.route`, eg:
-
-        @app.route('/path')
-        @user_auth('respond')
-        def handler():
-            ...
-
-    Args:
-      scope (str): expected scope that the JWT must match
-    """
-    def decorator(fn):
-        @functools.wraps(fn)
-        def decorated(*args, **kwargs):
-            try:
-                verify_jwt(flask_util.get_required_param('token'),
-                           user_id=kwargs['user_id'], scope=scope)
-            except jwt.InvalidTokenError as err:
-                logger.error(err)
-                error('Bad token', status=401)
-            except ValueError as err:
-                logger.error(err)
-                error('Not authorized', status=403)
-
-            return fn(*args, **kwargs)
-
-        return decorated
-
-    return decorator
-
-
 def make_jwt(*, user, scope, expiration=timedelta(weeks=1)):
     """Makes a per-user JWT signed by our EncryptedProperty symmetric key.
 
