@@ -68,9 +68,9 @@ class NotificationsTest(TestCase):
         add_notification(user, Object(id='r1', our_as1={'url': 'http://r1'}))
         add_notification(user, Object(id='http://reply2'))
 
-        self.assertEqual(['http://reply0', 'http://r1', 'http://reply2'],
+        self.assertEqual(['http://reply0', 'r1', 'http://reply2'],
                          get_notifications(user))
-        self.assertEqual(b'http://reply0 http://r1 http://reply2',
+        self.assertEqual(b'http://reply0 r1 http://reply2',
                          memcache.get('notifs-fake:user'))
         mock_create_task.assert_not_called()
 
@@ -96,8 +96,9 @@ class NotificationsTest(TestCase):
         user = self.make_user(id='fake:user', cls=Fake, enabled_protocols=['efake'],
                               obj_as1={'x': 'y'})
 
-        add_notification(user, Object(id='efake:a', our_as1={'url': 'http://notif/a'}))
-        add_notification(user, Object(id='http://notif/b'))
+        add_notification(user, self.store_object(id='efake:a',
+                                                 our_as1={'url': 'http://notif/a'}))
+        add_notification(user, self.store_object(id='http://notif/b'))
 
         common.RUN_TASKS_INLINE = True
         resp = self.post('/queue/notify', data={

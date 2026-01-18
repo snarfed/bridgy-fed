@@ -3,6 +3,7 @@ from datetime import timedelta
 import logging
 
 from flask import request
+from google.cloud import ndb
 from granary import as1
 from oauth_dropins.webutil import appengine_info, util
 from oauth_dropins.webutil.flask_util import cloud_tasks_only
@@ -10,7 +11,7 @@ from oauth_dropins.webutil.flask_util import cloud_tasks_only
 import common
 import dms
 from memcache import memcache, key
-from models import PROTOCOLS
+from models import Object, PROTOCOLS
 
 logger = logging.getLogger(__name__)
 
@@ -25,7 +26,7 @@ def add_notification(user, obj):
     """Adds a notification for a given user.
 
     The memcache key is ``notifs-{user id}``. The value is a space-separated list of
-    object URLs to notify the user of.
+    object ids to notify the user of.
 
     Uses gets/cas to create the cache entry if it doesn't exist.
 
@@ -34,31 +35,32 @@ def add_notification(user, obj):
       obj (models.Object): the object to notify about
     """
     key = notification_key(user)
-    obj_url = as1.get_url(obj.as1) or obj.key.id()
-    assert obj_url
+    url = as1.get_url(obj.as1) or obj.key.id()
 
     if user.send_notifs != 'all':
         return
 
-    if not util.is_web(obj_url):
-        logger.info(f'Dropping non-URL notif {obj_url} for {user.key.id()}')
+    if not url or not util.is_web(url):
+        logger.info(f'Dropping notif {obj.key.id()} with URL {url} for {user.key.id()}')
         return
 
-    logger.info(f'Adding notif {obj_url} for {user.key.id()}')
+    logger.info(f'Adding notif {obj.key.id()} for {user.key.id()}')
 
-    if memcache.add(key, obj_url.encode()):
+    assert ' ' not in obj.key.id()  # since the memcache value is space-separated
+
+    if memcache.add(key, obj.key.id().encode()):
         common.create_task(queue='notify', delay=NOTIFY_TASK_FREQ,
                            user_id=user.key.id(), protocol=user.LABEL)
     else:
         existing = memcache.get(key)
-        if existing and obj_url not in existing.decode().split():
+        if existing and obj.key.id() not in existing.decode().split():
             # there's a race condition here if the notify task runs between the gets
             # call above and this append call, since there won't be a value in
             # memcache, so append will do nothing. should be rare.
             #
             # gets/cas wouldn't make it any easier; we'd still need to keep retrying
             # until we have a get/append or gets/cas that no one else writes between.
-            memcache.append(key, (' ' + obj_url).encode())
+            memcache.append(key, (' ' + obj.key.id()).encode())
 
 
 def get_notifications(user, clear=False):
@@ -71,7 +73,7 @@ def get_notifications(user, clear=False):
       clear (bool): clear notifications from memcache after fetching them
 
     Returns:
-      list of str: URLs to notify the user of; possibly empty
+      list of str: Object ids to notify the user of; possibly empty
     """
     key = notification_key(user)
     notifs = memcache.get(key, default=b'').decode().strip().split()
@@ -116,8 +118,12 @@ def notify_task():
         logger.info(f"User {user_id} isn't enabled")
         return '', 204
 
+    objs = ndb.get_multi(Object(id=id).key for id in notifs)
+
     message = f"<p>Hi! Here are your recent interactions from people who aren't bridged into {user.PHRASE}:\n<ul>\n"
-    for url in notifs:
+    for obj in objs:
+        url = as1.get_url(obj.as1) or obj.key.id()
+        assert url
         message += f'<li>{util.pretty_link(url)}\n'
     message += "</ul>\n<p>To disable these messages, reply with the text 'mute'."
 
