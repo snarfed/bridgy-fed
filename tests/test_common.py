@@ -18,6 +18,7 @@ from activitypub import ActivityPub, CONNEG_HEADERS_AS2_HTML
 from atproto import ATProto
 import common
 import domains
+from flask_app import app
 from memcache import PER_USER_TASK_RATES
 from models import Follower, Object, Target
 from web import Web
@@ -156,7 +157,6 @@ class CommonTest(TestCase):
 
     def test_make_jwt(self):
         user = Fake(id='fake:user')
-
         token = common.make_jwt(user=user, scope='foo',
                                 expiration=timedelta(minutes=1))
 
@@ -172,13 +172,13 @@ class CommonTest(TestCase):
     def test_verify_jwt_success(self, _):
         user = Fake(id='fake:user')
         token = common.make_jwt(user=user, scope='foo')
-        common.verify_jwt(token, user=user, scope='foo')
+        common.verify_jwt(token, user_id='fake:user', scope='foo')
 
     @patch('oauth_dropins.webutil.util.now', return_value=datetime.now())
     def test_verify_jwt_wrong_user(self, _):
         token = common.make_jwt(user=Fake(id='fake:alice'), scope='foo')
         with self.assertRaises(ValueError):
-            common.verify_jwt(token, user=Fake(id='fake:bob'), scope='foo')
+            common.verify_jwt(token, user_id='fake:bob', scope='foo')
 
     @patch('oauth_dropins.webutil.util.now', return_value=datetime.now())
     def test_verify_jwt_wrong_scope(self, _):
@@ -186,7 +186,7 @@ class CommonTest(TestCase):
         token = common.make_jwt(user=user, scope='foo')
 
         with self.assertRaises(ValueError):
-            common.verify_jwt(token, user=user, scope='bar')
+            common.verify_jwt(token, user_id='fake:user', scope='bar')
 
     @patch('oauth_dropins.webutil.util.now', return_value=datetime.now())
     def test_verify_jwt_expired(self, _):
@@ -195,7 +195,7 @@ class CommonTest(TestCase):
                                 expiration=timedelta(seconds=-1))
 
         with self.assertRaises(jwt.ExpiredSignatureError):
-            common.verify_jwt(token, user=user, scope='foo')
+            common.verify_jwt(token, user_id='fake:user', scope='foo')
 
     @patch('oauth_dropins.webutil.util.now', return_value=datetime.now())
     def test_verify_jwt_invalid_signature(self, _):
@@ -204,4 +204,4 @@ class CommonTest(TestCase):
         invalid_token = token[:-10] + 'x' * 10
 
         with self.assertRaises(jwt.InvalidSignatureError):
-            common.verify_jwt(invalid_token, user=user, scope='foo')
+            common.verify_jwt(invalid_token, user_id='fake:user', scope='foo')

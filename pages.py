@@ -40,6 +40,7 @@ from common import (
     ErrorButDoNotRetryTask,
     render_template,
     secret_key_auth,
+    user_auth,
 )
 from domains import (
     BLOG_REDIRECT_DOMAINS,
@@ -694,6 +695,7 @@ def respond(protocol, user_id):
 
 
 @app.post(f'/<any({",".join(PROTOCOLS)}):protocol>/<user_id>/respond/reply')
+@user_auth('respond')
 def respond_reply(protocol, user_id):
     """Creates a reply activity.
 
@@ -723,6 +725,7 @@ def respond_reply(protocol, user_id):
 
 
 @app.post(f'/<any({",".join(PROTOCOLS)}):protocol>/<user_id>/respond/like')
+@user_auth('respond')
 def respond_like(protocol, user_id):
     """Creates a like activity.
 
@@ -751,6 +754,7 @@ def respond_like(protocol, user_id):
 
 
 @app.post(f'/<any({",".join(PROTOCOLS)}):protocol>/<user_id>/respond/repost')
+@user_auth('respond')
 def respond_repost(protocol, user_id):
     """Creates a repost/share activity.
 

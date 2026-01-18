@@ -375,10 +375,10 @@ def secret_key_auth(fn):
 
     Ignored if ``LOCAL_SERVER`` is True.
 
-    Must be used *below* :meth:`flask.Flask.route`, eg::
+    Must be used *below* :meth:`flask.Flask.route`, eg:
 
         @app.route('/path')
-        @cloud_tasks_only()
+        @secret_key_auth
         def handler():
             ...
     """
@@ -390,6 +390,42 @@ def secret_key_auth(fn):
         return fn(*args, **kwargs)
 
     return decorated
+
+
+def user_auth(scope):
+    """Flask decorator that returns HTTP 401 if the request isn't user-JWT-authorized.
+
+    The per-user JWT should be in the ``token`` query param or form arg. It should
+    match the user in the ``user_id`` kwarg to the handler function.
+
+    Must be used *below* :meth:`flask.Flask.route`, eg:
+
+        @app.route('/path')
+        @user_auth('respond')
+        def handler():
+            ...
+
+    Args:
+      scope (str): expected scope that the JWT must match
+    """
+    def decorator(fn):
+        @functools.wraps(fn)
+        def decorated(*args, **kwargs):
+            try:
+                verify_jwt(flask_util.get_required_param('token'),
+                           user_id=kwargs['user_id'], scope=scope)
+            except jwt.InvalidTokenError as err:
+                logger.error(err)
+                error('Bad token', status=401)
+            except ValueError as err:
+                logger.error(err)
+                error('Not authorized', status=403)
+
+            return fn(*args, **kwargs)
+
+        return decorated
+
+    return decorator
 
 
 def make_jwt(*, user, scope, expiration=timedelta(weeks=1)):
@@ -410,14 +446,14 @@ def make_jwt(*, user, scope, expiration=timedelta(weeks=1)):
     }, key=ENCRYPTED_PROPERTY_KEY_BYTES, algorithm='HS256')
 
 
-def verify_jwt(token, *, user, scope):
+def verify_jwt(token, *, user_id, scope):
     """Verifies a per-user JWT and checks that it matches a given user and scope.
 
     Raises an exception if the JWT doesn't verify or match, otherwise returns None.
 
     Args:
       token (str)
-      user (User)
+      user_id (str)
       scope (str)
 
     Raises:
@@ -426,8 +462,8 @@ def verify_jwt(token, *, user, scope):
     decoded = jwt.decode(token, key=ENCRYPTED_PROPERTY_KEY_BYTES,
                          algorithms=['HS256'])
 
-    if (sub := decoded.get('sub')) != user.key.id():
-      raise ValueError(f'expected {user.key.id()}, got {sub}')
+    if (sub := decoded.get('sub')) != user_id:
+      raise ValueError(f'expected {user_id}, got {sub}')
     elif (token_scope := decoded.get('scope')) != scope:
       raise ValueError(f'expected {scope}, got {token_scope}')
 
