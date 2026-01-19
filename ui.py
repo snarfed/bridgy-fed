@@ -11,6 +11,9 @@ import protocol
 class UIProtocol(models.User, protocol.Protocol):
     LABEL = 'ui'
 
+    def _pre_put_hook(self):
+        raise NotImplementedError()
+
     @ndb.ComputedProperty
     def handle(self):
         return None
