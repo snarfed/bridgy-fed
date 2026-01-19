@@ -1753,9 +1753,6 @@ class Protocol:
                 for id in original_ids:
                     if not (orig := original_objs.get(id)):
                         continue
-                    elif isinstance(orig, proto):
-                        logger.info(f'Allowing {label} for original {id}')
-                        break
                     elif orig.get_copy(proto):
                         logger.info(f'Allowing {label}, original {id} was bridged there')
                         break
