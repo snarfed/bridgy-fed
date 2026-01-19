@@ -1268,8 +1268,8 @@ class PagesTest(TestCase):
         self.assertEqual('/web/user.com', resp.headers['Location'])
         self.assertEqual(['Sending reply...'], get_flashed_messages())
 
-        id = f'http://localhost/web/user.com/respond/reply#bridgy-fed-create-{util.now().isoformat()}'
-        self.assert_task(mock_create_task, 'receive', source_protocol='ui',
+        id = f'user.com#bridgy-fed-reply-{util.now().isoformat()}'
+        self.assert_task(mock_create_task, 'receive', source_protocol='web',
                          authed_as='user.com', id=id, our_as1={
             'objectType': 'comment',
             'id': id,
@@ -1329,8 +1329,8 @@ class PagesTest(TestCase):
         self.assertEqual('/web/user.com', resp.headers['Location'])
         self.assertEqual(['Sending like...'], get_flashed_messages())
 
-        id = f'http://localhost/web/user.com/respond/like#bridgy-fed-create-{util.now().isoformat()}'
-        self.assert_task(mock_create_task, 'receive', source_protocol='ui',
+        id = f'user.com#bridgy-fed-like-{util.now().isoformat()}'
+        self.assert_task(mock_create_task, 'receive', source_protocol='web',
                          authed_as='user.com', id=id, our_as1={
             'objectType': 'activity',
             'verb': 'like',
@@ -1370,8 +1370,8 @@ class PagesTest(TestCase):
         self.assertEqual('/web/user.com', resp.headers['Location'])
         self.assertEqual(['Sending repost...'], get_flashed_messages())
 
-        id = f'http://localhost/web/user.com/respond/repost#bridgy-fed-create-{util.now().isoformat()}'
-        self.assert_task(mock_create_task, 'receive', source_protocol='ui',
+        id = f'user.com#bridgy-fed-repost-{util.now().isoformat()}'
+        self.assert_task(mock_create_task, 'receive', source_protocol='web',
                          authed_as='user.com', id=id, our_as1={
             'objectType': 'activity',
             'verb': 'share',
