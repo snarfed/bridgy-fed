@@ -3236,3 +3236,52 @@ To disable these messages, reply with the text 'mute'.""",
             ['EVENT', expected_event],
             ['EVENT', expected_relays],
         ], FakeConnection.sent)
+
+    @patch('oauth_dropins.webutil.util.now', return_value=datetime.now())
+    def test_activitypub_respond_reply_to_atproto(self, _):
+        """AP user bridged to ATProto uses web UI to reply to unbridged ATProto post.
+
+        ActivityPub user alice@inst.com (did:plc:alice)
+        ATProto user did:plc:bob, not bridged
+        Bob's post is at://did:plc:bob/app.bsky.feed.post/123
+        """
+        alice = self.make_ap_user('https://inst.com/alice', did='did:plc:alice',
+                                  enabled_protocols=['activitypub'])
+        self.make_atproto_user('did:plc:bob', handle='bob.com',
+                               enabled_protocols=[])
+
+        bob_post_obj = self.store_object(
+            id='at://did:plc:bob/app.bsky.feed.post/123',
+            bsky={
+                **POST_BSKY,
+                'uri': 'at://did:plc:bob/app.bsky.feed.post/123',
+                'cid': 'bafyreie5cvv4h5typfvqef2wf7nwytgdaaimzbk2cl7pza7lkxmjbmhmk4',
+            })
+
+        # alice replies via respond/reply endpoint
+        resp = self.client.post('/ap/@alice@inst.com/respond/reply', data={
+            'obj_id': 'at://did:plc:bob/app.bsky.feed.post/123',
+            'content': 'ok then',
+            'token': common.make_jwt(user=alice, scope='respond'),
+        })
+        self.assertEqual(302, resp.status_code)
+        self.assertEqual('/ap/@alice@inst.com', resp.headers['Location'])
+
+        # check for the reply in alice's repo
+        repo = self.storage.load_repo('did:plc:alice')
+        record = list(repo.get_contents()['app.bsky.feed.post'].values())[0]
+        self.assert_equals({
+            '$type': 'app.bsky.feed.post',
+            'text': 'ok then',
+            'reply': {
+                '$type': 'app.bsky.feed.post#replyRef',
+                'parent': {
+                    'uri': 'at://did:plc:bob/app.bsky.feed.post/123',
+                    'cid': 'bafyreie5cvv4h5typfvqef2wf7nwytgdaaimzbk2cl7pza7lkxmjbmhmk4',
+                },
+                'root': {
+                    'uri': 'at://did:plc:bob/app.bsky.feed.post/123',
+                    'cid': 'bafyreie5cvv4h5typfvqef2wf7nwytgdaaimzbk2cl7pza7lkxmjbmhmk4',
+                },
+            },
+        }, record, ignore=['bridgyOriginalText', 'bridgyOriginalUrl', 'createdAt'])
