@@ -452,7 +452,9 @@
 
 <li id="blocklist" class="question">How do I subscribe to a blocklist?</li>
 <li class="answer">
-<p>Blocklists are currently supported on Bluesky. If you're on another network and bridged into Bluesky, use the <code>block</code> <a href="#dm-commands">DM command</a> with a Bluesky list URL to block that list. For example, to block <a href="https://bsky.app/profile/snarfed.org/lists/3m4qzag4fjg26">this list</a>, DM the text <code>block https://bsky.app/profile/snarfed.org/lists/3m4qzag4fjg26</code> to the Bridgy Fed bot account <code>@bsky.brid.gy</code>.</p>
+<p>Blocklists are currently supported on Bluesky. If you're on another network and bridged into Bluesky, use the <code>block</code> <a href="#dm-commands">DM command</a> with a Bluesky list URL to block that list. For example, to block <a href="https://bsky.app/profile/snarfed.org/lists/3m4qzag4fjg26">this list</a>, DM the text <code>block https://bsky.app/profile/snarfed.org/lists/3m4qzag4fjg26</code> to the Bridgy Fed bot account <code>@bsky.brid.gy</code>.
+<p>You can also subscribe to fediverse-style CSV domain blocklists. Subscribing to a domain blocklist will block bridged interactions with users on any domain on the list. This applies to fediverse instances, web sites, ATProto PDSes, domain handles, etc. To subscribe to a domain blocklist, choose one from the <em>Domain blocklists</em> drop-down on your <a href="/settings">settings page</a>, or enter the CSV URL into the <em>Block</em> form there, or DM the URL to a Bridgy Fed bot account.
+<p>(Note that Bridgy Fed can only use domain blocklists to prevent bridging direct interactions, and sometimes block affected users from seeing your posts. It doesn't create per-user blocks for every affected user, it can't entirely block people from interacting, and it can't always prevent affected users from seeing your posts in all cases.)
 <p>If you change your mind, you can unblock a list with the <code>unblock</code> command, eg <code>unblock https://bsky.app/profile/snarfed.org/lists/3m4qzag4fjg26</code>.
 </li>
 
