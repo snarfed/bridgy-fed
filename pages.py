@@ -829,6 +829,39 @@ def respond_repost(user):
     return redirect(user.user_page_path())
 
 
+@app.post(f'/<any({",".join(PROTOCOLS)}):protocol>/<user_id>/respond/block')
+@canonicalize_request_domain(PROTOCOL_DOMAINS, PRIMARY_DOMAIN)
+@require_token('respond', ['obj_id'])
+def respond_block(user):
+    """Creates a block activity.
+
+    Form params:
+      obj_id (str): Object id to get the actor from to block
+    """
+    if not (obj := Object.get_by_id(get_required_param('obj_id'))):
+        error('Object not found', status=404)
+
+    # get the actor from the object
+    actor = as1.get_owner(obj.as1)
+    if not actor:
+        error('No actor found in object', status=400)
+
+    id = f'{user.key.id()}#bridgy-fed-block-{util.now().isoformat()}'
+    our_as1 = {
+        'objectType': 'activity',
+        'verb': 'block',
+        'id': id,
+        'object': actor,
+        'actor': user.key.id(),
+    }
+
+    common.create_task(queue='receive', id=id, our_as1=our_as1,
+                       source_protocol=user.LABEL, authed_as=user.key.id())
+
+    flash('Sending block...')
+    return redirect(user.user_page_path())
+
+
 @app.get('/log')
 @canonicalize_request_domain(PROTOCOL_DOMAINS, PRIMARY_DOMAIN)
 @flask_util.headers(CACHE_CONTROL)

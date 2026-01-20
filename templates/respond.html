@@ -34,6 +34,12 @@ key is the MD5 hash of our API key
     <input type="hidden" name="token" value="{{ token }}" />
     <button type="submit" class="btn btn-default">🔁 Repost</button>
   </form>
+
+  <form method="post" action="respond/block">
+    <input type="hidden" name="obj_id" value="{{ obj.key.id() }}" />
+    <input type="hidden" name="token" value="{{ token }}" />
+    <button type="submit" class="btn btn-default">🚫 Block</button>
+  </form>
 </div>
 
 <form method="post" action="respond/reply">
