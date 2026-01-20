@@ -3262,7 +3262,8 @@ To disable these messages, reply with the text 'mute'.""",
         resp = self.client.post('/ap/@alice@inst.com/respond/reply', data={
             'obj_id': 'at://did:plc:bob/app.bsky.feed.post/123',
             'content': 'ok then',
-            'token': common.make_jwt(user=alice, scope='respond'),
+            'token': common.make_jwt(user=alice, scope='respond',
+                                     obj_id='at://did:plc:bob/app.bsky.feed.post/123'),
         })
         self.assertEqual(302, resp.status_code)
         self.assertEqual('/ap/@alice@inst.com', resp.headers['Location'])

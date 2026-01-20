@@ -1206,7 +1206,7 @@ class PagesTest(TestCase):
     @patch('oauth_dropins.webutil.util.now', return_value=datetime.now())
     def test_respond(self, _):
         self.store_object(id='other:post', our_as1={'url': 'https://other/post'})
-        token = common.make_jwt(user=self.user, scope='respond')
+        token = common.make_jwt(user=self.user, scope='respond', obj_id='other:post')
 
         resp = self.client.get(
             f'/web/user.com/respond?obj_id=other:post&token={token}')
@@ -1239,10 +1239,17 @@ class PagesTest(TestCase):
 
     @patch('oauth_dropins.webutil.util.now', return_value=datetime.now())
     def test_respond_object_not_found(self, _):
-        token = common.make_jwt(user=self.user, scope='respond')
+        token = common.make_jwt(user=self.user, scope='respond', obj_id='other:nope')
         resp = self.client.get(
             f'/web/user.com/respond?obj_id=other:nope&token={token}')
         self.assertEqual(404, resp.status_code)
+
+    @patch('oauth_dropins.webutil.util.now', return_value=datetime.now())
+    def test_respond_wrong_obj_id(self, _):
+        token = common.make_jwt(user=self.user, scope='respond', obj_id='other:nope')
+        resp = self.client.get(
+            f'/web/user.com/respond?obj_id=other:post&token={token}')
+        self.assertEqual(403, resp.status_code)
 
     @patch('oauth_dropins.webutil.util.now', return_value=datetime.now())
     def test_respond_user_not_found(self, _):
@@ -1262,7 +1269,8 @@ class PagesTest(TestCase):
         resp = self.client.post('/web/user.com/respond/reply', data={
             'obj_id': 'fake:post',
             'content': 'test reply',
-            'token': common.make_jwt(user=self.user, scope='respond'),
+            'token': common.make_jwt(user=self.user, scope='respond',
+                                     obj_id='fake:post'),
         })
         self.assertEqual(302, resp.status_code)
         self.assertEqual('/web/user.com', resp.headers['Location'])
@@ -1279,7 +1287,6 @@ class PagesTest(TestCase):
         })
 
     def test_respond_reply_missing_token(self):
-        user = self.make_user('fake:user', cls=Fake)
         obj = self.store_object(id='fake:post')
         resp = self.client.post('/web/user.com/respond/reply', data={
             'obj_id': 'fake:post',
@@ -1293,7 +1300,18 @@ class PagesTest(TestCase):
         resp = self.client.post('/fake/fake:bob/respond/reply', data={
             'obj_id': 'fake:post',
             'content': 'test reply',
-            'token': common.make_jwt(user=self.user, scope='respond'),
+            'token': common.make_jwt(user=self.user, scope='respond',
+                                     obj_id='fake:post'),
+        })
+        self.assertEqual(403, resp.status_code)
+
+    @patch('oauth_dropins.webutil.util.now', return_value=datetime.now())
+    def test_respond_reply_wrong_obj_id(self, _):
+        resp = self.client.post('/web/user.com/respond/reply', data={
+            'obj_id': 'fake:post',
+            'content': 'test reply',
+            'token': common.make_jwt(user=self.user, scope='respond',
+                                     obj_id='fake:nope'),
         })
         self.assertEqual(403, resp.status_code)
 
@@ -1307,7 +1325,6 @@ class PagesTest(TestCase):
 
     @patch('oauth_dropins.webutil.util.now', return_value=datetime.now())
     def test_respond_reply_wrong_scope(self, _):
-        self.make_user('fake:alice', cls=Fake)
         resp = self.client.post('/web/user.com/respond/reply', data={
             'obj_id': 'fake:post',
             'token': common.make_jwt(user=self.user, scope='other'),
@@ -1323,7 +1340,8 @@ class PagesTest(TestCase):
 
         resp = self.client.post('/web/user.com/respond/like', data={
             'obj_id': 'fake:post',
-            'token': common.make_jwt(user=self.user, scope='respond'),
+            'token': common.make_jwt(user=self.user, scope='respond',
+                                     obj_id='fake:post'),
         })
         self.assertEqual(302, resp.status_code)
         self.assertEqual('/web/user.com', resp.headers['Location'])
@@ -1351,7 +1369,17 @@ class PagesTest(TestCase):
         self.make_user('fake:bob', cls=Fake)
         resp = self.client.post('/fake/fake:bob/respond/like', data={
             'obj_id': 'fake:post',
-            'token': common.make_jwt(user=self.user, scope='respond'),
+            'token': common.make_jwt(user=self.user, scope='respond',
+                                     obj_id='fake:post'),
+        })
+        self.assertEqual(403, resp.status_code)
+
+    @patch('oauth_dropins.webutil.util.now', return_value=datetime.now())
+    def test_respond_like_wrong_obj_id(self, _):
+        resp = self.client.post('/web/user.com/respond/like', data={
+            'obj_id': 'fake:post',
+            'token': common.make_jwt(user=self.user, scope='respond',
+                                     obj_id='fake:nope'),
         })
         self.assertEqual(403, resp.status_code)
 
@@ -1364,7 +1392,8 @@ class PagesTest(TestCase):
 
         resp = self.client.post('/web/user.com/respond/repost', data={
             'obj_id': 'fake:post',
-            'token': common.make_jwt(user=self.user, scope='respond'),
+            'token': common.make_jwt(user=self.user, scope='respond',
+                                     obj_id='fake:post'),
         })
         self.assertEqual(302, resp.status_code)
         self.assertEqual('/web/user.com', resp.headers['Location'])
@@ -1392,6 +1421,15 @@ class PagesTest(TestCase):
         self.make_user('fake:bob', cls=Fake)
         resp = self.client.post('/fake/fake:bob/respond/repost', data={
             'obj_id': 'fake:post',
-            'token': common.make_jwt(user=self.user, scope='respond'),
+            'token': common.make_jwt(user=self.user, scope='respond', obj_id='fake:post'),
+        })
+        self.assertEqual(403, resp.status_code)
+
+    @patch('oauth_dropins.webutil.util.now', return_value=datetime.now())
+    def test_respond_repost_wrong_obj_id(self, _):
+        resp = self.client.post('/web/user.com/respond/repost', data={
+            'obj_id': 'fake:post',
+            'token': common.make_jwt(user=self.user, scope='respond',
+                                     obj_id='fake:nope'),
         })
         self.assertEqual(403, resp.status_code)
