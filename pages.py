@@ -151,7 +151,7 @@ def require_login(fn):
     return wrapper
 
 
-def require_token(scope):
+def require_token(scope, claims=None):
     """Decorator that loads a user and checks that they're authorized by token.
 
     Expects a ``user_id`` kwarg. Loads the matching user and replaces it with a
@@ -168,6 +168,7 @@ def require_token(scope):
 
     Args:
       scope (str): expected scope that the JWT must match
+      claims (sequence of str): optional additional claims that the JWT must match
     """
     def decorator(fn):
         @wraps(fn)
@@ -175,10 +176,12 @@ def require_token(scope):
             assert protocol
             assert user_id
             user = load_user(protocol, user_id)
+            expected_claims = ({c: flask_util.get_required_param(c) for c in claims}
+                               if claims else {})
 
             try:
                 verify_jwt(flask_util.get_required_param('token'),
-                           user_id=user.key.id(), scope=scope)
+                           user_id=user.key.id(), scope=scope, **expected_claims)
             except jwt.InvalidTokenError as err:
                 logger.error(err)
                 error('Bad token', status=401)
@@ -718,7 +721,7 @@ def serve_feed(*, objects, format, user, title, as_snippets=False, quiet=False):
 
 @app.get(f'/<any({",".join(PROTOCOLS)}):protocol>/<user_id>/respond')
 @canonicalize_request_domain(PROTOCOL_DOMAINS, PRIMARY_DOMAIN)
-@require_token('respond')
+@require_token('respond', ['obj_id'])
 def respond(user):
     """Lets a user reply to, like, or repost an unbridged post.
 
@@ -736,7 +739,7 @@ def respond(user):
 
 @app.post(f'/<any({",".join(PROTOCOLS)}):protocol>/<user_id>/respond/reply')
 @canonicalize_request_domain(PROTOCOL_DOMAINS, PRIMARY_DOMAIN)
-@require_token('respond')
+@require_token('respond', ['obj_id'])
 def respond_reply(user):
     """Creates a reply activity.
 
@@ -768,7 +771,7 @@ def respond_reply(user):
 
 @app.post(f'/<any({",".join(PROTOCOLS)}):protocol>/<user_id>/respond/like')
 @canonicalize_request_domain(PROTOCOL_DOMAINS, PRIMARY_DOMAIN)
-@require_token('respond')
+@require_token('respond', ['obj_id'])
 def respond_like(user):
     """Creates a like activity.
 
@@ -798,7 +801,7 @@ def respond_like(user):
 
 @app.post(f'/<any({",".join(PROTOCOLS)}):protocol>/<user_id>/respond/repost')
 @canonicalize_request_domain(PROTOCOL_DOMAINS, PRIMARY_DOMAIN)
-@require_token('respond')
+@require_token('respond', ['obj_id'])
 def respond_repost(user):
     """Creates a repost/share activity.
 

@@ -134,12 +134,13 @@ class NotificationsTest(TestCase):
         })
         self.assertEqual(200, resp.status_code)
 
-        token = common.make_jwt(user=user, scope='respond')
+        token_a = common.make_jwt(user=user, scope='respond', obj_id='efake:a')
+        token_b = common.make_jwt(user=user, scope='respond', obj_id='http://notif/b')
         test_dms.DmsTest().assert_sent(ExplicitFake, user, '?', f"""\
 <p>Hi! Here are your recent interactions from people who aren't bridged into fake-phrase:
 <ul>
-<li><a href="http://notif/a">notif/a</a> (<a href="https://fed.brid.gy/fa/fake:handle:user/respond?obj_id=efake:a&token={token}">respond</a>)
-<li><a href="http://notif/b">notif/b</a> (<a href="https://fed.brid.gy/fa/fake:handle:user/respond?obj_id=http://notif/b&token={token}">respond</a>)
+<li><a href="http://notif/a">notif/a</a> (<a href="https://fed.brid.gy/fa/fake:handle:user/respond?obj_id=efake:a&token={token_a}">respond</a>)
+<li><a href="http://notif/b">notif/b</a> (<a href="https://fed.brid.gy/fa/fake:handle:user/respond?obj_id=http://notif/b&token={token_b}">respond</a>)
 </ul>
 <p>To disable these messages, reply with the text 'mute'.""")
         self.assertEqual([], get_notifications(user))

@@ -392,26 +392,28 @@ def secret_key_auth(fn):
     return decorated
 
 
-def make_jwt(*, user, scope, expiration=timedelta(weeks=1)):
+def make_jwt(*, user, scope, expiration=timedelta(weeks=1), **claims):
     """Makes a per-user JWT signed by our EncryptedProperty symmetric key.
 
     Args:
       user (User)
       scope (str)
       expiration (timedelta)
+      **claims (str: str): optional additional claims
 
     Returns:
       str:
     """
-    return jwt.encode({
+    claims.update({
       'sub': user.key.id(),
       'scope': scope,
       'exp': util.now() + expiration,
-    }, key=ENCRYPTED_PROPERTY_KEY_BYTES, algorithm='HS256')
+    })
+    return jwt.encode(claims, key=ENCRYPTED_PROPERTY_KEY_BYTES, algorithm='HS256')
 
 
-def verify_jwt(token, *, user_id, scope):
-    """Verifies a per-user JWT and checks that it matches a given user and scope.
+def verify_jwt(token, *, user_id, scope, **claims):
+    """Verifies a per-user JWT and checks that it matches a user, scope, etc.
 
     Raises the appropriate werkzeug HTTPException if the JWT doesn't verify or match,
     otherwise returns None.
@@ -420,6 +422,7 @@ def verify_jwt(token, *, user_id, scope):
       token (str)
       user_id (str)
       scope (str)
+      **claims (str: str): optional additional claims to check
 
     Raises:
       werkzeug.exceptions.Unauthorized: if the token is invalid
@@ -429,10 +432,9 @@ def verify_jwt(token, *, user_id, scope):
     decoded = jwt.decode(token, key=ENCRYPTED_PROPERTY_KEY_BYTES,
                          algorithms=['HS256'])
 
-    if (sub := decoded.get('sub')) != user_id:
-      raise ValueError(f'expected {user_id}, got {sub}')
-    elif (token_scope := decoded.get('scope')) != scope:
-      raise ValueError(f'expected {scope}, got {token_scope}')
+    for key, expected in list(claims.items()) + [('sub', user_id), ('scope', scope)]:
+      if (got := decoded.get(key)) != expected:
+        raise ValueError(f'expected {key} {expected}, got {got}')
 
 
 class FlashErrors(View):

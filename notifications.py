@@ -123,7 +123,6 @@ def notify_task():
     objs = ndb.get_multi(Object(id=id).key for id in notifs)
 
     is_beta = user.key.id() in common.BETA_USER_IDS
-    token = common.make_jwt(user=user, scope='respond')
 
     message = f"<p>Hi! Here are your recent interactions from people who aren't bridged into {user.PHRASE}:\n<ul>\n"
     for obj in objs:
@@ -131,6 +130,7 @@ def notify_task():
         assert url
         line = util.pretty_link(url)
         if is_beta:
+            token = common.make_jwt(user=user, scope='respond', obj_id=obj.key.id())
             respond_url = urljoin(
                 f'https://{PRIMARY_DOMAIN}/',
                 user.user_page_path(f'respond?obj_id={obj.key.id()}&token={token}'))
