@@ -1433,3 +1433,54 @@ class PagesTest(TestCase):
                                      obj_id='fake:nope'),
         })
         self.assertEqual(403, resp.status_code)
+
+    @patch('oauth_dropins.webutil.util.now', return_value=datetime.now())
+    @patch.object(tasks_client, 'create_task', return_value=Task(name='my task'))
+    def test_respond_block(self, mock_create_task, _):
+        common.RUN_TASKS_INLINE = False
+
+        self.store_object(id='fake:post', our_as1={'author': 'fake:alice'})
+
+        resp = self.client.post('/web/user.com/respond/block', data={
+            'obj_id': 'fake:post',
+            'token': common.make_jwt(user=self.user, scope='respond',
+                                     obj_id='fake:post'),
+        })
+        self.assertEqual(302, resp.status_code)
+        self.assertEqual('/web/user.com', resp.headers['Location'])
+        self.assertEqual(['Sending block...'], get_flashed_messages())
+
+        id = f'user.com#bridgy-fed-block-{util.now().isoformat()}'
+        self.assert_task(mock_create_task, 'receive', source_protocol='web',
+                         authed_as='user.com', id=id, our_as1={
+            'objectType': 'activity',
+            'verb': 'block',
+            'id': id,
+            'object': 'fake:alice',
+            'actor': 'user.com',
+        })
+
+    def test_respond_block_missing_token(self):
+        self.store_object(id='fake:post')
+        resp = self.client.post('/web/user.com/respond/block', data={
+            'obj_id': 'fake:post',
+        })
+        self.assertEqual(400, resp.status_code)
+
+    @patch('oauth_dropins.webutil.util.now', return_value=datetime.now())
+    def test_respond_block_wrong_user(self, _):
+        self.make_user('fake:bob', cls=Fake)
+        resp = self.client.post('/fake/fake:bob/respond/block', data={
+            'obj_id': 'fake:post',
+            'token': common.make_jwt(user=self.user, scope='respond', obj_id='fake:post'),
+        })
+        self.assertEqual(403, resp.status_code)
+
+    @patch('oauth_dropins.webutil.util.now', return_value=datetime.now())
+    def test_respond_block_wrong_obj_id(self, _):
+        resp = self.client.post('/web/user.com/respond/block', data={
+            'obj_id': 'fake:post',
+            'token': common.make_jwt(user=self.user, scope='respond',
+                                     obj_id='fake:nope'),
+        })
+        self.assertEqual(403, resp.status_code)
