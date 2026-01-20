@@ -3529,6 +3529,56 @@ class ProtocolReceiveTest(TestCase):
             ignore=['created', 'updated'],
         )
 
+    @patch.object(ExplicitFake, 'REQUIRES_AVATAR', new=True)
+    def test_follow_bridged_user_follower_fails_spam_filters(self):
+        self.user.enable_protocol(ExplicitFake)
+
+        bob = self.make_user('efake:bob', cls=ExplicitFake, obj_as1={
+            'id': 'efake:bob',
+            'objectType': 'person',
+            'displayName': 'Bob',
+            # no image
+        })
+        ExplicitFake.fetchable = {
+            'efake:bob': {
+                'id': 'efake:bob',
+                'objectType': 'person',
+                'displayName': 'Bob',
+                # no image
+            },
+        }
+
+        follow_as1 = {
+            'objectType': 'activity',
+            'verb': 'follow',
+            'id': 'efake:follow',
+            'actor': 'efake:bob',
+            'object': 'fake:user',
+        }
+        _, code = ExplicitFake.receive_as1(follow_as1)
+        self.assertEqual(204, code)
+
+        follower = Follower.query().get()
+        self.assertEqual(self.user.key, follower.to)
+        self.assertEqual(bob.key, follower.from_)
+        self.assertEqual('active', follower.status)
+
+        accept_as1 = {
+            'id': 'fake:user/followers#accept-efake:follow',
+            'objectType': 'activity',
+            'verb': 'accept',
+            'actor': 'fake:user',
+            'object': {
+                **follow_as1,
+                'actor': {
+                    'id': 'efake:bob',
+                    'objectType': 'person',
+                    'displayName': 'Bob',
+                },
+            },
+        }
+        self.assertEqual([('efake:bob:target', accept_as1)], ExplicitFake.sent)
+
     def test_follow_protocol_that_doesnt_support_accept(self, **extra):
         self.user.obj.our_as1 = {'x': 'y'}
         self.user.obj.put()

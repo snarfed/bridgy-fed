@@ -1218,7 +1218,8 @@ class Protocol:
             # picture, and then updates again to make themselves valid again, we'll
             # ignore the second update. they'll have to un-bridge and re-bridge
             # themselves to get back working again.
-            from_user = from_cls.get_or_create(id=actor, allow_opt_out=internal)
+            from_user = from_cls.get_or_create(
+                id=actor, allow_opt_out=internal or obj.type == 'follow')
 
         if not internal and (not from_user or from_user.manual_opt_out):
             error(f"Couldn't load actor {actor}", status=204)
@@ -1465,7 +1466,7 @@ class Protocol:
                 continue
 
             to_user = to_cls.get_or_create(id=to_key.id())
-            if not to_user or not to_user.is_enabled(from_user):
+            if not to_user or not to_user.is_enabled(from_cls):
                 error(f'{to_id} not found')
 
             follower_obj = Follower.get_or_create(to=to_user, from_=from_user,
