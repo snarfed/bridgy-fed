@@ -1158,7 +1158,7 @@ class ObjectTest(TestCase):
 </a>""", obj.actor_link(sized=True), ignore_blanks=True)
 
     def test_actor_link_composite_url(self):
-        obj = Object(id='x', our_as1={
+        obj = Object(id='x', source_protocol='activitypub', our_as1={
             'actor': {
                 'url': {
                     'value': 'https://mas.to/@foo',
@@ -1931,6 +1931,21 @@ bar.org
 
         obj = Object(id='a', extra_as1={'displayName': 'b', 'url': 'c'})
         self.assertEqual('<a href="c">b</a>', obj.html_link())
+
+    def test_owner_protocol(self):
+        for our_as1 in (
+            None,
+            {'foo': 'bar'},
+            {'actor': 'unknown id type'},
+        ):
+            with self.subTest(our_as1=our_as1):
+                self.assertIsNone(Object(our_as1=our_as1).owner_protocol())
+
+        obj = Object(our_as1={'actor': 'fake:alice'})
+        self.assertEqual(Fake, obj.owner_protocol())
+
+        obj.source_protocol = 'ui'
+        self.assertEqual(Fake, obj.owner_protocol())
 
 
 class FollowerTest(TestCase):

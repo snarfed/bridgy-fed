@@ -4004,8 +4004,11 @@ Sed tortor neque, aliquet quis posuere aliquam, imperdiet sitamet […]
             self.assertEqual(404, resp.status_code)
 
     def test_check_supported(self):
+        self.store_object(id='did:plc:bob', raw=DID_DOC)
+        self.make_user('did:plc:bob', cls=ATProto)
+
         # sending DMs should be allowed
-        dm = Object(our_as1={
+        dm = Object(source_protocol='fake', our_as1={
             'objectType': 'note',
             'id': 'fake:dm',
             'actor': 'fake:alice',

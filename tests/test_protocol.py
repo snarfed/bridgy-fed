@@ -3897,7 +3897,8 @@ class ProtocolReceiveTest(TestCase):
             'object': ['http://user.com/bob', 'http://user.com/eve'],
         }
 
-        _, code = Web.receive(Object(our_as1=follow_as1), authed_as='user.com')
+        _, code = Web.receive(Object(source_protocol='web', our_as1=follow_as1),
+                              authed_as='user.com')
         self.assertEqual(204, code)
 
         mock_post.assert_not_called()
@@ -4470,7 +4471,7 @@ class ProtocolReceiveTest(TestCase):
             self.as2_resp(actor),
         ]
 
-        _, code = ActivityPub.receive(Object(our_as1={
+        _, code = ActivityPub.receive(Object(source_protocol='activitypub', our_as1={
             'id': 'https://lim.it/alice#update',
             'objectType': 'activity',
             'verb': 'update',
@@ -4497,7 +4498,7 @@ class ProtocolReceiveTest(TestCase):
         # follow by bot user shouldn't count
         Follower.get_or_create(to=user, from_=Web(id='https://bsky.brid.gy/'))
 
-        _, code = ActivityPub.receive(Object(as2={
+        _, code = ActivityPub.receive(Object(source_protocol='activitypub', as2={
             **NOTE,
             'id': 'https://lim.it/note',
             'actor': actor,

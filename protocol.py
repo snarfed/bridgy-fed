@@ -1185,13 +1185,16 @@ class Protocol:
         actor = as1.get_owner(obj.as1)
         if not actor:
             error('Activity missing actor or author')
-        elif from_cls.owns_id(actor) is False:
-            error(f"{from_cls.LABEL} doesn't own actor {actor}, this is probably a bridged activity. Skipping.", status=204)
+
+        if not (from_user_cls := obj.owner_protocol()):
+            error(f"couldn't determine owner protocol for {obj.key.id()} source_protocol {obj.source_protocol}", status=204)
+        elif from_user_cls.owns_id(actor) is False:
+            error(f"{from_user_cls.LABEL} doesn't own actor {actor}, this is probably a bridged activity. Skipping.", status=204)
 
         assert authed_as
         assert isinstance(authed_as, str)
-        authed_as = ids.normalize_user_id(id=authed_as, proto=from_cls)
-        actor = ids.normalize_user_id(id=actor, proto=from_cls)
+        authed_as = ids.normalize_user_id(id=authed_as, proto=from_user_cls)
+        actor = ids.normalize_user_id(id=actor, proto=from_user_cls)
         # TODO: remove internal here once we've fixed #2237
         if actor != authed_as and not internal:
             report_error("Auth: receive: authed_as doesn't match owner",
@@ -1206,7 +1209,7 @@ class Protocol:
                 and Protocol.for_bridgy_subdomain(as1.get_object(obj.as1).get('id'))):
             # follows of bot user; refresh user profile first
             logger.info(f'Follow of bot user, reloading {actor}')
-            from_user = from_cls.get_or_create(id=actor, allow_opt_out=True)
+            from_user = from_user_cls.get_or_create(id=actor, allow_opt_out=True)
             from_user.reload_profile()
         else:
             # load actor user
@@ -1218,7 +1221,7 @@ class Protocol:
             # picture, and then updates again to make themselves valid again, we'll
             # ignore the second update. they'll have to un-bridge and re-bridge
             # themselves to get back working again.
-            from_user = from_cls.get_or_create(
+            from_user = from_user_cls.get_or_create(
                 id=actor, allow_opt_out=internal or obj.type == 'follow')
 
         if not internal and (not from_user or from_user.manual_opt_out):
@@ -1260,7 +1263,6 @@ class Protocol:
                     logger.debug(f"Couldn't parse published {published}")
 
         # write Object to datastore
-        obj.source_protocol = from_cls.LABEL
         if obj.type in STORE_AS1_TYPES:
             obj.put()
 
@@ -1270,7 +1272,7 @@ class Protocol:
         crud_obj = None
         if obj.type in ('post', 'update') and inner_obj_as1.keys() > set(['id']):
             crud_obj = Object.get_or_create(inner_obj_id, our_as1=inner_obj_as1,
-                                            source_protocol=from_cls.LABEL,
+                                            source_protocol=obj.source_protocol,
                                             authed_as=actor, users=[from_user.key],
                                             deleted=False)
 
@@ -1285,7 +1287,7 @@ class Protocol:
                 error(f'stop-following requires actor id and object id. Got: {actor_id} {inner_obj_id} {obj.as1}')
 
             # deactivate Follower
-            from_ = from_cls.key_for(actor_id)
+            from_ = from_user_cls.key_for(actor_id)
             if not (to_cls := Protocol.for_id(inner_obj_id)):
                 error(f"Can't determine protocol for {inner_obj_id} , giving up")
             to = to_cls.key_for(inner_obj_id)
@@ -1346,8 +1348,8 @@ class Protocol:
         if (actor and actor.keys() == set(['id'])
                 and not is_user and obj.type not in ('delete', 'undo')):
             logger.debug('Fetching actor so we have name, profile photo, etc')
-            actor_obj = from_cls.load(ids.profile_id(id=actor['id'], proto=from_cls),
-                                      raise_=False)
+            actor_obj = from_user_cls.load(
+                ids.profile_id(id=actor['id'], proto=from_cls), raise_=False)
             if actor_obj and actor_obj.as1:
                 obj.our_as1 = {
                     **obj.as1, 'actor': {
@@ -1762,7 +1764,7 @@ class Protocol:
 
                     if (origs_could_bridge is not False
                             and (orig_author_id := as1.get_owner(orig.as1))
-                            and (orig_proto := PROTOCOLS.get(orig.source_protocol))
+                            and (orig_proto := orig.owner_protocol())
                             and (orig_author := orig_proto.get_by_id(orig_author_id))):
                         origs_could_bridge = orig_author.is_enabled(proto)
 
@@ -2141,7 +2143,7 @@ Hi! You <a href="{inner_obj_as1.get('url') or inner_obj_id}">recently {verb}</a>
                 if (not cls.SUPPORTS_DMS or (recip not in common.bot_user_ids()
                                              and owner not in common.bot_user_ids())):
                     # reply and say DMs aren't supported
-                    from_proto = PROTOCOLS.get(obj.source_protocol)
+                    from_proto = obj.owner_protocol()
                     to_proto = Protocol.for_id(recip)
                     if owner and from_proto and to_proto:
                         if ((from_user := from_proto.get_or_create(id=owner))

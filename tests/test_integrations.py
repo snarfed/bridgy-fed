@@ -3252,6 +3252,7 @@ To disable these messages, reply with the text 'mute'.""",
 
         bob_post_obj = self.store_object(
             id='at://did:plc:bob/app.bsky.feed.post/123',
+            source_protocol='atproto',
             bsky={
                 **POST_BSKY,
                 'uri': 'at://did:plc:bob/app.bsky.feed.post/123',

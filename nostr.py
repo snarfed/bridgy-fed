@@ -432,10 +432,9 @@ class Nostr(User, Protocol):
         # NIP-48 proxy tag with original protocol's id
         proxy_tag = None
         if ((orig_id := obj_as1.get('id')) and not orig_id.startswith('nostr:')
-                and obj.source_protocol):
+                and obj.source_protocol not in (None, 'ui')):
             if is_user:
                 orig_id = from_user.id_uri()
-            proto = PROTOCOLS[obj.source_protocol]
             proxy_tag = [orig_id, obj.source_protocol]
 
         # convert!

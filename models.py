@@ -1533,7 +1533,7 @@ class Object(AddRemoveMixin, StringIdModel):
             # authorization: check that the authed user is allowed to modify
             # this object
             # https://www.w3.org/wiki/ActivityPub/Primer/Authentication_Authorization
-            proto = PROTOCOLS.get(obj.source_protocol)
+            proto = obj.owner_protocol()
             assert proto, obj.source_protocol
             owners = [ids.normalize_user_id(id=owner, proto=proto)
                       for owner in (as1.get_ids(obj.as1, 'author')
@@ -1692,15 +1692,14 @@ class Object(AddRemoveMixin, StringIdModel):
             # outbound; show a nice link to the user
             return user.html_link(handle=False, pictures=True)
 
-        proto = PROTOCOLS.get(self.source_protocol)
-
+        proto = self.owner_protocol()
         actor = None
         if self.as1:
             actor = (as1.get_object(self.as1, 'actor')
                      or as1.get_object(self.as1, 'author'))
             # hydrate from datastore if available
             # TODO: optimize! this is called serially in loops, eg in home.html
-            if set(actor.keys()) == {'id'} and self.source_protocol:
+            if set(actor.keys()) == {'id'} and proto:
                 actor_obj = proto.load(actor['id'], remote=False)
                 if actor_obj and actor_obj.as1:
                     actor = actor_obj.as1
@@ -1927,6 +1926,22 @@ class Object(AddRemoveMixin, StringIdModel):
 
         if replaced:
             self.our_as1 = util.trim_nulls(outer_obj)
+
+    def owner_protocol(self):
+        """Wrapper around :attr:`source_protocol` that handles :class:`UIProtocol`.
+
+        Returns:
+          Protocol subclass: :attr:`source_protocol` *unless* it's None or
+            :class:`UIProtocol`, in which case infers and returns ``author``'s or
+            ``actor``'s protocol instead.
+        """
+        from protocol import Protocol
+
+        if self.source_protocol in (None, 'ui'):
+            return Protocol.for_id(as1.get_owner(self.as1))
+
+        return PROTOCOLS.get(self.source_protocol)
+
 
     @cached_property
     def domain_blocklist(self):

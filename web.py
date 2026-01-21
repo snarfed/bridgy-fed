@@ -723,8 +723,7 @@ class Web(User, Protocol):
         if from_user and not from_user.is_enabled(cls):
             error(f'{from_user.key.id()} => {cls.LABEL} not enabled')
 
-        from_proto = PROTOCOLS.get(obj.source_protocol)
-        if from_proto:
+        if from_proto := obj.owner_protocol():
             # fill in author/actor if available
             for field in 'author', 'actor':
                 val = as1.get_object(obj_as1, field)

@@ -775,7 +775,7 @@ class ATProto(User, Protocol):
                 if base_obj_as1.get('objectType') in as1.ACTOR_TYPES:
                     feat_as1 = as1.get_object(base_obj_as1, 'featured')
                     if feat_id := as1.get_id(feat_as1, 'items'):
-                        from_cls = PROTOCOLS[obj.source_protocol]
+                        from_cls = obj.owner_protocol()
                         if ((feat_obj := from_cls.load(feat_id))
                                 and not feat_obj.get_copy(ATProto)):
                             logger.info(f'first, creating pinned post {feat_id}')
@@ -798,10 +798,10 @@ class ATProto(User, Protocol):
         record = to_cls.convert(base_obj, fetch_blobs=True, from_user=from_user)
 
         # find user
-        from_cls = PROTOCOLS[obj.source_protocol]
+        from_cls = obj.owner_protocol()
         from_key = from_cls.actor_key(obj, allow_opt_out=allow_opt_out)
         if not from_key:
-            logger.info(f"Couldn't find {obj.source_protocol} user for {obj.key.id()}")
+            logger.info(f"Couldn't find {from_cls.LABEL} user for {obj.key.id()}")
             return False
 
         # load user
