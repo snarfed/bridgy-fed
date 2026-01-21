@@ -143,9 +143,9 @@ class UserTest(TestCase):
 
         obj = Object.get_by_id('fake:profile:user')
         self.assertEqual([
-            Target(protocol='other', uri='other:o:fa:fake:profile:user'),
             Target(protocol='atproto',
                    uri=at_uri(did, 'app.bsky.actor.profile', 'self')),
+            Target(protocol='other', uri='other:o:fa:fake:profile:user'),
         ], obj.copies)
 
         mock_create_task.assert_called()

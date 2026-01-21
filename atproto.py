@@ -799,17 +799,18 @@ class ATProto(User, Protocol):
 
         # find user
         from_cls = obj.owner_protocol()
-        from_key = from_cls.actor_key(obj, allow_opt_out=allow_opt_out)
-        if not from_key:
-            logger.info(f"Couldn't find {from_cls.LABEL} user for {obj.key.id()}")
-            return False
+        if not from_user:
+            from_key = from_cls.actor_key(obj, allow_opt_out=allow_opt_out)
+            if not from_key:
+                logger.info(f"Couldn't find {from_cls.LABEL} user for {obj.key.id() if obj.key else None}")
+                return False
+            from_user = from_cls.get_or_create(
+                from_key.id(), allow_opt_out=allow_opt_out, propagate=True)
 
-        # load user
-        user = from_cls.get_or_create(from_key.id(), allow_opt_out=allow_opt_out,
-                                      propagate=True)
-        did = user.get_copy(ATProto)
+        # load user's DID
+        did = from_user.get_copy(ATProto)
         assert did and did.startswith('did:'), did
-        logger.info(f'{user.key.id()} is {did}')
+        logger.info(f'{from_user.key.id()} is {did}')
         did_doc = to_cls.load(did, raw=True)
         pds = to_cls.pds_for(did_doc)
         if not pds or util.domain_from_link(pds) not in DOMAINS:
@@ -834,7 +835,7 @@ class ATProto(User, Protocol):
             if atp_base_id == did:
                 logger.info(f'Deactivating bridged ATProto account {did} !')
                 arroba.server.storage.deactivate_repo(repo)
-                to_cls.remove_dns(user.handle_as('atproto'))
+                to_cls.remove_dns(from_user.handle_as('atproto'))
                 return True
 
         if not record and verb not in ('delete', 'undo'):
@@ -849,7 +850,7 @@ class ATProto(User, Protocol):
 
         if verb == 'flag':
             logger.info(f'flag => createReport with {record}')
-            return create_report(input=record, from_user=user)
+            return create_report(input=record, from_user=from_user)
 
         elif verb == 'stop-following':
             logger.info(f'stop-following => delete of {base_obj.key.id()}')
@@ -954,6 +955,9 @@ class ATProto(User, Protocol):
         logger.info(f'  seq {repo.head.seq}')
 
         if verb not in ('delete', 'undo'):
+            copy = Target(uri=at_uri(did, type, rkey), protocol=to_cls.LABEL)
+            base_obj.add('copies', copy)
+
             @ndb.transactional()
             def add_copy():
                 # read_consistency=ndb.STRONG shouldn't be necessary here, but oddly
@@ -961,8 +965,7 @@ class ATProto(User, Protocol):
                 # https://github.com/googleapis/python-ndb/issues/751
                 # https://github.com/googleapis/python-ndb/issues/888 ?
                 o = base_obj.key.get(read_consistency=ndb.STRONG) or base_obj
-                o.add('copies', Target(uri=at_uri(did, type, rkey),
-                                       protocol=to_cls.LABEL))
+                o.add('copies', copy)
                 o.put()
 
             add_copy()

@@ -804,15 +804,18 @@ class User(AddRemoveMixin, StringIdModel, metaclass=ProtocolUserMeta):
                            text=ineligible.format(desc=e))
             common.error(str(e), status=299)
 
+        # add to enabled_protocols in memory so that create_for (below) etc see it,
+        # including its effects on status, but don't store to datastore until after
+        # create_for in case it fails
+        self.add('enabled_protocols', to_proto.LABEL)
+
         if to_proto.LABEL in ids.COPIES_PROTOCOLS:
             # do this even if there's an existing copy since we might need to
             # reactivate it, which create_for should do
             to_proto.create_for(self)
 
-        if to_proto.LABEL not in self.enabled_protocols:
-            self.enabled_protocols.append(to_proto.LABEL)
-            dms.maybe_send(from_=to_proto, to_user=self, type='welcome', text=f"""Welcome to Bridgy Fed! Your account will soon be bridged to {to_proto.PHRASE} at {self.html_link(proto=to_proto, name=False)}. <a href="https://fed.brid.gy/docs">See the docs</a> and <a href="https://{PRIMARY_DOMAIN}{self.user_page_path()}">your user page</a> for more information. To disable this and delete your bridged profile, block this account.""")
-            self.put()
+        dms.maybe_send(from_=to_proto, to_user=self, type='welcome', text=f"""Welcome to Bridgy Fed! Your account will soon be bridged to {to_proto.PHRASE} at {self.html_link(proto=to_proto, name=False)}. <a href="https://fed.brid.gy/docs">See the docs</a> and <a href="https://{PRIMARY_DOMAIN}{self.user_page_path()}">your user page</a> for more information. To disable this and delete your bridged profile, block this account.""")
+        self.put()
 
         msg = f'Enabled {to_proto.LABEL} for {self.key.id()} : {self.user_page_path()}'
         logger.info(msg)

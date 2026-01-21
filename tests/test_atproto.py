@@ -1679,6 +1679,49 @@ Sed tortor neque, aliquet quis posuere aliquam, imperdiet sitamet […]
             with self.assertRaises(ValueError):
                 ATProto.create_for(Fake(id=bad))
 
+    @patch.object(tasks_client, 'create_task', return_value=Task(name='my task'))
+    @patch('requests.post', return_value=requests_response('OK'))
+    def test_create_for_status_nobot(self, mock_post, mock_create_task):
+        """User with status='nobot' should be able to create profile.
+
+        Reproduces https://github.com/snarfed/bridgy-fed/issues/XXXX where
+        user has status='nobot' but hasn't enabled ATProto yet. When
+        create_for tries to create their profile, actor_key returns None
+        because allow_opt_out=False, and the error logging at line 804 crashes.
+        """
+        Fake.fetchable = {
+            'fake:profile:user': {
+                **ACTOR_AS,
+                'id': 'fake:profile:user',
+                'summary': 'I am a bot #nobot',
+            },
+        }
+        # Create user with obj already set (with #nobot), save to datastore
+        user = Fake(id='fake:user')
+        user.obj = Object(id='fake:profile:user', our_as1=Fake.fetchable['fake:profile:user'])
+        user.obj.put()
+        user.put()
+
+        # Verify user has nobot status
+        user_reloaded = user.key.get()
+        self.assertEqual('nobot', user_reloaded.status)
+        # Verify user is NOT enabled for ATProto yet
+        self.assertNotIn('atproto', user_reloaded.enabled_protocols or [])
+
+        # Should succeed without crashing, even though user has status='nobot'
+        ATProto.create_for(user)
+
+        # Verify user was created successfully
+        did = user.key.get().get_copy(ATProto)
+        self.assertTrue(did)
+        self.assertTrue(did.startswith('did:plc:'))
+
+        # Verify profile was created
+        repo = arroba.server.storage.load_repo(did)
+        self.assertIsNotNone(repo)
+        profile = repo.get_record('app.bsky.actor.profile', 'self')
+        self.assertIsNotNone(profile)
+
     def test_create_for_already_exists_active(self):
         self.make_user_and_repo()
         orig_seq = self.storage.sequences.last(SUBSCRIBE_REPOS_NSID)
