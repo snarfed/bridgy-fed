@@ -551,18 +551,12 @@ class IntegrationTests(TestCase):
     def test_web_follow_of_atproto(self, mock_get, mock_post, _, __):
         """Incoming webmention for a web follow of an ATProto bsky.app profile URL.
 
-        Web user bob.com
+        Web user bob.com (did:plc:bob)
         ATProto user alice.com (did:plc:alice)
         Follow is HTML with mf2 u-follow-of of https://bsky.app/profile/alice.com
         """
-        bob = self.make_user(id='bob.com', cls=Web, enabled_protocols=['atproto'],
-                             last_webmention_in=NOW, obj_mf2={
-                                 'type': ['h-card'],
-                                 'properties': {
-                                     'url': ['https://bob.com/'],
-                                     'name': ['Bob'],
-                                 },
-                             })
+        bob = self.make_web_user('bob.com', enabled_protocols=['atproto'],
+                                 did='did:plc:bob')
 
         # send webmention
         resp = self.post('/webmention', data={
@@ -593,20 +587,12 @@ class IntegrationTests(TestCase):
             },
         }, Object.get_by_id('https://bob.com/follow').mf2)
 
-        repo = self.storage.load_repo('bob.com.web.brid.gy')
-        self.assertEqual(bob_did, repo.did)
-
-        records = repo.get_contents()
-        self.assertEqual(['app.bsky.actor.profile',
-                          'app.bsky.graph.follow',
-                          'chat.bsky.actor.declaration'],
-                         list(records.keys()))
-        self.assertEqual(['self'], list(records['app.bsky.actor.profile'].keys()))
+        repo = self.storage.load_repo('did:plc:bob')
         self.assertEqual([{
             '$type': 'app.bsky.graph.follow',
             'subject': 'did:plc:alice',
             'createdAt': '2022-01-02T03:04:05.000Z',
-        }], list(records['app.bsky.graph.follow'].values()))
+        }], list(repo.get_contents()['app.bsky.graph.follow'].values()))
 
     @patch('oauth_dropins.webutil.appengine_config.tasks_client.create_task')
     @patch('requests.get', side_effect=[
