@@ -750,8 +750,7 @@ def respond_reply(user):
     if not (obj := Object.get_by_id(get_required_param('obj_id'))):
         error('Object not found', status=404)
 
-    # TODO: this won't work for ATProto, its owns_id will reject this
-    id = f'{user.key.id()}#bridgy-fed-reply-{util.now().isoformat()}'
+    id = f'ui:reply-{user.key.id()}-{obj.key.id()}-{util.now().isoformat()}'
     our_as1 = {
         'objectType': 'comment',
         'id': id,
@@ -761,9 +760,7 @@ def respond_reply(user):
     }
 
     common.create_task(queue='receive', id=id, our_as1=our_as1,
-                       # have to use the user's protocol as source_protocol because
-                       # protocols.receive uses it to load the user
-                       source_protocol=user.LABEL, authed_as=user.key.id())
+                       source_protocol='ui', authed_as=user.key.id())
 
     flash('Sending reply...')
     return redirect(user.user_page_path())
@@ -781,7 +778,7 @@ def respond_like(user):
     if not (obj := Object.get_by_id(get_required_param('obj_id'))):
         error('Object not found', status=404)
 
-    id = f'{user.key.id()}#bridgy-fed-like-{util.now().isoformat()}'
+    id = f'ui:like-{user.key.id()}-{obj.key.id()}-{util.now().isoformat()}'
     our_as1 = {
         'objectType': 'activity',
         'verb': 'like',
@@ -791,9 +788,7 @@ def respond_like(user):
     }
 
     common.create_task(queue='receive', id=id, our_as1=our_as1,
-                       # have to use the user's protocol as source_protocol because
-                       # protocols.receive uses it to load the user
-                       source_protocol=user.LABEL, authed_as=user.key.id())
+                       source_protocol='ui', authed_as=user.key.id())
 
     flash('Sending like...')
     return redirect(user.user_page_path())
@@ -811,7 +806,7 @@ def respond_repost(user):
     if not (obj := Object.get_by_id(get_required_param('obj_id'))):
         error('Object not found', status=404)
 
-    id = f'{user.key.id()}#bridgy-fed-repost-{util.now().isoformat()}'
+    id = f'ui:repost-{user.key.id()}-{obj.key.id()}-{util.now().isoformat()}'
     our_as1 = {
         'objectType': 'activity',
         'verb': 'share',
@@ -821,9 +816,7 @@ def respond_repost(user):
     }
 
     common.create_task(queue='receive', id=id, our_as1=our_as1,
-                       # have to use the user's protocol as source_protocol because
-                       # protocols.receive uses it to load the user
-                       source_protocol=user.LABEL, authed_as=user.key.id())
+                       source_protocol='ui', authed_as=user.key.id())
 
     flash('Sending repost...')
     return redirect(user.user_page_path())
@@ -846,7 +839,7 @@ def respond_block(user):
     if not actor:
         error('No actor found in object', status=400)
 
-    id = f'{user.key.id()}#bridgy-fed-block-{util.now().isoformat()}'
+    id = f'ui:block-{user.key.id()}-{obj.key.id()}-{util.now().isoformat()}'
     our_as1 = {
         'objectType': 'activity',
         'verb': 'block',
@@ -856,7 +849,7 @@ def respond_block(user):
     }
 
     common.create_task(queue='receive', id=id, our_as1=our_as1,
-                       source_protocol=user.LABEL, authed_as=user.key.id())
+                       source_protocol='ui', authed_as=user.key.id())
 
     flash('Sending block...')
     return redirect(user.user_page_path())
