@@ -3238,7 +3238,7 @@ To disable these messages, reply with the text 'mute'.""",
         ], FakeConnection.sent)
 
     @patch('oauth_dropins.webutil.util.now', return_value=datetime.now())
-    def test_activitypub_respond_reply_to_atproto(self, _):
+    def test_activitypub_respond_reply_to_unbridged_atproto(self, _):
         """AP user bridged to ATProto uses web UI to reply to unbridged ATProto post.
 
         ActivityPub user alice@inst.com (did:plc:alice)
@@ -3246,11 +3246,10 @@ To disable these messages, reply with the text 'mute'.""",
         Bob's post is at://did:plc:bob/app.bsky.feed.post/123
         """
         alice = self.make_ap_user('https://inst.com/alice', did='did:plc:alice',
-                                  enabled_protocols=['activitypub'])
-        self.make_atproto_user('did:plc:bob', handle='bob.com',
-                               enabled_protocols=[])
+                                  enabled_protocols=['atproto'])
+        self.make_atproto_user('did:plc:bob', handle='bob.com')
 
-        bob_post_obj = self.store_object(
+        self.store_object(
             id='at://did:plc:bob/app.bsky.feed.post/123',
             source_protocol='atproto',
             bsky={
@@ -3287,3 +3286,46 @@ To disable these messages, reply with the text 'mute'.""",
                 },
             },
         }, record, ignore=['bridgyOriginalText', 'bridgyOriginalUrl', 'createdAt'])
+
+    @patch('oauth_dropins.webutil.util.now', return_value=datetime.now())
+    @patch('requests.post')
+    def test_activitypub_respond_repost_to_unbridged_atproto(self, mock_post,
+                                                             mock_now):
+        """ATProto user bridged to AP uses web UI to reply to unbridged AP post.
+
+        ATProto user did:plc:bob
+        ActivityPub user alice@inst.com, not bridged
+        Alice's post is http://inst.com/post
+        """
+        bob = self.make_atproto_user('did:plc:bob', handle='bob.com',
+                                     enabled_protocols=['activitypub'])
+        alice = self.make_ap_user('https://inst.com/alice', did='did:plc:alice')
+
+        self.store_object(id='http://inst.com/post', source_protocol='activitypub',
+                          our_as1={
+                              'objectType': 'note',
+                              'author': 'https://inst.com/alice',
+                          })
+            # bsky={
+            #     **POST_BSKY,
+            #     'uri': 'at://did:plc:bob/app.bsky.feed.post/123',
+            #     'cid': 'bafyreie5cvv4h5typfvqef2wf7nwytgdaaimzbk2cl7pza7lkxmjbmhmk4',
+            # })
+
+        # bob replies via respond/reply endpoint
+        resp = self.client.post('/bsky/bob.com/respond/repost', data={
+            'obj_id': 'http://inst.com/post',
+            'token': common.make_jwt(user=bob, scope='respond',
+                                     obj_id='http://inst.com/post'),
+        })
+        self.assertEqual(302, resp.status_code)
+        self.assertEqual('/bsky/bob.com', resp.headers['Location'])
+
+        # check that the reply was sent
+        self.assert_ap_deliveries(mock_post, ['https://inst.com/alice/inbox'],
+                                  from_user=bob, data={
+            'type': 'Announce',
+            'id': f'https://fed.brid.gy/convert/ap/ui:repost-did:plc:bob-http://inst.com/post-{mock_now.return_value.isoformat()}',
+            'actor': 'https://bsky.brid.gy/ap/did:plc:bob',
+            'object': 'http://inst.com/post',
+        }, ignore=['@context', 'to', 'url'])
