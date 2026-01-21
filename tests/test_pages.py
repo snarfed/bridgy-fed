@@ -1448,7 +1448,7 @@ class PagesTest(TestCase):
         })
         self.assertEqual(302, resp.status_code)
         self.assertEqual('/web/user.com', resp.headers['Location'])
-        self.assertEqual(['Sending block...'], get_flashed_messages())
+        self.assertEqual(['Blocking...'], get_flashed_messages())
 
         id = f'ui:block-user.com-fake:post-{util.now().isoformat()}'
         self.assert_task(mock_create_task, 'receive', source_protocol='ui',

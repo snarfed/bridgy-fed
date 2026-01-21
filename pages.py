@@ -851,7 +851,7 @@ def respond_block(user):
     common.create_task(queue='receive', id=id, our_as1=our_as1,
                        source_protocol='ui', authed_as=user.key.id())
 
-    flash('Sending block...')
+    flash('Blocking...')
     return redirect(user.user_page_path())
 
 
