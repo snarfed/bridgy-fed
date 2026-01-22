@@ -89,7 +89,7 @@ proto-plus==1.27.0
 protobuf==6.33.4
 pyasn1==0.6.2
 pyasn1_modules==0.4.2
-pycparser==2.23
+pycparser==3.0
 pycryptodome==3.23.0
 PyJWT==2.10.1
 pymediainfo==7.0.1
