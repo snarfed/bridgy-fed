@@ -32,7 +32,7 @@ PER_USER_TASK_RATES = {
         None: timedelta(seconds=5),  # all protocols
     },
     'send': {
-        'atproto': timedelta(seconds=20),
+        'atproto': timedelta(seconds=10),
     },
 }
 
