@@ -116,7 +116,7 @@ class CommonTest(TestCase):
             self.assertEqual(int(expected.timestamp()), actual.seconds)
 
         now = NOW
-        delay = PER_USER_TASK_RATES['receive']
+        delay = PER_USER_TASK_RATES['receive'][None]
         common.create_task('receive', authed_as='alice', received_at='foo')
 
         task = mock_create_task.call_args[1]['task']

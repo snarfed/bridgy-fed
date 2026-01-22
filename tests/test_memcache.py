@@ -257,7 +257,7 @@ class MemcacheTest(TestCase):
         self.assertEqual(NOW.timestamp(),
                          memcache.memcache.get('task-delay-receive-alice'))
 
-        delay = memcache.PER_USER_TASK_RATES['receive']
+        delay = memcache.PER_USER_TASK_RATES['receive'][None]
         delayed = NOW + delay
         self.assertEqual(delayed, memcache.task_eta('receive', 'alice'))
         self.assertEqual(delayed.timestamp(),
@@ -270,7 +270,7 @@ class MemcacheTest(TestCase):
 
     def test_task_eta_queue_not_rate_limited(self):
         self.assertIsNone(memcache.task_eta('send', 'alice'))
-        self.assertIsNone(memcache.task_eta('send', 'alice'))
+        self.assertIsNone(memcache.task_eta('send', 'alice', protocol='web'))
         self.assertIsNone(memcache.memcache.get('task-delay-send-alice'))
 
     def test_task_eta_memcache_in_past(self):
@@ -281,10 +281,29 @@ class MemcacheTest(TestCase):
                          memcache.memcache.get('task-delay-receive-alice'))
 
     def test_task_eta_multiple_users(self):
-        delay = memcache.PER_USER_TASK_RATES['receive']
+        delay = memcache.PER_USER_TASK_RATES['receive'][None]
 
         self.assertEqual(NOW, memcache.task_eta('receive', 'alice'))
         self.assertEqual(NOW, memcache.task_eta('receive', 'bob'))
         self.assertEqual(NOW + delay, memcache.task_eta('receive', 'bob'))
         self.assertEqual(NOW + delay + delay, memcache.task_eta('receive', 'bob'))
         self.assertEqual(NOW + delay, memcache.task_eta('receive', 'alice'))
+
+    def test_task_eta_protocol_specific(self):
+        """Test protocol-specific rate limiting for send queue."""
+        atproto_delay = memcache.PER_USER_TASK_RATES['send']['atproto']
+
+        # first call returns NOW
+        self.assertEqual(NOW, memcache.task_eta('send', 'alice', protocol='atproto'))
+        self.assertEqual(NOW.timestamp(),
+                         memcache.memcache.get('task-delay-send-alice'))
+
+        # subsequent calls use atproto-specific delay
+        delayed = NOW + atproto_delay
+        self.assertEqual(delayed,
+                         memcache.task_eta('send', 'alice', protocol='atproto'))
+        self.assertEqual(delayed.timestamp(),
+                         memcache.memcache.get('task-delay-send-alice'))
+
+        # different protocol without specific delay returns None
+        self.assertIsNone(memcache.task_eta('send', 'alice', protocol='web'))

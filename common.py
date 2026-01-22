@@ -224,7 +224,7 @@ def create_task(queue, app_id=GCP_PROJECT_ID, delay=None, app=None, **params):
     eta = None
     now = util.now()
     if authed_as := params.get('authed_as'):
-        eta = memcache.task_eta(queue, authed_as)
+        eta = memcache.task_eta(queue, authed_as, protocol=params.get('protocol'))
 
     if delay:
         if not eta:

@@ -25,9 +25,15 @@ KEY_MAX_LEN = 250
 MEMOIZE_VERSION = 2
 
 # per-user rates for running tasks. rate limits and spreads out tasks for bursty
-# users. https://github.com/snarfed/bridgy-fed/issues/1788
+# users. values map protocol label to delay. None means all protocols.
+# https://github.com/snarfed/bridgy-fed/issues/1788
 PER_USER_TASK_RATES = {
-    'receive': timedelta(seconds=5),
+    'receive': {
+        None: timedelta(seconds=5),  # all protocols
+    },
+    'send': {
+        'atproto': timedelta(seconds=20),
+    },
 }
 
 # https://pymemcache.readthedocs.io/en/latest/apidoc/pymemcache.client.base.html#pymemcache.client.base.Client.__init__
@@ -173,7 +179,7 @@ def remote_evict(entity_key):
                               data={'key': entity_key.urlsafe()})
 
 
-def task_eta(queue, user_id):
+def task_eta(queue, user_id, protocol=None):
     """Get the ETA to use for a given user's task in a given queue.
 
     Task rate limit delays are per user, stored in memcache with a key based on
@@ -188,11 +194,16 @@ def task_eta(queue, user_id):
     Args:
       queue (str)
       user_id (str)
+      protocol (str): optional protocol label to look up protocol-specific delay
 
     Returns:
       datetime.datetime: the ETA for this task, or ``None`` if the ETA is now
     """
-    if not (delay := PER_USER_TASK_RATES.get(queue)):
+    if not (delays := PER_USER_TASK_RATES.get(queue)):
+        return None
+
+    # look up delay for protocol, fall back to None (all protocols)
+    if not (delay := delays.get(protocol) or delays.get(None)):
         return None
 
     cache_key = key(f'task-delay-{queue}-{user_id}')
