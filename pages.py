@@ -763,7 +763,9 @@ def respond_reply(user):
                        source_protocol='ui', authed_as=user.key.id())
 
     flash('Sending reply...')
-    return redirect(user.user_page_path())
+    return render('respond.html', user=user, obj=obj,
+                  token=get_required_param('token'),
+                  IFRAMELY_API_KEY_MD5=IFRAMELY_API_KEY_MD5)
 
 
 @app.post(f'/<any({",".join(PROTOCOLS)}):protocol>/<user_id>/respond/like')
@@ -791,7 +793,9 @@ def respond_like(user):
                        source_protocol='ui', authed_as=user.key.id())
 
     flash('Sending like...')
-    return redirect(user.user_page_path())
+    return render('respond.html', user=user, obj=obj,
+                  token=get_required_param('token'),
+                  IFRAMELY_API_KEY_MD5=IFRAMELY_API_KEY_MD5)
 
 
 @app.post(f'/<any({",".join(PROTOCOLS)}):protocol>/<user_id>/respond/repost')
@@ -819,7 +823,9 @@ def respond_repost(user):
                        source_protocol='ui', authed_as=user.key.id())
 
     flash('Sending repost...')
-    return redirect(user.user_page_path())
+    return render('respond.html', user=user, obj=obj,
+                  token=get_required_param('token'),
+                  IFRAMELY_API_KEY_MD5=IFRAMELY_API_KEY_MD5)
 
 
 @app.post(f'/<any({",".join(PROTOCOLS)}):protocol>/<user_id>/respond/block')
@@ -852,7 +858,9 @@ def respond_block(user):
                        source_protocol='ui', authed_as=user.key.id())
 
     flash('Blocking...')
-    return redirect(user.user_page_path())
+    return render('respond.html', user=user, obj=obj,
+                  token=get_required_param('token'),
+                  IFRAMELY_API_KEY_MD5=IFRAMELY_API_KEY_MD5)
 
 
 @app.get('/log')

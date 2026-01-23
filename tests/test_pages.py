@@ -1272,8 +1272,7 @@ class PagesTest(TestCase):
             'token': common.make_jwt(user=self.user, scope='respond',
                                      obj_id='fake:post'),
         })
-        self.assertEqual(302, resp.status_code)
-        self.assertEqual('/web/user.com', resp.headers['Location'])
+        self.assertEqual(200, resp.status_code)
         self.assertEqual(['Sending reply...'], get_flashed_messages())
 
         id = f'ui:reply-user.com-fake:post-{util.now().isoformat()}'
@@ -1343,8 +1342,7 @@ class PagesTest(TestCase):
             'token': common.make_jwt(user=self.user, scope='respond',
                                      obj_id='fake:post'),
         })
-        self.assertEqual(302, resp.status_code)
-        self.assertEqual('/web/user.com', resp.headers['Location'])
+        self.assertEqual(200, resp.status_code)
         self.assertEqual(['Sending like...'], get_flashed_messages())
 
         id = f'ui:like-user.com-fake:post-{util.now().isoformat()}'
@@ -1395,8 +1393,7 @@ class PagesTest(TestCase):
             'token': common.make_jwt(user=self.user, scope='respond',
                                      obj_id='fake:post'),
         })
-        self.assertEqual(302, resp.status_code)
-        self.assertEqual('/web/user.com', resp.headers['Location'])
+        self.assertEqual(200, resp.status_code)
         self.assertEqual(['Sending repost...'], get_flashed_messages())
 
         id = f'ui:repost-user.com-fake:post-{util.now().isoformat()}'
@@ -1446,8 +1443,7 @@ class PagesTest(TestCase):
             'token': common.make_jwt(user=self.user, scope='respond',
                                      obj_id='fake:post'),
         })
-        self.assertEqual(302, resp.status_code)
-        self.assertEqual('/web/user.com', resp.headers['Location'])
+        self.assertEqual(200, resp.status_code)
         self.assertEqual(['Blocking...'], get_flashed_messages())
 
         id = f'ui:block-user.com-fake:post-{util.now().isoformat()}'

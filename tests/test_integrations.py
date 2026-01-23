@@ -3251,8 +3251,7 @@ To disable these messages, reply with the text 'mute'.""",
             'token': common.make_jwt(user=alice, scope='respond',
                                      obj_id='at://did:plc:bob/app.bsky.feed.post/123'),
         })
-        self.assertEqual(302, resp.status_code)
-        self.assertEqual('/ap/@alice@inst.com', resp.headers['Location'])
+        self.assertEqual(200, resp.status_code)
 
         # check for the reply in alice's repo
         repo = self.storage.load_repo('did:plc:alice')
@@ -3304,8 +3303,7 @@ To disable these messages, reply with the text 'mute'.""",
             'token': common.make_jwt(user=bob, scope='respond',
                                      obj_id='http://inst.com/post'),
         })
-        self.assertEqual(302, resp.status_code)
-        self.assertEqual('/bsky/bob.com', resp.headers['Location'])
+        self.assertEqual(200, resp.status_code)
 
         # check that the reply was sent
         self.assert_ap_deliveries(mock_post, ['https://inst.com/alice/inbox'],
