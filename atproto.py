@@ -177,6 +177,10 @@ def chat_client(*, repo, method, **kwargs):
     return Client(f'https://{os.environ["CHAT_HOST"]}', **kwargs)
 
 
+def repo_callback(data=None, lost_seq=None):
+    common.create_task(queue='atproto-commit', lost_seq=lost_seq)
+
+
 class RemoteSequences(Sequences):
     """Sequence number implementation that uses remote HTTP endpoints.
 
@@ -586,10 +590,9 @@ class ATProto(User, Protocol):
             user.reload_profile()
 
         # create repo
-        repo = Repo.create(
-            arroba.server.storage, did_plc.did, handle=handle,
-            callback=lambda _: common.create_task(queue='atproto-commit'),
-            signing_key=did_plc.signing_key, rotation_key=did_plc.rotation_key)
+        repo = Repo.create(arroba.server.storage, did_plc.did, handle=handle,
+                           callback=repo_callback, signing_key=did_plc.signing_key,
+                           rotation_key=did_plc.rotation_key)
 
         # create chat declaration
         logger.info(f'Storing ATProto chat declaration record')
@@ -714,7 +717,7 @@ class ATProto(User, Protocol):
             raise RuntimeError(f"""<p>You'll need to connect that domain to your bridged Bluesky account, either <a href="https://bsky.social/about/blog/4-28-2023-domain-handle-tutorial">with DNS</a> <a href="https://atproto.com/specs/handle#handle-resolution">or HTTP</a>. Your DID is: <code>{copy_did}</code><p>Once you're done, <a href="https://bsky-debug.app/handle?handle={username}">check your work here</a>, then try again.""")
 
         logger.info(f'Setting ATProto handle for {user.key.id()} to {username}')
-        repo.callback = lambda _: common.create_task(queue='atproto-commit')
+        repo.callback = repo_callback
         did.update_plc(did=copy_did, handle=username,
                        signing_key=repo.signing_key, rotation_key=repo.rotation_key,
                        get_fn=util.requests_get, post_fn=util.requests_post)
@@ -821,7 +824,7 @@ class ATProto(User, Protocol):
         # load repo
         repo = arroba.server.storage.load_repo(did)
         assert repo
-        repo.callback = lambda _: common.create_task(queue='atproto-commit')
+        repo.callback = repo_callback
 
         # non-commit operations:
         # * delete actor => deactivate repo

@@ -3,11 +3,13 @@ import base64
 import copy
 from datetime import timezone
 from pathlib import Path
+from threading import Thread
 from unittest import skip
 from unittest.mock import ANY, call, MagicMock, patch
 
 from arroba.datastore_storage import AtpBlock, AtpRemoteBlob, AtpRepo, DatastoreStorage
 from arroba.did import encode_did_key
+from arroba import firehose
 from arroba.repo import Repo, Write
 from arroba.storage import Action, SUBSCRIBE_REPOS_NSID
 import arroba.util
@@ -25,7 +27,7 @@ from granary.tests.test_bluesky import (
 import lexrpc
 from multiformats import CID
 from oauth_dropins.webutil.appengine_config import tasks_client
-from oauth_dropins.webutil.flask_util import NoContent
+from oauth_dropins.webutil import flask_util
 from oauth_dropins.webutil.testutil import NOW, NOW_SECONDS, requests_response
 from oauth_dropins.webutil import util
 from oauth_dropins.webutil.util import json_dumps, json_loads, trim_nulls
@@ -42,6 +44,7 @@ from atproto import (
 )
 import common
 import config
+import hub
 from models import Follower, Object, PROTOCOLS, Target
 import protocol
 from .testutil import ATPROTO_KEY, ExplicitFake, Fake, OtherFake, TestCase
@@ -2822,7 +2825,8 @@ Sed tortor neque, aliquet quis posuere aliquam, imperdiet sitamet […]
         self.assertFalse(ATProto.send(obj, 'https://bsky.brid.gy/'))
         mock_create_task.assert_not_called()  # atproto-commit
 
-    def test_send_delete_already_deleted(self):
+    @patch.object(tasks_client, 'create_task')
+    def test_send_delete_already_deleted(self, mock_create_task):
         self.test_send_delete_note()
 
         delete = Object(id='fake:delete', source_protocol='fake', our_as1={
@@ -2832,6 +2836,10 @@ Sed tortor neque, aliquet quis posuere aliquam, imperdiet sitamet […]
             'object': 'fake:post',
         })
         self.assertFalse(ATProto.send(delete, 'https://bsky.brid.gy/'))
+
+        # should have created task with lost_seq since delete failed
+        last_seq = self.storage.sequences.last(SUBSCRIBE_REPOS_NSID)
+        self.assert_task(mock_create_task, 'atproto-commit', lost_seq=str(last_seq))
 
     @patch.object(tasks_client, 'create_task')
     def test_send_delete_original_no_copy(self, mock_create_task):
@@ -4059,7 +4067,31 @@ Sed tortor neque, aliquet quis posuere aliquam, imperdiet sitamet […]
             'content': 'hi',
         })
 
-        with self.assertRaises(NoContent):
+        with self.assertRaises(flask_util.NoContent):
             ATProto.check_supported(dm, 'receive')
 
         ATProto.check_supported(dm, 'send')
+
+    def test_hub_atproto_commit_handler(self):
+        client = hub.app.test_client()
+
+        def post(**data):
+            resp = client.post('/queue/atproto-commit', data=data,
+                               headers={flask_util.CLOUD_TASKS_TASK_HEADER: 'x'})
+            self.assertEqual(200, resp.status_code)
+
+        post(lost_seq='2')
+        self.assertEqual({2}, firehose.lost_seqs)
+
+        def wait_for_event():
+            with firehose.new_events:
+                firehose.new_events.wait()
+
+        waiter = Thread(target=wait_for_event)
+        waiter.start()
+        post()
+        waiter.join()
+        self.assertEqual({2}, firehose.lost_seqs)
+
+        post(lost_seq='4')
+        self.assertEqual({2, 4}, firehose.lost_seqs)

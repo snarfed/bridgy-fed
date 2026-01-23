@@ -13,7 +13,7 @@ from arroba import firehose
 from arroba.datastore_storage import MemcacheSequences
 import arroba.server
 import config
-from flask import Flask, render_template
+from flask import Flask, render_template, request
 import lexrpc.client
 import lexrpc.flask_server
 from oauth_dropins.webutil.appengine_info import DEBUG, LOCAL_SERVER
@@ -114,9 +114,18 @@ lexrpc.flask_server.init_flask(arroba.server.server, app)
 def atproto_commit():
     """Handler for atproto-commit tasks.
 
-    Triggers `subscribeRepos` to check for new commits.
+    Triggers `subscribeRepos` to check for new commits, or marks a sequence number
+    lost.
+
+    Params:
+      lost_seq (int, optional): if provided, mark this sequence number lost, ie not
+        used in any commit or other event. https://github.com/snarfed/arroba/issues/74
     """
-    firehose.send_events()
+    if lost_seq := request.values.get('lost_seq'):
+        firehose.mark_seq_lost(int(lost_seq))
+    else:
+        firehose.send_events()
+
     return 'OK'
 
 
