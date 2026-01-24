@@ -58,7 +58,7 @@ grapheme==0.6.0
 grpc-google-iam-v1==0.14.3
 grpcio==1.76.0
 grpcio-status==1.76.0
-gunicorn==24.0.0
+gunicorn==23.0.0
 h11==0.16.0
 html2text==2025.4.15
 html5lib==1.1
