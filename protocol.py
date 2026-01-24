@@ -1011,7 +1011,7 @@ class Protocol:
         for o in inner_objs:
             is_actor = (as1.object_type(o) in as1.ACTOR_TYPES
                         or as1.get_owner(outer_obj) == o.get('id')
-                        or type in ('follow', 'stop-following'))
+                        or type in ('follow', 'stop-following', 'block'))
             translate(o, 'id', (ids.translate_user_id if is_actor
                                 else ids.translate_object_id))
             # TODO: need to handle both user and object ids here

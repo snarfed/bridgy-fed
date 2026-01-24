@@ -750,6 +750,19 @@ class ProtocolTest(TestCase):
             'object': 'fake:alice',
         }))
 
+    def test_translate_ids_block(self):
+        self.assert_equals({
+            'objectType': 'activity',
+            'verb': 'block',
+            'actor': 'other:u:fake:alice',
+            'object': 'other:u:efake:bob',
+        }, OtherFake.translate_ids({
+            'objectType': 'activity',
+            'verb': 'block',
+            'actor': 'fake:alice',
+            'object': 'efake:bob',
+        }))
+
     def test_translate_ids_attachments_mention_tags(self):
         self.assert_equals({
             'objectType': 'note',
