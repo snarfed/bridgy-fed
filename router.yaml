@@ -12,8 +12,8 @@ runtime_config:
     runtime_version: "3.12"
 
 resources:
-  cpu: 1
-  memory_gb: 2
+  cpu: 2
+  memory_gb: 8
 
 # run in default VPC for this project
 # https://cloud.google.com/appengine/docs/flexible/using-shared-vpc
@@ -40,7 +40,7 @@ automatic_scaling:
   min_num_instances: 1
   max_num_instances: 50
   cpu_utilization:
-    target_utilization: 0.95
+    target_utilization: 0.50
   # tried this in an attempt to cut down instance count, but it backfired
   # somehow and kept us at the max of 10 instances
   # target_concurrent_requests: 100
