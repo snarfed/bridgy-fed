@@ -213,13 +213,10 @@ class HostMeta(flask_util.XrdOrJrd):
     def template_vars(self):
         return {'host_uri': domains.host_url()}
 
+    @flask_util.headers(CACHE_CONTROL)
     def dispatch_request(self, **kwargs):
         """Add the Cache-Control header."""
-        resp = super().dispatch_request(**kwargs)
-        headers = resp[-1]
-        assert isinstance(headers, dict)
-        headers.update(**CACHE_CONTROL)
-        return resp
+        return super().dispatch_request(**kwargs)
 
 
 @app.get('/.well-known/host-meta.xrds')

@@ -141,6 +141,7 @@ class HostMetaTest(TestCase):
         self.assertEqual(200, got.status_code)
         self.assertEqual('application/xrd+xml; charset=utf-8',
                          got.headers['Content-Type'])
+        self.assertEqual('Accept', got.headers['Vary'])
         self.assertIn('Cache-Control', got.headers)
         body = got.get_data(as_text=True)
         self.assertTrue(body.startswith('<?xml'), body)
@@ -156,6 +157,7 @@ class HostMetaTest(TestCase):
         got = self.client.get('/.well-known/host-meta.json')
         self.assertEqual(200, got.status_code)
         self.assertEqual('application/jrd+json', got.headers['Content-Type'])
+        self.assertEqual('Accept', got.headers['Vary'])
         body = got.get_data(as_text=True)
         self.assertTrue(body.startswith('{'), body)
 
@@ -183,6 +185,7 @@ class WebfingerTest(TestCase):
                 got = self.client.get(url, headers={'Accept': 'application/json'})
                 self.assertEqual(200, got.status_code, got.get_data(as_text=True))
                 self.assertEqual('application/jrd+json', got.headers['Content-Type'])
+                self.assertEqual('Accept', got.headers['Vary'])
                 self.assert_equals(WEBFINGER, got.json)
 
     def test_webfinger_web_subdomain_redirects(self):
