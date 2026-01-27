@@ -122,6 +122,7 @@ SEND_MESSAGE_OUTPUT = {  # sendMessage
     'rev': '22222222tef2d',
     'sender': {'did': 'did:plc:user'},
     'text': 'hello world',
+    'sentAt': '2022-01-02T03:04:05Z',
 }
 
 
