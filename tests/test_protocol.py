@@ -3308,6 +3308,71 @@ class ProtocolReceiveTest(TestCase):
         self.assert_object('other:alice', deleted=True, source_protocol='other',
                            ignore=['copies'])
 
+    def test_move(self):
+        """Test Move activity updates followers to new account."""
+        alice = self.make_user('fake:alice', cls=Fake, obj_id='fake:alice')
+        new_alice = self.make_user('efake:new-alice', cls=ExplicitFake, obj_id='efake:new-alice')
+
+        # followers
+        # OtherFake - should move to new_alice
+        bob_follower = Follower.get_or_create(to=alice, from_=self.bob)
+        # inactive
+        carol = self.make_user('other:carol', cls=OtherFake)
+        carol_follower = Follower.get_or_create(to=alice, from_=carol,
+                                                status='inactive')
+        # ExplicitFake (same as new_alice) - should NOT move
+        dave = self.make_user('efake:dave', cls=ExplicitFake)
+        dave_follower = Follower.get_or_create(to=alice, from_=dave)
+
+        # alice should have 2 followers
+        self.assertEqual(3, Follower.query(Follower.to == alice.key).count())
+        self.assertEqual(0, Follower.query(Follower.to == new_alice.key).count())
+
+        # send Move
+        _, code = Fake.receive_as1({
+            'objectType': 'activity',
+            'verb': 'move',
+            'id': 'fake:move',
+            'actor': 'fake:alice',
+            'object': 'fake:alice',
+            'target': 'efake:new-alice',
+        })
+        self.assertEqual(204, code)
+
+        # check that only the active OtherFake follower was moved
+        self.assertEqual(2, Follower.query(Follower.to == alice.key).count())
+        self.assertEqual(1, Follower.query(Follower.to == new_alice.key).count())
+        self.assertEqual(new_alice.key, bob_follower.key.get().to)
+        self.assertEqual(alice.key, carol_follower.key.get().to)
+        self.assertEqual(alice.key, dave_follower.key.get().to)
+
+    def test_move_no_target(self):
+        """Test Move activity without target fails."""
+        alice = self.make_user('fake:alice', cls=Fake, obj_id='fake:alice')
+
+        _, code = Fake.receive_as1({
+            'objectType': 'activity',
+            'verb': 'move',
+            'id': 'fake:move',
+            'actor': 'fake:alice',
+            'object': 'fake:alice',
+        })
+        self.assertEqual(299, code)
+
+    def test_move_object_not_actor(self):
+        """Test Move activity where object is not the actor fails."""
+        alice = self.make_user('fake:alice', cls=Fake, obj_id='fake:alice')
+
+        _, code = Fake.receive_as1({
+            'objectType': 'activity',
+            'verb': 'move',
+            'id': 'fake:move',
+            'actor': 'fake:alice',
+            'object': 'fake:other',
+            'target': 'other:new-alice',
+        })
+        self.assertEqual(299, code)
+
     @patch.object(Fake, 'send')
     def test_send_error(self, mock_send):
         """Two targets. First send fails, second succeeds."""

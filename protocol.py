@@ -1388,6 +1388,10 @@ class Protocol:
                 from_user.disable_protocol(proto)
                 return 'OK', 200
 
+        elif obj.type == 'move':
+            from_cls.handle_move(obj, from_user=from_user)
+            # fall through to deliver the Move activity to remaining followers
+
         elif obj.type == 'post':
             # handle DMs to bot users
             if as1.is_dm(obj.as1):
@@ -1600,6 +1604,57 @@ class Protocol:
                            our_as1=follow_back_as1, url=target,
                            source_protocol='web', protocol=user.LABEL,
                            user=bot.key.urlsafe())
+
+    @classmethod
+    def handle_move(from_cls, obj, from_user):
+        """Handles an incoming move (account migration) activity.
+
+        Updates all of the account's :class:`Follower`s to point to the new id.
+
+        Args:
+          obj (models.Object): follow activity
+          from_user (models.User): user (actor) this activity/object is from
+        """
+        if not (target_id := as1.get_id(obj.as1, 'target')):
+            error(f'Move activity requires target. Got: {obj.as1}')
+
+        logger.info(f'Got move activity from {from_user.key.id()} to {target_id}')
+
+        # check that object is the actor (the account being moved)
+        actor_id = as1.get_id(obj.as1, 'actor')
+        object_id = as1.get_id(obj.as1, 'object')
+        if actor_id != object_id:
+            error(f"Move activity object {object_id} isn't actor {actor_id}")
+
+        # get the target protocol and key
+        to_cls = Protocol.for_id(target_id)
+        if not to_cls:
+            error(f"Couldn't determine protocol for target {target_id}")
+
+        to_key = to_cls.key_for(target_id)
+        if not to_key:
+            error(f'Invalid {to_cls.LABEL} user key: {target_id}')
+
+        # query for all active followers of the source account
+        followers = Follower.query(
+            Follower.to == from_user.key,
+            Follower.status == 'active'
+        ).fetch()
+
+        # update each follower to point to the new account
+        # but skip if it would create a same-protocol follower
+        logger.info(f'Updating {len(followers)} followers from {actor_id} to {target_id}')
+        updated_followers = []
+        for follower in followers:
+            # check if this would create a same-protocol follower
+            if follower.from_.kind() != to_key.kind():
+                follower.to = to_key
+                updated_followers.append(follower)
+            else:
+                logger.info(f'Skipping same-protocol follower {follower.from_} => {to_key}')
+
+        if updated_followers:
+            ndb.put_multi(updated_followers)
 
     @classmethod
     def handle_bare_object(cls, obj, *, authed_as, from_user):
