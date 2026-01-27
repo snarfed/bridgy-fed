@@ -22,6 +22,7 @@ import pytz
 
 # all protocols
 import activitypub, atproto, nostr, web
+from atproto import RemoteSequences
 import atproto_firehose
 import common
 import models
@@ -57,7 +58,9 @@ logger = logging.getLogger(__name__)
 
 models.reset_protocol_properties()
 
-if not DEBUG and not LOCAL_SERVER:
+if DEBUG or LOCAL_SERVER:
+    atproto.init(RemoteSequences)
+else:
     atproto.init(MemcacheSequences)
 
 # start ATProto firehose consumer and server threads, Nostr relay subscribers
