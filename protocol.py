@@ -1337,6 +1337,61 @@ class Protocol:
                 from_user.disable_protocol(proto)
                 return 'OK', 200
 
+        elif obj.type == 'move':
+            # handle account migration/move activity
+            # https://docs.joinmastodon.org/spec/activitypub/#Move
+            # https://www.manton.org/2022/12/02/moving-from-mastodon.html
+            target = as1.get_object(obj.as1, 'target')
+            target_id = target.get('id') if target else None
+            
+            if not target_id:
+                error(f'Move activity requires target. Got: {obj.as1}')
+            
+            # check that object is the actor (the account being moved)
+            if inner_obj_id != actor_id:
+                error(f'Move activity object must be the actor. Got object {inner_obj_id}, actor {actor_id}')
+            
+            # update all followers where to == object to set to == target instead
+            logger.info(f'Processing Move: {actor_id} => {target_id}')
+            
+            # get the source user key
+            from_user_key = from_cls.key_for(actor_id)
+            if not from_user_key:
+                error(f'Invalid {from_cls.LABEL} user key: {actor_id}')
+            
+            # get the target protocol and key
+            to_cls = Protocol.for_id(target_id)
+            if not to_cls:
+                error(f"Couldn't determine protocol for target {target_id}")
+            
+            to_key = to_cls.key_for(target_id)
+            if not to_key:
+                error(f'Invalid {to_cls.LABEL} user key: {target_id}')
+            
+            # query for all active followers of the source account
+            followers = Follower.query(
+                Follower.to == from_user_key,
+                Follower.status == 'active'
+            ).fetch()
+            
+            logger.info(f'Updating {len(followers)} followers from {actor_id} to {target_id}')
+            
+            # update each follower to point to the new account
+            # but skip if it would create a same-protocol follower
+            updated_followers = []
+            for follower in followers:
+                # check if this would create a same-protocol follower
+                if follower.from_.kind() != to_key.kind():
+                    follower.to = to_key
+                    updated_followers.append(follower)
+                else:
+                    logger.info(f'Skipping same-protocol follower {follower.from_} => {to_key}')
+            
+            if updated_followers:
+                ndb.put_multi(updated_followers)
+            
+            # fall through to deliver the Move activity to remaining followers
+
         elif obj.type == 'post':
             # handle DMs to bot users
             if as1.is_dm(obj.as1):

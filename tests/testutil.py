@@ -94,6 +94,7 @@ class Fake(User, protocol.Protocol):
         + tuple(as1.POST_TYPES)
         + tuple(as1.CRUD_VERBS)
         + tuple(as1.VERBS_WITH_OBJECT)
+        + ('move',)
     )
     BOTS_FOLLOW_BACK = True
 
