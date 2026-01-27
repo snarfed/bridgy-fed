@@ -757,7 +757,7 @@ class TestCase(unittest.TestCase, testutil.Asserts):
         logging.disable(logging.NOTSET)
 
         try:
-            with super().assertLogs() as logs:
+            with super().assertLogs(level=logging.DEBUG) as logs:
                 yield logs
         finally:
             # emit logs that were captured
