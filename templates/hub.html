@@ -4,6 +4,12 @@
 
 {% block content %}
 
+<style type="text/css">
+td {
+  margin-left: .5em;
+}
+</style>
+
 <ul>
 <li>ATProto firehose:
   {% if firehose.rollback %}
@@ -16,7 +22,7 @@
 
 {% for nsid, subs in lexrpc.flask_server.subscribers.items() %}
 <li>{{ nsid }} ({{ len(subs) }})
-<table style="border-spacing: .5em">
+<table>
   <tbody>
     {% set subs = sorted(subs, key=operator.attrgetter('start')) %}
     {% for s in subs %}

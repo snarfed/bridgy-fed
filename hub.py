@@ -30,7 +30,7 @@ import models
 import nostr_hub
 import pages
 
-# as of 2024-07-10
+# not comprehensive!
 BSKY_TEAM_CIDRS = (
     # https://discord.com/channels/1097580399187738645/1115973909624397855/1260356452162469969
     ip_network('209.249.133.120/29'),
@@ -42,6 +42,10 @@ BSKY_TEAM_CIDRS = (
     # bsky message from bnewbold
     ip_network('38.142.8.130/32'),
     ip_network('38.143.58.47/32'),
+    # relay1.us-west.bsky.network, relay2.us-west.bsky.network
+    # https://docs.bsky.app/blog/relay-rollout
+    # ...but these are probably rainbow servers, not the main relay that connects to us
+    ip_network('108.179.139.8/29'),
 )
 BSKY_TEAM_HOSTS = (
     'zip.zayo.com',  # maybe? https://github.com/bluesky-social/atproto/discussions/3036#discussioncomment-11399854
