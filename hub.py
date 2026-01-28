@@ -3,6 +3,7 @@ from datetime import datetime
 from functools import lru_cache
 from ipaddress import ip_address, ip_network
 import logging
+import operator
 import os
 from pathlib import Path
 import socket
@@ -155,7 +156,9 @@ def hub_admin():
         len=len,
         lexrpc=lexrpc,
         nostr_hub=nostr_hub,
+        operator=operator,
         pytz=pytz,
+        sorted=sorted,
         util=util,
     )
 

@@ -16,14 +16,22 @@
 
 {% for nsid, subs in lexrpc.flask_server.subscribers.items() %}
 <li>{{ nsid }} ({{ len(subs) }})
-<ul>
-  {% for s in subs %}
-    {% set host = gethostbyaddr(s.ip) %}
-    {% set pt = pytz.timezone('US/Pacific') %}
-    <li {% if host and (host == 'bsky' or host.endswith('.zayo.com')) %}style="background-color: lightgreen"{% endif %}>
-      {{ s.ip }} {{ host }} {{ s.user_agent }} {{ s.args }} {{ s.start.astimezone(pt) }}
-  {% endfor %}
-</ul>
+<table style="border-spacing: .5em">
+  <tbody>
+    {% set subs = sorted(subs, key=operator.attrgetter('start')) %}
+    {% for s in subs %}
+      {% set host = gethostbyaddr(s.ip) %}
+      {% set pt = pytz.timezone('US/Pacific') %}
+      <tr {% if host and (host == 'bsky' or host.endswith('.zayo.com')) %}style="background-color: lightgreen"{% endif %}>
+        <td>{{ host }}</td>
+        <td>{{ s.ip }}</td>
+        <td>{{ s.user_agent }}</td>
+        <td>{{ s.args['cursor'] }}</td>
+        <td>{{ s.start.astimezone(pt) }}</td>
+      </tr>
+    {% endfor %}
+  </tbody>
+</table>
 {% endfor %}
 
 <li>Nostr relays ({{ len(nostr_hub.subscribed_relays) }}):
