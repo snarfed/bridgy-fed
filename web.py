@@ -1040,7 +1040,7 @@ def webmention_task():
         if code not in ('410', '404') or user.is_web_url(source):
             error(f'{e} ; {e.response.text if e.response else ""}', status=502)
 
-        id = f'{source}#bridgy-fed-delete'
+        id = f'{source}#bridgy-fed-delete-{util.now().isoformat()}'
         obj = Object(id=id, our_as1={
             'id': id,
             'objectType': 'activity',

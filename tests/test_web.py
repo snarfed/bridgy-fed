@@ -177,14 +177,14 @@ WEBMENTION_NO_REL_LINK = requests_response('<html></html>')
 DELETE_AS1 = {
     'objectType': 'activity',
     'verb': 'delete',
-    'id': 'https://user.com/post#bridgy-fed-delete',
+    'id': 'https://user.com/post#bridgy-fed-delete-2022-01-02T03:04:05+00:00',
     'actor': 'http://localhost/user.com',
     'object': 'https://user.com/post',
 }
 DELETE_AS2 = {
     '@context': 'https://www.w3.org/ns/activitystreams',
     'type': 'Delete',
-    'id': 'http://localhost/r/https://user.com/post#bridgy-fed-delete',
+    'id': 'http://localhost/r/https://user.com/post#bridgy-fed-delete-2022-01-02T03:04:05+00:00',
     'actor': 'http://localhost/user.com',
     'object': 'http://localhost/r/https://user.com/post',
     'to': [as2.PUBLIC_AUDIENCE],
