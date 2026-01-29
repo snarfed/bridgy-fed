@@ -1013,7 +1013,7 @@ Hi &lt;a href="<a href='https://mastodon.social/@adactio'>https://mastodon.socia
 
 <li id="web-delete" class="question">How do I delete a post?</li>
 <li class="answer">
-<p>First, delete the post on your web site, so that HTTP requests for it return 410 Gone or 404 Not Found. Then, send another webmention to Bridgy Fed for it. Bridgy Fed will refetch the post, see that it's gone, and send an <a href="https://www.w3.org/TR/activitypub/#delete-activity-outbox"><code>Delete</code> activity</a> for it to the fediverse.
+<p>First, delete the post on your web site, so that HTTP requests for it return 410 Gone or 404 Not Found. Then, send another webmention to Bridgy Fed for it. Bridgy Fed will refetch the post, see that it's gone, and delete it in every network where it was bridged.
 </p>
 </li>
 
