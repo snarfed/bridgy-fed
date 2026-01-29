@@ -51,7 +51,7 @@ else:
 
     for logger in (
             'atproto_firehose',
-            'arroba.firehose',
+            # 'arroba.firehose',
             'arroba.storage',
             'arroba.datastore_storage',
             'lexrpc',
