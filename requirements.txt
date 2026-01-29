@@ -9,9 +9,7 @@ git+https://github.com/snarfed/mox3.git#egg=mox3
 git+https://github.com/snarfed/negotiator.git@py3#egg=negotiator
 git+https://github.com/snarfed/oauth-dropins.git#egg=oauth_dropins
 git+https://github.com/snarfed/pymemcache.git@all#egg=pymemcache
-# TODO: switch back to pypi once https://github.com/rustyrussell/secp256k1-py/pull/25
-# is released
-git+https://github.com/rustyrussell/secp256k1-py.git#egg=secp256k1
+git+https://github.com/snarfed/secp256k1-py.git@setup-requires-pycparser#egg=secp256k1
 
 attrs==25.4.0
 bases==0.3.0
