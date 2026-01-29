@@ -11,8 +11,9 @@ parameters:
     enum: ["hub", "default"]
     default: "default"
   deploy-flags:
-    type: string
-    description: additional flags for gcloud app deploy, eg --no-promote or --no-stop-previous-version
+    type: enum
+    enum: ["--no-promote", "--no-stop-previous-version", ""]
+    description: additional flags for gcloud app deploy
     default: ""
 
 jobs:
