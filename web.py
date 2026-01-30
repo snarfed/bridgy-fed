@@ -1041,7 +1041,7 @@ def webmention_task():
             error(f'{e} ; {e.response.text if e.response else ""}', status=502)
 
         id = f'{source}#bridgy-fed-delete-{util.now().isoformat()}'
-        obj = Object(id=id, our_as1={
+        obj = Object(id=id, source_protocol='web', our_as1={
             'id': id,
             'objectType': 'activity',
             'verb': 'delete',

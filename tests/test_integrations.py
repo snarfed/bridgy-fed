@@ -1251,6 +1251,47 @@ To disable these messages, reply with the text 'mute'.""",
         repo = self.storage.load_repo('did:plc:alice')
         self.assertIsNone(repo.get_record('app.bsky.feed.post', tid))
 
+    @patch('requests.get')
+    def test_web_delete_of_post_bridged_to_atproto(self, mock_get):
+        """Web Delete (410) of a post removes it from the ATProto repo.
+
+        Web user alice.com , did:plc:alice
+        Post is https://alice.com/post
+        """
+        alice = self.make_web_user('alice.com', enabled_protocols=['atproto'],
+                                   did='did:plc:alice')
+
+        # web post bridged to ATProto
+        repo = self.storage.load_repo('did:plc:alice')
+        tid = arroba.util.int_to_tid(arroba.util._tid_ts_last)
+        self.storage.commit(repo, arroba.repo.Write(
+            action=arroba.storage.Action.CREATE,
+            collection='app.bsky.feed.post',
+            rkey=tid,
+            record={
+                '$type': 'app.bsky.feed.post',
+                'text': 'Hello from Web!',
+                'createdAt': '2022-01-02T03:04:05.000Z',
+            },
+        ))
+        self.assertIsNotNone(repo.get_record('app.bsky.feed.post', tid))
+
+        at_uri = f'at://did:plc:alice/app.bsky.feed.post/{tid}'
+        obj = self.store_object(id='https://alice.com/post', source_protocol='web',
+                                copies=[Target(uri=at_uri, protocol='atproto')])
+
+        # delete with 410 response
+        mock_get.return_value = requests_response('', status=410)
+        resp = self.post('/queue/webmention', data={
+            'source': 'https://alice.com/post',
+            'target': 'https://fed.brid.gy/',
+        })
+        self.assertEqual(202, resp.status_code)
+
+        # check that the record was deleted from the repo
+        repo = self.storage.load_repo('did:plc:alice')
+        self.assertIsNone(repo.get_record('app.bsky.feed.post', tid))
+
     @patch('requests.post', return_value=requests_response(''))
     @patch('requests.get', return_value=requests_response("""\
 <html>
