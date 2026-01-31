@@ -6,6 +6,8 @@ from datetime import datetime, timedelta, timezone
 import functools
 import logging
 import os
+import re
+import string
 
 import config
 from google.cloud.ndb._cache import global_cache_key
@@ -35,6 +37,8 @@ PER_USER_TASK_RATES = {
         'atproto': timedelta(seconds=10),
     },
 }
+
+WHITESPACE_RE = re.compile(f'[{string.whitespace}]')
 
 # https://pymemcache.readthedocs.io/en/latest/apidoc/pymemcache.client.base.html#pymemcache.client.base.Client.__init__
 kwargs = {
@@ -74,7 +78,7 @@ def key(key):
       bytes:
     """
     assert isinstance(key, str), repr(key)
-    return key.replace(' ', '%20').encode()[:KEY_MAX_LEN]
+    return WHITESPACE_RE.sub('_', key).encode()[:KEY_MAX_LEN]
 
 
 def memoize_key(fn, *args, _version=MEMOIZE_VERSION, **kwargs):
