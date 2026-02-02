@@ -644,6 +644,7 @@ class IntegrationTests(TestCase):
             'createdAt': '2022-01-02T03:04:05.000Z',
         }}, repo.get_contents()['app.bsky.feed.like'])
 
+    @patch('common.BETA_USER_IDS', ['did:plc:alice'])
     @patch('oauth_dropins.webutil.appengine_config.tasks_client.create_task')
     @patch('requests.post', return_value=BSKY_SEND_MESSAGE_RESP)
     @patch('requests.get', return_value=BSKY_GET_CONVO_RESP)
@@ -689,14 +690,29 @@ class IntegrationTests(TestCase):
         self.assertEqual(2, mock_post.call_count)
         self.assertEqual(('https://chat.local/xrpc/chat.bsky.convo.sendMessage',),
                          mock_post.call_args_list[0][0])
-        self.assertEqual("""\
-Hi! Here are your recent interactions from people who aren't bridged into Bluesky:
-
-  * inst/reply
-
-
-To disable these messages, reply with the text 'mute'.""",
-            mock_post.call_args_list[0][1]['json']['message']['text'])
+        self.assert_equals({
+            '$type': 'chat.bsky.convo.defs#messageInput',
+            'text': "Hi! Here are your recent interactions from people who aren't bridged into Bluesky:\n\n  * inst/reply (respond)\n\n\nTo disable these messages, reply with the text 'mute'.",
+            'createdAt': '2022-01-02T03:04:05.000Z',
+            'facets': [
+                {
+                    '$type': 'app.bsky.richtext.facet',
+                    'index': {'byteStart': 88, 'byteEnd': 98},
+                    'features': [{
+                        '$type': 'app.bsky.richtext.facet#link',
+                        'uri': 'http://inst/reply',
+                    }]
+                },
+                {
+                    '$type': 'app.bsky.richtext.facet',
+                    'index': {'byteStart': 100, 'byteEnd': 107},
+                    'features': [{
+                        '$type': 'app.bsky.richtext.facet#link',
+                        'uri': 'https://fed.brid.gy/bsky/alice.com/respond?obj_id=http://inst/reply&token=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJvYmpfaWQiOiJodHRwOi8vaW5zdC9yZXBseSIsInN1YiI6ImRpZDpwbGM6YWxpY2UiLCJzY29wZSI6InJlc3BvbmQiLCJleHAiOjE2NDE2OTc0NDV9.ioL2NqSxgUJwRJYUcDz4kP9nmIa6DklRrJgwG0kbn5k',
+                    }]
+                }
+            ],
+        }, mock_post.call_args_list[0][1]['json']['message'], ignore=['bridgyOriginalText', 'bridgyOriginalUrl'])
 
         self.assertEqual(('https://inst/bob/inbox',), mock_post.call_args_list[1][0])
         self.assertEqual("""<p>Hi! You <a href="http://inst/reply">recently replied to</a> <a class="h-card u-author mention" rel="me" href="https://bsky.app/profile/alice.com" title="Alice &middot; alice.com"><span style="unicode-bidi: isolate">Alice</span> &middot; alice.com</a>, who's bridged here from Bluesky. If you want them to see your replies, you can bridge your account into Bluesky by following this account. <a href="https://fed.brid.gy/docs">See the docs</a> for more information.</p>""",
