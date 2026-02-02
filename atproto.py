@@ -941,8 +941,16 @@ class ATProto(User, Protocol):
                 record = None  # delete operations shouldn't include record cid
             case _:
                 action = Action.CREATE
-                # TODO: use lexicon's key type
-                rkey = 'self' if type == 'app.bsky.actor.profile' else next_tid()
+                # generate rky based on lexicon's key type
+                # https://atproto.com/specs/lexicon#record
+                # https://atproto.com/specs/record-key
+                key_type = LEXICONS[type]['key']
+                if key_type.startswith('literal:'):
+                    rkey = key_type.removeprefix('literal:')
+                elif key_type == 'tid':
+                    rkey = next_tid()
+                else:
+                    raise RuntimeError(f'unsupported key type for {type}: {key_type}')
 
         writes = [Write(action=action, collection=collection, rkey=rkey,
                         record=record)
