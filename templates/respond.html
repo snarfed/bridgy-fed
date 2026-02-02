@@ -4,16 +4,14 @@
 
 {% block content %}
 
-{#
-Docs: https://iframely.com/docs/embedjs
-key is the MD5 hash of our API key
-#}
-<script async src="https://iframely.net/embed.js?key={{ IFRAMELY_API_KEY_MD5 }}"></script>
-
 <div class="row">
   {% include 'user_with_links.html' %}
 </div>
 
+{#
+Docs: https://iframely.com/docs/embedjs
+key is the MD5 hash of our API key
+#}
 <div class="row iframely-row">
   <div class="iframely-embed col-lg-6 col-lg-offset-3 col-md-8 col-md-offset-2 col-sm-12">
     <div class="iframely-responsive">
@@ -59,5 +57,7 @@ key is the MD5 hash of our API key
 </form>
 
 </div>
+
+<script async src="https://iframely.net/embed.js?key={{ IFRAMELY_API_KEY_MD5 }}"></script>
 
 {% endblock content %}
