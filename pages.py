@@ -1,4 +1,5 @@
 """UI pages."""
+import copy
 from functools import wraps
 import html
 import itertools
@@ -732,7 +733,10 @@ def respond(user):
     if not (obj := Object.get_by_id(get_required_param('obj_id'))):
         error('Object not found', status=404)
 
+    obj_as1 = copy.deepcopy(obj.as1)
+    as1.convert_html_content_to_text(obj_as1)
     return render('respond.html', user=user, obj=obj,
+                  obj_html=microformats2.object_to_html(obj_as1),
                   token=get_required_param('token'),
                   IFRAMELY_API_KEY_MD5=IFRAMELY_API_KEY_MD5)
 

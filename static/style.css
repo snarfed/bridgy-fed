@@ -642,8 +642,25 @@ a.active-tab + a {
   margin-top: 1em;
 }
 
-.mastodon-embed {
-  margin: 1em;
+.iframely-responsive > .h-entry > * {
+  display: block;
+  margin-top: 1em;
+}
+
+.iframely-responsive .p-uid {
+  display: none;
+}
+
+.iframely-responsive > .h-entry > .dt-published::before {
+  content: 'At: ';
+}
+
+.iframely-responsive > .h-entry > .p-author::before {
+  content: 'From: ';
+}
+
+.iframely-responsive > .h-entry > .u-url::before {
+  content: 'Link: ';
 }
 
 input[type="text"], input[type="url"] {
