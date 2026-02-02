@@ -690,6 +690,12 @@ class IntegrationTests(TestCase):
         self.assertEqual(2, mock_post.call_count)
         self.assertEqual(('https://chat.local/xrpc/chat.bsky.convo.sendMessage',),
                          mock_post.call_args_list[0][0])
+
+        message = mock_post.call_args_list[0][1]['json']['message']
+        respond_uri = message['facets'][1]['features'][0].pop('uri')
+        expected_prefix = 'https://fed.brid.gy/bsky/alice.com/respond?obj_id=http://inst/reply&token='
+        self.assertTrue(respond_uri.startswith(expected_prefix), respond_uri)
+        self.assertNotEqual(respond_uri.removeprefix(expected_prefix), '')
         self.assert_equals({
             '$type': 'chat.bsky.convo.defs#messageInput',
             'text': "Hi! Here are your recent interactions from people who aren't bridged into Bluesky:\n\n  * inst/reply (respond)\n\n\nTo disable these messages, reply with the text 'mute'.",
@@ -708,11 +714,11 @@ class IntegrationTests(TestCase):
                     'index': {'byteStart': 100, 'byteEnd': 107},
                     'features': [{
                         '$type': 'app.bsky.richtext.facet#link',
-                        'uri': 'https://fed.brid.gy/bsky/alice.com/respond?obj_id=http://inst/reply&token=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJvYmpfaWQiOiJodHRwOi8vaW5zdC9yZXBseSIsInN1YiI6ImRpZDpwbGM6YWxpY2UiLCJzY29wZSI6InJlc3BvbmQiLCJleHAiOjE2NDE2OTc0NDV9.ioL2NqSxgUJwRJYUcDz4kP9nmIa6DklRrJgwG0kbn5k',
+                        # 'uri': ..., # checked above
                     }]
                 }
             ],
-        }, mock_post.call_args_list[0][1]['json']['message'], ignore=['bridgyOriginalText', 'bridgyOriginalUrl'])
+        }, message, ignore=['bridgyOriginalText', 'bridgyOriginalUrl'])
 
         self.assertEqual(('https://inst/bob/inbox',), mock_post.call_args_list[1][0])
         self.assertEqual("""<p>Hi! You <a href="http://inst/reply">recently replied to</a> <a class="h-card u-author mention" rel="me" href="https://bsky.app/profile/alice.com" title="Alice &middot; alice.com"><span style="unicode-bidi: isolate">Alice</span> &middot; alice.com</a>, who's bridged here from Bluesky. If you want them to see your replies, you can bridge your account into Bluesky by following this account. <a href="https://fed.brid.gy/docs">See the docs</a> for more information.</p>""",
