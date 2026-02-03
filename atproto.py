@@ -942,7 +942,10 @@ class ATProto(User, Protocol):
                     # https://atproto.com/specs/lexicon#record
                     # https://atproto.com/specs/record-key
                     key_type = LEXICONS[type]['key']
-                    if key_type.startswith('literal:'):
+                    if type == 'community.lexicon.payments.webMonetization':
+                        # https://github.com/lexicon-community/lexicon/tree/main/community/lexicon/payments#usage
+                        rkey = 'self'
+                    elif key_type.startswith('literal:'):
                         rkey = key_type.removeprefix('literal:')
                     elif key_type in ('tid', 'any'):
                         rkey = next_tid()
@@ -1368,9 +1371,6 @@ class ATProto(User, Protocol):
 def derived_writes(obj):
     """Returns any "extra" writes we need for a given object/activity.
 
-    Right now, just returns a Web Monetization wallet record when an
-    actor has a ``monetization`` property.
-
     Args:
       obj (Object)
 
@@ -1394,19 +1394,6 @@ def derived_writes(obj):
     obj_as1 = obj.as1
     if verb in as1.CRUD_VERBS:
         obj_as1 = as1.get_object(obj.as1)
-
-    if (action in (Action.CREATE, Action.UPDATE)
-            and obj_as1.get('objectType') in as1.ACTOR_TYPES):
-        if wallet := obj_as1.get('monetization'):
-            # https://github.com/lexicon-community/lexicon/tree/main/community/lexicon/payments
-            writes.append(Write(
-                action=action,
-                collection='community.lexicon.payments.webMonetization',
-                rkey='self',
-                record={
-                    '$type': 'community.lexicon.payments.webMonetization',
-                    'address': wallet,
-                }))
 
     return writes
 
