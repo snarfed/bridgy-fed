@@ -2231,6 +2231,29 @@ Sed tortor neque, aliquet quis posuere aliquam, imperdiet sitamet […]
         mock_create_task.assert_called()  # atproto-commit
 
     @patch.object(tasks_client, 'create_task', return_value=Task(name='my task'))
+    def test_send_create_multiple(self, mock_create_task):
+        user = self.make_user_and_repo()
+
+        obj = Object(id='fake:post', source_protocol='fake', our_as1=NOTE_AS)
+        with patch.object(ATProto, '_convert', return_value=[NOTE_BSKY, REPOST_BSKY]),\
+             patch('atproto.next_tid', side_effect=['a', 'b']):
+            self.assertTrue(ATProto.send(obj, 'https://bsky.brid.gy'))
+
+        # check repo, record
+        repo = self.storage.load_repo('did:plc:user')
+        self.assert_equals({
+            'app.bsky.feed.post': {'a': NOTE_BSKY},
+            'app.bsky.feed.repost': {'b': REPOST_BSKY},
+        }, repo.get_contents())
+
+        self.assertEqual([
+            Target(uri='at://did:plc:user/app.bsky.feed.post/a', protocol='atproto'),
+            Target(uri='at://did:plc:user/app.bsky.feed.repost/b', protocol='atproto'),
+        ], obj.key.get().copies)
+
+        mock_create_task.assert_called()  # atproto-commit
+
+    @patch.object(tasks_client, 'create_task', return_value=Task(name='my task'))
     @patch('requests.get', side_effect=[
         requests_response(METAFORMATS_HTML, url='http://orig.co/post'),
         requests_response('blob contents', content_type='image/png'),
@@ -2538,6 +2561,13 @@ Sed tortor neque, aliquet quis posuere aliquam, imperdiet sitamet […]
             'app.bsky.feed.repost': {repost_tid: REPOST_BSKY},
         }, repo.get_contents())
 
+        self.assertEqual([
+            Target(uri=f'at://did:plc:user/app.bsky.feed.post/{post_tid}',
+                   protocol='atproto'),
+            Target(uri=f'at://did:plc:user/app.bsky.feed.repost/{repost_tid}',
+                   protocol='atproto'),
+        ], Object.get_by_id('fake:post').copies)
+
         mock_create_task.assert_called()  # atproto-commit
 
     @patch.object(tasks_client, 'create_task', return_value=Task(name='my task'))
@@ -2592,8 +2622,12 @@ Sed tortor neque, aliquet quis posuere aliquam, imperdiet sitamet […]
                   }),
         ]
         self.storage.commit(self.repo, creates)
-        user.obj.copies = [Target(uri='at://did:plc:user/app.bsky.actor.profile/self',
-                                  protocol='atproto')]
+        user.obj.copies = [
+            Target(uri='at://did:plc:user/app.bsky.actor.profile/self',
+                   protocol='atproto'),
+            Target(uri='at://did:plc:user/community.lexicon.payments.webMonetization/self',
+                   protocol='atproto'),
+        ]
         user.obj.put()
 
         # update profile
@@ -3348,7 +3382,7 @@ Sed tortor neque, aliquet quis posuere aliquam, imperdiet sitamet […]
         self.assertFalse(ATProto.send(note, 'https://bsky.brid.gy'))
 
     @patch.object(tasks_client, 'create_task')
-    @patch.object(ATProto, '_convert', return_value=[{}])
+    @patch.object(ATProto, '_convert', return_value=[])
     def test_send_skips_bad_convert(self, _, mock_create_task):
         self.make_user_and_repo()
 

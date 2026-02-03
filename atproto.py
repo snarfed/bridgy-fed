@@ -987,20 +987,23 @@ class ATProto(User, Protocol):
         logger.info(f'  seq {repo.head.seq}')
 
         if verb not in ('delete', 'undo'):
-            copy = Target(uri=at_uri(did, type, rkey), protocol=to_cls.LABEL)
-            base_obj.add('copies', copy)
-
             @ndb.transactional()
-            def add_copy():
+            def add_copies():
                 # read_consistency=ndb.STRONG shouldn't be necessary here, but oddly
                 # it is, ndb seems to use cache inside txes even though it shouldn't
                 # https://github.com/googleapis/python-ndb/issues/751
                 # https://github.com/googleapis/python-ndb/issues/888 ?
-                o = base_obj.key.get(read_consistency=ndb.STRONG) or base_obj
-                o.add('copies', copy)
-                o.put()
+                stored_obj = base_obj.key.get(read_consistency=ndb.STRONG)
+                for write in writes:
+                    copy = Target(uri=at_uri(did, write.collection, write.rkey),
+                                  protocol=to_cls.LABEL)
+                    base_obj.add('copies', copy)
+                    if stored_obj:
+                        stored_obj.add('copies', copy)
 
-            add_copy()
+                (stored_obj or base_obj).put()
+
+            add_copies()
 
         return True
 
