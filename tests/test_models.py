@@ -1743,6 +1743,23 @@ class ObjectTest(TestCase):
                                 copies=[Target(uri='other:post', protocol='other')])
         self.assertEqual(obj.key, models.get_original_object_key('other:post'))
 
+    def test_get_copies(self):
+        obj = Object(id='x')
+        self.assertEqual([], obj.get_copies(Fake))
+
+        obj.source_protocol = 'other'
+        self.assertEqual(['x'], obj.get_copies(OtherFake))
+
+        obj.copies = [Target(uri='other:foo', protocol='other')]
+        self.assertEqual([], obj.get_copies(Fake))
+
+        obj.copies = [
+            Target(uri='fake:foo', protocol='fake'),
+            Target(uri='other:foo', protocol='other'),
+            Target(uri='fake:bar', protocol='fake'),
+        ]
+        self.assertEqual(['fake:foo', 'fake:bar'], obj.get_copies(Fake))
+
     def test_get_copy(self):
         obj = Object(id='x')
         self.assertIsNone(obj.get_copy(Fake))

@@ -1749,12 +1749,25 @@ class Object(AddRemoveMixin, StringIdModel):
         Returns:
           str:
         """
-        if self.source_protocol in (proto.LABEL, proto.ABBREV):
-            return self.key.id()
+        copies = self.get_copies(proto)
+        return copies[0] if copies else None
 
-        for copy in self.copies:
-            if copy.protocol in (proto.LABEL, proto.ABBREV):
-                return copy.uri
+    def get_copies(self, proto):
+        """Returns all ids of copies of this object in a given protocol.
+
+        If ``proto`` is ``source_protocol``, returns this object's key id.
+
+        Args:
+          proto: :class:`Protocol` subclass
+
+        Returns:
+          list of str:
+        """
+        if self.source_protocol in (proto.LABEL, proto.ABBREV):
+            return [self.key.id()]
+
+        return [copy.uri for copy in self.copies
+                if copy.protocol in (proto.LABEL, proto.ABBREV)]
 
     def resolve_ids(self):
         """Replaces "copy" ids, subdomain ids, etc with their originals.
