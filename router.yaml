@@ -40,7 +40,7 @@ automatic_scaling:
   min_num_instances: 1
   max_num_instances: 50
   cpu_utilization:
-    target_utilization: 0.70
+    target_utilization: 0.80
   # tried this in an attempt to cut down instance count, but it backfired
   # somehow and kept us at the max of 10 instances
   # target_concurrent_requests: 100
