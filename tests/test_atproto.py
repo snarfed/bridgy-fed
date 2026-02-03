@@ -2467,19 +2467,27 @@ Sed tortor neque, aliquet quis posuere aliquam, imperdiet sitamet […]
         }, repo.get_record('app.bsky.feed.post', last_tid), ignore=['facets'])
 
     @patch.object(tasks_client, 'create_task')
-    def test_send_note_already_has_copy(self, mock_create_task):
-        user = self.make_user_and_repo()
-        obj = Object(id='fake:post', source_protocol='fake', our_as1=NOTE_AS,
-                     copies=[Target(protocol='atproto', uri='at://did:x/y/z')])
+    def test_send_note_with_existing_copy_updates(self, mock_create_task):
+        self.test_send_bare_note_existing_repo()
+        mock_create_task.reset_mock()
 
-        self.assertFalse(ATProto.send(obj, 'https://bsky.brid.gy'))
+        obj = Object.get_by_id('fake:post')
+        obj.our_as1['content'] = 'new stuff'
+        obj.put()
 
-        # shouldn't have committed anything
-        did = user.key.get().get_copy(ATProto)
-        repo = self.storage.load_repo(did)
-        self.assertEqual({}, repo.get_contents())
+        self.assertTrue(ATProto.send(obj, 'https://bsky.brid.gy'))
 
-        mock_create_task.assert_not_called()  # atproto-commit
+        repo = self.storage.load_repo('did:plc:user')
+        last_tid = arroba.util.int_to_tid(arroba.util._tid_ts_last)
+        self.assert_equals({
+            'app.bsky.feed.post': {last_tid: {
+                **NOTE_BSKY,
+                'text': 'new stuff',
+                'bridgyOriginalText': 'new stuff',
+            }},
+        }, repo.get_contents())
+
+        mock_create_task.assert_called()  # atproto-commit
 
     @patch.object(tasks_client, 'create_task', return_value=Task(name='my task'))
     def test_send_update_note(self, mock_create_task):

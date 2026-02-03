@@ -752,6 +752,7 @@ class ATProto(User, Protocol):
         type = as1.object_type(obj.as1)
         base_obj = obj
         base_obj_as1 = obj.as1
+        base_id = base_obj.key.id() if base_obj.key else None
         allow_opt_out = (type == 'delete')
 
         if type in as1.CRUD_VERBS:
@@ -785,6 +786,10 @@ class ATProto(User, Protocol):
                             logger.info(f'first, creating pinned post {feat_id}')
                             ATProto.send(feat_obj, pds_url, from_user=from_user)
 
+            if not base_obj:
+                logger.info(f"Can't {type} {base_id}, no original object")
+                return False
+
         elif type == 'stop-following':
             assert from_user
             to_id = as1.get_object(obj.as1).get('id')
@@ -799,7 +804,8 @@ class ATProto(User, Protocol):
             base_obj = follower.follow.get()
 
         # convert to Bluesky record; short circuits on error
-        record = to_cls.convert(base_obj, fetch_blobs=True, from_user=from_user)
+        records = to_cls.convert(base_obj, fetch_blobs=True, from_user=from_user,
+                                 multiple=True)
 
         # find user
         from_cls = obj.owner_protocol()
@@ -842,7 +848,7 @@ class ATProto(User, Protocol):
                 to_cls.remove_dns(from_user.handle_as('atproto'))
                 return True
 
-        if not record and verb not in ('delete', 'undo'):
+        if not records and verb not in ('delete', 'undo'):
             # _convert already logged
             return False
 
@@ -853,8 +859,8 @@ class ATProto(User, Protocol):
             return False
 
         if verb == 'flag':
-            logger.info(f'flag => createReport with {record}')
-            return create_report(input=record, from_user=from_user)
+            logger.info(f'flag => createReport with {records[0]}')
+            return create_report(input=records[0], from_user=from_user)
 
         elif verb == 'stop-following':
             logger.info(f'stop-following => delete of {base_obj.key.id()}')
@@ -901,63 +907,66 @@ class ATProto(User, Protocol):
 
         elif recip := as1.recipient_if_dm(obj.as1):
             assert recip.startswith('did:'), recip
-            return send_chat(msg=record, from_repo=repo, to_did=recip)
+            return send_chat(msg=records[0], from_repo=repo, to_did=recip)
 
-        # write commit
-        if record:
-            type = record['$type']
-            lex_type = LEXICONS[type]['type']
-            assert lex_type == 'record', f"Can't store {type} object of type {lex_type}"
-        else:
-            type = None
-
-        # only modify objects that we've bridged
-        collection = type
-        rkey = None
-        if verb in ('update', 'delete', 'undo'):
-            # check that they're updating the object we have
-            if not base_obj:
-                logger.info(f"Can't {verb} {base_id}, no original object")
-                return False
-            elif not (copy := base_obj.get_copy(to_cls)):
-                logger.info(f"Can't {verb} {base_obj.key.id()} {type}, we didn't create it originally")
-                return False
-
+        copies = {}  # maps string collection to (DID, collection, rkey) tuple
+        for copy in base_obj.get_copies(to_cls):
             copy_did, collection, rkey = parse_at_uri(copy)
-            if copy_did != did or (type and collection != type):
-                logger.info(f"Can't {verb} {base_obj.key.id()} {type}, original {copy} is in a different repo or collection")
-                return False
+            if existing := copies.get(collection):
+                logger.warning(f'{base_id} has multiple {collection}: {existing[2]} {rkey}')
+                continue
+            copies[collection] = (copy_did, collection, rkey)
+
+        writes = []
+
+        # generate commit
+        if verb in ('delete', 'undo'):
+            writes = [Write(action=Action.DELETE, collection=collection, rkey=rkey)
+                      for _, collection, rkey in copies.values()]
+
         else:
             # create or other verb
-            if base_obj and (copy := base_obj.get_copy(to_cls)):
-                logger.info(f'already has ATProto copy {copy}, cowardly refusing to create again')
-                return False
+            for record in records:
+                type = record['$type']
+                lex_type = LEXICONS[type]['type']
+                assert lex_type == 'record', f"Can't store {type} object of type {lex_type}"
+                copy = copies.get(type)
 
-        match verb:
-            case 'update':
-                action = Action.UPDATE
-            case 'delete' | 'undo':
-                action = Action.DELETE
-                record = None  # delete operations shouldn't include record cid
-            case _:
-                action = Action.CREATE
-                # generate rky based on lexicon's key type
-                # https://atproto.com/specs/lexicon#record
-                # https://atproto.com/specs/record-key
-                key_type = LEXICONS[type]['key']
-                if key_type.startswith('literal:'):
-                    rkey = key_type.removeprefix('literal:')
-                elif key_type == 'tid':
-                    rkey = next_tid()
-                else:
-                    raise RuntimeError(f'unsupported key type for {type}: {key_type}')
+                if verb == 'create' and copy:
+                    logger.info(f'already has ATProto copy {copy}, cowardly refusing to create again')
+                    continue
 
-        writes = [Write(action=action, collection=collection, rkey=rkey,
-                        record=record)
-                  ] + derived_writes(obj)
+                if verb == 'create' or not copy:
+                    action = Action.CREATE
+                    # generate rkey based on lexicon's key type
+                    # https://atproto.com/specs/lexicon#record
+                    # https://atproto.com/specs/record-key
+                    key_type = LEXICONS[type]['key']
+                    if key_type.startswith('literal:'):
+                        rkey = key_type.removeprefix('literal:')
+                    elif key_type in ('tid', 'any'):
+                        rkey = next_tid()
+                    else:
+                        logger.error(f'unsupported key type for {type}: {key_type}')
+                        continue
+
+                else:  # update
+                    action = Action.UPDATE
+                    copy_did, collection, rkey = copy
+                    assert collection == type
+                    if copy_did != did:
+                        logger.warning(f"Can't update {base_id} {type}, original {copy} is in a different repo")
+                        continue
+
+                writes.append(Write(action=action, collection=type,
+                                    rkey=rkey, record=record))
+
+        writes.extend(derived_writes(obj))
+        if not writes:
+            logger.info('Nothing to do!')
+            return False
 
         logger.info(f'Storing ATProto {writes}')
-
         try:
             # serialize commits per repo. constructing and writing the commits can
             # take some time, so without serializing, we hit datastore contention,
@@ -1075,8 +1084,8 @@ class ATProto(User, Protocol):
         return True
 
     @classmethod
-    def _convert(cls, obj, fetch_blobs=False, from_user=None):
-        r"""Converts a :class:`models.Object` to ``app.bsky.*`` lexicon JSON.
+    def _convert(cls, obj, fetch_blobs=False, from_user=None, multiple=False):
+        r"""Converts a :class:`models.Object` to ``app.bsky.*`` lexicon JSON record(s).
 
         Args:
           obj (models.Object)
@@ -1084,17 +1093,18 @@ class ATProto(User, Protocol):
             them in :class:`arroba.datastore_storage.AtpRemoteBlob`\s if they
             don't already exist, and fill them into the returned object.
           from_user (models.User): user (actor) this activity/object is from
+          multiple: whether to return multiple records. Default False.
 
         Returns:
-          dict: JSON object
+          dict or list of dict: one or more JSON objects, depending on ``multiple``
         """
         from_proto = PROTOCOLS.get(obj.source_protocol)
 
         if obj.bsky:
-            return obj.bsky
+            return [obj.bsky] if multiple else obj.bsky
 
         if not obj.as1:
-            return {}
+            return [] if multiple else {}
 
         obj_as1 = obj.as1
         blobs = {}  # maps str URL to dict blob object
@@ -1149,76 +1159,80 @@ class ATProto(User, Protocol):
 
         client = DatastoreClient()
         try:
-            ret = bluesky.from_as1(translated, blobs=blobs,
-                                   aspects=aspect_ratios, client=client,
-                                   original_fields_prefix='bridgy',
-                                   as_embed=obj.type == 'article', raise_=True,
-                                   dynamic_sensitive_labels=True)
+            recs = bluesky.from_as1(translated, blobs=blobs,
+                                    aspects=aspect_ratios, client=client,
+                                    original_fields_prefix='bridgy',
+                                    as_embed=obj.type == 'article', raise_=True,
+                                    dynamic_sensitive_labels=True, multiple=True)
         except (ValueError, RequestException):
             logger.info(f"Couldn't convert to ATProto", exc_info=True)
-            return {}
+            return [] if multiple else {}
 
-        # if there are any links, generate an external embed as a preview
-        # for the first non-@-mention link
-        #
-        # not good enough to just look for #link facets, since bluesky.from_as1
-        # generates those for mention tags for non-Bluesky URLs, so we also
-        # need to check against the AS1 mention tags and avoid those
-        if ret.get('$type') == 'app.bsky.feed.post' and not ret.get('embed'):
-            mentions = [as1.get_url(tag) for tag in as1.get_objects(obj.as1, 'tags')
-                        if tag.get('objectType') == 'mention']
-            for facet in ret.get('facets', []):
-                if feats := facet.get('features'):
-                    feat = feats[0]
-                    first_char = ret['text'].encode()[facet['index']['byteStart']]
-                    if (feat['$type'] == 'app.bsky.richtext.facet#link'
-                            and feat['uri'] not in mentions
-                            # background discussion:
-                            # https://github.com/snarfed/bridgy-fed/issues/1615#issuecomment-2667191265
-                            and first_char != ord('@')):
-                        try:
-                            link = web.Web.load(feat['uri'], metaformats=True,
-                                                authorship_fetch_mf2=False,
-                                                raise_=False)
-                        except AssertionError as e:
-                            # we probably have an Object already stored for this URL
-                            # with source_protocol that's not web
-                            logger.warning(e)
-                            continue
+        for rec in recs:
+            # if there are any links, generate an external embed as a preview
+            # for the first non-@-mention link
+            #
+            # not good enough to just look for #link facets, since bluesky.from_as1
+            # generates those for mention tags for non-Bluesky URLs, so we also
+            # need to check against the AS1 mention tags and avoid those
+            if rec.get('$type') == 'app.bsky.feed.post' and not rec.get('embed'):
+                mentions = [
+                    as1.get_url(tag) for tag in as1.get_objects(obj.as1, 'tags')
+                    if tag.get('objectType') == 'mention']
+                for facet in rec.get('facets', []):
+                    if feats := facet.get('features'):
+                        feat = feats[0]
+                        first_char = rec['text'].encode()[facet['index']['byteStart']]
+                        if (feat['$type'] == 'app.bsky.richtext.facet#link'
+                                and feat['uri'] not in mentions
+                                # background discussion:
+                                # https://github.com/snarfed/bridgy-fed/issues/1615#issuecomment-2667191265
+                                and first_char != ord('@')):
+                            try:
+                                link = web.Web.load(feat['uri'], metaformats=True,
+                                                    authorship_fetch_mf2=False,
+                                                    raise_=False)
+                            except AssertionError as e:
+                                # we probably have an Object already stored for this
+                                # URL with source_protocol that's not web
+                                logger.warning(e)
+                                continue
 
-                        if link and link.as1:
-                            if img := util.get_url(link.as1, 'image'):
-                                props = appview.defs['app.bsky.embed.external#external']['properties']
-                                fetch_blob(img, props, name='thumb',
-                                           check_size=False, check_type=False)
-                            ret['embed'] = to_external_embed(link.as1, blobs=blobs)
-                            if (not util.is_url(ret['embed']['external']['uri'])
-                                or not util.is_web(ret['embed']['external']['uri'])):
+                            if link and link.as1:
+                                if img := util.get_url(link.as1, 'image'):
+                                    props = appview.defs['app.bsky.embed.external#external']['properties']
+                                    fetch_blob(img, props, name='thumb',
+                                               check_size=False, check_type=False)
+                                rec['embed'] = to_external_embed(link.as1, blobs=blobs)
+                                uri = rec['embed']['external']['uri']
                                 # backward compatibility for some Objects with bad urls
-                                ret['embed']['external']['uri'] = feat['uri']
-                            break
+                                if not util.is_url(uri) or not util.is_web(uri):
+                                    rec['embed']['external']['uri'] = feat['uri']
+                                break
 
-        if from_proto != ATProto:
-            if ret['$type'] == 'app.bsky.actor.profile':
-                # populated by Protocol.convert
-                if orig_summary := obj.as1.get('bridgyOriginalSummary'):
-                    ret['bridgyOriginalDescription'] = orig_summary
-                else:
-                    # don't use granary's since it will include source links
-                    ret.pop('bridgyOriginalDescription', None)
+            if from_proto != ATProto:
+                if rec['$type'] == 'app.bsky.actor.profile':
+                    # populated by Protocol.convert
+                    if orig_summary := obj.as1.get('bridgyOriginalSummary'):
+                        rec['bridgyOriginalDescription'] = orig_summary
+                    else:
+                        # don't use granary's since it will include source links
+                        rec.pop('bridgyOriginalDescription', None)
 
-                # bridged actors get a self label
-                label_val = 'bridged-from-bridgy-fed'
-                if from_proto:
-                    label_val += f'-{from_proto.LABEL}'
-                ret.setdefault('labels', {'$type': 'com.atproto.label.defs#selfLabels'})
-                ret['labels'].setdefault('values', []).append({'val' : label_val})
+                    # bridged actors get a self label
+                    label_val = 'bridged-from-bridgy-fed'
+                    if from_proto:
+                        label_val += f'-{from_proto.LABEL}'
+                    rec.setdefault('labels', {
+                        '$type': 'com.atproto.label.defs#selfLabels',
+                    })
+                    rec['labels'].setdefault('values', []).append({'val' : label_val})
 
-            if (ret['$type'] in ('app.bsky.actor.profile', 'app.bsky.feed.post')
-                    and orig_url):
-                ret['bridgyOriginalUrl'] = orig_url
+                if (rec['$type'] in ('app.bsky.actor.profile', 'app.bsky.feed.post')
+                        and orig_url):
+                    rec['bridgyOriginalUrl'] = orig_url
 
-        return ret
+        return recs if multiple else rec
 
     @classmethod
     def _migrate_in(cls, user, from_user_id, plc_code, pds_client):
