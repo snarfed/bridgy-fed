@@ -1,7 +1,7 @@
 """Unit tests for atproto.py."""
 import base64
 import copy
-from datetime import timezone
+from datetime import datetime, timezone
 from pathlib import Path
 from threading import Thread
 from unittest import skip
@@ -23,6 +23,7 @@ from granary.tests.test_bluesky import (
     ACTOR_AS,
     ACTOR_PROFILE_BSKY,
     POST_AS,
+    REPOST_BSKY,
 )
 import lexrpc
 from multiformats import CID
@@ -2384,7 +2385,7 @@ Sed tortor neque, aliquet quis posuere aliquam, imperdiet sitamet […]
             **NOTE_AS,
             'content': content,
         })
-        # we ended up withe some stored Objects like this due to bad mf2
+        # we ended up with some stored Objects like this due to bad mf2
         Object(id='http://orig.co/post', source_protocol='web', our_as1={
             'url': 'not a url',
             'content': 'foo bar',
@@ -2511,6 +2512,31 @@ Sed tortor neque, aliquet quis posuere aliquam, imperdiet sitamet […]
         last_tid = arroba.util.int_to_tid(arroba.util._tid_ts_last)
         record = repo.get_record('app.bsky.feed.post', last_tid)
         self.assertEqual('something new', record['text'])
+
+        mock_create_task.assert_called()  # atproto-commit
+
+    @patch.object(tasks_client, 'create_task', return_value=Task(name='my task'))
+    def test_send_update_multiple_creates_if_doesnt_exist(self, mock_create_task):
+        self.test_send_bare_note_existing_repo()
+        mock_create_task.reset_mock()
+
+        post_tid = arroba.util.int_to_tid(arroba.util._tid_ts_last)
+
+        update = Object(id='fake:update', source_protocol='fake', our_as1={
+            'objectType': 'activity',
+            'verb': 'update',
+            'object': NOTE_AS,
+        })
+        with patch.object(ATProto, '_convert', return_value=[NOTE_BSKY, REPOST_BSKY]):
+            self.assertTrue(ATProto.send(update, 'https://bsky.brid.gy'))
+
+        # check repo, records
+        repo = self.storage.load_repo('did:plc:user')
+        repost_tid = arroba.util.int_to_tid(arroba.util._tid_ts_last)
+        self.assert_equals({
+            'app.bsky.feed.post': {post_tid: NOTE_BSKY},
+            'app.bsky.feed.repost': {repost_tid: REPOST_BSKY},
+        }, repo.get_contents())
 
         mock_create_task.assert_called()  # atproto-commit
 
@@ -2673,8 +2699,8 @@ Sed tortor neque, aliquet quis posuere aliquam, imperdiet sitamet […]
             'id': 'fake:pinned',
             'content': 'My pinned post',
         })
-        pinned_obj.add('copies', Target(uri='at://did:plc:user/app.bsky.feed.post/existing',
-                                        protocol='atproto'))
+        pinned_obj.add('copies', Target(
+            uri='at://did:plc:user/app.bsky.feed.post/existing', protocol='atproto'))
         pinned_obj.put()
 
         # create the actual pinned post record in the repo
@@ -2774,6 +2800,44 @@ Sed tortor neque, aliquet quis posuere aliquam, imperdiet sitamet […]
     def test_send_delete_note(self, mock_create_task):
         self.test_send_bare_note_existing_repo()
         mock_create_task.reset_mock()
+
+        delete = Object(id='fake:delete', source_protocol='fake', our_as1={
+            'objectType': 'activity',
+            'verb': 'delete',
+            'actor': 'fake:user',
+            'object': 'fake:post',
+        })
+        self.assertTrue(ATProto.send(delete, 'https://bsky.brid.gy/'))
+
+        # check repo, record
+        did = self.user.key.get().get_copy(ATProto)
+        repo = self.storage.load_repo(did)
+        last_tid = arroba.util.int_to_tid(arroba.util._tid_ts_last)
+        self.assertIsNone(repo.get_record('app.bsky.feed.post', last_tid))
+
+        mock_create_task.assert_called()  # atproto-commit
+
+    @patch.object(tasks_client, 'create_task', return_value=Task(name='my task'))
+    def test_send_delete_multiple(self, mock_create_task):
+        self.test_send_bare_note_existing_repo()
+        mock_create_task.reset_mock()
+
+        obj = Object.get_by_id('fake:post')
+        orig_copy = obj.copies[0]
+        obj.copies = []
+        obj.put()
+
+        second = Object(id='fake:post', source_protocol='fake',
+                        our_as1={**NOTE_AS, 'text': 'other'})
+        self.assertTrue(ATProto.send(second, 'https://bsky.brid.gy'))
+        mock_create_task.reset_mock()
+
+        obj = obj.key.get()
+        obj.copies.append(orig_copy)
+        obj.put()
+
+        repo = self.storage.load_repo('did:plc:user')
+        self.assertEqual(2, len(repo.get_contents()['app.bsky.feed.post']))
 
         delete = Object(id='fake:delete', source_protocol='fake', our_as1={
             'objectType': 'activity',
@@ -3284,7 +3348,7 @@ Sed tortor neque, aliquet quis posuere aliquam, imperdiet sitamet […]
         self.assertFalse(ATProto.send(note, 'https://bsky.brid.gy'))
 
     @patch.object(tasks_client, 'create_task')
-    @patch.object(ATProto, '_convert', return_value={})
+    @patch.object(ATProto, '_convert', return_value=[{}])
     def test_send_skips_bad_convert(self, _, mock_create_task):
         self.make_user_and_repo()
 
