@@ -2514,6 +2514,60 @@ Sed tortor neque, aliquet quis posuere aliquam, imperdiet sitamet […]
         mock_create_task.assert_called()  # atproto-commit
 
     @patch.object(tasks_client, 'create_task', return_value=Task(name='my task'))
+    def test_send_article(self, mock_create_task):
+        user = self.make_user_and_repo()
+        obj = Object(id='fake://art/icle', source_protocol='fake', our_as1={
+            'objectType': 'article',
+            'id': 'fake://art/icle',
+            'author': 'fake:user',
+            'displayName': 'Foo bar',
+            'content': "it's a big'un",
+        })
+
+        with patch('atproto.next_tid', side_effect=['a', 'b']):
+            self.assertTrue(ATProto.send(obj, 'https://bsky.brid.gy'))
+
+        # check records
+        repo = self.storage.load_repo('did:plc:user')
+        self.assert_equals({
+            'app.bsky.feed.post': {'a': {
+                '$type': 'app.bsky.feed.post',
+                'text': '',
+                'createdAt': '2022-01-02T03:04:05.000Z',
+                'embed': {
+                    '$type': 'app.bsky.embed.external',
+                    'external': {
+                        '$type': 'app.bsky.embed.external#external',
+                        'uri': 'fake://art/icle',
+                        'title': 'Foo bar',
+                        'description': "it's a big'un",
+                    },
+                },
+                'bridgyOriginalText': "it's a big'un",
+                'bridgyOriginalUrl': 'fake://art/icle',
+            }},
+            'site.standard.document': {'b': {
+                '$type': 'site.standard.document',
+                'site': 'fake://art',
+                'path': '/icle',
+                'title': 'Foo bar',
+                'textContent': "it's a big'un",
+                'publishedAt': '2022-01-02T03:04:05.000Z',
+                'bskyPostRef': {
+                    'uri': 'at://did:plc:user/app.bsky.feed.post/a',
+                    'cid': 'bafyreieaivdft5fc76h6flpihdvrejhyb7b3vehq4tnnquhqlajxyx4rri',
+                },
+            }},
+        }, repo.get_contents())
+
+        self.assertEqual([
+            Target(uri='at://did:plc:user/app.bsky.feed.post/a', protocol='atproto'),
+            Target(uri='at://did:plc:user/site.standard.document/b', protocol='atproto'),
+        ], Object.get_by_id(id='fake://art/icle').copies)
+
+        mock_create_task.assert_called()  # atproto-commit
+
+    @patch.object(tasks_client, 'create_task', return_value=Task(name='my task'))
     def test_send_update_note(self, mock_create_task):
         self.test_send_bare_note_existing_repo()
         mock_create_task.reset_mock()

@@ -2361,6 +2361,10 @@ class IntegrationTests(TestCase):
                     'mimeType': 'image/jpeg',
                     'size': 20,
                 },
+                'bskyPostRef': {
+                    'uri': f'at://did:plc:alice/app.bsky.feed.post/{post_tid}',
+                    'cid': 'bafyreidgrqtmgovqopahpaj3fpcrqohyiwvgl5w4borco6qbg55w4ihq5m',
+                },
                 'publishedAt': '2022-01-02T03:04:05.000Z',
                 'updatedAt': '2022-01-03T04:05:06.000Z',
             }},

@@ -2,6 +2,7 @@
 
 https://atproto.com/
 """
+from collections import defaultdict
 from datetime import timedelta
 import itertools
 import logging
@@ -964,11 +965,11 @@ class ATProto(User, Protocol):
                 writes.append(Write(action=action, collection=type,
                                     rkey=rkey, record=record))
 
-        writes.extend(derived_writes(obj))
         if not writes:
             logger.info('Nothing to do!')
             return False
 
+        postprocess_writes(writes, repo)
         logger.info(f'Storing ATProto {writes}')
         try:
             # serialize commits per repo. constructing and writing the commits can
@@ -1368,35 +1369,28 @@ class ATProto(User, Protocol):
                     type=obj.type)
 
 
-def derived_writes(obj):
-    """Returns any "extra" writes we need for a given object/activity.
+def postprocess_writes(writes, repo):
+    """Applies custom logic to writes before we commit them.
+
+    * Populates the ``bskyPostRef`` property in ``site.standard.document``.
 
     Args:
-      obj (Object)
-
-    Returns:
-      list of arroba.repo.Write
+      writes (sequence of arroba.repo.Write)
+      repo (arroba.repo.Repo)
     """
-    if not obj.as1:
-        return []
+    by_collection = defaultdict(list)
+    for write in writes:
+        by_collection[write.collection].append(write)
 
-    writes = []
-    action = None
-    type = obj.as1.get('objectType')
-    verb = obj.as1.get('verb')
-    if type != 'activity' or verb == 'post':
-        action = Action.CREATE
-    elif verb == 'update':
-        action = Action.UPDATE
-    elif verb in ('delete', 'undo'):
-        action = Action.DELETE
-
-    obj_as1 = obj.as1
-    if verb in as1.CRUD_VERBS:
-        obj_as1 = as1.get_object(obj.as1)
-
-    return writes
-
+    # map site.standard.documents to app.bsky.feed.posts
+    for post in by_collection['app.bsky.feed.post']:
+        if post.action in (Action.CREATE, Action.UPDATE):
+            for doc in by_collection['site.standard.document']:
+                doc.record['bskyPostRef'] = {
+                    'uri': at_uri(repo.did, post.collection, post.rkey),
+                    'cid': dag_cbor_cid(post.record).encode('base32'),
+                }
+            break
 
 def create_report(*, input, from_user):
     """Sends a ``createReport`` for a ``flag`` activity.
