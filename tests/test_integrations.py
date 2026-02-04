@@ -46,6 +46,7 @@ from granary.tests.test_nostr import (
     PUBKEY_3,
     PUBKEY_URI_2,
 )
+from multiformats import CID
 from oauth_dropins.webutil.flask_util import NoContent
 from oauth_dropins.webutil.testutil import NOW, NOW_SECONDS, requests_response
 from oauth_dropins.webutil import util
@@ -2286,6 +2287,92 @@ class IntegrationTests(TestCase):
         self.assert_equals([
             Target(protocol='nostr', uri='nostr:' + expected_event['id']),
         ], Object.get_by_id('https://inst/post').copies)
+
+    @patch('requests.get', return_value=requests_response(
+        'cover image contents', content_type='image/jpeg'))
+    def test_activitypub_create_article_to_atproto(self, mock_get):
+        """ActivityPub user creates article, delivered to ATProto.
+
+        ActivityPub user https://inst/alice
+        """
+        alice = self.make_ap_user('https://inst/alice', did='did:plc:alice',
+                                  enabled_protocols=['atproto'])
+
+        create = {
+            '@context': 'https://www.w3.org/ns/activitystreams',
+            'type': 'Create',
+            'id': 'https://inst/article#create',
+            'actor': 'https://inst/alice',
+            'object': {
+                'type': 'Article',
+                'id': 'https://inst/article',
+                'attributedTo': 'https://inst/alice',
+                'name': 'My Great Article',
+                'summary': 'This is a summary of the article',
+                'content': 'This is the full content of the article with much more detail.',
+                'published': '2022-01-02T03:04:05.000Z',
+                'updated': '2022-01-03T04:05:06.000Z',
+                'image': 'https://inst/cover.jpg',
+            },
+        }
+        body = json_dumps(create)
+        headers = sign('/ap/sharedInbox', body, key_id='https://inst/alice')
+        resp = self.client.post('/ap/sharedInbox', data=body, headers=headers)
+        self.assertEqual(202, resp.status_code)
+
+        # check that we created both app.bsky.feed.post and site.standard.document
+        repo = self.storage.load_repo('did:plc:alice')
+        contents = repo.get_contents()
+        post_tid = list(contents['app.bsky.feed.post'].keys())[0]
+        doc_tid = list(contents['site.standard.document'].keys())[0]
+        self.assert_equals({
+            'app.bsky.feed.post': {post_tid: {
+                '$type': 'app.bsky.feed.post',
+                'text': 'This is a summary of the article',
+                'createdAt': '2022-01-02T03:04:05.000Z',
+                'embed': {
+                    '$type': 'app.bsky.embed.external',
+                    'external': {
+                        '$type': 'app.bsky.embed.external#external',
+                        'uri': 'https://inst/article',
+                        'title': 'My Great Article',
+                        'description': 'This is the full content of the article with much more detail.',
+                        'thumb': {
+                            '$type': 'blob',
+                            'ref': CID.decode('bafkreienspp4shecijw6syyhcabwei4bquias7zx6hlldbr5ckz55r2evq'),
+                            'mimeType': 'image/jpeg',
+                            'size': 20,
+                        },
+                    },
+                },
+                'bridgyOriginalText': 'This is the full content of the article with much more detail.',
+                'bridgyOriginalUrl': 'https://inst/article',
+            }},
+            'site.standard.document': {doc_tid: {
+                '$type': 'site.standard.document',
+                'site': 'https://inst',
+                'path': '/article',
+                'title': 'My Great Article',
+                'description': 'This is a summary of the article',
+                'textContent': 'This is the full content of the article with much more detail.',
+                'coverImage': {
+                    '$type': 'blob',
+                    'ref': CID.decode('bafkreienspp4shecijw6syyhcabwei4bquias7zx6hlldbr5ckz55r2evq'),
+                    'mimeType': 'image/jpeg',
+                    'size': 20,
+                },
+                'publishedAt': '2022-01-02T03:04:05.000Z',
+                'updatedAt': '2022-01-03T04:05:06.000Z',
+            }},
+        }, repo.get_contents())
+
+        # check that we set Object.copies with both records
+        expected_post_uri = f'at://did:plc:alice/app.bsky.feed.post/{post_tid}'
+        expected_doc_uri = f'at://did:plc:alice/site.standard.document/{doc_tid}'
+        self.assert_equals([
+            Target(protocol='atproto', uri=expected_post_uri),
+            Target(protocol='atproto', uri=expected_doc_uri),
+        ], Object.get_by_id('https://inst/article').copies)
 
     def test_activitypub_delete_post_to_nostr(self):
         """ActivityPub user deletes already-bridged post, delivered to Nostr follower.
