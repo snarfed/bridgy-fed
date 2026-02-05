@@ -411,6 +411,9 @@ class UserTest(TestCase):
         self.assertEqual('fake-handle-alice-bob-jones',
                          Fake(id='fake:alice~bob:jones').handle_as_domain)
 
+        user = Fake(id='fake:alice', verified_domain='foo.com')
+        self.assertEqual('foo.com', user.handle_as_domain)
+
     def test_id_as(self):
         user = self.make_user('fake:user', cls=Fake)
         self.assertEqual('fake:user', user.id_as(Fake))

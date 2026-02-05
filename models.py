@@ -622,6 +622,9 @@ class User(AddRemoveMixin, StringIdModel, metaclass=ProtocolUserMeta):
         if not hasattr(self, '_stored_handle_as_domain'):
             self._stored_handle_as_domain = stored_value(self, 'handle_as_domain')
 
+        if self.verified_domain:
+            return self.verified_domain
+
         return ids.handle_as_domain(self.handle)
 
     @ndb.ComputedProperty

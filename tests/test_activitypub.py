@@ -2700,14 +2700,18 @@ class ActivityPubUtilsTest(TestCase):
             'https://inst.com/.well-known/webfinger?resource=acct:user@inst.com')
 
     def test_handle_as_domain(self):
-        self.assertEqual(
-            'a.b.c', ActivityPub(webfinger_addr='@a@b.c').handle_as_domain)
+        user = ActivityPub(webfinger_addr='@a@b.c')
+        self.assertEqual('a.b.c', user.handle_as_domain)
 
         actor = Object(id='x', as2={
             'id': 'http://b.c/@a',
             'preferredUsername': 'z',
         })
-        self.assertEqual('z.b.c', ActivityPub(obj_key=actor.put()).handle_as_domain)
+        user = ActivityPub(obj_key=actor.put())
+        self.assertEqual('z.b.c', user.handle_as_domain)
+
+        user.verified_domain = 'foo.com'
+        self.assertEqual('foo.com', user.handle_as_domain)
 
     def test_bridged_web_url_for(self):
         self.assertIsNone(ActivityPub.bridged_web_url_for(
