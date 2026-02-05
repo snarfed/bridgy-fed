@@ -151,6 +151,12 @@ class Nostr(User, Protocol):
             return self.npub()
 
     @ndb.ComputedProperty
+    def verified_domain(self):
+        """Returns this user's NIP-05 if it's the top-level domain, ie _@..."""
+        if self.valid_nip05 and self.valid_nip05.startswith('_@'):
+            return self.valid_nip05.removeprefix('_@')
+
+    @ndb.ComputedProperty
     def status(self):
         if self.manual_opt_out is False:
             return None

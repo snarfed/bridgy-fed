@@ -167,6 +167,11 @@ class NostrTest(TestCase):
                     user.key = ndb.Key(Nostr, PUBKEY_URI)
                     self.assertEqual(NPUB, user.handle)
 
+    def test_verified_domain(self):
+        self.assertIsNone(Nostr().verified_domain)
+        self.assertIsNone(Nostr(valid_nip05='x@y.z').verified_domain)
+        self.assertEqual('y.z', Nostr(valid_nip05='_@y.z').verified_domain)
+
     def test_bridged_web_url_for(self):
         self.assertIsNone(Nostr.bridged_web_url_for(Nostr()))
         self.assertIsNone(Nostr.bridged_web_url_for(Fake()))
