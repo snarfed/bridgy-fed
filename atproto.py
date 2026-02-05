@@ -939,21 +939,8 @@ class ATProto(User, Protocol):
 
                 if verb == 'create' or not copy:
                     action = Action.CREATE
-                    # generate rkey based on lexicon's key type
-                    # https://atproto.com/specs/lexicon#record
-                    # https://atproto.com/specs/record-key
-                    key_type = LEXICONS[type]['key']
-                    if type == 'community.lexicon.payments.webMonetization':
-                        # https://github.com/lexicon-community/lexicon/tree/main/community/lexicon/payments#usage
-                        rkey = 'self'
-                    elif key_type.startswith('literal:'):
-                        rkey = key_type.removeprefix('literal:')
-                    elif key_type in ('tid', 'any'):
-                        rkey = next_tid()
-                    else:
-                        logger.error(f'unsupported key type for {type}: {key_type}')
+                    if not (rkey := generate_rkey(type)):
                         continue
-
                 else:  # update
                     action = Action.UPDATE
                     copy_did, collection, rkey = copy
@@ -1367,6 +1354,30 @@ class ATProto(User, Protocol):
                 actor['summary'] = Bluesky('unused').truncate(
                     text, url='\n\n' + source_links, punctuation=('', ''),
                     type=obj.type)
+
+
+def generate_rkey(type):
+    """Generates a new rkey based on a collection lexicon's key type.
+
+    https://atproto.com/specs/lexicon#record
+    https://atproto.com/specs/record-key
+
+    Args:
+      type (str): collection NSID, eg ``app.bsky.feed.post``
+
+    Returns:
+      str or None: rkey, eg ``self`` or ``3me5cnh2poyt2``
+    """
+    key_type = LEXICONS[type]['key']
+    if type == 'community.lexicon.payments.webMonetization':
+        # https://github.com/lexicon-community/lexicon/tree/main/community/lexicon/payments#usage
+        return 'self'
+    elif key_type.startswith('literal:'):
+        return key_type.removeprefix('literal:')
+    elif key_type in ('tid', 'any'):
+        return next_tid()
+    else:
+        logger.error(f'unsupported key type for {type}: {key_type}')
 
 
 def postprocess_writes(writes, repo):
