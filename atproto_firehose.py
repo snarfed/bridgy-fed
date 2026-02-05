@@ -183,6 +183,7 @@ def subscribe():
             logger.warning(f'Payload missing seq! {payload}')
             continue
 
+        last_timestamp = cur_timestamp
         cur_timestamp = payload['time']
 
         # if we fail processing this commit and raise an exception up to subscriber,
@@ -191,16 +192,20 @@ def subscribe():
 
         elapsed = util.now().replace(tzinfo=None) - cursor.updated
         if elapsed > STORE_CURSOR_FREQ:
-            events_s = 0
+            # it's been long enough, update our stored cursor and metrics
+            msg = f'updating stored cursor to {cursor.cursor}'
+
             if last_stored_cursor:
                 events_s = int((cursor.cursor - last_stored_cursor) /
                                elapsed.total_seconds())
+                msg += ', {events_s} events/s'
             last_stored_cursor = cursor.cursor
 
-            behind = util.now() - util.parse_iso8601(cur_timestamp)
+            if last_timestamp and cur_timestamp >= last_timestamp:
+                behind = util.now() - util.parse_iso8601(cur_timestamp)
+                msg += f', {behind} ({int(behind.total_seconds())} s) behind'
 
-            # it's been long enough, update our stored cursor and metrics
-            logger.info(f'updating stored cursor to {cursor.cursor}, {events_s} events/s, {behind} ({int(behind.total_seconds())} s) behind')
+            logger.info(msg)
             cursor.put()
             # when running locally, comment out put above and uncomment this
             # cursor.updated = util.now().replace(tzinfo=None)
