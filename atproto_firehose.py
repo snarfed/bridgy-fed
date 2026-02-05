@@ -198,7 +198,7 @@ def subscribe():
             if last_stored_cursor:
                 events_s = int((cursor.cursor - last_stored_cursor) /
                                elapsed.total_seconds())
-                msg += ', {events_s} events/s'
+                msg += f', {events_s} events/s'
             last_stored_cursor = cursor.cursor
 
             if last_timestamp and cur_timestamp >= last_timestamp:
