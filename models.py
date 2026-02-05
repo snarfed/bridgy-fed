@@ -397,6 +397,9 @@ class User(AddRemoveMixin, StringIdModel, metaclass=ProtocolUserMeta):
     blocks = ndb.KeyProperty(kind='Object', repeated=True)
     ''
 
+    verified_domain = ndb.StringProperty()
+    """Domain that we've verified this user owns, eg web site top-level NIP-05, etc."""
+
     created = ndb.DateTimeProperty(auto_now_add=True)
     ''
     updated = ndb.DateTimeProperty(auto_now=True)

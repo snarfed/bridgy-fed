@@ -3835,6 +3835,64 @@ class ActivityPubUtilsTest(TestCase):
             self.req('https://bar.com/.well-known/webfinger?resource=acct:ms-alice@bar.com'),
         ))
 
+    @patch('requests.get', side_effect=[
+        TestCase.as2_resp({
+            'type': 'Person',
+            'id': 'http://foo.com/user',
+            'url': ['https://foo.com/not-homepage', 'https://foo.com/'],
+        }),
+        # homepage returns actor with same ID
+        TestCase.as2_resp({
+            'type': 'Person',
+            'id': 'http://foo.com/user',
+        }),
+    ])
+    def test_reload_profile_verified_domain(self, mock_get):
+        user = self.make_user('http://foo.com/user', cls=ActivityPub)
+        user.reload_profile()
+
+        self.assertEqual('foo.com', user.verified_domain)
+        self.assertEqual('foo.com', user.key.get().verified_domain)
+        mock_get.assert_has_calls((
+            self.as2_req('http://foo.com/user'),
+            self.as2_req('https://foo.com/'),
+        ))
+
+    @patch('requests.get', side_effect=[
+        TestCase.as2_resp({
+            'type': 'Person',
+            'id': 'http://foo.com/user',
+            'url': 'https://foo.com/',
+        }),
+        # homepage returns actor with different ID
+        TestCase.as2_resp({
+            'type': 'Person',
+            'id': 'http://foo.com/eve',
+        }),
+    ])
+    def test_reload_profile_verified_id_mismatch(self, mock_get):
+        user = self.make_user('http://foo.com/user', cls=ActivityPub,
+                              verified_domain='foo.com')
+        user.reload_profile()
+        self.assertIsNone(user.verified_domain)
+        self.assertIsNone(user.key.get().verified_domain)
+
+    @patch('requests.get', side_effect=[
+        TestCase.as2_resp({
+            'type': 'Person',
+            'id': 'http://foo.com/user',
+            'url': 'https://foo.com/',
+        }),
+        # homepage fetch fails
+        requests_response(status=500),
+    ])
+    def test_reload_profile_verified_domain_fetch_fails(self, mock_get):
+        user = self.make_user('http://foo.com/user', cls=ActivityPub,
+                              verified_domain='foo.com')
+        user.reload_profile()
+        self.assertIsNone(user.verified_domain)
+        self.assertIsNone(user.key.get().verified_domain)
+
     def test_server_actor_override_status(self):
         actor = self.make_user('http://inst/person', cls=ActivityPub,
                                obj_as2={'id': 'http://inst/actor'})

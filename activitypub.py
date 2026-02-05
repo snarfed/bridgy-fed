@@ -26,6 +26,7 @@ from oauth_dropins.webutil.util import (
     add,
     domain_from_link,
     fragmentless,
+    interpret_http_exception,
     json_dumps,
     json_loads,
 )
@@ -217,12 +218,15 @@ class ActivityPub(User, Protocol):
         1. load AP actor
         2. fetch Webfinger with preferredUsername
         3. re-fetch Webfinger with subject from first Webfinger
+        4. if a profile URL is a top-level URL (ie home page), check that it serves
+           this AP user, and if so, set verified_domain
 
         https://www.w3.org/community/reports/socialcg/CG-FINAL-apwf-20240608/#reverse-discovery
         https://correct.webfinger-canary.fietkau.software/#developers
         """
         super().reload_profile(**kwargs)
 
+        # webfinger
         self.webfinger_addr = None
         if self.handle:
             if profile := webfinger.fetch(self.handle):
@@ -234,7 +238,28 @@ class ActivityPub(User, Protocol):
                             if not addr.startswith('@'):
                                 addr = '@' + addr
                             self.webfinger_addr = addr
-                            self.put()
+
+        # verified domain
+        self.verified_domain = None
+        if self.obj and self.obj.as1:
+            for url in as1.object_urls(self.obj.as1):
+                if urlparse(url).path.strip('/') == '':  # home page ie path /
+                    obj = Object(id=url)
+                    try:
+                        self.fetch(obj)
+                    except Exception as e:
+                        code, _ = interpret_http_exception(e)
+                        if code:
+                            continue
+                        raise
+
+                    if obj.key.id() == self.key.id():
+                        domain = domain_from_link(url)
+                        logger.info(f'{url} serves AP actor {self.key.id()}; setting verified_domain to {domain}')
+                        self.verified_domain = domain
+                        break
+
+        self.put()
 
     @classmethod
     def owns_id(cls, id):
@@ -369,7 +394,7 @@ class ActivityPub(User, Protocol):
     def fetch(cls, obj, use_fetched_id=True, **_):
         """Tries to fetch an AS2 object.
 
-        Assumes ``obj.id`` is a URL. Any fragment at the end is stripped before
+        Assumes ``obj.key.id`` is a URL. Any fragment at the end is stripped before
         loading. This is currently underspecified and somewhat inconsistent
         across AP implementations:
 
@@ -383,8 +408,8 @@ class ActivityPub(User, Protocol):
         url is HTML and it has a ``rel-alternate`` link with an AS2 content
         type, fetches and returns that URL.
 
-        If the fetched AS2 object's ``id`` is different from ``obj.id``, this
-        method defaults to overwriting ``obj.id`` with the fetched id! You can
+        If the fetched AS2 object's ``id`` is different from ``obj.key.id``, this
+        method defaults to overwriting ``obj.key.id`` with the fetched id! You can
         disable that with ``use_fetched_id=False``.
 
         Includes an HTTP Signature with the request.

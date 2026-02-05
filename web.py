@@ -228,6 +228,11 @@ class Web(User, Protocol):
             return domain_from_link(username, minimize=False)
         return username
 
+    @ndb.ComputedProperty
+    def verified_domain(self):
+        """Returns this user's domain, ie the key id."""
+        return self.key.id()
+
     def handle_as(self, to_proto, short=False):
         """Special case ActivityPub to use custom username."""
         if to_proto in ('activitypub', 'ap', PROTOCOLS['ap']):
