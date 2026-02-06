@@ -440,6 +440,7 @@
 <li id="notifs" class="question">What happens when someone replies or interacts with me?</li>
 <li class="answer">
 <p>If they're bridged into your network, you'll see the reply or interaction natively! Otherwise, if you're on a network that supports DMs/chat, Bridgy Fed will send you a DM every hour with replies and @-mentions from people who aren't bridged into your network. Make sure you're accepting DMs from the Bridgy Fed bot user, eg you're not blocking it, and if you only accept DMs from accounts you follow, that you're following it too. <a href="#dm-commands">You can disable these notification DMs by replying with the text <code>mute</code>.</a>
+<!-- TODO <p>Each notification link to an unbridged post will also include a <em>respond</em> link to a Bridgy Fed page that you can use to respond. You can like the post, repost it, reply to it, or block its author. -->
 </li>
 
 <li id="block" class="question">How do I block someone in another network who's not bridged into mine?</li>
@@ -729,7 +730,12 @@ RewriteRule ^.well-known/(host-meta|webfinger).* https://fed.brid.gy/$0  [redire
 
 <li id="bluesky-what-to" class="question">Which stuff of mine can get bridged into Bluesky?</li>
 <li class="answer">
-<p>Profiles, follows, posts, images, videos, hashtags, @-mentions, and <a href="https://docs.joinmastodon.org/user/posting/#cw">content warnings</a>. Also replies, likes, and reposts <em>if</em> the original post was already bridged.</p>
+<p>Bluesky is just one of <a href="https://blueskydirectory.com/">many apps</a> on the <a href="https://atproto.com/">AT Protocol</a> network. Bridgy Fed currently supports these apps and compatible clients:
+<ul>
+<li><a href="https://bsky.app/">Bluesky</a> (bsky.app) profiles, follows, posts, images, videos, hashtags, @-mentions, and <a href="https://docs.joinmastodon.org/user/posting/#cw">content warnings</a>. Also replies, likes, and reposts <em>if</em> the original post was already bridged.</p>
+<!-- TODO <li><a href="https://standard.site/">standard.site</a> publications and documents, usable in apps like <a href="https://leaflet.pub/">Leaflet</a>, <a href="https://pckt.blog/">Pckt</a>, <a href="https://offprint.app/">Offprint</a>, <a href="https://blento.app/">Blento</a>, etc. -->
+<li>...and more to come!
+</ul>
 </li>
 
 <li id="bluesky-what-not-to" class="question">Which stuff can't get bridged into Bluesky?</li>
