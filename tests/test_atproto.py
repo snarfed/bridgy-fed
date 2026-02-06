@@ -2528,6 +2528,7 @@ Sed tortor neque, aliquet quis posuere aliquam, imperdiet sitamet […]
             self.assertTrue(ATProto.send(obj, 'https://bsky.brid.gy'))
 
         # check records
+        # (no publication record because user doesn't have verified_domain set)
         repo = self.storage.load_repo('did:plc:user')
         self.assert_equals({
             'app.bsky.feed.post': {'a': {
@@ -2564,6 +2565,9 @@ Sed tortor neque, aliquet quis posuere aliquam, imperdiet sitamet […]
             Target(uri='at://did:plc:user/app.bsky.feed.post/a', protocol='atproto'),
             Target(uri='at://did:plc:user/site.standard.document/b', protocol='atproto'),
         ], Object.get_by_id(id='fake://art/icle').copies)
+
+        # we shouldn't have made a site.standard.publication
+        self.assertIsNone(user.obj.get_copy(ATProto))
 
         mock_create_task.assert_called()  # atproto-commit
 
@@ -4256,3 +4260,64 @@ Sed tortor neque, aliquet quis posuere aliquam, imperdiet sitamet […]
 
         post(lost_seq='4')
         self.assertEqual({2, 4}, firehose.lost_seqs)
+
+    @patch.object(tasks_client, 'create_task', return_value=Task(name='my task'))
+    def test_send_article_creates_publication(self, mock_create_task):
+        user = self.make_user_and_repo(verified_domain='fake.com', obj_as1={
+            'objectType': 'person',
+            'id': 'fake:user',
+            'url': 'https://foo.com/user',
+            'displayName': 'Ms User',
+            'summary': 'hi there',
+        })
+
+        obj = Object(id='fake://art/icle', source_protocol='fake', our_as1={
+            'objectType': 'article',
+            'id': 'fake://art/icle',
+            'author': 'fake:user',
+            'displayName': 'My Article',
+            'content': 'article content',
+        })
+
+        with patch('atproto.next_tid', side_effect=['a', 'b', 'c']):
+            self.assertTrue(ATProto.send(obj, 'https://bsky.brid.gy'))
+
+        # check that a publication was created
+        repo = self.storage.load_repo('did:plc:user')
+        pubs = repo.get_contents()['site.standard.publication']
+        self.assert_equals({'c': {
+            '$type': 'site.standard.publication',
+            'url': 'https://fake.com',
+            'name': 'Ms User',
+            'description': 'hi there',
+        }}, pubs)
+        self.assertEqual(['at://did:plc:user/site.standard.publication/c'],
+                         user.obj.key.get().get_copies(ATProto))
+
+    @patch.object(tasks_client, 'create_task', return_value=Task(name='my task'))
+    def test_send_article_publication_already_exists(self, mock_create_task):
+        user = self.make_user_and_repo(verified_domain='fake.com', obj_as1={
+            'objectType': 'person',
+            'id': 'fake:user',
+            'url': 'https://foo.com/user',
+            'displayName': 'Ms User',
+        })
+        existing = 'at://did:plc:user/site.standard.publication/existing'
+        user.obj.add('copies', Target(uri=existing, protocol='atproto'))
+        user.obj.put()
+
+        obj = Object(id='fake://art/icle', source_protocol='fake', our_as1={
+            'objectType': 'article',
+            'id': 'fake://art/icle',
+            'author': 'fake:user',
+            'displayName': 'My Article',
+            'content': 'article content',
+        })
+
+        with patch('atproto.next_tid', side_effect=['a', 'b']):
+            self.assertTrue(ATProto.send(obj, 'https://bsky.brid.gy'))
+
+        # check that no new publication was created
+        self.assertEqual([existing], user.obj.key.get().get_copies(ATProto))
+        repo = self.storage.load_repo('did:plc:user')
+        self.assertNotIn('site.standard.publication', repo.get_contents())

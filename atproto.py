@@ -956,7 +956,7 @@ class ATProto(User, Protocol):
             logger.info('Nothing to do!')
             return False
 
-        postprocess_writes(writes, repo)
+        postprocess_writes(writes, from_user)
         logger.info(f'Storing ATProto {writes}')
         try:
             # serialize commits per repo. constructing and writing the commits can
@@ -1078,7 +1078,8 @@ class ATProto(User, Protocol):
         return True
 
     @classmethod
-    def _convert(cls, obj, fetch_blobs=False, from_user=None, multiple=False):
+    def _convert(cls, obj, fetch_blobs=False, from_user=None, multiple=False,
+                 **kwargs):
         r"""Converts a :class:`models.Object` to ``app.bsky.*`` lexicon JSON record(s).
 
         Args:
@@ -1088,6 +1089,7 @@ class ATProto(User, Protocol):
             don't already exist, and fill them into the returned object.
           from_user (models.User): user (actor) this activity/object is from
           multiple: whether to return multiple records. Default False.
+          kwargs: passed through to :func:`granary.bluesky.from_as1`
 
         Returns:
           dict or list of dict: one or more JSON objects, depending on ``multiple``
@@ -1157,7 +1159,8 @@ class ATProto(User, Protocol):
                                     aspects=aspect_ratios, client=client,
                                     original_fields_prefix='bridgy',
                                     as_embed=obj.type == 'article', raise_=True,
-                                    dynamic_sensitive_labels=True, multiple=True)
+                                    dynamic_sensitive_labels=True, multiple=True,
+                                    **kwargs)
         except (ValueError, RequestException):
             logger.info(f"Couldn't convert to ATProto", exc_info=True)
             return [] if multiple else {}
@@ -1380,28 +1383,53 @@ def generate_rkey(type):
         logger.error(f'unsupported key type for {type}: {key_type}')
 
 
-def postprocess_writes(writes, repo):
+def postprocess_writes(writes, user):
     """Applies custom logic to writes before we commit them.
 
-    * Populates the ``bskyPostRef`` property in ``site.standard.document``.
+    * For ``site.standard.document``s:
+      * Populate the ``bskyPostRef`` property, if we also have an
+        ``app.bsky.feed.post``.
+      * Create a ``site.standard.publication`` if we don't already have one.
 
     Args:
       writes (sequence of arroba.repo.Write)
-      repo (arroba.repo.Repo)
+      user (models.User)
     """
+    did = user.get_copy(ATProto)
+
     by_collection = defaultdict(list)
     for write in writes:
         by_collection[write.collection].append(write)
 
+
     # map site.standard.documents to app.bsky.feed.posts
+    docs = [write for write in by_collection['site.standard.document']
+            if write.action in (Action.CREATE, Action.UPDATE)]
+
     for post in by_collection['app.bsky.feed.post']:
         if post.action in (Action.CREATE, Action.UPDATE):
-            for doc in by_collection['site.standard.document']:
+            for doc in docs:
                 doc.record['bskyPostRef'] = {
-                    'uri': at_uri(repo.did, post.collection, post.rkey),
+                    'uri': at_uri(did, post.collection, post.rkey),
                     'cid': dag_cbor_cid(post.record).encode('base32'),
                 }
             break
+
+    # create site.standard.publication for user if it doesn't exist
+    if docs and user and user.verified_domain:
+        has_publication = any(parse_at_uri(uri)[1] == 'site.standard.publication'
+                              for uri in user.obj.get_copies(ATProto))
+        if not has_publication:
+            if pub := ATProto.convert(user.obj, out_type='site.standard.publication',
+                                      domain=user.verified_domain):
+                rkey = generate_rkey('site.standard.publication')
+                writes.append(Write(action=Action.CREATE,
+                                    collection='site.standard.publication',
+                                    rkey=rkey, record=pub))
+                uri = at_uri(did, 'site.standard.publication', rkey)
+                user.obj.add('copies', Target(uri=uri, protocol='atproto'))
+                user.obj.put()
+                logger.info(f'creating {uri} for {user.obj_key.id()}')
 
 def create_report(*, input, from_user):
     """Sends a ``createReport`` for a ``flag`` activity.
