@@ -4261,6 +4261,7 @@ Sed tortor neque, aliquet quis posuere aliquam, imperdiet sitamet […]
         post(lost_seq='4')
         self.assertEqual({2, 4}, firehose.lost_seqs)
 
+    @patch('common.BETA_USER_IDS', ['fake:user'])
     @patch.object(tasks_client, 'create_task', return_value=Task(name='my task'))
     def test_send_article_creates_publication(self, mock_create_task):
         user = self.make_user_and_repo(verified_domain='fake.com', obj_as1={
@@ -4294,6 +4295,7 @@ Sed tortor neque, aliquet quis posuere aliquam, imperdiet sitamet […]
         self.assertEqual(['at://did:plc:user/site.standard.publication/c'],
                          user.obj.key.get().get_copies(ATProto))
 
+    @patch('common.BETA_USER_IDS', ['fake:user'])
     @patch.object(tasks_client, 'create_task', return_value=Task(name='my task'))
     def test_send_article_publication_already_exists(self, mock_create_task):
         user = self.make_user_and_repo(verified_domain='fake.com', obj_as1={

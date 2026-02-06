@@ -1416,7 +1416,8 @@ def postprocess_writes(writes, user):
             break
 
     # create site.standard.publication for user if it doesn't exist
-    if docs and user and user.verified_domain:
+    if (docs and user and user.verified_domain
+            and user.key.id() in common.BETA_USER_IDS):
         has_publication = any(parse_at_uri(uri)[1] == 'site.standard.publication'
                               for uri in user.obj.get_copies(ATProto))
         if not has_publication:
