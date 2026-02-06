@@ -146,9 +146,10 @@
 <li><a href="#bluesky-hashtags-in-text">Why didn't my hashtag show up?</a></li>
 <li><a href="#bluesky-report">What happens when I report a bridged Bluesky user?</a></li>
 <li><a href="#bluesky-edits">I edited a post, but it didn't get edited in Bluesky!</a></li>
-<li><a href="#bluesky-video">Why can't I see a video?</a></li>
 <li><a href="#bluesky-enhanced">Can I use my own domain as my Bluesky handle?</a></li>
+<!-- TODO #2324 <li><a href="#standard-site-well-known">Can I verify my web site or domain with standard.site?</a></li> -->
 <li><a href="#bluesky-fields">How can I see the full text or original URL for a bridged post?</a></li>
+<li><a href="#bluesky-video">Why can't I see a video?</a></li>
 <li><a href="#bluesky-image-cdn">My images or videos are blank in Bluesky!</a></li>
 <li><a href="#bluesky-image-corrupt">My images are broken or corrupted in Bluesky!</a></li>
 <br>
@@ -440,7 +441,7 @@
 <li id="notifs" class="question">What happens when someone replies or interacts with me?</li>
 <li class="answer">
 <p>If they're bridged into your network, you'll see the reply or interaction natively! Otherwise, if you're on a network that supports DMs/chat, Bridgy Fed will send you a DM every hour with replies and @-mentions from people who aren't bridged into your network. Make sure you're accepting DMs from the Bridgy Fed bot user, eg you're not blocking it, and if you only accept DMs from accounts you follow, that you're following it too. <a href="#dm-commands">You can disable these notification DMs by replying with the text <code>mute</code>.</a>
-<!-- TODO <p>Each notification link to an unbridged post will also include a <em>respond</em> link to a Bridgy Fed page that you can use to respond. You can like the post, repost it, reply to it, or block its author. -->
+<!-- TODO #2042 <p>Each notification link to an unbridged post will also include a <em>respond</em> link to a Bridgy Fed page that you can use to respond. You can like the post, repost it, reply to it, or block its author. -->
 </li>
 
 <li id="block" class="question">How do I block someone in another network who's not bridged into mine?</li>
@@ -733,7 +734,7 @@ RewriteRule ^.well-known/(host-meta|webfinger).* https://fed.brid.gy/$0  [redire
 <p>Bluesky is just one of <a href="https://blueskydirectory.com/">many apps</a> on the <a href="https://atproto.com/">AT Protocol</a> network. Bridgy Fed currently supports these apps and compatible clients:
 <ul>
 <li><a href="https://bsky.app/">Bluesky</a> (bsky.app) profiles, follows, posts, images, videos, hashtags, @-mentions, and <a href="https://docs.joinmastodon.org/user/posting/#cw">content warnings</a>. Also replies, likes, and reposts <em>if</em> the original post was already bridged.</p>
-<!-- TODO <li><a href="https://standard.site/">standard.site</a> publications and documents, usable in apps like <a href="https://leaflet.pub/">Leaflet</a>, <a href="https://pckt.blog/">Pckt</a>, <a href="https://offprint.app/">Offprint</a>, <a href="https://blento.app/">Blento</a>, etc. -->
+<!-- TODO #2324 <li><a href="https://standard.site/">standard.site</a> publications and documents, usable in apps like <a href="https://leaflet.pub/">Leaflet</a>, <a href="https://pckt.blog/">Pckt</a>, <a href="https://offprint.app/">Offprint</a>, <a href="https://blento.app/">Blento</a>, etc. -->
 <li>...and more to come!
 </ul>
 </li>
@@ -754,11 +755,6 @@ RewriteRule ^.well-known/(host-meta|webfinger).* https://fed.brid.gy/$0  [redire
 <p>Bluesky doesn't support editing posts right now. Bridgy Fed currently sends edits via the underlying <a href="https://atproto.com/">AT Protocol</a>, which does currently support them, but the Bluesky app itself doesn't. Hopefully eventually!</p>
 </li>
 
-<li id="bluesky-video" class="question">Why can't I see a video?</li>
-<li class="answer">
-<p><a href="https://bsky.social/about/blog/09-11-2024-video">Bluesky currently limits videos to 60 seconds, 50MB, and .mp4, .mpeg, .webm, or .mov.</a> If you're seeing a "Video not found. Retry" error, the original video may not satisfy those requirements.</p>
-</li>
-
 <li id="bluesky-enhanced" class="question">Can I use my own domain as my Bluesky handle?</li>
 <li class="answer">
 <p>Yes! Just follow these three steps:</p>
@@ -769,6 +765,13 @@ RewriteRule ^.well-known/(host-meta|webfinger).* https://fed.brid.gy/$0  [redire
 </ol>
 <p>If you want to undo this later and change back to your original default handle, you can do it the same way. For example, if you're <code>@user@instance.com</code> on the fediverse, DM <code>username user.instance.com.ap.brid.gy</code>, or enter <code>user.instance.com.ap.brid.gy</code> into the form on the <a href="/settings">settings page</a>.
 </li>
+
+<!-- TODO #2324 <li id="standard-site-well-known" class="question">Can I verify my web site or domain with <a href="https://standard.site/">standard.site</a>?</li> -->
+<!-- <li class="answer"> -->
+<!-- <p><a href="https://standard.site/">standard.site</a> has a mechanism for web sites to <a href="https://standard.site/#verification">verify themselves</a>. If you bridge a web site to Bluesky, you can do this verification by redirecting the <code>/.well-known/site.standard.publication</code> path on your web site to <code>https://fed.brid.gy/.well-known/site.standard.publication?protocol=[protocol]&domain=[domain]</code>. Replace <code>[domain]</code> with your web site's domain and <code>[protocol]</code> with <code>web</code> if you're bridging a web site, <code>ap</code> if you're bridging a fediverse account. -->
+<!-- <p>For example, if your web site is <code>https://example.com/</code>, and you're bridging a fediverse account, you'd redirect <code>https://example.com/.well-known/site.standard.publication</code> to <code>https://fed.brid.gy/.well-known/site.standard.publication?protocol=ap&id=example.com</code>. -->
+<!-- <p>This is similar to <a href="#fediverse-enhanced">redirecting a web site's WebFinger to Bridgy Fed</a>. More details and examples there. -->
+<!-- </li> -->
 
 <li id="bluesky-fields" class="question">How can I see the full text or original URL for a bridged post?</li>
 <li class="answer">
@@ -783,6 +786,11 @@ RewriteRule ^.well-known/(host-meta|webfinger).* https://fed.brid.gy/$0  [redire
   "..."
 }
 </pre>
+</li>
+
+<li id="bluesky-video" class="question">Why can't I see a video?</li>
+<li class="answer">
+<p><a href="https://bsky.social/about/blog/09-11-2024-video">Bluesky currently limits videos to 60 seconds, 50MB, and .mp4, .mpeg, .webm, or .mov.</a> If you're seeing a "Video not found. Retry" error, the original video may not satisfy those requirements.</p>
 </li>
 
 <li id="bluesky-image-cdn" class="question">My images or videos are blank in Bluesky!</li>
