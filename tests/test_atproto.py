@@ -4214,6 +4214,35 @@ Sed tortor neque, aliquet quis posuere aliquam, imperdiet sitamet […]
         resp = self.get('/.well-known/atproto-did?protocol=fake&id=fake:eve')
         self.assert_equals(404, resp.status_code)
 
+    def test_site_standard_publication(self):
+        user = self.make_user_and_repo(verified_domain='fake.com')
+        uri = 'at://did:plc:user/site.standard.publication/123'
+        user.obj.add('copies', Target(uri=uri, protocol='atproto'))
+        user.obj.put()
+
+        record = {
+            '$type': 'site.standard.publication',
+            'url': 'https://fake.com',
+            'name': 'Ms User',
+        }
+        create = Write(action=Action.CREATE, collection='site.standard.publication',
+                       rkey='123', record=record)
+        self.storage.commit(self.repo, create)
+
+        resp = self.get('/.well-known/site.standard.publication?protocol=fake&id=fake:user')
+        self.assert_equals(200, resp.status_code)
+        self.assert_equals('application/json', resp.headers['Content-Type'])
+        self.assert_equals(record, resp.json)
+
+    def test_site_standard_publication_not_found(self):
+        user = self.make_user_and_repo()
+        resp = self.get('/.well-known/site.standard.publication?protocol=fake&id=fake:user')
+        self.assert_equals(404, resp.status_code)
+
+    def test_site_standard_publication_missing_params(self):
+        resp = self.get('/.well-known/site.standard.publication')
+        self.assert_equals(400, resp.status_code)
+
     def test_oauth(self):
         for slug in 'oauth-protected-resource', 'oauth-authorization-server':
             resp = self.get(f'/.well-known/{slug}')

@@ -1609,6 +1609,41 @@ def atproto_did():
     raise NotFound()
 
 
+@app.get('/.well-known/site.standard.publication')
+@flask_util.headers(CACHE_CONTROL)
+def site_standard_publication():
+    """Serves site.standard.publication records for bridged users.
+
+    https://standard.site/#verification
+
+    Query params:
+      protocol (str)
+      id (str): native user id or handle
+    """
+    protocol = get_required_param('protocol')
+    if not (proto := PROTOCOLS.get(protocol)):
+        flask_util.error(f'Unknown protocol {protocol}')
+
+    id = get_required_param('id')
+
+    user = proto.get_by_id(id) or proto.query(proto.handle == id).get()
+    if not user or user.status or not user.obj:
+        raise NotFound()
+
+    did = user.get_copy(ATProto)
+    for uri in user.obj.get_copies(ATProto):
+        copy_did, collection, rkey = parse_at_uri(uri)
+        assert copy_did == did
+        if collection == 'site.standard.publication':
+            logger.info(f'publication record is {uri}')
+            repo = arroba.server.storage.load_repo(did)
+            if record := repo.get_record(collection=collection, rkey=rkey):
+                logger.info('found!')
+                return record
+
+    raise NotFound()
+
+
 #
 # OAuth
 #
