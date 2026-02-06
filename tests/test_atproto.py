@@ -4229,14 +4229,14 @@ Sed tortor neque, aliquet quis posuere aliquam, imperdiet sitamet […]
                        rkey='123', record=record)
         self.storage.commit(self.repo, create)
 
-        resp = self.get('/.well-known/site.standard.publication?protocol=fake&id=fake:user')
+        resp = self.get('/.well-known/site.standard.publication?protocol=fake&domain=fake.com')
         self.assert_equals(200, resp.status_code)
         self.assert_equals('application/json', resp.headers['Content-Type'])
         self.assert_equals(record, resp.json)
 
     def test_site_standard_publication_not_found(self):
         user = self.make_user_and_repo()
-        resp = self.get('/.well-known/site.standard.publication?protocol=fake&id=fake:user')
+        resp = self.get('/.well-known/site.standard.publication?protocol=fake&domain=fake.com')
         self.assert_equals(404, resp.status_code)
 
     def test_site_standard_publication_missing_params(self):

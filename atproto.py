@@ -1618,15 +1618,13 @@ def site_standard_publication():
 
     Query params:
       protocol (str)
-      id (str): native user id or handle
+      domain (str): web site domain
     """
     protocol = get_required_param('protocol')
     if not (proto := PROTOCOLS.get(protocol)):
         flask_util.error(f'Unknown protocol {protocol}')
 
-    id = get_required_param('id')
-
-    user = proto.get_by_id(id) or proto.query(proto.handle == id).get()
+    user = proto.query(proto.verified_domain == get_required_param('domain')).get()
     if not user or user.status or not user.obj:
         raise NotFound()
 
