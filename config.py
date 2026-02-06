@@ -50,7 +50,7 @@ else:
         logging_client.setup_logging(log_level=logging.INFO)
 
     for logger in (
-            'atproto_firehose',
+            # 'atproto_firehose',
             # 'arroba.firehose',
             'arroba.storage',
             'arroba.datastore_storage',

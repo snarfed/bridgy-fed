@@ -365,7 +365,7 @@ def _handle_commit_op(op):
 
     if type in ATProto.STORE_RECORD_TYPES and op.action in ('create', 'update'):
         # TODO: handle deletes
-        logger.debug(f'Just storing {op.seq} {op.action} {op.repo} {op.path}')
+        logger.info(f'Just storing {op.seq} {op.action} {op.repo} {op.path}')
         assert type not in ATProto.SUPPORTED_RECORD_TYPES, (type, record)
         Object.get_or_create(at_uri, bsky=record, authed_as=op.repo,
                              source_protocol=ATProto.LABEL)
@@ -374,7 +374,7 @@ def _handle_commit_op(op):
         return
 
     if type not in ATProto.SUPPORTED_RECORD_TYPES:
-        logger.info(f'Skipping unsupported type {type}: {at_uri}')
+        logger.debug(f'Skipping unsupported type {type}: {at_uri}')
         return
 
     # store object, enqueue receive task
@@ -413,7 +413,7 @@ def _handle_commit_op(op):
     if verb and verb not in ATProto.SUPPORTED_AS1_TYPES:
         return
 
-    logger.debug(f'Got {op.seq} {op.action} {op.repo} {op.path}')
+    logger.info(f'Got {op.seq} {op.action} {op.repo} {op.path}')
     delay = DELETE_TASK_DELAY if op.action == 'delete' else None
     try:
         create_task(queue='receive', id=obj_id, source_protocol=ATProto.LABEL,
