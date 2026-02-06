@@ -2060,7 +2060,19 @@ Sed tortor neque, aliquet quis posuere aliquam, imperdiet sitamet […]
         with self.assertRaises(ValueError) as e:
             ATProto.set_username(user, 'bad nope')
 
-        self.assertEqual("bad nope doesn't look like a domain", str(e.exception))
+        self.assertEqual("bad nope isn't a valid Bluesky handle", str(e.exception))
+
+        self.assertEqual('han.dull.brid.gy', user.handle_as(ATProto))
+        repo = arroba.server.storage.load_repo('did:plc:user')
+        self.assertEqual('han.dull.brid.gy', repo.handle)
+
+    def test_set_username_bad_character(self):
+        user = self.make_user_and_repo(enabled_protocols=['atproto'])
+
+        with self.assertRaises(ValueError) as e:
+            ATProto.set_username(user, 'x_y.com')
+
+        self.assertEqual("x_y.com isn't a valid Bluesky handle", str(e.exception))
 
         self.assertEqual('han.dull.brid.gy', user.handle_as(ATProto))
         repo = arroba.server.storage.load_repo('did:plc:user')
