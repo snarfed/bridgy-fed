@@ -68,6 +68,11 @@ class FakeWebsocketClient:
     def __init__(self, url, headers=None, **kwargs):
         FakeWebsocketClient.url = url
         FakeWebsocketClient.headers = headers
+        FakeWebsocketClient.connected = True
+
+    @classmethod
+    def connect(cls, *args, **kwargs):
+        return cls(*args, **kwargs)
 
     def send(self, msg):
         self.sent.append(json.loads(msg))
@@ -78,6 +83,9 @@ class FakeWebsocketClient:
 
         header, payload = self.to_receive.pop(0)
         return dag_cbor.encode(header) + dag_cbor.encode(payload)
+
+    def close(self):
+        FakeWebsocketClient.connected = False
 
     @classmethod
     def setup_receive(cls, op):
