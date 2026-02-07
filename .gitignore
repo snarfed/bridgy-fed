@@ -14,5 +14,3 @@ private_notes
 service_account_creds.json
 threads_app_*
 TAGS
-
-**/.claude/settings.local.json

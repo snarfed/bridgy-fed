@@ -994,8 +994,8 @@ class Protocol:
                     # make it a noop if we don't know enough about from/to?
                     if from_cls and from_cls != to_cls:
                         obj['id'] = fn(id=id, from_=from_cls, to=to_cls)
-                    if obj['id'] and uri:
-                        obj['id'] = to_cls(id=obj['id']).id_uri()
+                    if uri:
+                        obj['id'] = to_cls(id=obj['id']).id_uri() if obj['id'] else id
 
             elem[field] = [o['id'] if o.keys() == {'id'} else o
                            for o in elem[field]]

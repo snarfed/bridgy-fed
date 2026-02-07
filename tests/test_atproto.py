@@ -1076,13 +1076,26 @@ class ATProtoTest(TestCase):
             }],
         })))
 
-    @patch('requests.get')
+    @patch('requests.get', return_value=requests_response(
+            test_web.REPLY_HTML, url='http://in.st/link'))
     def test_send_note_mention_tag_doesnt_get_link_preview(self, mock_get):
         """URLs in mention tags should not be used for external embeds."""
-        mock_get.return_value = requests_response(
-            test_web.REPLY_HTML, url='http://in.st/link')
-
-        obj = Object(id='fake:post', source_protocol='fake', our_as1={
+        self.assert_equals({
+            **NOTE_BSKY,
+            'text': 'Check out alice',
+            'bridgyOriginalText': 'Check out <a href="http://in.st/link">alice</a>',
+            'facets': [{
+                '$type': 'app.bsky.richtext.facet',
+                'features': [{
+                    '$type': 'app.bsky.richtext.facet#link',
+                    'uri': 'http://in.st/link',
+                }],
+                'index': {
+                    'byteStart': 10,
+                    'byteEnd': 15,
+                },
+            }],
+        }, ATProto.convert(Object(id='fake:post', source_protocol='fake', our_as1={
             **NOTE_AS,
             'content': 'Check out <a href="http://in.st/link">alice</a>',
             'tags': [{
@@ -1090,12 +1103,38 @@ class ATProtoTest(TestCase):
                 'url': 'http://in.st/link',
                 'displayName': 'alice',
             }],
-        })
-        self.assert_equals({
-            **NOTE_BSKY,
-            'text': 'Check out alice',
-            'bridgyOriginalText': 'Check out <a href="http://in.st/link">alice</a>',
-        }, ATProto.convert(obj))
+        })))
+
+    @patch('requests.get', return_value=requests_response(
+            test_web.REPLY_HTML, url='http://in.st/link'))
+    def test_convert_mention_non_atproto_url_gets_link_facet(self, mock_get):
+        """Mention tags with non-ATProto URLs should get #link facets."""
+        content = 'hi <a href="https://in.st/@alice">@alice</a> ok'
+        self.assertEqual({
+            '$type': 'app.bsky.feed.post',
+            'createdAt': '2022-01-02T03:04:05.000Z',
+            'text': 'hi @alice ok',
+            'bridgyOriginalText': content,
+            'facets': [{
+                '$type': 'app.bsky.richtext.facet',
+                'features': [{
+                    '$type': 'app.bsky.richtext.facet#link',
+                    'uri': 'https://in.st/users/alice',
+                }],
+                'index': {
+                    'byteStart': 3,
+                    'byteEnd': 9,
+                },
+            }],
+        }, ATProto.convert(Object(our_as1={
+            'objectType': 'note',
+            'content': content,
+            'tags': [{
+                'objectType': 'mention',
+                'url': 'https://in.st/users/alice',
+                'displayName': '@alice@in.st',
+            }],
+        })))
 
     @patch.object(tasks_client, 'create_task', return_value=Task(name='my task'))
     @patch('requests.get')
