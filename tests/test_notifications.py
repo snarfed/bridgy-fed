@@ -145,6 +145,24 @@ class NotificationsTest(TestCase):
 <p>To disable these messages, reply with the text 'mute'.""")
         self.assertEqual([], get_notifications(user))
 
+    @patch('common.BETA_USER_IDS', ['fake:user'])
+    @patch('oauth_dropins.webutil.appengine_config.tasks_client.create_task')
+    def test_notify_task_obj_doesnt_exist(self, _):
+        common.RUN_TASKS_INLINE = False
+        self.make_user(id='efake.brid.gy', cls=Web)
+        user = self.make_user(id='fake:user', cls=Fake, enabled_protocols=['efake'],
+                              obj_as1={'x': 'y'})
+
+        add_notification(user, Object(id='efake:a', our_as1={'url': 'http://abc'}))
+
+        common.RUN_TASKS_INLINE = True
+        resp = self.post('/queue/notify', data={
+            'user_id': 'fake:user',
+            'protocol': 'fake',
+        })
+        self.assertEqual([], Fake.sent)
+        self.assertEqual([], get_notifications(user))
+
     def test_notify_task_no_notifications(self):
         self.make_user(id='efake.brid.gy', cls=Web)
         user = self.make_user(id='fake:user', cls=Fake, enabled_protocols=['efake'],

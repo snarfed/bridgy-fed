@@ -125,9 +125,13 @@ def notify_task():
     is_beta = user.key.id() in common.BETA_USER_IDS
 
     message = f"<p>Hi! Here are your recent interactions from people who aren't bridged into {user.PHRASE}:\n<ul>\n"
+
+    lines = ''
     for obj in objs:
-        url = as1.get_url(obj.as1) or obj.key.id()
-        assert url
+        if not obj:
+            continue
+        elif not (url := as1.get_url(obj.as1) or obj.key.id()):
+            continue
         line = util.pretty_link(url)
         if is_beta:
             token = common.make_jwt(user=user, scope='respond', obj_id=obj.key.id())
@@ -135,7 +139,14 @@ def notify_task():
                 f'https://{PRIMARY_DOMAIN}/',
                 user.user_page_path(f'respond?obj_id={obj.key.id()}&token={token}'))
             line += f' ({util.pretty_link(respond_url, "respond")})'
-        message += f'<li>{line}\n'
+
+        lines += f'<li>{line}\n'
+
+    if not lines:
+        logger.info('No usable notif objects')
+        return '', 202
+
+    message += lines
     message += "</ul>\n<p>To disable these messages, reply with the text 'mute'."
 
     logger.info(f'sending notifications DM for {user_id}')
