@@ -121,7 +121,7 @@ def _load_dids():
             # TODO: remove
             # temporary, debugging https://github.com/snarfed/bridgy-fed/issues/2327
             import gc, threading, tracemalloc, resource
-            logger.info(f'  threads {threading.active_count()} rss {resource.getrusage(resource.RUSAGE_SELF).ru_maxrss} gc {len(gc.get_objects())}')
+            logger.info(f'  threads {threading.active_count()} rss {resource.getrusage(resource.RUSAGE_SELF).ru_maxrss} gc gen0={gc.get_count()[0]} gen1={gc.get_count()[1]} gen2={gc.get_count()[2]}')
 
         except BaseException:
             # eg google.cloud.ndb.exceptions.ContextError when we lose the ndb context
