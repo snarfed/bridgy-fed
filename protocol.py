@@ -1772,8 +1772,8 @@ class Protocol:
                     msg = f"original object(s) {original_ids} weren't bridged to {label}"
                     last_retry = False
                     if retries := request.headers.get(TASK_RETRIES_HEADER):
-                        logger.info(f'last retry! skipping {proto.LABEL} and continuing')
-                        last_retry = int(retries) >= TASK_RETRIES_RECEIVE
+                        if (last_retry := int(retries) >= TASK_RETRIES_RECEIVE):
+                            logger.info(f'last retry! skipping {proto.LABEL} and continuing')
 
                     if (proto.LABEL not in from_user.DEFAULT_ENABLED_PROTOCOLS
                             and origs_could_bridge and not last_retry):
