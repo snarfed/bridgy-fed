@@ -1762,10 +1762,11 @@ class ProtocolReceiveTest(TestCase):
 
         # check that we sent a prompt to eve and a notif to other:user
         test_dms.DmsTest().assert_sent(OtherFake, eve, 'replied_to_bridged_user', """Hi! You <a href="http://efake/reply">recently replied to</a> <a class="h-card u-author mention" rel="me" href="web:other:user" title="other:handle:user">other:handle:user</a>, who's bridged here from other-phrase. If you want them to see your replies, you can bridge your account into other-phrase by following this account. <a href="https://fed.brid.gy/docs">See the docs</a> for more information.""")
-        test_dms.DmsTest().assert_sent(ExplicitFake, user, '?', """\
+        token = common.make_jwt(user=user, scope='respond', obj_id='efake:reply')
+        test_dms.DmsTest().assert_sent(ExplicitFake, user, '?', f"""\
 <p>Hi! Here are your recent interactions from people who aren't bridged into other-phrase:
 <ul>
-<li><a href="http://efake/reply">efake/reply</a>
+<li><a href="http://efake/reply">efake/reply</a> (<a href="https://fed.brid.gy/other/other:handle:user/respond?obj_id=efake:reply&token={token}">respond</a>)
 </ul>""")
 
     def test_quote_from_non_bridged_user_isnt_bridged_gets_dm_prompt_and_notif(self):
@@ -1798,10 +1799,11 @@ class ProtocolReceiveTest(TestCase):
 
         # check that we sent a prompt to eve and a notif to other:user
         test_dms.DmsTest().assert_sent(OtherFake, eve, 'replied_to_bridged_user', """Hi! You <a href="http://efake/quote">recently quoted</a> <a class="h-card u-author mention" rel="me" href="web:other:user" title="other:handle:user">other:handle:user</a>, who's bridged here from other-phrase. If you want them to see your quotes, you can bridge your account into other-phrase by following this account. <a href="https://fed.brid.gy/docs">See the docs</a> for more information.""")
-        test_dms.DmsTest().assert_sent(ExplicitFake, user, '?', """\
+        token = common.make_jwt(user=user, scope='respond', obj_id='efake:quote')
+        test_dms.DmsTest().assert_sent(ExplicitFake, user, '?', f"""\
 <p>Hi! Here are your recent interactions from people who aren't bridged into other-phrase:
 <ul>
-<li><a href="http://efake/quote">efake/quote</a>
+<li><a href="http://efake/quote">efake/quote</a> (<a href="https://fed.brid.gy/other/other:handle:user/respond?obj_id=efake:quote&token={token}">respond</a>)
 </ul>""")
 
     def test_mention_non_bridged_user_isnt_bridged_gets_dm_prompt_and_notif(self):
@@ -1828,10 +1830,11 @@ class ProtocolReceiveTest(TestCase):
 
         # check that we sent a prompt to eve and a notif to other:user
         test_dms.DmsTest().assert_sent(OtherFake, eve, 'replied_to_bridged_user', """Hi! You <a href="http://efake/mention">recently mentioned</a> <a class="h-card u-author mention" rel="me" href="web:other:user" title="other:handle:user">other:handle:user</a>, who's bridged here from other-phrase. If you want them to see your mentions, you can bridge your account into other-phrase by following this account. <a href="https://fed.brid.gy/docs">See the docs</a> for more information.""")
-        test_dms.DmsTest().assert_sent(ExplicitFake, user, '?', """\
+        token = common.make_jwt(user=user, scope='respond', obj_id='efake:mention')
+        test_dms.DmsTest().assert_sent(ExplicitFake, user, '?', f"""\
 <p>Hi! Here are your recent interactions from people who aren't bridged into other-phrase:
 <ul>
-<li><a href="http://efake/mention">efake/mention</a>
+<li><a href="http://efake/mention">efake/mention</a> (<a href="https://fed.brid.gy/other/other:handle:user/respond?obj_id=efake:mention&token={token}">respond</a>)
 </ul>""")
 
     @patch.object(ATProto, 'send', return_value=True)

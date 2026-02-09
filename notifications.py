@@ -122,8 +122,6 @@ def notify_task():
 
     objs = ndb.get_multi(Object(id=id).key for id in notifs)
 
-    is_beta = user.key.id() in common.BETA_USER_IDS
-
     message = f"<p>Hi! Here are your recent interactions from people who aren't bridged into {user.PHRASE}:\n<ul>\n"
 
     lines = ''
@@ -132,15 +130,13 @@ def notify_task():
             continue
         elif not (url := as1.get_url(obj.as1) or obj.key.id()):
             continue
-        line = util.pretty_link(url)
-        if is_beta:
-            token = common.make_jwt(user=user, scope='respond', obj_id=obj.key.id())
-            respond_url = urljoin(
-                f'https://{PRIMARY_DOMAIN}/',
-                user.user_page_path(f'respond?obj_id={obj.key.id()}&token={token}'))
-            line += f' ({util.pretty_link(respond_url, "respond")})'
 
-        lines += f'<li>{line}\n'
+        token = common.make_jwt(user=user, scope='respond', obj_id=obj.key.id())
+        respond_url = urljoin(
+            f'https://{PRIMARY_DOMAIN}/',
+            user.user_page_path(f'respond?obj_id={obj.key.id()}&token={token}'))
+
+        lines += f'<li>{util.pretty_link(url)} ({util.pretty_link(respond_url, "respond")})\n'
 
     if not lines:
         logger.info('No usable notif objects')

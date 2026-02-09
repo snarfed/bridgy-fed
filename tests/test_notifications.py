@@ -106,33 +106,6 @@ class NotificationsTest(TestCase):
             'protocol': 'fake',
         })
         self.assertEqual(200, resp.status_code)
-        test_dms.DmsTest().assert_sent(ExplicitFake, user, '?', """\
-<p>Hi! Here are your recent interactions from people who aren't bridged into fake-phrase:
-<ul>
-<li><a href="http://notif/a">notif/a</a>
-<li><a href="http://notif/b">notif/b</a>
-</ul>
-<p>To disable these messages, reply with the text 'mute'.""")
-        self.assertEqual([], get_notifications(user))
-
-    @patch('common.BETA_USER_IDS', ['fake:user'])
-    @patch('oauth_dropins.webutil.appengine_config.tasks_client.create_task')
-    def test_notify_task_beta_user(self, _):
-        common.RUN_TASKS_INLINE = False
-        self.make_user(id='efake.brid.gy', cls=Web)
-        user = self.make_user(id='fake:user', cls=Fake, enabled_protocols=['efake'],
-                              obj_as1={'x': 'y'})
-
-        add_notification(user, self.store_object(id='efake:a',
-                                                 our_as1={'url': 'http://notif/a'}))
-        add_notification(user, self.store_object(id='http://notif/b'))
-
-        common.RUN_TASKS_INLINE = True
-        resp = self.post('/queue/notify', data={
-            'user_id': 'fake:user',
-            'protocol': 'fake',
-        })
-        self.assertEqual(200, resp.status_code)
 
         token_a = common.make_jwt(user=user, scope='respond', obj_id='efake:a')
         token_b = common.make_jwt(user=user, scope='respond', obj_id='http://notif/b')
@@ -145,7 +118,6 @@ class NotificationsTest(TestCase):
 <p>To disable these messages, reply with the text 'mute'.""")
         self.assertEqual([], get_notifications(user))
 
-    @patch('common.BETA_USER_IDS', ['fake:user'])
     @patch('oauth_dropins.webutil.appengine_config.tasks_client.create_task')
     def test_notify_task_obj_doesnt_exist(self, _):
         common.RUN_TASKS_INLINE = False
