@@ -751,15 +751,21 @@ def respond_reply(user):
       obj_id (str): Object id to reply to
       content (str): reply text content
     """
-    if not (obj := Object.get_by_id(get_required_param('obj_id'))):
+    obj_id = get_required_param('obj_id')
+    if not (obj := Object.get_by_id(obj_id)):
         error('Object not found', status=404)
 
-    id = f'ui:reply-{user.key.id()}-{obj.key.id()}-{util.now().isoformat()}'
+    if not (content := request.values.get('content')):
+        flash('Please enter a reply')
+        return redirect(user.user_page_path(
+            f'respond?obj_id={obj_id}&token={request.values["token"]}'))
+
+    id = f'ui:reply-{user.key.id()}-{obj_id}-{util.now().isoformat()}'
     our_as1 = {
         'objectType': 'comment',
         'id': id,
-        'inReplyTo': obj.key.id(),
-        'content': get_required_param('content'),
+        'inReplyTo': obj_id,
+        'content': content,
         'author': user.key.id(),
     }
 

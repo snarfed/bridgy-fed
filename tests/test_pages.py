@@ -1294,6 +1294,20 @@ class PagesTest(TestCase):
         self.assertEqual(400, resp.status_code)
 
     @patch('oauth_dropins.webutil.util.now', return_value=datetime.now())
+    def test_respond_reply_missing_content_flashes(self, _):
+        obj = self.store_object(id='fake:post')
+        token = common.make_jwt(user=self.user, scope='respond', obj_id='fake:post')
+        resp = self.client.post('/web/user.com/respond/reply', data={
+            'obj_id': 'fake:post',
+            'content': '',
+            'token': token,
+        })
+        self.assertEqual(302, resp.status_code)
+        self.assertEqual(f'/web/user.com/respond?obj_id=fake:post&token={token}',
+                         resp.headers['Location'])
+        self.assertEqual(['Please enter a reply'], get_flashed_messages())
+
+    @patch('oauth_dropins.webutil.util.now', return_value=datetime.now())
     def test_respond_reply_wrong_user(self, _):
         self.make_user('fake:bob', cls=Fake)
         resp = self.client.post('/fake/fake:bob/respond/reply', data={
