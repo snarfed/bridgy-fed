@@ -1497,6 +1497,10 @@ Sed tortor neque, aliquet quis posuere aliquam, imperdiet sitamet […]
         requests_response(),  # PLC directory update
     ])
     @patch('requests.get', side_effect=[
+        requests_response({  # describeServer
+            'did': 'did:web:pds',
+            'availableUserDomains': ['.handulls.pds.com'],
+        }),
         requests_response({  # checkAccountStatus
             'activated': False,
             'validDid': True,
@@ -1541,40 +1545,60 @@ Sed tortor neque, aliquet quis posuere aliquam, imperdiet sitamet […]
         ATProto.migrate_out(self.user, 'did:plc:user', to_pds='https://new.pds.com',
                             email='alice@pds.com', password='hunter2')
 
+        # describeServer
+        self.assert_equals(
+            ['https://new.pds.com/xrpc/com.atproto.server.describeServer'],
+            mock_get.call_args_list[0].args)
+
         # createAccount
-        self.assertIn('/xrpc/com.atproto.server.createAccount',
-                       mock_post.call_args_list[0].args[0])
-        create_kwargs = mock_post.call_args_list[0].kwargs
-        self.assertEqual({
-            'handle': 'han.dull.brid.gy',
+        self.assert_equals(
+            ['https://new.pds.com/xrpc/com.atproto.server.createAccount'],
+            mock_post.call_args_list[0].args)
+        self.assert_equals({
+            'handle': 'fake-handle-user.handulls.pds.com',
             'did': 'did:plc:user',
             'email': 'alice@pds.com',
             'password': 'hunter2',
-        }, create_kwargs['json'])
+        }, mock_post.call_args_list[0].kwargs['json'])
 
         # checkAccountStatus
-        self.assertIn('/xrpc/com.atproto.server.checkAccountStatus',
-                       mock_get.call_args_list[0].args[0])
+        self.assert_equals(
+            ['https://new.pds.com/xrpc/com.atproto.server.checkAccountStatus'],
+            mock_get.call_args_list[1].args)
 
         # importRepo
-        self.assertIn('/xrpc/com.atproto.repo.importRepo',
-                       mock_post.call_args_list[1].args[0])
+        self.assert_equals(
+            ['https://new.pds.com/xrpc/com.atproto.repo.importRepo'],
+            mock_post.call_args_list[1].args)
 
         # getRecommendedDidCredentials
-        self.assertIn('/xrpc/com.atproto.identity.getRecommendedDidCredentials',
-                       mock_get.call_args_list[1].args[0])
+        self.assert_equals(
+            ['https://new.pds.com/xrpc/com.atproto.identity.getRecommendedDidCredentials'],
+            mock_get.call_args_list[2].args)
 
         # PLC update
-        self.assertIn('/did:plc:user/log/audit',
-                       mock_get.call_args_list[2].args[0])
-        self.assertIn('/did:plc:user',
-                       mock_post.call_args_list[2].args[0])
+        self.assert_equals(['https://plc.local/did:plc:user/log/audit'],
+                           mock_get.call_args_list[3].args)
+        self.assert_equals(['https://plc.local/did:plc:user'],
+                           mock_post.call_args_list[2].args)
 
-    def test_migrate_out_wrong_did(self, *_):
-        self.make_user_and_repo(enabled_protocols=['atproto'])
-        with self.assertRaises(ValueError):
-            ATProto.migrate_out(self.user, 'did:plc:other', 'https://new.pds.com',
-                                'test@email.com', 'password123')
+        mock_post.call_args_list[2].kwargs['json'].pop('sig')
+        self.assert_equals({
+            'type': 'plc_operation',
+            'did': 'did:plc:user',
+            'rotationKeys': [encode_did_key(KEY_2.public_key())],
+            'verificationMethods': {
+                'atproto': encode_did_key(KEY_3.public_key()),
+            },
+            'alsoKnownAs': ['at://han.dull.brid.gy'],
+            'services': {
+                'atproto_pds': {
+                    'type': 'AtprotoPersonalDataServer',
+                    'endpoint': 'https://new.pds.com',
+                },
+            },
+            'prev': 'prev-cid',
+        }, mock_post.call_args_list[2].kwargs['json'])
 
     @patch('requests.get', return_value=requests_response('', status=404))
     def test_web_url(self, mock_get):

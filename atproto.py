@@ -1326,22 +1326,31 @@ class ATProto(User, Protocol):
         assert email
         assert password
         assert to_user_id
+        assert urlparse(to_pds).path.strip('/') == '', to_pds
+
         if user.get_copy(ATProto) != to_user_id:
             _error(f'{user.key.id()} is not bridged to {to_user_id}')
 
         logger.info(f'Migrating {user.key.id()} ATProto account {to_user_id} out to {to_pds}')
 
-        # TODO: check that to_pds is root URL
-
         cls.check_can_migrate_out(user, to_user_id)
 
         repo = arroba.server.storage.load_repo(to_user_id)
         assert repo
+        handle = repo.handle
+
+        # 0: get new PDS's handle domain via describeServer
+        bs = Bluesky(handle=repo.handle, did=to_user_id, pds_url=to_pds)
+        desc = bs._client.com.atproto.server.describeServer()
+        if domains := desc.get('availableUserDomains'):
+            if handle_domain := domains[0]:
+                if not handle_domain.startswith('.'):
+                    handle_domain = '.' + handle_domain
+                handle = user.handle_as_domain + handle_domain
 
         # 1: create account on new PDS
-        # TODO: generate handle on PDS's domain
         create_input = {
-            'handle': repo.handle,
+            'handle': handle,
             'did': to_user_id,
             'email': email,
             'password': password,
@@ -1351,7 +1360,6 @@ class ATProto(User, Protocol):
         if phone_verification_code:
             create_input['verificationPhone'] = phone_verification_code
 
-        bs = Bluesky(handle=repo.handle, did=to_user_id, pds_url=to_pds)
         resp = bs._client.com.atproto.server.createAccount(create_input)
         logger.info(f'Created account for {to_user_id} on {to_pds} : {resp}')
 
@@ -1372,6 +1380,9 @@ class ATProto(User, Protocol):
         bs._client.com.atproto.repo.importRepo(car_bytes)
 
         # 4: get recommended DID credentials from new PDS
+        #
+        # example getRecommendedDidCredentials output:
+        # https://blog.smokesignal.events/posts/3lwopvsmtx22a-creating-a-did-method-web-identity-for-atprotocol
         recs = bs._client.com.atproto.identity.getRecommendedDidCredentials()
         logger.info(f'Recommended DID updates from {to_pds} : {recs}')
 
@@ -1382,8 +1393,12 @@ class ATProto(User, Protocol):
         if rec_pds != to_pds:
             logger.warning(f'recommended PDS URL {rec_pds} is different than user input {to_pds} !')
 
-        logger.info(f'Updating {to_user_id} DID doc with PDS {rec_pds} rotation keys {recs["rotationKeys"]}')
-        did.update_plc(did=to_user_id, pds_url=rec_pds, signing_key=repo.signing_key,
+        new_signing_key = repo.signing_key
+        if key := recs.get('verificationMethods', {}).get('atproto'):
+            new_signing_key = did.decode_did_key(key)
+
+        logger.info(f'Updating {to_user_id} DID doc with PDS {rec_pds} rotation key {recs["rotationKeys"][0]} signing keys')
+        did.update_plc(did=to_user_id, pds_url=rec_pds, signing_key=new_signing_key,
                        rotation_key=repo.rotation_key,
                        new_rotation_key=did.decode_did_key(recs['rotationKeys'][0]),
                        get_fn=util.requests_get, post_fn=util.requests_post)
