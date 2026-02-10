@@ -386,7 +386,8 @@ class ProtocolTest(TestCase):
         self.assertEqual(['fake:foo'], Fake.fetched)
 
     def test_load_local_false_existing(self):
-        self.store_object(id='fake:foo', our_as1={'content': 'stored'}, source_protocol='ui')
+        self.store_object(id='fake:foo', our_as1={'content': 'stored'},
+                          source_protocol='ui')
 
         Fake.fetchable['fake:foo'] = {'foo': 'bar'}
         Fake.load('fake:foo', local=False)
@@ -931,6 +932,18 @@ class ProtocolTest(TestCase):
     def test_translate_ids_multiple_inReplyTo(self):
         obj = {'inReplyTo': ['foo', 'bar']}
         self.assertEqual(obj, Fake.translate_ids(obj))
+
+    def test_translate_ui_id_uses_actors_protocol_subdomain(self):
+        note = {
+            'objectType': 'note',
+            'id': 'ui:my-note',
+            'author': 'did:plc:bob',
+        }
+        self.assert_equals({
+            'objectType': 'note',
+            'id': 'https://bsky.brid.gy/convert/ap/ui:my-note',
+            'author': 'https://bsky.brid.gy/ap/did:plc:bob',
+        }, ActivityPub.translate_ids(note))
 
     def test_translate_mention_handles(self):
         self.make_user('fake:alice', cls=Fake)

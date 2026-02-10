@@ -91,7 +91,9 @@ BSKY_GET_CONVO_RESP = requests_response({  # getConvoForMembers
 BSKY_SEND_MESSAGE_RESP = requests_response({  # sendMessage
     'id': 'chat456',
     'rev': '22222222tef2d',
-    # ...
+    'text': 'foo bar',
+    'sender': {'did': 'did:plc:unused'},
+    'sentAt': '2022-01-02T03:04:06+00:00',
 })
 
 
@@ -645,7 +647,6 @@ class IntegrationTests(TestCase):
             'createdAt': '2022-01-02T03:04:05.000Z',
         }}, repo.get_contents()['app.bsky.feed.like'])
 
-    @patch('common.BETA_USER_IDS', ['did:plc:alice'])
     @patch('oauth_dropins.webutil.appengine_config.tasks_client.create_task')
     @patch('requests.post', return_value=BSKY_SEND_MESSAGE_RESP)
     @patch('requests.get', return_value=BSKY_GET_CONVO_RESP)
@@ -3428,7 +3429,7 @@ class IntegrationTests(TestCase):
 
     @patch('oauth_dropins.webutil.util.now', return_value=datetime.now())
     @patch('requests.post')
-    def test_activitypub_respond_repost_to_unbridged_atproto(self, mock_post,
+    def test_atproto_respond_repost_to_unbridged_activitypub(self, mock_post,
                                                              mock_now):
         """ATProto user bridged to AP uses web UI to reply to unbridged AP post.
 
@@ -3445,11 +3446,6 @@ class IntegrationTests(TestCase):
                               'objectType': 'note',
                               'author': 'https://inst.com/alice',
                           })
-            # bsky={
-            #     **POST_BSKY,
-            #     'uri': 'at://did:plc:bob/app.bsky.feed.post/123',
-            #     'cid': 'bafyreie5cvv4h5typfvqef2wf7nwytgdaaimzbk2cl7pza7lkxmjbmhmk4',
-            # })
 
         # bob replies via respond/reply endpoint
         resp = self.client.post('/bsky/bob.com/respond/repost', data={
@@ -3463,7 +3459,7 @@ class IntegrationTests(TestCase):
         self.assert_ap_deliveries(mock_post, ['https://inst.com/alice/inbox'],
                                   from_user=bob, data={
             'type': 'Announce',
-            'id': f'https://fed.brid.gy/convert/ap/ui:repost-did:plc:bob-http://inst.com/post-{mock_now.return_value.isoformat()}',
+            'id': f'https://bsky.brid.gy/convert/ap/ui:repost-did:plc:bob-http://inst.com/post-{mock_now.return_value.isoformat()}',
             'actor': 'https://bsky.brid.gy/ap/did:plc:bob',
             'object': 'http://inst.com/post',
         }, ignore=['@context', 'to', 'url'])

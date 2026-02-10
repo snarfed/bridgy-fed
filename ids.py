@@ -449,6 +449,8 @@ def translate_handle(*, handle, from_, to, short=False):
 def translate_object_id(*, id, from_, to):
     """Translates a user handle from one protocol to another.
 
+    Allows any ``id`` if ``from_`` is :class:`UIProtocol` or if ``id`` is ``ui:...``.
+
     *NOTE*: unlike :func:`translate_user_id`, if ``to`` is a ``HAS_COPIES`` protocol
     and has no copy object for ``id``, this function returns ``id``, not None!
 
@@ -465,7 +467,7 @@ def translate_object_id(*, id, from_, to):
     from protocol import Protocol
 
     id, from_, to = validate(id, from_, to)
-    if from_.owns_id(id) is False and from_.LABEL != 'ui':
+    if from_.owns_id(id) is False and from_.LABEL != 'ui' and not id.startswith('ui:'):
         return id
 
     # bsky.app profile URL to at:// URI

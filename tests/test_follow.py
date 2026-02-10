@@ -46,13 +46,13 @@ FOLLOWEE = {
 FOLLOW_ADDRESS = {
     '@context': 'https://www.w3.org/ns/activitystreams',
     'type': 'Follow',
-    'id': f'https://fed.brid.gy/convert/ap/https://alice.com/#follow-2022-01-02T03:04:05-@foo@ba.r',
+    'id': f'http://localhost/r/https://alice.com/#follow-2022-01-02T03:04:05-@foo@ba.r',
     'actor': 'http://localhost/alice.com',
     'object': FOLLOWEE['id'],
     'to': [as2.PUBLIC_AUDIENCE],
 }
 FOLLOW_URL = copy.deepcopy(FOLLOW_ADDRESS)
-FOLLOW_URL['id'] = f'https://fed.brid.gy/convert/ap/https://alice.com/#follow-2022-01-02T03:04:05-https://ba.r/actor'
+FOLLOW_URL['id'] = f'http://localhost/r/https://alice.com/#follow-2022-01-02T03:04:05-https://ba.r/actor'
 UNDO_FOLLOW = {
     '@context': 'https://www.w3.org/ns/activitystreams',
     'type': 'Undo',
@@ -239,7 +239,7 @@ class FollowTest(TestCase):
 
         follow_with_profile_link = {
             **FOLLOW_URL,
-            'id': f'https://fed.brid.gy/convert/ap/https://alice.com/#follow-2022-01-02T03:04:05-https://ba.r/id',
+            'id': f'http://localhost/r/https://alice.com/#follow-2022-01-02T03:04:05-https://ba.r/id',
             'object': 'https://ba.r/id',
         }
         self.check('https://ba.r/id', resp, follow_with_profile_link, mock_get,

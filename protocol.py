@@ -976,6 +976,8 @@ class Protocol:
         Returns:
           dict: translated AS1 version of ``obj``
         """
+        from ui import UIProtocol
+
         assert to_cls != Protocol
         if not obj:
             return obj
@@ -984,12 +986,20 @@ class Protocol:
         inner_objs = outer_obj['object'] = as1.get_objects(outer_obj)
 
         def translate(elem, field, fn, uri=False):
+            owner_id = as1.get_owner(elem)
+            owner_proto = Protocol.for_id(owner_id)
+
             elem[field] = as1.get_objects(elem, field)
             for obj in elem[field]:
                 if id := obj.get('id'):
                     if field in ('to', 'cc', 'bcc', 'bto') and as1.is_audience(id):
                         continue
+
                     from_cls = Protocol.for_id(id)
+                    if field == 'id' and from_cls == UIProtocol and owner_proto:
+                        logger.info(f'owner of {id} {owner_id} is {owner_proto.LABEL}, translating id from that protocol')
+                        from_cls = owner_proto
+
                     # TODO: what if from_cls is None? relax translate_object_id,
                     # make it a noop if we don't know enough about from/to?
                     if from_cls and from_cls != to_cls:
