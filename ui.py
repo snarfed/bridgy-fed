@@ -12,7 +12,7 @@ import protocol
 
 class UIProtocol(models.User, protocol.Protocol):
     LABEL = 'ui'
-    SUPPORTED_AS1_TYPES = ('comment', 'like', 'note', 'post', 'share')
+    SUPPORTED_AS1_TYPES = ('comment', 'block', 'like', 'note', 'post', 'share')
 
     def _pre_put_hook(self):
         raise NotImplementedError()
