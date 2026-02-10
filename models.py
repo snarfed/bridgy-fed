@@ -2386,7 +2386,7 @@ def load_user(handle_or_id, proto=None, create=False, allow_opt_out=False):
             if user.use_instead:
                 logger.debug(f'{user.key} use_instead => {user.use_instead}')
                 user = user.use_instead.get()
-            if not user.status or allow_opt_out:
+            if (not user.status and user.enabled_protocols) or allow_opt_out:
                 return user
 
     if create:

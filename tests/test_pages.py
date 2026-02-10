@@ -188,6 +188,21 @@ class PagesTest(TestCase):
         self.assertIn('did:plc:2', html)
         self.assertNotIn('did:plc:1', html)
 
+    def test_find_user_page_skips_dupe_handle_user_thats_not_enabled(self):
+        did_doc = {**DID_DOC, 'alsoKnownAs': ['at://han.dull']}
+
+        self.store_object(id='did:plc:1', raw=did_doc)
+        user_1 = self.make_user('did:plc:1', cls=ATProto, enabled_protocols=[])
+
+        self.store_object(id='did:plc:2', raw=did_doc)
+        user_2 = self.make_user('did:plc:2', cls=ATProto, enabled_protocols=['fake'])
+
+        got = self.client.get('/bsky/han.dull')
+        self.assert_equals(200, got.status_code)
+        html = got.get_data(as_text=True)
+        self.assertIn('did:plc:2', html)
+        self.assertNotIn('did:plc:1', html)
+
     def test_user_page_enabled_activitypub_rel_alternate(self):
         user = self.make_user('fake:user', cls=Fake, enabled_protocols=['activitypub'])
 
@@ -360,7 +375,7 @@ class PagesTest(TestCase):
     def test_update_profile_receive_task(self, mock_create_task):
         common.RUN_TASKS_INLINE = False
 
-        user = self.make_user('fake:user', cls=Fake)
+        user = self.make_user('fake:user', cls=Fake, enabled_protocols=['other'])
 
         profile = {
             'objectType': 'person',
@@ -731,7 +746,7 @@ class PagesTest(TestCase):
         self.assert_equals('/fa/fake:handle:foo', got.headers['Location'])
 
     def test_find_user_page_fake_handle(self):
-        self.make_user('fake:foo', cls=Fake)
+        self.make_user('fake:foo', cls=Fake, enabled_protocols=['other'])
         got = self.client.post('/user-page', data={'id': 'fake:handle:foo'})
         self.assert_equals(302, got.status_code)
         self.assert_equals('/fa/fake:handle:foo', got.headers['Location'])
