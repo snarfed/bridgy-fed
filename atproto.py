@@ -32,7 +32,7 @@ from arroba.util import (
     service_jwt,
     TOMBSTONED,
 )
-from arroba import xrpc_repo
+from arroba import xrpc_repo, xrpc_sync
 from domain2idna import domain2idna
 from flask import abort, redirect, request
 from google.cloud import dns
@@ -1301,26 +1301,92 @@ class ATProto(User, Protocol):
         pds_client.com.atproto.server.deactivateAccount()
 
     @classmethod
-    def migrate_out(cls, user, to_user_id):
-        """Noop, does nothing.
+    def migrate_out(cls, user, to_user_id, to_pds, email, password,
+                    invite_code=None, phone_verification_code=None):
+        """Migrates a bridged ATProto account out to a new PDS.
 
-        This may eventually do something when we support actual account migration,
-        https://atproto.com/guides/account-migration , but right now we only migrate
-        to a separate DID.
+        https://atproto.com/guides/account-migration
 
         Args:
           user (models.User)
-          to_user_id (str)
+          to_user_id (str): DID of the account being migrated
+          to_pds (str): new PDS URL, eg ``https://pds.com``
+          email (str)
+          password (str)
+          invite_code (str): optional
+          phone_verification_code (str): optional
 
         Raises:
           ValueError: eg if ``ATProto`` doesn't own ``to_user_id``
         """
-        logger.info(f"ATProto migrate_out to a different DID is a noop, doing nothing. (migrating {user.key.id()} to {to_user_id})")
+        def _error(msg):
+            logger.warning(msg)
+            raise ValueError(msg)
+
+        assert email
+        assert password
+        assert to_user_id
+        if user.get_copy(ATProto) != to_user_id:
+            _error(f'{user.key.id()} is not bridged to {to_user_id}')
+
+        logger.info(f'Migrating {user.key.id()} ATProto account {to_user_id} out to {to_pds}')
+
+        # TODO: check that to_pds is root URL
 
         cls.check_can_migrate_out(user, to_user_id)
 
-        if user.get_copy(ATProto) == to_user_id:
-            raise ValueError(f'{user.key.id()} is already bridged to {to_user_id}')
+        repo = arroba.server.storage.load_repo(to_user_id)
+        assert repo
+
+        # 1: create account on new PDS
+        # TODO: generate handle on PDS's domain
+        create_input = {
+            'handle': repo.handle,
+            'did': to_user_id,
+            'email': email,
+            'password': password,
+        }
+        if invite_code:
+            create_input['inviteCode'] = invite_code
+        if phone_verification_code:
+            create_input['verificationPhone'] = phone_verification_code
+
+        bs = Bluesky(handle=repo.handle, did=to_user_id, pds_url=to_pds)
+        resp = bs._client.com.atproto.server.createAccount(create_input)
+        logger.info(f'Created account for {to_user_id} on {to_pds} : {resp}')
+
+        # use auth tokens from createAccount
+        assert resp['did'] == to_user_id
+        bs = Bluesky(handle=resp['handle'], did=to_user_id, pds_url=to_pds,
+                     access_token=resp['accessJwt'], refresh_token=resp['refreshJwt'])
+
+        # 2: check account status on new PDS
+        status = bs._client.com.atproto.server.checkAccountStatus()
+        logger.info(f'Account status for {to_user_id} on {to_pds} : {status}')
+        assert status['validDid']
+
+        # 3: export repo as CAR and import to new PDS
+        logger.info('Exporting our repo')
+        car_bytes = xrpc_sync.get_repo(None, did=to_user_id)
+        logger.info('Importing repo')
+        bs._client.com.atproto.repo.importRepo(car_bytes)
+
+        # 4: get recommended DID credentials from new PDS
+        recs = bs._client.com.atproto.identity.getRecommendedDidCredentials()
+        logger.info(f'Recommended DID updates from {to_pds} : {recs}')
+
+        # 5: update DID doc to point to new PDS
+        rec_pds = recs.get('services', {}).get('atproto_pds', {})\
+                                          .get('endpoint', to_pds)
+        assert rec_pds
+        if rec_pds != to_pds:
+            logger.warning(f'recommended PDS URL {rec_pds} is different than user input {to_pds} !')
+
+        logger.info(f'Updating {to_user_id} DID doc with PDS {rec_pds} rotation keys {recs["rotationKeys"]}')
+        did.update_plc(did=to_user_id, pds_url=rec_pds, signing_key=repo.signing_key,
+                       rotation_key=repo.rotation_key,
+                       new_rotation_key=did.decode_did_key(recs['rotationKeys'][0]),
+                       get_fn=util.requests_get, post_fn=util.requests_post)
 
     @classmethod
     def add_source_links(cls, obj, from_user):
@@ -1431,6 +1497,7 @@ def postprocess_writes(writes, user):
                 user.obj.add('copies', Target(uri=uri, protocol='atproto'))
                 user.obj.put()
                 logger.info(f'creating {uri} for {user.obj_key.id()}')
+
 
 def create_report(*, input, from_user):
     """Sends a ``createReport`` for a ``flag`` activity.

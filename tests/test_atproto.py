@@ -126,6 +126,9 @@ SEND_MESSAGE_OUTPUT = {  # sendMessage
     'sentAt': '2022-01-02T03:04:05Z',
 }
 
+KEY_2 = arroba.util.new_key(seed=9999999999)
+KEY_3 = arroba.util.new_key(seed=8888888888)
+
 
 class RemoteSequencesTest(TestCase):
 
@@ -278,10 +281,10 @@ class ATProtoTest(TestCase):
                 self.assertIsNone(ATProto.handle_to_id(bad))
 
     def test_handle_to_id_first_opted_out(self):
-        AtpRepo(id='did:plc:other', handles=['han.dull.brid.gy'], head='', signing_key_pem=b'',
-                status=arroba.util.TOMBSTONED).put()
-        AtpRepo(id='did:plc:user', handles=['han.dull.brid.gy'], head='', signing_key_pem=b'',
-                ).put()
+        AtpRepo(id='did:plc:other', handles=['han.dull.brid.gy'], head='',
+                signing_key_pem=b'', status=arroba.util.TOMBSTONED).put()
+        AtpRepo(id='did:plc:user', handles=['han.dull.brid.gy'], head='',
+                signing_key_pem=b'').put()
         self.assertEqual('did:plc:user', ATProto.handle_to_id('han.dull.brid.gy'))
 
     @patch('dns.resolver.resolve', side_effect=NXDOMAIN())
@@ -1482,6 +1485,96 @@ Sed tortor neque, aliquet quis posuere aliquam, imperdiet sitamet […]
         with self.assertRaises(BadGateway) as e:
             ATProto.migrate_in(self.user, 'did:plc:user', plc_code='kode',
                                pds_client=pds_client)
+
+    @patch('requests.post', side_effect=[
+        requests_response({  # createAccount
+            'accessJwt': 'towken',
+            'refreshJwt': 'refrush',
+            'handle': 'temp.new.pds.com',
+            'did': 'did:plc:user',
+        }),
+        requests_response(),  # importRepo
+        requests_response(),  # PLC directory update
+    ])
+    @patch('requests.get', side_effect=[
+        requests_response({  # checkAccountStatus
+            'activated': False,
+            'validDid': True,
+            'repoCommit': BLOB_CID.encode('base32'),
+            'repoRev': '123',
+            'repoBlocks': 0,
+            'indexedRecords': 0,
+            'privateStateValues': 0,
+            'expectedBlobs': 0,
+            'importedBlobs': 0,
+        }),
+        requests_response({  # getRecommendedDidCredentials
+            'rotationKeys': [encode_did_key(KEY_2.public_key())],
+            'verificationMethods': {
+                'atproto': encode_did_key(KEY_3.public_key()),
+            },
+            'services': {
+                'atproto_pds': {
+                    'type': 'AtprotoPersonalDataServer',
+                    'endpoint': 'https://new.pds.com',
+                },
+            },
+        }),
+        requests_response([{  # PLC audit log
+            'cid': 'prev-cid',
+            'operation': {
+                'alsoKnownAs': ['at://han.dull.brid.gy'],
+                'rotationKeys': ['did:key:old'],
+                'verificationMethods': {'atproto': 'did:key:old'},
+                'services': {
+                    'atproto_pds': {
+                        'type': 'AtprotoPersonalDataServer',
+                        'endpoint': 'https://atproto.brid.gy',
+                    },
+                },
+            },
+        }]),
+    ])
+    def test_migrate_out(self, mock_get, mock_post):
+        self.make_user_and_repo(enabled_protocols=['atproto'])
+
+        ATProto.migrate_out(self.user, 'did:plc:user', to_pds='https://new.pds.com',
+                            email='alice@pds.com', password='hunter2')
+
+        # createAccount
+        self.assertIn('/xrpc/com.atproto.server.createAccount',
+                       mock_post.call_args_list[0].args[0])
+        create_kwargs = mock_post.call_args_list[0].kwargs
+        self.assertEqual({
+            'handle': 'han.dull.brid.gy',
+            'did': 'did:plc:user',
+            'email': 'alice@pds.com',
+            'password': 'hunter2',
+        }, create_kwargs['json'])
+
+        # checkAccountStatus
+        self.assertIn('/xrpc/com.atproto.server.checkAccountStatus',
+                       mock_get.call_args_list[0].args[0])
+
+        # importRepo
+        self.assertIn('/xrpc/com.atproto.repo.importRepo',
+                       mock_post.call_args_list[1].args[0])
+
+        # getRecommendedDidCredentials
+        self.assertIn('/xrpc/com.atproto.identity.getRecommendedDidCredentials',
+                       mock_get.call_args_list[1].args[0])
+
+        # PLC update
+        self.assertIn('/did:plc:user/log/audit',
+                       mock_get.call_args_list[2].args[0])
+        self.assertIn('/did:plc:user',
+                       mock_post.call_args_list[2].args[0])
+
+    def test_migrate_out_wrong_did(self, *_):
+        self.make_user_and_repo(enabled_protocols=['atproto'])
+        with self.assertRaises(ValueError):
+            ATProto.migrate_out(self.user, 'did:plc:other', 'https://new.pds.com',
+                                'test@email.com', 'password123')
 
     @patch('requests.get', return_value=requests_response('', status=404))
     def test_web_url(self, mock_get):
