@@ -27,6 +27,7 @@ from domains import (
     SUPERDOMAIN,
 )
 from flask_app import app
+import models
 from protocol import Protocol
 import web
 from web import Web
@@ -78,32 +79,16 @@ class Webfinger(flask_util.XrdOrJrd):
         if not proto:
             error(f"Couldn't determine protocol for f{resource}")
 
-        # is this a handle?
-        if proto.owns_id(id) is False:
-            logger.info(f'{id} is not a {proto.LABEL} id')
-            handle = id
-            id = None
-
-            if web.is_valid_domain(handle):
-                logger.info(f'  looking for handle_as_domain')
-                if key := proto.query(proto.handle_as_domain == handle)\
-                               .get(keys_only=True):
-                    id = key.id()
-
-            if not id and proto.owns_handle(handle) is not False:
-                logger.info('  might be a handle, trying to resolve')
-                id = proto.handle_to_id(handle)
-
-        if not id:
-            error(f'{resource} is not a valid handle for a {proto.LABEL} user',
-                  status=404)
-
         logger.info(f'Protocol {proto.LABEL}, user id {id}')
 
-        user = proto.get_by_id(id)
-        if (not user
-                or not user.is_enabled(activitypub.ActivityPub)
-                or (proto == Web and username not in (user.key.id(), user.username()))):
+        try:
+            user = models.load_user(id, proto=proto)
+        except RuntimeError as e:
+            logger.info(e)
+            error(f'No {proto.LABEL} user found for {id}', status=404)
+
+        if (not user.is_enabled(activitypub.ActivityPub)
+            or (proto == Web and username not in (user.key.id(), user.username()))):
             error(f'No {proto.LABEL} user found for {id}', status=404)
 
         ap_handle = user.handle_as('activitypub')

@@ -2379,10 +2379,11 @@ def load_user(handle_or_id, proto=None, create=False, allow_opt_out=False):
                              proto=proto, allow_opt_out=allow_opt_out)
         raise RuntimeError(f"{handle_or_id} doesn't look like a user id or handle on {proto.PHRASE}")
 
-    for user in proto.query(proto.handle == handle_or_id):
+    for user in proto.query(ndb.OR(proto.handle == handle_or_id,
+                                   proto.handle_as_domain == handle_or_id)):
         # some users may have an old handle stored and indexed, but they've changed
         # their handle since then, so check again in memory
-        if user.handle == handle_or_id:
+        if user.handle == handle_or_id or user.handle_as_domain == handle_or_id:
             if user.use_instead:
                 logger.debug(f'{user.key} use_instead => {user.use_instead}')
                 user = user.use_instead.get()

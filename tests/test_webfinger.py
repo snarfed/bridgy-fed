@@ -335,6 +335,25 @@ class WebfingerTest(TestCase):
         got = self.client.get(f'/.well-known/webfinger?resource=acct:efake:user@efake.brid.gy')
         self.assertEqual(200, got.status_code)
 
+    def test_multiple_users_same_handle_one_enabled(self):
+        did_doc = {**test_atproto.DID_DOC, 'alsoKnownAs': ['at://han.dull']}
+
+        self.store_object(id='did:plc:alice', raw=did_doc)
+        alice = self.make_user('did:plc:alice', cls=ATProto, enabled_protocols=[])
+
+        self.store_object(id='did:plc:bob', raw=did_doc)
+        bob = self.make_user('did:plc:bob', cls=ATProto,
+                             enabled_protocols=['activitypub'])
+
+        got = self.client.get(
+            f'/.well-known/webfinger?resource=acct:han.dull@bsky.brid.gy')
+        self.assertEqual(200, got.status_code)
+        self.assertIn({
+            'rel': 'self',
+            'type': CONTENT_TYPE,
+            'href': 'https://bsky.brid.gy/ap/did:plc:bob',
+        }, got.json['links'])
+
     def test_bad_id(self):
         got = self.client.get(f'/.well-known/webfinger?resource=acct:nope@fa.brid.gy')
         self.assertEqual(404, got.status_code, got.get_data(as_text=True))
