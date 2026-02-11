@@ -219,7 +219,7 @@ def login_to_user_key(login):
         case 'Bluesky':
             return ATProto(id=login.key.id()).key
         case 'Mastodon':
-            if (id := login.actor_id()):
+            if id := login.actor_id():
                 return ActivityPub(id=id).key
             logger.warning(f'Mastodon auth entity {login.key.id()} has no user_json or uri')
             return None
