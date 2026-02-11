@@ -27,7 +27,6 @@ from oauth_dropins.webutil.flask_util import (
     Found,
     MovedPermanently,
 )
-from oauth_dropins.webutil.util import json_loads, json_dumps
 import requests
 import werkzeug.exceptions
 from werkzeug.exceptions import NotFound
@@ -220,7 +219,7 @@ def login_to_user_key(login):
         case 'Bluesky':
             return ATProto(id=login.key.id()).key
         case 'Mastodon':
-            if login.user_json and (id := json_loads(login.user_json).get('uri')):
+            if (id := login.actor_id()):
                 return ActivityPub(id=id).key
             logger.warning(f'Mastodon auth entity {login.key.id()} has no user_json or uri')
             return None
@@ -228,7 +227,7 @@ def login_to_user_key(login):
             user, server = login.key.id().strip('@').split('@')
             return ActivityPub(id=f'https://{server}/users/{user}').key
         case 'Threads':
-            username = json_loads(login.user_json).get('username')
+            username = login.user_display_name()
             handle = f'@{username}@threads.net'
             if user := ActivityPub.query(ActivityPub.handle == handle).get():
                 return user.key
