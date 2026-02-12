@@ -187,7 +187,8 @@
 
 <li><a href="#api">Does Bridgy Fed have an API? Can I integrate my client or service or other tool with it?</a></li>
 <li><a href="#identify-bridged-account">How can I tell if an account is bridged?</a></li>
-<li><a href="#identify-bridged-post">How can I tell if a post is bridged?</a></li>
+<li><a href="#identify-bridged-from-post">How can I tell if a post was bridged from another network?</a></li>
+<li><a href="#identify-bridged-to-post">How can I tell if a post was bridged <em>to</em> another network?</a></li>
 <li><a href="#metadata">Can I get additional metadata about a bridged account or post?</a></li>
 <li><a href="#enable-api">As a server admin, can I automatically enable the bridge for new users?</a></li>
 <li><a href="#bluesky-handle-api">As a server admin, can I give my new users custom Bluesky domain handles automatically?</a></li>
@@ -1150,7 +1151,7 @@ The exact metadata for account and post links varies by network. Read on for det
 <p>You can also use <a href="https://swicg.github.io/activitypub-html-discovery/#html-to-activitypub"><code>rel=alternate</code></a> and <a href="https://docs.joinmastodon.org/user/profile/#verification"><code>rel=me</code></a> to discover fediverse accounts that are associated with a web site, either bridged or otherwise.
 </li>
 
-<li id="identify-bridged-post" class="question">How can I tell if a post is bridged?</li>
+<li id="identify-bridged-from-post" class="question">How can I tell if a post was bridged from another network?</li>
 <li class="answer">
 <p>On the fediverse, look for a <a href="https://codeberg.org/fediverse/fep/src/branch/main/fep/fffd/fep-fffd.md">FEP-fffd proxy link</a> in the object's <code>url</code> field, ie an element with <code>rel=canonical</code> or <code>rel=alternate</code>. For example, <a href="https://browser.pub/https://bsky.brid.gy/convert/ap/at://did:plc:3ljmtyyjqcjee2kpewgsifvb/app.bsky.feed.post/3lvcb3tswns26">this reply</a> was bridged from Bluesky:
 <pre>
@@ -1178,6 +1179,39 @@ The exact metadata for account and post links varies by network. Read on for det
   "<span class='keyword'>bridgyOriginalUrl</span>": "<span class='value'>https://indieweb.social/@snarfed/114348129599184925</span>",
   "<span class='keyword'>bridgyOriginalText</span>": "<span class='value'>&lt;p&gt;hi &lt;a href="https://threads.net/@shnarfed/" class="u-url mention"&gt;@shnarfed&lt;/a&gt;&lt;/p&gt;</span>",
   ...
+</pre>
+</li>
+
+
+<li id="identify-bridged-to-post" class="question">How can I tell if a post was bridged <em>to</em> another network?</li>
+<li class="answer">
+<p>To see if Bridgy Fed bridged a native post (or any object) from one network to another, construct and fetch a Bridgy Fed URL with this format:
+
+<pre>
+https://<span class="keyword">[FROM]</span>.brid.gy/convert/<span class="keyword">[TO]</span>/<span class="keyword">[ID]</span>
+</pre>
+
+<p>...where <code class="keyword">[ID]</code> is the post's id in its native network, and <code class="keyword">[FROM]</code> and <code class="keyword">[TO]</code> are Bridgy Fed network labels:
+
+<table class="list">
+<tr><th>Network</th> <th>Label</th></tr>
+<tr><td>Web</td> <td><code>web</code></td></tr>
+<tr><td>ActivityPub</td> <td><code>ap</code></td></tr>
+<tr><td>Bluesky</td> <td><code>bsky</code></td></tr>
+<tr><td>Nostr (future)</td> <td><code>nostr</code></td></tr>
+<tr><td>Farcaster (future)</td> <td><code>fc</code></td></tr>
+</table>
+
+<p>For example, <a href="https://indieweb.social/@snarfed/116024251702608666">this fediverse post</a>'s ActivityPub id is <code>https://indieweb.social/users/snarfed/statuses/116024251702608666</code>. To see if Bridgy Fed bridged it to Bluesky, fetch this URL:
+
+<pre>
+https://<span class="value">ap</span>.brid.gy/convert/<span class="value">bsky</span>/<span class="value">https://indieweb.social/users/snarfed/statuses/116024251702608666</span>
+</pre>
+
+<p>If it was bridged, the response will be HTTP 200 with the converted object in the destination network's format, and the id of the bridged object in the <a href="https://developer.mozilla.org/en-US/docs/Web/HTTP/Reference/Headers/Link"><code>Link</code> HTTP header</a>. In this example, the response body is the Bluesky <code>app.bsky.feed.post</code> record, and the <code>Link</code> header contains its <a href="https://atproto.com/specs/at-uri-scheme"><code>at://</code> URI</a>, eg:
+
+<pre>
+Link: <<span class='value'>at://did:plc:bg5udl25mvzg3rt7l5n2hzet/app.bsky.feed.post/3me75t7irum22</span>>; rel="self"
 </pre>
 </li>
 

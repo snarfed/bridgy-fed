@@ -21,6 +21,7 @@ from domains import (
     SUPERDOMAIN,
 )
 from flask_app import app
+import ids
 import memcache
 from models import PROTOCOLS
 from protocol import Protocol
@@ -105,8 +106,10 @@ def convert(to, _, from_=None):
                 error('', status=403)
 
     # convert and serve
+    to_id = ids.translate_object_id(id=id, from_=from_proto, to=to_proto)
     return to_proto.convert(obj), {
         'Content-Type': to_proto.CONTENT_TYPE,
+        'Link': f'<{to_id}>; rel="self"'
     }
 
 

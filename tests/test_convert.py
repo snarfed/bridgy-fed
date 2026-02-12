@@ -107,6 +107,7 @@ class ConvertTest(testutil.TestCase):
             'id': 'other:post',
             'actor': 'other:copy:efake:user',
         }, json_loads(resp.get_data()))
+        self.assertEqual('<other:post>; rel="self"', resp.headers['Link'])
 
     def test_fake_to_other_no_object_owner(self):
         self.store_object(id='fake:post', our_as1={'foo': 'bar'},
@@ -119,6 +120,7 @@ class ConvertTest(testutil.TestCase):
             'id': 'other:post',
             'foo': 'bar',
         }, json_loads(resp.get_data()))
+        self.assertEqual('<other:post>; rel="self"', resp.headers['Link'])
 
     def test_fake_to_other_no_copy(self):
         """https://github.com/snarfed/bridgy-fed/issues/1248"""
@@ -208,13 +210,15 @@ class ConvertTest(testutil.TestCase):
                                base_url='https://fa.brid.gy/')
         self.assertEqual(200, resp.status_code)
         self.assertEqual(ActivityPub.CONTENT_TYPE, resp.content_type)
+        ap_id = 'https://fa.brid.gy/convert/ap/fake:post'
         self.assertEqual({
             '@context': as2.CONTEXT,
-            'id': 'https://fa.brid.gy/convert/ap/fake:post',
+            'id': ap_id,
             'actor': 'https://fa.brid.gy/ap/fake:alice',
             'foo': 'bar',
             'to': ['https://www.w3.org/ns/activitystreams#Public'],
         }, json_loads(resp.get_data()))
+        self.assertEqual(f'<{ap_id}>; rel="self"', resp.headers['Link'])
 
     def test_activitypub_to_web_object(self):
         url = 'https://user.com/bar?baz=baj&biff'
@@ -225,6 +229,9 @@ class ConvertTest(testutil.TestCase):
         self.assertEqual(200, resp.status_code)
         self.assert_multiline_equals(HTML, resp.get_data(as_text=True),
                                      ignore_blanks=True)
+        self.assertEqual(
+            '<https://ap.brid.gy/convert/web/https://user.com/bar?baz=baj&biff>; rel="self"',
+            resp.headers['Link'])
 
     def test_activitypub_to_web_object_empty(self):
         Object(id='http://foo').put()
@@ -307,8 +314,7 @@ class ConvertTest(testutil.TestCase):
         resp = self.client.get('/convert/web/http://foo',
                                base_url='https://ap.brid.gy/')
         self.assertEqual(301, resp.status_code)
-        self.assertEqual(f'/convert/web/tag:fake.com:123456',
-                         resp.headers['Location'])
+        self.assertEqual('/convert/web/tag:fake.com:123456', resp.headers['Location'])
 
     def test_activitypub_to_web_delete_inner_obj_exists_redirect(self):
         # DELETE_OF_ID's object field is a bare string id
@@ -318,8 +324,7 @@ class ConvertTest(testutil.TestCase):
         resp = self.client.get('/convert/web/http://foo',
                                base_url='https://ap.brid.gy/')
         self.assertEqual(301, resp.status_code)
-        self.assertEqual(f'/convert/web/tag:fake.com:123456',
-                         resp.headers['Location'])
+        self.assertEqual('/convert/web/tag:fake.com:123456', resp.headers['Location'])
 
     def test_activitypub_to_web_update_no_inner_obj_serve_as_is(self):
         # Update's object field is a full object
@@ -354,7 +359,7 @@ A ☕ reply
         resp = self.client.get('/convert/activitypub/web/https:/foo%3Fbar%23baz',
                                base_url='https://fed.brid.gy/')
         self.assertEqual(301, resp.status_code)
-        self.assertEqual(f'https://ap.brid.gy/convert/web/https:/foo%3Fbar%23baz',
+        self.assertEqual('https://ap.brid.gy/convert/web/https:/foo%3Fbar%23baz',
                          resp.headers['Location'])
 
         # the Flask/Werkeug test client strips the #baz here. but ideally we
@@ -376,6 +381,9 @@ A ☕ reply
         resp = self.client.get(f'/convert/ap/{url}', base_url='https://web.brid.gy/')
         self.assertEqual(200, resp.status_code)
         self.assert_equals(COMMENT_AS2, resp.json, ignore=['to'])
+        self.assertEqual(
+            '<https://web.brid.gy/r/https://user.com/bar?baz=baj&biff>; rel="self"',
+            resp.headers['Link'])
 
     @patch('requests.get')
     def test_web_to_activitypub_fetch(self, mock_get):
@@ -416,6 +424,8 @@ A ☕ reply
                                base_url='https://web.brid.gy/')
         self.assertEqual(200, resp.status_code)
         self.assert_equals(COMMENT_AS2, resp.json, ignore=['to'])
+        self.assertEqual('<https://web.brid.gy/r/http://user.com/a#b>; rel="self"',
+                         resp.headers['Link'])
 
     def test_fed_subdomain(self):
         url = 'https://user.com/post'
@@ -470,11 +480,13 @@ A ☕ reply
                                         host='fa.brid.gy', key_id=actor['id'])
         resp = self.client.get(path, headers=headers)
         self.assertEqual(200, resp.status_code)
+        ap_id = 'https://fa.brid.gy/convert/ap/fake:note'
         self.assert_equals({
-            'id': 'https://fa.brid.gy/convert/ap/fake:note',
+            'id': ap_id,
             'attributedTo': 'https://fa.brid.gy/ap/fake:user',
             'to': ['https://www.w3.org/ns/activitystreams#Public'],
         }, resp.json, ignore=['@context'])
+        self.assertEqual(f'<{ap_id}>; rel="self"', resp.headers['Link'])
 
     @patch('requests.get')
     def test_fake_to_activitypub_bad_signature(self, mock_get):
