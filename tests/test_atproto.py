@@ -1486,21 +1486,52 @@ Sed tortor neque, aliquet quis posuere aliquam, imperdiet sitamet […]
             ATProto.migrate_in(self.user, 'did:plc:user', plc_code='kode',
                                pds_client=pds_client)
 
-    @patch('requests.post', side_effect=[
-        requests_response({  # createAccount
-            'accessJwt': 'towken',
-            'refreshJwt': 'refrush',
-            'handle': 'temp.new.pds.com',
-            'did': 'did:plc:user',
-        }),
-        requests_response(),  # importRepo
-        requests_response(),  # PLC directory update
-    ])
     @patch('requests.get', side_effect=[
         requests_response({  # describeServer
             'did': 'did:web:pds',
             'availableUserDomains': ['.handulls.pds.com'],
         }),
+    ])
+    def test_create_account_for_migrate_out(self, mock_get):
+        self.make_user_and_repo(enabled_protocols=['atproto'])
+
+        create_account = requests_response({
+            'accessJwt': 'towken',
+            'refreshJwt': 'refrush',
+            'handle': 'fake-handle-user.handulls.pds.com',
+            'did': 'did:plc:user',
+        })
+        with patch('requests.post', return_value=create_account) as mock_post:
+            resp = ATProto.create_account_for_migrate_out(
+                self.user, pds='https://new.pds.com',
+                email='alice@pds.com', password='hunter2',
+                phone_verification_code='fown')
+
+        self.assertEqual(create_account.json(), resp)
+
+        # check describeServer call
+        self.assert_equals(
+            ['https://new.pds.com/xrpc/com.atproto.server.describeServer'],
+            mock_get.call_args_list[0].args)
+
+        # check createAccount call
+        self.assert_equals(
+            ['https://new.pds.com/xrpc/com.atproto.server.createAccount'],
+            mock_post.call_args_list[0].args)
+        self.assert_equals({
+            'handle': 'fake-handle-user.handulls.pds.com',
+            'did': 'did:plc:user',
+            'email': 'alice@pds.com',
+            'password': 'hunter2',
+            'verificationPhone': 'fown',
+        }, mock_post.call_args_list[0].kwargs['json'])
+
+
+    @patch('requests.post', side_effect=[
+        requests_response(),  # importRepo
+        requests_response(),  # PLC directory update
+    ])
+    @patch('requests.get', side_effect=[
         requests_response({  # checkAccountStatus
             'activated': False,
             'validDid': True,
@@ -1543,46 +1574,30 @@ Sed tortor neque, aliquet quis posuere aliquam, imperdiet sitamet […]
         self.make_user_and_repo(enabled_protocols=['atproto'])
 
         ATProto.migrate_out(self.user, 'did:plc:user', to_pds='https://new.pds.com',
-                            email='alice@pds.com', password='hunter2')
-
-        # describeServer
-        self.assert_equals(
-            ['https://new.pds.com/xrpc/com.atproto.server.describeServer'],
-            mock_get.call_args_list[0].args)
-
-        # createAccount
-        self.assert_equals(
-            ['https://new.pds.com/xrpc/com.atproto.server.createAccount'],
-            mock_post.call_args_list[0].args)
-        self.assert_equals({
-            'handle': 'fake-handle-user.handulls.pds.com',
-            'did': 'did:plc:user',
-            'email': 'alice@pds.com',
-            'password': 'hunter2',
-        }, mock_post.call_args_list[0].kwargs['json'])
+                            access_token='towken', refresh_token='refrush')
 
         # checkAccountStatus
         self.assert_equals(
             ['https://new.pds.com/xrpc/com.atproto.server.checkAccountStatus'],
-            mock_get.call_args_list[1].args)
+            mock_get.call_args_list[0].args)
 
         # importRepo
         self.assert_equals(
             ['https://new.pds.com/xrpc/com.atproto.repo.importRepo'],
-            mock_post.call_args_list[1].args)
+            mock_post.call_args_list[0].args)
 
         # getRecommendedDidCredentials
         self.assert_equals(
             ['https://new.pds.com/xrpc/com.atproto.identity.getRecommendedDidCredentials'],
-            mock_get.call_args_list[2].args)
+            mock_get.call_args_list[1].args)
 
         # PLC update
         self.assert_equals(['https://plc.local/did:plc:user/log/audit'],
-                           mock_get.call_args_list[3].args)
+                           mock_get.call_args_list[2].args)
         self.assert_equals(['https://plc.local/did:plc:user'],
-                           mock_post.call_args_list[2].args)
+                           mock_post.call_args_list[1].args)
 
-        mock_post.call_args_list[2].kwargs['json'].pop('sig')
+        mock_post.call_args_list[1].kwargs['json'].pop('sig')
         self.assert_equals({
             'type': 'plc_operation',
             'did': 'did:plc:user',
@@ -1598,7 +1613,7 @@ Sed tortor neque, aliquet quis posuere aliquam, imperdiet sitamet […]
                 },
             },
             'prev': 'prev-cid',
-        }, mock_post.call_args_list[2].kwargs['json'])
+        }, mock_post.call_args_list[1].kwargs['json'])
 
     @patch('requests.get', return_value=requests_response('', status=404))
     def test_web_url(self, mock_get):

@@ -1301,20 +1301,80 @@ class ATProto(User, Protocol):
         pds_client.com.atproto.server.deactivateAccount()
 
     @classmethod
-    def migrate_out(cls, user, to_user_id, to_pds, email, password,
-                    invite_code=None, phone_verification_code=None):
-        """Migrates a bridged ATProto account out to a new PDS.
+    def create_account_for_migrate_out(cls, user, pds, email, password,
+                                       invite_code=None, phone_verification_code=None):
+        """Creates an account on a new PDS that we can migrate out to.
 
         https://atproto.com/guides/account-migration
+        https://github.com/snarfed/bounce/issues/64
+
+        Args:
+          user (models.User): must be already bridged to ATProto
+          pds (str): new PDS URL, eg ``https://pds.com``
+          email (str)
+          password (str)
+          invite_code (str): optional
+          phone_verification_code (str): optional
+
+        Returns:
+          dict: response from ``createAccount``, including ``accessJwt``,
+            ``refreshJwt``, ``handle``, ``did``
+
+        Raises:
+          requests.HTTPError: if ``createAccount`` returned an error
+        """
+        assert email
+        assert password
+
+        did = user.get_copy(ATProto)
+        assert did
+
+        repo = arroba.server.storage.load_repo(did)
+        assert repo
+        handle = repo.handle
+
+        # get new PDS's handle domain via describeServer
+        bs = Bluesky(handle=repo.handle, did=did, pds_url=pds)
+        desc = bs._client.com.atproto.server.describeServer()
+        if domains := desc.get('availableUserDomains'):
+            if handle_domain := domains[0]:
+                if not handle_domain.startswith('.'):
+                    handle_domain = '.' + handle_domain
+                handle = user.handle_as_domain + handle_domain
+
+        # create account on new PDS
+        create_input = {
+            'handle': handle,
+            'did': did,
+            'email': email,
+            'password': password,
+        }
+        if invite_code:
+            create_input['inviteCode'] = invite_code
+        if phone_verification_code:
+            create_input['verificationPhone'] = phone_verification_code
+
+        resp = bs._client.com.atproto.server.createAccount(create_input)
+        logger.info(f'Created account for {did} on {pds} : {resp}')
+        assert resp['did'] == did
+        return resp
+
+    @classmethod
+    def migrate_out(cls, user, to_user_id, to_pds, access_token, refresh_token):
+        """Migrates a bridged ATProto account out to a new PDS.
+
+        The new PDS must already have an account created for this DID. Use
+        :meth:`create_account_for_migrate_out` for that.
+
+        https://atproto.com/guides/account-migration
+        https://github.com/snarfed/bounce/issues/64
 
         Args:
           user (models.User)
           to_user_id (str): DID of the account being migrated
           to_pds (str): new PDS URL, eg ``https://pds.com``
-          email (str)
-          password (str)
-          invite_code (str): optional
-          phone_verification_code (str): optional
+          access_token (str)
+          refresh_token (str)
 
         Raises:
           ValueError: eg if ``ATProto`` doesn't own ``to_user_id``
@@ -1323,10 +1383,10 @@ class ATProto(User, Protocol):
             logger.warning(msg)
             raise ValueError(msg)
 
-        assert email
-        assert password
         assert to_user_id
         assert urlparse(to_pds).path.strip('/') == '', to_pds
+        assert access_token
+        assert refresh_token
 
         if user.get_copy(ATProto) != to_user_id:
             _error(f'{user.key.id()} is not bridged to {to_user_id}')
@@ -1337,56 +1397,29 @@ class ATProto(User, Protocol):
 
         repo = arroba.server.storage.load_repo(to_user_id)
         assert repo
-        handle = repo.handle
 
-        # 0: get new PDS's handle domain via describeServer
-        bs = Bluesky(handle=repo.handle, did=to_user_id, pds_url=to_pds)
-        desc = bs._client.com.atproto.server.describeServer()
-        if domains := desc.get('availableUserDomains'):
-            if handle_domain := domains[0]:
-                if not handle_domain.startswith('.'):
-                    handle_domain = '.' + handle_domain
-                handle = user.handle_as_domain + handle_domain
+        bs = Bluesky(handle=repo.handle, did=to_user_id, pds_url=to_pds,
+                     access_token=access_token, refresh_token=refresh_token)
 
-        # 1: create account on new PDS
-        create_input = {
-            'handle': handle,
-            'did': to_user_id,
-            'email': email,
-            'password': password,
-        }
-        if invite_code:
-            create_input['inviteCode'] = invite_code
-        if phone_verification_code:
-            create_input['verificationPhone'] = phone_verification_code
-
-        resp = bs._client.com.atproto.server.createAccount(create_input)
-        logger.info(f'Created account for {to_user_id} on {to_pds} : {resp}')
-
-        # use auth tokens from createAccount
-        assert resp['did'] == to_user_id
-        bs = Bluesky(handle=resp['handle'], did=to_user_id, pds_url=to_pds,
-                     access_token=resp['accessJwt'], refresh_token=resp['refreshJwt'])
-
-        # 2: check account status on new PDS
+        # 1: check account status on new PDS
         status = bs._client.com.atproto.server.checkAccountStatus()
         logger.info(f'Account status for {to_user_id} on {to_pds} : {status}')
         assert status['validDid']
 
-        # 3: export repo as CAR and import to new PDS
+        # 2: export repo as CAR and import to new PDS
         logger.info('Exporting our repo')
         car_bytes = xrpc_sync.get_repo(None, did=to_user_id)
         logger.info('Importing repo')
         bs._client.com.atproto.repo.importRepo(car_bytes)
 
-        # 4: get recommended DID credentials from new PDS
+        # 3: get recommended DID credentials from new PDS
         #
         # example getRecommendedDidCredentials output:
         # https://blog.smokesignal.events/posts/3lwopvsmtx22a-creating-a-did-method-web-identity-for-atprotocol
         recs = bs._client.com.atproto.identity.getRecommendedDidCredentials()
         logger.info(f'Recommended DID updates from {to_pds} : {recs}')
 
-        # 5: update DID doc to point to new PDS
+        # 4: update DID doc to point to new PDS
         rec_pds = recs.get('services', {}).get('atproto_pds', {})\
                                           .get('endpoint', to_pds)
         assert rec_pds
