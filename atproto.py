@@ -1326,6 +1326,7 @@ class ATProto(User, Protocol):
         assert email
         assert password
 
+        # TODO: bridge the from acct if it's not already bridged
         did = user.get_copy(ATProto)
         assert did
 
@@ -1337,10 +1338,13 @@ class ATProto(User, Protocol):
         bs = Bluesky(handle=repo.handle, did=did, pds_url=pds)
         desc = bs._client.com.atproto.server.describeServer()
         if domains := desc.get('availableUserDomains'):
+            # generate handle on PDS's handle domain. not actually used as the
+            # account's handle, we'll (try to) keep their current handle; this is
+            # just for the createAccount call
             if handle_domain := domains[0]:
                 if not handle_domain.startswith('.'):
                     handle_domain = '.' + handle_domain
-                handle = user.handle_as_domain + handle_domain
+                handle = user.handle_as_domain.replace('.', '-') + handle_domain
 
         # create account on new PDS
         create_input = {
@@ -1354,7 +1358,14 @@ class ATProto(User, Protocol):
         if phone_verification_code:
             create_input['verificationPhone'] = phone_verification_code
 
-        resp = bs._client.com.atproto.server.createAccount(create_input)
+        # createAccount auth is service token (JWT) signed with DID's signing key
+        # https://atproto.com/guides/account-migration#creating-new-account
+        service_token = service_jwt(host=util.domain_from_link(pds), repo_did=did,
+                                    privkey=repo.signing_key,
+                                    lxm='com.atproto.server.createAccount')
+
+        resp = bs._client.com.atproto.server.createAccount(
+            create_input, headers={'Authorization': f'Bearer {service_token}'})
         logger.info(f'Created account for {did} on {pds} : {resp}')
         assert resp['did'] == did
         return resp

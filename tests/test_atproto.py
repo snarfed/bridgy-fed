@@ -1,7 +1,7 @@
 """Unit tests for atproto.py."""
 import base64
 import copy
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from threading import Thread
 from unittest import skip
@@ -25,6 +25,7 @@ from granary.tests.test_bluesky import (
     POST_AS,
     REPOST_BSKY,
 )
+import jwt
 import lexrpc
 from multiformats import CID
 from oauth_dropins.webutil.appengine_config import tasks_client
@@ -1525,7 +1526,11 @@ Sed tortor neque, aliquet quis posuere aliquam, imperdiet sitamet […]
             'password': 'hunter2',
             'verificationPhone': 'fown',
         }, mock_post.call_args_list[0].kwargs['json'])
-
+        # raises if the JWT signature doesn't validate
+        jwt.decode(
+            mock_post.call_args[1]['headers']['Authorization'].removeprefix('Bearer '),
+            self.repo.signing_key.public_key(), algorithms=['ES256K'],
+            audience='did:web:new.pds.com', leeway=timedelta(weeks=9999))
 
     @patch('requests.post', side_effect=[
         requests_response(),  # importRepo
