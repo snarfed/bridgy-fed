@@ -7,16 +7,16 @@ runtime: python312
 # default_expiration: 1h
 
 # https://cloud.google.com/appengine/docs/standard/python3/runtime#entrypoint_best_practices
-# https://docs.gunicorn.org/en/latest/settings.html#timeout
-entrypoint: gunicorn --workers 1 --threads 30 --timeout 60 -b :$PORT app:app
+# https://gunicorn.org/reference/settings/
+entrypoint: gunicorn --workers 2 --threads 15 --timeout 60 -b :$PORT app:app
 
 # background: https://github.com/snarfed/bridgy/issues/578
 # https://github.com/snarfed/bridgy/issues/1051
 automatic_scaling:
   max_instances: 200
   max_idle_instances: 1
-  target_cpu_utilization: .9
-  min_pending_latency: 500ms
+  # target_cpu_utilization: .9
+  # min_pending_latency: 500ms
   max_concurrent_requests: 30
 
 inbound_services:
