@@ -147,10 +147,10 @@ def init(sequences_cls):
 def oauth_client_metadata():
     return {
         **oauth_dropins.bluesky.CLIENT_METADATA_TEMPLATE,
-        'client_id': f'{request.host_url}oauth/bluesky/client-metadata.json',
+        'client_id': domains.host_url('/oauth/bluesky/client-metadata.json'),
         'client_name': 'Bridgy Fed',
-        'client_uri': request.host_url,
-        'redirect_uris': [f'{request.host_url}oauth/bluesky/finish'],
+        'client_uri': domains.host_url(),
+        'redirect_uris': [domains.host_url('/oauth/bluesky/finish')],
     }
 
 

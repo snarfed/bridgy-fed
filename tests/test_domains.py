@@ -1,4 +1,6 @@
 """Unit tests for domains.py."""
+from unittest.mock import patch
+
 from domains import (
     host_url,
     redirect_wrap,
@@ -73,21 +75,31 @@ class DomainsTest(TestCase):
         self.assert_equals({'id': 3}, unwrap({'id': 3}))
 
     def test_host_url(self):
-        with app.test_request_context():
-            self.assertEqual('http://localhost/', host_url())
-            self.assertEqual('http://localhost/asdf', host_url('asdf'))
-            self.assertEqual('http://localhost/foo/bar', host_url('/foo/bar'))
+        for debug, local in (True, False), (False, True):
+            with patch('domains.DEBUG', debug), patch('domains.LOCAL_SERVER', local), \
+                 app.test_request_context():
+                self.assertEqual('http://localhost/', host_url())
+                self.assertEqual('http://localhost/asdf', host_url('asdf'))
+                self.assertEqual('http://localhost/foo/bar', host_url('/foo/bar'))
 
-        with app.test_request_context(base_url='https://a.xyz', path='/foo'):
-            self.assertEqual('https://a.xyz/', host_url())
-            self.assertEqual('https://a.xyz/asdf', host_url('asdf'))
-            self.assertEqual('https://a.xyz/foo/bar', host_url('/foo/bar'))
+        with patch('domains.DEBUG', False), patch('domains.LOCAL_SERVER', False):
+            with app.test_request_context():
+                self.assertEqual('https://fed.brid.gy/', host_url())
+                self.assertEqual('https://fed.brid.gy/asdf', host_url('asdf'))
+                self.assertEqual('https://fed.brid.gy/foo/bar', host_url('/foo/bar'))
 
-        with app.test_request_context(base_url='http://bridgy-federated.uc.r.appspot.com'):
-            self.assertEqual('https://fed.brid.gy/asdf', host_url('asdf'))
+            with app.test_request_context(base_url='https://a.xyz', path='/foo'):
+                self.assertEqual('https://fed.brid.gy/', host_url())
+                self.assertEqual('https://fed.brid.gy/asdf', host_url('asdf'))
+                self.assertEqual('https://fed.brid.gy/foo/bar', host_url('/foo/bar'))
 
-        with app.test_request_context(base_url='https://bsky.brid.gy', path='/foo'):
-            self.assertEqual('https://bsky.brid.gy/asdf', host_url('asdf'))
+            with app.test_request_context(
+                    base_url='http://bridgy-federated.uc.r.appspot.com'):
+                self.assertEqual('https://fed.brid.gy/asdf', host_url('asdf'))
+
+            with app.test_request_context(base_url='https://bsky.brid.gy',
+                                          path='/foo'):
+                self.assertEqual('https://bsky.brid.gy/asdf', host_url('asdf'))
 
     def test_tld_extract(self):
         for domain in (

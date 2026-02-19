@@ -227,11 +227,11 @@ def unwrap(val, field=None):
 
 
 def host_url(path_query=None):
-    base = request.host_url
-    if (util.domain_or_parent_in(request.host, OTHER_DOMAINS)
-            # when running locally against prod datastore
-            or (not DEBUG and request.host in LOCAL_DOMAINS)):
-        base = f'https://{PRIMARY_DOMAIN}'
+    if DEBUG or LOCAL_SERVER:
+        base = request.host_url
+    elif request.host.endswith(SUPERDOMAIN):
+        base = request.host_url
+    else:
+        base = f'https://{PRIMARY_DOMAIN}/'
 
-    assert base
     return urljoin(base, path_query)

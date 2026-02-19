@@ -4436,6 +4436,29 @@ Sed tortor neque, aliquet quis posuere aliquam, imperdiet sitamet […]
             resp = self.get(f'/.well-known/{slug}')
             self.assertEqual(404, resp.status_code)
 
+    def test_bluesky_oauth_client_metadata(self):
+        self._test_bluesky_oauth_client_metadata()
+
+    def test_bluesky_oauth_client_metadata_forged_host(self):
+        self._test_bluesky_oauth_client_metadata(headers={'Host': 'evil.example'})
+
+    @patch('domains.DEBUG', False)
+    def _test_bluesky_oauth_client_metadata(self, **kwargs):
+        resp = self.get('/oauth/bluesky/client-metadata.json', **kwargs)
+        self.assertEqual(200, resp.status_code)
+        self.assert_equals({
+            'application_type': 'web',
+            'client_id': 'https://fed.brid.gy/oauth/bluesky/client-metadata.json',
+            'client_name': 'Bridgy Fed',
+            'client_uri': 'https://fed.brid.gy/',
+            'dpop_bound_access_tokens': True,
+            'grant_types': ['authorization_code', 'refresh_token'],
+            'redirect_uris': ['https://fed.brid.gy/oauth/bluesky/finish'],
+            'response_types': ['code'],
+            'scope': 'atproto transition:generic',
+            'token_endpoint_auth_method': 'none',
+        }, resp.json)
+
     def test_check_supported(self):
         self.store_object(id='did:plc:bob', raw=DID_DOC)
         self.make_user('did:plc:bob', cls=ATProto)
