@@ -90,7 +90,7 @@ OLD_ACCOUNT_EXEMPT_DOMAINS = (
     'pixelfed.social',
     'thebristolcable.social',
     'theforkiverse.com',
-    'bots.stefanbohacek.com',
+    'stefanbohacek.online',
 )
 
 # domains that we can't yet authorize activities from. currently none.
