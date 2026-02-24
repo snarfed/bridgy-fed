@@ -460,6 +460,10 @@ class User(AddRemoveMixin, StringIdModel, metaclass=ProtocolUserMeta):
                       reload=False, **kwargs):
         """Loads and returns a :class:`User`. Creates it if necessary.
 
+        If ``allow_opt_out`` is False and ``id`` is the bridged id for a user in
+        another protocol, returns that user instead. Note that they'll be a
+        different type than ``cls``!
+
         Not transactional because transactions don't read or write memcache. :/
         Fortunately we don't really depend on atomicity for much, last writer wins
         is usually fine.
@@ -513,9 +517,9 @@ class User(AddRemoveMixin, StringIdModel, metaclass=ProtocolUserMeta):
                 return user
 
         else:  # new, not existing
-            if orig_key := get_original_user_key(id):
+            if not allow_opt_out and (orig_key := get_original_user_key(id)):
                 orig = orig_key.get()
-                if orig.status and not allow_opt_out:
+                if orig.status:
                     return None
                 orig.existing = False
                 return orig

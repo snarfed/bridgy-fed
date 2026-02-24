@@ -187,6 +187,13 @@ class UserTest(TestCase):
                                copies=[Target(uri='fake:ab', protocol='fake')])
         self.assert_entities_equal(other, Fake.get_or_create('fake:ab'))
 
+    def test_get_or_create_allow_opt_out_ignores_copies(self):
+        other = self.make_user(id='other:ab', cls=OtherFake,
+                               copies=[Target(uri='fake:ab', protocol='fake')])
+        got = Fake.get_or_create('fake:ab', allow_opt_out=True)
+        self.assertTrue(isinstance(got, Fake))
+        self.assertEqual('fake:ab', got.key.id())
+
     def test_get_or_create_existing_opted_out(self):
         user = self.make_user('fake:user', cls=Fake,
                               obj_as1={'summary': '#nobridge'})
