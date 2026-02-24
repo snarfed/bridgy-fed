@@ -1377,6 +1377,8 @@ class ATProto(User, Protocol):
         The new PDS must already have an account created for this DID. Use
         :meth:`create_account_for_migrate_out` for that.
 
+        Deactivates our own repo and disables ``user`` bridging to ATProto.
+
         https://atproto.com/guides/account-migration
         https://github.com/snarfed/bounce/issues/64
 
@@ -1446,6 +1448,10 @@ class ATProto(User, Protocol):
                        rotation_key=repo.rotation_key,
                        new_rotation_key=did.decode_did_key(recs['rotationKeys'][0]),
                        get_fn=util.requests_get, post_fn=util.requests_post)
+
+        # 5: disable user's bridging, deactivate repo
+        user.disable_protocol(ATProto)
+        arroba.server.storage.deactivate_repo(repo)
 
     @classmethod
     def add_source_links(cls, obj, from_user):

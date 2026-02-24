@@ -11,7 +11,7 @@ from arroba.datastore_storage import AtpBlock, AtpRemoteBlob, AtpRepo, Datastore
 from arroba.did import encode_did_key
 from arroba import firehose
 from arroba.repo import Repo, Write
-from arroba.storage import Action, SUBSCRIBE_REPOS_NSID
+from arroba.storage import Action, DEACTIVATED, SUBSCRIBE_REPOS_NSID
 import arroba.util
 from dns.resolver import NXDOMAIN
 import google.cloud.dns.client
@@ -1576,7 +1576,7 @@ Sed tortor neque, aliquet quis posuere aliquam, imperdiet sitamet […]
         }]),
     ])
     def test_migrate_out(self, mock_get, mock_post):
-        self.make_user_and_repo(enabled_protocols=['atproto'])
+        user = self.make_user_and_repo(enabled_protocols=['atproto'])
 
         ATProto.migrate_out(self.user, 'did:plc:user', to_pds='https://new.pds.com',
                             access_token='towken', refresh_token='refrush')
@@ -1619,6 +1619,10 @@ Sed tortor neque, aliquet quis posuere aliquam, imperdiet sitamet […]
             },
             'prev': 'prev-cid',
         }, mock_post.call_args_list[1].kwargs['json'])
+
+        # our repo should be deactivated and user's bridging should be disabled
+        self.assertEqual(DEACTIVATED, self.storage.load_repo('did:plc:user').status)
+        self.assertFalse(user.key.get().is_enabled(ATProto))
 
     @patch('requests.get', return_value=requests_response('', status=404))
     def test_web_url(self, mock_get):
