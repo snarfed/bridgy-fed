@@ -1350,7 +1350,7 @@ Sed tortor neque, aliquet quis posuere aliquam, imperdiet sitamet […]
         ])
 
         repo = self.storage.load_repo('did:plc:user')
-        arroba.server.storage.deactivate_repo(repo)
+        self.storage.deactivate_repo(repo)
         orig_head = repo.head
 
         profile_as1 = {
@@ -1451,7 +1451,7 @@ Sed tortor neque, aliquet quis posuere aliquam, imperdiet sitamet […]
         self.assertIsNotNone(self.user.copies)
 
         repo = self.storage.load_repo('did:plc:user')
-        arroba.server.storage.deactivate_repo(repo)
+        self.storage.deactivate_repo(repo)
 
         # profile fetch will fail
         Fake.fetchable = {}
@@ -1479,7 +1479,7 @@ Sed tortor neque, aliquet quis posuere aliquam, imperdiet sitamet […]
         self.make_user_and_repo(obj_key=None)
 
         repo = self.storage.load_repo('did:plc:user')
-        arroba.server.storage.deactivate_repo(repo)
+        self.storage.deactivate_repo(repo)
 
         pds_client = lexrpc.Client('https://some.pds')
 
@@ -1695,7 +1695,7 @@ Sed tortor neque, aliquet quis posuere aliquam, imperdiet sitamet […]
         # check user, repo
         did = user.key.get().get_copy(ATProto)
         self.assertIn(Target(uri=did, protocol='atproto'), user.copies)
-        repo = arroba.server.storage.load_repo(did)
+        repo = self.storage.load_repo(did)
 
         # check DNS record
         zone.resource_record_set.assert_called_with(
@@ -1759,7 +1759,7 @@ Sed tortor neque, aliquet quis posuere aliquam, imperdiet sitamet […]
         # check user, repo
         did = user.key.get().get_copy(ATProto)
         self.assertEqual([Target(uri=did, protocol='atproto')], user.copies)
-        repo = arroba.server.storage.load_repo(did)
+        repo = self.storage.load_repo(did)
 
         # check profile, pinned post
         last_tid = arroba.util.int_to_tid(arroba.util._tid_ts_last)
@@ -1809,7 +1809,7 @@ Sed tortor neque, aliquet quis posuere aliquam, imperdiet sitamet […]
         # check user, repo
         did = user.key.get().get_copy(ATProto)
         self.assertEqual([Target(uri=did, protocol='atproto')], user.copies)
-        repo = arroba.server.storage.load_repo(did)
+        repo = self.storage.load_repo(did)
 
         # check profile, pinned post
         last_tid = arroba.util.int_to_tid(arroba.util._tid_ts_last)
@@ -1839,7 +1839,7 @@ Sed tortor neque, aliquet quis posuere aliquam, imperdiet sitamet […]
 
         # check user, repo
         did = user.key.get().get_copy(ATProto)
-        repo = arroba.server.storage.load_repo(did)
+        repo = self.storage.load_repo(did)
 
         # check profile, webMonetization records
         self.assert_equals({
@@ -1898,7 +1898,7 @@ Sed tortor neque, aliquet quis posuere aliquam, imperdiet sitamet […]
         self.assertTrue(did.startswith('did:plc:'))
 
         # Verify profile was created
-        repo = arroba.server.storage.load_repo(did)
+        repo = self.storage.load_repo(did)
         self.assertIsNotNone(repo)
         profile = repo.get_record('app.bsky.actor.profile', 'self')
         self.assertIsNotNone(profile)
@@ -1927,13 +1927,13 @@ Sed tortor neque, aliquet quis posuere aliquam, imperdiet sitamet […]
         list_.execute.return_value = {'rrsets': []}
 
         self.make_user_and_repo()
-        repo = arroba.server.storage.load_repo('did:plc:user')
-        arroba.server.storage.deactivate_repo(repo)
+        repo = self.storage.load_repo('did:plc:user')
+        self.storage.deactivate_repo(repo)
 
         ATProto.create_for(self.user)
 
         # check repo
-        repo = arroba.server.storage.load_repo('did:plc:user')
+        repo = self.storage.load_repo('did:plc:user')
         self.assertIsNone(repo.status)
 
         # check #account event
@@ -1964,9 +1964,9 @@ Sed tortor neque, aliquet quis posuere aliquam, imperdiet sitamet […]
             **DID_DOC,
             'alsoKnownAs': ['at://han.dull'],
         })
-        repo = arroba.server.storage.load_repo('did:plc:user')
+        repo = self.storage.load_repo('did:plc:user')
         repo.handle = 'han.dull'
-        arroba.server.storage.store_repo(repo)
+        self.storage.store_repo(repo)
 
         ATProto.create_for(self.user)
 
@@ -1974,7 +1974,7 @@ Sed tortor neque, aliquet quis posuere aliquam, imperdiet sitamet […]
         mock_zone.assert_not_called()
 
         # check repo
-        repo = arroba.server.storage.load_repo('did:plc:user')
+        repo = self.storage.load_repo('did:plc:user')
         self.assertEqual('han.dull', repo.handle)
 
     @skip
@@ -2005,8 +2005,8 @@ Sed tortor neque, aliquet quis posuere aliquam, imperdiet sitamet […]
         user.obj.copies = [Target(uri='at://orig', protocol='atproto')]
         user.obj.put()
 
-        repo = arroba.server.storage.load_repo('did:plc:user')
-        arroba.server.storage.tombstone_repo(repo)
+        repo = self.storage.load_repo('did:plc:user')
+        self.storage.tombstone_repo(repo)
 
         ATProto.create_for(self.user)
 
@@ -2019,7 +2019,7 @@ Sed tortor neque, aliquet quis posuere aliquam, imperdiet sitamet […]
         self.assertEqual(f'at://{did}/app.bsky.actor.profile/self',
                          user.obj.get_copy(ATProto))
 
-        repo = arroba.server.storage.load_repo(did)
+        repo = self.storage.load_repo(did)
         self.assertIsNone(repo.status)
 
         # check #account and #sync events
@@ -2176,7 +2176,7 @@ Sed tortor neque, aliquet quis posuere aliquam, imperdiet sitamet […]
         }, timeout=15, stream=True, headers=ANY)
 
         self.assertEqual('ne.w', user.handle_as(ATProto))
-        repo = arroba.server.storage.load_repo('did:plc:user')
+        repo = self.storage.load_repo('did:plc:user')
         self.assertEqual('ne.w', repo.handle)
 
         # check #identity event
@@ -2203,7 +2203,7 @@ Sed tortor neque, aliquet quis posuere aliquam, imperdiet sitamet […]
         self.assertIn("You'll need to connect that domain", str(e.exception))
 
         self.assertEqual('han.dull.brid.gy', user.handle_as(ATProto))
-        repo = arroba.server.storage.load_repo('did:plc:user')
+        repo = self.storage.load_repo('did:plc:user')
         self.assertEqual('han.dull.brid.gy', repo.handle)
 
     # resolve handle, DNS method, not found
@@ -2219,7 +2219,7 @@ Sed tortor neque, aliquet quis posuere aliquam, imperdiet sitamet […]
         self.assertIn("You'll need to connect that domain", str(e.exception))
 
         self.assertEqual('han.dull.brid.gy', user.handle_as(ATProto))
-        repo = arroba.server.storage.load_repo('did:plc:user')
+        repo = self.storage.load_repo('did:plc:user')
         self.assertEqual('han.dull.brid.gy', repo.handle)
 
     def test_set_username_atproto_not_enabled(self):
@@ -2239,7 +2239,7 @@ Sed tortor neque, aliquet quis posuere aliquam, imperdiet sitamet […]
         self.assertEqual("bad nope isn't a valid Bluesky handle", str(e.exception))
 
         self.assertEqual('han.dull.brid.gy', user.handle_as(ATProto))
-        repo = arroba.server.storage.load_repo('did:plc:user')
+        repo = self.storage.load_repo('did:plc:user')
         self.assertEqual('han.dull.brid.gy', repo.handle)
 
     def test_set_username_bad_character(self):
@@ -2251,7 +2251,7 @@ Sed tortor neque, aliquet quis posuere aliquam, imperdiet sitamet […]
         self.assertEqual("x_y.com isn't a valid Bluesky handle", str(e.exception))
 
         self.assertEqual('han.dull.brid.gy', user.handle_as(ATProto))
-        repo = arroba.server.storage.load_repo('did:plc:user')
+        repo = self.storage.load_repo('did:plc:user')
         self.assertEqual('han.dull.brid.gy', repo.handle)
 
     def test_set_username_unchanged_still_runs(self):
@@ -3424,7 +3424,7 @@ Sed tortor neque, aliquet quis posuere aliquam, imperdiet sitamet […]
 
         # two block records with the same subject
         repo = self.storage.load_repo('did:plc:user')
-        arroba.server.storage.commit(repo, [
+        self.storage.commit(repo, [
             Write(action=Action.CREATE, collection='app.bsky.graph.block', rkey='a',
                   record={
                       '$type': 'app.bsky.graph.block',
@@ -3499,7 +3499,7 @@ Sed tortor neque, aliquet quis posuere aliquam, imperdiet sitamet […]
                                       enabled_protocols=['atproto'])
 
         repo = self.storage.load_repo('did:plc:alice')
-        arroba.server.storage.commit(repo, [
+        self.storage.commit(repo, [
             Write(action=Action.CREATE, collection='app.bsky.graph.block', rkey='123',
                   record={
                       '$type': 'app.bsky.graph.block',
@@ -3534,7 +3534,7 @@ Sed tortor neque, aliquet quis posuere aliquam, imperdiet sitamet […]
 
         # two listblock records with the same subject
         repo = self.storage.load_repo('did:plc:user')
-        arroba.server.storage.commit(repo, [
+        self.storage.commit(repo, [
             Write(action=Action.CREATE, collection='app.bsky.graph.listblock',
                   rkey='a', record={
                       '$type': 'app.bsky.graph.listblock',
@@ -4073,7 +4073,7 @@ Sed tortor neque, aliquet quis posuere aliquam, imperdiet sitamet […]
                          client.com.atproto.identity.resolveHandle(handle='han.dull.brid.gy'))
 
         # tombstone first repo, make a new one, we should get the new one
-        arroba.server.storage.tombstone_repo(self.repo)
+        self.storage.tombstone_repo(self.repo)
         Repo.create(self.storage, 'did:plc:user-new', handle='han.dull.brid.gy',
                     signing_key=ATPROTO_KEY, rotation_key=ATPROTO_KEY)
 
