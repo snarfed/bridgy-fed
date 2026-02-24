@@ -1417,7 +1417,6 @@ class ATProto(User, Protocol):
         # 1: check account status on new PDS
         status = bs._client.com.atproto.server.checkAccountStatus()
         logger.info(f'Account status for {to_user_id} on {to_pds} : {status}')
-        assert status['validDid']
 
         # 2: export repo as CAR and import to new PDS
         logger.info('Exporting our repo')
@@ -1449,7 +1448,10 @@ class ATProto(User, Protocol):
                        new_rotation_key=did.decode_did_key(recs['rotationKeys'][0]),
                        get_fn=util.requests_get, post_fn=util.requests_post)
 
-        # 5: disable user's bridging, deactivate repo
+        # 5: activate account on new PDS
+        bs._client.com.atproto.server.activateAccount()
+
+        # 6: disable user's bridging, deactivate repo
         user.disable_protocol(ATProto)
         arroba.server.storage.deactivate_repo(repo)
 

@@ -1535,6 +1535,7 @@ Sed tortor neque, aliquet quis posuere aliquam, imperdiet sitamet […]
     @patch('requests.post', side_effect=[
         requests_response(),  # importRepo
         requests_response(),  # PLC directory update
+        requests_response(),  # activateAccount
     ])
     @patch('requests.get', side_effect=[
         requests_response({  # checkAccountStatus
@@ -1619,6 +1620,11 @@ Sed tortor neque, aliquet quis posuere aliquam, imperdiet sitamet […]
             },
             'prev': 'prev-cid',
         }, mock_post.call_args_list[1].kwargs['json'])
+
+        # activateAccount
+        self.assert_equals(
+            ['https://new.pds.com/xrpc/com.atproto.server.activateAccount'],
+            mock_post.call_args_list[2].args)
 
         # our repo should be deactivated and user's bridging should be disabled
         self.assertEqual(DEACTIVATED, self.storage.load_repo('did:plc:user').status)
