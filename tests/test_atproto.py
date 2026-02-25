@@ -1628,7 +1628,9 @@ Sed tortor neque, aliquet quis posuere aliquam, imperdiet sitamet […]
 
         # our repo should be deactivated and user's bridging should be disabled
         self.assertEqual(DEACTIVATED, self.storage.load_repo('did:plc:user').status)
-        self.assertFalse(user.key.get().is_enabled(ATProto))
+        user = user.key.get()
+        self.assertFalse(user.is_enabled(ATProto))
+        self.assertEqual([], user.copies)
 
     @patch('requests.get', return_value=requests_response('', status=404))
     def test_web_url(self, mock_get):

@@ -1452,7 +1452,8 @@ class ATProto(User, Protocol):
         bs._client.com.atproto.server.activateAccount()
 
         # 6: disable user's bridging, deactivate repo
-        user.disable_protocol(ATProto)
+        user.remove('copies', Target(uri=to_user_id, protocol=cls.LABEL))
+        user.disable_protocol(ATProto)  # this calls user.put()
         arroba.server.storage.deactivate_repo(repo)
 
     @classmethod
