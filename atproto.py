@@ -1301,7 +1301,7 @@ class ATProto(User, Protocol):
         pds_client.com.atproto.server.deactivateAccount()
 
     @classmethod
-    def create_account_for_migrate_out(cls, user, pds, email, password,
+    def create_account_for_migrate_out(cls, user, pds, email, password, handle=None,
                                        invite_code=None, phone_verification_code=None):
         """Creates an account on a new PDS that we can migrate out to.
 
@@ -1313,6 +1313,8 @@ class ATProto(User, Protocol):
           pds (str): new PDS URL, eg ``https://pds.com``
           email (str)
           password (str)
+          handle (str): optional. defaults to generating one based on the user's
+            native handle and the new PDS's first available domain
           invite_code (str): optional
           phone_verification_code (str): optional
 
@@ -1322,6 +1324,7 @@ class ATProto(User, Protocol):
 
         Raises:
           requests.HTTPError: if ``createAccount`` returned an error
+
         """
         assert email
         assert password
@@ -1332,19 +1335,21 @@ class ATProto(User, Protocol):
 
         repo = arroba.server.storage.load_repo(did)
         assert repo
-        handle = repo.handle
 
-        # get new PDS's handle domain via describeServer
         bs = Bluesky(handle=repo.handle, did=did, pds_url=pds)
-        desc = bs._client.com.atproto.server.describeServer()
-        if domains := desc.get('availableUserDomains'):
-            # generate handle on PDS's handle domain. not actually used as the
-            # account's handle, we'll (try to) keep their current handle; this is
-            # just for the createAccount call
-            if handle_domain := domains[0]:
-                if not handle_domain.startswith('.'):
-                    handle_domain = '.' + handle_domain
-                handle = user.handle_as_domain.replace('.', '-') + handle_domain
+
+        if not handle:
+            handle = repo.handle
+            # get new PDS's handle domain via describeServer
+            desc = bs._client.com.atproto.server.describeServer()
+            if domains := desc.get('availableUserDomains'):
+                # generate handle on PDS's handle domain. not actually used as the
+                # account's handle, we'll (try to) keep their current handle; this is
+                # just for the createAccount call
+                if handle_domain := domains[0]:
+                    if not handle_domain.startswith('.'):
+                        handle_domain = '.' + handle_domain
+                    handle = user.handle_as_domain.replace('.', '-') + handle_domain
 
         # create account on new PDS
         create_input = {
