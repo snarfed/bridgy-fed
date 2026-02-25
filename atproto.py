@@ -1324,12 +1324,11 @@ class ATProto(User, Protocol):
 
         Raises:
           requests.HTTPError: if ``createAccount`` returned an error
-
+          AssertionError: if ``user`` isn't bridged to ATProto
         """
         assert email
         assert password
 
-        # TODO: bridge the from acct if it's not already bridged
         did = user.get_copy(ATProto)
         assert did
 
@@ -1349,7 +1348,10 @@ class ATProto(User, Protocol):
                 if handle_domain := domains[0]:
                     if not handle_domain.startswith('.'):
                         handle_domain = '.' + handle_domain
-                    handle = user.handle_as_domain.replace('.', '-') + handle_domain
+                    # Bluesky handle first segment length limit is 20 chars
+                    # (at least on reference PDS?)
+                    handle = (user.handle_as_domain.replace('.', '-')[:20]
+                              + handle_domain)
 
         # create account on new PDS
         create_input = {

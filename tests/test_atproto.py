@@ -1534,12 +1534,13 @@ Sed tortor neque, aliquet quis posuere aliquam, imperdiet sitamet […]
         }),
     ])
     def test_create_account_for_migrate_out_default_handle(self, mock_get):
-        self.make_user_and_repo(enabled_protocols=['atproto'])
+        self.make_user_and_repo(id='fake:userlongname', enabled_protocols=['atproto'])
 
         create_account = requests_response({
             'accessJwt': 'towken',
             'refreshJwt': 'refrush',
-            'handle': 'fake-handle-user.handulls.pds.com',
+            # handle is converted from fake:handle:userlongname, then truncated
+            'handle': 'fake-handle-userlong.handulls.pds.com',
             'did': 'did:plc:user',
         })
         with patch('requests.post', return_value=create_account) as mock_post:
@@ -1559,7 +1560,7 @@ Sed tortor neque, aliquet quis posuere aliquam, imperdiet sitamet […]
             ['https://new.pds.com/xrpc/com.atproto.server.createAccount'],
             mock_post.call_args_list[0].args)
         self.assert_equals({
-            'handle': 'fake-handle-user.handulls.pds.com',
+            'handle': 'fake-handle-userlong.handulls.pds.com',
             'did': 'did:plc:user',
             'email': 'alice@pds.com',
             'password': 'hunter2',
