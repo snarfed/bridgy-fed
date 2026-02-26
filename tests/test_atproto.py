@@ -1666,6 +1666,76 @@ Sed tortor neque, aliquet quis posuere aliquam, imperdiet sitamet […]
         self.assertFalse(user.is_enabled(ATProto))
         self.assertEqual([], user.copies)
 
+    @patch('requests.post', side_effect=[
+        requests_response(),  # importRepo
+        requests_response(),  # PLC directory update
+        requests_response(),  # activateAccount
+    ])
+    @patch('requests.get', side_effect=[
+        requests_response({  # checkAccountStatus
+            'activated': False,
+            'validDid': True,
+            'repoCommit': BLOB_CID.encode('base32'),
+            'repoRev': '123',
+            'repoBlocks': 0,
+            'indexedRecords': 0,
+            'privateStateValues': 0,
+            'expectedBlobs': 0,
+            'importedBlobs': 0,
+        }),
+        requests_response({  # getRecommendedDidCredentials
+            'rotationKeys': [encode_did_key(KEY_2.public_key())],
+            'verificationMethods': {
+                'atproto': encode_did_key(KEY_3.public_key()),
+            },
+            'services': {
+                'atproto_pds': {
+                    'type': 'AtprotoPersonalDataServer',
+                    'endpoint': 'https://new.pds.com',
+                },
+            },
+        }),
+        requests_response([{  # PLC audit log
+            'cid': 'prev-cid',
+            'operation': {
+                'alsoKnownAs': ['at://han.dull.brid.gy'],
+                'rotationKeys': ['did:key:old'],
+                'verificationMethods': {'atproto': 'did:key:old'},
+                'services': {
+                    'atproto_pds': {
+                        'type': 'AtprotoPersonalDataServer',
+                        'endpoint': 'https://atproto.brid.gy',
+                    },
+                },
+            },
+        }]),
+    ])
+    def test_migrate_out_handle(self, mock_get, mock_post):
+        self.make_user_and_repo(enabled_protocols=['atproto'])
+
+        ATProto.migrate_out(self.user, 'did:plc:user', to_pds='https://new.pds.com',
+                            access_token='towken', refresh_token='refrush',
+                            handle='new.handle.com')
+
+        # PLC update should use the provided handle
+        mock_post.call_args_list[1].kwargs['json'].pop('sig')
+        self.assert_equals({
+            'type': 'plc_operation',
+            'did': 'did:plc:user',
+            'rotationKeys': [encode_did_key(KEY_2.public_key())],
+            'verificationMethods': {
+                'atproto': encode_did_key(KEY_3.public_key()),
+            },
+            'alsoKnownAs': ['at://new.handle.com'],
+            'services': {
+                'atproto_pds': {
+                    'type': 'AtprotoPersonalDataServer',
+                    'endpoint': 'https://new.pds.com',
+                },
+            },
+            'prev': 'prev-cid',
+        }, mock_post.call_args_list[1].kwargs['json'])
+
     @patch('requests.get', return_value=requests_response('', status=404))
     def test_web_url(self, mock_get):
         user = self.make_user('did:plc:user', cls=ATProto)

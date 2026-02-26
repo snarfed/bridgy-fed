@@ -1378,7 +1378,8 @@ class ATProto(User, Protocol):
         return resp
 
     @classmethod
-    def migrate_out(cls, user, to_user_id, to_pds, access_token, refresh_token):
+    def migrate_out(cls, user, to_user_id, to_pds, access_token, refresh_token,
+                    handle=None):
         """Migrates a bridged ATProto account out to a new PDS.
 
         The new PDS must already have an account created for this DID. Use
@@ -1395,6 +1396,7 @@ class ATProto(User, Protocol):
           to_pds (str): new PDS URL, eg ``https://pds.com``
           access_token (str)
           refresh_token (str)
+          handle (str): optional. defaults to keeping the existing handle
 
         Raises:
           ValueError: eg if ``ATProto`` doesn't own ``to_user_id``
@@ -1449,9 +1451,10 @@ class ATProto(User, Protocol):
         if key := recs.get('verificationMethods', {}).get('atproto'):
             new_signing_key = did.decode_did_key(key)
 
-        logger.info(f'Updating {to_user_id} DID doc with PDS {rec_pds} rotation key {recs["rotationKeys"][0]} signing keys')
-        did.update_plc(did=to_user_id, pds_url=rec_pds, signing_key=new_signing_key,
-                       rotation_key=repo.rotation_key,
+        logger.info(f'Updating {to_user_id} DID doc with PDS {rec_pds} rotation key {recs["rotationKeys"][0]} handle {handle}')
+        did.update_plc(did=to_user_id, pds_url=rec_pds, handle=handle,
+                       also_known_as=[],
+                       signing_key=new_signing_key, rotation_key=repo.rotation_key,
                        new_rotation_key=did.decode_did_key(recs['rotationKeys'][0]),
                        get_fn=util.requests_get, post_fn=util.requests_post)
 

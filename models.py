@@ -744,7 +744,7 @@ class User(AddRemoveMixin, StringIdModel, metaclass=ProtocolUserMeta):
             return desc.format(user=self)
 
     def is_enabled(self, to_proto, explicit=False):
-        """Returns True if this user can be bridged to a given protocol.
+        """Returns True if this user is bridged to a given protocol.
 
         Reasons this might return False:
         * We haven't turned on bridging these two protocols yet.
