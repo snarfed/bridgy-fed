@@ -403,12 +403,13 @@ class Nostr(User, Protocol):
         return True
 
     @classmethod
-    def _convert(to_cls, obj, from_user=None):
+    def _convert(to_cls, obj, from_user=None, **kwargs):
         """Converts a :class:`models.Object` to a Nostr event.
 
         Args:
           obj (models.Object)
           from_user (models.User): user this object is from
+          kwargs: unused
 
         Returns:
           dict: JSON Nostr event

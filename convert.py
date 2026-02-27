@@ -107,7 +107,7 @@ def convert(to, _, from_=None):
 
     # convert and serve
     to_id = ids.translate_object_id(id=id, from_=from_proto, to=to_proto)
-    return to_proto.convert(obj), {
+    return to_proto.convert(obj, strict_json=True), {
         'Content-Type': to_proto.CONTENT_TYPE,
         'Link': f'<{to_id}>; rel="self"'
     }

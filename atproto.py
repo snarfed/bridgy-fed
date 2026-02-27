@@ -1079,7 +1079,7 @@ class ATProto(User, Protocol):
 
     @classmethod
     def _convert(cls, obj, fetch_blobs=False, from_user=None, multiple=False,
-                 **kwargs):
+                 strict_json=False, **kwargs):
         r"""Converts a :class:`models.Object` to ``app.bsky.*`` lexicon JSON record(s).
 
         Args:
@@ -1089,6 +1089,7 @@ class ATProto(User, Protocol):
             don't already exist, and fill them into the returned object.
           from_user (models.User): user (actor) this activity/object is from
           multiple: whether to return multiple records. Default False.
+          strict_json: if True, blob CIDs will be encoded as base32
           kwargs: passed through to :func:`granary.bluesky.from_as1`
 
         Returns:
@@ -1118,7 +1119,10 @@ class ATProto(User, Protocol):
                     blob = AtpRemoteBlob.get_or_create(
                         url=url, get_fn=util.requests_get, max_size=max_size,
                         accept_types=accept, repo=repo_key)
-                    blobs[url] = blob.as_object()
+                    blob_obj = blob.as_object()
+                    if strict_json:
+                        blob_obj['ref'] = {'$link': blob_obj['ref'].encode('base32')}
+                    blobs[url] = blob_obj
                     if blob.width and blob.height:
                         aspect_ratios[url] = (blob.width, blob.height)
                 except (RequestException, ValidationError) as e:

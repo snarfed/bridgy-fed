@@ -711,12 +711,13 @@ class Web(User, Protocol):
         return True
 
     @classmethod
-    def _convert(cls, obj, from_user=None):
+    def _convert(cls, obj, from_user=None, **kwargs):
         """Converts a :class:`Object` to HTML.
 
         Args:
           obj (models.Object)
           from_user (models.User): user (actor) this activity/object is from
+          kwargs: unused
 
         Returns:
           str:

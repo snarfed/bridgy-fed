@@ -19,6 +19,7 @@ from common import CONTENT_TYPE_HTML
 from web import Web
 
 from . import test_activitypub
+from .test_atproto import METAFORMATS_HTML
 from .test_web import ACTOR_HTML
 
 COMMENT_AS2 = {
@@ -502,3 +503,55 @@ A ☕ reply
         headers['signature'] += 'foo'
         resp = self.client.get(path, headers=headers)
         self.assertEqual(401, resp.status_code)
+
+    @patch('requests.get', side_effect=[
+        requests_response(METAFORMATS_HTML, url='http://orig.co/post'),
+        requests_response('blob contents', content_type='image/png'),
+    ])
+    def test_convert_to_bsky_link_preview_blob_json_serializable(self, mock_get):
+        """Blob CID ref should be JSON-serializable for /convert/bsky/ endpoint."""
+        self.store_object(
+            id='https://ap.example.com/post/1',
+            source_protocol='activitypub',
+            our_as1={
+                'objectType': 'note',
+                'content': 'My <a href="http://orig.co/post">original</a> post',
+                'published': '2022-01-02T03:04:05Z',
+            },
+            copies=[Target(protocol='atproto', uri='at://did:plc:abc/post/tid')],
+        )
+        resp = self.client.get('/convert/bsky/https://ap.example.com/post/1')
+        body = resp.get_json()
+        self.assert_equals(200, resp.status_code, body)
+        self.assert_equals({
+            '$type': 'app.bsky.feed.post',
+            'text': 'My original post',
+            'bridgyOriginalText': 'My <a href="http://orig.co/post">original</a> post',
+            'bridgyOriginalUrl': 'https://ap.example.com/post/1',
+            'createdAt': '2022-01-02T03:04:05.000Z',
+            'embed': {
+                '$type': 'app.bsky.embed.external',
+                'external': {
+                    '$type': 'app.bsky.embed.external#external',
+                    'uri': 'http://orig.co/post',
+                    'title': 'Titull',
+                    'description': 'Descrypshun',
+                    'thumb': {
+                        '$type': 'blob',
+                        'mimeType': 'image/png',
+                        'ref': {
+                            '$link': 'bafkreicqpqncshdd27sgztqgzocd3zhhqnnsv6slvzhs5uz6f57cq6lmtq',
+                        },
+                        'size': 13,
+                    },
+                },
+            },
+            'facets': [{
+                '$type': 'app.bsky.richtext.facet',
+                'features': [{
+                    '$type': 'app.bsky.richtext.facet#link',
+                    'uri': 'http://orig.co/post',
+                }],
+                'index': {'byteEnd': 11, 'byteStart': 3},
+            }],
+        }, body)

@@ -209,7 +209,7 @@ class Fake(User, protocol.Protocol):
         return False
 
     @classmethod
-    def _convert(cls, obj, from_user=None):
+    def _convert(cls, obj, from_user=None, **kwargs):
         logger.info(f'{cls.__name__}.convert {obj.key.id()} {from_user}')
         return cls.translate_ids(obj.as1)
 

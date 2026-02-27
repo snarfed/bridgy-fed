@@ -553,7 +553,7 @@ class ActivityPub(User, Protocol):
                     _, obj['featured'] = cls._get(feat['id'])
 
     @classmethod
-    def _convert(cls, obj, orig_obj=None, from_user=None):
+    def _convert(cls, obj, orig_obj=None, from_user=None, **kwargs):
         """Convert a :class:`models.Object` to AS2.
 
         Args:
@@ -562,6 +562,7 @@ class ActivityPub(User, Protocol):
             ``inReplyTo`` or ``Like``/``Announce``/etc object, if any. Passed
             through to :func:`postprocess_as2`.
           from_user (models.User): user (actor) this activity/object is from
+          kwargs: unused
 
         Returns:
           dict: AS2 JSON
