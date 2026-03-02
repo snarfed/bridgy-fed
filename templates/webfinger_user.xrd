@@ -7,6 +7,6 @@
     {% endfor %}
 
     {% for link in links %}
-    <Link rel='{{ link.rel }}' type='{{ link.type }}' href='{{ link.href }}' />
+    <Link {% for name, val in link.items() %}{{ name }}='{{ val }}' {% endfor %}/>
     {% endfor %}
 </XRD>

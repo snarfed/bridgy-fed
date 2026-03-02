@@ -11,6 +11,7 @@ iframely_api_key_md5
 /local*
 limited_domains
 private_notes
+pyrightconfig.json
 service_account_creds.json
 threads_app_*
 TAGS

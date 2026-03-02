@@ -851,7 +851,7 @@ class User(AddRemoveMixin, StringIdModel, metaclass=ProtocolUserMeta):
             ``@[user]`` instead of ``@[user]@[domain]``
 
         Returns:
-          str
+          str:
         """
         if isinstance(to_proto, str):
             to_proto = PROTOCOLS[to_proto]
