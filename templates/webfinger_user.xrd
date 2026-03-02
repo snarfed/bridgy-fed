@@ -1,12 +1,13 @@
 <?xml version='1.0' encoding='UTF-8'?>
 <XRD xmlns='http://docs.oasis-open.org/ns/xri/xrd-1.0'>
 
-    <Subject>{{ subject }}</Subject>
+    <Subject>{{ subject|escape }}</Subject>
     {% for alias in aliases %}
-    <Alias>{{ alias }}</Alias>
+    <Alias>{{ alias|escape }}</Alias>
     {% endfor %}
 
     {% for link in links %}
-    <Link {% for name, val in link.items() %}{{ name }}='{{ val }}' {% endfor %}/>
+    {# ideally we'd use Jinja's |escape filter, but that also escapes ' and " #}
+    <Link {% for name, val in link.items() %}{{ name }}='{{ val.replace('&', '&amp;') }}' {% endfor %}/>
     {% endfor %}
 </XRD>

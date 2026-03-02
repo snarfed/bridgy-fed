@@ -142,7 +142,7 @@ WEBFINGER_XRD = """\
 <Alias>https://user.com/</Alias>
 <Link rel='http://webfinger.net/rel/profile-page' type='text/html' href='https://user.com/about-me' />
 <Link rel='http://webfinger.net/rel/profile-page' type='text/html' href='https://user.com/' />
-<Link rel='http://webfinger.net/rel/avatar' href='https://user.com/me.jpg' />
+<Link rel='http://webfinger.net/rel/avatar' href='https://user.com/me.jpg?foo&amp;bar' />
 <Link rel='canonical_uri' type='text/html' href='https://user.com/about-me' />
 <Link rel='self' type='application/ld+json; profile="https://www.w3.org/ns/activitystreams"' href='http://localhost/user.com' />
 <Link rel='self' type='application/activity+json' href='http://localhost/user.com' />
@@ -161,7 +161,13 @@ class HostMetaTest(TestCase):
         self.assertEqual('Accept', got.headers['Vary'])
         self.assertIn('Cache-Control', got.headers)
         body = got.get_data(as_text=True)
-        self.assertTrue(body.startswith('<?xml'), body)
+        self.assert_multiline_equals("""\
+<?xml version='1.0' encoding='UTF-8'?>
+<XRD xmlns='http://docs.oasis-open.org/ns/xri/xrd-1.0'>
+  <Link rel='lrdd' type='application/json'
+        template='http://localhost/.well-known/webfinger?resource={uri}' />
+</XRD>
+""", body)
 
     def test_host_meta_xrds(self):
         got = self.client.get('/.well-known/host-meta.xrds')
@@ -206,6 +212,8 @@ class WebfingerTest(TestCase):
                 self.assert_equals(WEBFINGER, got.json)
 
     def test_webfinger_xrd(self):
+        # check XML escaping
+        self.user.obj.as2['icon']['url'] = 'https://user.com/me.jpg?foo&bar'
         got = self.client.get('/.well-known/webfinger?resource=acct:user.com@user.com',
                               headers={'Accept': 'application/xrd+xml'})
         self.assertEqual(200, got.status_code, got.get_data(as_text=True))
