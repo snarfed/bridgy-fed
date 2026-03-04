@@ -3,9 +3,9 @@ from pathlib import Path
 
 from arroba.datastore_storage import MemcacheSequences
 from flask import Flask
+from oauth_dropins.webutil.appengine_info import DEBUG, LOCAL_SERVER
 from oauth_dropins.webutil import (
     appengine_config,
-    appengine_info,
     flask_util,
     util,
 )
@@ -21,7 +21,9 @@ import protocol
 
 models.reset_protocol_properties()
 
-if not appengine_info.DEBUG and not appengine_info.LOCAL_SERVER:
+if DEBUG or LOCAL_SERVER:
+    atproto.init(atproto.RemoteSequences)
+else:
     atproto.init(MemcacheSequences)
 
 # Flask app

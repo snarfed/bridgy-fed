@@ -14,7 +14,9 @@ import activitypub, atproto, convert, follow, nostr, pages, redirect, ui, webfin
 import models
 models.reset_protocol_properties()
 
-if not DEBUG and not LOCAL_SERVER:
+if DEBUG or LOCAL_SERVER:
+    atproto.init(atproto.RemoteSequences)
+else:
     atproto.init(MemcacheSequences)
 
 # only serve subscribeRepos on atproto.brid.gy (hub), not on fed.brid.gy, so
