@@ -26,6 +26,7 @@ from pymemcache.exceptions import (
     MemcacheUnknownError,
 )
 from requests import RequestException
+from websockets.exceptions import InvalidStatus
 import werkzeug.exceptions
 from werkzeug.exceptions import BadGateway, BadRequest, HTTPException
 
@@ -2076,7 +2077,7 @@ Hi! You <a href="{inner_obj_as1.get('url') or inner_obj_id}">recently {verb}</a>
 
         try:
             fetched = cls.fetch(obj, csv=csv, **kwargs)
-        except (RequestException, HTTPException) as e:
+        except (RequestException, HTTPException, InvalidStatus) as e:
             if raise_:
                 raise
             util.interpret_http_exception(e)
