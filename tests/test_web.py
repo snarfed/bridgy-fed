@@ -3487,7 +3487,7 @@ class WebUtilTest(TestCase):
                 requests.HTTPError(response=util.Struct(status_code='429', text='')),
                 requests.ConnectionError(),
         ]:
-            with self.subTest(err=err):
+            with self.subTest(err=str(err)):
                 mock_get.return_value = WEBMENTION_REL_LINK
                 mock_post.side_effect = err
 

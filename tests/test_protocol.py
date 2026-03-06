@@ -87,7 +87,7 @@ class ProtocolTest(TestCase):
                 ('fake', None),
                 ('fake.com', None),
         ]:
-            with self.subTest(domain=domain, expected=expected):
+            with self.subTest(domain=domain):
                 self.assertEqual(expected, Protocol.for_bridgy_subdomain(domain))
                 with app.test_request_context('/foo', base_url=f'https://{domain}/'):
                     self.assertEqual(expected, Protocol.for_request())
@@ -99,7 +99,7 @@ class ProtocolTest(TestCase):
             ('https://ap.brid.gy/bar', ActivityPub),
             ('https://baz/biff', None),
         ]:
-            with self.subTest(url=url, expected=expected):
+            with self.subTest(url=url):
                 self.assertEqual(expected,
                                  Protocol.for_bridgy_subdomain(url, fed=Fake))
                 self.assertEqual(expected,
@@ -128,7 +128,7 @@ class ProtocolTest(TestCase):
                 ('https://bsky.brid.gy/', Web),
                 ('bsky.brid.gy', Web),
         ]:
-            with self.subTest(id=id, expected=expected):
+            with self.subTest(id=id):
                 self.assertEqual(expected, Protocol.for_id(id, remote=False))
                 self.assertEqual(expected, Protocol.for_id(id, remote=True))
 
@@ -1222,7 +1222,7 @@ class ProtocolTest(TestCase):
             'content': 'hello world',
         })
         for proto in Fake, ExplicitFake:
-            with self.subTest(proto=proto):
+            with self.subTest(proto=proto.LABEL):
                 with self.assertRaises(NoContent):
                     proto.check_supported(dm, 'receive')
 

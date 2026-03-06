@@ -418,7 +418,7 @@ class TestCase(unittest.TestCase, testutil.Asserts):
 
         main = threading.main_thread()
         for thread in threading.enumerate():
-            if thread is not main:
+            if thread is not main and not thread.daemon:
                 thread.join()
 
         super().tearDown()
@@ -444,8 +444,9 @@ class TestCase(unittest.TestCase, testutil.Asserts):
                             '\n', tb))
                 for tc, tb in results]
 
-        result.errors = prune(result.errors)
-        result.failures = prune(result.failures)
+        if hasattr(result, 'errors'):
+            result.errors = prune(result.errors)
+            result.failures = prune(result.failures)
         return result
 
     def get(self, url, **kwargs):
