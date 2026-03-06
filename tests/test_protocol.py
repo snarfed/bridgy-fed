@@ -1782,6 +1782,7 @@ class ProtocolReceiveTest(TestCase):
 <li><a href="http://efake/reply">efake/reply</a> (<a href="https://fed.brid.gy/other/other:handle:user/respond?obj_id=efake:reply&token={token}">respond</a>)
 </ul>""")
 
+    @patch.object(ExplicitFake, 'REQUIRES_AVATAR', new=True)
     def test_quote_from_non_bridged_user_isnt_bridged_gets_dm_prompt_and_notif(self):
         self.make_user(id='other.brid.gy', cls=Web)
         self.make_user(id='efake.brid.gy', cls=Web)

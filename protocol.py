@@ -1227,16 +1227,7 @@ class Protocol:
             from_user.reload_profile()
         else:
             # load actor user
-            #
-            # TODO: we should maybe eventually allow non-None status users here if
-            # this is a profile update, so that we store the user again below and
-            # re-calculate its status. right now, if a bridged user updates their
-            # profile and invalidates themselves, eg by removing their profile
-            # picture, and then updates again to make themselves valid again, we'll
-            # ignore the second update. they'll have to un-bridge and re-bridge
-            # themselves to get back working again.
-            from_user = from_user_cls.get_or_create(
-                id=actor, allow_opt_out=internal or obj.type == 'follow')
+            from_user = from_user_cls.get_or_create(id=actor, allow_opt_out=True)
 
         if not internal and (not from_user or from_user.manual_opt_out):
             error(f"Couldn't load actor {actor}", status=204)
