@@ -4416,6 +4416,29 @@ class ProtocolReceiveTest(TestCase):
         self.assertEqual([], Fake.sent)
         self.assertEqual([], OtherFake.sent)
 
+    @patch('protocol.CREATE_MAX_AGE_EXEMPT_DOMAINS', ['foo.bar'])
+    def test_create_max_age_exempt_domains(self):
+        user = self.make_user('https://x.foo.bar/users/baz', cls=ActivityPub)
+        Follower.get_or_create(to=user, from_=self.alice)
+
+        create = {
+            'objectType': 'activity',
+            'verb': 'post',
+            'id': 'https://x.foo.bar/note/1#create',
+            'actor': 'https://x.foo.bar/users/baz',
+            'object': {
+                'objectType': 'note',
+                'id': 'https://x.foo.bar/note/1',
+                'author': 'https://x.foo.bar/users/baz',
+                'published': '2021-12-07T03:04:05+00:00',  # NOW - 3w
+                'content': 'hi',
+            },
+        }
+        obj = Object(source_protocol='activitypub', our_as1=create)
+        _, code = ActivityPub.receive(obj, authed_as='https://x.foo.bar/users/baz')
+        self.assertEqual(202, code)
+        self.assertEqual([('other:alice:target', create)], OtherFake.sent)
+
     def test_too_old_published_without_timezone(self):
         Follower.get_or_create(to=self.user, from_=self.alice)
 

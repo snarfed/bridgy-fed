@@ -61,6 +61,9 @@ import notifications
 OBJECT_REFRESH_AGE = timedelta(days=30)
 DELETE_TASK_DELAY = timedelta(minutes=1)
 CREATE_MAX_AGE = timedelta(weeks=2)
+CREATE_MAX_AGE_EXEMPT_DOMAINS = (
+    'alt.store',
+)
 # WARNING: keep this below the receive queue's min_backoff_seconds in queue.yaml!
 MEMCACHE_LEASE_EXPIRATION = timedelta(seconds=25)
 MEMCACHE_DOWN_TASK_DELAY = timedelta(minutes=5)
@@ -1267,7 +1270,10 @@ class Protocol:
                     if not published_dt.tzinfo:
                         published_dt = published_dt.replace(tzinfo=timezone.utc)
                     age = util.now() - published_dt
-                    if age > CREATE_MAX_AGE and 'force' not in request.values:
+                    if (age > CREATE_MAX_AGE
+                            and 'force' not in request.values
+                            and not util.domain_or_parent_in(
+                                from_user.key.id(), CREATE_MAX_AGE_EXEMPT_DOMAINS)):
                         error(f'Ignoring, too old, {age} is over {CREATE_MAX_AGE}',
                               status=204)
                 except ValueError:  # from parse_iso8601
