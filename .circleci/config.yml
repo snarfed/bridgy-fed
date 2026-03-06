@@ -49,7 +49,7 @@ jobs:
             # make sure we install these at head, below
             pip uninstall -y arroba brevity dag-json granary lexrpc oauth-dropins
             pip install -U -r requirements.txt
-            pip install coverage coveralls
+            pip install pytest pytest-xdist coverage coveralls
             ln -sf `pyenv prefix`/lib/python3.12/site-packages/oauth_dropins/fonts oauth_dropins_fonts
             ln -sf `pyenv prefix`/lib/python3.12/site-packages/oauth_dropins/static oauth_dropins_static
 
@@ -59,10 +59,13 @@ jobs:
             # base64 decodes to 32 bytes
             echo 1234567890123456789012345678901234657890123= > encrypted_property_key
 
-            CLOUDSDK_CORE_PROJECT=brid-gy gcloud emulators firestore start --host-port=:8089 --database-mode=datastore-mode < /dev/null >& /tmp/firestore-emulator.log &
-            sleep 5s
-            python -m coverage run --source=. --omit=appengine_config.py,logs.py,tests/\* -m unittest discover
-            python -m coverage html -d /tmp/coverage_html
+            for port in 8089 8090; do
+              CLOUDSDK_CORE_PROJECT=brid-gy gcloud emulators firestore start --host-port=:${port} --database-mode=datastore-mode < /dev/null >& /tmp/firestore-emulator.${port}.log &
+            done
+            sleep 3s
+
+            coverage run --source=. --omit=appengine_config.py,logs.py,tests/\* -m pytest -n 2 --dist=worksteal --disable-warnings tests
+            coverage html -d /tmp/coverage_html
             if [ "$COVERALLS_REPO_TOKEN" != "" ]; then coveralls || true; fi
 
             # check for unintentionally overridden test methods
