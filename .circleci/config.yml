@@ -5,6 +5,7 @@
 # https://circleci.com/docs/reference/configuration-reference/
 version: 2.1
 
+
 parameters:
   service:
     type: enum
@@ -16,8 +17,31 @@ parameters:
     description: additional flags for gcloud app deploy
     default: ""
 
+
+commands:
+  install-gcloud:
+    steps:
+      - run:
+          name: Install gcloud
+          command: |
+            # google-cloud-sdk: https://cloud.google.com/sdk/docs/install#deb
+            echo "deb [signed-by=/usr/share/keyrings/cloud.google.gpg] https://packages.cloud.google.com/apt cloud-sdk main" | sudo tee -a /etc/apt/sources.list.d/google-cloud-sdk.list
+            curl https://packages.cloud.google.com/apt/doc/apt-key.gpg | sudo apt-key --keyring /usr/share/keyrings/cloud.google.gpg add -
+            sudo apt-get update
+            sudo apt-get install -y apt-transport-https automake ca-certificates gnupg google-cloud-sdk libtool pkg-config
+
+  auth-gcloud:
+    steps:
+      - run:
+          name: Authenticate gcloud
+          command: |
+            echo $GCLOUD_SERVICE_KEY > /tmp/service_account_creds.json
+            echo $GCLOUD_SERVICE_KEY | gcloud auth activate-service-account --key-file=/tmp/service_account_creds.json
+            gcloud config set project bridgy-federated
+
+
 jobs:
-  build:
+  test:
     docker:
       - image: cimg/python:3.12
 
@@ -27,14 +51,7 @@ jobs:
       - restore_cache:
           key: venv-7-{{ .Branch }}-{{ checksum "requirements.txt" }}
 
-      - run:
-          name: Base dependencies
-          command: |
-            # google-cloud-sdk: https://cloud.google.com/sdk/docs/install#deb
-            echo "deb [signed-by=/usr/share/keyrings/cloud.google.gpg] https://packages.cloud.google.com/apt cloud-sdk main" | sudo tee -a /etc/apt/sources.list.d/google-cloud-sdk.list
-            curl https://packages.cloud.google.com/apt/doc/apt-key.gpg | sudo apt-key --keyring /usr/share/keyrings/cloud.google.gpg add -
-            sudo apt-get update
-            sudo apt-get install -y apt-transport-https automake ca-certificates gnupg google-cloud-sdk libtool pkg-config
+      - install-gcloud
 
       - run:
           name: Base dependencies for tests
@@ -52,6 +69,17 @@ jobs:
             pip install pytest pytest-xdist coverage coveralls
             ln -sf `pyenv prefix`/lib/python3.12/site-packages/oauth_dropins/fonts oauth_dropins_fonts
             ln -sf `pyenv prefix`/lib/python3.12/site-packages/oauth_dropins/static oauth_dropins_static
+
+      - save_cache:
+          key: venv-7-{{ .Branch }}-{{ checksum "requirements.txt" }}
+          paths:
+            - /home/circleci/.pyenv
+            # Ideally we'd cache these, but they need root, and the cimg/python
+            # Docker image's default user is circleci :/
+            # https://github.com/cypress-io/circleci-orb/issues/269
+            #
+            # - /usr/lib/google-cloud-sdk
+            # - /usr/lib/jvm/java-11-openjdk-amd64
 
       - run:
           name: Build and test
@@ -73,67 +101,177 @@ jobs:
             # https://flake8.pycqa.org/en/latest/user/options.html#cmdoption-flake8-select
             flake8 --select=F811 tests/test_*.py
 
-      - run:
-          name: oauth-dropins, for static assets
-          command: |
-            git clone --depth=1 https://github.com/snarfed/oauth-dropins.git ../oauth-dropins
-
-      - run:
-          name: Deploy
-          command: |
-            echo $CIRCLE_BRANCH $CIRCLE_USERNAME
-            # don't deploy on dependabot merges. $CIRCLE_USERNAME is unset for
-            # GitHub users who don't have Circle accounts, like dependabot.
-            if [[ $CIRCLE_BRANCH == "main" && $CIRCLE_USERNAME != "" ]]; then
-              echo $ENCRYPTED_PROPERTY_KEY > encrypted_property_key
-              echo $FLASK_SECRET_KEY > flask_secret_key
-              echo $GCLOUD_SERVICE_KEY > /tmp/service_account_creds.json
-              echo $GCLOUD_SERVICE_KEY | gcloud auth activate-service-account --key-file=/tmp/service_account_creds.json
-              echo $REPO_TOKEN > repo_token
-              echo $THREADS_APP_ID > threads_app_id
-              echo $THREADS_APP_SECRET > threads_app_secret
-              echo $IFRAMELY_API_KEY_MD5 > iframely_api_key_md5
-
-              service='<< pipeline.parameters.service >>'
-              gcloud config set project bridgy-federated
-
-              if [[ $service == 'default' ]]; then
-                cd /tmp
-                curl https://storage.googleapis.com/oauth2l/latest/linux_amd64.tgz | tar xz
-                cd -
-
-                # deploy router with min_num_instances equal to the current autoscaled
-                # number, let it soak while we deploy the frontend, *then* drop it
-                # back down to 1.
-                # https://github.com/snarfed/bridgy-fed/issues/1771
-                # https://docs.cloud.google.com/appengine/docs/admin-api/reference/rest/v1/apps.services.versions
-                ver=`gcloud app versions list --hide-no-traffic --service=router --format='value(id)'`
-                instances=`gcloud app instances list --service=router --version=${ver} --format='value(id)' |wc -l`
-                sed -E "s/min_num_instances: [0-9]+/min_num_instances: ${instances}/" < router.yaml > router.provisioned.yaml
-                gcloud -q app deploy << pipeline.parameters.deploy-flags >> index.yaml queue.yaml router.provisioned.yaml
-
-                # deploy frontend
-                gcloud -q app deploy --no-cache << pipeline.parameters.deploy-flags >> app.yaml
-
-                # drop router back to min_num_instances 1
-                ver=`gcloud app versions list --hide-no-traffic --service=router --format='value(id)'`
-                /tmp/linux_amd64/oauth2l curl --scope=cloud-platform --credentials=/tmp/service_account_creds.json --url "https://appengine.googleapis.com/v1/apps/bridgy-federated/services/router/versions/${ver}?updateMask=automaticScaling.minTotalInstances" -- -X PATCH --data '{"automaticScaling": {"minTotalInstances": 1}, "env": "flexible"}' -H 'Content-Type: application/json'
-
-              else
-                gcloud -q app deploy << pipeline.parameters.deploy-flags >> hub.yaml
-              fi
-            fi
-
-      - save_cache:
-          key: venv-7-{{ .Branch }}-{{ checksum "requirements.txt" }}
-          paths:
-            - /home/circleci/.pyenv
-            # Ideally we'd cache these, but they need root, and the cimg/python
-            # Docker image's default user is circleci :/
-            # https://github.com/cypress-io/circleci-orb/issues/269
-            #
-            # - /usr/lib/google-cloud-sdk
-            # - /usr/lib/jvm/java-11-openjdk-amd64
-
       - store_artifacts:
           path: /tmp/coverage_html
+
+
+  deploy-app:
+    docker:
+      - image: cimg/python:3.12
+
+    steps:
+      - checkout
+      - install-gcloud
+      - auth-gcloud
+      - run:
+          name: Deploy app
+          command: |
+            echo $ENCRYPTED_PROPERTY_KEY > encrypted_property_key
+            echo $FLASK_SECRET_KEY > flask_secret_key
+            echo $REPO_TOKEN > repo_token
+            echo $THREADS_APP_ID > threads_app_id
+            echo $THREADS_APP_SECRET > threads_app_secret
+            echo $IFRAMELY_API_KEY_MD5 > iframely_api_key_md5
+
+            # oauth-dropins static assets
+            git clone --depth=1 https://github.com/snarfed/oauth-dropins.git ../oauth-dropins
+            ln -sf ../oauth-dropins/oauth_dropins/fonts oauth_dropins_fonts
+            ln -sf ../oauth-dropins/oauth_dropins/static oauth_dropins_static
+
+            gcloud -q app deploy --no-cache --no-promote << pipeline.parameters.deploy-flags >> app.yaml
+
+
+  deploy-router:
+    docker:
+      - image: cimg/python:3.12
+
+    steps:
+      - checkout
+      - install-gcloud
+      - auth-gcloud
+      - run:
+          name: Deploy router
+          command: |
+            echo $ENCRYPTED_PROPERTY_KEY > encrypted_property_key
+            echo $FLASK_SECRET_KEY > flask_secret_key
+
+            # deploy router with min_num_instances equal to the current autoscaled
+            # number, let it soak while we wait for tests, *then* drop it back
+            # down to 1 in migrate-router.
+            # https://github.com/snarfed/bridgy-fed/issues/1771
+            # https://docs.cloud.google.com/appengine/docs/admin-api/reference/rest/v1/apps.services.versions
+            ver=`gcloud app versions list --hide-no-traffic --service=router --format='value(id)'`
+            instances=`gcloud app instances list --service=router --version=${ver} --format='value(id)' |wc -l`
+            sed -E "s/min_num_instances: [0-9]+/min_num_instances: ${instances}/" < router.yaml > router.provisioned.yaml
+            gcloud -q app deploy --no-promote << pipeline.parameters.deploy-flags >> index.yaml queue.yaml router.provisioned.yaml
+
+
+  deploy-hub:
+    docker:
+      - image: cimg/python:3.12
+
+    steps:
+      - checkout
+      - install-gcloud
+      - auth-gcloud
+      - run:
+          name: Deploy hub
+          command: |
+            echo $ENCRYPTED_PROPERTY_KEY > encrypted_property_key
+            echo $FLASK_SECRET_KEY > flask_secret_key
+            gcloud -q app deploy << pipeline.parameters.deploy-flags >> hub.yaml
+
+
+  migrate-app:
+    docker:
+      - image: cimg/python:3.12
+
+    steps:
+      - install-gcloud
+      - auth-gcloud
+      - run:
+          name: Migrate app traffic to new version
+          command: |
+            ver=$(gcloud app versions list --service=default --sort-by=~LAST_DEPLOYED --limit=1 --format='value(id)')
+            echo migrating all app traffic to $ver
+            gcloud -q app versions migrate ${ver} --service=default
+
+
+  migrate-router:
+    docker:
+      - image: cimg/python:3.12
+
+    steps:
+      - install-gcloud
+      - auth-gcloud
+      - run:
+          name: Migrate router traffic to new version
+          command: |
+            cd /tmp
+            curl https://storage.googleapis.com/oauth2l/latest/linux_amd64.tgz | tar xz
+            cd -
+
+            ver=$(gcloud app versions list --service=router --sort-by=~LAST_DEPLOYED --limit=1 --format='value(id)')
+            echo migrating all router traffic to $ver
+            gcloud -q app services set-traffic router --splits=${ver}=1
+
+            # drop router back to min_num_instances 1
+            /tmp/linux_amd64/oauth2l curl --scope=cloud-platform --credentials=/tmp/service_account_creds.json --url "https://appengine.googleapis.com/v1/apps/bridgy-federated/services/router/versions/${ver}?updateMask=automaticScaling.minTotalInstances" -- -X PATCH --data '{"automaticScaling": {"minTotalInstances": 1}, "env": "flexible"}' -H 'Content-Type: application/json'
+
+
+  delete-router-version:
+    docker:
+      - image: cimg/python:3.12
+
+    steps:
+      - install-gcloud
+      - auth-gcloud
+      - run:
+          name: Delete router version that we deployed in deploy-router
+          command: |
+            ver=$(gcloud app versions list --service=router --filter='traffic_split=0' --sort-by=~LAST_DEPLOYED --limit=1 --format='value(id)')
+            if [[ -z "${ver}" ]]; then
+              echo "no non-serving router version found, skipping"
+              exit 0
+            fi
+            # ideally we'd just stop it instead, but gcloud app versions stop only
+            # supports manual scaling :(
+            echo deleting router version $ver
+            gcloud -q app versions delete --service=router ${ver}
+
+
+workflows:
+  test-only:
+    when: |
+      pipeline.parameters.service == "default"
+        and (pipeline.git.branch != "main"
+             or pipeline.event.github.sender.type != "User")
+    jobs:
+      - test
+
+  test-and-deploy-app-router:
+    when: |
+      pipeline.parameters.service == "default"
+        and pipeline.git.branch == "main"
+        and pipeline.event.github.sender.type == "User"
+
+    jobs:
+      - test
+      - deploy-app
+      - deploy-router
+
+      - migrate-app:
+          requires:
+            - test: success
+            - deploy-app: success
+
+      - migrate-router:
+          requires:
+            - test: success
+            - deploy-router: success
+
+      - delete-router:
+          requires:
+            - test: failed
+            - deploy-router: success
+
+  test-and-deploy-hub:
+    when: |
+      pipeline.parameters.service == "hub"
+        and pipeline.git.branch == "main"
+
+    jobs:
+      - test
+      - deploy-hub:
+          requires:
+            - test: success
