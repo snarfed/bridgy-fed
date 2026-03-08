@@ -125,8 +125,6 @@ jobs:
 
             # oauth-dropins static assets
             git clone --depth=1 https://github.com/snarfed/oauth-dropins.git ../oauth-dropins
-            ln -sf ../oauth-dropins/oauth_dropins/fonts oauth_dropins_fonts
-            ln -sf ../oauth-dropins/oauth_dropins/static oauth_dropins_static
 
             gcloud -q app deploy --no-cache --no-promote << pipeline.parameters.deploy-flags >> app.yaml
 
@@ -144,6 +142,9 @@ jobs:
           command: |
             echo $ENCRYPTED_PROPERTY_KEY > encrypted_property_key
             echo $FLASK_SECRET_KEY > flask_secret_key
+
+            # oauth-dropins static assets
+            git clone --depth=1 https://github.com/snarfed/oauth-dropins.git ../oauth-dropins
 
             # deploy router with min_num_instances equal to the current autoscaled
             # number, let it soak while we wait for tests, *then* drop it back
