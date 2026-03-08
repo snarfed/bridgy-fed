@@ -260,7 +260,7 @@ workflows:
             - test: success
             - deploy-router: success
 
-      - delete-router:
+      - delete-router-version:
           requires:
             - test: failed
             - deploy-router: success
