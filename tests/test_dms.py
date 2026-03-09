@@ -353,7 +353,8 @@ class DmsTest(TestCase):
 
         obj = Object(our_as1=DM_ALICE_REQUESTS_BOB)
         self.assertEqual(('OK', 200), receive(from_user=alice, obj=obj))
-        self.assert_replied(OtherFake, alice, '?', "Couldn't find other:handle:bob on other-phrase")
+        self.assert_replied(OtherFake, alice, '?',
+                            "Couldn't load other:bob on other-phrase")
         self.assertEqual([], OtherFake.sent)
 
     @patch.object(OtherFake, 'REQUIRES_NAME', True)

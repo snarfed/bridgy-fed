@@ -457,7 +457,7 @@ class User(AddRemoveMixin, StringIdModel, metaclass=ProtocolUserMeta):
 
     @classmethod
     def get_or_create(cls, id, propagate=False, allow_opt_out=False,
-                      reload=False, **kwargs):
+                      reload=False, raise_=False, **kwargs):
         """Loads and returns a :class:`User`. Creates it if necessary.
 
         If ``allow_opt_out`` is False and ``id`` is the bridged id for a user in
@@ -474,6 +474,9 @@ class User(AddRemoveMixin, StringIdModel, metaclass=ProtocolUserMeta):
           allow_opt_out (bool): whether to allow and create the user if they're
             currently opted out
           reload (bool): whether to reload profile always, vs only if necessary
+          raise_ (bool): passed through to :meth:`User.reload_profile`. If False, and
+            :meth:`User.reload_profile` returns None when fetching the user's profile,
+            this method raises :class:`RuntimeError`
           kwargs: passed through to ``cls`` constructor
 
         Returns:
@@ -487,7 +490,7 @@ class User(AddRemoveMixin, StringIdModel, metaclass=ProtocolUserMeta):
         user = cls.get_by_id(id, allow_opt_out=True)
         if user:  # existing
             if reload:
-                user.reload_profile(gateway=True, raise_=False)
+                user.reload_profile(gateway=True, raise_=raise_)
 
             if user.status and not allow_opt_out:
                 return None
@@ -527,7 +530,7 @@ class User(AddRemoveMixin, StringIdModel, metaclass=ProtocolUserMeta):
             user = cls(id=id, **kwargs)
             user.existing = False
             try:
-                user.reload_profile(gateway=True, raise_=True)
+                user.reload_profile(gateway=True, raise_=raise_)
             except AssertionError as e:
                 logger.debug(e)
                 error(f'Bad {cls.__name__} id {id} : {e}')
@@ -1050,19 +1053,28 @@ class User(AddRemoveMixin, StringIdModel, metaclass=ProtocolUserMeta):
         if self.obj_key and obj.key.id() == self.obj_key.id():
             return True
 
-    def reload_profile(self, **kwargs):
+    def reload_profile(self, raise_=False, **kwargs):
         """Reloads this user's identity and profile from their native protocol.
 
         Populates the reloaded profile :class:`Object` in ``self.obj``.
 
         Args:
+          raise_ (bool): passed through to :meth:`Protocol.load`. If False, and
+            :meth:`Protocol.load` returns None when fetching the user's profile,
+            this method raises :class:`RuntimeError`
           kwargs: passed through to :meth:`Protocol.load`
+
+        Raises:
+          RuntimeError: if the user's profile can't be loaded
         """
-        obj = self.load(self.profile_id(), remote=True, **kwargs)
+        id = self.profile_id()
+        obj = self.load(id, remote=True, raise_=raise_, **kwargs)
         if obj:
             if obj.type:
                 assert obj.type in as1.ACTOR_TYPES, obj.type
             self.obj = obj
+        elif raise_:
+            raise RuntimeError(f"Couldn't load {id} on {self.PHRASE}")
 
         # write the user so that we re-populate any computed properties
         self.put()
@@ -2328,7 +2340,8 @@ def fetch_page(query, model_class, by=None):
     return results, new_before, new_after
 
 
-def load_user(handle_or_id, proto=None, create=False, allow_opt_out=False):
+def load_user(handle_or_id, proto=None, create=False, allow_opt_out=False,
+              raise_=False):
     """Loads a user by handle or id.
 
     Args:
@@ -2337,6 +2350,9 @@ def load_user(handle_or_id, proto=None, create=False, allow_opt_out=False):
         determine protocol via Protocol.for_id and Protocol.for_handle
       create (bool): if True, use get_or_create; if False, use get_by_id
       allow_opt_out (bool): whether to return a user if they're currently opted out
+      raise_ (bool): passed through to :meth:`User.reload_profile`. If False, and
+        :meth:`User.reload_profile` returns None when fetching the user's profile,
+        this method raises :class:`RuntimeError`
 
     Returns:
       User:
@@ -2369,8 +2385,8 @@ def load_user(handle_or_id, proto=None, create=False, allow_opt_out=False):
         # TODO: handle user vs object ids here. this incorrectly assumes that it's
         # a user id. https://github.com/snarfed/bridgy-fed/issues/2281
         id = ids.normalize_user_id(id=handle_or_id, proto=proto)
-        user = (proto.get_or_create(id, allow_opt_out=allow_opt_out) if create
-                else proto.get_by_id(id, allow_opt_out=allow_opt_out))
+        user = (proto.get_or_create(id, allow_opt_out=allow_opt_out, raise_=raise_)
+                if create else proto.get_by_id(id, allow_opt_out=allow_opt_out))
         if not user:
             raise RuntimeError(f"Couldn't load {handle_or_id} on {proto.PHRASE}")
         return user
@@ -2398,7 +2414,7 @@ def load_user(handle_or_id, proto=None, create=False, allow_opt_out=False):
         id = proto.handle_to_id(handle_or_id)
         if not id:
             raise RuntimeError(f"{handle_or_id} doesn't look like a handle on {proto.PHRASE}")
-        user = proto.get_or_create(id, allow_opt_out=allow_opt_out)
+        user = proto.get_or_create(id, allow_opt_out=allow_opt_out, raise_=raise_)
         if user and user.obj and user.obj.as1:
             return user
 

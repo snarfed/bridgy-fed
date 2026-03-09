@@ -3678,7 +3678,7 @@ class ProtocolReceiveTest(TestCase):
             'objectType': 'activity',
             'verb': 'follow',
             'actor': 'fake:eve',
-            'object': 'other:bob'
+            'object': 'other:bob',
         })
         self.assertEqual(299, code)
 

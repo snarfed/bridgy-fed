@@ -2333,7 +2333,7 @@ def receive_task():
     except RequestException as e:
         util.interpret_http_exception(e)
         error(e, status=304)
-    except ValueError as e:
+    except (RuntimeError, ValueError) as e:
         logger.warning(e, exc_info=True)
         error(e, status=304)
 

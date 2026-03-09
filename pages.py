@@ -580,8 +580,9 @@ def update_profile(protocol, id):
     link = f'<a href="{user.web_url()}">{user.handle_or_id()}</a>'
 
     try:
-        user.reload_profile()
-    except (requests.RequestException, werkzeug.exceptions.HTTPException) as e:
+        user.reload_profile(raise_=True)
+    except (RuntimeError, requests.RequestException,
+            werkzeug.exceptions.HTTPException) as e:
         _, msg = util.interpret_http_exception(e)
         flash(f"Couldn't update profile for {link}: {msg}", escape=False)
         return redirect(user.user_page_path())

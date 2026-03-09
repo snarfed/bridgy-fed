@@ -82,7 +82,7 @@ def command(names, arg=False, user_bridged=None, handle_bridged=None, multiple=F
                 for cmd_arg in cmd_args:
                     try:
                         to_user = models.load_user(cmd_arg, to_proto, create=True,
-                                                   allow_opt_out=True)
+                                                   allow_opt_out=True, raise_=True)
                     except (AttributeError, RuntimeError, ValueError) as err:
                         return reply(str(err))
                     assert to_user
