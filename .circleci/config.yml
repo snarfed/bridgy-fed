@@ -183,7 +183,7 @@ jobs:
       - run:
           name: Migrate app traffic to new version
           command: |
-            ver=$(gcloud app versions list --service=default --sort-by=~LAST_DEPLOYED --limit=1 --format='value(id)')
+            ver=$(gcloud app versions list --service=default --sort-by=~last_deployed_time --limit=1 --format='value(id)')
             echo migrating all app traffic to $ver
             gcloud -q app versions migrate ${ver} --service=default
 
@@ -202,12 +202,15 @@ jobs:
             curl https://storage.googleapis.com/oauth2l/latest/linux_amd64.tgz | tar xz
             cd -
 
-            ver=$(gcloud app versions list --service=router --sort-by=~LAST_DEPLOYED --limit=1 --format='value(id)')
+            ver=$(gcloud app versions list --service=router --sort-by=~last_deployed_time --limit=1 --format='value(id)')
             echo migrating all router traffic to $ver
             gcloud -q app services set-traffic router --splits=${ver}=1
 
             # drop router back to min_num_instances 1
             /tmp/linux_amd64/oauth2l curl --scope=cloud-platform --credentials=/tmp/service_account_creds.json --url "https://appengine.googleapis.com/v1/apps/bridgy-federated/services/router/versions/${ver}?updateMask=automaticScaling.minTotalInstances" -- -X PATCH --data '{"automaticScaling": {"minTotalInstances": 1}, "env": "flexible"}' -H 'Content-Type: application/json'
+
+            # TODO: stop previous router version. can't gcloud app versions stop;
+            # need to oauth2l with API?
 
 
   delete-router-version:
@@ -220,7 +223,7 @@ jobs:
       - run:
           name: Delete router version that we deployed in deploy-router
           command: |
-            ver=$(gcloud app versions list --service=router --filter='traffic_split=0' --sort-by=~LAST_DEPLOYED --limit=1 --format='value(id)')
+            ver=$(gcloud app versions list --service=router --filter='traffic_split=0' --sort-by=~last_deployed_time --limit=1 --format='value(id)')
             if [[ -z "${ver}" ]]; then
               echo "no non-serving router version found, skipping"
               exit 0
