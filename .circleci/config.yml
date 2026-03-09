@@ -36,7 +36,7 @@ commands:
           name: Authenticate gcloud
           command: |
             echo $GCLOUD_SERVICE_KEY > /tmp/service_account_creds.json
-            echo $GCLOUD_SERVICE_KEY | gcloud auth activate-service-account --key-file=/tmp/service_account_creds.json
+            gcloud auth activate-service-account --key-file=/tmp/service_account_creds.json
             gcloud config set project bridgy-federated
 
 
@@ -107,11 +107,10 @@ jobs:
 
   deploy-app:
     docker:
-      - image: cimg/python:3.12
+      - image: cimg/gcp
 
     steps:
       - checkout
-      - install-gcloud
       - auth-gcloud
       - run:
           name: Deploy app
@@ -131,11 +130,10 @@ jobs:
 
   deploy-router:
     docker:
-      - image: cimg/python:3.12
+      - image: cimg/gcp
 
     steps:
       - checkout
-      - install-gcloud
       - auth-gcloud
       - run:
           name: Deploy router
@@ -159,11 +157,10 @@ jobs:
 
   deploy-hub:
     docker:
-      - image: cimg/python:3.12
+      - image: cimg/gcp
 
     steps:
       - checkout
-      - install-gcloud
       - auth-gcloud
       - run:
           name: Deploy hub
@@ -175,10 +172,9 @@ jobs:
 
   migrate-app:
     docker:
-      - image: cimg/python:3.12
+      - image: cimg/gcp
 
     steps:
-      - install-gcloud
       - auth-gcloud
       - run:
           name: Migrate app traffic to new version
@@ -190,10 +186,9 @@ jobs:
 
   migrate-router:
     docker:
-      - image: cimg/python:3.12
+      - image: cimg/gcp
 
     steps:
-      - install-gcloud
       - auth-gcloud
       - run:
           name: Migrate router traffic to new version
@@ -215,10 +210,9 @@ jobs:
 
   delete-router-version:
     docker:
-      - image: cimg/python:3.12
+      - image: cimg/gcp
 
     steps:
-      - install-gcloud
       - auth-gcloud
       - run:
           name: Delete router version that we deployed in deploy-router
