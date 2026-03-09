@@ -107,7 +107,7 @@ jobs:
 
   deploy-app:
     docker:
-      - image: cimg/gcp
+      - image: cimg/gcp:latest
 
     steps:
       - checkout
@@ -130,7 +130,7 @@ jobs:
 
   deploy-router:
     docker:
-      - image: cimg/gcp
+      - image: cimg/gcp:latest
 
     steps:
       - checkout
@@ -157,7 +157,7 @@ jobs:
 
   deploy-hub:
     docker:
-      - image: cimg/gcp
+      - image: cimg/gcp:latest
 
     steps:
       - checkout
@@ -172,7 +172,7 @@ jobs:
 
   migrate-app:
     docker:
-      - image: cimg/gcp
+      - image: cimg/gcp:latest
 
     steps:
       - auth-gcloud
@@ -186,7 +186,7 @@ jobs:
 
   migrate-router:
     docker:
-      - image: cimg/gcp
+      - image: cimg/gcp:latest
 
     steps:
       - auth-gcloud
@@ -210,7 +210,7 @@ jobs:
 
   delete-router-version:
     docker:
-      - image: cimg/gcp
+      - image: cimg/gcp:latest
 
     steps:
       - auth-gcloud
