@@ -214,24 +214,23 @@ jobs:
             gcloud -q app versions stop --service=router ${oldver}
 
 
-  delete-router-version:
+  stop-old-router-version:
     docker:
       - image: cimg/gcp:2026.02
 
     steps:
       - auth-gcloud
       - run:
-          name: Delete router version that we deployed in deploy-router
+          name: Stop router version that we deployed in deploy-router
           command: |
             ver=$(gcloud app versions list --service=router --filter='traffic_split=0' --sort-by=~last_deployed_time --limit=1 --format='value(id)')
             if [[ -z "${ver}" ]]; then
               echo 'no non-serving router version found, skipping'
               exit 0
             fi
-            # ideally we'd just stop it instead, but gcloud app versions stop only
-            # supports manual scaling :(
-            echo deleting router version $ver
-            gcloud -q app versions delete --service=router ${ver}
+
+            echo Stopping old router version $ver
+            gcloud -q app versions stop --service=router ${ver}
 
 
 workflows:
@@ -264,7 +263,7 @@ workflows:
             - test: success
             - deploy-router: success
 
-      - delete-router-version:
+      - stop-old-router-version:
           requires:
             - test: failed
             - deploy-router: success
