@@ -527,7 +527,7 @@ class User(AddRemoveMixin, StringIdModel, metaclass=ProtocolUserMeta):
             user = cls(id=id, **kwargs)
             user.existing = False
             try:
-                user.reload_profile(gateway=True, raise_=False)
+                user.reload_profile(gateway=True, raise_=True)
             except AssertionError as e:
                 logger.debug(e)
                 error(f'Bad {cls.__name__} id {id} : {e}')

@@ -2985,13 +2985,13 @@ Current vs expected:<pre>- http://this/404s
         self.assert_equals('/web/orig.co', got.headers['Location'])
 
     def test_check_web_site_fetch_fails(self, mock_get, _):
-        mock_get.return_value = requests_response('', status=503)
+        mock_get.return_value = requests_response('', status=503, url='https://or.ig/')
 
         got = self.post('/web-site', data={'url': 'https://orig.co/'})
-        self.assert_equals(400, got.status_code, got.headers)
+        self.assert_equals(200, got.status_code, got.headers)
         msg = get_flashed_messages()[0]
         self.assertEqual(
-            ['<a href="https://orig.co/">orig.co</a> is not a <a href="/docs#web-get-started">valid or supported web site</a>'],
+            ["Couldn't load https://orig.co/: 502 Bad Gateway: 503 Server Error: None for url: https://or.ig/ ; "],
             get_flashed_messages())
 
 

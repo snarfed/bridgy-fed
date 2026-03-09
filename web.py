@@ -786,7 +786,7 @@ def check_web_site():
     except BaseException as e:
         code, body = util.interpret_http_exception(e)
         if code:
-            flash(f"Couldn't connect to {url}: {e}")
+            flash(f"Couldn't load {url}: {e}")
             return render_template('enter_web_site.html')
         raise
 
