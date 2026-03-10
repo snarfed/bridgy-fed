@@ -266,8 +266,8 @@ workflows:
 
       - stop-old-router-version:
           requires:
-            - test: failed
             - deploy-router: success
+            - migrate-router: terminal
 
   test-and-deploy-hub:
     when: |
@@ -276,6 +276,8 @@ workflows:
 
     jobs:
       - test
+      # TODO: parallelize into deploy, migrate, and stop-old-version, like router
+      # (can we parameterize stop-old-version across router and hub?)
       - deploy-hub:
           requires:
             - test: success
