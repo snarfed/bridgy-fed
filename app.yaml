@@ -2,6 +2,7 @@
 
 # application: bridgy-federated
 
+# keep this in sync with the test job image's Python version in .circleci/config.yml!
 runtime: python312
 
 # default_expiration: 1h

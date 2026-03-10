@@ -35,14 +35,15 @@ commands:
       - run:
           name: Authenticate gcloud
           command: |
-            echo $GCLOUD_SERVICE_KEY > /tmp/service_account_creds.json
-            gcloud auth activate-service-account --key-file=/tmp/service_account_creds.json
+            echo $GCLOUD_SERVICE_KEY | gcloud auth activate-service-account --key-file=-
             gcloud config set project bridgy-federated
 
 
 jobs:
   test:
+    resource_class: large
     docker:
+      # keep this Python version in sync with the runtimes in *.yaml!
       - image: cimg/python:3.12
 
     steps:
@@ -87,12 +88,12 @@ jobs:
             # base64 decodes to 32 bytes
             echo 1234567890123456789012345678901234657890123= > encrypted_property_key
 
-            for port in 8089 8090; do
+            for port in 8089 8090 8091 8092; do
               CLOUDSDK_CORE_PROJECT=brid-gy gcloud emulators firestore start --host-port=:${port} --database-mode=datastore-mode < /dev/null >& /tmp/firestore-emulator.${port}.log &
             done
             sleep 3s
 
-            pytest -n 2 --dist=worksteal --disable-warnings --cov=. --cov-config=.coveragerc tests/
+            pytest -n 4 --dist=worksteal --disable-warnings --cov=. --cov-config=.coveragerc tests/
             coverage html -d /tmp/coverage_html
             if [ "$COVERALLS_REPO_TOKEN" != "" ]; then coveralls || true; fi
 
@@ -208,7 +209,7 @@ jobs:
     steps:
       - auth-gcloud
       - run:
-          name: Stop router version that we deployed in deploy-router
+          name: Stop previous router version
           command: |
             ver=$(gcloud app versions list --service=router --filter='traffic_split=0' --sort-by=~last_deployed_time --limit=1 --format='value(id)')
             if [[ -z "${ver}" ]]; then
