@@ -64,6 +64,7 @@ ATPROTO_HANDLE_DOMAINS = (
     'merping.synth.download',
     'mo-me.social',
     'music-social.com',
+    'tags.pub',
 )
 
 # https://github.com/snarfed/bridgy-fed/issues/314
