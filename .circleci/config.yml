@@ -94,7 +94,7 @@ jobs:
             done
             sleep 3s
 
-            pytest -n auto --dist=worksteal --disable-warnings --cov=. --cov-config=.coveragerc tests/
+            pytest -n 2 --dist=worksteal --disable-warnings --cov=. --cov-config=.coveragerc tests/
             coverage html -d /tmp/coverage_html
             if [ "$COVERALLS_REPO_TOKEN" != "" ]; then coveralls || true; fi
 
