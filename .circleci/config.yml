@@ -66,7 +66,7 @@ jobs:
             # make sure we install these at head, below
             pip uninstall -y arroba brevity dag-json granary lexrpc oauth-dropins
             pip install -U -r requirements.txt
-            pip install pytest pytest-xdist coverage coveralls
+            pip install pytest pytest-xdist pytest-cov coveralls
             ln -sf `pyenv prefix`/lib/python3.12/site-packages/oauth_dropins/fonts oauth_dropins_fonts
             ln -sf `pyenv prefix`/lib/python3.12/site-packages/oauth_dropins/static oauth_dropins_static
 
@@ -94,7 +94,7 @@ jobs:
             done
             sleep 3s
 
-            coverage run --source=. --omit=appengine_config.py,logs.py,tests/\* -m pytest -n 2 --dist=worksteal --disable-warnings tests
+            pytest -n auto --dist=worksteal --disable-warnings --cov=. --cov-config=.coveragerc tests/
             coverage html -d /tmp/coverage_html
             if [ "$COVERALLS_REPO_TOKEN" != "" ]; then coveralls || true; fi
 
