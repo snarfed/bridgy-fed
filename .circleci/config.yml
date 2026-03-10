@@ -180,7 +180,7 @@ jobs:
           name: Migrate app traffic to new version
           command: |
             ver=$(gcloud app versions list --service=default --sort-by=~last_deployed_time --limit=1 --format='value(id)')
-            echo migrating all app traffic to $ver
+            echo Migrating all app traffic to $ver
             gcloud -q app versions migrate ${ver} --service=default
 
 
@@ -193,25 +193,12 @@ jobs:
       - run:
           name: Migrate router traffic to new version
           command: |
-            oldver=$(gcloud app versions list --service=router --filter='traffic_split=1' --format='value(id)')
-            newver=$(gcloud app versions list --service=router --sort-by=~last_deployed_time --limit=1 --format='value(id)')
-
-            if [[ -z ${oldver} || -z ${newver} ]]; then
-              echo "Couldn't find current ${oldver} or new ${newver} version"
-              exit 1
-            elif [[ ${oldver} > ${newver} || ${oldver} == ${newver} ]]; then
-              echo "New version ${newver} is not after old version ${oldver}"
-              exit 1
-            fi
-
-            echo Migrating all router traffic to $newver
-            gcloud -q app services set-traffic router --splits=${newver}=1
+            ver=$(gcloud app versions list --service=router --sort-by=~last_deployed_time --limit=1 --format='value(id)')
+            echo Migrating all router traffic to $ver
+            gcloud -q app services set-traffic router --splits=${ver}=1
 
             # drop back to min_num_instances 1
-            curl -X PATCH -H "Authorization: Bearer $(gcloud auth print-access-token)" -H 'Content-Type: application/json' --data '{"automaticScaling": {"minTotalInstances": 1}, "env": "flexible"}' "https://appengine.googleapis.com/v1/apps/bridgy-federated/services/router/versions/${newver}?updateMask=automaticScaling.minTotalInstances"
-
-            echo Stopping old version $oldver
-            gcloud -q app versions stop --service=router ${oldver}
+            curl -X PATCH -H "Authorization: Bearer $(gcloud auth print-access-token)" -H 'Content-Type: application/json' --data '{"automaticScaling": {"minTotalInstances": 1}, "env": "flexible"}' "https://appengine.googleapis.com/v1/apps/bridgy-federated/services/router/versions/${ver}?updateMask=automaticScaling.minTotalInstances"
 
 
   stop-old-router-version:
