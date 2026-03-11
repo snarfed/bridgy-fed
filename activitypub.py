@@ -83,6 +83,8 @@ _INSTANCE_ACTOR = None
 
 OLD_ACCOUNT_EXEMPT_DOMAINS = (
     'channel.org',
+    'findout.media',
+    'leicester.chat',
     'mo-me.social',
     'newsmast.community',
     'newsmast.org',
