@@ -870,3 +870,89 @@ class ATProtoFirehoseHandleTest(ATProtoTestCase):
         profile = profile.key.get()
         self.assertEqual({'monetization': 'http://wal/let',}, profile.extra_as1)
         self.assertEqual('http://wal/let', profile.as1['monetization'])
+
+    def test_standard_site_document_with_bskyPostRef_deletes_bridged_post(self, mock_create_task):
+        post_uri = 'at://did:plc:user/app.bsky.feed.post/abc123'
+        Object(id=post_uri, bsky=POST_BSKY).put()
+
+        doc = {
+            '$type': 'site.standard.document',
+            'site': 'https://example.com',
+            'path': '/post',
+            'title': 'My Article',
+            'publishedAt': '2022-01-02T03:04:05.000Z',
+            'bskyPostRef': {
+                'uri': post_uri,
+                'cid': 'sydddddd',
+            },
+        }
+        commits.put(Op(repo='did:plc:user', action='create', seq=789,
+                       path='site.standard.document/tid', record=doc,
+                       time='1900-02-04'))
+
+        handle(limit=1)
+
+        delete_id = f'{post_uri}#delete-{NOW.isoformat()}'
+        delayed_eta = util.to_utc_timestamp(NOW) + DELETE_TASK_DELAY.total_seconds()
+        expected_delete = {
+            'objectType': 'activity',
+            'verb': 'delete',
+            'id': delete_id,
+            'actor': 'did:plc:user',
+            'object': post_uri,
+        }
+        self.assert_task(mock_create_task, 'receive', id=delete_id,
+                         our_as1=expected_delete, source_protocol='atproto',
+                         authed_as='did:plc:user', eta_seconds=delayed_eta)
+        self.assert_task(mock_create_task, 'receive',
+                         id='at://did:plc:user/site.standard.document/tid',
+                         bsky=doc, source_protocol='atproto', authed_as='did:plc:user',
+                         # 5s for per-user rate limiting
+                         eta_seconds=util.to_utc_timestamp(NOW) + 5)
+
+    def test_standard_site_document_no_bskyPostRef(self, mock_create_task):
+        doc = {
+            '$type': 'site.standard.document',
+            'site': 'https://example.com',
+            'path': '/post',
+            'title': 'My Article',
+            'publishedAt': '2022-01-02T03:04:05.000Z',
+        }
+        commits.put(Op(repo='did:plc:user', action='create', seq=789,
+                       path='site.standard.document/tid', record=doc,
+                       time='1900-02-04'))
+
+        handle(limit=1)
+        # only the normal document receive task, no delete task
+        self.assert_task(mock_create_task, 'receive',
+                         id='at://did:plc:user/site.standard.document/tid',
+                         bsky=doc, source_protocol='atproto',
+                         authed_as='did:plc:user', received_at='1900-02-04')
+        self.assertEqual(1, mock_create_task.call_count)
+
+    def test_standard_site_document_post_not_in_datastore(self, mock_create_task):
+        post_uri = 'at://did:plc:user/app.bsky.feed.post/abc123'
+        # post is NOT stored in datastore
+
+        doc = {
+            '$type': 'site.standard.document',
+            'site': 'https://example.com',
+            'path': '/post',
+            'title': 'My Article',
+            'publishedAt': '2022-01-02T03:04:05.000Z',
+            'bskyPostRef': {
+                'uri': post_uri,
+                'cid': 'sydddddd',
+            },
+        }
+        commits.put(Op(repo='did:plc:user', action='create', seq=789,
+                       path='site.standard.document/tid', record=doc,
+                       time='1900-02-04'))
+
+        handle(limit=1)
+        # only the normal document receive task, no delete task
+        self.assert_task(mock_create_task, 'receive',
+                         id='at://did:plc:user/site.standard.document/tid',
+                         bsky=doc, source_protocol='atproto',
+                         authed_as='did:plc:user', received_at='1900-02-04')
+        self.assertEqual(1, mock_create_task.call_count)

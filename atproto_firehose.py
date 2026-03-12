@@ -388,6 +388,9 @@ def _handle_commit_op(op):
         record_kwarg = {'bsky': record}
         obj_id = at_uri
 
+        if type == 'site.standard.document':
+            _handle_standard_site_document(op)
+
     elif op.action == 'delete':
         verb = (
             'delete' if type in ('app.bsky.actor.profile', 'app.bsky.feed.post')
@@ -464,6 +467,42 @@ def handle(limit=None):
             return
 
     assert False, "handle thread shouldn't reach here!"
+
+
+def _handle_standard_site_document(op):
+    """Enqueues a delete task for the bskyPostRef post if we've already bridged it.
+
+    This is for the case when we see a document's post record first, and then later
+    see the document itself. At that point, we've already bridged the post as a post,
+    but really we want to bridge the document *instead* of the post. So, we delete
+    the bridged version(s) of the post, and then bridge the document normally.
+
+    https://github.com/snarfed/bridgy-fed/issues/2324
+
+    Args:
+      op (arroba.storage.CommitOp)
+    """
+    post_ref = op.record.get('bskyPostRef')
+    if not post_ref:
+        return
+
+    # if the post already exists in the datastore, we use that as a (mediocre)
+    # heuristic that we bridged it
+    post_uri = post_ref.get('uri')
+    if not post_uri or not ATProto.load(post_uri, remote=False):
+        return
+
+    delete_id = f'{post_uri}#delete-{util.now().isoformat()}'
+    delete_post_as1 = {
+        'objectType': 'activity',
+        'verb': 'delete',
+        'id': delete_id,
+        'actor': op.repo,
+        'object': post_uri,
+    }
+    create_task(queue='receive', id=delete_id, source_protocol=ATProto.LABEL,
+                our_as1=delete_post_as1, authed_as=op.repo, received_at=op.time,
+                delay=DELETE_TASK_DELAY)
 
 
 @ndb.transactional()
