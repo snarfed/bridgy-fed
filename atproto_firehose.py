@@ -30,6 +30,7 @@ from oauth_dropins.webutil.util import json_dumps, json_loads
 
 from atproto import ATProto, Cursor, DatastoreClient
 from common import (
+    BETA_USER_IDS,
     create_task,
     NDB_CONTEXT_KWARGS,
     report_error,
@@ -62,9 +63,9 @@ commits = Queue(maxsize=1000)
 cursor = None
 
 # global: _load_dids populates them, subscribe and handle use them
-atproto_dids = set()
+atproto_dids = set()  # native ATProto accounts that are bridged
 atproto_loaded_at = datetime(1900, 1, 1)
-bridged_dids = set()
+bridged_dids = set()  # accounts elsewhere that are bridged into ATProto
 bridged_loaded_at = datetime(1900, 1, 1)
 protocol_bot_dids = set()
 dids_initialized = Event()
@@ -268,6 +269,8 @@ def subscribe():
                 logger.warning(dag_json.encode(op.record).decode())
                 continue
             elif (type not in ATProto.SUPPORTED_RECORD_TYPES
+                  and not (op.repo in BETA_USER_IDS
+                           and type in ATProto.SUPPORTED_RECORD_TYPES_BETA_USERS)
                   and type not in ATProto.STORE_RECORD_TYPES):
                 continue
 
@@ -312,7 +315,9 @@ def subscribe():
                     if not reply or is_ours(reply['parent'], native=True):
                         commits.put(op)
 
-                elif type in ATProto.STORE_RECORD_TYPES:
+                # other lexicon that we support (checked earlier). go ahead and try
+                # to bridge it.
+                else:
                     commits.put(op)
 
             elif op.repo not in bridged_dids:

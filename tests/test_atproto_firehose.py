@@ -252,6 +252,18 @@ class ATProtoFirehoseSubscribeTest(ATProtoTestCase):
             '$type': 'app.bsky.nopey.nope',
         }, repo='did:plc:user')
 
+    @patch('atproto_firehose.BETA_USER_IDS', ['did:plc:user'])
+    def test_beta_user_supported_record_type(self):
+        self.assert_enqueues({
+            '$type': 'site.standard.document',
+        }, repo='did:plc:user')
+
+    @patch('atproto_firehose.BETA_USER_IDS', ['did:plc:user'])
+    def test_non_beta_user_beta_record_type_skipped(self):
+        self.assert_doesnt_enqueue({
+            '$type': 'site.standard.document',
+        }, repo='did:plc:bob')
+
     def test_reply_direct_to_atproto_user(self):
         self.assert_enqueues({
             '$type': 'app.bsky.feed.post',
