@@ -9,6 +9,7 @@ did:plc:4wgmwsq4t3tg55ffl3r7ocec  # self-labeler.snarfed.org
 did:plc:3ljmtyyjqcjee2kpewgsifvb  # snarfed.bsky.social
 did:plc:5zspv27pk4iqtrl2ql2nykjh  # snarfed2.bsky.social
 did:plc:fdme4gb7mu7zrie7peay7tst  # snarfed.org
+did:plc:6ayddqghxhciedbaofoxkcbs  # tynanpurdy.com
 
 https://indieweb.social/users/snarfed
 https://mas.to/users/snarfed
