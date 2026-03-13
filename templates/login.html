@@ -20,6 +20,19 @@
     </nobr>
   </form>
 
+  <form method="post" action="/oauth/bluesky/start">
+    <nobr>
+      <div class="row big">
+        <img id="Blacksky" onclick="toggleInput(this.id)" type="image" height="90" title="Blacksky" class="login-button shadow"
+              src="static/blacksky_logotype.png" /><br />
+        <input id="Blacksky-input" name="handle" type="text" class="fade-in-element login-input" placeholder="Blacksky handle" required>
+        <input id="Blacksky-submit" type="image" title="Blacksky" class="submit-button fade-in-element shadow" style="position:absolute"
+              src="static/material-arrow-icon.svg" />
+      </div>
+      <input name="scope" type="hidden">
+    </nobr>
+  </form>
+
   <form method="post" action="/oauth/mastodon/start">
     <nobr>
       <div class="row big">
@@ -45,16 +58,6 @@
       <input name="scope" type="hidden">
     </nobr>
   </form>
-
- <form id="threads-form" method="post" action="/oauth/threads/start">
-  <nobr>
-    <div class="row big">
-      <input id="Threads" type="image" height="90" title="Threads" class="login-button shadow" src="/static/threads_2x.png">
-    </div>
-    <input name="scope" type="hidden" value="">
-  </nobr>
-</form>
-
 </div>
 
 <p class="row" style="margin-top:35px">

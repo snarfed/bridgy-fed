@@ -31,15 +31,6 @@ window.onload = function () {
   }
 
   localStorage.setItem('disabledCheckboxes', JSON.stringify(disabledCheckboxes));
-
-  // Unhides Threads login if feature flag is enabled.
-  if (window.location.pathname == '/login') {
-    var urlParams = new URLSearchParams(window.location.search);
-
-    if (urlParams.get('enable-threads') == 'true') {
-      document.getElementById('threads-form').style.display = 'block';
-    }
-  }
 }
 
 // Handles login buttons and input fields on the settings page.
