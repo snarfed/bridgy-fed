@@ -1067,7 +1067,3 @@ input:checked + .slider:before {
     margin-top:20px;
   }
 }
-
-#threads-form {
-  display:none;
-}
