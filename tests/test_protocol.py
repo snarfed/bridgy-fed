@@ -1072,6 +1072,72 @@ class ProtocolTest(TestCase):
         }
         self.assertEqual(obj_as_html, Fake.translate_mention_handles(obj_as_html))
 
+    def test_translate_mention_handles_duplicate_tags(self):
+        """Duplicate tags with the same indices should not corrupt content.
+
+        https://social.wake.st/@liaizon/116218349574288470
+        """
+        self.make_user('fake:alice', cls=Fake)
+
+        self.assertEqual({
+            'content': 'Hi fake:handle:alice!',
+            'tags': [{
+                'objectType': 'mention',
+                'url': 'fake:alice',
+                'displayName': 'fake:handle:alice',
+                'startIndex': 3,
+                'length': 17,
+            }, {
+                'objectType': 'mention',
+                'url': 'fake:alice',
+            }],
+        }, Fake.translate_mention_handles({
+            'content': 'Hi abc!',
+            'tags': [{
+                'objectType': 'mention',
+                'url': 'fake:alice',
+                'startIndex': 3,
+                'length': 3,
+            }, {
+                'objectType': 'mention',
+                'url': 'fake:alice',
+                'startIndex': 3,
+                'length': 3,
+            }],
+        }))
+
+    def test_translate_mention_handles_overlapping_tags(self):
+        """Overlapping (but not identical) tags should not corrupt content."""
+        self.make_user('fake:alice', cls=Fake)
+        self.make_user('other:bob', cls=OtherFake)
+
+        self.assertEqual({
+            'content': 'Hi fake:handle:alice end!',
+            'tags': [{
+                'objectType': 'mention',
+                'url': 'fake:alice',
+                'displayName': 'fake:handle:alice',
+                'startIndex': 3,
+                'length': 17,
+            }, {
+                'objectType': 'mention',
+                'url': 'other:bob',
+            }],
+        }, Fake.translate_mention_handles({
+            'content': 'Hi abcde end!',
+            'tags': [{
+                'objectType': 'mention',
+                'url': 'fake:alice',
+                'startIndex': 3,
+                'length': 5,
+            }, {
+                'objectType': 'mention',
+                'url': 'other:bob',
+                'startIndex': 5,
+                'length': 4,
+            }],
+        }))
+
     def test_convert_object_is_from_user_adds_source_links(self):
         self.make_user(cls=Web, id='fa.brid.gy',
                        copies=[Target(protocol='other', uri='other:bot')])

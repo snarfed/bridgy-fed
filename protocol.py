@@ -1074,10 +1074,10 @@ class Protocol:
         If ``obj.content`` is HTML, does nothing.
 
         Args:
-          obj (dict): AS2 object
+          obj (dict): AS1 object
 
         Returns:
-          dict: modified AS2 object
+          dict: modified AS1 object
         """
         if not obj:
             return None
@@ -1099,7 +1099,17 @@ class Protocol:
         indexed = [tag for tag in tags if tag.get('startIndex') and tag.get('length')]
 
         offset = 0
+        last_orig_end = 0
         for tag in sorted(indexed, key=lambda t: t['startIndex']):
+            orig_start = tag['startIndex']
+            if orig_start < last_orig_end:
+                logger.warning(f'tags overlap! removing indices from {tag["url"]}')
+                del tag['startIndex']
+                del tag['length']
+                continue
+
+            orig_end = orig_start + tag['length']
+            last_orig_end = orig_end
             tag['startIndex'] += offset
             if tag.get('objectType') == 'mention' and (id := tag['url']):
                 if proto := Protocol.for_id(id):
@@ -1120,7 +1130,7 @@ class Protocol:
                             })
 
         obj['tags'] = tags
-        as2.set_content(obj, content)  # sets content *and* contentMap
+        as2.set_content(obj, content)  # sets content *and* contentMap; obj is still AS1 here
         return util.trim_nulls(obj)
 
     @classmethod
