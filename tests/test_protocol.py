@@ -1138,6 +1138,37 @@ class ProtocolTest(TestCase):
             }],
         }))
 
+    def test_translate_mention_handles_overlapping_tag_no_url(self):
+        """Overlapping tag with no url."""
+        self.make_user('fake:alice', cls=Fake)
+
+        self.assertEqual({
+            'content': 'Hi fake:handle:alice!',
+            'tags': [{
+                'objectType': 'mention',
+                'url': 'fake:alice',
+                'displayName': 'fake:handle:alice',
+                'startIndex': 3,
+                'length': 17,
+            }, {
+                'objectType': 'hashtag',
+                'displayName': 'alice',
+            }],
+        }, Fake.translate_mention_handles({
+            'content': 'Hi abc!',
+            'tags': [{
+                'objectType': 'mention',
+                'url': 'fake:alice',
+                'startIndex': 3,
+                'length': 3,
+            }, {
+                'objectType': 'hashtag',
+                'displayName': 'alice',
+                'startIndex': 3,
+                'length': 3,
+            }],
+        }))
+
     def test_convert_object_is_from_user_adds_source_links(self):
         self.make_user(cls=Web, id='fa.brid.gy',
                        copies=[Target(protocol='other', uri='other:bot')])

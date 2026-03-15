@@ -1103,7 +1103,7 @@ class Protocol:
         for tag in sorted(indexed, key=lambda t: t['startIndex']):
             orig_start = tag['startIndex']
             if orig_start < last_orig_end:
-                logger.warning(f'tags overlap! removing indices from {tag["url"]}')
+                logger.warning(f'tags overlap! removing indices from {tag.get("url")}')
                 del tag['startIndex']
                 del tag['length']
                 continue
