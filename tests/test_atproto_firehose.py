@@ -36,7 +36,7 @@ from models import Object, Target
 import protocol
 from protocol import DELETE_TASK_DELAY
 from .testutil import TestCase
-from .test_atproto import DID_DOC
+from .test_atproto import DID_DOC, NOTE_BSKY_RECORD
 from web import Web
 
 A_CID = CID.decode('bafkreicqpqncshdd27sgztqgzocd3zhhqnnsv6slvzhs5uz6f57cq6lmtq')
@@ -885,7 +885,7 @@ class ATProtoFirehoseHandleTest(ATProtoTestCase):
 
     def test_standard_site_document_with_bskyPostRef_deletes_bridged_post(self, mock_create_task):
         post_uri = 'at://did:plc:user/app.bsky.feed.post/abc123'
-        Object(id=post_uri, bsky=POST_BSKY).put()
+        post_key = Object(id=post_uri, bsky=POST_BSKY).put()
 
         doc = {
             '$type': 'site.standard.document',
@@ -921,6 +921,40 @@ class ATProtoFirehoseHandleTest(ATProtoTestCase):
                          bsky=doc, source_protocol='atproto', authed_as='did:plc:user',
                          # 5s for per-user rate limiting
                          eta_seconds=util.to_utc_timestamp(NOW) + 5)
+        # check that we added the doc copy to the bsky post Object
+        self.assertEqual([Target(protocol='atproto',
+                                 uri='at://did:plc:user/site.standard.document/tid')],
+                         post_key.get().copies)
+
+    def test_standard_site_document_with_bskyPostRef_with_doc_copy_skips_delete(self, mock_create_task):
+        post_uri = 'at://did:plc:user/app.bsky.feed.post/abc123'
+        Object(id=post_uri, bsky=POST_BSKY,
+               copies=[Target(protocol='atproto',
+                              uri='at://did:plc:user/site.standard.document/tid')],
+               ).put()
+        doc = {
+            '$type': 'site.standard.document',
+            'site': 'https://example.com',
+            'path': '/post',
+            'title': 'My Article',
+            'publishedAt': '2022-01-02T03:04:05.000Z',
+            'bskyPostRef': {
+                'uri': post_uri,
+                'cid': 'sydddddd',
+            },
+        }
+        commits.put(Op(repo='did:plc:user', action='create', seq=789,
+                       path='site.standard.document/tid', record=doc,
+                       time='1900-02-04'))
+
+        handle(limit=1)
+
+        # only the normal document receive task, no delete task
+        self.assert_task(mock_create_task, 'receive',
+                         id='at://did:plc:user/site.standard.document/tid',
+                         bsky=doc, source_protocol='atproto',
+                         authed_as='did:plc:user', received_at='1900-02-04')
+        self.assertEqual(1, mock_create_task.call_count)
 
     def test_standard_site_document_no_bskyPostRef(self, mock_create_task):
         doc = {
@@ -942,7 +976,10 @@ class ATProtoFirehoseHandleTest(ATProtoTestCase):
                          authed_as='did:plc:user', received_at='1900-02-04')
         self.assertEqual(1, mock_create_task.call_count)
 
-    def test_standard_site_document_post_not_in_datastore(self, mock_create_task):
+    # getRecord of bskyPostRef
+    @patch('requests.get', return_value=requests_response(NOTE_BSKY_RECORD))
+    def test_standard_site_document_post_not_in_datastore(self, mock_get,
+                                                          mock_create_task):
         post_uri = 'at://did:plc:user/app.bsky.feed.post/abc123'
         # post is NOT stored in datastore
 
@@ -968,3 +1005,7 @@ class ATProtoFirehoseHandleTest(ATProtoTestCase):
                          bsky=doc, source_protocol='atproto',
                          authed_as='did:plc:user', received_at='1900-02-04')
         self.assertEqual(1, mock_create_task.call_count)
+
+        self.assertEqual([Target(protocol='atproto',
+                                 uri='at://did:plc:user/site.standard.document/tid')],
+                         Object.get_by_id(post_uri).copies)

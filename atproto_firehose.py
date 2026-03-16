@@ -38,7 +38,7 @@ from common import (
     USER_AGENT,
 )
 from domains import PROTOCOL_DOMAINS
-from models import Object
+from models import Object, Target
 from protocol import DELETE_TASK_DELAY
 from web import Web
 
@@ -487,27 +487,43 @@ def _handle_standard_site_document(op):
     Args:
       op (arroba.storage.CommitOp)
     """
-    post_ref = op.record.get('bskyPostRef')
-    if not post_ref:
+    if not (post_uri := op.record.get('bskyPostRef', {}).get('uri')):
         return
 
-    # if the post already exists in the datastore, we use that as a (mediocre)
-    # heuristic that we bridged it
-    post_uri = post_ref.get('uri')
-    if not post_uri or not ATProto.load(post_uri, remote=False):
-        return
+    # if the post already exists in the datastore, and isn't linked to a document,
+    # that's a (mediocre) heuristic that we bridged it
+    if existing := ATProto.load(post_uri, remote=False):
+        for copy in existing.get_copies(ATProto):
+            _, coll, _ = parse_at_uri(copy)
+            if coll == 'site.standard.document':
+                break
+        else:
+            logger.warning(f'Deleting bskyPostRef {post_uri} that we already bridged')
+            delete_id = f'{post_uri}#delete-{util.now().isoformat()}'
+            delete_post_as1 = {
+                'objectType': 'activity',
+                'verb': 'delete',
+                'id': delete_id,
+                'actor': op.repo,
+                'object': post_uri,
+            }
+            create_task(queue='receive', id=delete_id, source_protocol=ATProto.LABEL,
+                        our_as1=delete_post_as1, authed_as=op.repo,
+                        received_at=op.time, delay=DELETE_TASK_DELAY)
 
-    delete_id = f'{post_uri}#delete-{util.now().isoformat()}'
-    delete_post_as1 = {
-        'objectType': 'activity',
-        'verb': 'delete',
-        'id': delete_id,
-        'actor': op.repo,
-        'object': post_uri,
-    }
-    create_task(queue='receive', id=delete_id, source_protocol=ATProto.LABEL,
-                our_as1=delete_post_as1, authed_as=op.repo, received_at=op.time,
-                delay=DELETE_TASK_DELAY)
+    # link the bsky post to this doc
+    @ndb.transactional()
+    def add_doc_copy():
+        if not (post := ATProto.load(post_uri)):
+            logger.warning(f'bskyPostRef {post_uri} not found!')
+            return
+
+        doc_uri = f'at://{op.repo}/{op.path}'
+        logger.warning(f'Adding doc copy {doc_uri} to bskyPostRef {post_uri}')
+        post.add('copies', Target(protocol='atproto', uri=doc_uri))
+        post.put()
+
+    add_doc_copy()
 
 
 @ndb.transactional()
