@@ -45,6 +45,7 @@ from werkzeug.exceptions import HTTPException
 # PROTOCOLS when URL routes are registered.
 import atproto
 from common import GCP_PROJECT_ID, long_to_base64, NDB_CONTEXT_KWARGS, TASKS_LOCATION
+import filters
 import ids
 import models
 from models import KEY_BITS, Object, DEBUG_PROTOCOLS, PROTOCOLS, Target, User
@@ -96,6 +97,7 @@ class Fake(User, protocol.Protocol):
         + tuple(as1.VERBS_WITH_OBJECT)
     )
     BOTS_FOLLOW_BACK = True
+    RECEIVE_FILTERS = (filters.content_blocklisted,)
 
     # maps string ids to dict AS1 objects that can be fetched
     fetchable = {}
@@ -252,6 +254,7 @@ class OtherFake(Fake):
     LOGO_EMOJI = '⏎'
     DEFAULT_ENABLED_PROTOCOLS = ('fake',)
     DEFAULT_SERVE_USER_PAGES = False
+    RECEIVE_FILTERS = ()
     SUPPORTED_AS1_TYPES = Fake.SUPPORTED_AS1_TYPES - set(('accept', 'flag'))
     SUPPORTS_DMS = True
     SEND_REPLIES_TO_ORIG_POSTS_MENTIONS = True

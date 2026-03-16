@@ -147,6 +147,8 @@ class Protocol:
     """bool: when a user on this protocol follows a bot user to enable bridging, does the bot follow them back?"""
     HANDLES_PER_PAY_LEVEL_DOMAIN = None
     """int: how many users to allow with handles on the same pay-level domain. None for no limit."""
+    RECEIVE_FILTERS = ()
+    """tuple of callable: filter functions from filters.py to apply to incoming activities"""
 
     @classmethod
     @property
@@ -1179,6 +1181,11 @@ class Protocol:
 
         # does this protocol support this activity/object type?
         from_cls.check_supported(obj, 'receive')
+
+        # apply protocol-specific filters
+        for filter in from_cls.RECEIVE_FILTERS:
+            if filter(obj):
+                error(f'Activity {id} blocked by filter {filter.__name__}')
 
         # lease this object, atomically
         memcache_key = activity_id_memcache_key(id)

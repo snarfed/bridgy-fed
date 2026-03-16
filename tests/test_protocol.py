@@ -4852,6 +4852,43 @@ class ProtocolReceiveTest(TestCase):
         self.assertEqual(204, code)
         self.assertEqual([], Fake.sent)
 
+    def test_receive_filters(self):
+        self.make_followers()
+        memcache.memcache.set('content-blocklist', 'badword')
+
+        _, code = Fake.receive_as1({
+            'id': 'fake:post',
+            'objectType': 'note',
+            'author': 'fake:user',
+            'content': 'this has badword in it',
+        })
+        self.assertEqual(299, code)
+        self.assertEqual([], OtherFake.sent)
+
+    def test_no_receive_filters(self):
+        Follower.get_or_create(to=self.alice, from_=self.user)
+        self.make_followers()
+        memcache.memcache.set('content-blocklist', 'badword')
+
+        # OtherFake has no RECEIVE_FILTERS, so the same content is not filtered
+        note = {
+            'id': 'other:post',
+            'objectType': 'note',
+            'author': 'other:alice',
+            'content': 'this has badword in it',
+        }
+        _, code = OtherFake.receive_as1(note)
+
+        self.assertEqual(202, code)
+        self.assertEqual([('fake:shared:target', {
+            'objectType': 'activity',
+            'verb': 'post',
+            'id': 'other:post#bridgy-fed-create-2022-01-02T03:04:05+00:00',
+            'actor': 'other:alice',
+            'object': note,
+            'published': '2022-01-02T03:04:05+00:00',
+        })], Fake.sent)
+
     @patch('oauth_dropins.webutil.appengine_config.tasks_client.create_task')
     def test_from_protocol_unsupported_types(self, mock_create_task):
         common.RUN_TASKS_INLINE = False
