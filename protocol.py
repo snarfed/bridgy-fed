@@ -148,7 +148,7 @@ class Protocol:
     HANDLES_PER_PAY_LEVEL_DOMAIN = None
     """int: how many users to allow with handles on the same pay-level domain. None for no limit."""
     RECEIVE_FILTERS = ()
-    """tuple of callable: filter functions from filters.py to apply to incoming activities"""
+    """tuple of callable: filter functions from filters.py to apply to incoming activities. Applied in order, so put the cheapest filters first."""
 
     @classmethod
     @property

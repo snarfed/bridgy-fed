@@ -97,7 +97,11 @@ class Fake(User, protocol.Protocol):
         + tuple(as1.VERBS_WITH_OBJECT)
     )
     BOTS_FOLLOW_BACK = True
-    RECEIVE_FILTERS = (filters.content_blocklisted,)
+    RECEIVE_FILTERS = (
+        # every filter we have, to exercise them
+        filters.content_blocklisted,
+        filters.media_blocklisted,
+    )
 
     # maps string ids to dict AS1 objects that can be fetched
     fetchable = {}
