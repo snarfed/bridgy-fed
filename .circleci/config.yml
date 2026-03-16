@@ -119,13 +119,10 @@ jobs:
             echo $ENCRYPTED_PROPERTY_KEY > encrypted_property_key
             echo $FLASK_SECRET_KEY > flask_secret_key
             echo $REPO_TOKEN > repo_token
-            echo $THREADS_APP_ID > threads_app_id
-            echo $THREADS_APP_SECRET > threads_app_secret
             echo $IFRAMELY_API_KEY_MD5 > iframely_api_key_md5
 
             # oauth-dropins static assets
             git clone --depth=1 https://github.com/snarfed/oauth-dropins.git ../oauth-dropins
-
             gcloud -q app deploy --no-cache --no-promote << pipeline.parameters.deploy-flags >> app.yaml
 
 
@@ -168,6 +165,9 @@ jobs:
           command: |
             echo $ENCRYPTED_PROPERTY_KEY > encrypted_property_key
             echo $FLASK_SECRET_KEY > flask_secret_key
+
+            # oauth-dropins static assets
+            git clone --depth=1 https://github.com/snarfed/oauth-dropins.git ../oauth-dropins
             gcloud -q app deploy << pipeline.parameters.deploy-flags >> hub.yaml
 
 
