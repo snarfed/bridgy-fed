@@ -1,7 +1,8 @@
 """Filters for activities.
 
-Every function in this module takes an :class:`Object` and returns False or None if
-it passes and should be handled, or True if it should be filtered out and discarded.
+Every function in this module takes an :class:`models.Object` and optional
+:class:`models.User` and returns False or None if it passes and should be handled, or
+True if it should be filtered out and discarded.
 
 Filters here should be very cheap. Ideally no network calls, few to no datastore
 requests. Memcache is generally ok.
@@ -30,7 +31,7 @@ MEDIA_ATTACHMENT_TYPES = ('image', 'video', 'audio')
 # GLOBAL_DOMAIN_BLOCKLIST = Object.get_by_id('global-domain-blocklist')
 
 
-def content_blocklisted(obj):
+def content_blocklisted(obj, from_user=None):
     """Returns True if obj's content matches any string in the content blocklist.
 
     The blocklist is a newline-separated list of strings stored in memcache
@@ -38,6 +39,7 @@ def content_blocklisted(obj):
 
     Args:
       obj (models.Object)
+      from_user (models.User)
 
     Returns:
       bool
@@ -62,7 +64,7 @@ def content_blocklisted(obj):
                     return True
 
 
-def media_blocklisted(obj):
+def media_blocklisted(obj, from_user=None):
     """Returns True if any media in obj has a hash in the media blocklist.
 
     The blocklist is a newline-separated list of CIDs stored in memcache at key
@@ -73,6 +75,7 @@ def media_blocklisted(obj):
 
     Args:
       obj (models.Object)
+      from_user (models.User)
 
     Returns:
       bool

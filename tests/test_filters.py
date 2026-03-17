@@ -18,12 +18,13 @@ class ContentBlocklistedTest(TestCase):
         memcache.set('content-blocklist', 'badword\nspam')
 
     def test_pass(self):
-        self.assertFalse(content_blocklisted(Object(our_as1={'content': 'foo bar'})))
+        obj = Object(our_as1={'content': 'foo bar'})
+        self.assertFalse(content_blocklisted(obj, None))
 
     def test_pass_no_stored_blocklist(self):
         memcache.delete('content-blocklist')
         self.assertFalse(content_blocklisted(Object(
-            our_as1={'content': 'badword spam'})))
+            our_as1={'content': 'badword spam'}), None))
 
     def test_fail(self):
         for val in (
@@ -34,14 +35,15 @@ class ContentBlocklistedTest(TestCase):
         ):
             for field in 'content', 'summary', 'displayName':
                 with self.subTest(val=val, field=field):
-                    self.assertTrue(content_blocklisted(Object(our_as1={field: val})))
+                    obj = Object(our_as1={field: val})
+                    self.assertTrue(content_blocklisted(obj, None))
 
     def test_fail_inner_object(self):
         self.assertTrue(content_blocklisted(Object(our_as1={
             'objectType': 'activity',
             'verb': 'post',
             'object': {'content': 'this has badword'},
-        })))
+        }), None))
 
 
 class MediaBlocklistedTest(TestCase):
@@ -54,7 +56,7 @@ class MediaBlocklistedTest(TestCase):
         memcache.delete('media-blocklist')
         self.assertFalse(media_blocklisted(Object(our_as1={
             'image': [{'url': 'http://example.com/bad'}],
-        })))
+        }), None))
 
     def test_pass(self):
         for obj_as1 in (
@@ -70,7 +72,7 @@ class MediaBlocklistedTest(TestCase):
                 }]},
         ):
             with self.subTest(obj_as1=obj_as1):
-                self.assertFalse(media_blocklisted(Object(our_as1=obj_as1)))
+                self.assertFalse(media_blocklisted(Object(our_as1=obj_as1), None))
 
     def test_fail(self):
         for obj_as1 in (
@@ -91,7 +93,7 @@ class MediaBlocklistedTest(TestCase):
                  'object': {'image': [{'url': 'http://example.com/bad'}]}},
         ):
             with self.subTest(obj_as1=obj_as1):
-                self.assertTrue(media_blocklisted(Object(our_as1=obj_as1)))
+                self.assertTrue(media_blocklisted(Object(our_as1=obj_as1), None))
 
     @patch('requests.get', return_value=requests_response('blob contents'))
     def test_fetch_blob_fail(self, mock_get):
@@ -99,5 +101,5 @@ class MediaBlocklistedTest(TestCase):
                      'bafkreicqpqncshdd27sgztqgzocd3zhhqnnsv6slvzhs5uz6f57cq6lmtq')
         self.assertTrue(media_blocklisted(Object(our_as1={
             'image': [{'url': 'http://example.com/new'}],
-        })))
+        }), None))
         mock_get.assert_has_calls(mock_get, [self.req('http://example.com/new')])
