@@ -2023,7 +2023,6 @@ class Object(AddRemoveMixin, StringIdModel):
             inputs = [user_or_id]
 
         for input in inputs:
-            util.d(input, self.domain_blocklist)
             if domain := util.domain_from_link(input):
                 if (util.domain_or_parent_in(domain, self.domain_blocklist)
                         and not util.domain_or_parent_in(domain, domains.DOMAINS)):

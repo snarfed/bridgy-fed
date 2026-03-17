@@ -11,12 +11,15 @@ Currently only used in :meth:`Protocol.receive`.
 
 https://github.com/snarfed/bridgy-fed/issues/1941
 """
+from datetime import timedelta
+from itertools import chain
 import logging
 
 from arroba.datastore_storage import AtpRemoteBlob
 from granary import as1
 from granary.source import html_to_text
 from oauth_dropins.webutil import util
+from oauth_dropins.webutil.models import Reloader
 import requests
 
 from memcache import memcache
@@ -28,7 +31,8 @@ CONTENT_BLOCKLIST_KEY = 'content-blocklist'
 MEDIA_BLOCKLIST_KEY = 'media-blocklist'
 MEDIA_ATTACHMENT_TYPES = ('image', 'video', 'audio')
 
-# GLOBAL_DOMAIN_BLOCKLIST = Object.get_by_id('global-domain-blocklist')
+GLOBAL_DOMAIN_BLOCKLIST = Reloader(Object, 'global-domain-blocklist',
+                                   timedelta(seconds=10))
 
 
 def content_blocklisted(obj, from_user=None):
@@ -36,13 +40,6 @@ def content_blocklisted(obj, from_user=None):
 
     The blocklist is a newline-separated list of strings stored in memcache
     at key ``content-blocklist``. Matching is case-insensitive.
-
-    Args:
-      obj (models.Object)
-      from_user (models.User)
-
-    Returns:
-      bool
     """
     raw = memcache.get(CONTENT_BLOCKLIST_KEY)
     if not raw:
@@ -72,13 +69,6 @@ def media_blocklisted(obj, from_user=None):
     in ``attachments`` with ``objectType`` ``image``, ``video``, or ``audio``.
     Uses :class:`arroba.datastore_storage.AtpRemoteBlob` to fetch media and get
     the CID.
-
-    Args:
-      obj (models.Object)
-      from_user (models.User)
-
-    Returns:
-      bool
     """
     if not (raw := memcache.get(MEDIA_BLOCKLIST_KEY)):
         return False
@@ -106,3 +96,25 @@ def media_blocklisted(obj, from_user=None):
             if blob.cid in blocked:
                 logger.info(f'media_blocklisted matched url {url} cid {blob.cid}')
                 return True
+
+
+def domain_blocklisted(obj, from_user=None):
+    """Returns True if obj or from_user matches the global domain blocklist.
+
+    Checks the object's id, actor/author, and from_user against
+    :data:`GLOBAL_DOMAIN_BLOCKLIST`.
+    """
+    if not (blocklist := GLOBAL_DOMAIN_BLOCKLIST.obj):
+        return False
+
+    objects = [obj.as1]
+    if obj.as1.get('verb') in as1.CRUD_VERBS:
+        objects.extend(as1.get_objects(obj.as1))
+
+    candidates = [from_user] + list(chain.from_iterable(
+        [o.get('id'), as1.get_owner(o)] for o in objects))
+
+    for candidate in candidates:
+        if candidate and blocklist.domain_blocklist_matches(candidate):
+            logger.info(f'domain_blocklisted matched {candidate}')
+            return True

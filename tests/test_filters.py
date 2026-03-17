@@ -2,8 +2,10 @@
 from unittest.mock import patch
 
 from arroba.datastore_storage import AtpRemoteBlob
+import filters
 from filters import (
     content_blocklisted,
+    domain_blocklisted,
     media_blocklisted,
 )
 from memcache import memcache
@@ -103,3 +105,42 @@ class MediaBlocklistedTest(TestCase):
             'image': [{'url': 'http://example.com/new'}],
         }), None))
         mock_get.assert_has_calls(mock_get, [self.req('http://example.com/new')])
+
+
+class DomainBlocklistedTest(TestCase):
+    def setUp(self):
+        super().setUp()
+        self.blocklist = Object(id='global-domain-blocklist', is_csv=True,
+                                csv='domain\nbad.com\nevil.org').put()
+        filters.GLOBAL_DOMAIN_BLOCKLIST.loaded_at = None
+
+    def test_no_stored_blocklist(self):
+        self.blocklist.delete()
+        self.assertFalse(domain_blocklisted(
+            Object(our_as1={'id': 'https://bad.com/post'}), None))
+
+    def test_pass(self):
+        self.assertFalse(domain_blocklisted(Object(our_as1={
+            'id': 'https://good.com/post',
+            'author': 'https://good.com/user',
+        }), None))
+
+    def test_fail_obj_id(self):
+        self.assertTrue(domain_blocklisted(
+            Object(our_as1={'id': 'https://bad.com/post'}), None))
+
+    def test_fail_actor(self):
+        self.assertTrue(domain_blocklisted(
+            Object(our_as1={'actor': 'https://bad.com/user'}), None))
+
+    def test_fail_inner_object(self):
+        self.assertTrue(domain_blocklisted(Object(our_as1={
+            'objectType': 'activity',
+            'verb': 'post',
+            'object': {'id': 'https://bad.com/post'},
+        }), None))
+
+    def test_fail_from_user(self):
+        from_user = self.make_user('fake://bad.com/', cls=Fake)
+        self.assertTrue(domain_blocklisted(
+            Object(our_as1={'id': 'https://good.com/post'}), from_user))
