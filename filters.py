@@ -35,6 +35,22 @@ GLOBAL_DOMAIN_BLOCKLIST = Reloader(Object, 'global-domain-blocklist',
                                    timedelta(seconds=10))
 
 
+def relevant_objects(obj):
+    """Returns an Object's relevant AS1 objects to filter on
+
+    Args:
+      obj (Object)
+
+    Returns:
+      sequence of dict: AS1 objects
+    """
+    objects = [obj.as1]
+    if obj.as1.get('verb') in as1.CRUD_VERBS:
+        objects.extend(as1.get_objects(obj.as1))
+
+    return objects
+
+
 def content_blocklisted(obj, from_user=None):
     """Returns True if obj's content matches any string in the content blocklist.
 
@@ -47,11 +63,7 @@ def content_blocklisted(obj, from_user=None):
 
     blocked = [s.strip().lower() for s in raw.splitlines()]
 
-    objects = [obj.as1]
-    if obj.as1.get('verb') in as1.CRUD_VERBS:
-        objects.extend(as1.get_objects(obj.as1))
-
-    for o in objects:
+    for o in relevant_objects(obj):
         for field in ('content', 'summary', 'displayName'):
             # don't use granary.source.html_to_text because we don't want Markdown
             text = util.parse_html(o.get(field) or '').get_text(strip=True).lower()
@@ -76,11 +88,7 @@ def media_blocklisted(obj, from_user=None):
     if not (blocked := set(s.strip() for s in raw.splitlines())):
         return False
 
-    objects = [obj.as1]
-    if obj.as1.get('verb') in as1.CRUD_VERBS:
-        objects.extend(as1.get_objects(obj.as1))
-
-    for o in objects:
+    for o in relevant_objects(obj):
         att_urls = [util.get_url(att) if att['objectType'] == 'image'
                     else as1.get_object(att, 'stream').get('url')
                     for att in as1.get_objects(o, 'attachments')
@@ -107,12 +115,8 @@ def domain_blocklisted(obj, from_user=None):
     if not (blocklist := GLOBAL_DOMAIN_BLOCKLIST.obj):
         return False
 
-    objects = [obj.as1]
-    if obj.as1.get('verb') in as1.CRUD_VERBS:
-        objects.extend(as1.get_objects(obj.as1))
-
     candidates = [from_user] + list(chain.from_iterable(
-        [o.get('id'), as1.get_owner(o)] for o in objects))
+        [o.get('id'), as1.get_owner(o)] for o in relevant_objects(obj)))
 
     for candidate in candidates:
         if candidate and blocklist.domain_blocklist_matches(candidate):
