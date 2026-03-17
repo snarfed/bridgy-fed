@@ -1198,6 +1198,10 @@ class ObjectTest(TestCase):
         obj.deleted = True
         self.assertEqual(NOW + timedelta(days=1), obj.expire)
 
+        self.assertIsNone(Object(id='internal:foo').expire)
+
+        self.assertIsNone(Object(id='http://li/st', is_csv=True).expire)
+
     def test_as1_from_as2(self):
         self.assert_equals({
             'objectType': 'person',

@@ -110,7 +110,7 @@ class MediaBlocklistedTest(TestCase):
 class DomainBlocklistedTest(TestCase):
     def setUp(self):
         super().setUp()
-        self.blocklist = Object(id='global-domain-blocklist', is_csv=True,
+        self.blocklist = Object(id='internal:domain-blocklist', is_csv=True,
                                 csv='domain\nbad.com\nevil.org').put()
         filters.GLOBAL_DOMAIN_BLOCKLIST.loaded_at = None
 

@@ -31,7 +31,7 @@ CONTENT_BLOCKLIST_KEY = 'content-blocklist'
 MEDIA_BLOCKLIST_KEY = 'media-blocklist'
 MEDIA_ATTACHMENT_TYPES = ('image', 'video', 'audio')
 
-GLOBAL_DOMAIN_BLOCKLIST = Reloader(Object, 'global-domain-blocklist',
+GLOBAL_DOMAIN_BLOCKLIST = Reloader(Object, 'internal:domain-blocklist',
                                    timedelta(seconds=10))
 
 

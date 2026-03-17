@@ -1405,7 +1405,7 @@ class Object(AddRemoveMixin, StringIdModel):
                 obj = bluesky.to_as1(self.bsky, repo_did=owner, repo_handle=handle,
                                      uri=self.key.id(), pds=ATProto.pds_for(self))
             except (ValueError, RequestException):
-                logger.info(f"Couldn't convert to ATProto", exc_info=True)
+                logger.info(f"Couldn't convert to AS1", exc_info=True)
                 return None
 
         elif self.mf2:
@@ -1461,7 +1461,9 @@ class Object(AddRemoveMixin, StringIdModel):
         now = self.updated or util.now()
         if self.deleted:
             return now + timedelta(days=1)
-        elif self.type not in DONT_EXPIRE_OBJECT_TYPES:
+        elif (self.type not in DONT_EXPIRE_OBJECT_TYPES
+              and not self.key.id().startswith('internal:')
+              and not self.is_csv):
             return now + OBJECT_EXPIRE_AGE
 
     expire = ndb.ComputedProperty(_expire, indexed=False)
