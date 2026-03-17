@@ -1215,27 +1215,16 @@ class User(AddRemoveMixin, StringIdModel, metaclass=ProtocolUserMeta):
         Returns:
           bool:
         """
-        if isinstance(user_or_id, User):
-            user = user_or_id
-            return (self.is_blocking(user.key.id())
-                    or self.is_blocking(user.handle_as_domain)
-                    or (user.obj and self.is_blocking(user.target_for(user.obj))))
-
-        id = user_or_id
-        if not id:
-            return False
-        elif not util.is_url(id) and not DOMAIN_RE.fullmatch(id):
-            return False
-
-        if not (domain := util.domain_from_link(id)):
+        if not user_or_id or not (isinstance(user_or_id, User)
+                                  or util.is_url(user_or_id)
+                                  or DOMAIN_RE.fullmatch(user_or_id)):
             return False
 
         blocklists = ndb.get_multi(key for key in self.blocks
                                    if key.kind() == 'Object')
         for list in blocklists:
-            if (not util.domain_or_parent_in(domain, domains.DOMAINS)
-                    and util.domain_or_parent_in(domain, list.domain_blocklist)):
-                logger.info(f'{self.key.id()} is blocking {id}')
+            if list.domain_blocklist_matches(user_or_id):
+                logger.info(f'{self.key.id()} is blocking {user_or_id}')
                 return True
 
     def add_domain_blocklist(self, url):
@@ -1980,7 +1969,6 @@ class Object(AddRemoveMixin, StringIdModel):
 
         return PROTOCOLS.get(self.source_protocol)
 
-
     @cached_property
     def domain_blocklist(self):
         """Returns the domains in the domain blocklist in :attr:`csv`.
@@ -2009,6 +1997,39 @@ class Object(AddRemoveMixin, StringIdModel):
 
         return [row[col] for row in reader
                 if row[col] and row[col] not in DOMAIN_BLOCKLIST_CANARIES]
+
+    def domain_blocklist_matches(self, user_or_id):
+        """Returns True if ``user_or_id`` is in this domain blocklist, False otherwise.
+
+        For users, looks at id, handle, and delivery target.
+
+        Args:
+          user_or_id (User or str)
+
+        Returns:
+          bool:
+
+        Raises:
+          AssertionError: if this object is not a domain blocklist
+        """
+        assert self.is_csv or self.csv
+
+        if isinstance(user_or_id, User):
+            user = user_or_id
+            inputs = [user.key.id(), user.handle_as_domain]
+            if user.obj:
+                inputs.append(user.target_for(user.obj))
+        else:
+            inputs = [user_or_id]
+
+        for input in inputs:
+            util.d(input, self.domain_blocklist)
+            if domain := util.domain_from_link(input):
+                if (util.domain_or_parent_in(domain, self.domain_blocklist)
+                        and not util.domain_or_parent_in(domain, domains.DOMAINS)):
+                    logger.info(f'{input} matches domain blocklist {self.key.id()}')
+                    return True
+
 
 class Follower(ndb.Model):
     """A follower of a Bridgy Fed user."""

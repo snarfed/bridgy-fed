@@ -19,12 +19,15 @@ from oauth_dropins.webutil import util
 import requests
 
 from memcache import memcache
+from models import Object
 
 logger = logging.getLogger(__name__)
 
 CONTENT_BLOCKLIST_KEY = 'content-blocklist'
 MEDIA_BLOCKLIST_KEY = 'media-blocklist'
 MEDIA_ATTACHMENT_TYPES = ('image', 'video', 'audio')
+
+# GLOBAL_DOMAIN_BLOCKLIST = Object.get_by_id('global-domain-blocklist')
 
 
 def content_blocklisted(obj):
