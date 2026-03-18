@@ -36,6 +36,7 @@ from app import app
 from atproto import ATProto
 import common
 from common import ErrorButDoNotRetryTask
+import filters
 import memcache
 import models
 from models import DM, Follower, Object, PROTOCOLS, Target, User
@@ -4855,6 +4856,7 @@ class ProtocolReceiveTest(TestCase):
     def test_receive_filters(self):
         self.make_followers()
         Object(id='internal:content-blocklist', raw=['badword']).put()
+        filters.CONTENT_BLOCKLIST.loaded_at = None
 
         _, code = Fake.receive_as1({
             'id': 'fake:post',
