@@ -106,6 +106,12 @@ class Nostr(User, Protocol):
     SUPPORTS_DMS = False  # NIP-17
     HTML_PROFILES = False
     HANDLES_PER_PAY_LEVEL_DOMAIN = 3
+    RECEIVE_FILTERS = (
+        filters.content_blocklisted,
+        filters.domain_blocklisted,
+        filters.duplicate_content,
+        filters.media_blocklisted,
+    )
 
     relays = ndb.KeyProperty(kind='Object')
     """NIP-65 kind 10002 event with this user's relays."""
