@@ -22,15 +22,20 @@ from oauth_dropins.webutil import util
 from oauth_dropins.webutil.models import Reloader
 import requests
 
+import memcache
+from memcache import pickle_memcache
 from models import Object
 
 logger = logging.getLogger(__name__)
 
+DUPLICATE_CONTENT_EXPIRATION = timedelta(hours=1)
+
 MEDIA_ATTACHMENT_TYPES = ('image', 'video', 'audio')
 
-CONTENT_BLOCKLIST = Reloader(Object, 'internal:content-blocklist', timedelta(seconds=10))
-MEDIA_BLOCKLIST = Reloader(Object, 'internal:media-blocklist', timedelta(seconds=10))
-DOMAIN_BLOCKLIST = Reloader(Object, 'internal:domain-blocklist', timedelta(seconds=10))
+RELOAD_BLOCKLISTS = timedelta(seconds=10)
+CONTENT_BLOCKLIST = Reloader(Object, 'internal:content-blocklist', RELOAD_BLOCKLISTS)
+MEDIA_BLOCKLIST = Reloader(Object, 'internal:media-blocklist', RELOAD_BLOCKLISTS)
+DOMAIN_BLOCKLIST = Reloader(Object, 'internal:domain-blocklist', RELOAD_BLOCKLISTS)
 
 
 def relevant_objects(obj):
@@ -42,6 +47,9 @@ def relevant_objects(obj):
     Returns:
       sequence of dict: AS1 objects
     """
+    if not obj.as1:
+        return []
+
     objects = [obj.as1]
     if obj.as1.get('verb') in as1.CRUD_VERBS:
         objects.extend(as1.get_objects(obj.as1))
@@ -115,3 +123,37 @@ def domain_blocklisted(obj, from_user=None):
         if candidate and DOMAIN_BLOCKLIST.obj.domain_blocklist_matches(candidate):
             logger.info(f'domain_blocklisted matched {candidate}')
             return True
+
+
+def duplicate_content(obj, from_user=None):
+    """Returns True if this user recently posted the exact same content.
+
+    Uses memcache with key ``f'{user_id} {text_content}'``.
+
+    Args:
+      obj (models.Object)
+      from_user (models.User or None)
+
+    Returns:
+      bool
+    """
+    user_id = from_user.key.id() if from_user else as1.get_owner(obj.as1)
+    if not user_id or not obj.as1:
+        return False
+
+    obj_as1 = (as1.get_object(obj.as1) if obj.as1.get('verb') in as1.CRUD_VERBS
+               else obj.as1)
+    if not (text := util.parse_html(obj_as1.get('content') or '')):
+        return False
+
+    key = memcache.key(f'{user_id} {text}')
+    if cached := pickle_memcache.get(key):
+        if not as1.activity_changed(cached, obj.as1):
+            logger.info(f'duplicate_content matched {key}')
+            return True
+    else:
+        # store and compare full AS1 object, allow eg same text with a different image
+        pickle_memcache.set(key, obj.as1,
+                            expire=int(DUPLICATE_CONTENT_EXPIRATION.total_seconds()))
+
+    return False

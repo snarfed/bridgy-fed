@@ -6,6 +6,7 @@ import filters
 from filters import (
     content_blocklisted,
     domain_blocklisted,
+    duplicate_content,
     media_blocklisted,
 )
 from models import Object, PROTOCOLS
@@ -126,27 +127,59 @@ class DomainBlocklistedTest(TestCase):
             Object(our_as1={'id': 'https://bad.com/post'}), None))
 
     def test_pass(self):
-        self.assertFalse(domain_blocklisted(Object(our_as1={
-            'id': 'https://good.com/post',
-            'author': 'https://good.com/user',
-        }), None))
+        for obj_as1 in (
+            {'id': 'https://good.com/post', 'author': 'https://good.com/user'},
+            {'objectType': 'note'},  # no id or actor
+        ):
+            with self.subTest(obj_as1=obj_as1):
+                self.assertFalse(domain_blocklisted(Object(our_as1=obj_as1), None))
 
-    def test_fail_obj_id(self):
-        self.assertTrue(domain_blocklisted(
-            Object(our_as1={'id': 'https://bad.com/post'}), None))
-
-    def test_fail_actor(self):
-        self.assertTrue(domain_blocklisted(
-            Object(our_as1={'actor': 'https://bad.com/user'}), None))
-
-    def test_fail_inner_object(self):
-        self.assertTrue(domain_blocklisted(Object(our_as1={
-            'objectType': 'activity',
-            'verb': 'post',
-            'object': {'id': 'https://bad.com/post'},
-        }), None))
+    def test_fail(self):
+        for obj_as1 in (
+                {'id': 'https://bad.com/post'},
+                {'actor': 'https://bad.com/user'},
+                {
+                    'objectType': 'activity',
+                    'verb': 'post',
+                    'object': {'id': 'https://bad.com/post'},
+                },
+        ):
+            self.assertTrue(domain_blocklisted(Object(our_as1=obj_as1), None))
 
     def test_fail_from_user(self):
         from_user = self.make_user('fake://bad.com/', cls=Fake)
         self.assertTrue(domain_blocklisted(
             Object(our_as1={'id': 'https://good.com/post'}), from_user))
+
+
+class DuplicateContentTest(TestCase):
+    def test_pass(self):
+        for obj_as1 in (
+            {'id': 'fake:post', 'author': 'fake:user'},  # no text content
+            {'content': 'hello', 'author': 'fake:user1'},  # first time
+            {'content': 'hello', 'author': 'fake:user2'},  # same text, different user
+            {'content': 'world', 'author': 'fake:user1'},  # same user, different text
+        ):
+            with self.subTest(obj_as1=obj_as1):
+                self.assertFalse(duplicate_content(Object(our_as1=obj_as1), None))
+
+    def test_pass_different_image(self):
+        duplicate_content(Object(our_as1={'content': 'hello'}))
+        self.assertFalse(duplicate_content(Object(our_as1={
+            'content': 'hello', 'author': 'fake:user',
+            'image': [{'url': 'http://example.com/1.jpg'}],
+        }), None))
+        self.assertFalse(duplicate_content(Object(our_as1={
+            'content': 'hello', 'author': 'fake:user',
+            'image': [{'url': 'http://example.com/2.jpg'}],
+        }), None))
+
+    def test_fail(self):
+        for obj_as1, user in (
+            ({'content': 'dup1', 'author': 'fake:user'}, None),
+            ({'content': 'dup2'}, self.make_user('fake:user', cls=Fake)),
+        ):
+            with self.subTest(obj_as1=obj_as1):
+                obj = Object(our_as1=obj_as1)
+                duplicate_content(obj, user)  # store in memcache
+                self.assertTrue(duplicate_content(obj, user))
