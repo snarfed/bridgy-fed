@@ -22,17 +22,15 @@ from oauth_dropins.webutil import util
 from oauth_dropins.webutil.models import Reloader
 import requests
 
-from memcache import memcache
 from models import Object
 
 logger = logging.getLogger(__name__)
 
-CONTENT_BLOCKLIST_KEY = 'content-blocklist'
-MEDIA_BLOCKLIST_KEY = 'media-blocklist'
 MEDIA_ATTACHMENT_TYPES = ('image', 'video', 'audio')
 
-GLOBAL_DOMAIN_BLOCKLIST = Reloader(Object, 'internal:domain-blocklist',
-                                   timedelta(seconds=10))
+CONTENT_BLOCKLIST = Reloader(Object, 'internal:content-blocklist', timedelta(seconds=10))
+MEDIA_BLOCKLIST = Reloader(Object, 'internal:media-blocklist', timedelta(seconds=10))
+DOMAIN_BLOCKLIST = Reloader(Object, 'internal:domain-blocklist', timedelta(seconds=10))
 
 
 def relevant_objects(obj):
@@ -54,14 +52,13 @@ def relevant_objects(obj):
 def content_blocklisted(obj, from_user=None):
     """Returns True if obj's content matches any string in the content blocklist.
 
-    The blocklist is a newline-separated list of strings stored in memcache
-    at key ``content-blocklist``. Matching is case-insensitive.
+    The blocklist is a list of strings stored in the ``internal:content-blocklist``
+    ``Object``. Matching is case-insensitive.
     """
-    raw = memcache.get(CONTENT_BLOCKLIST_KEY)
-    if not raw:
+    if not CONTENT_BLOCKLIST.obj or not CONTENT_BLOCKLIST.obj.raw:
         return False
 
-    blocked = [s.strip().lower() for s in raw.splitlines()]
+    blocked = [s.strip().lower() for s in CONTENT_BLOCKLIST.obj.raw]
 
     for o in relevant_objects(obj):
         for field in ('content', 'summary', 'displayName'):
@@ -76,16 +73,12 @@ def content_blocklisted(obj, from_user=None):
 def media_blocklisted(obj, from_user=None):
     """Returns True if any media in obj has a hash in the media blocklist.
 
-    The blocklist is a newline-separated list of CIDs stored in memcache at key
-    ``media-blocklist``. Checks every element in ``image`` and every element
-    in ``attachments`` with ``objectType`` ``image``, ``video``, or ``audio``.
-    Uses :class:`arroba.datastore_storage.AtpRemoteBlob` to fetch media and get
-    the CID.
+    The blocklist is a list of CIDs stored in the ``internal:media-blocklist``
+    ``Object``. Checks every element in ``image`` and every element in
+    ``attachments`` with ``objectType`` ``image``, ``video``, or ``audio``. Uses
+    :class:`arroba.datastore_storage.AtpRemoteBlob` to fetch media and get the CID.
     """
-    if not (raw := memcache.get(MEDIA_BLOCKLIST_KEY)):
-        return False
-
-    if not (blocked := set(s.strip() for s in raw.splitlines())):
+    if not MEDIA_BLOCKLIST.obj or not MEDIA_BLOCKLIST.obj.raw:
         return False
 
     for o in relevant_objects(obj):
@@ -101,7 +94,7 @@ def media_blocklisted(obj, from_user=None):
             except requests.RequestException as e:
                 continue  # requests_get logged the failure
 
-            if blob.cid in blocked:
+            if blob.cid in MEDIA_BLOCKLIST.obj.raw:
                 logger.info(f'media_blocklisted matched url {url} cid {blob.cid}')
                 return True
 
@@ -109,16 +102,16 @@ def media_blocklisted(obj, from_user=None):
 def domain_blocklisted(obj, from_user=None):
     """Returns True if obj or from_user matches the global domain blocklist.
 
-    Checks the object's id, actor/author, and from_user against
-    :data:`GLOBAL_DOMAIN_BLOCKLIST`.
+    The blocklist is a list of domains stored in the ``internal:domain-blocklist``
+    ``Object``. Checks the object's id, actor/author, and ``from_user``.
     """
-    if not (blocklist := GLOBAL_DOMAIN_BLOCKLIST.obj):
+    if not DOMAIN_BLOCKLIST.obj:
         return False
 
     candidates = [from_user] + list(chain.from_iterable(
         [o.get('id'), as1.get_owner(o)] for o in relevant_objects(obj)))
 
     for candidate in candidates:
-        if candidate and blocklist.domain_blocklist_matches(candidate):
+        if candidate and DOMAIN_BLOCKLIST.obj.domain_blocklist_matches(candidate):
             logger.info(f'domain_blocklisted matched {candidate}')
             return True

@@ -1896,7 +1896,7 @@ class ObjectTest(TestCase):
             },
         }, like)
 
-    def test_domain_blocklist(self):
+    def test_domain_blocklist_csv(self):
         obj = Object()
         self.assertEqual([], obj.domain_blocklist)
 
@@ -1947,6 +1947,10 @@ bar.org
 """
         del obj.domain_blocklist
         self.assertEqual([], obj.domain_blocklist)
+
+    def test_domain_blocklist_raw(self):
+        obj = Object(raw=['foo.com', 'bar.org'])
+        self.assertEqual(['foo.com', 'bar.org'], obj.domain_blocklist)
 
     def test_html_link(self):
         for obj in (

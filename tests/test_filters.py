@@ -8,7 +8,6 @@ from filters import (
     domain_blocklisted,
     media_blocklisted,
 )
-from memcache import memcache
 from models import Object, PROTOCOLS
 from oauth_dropins.webutil.testutil import requests_response
 from .testutil import Fake, OtherFake, TestCase
@@ -17,14 +16,17 @@ from .testutil import Fake, OtherFake, TestCase
 class ContentBlocklistedTest(TestCase):
     def setUp(self):
         super().setUp()
-        memcache.set('content-blocklist', 'badword\nspam')
+        self.blocklist = Object(id='internal:content-blocklist',
+                                raw=['badword', 'spam']).put()
+        filters.CONTENT_BLOCKLIST.loaded_at = None
 
     def test_pass(self):
         obj = Object(our_as1={'content': 'foo bar'})
         self.assertFalse(content_blocklisted(obj, None))
 
     def test_pass_no_stored_blocklist(self):
-        memcache.delete('content-blocklist')
+        self.blocklist.delete()
+        filters.CONTENT_BLOCKLIST.loaded_at = None
         self.assertFalse(content_blocklisted(Object(
             our_as1={'content': 'badword spam'}), None))
 
@@ -51,11 +53,13 @@ class ContentBlocklistedTest(TestCase):
 class MediaBlocklistedTest(TestCase):
     def setUp(self):
         super().setUp()
-        AtpRemoteBlob(id='http://example.com/bad', cid='badblobcid').put()
-        memcache.set('media-blocklist', 'badblobcid')
+        AtpRemoteBlob(id='http://example.com/bad', cid='badcid').put()
+        self.blocklist = Object(id='internal:media-blocklist', raw=['badcid']).put()
+        filters.MEDIA_BLOCKLIST.loaded_at = None
 
     def test_pass_no_stored_blocklist(self):
-        memcache.delete('media-blocklist')
+        self.blocklist.delete()
+        filters.MEDIA_BLOCKLIST.loaded_at = None
         self.assertFalse(media_blocklisted(Object(our_as1={
             'image': [{'url': 'http://example.com/bad'}],
         }), None))
@@ -99,8 +103,10 @@ class MediaBlocklistedTest(TestCase):
 
     @patch('requests.get', return_value=requests_response('blob contents'))
     def test_fetch_blob_fail(self, mock_get):
-        memcache.set('media-blocklist',
-                     'bafkreicqpqncshdd27sgztqgzocd3zhhqnnsv6slvzhs5uz6f57cq6lmtq')
+        Object(id='internal:media-blocklist', raw=[
+            'bafkreicqpqncshdd27sgztqgzocd3zhhqnnsv6slvzhs5uz6f57cq6lmtq',
+        ]).put()
+        filters.MEDIA_BLOCKLIST.loaded_at = None
         self.assertTrue(media_blocklisted(Object(our_as1={
             'image': [{'url': 'http://example.com/new'}],
         }), None))
@@ -110,9 +116,9 @@ class MediaBlocklistedTest(TestCase):
 class DomainBlocklistedTest(TestCase):
     def setUp(self):
         super().setUp()
-        self.blocklist = Object(id='internal:domain-blocklist', is_csv=True,
-                                csv='domain\nbad.com\nevil.org').put()
-        filters.GLOBAL_DOMAIN_BLOCKLIST.loaded_at = None
+        self.blocklist = Object(id='internal:domain-blocklist',
+                                raw=['bad.com', 'evil.org']).put()
+        filters.DOMAIN_BLOCKLIST.loaded_at = None
 
     def test_no_stored_blocklist(self):
         self.blocklist.delete()

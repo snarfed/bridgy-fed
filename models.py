@@ -1973,15 +1973,20 @@ class Object(AddRemoveMixin, StringIdModel):
 
     @cached_property
     def domain_blocklist(self):
-        """Returns the domains in the domain blocklist in :attr:`csv`.
+        """Returns the domains in the domain blocklist in :attr:`raw` or :attr:`csv`.
 
-        Extracts the 'domain' or '#domain' column and returns its values as a
-        list.
+        If :attr:`raw` is a list, returns it directly. Otherwise extracts the
+        'domain' or '#domain' column from :attr:`csv`.
 
         Returns:
-          list of str: domain names, or empty list if :attr:`csv` isn't
-            populated, or can't be parsed, or has neither of those columns.
+          list of str: domain names, or empty list if neither :attr:`raw` nor
+            :attr:`csv` is populated or parseable.
         """
+        assert not (self.raw and self.csv)
+
+        if self.raw:
+            return self.raw
+
         if not self.csv:
             return []
 
@@ -2014,7 +2019,7 @@ class Object(AddRemoveMixin, StringIdModel):
         Raises:
           AssertionError: if this object is not a domain blocklist
         """
-        assert self.is_csv or self.csv
+        assert self.is_csv or self.csv or isinstance(self.raw, list)
 
         if isinstance(user_or_id, User):
             user = user_or_id

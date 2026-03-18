@@ -4854,7 +4854,7 @@ class ProtocolReceiveTest(TestCase):
 
     def test_receive_filters(self):
         self.make_followers()
-        memcache.memcache.set('content-blocklist', 'badword')
+        Object(id='internal:content-blocklist', raw=['badword']).put()
 
         _, code = Fake.receive_as1({
             'id': 'fake:post',
