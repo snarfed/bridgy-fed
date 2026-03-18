@@ -143,7 +143,9 @@ def duplicate_content(obj, from_user=None):
 
     obj_as1 = (as1.get_object(obj.as1) if obj.as1.get('verb') in as1.CRUD_VERBS
                else obj.as1)
-    if not (text := util.parse_html(obj_as1.get('content') or '')):
+    if not (content := obj_as1.get('content')):
+        return False
+    elif not (text := util.parse_html(content).get_text()):
         return False
 
     key = memcache.key(f'{user_id} {text}')

@@ -100,6 +100,8 @@ class Fake(User, protocol.Protocol):
     RECEIVE_FILTERS = (
         # every filter we have, to exercise them
         filters.content_blocklisted,
+        filters.domain_blocklisted,
+        filters.duplicate_content,
         filters.media_blocklisted,
     )
 

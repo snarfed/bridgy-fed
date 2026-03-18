@@ -155,7 +155,8 @@ class DomainBlocklistedTest(TestCase):
 class DuplicateContentTest(TestCase):
     def test_pass(self):
         for obj_as1 in (
-            {'id': 'fake:post', 'author': 'fake:user'},  # no text content
+            {'id': 'fake:foo1', 'author': 'fake:user'},  # no text content
+            {'id': 'fake:foo2', 'author': 'fake:user'},
             {'content': 'hello', 'author': 'fake:user1'},  # first time
             {'content': 'hello', 'author': 'fake:user2'},  # same text, different user
             {'content': 'world', 'author': 'fake:user1'},  # same user, different text
