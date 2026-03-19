@@ -5,9 +5,28 @@
 
 {% block content %}
 
-<form method="post" action="/admin/">
-  <input name="id" placeholder="user id or handle" size="60">
-  <input type="submit" value="Go">
-</form>
+<div class="row">
+  <p class="col-sm-2"><a href="/admin/hub">Hub state</a></p>
+</div>
+
+<hr>
+
+<div class="row">
+  <form method="post" action="/admin/user">
+    <label class="col-sm-2" for="id">User:</label>
+    <input name="id" placeholder="user id or handle" size="30">
+    <input type="submit" value="Go">
+  </form>
+</div>
+
+<div class="row">
+  <form method="post" action="/admin/object">
+    <label class="col-sm-2" for="id">Object:</label>
+    <input name="id" placeholder="user id or handle" size="30">
+    <input type="submit" value="Go">
+  </form>
+</div>
+
+<hr>
 
 {% endblock %}

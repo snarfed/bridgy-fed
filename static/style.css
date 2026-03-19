@@ -30,6 +30,14 @@
   font-family: monospace;
 }
 
+#admin .row {
+  text-align: left;
+}
+
+#admin .col-sm-2 {
+  text-align: right;
+}
+
 #logins img {
   border-radius: 50%; /* makes perfect circle */
   object-fit: cover;  /* keeps aspect ratio */

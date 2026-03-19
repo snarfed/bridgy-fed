@@ -114,13 +114,13 @@ class AdminTest(TestCase):
         self.assertIn('<form', resp.get_data(as_text=True))
 
     def test_admin_user_redirect(self):
-        resp = self.client.post('/admin/', data={'id': 'fake:user'})
+        resp = self.client.post('/admin/user', data={'id': 'fake:user'})
         self.assertEqual(302, resp.status_code)
         key = self.user.key.urlsafe().decode()
         self.assertIn(f'/admin/user/{key}', resp.headers['Location'])
 
     def test_admin_user_redirect_not_found(self):
-        resp = self.client.post('/admin/', data={'id': 'fake:nope'})
+        resp = self.client.post('/admin/user', data={'id': 'fake:nope'})
         self.assertEqual(200, resp.status_code)
         self.assertIn('class="message', resp.get_data(as_text=True))
 

@@ -29,8 +29,8 @@ def admin_home():
     return render('admin.html')
 
 
-@app.post('/admin/')
-def admin_user_redirect():
+@app.post('/admin/user')
+def admin_user_lookup():
     id = flask_util.get_required_param('id')
     try:
         user = models.load_user(id, allow_opt_out=True)
