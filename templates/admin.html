@@ -13,20 +13,49 @@
 
 <div class="row">
   <form method="post" action="/admin/user">
-    <label class="col-sm-2" for="id">User:</label>
-    <input name="id" placeholder="user id or handle" size="30">
-    <input type="submit" value="Go">
+    <label class="col-sm-2" for="id">Look up user:</label>
+    <div class="col-sm-10">
+      <input name="id" placeholder="user id or handle" size="30">
+      <input type="submit" value="Go">
+    </div>
   </form>
 </div>
 
 <div class="row">
   <form method="post" action="/admin/object">
-    <label class="col-sm-2" for="id">Object:</label>
-    <input name="id" placeholder="user id or handle" size="30">
-    <input type="submit" value="Go">
+    <label class="col-sm-2" for="id">Look up object:</label>
+    <div class="col-sm-10">
+      <input name="id" placeholder="user id or handle" size="30">
+      <input type="submit" value="Go">
+    </div>
   </form>
 </div>
 
 <hr>
+
+<div class="row">
+  <p class="col-sm-offset-2 col-sm-10">
+    Blocklists. One item per line. Content blocklist matches on posts that contain any item as a substring. Media blocklist is ATProto blob CIDs. Leading and trailing whitespace and <code># ...</code> comments are ignored.
+  </p>
+</div>
+
+{% for blocklist in (
+  filters.DOMAIN_BLOCKLIST,
+  filters.CONTENT_BLOCKLIST,
+  filters.MEDIA_BLOCKLIST,
+) %}
+<div class="row">
+  <form method="post" action="/admin/blocklist/{{ blocklist.key_id }}">
+    <label for="values" class="col-sm-2">
+      {{ blocklist.key_id.removeprefix('internal:').replace('-', ' ').capitalize() }}:
+    </label>
+    <div class="col-sm-10">
+      <textarea name="values" rows="6" cols="40">{{ blocklist.obj.raw | join('\n') }}</textarea>
+      <br>
+      <input type="submit" value="Save">
+    </div>
+  </form>
+</div>
+{% endfor %}
 
 {% endblock %}

@@ -10,6 +10,7 @@ from common import (
 )
 from flask import redirect, request
 from flask_app import app
+import filters
 import memcache
 import models
 from oauth_dropins.webutil import flask_util, logs, util
@@ -17,6 +18,14 @@ from oauth_dropins.webutil.flask_util import flash
 import pytz
 
 from pages import render
+
+BLOCKLISTS = {
+    bl.key_id: bl for bl in (
+        filters.CONTENT_BLOCKLIST,
+        filters.MEDIA_BLOCKLIST,
+        filters.DOMAIN_BLOCKLIST,
+    )
+}
 
 logger = logging.getLogger(__name__)
 
@@ -26,7 +35,18 @@ logger = logging.getLogger(__name__)
 #
 @app.get('/admin/')
 def admin_home():
-    return render('admin.html')
+    for reloader in BLOCKLISTS.values():
+        reloader.reload()
+    return render('admin.html', filters=filters)
+
+
+@app.post('/admin/blocklist/<id>')
+def save_blocklist(id):
+    values = [v.strip() for v in request.values['values'].splitlines() if v.strip()]
+    BLOCKLISTS[id].obj.raw = values
+    BLOCKLISTS[id].obj.put()
+    flash(f'Saved {id}.')
+    return redirect('/admin/')
 
 
 @app.post('/admin/user')
@@ -37,7 +57,7 @@ def admin_user_lookup():
         return redirect(f'/admin/user/{user.key.urlsafe().decode()}')
     except (AttributeError, RuntimeError, ValueError) as e:
         flash(str(e))
-        return render('admin.html')
+        return redirect('/admin/')
 
 
 @app.get('/admin/user/<key>')

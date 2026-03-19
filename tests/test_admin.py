@@ -4,8 +4,10 @@ from google.cloud.ndb import Key
 
 import admin
 import config
+import filters
 import memcache
 import models
+from models import Object
 from .testutil import Fake, OtherFake, TestCase
 
 
@@ -121,8 +123,8 @@ class AdminTest(TestCase):
 
     def test_admin_user_redirect_not_found(self):
         resp = self.client.post('/admin/user', data={'id': 'fake:nope'})
-        self.assertEqual(200, resp.status_code)
-        self.assertIn('class="message', resp.get_data(as_text=True))
+        self.assertEqual(302, resp.status_code)
+        self.assertEqual(f'/admin/', resp.headers['Location'])
 
     def test_admin_user(self):
         self.user = self.make_user('fake:user', cls=Fake, obj_as1={
@@ -143,3 +145,20 @@ class AdminTest(TestCase):
         bad_key = Key('Fake', 'fake:nonexistent').urlsafe().decode()
         resp = self.client.get(f'/admin/user/{bad_key}')
         self.assertEqual(404, resp.status_code)
+
+    def test_admin_home_blocklists(self):
+        Object(id='internal:content-blocklist', raw=['bad word', 'another']).put()
+        resp = self.client.get('/admin/')
+        self.assertEqual(200, resp.status_code)
+        body = resp.get_data(as_text=True)
+        self.assertIn('content-blocklist', body)
+        self.assertIn('bad word', body)
+        self.assertIn('another', body)
+
+    def test_admin_save_blocklist(self):
+        resp = self.client.post('/admin/blocklist/internal:content-blocklist',
+                                data={'values': 'foo\nbar\n\nbaz\n'})
+        self.assertEqual(302, resp.status_code)
+        self.assertEqual(['foo', 'bar', 'baz'],
+                         Object.get_by_id('internal:content-blocklist').raw)
+        self.assertEqual(['foo', 'bar', 'baz'], filters.CONTENT_BLOCKLIST.obj.raw)
