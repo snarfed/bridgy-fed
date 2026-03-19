@@ -1,9 +1,11 @@
 """Unit tests for admin.py."""
 import arroba.server
+from google.cloud.ndb import Key
 
 import admin
 import config
 import memcache
+import models
 from .testutil import Fake, OtherFake, TestCase
 
 
@@ -105,3 +107,39 @@ class AdminTest(TestCase):
     def test_sequences_last_bad_auth(self):
         resp = self.client.get('/admin/sequences/last', data={'nsid': 'foo.bar'})
         self.assertEqual(401, resp.status_code)
+
+    def test_admin_home(self):
+        resp = self.client.get('/admin/')
+        self.assertEqual(200, resp.status_code)
+        self.assertIn('<form', resp.get_data(as_text=True))
+
+    def test_admin_user_redirect(self):
+        resp = self.client.post('/admin/', data={'id': 'fake:user'})
+        self.assertEqual(302, resp.status_code)
+        key = self.user.key.urlsafe().decode()
+        self.assertIn(f'/admin/user/{key}', resp.headers['Location'])
+
+    def test_admin_user_redirect_not_found(self):
+        resp = self.client.post('/admin/', data={'id': 'fake:nope'})
+        self.assertEqual(200, resp.status_code)
+        self.assertIn('class="message', resp.get_data(as_text=True))
+
+    def test_admin_user(self):
+        self.user = self.make_user('fake:user', cls=Fake, obj_as1={
+            'objectType': 'person',
+            'displayName': 'Alice',
+            'summary': 'hi there',
+            'image': [{'url': 'https://example.com/pic.jpg'}],
+        })
+        key = self.user.key.urlsafe().decode()
+        resp = self.client.get(f'/admin/user/{key}')
+        self.assertEqual(200, resp.status_code)
+        body = resp.get_data(as_text=True)
+        self.assertIn('fake:user', body)
+        self.assertIn('Alice', body)
+        # self.assertIn('hi there', body)
+
+    def test_admin_user_not_found(self):
+        bad_key = Key('Fake', 'fake:nonexistent').urlsafe().decode()
+        resp = self.client.get(f'/admin/user/{bad_key}')
+        self.assertEqual(404, resp.status_code)

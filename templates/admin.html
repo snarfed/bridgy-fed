@@ -1,0 +1,13 @@
+{% set body_id = 'admin' %}
+{% extends "base.html" %}
+
+{% block title %}Admin - Bridgy Fed{% endblock %}
+
+{% block content %}
+
+<form method="post" action="/admin/">
+  <input name="id" placeholder="user id or handle" size="60">
+  <input type="submit" value="Go">
+</form>
+
+{% endblock %}

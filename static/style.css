@@ -18,6 +18,18 @@
  */
 }
 
+#admin #header #logo {
+  background-color: var(--glow);
+  padding: .5em;
+  padding-bottom: 0;
+}
+
+#admin #header #logo::after {
+  content: 'Admin';
+  padding-left: .5em;
+  font-family: monospace;
+}
+
 #logins img {
   border-radius: 50%; /* makes perfect circle */
   object-fit: cover;  /* keeps aspect ratio */
@@ -994,9 +1006,9 @@ input:checked + .slider:before {
   }
 
   .login-input {
-    width: 135px; 
-    height: 50px; 
-    border-radius: 90px; 
+    width: 135px;
+    height: 50px;
+    border-radius: 90px;
     margin-right:10px;
   }
 
@@ -1032,14 +1044,14 @@ input:checked + .slider:before {
   }
 
   .login-input {
-    width: 0px; 
+    width: 0px;
     height: 0px;
   }
 
   .login-input.visible {
-    width: 135px; 
-    height: 50px; 
-    border-radius: 90px; 
+    width: 135px;
+    height: 50px;
+    border-radius: 90px;
     margin-right:10px;
   }
 

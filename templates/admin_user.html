@@ -1,0 +1,49 @@
+{% set body_id = 'admin' %}
+{% extends "base.html" %}
+
+{% block title %}Admin - Bridgy Fed{% endblock %}
+
+{% block content %}
+
+<style type="text/css">
+td { padding-left: .5em; }
+th { text-align: right; }
+</style>
+
+<div class="row">
+  <a href="/admin/">← Admin</a>
+  &nbsp;&nbsp;&nbsp;
+  <a href="{{ user.user_page_path() }}">User page →</a>
+</div>
+
+<div class="row">
+  {% include 'user_with_links.html' %}
+</div>
+
+<table>
+  <tr><th>Protocol</th><td>{{ user.LABEL }}</td></tr>
+  <tr><th>ID</th><td>{{ user.key.id() }}</td></tr>
+  <tr><th>Handle</th><td>{{ user.handle }}</td></tr>
+  <tr><th>Bridging to:</th><td>{{ ' '.join(user.enabled_protocols) }}</td></tr>
+  {% for copy in user.copies %}
+    <tr>
+      <th>
+        {% if copy.protocol not in user.enabled_protocols %} (not enabled) {% endif %}
+        {{ copy.protocol }}
+      </th>
+      <td>
+        {% if copy.protocol in user.enabled_protocols %}
+          {{ user.html_link(proto=PROTOCOLS[copy.protocol], name=False)|safe }}
+          <br>
+        {% endif %}
+        <code>{{ copy.uri }}</code>
+    </td>
+    </tr>
+  {% endfor %}
+  {# <tr><th>Bio</th><td>{{ as1.get('summary', '') }}</td></tr> #}
+  <tr><th>Status</th><td>{{ user.status or 'eligible'  }} {{ user.status_description() or ''}}</td></tr>
+  <tr><th>Created</th><td>{{ created }} (PT)</td></tr>
+  <tr><th>Updated</th><td>{{ updated }} (PT)</td></tr>
+</table>
+
+{% endblock %}
