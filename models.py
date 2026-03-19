@@ -1978,6 +1978,8 @@ class Object(AddRemoveMixin, StringIdModel):
         If :attr:`raw` is a list, returns it directly. Otherwise extracts the
         'domain' or '#domain' column from :attr:`csv`.
 
+        TODO: unify with :meth:`filters.blocklist_items`
+
         Returns:
           list of str: domain names, or empty list if neither :attr:`raw` nor
             :attr:`csv` is populated or parseable.
@@ -1985,7 +1987,7 @@ class Object(AddRemoveMixin, StringIdModel):
         assert not (self.raw and self.csv)
 
         if self.raw:
-            return self.raw
+            return [val.split('#')[0].strip().lower() for val in self.raw]
 
         if not self.csv:
             return []

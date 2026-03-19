@@ -17,8 +17,10 @@ from .testutil import Fake, OtherFake, TestCase
 class ContentBlocklistedTest(TestCase):
     def setUp(self):
         super().setUp()
-        self.blocklist = Object(id='internal:content-blocklist',
-                                raw=['badword', 'spam']).put()
+        self.blocklist = Object(id='internal:content-blocklist', raw=[
+            ' badword',
+            'spam  # comment',
+        ]).put()
         filters.CONTENT_BLOCKLIST.loaded_at = None
 
     def test_pass(self):
@@ -117,8 +119,10 @@ class MediaBlocklistedTest(TestCase):
 class DomainBlocklistedTest(TestCase):
     def setUp(self):
         super().setUp()
-        self.blocklist = Object(id='internal:domain-blocklist',
-                                raw=['bad.com', 'evil.org']).put()
+        self.blocklist = Object(id='internal:domain-blocklist', raw=[
+            'bad.com ',
+            ' evil.org  # comment',
+        ]).put()
         filters.DOMAIN_BLOCKLIST.loaded_at = None
 
     def test_no_stored_blocklist(self):

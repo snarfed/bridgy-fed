@@ -57,6 +57,16 @@ def relevant_objects(obj):
     return objects
 
 
+def blocklist_items(blocklist):
+    """Reads blocklist items, ignoring leading/trailing whitespace and # comments.
+
+    Also converts all items to lower case.
+
+    TODO: unify with :meth:`Object.domain_blocklist`
+    """
+    return [val.split('#')[0].strip().lower() for val in blocklist.obj.raw]
+
+
 def content_blocklisted(obj, from_user=None):
     """Returns True if obj's content matches any string in the content blocklist.
 
@@ -66,7 +76,7 @@ def content_blocklisted(obj, from_user=None):
     if not CONTENT_BLOCKLIST.obj or not CONTENT_BLOCKLIST.obj.raw:
         return False
 
-    blocked = [s.strip().lower() for s in CONTENT_BLOCKLIST.obj.raw]
+    blocked = blocklist_items(CONTENT_BLOCKLIST)
 
     for o in relevant_objects(obj):
         for field in ('content', 'summary', 'displayName'):
@@ -89,6 +99,8 @@ def media_blocklisted(obj, from_user=None):
     if not MEDIA_BLOCKLIST.obj or not MEDIA_BLOCKLIST.obj.raw:
         return False
 
+    blocked = blocklist_items(MEDIA_BLOCKLIST)
+
     for o in relevant_objects(obj):
         att_urls = [util.get_url(att) if att['objectType'] == 'image'
                     else as1.get_object(att, 'stream').get('url')
@@ -102,7 +114,7 @@ def media_blocklisted(obj, from_user=None):
             except requests.RequestException as e:
                 continue  # requests_get logged the failure
 
-            if blob.cid in MEDIA_BLOCKLIST.obj.raw:
+            if blob.cid in blocked:
                 logger.info(f'media_blocklisted matched url {url} cid {blob.cid}')
                 return True
 
