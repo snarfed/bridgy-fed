@@ -47,9 +47,11 @@ from werkzeug.exceptions import NotFound
 import common
 from common import error
 import domains
+import filters
 from domains import DOMAINS
 from flask_app import app
 import ids
+from memcache import RateLimitType
 from models import Follower, Object, PROTOCOLS, Target, User
 from protocol import Protocol, STORE_AS1_TYPES
 import web
@@ -112,6 +114,7 @@ class Nostr(User, Protocol):
         filters.duplicate_content,
         filters.media_blocklisted,
     )
+    RATE_LIMIT_TYPE = RateLimitType.EXPONENTIAL
 
     relays = ndb.KeyProperty(kind='Object')
     """NIP-65 kind 10002 event with this user's relays."""

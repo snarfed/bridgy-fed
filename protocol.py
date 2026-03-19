@@ -108,47 +108,49 @@ def activity_id_memcache_key(id):
 class Protocol:
     """Base protocol class. Not to be instantiated; classmethods only."""
     ABBREV = None
-    """str: lower case abbreviation, used in URL paths"""
+    'str: lower case abbreviation, used in URL paths'
     PHRASE = None
-    """str: human-readable name or phrase. Used in phrases like ``Follow this person on {PHRASE}``"""
+    'str: human-readable name or phrase. Used in phrases like ``Follow this person on {PHRASE}``'
     OTHER_LABELS = ()
-    """sequence of str: label aliases"""
+    'sequence of str: label aliases'
     LOGO_EMOJI = ''
-    """str: logo emoji, if any"""
+    'str: logo emoji, if any'
     LOGO_HTML = ''
-    """str: logo ``<img>`` tag, if any"""
+    'str: logo ``<img>`` tag, if any'
     CONTENT_TYPE = None
-    """str: MIME type of this protocol's native data format, appropriate for the ``Content-Type`` HTTP header."""
+    "str: MIME type of this protocol's native data format, appropriate for the ``Content-Type`` HTTP header."
     HAS_COPIES = False
-    """bool: whether this protocol is push and needs us to proactively create "copy" users and objects, as opposed to pulling converted objects on demand"""
+    'bool: whether this protocol is push and needs us to proactively create "copy" users and objects, as opposed to pulling converted objects on demand'
     DEFAULT_TARGET = None
-    """str: optional, the default target URI to send this protocol's activities to. May be used as the "shared" target. Often only set if ``HAS_COPIES`` is true."""
+    'str: optional, the default target URI to send this protocol\'s activities to. May be used as the "shared" target. Often only set if ``HAS_COPIES`` is true.'
     REQUIRES_AVATAR = False
-    """bool: whether accounts on this protocol are required to have a profile picture. If they don't, their ``User.status`` will be ``blocked``."""
+    "bool: whether accounts on this protocol are required to have a profile picture. If they don't, their ``User.status`` will be ``blocked``."
     REQUIRES_NAME = False
-    """bool: whether accounts on this protocol are required to have a profile name that's different than their handle or id. If they don't, their ``User.status`` will be ``blocked``."""
+    "bool: whether accounts on this protocol are required to have a profile name that's different than their handle or id. If they don't, their ``User.status`` will be ``blocked``."
     REQUIRES_OLD_ACCOUNT = False
-    """bool: whether accounts on this protocol are required to be at least :const:`common.OLD_ACCOUNT_AGE` old. If their profile includes creation date and it's not old enough, their ``User.status`` will be ``blocked``."""
+    "bool: whether accounts on this protocol are required to be at least :const:`common.OLD_ACCOUNT_AGE` old. If their profile includes creation date and it's not old enough, their ``User.status`` will be ``blocked``."
     DEFAULT_ENABLED_PROTOCOLS = ()
-    """sequence of str: labels of other protocols that are automatically enabled for this protocol to bridge into"""
+    'sequence of str: labels of other protocols that are automatically enabled for this protocol to bridge into'
     DEFAULT_SERVE_USER_PAGES = False
-    """bool: whether to serve user pages for all of this protocol's users on the fed.brid.gy. If ``False``, user pages will only be served for users who have explictly opted in."""
+    "bool: whether to serve user pages for all of this protocol's users on the fed.brid.gy. If ``False``, user pages will only be served for users who have explictly opted in."
     SUPPORTED_AS1_TYPES = ()
-    """sequence of str: AS1 objectTypes and verbs that this protocol supports receiving and sending"""
+    'sequence of str: AS1 objectTypes and verbs that this protocol supports receiving and sending'
     SUPPORTS_DMS = False
-    """bool: whether this protocol can receive DMs (chat messages)"""
+    'bool: whether this protocol can receive DMs (chat messages)'
     USES_OBJECT_FEED = False
-    """bool: whether to store followers on this protocol in :attr:`Object.feed`."""
+    'bool: whether to store followers on this protocol in :attr:`Object.feed`.'
     HTML_PROFILES = False
-    """bool: whether this protocol supports HTML in profile descriptions. If False, profile descriptions should be plain text."""
+    'bool: whether this protocol supports HTML in profile descriptions. If False, profile descriptions should be plain text.'
     SEND_REPLIES_TO_ORIG_POSTS_MENTIONS = False
-    """bool: whether replies to this protocol should include the original post's mentions as delivery targets"""
+    "bool: whether replies to this protocol should include the original post's mentions as delivery targets"
     BOTS_FOLLOW_BACK = False
-    """bool: when a user on this protocol follows a bot user to enable bridging, does the bot follow them back?"""
+    'bool: when a user on this protocol follows a bot user to enable bridging, does the bot follow them back?'
     HANDLES_PER_PAY_LEVEL_DOMAIN = None
-    """int: how many users to allow with handles on the same pay-level domain. None for no limit."""
+    'int: how many users to allow with handles on the same pay-level domain. None for no limit.'
     RECEIVE_FILTERS = ()
-    """tuple of callable: filter functions from filters.py to apply to incoming activities. Applied in order, so put the cheapest filters first."""
+    'tuple of callable: filter functions from filters.py to apply to incoming activities. Applied in order, so put the cheapest filters first.'
+    RATE_LIMIT_TYPE = memcache.RateLimitType.LINEAR
+    'Whether receive and send task rate limiting increases linearly or exponential.'
 
     @classmethod
     @property

@@ -47,6 +47,7 @@ import atproto
 from common import GCP_PROJECT_ID, long_to_base64, NDB_CONTEXT_KWARGS, TASKS_LOCATION
 import filters
 import ids
+from memcache import RateLimitType
 import models
 from models import KEY_BITS, Object, DEBUG_PROTOCOLS, PROTOCOLS, Target, User
 import nostr
@@ -265,6 +266,7 @@ class OtherFake(Fake):
     SUPPORTS_DMS = True
     SEND_REPLIES_TO_ORIG_POSTS_MENTIONS = True
     HTML_PROFILES = True
+    RATE_LIMIT_TYPE = RateLimitType.EXPONENTIAL
 
     fetchable = {}
     sent = []
@@ -293,6 +295,7 @@ class ExplicitFake(Fake):
     DEFAULT_SERVE_USER_PAGES = False
     SUPPORTS_DMS = True
     USES_OBJECT_FEED = True
+    RATE_LIMIT_TYPE = RateLimitType.EXPONENTIAL
 
     fetchable = {}
     sent = []

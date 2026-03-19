@@ -3,6 +3,7 @@
 TODO: move most or all of this to webutil?
 """
 from datetime import datetime, timedelta, timezone
+from enum import auto, Enum
 import functools
 import logging
 import os
@@ -37,6 +38,11 @@ PER_USER_TASK_RATES = {
         'atproto': timedelta(seconds=10),
     },
 }
+
+class RateLimitType(Enum):
+    LINEAR = auto()
+    EXPONENTIAL = auto()
+
 
 WHITESPACE_RE = re.compile(f'[{string.whitespace}]')
 
@@ -199,10 +205,13 @@ def task_eta(queue, user_id, protocol=None):
       queue (str)
       user_id (str)
       protocol (str): optional protocol label to look up protocol-specific delay
+        and :class:`RateLimitType`
 
     Returns:
       datetime.datetime: the ETA for this task, or ``None`` if the ETA is now
     """
+    from models import PROTOCOLS
+
     if not (delays := PER_USER_TASK_RATES.get(queue)):
         return None
 
@@ -213,10 +222,21 @@ def task_eta(queue, user_id, protocol=None):
     cache_key = key(f'task-delay-{queue}-{user_id}')
 
     now = util.now()
-    if eta_s := memcache.incr(cache_key, int(delay.total_seconds())):
-        eta = datetime.fromtimestamp(eta_s, timezone.utc)
-        if eta > now:
-            return eta
+
+    if protocol and PROTOCOLS[protocol].RATE_LIMIT_TYPE == RateLimitType.EXPONENTIAL:
+        if eta_s := memcache.get(cache_key):
+            eta = datetime.fromtimestamp(eta_s, timezone.utc)
+            if eta >= now:
+                cur_delay = eta - now
+                new_eta = eta + max(cur_delay, delay)
+                memcache.set(cache_key, int(new_eta.timestamp()))
+                return new_eta
+
+    else:  # linear
+        if eta_s := memcache.incr(cache_key, int(delay.total_seconds())):
+            eta = datetime.fromtimestamp(eta_s, timezone.utc)
+            if eta > now:
+                return eta
 
     # incr failed (key doesn't exist) or timestamp is in the past, set it to now
     #

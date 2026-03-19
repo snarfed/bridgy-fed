@@ -8,11 +8,11 @@ from arroba.datastore_storage import AtpRepo
 
 import config
 import memcache
-from memcache import memoize, pickle_memcache
+from memcache import memoize, pickle_memcache, task_eta
 from models import get_original_user_key, Object, Target
 from oauth_dropins.webutil import util
 from oauth_dropins.webutil.testutil import NOW, requests_response
-from .testutil import Fake, TestCase
+from .testutil import Fake, OtherFake, TestCase
 
 
 class MemcacheTest(TestCase):
@@ -253,57 +253,71 @@ class MemcacheTest(TestCase):
         self.assertIsNone(memcache.memcache.get('foo'))
 
     def test_task_eta(self):
-        self.assertEqual(NOW, memcache.task_eta('receive', 'alice'))
+        self.assertEqual(NOW, task_eta('receive', 'alice'))
         self.assertEqual(NOW.timestamp(),
                          memcache.memcache.get('task-delay-receive-alice'))
 
         delay = memcache.PER_USER_TASK_RATES['receive'][None]
         delayed = NOW + delay
-        self.assertEqual(delayed, memcache.task_eta('receive', 'alice'))
+        self.assertEqual(delayed, task_eta('receive', 'alice'))
         self.assertEqual(delayed.timestamp(),
                          memcache.memcache.get('task-delay-receive-alice'))
 
         delayed_2x = delayed + delay
-        self.assertEqual(delayed_2x, memcache.task_eta('receive', 'alice'))
+        self.assertEqual(delayed_2x, task_eta('receive', 'alice'))
         self.assertEqual(delayed_2x.timestamp(),
                          memcache.memcache.get('task-delay-receive-alice'))
 
     def test_task_eta_queue_not_rate_limited(self):
-        self.assertIsNone(memcache.task_eta('send', 'alice'))
-        self.assertIsNone(memcache.task_eta('send', 'alice', protocol='web'))
+        self.assertIsNone(task_eta('send', 'alice'))
+        self.assertIsNone(task_eta('send', 'alice', protocol='web'))
         self.assertIsNone(memcache.memcache.get('task-delay-send-alice'))
 
     def test_task_eta_memcache_in_past(self):
         memcache.memcache.set('task-delay-receive-alice', int(NOW.timestamp() - 100))
 
-        self.assertEqual(NOW, memcache.task_eta('receive', 'alice'))
+        self.assertEqual(NOW, task_eta('receive', 'alice'))
         self.assertEqual(NOW.timestamp(),
                          memcache.memcache.get('task-delay-receive-alice'))
 
     def test_task_eta_multiple_users(self):
         delay = memcache.PER_USER_TASK_RATES['receive'][None]
 
-        self.assertEqual(NOW, memcache.task_eta('receive', 'alice'))
-        self.assertEqual(NOW, memcache.task_eta('receive', 'bob'))
-        self.assertEqual(NOW + delay, memcache.task_eta('receive', 'bob'))
-        self.assertEqual(NOW + delay + delay, memcache.task_eta('receive', 'bob'))
-        self.assertEqual(NOW + delay, memcache.task_eta('receive', 'alice'))
+        self.assertEqual(NOW, task_eta('receive', 'alice'))
+        self.assertEqual(NOW, task_eta('receive', 'bob'))
+        self.assertEqual(NOW + delay, task_eta('receive', 'bob'))
+        self.assertEqual(NOW + delay + delay, task_eta('receive', 'bob'))
+        self.assertEqual(NOW + delay, task_eta('receive', 'alice'))
 
     def test_task_eta_protocol_specific(self):
         """Test protocol-specific rate limiting for send queue."""
         atproto_delay = memcache.PER_USER_TASK_RATES['send']['atproto']
 
         # first call returns NOW
-        self.assertEqual(NOW, memcache.task_eta('send', 'alice', protocol='atproto'))
+        self.assertEqual(NOW, task_eta('send', 'alice', protocol='atproto'))
         self.assertEqual(NOW.timestamp(),
                          memcache.memcache.get('task-delay-send-alice'))
 
         # subsequent calls use atproto-specific delay
         delayed = NOW + atproto_delay
         self.assertEqual(delayed,
-                         memcache.task_eta('send', 'alice', protocol='atproto'))
+                         task_eta('send', 'alice', protocol='atproto'))
         self.assertEqual(delayed.timestamp(),
                          memcache.memcache.get('task-delay-send-alice'))
 
         # different protocol without specific delay returns None
-        self.assertIsNone(memcache.task_eta('send', 'alice', protocol='web'))
+        self.assertIsNone(task_eta('send', 'alice', protocol='web'))
+
+    def test_task_eta_exponential(self):
+        delay = memcache.PER_USER_TASK_RATES['receive'][None]
+
+        self.assertEqual(NOW, task_eta('receive', 'alice', protocol='other'))
+        self.assertEqual(NOW.timestamp(),
+                         memcache.memcache.get('task-delay-receive-alice'))
+
+        self.assertEqual(NOW + delay,
+                         task_eta('receive', 'alice', protocol='other'))
+        self.assertEqual(NOW + delay * 2,
+                         task_eta('receive', 'alice', protocol='other'))
+        self.assertEqual(NOW + delay * 4,
+                         task_eta('receive', 'alice', protocol='other'))
