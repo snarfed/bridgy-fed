@@ -9,9 +9,24 @@
   <a href="/admin/">← Admin</a>
 </div>
 
+{% if user.obj %}
+<div class="row">
+  <div class="iframely-embed col-lg-6 col-md-8 col-sm-12">
+    <div class="iframely-responsive">
+      {# {{ obj_html|safe }} #}
+      <a data-iframely-url href="{{ user.obj.as1['url'] }}"></a>
+    </div>
+  </div>
+</div>
+{% endif %}
+
+<hr>
+
 <div class="row">
   {% include 'user_with_links.html' %}
 </div>
+
+<hr>
 
 <table>
   <tr><th></th><td>
@@ -35,6 +50,9 @@
       <button class="btn btn-default btn-copy glyphicon glyphicon-duplicate"
               onclick="copy('{{ user.handle }}')"></button>
   </td></tr>
+  <tr><th>Status</th><td>{{ user.status or 'eligible'  }} {{ user.status_description() or ''}}</td></tr>
+  <tr><th>Created</th><td>{{ created }} (PT)</td></tr>
+  <tr><th>Updated</th><td>{{ updated }} (PT)</td></tr>
   <tr><th>Bridging to</th><td>{{ ' '.join(user.enabled_protocols) }}</td></tr>
   {% for copy in user.copies %}
     <tr>
@@ -50,10 +68,8 @@
       </td>
     </tr>
   {% endfor %}
-  {# <tr><th>Bio</th><td>{{ as1.get('summary', '') }}</td></tr> #}
-  <tr><th>Status</th><td>{{ user.status or 'eligible'  }} {{ user.status_description() or ''}}</td></tr>
-  <tr><th>Created</th><td>{{ created }} (PT)</td></tr>
-  <tr><th>Updated</th><td>{{ updated }} (PT)</td></tr>
 </table>
+
+<script async src="https://iframely.net/embed.js?key={{ IFRAMELY_API_KEY_MD5 }}&theme=light"></script>
 
 {% endblock %}

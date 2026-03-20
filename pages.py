@@ -80,6 +80,7 @@ TEMPLATE_VARS = {
     'ATProto': ATProto,
     'getattr': getattr,
     'ids': ids,
+    'IFRAMELY_API_KEY_MD5': IFRAMELY_API_KEY_MD5,
     'logs': logs,
     'Nostr': Nostr,
     'PROTOCOLS': PROTOCOLS,
@@ -738,8 +739,7 @@ def respond(user):
     as1.convert_html_content_to_text(obj_as1)
     return render('respond.html', user=user, obj=obj,
                   obj_html=microformats2.object_to_html(obj_as1),
-                  token=get_required_param('token'),
-                  IFRAMELY_API_KEY_MD5=IFRAMELY_API_KEY_MD5)
+                  token=get_required_param('token'))
 
 
 @app.post(f'/<any({",".join(PROTOCOLS)}):protocol>/<user_id>/respond/reply')

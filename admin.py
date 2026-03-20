@@ -11,6 +11,7 @@ from common import (
 from flask import redirect, request
 from flask_app import app
 import filters
+from granary import microformats2
 import memcache
 import models
 from models import Object, User
@@ -18,7 +19,11 @@ from oauth_dropins.webutil import flask_util, logs, util
 from oauth_dropins.webutil.flask_util import flash
 import pytz
 
-from pages import render
+from activitypub import ActivityPub
+from atproto import ATProto
+import ids
+from nostr import Nostr
+import pages
 
 BLOCKLISTS = {
     bl.key_id: bl for bl in (
@@ -34,11 +39,21 @@ logger = logging.getLogger(__name__)
 #
 # admin UI
 #
-def format_timestamps(entity):
-    """Converts created and updated to PT ISO-8601 strings."""
-    vars = {}
-    pt = pytz.timezone('US/Pacific')
+def render(template, **vars):
+    return pages.render(
+        template,
+        **vars)
 
+
+def format_properties(entity):
+    """Generates template variables based on misc User and Object properties:
+
+    * created, updated: to ISO-8601 strings
+    * bridged: dict mapping Protocol subclass to string id
+    """
+    vars = {}
+
+    pt = pytz.timezone('US/Pacific')
     for field in 'created', 'updated':
         # these are proto.datetime_helpers.DatetimeWithNanoseconds. have to recreate
         # them as plain datetimes because otherwise they crash on replace().
@@ -83,7 +98,10 @@ def admin_user(key):
         flash('user not found')
         return redirect('/admin/')
 
-    return render('admin_user.html', user=user, **format_timestamps(user))
+    return render(
+        'admin_user.html',
+        user=user,
+        **format_properties(user))
 
 
 @app.post('/admin/object')
@@ -99,7 +117,10 @@ def admin_object(key):
         flash('object not found')
         return redirect('/admin/')
 
-    return render('admin_object.html', obj=obj, **format_timestamps(obj))
+    return render(
+        'admin_object.html',
+        obj=obj,
+        **format_properties(obj))
 
 
 #

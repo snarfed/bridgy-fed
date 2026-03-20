@@ -7,14 +7,25 @@
 
 <div class="row">
   <a href="/admin/">← Admin</a>
-  <h2>
-    <a href="{{ (obj.as1 or {}).get('url') or obj.key.id() }}">{{ obj.key.id() }}</a>
-    <button class="btn btn-default btn-copy glyphicon glyphicon-duplicate"
-            onclick="copy('{{ obj.key.id() }}')"></button>
-  </h2>
 </div>
 
+<div class="row iframely-row">
+  <div class="iframely-embed col-lg-6 col-md-8 col-sm-12">
+    <div class="iframely-responsive">
+      {# {{ obj_html|safe }} #}
+      <a data-iframely-url href="{{ obj.as1['url'] }}"></a>
+    </div>
+  </div>
+</div>
+
+
 <table>
+  <tr>
+    <th>Id</th>
+    {% set protocol = obj.source_protocol %}
+    {% set id = obj.key.id() %}
+    <td>{% include 'admin_debug_link.html' %}</td>
+  </tr>
   <tr><th>Type</th><td>{{ obj.type }}</td></tr>
   <tr><th>Protocol</th><td>{{ obj.source_protocol }}</td></tr>
   <tr><th>User</th><td>
@@ -26,13 +37,13 @@
   </td></tr>
   <tr><th>Created</th><td>{{ created }} (PT)</td></tr>
   <tr><th>Updated</th><td>{{ updated }} (PT)</td></tr>
+  <tr><th>Deleted</th><td>{{ obj.deleted or 'no'}}</td></tr>
   {% for copy in obj.copies %}
     <tr>
       <th>{{ copy.protocol }}</th>
       <td>{% include 'admin_debug_link.html' %}</td>
     </tr>
   {% endfor %}
-  <tr><th>Deleted</th><td>{{ obj.deleted or 'no'}}</td></tr>
 </table>
 
 {% for field in 'as2', 'bsky', 'mf2', 'nostr', 'our_as1', 'raw', 'as1' %}
@@ -42,5 +53,7 @@
     <pre>{{ val | tojson(indent=2) }}</pre>
   {% endif %}
 {% endfor %}
+
+<script async src="https://iframely.net/embed.js?key={{ IFRAMELY_API_KEY_MD5 }}&theme=light"></script>
 
 {% endblock %}
