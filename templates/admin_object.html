@@ -6,21 +6,19 @@
 {% block content %}
 
 <div class="row">
-  <div class="col-sm-offset-2 col-sm-10">
-    <a href="/admin/">← Admin</a>
-    <h2>
-      <a href="{{ (obj.as1 or {}).get('url') or obj.key.id() }}">{{ obj.key.id() }}</a>
-      <button class="btn btn-default btn-copy glyphicon glyphicon-duplicate"
-              onclick="copy('{{ obj.key.id() }}')"></button>
-    </h2>
-  </div>
+  <a href="/admin/">← Admin</a>
+  <h2>
+    <a href="{{ (obj.as1 or {}).get('url') or obj.key.id() }}">{{ obj.key.id() }}</a>
+    <button class="btn btn-default btn-copy glyphicon glyphicon-duplicate"
+            onclick="copy('{{ obj.key.id() }}')"></button>
+  </h2>
 </div>
 
 <table>
   <tr><th>Type</th><td>{{ obj.type }}</td></tr>
   <tr><th>Protocol</th><td>{{ obj.source_protocol }}</td></tr>
   <tr><th>User</th><td>
-      {{ obj.actor_link()|safe }}
+      {{ (obj.actor_link() or (obj.users[0].get().html_link() if obj.users else ''))|safe }}
       {% set owner = as1.get_owner(obj.as1) %}
       {% if owner %}
         (<a href="/admin/user/{{ PROTOCOLS[obj.source_protocol](id=owner).key.urlsafe().decode() }}">admin</a>)
@@ -31,29 +29,18 @@
   {% for copy in obj.copies %}
     <tr>
       <th>{{ copy.protocol }}</th>
-      <td>
-        <code>{{ copy.uri }}</code>
-        <button class="btn btn-default btn-copy glyphicon glyphicon-duplicate"
-                onclick="copy('{{ copy.uri }}')"></button>
-      </td>
+      <td>{% include 'admin_debug_link.html' %}</td>
     </tr>
   {% endfor %}
   <tr><th>Deleted</th><td>{{ obj.deleted or 'no'}}</td></tr>
 </table>
 
-{% macro show_json(label, val) %}
-{% if val is not none %}
-<h3>{{ label }}</h3>
-<pre>{{ val | tojson(indent=2) }}</pre>
-{% endif %}
-{% endmacro %}
-
-{{ show_json('as2', obj.as2) }}
-{{ show_json('bsky', obj.bsky) }}
-{{ show_json('mf2', obj.mf2) }}
-{{ show_json('nostr', obj.nostr) }}
-{{ show_json('our_as1', obj.our_as1) }}
-{{ show_json('raw', obj.raw) }}
-{{ show_json('as1', obj.as1) }}
+{% for field in 'as2', 'bsky', 'mf2', 'nostr', 'our_as1', 'raw', 'as1' %}
+  {% set val = getattr(obj, field) %}
+  {% if val %}
+    <h3>{{ field }}</h3>
+    <pre>{{ val | tojson(indent=2) }}</pre>
+  {% endif %}
+{% endfor %}
 
 {% endblock %}

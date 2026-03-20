@@ -78,6 +78,7 @@ TEMPLATE_VARS = {
     'as1': as1,
     'as2': as2,
     'ATProto': ATProto,
+    'getattr': getattr,
     'ids': ids,
     'logs': logs,
     'Nostr': Nostr,

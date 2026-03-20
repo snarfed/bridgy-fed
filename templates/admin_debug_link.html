@@ -1,0 +1,21 @@
+{% if copy %}
+  {% set protocol = copy.protocol %}
+  {% set id = copy.uri %}
+{% endif %}
+
+{% set prefix =
+  'https://pdsls.dev/' if protocol == 'atproto'
+  else 'https://browser.pub/' if protocol == 'activitypub'
+  else 'https://pin13.net/mf2/?url=' if protocol == 'web'
+  else None
+%}
+{% if prefix %}
+  {% if id.startswith('did:') %}
+    {% set prefix = prefix + 'at://' %}
+  {% endif %}
+  <a href="{{ prefix }}{{ id }}">
+{% endif %}
+  <code>{{ id }}</code>
+</a>
+<button class="btn btn-default btn-copy glyphicon glyphicon-duplicate"
+        onclick="copy('{{ id }}')"></button>
