@@ -187,3 +187,15 @@ class AdminTest(TestCase):
         resp = self.client.get(f'/admin/object/{bad_key}')
         self.assertEqual(302, resp.status_code)
         self.assertEqual(f'/admin/', resp.headers['Location'])
+
+    def test_admin_object_crud_verb_redirect(self):
+        inner = self.store_object(id='fake:inner')
+        activity = self.store_object(id='fake:activity', our_as1={
+            'objectType': 'activity',
+            'verb': 'post',
+            'object': {'id': 'fake:inner'},
+        })
+        resp = self.client.get(f'/admin/object/{activity.key.urlsafe().decode()}')
+        self.assertEqual(302, resp.status_code)
+        self.assertIn(f'/admin/object/{inner.key.urlsafe().decode()}',
+                      resp.headers['Location'])

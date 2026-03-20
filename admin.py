@@ -11,7 +11,7 @@ from common import (
 from flask import redirect, request
 from flask_app import app
 import filters
-from granary import microformats2
+from granary import as1, microformats2
 import memcache
 import models
 from models import Object, User
@@ -116,6 +116,11 @@ def admin_object(key):
     if not obj or not isinstance(obj, Object):
         flash('object not found')
         return redirect('/admin/')
+
+    if obj.as1 and as1.object_type(obj.as1) in as1.CRUD_VERBS:
+        if inner_id := as1.get_object(obj.as1).get('id'):
+            if inner := Object.get_by_id(inner_id):
+                return redirect(f'/admin/object/{inner.key.urlsafe().decode()}')
 
     return render(
         'admin_object.html',
