@@ -11,16 +11,21 @@ th { text-align: right; }
 </style>
 
 <div class="row">
-  <a href="/admin/">← Admin</a>
-  &nbsp;&nbsp;&nbsp;
-  <a href="{{ user.user_page_path() }}">User page →</a>
+  <p class="col-sm-offset-2 col-sm-10">
+    <a href="/admin/">← Admin</a>
+  </p>
 </div>
 
 <div class="row">
-  {% include 'user_with_links.html' %}
+  <div class="col-sm-offset-2 col-sm-10">
+    {% include 'user_with_links.html' %}
+  </div>
 </div>
 
 <table>
+  <tr><th></th><td>
+      <a href="{{ user.user_page_path() }}">User page →</a>
+  </td></tr>
   <tr><th>Protocol</th><td>{{ user.LABEL }}</td></tr>
   <tr><th>ID</th><td>{{ user.key.id() }}</td></tr>
   <tr><th>Handle</th><td>{{ user.handle }}</td></tr>

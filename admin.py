@@ -13,6 +13,7 @@ from flask_app import app
 import filters
 import memcache
 import models
+from models import Object, User
 from oauth_dropins.webutil import flask_util, logs, util
 from oauth_dropins.webutil.flask_util import flash
 import pytz
@@ -33,6 +34,21 @@ logger = logging.getLogger(__name__)
 #
 # admin UI
 #
+def format_timestamps(entity):
+    """Converts created and updated to PT ISO-8601 strings."""
+    vars = {}
+    pt = pytz.timezone('US/Pacific')
+
+    for field in 'created', 'updated':
+        # these are proto.datetime_helpers.DatetimeWithNanoseconds. have to recreate
+        # them as plain datetimes because otherwise they crash on replace().
+        # similar to: https://stackoverflow.com/q/54370012/186123
+        vars[field] = datetime.fromtimestamp(getattr(entity, field).timestamp()
+                                             ).replace(microsecond=0).astimezone(pt)
+
+    return vars
+
+
 @app.get('/admin/')
 def admin_home():
     for reloader in BLOCKLISTS.values():
@@ -63,24 +79,27 @@ def admin_user_lookup():
 @app.get('/admin/user/<key>')
 def admin_user(key):
     user = Key(urlsafe=key).get()
-    if not user or not isinstance(user, models.User):
-        flask_util.error('user not found', status=404)
+    if not user or not isinstance(user, User):
+        flash('user not found')
+        return redirect('/admin/')
 
-    vars = {}
+    return render('admin_user.html', user=user, **format_timestamps(user))
 
-    pt = pytz.timezone('US/Pacific')
-    for field in 'created', 'updated':
-        # these are proto.datetime_helpers.DatetimeWithNanoseconds. have to recreate
-        # them as plain datetimes because otherwise they crash on replace().
-        # similar to: https://stackoverflow.com/q/54370012/186123
-        vars[field] = datetime.fromtimestamp(getattr(user, field).timestamp()
-                                             ).replace(microsecond=0).astimezone(pt)
 
-    return render(
-        'admin_user.html',
-        user=user,
-        **vars,
-    )
+@app.post('/admin/object')
+def admin_object_lookup():
+    key = Object(id=request.values['id']).key.urlsafe().decode()
+    return redirect(f'/admin/object/{key}')
+
+
+@app.get('/admin/object/<key>')
+def admin_object(key):
+    obj = Key(urlsafe=key).get()
+    if not obj or not isinstance(obj, Object):
+        flash('object not found')
+        return redirect('/admin/')
+
+    return render('admin_object.html', obj=obj, **format_timestamps(obj))
 
 
 #

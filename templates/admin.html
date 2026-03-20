@@ -25,7 +25,7 @@
   <form method="post" action="/admin/object">
     <label class="col-sm-2" for="id">Look up object:</label>
     <div class="col-sm-10">
-      <input name="id" placeholder="user id or handle" size="30">
+      <input name="id" placeholder="id" size="30">
       <input type="submit" value="Go">
     </div>
   </form>
@@ -50,7 +50,7 @@
       {{ blocklist.key_id.removeprefix('internal:').replace('-', ' ').capitalize() }}:
     </label>
     <div class="col-sm-10">
-      <textarea name="values" rows="6" cols="40">{{ blocklist.obj.raw | join('\n') }}</textarea>
+      <textarea name="values" rows="6" cols="60">{{ blocklist.obj.raw | join('\n') }}</textarea>
       <br>
       <input type="submit" value="Save">
     </div>

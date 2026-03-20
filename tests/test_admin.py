@@ -144,7 +144,8 @@ class AdminTest(TestCase):
     def test_admin_user_not_found(self):
         bad_key = Key('Fake', 'fake:nonexistent').urlsafe().decode()
         resp = self.client.get(f'/admin/user/{bad_key}')
-        self.assertEqual(404, resp.status_code)
+        self.assertEqual(302, resp.status_code)
+        self.assertEqual(f'/admin/', resp.headers['Location'])
 
     def test_admin_home_blocklists(self):
         Object(id='internal:content-blocklist', raw=['bad word', 'another']).put()
@@ -162,3 +163,27 @@ class AdminTest(TestCase):
         self.assertEqual(['foo', 'bar', 'baz'],
                          Object.get_by_id('internal:content-blocklist').raw)
         self.assertEqual(['foo', 'bar', 'baz'], filters.CONTENT_BLOCKLIST.obj.raw)
+
+    def test_admin_object_redirect(self):
+        obj = self.store_object(id='fake:obj',
+                                our_as1={'objectType': 'note', 'content': 'hi'})
+        resp = self.client.post('/admin/object', data={'id': 'fake:obj'})
+        self.assertEqual(302, resp.status_code)
+        self.assertIn(f'/admin/object/{obj.key.urlsafe().decode()}',
+                      resp.headers['Location'])
+
+    def test_admin_object(self):
+        obj = self.store_object(id='fake:obj', source_protocol='fake',
+                                our_as1={'objectType': 'note', 'content': 'hi'})
+        key = obj.key.urlsafe().decode()
+        resp = self.client.get(f'/admin/object/{key}')
+        self.assertEqual(200, resp.status_code)
+        body = resp.get_data(as_text=True)
+        self.assertIn('fake:obj', body)
+        self.assertIn('note', body)
+
+    def test_admin_object_not_found(self):
+        bad_key = Key('Object', 'nonexistent').urlsafe().decode()
+        resp = self.client.get(f'/admin/object/{bad_key}')
+        self.assertEqual(302, resp.status_code)
+        self.assertEqual(f'/admin/', resp.headers['Location'])

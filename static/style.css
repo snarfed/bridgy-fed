@@ -38,6 +38,16 @@
   text-align: right;
 }
 
+#admin th {
+  text-align: right;
+  font-weight: inherit;
+}
+
+#admin td {
+  padding-left: .5em;
+  font-weight: normal;
+}
+
 #logins img {
   border-radius: 50%; /* makes perfect circle */
   object-fit: cover;  /* keeps aspect ratio */
