@@ -5,6 +5,7 @@ import logging
 from google.cloud.ndb import Key
 
 import arroba.server
+import common
 from common import (
     secret_key_auth,
 )
@@ -166,6 +167,15 @@ def admin_object(key):
         user=user,
         bridged_ids=bridged_ids,
         **format_properties(obj))
+
+
+@app.post('/admin/receive')
+def admin_receive():
+    obj_key = Key(urlsafe=request.values['obj_key'])
+    user_key = Key(urlsafe=request.values['user_key'])
+    common.create_task(queue='receive', obj_id=obj_key.id(),
+                       authed_as=user_key.id(), force='true')
+    return redirect(f'/admin/object/{obj_key.urlsafe()}')
 
 
 @app.post('/admin/enable/<key>')

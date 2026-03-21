@@ -1,8 +1,14 @@
 """Unit tests for admin.py."""
+from unittest.mock import patch
+
 import arroba.server
 from google.cloud.ndb import Key
 
+from google.cloud.tasks_v2.types import Task
+from oauth_dropins.webutil.appengine_config import tasks_client
+
 import admin
+import common
 import config
 import filters
 import memcache
@@ -217,3 +223,16 @@ class AdminTest(TestCase):
         self.assertEqual(302, resp.status_code)
         self.assertIn(f'/admin/user/{key}', resp.headers['Location'])
         self.assertEqual([], self.user.key.get().enabled_protocols)
+
+    @patch.object(tasks_client, 'create_task', return_value=Task(name='my task'))
+    def test_admin_receive(self, mock_create_task):
+        common.RUN_TASKS_INLINE = False
+        obj_key = Object(id='fake:obj').key.urlsafe()
+        resp = self.client.post('/admin/receive', data={
+            'obj_key': obj_key,
+            'user_key': self.user.key.urlsafe().decode(),
+        })
+        self.assertEqual(302, resp.status_code)
+        self.assertIn(f'/admin/object/{obj_key}', resp.headers['Location'])
+        self.assert_task(mock_create_task, 'receive', obj_id='fake:obj',
+                         authed_as='fake:user', force='true')
