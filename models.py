@@ -667,7 +667,6 @@ class User(AddRemoveMixin, StringIdModel, metaclass=ProtocolUserMeta):
                     else:
                         return OVER_LIMIT
 
-
     @ndb.ComputedProperty
     def status(self):
         """Whether this user is blocked or opted out.

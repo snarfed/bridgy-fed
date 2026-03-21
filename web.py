@@ -306,8 +306,8 @@ class Web(User, Protocol):
         if self.key.id() in DOMAINS:
             return None
 
-        if self.manual_opt_out is False:
-            return None
+        if self.manual_opt_out is not None:
+            return super().status
 
         if self.redirects_error == OWNS_WEBFINGER:
             # looks like this site is already its own fediverse server

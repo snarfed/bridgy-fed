@@ -37,9 +37,11 @@
   <tr><th>Created</th><td>{{ created }} (PT)</td></tr>
   <tr><th>Updated</th><td>{{ updated }} (PT)</td></tr>
   <tr><th>Deleted</th><td>{{ obj.deleted or 'no'}}</td></tr>
-  {% for copy in obj.copies %}
+  {% for protocol, id in bridged_ids.items() %}
     <tr>
-      <th>{{ copy.protocol }}</th>
+      <th>
+        {{ protocol.LABEL }}
+      </th>
       <td>{% include 'admin_debug_link.html' %}</td>
     </tr>
   {% endfor %}

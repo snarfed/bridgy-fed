@@ -147,18 +147,24 @@ def admin_object(key):
             if inner := Object.get_by_id(inner_id):
                 return redirect(f'/admin/object/{inner.key.urlsafe().decode()}')
 
+    proto = PROTOCOLS[obj.source_protocol]
     user = None
     if obj.users:
         user = obj.users[0].get()
-    elif (obj.as1
-          and (user_id := as1.get_owner(obj.as1))
-          and (proto := PROTOCOLS[obj.source_protocol])):
+    elif obj.as1 and proto and (user_id := as1.get_owner(obj.as1)):
         user = proto.get_by_id(user_id)
+
+    bridged_ids = {
+        to_proto: ids.translate_object_id(id=obj.key.id(), from_=proto, to=to_proto)
+        for to_proto in (ATProto, ActivityPub, Nostr)
+        if to_proto != proto and user and user.is_enabled(to_proto)
+    }
 
     return render(
         'admin_object.html',
         obj=obj,
         user=user,
+        bridged_ids=bridged_ids,
         **format_properties(obj))
 
 

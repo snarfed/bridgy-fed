@@ -41,16 +41,22 @@
   {% endif %}
   <tr><th>Protocol</th><td>{{ user.LABEL }}</td></tr>
   <tr><th>ID</th><td>
-      {% set protocol = user.LABEL %}
-      {% set id = user.key.id() %}
-      {% include 'admin_debug_link.html' %}
+    {% set protocol = user.LABEL %}
+    {% set id = user.key.id() %}
+    {% include 'admin_debug_link.html' %}
   </td></tr>
   <tr><th>Handle</th><td>
-      {{ user.handle }}
-      <button class="btn btn-default btn-copy glyphicon glyphicon-duplicate"
-              onclick="copy('{{ user.handle }}')"></button>
+    {{ user.handle }}
+    <button class="btn btn-default btn-copy glyphicon glyphicon-duplicate"
+            onclick="copy('{{ user.handle }}')"></button>
   </td></tr>
-  <tr><th>Status</th><td>{{ user.status or 'eligible'  }} {{ user.status_description() or ''}}</td></tr>
+  <tr><th>Status</th><td>
+    {% if user.status %}
+      {{ user.status }} ({{ user.status_description() or '-' }})
+    {% else %}
+      eligible
+    {% endif %}
+  </td></tr>
   <tr><th>Created</th><td>{{ created }} (PT)</td></tr>
   <tr><th>Updated</th><td>{{ updated }} (PT)</td></tr>
   {% for protocol, id in bridged_ids.items() %}
