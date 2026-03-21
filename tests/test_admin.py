@@ -6,6 +6,7 @@ from google.cloud.ndb import Key
 
 from google.cloud.tasks_v2.types import Task
 from oauth_dropins.webutil.appengine_config import tasks_client
+from oauth_dropins.webutil import util
 
 import admin
 import common
@@ -125,7 +126,7 @@ class AdminTest(TestCase):
         resp = self.client.post('/admin/user', data={'id': 'fake:user'})
         self.assertEqual(302, resp.status_code)
         key = self.user.key.urlsafe().decode()
-        self.assertIn(f'/admin/user/{key}', resp.headers['Location'])
+        self.assertEqual(f'/admin/user/{key}', resp.headers['Location'])
 
     def test_admin_user_redirect_not_found(self):
         resp = self.client.post('/admin/user', data={'id': 'fake:nope'})
@@ -170,13 +171,14 @@ class AdminTest(TestCase):
                          Object.get_by_id('internal:content-blocklist').raw)
         self.assertEqual(['foo', 'bar', 'baz'], filters.CONTENT_BLOCKLIST.obj.raw)
 
-    def test_admin_object_redirect(self):
-        obj = self.store_object(id='fake:obj',
-                                our_as1={'objectType': 'note', 'content': 'hi'})
-        resp = self.client.post('/admin/object', data={'id': 'fake:obj'})
+    @patch('requests.get')
+    def test_admin_object_lookup(self, mock_get):
+        mock_get.return_value = self.as2_resp({'id': 'http://in.st/second'})
+
+        resp = self.client.post('/admin/object', data={'id': 'http://in.st/first'})
         self.assertEqual(302, resp.status_code)
-        self.assertIn(f'/admin/object/{obj.key.urlsafe().decode()}',
-                      resp.headers['Location'])
+        second_key = Object(id='http://in.st/second').key.urlsafe().decode()
+        self.assertEqual(f'/admin/object/{second_key}', resp.headers['Location'])
 
     def test_admin_object(self):
         obj = self.store_object(id='fake:obj', source_protocol='fake',
@@ -203,16 +205,16 @@ class AdminTest(TestCase):
         })
         resp = self.client.get(f'/admin/object/{activity.key.urlsafe().decode()}')
         self.assertEqual(302, resp.status_code)
-        self.assertIn(f'/admin/object/{inner.key.urlsafe().decode()}',
-                      resp.headers['Location'])
+        self.assertEqual(f'/admin/object/{inner.key.urlsafe().decode()}',
+                         resp.headers['Location'])
 
     def test_enable(self):
         key = self.user.key.urlsafe().decode()
         resp = self.client.post(f'/admin/enable/{key}',
                                 data={'protocol': 'activitypub'})
         self.assertEqual(302, resp.status_code)
-        self.assertIn(f'/admin/user/{key}', resp.headers['Location'])
-        self.assertIn('activitypub', self.user.key.get().enabled_protocols)
+        self.assertEqual(f'/admin/user/{key}', resp.headers['Location'])
+        self.assertEqual(['activitypub'], self.user.key.get().enabled_protocols)
 
     def test_disable(self):
         self.user.enabled_protocols = ['activitypub']
@@ -221,7 +223,7 @@ class AdminTest(TestCase):
         resp = self.client.post(f'/admin/disable/{key}',
                                 data={'protocol': 'activitypub'})
         self.assertEqual(302, resp.status_code)
-        self.assertIn(f'/admin/user/{key}', resp.headers['Location'])
+        self.assertEqual(f'/admin/user/{key}', resp.headers['Location'])
         self.assertEqual([], self.user.key.get().enabled_protocols)
 
     @patch.object(tasks_client, 'create_task', return_value=Task(name='my task'))
@@ -233,6 +235,6 @@ class AdminTest(TestCase):
             'user_key': self.user.key.urlsafe().decode(),
         })
         self.assertEqual(302, resp.status_code)
-        self.assertIn(f'/admin/object/{obj_key}', resp.headers['Location'])
+        self.assertEqual(f'/admin/object/{obj_key}', resp.headers['Location'])
         self.assert_task(mock_create_task, 'receive', obj_id='fake:obj',
                          authed_as='fake:user', force='true')

@@ -132,8 +132,13 @@ def admin_object_lookup():
       id (str)
     """
     id = request.values['id'].strip()
-    key = Object(id=id).key.urlsafe().decode()
-    return redirect(f'/admin/object/{key}')
+    for proto in set(PROTOCOLS.values()):
+        if proto and proto.owns_id(id) is not False:
+            if obj := proto.load(id):
+                return redirect(f'/admin/object/{obj.key.urlsafe().decode()}')
+
+    flash(f"Couldn't resolve {id}")
+    return redirect('/admin/')
 
 
 @app.get('/admin/object/<key>')
