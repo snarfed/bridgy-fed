@@ -29,10 +29,9 @@
   <tr><th>Type</th><td>{{ obj.type }}</td></tr>
   <tr><th>Protocol</th><td>{{ obj.source_protocol }}</td></tr>
   <tr><th>User</th><td>
-      {{ (obj.actor_link() or (obj.users[0].get().html_link() if obj.users else ''))|safe }}
-      {% set owner = as1.get_owner(obj.as1) %}
-      {% if owner %}
-        (<a href="/admin/user/{{ PROTOCOLS[obj.source_protocol](id=owner).key.urlsafe().decode() }}">admin</a>)
+      {{ (user.html_link() if user else obj.actor_link())|safe }}
+      {% if user %}
+        (<a href="/admin/user/{{ user.key.urlsafe().decode() }}">admin</a>)
       {% endif %}
   </td></tr>
   <tr><th>Created</th><td>{{ created }} (PT)</td></tr>

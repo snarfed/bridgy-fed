@@ -53,16 +53,23 @@
   <tr><th>Status</th><td>{{ user.status or 'eligible'  }} {{ user.status_description() or ''}}</td></tr>
   <tr><th>Created</th><td>{{ created }} (PT)</td></tr>
   <tr><th>Updated</th><td>{{ updated }} (PT)</td></tr>
-  <tr><th>Bridging to</th><td>{{ ' '.join(user.enabled_protocols) }}</td></tr>
-  {% for copy in user.copies %}
+  {% for protocol, id in bridged_ids.items() %}
     <tr>
       <th>
-        {% if copy.protocol not in user.enabled_protocols %} (not enabled) {% endif %}
-        {{ copy.protocol }}
+        {{ protocol.LABEL }}
       </th>
       <td>
-        {% if copy.protocol in user.enabled_protocols %}
-          {{ user.html_link(proto=PROTOCOLS[copy.protocol], name=False)|safe }}
+        {% if user.is_enabled(protocol) %}
+          <span title="bridging">✅</span>
+          {# {{ user.html_link(proto=protocol, name=False)|safe }} #}
+          <form method="post" action="/admin/disable/{{ user.obj_key.urlsafe().decode() }}">
+            <input type="submit" value="Disable" />
+          </form>
+        {% else %}
+          <span title="not bridging">❌</span>
+          <form method="post" action="/admin/enable/{{ user.obj_key.urlsafe().decode() }}">
+            <input type="submit" value="Enable" />
+          </form>
         {% endif %}
         {% include 'admin_debug_link.html' %}
       </td>

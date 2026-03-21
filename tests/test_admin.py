@@ -199,3 +199,21 @@ class AdminTest(TestCase):
         self.assertEqual(302, resp.status_code)
         self.assertIn(f'/admin/object/{inner.key.urlsafe().decode()}',
                       resp.headers['Location'])
+
+    def test_enable(self):
+        key = self.user.key.urlsafe().decode()
+        resp = self.client.post(f'/admin/enable/{key}',
+                                data={'protocol': 'activitypub'})
+        self.assertEqual(302, resp.status_code)
+        self.assertIn(f'/admin/user/{key}', resp.headers['Location'])
+        self.assertIn('activitypub', self.user.key.get().enabled_protocols)
+
+    def test_disable(self):
+        self.user.enabled_protocols = ['activitypub']
+        self.user.put()
+        key = self.user.key.urlsafe().decode()
+        resp = self.client.post(f'/admin/disable/{key}',
+                                data={'protocol': 'activitypub'})
+        self.assertEqual(302, resp.status_code)
+        self.assertIn(f'/admin/user/{key}', resp.headers['Location'])
+        self.assertEqual([], self.user.key.get().enabled_protocols)

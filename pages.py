@@ -256,7 +256,9 @@ def render(template, **vars):
             and proto.LABEL not in ('ui', 'web')
             and user.is_enabled(proto)]
 
-    return render_template(template, **TEMPLATE_VARS, logins=get_logins(), **vars)
+    vars = {**TEMPLATE_VARS, **vars}
+
+    return render_template(template, logins=get_logins(), **vars)
 
 
 @app.route('/')

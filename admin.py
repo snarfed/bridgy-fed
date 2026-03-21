@@ -14,7 +14,7 @@ import filters
 from granary import as1, microformats2
 import memcache
 import models
-from models import Object, User
+from models import Object, PROTOCOLS, User
 from oauth_dropins.webutil import flask_util, logs, util
 from oauth_dropins.webutil.flask_util import flash
 import pytz
@@ -42,6 +42,11 @@ logger = logging.getLogger(__name__)
 def render(template, **vars):
     return pages.render(
         template,
+        PROTOCOLS={
+            'activitypub': ActivityPub,
+            'atproto': ATProto,
+            'nostr': Nostr,
+        },
         **vars)
 
 
@@ -73,6 +78,10 @@ def admin_home():
 
 @app.post('/admin/blocklist/<id>')
 def save_blocklist(id):
+    """
+    Form values:
+      values (str)
+    """
     values = [v.strip() for v in request.values['values'].splitlines() if v.strip()]
     BLOCKLISTS[id].obj.raw = values
     BLOCKLISTS[id].obj.put()
@@ -82,11 +91,15 @@ def save_blocklist(id):
 
 @app.post('/admin/user')
 def admin_user_lookup():
-    id = flask_util.get_required_param('id')
+    """
+    Form values:
+      id (str)
+    """
+    id = request.values['id'].strip()
     try:
         user = models.load_user(id, allow_opt_out=True)
         return redirect(f'/admin/user/{user.key.urlsafe().decode()}')
-    except (AttributeError, RuntimeError, ValueError) as e:
+    except RuntimeError as e:
         flash(str(e))
         return redirect('/admin/')
 
@@ -98,15 +111,27 @@ def admin_user(key):
         flash('user not found')
         return redirect('/admin/')
 
+    bridged_ids = {
+        proto: ids.translate_user_id(id=user.key.id(), from_=user, to=proto)
+        for proto in (ATProto, ActivityPub, Nostr)
+        if not isinstance(user, proto)
+    }
+
     return render(
         'admin_user.html',
         user=user,
+        bridged_ids=bridged_ids,
         **format_properties(user))
 
 
 @app.post('/admin/object')
 def admin_object_lookup():
-    key = Object(id=request.values['id']).key.urlsafe().decode()
+    """
+    Form values:
+      id (str)
+    """
+    id = request.values['id'].strip()
+    key = Object(id=id).key.urlsafe().decode()
     return redirect(f'/admin/object/{key}')
 
 
@@ -122,10 +147,45 @@ def admin_object(key):
             if inner := Object.get_by_id(inner_id):
                 return redirect(f'/admin/object/{inner.key.urlsafe().decode()}')
 
+    user = None
+    if obj.users:
+        user = obj.users[0].get()
+    elif (obj.as1
+          and (user_id := as1.get_owner(obj.as1))
+          and (proto := PROTOCOLS[obj.source_protocol])):
+        user = proto.get_by_id(user_id)
+
     return render(
         'admin_object.html',
         obj=obj,
+        user=user,
         **format_properties(obj))
+
+
+@app.post('/admin/enable/<key>')
+def admin_enable(key):
+    """
+    Form values:
+      protocol (str)
+    """
+    user = Key(urlsafe=key).get()
+    proto = PROTOCOLS[request.values['protocol']]
+    user.enable_protocol(proto)
+    flash(f'Enabled {proto.LABEL} for {user.handle}')
+    return redirect(f'/admin/user/{key}')
+
+
+@app.post('/admin/disable/<key>')
+def admin_disable(key):
+    """
+    Form values:
+      protocol (str)
+    """
+    user = Key(urlsafe=key).get()
+    proto = PROTOCOLS[request.values['protocol']]
+    user.disable_protocol(proto)
+    flash(f'Disabled {proto.LABEL} for {user.handle}')
+    return redirect(f'/admin/user/{key}')
 
 
 #
