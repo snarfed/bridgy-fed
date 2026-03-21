@@ -7,15 +7,17 @@
   'https://pdsls.dev/' if protocol == 'atproto'
   else 'https://browser.pub/' if protocol == 'activitypub'
   else 'https://pin13.net/mf2/?url=' if protocol == 'web'
-  else None
+  else ''
 %}
+
 {% if prefix %}
   {% if id.startswith('did:') %}
     {% set prefix = prefix + 'at://' %}
   {% endif %}
   <a href="{{ prefix }}{{ id }}">
 {% endif %}
-  <code>{{ id }}</code>
-</a>
+<code class="id">{{ id }}</code>
+{% if prefix %}</a>{% endif %}
+
 <button class="btn btn-default btn-copy glyphicon glyphicon-duplicate"
         onclick="copy('{{ id }}')"></button>

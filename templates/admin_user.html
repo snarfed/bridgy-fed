@@ -28,60 +28,76 @@
 
 <hr>
 
-<table>
-  <tr><th></th><td>
+<div class="row line">
+  <div class="col-xs-2"></div>
+  <div class="col-xs-10 value">
     <a href="{{ user.user_page_path() }}">User page →</a>
-  </td></tr>
-  {% if user.obj %}
-    <tr><th></th><td>
-      <a href="/admin/object/{{ user.obj_key.urlsafe().decode() }}">
-        Profile (admin) →
-      </a>
-    </td></tr>
-  {% endif %}
-  <tr><th>Protocol</th><td>{{ user.LABEL }}</td></tr>
-  <tr><th>ID</th><td>
+    {% if user.obj %}
+      &nbsp;&nbsp;
+      <a href="/admin/object/{{ user.obj_key.urlsafe().decode() }}">Profile (admin) →</a>
+    {% endif %}
+  </div>
+</div>
+<div class="row line">
+  <div class="col-xs-2 field">Protocol</div>
+  <div class="col-xs-10 value">{{ user.LABEL }}</div>
+</div>
+<div class="row line">
+  <div class="col-xs-2 field">ID</div>
+  <div class="col-xs-10 value">
     {% set protocol = user.LABEL %}
     {% set id = user.key.id() %}
     {% include 'admin_debug_link.html' %}
-  </td></tr>
-  <tr><th>Handle</th><td>
+  </div>
+</div>
+<div class="row line">
+  <div class="col-xs-2 field">Handle</div>
+  <div class="col-xs-10 value">
     {{ user.handle }}
     <button class="btn btn-default btn-copy glyphicon glyphicon-duplicate"
             onclick="copy('{{ user.handle }}')"></button>
-  </td></tr>
-  <tr><th>Status</th><td>
+  </div>
+</div>
+<div class="row line">
+  <div class="col-xs-2 field">Status</div>
+  <div class="col-xs-10 value">
     {% if user.status %}
       {{ user.status }} ({{ user.status_description() or '-' }})
     {% else %}
       eligible
     {% endif %}
-  </td></tr>
-  <tr><th>Created</th><td>{{ created }} (PT)</td></tr>
-  <tr><th>Updated</th><td>{{ updated }} (PT)</td></tr>
-  {% for protocol, id in bridged_ids.items() %}
-    <tr>
-      <th>
-        {{ protocol.LABEL }}
-      </th>
-      <td>
-        {% if user.is_enabled(protocol) %}
-          <span title="bridging">✅</span>
-          {# {{ user.html_link(proto=protocol, name=False)|safe }} #}
-          <form method="post" action="/admin/disable/{{ user.obj_key.urlsafe().decode() }}">
-            <input type="submit" value="Disable" />
-          </form>
-        {% else %}
-          <span title="not bridging">❌</span>
-          <form method="post" action="/admin/enable/{{ user.obj_key.urlsafe().decode() }}">
-            <input type="submit" value="Enable" />
-          </form>
-        {% endif %}
-        {% include 'admin_debug_link.html' %}
-      </td>
-    </tr>
-  {% endfor %}
-</table>
+  </div>
+</div>
+<div class="row line">
+  <div class="col-xs-2 field">Created</div>
+  <div class="col-xs-10 value">{{ created }} (PT)</div>
+</div>
+<div class="row line">
+  <div class="col-xs-2 field">Updated</div>
+  <div class="col-xs-10 value">{{ updated }} (PT)</div>
+</div>
+{% for protocol, id in bridged_ids.items() %}
+<div class="row line">
+  <div class="col-xs-2 field">{{ protocol.LABEL }}</div>
+  <div class="col-xs-10 value">
+  {% if user.is_enabled(protocol) %}
+    <span title="bridging">✅</span>
+    {# {{ user.html_link(proto=protocol, name=False)|safe }} #}
+    <form style="display:inline" method="post" action="/admin/disable/{{ user.key.urlsafe().decode() }}">
+      <input type="hidden" name="protocol" value="{{ protocol.LABEL }}">
+      &nbsp; <input type="submit" value="Disable" class="btn btn-default" />
+    </form>
+  {% else %}
+    <span title="not bridging">❌</span>
+    <form style="display:inline" method="post" action="/admin/enable/{{ user.key.urlsafe().decode() }}">
+      <input type="hidden" name="protocol" value="{{ protocol.LABEL }}">
+      &nbsp; <input type="submit" value="Enable" class="btn btn-default" />
+    </form>
+  {% endif %}
+  {% include 'admin_debug_link.html' %}
+  </div>
+</div>
+{% endfor %}
 
 <script async src="https://iframely.net/embed.js?key={{ IFRAMELY_API_KEY_MD5 }}&theme=light"></script>
 

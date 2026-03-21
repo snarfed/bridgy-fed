@@ -10,7 +10,7 @@
 </div>
 
 <div class="row iframely-row">
-  <div class="iframely-embed col-lg-6 col-md-8 col-sm-12">
+  <div class="iframely-embed col-lg-6 col-md-8 col-xs-12">
     <div class="iframely-responsive">
       {# {{ obj_html|safe }} #}
       <a data-iframely-url href="{{ obj.as1['url'] }}"></a>
@@ -18,34 +18,53 @@
   </div>
 </div>
 
+<hr>
 
-<table>
-  <tr>
-    <th>Id</th>
+<div class="row line">
+  <div class="col-xs-2 field">Id</div>
+  <div class="col-xs-10 value">
     {% set protocol = obj.source_protocol %}
     {% set id = obj.key.id() %}
-    <td>{% include 'admin_debug_link.html' %}</td>
-  </tr>
-  <tr><th>Type</th><td>{{ obj.type }}</td></tr>
-  <tr><th>Protocol</th><td>{{ obj.source_protocol }}</td></tr>
-  <tr><th>User</th><td>
-      {{ (user.html_link() if user else obj.actor_link())|safe }}
-      {% if user %}
-        (<a href="/admin/user/{{ user.key.urlsafe().decode() }}">admin</a>)
-      {% endif %}
-  </td></tr>
-  <tr><th>Created</th><td>{{ created }} (PT)</td></tr>
-  <tr><th>Updated</th><td>{{ updated }} (PT)</td></tr>
-  <tr><th>Deleted</th><td>{{ obj.deleted or 'no'}}</td></tr>
-  {% for protocol, id in bridged_ids.items() %}
-    <tr>
-      <th>
-        {{ protocol.LABEL }}
-      </th>
-      <td>{% include 'admin_debug_link.html' %}</td>
-    </tr>
-  {% endfor %}
-</table>
+    {% include 'admin_debug_link.html' %}
+  </div>
+</div>
+<div class="row line">
+  <div class="col-xs-2 field">Type</div>
+  <div class="col-xs-10 value">{{ obj.type }}</div>
+</div>
+<div class="row line">
+  <div class="col-xs-2 field">Protocol</div>
+  <div class="col-xs-10 value">{{ obj.source_protocol }}</div>
+</div>
+<div class="row line">
+  <div class="col-xs-2 field">User</div>
+  <div class="col-xs-10 value">
+    {{ (user.html_link() if user else obj.actor_link())|safe }}
+    {% if user %}
+      (<a href="/admin/user/{{ user.key.urlsafe().decode() }}">admin</a>)
+    {% endif %}
+  </div>
+</div>
+<div class="row line">
+  <div class="col-xs-2 field">Created</div>
+  <div class="col-xs-10 value">{{ created }} (PT)</div>
+</div>
+<div class="row line">
+  <div class="col-xs-2 field">Updated</div>
+  <div class="col-xs-10 value">{{ updated }} (PT)</div>
+</div>
+<div class="row line">
+  <div class="col-xs-2 field">Deleted</div>
+  <div class="col-xs-10 value">{{ obj.deleted or 'no' }}</div>
+</div>
+{% for protocol, id in bridged_ids.items() %}
+<div class="row line">
+  <div class="col-xs-2 field">{{ protocol.LABEL }}</div>
+  <div class="col-xs-10 value">{% include 'admin_debug_link.html' %}</div>
+</div>
+{% endfor %}
+
+<hr>
 
 {% for field in 'as2', 'bsky', 'mf2', 'nostr', 'our_as1', 'raw', 'as1' %}
   {% set val = getattr(obj, field) %}

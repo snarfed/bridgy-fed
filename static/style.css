@@ -34,17 +34,19 @@
   text-align: left;
 }
 
-#admin .col-sm-2 {
+#admin .line {
+  margin-bottom: .2em;
+}
+
+#admin .field {
   text-align: right;
 }
 
-#admin th {
-  text-align: right;
-  font-weight: inherit;
-}
-
-#admin td {
-  padding-left: .5em;
+#admin .value {
+  display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
   font-weight: normal;
 }
 
