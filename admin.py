@@ -1,7 +1,9 @@
 """Admin pages and endpoints: admin UI, hub status, memcache API, etc."""
 from datetime import datetime
 import logging
+from urllib.parse import quote
 
+from google.cloud import ndb
 from google.cloud.ndb import Key
 
 import arroba.server
@@ -90,19 +92,41 @@ def save_blocklist(id):
     return redirect('/admin/')
 
 
-@app.post('/admin/user')
-def admin_user_lookup():
+@app.get('/admin/user')
+def admin_user_search():
     """
-    Form values:
-      id (str)
+    Query params:
+      query (str)
     """
-    id = request.values['id'].strip()
-    try:
-        user = models.load_user(id, allow_opt_out=True)
-        return redirect(f'/admin/user/{user.key.urlsafe().decode()}')
-    except RuntimeError as e:
-        flash(str(e))
-        return redirect('/admin/')
+    query = request.values['query'].strip()
+
+    if query.endswith('.ap.brid.gy'):
+        query = ids.translate_user_id(id=query, from_=ATProto, to=ActivityPub)
+    elif query.endswith('.brid.gy'):
+        query = query.rsplit('.', 3)[0]
+
+    if not query:
+        error('empty query')
+
+    users = {}  # maps key id to user
+    for proto in set(PROTOCOLS.values()):
+        if proto:
+            users.update({
+                u.key.id(): u for u in proto.query(ndb.OR(
+                    proto.key == proto(id=query).key,
+                    proto.handle == query,
+                    proto.handle_as_domain == query,
+                    proto.handle_pay_level_domain == query))
+            })
+
+    for user in users.values():
+        user.bridged_ids = {
+            proto: ids.translate_user_id(id=user.key.id(), from_=user, to=proto)
+            for proto in (ATProto, ActivityPub, Nostr)
+            if not isinstance(user, proto)
+        }
+
+    return render('admin_users.html', query=query, users=users.values())
 
 
 @app.get('/admin/user/<key>')
@@ -112,17 +136,7 @@ def admin_user(key):
         flash('user not found')
         return redirect('/admin/')
 
-    bridged_ids = {
-        proto: ids.translate_user_id(id=user.key.id(), from_=user, to=proto)
-        for proto in (ATProto, ActivityPub, Nostr)
-        if not isinstance(user, proto)
-    }
-
-    return render(
-        'admin_user.html',
-        user=user,
-        bridged_ids=bridged_ids,
-        **format_properties(user))
+    return redirect(f'/admin/user?query={quote(user.key.id())}')
 
 
 @app.post('/admin/object')

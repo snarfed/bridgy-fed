@@ -12,10 +12,10 @@
 <hr>
 
 <div class="row">
-  <form method="post" action="/admin/user">
+  <form method="get" action="/admin/user">
     <label class="col-sm-2" for="id">Look up user:</label>
     <div class="col-sm-10">
-      <input name="id" placeholder="user id or handle" size="30" required>
+      <input name="query" placeholder="user id or handle" size="30" required>
       <input type="submit" value="Go">
     </div>
   </form>

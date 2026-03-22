@@ -122,31 +122,64 @@ class AdminTest(TestCase):
         self.assertEqual(200, resp.status_code)
         self.assertIn('<form', resp.get_data(as_text=True))
 
-    def test_admin_user_redirect(self):
-        resp = self.client.post('/admin/user', data={'id': 'fake:user'})
-        self.assertEqual(302, resp.status_code)
-        key = self.user.key.urlsafe().decode()
-        self.assertEqual(f'/admin/user/{key}', resp.headers['Location'])
-
-    def test_admin_user_redirect_not_found(self):
-        resp = self.client.post('/admin/user', data={'id': 'fake:nope'})
-        self.assertEqual(302, resp.status_code)
-        self.assertEqual(f'/admin/', resp.headers['Location'])
-
-    def test_admin_user(self):
-        self.user = self.make_user('fake:user', cls=Fake, obj_as1={
-            'objectType': 'person',
-            'displayName': 'Alice',
-            'summary': 'hi there',
-            'image': [{'url': 'https://example.com/pic.jpg'}],
-        })
-        key = self.user.key.urlsafe().decode()
-        resp = self.client.get(f'/admin/user/{key}')
+    def test_admin_users_by_id(self):
+        resp = self.client.get('/admin/user?query=fake:user')
         self.assertEqual(200, resp.status_code)
         body = resp.get_data(as_text=True)
         self.assertIn('fake:user', body)
-        self.assertIn('Alice', body)
-        # self.assertIn('hi there', body)
+        self.assertIn('Created', body)
+        self.assertIn('/admin/user?query=fake%3Auser', body)
+
+    def test_admin_users_by_handle(self):
+        resp = self.client.get('/admin/user?query=fake:handle:user')
+        self.assertEqual(200, resp.status_code)
+        body = resp.get_data(as_text=True)
+        self.assertIn('fake:user', body)
+
+    def test_admin_users_by_handle_as_domain(self):
+        resp = self.client.get('/admin/user?query=fake-handle-user')
+        self.assertEqual(200, resp.status_code)
+        self.assertIn('fake:user', resp.get_data(as_text=True))
+
+    def test_admin_users_not_found(self):
+        resp = self.client.get('/admin/user?query=fake:nope')
+        self.assertEqual(200, resp.status_code)
+        body = resp.get_data(as_text=True)
+        self.assertNotIn('fake:user', body)
+        self.assertIn('No users found', body)
+
+    def test_admin_users_multiple(self):
+        # OtherFake('fake:handle:user').handle = 'fake:handle:user' (replace('other:', ...) is noop)
+        # so both Fake('fake:user') and OtherFake('fake:handle:user') match this handle
+        self.make_user('fake:handle:user', cls=OtherFake, obj_key=self.user.obj_key)
+
+        resp = self.client.get('/admin/user?query=fake:handle:user')
+        self.assertEqual(200, resp.status_code)
+        body = resp.get_data(as_text=True)
+        self.assertIn('fake:user', body)
+        self.assertIn('fake:handle:user', body)
+        # TOC with fragment links
+        self.assertIn('href="#', body)
+
+    def test_admin_users_strip_brid_gy(self):
+        resp = self.client.get('/admin/user?query=fake-handle-user.fa.brid.gy')
+        self.assertEqual(200, resp.status_code)
+        self.assertIn('fake:user', resp.get_data(as_text=True))
+
+    def test_admin_users_ap_brid_gy(self):
+        # .ap.brid.gy suffix triggers translate_user_id (ATProto → AP)
+        # for Fake protocol, translate_user_id(id=..., from_=ATProto, to=ActivityPub)
+        # goes through the _, 'activitypub' case: subdomain_wrap(ATProto, '/ap/ID')
+        # which gives https://atproto.brid.gy/ap/ID. That ID won't match anything,
+        # so users list is empty — just verify the endpoint doesn't crash.
+        resp = self.client.get('/admin/user?query=alice.ap.brid.gy')
+        self.assertEqual(200, resp.status_code)
+
+    def test_admin_user(self):
+        key = self.user.key.urlsafe().decode()
+        resp = self.client.get(f'/admin/user/{key}')
+        self.assertEqual(302, resp.status_code)
+        self.assertEqual('/admin/user?query=fake%3Auser', resp.headers['Location'])
 
     def test_admin_user_not_found(self):
         bad_key = Key('Fake', 'fake:nonexistent').urlsafe().decode()

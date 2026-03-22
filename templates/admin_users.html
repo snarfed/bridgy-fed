@@ -1,7 +1,7 @@
 {% set body_id = 'admin' %}
 {% extends "base.html" %}
 
-{% block title %}Admin - Bridgy Fed{% endblock %}
+{% block title %}Admin users - Bridgy Fed{% endblock %}
 
 {% block content %}
 
@@ -9,28 +9,42 @@
   <a href="/admin/">← Admin</a>
 </div>
 
-{% if user.obj %}
+<h3>Users matching &ldquo;{{ query }}&rdquo;</h3>
+
+{% if not users %}
+  <p>No users found.</p>
+{% endif %}
+
+<ul>
+{% for user in users %}
+  <li><a href="#{{ user.key.urlsafe().decode() }}">
+      {{ user.handle_or_id() }} on {{ user.PHRASE }}
+  </a></li>
+{% endfor %}
+</ul>
+
+{% for user in users %}
+<hr id="{{ user.key.urlsafe().decode() }}">
+
+{% if user.obj and user.obj.as1 and user.obj.as1.get('url') %}
 <div class="row">
   <div class="iframely-embed col-lg-6 col-md-8 col-sm-12">
     <div class="iframely-responsive">
-      {# {{ obj_html|safe }} #}
       <a data-iframely-url href="{{ user.obj.as1['url'] }}"></a>
     </div>
   </div>
 </div>
 {% endif %}
 
-<hr>
-
 <div class="row">
   {% include 'user_with_links.html' %}
 </div>
 
-<hr>
-
 <div class="row line">
   <div class="col-xs-2"></div>
   <div class="col-xs-10 value">
+    <a href="/admin/user?query={{ user.key.id()|urlencode }}">Admin →</a>
+    &nbsp;&nbsp;
     <a href="{{ user.user_page_path() }}">User page →</a>
     {% if user.obj %}
       &nbsp;&nbsp;
@@ -70,19 +84,19 @@
 </div>
 <div class="row line">
   <div class="col-xs-2 field">Created</div>
-  <div class="col-xs-10 value">{{ created }} (PT)</div>
+  <div class="col-xs-10 value">{{ user.created }} (PT)</div>
 </div>
 <div class="row line">
   <div class="col-xs-2 field">Updated</div>
-  <div class="col-xs-10 value">{{ updated }} (PT)</div>
+  <div class="col-xs-10 value">{{ user.updated }} (PT)</div>
 </div>
-{% for protocol, id in bridged_ids.items() %}
+
+{% for protocol, id in user.bridged_ids.items() %}
 <div class="row line">
   <div class="col-xs-2 field">{{ protocol.LABEL }}</div>
   <div class="col-xs-10 value">
   {% if user.is_enabled(protocol) %}
     <span title="bridging">✅</span>
-    {# {{ user.html_link(proto=protocol, name=False)|safe }} #}
     <form style="display:inline" method="post" action="/admin/disable/{{ user.key.urlsafe().decode() }}">
       <input type="hidden" name="protocol" value="{{ protocol.LABEL }}">
       &nbsp; <input type="submit" value="Disable" class="btn btn-default" />
@@ -97,6 +111,8 @@
   {% include 'admin_debug_link.html' %}
   </div>
 </div>
+{% endfor %}
+
 {% endfor %}
 
 <script async src="https://iframely.net/embed.js?key={{ IFRAMELY_API_KEY_MD5 }}&theme=light"></script>
