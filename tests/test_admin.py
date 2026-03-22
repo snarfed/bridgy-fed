@@ -210,22 +210,19 @@ class AdminTest(TestCase):
 
         resp = self.client.post('/admin/object', data={'id': 'http://in.st/first'})
         self.assertEqual(302, resp.status_code)
-        second_key = Object(id='http://in.st/second').key.urlsafe().decode()
-        self.assertEqual(f'/admin/object/{second_key}', resp.headers['Location'])
+        self.assertEqual('/admin/object/http://in.st/second', resp.headers['Location'])
 
     def test_admin_object(self):
         obj = self.store_object(id='fake:obj', source_protocol='fake',
                                 our_as1={'objectType': 'note', 'content': 'hi'})
-        key = obj.key.urlsafe().decode()
-        resp = self.client.get(f'/admin/object/{key}')
+        resp = self.client.get('/admin/object/fake:obj')
         self.assertEqual(200, resp.status_code)
         body = resp.get_data(as_text=True)
         self.assertIn('fake:obj', body)
         self.assertIn('note', body)
 
     def test_admin_object_not_found(self):
-        bad_key = Key('Object', 'nonexistent').urlsafe().decode()
-        resp = self.client.get(f'/admin/object/{bad_key}')
+        resp = self.client.get('/admin/object/nonexistent')
         self.assertEqual(302, resp.status_code)
         self.assertEqual(f'/admin/', resp.headers['Location'])
 
@@ -236,10 +233,9 @@ class AdminTest(TestCase):
             'verb': 'post',
             'object': {'id': 'fake:inner'},
         })
-        resp = self.client.get(f'/admin/object/{activity.key.urlsafe().decode()}')
+        resp = self.client.get('/admin/object/fake:activity')
         self.assertEqual(302, resp.status_code)
-        self.assertEqual(f'/admin/object/{inner.key.urlsafe().decode()}',
-                         resp.headers['Location'])
+        self.assertEqual('/admin/object/fake:inner', resp.headers['Location'])
 
     def test_enable(self):
         key = self.user.key.urlsafe().decode()
@@ -268,6 +264,6 @@ class AdminTest(TestCase):
             'user_key': self.user.key.urlsafe().decode(),
         })
         self.assertEqual(302, resp.status_code)
-        self.assertEqual(f'/admin/object/{obj_key}', resp.headers['Location'])
+        self.assertEqual('/admin/object/fake:obj', resp.headers['Location'])
         self.assert_task(mock_create_task, 'receive', obj_id='fake:obj',
                          authed_as='fake:user', force='true')

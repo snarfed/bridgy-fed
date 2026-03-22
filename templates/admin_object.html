@@ -41,7 +41,7 @@
   <div class="col-xs-10 value">
     {% if user %}
       {{ user.html_link()|safe }}
-      (<a href="/admin/user/{{ user.key.urlsafe().decode() }}">admin</a>)
+      &nbsp;(<a href="/admin/user/{{ user.key.urlsafe().decode() }}">admin</a>)
     {% else %}
       {{ obj.actor_link()|safe }}
     {% endif %}

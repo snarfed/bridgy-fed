@@ -64,6 +64,8 @@
     {% include 'admin_debug_link.html' %}
   </div>
 </div>
+
+{% if user.handle != user.key.id() %}
 <div class="row line">
   <div class="col-xs-2 field">Handle</div>
   <div class="col-xs-10 value">
@@ -72,6 +74,8 @@
     {% include 'admin_debug_link.html' %}
   </div>
 </div>
+{% endif %}
+
 <div class="row line">
   <div class="col-xs-2 field">Status</div>
   <div class="col-xs-10 value">

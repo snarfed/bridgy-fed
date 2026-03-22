@@ -27,6 +27,7 @@ from atproto import ATProto
 import ids
 from nostr import Nostr
 import pages
+from web import Web
 
 BLOCKLISTS = {
     bl.key_id: bl for bl in (
@@ -146,26 +147,26 @@ def admin_object_lookup():
       id (str)
     """
     id = request.values['id'].strip()
-    for proto in set(PROTOCOLS.values()):
+    # ordered
+    for proto in ActivityPub, ATProto, Nostr, Web:
         if proto and proto.owns_id(id) is not False:
             if obj := proto.load(id):
-                return redirect(f'/admin/object/{obj.key.urlsafe().decode()}')
+                return redirect(f'/admin/object/{obj.key.id()}')
 
     flash(f"Couldn't resolve {id}")
     return redirect('/admin/')
 
 
-@app.get('/admin/object/<key>')
-def admin_object(key):
-    obj = Key(urlsafe=key).get()
-    if not obj or not isinstance(obj, Object):
+@app.get('/admin/object/<path:id>')
+def admin_object(id):
+    if not (obj := Object.get_by_id(id)):
         flash('object not found')
         return redirect('/admin/')
 
     if obj.as1 and as1.object_type(obj.as1) in as1.CRUD_VERBS:
         if inner_id := as1.get_object(obj.as1).get('id'):
             if inner := Object.get_by_id(inner_id):
-                return redirect(f'/admin/object/{inner.key.urlsafe().decode()}')
+                return redirect(f'/admin/object/{inner.key.id()}')
 
     proto = PROTOCOLS[obj.source_protocol]
     user = None
@@ -194,7 +195,7 @@ def admin_receive():
     user_key = Key(urlsafe=request.values['user_key'])
     common.create_task(queue='receive', obj_id=obj_key.id(),
                        authed_as=user_key.id(), force='true')
-    return redirect(f'/admin/object/{obj_key.urlsafe()}')
+    return redirect(f'/admin/object/{obj_key.id()}')
 
 
 @app.post('/admin/enable/<key>')
