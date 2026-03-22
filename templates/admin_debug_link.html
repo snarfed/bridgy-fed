@@ -10,14 +10,17 @@
   else ''
 %}
 
-{% if prefix %}
-  {% if id.startswith('did:') %}
-    {% set prefix = prefix + 'at://' %}
-  {% endif %}
-  <a href="{{ prefix }}{{ id }}">
+{% if prefix and id.startswith('did:') %}
+  {% set prefix = prefix + 'at://' %}
 {% endif %}
-<code class="id">{{ id }}</code>
-{% if prefix %}</a>{% endif %}
+
+<span class="id-text">
+  {% if prefix %}
+    <a href="{{ prefix }}{{ id }}">
+  {% endif %}
+  <code class="id">{{ id }}</code>
+  </a>
+</span>
 
 <button class="btn btn-default btn-copy glyphicon glyphicon-duplicate"
         onclick="copy('{{ id }}')"></button>

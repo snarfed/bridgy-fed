@@ -17,14 +17,14 @@
 
 <ul>
 {% for user in users %}
-  <li><a href="#{{ user.key.urlsafe().decode() }}">
+  <li><a href="#{{ user.key.id() }}">
       {{ user.handle_or_id() }} on {{ user.PHRASE }}
   </a></li>
 {% endfor %}
 </ul>
 
 {% for user in users %}
-<hr id="{{ user.key.urlsafe().decode() }}">
+<hr id="{{ user.key.id() }}">
 
 {% if user.obj and user.obj.as1 and user.obj.as1.get('url') %}
 <div class="row">
@@ -48,7 +48,7 @@
     <a href="{{ user.user_page_path() }}">User page →</a>
     {% if user.obj %}
       &nbsp;&nbsp;
-      <a href="/admin/object/{{ user.obj_key.urlsafe().decode() }}">Profile (admin) →</a>
+      <a href="/admin/object/{{ user.obj_key.id() }}">Profile (admin) →</a>
     {% endif %}
   </div>
 </div>
@@ -67,9 +67,9 @@
 <div class="row line">
   <div class="col-xs-2 field">Handle</div>
   <div class="col-xs-10 value">
-    {{ user.handle }}
-    <button class="btn btn-default btn-copy glyphicon glyphicon-duplicate"
-            onclick="copy('{{ user.handle }}')"></button>
+    {% set protocol = user.LABEL %}
+    {% set id = user.handle %}
+    {% include 'admin_debug_link.html' %}
   </div>
 </div>
 <div class="row line">

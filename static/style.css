@@ -43,11 +43,18 @@
 }
 
 #admin .value {
-  display: block;
+  display: flex;
+  align-items: center;
   overflow: hidden;
-  text-overflow: ellipsis;
   white-space: nowrap;
   font-weight: normal;
+}
+
+#admin .id-text {
+  min-width: 0;
+  flex: 1 1 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 #logins img {
