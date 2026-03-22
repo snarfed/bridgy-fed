@@ -44,14 +44,7 @@ logger = logging.getLogger(__name__)
 # admin UI
 #
 def render(template, **vars):
-    return pages.render(
-        template,
-        PROTOCOLS={
-            'activitypub': ActivityPub,
-            'atproto': ATProto,
-            'nostr': Nostr,
-        },
-        **vars)
+    return pages.render(template, **vars)
 
 
 def format_properties(entity):
@@ -111,25 +104,25 @@ def admin_user_search():
     if not query:
         error('empty query')
 
-    users = {}  # maps key id to user
-    for proto in set(PROTOCOLS.values()):
-        if proto:
-            users.update({
-                u.key.id(): u for u in proto.query(ndb.OR(
-                    proto.key == proto(id=query).key,
-                    proto.handle == query,
-                    proto.handle_as_domain == query,
-                    proto.handle_pay_level_domain == query))
-            })
+    futures = [
+        proto.query(ndb.OR(
+            proto.key == proto(id=query).key,
+            proto.handle == query,
+            proto.handle_as_domain == query,
+            proto.handle_pay_level_domain == query)).fetch_async()
+        for proto in PROTOCOLS.values() if proto]
 
-    for user in users.values():
-        user.bridged_ids = {
-            proto: ids.translate_user_id(id=user.key.id(), from_=user, to=proto)
-            for proto in (ATProto, ActivityPub, Nostr)
-            if not isinstance(user, proto)
-        }
+    users = []
+    for future in futures:
+        for user in future.get_result():
+            user.bridged_ids = {
+                proto: ids.translate_user_id(id=user.key.id(), from_=user, to=proto)
+                for proto in (ATProto, ActivityPub, Nostr)
+                if not isinstance(user, proto)
+            }
+            users.append(user)
 
-    return render('admin_users.html', query=query, users=users.values())
+    return render('admin_users.html', query=query, users=users)
 
 
 @app.get('/admin/user/<key>')

@@ -149,8 +149,9 @@ class AdminTest(TestCase):
         self.assertIn('No users found', body)
 
     def test_admin_users_multiple(self):
-        # OtherFake('fake:handle:user').handle = 'fake:handle:user' (replace('other:', ...) is noop)
-        # so both Fake('fake:user') and OtherFake('fake:handle:user') match this handle
+        # OtherFake('fake:handle:user').handle = 'fake:handle:user'
+        # (replace('other:', ...) is noop) so both Fake('fake:user') and
+        # OtherFake('fake:handle:user') match this handle
         self.make_user('fake:handle:user', cls=OtherFake, obj_key=self.user.obj_key)
 
         resp = self.client.get('/admin/user?query=fake:handle:user')
