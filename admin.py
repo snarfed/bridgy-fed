@@ -80,12 +80,14 @@ def admin_home():
     return render('admin.html', filters=filters)
 
 
-@app.post('/admin/blocklist/<id>')
-def save_blocklist(id):
+@app.post('/admin/blocklist')
+def save_blocklist():
     """
     Form values:
+      id (str): blocklist key id
       values (str)
     """
+    id = request.values['id']
     values = [v.strip() for v in request.values['values'].splitlines() if v.strip()]
     BLOCKLISTS[id].obj.raw = values
     BLOCKLISTS[id].obj.put()
@@ -198,12 +200,14 @@ def admin_receive():
     return redirect(f'/admin/object/{obj_key.id()}')
 
 
-@app.post('/admin/enable/<key>')
-def admin_enable(key):
+@app.post('/admin/enable')
+def admin_enable():
     """
     Form values:
+      key (str): urlsafe user key
       protocol (str)
     """
+    key = request.values['key']
     user = Key(urlsafe=key).get()
     proto = PROTOCOLS[request.values['protocol']]
     user.enable_protocol(proto)
@@ -211,12 +215,14 @@ def admin_enable(key):
     return redirect(f'/admin/user/{key}')
 
 
-@app.post('/admin/disable/<key>')
-def admin_disable(key):
+@app.post('/admin/disable')
+def admin_disable():
     """
     Form values:
+      key (str): urlsafe user key
       protocol (str)
     """
+    key = request.values['key']
     user = Key(urlsafe=key).get()
     proto = PROTOCOLS[request.values['protocol']]
     user.disable_protocol(proto)

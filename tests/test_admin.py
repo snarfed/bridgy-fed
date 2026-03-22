@@ -197,8 +197,10 @@ class AdminTest(TestCase):
         self.assertIn('another', body)
 
     def test_admin_save_blocklist(self):
-        resp = self.client.post('/admin/blocklist/internal:content-blocklist',
-                                data={'values': 'foo\nbar\n\nbaz\n'})
+        resp = self.client.post('/admin/blocklist', data={
+            'id': 'internal:content-blocklist',
+            'values': 'foo\nbar\n\nbaz\n',
+        })
         self.assertEqual(302, resp.status_code)
         self.assertEqual(['foo', 'bar', 'baz'],
                          Object.get_by_id('internal:content-blocklist').raw)
@@ -239,8 +241,10 @@ class AdminTest(TestCase):
 
     def test_enable(self):
         key = self.user.key.urlsafe().decode()
-        resp = self.client.post(f'/admin/enable/{key}',
-                                data={'protocol': 'activitypub'})
+        resp = self.client.post('/admin/enable', data={
+            'key': key,
+            'protocol': 'activitypub',
+        })
         self.assertEqual(302, resp.status_code)
         self.assertEqual(f'/admin/user/{key}', resp.headers['Location'])
         self.assertEqual(['activitypub'], self.user.key.get().enabled_protocols)
@@ -249,8 +253,10 @@ class AdminTest(TestCase):
         self.user.enabled_protocols = ['activitypub']
         self.user.put()
         key = self.user.key.urlsafe().decode()
-        resp = self.client.post(f'/admin/disable/{key}',
-                                data={'protocol': 'activitypub'})
+        resp = self.client.post('/admin/disable', data={
+            'key': key,
+            'protocol': 'activitypub',
+        })
         self.assertEqual(302, resp.status_code)
         self.assertEqual(f'/admin/user/{key}', resp.headers['Location'])
         self.assertEqual([], self.user.key.get().enabled_protocols)

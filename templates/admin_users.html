@@ -101,13 +101,15 @@
   <div class="col-xs-10 value">
   {% if user.is_enabled(protocol) %}
     <span title="bridging">✅</span>
-    <form style="display:inline" method="post" action="/admin/disable/{{ user.key.urlsafe().decode() }}">
+    <form style="display:inline" method="post" action="/admin/disable">
+      <input type="hidden" name="key" value="{{ user.key.urlsafe().decode() }}">
       <input type="hidden" name="protocol" value="{{ protocol.LABEL }}">
       &nbsp; <input type="submit" value="Disable" class="btn btn-default" />
     </form>
   {% else %}
     <span title="not bridging">❌</span>
-    <form style="display:inline" method="post" action="/admin/enable/{{ user.key.urlsafe().decode() }}">
+    <form style="display:inline" method="post" action="/admin/enable">
+      <input type="hidden" name="key" value="{{ user.key.urlsafe().decode() }}">
       <input type="hidden" name="protocol" value="{{ protocol.LABEL }}">
       &nbsp; <input type="submit" value="Enable" class="btn btn-default" />
     </form>

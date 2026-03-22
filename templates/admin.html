@@ -45,7 +45,8 @@
   filters.MEDIA_BLOCKLIST,
 ) %}
 <div class="row">
-  <form method="post" action="/admin/blocklist/{{ blocklist.key_id }}">
+  <form method="post" action="/admin/blocklist">
+    <input type="hidden" name="id" value="{{ blocklist.key_id }}">
     <label for="values" class="col-sm-2">
       {{ blocklist.key_id.removeprefix('internal:').replace('-', ' ').capitalize() }}:
     </label>
