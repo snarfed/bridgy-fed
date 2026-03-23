@@ -110,7 +110,7 @@ def admin_user_search():
             proto.handle == query,
             proto.handle_as_domain == query,
             proto.handle_pay_level_domain == query)).fetch_async()
-        for proto in PROTOCOLS.values() if proto]
+        for proto in set(PROTOCOLS.values()) if proto]
 
     users = []
     for future in futures:
