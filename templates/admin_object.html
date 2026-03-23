@@ -21,6 +21,12 @@
 <hr>
 
 <div class="row line">
+  <div class="col-xs-10 col-xs-offset-2 value">
+    <a href="https://console.cloud.google.com/logs/query;query=SEARCH%2528%22%60{{ obj.key.id()|urlencode|replace("/", "%2F") }}%60%22%2529;duration=P7D?project=bridgy-federated" target="_blank">Search logs</a>
+  </div>
+</div>
+
+<div class="row line">
   <div class="col-xs-2 field">Id</div>
   <div class="col-xs-10 value">
     {% set protocol = obj.source_protocol %}
