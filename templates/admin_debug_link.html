@@ -3,24 +3,26 @@
   {% set id = copy.uri %}
 {% endif %}
 
-{% set prefix =
-  'https://pdsls.dev/' if protocol == 'atproto'
-  else 'https://browser.pub/' if protocol == 'activitypub'
-  else 'https://pin13.net/mf2/?url=' if protocol == 'web'
-  else ''
-%}
+{% if id %}
+  {% set prefix =
+    'https://pdsls.dev/' if protocol in (ATProto, 'atproto')
+    else 'https://browser.pub/' if protocol in (ActivityPub, 'activitypub')
+    else 'https://pin13.net/mf2/?url=' if protocol in (Web, 'web')
+    else None
+  %}
 
-{% if prefix and id.startswith('did:') %}
-  {% set prefix = prefix + 'at://' %}
-{% endif %}
-
-<span class="id-text">
-  {% if prefix %}
-    <a href="{{ prefix }}{{ id }}">
+  {% if prefix and id.startswith('did:') %}
+    {% set prefix = prefix + 'at://' %}
   {% endif %}
-  <code class="id">{{ id }}</code>
-  </a>
-</span>
 
-<button class="btn btn-default btn-copy glyphicon glyphicon-duplicate"
-        onclick="copy('{{ id }}')"></button>
+  <span class="id-text">
+    {% if prefix %}
+      <a href="{{ prefix }}{{ id }}">
+    {% endif %}
+    <code class="id">{{ id }}</code>
+    </a>
+  </span>
+
+  <button class="btn btn-default btn-copy glyphicon glyphicon-duplicate"
+          onclick="copy('{{ id }}')"></button>
+{% endif %}
