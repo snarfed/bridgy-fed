@@ -2817,6 +2817,39 @@ Sed tortor neque, aliquet quis posuere aliquam, imperdiet sitamet […]
 
         mock_create_task.assert_called()  # atproto-commit
 
+    @patch.object(tasks_client, 'create_task')
+    def test_send_create_retries_as_update_on_conflict(self, mock_create_task):
+        # self.test_send_bare_note_existing_repo()
+
+        self.make_user_and_repo()#obj_as1={'objectType': 'person', 'foo': 'bar'})
+
+        # store profile record
+        create = Write(action=Action.CREATE, collection='app.bsky.actor.profile',
+                       rkey='self', record=ACTOR_PROFILE_BSKY)
+        self.storage.commit(self.repo, create)
+
+        # mock_create_task.reset_mock()
+
+        # obj = Object.get_by_id('fake:post')
+        # last_tid = arroba.util.int_to_tid(arroba.util._tid_ts_last)
+        # # remove copy so send treats it as a new CREATE
+        # obj.copies = []
+        # obj.put()
+
+        # # patch next_tid to return the same rkey to force a conflict
+        # obj.our_as1
+        # with patch('atproto.next_tid', return_value=last_tid):
+        obj = self.store_object(id='fake:profile:user', our_as1={
+            'objectType': 'person',
+            'displayName': 'updated',
+        })
+        self.assertTrue(ATProto.send(obj, 'https://bsky.brid.gy', from_user=self.user))
+
+        # should update record
+        repo = self.storage.load_repo('did:plc:user')
+        profile = repo.get_record('app.bsky.actor.profile', 'self')
+        self.assert_equals('updated', profile['displayName'])
+
     @patch.object(tasks_client, 'create_task', return_value=Task(name='my task'))
     def test_send_article(self, mock_create_task):
         user = self.make_user_and_repo()

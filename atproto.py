@@ -972,11 +972,29 @@ class ATProto(User, Protocol):
             with arroba.memcache.Lease(memcache.memcache, f'arroba-commit-{did}',
                                        retries=250):
                 arroba.server.storage.commit(repo, writes)
-        except (ValueError, InactiveRepo) as e:
-            # update and delete raise ValueError if no record exists for this
-            # collection/rkey
-            logger.warning(e)
-            return False
+
+        except ValueError as e:
+            # if a CREATE conflicts with an existing record, retry as UPDATE.
+            # (this exception and error message comes from arroba.mst.MST.add)
+            msg = str(e)
+            prefix = 'There is already a value at key: '
+            if not msg.startswith(prefix):
+                # probably a DELETE but the record doesn't exist
+                logger.warning(e)
+                return False
+
+            path = msg.removeprefix(prefix)
+            for i, write in enumerate(writes):
+                if (write.action == Action.CREATE
+                        and f'{write.collection}/{write.rkey}' == path):
+                    writes[i] = write._replace(action=Action.UPDATE)
+                    logger.info(f'Retrying with UPDATE for conflict at {path}')
+                    arroba.server.storage.commit(repo, writes)
+                    break
+            else:
+                # ¯\_(ツ)_/¯
+                logger.warning(e)
+                return False
 
         logger.info(f'  seq {repo.head.seq}')
 
