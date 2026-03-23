@@ -22,6 +22,8 @@ class AdminTest(TestCase):
     def setUp(self):
         super().setUp()
         self.user = self.make_user('fake:user', cls=Fake)
+        for blocklist in 'content', 'domain', 'media':
+            Object(id=f'internal:{blocklist}-blocklist', raw=[]).put()
 
     def test_memcache_evict_key(self):
         self.user.key.get()
