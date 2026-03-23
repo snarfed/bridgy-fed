@@ -34,6 +34,9 @@ dispatch:
   - url: "*.brid.gy/xrpc/com.atproto.repo.importRepo"
     service: router
 
+  - url: "*.brid.gy/xrpc/com.atproto.repo.getRepo"
+    service: router
+
   - url: "*.brid.gy/xrpc/com.atproto.sync.subscribeRepos"
     service: hub
 
