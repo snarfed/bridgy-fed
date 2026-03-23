@@ -13,14 +13,17 @@ entrypoint: gunicorn --workers 2 --threads 15 --timeout 60 -b :$PORT app:app
 
 # background: https://github.com/snarfed/bridgy/issues/578
 # https://github.com/snarfed/bridgy/issues/1051
-instance_class: F1
+# instance_class: F1
 automatic_scaling:
   max_instances: 200
   max_idle_instances: 1
-  # target_cpu_utilization: .9
-  target_throughput_utilization: .8
-  min_pending_latency: 2s
   max_concurrent_requests: 30
+  min_pending_latency: 2s
+
+  # target_cpu_utilization: .9
+
+  # this increased our instance count badly, as of 2026-03
+  # target_throughput_utilization: .8
 
 inbound_services:
 - warmup
