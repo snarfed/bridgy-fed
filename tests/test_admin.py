@@ -8,6 +8,7 @@ from google.cloud.tasks_v2.types import Task
 from oauth_dropins.webutil.appengine_config import tasks_client
 from oauth_dropins.webutil import util
 
+from activitypub import ActivityPub
 import admin
 import common
 import config
@@ -142,6 +143,18 @@ class AdminTest(TestCase):
         resp = self.client.get('/admin/user?query=fake-handle-user')
         self.assertEqual(200, resp.status_code)
         self.assertIn('fake:user', resp.get_data(as_text=True))
+
+    def test_admin_users_webfinger_with_leading_at(self):
+        self.make_user('http://b.c/a', cls=ActivityPub, webfinger_addr='@a@b.c')
+        resp = self.client.get('/admin/user?query=@A@b.C')
+        self.assertEqual(200, resp.status_code)
+        self.assertIn('http://b.c/a', resp.get_data(as_text=True))
+
+    def test_admin_users_webfinger_without_leading_at(self):
+        self.make_user('http://b.c/a', cls=ActivityPub, webfinger_addr='@a@b.c')
+        resp = self.client.get('/admin/user?query=a@b.c')
+        self.assertEqual(200, resp.status_code)
+        self.assertIn('http://b.c/a', resp.get_data(as_text=True))
 
     def test_admin_users_not_found(self):
         resp = self.client.get('/admin/user?query=fake:nope')

@@ -94,12 +94,14 @@ def admin_user_search():
     Query params:
       query (str)
     """
-    query = request.values['query'].strip()
+    query = orig_query = request.values['query'].strip()
 
     if query.endswith('.ap.brid.gy'):
         query = ids.translate_user_id(id=query, from_=ATProto, to=ActivityPub)
     elif query.endswith('.brid.gy'):
         query = query.rsplit('.', 3)[0]
+    elif '@' in query:
+        query = ids.handle_as_domain(query)
 
     if not query:
         error('empty query')
@@ -122,7 +124,7 @@ def admin_user_search():
             }
             users.append(user)
 
-    return render('admin_users.html', query=query, users=users)
+    return render('admin_users.html', query=orig_query, users=users)
 
 
 @app.get('/admin/user/<key>')

@@ -15,13 +15,15 @@
   <p>No users found.</p>
 {% endif %}
 
-<ul>
-{% for user in users %}
-  <li><a href="#{{ user.key.id() }}">
-      {{ user.handle_or_id() }} on {{ user.PHRASE }}
-  </a></li>
-{% endfor %}
-</ul>
+{% if users|length > 1 %}
+  <ul>
+  {% for user in users %}
+    <li><a href="#{{ user.key.id() }}">
+        {{ user.handle_or_id() }} on {{ user.PHRASE }}
+    </a></li>
+  {% endfor %}
+  </ul>
+{% endif %}
 
 {% for user in users %}
 <hr id="{{ user.key.id() }}">
