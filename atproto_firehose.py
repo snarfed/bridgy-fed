@@ -159,7 +159,7 @@ def subscribe():
         if cursor.cursor:
             cursor.cursor += 1
 
-    last_stored_cursor = cur_timestamp = None
+    last_stored_cursor = cur_timestamp = last_timestamp = None
 
     client = Client(f'https://{os.environ["BGS_HOST"]}',
                     headers={'User-Agent': USER_AGENT})
@@ -189,7 +189,10 @@ def subscribe():
             logger.warning(f'Payload missing seq! {payload}')
             continue
 
-        last_timestamp = cur_timestamp
+        if cur_timestamp and (not last_timestamp or cur_timestamp > last_timestamp):
+            # prevent time from moving backwards for commits with outlier stale
+            # time values. https://github.com/snarfed/bridgy-fed/issues/2348
+            last_timestamp = cur_timestamp
         cur_timestamp = payload['time']
 
         # if we fail processing this commit and raise an exception up to subscriber,

@@ -628,6 +628,48 @@ class ATProtoFirehoseSubscribeTest(ATProtoTestCase):
         self.subscribe()
         self.assertEqual(790, self.cursor.key.get().cursor)
 
+    def test_store_cursor_behind(self):
+        # test that we ignore commits with outlier time values
+        # https://github.com/snarfed/bridgy-fed/issues/2348
+
+        # mock now to always be STORE_CURSOR_FREQ + 2s ahead of cursor.updated so
+        # all four commits trigger storing the updated cursor
+        def _now(tz=None):
+            cursor = atproto_firehose.cursor
+            return (cursor.updated.replace(tzinfo=timezone.utc)
+                    + STORE_CURSOR_FREQ + timedelta(seconds=2))
+
+        util.now = _now
+
+        # commits arrive: now, 2 days ago, 1 day ago, now+1min
+        # the 3rd commit's time (1 day ago) is >= 2nd commit's time (2 days ago),
+        # so the current code spuriously logs "behind" for it
+        assert STORE_CURSOR_FREQ * 4 < timedelta(minutes=5)
+        FakeWebsocketClient.to_receive = [({
+            'op': 1,
+            't': '#commit',
+        }, {
+            'repo': 'did:plc:unknown',
+            'rev': 'abc',
+            'seq': i + 1,
+            'time': time.isoformat(),
+        }) for i, time in enumerate([
+            NOW,
+            NOW - timedelta(days=2),
+            NOW - timedelta(days=1),
+            NOW + timedelta(minutes=5),
+        ])]
+
+        with self.assertLogs() as logs:
+            self.subscribe()
+
+        msgs = [m for m in logs.output if 'updating stored cursor' in m]
+        self.assertEqual(4, len(msgs))
+        self.assertNotIn('behind', msgs[0])
+        self.assertNotIn('behind', msgs[1])
+        self.assertNotIn('behind', msgs[2])
+        self.assertIn('behind', msgs[3])
+
 
 @patch('oauth_dropins.webutil.appengine_config.tasks_client.create_task')
 class ATProtoFirehoseHandleTest(ATProtoTestCase):
