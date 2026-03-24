@@ -713,7 +713,7 @@ class Protocol:
         obj.our_as1 = copy.deepcopy(obj.as1)
         actor = (as1.get_object(obj.as1) if obj.type in as1.CRUD_VERBS
                  else obj.as1)
-        actor['objectType'] = 'person'
+        actor.setdefault('objectType', 'person')
 
         orig_summary = actor.setdefault('summary', '')
         summary_text = html_to_text(orig_summary, ignore_links=True)

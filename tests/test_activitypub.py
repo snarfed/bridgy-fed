@@ -8,7 +8,7 @@ from unittest import skip
 from unittest.mock import patch
 
 from google.cloud import ndb
-from granary import as1, as2, microformats2
+from granary import as1, as2, bluesky, microformats2
 from httpsig import HeaderSigner
 from oauth_dropins.webutil.flask_util import NoContent
 from oauth_dropins.webutil.testutil import NOW, requests_response
@@ -3428,7 +3428,7 @@ class ActivityPubUtilsTest(TestCase):
         self.assert_equals(ACTOR, ActivityPub.convert(Object(as2=ACTOR)))
 
     @patch('requests.get')
-    def test_convert_actor_as1_from_user(self, mock_get):
+    def test_convert_actor_as1_from_web_user(self, mock_get):
         mock_get.return_value = test_web.ACTOR_HTML_RESP
 
         obj = Object(our_as1={
@@ -3444,6 +3444,31 @@ class ActivityPubUtilsTest(TestCase):
             }, ActivityPub.convert(obj, from_user=self.user),
             ignore=['@context', 'endpoints', 'followers', 'following',
                     'publicKey', 'summary', 'alsoKnownAs', 'attachment'])
+
+    def test_convert_actor_as1_from_atproto_user_type_service(self):
+        self.store_object(id='did:plc:user', raw={'foo': 'baz'})
+        user = self.make_user(cls=ATProto, id='did:plc:user', obj_bsky={
+            '$type': 'app.bsky.actor.profile',
+            'displayName': 'Alice',
+            'description': 'hi there',
+            'labels': {
+                '$type': 'com.atproto.label.defs#selfLabels',
+                'values': [{'val': bluesky.BOT_LABEL}],
+            },
+        })
+
+        self.assert_equals({
+            'type': 'Service',
+            'id': 'https://bsky.brid.gy/ap/did:plc:user',
+            'url': 'http://localhost/r/https://bsky.app/profile/did:plc:user',
+            'alsoKnownAs': ['did:plc:user'],
+            'name': 'Alice',
+ 'summary': 'hi there<br><br>🌉 <a href="https://fed.brid.gy/bsky/did:plc:user">bridged</a> from 🦋 <a href="https://bsky.app/profile/did:plc:user">None</a> by <a href="https://fed.brid.gy/">Bridgy Fed</a>',
+            'inbox': 'https://bsky.brid.gy/ap/did:plc:user/inbox',
+        }, ActivityPub.convert(user.obj, from_user=user),
+            ignore=['@context', 'discoverable', 'endpoints', 'followers', 'following',
+                    'indexable', 'manuallyApprovesFollowers', 'outbox', 'publicKey',
+                    'summary', 'alsoKnownAs', 'attachment'])
 
     def test_convert_actor_as1_no_from_user(self):
         obj = Object(our_as1=ACTOR_AS1)
