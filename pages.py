@@ -753,6 +753,7 @@ def respond_reply(user):
     Form params:
       obj_id (str): Object id to reply to
       content (str): reply text content
+      token (str): JWT token for user authentication
     """
     obj_id = get_required_param('obj_id')
     if not (obj := Object.get_by_id(obj_id)):
@@ -789,6 +790,7 @@ def respond_like(user):
 
     Form params:
       obj_id (str): Object id to like
+      token (str): JWT token for user authentication
     """
     if not (obj := Object.get_by_id(get_required_param('obj_id'))):
         error('Object not found', status=404)
@@ -819,6 +821,7 @@ def respond_repost(user):
 
     Form params:
       obj_id (str): Object id to repost
+      token (str): JWT token for user authentication
     """
     if not (obj := Object.get_by_id(get_required_param('obj_id'))):
         error('Object not found', status=404)
@@ -849,6 +852,7 @@ def respond_block(user):
 
     Form params:
       obj_id (str): Object id to get the actor from to block
+      token (str): JWT token for user authentication
     """
     if not (obj := Object.get_by_id(get_required_param('obj_id'))):
         error('Object not found', status=404)

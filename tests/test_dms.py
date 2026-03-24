@@ -75,7 +75,8 @@ class DmsTest(TestCase):
         kwargs.setdefault('in_reply_to', 'efake:dm')
         self.assert_sent(*args, **kwargs)
 
-    def assert_sent(self, from_, tos, type, text, in_reply_to=None, strict=True):
+    def assert_sent(self, from_, tos, type, text, in_reply_to=None, strict=True,
+                    **kwargs):
         if not isinstance(tos, list):
             tos = [tos]
 
@@ -88,9 +89,10 @@ class DmsTest(TestCase):
             id = expected.key.id()
             self.assertEqual(f'{id}:target', target)
             content = activity['object'].pop('content')
+            activity['object'].pop('@context', None)
             if content != text:
                 assert content.startswith(text), content
-            self.assertEqual({
+            expected = {
                 'objectType': 'activity',
                 'verb': 'post',
                 'id': f'{from_.profile_id()}#bridgy-fed-dm-{type}-{id}-2022-01-02T03:04:05+00:00-create',
@@ -103,10 +105,12 @@ class DmsTest(TestCase):
                     'tags': [{'objectType': 'mention', 'url': id}],
                     'published': '2022-01-02T03:04:05+00:00',
                     'to': [id],
+                    **kwargs,
                 },
                 'published': '2022-01-02T03:04:05+00:00',
                 'to': [id],
-            }, activity)
+            }
+            self.assertEqual(expected, activity)
 
     def test_maybe_send_from_protocol(self):
         self.make_user(id='fa.brid.gy', cls=Web)

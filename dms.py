@@ -288,7 +288,7 @@ def prompt(from_user, to_proto, arg, to_user):
     return f"Got it! We'll send {to_user.html_link()} a message and say that you hope they'll enable the bridge. Fingers crossed!"
 
 
-def maybe_send(*, from_, to_user, text, type=None, in_reply_to=None):
+def maybe_send(*, from_, to_user, text, type=None, in_reply_to=None, **kwargs):
     """Sends a DM.
 
     Creates a task to send the DM asynchronously.
@@ -302,6 +302,7 @@ def maybe_send(*, from_, to_user, text, type=None, in_reply_to=None):
       text (str): message content. May be HTML.
       type (str): optional, one of DM.TYPES
       in_reply_to (str): optional, ``id`` of a DM to reply to
+      kwargs: added to the outgoing DM activity as additional (AS1) fields
     """
     if not to_user.SUPPORTS_DMS:
         return
@@ -339,6 +340,7 @@ def maybe_send(*, from_, to_user, text, type=None, in_reply_to=None):
         }],
         'published': now,
         'to': [to_user.key.id()],
+        **kwargs,
     }
     models.Object(id=dm_id, our_as1=dm_as1).put()
 

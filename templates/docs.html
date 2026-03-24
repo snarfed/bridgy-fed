@@ -195,6 +195,7 @@
 <li><a href="#enable-api">As a server admin, can I automatically enable the bridge for new users?</a></li>
 <li><a href="#bluesky-handle-api">As a server admin, can I give my new users custom Bluesky domain handles automatically?</a></li>
 <li><a href="#fediverse-address-api">Can I give my users custom fediverse addresses automatically?</a></li>
+<li><a href="#notif-dm-attachments">As a client developer, can I show my user notifications, including from unbridged users?</a></li>
 
 <br>
 
@@ -1254,6 +1255,32 @@ Link: <<span class='value'>at://did:plc:bg5udl25mvzg3rt7l5n2hzet/app.bsky.feed.p
 <li class="answer">
 <p>Yes! If you run a web hosting service, the process is similar to Bluesky custom handles. <a href="#fediverse-enhanced">Set up the webfinger redirects</a> for a web site first, before <a href="#enable-api">bridging it</a>, and Bridgy Fed will detect them and automatically use its domain as its fediverse address instead of <code>web.brid.gy</code>.
 <p>We don't currently have a way to automatically set a custom fediverse address for bridged Bluesky accounts. If you'd like that, <a href="https://github.com/snarfed/bridgy-fed/issues">feel free to file a feature request</a>!
+</li>
+
+<li id="notif-dm-attachments" class="question">As a client developer, can I show my user notifications, including from unbridged users?</li>
+<li class="answer">
+<p>Yes! In general, when <em>bridged</em> users from other networks reply to or mention your users, they'll get normal notifications, automatically.
+<p>When <em>unbridged</em> users from other networks reply to or mention your users, <a href="#notifs">we send a DM with details and a link for them to respond</a>. This DM comes from the Bridgy Fed bot user for that network, eg from <code>ap.brid.gy</code> for the fediverse, <code>bsky.brid.gy</code> for Bluesky, etc.
+<p>You can intercept and parse these DMs to convert them to native-looking notifications. You can also let your users reply, like, repost, or block the user.
+<p>On the fediverse, the DM activity's <code>Note</code> will include an <code>attachment</code> for each interaction. Its <code>url</code> field will be the user-facing URL for the interaction on its native network. It will also contain these Bridgy Fed custom fields in the <code>bf:</code> namespace (<code>https://fed.brid.gy/ns#</code>):
+<ul>
+<li><code>bf:respond</code>: HTTP GET; renders a user-facing Bridgy Fed page where the user can interact with the post
+<li><code>bf:reply</code>: HTTP POST; submit with a <code>content</code> body parameter to reply directly
+<li><code>bf:like</code>: HTTP POST; like the post
+<li><code>bf:repost</code>: HTTP POST; repost/boost the post
+<li><code>bf:block</code>: HTTP POST; block the post's author
+</ul>
+<p>All POST endpoints require a valid JWT token, which is included as a <code>token</code> query parameter in the URL.
+<p>Example attachment:
+<pre>{
+  <span class='keyword'>"type"</span>: <span class='value'>"Link"</span>,
+  <span class='keyword'>"url"</span>: <span class='value'>"https://example.com/123"</span>,
+  <span class='keyword'>"bf:respond"</span>: <span class='value'>"https://fed.brid.gy/fa/alice.com/respond?obj_id=https://example.com/123&amp;token=..."</span>,
+  <span class='keyword'>"bf:reply"</span>: <span class='value'>"https://fed.brid.gy/fa/alice.com/respond/reply?obj_id=https://example.com/123&amp;token=..."</span>,
+  <span class='keyword'>"bf:like"</span>: <span class='value'>"https://fed.brid.gy/fa/alice.com/respond/like?obj_id=https://example.com/123&amp;token=..."</span>,
+  <span class='keyword'>"bf:repost"</span>: <span class='value'>"https://fed.brid.gy/fa/alice.com/respond/repost?obj_id=https://example.com/123&amp;token=..."</span>,
+  <span class='keyword'>"bf:block"</span>: <span class='value'>"https://fed.brid.gy/fa/alice.com/respond/block?obj_id=https://example.com/123&amp;token=..."</span>
+}</pre>
 </li>
 
 

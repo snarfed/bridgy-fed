@@ -115,7 +115,24 @@ class NotificationsTest(TestCase):
 <li><a href="http://notif/a">notif/a</a> (<a href="https://fed.brid.gy/fa/fake:handle:user/respond?obj_id=efake:a&token={token_a}">respond</a>)
 <li><a href="http://notif/b">notif/b</a> (<a href="https://fed.brid.gy/fa/fake:handle:user/respond?obj_id=http://notif/b&token={token_b}">respond</a>)
 </ul>
-<p>To disable these messages, reply with the text 'mute'.""")
+<p>To disable these messages, reply with the text 'mute'.""",
+            attachments=[{
+                'objectType': 'link',
+                'url': 'http://notif/a',
+                'bf:respond': f'https://fed.brid.gy/fa/fake:handle:user/respond?obj_id=efake:a&token={token_a}',
+                'bf:reply': f'https://fed.brid.gy/fa/fake:handle:user/respond/reply?obj_id=efake:a&token={token_a}',
+                'bf:like': f'https://fed.brid.gy/fa/fake:handle:user/respond/like?obj_id=efake:a&token={token_a}',
+                'bf:repost': f'https://fed.brid.gy/fa/fake:handle:user/respond/repost?obj_id=efake:a&token={token_a}',
+                'bf:block': f'https://fed.brid.gy/fa/fake:handle:user/respond/block?obj_id=efake:a&token={token_a}',
+            }, {
+                'objectType': 'link',
+                'url': 'http://notif/b',
+                'bf:respond': f'https://fed.brid.gy/fa/fake:handle:user/respond?obj_id=http://notif/b&token={token_b}',
+                'bf:reply': f'https://fed.brid.gy/fa/fake:handle:user/respond/reply?obj_id=http://notif/b&token={token_b}',
+                'bf:like': f'https://fed.brid.gy/fa/fake:handle:user/respond/like?obj_id=http://notif/b&token={token_b}',
+                'bf:repost': f'https://fed.brid.gy/fa/fake:handle:user/respond/repost?obj_id=http://notif/b&token={token_b}',
+                'bf:block': f'https://fed.brid.gy/fa/fake:handle:user/respond/block?obj_id=http://notif/b&token={token_b}',
+            }])
         self.assertEqual([], get_notifications(user))
 
     @patch('oauth_dropins.webutil.appengine_config.tasks_client.create_task')

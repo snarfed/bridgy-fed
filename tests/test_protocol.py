@@ -1878,7 +1878,7 @@ class ProtocolReceiveTest(TestCase):
 <p>Hi! Here are your recent interactions from people who aren't bridged into other-phrase:
 <ul>
 <li><a href="http://efake/reply">efake/reply</a> (<a href="https://fed.brid.gy/other/other:handle:user/respond?obj_id=efake:reply&token={token}">respond</a>)
-</ul>""")
+</ul>""", attachments=ANY)
 
     @patch.object(ExplicitFake, 'REQUIRES_AVATAR', new=True)
     def test_quote_from_non_bridged_user_isnt_bridged_gets_dm_prompt_and_notif(self):
@@ -1916,7 +1916,7 @@ class ProtocolReceiveTest(TestCase):
 <p>Hi! Here are your recent interactions from people who aren't bridged into other-phrase:
 <ul>
 <li><a href="http://efake/quote">efake/quote</a> (<a href="https://fed.brid.gy/other/other:handle:user/respond?obj_id=efake:quote&token={token}">respond</a>)
-</ul>""")
+</ul>""", attachments=ANY)
 
     def test_mention_non_bridged_user_isnt_bridged_gets_dm_prompt_and_notif(self):
         self.make_user(id='other.brid.gy', cls=Web)
@@ -1947,7 +1947,7 @@ class ProtocolReceiveTest(TestCase):
 <p>Hi! Here are your recent interactions from people who aren't bridged into other-phrase:
 <ul>
 <li><a href="http://efake/mention">efake/mention</a> (<a href="https://fed.brid.gy/other/other:handle:user/respond?obj_id=efake:mention&token={token}">respond</a>)
-</ul>""")
+</ul>""", attachments=ANY)
 
     @patch.object(ATProto, 'send', return_value=True)
     def test_repost_of_non_bridged_account_skips_atproto(self, mock_send):

@@ -19,6 +19,22 @@ logger = logging.getLogger(__name__)
 
 NOTIFY_TASK_FREQ = timedelta(hours=1)
 
+# Custom extension properties for Bridgy Fed notification DM attachments. Used in
+# notifications.notify_task. bf: is a namespace prefix alias. @type: @id declares
+# each value as an IRI (URL), not a plain string.
+#
+# https://www.w3.org/TR/activitystreams-core/#jsonld
+# https://swicg.github.io/miscellany/ (movedTo as the @type: @id pattern reference)
+# https://www.w3.org/TR/json-ld/#type-coercion
+BRIDGY_FED_CONTEXT = {
+    'bf': 'https://fed.brid.gy/ns#',
+    'bf:respond': {'@type': '@id'},
+    'bf:reply':   {'@type': '@id'},
+    'bf:like':    {'@type': '@id'},
+    'bf:repost':  {'@type': '@id'},
+    'bf:block':   {'@type': '@id'},
+}
+
 
 def notification_key(user):
     return key(f'notifs-{user.key.id()}')
@@ -125,6 +141,7 @@ def notify_task():
     message = f"<p>Hi! Here are your recent interactions from people who aren't bridged into {user.PHRASE}:\n<ul>\n"
 
     lines = ''
+    attachments = []
     for obj in objs:
         if not obj:
             continue
@@ -132,11 +149,20 @@ def notify_task():
             continue
 
         token = common.make_jwt(user=user, scope='respond', obj_id=obj.key.id())
-        respond_url = urljoin(
-            f'https://{PRIMARY_DOMAIN}/',
-            user.user_page_path(f'respond?obj_id={obj.key.id()}&token={token}'))
+        params = f'obj_id={obj.key.id()}&token={token}'
+        base = f'https://{PRIMARY_DOMAIN}/'
+        respond_url = urljoin(base, user.user_page_path(f'respond?{params}'))
 
         lines += f'<li>{util.pretty_link(url)} ({util.pretty_link(respond_url, "respond")})\n'
+        attachments.append({
+            'objectType': 'link',
+            'url': url,
+            'bf:respond': respond_url,
+            'bf:reply': urljoin(base, user.user_page_path(f'respond/reply?{params}')),
+            'bf:like': urljoin(base, user.user_page_path(f'respond/like?{params}')),
+            'bf:repost': urljoin(base, user.user_page_path(f'respond/repost?{params}')),
+            'bf:block': urljoin(base, user.user_page_path(f'respond/block?{params}')),
+        })
 
     if not lines:
         logger.info('No usable notif objects')
@@ -146,6 +172,7 @@ def notify_task():
     message += "</ul>\n<p>To disable these messages, reply with the text 'mute'."
 
     logger.info(f'sending notifications DM for {user_id}')
-    dms.maybe_send(from_=PROTOCOLS[from_proto_label], to_user=user, text=message)
+    dms.maybe_send(from_=PROTOCOLS[from_proto_label], to_user=user, text=message,
+                   attachments=attachments, **{'@context': [BRIDGY_FED_CONTEXT]})
 
     return '', 200
