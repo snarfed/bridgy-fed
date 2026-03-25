@@ -990,9 +990,9 @@ a img.shadow:hover
 }
 
 .disabled-notice {
-    font-size:small;
-    color:gray;
-    display:none;
+    font-size: small;
+    color: gray;
+    display: none;
     margin-bottom: 10px;
   }
 
