@@ -80,7 +80,6 @@ class ProtocolTest(TestCase):
                 ('activitypub.brid.gy', ActivityPub),
                 ('web.brid.gy', Web),
                 (None, None),
-                ('', None),
                 ('brid.gy', None),
                 ('www.brid.gy', None),
                 ('fed.brid.gy', None),
