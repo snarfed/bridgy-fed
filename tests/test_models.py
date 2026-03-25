@@ -458,18 +458,11 @@ class UserTest(TestCase):
         })
         self.assertEqual('ha.nl', self.user.handle_as(ATProto))
 
-    def test_handle_as_None(self):
-        class NoHandle(Fake):
-            ABBREV = 'nohandle'
-            @ndb.ComputedProperty
-            def handle(self):
-                return None
-
-        try:
-            user = NoHandle()
-            self.assertIsNone(user.handle_as(OtherFake))
-        finally:
-            PROTOCOLS.pop('nohandle')
+    @patch.object(Fake, 'handle', None)
+    def test_enable_protocol_no_handle(self):
+        user = self.make_user(cls=Fake, id='fake:user')
+        with self.assertRaises(common.ErrorButDoNotRetryTask):
+            user.enable_protocol(ExplicitFake)
 
     def test_load_multi(self):
         # obj_key is None

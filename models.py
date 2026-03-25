@@ -808,13 +808,19 @@ class User(AddRemoveMixin, StringIdModel, metaclass=ProtocolUserMeta):
                                text=ineligible.format(desc=desc))
             common.error(f'Nope, user {self.key.id()} is {self.status}', status=299)
 
+        # check that our handle is supported in this protocol
+        err = handle = None
         try:
-            self.handle_as(to_proto)
+            handle = self.handle_as(to_proto)
         except ValueError as e:
+            err = e
+
+        if not handle:
+            err_text = str(err) if err else 'handle is unset'
             dms.maybe_send(from_=to_proto, to_user=self,
                            type=f'unsupported-handle-{to_proto.ABBREV}',
-                           text=ineligible.format(desc=e))
-            common.error(str(e), status=299)
+                           text=ineligible.format(desc=err_text))
+            common.error(err_text, status=299)
 
         # add to enabled_protocols in memory so that create_for (below) etc see it,
         # including its effects on status, but don't store to datastore until after
