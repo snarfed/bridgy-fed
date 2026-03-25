@@ -147,8 +147,8 @@
 <li><a href="#bluesky-report">What happens when I report a bridged Bluesky user?</a></li>
 <li><a href="#bluesky-edits">I edited a post, but it didn't get edited in Bluesky!</a></li>
 <li><a href="#bluesky-enhanced">Can I use my own domain as my Bluesky handle?</a></li>
-<!-- TODO #2324 <li><a href="#standard-site-well-known">Can I verify my web site or domain with standard.site?</a></li> -->
-<!-- <li><a href="#standard-site-link-rel">Can I link my bridged web pages or articles to their standard.site documents?</a></li> -->
+<li><a href="#standard-site-well-known">Can I verify my web site or domain with standard.site?</a></li>
+<li><a href="#standard-site-link-rel">Can I link my bridged web pages or articles to their standard.site documents?</a></li>
 
 <li><a href="#bluesky-fields">How can I see the full text or original URL for a bridged post?</a></li>
 <li><a href="#bluesky-video">Why can't I see a video?</a></li>
@@ -738,7 +738,7 @@ RewriteRule ^.well-known/(host-meta|webfinger).* https://fed.brid.gy/$0  [redire
 <p>Bluesky is just one of <a href="https://blueskydirectory.com/">many apps</a> on the <a href="https://atproto.com/">AT Protocol</a> network. Bridgy Fed currently supports these apps and compatible clients:
 <ul>
 <li><a href="https://bsky.app/">Bluesky</a> (bsky.app) profiles, follows, posts, images, videos, hashtags, @-mentions, and <a href="https://docs.joinmastodon.org/user/posting/#cw">content warnings</a>. Also replies, likes, and reposts <em>if</em> the original post was already bridged.</p>
-<!-- TODO #2324 <li><a href="https://standard.site/">standard.site</a> publications and documents, usable in apps like <a href="https://leaflet.pub/">Leaflet</a>, <a href="https://pckt.blog/">Pckt</a>, <a href="https://offprint.app/">Offprint</a>, <a href="https://blento.app/">Blento</a>, etc. -->
+<li><a href="https://standard.site/">standard.site</a> publications and documents, usable in apps like <a href="https://leaflet.pub/">Leaflet</a>, <a href="https://pckt.blog/">Pckt</a>, <a href="https://offprint.app/">Offprint</a>, <a href="https://blento.app/">Blento</a>, etc.
 <li>...and more to come!
 </ul>
 </li>
@@ -770,21 +770,21 @@ RewriteRule ^.well-known/(host-meta|webfinger).* https://fed.brid.gy/$0  [redire
 <p>If you want to undo this later and change back to your original default handle, you can do it the same way. For example, if you're <code>@user@instance.com</code> on the fediverse, DM <code>username user.instance.com.ap.brid.gy</code>, or enter <code>user.instance.com.ap.brid.gy</code> into the form on the <a href="/settings">settings page</a>.
 </li>
 
-<!-- TODO #2324 <li id="standard-site-well-known" class="question">Can I verify my web site or domain with <a href="https://standard.site/">standard.site</a>?</li> -->
-<!-- <li class="answer"> -->
-<!-- <p><a href="https://standard.site/">standard.site</a> has a mechanism for web sites to <a href="https://standard.site/#verification">verify themselves</a>. If you bridge a web site to Bluesky, you can do this verification by redirecting the <code>/.well-known/site.standard.publication</code> path on your web site to <code>https://fed.brid.gy/.well-known/site.standard.publication?protocol=[protocol]&domain=[domain]</code>. Replace <code>[domain]</code> with your web site's domain and <code>[protocol]</code> with <code>web</code> if you're bridging a web site, <code>ap</code> if you're bridging a fediverse account. -->
-<!-- <p>For example, if your web site is <code>https://example.com/</code>, and you're bridging a fediverse account, you'd redirect <code>https://example.com/.well-known/site.standard.publication</code> to <code>https://fed.brid.gy/.well-known/site.standard.publication?protocol=ap&id=example.com</code>. -->
-<!-- <p>This is similar to <a href="#fediverse-enhanced">redirecting a web site's WebFinger to Bridgy Fed</a>. More details and examples there. -->
-<!-- </li> -->
+<li id="standard-site-well-known" class="question">Can I verify my web site or domain with <a href="https://standard.site/">standard.site</a>?</li>
+<li class="answer">
+<p><a href="https://standard.site/">standard.site</a> has a mechanism for web sites to <a href="https://standard.site/#verification">verify themselves</a>. If you bridge a web site to Bluesky, you can do this verification by redirecting the <code>/.well-known/site.standard.publication</code> path on your web site to <code>https://fed.brid.gy/.well-known/site.standard.publication?protocol=[protocol]&domain=[domain]</code>. Replace <code>[domain]</code> with your web site's domain and <code>[protocol]</code> with <code>web</code> if you're bridging a web site, <code>ap</code> if you're bridging a fediverse account.
+<p>For example, if your web site is <code>https://example.com/</code>, and you're bridging a fediverse account, you'd redirect <code>https://example.com/.well-known/site.standard.publication</code> to <code>https://fed.brid.gy/.well-known/site.standard.publication?protocol=ap&id=example.com</code>.
+<p>This is similar to <a href="#fediverse-enhanced">redirecting a web site's WebFinger to Bridgy Fed</a>. More details and examples there.
+</li>
 
-<!-- <li id="standard-site-link-rel" class="question">Can I link my bridged web pages or articles to their <a href="https://standard.site/">standard.site</a> documents?</li> -->
-<!-- <li class="answer"> -->
-<!-- <p>Yes! Beyond <a href="#standard-site-well-known">verifying web sites</a>, standard.site also has a mechanism to <a href="https://standard.site/#verification">link individual web pages to their standard.site documents</a>. You can do this by including a <code>&lt;link&gt;</code> element in your web page's HTML that points to its bridged <code>at://</code> URI. -->
-<!-- <p>First, to get a bridged web page's <code>at://</code> URI, <a href="#identify-bridged-to-post">construct a Bridgy Fed URL to convert it to Bluesky</a>. For example, for an ActivityPub <code>Article</code> with id <code>http://instan.ce/article</code>, the Bridgy Fed Bluesky URL would be <code>https://ap.brid.gy/convert/bsky/http://instan.ce/article</code>. -->
-<!-- <p>Then, fetch that URL and look at the response's <code>Link</code> header. It will be the bridged <code>at://</code> URI of the <code>site.standard.document</code> record, eg <code>at://did:plc:abc123/site.standard.document/xyz</code>. <a href="https://standard.site/#verification">Add that URI to your web page's HTML in a <code>&lt;link&gt;</code> element like this</a>: -->
-<!-- <pre> -->
-<!-- &lt;link rel="<span class='keyword'>site.standard.document</span>" href="<span class='value'>at://did:plc:abc123/site.standard.document/xyz</span>" /&gt; -->
-<!-- </pre> -->
+<li id="standard-site-link-rel" class="question">Can I link my bridged web pages or articles to their <a href="https://standard.site/">standard.site</a> documents?</li>
+<li class="answer">
+<p>Yes! Beyond <a href="#standard-site-well-known">verifying web sites</a>, standard.site also has a mechanism to <a href="https://standard.site/#verification">link individual web pages to their standard.site documents</a>. You can do this by including a <code>&lt;link&gt;</code> element in your web page's HTML that points to its bridged <code>at://</code> URI.
+<p>First, to get a bridged web page's <code>at://</code> URI, <a href="#identify-bridged-to-post">construct a Bridgy Fed URL to convert it to Bluesky</a>. For example, for an ActivityPub <code>Article</code> with id <code>http://instan.ce/article</code>, the Bridgy Fed Bluesky URL would be <code>https://ap.brid.gy/convert/bsky/http://instan.ce/article</code>.
+<p>Then, fetch that URL and look at the response's <code>Link</code> header. It will be the bridged <code>at://</code> URI of the <code>site.standard.document</code> record, eg <code>at://did:plc:abc123/site.standard.document/xyz</code>. <a href="https://standard.site/#verification">Add that URI to your web page's HTML in a <code>&lt;link&gt;</code> element like this</a>:
+<pre>
+&lt;link rel="<span class='keyword'>site.standard.document</span>" href="<span class='value'>at://did:plc:abc123/site.standard.document/xyz</span>" /&gt;
+</pre>
 
 
 <li id="bluesky-fields" class="question">How can I see the full text or original URL for a bridged post?</li>
