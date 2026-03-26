@@ -119,15 +119,21 @@ def admin_user_search():
 
     users = []
     for future in futures:
-        for user in future.get_result():
-            user.bridged_ids = {
-                proto: ids.translate_user_id(id=user.key.id(), from_=user, to=proto)
-                for proto in (ATProto, ActivityPub, Nostr)
-                if not isinstance(user, proto)
-            }
-            user.sent_dms_formatted = ', '.join(
-                f'{dm.type} ({dm.protocol})' for dm in user.sent_dms)
-            users.append(user)
+        users.extend(future.get_result())
+
+    if not users:
+        if key := models.get_original_user_key(query):
+            users = [key.get()]
+
+    for user in users:
+        user.bridged_ids = {
+            proto: ids.translate_user_id(id=user.key.id(), from_=user, to=proto)
+            for proto in (ATProto, ActivityPub, Nostr)
+            if not isinstance(user, proto)
+        }
+        user.sent_dms_formatted = ', '.join(
+            f'{dm.type} ({dm.protocol})' for dm in user.sent_dms)
+
 
     return render('admin_users.html', query=orig_query, users=users)
 

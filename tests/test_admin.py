@@ -15,7 +15,7 @@ import config
 import filters
 import memcache
 import models
-from models import DM, Object
+from models import DM, Object, Target
 from .testutil import Fake, OtherFake, TestCase
 from web import Web
 
@@ -146,6 +146,15 @@ class AdminTest(TestCase):
         resp = self.client.get('/admin/user?query=fake-handle-user')
         self.assertEqual(200, resp.status_code)
         self.assertIn('fake:user', resp.get_data(as_text=True))
+
+    def test_admin_users_by_copy_id(self):
+        self.user.copies = [Target(protocol='other', uri='other:foo')]
+        self.user.put()
+
+        resp = self.client.get('/admin/user?query=other:foo')
+        self.assertEqual(200, resp.status_code)
+        body = resp.get_data(as_text=True)
+        self.assertIn('fake:user', body)
 
     def test_admin_users_webfinger_with_leading_at(self):
         self.make_user('http://b.c/a', cls=ActivityPub, webfinger_addr='@a@b.c')
