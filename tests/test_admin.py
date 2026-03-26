@@ -15,8 +15,9 @@ import config
 import filters
 import memcache
 import models
-from models import Object
+from models import DM, Object
 from .testutil import Fake, OtherFake, TestCase
+from web import Web
 
 
 class AdminTest(TestCase):
@@ -198,6 +199,27 @@ class AdminTest(TestCase):
         # so users list is empty — just verify the endpoint doesn't crash.
         resp = self.client.get('/admin/user?query=alice.ap.brid.gy')
         self.assertEqual(200, resp.status_code)
+
+    def test_admin_users_extra_fields(self):
+        user = self.make_user('user.com', cls=Web, obj_mf2={
+            'rel-urls': {
+                'http://feed/foo': {
+                    'rels': ['alternate'],
+                    'type': 'application/rss+xml',
+                },
+                'http://wm/here': {
+                    'rels': ['webmention'],
+                },
+            },
+        }, sent_dms=[DM(type='private', protocol='fake'),
+                     DM(type='moved', protocol='other')])
+        resp = self.client.get('/admin/user?query=user.com')
+        self.assertEqual(200, resp.status_code)
+        body = resp.get_data(as_text=True)
+        self.assertIn('http://feed/foo', body)
+        self.assertIn('http://wm/here', body)
+        self.assertIn('moved', body)
+        self.assertIn('private', body)
 
     def test_admin_user(self):
         key = self.user.key.urlsafe().decode()

@@ -79,6 +79,7 @@ TEMPLATE_VARS = {
     'as2': as2,
     'ATProto': ATProto,
     'getattr': getattr,
+    'hasattr': hasattr,
     'ids': ids,
     'IFRAMELY_API_KEY_MD5': IFRAMELY_API_KEY_MD5,
     'logs': logs,

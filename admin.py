@@ -125,6 +125,8 @@ def admin_user_search():
                 for proto in (ATProto, ActivityPub, Nostr)
                 if not isinstance(user, proto)
             }
+            user.sent_dms_formatted = ', '.join(
+                f'{dm.type} ({dm.protocol})' for dm in user.sent_dms)
             users.append(user)
 
     return render('admin_users.html', query=orig_query, users=users)
