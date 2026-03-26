@@ -2220,8 +2220,8 @@ def fetch_objects(query, by=None, user=None):
 
             handle = suffix = ''
             if match := FEDI_URL_RE.match(url):
-                handle = match.group(2)
-                if match.group(4):
+                handle = match.group('handle')
+                if match.group('post_id'):
                     suffix = "'s post"
             elif match := BSKY_APP_URL_RE.match(url):
                 handle = match.group('id')

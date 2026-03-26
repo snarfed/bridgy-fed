@@ -158,6 +158,12 @@ class AdminTest(TestCase):
         self.assertEqual(200, resp.status_code)
         self.assertIn('http://b.c/a', resp.get_data(as_text=True))
 
+    def test_admin_users_activitypub_url(self):
+        self.make_user('http://b.c/a', cls=ActivityPub, webfinger_addr='@a@b.c')
+        resp = self.client.get('/admin/user?query=https://b.c/@a')
+        self.assertEqual(200, resp.status_code)
+        self.assertIn('http://b.c/a', resp.get_data(as_text=True))
+
     def test_admin_users_not_found(self):
         resp = self.client.get('/admin/user?query=fake:nope')
         self.assertEqual(200, resp.status_code)

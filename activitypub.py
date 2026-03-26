@@ -103,7 +103,7 @@ OLD_ACCOUNT_EXEMPT_DOMAINS = (
 #   https://github.com/snarfed/bridgy-fed/issues/566#issuecomment-2130714037
 NO_AUTH_DOMAINS = ()
 
-FEDI_URL_RE = re.compile(r'https://[^/]+/(@|users/)([^/@]+)(@[^/@]+)?(/(?:statuses/)?[0-9]+)?')
+FEDI_URL_RE = re.compile(r'https://(?P<domain>[^/]+)/(@|users/)(?P<handle>[^/@]+)(@[^/@]+)?(?P<post_id>/(?:statuses/)?[0-9]+)?')
 
 
 def instance_actor():

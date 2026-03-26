@@ -22,7 +22,7 @@ from oauth_dropins.webutil import flask_util, logs, util
 from oauth_dropins.webutil.flask_util import flash
 import pytz
 
-from activitypub import ActivityPub
+from activitypub import ActivityPub, FEDI_URL_RE
 from atproto import ATProto
 import ids
 from nostr import Nostr
@@ -96,10 +96,13 @@ def admin_user_search():
     """
     query = orig_query = request.values['query'].strip()
 
+    # preprocess search query, misc heuristics
     if query.endswith('.ap.brid.gy'):
         query = ids.translate_user_id(id=query, from_=ATProto, to=ActivityPub)
     elif query.endswith('.brid.gy'):
         query = query.rsplit('.', 3)[0]
+    elif match := FEDI_URL_RE.fullmatch(query):
+        query = ids.handle_as_domain(f'@{match.group("handle")}@{match.group("domain")}')
     elif '@' in query:
         query = ids.handle_as_domain(query)
 
