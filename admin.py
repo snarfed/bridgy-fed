@@ -95,6 +95,8 @@ def admin_user_search():
       query (str)
     """
     query = orig_query = request.values['query'].strip()
+    if not query:
+        error('empty query')
 
     # preprocess search query, misc heuristics
     if query.endswith('.ap.brid.gy'):
@@ -103,18 +105,18 @@ def admin_user_search():
         query = query.rsplit('.', 3)[0]
     elif match := FEDI_URL_RE.fullmatch(query):
         query = ids.handle_as_domain(f'@{match.group("handle")}@{match.group("domain")}')
-    elif '@' in query:
-        query = ids.handle_as_domain(query)
 
-    if not query:
-        error('empty query')
+    queries = [query]
+    if '@' in query:
+        if handle_as_domain := ids.handle_as_domain(query):
+            queries.append(handle_as_domain)
 
     futures = [
         proto.query(ndb.OR(
-            proto.key == proto(id=query).key,
-            proto.handle == query,
-            proto.handle_as_domain == query,
-            proto.handle_pay_level_domain == query)).fetch_async()
+            proto.key.IN([proto(id=query).key for query in queries]),
+            proto.handle.IN(queries),
+            proto.handle_as_domain.IN(queries),
+            proto.handle_pay_level_domain.IN(queries))).fetch_async()
         for proto in set(PROTOCOLS.values()) if proto]
 
     users = []
