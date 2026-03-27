@@ -78,15 +78,15 @@ handlers:
   secure: always
 
 # dynamic
-- url: /admin/.*
-  script: auto
-  secure: always
-  login: admin
-
 - url: /admin/sequences/.*
   script: auto
   secure: always
   login: optional
+
+- url: /admin/.*
+  script: auto
+  secure: always
+  login: admin
 
 - url: .*
   script: auto
