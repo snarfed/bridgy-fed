@@ -83,6 +83,11 @@ handlers:
   secure: always
   login: admin
 
+- url: /admin/sequences/.*
+  script: auto
+  secure: always
+  login: optional
+
 - url: .*
   script: auto
   secure: always
