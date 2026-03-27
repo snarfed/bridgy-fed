@@ -133,7 +133,7 @@ def admin_user_search():
             for proto in (ATProto, ActivityPub, Nostr)
             if not isinstance(user, proto)
         }
-        user.sent_dms_formatted = ', '.join(
+        user.sent_dms_ = ', '.join(
             f'{dm.type} ({dm.protocol})' for dm in user.sent_dms)
 
 

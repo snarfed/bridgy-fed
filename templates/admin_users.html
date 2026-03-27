@@ -123,7 +123,7 @@
 </div>
 {% endfor %}
 
-{% for field in 'feed_etag', 'feed_last_item', 'feed_last_modified', 'feed_url', 'has_redirects', 'last_polled_feed', 'last_webmention_in', 'redirects_error', 'relays', 'sent_dms_formatted', 'valid_nip05', 'verified_domain', 'webmention_endpoint' %}
+{% for field in 'feed_etag', 'feed_last_item', 'feed_last_modified', 'feed_url', 'has_redirects', 'last_polled_feed', 'last_webmention_in', 'redirects_error', 'relays', 'sent_dms_', 'valid_nip05', 'verified_domain', 'webmention_endpoint' %}
 {% if hasattr(user, field) %}
   {% set val = getattr(user, field) %}
   {% if val is callable %}
