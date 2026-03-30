@@ -34,7 +34,9 @@ dispatch:
   - url: "*.brid.gy/xrpc/com.atproto.repo.importRepo"
     service: router
 
-  - url: "*.brid.gy/xrpc/com.atproto.repo.getRepo"
+  # getRepo is slow (high latency), which makes App Engine Standard's scheduler
+  # scale up default instances too aggressively
+  - url: "*.brid.gy/xrpc/com.atproto.sync.getRepo"
     service: router
 
   - url: "*.brid.gy/xrpc/com.atproto.sync.subscribeRepos"
