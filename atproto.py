@@ -387,9 +387,7 @@ class ATProto(User, Protocol):
         type for type in itertools.chain(*FROM_AS1_TYPES.values())
         if '#' not in type)
     'Which incoming record lexicons we should accept from the firehose.'
-    SUPPORTED_RECORD_TYPES_BETA_USERS = frozenset([
-        'site.standard.document',
-    ])
+    SUPPORTED_RECORD_TYPES_BETA_USERS = frozenset([])
     'Which incoming record lexicons to accept from the firehose only for beta users.'
     STORE_RECORD_TYPES = frozenset(['community.lexicon.payments.webMonetization'])
     ''

@@ -271,6 +271,10 @@ class ATProtoTest(TestCase):
         # TODO: this should be False
         self.assertIsNone(ATProto.owns_handle('web.brid.gy'))
 
+    def test_supported_types_disjoint_with_supported_beta_types(self):
+        self.assertFalse(ATProto.SUPPORTED_RECORD_TYPES
+                         & ATProto.SUPPORTED_RECORD_TYPES_BETA_USERS)
+
     def test_handle_to_id(self):
         self.store_object(id='did:plc:user', raw=DID_DOC)
         self.make_user('did:plc:user', cls=ATProto)
