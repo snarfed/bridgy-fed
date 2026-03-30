@@ -1,8 +1,13 @@
-"""Background service for processing receive, send, poll-feed, etc tasks."""
+"""Background service for processing receive, send, poll-feed, etc tasks.
+
+Also serves a small number of external facing endpoints, eg ATProto getRepo.
+"""
 from pathlib import Path
 
 from arroba.datastore_storage import MemcacheSequences
+import arroba.server
 from flask import Flask
+import lexrpc.flask_server
 from oauth_dropins.webutil.appengine_info import DEBUG, LOCAL_SERVER
 from oauth_dropins.webutil import (
     appengine_config,
@@ -33,6 +38,9 @@ app.config.from_pyfile(app_dir / 'config.py')
 
 app.wsgi_app = flask_util.ndb_context_middleware(
     app.wsgi_app, client=appengine_config.ndb_client, **common.NDB_CONTEXT_KWARGS)
+
+# ATProto XRPC server
+lexrpc.flask_server.init_flask(arroba.server.server, app)
 
 app.add_url_rule('/queue/poll-feed', view_func=web.poll_feed_task, methods=['POST'])
 app.add_url_rule('/queue/receive', view_func=protocol.receive_task, methods=['POST'])

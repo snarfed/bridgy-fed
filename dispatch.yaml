@@ -36,8 +36,9 @@ dispatch:
 
   # getRepo is slow (high latency), which makes App Engine Standard's scheduler
   # scale up default instances too aggressively
-  - url: "*.brid.gy/xrpc/com.atproto.sync.getRepo"
-    service: router
+  # TODO: make a new dedicated service
+  # - url: "*.brid.gy/xrpc/com.atproto.sync.getRepo"
+  #   service: router
 
   - url: "*.brid.gy/xrpc/com.atproto.sync.subscribeRepos"
     service: hub

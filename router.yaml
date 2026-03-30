@@ -23,6 +23,9 @@ resources:
 network:
   name: projects/bridgy-federated/global/networks/default
 
+  # uncomment to serve external requests, eg getRepo XRPC calls
+  # instance_ip_mode: external
+
 env_variables:
   PDS_HOST: atproto.brid.gy
   PLC_HOST: plc.directory
