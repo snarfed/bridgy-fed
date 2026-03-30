@@ -1800,7 +1800,9 @@ def site_standard_publication():
     did = user.get_copy(ATProto)
     for uri in user.obj.get_copies(ATProto):
         copy_did, collection, rkey = parse_at_uri(uri)
-        assert copy_did == did
+        if copy_did != did:
+            logger.warning(f'{user.key.id()} has mismatched DIDs {did} and {uri} !')
+            continue
         if collection == 'site.standard.publication':
             logger.info(f'publication record is {uri}')
             repo = arroba.server.storage.load_repo(did)

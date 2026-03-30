@@ -4576,6 +4576,20 @@ Sed tortor neque, aliquet quis posuere aliquam, imperdiet sitamet […]
         resp = self.get('/.well-known/site.standard.publication?protocol=fake&domain=fake.com')
         self.assert_equals(404, resp.status_code)
 
+    def test_site_standard_publication_not_bridged_to_atproto(self):
+        user = self.make_user('fake:user', cls=Fake, verified_domain='fake.com')
+        resp = self.get('/.well-known/site.standard.publication?protocol=fake&domain=fake.com')
+        self.assert_equals(404, resp.status_code)
+
+    def test_site_standard_publication_copy_id_has_wrong_did(self):
+        user = self.make_user_and_repo(verified_domain='fake.com')
+        user.obj.add('copies', Target(
+            protocol='atproto', uri='at://did:plc:wrong/site.standard.publication/123'))
+        user.obj.put()
+
+        resp = self.get('/.well-known/site.standard.publication?protocol=fake&domain=fake.com')
+        self.assert_equals(404, resp.status_code)
+
     def test_site_standard_publication_missing_params(self):
         resp = self.get('/.well-known/site.standard.publication')
         self.assert_equals(400, resp.status_code)
