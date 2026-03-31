@@ -773,7 +773,7 @@ RewriteRule ^.well-known/(host-meta|webfinger).* https://fed.brid.gy/$0  [redire
 <li id="standard-site-well-known" class="question">Can I verify my web site or domain with <a href="https://standard.site/">standard.site</a>?</li>
 <li class="answer">
 <p><a href="https://standard.site/">standard.site</a> has a mechanism for web sites to <a href="https://standard.site/#verification">verify themselves</a>. If you bridge a web site to Bluesky, you can do this verification by redirecting the <code>/.well-known/site.standard.publication</code> path on your web site to <code>https://fed.brid.gy/.well-known/site.standard.publication?protocol=[protocol]&domain=[domain]</code>. Replace <code>[domain]</code> with your web site's domain and <code>[protocol]</code> with <code>web</code> if you're bridging a web site, <code>ap</code> if you're bridging a fediverse account.
-<p>For example, if your web site is <code>https://example.com/</code>, and you're bridging a fediverse account, you'd redirect <code>https://example.com/.well-known/site.standard.publication</code> to <code>https://fed.brid.gy/.well-known/site.standard.publication?protocol=ap&id=example.com</code>.
+<p>For example, if your web site is <code>https://example.com/</code>, and you're bridging a fediverse account, you'd redirect <code>https://example.com/.well-known/site.standard.publication</code> to <code>https://fed.brid.gy/.well-known/site.standard.publication?protocol=ap&domain=example.com</code>.
 <p>This is similar to <a href="#fediverse-enhanced">redirecting a web site's WebFinger to Bridgy Fed</a>. More details and examples there.
 </li>
 
