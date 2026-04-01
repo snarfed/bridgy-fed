@@ -44,7 +44,8 @@ DOMAIN_ALLOWLIST = frozenset((
 
 
 @app.get(r'/r/<path:to>')
-@memcache.memoize(expire=timedelta(hours=1), key=lambda to: (to, as2_request_type()))
+@memcache.memoize(expire=timedelta(hours=1),
+                  key=lambda to: (to, request.args, as2_request_type()))
 @flask_util.headers(CACHE_CONTROL_VARY_ACCEPT)
 def redir(to):
     """Either redirect to a given URL or convert it to another format.
@@ -130,4 +131,3 @@ def redir(to):
         'Content-Type': as2_request,
         'Access-Control-Allow-Origin': '*',
     }
-

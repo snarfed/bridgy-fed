@@ -48,6 +48,15 @@ class RedirectTest(testutil.TestCase):
         self.assertEqual('https://user.com/bar?baz=baj&biff=', got.headers['Location'])
         self.assertEqual('Accept', got.headers['Vary'])
 
+    def test_redirect_query_params_not_cached_together(self):
+        got1 = self.client.get('/r/https://user.com/bar?x=1')
+        self.assertEqual(301, got1.status_code)
+        self.assertEqual('https://user.com/bar?x=1', got1.headers['Location'])
+
+        got2 = self.client.get('/r/https://user.com/bar?x=2')
+        self.assertEqual(301, got2.status_code)
+        self.assertEqual('https://user.com/bar?x=2', got2.headers['Location'])
+
     def test_redirect_scheme_missing(self):
         got = self.client.get('/r/user.com')
         self.assertEqual(400, got.status_code)
