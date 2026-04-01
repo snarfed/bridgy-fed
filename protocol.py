@@ -1298,7 +1298,12 @@ class Protocol:
         # this with the DM handling block lower down.
         crud_obj = None
         if obj.type in ('post', 'update') and inner_obj_as1.keys() > set(['id']):
-            crud_obj = Object.get_or_create(inner_obj_id, our_as1=inner_obj_as1,
+            # normalize_ids may have converted the inner object id to a user id
+            # (eg Web profile URL to domain), so normalize back to the profile
+            # object id to find the right existing Object in the datastore
+            crud_obj_id = (ids.normalize_object_id(id=inner_obj_id, proto=from_cls)
+                           or inner_obj_id)
+            crud_obj = Object.get_or_create(crud_obj_id, our_as1=inner_obj_as1,
                                             source_protocol=obj.source_protocol,
                                             authed_as=actor, users=[from_user.key],
                                             deleted=False)

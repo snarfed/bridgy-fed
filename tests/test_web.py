@@ -71,6 +71,16 @@ ACTOR_MF2_REL_URLS = {
     **ACTOR_MF2,
     'rel-urls': {'https://user.com/': {'rels': ['me'], 'text': 'Ms. ☕ Baz'}}
 }
+ACTOR_HTML_REL_FEED_URL = """\
+<html>
+<head>
+<title>Ms. ☕ Baz</title>
+<meta property="article:author" content="/">
+<link rel="me" href="https://foo">Ms. ☕ Baz</link>
+<link rel="alternate" href="https://foo/feed" type='application/atom+xml; charset=utf-8'>
+</head>
+</html>
+"""
 ACTOR_MF2_REL_FEED_URL = {
     **ACTOR_MF2,
     'rel-urls': {
@@ -1866,6 +1876,17 @@ class WebTest(TestCase):
             }],
             'updated': NOW.isoformat(),
         })
+
+    def test_update_profile_mf2_preserved(self, mock_get, mock_post):
+        """After /update-profile, mf2 (and feed_url) should still work."""
+        mock_get.return_value = requests_response(ACTOR_HTML_REL_FEED_URL,
+                                                  url='https://user.com/')
+
+        got = self.client.post('/web/user.com/update-profile')
+        self.assertEqual(302, got.status_code)
+
+        user = self.user.key.get()
+        self.assertEqual(('https://foo/feed', 'atom'), user.feed_url())
 
     @patch('oauth_dropins.webutil.appengine_config.tasks_client.create_task')
     def test_poll_feed_atom(self, mock_create_task, mock_get, _):

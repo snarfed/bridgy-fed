@@ -1943,12 +1943,8 @@ class Object(AddRemoveMixin, StringIdModel):
         outer_obj['object'] = []
         for inner_obj in inner_objs:
             translate_fn = ids.translate_object_id
-            # TODO: need to handle both user and object ids here
-            # https://github.com/snarfed/bridgy-fed/issues/2281
-            if (as1.object_type(inner_obj) in as1.ACTOR_TYPES
-                    or as1.object_type(outer_obj) in as1.VERBS_WITH_ACTOR_OBJECT):
+            if as1.object_type(outer_obj) in as1.VERBS_WITH_ACTOR_OBJECT:
                 translate_fn = ids.translate_user_id
-
             got = replace(inner_obj, translate_fn)
             if isinstance(got, dict) and util.trim_nulls(got).keys() == {'id'}:
                 got = got['id']

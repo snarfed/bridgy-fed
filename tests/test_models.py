@@ -1695,6 +1695,35 @@ class ObjectTest(TestCase):
             'object': 'bob.com',
         }, obj.our_as1)
 
+    def test_normalize_ids_update_web(self):
+        # update/post activities use translate_object_id, not translate_user_id, so
+        # Web profile URL (eg object.id here) are preserved as is instead of being
+        # converted to bare domains
+        user = self.make_user('user.com', cls=Web)
+
+        obj = Object(id='fake:update', our_as1={
+            'objectType': 'activity',
+            'verb': 'update',
+            'actor': 'https://user.com/',
+            'object': {
+                'id': 'https://user.com/',
+                'objectType': 'person',
+                'displayName': 'Alice',
+            },
+        })
+        obj.normalize_ids()
+        self.assert_equals({
+            'objectType': 'activity',
+            'verb': 'update',
+            'id': 'fake:update',
+            'actor': 'user.com',
+            'object': {
+                'id': 'https://user.com/',
+                'objectType': 'person',
+                'displayName': 'Alice',
+            },
+        }, obj.our_as1)
+
     def test_normalize_ids_reply(self):
         # for ATProto handle resolution
         self.store_object(id='did:plc:user', raw={
