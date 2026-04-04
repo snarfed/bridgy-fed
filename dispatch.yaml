@@ -1,7 +1,12 @@
 # https://cloud.google.com/appengine/docs/flexible/reference/dispatch-yaml?tab=python
 
 dispatch:
+
+  # hub
   - url: "*.brid.gy/admin/hub"
+    service: hub
+
+  - url: "*.brid.gy/xrpc/com.atproto.sync.subscribeRepos"
     service: hub
 
   - url: "*/queue/atproto-commit"
@@ -10,7 +15,8 @@ dispatch:
   - url: "*/hub/*"
     service: hub
 
-  # Bounce's task queues.
+
+  # Bounce
   #
   # An alternative would be hostname. Right now, Bounce's tasks get sent to
   # bounce-migrate.uc.r.appspot.com, BF's to *.bridgy-federated.uc.r.appspot.com.
@@ -22,6 +28,12 @@ dispatch:
   - url: "*/queue/migrate"
     service: bounce
 
+  - url: "bounce.anew.social/*"
+    service: bounce
+
+  # router
+  #
+  # task queues, cron jobs, etc
   - url: "*/queue/*"
     service: router
 
@@ -31,17 +43,15 @@ dispatch:
   - url: "*/router/*"
     service: router
 
+  # heavy
+  #
+  # slow (heavy) external-facing requests. if we serve these on default, their high
+  # latency makes App Engine Standard's scheduler scale up instances too aggressively
+  - url: "*.brid.gy/xrpc/com.atproto.sync.getRepo"
+    service: heavy
+
   - url: "*.brid.gy/xrpc/com.atproto.repo.importRepo"
-    service: router
+    service: heavy
 
-  # getRepo is slow (high latency), which makes App Engine Standard's scheduler
-  # scale up default instances too aggressively
-  # TODO: make a new dedicated service
-  # - url: "*.brid.gy/xrpc/com.atproto.sync.getRepo"
-  #   service: router
-
-  - url: "*.brid.gy/xrpc/com.atproto.sync.subscribeRepos"
-    service: hub
-
-  - url: "bounce.anew.social/*"
-    service: bounce
+  - url: "*.brid.gy/xrpc/com.atproto.sync.listRepos"
+    service: heavy

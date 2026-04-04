@@ -1,7 +1,10 @@
+# Service for heavy external-facing HTTP requests, eg /xrpc/com.atproto.sync.getRepo
+#
 # https://cloud.google.com/appengine/docs/standard/reference/app-yaml?tab=python
 
 # application: bridgy-federated
 
+service: heavy
 # keep this in sync with the test job image's Python version in .circleci/config.yml!
 runtime: python312
 
@@ -9,7 +12,7 @@ runtime: python312
 
 # https://cloud.google.com/appengine/docs/standard/python3/runtime#entrypoint_best_practices
 # https://gunicorn.org/reference/settings/
-entrypoint: gunicorn --workers 2 --threads 15 --timeout 60 -b :$PORT app:app
+entrypoint: gunicorn --workers 1 --threads 10 --timeout 60 -b :$PORT app:app
 
 # background: https://github.com/snarfed/bridgy/issues/578
 # https://github.com/snarfed/bridgy/issues/1051
@@ -17,13 +20,8 @@ entrypoint: gunicorn --workers 2 --threads 15 --timeout 60 -b :$PORT app:app
 automatic_scaling:
   max_instances: 100
   max_idle_instances: 1
-  max_concurrent_requests: 30
-  min_pending_latency: 2s
-
-  # target_cpu_utilization: .9
-
-  # this increased our instance count badly, as of 2026-03
-  # target_throughput_utilization: .8
+  max_concurrent_requests: 10
+  target_cpu_utilization: 0.8
 
 inbound_services:
 - warmup
@@ -51,43 +49,7 @@ env_variables:
 
 handlers:
 
-# static
-- url: /static
-  static_dir: static
-  secure: always
-
-- url: /oauth_dropins_static
-  static_dir: oauth_dropins_static
-
-- url: /fonts
-  static_dir: oauth_dropins_fonts
-
-- url: /favicon.ico
-  static_files: static/favicon.ico
-  upload: static/favicon.ico
-  secure: always
-
-- url: /robots.txt
-  static_files: static/robots.txt
-  upload: static/robots.txt
-  secure: always
-
-- url: /.well-known/security.txt
-  static_files: static/security.txt
-  upload: static/security.txt
-  secure: always
-
 # dynamic
-- url: /admin/sequences/.*
-  script: auto
-  secure: always
-  login: optional
-
-- url: /admin/.*
-  script: auto
-  secure: always
-  login: admin
-
 - url: .*
   script: auto
   secure: always
