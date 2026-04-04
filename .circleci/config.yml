@@ -9,7 +9,7 @@ version: 2.1
 parameters:
   service:
     type: enum
-    enum: ["hub", "default"]
+    enum: ["hub", "heavy", "default"]
     default: "default"
   deploy-flags:
     type: enum
@@ -155,7 +155,7 @@ jobs:
             gcloud -q app deploy --no-promote << pipeline.parameters.deploy-flags >> index.yaml queue.yaml router.provisioned.yaml
 
 
-  deploy-hub:
+  deploy-hub-or-heavy:
     docker:
       - image: cimg/gcp:2026.02
 
@@ -163,14 +163,14 @@ jobs:
       - checkout
       - auth-gcloud
       - run:
-          name: Deploy hub
+          name: Deploy hub or heavy
           command: |
             echo $ENCRYPTED_PROPERTY_KEY > encrypted_property_key
             echo $FLASK_SECRET_KEY > flask_secret_key
 
             # oauth-dropins static assets
             git clone --depth=1 https://github.com/snarfed/oauth-dropins.git ../oauth-dropins
-            gcloud -q app deploy << pipeline.parameters.deploy-flags >> hub.yaml
+            gcloud -q app deploy << pipeline.parameters.deploy-flags >> << pipeline.parameters.deploy-flags >>.yaml
 
 
   migrate-app:
@@ -259,15 +259,15 @@ workflows:
             - deploy-router: success
             - migrate-router: terminal
 
-  test-and-deploy-hub:
+  test-and-deploy-hub-or-heavy:
     when: |
-      pipeline.parameters.service == "hub"
+      (pipeline.parameters.service == "hub" or pipeline.parameters.service == "heavy")
         and pipeline.git.branch == "main"
 
     jobs:
       - test
       # TODO: parallelize into deploy, migrate, and stop-old-version, like router
       # (can we parameterize stop-old-version across router and hub?)
-      - deploy-hub:
+      - deploy-hub-or-heavy:
           requires:
             - test: success
