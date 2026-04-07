@@ -65,6 +65,7 @@ ATPROTO_HANDLE_DOMAINS = (
     'mo-me.social',
     'music-social.com',
     'tags.pub',
+    'wetdry.world',
 )
 
 # https://github.com/snarfed/bridgy-fed/issues/314
