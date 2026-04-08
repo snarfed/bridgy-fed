@@ -47,11 +47,11 @@ dispatch:
   #
   # slow (heavy) external-facing requests. if we serve these on default, their high
   # latency makes App Engine Standard's scheduler scale up instances too aggressively
-  - url: "*.brid.gy/xrpc/com.atproto.sync.getRepo"
-    service: heavy
+  # - url: "*.brid.gy/xrpc/com.atproto.sync.getRepo"
+  #   service: heavy
 
-  - url: "*.brid.gy/xrpc/com.atproto.repo.importRepo"
-    service: heavy
+  # - url: "*.brid.gy/xrpc/com.atproto.repo.importRepo"
+  #   service: heavy
 
-  - url: "*.brid.gy/xrpc/com.atproto.sync.listRepos"
-    service: heavy
+  # - url: "*.brid.gy/xrpc/com.atproto.sync.listRepos"
+  #   service: heavy
