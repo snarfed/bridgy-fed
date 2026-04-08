@@ -641,10 +641,9 @@ class ATProtoFirehoseSubscribeTest(ATProtoTestCase):
 
         util.now = _now
 
-        # commits arrive: now, 2 days ago, 1 day ago, now+1min
-        # the 3rd commit's time (1 day ago) is >= 2nd commit's time (2 days ago),
-        # so the current code spuriously logs "behind" for it
-        assert STORE_CURSOR_FREQ * 4 < timedelta(minutes=5)
+        # commits arrive: now, 30s ago (jitter), 2 days ago (outlier), 1 day ago
+        # (outlier), now + 5min. only 2nd and 5th should log "behind".
+        assert STORE_CURSOR_FREQ * 5 < timedelta(minutes=5)
         FakeWebsocketClient.to_receive = [({
             'op': 1,
             't': '#commit',
@@ -655,6 +654,7 @@ class ATProtoFirehoseSubscribeTest(ATProtoTestCase):
             'time': time.isoformat(),
         }) for i, time in enumerate([
             NOW,
+            NOW - timedelta(seconds=30),
             NOW - timedelta(days=2),
             NOW - timedelta(days=1),
             NOW + timedelta(minutes=5),
@@ -664,11 +664,12 @@ class ATProtoFirehoseSubscribeTest(ATProtoTestCase):
             self.subscribe()
 
         msgs = [m for m in logs.output if 'updating stored cursor' in m]
-        self.assertEqual(4, len(msgs))
+        self.assertEqual(5, len(msgs))
         self.assertNotIn('behind', msgs[0])
-        self.assertNotIn('behind', msgs[1])
+        self.assertIn('behind', msgs[1])
         self.assertNotIn('behind', msgs[2])
-        self.assertIn('behind', msgs[3])
+        self.assertNotIn('behind', msgs[3])
+        self.assertIn('behind', msgs[4])
 
 
 @patch('oauth_dropins.webutil.appengine_config.tasks_client.create_task')

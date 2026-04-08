@@ -46,6 +46,7 @@ logger = logging.getLogger(__name__)
 
 RECONNECT_DELAY = timedelta(seconds=30)
 STORE_CURSOR_FREQ = timedelta(seconds=10)
+LOG_OUTLIER_THRESHOLD = timedelta(minutes=5)
 
 # a commit operation. similar to arroba.repo.Write. record is None for deletes.
 Op = namedtuple('Op', ['action', 'repo', 'path', 'seq', 'record', 'time'],
@@ -210,9 +211,12 @@ def subscribe():
                 msg += f', {events_s} events/s'
             last_stored_cursor = cursor.cursor
 
-            if last_timestamp and cur_timestamp >= last_timestamp:
-                behind = util.now() - util.parse_iso8601(cur_timestamp)
-                msg += f', {behind} ({int(behind.total_seconds())} s) behind'
+            cur_dt = util.parse_iso8601(cur_timestamp)
+            if last_timestamp:
+                last_dt = util.parse_iso8601(last_timestamp)
+                if last_dt - cur_dt <= LOG_OUTLIER_THRESHOLD:
+                    behind = util.now() - cur_dt
+                    msg += f', {behind} ({int(behind.total_seconds())} s) behind'
 
             logger.info(msg)
             cursor.put()
