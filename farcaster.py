@@ -18,21 +18,13 @@ logger = logging.getLogger(__name__)
 class Farcaster(User, Protocol):
     """Farcaster class.
 
-    Key id is string fid.
+    Key id is string ``farcaster://[fid]`` URI.
     """
     ABBREV = 'fc'
     PHRASE = 'Farcaster'
     LOGO_EMOJI = '🏛️'
     DEFAULT_ENABLED_PROTOCOLS = ('web',)
     HAS_COPIES = True
-
-    def fid(self):
-        """Returns this user's Farcaster FID as an integer.
-
-        Returns:
-          int
-        """
-        return int(self.key.id())
 
     @ndb.ComputedProperty
     def handle(self):
@@ -43,8 +35,30 @@ class Farcaster(User, Protocol):
                 return username
 
         if self.key:
-            return self.key.id()
+            return str(self.fid)
+
+    @classmethod
+    def owns_id(cls, id):
+        return id and id.startswith('farcaster://')
+
+    @classmethod
+    def owns_handle(cls, handle, allow_internal=False):
+        if handle.endswith('.eth'):
+            return True
+        elif granary.farcaster.HANDLE_RE.fullmatch(handle):
+            return None
+
+        return False
+
+    @property
+    def fid(self):
+        """Returns this user's Farcaster FID as an integer.
+
+        Returns:
+          int
+        """
+        return int(self.key.id().removeprefix(('farcaster://')))
 
     def web_url(self):
         if self.key:
-            return granary.farcaster.Farcaster.user_url(self.fid())
+            return granary.farcaster.Farcaster.user_url(self.fid)
