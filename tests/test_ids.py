@@ -5,6 +5,7 @@ from granary.tests.test_nostr import ID, NPUB, NPUB_URI, PUBKEY, PUBKEY_URI
 
 from activitypub import ActivityPub
 from atproto import ATProto
+from farcaster import Farcaster
 from flask_app import app
 from google.cloud.ndb.key import _MAX_KEYPART_BYTES
 import ids

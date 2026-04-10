@@ -1758,8 +1758,14 @@ Link: <<span class='value'>at://did:plc:bg5udl25mvzg3rt7l5n2hzet/app.bsky.feed.p
   <th>Web<br><code>me.com</code></th>
   <th>ActivityPub<br><code>@me@instance.com</code></th>
   <th>AT Protocol<br><code>me.com</code></th>
-  <th>Nostr<br><code>me@domain.com</code><br><code>[_@]me.com</code></th>
-  <th>Nostr<br><code>me.fcast.id</code><code>me.eth</code></th>
+  <th>Nostr<br>
+    <code>me@domain.com</code><br>
+    <code>[_@]me.com</code>
+  </th>
+  <th>Farcaster<br>
+    <code>me.fcast.id</code><br>
+    <code>me.eth</code>
+  </th>
 </tr>
 </thead>
 <tbody>
@@ -1772,7 +1778,10 @@ Link: <<span class='value'>at://did:plc:bg5udl25mvzg3rt7l5n2hzet/app.bsky.feed.p
     (varies by instance)</td>
   <td class="done"><code>me.com</code></td>
   <td>?<br><code>me.com</code></td>
-  <td><code></code></td>
+  <td>
+    <code>me.fcast.id</code><br>
+    <code>me.eth</code>
+  </td>
 </tr>
 
 <tr>
@@ -1781,18 +1790,21 @@ Link: <<span class='value'>at://did:plc:bg5udl25mvzg3rt7l5n2hzet/app.bsky.feed.p
   <td><code>@me.com@web.brid.gy</code></td>
   <td rowspan="2" class="na">-</td>
   <td class="done"><code>@me.com@bsky.brid.gy</code></td>
-  <td><code>@me[domain.]com@nostr.brid.gy</code></td>
-  <td><code></code></td>
+  <td class="done"><code>@me.[domain.]com@nostr.brid.gy</code></td>
+  <td>
+    <code>@me@fc.brid.gy</code><br>
+    <code>@me.eth@fc.brid.gy</code>
+  </td>
 </tr>
 <tr>
   <th class="subhead">enhanced</th>
   <td class="done"><code>@me.com@me.com</code></td>
-  <td><code>@me.com@me.com</code></td>
+  <td class="done"><code>@me.com@me.com</code></td>
   <td>
     <code>@me@domain.com</code><br>
     <code>@me.com@me.com</code>
   </td>
-  <td><code></code></td>
+  <td>?</td>
 </tr>
 
 <tr>
@@ -1801,32 +1813,48 @@ Link: <<span class='value'>at://did:plc:bg5udl25mvzg3rt7l5n2hzet/app.bsky.feed.p
   <td class="done"><code>me.com.web.brid.gy</code></td>
   <td class="done"><code>me.instance.com.ap.brid.gy</code></td>
   <td rowspan="2" class="na">-</td>
-  <td><code>me.[domain.]com.nostr.brid.gy</code></td>
-  <td><code></code></td>
+  <td class="done"><code>me.[domain.]com.nostr.brid.gy</code></td>
+  <td>
+    <code>me.fc.brid.gy</code><br>
+    <code>me.eth.fc.brid.gy</code>
+  </td>
 </tr>
 <tr>
   <th class="subhead">enhanced</th>
   <td class="done"><code>me.com</code></td>
   <td class="done"><code>me.com</code></td>
   <td><code>me.[domain.]com</code></td>
-  <td><code></code></td>
+  <td>?</td>
 </tr>
 
 <tr>
   <th rowspan="2">Nostr</th>
   <th class="subhead">basic</th>
-  <td><code>me.com@web.brid.gy</code></td>
-  <td><code>me.instance.com@ap.brid.gy</code></td>
-  <td><code>me.com@bsky.brid.gy</code></td>
+  <td class="done"><code>me.com@web.brid.gy</code></td>
+  <td class="done"><code>me.instance.com@ap.brid.gy</code></td>
+  <td class="done"><code>me.com@bsky.brid.gy</code></td>
   <td rowspan="2" class="na">-</td>
-  <td><code></code></td>
+  <td>
+    <code>me@fc.brid.gy</code><br>
+    <code>me.eth@fc.brid.gy</code>
+  </td>
 </tr>
 <tr>
   <th class="subhead">enhanced</th>
   <td><code>[_@]me.com</code></td>
   <td><code>[_@]me.instance.com</code></td>
   <td><code>[_@]me.com</code></td>
-  <td><code></code></td>
+  <td>?</td>
+</tr>
+
+<tr>
+  <th>Farcaster</th>
+  <th></th>
+  <td><code>me.com</code></td>
+  <td><code>me.instance.com</code></td>
+  <td><code>me.com</code></td>
+  <td><code>me.[domain.]com</code></td>
+  <td class="na">-</td>
 </tr>
 
 </tbody>

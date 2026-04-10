@@ -50,6 +50,7 @@ from domains import (
     PRIMARY_DOMAIN,
     PROTOCOL_DOMAINS,
 )
+from farcaster import Farcaster
 from flask_app import app
 from flask import redirect
 import ids
@@ -78,6 +79,7 @@ TEMPLATE_VARS = {
     'as1': as1,
     'as2': as2,
     'ATProto': ATProto,
+    'Farcaster': Farcaster,
     'getattr': getattr,
     'hasattr': hasattr,
     'ids': ids,

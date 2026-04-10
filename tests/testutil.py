@@ -318,6 +318,7 @@ from memcache import (
     memcache,
     pickle_memcache,
 )
+from farcaster import Farcaster
 from flask_app import app
 from nostr import Nostr
 from web import Web

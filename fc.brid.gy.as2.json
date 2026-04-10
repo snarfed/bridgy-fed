@@ -1,0 +1,38 @@
+{
+  "@context": [
+    "https://www.w3.org/ns/activitystreams",
+    "https://purl.archive.org/miscellany",
+    "https://w3id.org/security/v1",
+    {"alsoKnownAs": {"@id": "as:alsoKnownAs", "@type": "@id"}}
+  ],
+  "type": "Service",
+  "id": "https://fc.brid.gy/fc.brid.gy",
+  "url": [
+    "https://fc.brid.gy/",
+    "https://fed.brid.gy/"
+  ],
+  "preferredUsername": "fc.brid.gy",
+  "summary": "<p><a href='https://fed.brid.gy/'>Bridgy Fed</a> bot user for <a href='https://https://farcaster.xyz/'>Farcaster</a>. To bridge your account to Farcaster, follow this account. <a href='https://fed.brid.gy/docs'>More info here.</a><p>After you follow this account, it will follow you back. Accept its follow to make sure your posts get sent to the bridge.<p>To ask a Farcaster user to bridge their account, DM their username to this account.</p>",
+  "name": "Bridgy Fed for Farcaster",
+  "image": [
+    {
+      "type": "Image",
+      "url": "https://fed.brid.gy/static/bridgy_fed_banner.png"
+    },
+    {
+      "name": "Bridgy Fed for Farcaster",
+      "type": "Image",
+      "url": "https://fed.brid.gy/static/bridgy_logo_square.jpg"
+    }
+  ],
+  "icon": {
+    "name": "Bridgy Fed for Farcaster",
+    "type": "Image",
+    "url": "https://fed.brid.gy/static/bridgy_logo_square.jpg"
+  },
+  "alsoKnownAs": [
+    "https://fc.brid.gy/",
+    "https://fed.brid.gy/"
+  ],
+  "manuallyApprovesFollowers": false
+}
