@@ -75,6 +75,8 @@ DEBUG_PROTOCOLS = (
     'fa',
     'fake',
     'efake',
+    'farcaster',
+    'fc',
     'other',
 )
 if DEBUG:

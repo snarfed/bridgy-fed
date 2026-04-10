@@ -24,6 +24,7 @@ class Farcaster(User, Protocol):
     PHRASE = 'Farcaster'
     LOGO_EMOJI = '🏛️'
     DEFAULT_ENABLED_PROTOCOLS = ('web',)
+    HAS_COPIES = True
 
     def fid(self):
         """Returns this user's Farcaster FID as an integer.

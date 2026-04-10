@@ -36,6 +36,7 @@ if DEBUG:
     PROTOCOL_DOMAINS += (
         'efake.brid.gy',
         'fa.brid.gy',
+        'fc.brid.gy',
         'other.brid.gy',
     )
 OTHER_DOMAINS = (

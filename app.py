@@ -9,7 +9,7 @@ from arroba.datastore_storage import MemcacheSequences
 from flask_app import app
 
 # import all modules to register their Flask handlers
-import activitypub, admin, atproto, convert, follow, nostr, pages, redirect, ui, webfinger, web
+import activitypub, admin, atproto, convert, farcaster, follow, nostr, pages, redirect, ui, webfinger, web
 
 import models
 models.reset_protocol_properties()
