@@ -14,6 +14,7 @@ from flask import request
 from google.cloud.ndb.key import _MAX_KEYPART_BYTES
 from google.cloud.ndb.query import FilterNode, Query
 from granary.bluesky import BSKY_APP_URL_RE, web_url_to_at_uri
+import granary.farcaster
 import granary.nostr
 from oauth_dropins.webutil import util
 
@@ -190,7 +191,7 @@ def translate_user_id(*, id, from_, to):
                 return orig.id()
 
     match from_.LABEL, to.LABEL:
-        case _, 'atproto' | 'nostr':
+        case _, 'atproto' | 'nostr' | 'farcaster':
             logger.debug(f"Can't translate user id {id} to {to.LABEL}, haven't copied it there yet!")
             return None
 
@@ -227,6 +228,8 @@ def normalize_user_id(*, id, proto):
     * ATProto:
       * did:plc:123 => did:plc:123
       * https://bsky.app/profile/did:plc:123 => did:plc:123
+    * Farcaster:
+      * 123 => farcaster://123
 
     Note that :func:`profile_id` is a narrower inverse of this; it converts
     user ids to profile ids.
@@ -247,14 +250,21 @@ def normalize_user_id(*, id, proto):
         if normalized in WWW_DOMAINS:
             return 'www.' + normalized
         return normalized
+
     elif proto.LABEL == 'atproto' and id.startswith('at://'):
         repo, coll, tid = parse_at_uri(id)
         if repo and (not coll or coll == 'app.bsky.actor.profile'):
             normalized = repo
+
+    elif proto.LABEL == 'farcaster':
+        if util.is_int(id):
+            return granary.farcaster.uri(id)
+
     elif proto.LABEL == 'nostr':
         obj_key = models.Object(id=normalized).key
         if user := nostr.Nostr.query(nostr.Nostr.obj_key == obj_key).get():
             normalized = user.key.id()
+
     elif proto.LABEL in ('fake', 'efake', 'other'):
         normalized = normalized.replace(':profile:', ':')
 
@@ -426,6 +436,12 @@ def translate_handle(*, handle, from_, to, short=False):
 
             output = flattened_user_at_domain()
 
+        case _, 'farcaster':
+            if handle == PRIMARY_DOMAIN or handle in PROTOCOL_DOMAINS:
+                return handle
+
+            output = flattened.replace('.', '-')
+
         case 'activitypub', 'web':
             user, instance = handle.lstrip('@').split('@')
             # TODO: get this from the actor object's url field?
@@ -501,7 +517,7 @@ def translate_object_id(*, id, from_, to):
             return orig.id()
 
     match from_.LABEL, to.LABEL:
-        case _, 'atproto' | 'nostr':
+        case _, 'atproto' | 'nostr' | 'farcaster':
             logger.debug(f"Can't translate object id {id} to {to.LABEL}, haven't copied it there yet!")
             return id
 
