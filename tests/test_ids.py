@@ -30,12 +30,21 @@ class IdsTest(TestCase):
         Web(id='nostr.brid.gy', ap_subdomain='nostr', has_redirects=True).put()
 
     def test_translate_user_id(self):
-        Web(id='user.com',
-            copies=[Target(uri='did:plc:123', protocol='atproto')]).put()
-        ActivityPub(id='https://inst/user',
-                    copies=[Target(uri='did:plc:456', protocol='atproto')]).put()
-        fake_user = Fake(id='fake:user',
-                         copies=[Target(uri='did:plc:789', protocol='atproto')])
+        Web(id='user.com', copies=[
+            Target(uri='did:plc:123', protocol='atproto'),
+            Target(uri='farcaster://123', protocol='farcaster'),
+            Target(uri='nostr:123', protocol='nostr'),
+        ]).put()
+        ActivityPub(id='https://inst/user', copies=[
+            Target(uri='did:plc:456', protocol='atproto'),
+            Target(uri='farcaster://456', protocol='farcaster'),
+            Target(uri='nostr:456', protocol='nostr'),
+        ]).put()
+        fake_user = Fake(id='fake:user', copies=[
+            Target(uri='did:plc:789', protocol='atproto'),
+            Target(uri='farcaster://789', protocol='farcaster'),
+            Target(uri='nostr:789', protocol='nostr'),
+        ])
         fake_user.put()
 
         # ATProto with DID docs, used to resolve handle in bsky.app URL
@@ -74,14 +83,30 @@ class IdsTest(TestCase):
             (ATProto, 'did:plc:123', Web, 'user.com'),
             (ATProto, 'did:plc:456', ActivityPub, 'https://inst/user'),
             (ATProto, 'did:plc:789', Fake, 'fake:user'),
+            (Farcaster, 'farcaster://123', Web, 'user.com'),
+            (Farcaster, 'farcaster://456', ActivityPub, 'https://inst/user'),
+            (Farcaster, 'farcaster://789', Fake, 'fake:user'),
+            (Nostr, 'nostr:123', Web, 'user.com'),
+            (Nostr, 'nostr:456', ActivityPub, 'https://inst/user'),
+            (Nostr, 'nostr:789', Fake, 'fake:user'),
 
             # no copies
+            (ActivityPub, 'https://web.brid.gy/ap/alice.com', Fake, 'fake:u:alice.com'),
+            (ActivityPub, 'https://inst/alice', Farcaster, None),
+            (ActivityPub, 'https://inst/alice', Nostr, None),
+            (ActivityPub, 'https://web.brid.gy/ap/alice.com', Web, 'alice.com'),
+
             (ATProto, 'did:plc:x', Web, 'https://bsky.brid.gy/web/did:plc:x'),
             (ATProto, 'did:plc:x', ActivityPub, 'https://bsky.brid.gy/ap/did:plc:x'),
             (ATProto, 'did:plc:x', Fake, 'fake:u:did:plc:x'),
             (ATProto, 'did:plc:456', Nostr, None),
             (ATProto, 'https://bsky.app/profile/user.com', ATProto, 'did:plc:123'),
             (ATProto, 'https://bsky.app/profile/did:plc:123', ATProto, 'did:plc:123'),
+
+            (Farcaster, 'farcaster://555', Web, 'https://fc.brid.gy/web/farcaster://555'),
+            (Farcaster, 'farcaster://555', ActivityPub, 'https://fc.brid.gy/ap/farcaster://555'),
+            (Farcaster, 'farcaster://555', ATProto, None),
+            (Farcaster, 'farcaster://555', Nostr, None),
 
             (Nostr, ID, Web, f'https://nostr.brid.gy/web/{ID_URI}'),
             (Nostr, ID_URI, Web, f'https://nostr.brid.gy/web/{ID_URI}'),
@@ -92,18 +117,15 @@ class IdsTest(TestCase):
             (Nostr, ID, Fake, f'fake:u:{ID_URI}'),
             (Nostr, ID_URI, Fake, f'fake:u:{ID_URI}'),
 
-            (ActivityPub, 'https://inst/user', Nostr, None),
-            (Web, 'user.com', Nostr, None),
-            (Fake, 'fake:user', Nostr, None),
-
             # not enabled for target protocol, shouldn't matter
-            (ATProto, 'did:plc:0', ActivityPub, 'https://bsky.brid.gy/ap/did:plc:0'),
             (Fake, 'fake:user', ActivityPub, 'https://fa.brid.gy/ap/fake:user'),
             (Fake, 'fake:user', Fake, 'fake:user'),
             (Fake, 'fake:user', Web, 'https://fa.brid.gy/web/fake:user'),
             (Fake, 'fake:user', ATProto, 'did:plc:789'),
             # ...except when we don't have a copy
-            (Fake, 'fake:bob', ATProto, None),
+            (Fake, 'fake:alice', ATProto, None),
+            (Fake, 'fake:alice', Farcaster, None),
+            (Fake, 'fake:alice', Nostr, None),
 
             (Web, 'user.com', ActivityPub, 'http://localhost/user.com'),
             (Web, 'https://user.com/', ActivityPub, 'http://localhost/user.com'),
@@ -112,10 +134,10 @@ class IdsTest(TestCase):
             (Web, 'https://bsky.app/profile/user.com', ATProto, 'did:plc:123'),
             (Web, 'https://bsky.app/profile/did:plc:123', ATProto, 'did:plc:123'),
             (Web, 'user.com', Fake, 'fake:u:user.com'),
+            (Web, 'alice.com', Farcaster, None),
+            (Web, 'alice.com', Nostr, None),
             (Web, 'user.com', Web, 'user.com'),
             (Web, 'https://user.com/', Web, 'user.com'),
-            (ActivityPub, 'https://web.brid.gy/ap/user.com', Web, 'user.com'),
-            (ActivityPub, 'https://web.brid.gy/ap/user.com', Fake, 'fake:u:user.com'),
 
             # instance actor / protocol bot users
             (Web, 'fed.brid.gy', ActivityPub, 'https://fed.brid.gy/fed.brid.gy'),
@@ -202,6 +224,8 @@ class IdsTest(TestCase):
              'https://bsky.app/profile/han.dull/lists/abc'),
             (Fake, 'fake:user', 'fake:user'),
             (Fake, 'fake:profile:user', 'fake:user'),
+            (Farcaster, '123', 'farcaster://123'),
+            (Farcaster, 'farcaster://123', 'farcaster://123'),
             (Web, 'user.com', 'user.com'),
             (Web, 'https://user.com/', 'user.com'),
             (Web, 'https://www.user.com/', 'user.com'),
@@ -226,6 +250,7 @@ class IdsTest(TestCase):
             (ATProto, 'at://did:plc:123/app.bsky.feed.post/456'),
             (ATProto, 'https://bsky.app/profile/han.dull/post/456'),
             (ATProto, 'https://bsky.app/profile/han.dull/lists/abc'),
+            (Farcaster, 'farcaster://123/0x456')
         ]:
             with self.subTest(id=id, proto=proto.LABEL):
                 self.assertEqual(id, ids.normalize_user_id(id=id, proto=proto))
@@ -237,6 +262,10 @@ class IdsTest(TestCase):
              'at://did:plc:123/app.bsky.feed.post/abc'),
             (Fake, 'fake:obj', 'fake:obj'),
             (Fake, 'fake:alice', 'fake:profile:alice'),
+            # TODO? would need user id though
+            # (Farcaster, b'Eg', 'farcaster://123/0x4567'),
+            # (Farcaster, '0x456', 'farcaster://123/0x456'),
+            (Farcaster, 'farcaster://123/0x456', 'farcaster://123/0x456'),
             (Web, 'user.com', 'https://user.com/'),
             (Web, 'https://user.com/', 'https://user.com/'),
             (Web, 'https://user.com/foo', 'https://user.com/foo'),
@@ -279,40 +308,52 @@ class IdsTest(TestCase):
             (Web, 'user.com', ATProto, 'user.com.web.brid.gy'),
             (Web, 'user.com', Fake, 'fake:handle:user.com'),
             (Web, 'u_se-r.com', Fake, 'fake:handle:u_se-r.com'),
-            (Web, 'user.com', Web, 'user.com'),
+            (Web, 'user.com', Farcaster, 'user-com'),
             (Web, 'user.com', Nostr, 'user.com@web.brid.gy'),
+            (Web, 'user.com', Web, 'user.com'),
 
             (ActivityPub, '@user@instance', ActivityPub, '@user@instance'),
             (ActivityPub, '@user@instance', ATProto, 'user.instance.ap.brid.gy'),
             (ActivityPub, '@u_se~r@instance', ATProto, 'u-se-r.instance.ap.brid.gy'),
             (ActivityPub, '@user@instance', Fake, 'fake:handle:@user@instance'),
-            (ActivityPub, '@user@instance', Web, 'https://instance/@user'),
+            (ActivityPub, '@user@instance', Farcaster, 'user-instance'),
             (ActivityPub, '@user@instance', Nostr, 'user.instance@ap.brid.gy'),
+            (ActivityPub, '@user@instance', Web, 'https://instance/@user'),
 
             (ATProto, 'user.com', ActivityPub, '@user.com@bsky.brid.gy'),
             (ATProto, 'u-se-r.com', ActivityPub, '@u-se-r.com@bsky.brid.gy'),
             (ATProto, 'user.com', ATProto, 'user.com'),
             (ATProto, 'user.com', Fake, 'fake:handle:user.com'),
-            (ATProto, 'user.com', Web, 'user.com'),
+            (ATProto, 'user.com', Farcaster, 'user-com'),
             (ATProto, 'user.com', Nostr, 'user.com@bsky.brid.gy'),
+            (ATProto, 'user.com', Web, 'user.com'),
 
             (Fake, 'fake:handle:user', ActivityPub, '@fake-handle-user@fa.brid.gy'),
             (Fake, 'fake:handle:user', ATProto, 'fake-handle-user.fa.brid.gy'),
             (Fake, 'fake:handle:user', Fake, 'fake:handle:user'),
-            (Fake, 'fake:handle:user', Web, 'fake:handle:user'),
             (Fake, 'fake:handle:user', Nostr, 'fake-handle-user@fa.brid.gy'),
+            (Fake, 'fake:handle:user', Web, 'fake:handle:user'),
+
+            (Farcaster, 'me', ActivityPub, '@me@fc.brid.gy'),
+            (Farcaster, 'me.eth', ActivityPub, '@me.eth@fc.brid.gy'),
+            (Farcaster, 'me', ATProto, 'me.fc.brid.gy'),
+            (Farcaster, 'me.eth', ATProto, 'me.eth.fc.brid.gy'),
+            (Farcaster, 'me', Nostr, 'me@fc.brid.gy'),
+            (Farcaster, 'me', Web, 'me'),
 
             (Nostr, 'user@dom.ain', Nostr, 'user@dom.ain'),
             (Nostr, 'user@dom.ain', ActivityPub, '@user.dom.ain@nostr.brid.gy'),
             (Nostr, 'user@dom.ain', ATProto, 'user.dom.ain.nostr.brid.gy'),
-            (Nostr, 'user@dom.ain', Web, 'user@dom.ain'),
             (Nostr, 'user@dom.ain', Fake, 'fake:handle:user@dom.ain'),
+            (Nostr, 'user@dom.ain', Farcaster, 'user-dom-ain'),
+            (Nostr, 'user@dom.ain', Web, 'user@dom.ain'),
 
             (Nostr, '_@dom.ain', Nostr, '_@dom.ain'),
             (Nostr, '_@dom.ain', ActivityPub, '@dom.ain@nostr.brid.gy'),
             (Nostr, '_@dom.ain', ATProto, 'dom.ain.nostr.brid.gy'),
-            (Nostr, '_@dom.ain', Web, 'dom.ain'),
             (Nostr, '_@dom.ain', Fake, 'fake:handle:dom.ain'),
+            (Nostr, '_@dom.ain', Farcaster, 'dom-ain'),
+            (Nostr, '_@dom.ain', Web, 'dom.ain'),
 
             # instance actor, protocol bot users
             (Web, 'fed.brid.gy', ActivityPub, '@fed.brid.gy@fed.brid.gy'),
@@ -412,6 +453,14 @@ class IdsTest(TestCase):
             (Web, 'http://po.st', Fake, 'fake:o:web:http://po.st'),
             (Web, 'http://po.st', Web, 'http://po.st'),
             (Nostr, 'nostr:456', Fake, 'fake:o:nostr:nostr:456'),
+            (Farcaster, 'farcaster://123/0xabc', Web,
+             'https://fc.brid.gy/convert/web/farcaster://123/0xabc'),
+            (Farcaster, 'farcaster://123/0xabc', ActivityPub,
+             'https://fc.brid.gy/convert/ap/farcaster://123/0xabc'),
+            (Farcaster, 'farcaster://123/0xabc', ATProto, 'farcaster://123/0xabc'),
+            (Farcaster, 'farcaster://123/0xabc', Nostr, 'farcaster://123/0xabc'),
+            (Web, 'http://po.st', Farcaster, 'http://po.st'),
+
             (Nostr, 'nostr:456', ActivityPub,
              'https://nostr.brid.gy/convert/ap/nostr:456'),
             (Nostr, 'nostr:456', ATProto, 'nostr:456'),

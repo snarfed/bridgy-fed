@@ -43,7 +43,7 @@ class Farcaster(User, Protocol):
 
     @classmethod
     def owns_handle(cls, handle, allow_internal=False):
-        if handle.endswith('.eth'):
+        if handle.endswith('.eth') or handle.endswith('.fcast.id'):
             return True
         elif granary.farcaster.HANDLE_RE.fullmatch(handle):
             return None
