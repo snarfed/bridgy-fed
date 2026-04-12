@@ -67,6 +67,12 @@ indexes:
 - kind: Follower
   properties:
   - name: to
+  - name: status
+  - name: from
+
+- kind: Follower
+  properties:
+  - name: to
   - name: from
 
 - kind: Follower

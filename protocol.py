@@ -1929,24 +1929,27 @@ Hi! You <a href="{inner_obj_as1.get('url') or inner_obj_id}">recently {verb}</a>
             logger.info("Can't tell who this is from! Skipping followers.")
             return targets
 
+        # we deliver to HAS_COPIES protocols separately, below. we assume they have
+        # follower-independent targets.
+        to_followers_protos = [p for p in to_protocols
+                               if not (p.HAS_COPIES and p.DEFAULT_TARGET)]
         followers = []
         is_undo_block = obj.type == 'undo' and inner_obj_as1.get('verb') == 'block'
         if (obj.type in ('post', 'update', 'delete', 'move', 'share', 'undo')
-                and (not is_reply or is_self_reply) and not is_undo_block):
-            logger.info(f'Delivering to followers of {user_key} on {[p.LABEL for p in to_protocols]}')
-            followers = []
-            for f in Follower.query(Follower.to == user_key,
-                                    Follower.status == 'active'):
-                proto = PROTOCOLS_BY_KIND[f.from_.kind()]
-                # skip protocol bot users
-                if (not Protocol.for_bridgy_subdomain(f.from_.id())
-                        # skip protocols this user hasn't enabled, or where the base
-                        # object of this activity hasn't been bridged
-                        and proto in to_protocols
-                        # we deliver to HAS_COPIES protocols separately, below. we
-                        # assume they have follower-independent targets.
-                        and not (proto.HAS_COPIES and proto.DEFAULT_TARGET)):
-                    followers.append(f)
+                and (not is_reply or is_self_reply) and not is_undo_block
+                and to_followers_protos):
+            logger.info(f'Delivering to followers of {user_key} on {[p.LABEL for p in to_followers_protos]}')
+            # query each protocol individually
+            for proto in to_followers_protos:
+                kind = proto._get_kind()
+                for f in Follower.query(
+                        Follower.to == user_key,
+                        Follower.status == 'active',
+                        Follower.from_ >= ndb.Key(kind, '\x00'),
+                        Follower.from_ < ndb.Key(kind + '\x00', '\x00')):
+                    # skip protocol bot users
+                    if not Protocol.for_bridgy_subdomain(f.from_.id()):
+                        followers.append(f)
 
             logger.info(f'  loaded {len(followers)} followers')
 

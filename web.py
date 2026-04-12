@@ -44,7 +44,7 @@ from flask_app import app
 import ids
 import memcache
 import models
-from models import Follower, Object, PROTOCOLS, Target, User
+from models import Object, PROTOCOLS, User
 from protocol import Protocol
 
 logger = logging.getLogger(__name__)
