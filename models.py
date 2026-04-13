@@ -390,6 +390,10 @@ class User(AddRemoveMixin, StringIdModel, metaclass=ProtocolUserMeta):
     Protocols that don't require explicit opt in are omitted here.
     """
 
+    has_object_feed_followers_on = ndb.StringProperty(repeated=True,
+                                                      choices=list(PROTOCOLS.keys()))
+    """Protocol labels of protocols that use :attr:`~Protocol.USES_OBJECT_FEED` and have ever had a follower of this user."""
+
     sent_dms = ndb.StructuredProperty(DM, repeated=True)
     """DMs that we've attempted to send to this user."""
 

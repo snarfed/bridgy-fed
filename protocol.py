@@ -1505,6 +1505,11 @@ class Protocol:
 
             follower_obj = Follower.get_or_create(to=to_user, from_=from_user,
                                                   follow=obj.key, status='active')
+            if (from_cls.USES_OBJECT_FEED
+                    and from_cls.LABEL not in to_user.has_object_feed_followers_on):
+                to_user.has_object_feed_followers_on.append(from_cls.LABEL)
+                to_user.put()
+
             obj.add('notify', to_key)
             from_cls.respond_to_follow('accept', follower=from_user,
                                        followee=to_user, follow=obj)
@@ -1931,8 +1936,10 @@ Hi! You <a href="{inner_obj_as1.get('url') or inner_obj_id}">recently {verb}</a>
 
         # we deliver to HAS_COPIES protocols separately, below. we assume they have
         # follower-independent targets.
-        to_followers_protos = [p for p in to_protocols
-                               if not (p.HAS_COPIES and p.DEFAULT_TARGET)]
+        to_followers_protos = [
+            p for p in to_protocols
+            if not (p.HAS_COPIES and p.DEFAULT_TARGET)
+            and not (p.USES_OBJECT_FEED and p.LABEL not in from_user.has_object_feed_followers_on)]
         followers = []
         is_undo_block = obj.type == 'undo' and inner_obj_as1.get('verb') == 'block'
         if (obj.type in ('post', 'update', 'delete', 'move', 'share', 'undo')

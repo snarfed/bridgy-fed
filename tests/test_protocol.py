@@ -1594,6 +1594,8 @@ class ProtocolReceiveTest(TestCase):
         Follower.get_or_create(to=self.user, from_=self.bob)
         Follower.get_or_create(to=self.user, from_=OtherFake(id='other:eve'),
                                status='inactive')
+        self.user.has_object_feed_followers_on = ['efake']
+        self.user.put()
 
     def test_create_post(self):
         self.user.enabled_protocols = ['efake']
@@ -2328,6 +2330,36 @@ class ProtocolReceiveTest(TestCase):
             # not eve or frank
             Target(protocol='other', uri='other://b.ob:target'),
         ], list(Fake.targets(create, from_user=alice, crud_obj=note)))
+
+    def test_targets_skips_uses_object_feed_proto_without_followers(self):
+        # ExplicitFake has USES_OBJECT_FEED True
+        self.user.enabled_protocols = ['efake']
+        self.user.put()
+        carol = self.make_user('efake:carol', cls=ExplicitFake, obj_id='efake:carol')
+        Follower.get_or_create(to=self.user, from_=carol)
+
+        note = Object(id='fake:note', our_as1={
+            'id': 'fake:post',
+            'objectType': 'note',
+            'author': 'fake:user',
+        })
+        create = Object(id='fake:create', our_as1={
+            'id': 'fake:create',
+            'objectType': 'activity',
+            'verb': 'post',
+            'actor': 'fake:user',
+            'object': note.our_as1,
+        })
+        # self.user has no has_object_feed_followers_on, so ExplicitFake followers
+        # skipped
+        self.assertEqual({}, Fake.targets(create, from_user=self.user, crud_obj=note))
+
+        # with efake in has_object_feed_followers_on, ExplicitFake followers included
+        self.user.has_object_feed_followers_on = ['efake']
+        self.user.put()
+        self.assertEqual({
+            Target(protocol='efake', uri='efake:shared:target'): None,
+        }, Fake.targets(create, from_user=self.user, crud_obj=note))
 
     def test_targets_excludes_blocklisted_direct_targets(self):
         OtherFake.fetchable = {
@@ -3615,6 +3647,11 @@ class ProtocolReceiveTest(TestCase):
     def test_follow_actor_object_composite_objects(self):
         self._test_follow(actor={'id': 'fake:user', 'objectType': 'person'},
                           object={'id': 'other:alice', 'objectType': 'person'})
+
+    @patch.object(Fake, 'USES_OBJECT_FEED', True)
+    def test_follow_uses_object_feed_updates_to_user(self):
+        self._test_follow()
+        self.assertEqual(['fake'], self.alice.key.get().has_object_feed_followers_on)
 
     def _test_follow(self, **extra):
         self.alice.obj.our_as1 = {'x': 'y'}

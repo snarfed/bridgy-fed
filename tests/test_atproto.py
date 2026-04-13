@@ -1084,10 +1084,12 @@ class ATProtoTest(TestCase):
             }],
         })))
 
-    @patch('requests.get', return_value=requests_response(
-            test_web.REPLY_HTML, url='http://in.st/link'))
+    @patch('requests.get')
     def test_send_note_mention_tag_doesnt_get_link_preview(self, mock_get):
         """URLs in mention tags should not be used for external embeds."""
+        mock_get.return_value = requests_response(test_web.REPLY_HTML,
+                                                  url='http://in.st/link')
+
         self.assert_equals({
             **NOTE_BSKY,
             'text': 'Check out alice',

@@ -1433,7 +1433,9 @@ class WebTest(TestCase):
                                  ignore=['our_as1'],
                                  )
 
-        to = self.assert_user(ActivityPub, 'https://mas.to/mrs-foo', obj_as2={
+        to = self.assert_user(ActivityPub, 'https://mas.to/mrs-foo',
+                              has_object_feed_followers_on=['web'],
+                              obj_as2={
             '@context': as2.CONTEXT + [
                 as2.DISCOVERABLE_INDEXABLE_CONTEXT,
                 as2.PROPERTY_VALUE_CONTEXT,

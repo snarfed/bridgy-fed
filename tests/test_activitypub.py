@@ -995,7 +995,8 @@ class ActivityPubTest(TestCase):
         self._test_inbox_create_obj('/ap/sharedInbox', *mocks)
 
     def _test_inbox_create_obj(self, path, mock_head, mock_get, mock_post):
-        author = self.make_user(ACTOR['id'], cls=ActivityPub, obj_as2=ACTOR)
+        author = self.make_user(ACTOR['id'], cls=ActivityPub, obj_as2=ACTOR,
+                                has_object_feed_followers_on=['web'])
         Follower.get_or_create(to=author, from_=self.user)
         bar = self.make_user('fake:bar', cls=Fake, obj_id='fake:bar')
         Follower.get_or_create(to=self.make_user('https://other/person',
@@ -1085,7 +1086,8 @@ class ActivityPubTest(TestCase):
                            )
     def test_shared_inbox_repost_of_fediverse(self, mock_head, mock_get, mock_post):
         to = self.make_user(ACTOR['id'], cls=ActivityPub, obj_as2=ACTOR,
-                            enabled_protocols=['fake'])
+                            enabled_protocols=['fake'],
+                            has_object_feed_followers_on=['web'])
         Follower.get_or_create(to=to, from_=self.user)
         baz = self.make_user('fake:baz', cls=Fake, obj_id='fake:baz',
                              enabled_protocols=['activitypub'])
