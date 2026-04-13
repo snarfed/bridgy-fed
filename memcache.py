@@ -13,6 +13,7 @@ import string
 import config
 from google.cloud.ndb._cache import global_cache_key
 from google.cloud.ndb.global_cache import _InProcessGlobalCache, MemcacheCache
+from google.cloud.ndb.key import Key
 from oauth_dropins.webutil import appengine_info, util
 from pymemcache.client.base import PooledClient
 from pymemcache.serde import PickleSerde
@@ -43,6 +44,7 @@ class RateLimitType(Enum):
     LINEAR = auto()
     EXPONENTIAL = auto()
 
+NDB_MEMCACHE_TIMEOUT = timedelta(hours=2)
 
 WHITESPACE_RE = re.compile(f'[{string.whitespace}]')
 
@@ -66,6 +68,49 @@ else:
     memcache = PooledClient(**kwargs)
     pickle_memcache = PooledClient(serde=PickleSerde(), **kwargs)
     global_cache = MemcacheCache(memcache, strict_read=False, strict_write=False)
+
+
+def cache_policy(key):
+    """In memory ndb cache.
+
+    https://github.com/snarfed/bridgy-fed/issues/1149#issuecomment-2261383697
+
+    Only cache kinds in memory that are immutable or largely harmless when changed.
+
+    Keep an eye on this in case we start seeing problems due to this ndb bug
+    where unstored in-memory modifications get returned by later gets:
+    https://github.com/googleapis/python-ndb/issues/888
+
+    Args:
+      key (google.cloud.datastore.key.Key or google.cloud.ndb.key.Key):
+        see https://github.com/googleapis/python-ndb/issues/987
+
+    Returns:
+      bool: whether to cache this object
+    """
+    if isinstance(key, Key):
+        # use internal google.cloud.datastore.key.Key
+        # https://github.com/googleapis/python-ndb/issues/987
+        key = key._key
+
+    return key and key.kind in ('AtpBlock', 'AtpSequence', 'Object')
+
+
+def global_cache_policy(key):
+    return True
+
+
+def global_cache_timeout_policy(key):
+    """Cache everything for 2h.
+
+    Args:
+      key (google.cloud.datastore.key.Key or google.cloud.ndb.key.Key):
+        see https://github.com/googleapis/python-ndb/issues/987
+
+    Returns:
+      int: cache expiration for this object, in seconds
+    """
+    return int(NDB_MEMCACHE_TIMEOUT.total_seconds())
 
 
 def key(key):
@@ -256,7 +301,6 @@ def task_eta(queue, user_id, protocol=None):
 from logging import error as log_error
 from sys import modules
 
-from google.cloud.datastore_v1.types.entity import Key
 from google.cloud.ndb._cache import (
     _GlobalCacheSetBatch,
     global_compare_and_swap,

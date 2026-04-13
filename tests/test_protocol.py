@@ -4617,10 +4617,7 @@ class ProtocolReceiveTest(TestCase):
 
         def receive():
             with app.test_request_context('/'), \
-                 ndb_client.context(
-                     cache_policy=common.cache_policy,
-                     global_cache=_InProcessGlobalCache(),
-                     global_cache_timeout_policy=common.global_cache_timeout_policy):
+                 ndb_client.context(**common.NDB_CONTEXT_KWARGS):
                 try:
                     Fake.receive_as1(post_as1)
                 except NoContent:  # raised by the second thread

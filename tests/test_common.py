@@ -3,7 +3,6 @@ from datetime import datetime, timedelta, timezone
 from unittest import skip
 from unittest.mock import Mock, patch
 
-from arroba.datastore_storage import AtpBlock
 import flask
 from granary import as2
 import jwt
@@ -14,13 +13,11 @@ from oauth_dropins.webutil.testutil import NOW
 # import first so that Fake is defined before URL routes are registered
 from .testutil import ExplicitFake, Fake, OtherFake, TestCase
 
-from activitypub import ActivityPub, CONNEG_HEADERS_AS2_HTML
-from atproto import ATProto
 import common
 import domains
 from flask_app import app
 from memcache import PER_USER_TASK_RATES
-from models import Follower, Object, Target
+from models import Target
 from web import Web
 
 
@@ -44,46 +41,6 @@ class CommonTest(TestCase):
         self.assert_multiline_equals("""\
 <span class="logo" title="Web">🌐</span> <a class="h-card u-author mention" rel="me" href="https://user.com/" title="user.com"><span style="unicode-bidi: isolate">user.com</span></a>""", common.pretty_link('https://user.com/', user=Web(id='user.com')),
         ignore_blanks=True)
-
-    def test_cache_policy(self):
-        for obj in (
-            AtpBlock(id='xyz'),
-            Object(id='did:plc:foo'),
-            Object(id='https://mastodon.social/users/alice'),
-            Object(id='at://did:plc:user/app.bsky.actor.profile/self'),
-        ):
-            self.assertTrue(common.cache_policy(obj.key))
-
-        for obj in (
-            ATProto(id='alice'),
-            ActivityPub(id='alice'),
-            Web(id='alice'),
-            Follower(id='abc'),
-        ):
-            self.assertFalse(common.cache_policy(obj.key))
-
-    def test_global_cache_timeout_policy(self):
-        for obj in (
-            ATProto(id='alice'),
-            ActivityPub(id='alice'),
-            Web(id='alice'),
-            Object(id='https://mastodon.social/users/alice'),
-            Object(id='https://mastodon.social/users/alice#main-key'),
-            Object(id='did:plc:foo'),
-            Object(id='did:web:foo.com'),
-            Object(id='at://did:plc:user/app.bsky.actor.profile/self'),
-        ):
-            self.assertEqual(7200, common.global_cache_timeout_policy(obj.key._key))
-
-        for obj in (
-            Follower(id='abc'),
-            Object(id='abc'),
-            Object(id='https://mastodon.social/users/alice/statuses/123'),
-            Object(id='at://did:plc:user/app.bsky.feed.post/abc'),
-            Object(id='https://web.site/post'),
-            AtpBlock(id='abc123'),
-        ):
-            self.assertEqual(7200, common.global_cache_timeout_policy(obj.key._key))
 
     @patch('common.DEBUG', new=False)
     @patch('common.error_reporting_client')

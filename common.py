@@ -52,8 +52,6 @@ GCP_PROJECT_ID = 'bridgy-federated'  # used in create_task
 CACHE_CONTROL = {'Cache-Control': 'public, max-age=3600'}  # 1 hour
 CACHE_CONTROL_VARY_ACCEPT = {**CACHE_CONTROL, 'Vary': 'Accept'}
 
-NDB_MEMCACHE_TIMEOUT = timedelta(hours=2)
-
 USER_AGENT = 'Bridgy Fed (https://fed.brid.gy/)'
 util.set_user_agent(USER_AGENT)
 
@@ -308,54 +306,11 @@ def report_error(msg, *, exception=False, **kwargs):
         logger.warning(f'Failed to report error! {kwargs}', exc_info=exception)
 
 
-def cache_policy(key):
-    """In memory ndb cache.
-
-    https://github.com/snarfed/bridgy-fed/issues/1149#issuecomment-2261383697
-
-    Only cache kinds in memory that are immutable or largely harmless when changed.
-
-    Keep an eye on this in case we start seeing problems due to this ndb bug
-    where unstored in-memory modifications get returned by later gets:
-    https://github.com/googleapis/python-ndb/issues/888
-
-    Args:
-      key (google.cloud.datastore.key.Key or google.cloud.ndb.key.Key):
-        see https://github.com/googleapis/python-ndb/issues/987
-
-    Returns:
-      bool: whether to cache this object
-    """
-    if isinstance(key, Key):
-        # use internal google.cloud.datastore.key.Key
-        # https://github.com/googleapis/python-ndb/issues/987
-        key = key._key
-
-    return key and key.kind in ('AtpBlock', 'AtpSequence', 'Object')
-
-
-def global_cache_policy(key):
-    return True
-
-
-def global_cache_timeout_policy(key):
-    """Cache everything for 2h.
-
-    Args:
-      key (google.cloud.datastore.key.Key or google.cloud.ndb.key.Key):
-        see https://github.com/googleapis/python-ndb/issues/987
-
-    Returns:
-      int: cache expiration for this object, in seconds
-    """
-    return int(NDB_MEMCACHE_TIMEOUT.total_seconds())
-
-
 NDB_CONTEXT_KWARGS = {
-    'cache_policy': cache_policy,
+    'cache_policy': memcache.cache_policy,
     'global_cache': memcache.global_cache,
-    'global_cache_policy': global_cache_policy,
-    'global_cache_timeout_policy': global_cache_timeout_policy,
+    'global_cache_policy': memcache.global_cache_policy,
+    'global_cache_timeout_policy': memcache.global_cache_timeout_policy,
 }
 
 

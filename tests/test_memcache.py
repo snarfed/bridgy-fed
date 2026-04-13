@@ -2,17 +2,19 @@
 from datetime import timedelta
 from unittest.mock import patch
 
+from arroba.datastore_storage import AtpBlock, AtpRepo
 from google.cloud.ndb import Key
 
-from arroba.datastore_storage import AtpRepo
-
+from activitypub import ActivityPub
+from atproto import ATProto
 import config
 import memcache
 from memcache import memoize, pickle_memcache, task_eta
-from models import get_original_user_key, Object, Target
+from models import Follower, get_original_user_key, Object, Target
 from oauth_dropins.webutil import util
 from oauth_dropins.webutil.testutil import NOW, requests_response
 from .testutil import Fake, OtherFake, TestCase
+from web import Web
 
 
 class MemcacheTest(TestCase):
@@ -321,3 +323,47 @@ class MemcacheTest(TestCase):
                          task_eta('receive', 'alice', protocol='other'))
         self.assertEqual(NOW + delay * 4,
                          task_eta('receive', 'alice', protocol='other'))
+
+    def test_cache_policy(self):
+        for obj in (
+            AtpBlock(id='xyz'),
+            Object(id='did:plc:foo'),
+            Object(id='https://mastodon.social/users/alice'),
+            Object(id='at://did:plc:user/app.bsky.actor.profile/self'),
+        ):
+            with self.subTest(id=obj.key.id()):
+                self.assertTrue(memcache.cache_policy(obj.key))
+
+        for obj in (
+            ATProto(id='alice'),
+            ActivityPub(id='alice'),
+            Web(id='alice'),
+            Follower(id='abc'),
+        ):
+            with self.subTest(id=obj.key.id()):
+                self.assertFalse(memcache.cache_policy(obj.key))
+
+    def test_global_cache_timeout_policy(self):
+        for obj in (
+            ATProto(id='alice'),
+            ActivityPub(id='alice'),
+            Web(id='alice'),
+            Object(id='https://mastodon.social/users/alice'),
+            Object(id='https://mastodon.social/users/alice#main-key'),
+            Object(id='did:plc:foo'),
+            Object(id='did:web:foo.com'),
+            Object(id='at://did:plc:user/app.bsky.actor.profile/self'),
+        ):
+            with self.subTest(id=obj.key.id()):
+                self.assertEqual(7200, memcache.global_cache_timeout_policy(obj.key._key))
+
+        for obj in (
+            Follower(id='abc'),
+            Object(id='abc'),
+            Object(id='https://mastodon.social/users/alice/statuses/123'),
+            Object(id='at://did:plc:user/app.bsky.feed.post/abc'),
+            Object(id='https://web.site/post'),
+            AtpBlock(id='abc123'),
+        ):
+            with self.subTest(id=obj.key.id()):
+                self.assertEqual(7200, memcache.global_cache_timeout_policy(obj.key._key))
