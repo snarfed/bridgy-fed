@@ -363,7 +363,9 @@ class MemcacheTest(TestCase):
             Object(id='https://mastodon.social/users/alice/statuses/123'),
             Object(id='at://did:plc:user/app.bsky.feed.post/abc'),
             Object(id='https://web.site/post'),
-            AtpBlock(id='abc123'),
         ):
             with self.subTest(id=obj.key.id()):
                 self.assertEqual(7200, memcache.global_cache_timeout_policy(obj.key._key))
+
+        self.assertIsNone(memcache.global_cache_timeout_policy(
+            AtpBlock(id='abc123').key))

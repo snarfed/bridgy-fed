@@ -93,7 +93,7 @@ def cache_policy(key):
         # https://github.com/googleapis/python-ndb/issues/987
         key = key._key
 
-    return key and key.kind in ('AtpBlock', 'AtpSequence', 'Object')
+    return key and key.kind in ('AtpBlock', 'Object')
 
 
 def global_cache_policy(key):
@@ -110,6 +110,14 @@ def global_cache_timeout_policy(key):
     Returns:
       int: cache expiration for this object, in seconds
     """
+    if isinstance(key, Key):
+        # use internal google.cloud.datastore.key.Key
+        # https://github.com/googleapis/python-ndb/issues/987
+        key = key._key
+
+    if key.kind == 'AtpBlock':
+        return None
+
     return int(NDB_MEMCACHE_TIMEOUT.total_seconds())
 
 
