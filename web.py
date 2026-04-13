@@ -582,7 +582,7 @@ class Web(User, Protocol):
         if csv:
             return cls._fetch_csv(obj, url, gateway=gateway)
 
-        is_homepage = urlparse(url).path.strip('/') == ''
+        is_homepage = util.is_homepage(url)
         if is_homepage:
             domain = domain_from_link(url)
             if domain == PRIMARY_DOMAIN or domain in PROTOCOL_DOMAINS:

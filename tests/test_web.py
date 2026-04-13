@@ -388,6 +388,18 @@ NOTE_HTML = """\
 """
 NOTE = requests_response(NOTE_HTML, url='https://user.com/post')
 NOTE_MF2 = util.parse_mf2(NOTE_HTML)['items'][0]
+
+HENTRY_WITH_ID_HTML = """\
+<html>
+<body>
+<a class="h-card u-url" href="https://user.com/">Ms. ☕ Baz</a>
+<article class="h-entry" id="post1">
+<p class="e-content p-name">hello i am a post</p>
+<a href="http://localhost/"></a>
+</article>
+</body>
+</html>
+"""
 NOTE_AS1 = microformats2.json_to_object(NOTE_MF2)
 NOTE_AS1['id'] = 'https://user.com/post'
 NOTE_AS1['author']['id'] = 'user.com'
@@ -1342,6 +1354,25 @@ class WebTest(TestCase):
                            source_protocol='web',
                            users=[self.user.key],
                            deleted=False,
+                           )
+
+    def test_create_post_homepage_fragment(self, mock_get, mock_post):
+        self.make_followers()
+
+        mock_get.return_value = requests_response(
+            HENTRY_WITH_ID_HTML, url='https://user.com/')
+
+        got = self.post('/queue/webmention', data={
+            'source': 'https://user.com/#post1',
+            'target': 'https://fed.brid.gy/',
+        })
+        self.assert_equals(202, got.status_code)
+        self.assert_object('https://user.com/#post1',
+                           type='note',
+                           source_protocol='web',
+                           users=[self.user.key],
+                           deleted=False,
+                           ignore=['our_as1', 'mf2'],
                            )
 
     def test_update_post(self, mock_get, mock_post):

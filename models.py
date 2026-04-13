@@ -2414,8 +2414,7 @@ def load_user(handle_or_id, proto=None, create=False, allow_opt_out=False,
 
     if proto.owns_id(handle_or_id) is not False:
         if proto.LABEL == 'web' and util.is_web(handle_or_id):
-            is_homepage = urlparse(handle_or_id).path.strip('/') == ''
-            if not is_homepage:
+            if not util.is_homepage(handle_or_id):
                 raise RuntimeError(f"{handle_or_id} isn't a web domain or homepage URL")
 
         # TODO: handle user vs object ids here. this incorrectly assumes that it's

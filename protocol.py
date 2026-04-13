@@ -372,10 +372,9 @@ class Protocol:
                 logger.info(f'urlparse ValueError: {e}')
                 return None
 
-            is_homepage = parsed.path.strip('/') == ''
             is_internal = parsed.path.startswith(ids.INTERNAL_PATH_PREFIX)
             by_subdomain = Protocol.for_bridgy_subdomain(id)
-            if by_subdomain and not (is_homepage or is_internal
+            if by_subdomain and not (util.is_homepage(id) or is_internal
                                      or id in ids.BOT_ACTOR_AP_IDS):
                 logger.debug(f'  {by_subdomain.LABEL} owns id {id}')
                 return by_subdomain
