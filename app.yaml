@@ -20,7 +20,7 @@ automatic_scaling:
   max_concurrent_requests: 30
   min_pending_latency: 2s
 
-  # target_cpu_utilization: .9
+  target_cpu_utilization: .8
 
   # this increased our instance count badly, as of 2026-03
   # target_throughput_utilization: .8
