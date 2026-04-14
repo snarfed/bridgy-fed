@@ -123,6 +123,7 @@
 
 <li><a href="#mastodon-link-verification">How do I verify my profile links (ie get green checks) in Mastodon?</a></li>
 <li><a href="#fediverse-enhanced">Can I use my own domain as my fediverse handle?</a></li>
+<li><a href="#to-fediverse-indexable">Will I show up in fediverse search engines and indexes?</a></li>
 <li><a href="#fediverse-delete">I disabled my bridged profile, or deleted a post, but it's still visible in the fediverse!</a></li>
 <li><a href="#fediverse-mastodon-order">Mastodon is showing bridged posts in the wrong order!</a></li>
 <li><a href="#instance-subdomains">Could other networks' instances get their own brid.gy subdomains, so that fediverse admins can federate with or block them individually?</a></li>
@@ -180,7 +181,7 @@
 <li><a href="#web-notifications">Are there notifications?</a></li>
 <li><a href="#web-discovery">How can people on the fediverse find and follow me?</a></li>
 <li><a href="#web-see-posts">How can I see what my posts look like inside the fediverse?</a></li>
-<li><a href="#web-searchable">Can I make my posts show up when people search for them in the fediverse?</a></li>
+<li><a href="#web-searchable">Can I make my posts show up when people search for their URLs in the fediverse?</a></li>
 <li><a href="#web-enhanced">Can I use my own domain as my handle on other networks?</a></li>
 
 <br>
@@ -587,6 +588,7 @@
 <li>Some web sites bridged into the fediverse will have Webfinger addresses on their own domains, eg <code>@snarfed.org@snarfed.org</code>. Webfinger requests to those domains redirect to <code>fed.brid.gy</code> and are served there.
 <li>Bridged ActivityPub actors are <code>type: Person</code>. Bot actors like <code>@bsky.brid.gy@bsky.brid.gy</code> and <code>@fed.brid.gy@fed.brid.gy</code> are <code>type: Service</code>.
 <li>When a fediverse user opts into the bridge, their profile and posts will be indexed and searchable in Bluesky's search even if they have the <code>discoverable</code> or <code>indexable</code> flags set to <code>false</code>. Bluesky doesn't currently have a way to opt individual users out of search.
+<li>Likewise, Bluesky users are automatically included in Bluesky's search index. There's no way for individual users to opt out. So, when a Bluesky user bridges to the fediverse, we carry over that implicit consent and set their <code>discoverable</code> and <code>indexable</code> flags to <code>true</code>.
 </ul>
 </li>
 
@@ -665,6 +667,9 @@ RewriteRule ^.well-known/(host-meta|webfinger).* https://fed.brid.gy/$0  [redire
   </li>
 </ul>
 </li>
+
+<li id="to-fediverse-indexable" class="question">Will I show up in fediverse search engines and indexes?</li>
+<li>If you're coming from a network with built in search that users can't opt out of, like Bluesky, or that allows indexing by default, like the web - <a href="https://www.robotstxt.org/">robots.txt</a> notwithstanding - then yes. People on those networks already implicitly consented to indexing when they created their accounts, so we carry that consent over to the fediverse by setting their <code>discoverable</code> and <code>indexable</code> flags to <code>true</code>.
 
 <li id="fediverse-delete" class="question">I disabled my bridged profile, or deleted a post, but it's still visible in the fediverse!</li>
 <li class="answer">
