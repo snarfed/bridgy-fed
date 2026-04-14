@@ -1115,11 +1115,13 @@ class ATProtoTest(TestCase):
             }],
         })))
 
-    @patch('requests.get', return_value=requests_response(
-            test_web.REPLY_HTML, url='http://in.st/link'))
+    @patch('requests.get')
     def test_convert_mention_non_atproto_url_gets_link_facet(self, mock_get):
         """Mention tags with non-ATProto URLs should get #link facets."""
+        mock_get.return_value = requests_response(
+            test_web.REPLY_HTML, url='http://in.st/link')
         content = 'hi <a href="https://in.st/@alice">@alice</a> ok'
+
         self.assertEqual({
             '$type': 'app.bsky.feed.post',
             'createdAt': '2022-01-02T03:04:05.000Z',
