@@ -18,11 +18,8 @@ automatic_scaling:
   max_instances: 100
   max_idle_instances: 1
   max_concurrent_requests: 30
-  min_pending_latency: 2s
-
-  target_cpu_utilization: .8
-
-  # this increased our instance count badly, as of 2026-03
+  # min_pending_latency: 2s
+  # target_cpu_utilization: .8
   # target_throughput_utilization: .8
 
 inbound_services:
