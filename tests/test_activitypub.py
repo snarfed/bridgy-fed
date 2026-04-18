@@ -7,6 +7,7 @@ import logging
 from unittest import skip
 from unittest.mock import patch
 
+from google.api_core.exceptions import PermissionDenied
 from google.cloud import ndb
 from granary import as1, as2, bluesky, microformats2
 from httpsig import HeaderSigner
@@ -842,6 +843,44 @@ class ActivityPubTest(TestCase):
                     'updated': '2022-01-02T03:04:05+00:00',
                 }),
             })
+
+    def test_inbox_add_to_featured_read_only(self, _, mock_get, __):
+        common.READ_ONLY = True
+        self.make_user(ACTOR['id'], cls=ActivityPub, obj_as2={
+            **ACTOR,
+            'featured': {'id': 'https://orig/feat/ured'},
+        })
+
+        with patch.object(ActivityPub, 'reload_profile',
+                          side_effect=PermissionDenied('read only')):
+            resp = self.post('/ap/sharedInbox', json={
+                'type': 'Add',
+                'actor': ACTOR['id'],
+                'target': 'https://orig/feat/ured',
+            })
+        self.assertEqual(503, resp.status_code)
+        self.assertIn('planned maintenance', resp.get_data(as_text=True))
+
+    @patch('activitypub.PROTOCOLS', new={'fake': Fake, 'other': OtherFake})
+    def test_inbox_server_actor_read_only(self, _, mock_get, __):
+        common.READ_ONLY = True
+        actor = add_key({'id': 'https://mas.to/actor', 'type': 'Person'})
+        mock_get.side_effect = [
+            self.as2_resp(actor),
+            self.as2_resp(actor),
+        ]
+
+        with patch.object(ActivityPub, 'get_or_create',
+                          side_effect=PermissionDenied('read only')):
+            got = self.post('/user.com/inbox', json={
+                '@context': as2.CONTEXT,
+                'id': 'http://mas.to/like',
+                'type': 'Like',
+                'object': 'https://mas.to/note/as2',
+                'actor': 'https://mas.to/actor',
+            })
+        self.assertEqual(503, got.status_code)
+        self.assertIn('planned maintenance', got.get_data(as_text=True))
 
     def test_inbox_add_to_unknown_collection_is_ignored(self, _, mock_get, __):
         user = self.make_user(ACTOR['id'], cls=ActivityPub, obj_as2=ACTOR)

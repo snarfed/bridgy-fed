@@ -725,6 +725,21 @@ class WebTest(TestCase):
 
         self.assertEqual(NOW, self.user.key.get().last_webmention_in)
 
+    @patch('oauth_dropins.webutil.appengine_config.tasks_client.create_task')
+    def test_make_task_read_only(self, mock_create_task, mock_get, mock_post):
+        common.RUN_TASKS_INLINE = False
+        common.READ_ONLY = True
+
+        params = {
+            'source': 'https://user.com/post',
+            'target': 'https://fed.brid.gy/',
+        }
+        got = self.post('/webmention', data=params)
+
+        self.assertEqual(202, got.status_code)
+        self.assert_task(mock_create_task, 'webmention', **params)
+        self.assertIsNone(self.user.key.get().last_webmention_in)
+
     def test_no_user(self, mock_get, mock_post):
         orig_count = Object.query().count()
 
@@ -2938,6 +2953,14 @@ Current vs expected:<pre>- http://this/404s
         with app.test_request_context('', base_url='https://web.brid.gy/'):
             self.assertEqual('https://fed.brid.gy/user.com',
                              self.user.id_as(ActivityPub))
+
+    def test_web_site_read_only(self, *_):
+        common.READ_ONLY = True
+        resp = self.client.get('/web-site')
+        self.assertEqual(200, resp.status_code)
+        body = resp.get_data(as_text=True)
+        self.assertIn('planned maintenance', body)
+        self.assertNotIn('user.com', body)
 
     @patch('oauth_dropins.webutil.appengine_config.tasks_client.create_task')
     def test_check_web_site(self, mock_create_task, mock_get, _):

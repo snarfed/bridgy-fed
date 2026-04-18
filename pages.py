@@ -39,6 +39,7 @@ import common
 from common import (
     CACHE_CONTROL,
     ErrorButDoNotRetryTask,
+    disable_if_read_only,
     render_template,
     secret_key_auth,
     verify_jwt,
@@ -283,6 +284,7 @@ def docs():
 @app.route('/login')
 @canonicalize_request_domain(PROTOCOL_DOMAINS, PRIMARY_DOMAIN)
 @flask_util.headers(CACHE_CONTROL)
+@disable_if_read_only
 def login():
     """View for the front page."""
     return render('login.html')
@@ -298,6 +300,7 @@ def logout():
 
 @app.route('/settings')
 @canonicalize_request_domain(PROTOCOL_DOMAINS, PRIMARY_DOMAIN)
+@disable_if_read_only
 def settings():
     """User settings page. Requires logged in session."""
     auth_entity = request.args.get('auth_entity')
@@ -347,6 +350,7 @@ def settings():
 
 
 @app.post('/settings/enable')
+@disable_if_read_only
 @require_login
 def enable(user=None):
     """Enables bridging for a given account.
@@ -382,6 +386,7 @@ def enable(user=None):
 
 
 @app.post('/settings/disable')
+@disable_if_read_only
 @require_login
 def disable(user=None):
     """Disables bridging for a given account.
@@ -403,6 +408,7 @@ def disable(user=None):
 
 
 @app.post('/settings/set-username')
+@disable_if_read_only
 @require_login
 def set_username(user=None):
     """Enables bridging for a given account.
@@ -430,6 +436,7 @@ def set_username(user=None):
 
 
 @app.post('/settings/block')
+@disable_if_read_only
 @require_login
 def block(user=None):
     """Blocks a user or blocklist.
@@ -458,6 +465,7 @@ def block(user=None):
 
 
 @app.post('/settings/unblock')
+@disable_if_read_only
 @require_login
 def unblock(user=None):
     """Unblocks a user or blocklist.
@@ -486,6 +494,7 @@ def unblock(user=None):
 
 
 @app.post('/settings/toggle-notifs')
+@disable_if_read_only
 @require_login
 def toggle_notifs(user=None):
     """Toggles DM notifications for a given account.
@@ -582,6 +591,7 @@ def find_user_page():
 
 @app.post(f'/<any({",".join(PROTOCOLS)}):protocol>/<id>/update-profile')
 @canonicalize_request_domain(PROTOCOL_DOMAINS, PRIMARY_DOMAIN)
+@disable_if_read_only
 def update_profile(protocol, id):
     user = load_user(protocol, id)
     link = f'<a href="{user.web_url()}">{user.handle_or_id()}</a>'

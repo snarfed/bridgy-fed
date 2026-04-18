@@ -57,6 +57,7 @@ util.set_user_agent(USER_AGENT)
 
 # https://cloud.google.com/appengine/docs/locations
 TASKS_LOCATION = 'us-central1'
+READ_ONLY = bool(os.environ.get('READ_ONLY'))
 RUN_TASKS_INLINE = False  # overridden by unit tests
 
 # for Protocol.REQUIRES_OLD_ACCOUNT, how old is old enough
@@ -411,7 +412,18 @@ def render_template(template, **kwargs):
     return flask.render_template(
         template,
         isinstance=isinstance,
+        READ_ONLY=READ_ONLY,
         request=request,
         set=set,
         util=util,
         **kwargs)
+
+
+def disable_if_read_only(fn):
+    """Decorator that serves the planned maintenance page instead when READ_ONLY."""
+    @functools.wraps(fn)
+    def wrapper(*args, **kwargs):
+        if READ_ONLY:
+            return render_template('planned_maintenance.html')
+        return fn(*args, **kwargs)
+    return wrapper

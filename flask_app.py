@@ -8,6 +8,7 @@ import arroba.server
 from arroba import xrpc_repo, xrpc_server, xrpc_sync
 from flask import Flask, g
 import flask_gae_static
+from google.api_core.exceptions import PermissionDenied
 from lexrpc.server import Server
 import lexrpc.flask_server
 from oauth_dropins.webutil import (
@@ -29,10 +30,21 @@ app.json.compact = False
 app.config.from_pyfile(app_dir / 'config.py')
 app.url_map.converters['regex'] = flask_util.RegexConverter
 app.after_request(flask_util.default_modern_headers)
+
 app.register_error_handler(Exception, flask_util.handle_exception)
+
+# this takes precedence over the generic Exception handler
+# https://flask.palletsprojects.com/en/stable/errorhandling/#generic-exception-handlers
+def _handle_permission_denied(e):
+    if common.READ_ONLY:
+        logger.info('Read only, failing and returning 503')
+        return 'Currently undergoing planned maintenance, please try again later', 503
+    return flask_util.handle_exception(e)
+
+app.register_error_handler(PermissionDenied, _handle_permission_denied)
+
 if appengine_info.LOCAL_SERVER and not appengine_info.TESTING:
     flask_gae_static.init_app(app)
-
 
 # don't redirect API requests with blank path elements
 app.url_map.merge_slashes = False

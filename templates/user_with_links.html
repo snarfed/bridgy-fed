@@ -7,7 +7,8 @@
   <form method="post" class="update-profile"
         action="{{ user.user_page_path('update-profile', prefer_id=True) }}">
     <button id="update-profile-button" type="submit" title="Update profile"
-            class="btn btn-default glyphicon glyphicon-refresh"></button>
+            class="btn btn-default glyphicon glyphicon-refresh"
+            {% if READ_ONLY %}disabled{% endif %}></button>
   </form>
   </nobr>
 </span>

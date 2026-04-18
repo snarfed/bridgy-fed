@@ -344,6 +344,7 @@ class TestCase(unittest.TestCase, testutil.Asserts):
 
         appengine_info.APP_ID = 'my-app'
         appengine_info.LOCAL_SERVER = False
+        common.READ_ONLY = False
         common.RUN_TASKS_INLINE = True
         app.testing = True
 

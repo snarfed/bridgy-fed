@@ -27,6 +27,12 @@
 <body id="{{ body_id }}">
 
 <div id="messages">
+{% if READ_ONLY %}
+  <div class="message warning" id="read-only">
+    <p><a href="https://blog.anew.social/">Currently undergoing planned maintenance.</a> Some features are disabled. We'll be back soon!
+  </div>
+{% endif %}
+
 {% with messages = get_flashed_messages() %}
   {% for message in messages %}
     <div class="message shadow">{{ message|safe }}</div>
@@ -75,7 +81,6 @@
 
     {% else %}
       <a href="/login">Login</a>
-
     {% endif %}
   </div>
 </div>

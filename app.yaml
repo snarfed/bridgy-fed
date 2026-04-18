@@ -43,6 +43,10 @@ env_variables:
   # this disables blob refetching
   # BLOB_REFETCH_TYPES: ''
 
+  # set to enable read only mode (eg during planned maintenance)
+  # https://github.com/snarfed/bridgy-fed/issues/2458
+  # READ_ONLY: 'true'
+
   # https://github.com/googleapis/python-ndb/blob/c55ec62b5153787404488b046c4bf6ffa02fee64/google/cloud/ndb/utils.py#L78-L81
   # NDB_DEBUG: true
 

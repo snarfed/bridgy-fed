@@ -29,6 +29,7 @@ import common
 from common import (
     CACHE_CONTROL,
     create_task,
+    disable_if_read_only,
     render_template,
 )
 import domains
@@ -755,11 +756,13 @@ class Web(User, Protocol):
 
 @app.get('/web-site')
 @flask_util.headers(CACHE_CONTROL)
+@disable_if_read_only
 def enter_web_site():
     return render_template('enter_web_site.html')
 
 
 @app.post('/web-site')
+@disable_if_read_only
 def check_web_site():
     common.log_request()
     url = request.values['url']
@@ -823,8 +826,9 @@ def webmention_external():
     if not user:
         error(f'No user found for domain {domain}')
 
-    user.last_webmention_in = util.now()
-    user.put()
+    if not common.READ_ONLY:
+        user.last_webmention_in = util.now()
+        user.put()
 
     return create_task('webmention', **request.form)
 

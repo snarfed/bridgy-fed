@@ -6,6 +6,7 @@ from unittest.mock import patch
 import arroba.server
 import copy
 from flask import get_flashed_messages, session
+from google.api_core.exceptions import PermissionDenied
 from google.cloud import ndb
 from google.cloud.tasks_v2.types import Task
 from granary import atom, microformats2, rss
@@ -16,6 +17,7 @@ from oauth_dropins.webutil import util
 from oauth_dropins.webutil.appengine_config import tasks_client
 from oauth_dropins.webutil.testutil import requests_response
 from requests import ConnectionError
+from werkzeug.exceptions import ServiceUnavailable
 
 # import first so that Fake is defined before URL routes are registered
 from .testutil import (
@@ -869,6 +871,33 @@ class PagesTest(TestCase):
             **ACTOR_PROFILE_BSKY,
             'cid': 'bafyreigd',
         }, user.obj.bsky)
+
+    def test_settings_read_only(self):
+        self.make_logged_in_mastodon_user(enabled_protocols=['fake'])
+        common.READ_ONLY = True
+
+        resp = self.client.get('/settings')
+        self.assertEqual(200, resp.status_code)
+        body = resp.get_data(as_text=True)
+        self.assertIn('planned maintenance', body)
+        self.assertNotIn('action="/settings/disable"', body)
+
+    def test_login_read_only(self):
+        common.READ_ONLY = True
+        resp = self.client.get('/login')
+        self.assertEqual(200, resp.status_code)
+        body = resp.get_data(as_text=True)
+        self.assertIn('planned maintenance', body)
+        self.assertNotIn('/oauth/bluesky/start', body)
+
+    def test_read_only_permission_denied(self):
+        common.READ_ONLY = True
+        self.make_logged_in_mastodon_user()
+
+        with patch('common.render_template', side_effect=PermissionDenied('no writes')):
+            resp = self.client.get('/settings')
+        self.assertEqual(503, resp.status_code)
+        self.assertIn('planned maintenance', resp.get_data(as_text=True))
 
     def test_settings_subscribed_csv_blocklists(self):
         self.make_logged_in_bluesky_user(enabled_protocols=['efake'])

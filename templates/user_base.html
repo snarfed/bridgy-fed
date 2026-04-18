@@ -15,7 +15,8 @@
   <span style="vertical-align: top">
     Got your <a href="/docs#fediverse-enhanced">redirects set up</a>?
     <input type="hidden" name="url" value="{{ user.web_url() }}" />
-    <input type="submit" class="btn btn-default" value="Check now" />
+    <input type="submit" class="btn btn-default" value="Check now"
+           {% if READ_ONLY %}disabled{% endif %} />
   </span>
 
   {% if user.redirects_error %}
