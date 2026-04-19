@@ -40,6 +40,8 @@ env_variables:
   MEMCACHE_HOST: '10.126.144.67'
   # ...or test against labeler.dholms.xyz / did:plc:vzxheqfwpbi3lxbgdh22js66
 
+  # DATASTORE_DB = us-single-region
+
   # this disables blob refetching
   # BLOB_REFETCH_TYPES: ''
 
