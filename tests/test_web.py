@@ -728,7 +728,7 @@ class WebTest(TestCase):
     @patch('oauth_dropins.webutil.appengine_config.tasks_client.create_task')
     def test_make_task_read_only(self, mock_create_task, mock_get, mock_post):
         common.RUN_TASKS_INLINE = False
-        common.READ_ONLY = True
+        appengine_info.READ_ONLY = True
 
         params = {
             'source': 'https://user.com/post',

@@ -13,6 +13,7 @@ from granary import atom, microformats2, rss
 from oauth_dropins.bluesky import BlueskyAuth
 from oauth_dropins.mastodon import MastodonAuth
 from oauth_dropins.views import LOGINS_SESSION_KEY
+from oauth_dropins.webutil import appengine_info
 from oauth_dropins.webutil import util
 from oauth_dropins.webutil.appengine_config import tasks_client
 from oauth_dropins.webutil.testutil import requests_response
@@ -874,28 +875,28 @@ class PagesTest(TestCase):
 
     def test_settings_read_only(self):
         self.make_logged_in_mastodon_user(enabled_protocols=['fake'])
-        common.READ_ONLY = True
+        appengine_info.READ_ONLY = True
 
         resp = self.client.get('/settings')
-        self.assertEqual(200, resp.status_code)
+        self.assertEqual(503, resp.status_code)
         body = resp.get_data(as_text=True)
         self.assertIn('planned maintenance', body)
         self.assertNotIn('action="/settings/disable"', body)
 
     def test_login_read_only(self):
-        common.READ_ONLY = True
+        appengine_info.READ_ONLY = True
         resp = self.client.get('/login')
-        self.assertEqual(200, resp.status_code)
+        self.assertEqual(503, resp.status_code)
         body = resp.get_data(as_text=True)
         self.assertIn('planned maintenance', body)
         self.assertNotIn('/oauth/bluesky/start', body)
 
     def test_read_only_permission_denied(self):
-        common.READ_ONLY = True
-        self.make_logged_in_mastodon_user()
+        appengine_info.READ_ONLY = True
 
-        with patch('common.render_template', side_effect=PermissionDenied('no writes')):
-            resp = self.client.get('/settings')
+        with patch('pages.render_template', side_effect=PermissionDenied('no writes')):
+            resp = self.client.get('/web/user.com', base_url='https://fed.brid.gy/')
+
         self.assertEqual(503, resp.status_code)
         self.assertIn('planned maintenance', resp.get_data(as_text=True))
 

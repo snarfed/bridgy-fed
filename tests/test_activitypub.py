@@ -11,6 +11,7 @@ from google.api_core.exceptions import PermissionDenied
 from google.cloud import ndb
 from granary import as1, as2, bluesky, microformats2
 from httpsig import HeaderSigner
+from oauth_dropins.webutil import appengine_info
 from oauth_dropins.webutil.flask_util import NoContent
 from oauth_dropins.webutil.testutil import NOW, requests_response
 from oauth_dropins.webutil import util
@@ -845,7 +846,7 @@ class ActivityPubTest(TestCase):
             })
 
     def test_inbox_add_to_featured_read_only(self, _, mock_get, __):
-        common.READ_ONLY = True
+        appengine_info.READ_ONLY = True
         self.make_user(ACTOR['id'], cls=ActivityPub, obj_as2={
             **ACTOR,
             'featured': {'id': 'https://orig/feat/ured'},
@@ -863,7 +864,7 @@ class ActivityPubTest(TestCase):
 
     @patch('activitypub.PROTOCOLS', new={'fake': Fake, 'other': OtherFake})
     def test_inbox_server_actor_read_only(self, _, mock_get, __):
-        common.READ_ONLY = True
+        appengine_info.READ_ONLY = True
         actor = add_key({'id': 'https://mas.to/actor', 'type': 'Person'})
         mock_get.side_effect = [
             self.as2_resp(actor),

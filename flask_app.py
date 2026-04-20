@@ -36,7 +36,7 @@ app.register_error_handler(Exception, flask_util.handle_exception)
 # this takes precedence over the generic Exception handler
 # https://flask.palletsprojects.com/en/stable/errorhandling/#generic-exception-handlers
 def _handle_permission_denied(e):
-    if common.READ_ONLY:
+    if appengine_info.READ_ONLY:
         logger.info('Read only, failing and returning 503')
         return 'Currently undergoing planned maintenance, please try again later', 503
     return flask_util.handle_exception(e)

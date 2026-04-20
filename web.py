@@ -18,7 +18,11 @@ import mf2util
 from oauth_dropins.webutil import flask_util, util
 from oauth_dropins.webutil.appengine_config import tasks_client
 from oauth_dropins.webutil import appengine_info
-from oauth_dropins.webutil.flask_util import cloud_tasks_only, error, flash
+from oauth_dropins.webutil.flask_util import (
+    cloud_tasks_only,
+    error,
+    flash,
+)
 from oauth_dropins.webutil.util import domain_from_link, json_dumps, json_loads
 from oauth_dropins.webutil import webmention
 from requests import HTTPError, RequestException
@@ -826,7 +830,7 @@ def webmention_external():
     if not user:
         error(f'No user found for domain {domain}')
 
-    if not common.READ_ONLY:
+    if not appengine_info.READ_ONLY:
         user.last_webmention_in = util.now()
         user.put()
 

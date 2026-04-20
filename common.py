@@ -22,7 +22,7 @@ from granary import as2
 import jwt
 from oauth_dropins.webutil import flask_util, util, webmention
 from oauth_dropins.webutil.appengine_config import error_reporting_client, tasks_client
-from oauth_dropins.webutil.appengine_info import DEBUG, LOCAL_SERVER
+from oauth_dropins.webutil.appengine_info import DEBUG, LOCAL_SERVER, READ_ONLY
 from oauth_dropins.webutil.models import ENCRYPTED_PROPERTY_KEY_BYTES
 from oauth_dropins.webutil.util import interpret_http_exception, json_dumps
 from negotiator import ContentNegotiator, AcceptParameters, ContentType
@@ -57,7 +57,6 @@ util.set_user_agent(USER_AGENT)
 
 # https://cloud.google.com/appengine/docs/locations
 TASKS_LOCATION = 'us-central1'
-READ_ONLY = bool(os.environ.get('READ_ONLY'))
 RUN_TASKS_INLINE = False  # overridden by unit tests
 
 # for Protocol.REQUIRES_OLD_ACCOUNT, how old is old enough
@@ -418,11 +417,4 @@ def render_template(template, **kwargs):
         **kwargs)
 
 
-def disable_if_read_only(fn):
-    """Decorator that serves the planned maintenance page instead when READ_ONLY."""
-    @functools.wraps(fn)
-    def wrapper(*args, **kwargs):
-        if READ_ONLY:
-            return render_template('planned_maintenance.html')
-        return fn(*args, **kwargs)
-    return wrapper
+disable_if_read_only = flask_util.disable_if_read_only(render_fn=render_template)
