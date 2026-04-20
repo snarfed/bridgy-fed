@@ -149,20 +149,20 @@ def subscriber(relay):
     """
     logger.info(f'started thread to subscribe to relay {relay.key.id()}')
 
-    with ndb_context():
-        while True:
-            try:
+    while True:
+        try:
+            with ndb_context():
                 subscribe(relay)
-            except (ConnectionClosed, TimeoutError) as err:
-                logger.warning(err)
-                logger.info(f'disconnected! waiting {RECONNECT_DELAY}, then reconnecting')
-            except BaseException as err:
-                report_exception()
+        except (ConnectionClosed, TimeoutError) as err:
+            logger.warning(err)
+            logger.info(f'disconnected! waiting {RECONNECT_DELAY}, then reconnecting')
+        except BaseException as err:
+            report_exception()
 
-            if DEBUG:
-                return
+        if DEBUG:
+            return
 
-            time.sleep(RECONNECT_DELAY.total_seconds())
+        time.sleep(RECONNECT_DELAY.total_seconds())
 
 
 def subscribe(relay, limit=None):
