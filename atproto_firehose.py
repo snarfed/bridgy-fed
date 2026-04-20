@@ -136,14 +136,14 @@ def subscriber():
     logger.info(f'started thread to subscribe to {os.environ["BGS_HOST"]} firehose')
     load_dids()
 
-    with ndb_client.context(**NDB_CONTEXT_KWARGS):
-         while True:
-            try:
+    while True:
+        try:
+            with ndb_client.context(**NDB_CONTEXT_KWARGS):
                 subscribe()
-            except BaseException:
-                report_exception()
-            logger.info(f'disconnected! waiting {RECONNECT_DELAY} and then reconnecting')
-            time.sleep(RECONNECT_DELAY.total_seconds())
+        except BaseException:
+            report_exception()
+        logger.info(f'disconnected! waiting {RECONNECT_DELAY} and then reconnecting')
+        time.sleep(RECONNECT_DELAY.total_seconds())
 
 
 def subscribe():
