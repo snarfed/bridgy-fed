@@ -32,16 +32,7 @@ app.url_map.converters['regex'] = flask_util.RegexConverter
 app.after_request(flask_util.default_modern_headers)
 
 app.register_error_handler(Exception, flask_util.handle_exception)
-
-# this takes precedence over the generic Exception handler
-# https://flask.palletsprojects.com/en/stable/errorhandling/#generic-exception-handlers
-def _handle_permission_denied(e):
-    if appengine_info.READ_ONLY:
-        logger.info('Read only, failing and returning 503')
-        return 'Currently undergoing planned maintenance, please try again later', 503
-    return flask_util.handle_exception(e)
-
-app.register_error_handler(PermissionDenied, _handle_permission_denied)
+app.register_error_handler(PermissionDenied, flask_util.handle_read_only_permission_denied)
 
 if appengine_info.LOCAL_SERVER and not appengine_info.TESTING:
     flask_gae_static.init_app(app)
