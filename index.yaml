@@ -125,8 +125,3 @@ indexes:
   - name: feed
   - name: created
     direction: desc
-
-- kind: Object
-  properties:
-  - name: type
-  - name: updated
