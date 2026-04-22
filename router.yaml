@@ -27,6 +27,7 @@ network:
   # instance_ip_mode: external
 
 env_variables:
+  DATASTORE_DB: us-single-region
   PDS_HOST: atproto.brid.gy
   PLC_HOST: plc.directory
   APPVIEW_HOST: api.bsky.app
@@ -37,8 +38,6 @@ env_variables:
   CHAT_HOST: api.bsky.chat
   CHAT_DID: did:web:api.bsky.chat
   MEMCACHE_HOST: '10.126.144.67'
-
-  # DATASTORE_DB = us-single-region
 
   # https://github.com/googleapis/python-ndb/blob/c55ec62b5153787404488b046c4bf6ffa02fee64/google/cloud/ndb/utils.py#L78-L81
   # NDB_DEBUG: true

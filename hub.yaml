@@ -36,6 +36,7 @@ network:
   instance_ip_mode: external
 
 env_variables:
+  DATASTORE_DB: us-single-region
   PDS_HOST: atproto.brid.gy
   PLC_HOST: plc.directory
   APPVIEW_HOST: api.bsky.app
@@ -46,8 +47,6 @@ env_variables:
   MEMCACHE_HOST: '10.126.144.67'
   ROLLBACK_WINDOW: 50000
   SUBSCRIBE_REPOS_BATCH_DELAY: 4
-
-  # DATASTORE_DB = us-single-region
 
   # https://github.com/googleapis/python-ndb/blob/c55ec62b5153787404488b046c4bf6ffa02fee64/google/cloud/ndb/utils.py#L78-L81
   # NDB_DEBUG: true
