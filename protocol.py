@@ -93,6 +93,10 @@ DONT_STORE_AS1_TYPES = as1.CRUD_VERBS | set((
 STORE_AS1_TYPES = (as1.ACTOR_TYPES | as1.POST_TYPES | as1.VERBS_WITH_OBJECT
                    - DONT_STORE_AS1_TYPES)
 
+DONT_NOTIFY_TYPES = (
+    'block',
+)
+
 logger = logging.getLogger(__name__)
 
 
@@ -1834,21 +1838,24 @@ class Protocol:
                 logger.debug(f'{target_id} is blocklisted')
                 continue
 
-            target_obj_id = target_id
-            if target_id in mentioned_urls or obj.type in as1.VERBS_WITH_ACTOR_OBJECT:
-                # not ideal. this can sometimes be a non-user, eg blocking a
-                # blocklist. ok right now since profile_id() returns its input id
-                # unchanged if it doesn't look like a user id, but that's brittle.
-                target_obj_id = ids.profile_id(id=target_id, proto=target_proto)
+            target_is_actor = (target_id in mentioned_urls
+                               or obj.type in as1.VERBS_WITH_ACTOR_OBJECT)
 
+            target_obj_id = (ids.profile_id(id=target_id, proto=target_proto)
+                             if target_is_actor
+                             # not ideal. this can sometimes be a non-user, eg
+                             # blocking a blocklist. ok right now since profile_id()
+                             # returns its input id unchanged if it doesn't look like
+                             # a user id, but that's brittle.
+                             else target_id)
             orig_obj = target_proto.load(target_obj_id, raise_=False)
             if not orig_obj or not orig_obj.as1:
                 logger.info(f"Couldn't load {target_obj_id}")
                 continue
 
-            target_author_key = (target_proto(id=target_id).key
-                                 if target_id in mentioned_urls
+            target_author_key = (target_proto(id=target_id).key if target_is_actor
                                  else target_proto.actor_key(orig_obj))
+
             if not from_user.is_enabled(target_proto):
                 # if author isn't bridged and target user is, DM a prompt and
                 # add a notif for the target user
@@ -1894,7 +1901,8 @@ Hi! You <a href="{inner_obj_as1.get('url') or inner_obj_id}">recently {verb}</a>
                 continue
 
             target = util.normalize_url(target, trailing_slash=False)
-            logger.debug(f'Target for {target_id} is {target}')
+            logger.debug(f'Target for {target_id} is {target} {target_author_key}')
+
             # only use orig_obj for inReplyTos, like/repost objects, reply's original
             # post's mentions, etc
             # https://github.com/snarfed/bridgy-fed/issues/1237
@@ -1907,8 +1915,9 @@ Hi! You <a href="{inner_obj_as1.get('url') or inner_obj_id}">recently {verb}</a>
 
             if target_author_key:
                 logger.debug(f'Recipient is {target_author_key}')
-                if write_obj.add('notify', target_author_key):
-                    write_obj.dirty = True
+                if obj.type not in DONT_NOTIFY_TYPES:
+                    if write_obj.add('notify', target_author_key):
+                        write_obj.dirty = True
 
         if obj.type == 'undo':
             logger.info('Object is an undo; adding targets for inner object')

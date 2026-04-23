@@ -2120,9 +2120,11 @@ class ProtocolReceiveTest(TestCase):
             'actor': 'other:alice',
             'object': 'other:bob',
         }
+        obj = Object(our_as1=block)
         self.assertEqual(
             [Target(uri='other:bob:target', protocol='other')],
-            list(Fake.targets(Object(our_as1=block), from_user=self.user).keys()))
+            list(Fake.targets(obj, from_user=self.user).keys()))
+        self.assertEqual([], obj.notify)
 
     def test_targets_undo_composite_block(self):
         self.bob.obj.our_as1 = {'foo': 'bar'}
