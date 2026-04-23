@@ -153,7 +153,7 @@ def subscriber(relay):
         try:
             with ndb_context():
                 subscribe(relay)
-        except (ConnectionClosed, TimeoutError) as err:
+        except (ConnectionClosed, ConnectionError, TimeoutError) as err:
             logger.warning(err)
             logger.info(f'disconnected! waiting {RECONNECT_DELAY}, then reconnecting')
         except BaseException as err:
