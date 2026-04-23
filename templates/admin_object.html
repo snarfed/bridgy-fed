@@ -35,14 +35,6 @@
   </div>
 </div>
 <div class="row line">
-  <div class="col-xs-2 field">Type</div>
-  <div class="col-xs-10 value">{{ obj.type }}</div>
-</div>
-<div class="row line">
-  <div class="col-xs-2 field">Protocol</div>
-  <div class="col-xs-10 value">{{ obj.source_protocol }}</div>
-</div>
-<div class="row line">
   <div class="col-xs-2 field">User</div>
   <div class="col-xs-10 value">
     {% if user %}
@@ -61,15 +53,22 @@
   <div class="col-xs-2 field">Updated</div>
   <div class="col-xs-10 value">{{ updated }} (PT)</div>
 </div>
-<div class="row line">
-  <div class="col-xs-2 field">Deleted</div>
-  <div class="col-xs-10 value">{{ obj.deleted or 'no' }}</div>
-</div>
 {% for protocol, id in bridged_ids.items() %}
 <div class="row line">
   <div class="col-xs-2 field">{{ protocol.LABEL }}</div>
   <div class="col-xs-10 value">{% include 'admin_debug_link.html' %}</div>
 </div>
+{% endfor %}
+
+{% for field in 'type', 'source_protocol', 'deleted', 'notify' %}
+  {% set val = getattr(obj, field) %}
+  {% if val is callable %}
+    {% set val = val() %}
+  {% endif %}
+  <div class="row line">
+    <div class="col-xs-2 field">{{ field.replace('_', ' ').capitalize() }}</div>
+    <div class="col-xs-10 value">{{ val }}</div>
+  </div>
 {% endfor %}
 
 {% if user %}
