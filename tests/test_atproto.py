@@ -34,6 +34,7 @@ from oauth_dropins.webutil.testutil import NOW, NOW_SECONDS, requests_response
 from oauth_dropins.webutil import util
 from oauth_dropins.webutil.util import json_dumps, json_loads, trim_nulls
 from requests.exceptions import HTTPError
+from requests.exceptions import ConnectionError as RequestsConnectionError
 from werkzeug.exceptions import BadGateway
 
 from activitypub import ActivityPub
@@ -2680,7 +2681,7 @@ Sed tortor neque, aliquet quis posuere aliquam, imperdiet sitamet […]
         }, repo.get_record('app.bsky.feed.post', last_tid), ignore=['facets'])
 
     @patch.object(tasks_client, 'create_task', return_value=Task(name='my task'))
-    @patch('requests.get', return_value= requests_response(
+    @patch('requests.get', return_value=requests_response(
         ' <html><body class="h-entry"><p class="u-url">not a url</p></body></html>',
         url='http://orig.co/post'))
     def test_send_note_link_preview_bad_mf2_u_url(self, mock_get, mock_create_task):
@@ -3408,6 +3409,27 @@ Sed tortor neque, aliquet quis posuere aliquam, imperdiet sitamet […]
                          Object.get_by_id(id='fake:like').copies)
 
         mock_create_task.assert_called()  # atproto-commit
+
+    def test_send_like_did_doc_not_found(self):
+        user = self.make_user_and_repo()
+        Object(id=user.get_copy(ATProto)).key.delete()
+
+        self.store_object(id='did:plc:bob', raw={
+            **DID_DOC,
+            'id': 'did:plc:bob',
+        })
+        self.store_object(id='at://did:plc:bob/app.bsky.feed.post/tid', bsky=NOTE_BSKY)
+
+        like_obj = Object(id='fake:like', source_protocol='fake', our_as1={
+            'objectType': 'activity',
+            'verb': 'like',
+            'id': 'fake:like',
+            'actor': 'fake:user',
+            'object': 'at://did:plc:bob/app.bsky.feed.post/tid',
+        })
+
+        with patch('requests.get', side_effect=RequestsConnectionError()):
+            self.assertFalse(ATProto.send(like_obj, 'https://bsky.brid.gy/'))
 
     @patch.object(tasks_client, 'create_task', return_value=Task(name='my task'))
     def test_send_undo_like(self, mock_create_task):

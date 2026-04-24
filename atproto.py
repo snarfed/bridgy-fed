@@ -823,8 +823,12 @@ class ATProto(User, Protocol):
         did = from_user.get_copy(ATProto)
         assert did and did.startswith('did:'), did
         logger.info(f'{from_user.key.id()} is {did}')
-        did_doc = to_cls.load(did, raw=True)
-        pds = to_cls.pds_for(did_doc)
+
+        if not (did_doc := to_cls.load(did, raw=True)):
+            logger.warning(f"  couldn't load DID doc")
+            return False
+
+        pds = to_cls.pds_for(did_doc) if did_doc else None
         if not pds or util.domain_from_link(pds) not in DOMAINS:
             logger.warning(f'  PDS {pds} is not us')
             return False
