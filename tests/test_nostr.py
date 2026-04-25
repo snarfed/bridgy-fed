@@ -276,7 +276,7 @@ class NostrTest(TestCase):
             'kind': KIND_PROFILE,
             'pubkey': user.hex_pubkey(),
             'content': json_dumps({
-                'name': 'Ms Alice',
+                'name': '[Unofficial] Ms Alice',
                 'about': 'It me',
                 'nip05': 'alice.com@web.brid.gy',
             }, sort_keys=True),
@@ -676,15 +676,16 @@ class NostrTest(TestCase):
         self.assertEqual(expected_copy, obj.key.get().copies)
 
     def test_send_profile_has_existing_copy(self):
-        obj = Object(id='fake:alice',
+        obj = Object(id='fake:profile:user',
                      copies=[Target(uri=ID_URI, protocol='nostr')],
                      our_as1={
                          'objectType': 'person',
+                         'id': 'fake:profile:user',
                          'displayName': 'alice',
                      }, source_protocol='fake')
         obj.put()
 
-        profile_id = '392e4188c957ca77f349a883db44c99abf9f967e701ee1dff92a6e1633491da6'
+        profile_id = 'fe2dc00628bdf59386dcddba2e3cf7363852aef8eebfe1703ce39886de47b187'
         relays_id = 'fdbc2df2541a3f9471097b1dd936badc79ebb82c15e19379e722b4a1310f2630'
         expected = [
             ['EVENT', {
@@ -692,11 +693,12 @@ class NostrTest(TestCase):
                 'id': profile_id,
                 'pubkey': PUBKEY,
                 'content': json_dumps({
-                    'about': '🌉 bridged from 🤡 fake:alice by https://fed.brid.gy/',
+                    'about': '🌉 bridged from 🤡 web:fake:user by https://fed.brid.gy/',
                     'name': 'alice',
+                    'nip05': 'fake-handle-user@fa.brid.gy',
                 }, ensure_ascii=False),
                 'created_at': NOW_TS,
-                'tags': [['proxy', 'fake:alice', 'fake']],
+                'tags': [['proxy', 'uri:fake:user', 'fake']],
             }],
             ['EVENT', {
                 'kind': KIND_RELAYS,

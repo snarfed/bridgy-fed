@@ -132,6 +132,17 @@ ACTOR_AS2_FULL = {
         'sharedInbox': 'http://localhost/inbox',
     },
 }
+ACTOR_BSKY = {
+  "$type": "app.bsky.actor.profile",
+  "displayName": "[Unofficial] Ms. ☕ Baz",
+  "website": "https://new.com/",
+  "description": "🌉 bridged from 🌐 https://new.com/: https://fed.brid.gy/web/new.com",
+  "labels": {
+    "$type": "com.atproto.label.defs#selfLabels",
+    "values": [{"val": "bridged-from-bridgy-fed-web"}],
+  },
+  "bridgyOriginalUrl": "https://new.com/",
+}
 
 REPOST_HTML = """\
 <html>
@@ -634,12 +645,17 @@ class WebTest(TestCase):
         assert user
         did = user.get_copy(ATProto)
         repo = arroba.server.storage.load_repo(did)
-        self.assertIsNotNone(repo.get_record('app.bsky.actor.profile', 'self'))
+        profile = repo.get_record('app.bsky.actor.profile', 'self')
+        self.assert_equals(ACTOR_BSKY, profile)
         uri = at_uri(did, 'app.bsky.actor.profile', 'self')
         self.assertIn(Target(uri=uri, protocol='atproto'),
                       Object.get_by_id(id='https://new.com/').copies)
 
         self.assert_task(mock_create_task, 'poll-feed', domain='new.com')
+
+        # check that AP conversion includes [Unofficial]
+        actor = ActivityPub.convert(user.obj, from_user=user)
+        self.assertEqual('[Unofficial] Ms. ☕ Baz', actor['name'])
 
     def test_verify_www_redirect(self, mock_get, _):
         www_user = self.make_user('www.user.com', cls=Web)
@@ -1846,7 +1862,7 @@ class WebTest(TestCase):
             'to': ['https://www.w3.org/ns/activitystreams#Public'],
         }
         self.assert_ap_deliveries(mock_post, ('https://shared/inbox', 'https://inbox'),
-                               expected_as2)
+                                  expected_as2)
 
         # updated Web user
         ndb.context.get_context().cache.clear()
@@ -2902,7 +2918,22 @@ Current vs expected:<pre>- http://this/404s
 
         for good in ('user.com', 'https://user.com', 'https://user.com/',
                      'http://user.com'):
-            self.assertTrue(self.user.is_profile(Object(id=good)))
+            with self.subTest(id=good):
+                self.assertTrue(self.user.is_profile(Object(id=good)))
+
+    def test_is_profile_no_key_uses_as1_id(self, *_):
+        self.assertFalse(self.user.is_profile(Object(our_as1={'id': 'other.com'})))
+        self.assertTrue(self.user.is_profile(Object(our_as1={'id': 'https://user.com/'})))
+
+    def test_is_profile_crud_activity(self, *_):
+        self.assertFalse(self.user.is_profile(Object(id='https://user.com/update', our_as1={
+            'objectType': 'activity', 'verb': 'update',
+            'object': {'id': 'other.com', 'objectType': 'person'},
+        })))
+        self.assertTrue(self.user.is_profile(Object(id='https://user.com/update', our_as1={
+            'objectType': 'activity', 'verb': 'update',
+            'object': {'id': 'https://user.com/', 'objectType': 'person'},
+        })))
 
     def test_handle_as(self, *_):
         self.user.ap_subdomain = 'web'

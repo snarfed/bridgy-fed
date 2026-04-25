@@ -1186,15 +1186,12 @@ class ProtocolTest(TestCase):
                 'summary': 'something about me',
             }), from_user=alice))
 
-    def test_convert_object_isnt_from_user_adds_source_links(self):
-        self.make_user(cls=Web, id='fa.brid.gy',
-                       copies=[Target(protocol='other', uri='other:bot')])
+    def test_convert_object_isnt_from_user_no_source_links(self):
         bob = Fake(id='fake:bob')
         self.assertEqual({
             'objectType': 'person',
             'id': 'other:u:fake:alice',
             'url': 'http://al/ice',
-            'summary': '🌉 bridged from 🤡 <a href="http://al/ice">al/ice</a> by <a href="https://fed.brid.gy/">Bridgy Fed</a>',
         }, OtherFake.convert(Object(id='fake:alice', source_protocol='fake', our_as1={
             'objectType': 'person',
             'id': 'fake:alice',
@@ -1241,6 +1238,30 @@ class ProtocolTest(TestCase):
             'id': 'fake:alice',
             'summary': summary,
         }), from_user=alice))
+
+    def test_convert_web_actor_unofficial_prefix(self):
+        user = self.make_user('user.com', cls=Web)
+        self.assertEqual({
+            'objectType': 'person',
+            'id': 'other:u:user.com',
+            'displayName': '[Unofficial] Alice',
+        }, OtherFake.convert(Object(id='user.com', source_protocol='web', our_as1={
+            'objectType': 'person',
+            'id': 'user.com',
+            'displayName': 'Alice',
+        }), from_user=user))
+
+    def test_convert_web_actor_has_redirects_no_unofficial_prefix(self):
+        user = self.make_user('user.com', cls=Web, has_redirects=True)
+        self.assertEqual({
+            'objectType': 'person',
+            'id': 'other:u:user.com',
+            'displayName': 'Alice',
+        }, OtherFake.convert(Object(id='user.com', source_protocol='web', our_as1={
+            'objectType': 'person',
+            'id': 'user.com',
+            'displayName': 'Alice',
+        }), from_user=user))
 
     def test_convert_object_adds_source_links_to_create_update(self):
         self.make_user(cls=Web, id='efake.brid.gy',

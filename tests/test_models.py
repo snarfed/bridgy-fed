@@ -809,6 +809,22 @@ class UserTest(TestCase):
         user.obj_key = Object(id='my:profile').key
         self.assertTrue(user.is_profile(Object(id='my:profile')))
 
+    def test_is_profile_no_key_uses_as1_id(self):
+        user = Fake(id='fake:user')
+        self.assertFalse(user.is_profile(Object(our_as1={'id': 'fake:other'})))
+        self.assertTrue(user.is_profile(Object(our_as1={'id': 'fake:user'})))
+
+    def test_is_profile_crud_activity(self):
+        user = Fake(id='fake:user')
+        self.assertFalse(user.is_profile(Object(id='fake:update', our_as1={
+            'objectType': 'activity', 'verb': 'update',
+            'object': {'id': 'fake:other', 'objectType': 'person'},
+        })))
+        self.assertTrue(user.is_profile(Object(id='fake:update', our_as1={
+            'objectType': 'activity', 'verb': 'update',
+            'object': {'id': 'fake:user', 'objectType': 'person'},
+        })))
+
     def test_reload_profile(self):
         Fake.fetchable = {'fake:profile:user': {'new': 'stuff'}}
 

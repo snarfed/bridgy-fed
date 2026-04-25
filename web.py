@@ -273,7 +273,10 @@ class Web(User, Protocol):
         return super().is_web_url(url, ignore_www=True)
 
     def is_profile(self, obj):
-        return self.is_web_url(obj.key.id())
+        if obj.key and self.is_web_url(obj.key.id()):
+            return True
+
+        return super().is_profile(obj)
 
     def user_page_path(self, rest=None, **kwargs):
         """Always prefer domain (id)."""

@@ -665,16 +665,26 @@ class Protocol:
         base_obj = as1.get_object(obj.as1) if is_crud else obj.as1
         orig_our_as1 = obj.our_as1
 
-        # mark bridged actors as bots and add "bridged by Bridgy Fed" to their bios
-        if (from_user and base_obj
-            and base_obj.get('objectType') in as1.ACTOR_TYPES
-            and PROTOCOLS.get(obj.source_protocol) != cls
-            and Protocol.for_bridgy_subdomain(id) not in DOMAINS
-            # Web users are special cased, they don't get the label if they've
-            # explicitly enabled Bridgy Fed with redirects or webmentions
-            and not (from_user.LABEL == 'web'
-                     and (from_user.last_webmention_in or from_user.has_redirects))):
-            cls.add_source_links(obj=obj, from_user=from_user)
+        # post-processing for user profiles
+        if (from_user and from_user.is_profile(obj)
+                and PROTOCOLS.get(obj.source_protocol) != cls
+                and Protocol.for_bridgy_subdomain(id) not in DOMAINS):
+            if not (from_user.LABEL == 'web' and (from_user.last_webmention_in
+                                                  or from_user.has_redirects)):
+                # mark bridged actors as bots and add "bridged by Bridgy Fed" to
+                # their bios. (web users are special cased, they don't get the label
+                # if they've explicitly enabled Bridgy Fed with redirects or
+                # webmentions.)
+                cls.add_source_links(obj=obj, from_user=from_user)
+
+            # web is currently opt out, so add [Unofficial] to their display name
+            # to be explicit that they may not have enabled this themselves
+            if from_user.LABEL == 'web' and not from_user.has_redirects:
+                if obj.our_as1 is orig_our_as1:
+                    obj.our_as1 = copy.deepcopy(obj.as1)
+                actor = as1.get_object(obj.our_as1) if is_crud else obj.our_as1
+                if (name := actor.get('displayName')) and not name.startswith('[Unofficial] '):
+                    actor['displayName'] = f'[Unofficial] {name}'
 
         converted = cls._convert(obj, from_user=from_user, **kwargs)
         obj.our_as1 = orig_our_as1
@@ -1378,8 +1388,7 @@ class Protocol:
                 return dms.receive(from_user=from_user, obj=obj)
 
         # fetch actor if necessary
-        is_user = (inner_obj_id in (from_user.key.id(), from_user.profile_id())
-                   or from_user.is_profile(orig_obj))
+        is_user = from_user.is_profile(orig_obj)
         if (actor and actor.keys() == set(['id'])
                 and not is_user and obj.type not in ('delete', 'undo')):
             logger.debug('Fetching actor so we have name, profile photo, etc')

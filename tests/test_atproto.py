@@ -818,7 +818,6 @@ class ATProtoTest(TestCase):
                 'mimeType': 'image/png',
                 'size': 13,
             },
-            'description': '🌉 bridged from 🤡 did:web:alice.com by https://fed.brid.gy/',
             'labels': {
                 '$type': 'com.atproto.label.defs#selfLabels',
                 'values': [{'val': 'bridged-from-bridgy-fed'}],
@@ -1261,7 +1260,7 @@ class ATProtoTest(TestCase):
                               last_webmention_in=None)
         self.assertEqual({
             '$type': 'app.bsky.actor.profile',
-            'displayName': 'Alice',
+            'displayName': '[Unofficial] Alice',
             'description': '🌉 bridged from 🌐 https://user.com/: https://fed.brid.gy/web/user.com',
             'labels': {
                 '$type': 'com.atproto.label.defs#selfLabels',

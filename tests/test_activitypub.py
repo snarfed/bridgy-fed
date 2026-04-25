@@ -431,6 +431,8 @@ class ActivityPubTest(TestCase):
         self.assert_equals({
             **ACTOR_FAKE,
             'alsoKnownAs': ['first', 'uri:fake:user'],
+            'discoverable': True,
+            'indexable': True,
         }, got.json, ignore=['summary', 'to', 'type', 'url'])
 
     def test_actor_web(self, *_):
@@ -518,6 +520,7 @@ class ActivityPubTest(TestCase):
         self.assertEqual(200, got.status_code)
         self.assert_equals(add_key({
             **ACTOR_BASE_FULL,
+            'name': '[Unofficial] Ms. ☕ Baz',
             'discoverable': True,
             'indexable': True,
         }), got.json, ignore=['@context', 'publicKeyPem', 'summary'])

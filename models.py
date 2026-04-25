@@ -1058,11 +1058,19 @@ class User(AddRemoveMixin, StringIdModel, metaclass=ProtocolUserMeta):
         Returns:
           bool:
         """
-        if obj.key.id() in (self.key.id(), self.profile_id()):
-            return True
+        self_ids = [self.key.id(), self.profile_id()]
+        if self.obj_key:
+            self_ids.append(self.obj_key.id())
 
-        if self.obj_key and obj.key.id() == self.obj_key.id():
+        util.d(obj.key, self_ids)
+
+        if obj.key and obj.key.id() in self_ids:
             return True
+        elif obj.as1:
+            obj_as1 = (as1.get_object(obj.as1) if obj.as1.get('verb') in as1.CRUD_VERBS
+                       else obj.as1)
+            if obj_as1.get('id') in self_ids:
+                return True
 
     def reload_profile(self, raise_=False, **kwargs):
         """Reloads this user's identity and profile from their native protocol.
