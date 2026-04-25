@@ -103,7 +103,7 @@ class UserTest(TestCase):
         self.assertEqual(['fake:user'], OtherFake.created_for)
 
     @patch.object(tasks_client, 'create_task', return_value=Task(name='my task'))
-    @patch('requests.post', return_value=requests_response('OK'))  # create DID on PLC
+    @patch.object(util.session, 'post', return_value=requests_response('OK'))  # create DID on PLC
     def test_get_or_create_propagate_atproto(self, mock_post, mock_create_task):
         common.RUN_TASKS_INLINE = False
 
@@ -152,8 +152,8 @@ class UserTest(TestCase):
 
     @patch('ids.COPIES_PROTOCOLS', ['efake', 'atproto'])
     @patch.object(tasks_client, 'create_task')
-    @patch('requests.post')
-    @patch('requests.get')
+    @patch.object(util.session, 'post')
+    @patch.object(util.session, 'get')
     def test_get_or_create_propagate_not_enabled(self, mock_get, mock_post,
                                                  mock_create_task):
         mock_get.return_value = self.as2_resp(ACTOR)
@@ -853,7 +853,7 @@ class UserTest(TestCase):
         self.assertEqual(['fake:profile:post'], Fake.fetched)
         self.assertIsNone(user.key.get())
 
-    @patch('requests.get', return_value=requests_response(
+    @patch.object(util.session, 'get', return_value=requests_response(
         'domain\nfoo\nbar', headers={'Content-Type': 'text/csv'}))
     def test_add_domain_blocklist(self, mock_get):
         self.assertEqual([], self.user.blocks)
@@ -875,13 +875,13 @@ class UserTest(TestCase):
         self.assertEqual([key1, key2], self.user.blocks)
         mock_get.assert_not_called()
 
-    @patch('requests.get', return_value=requests_response('not found', status=404))
+    @patch.object(util.session, 'get', return_value=requests_response('not found', status=404))
     def test_add_domain_blocklist_load_fails(self, mock_get):
         self.assertIsNone(self.user.add_domain_blocklist('https://exam.pl/list'))
         self.assert_req(mock_get, 'https://exam.pl/list')
         self.assertEqual([], self.user.blocks)
 
-    @patch('requests.get', return_value=requests_response(
+    @patch.object(util.session, 'get', return_value=requests_response(
         'domain\nfoo\nbar', headers={'Content-Type': 'text/csv'}))
     def test_remove_domain_blocklist(self, mock_get):
         self.assertEqual([], self.user.blocks)
@@ -936,7 +936,7 @@ class UserTest(TestCase):
         with patch.object(alice, 'target_for', return_value=None):
             self.assertFalse(self.user.is_blocking(alice))
 
-    @patch('requests.get', return_value=requests_response('foo'))
+    @patch.object(util.session, 'get', return_value=requests_response('foo'))
     def test_load_user_web(self, _):
         self.assertEqual(self.user, models.load_user('y.za'))
         self.assertEqual(self.user, models.load_user('@y.za'))
@@ -1263,7 +1263,7 @@ class ObjectTest(TestCase):
         }, source_protocol='web')
         self.assert_equals('good', obj.as1['id'])
 
-    @patch('requests.get', return_value=requests_response(DID_DOC))
+    @patch.object(util.session, 'get', return_value=requests_response(DID_DOC))
     def test_as1_from_bsky(self, mock_get):
         like_bsky = {
             '$type': 'app.bsky.feed.like',

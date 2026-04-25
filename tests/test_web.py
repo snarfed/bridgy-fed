@@ -472,8 +472,8 @@ def web_user_gets(domain='user.com'):
     ]
 
 
-@patch('requests.post')
-@patch('requests.get')
+@patch.object(util.session, 'post')
+@patch.object(util.session, 'get')
 class WebTest(TestCase):
     def setUp(self):
         super().setUp()
@@ -3126,8 +3126,8 @@ Current vs expected:<pre>- http://this/404s
             get_flashed_messages())
 
 
-@patch('requests.post')
-@patch('requests.get')
+@patch.object(util.session, 'post')
+@patch.object(util.session, 'get')
 class WebUtilTest(TestCase):
 
     def setUp(self):

@@ -145,38 +145,38 @@ class ProtocolTest(TestCase):
         self.store_object(id='http://ui.org/obj', source_protocol='ui')
         self.assertEqual(UIProtocol, Protocol.for_id('http://ui.org/obj'))
 
-    @patch('requests.get', return_value=requests_response())
+    @patch.object(util.session, 'get', return_value=requests_response())
     def test_for_id_object_missing_source_protocol(self, _):
         self.store_object(id='http://b.ad/obj')
         self.assertIsNone(Protocol.for_id('http://b.ad/obj'))
 
-    @patch('requests.get')
+    @patch.object(util.session, 'get')
     def test_for_id_activitypub_fetch(self, mock_get):
         mock_get.return_value = self.as2_resp(ACTOR)
         self.assertEqual(ActivityPub, Protocol.for_id('http://ap.org/actor'))
         self.assertIn(self.as2_req('http://ap.org/actor'), mock_get.mock_calls)
 
-    @patch('requests.get')
+    @patch.object(util.session, 'get')
     def test_for_id_activitypub_fetch_fails(self, mock_get):
         mock_get.return_value = requests_response('', status=403)
         self.assertIsNone(Protocol.for_id('http://ap.org/actor'))
         self.assertIn(self.as2_req('http://ap.org/actor'), mock_get.mock_calls)
         mock_get.assert_called_once()
 
-    @patch('requests.get')
+    @patch.object(util.session, 'get')
     def test_for_id_web_fetch(self, mock_get):
         mock_get.return_value = ACTOR_HTML_RESP
         self.assertEqual(Web, Protocol.for_id('http://web.site/'))
         self.assertIn(self.req('http://web.site/'), mock_get.mock_calls)
 
-    @patch('requests.get')
+    @patch.object(util.session, 'get')
     def test_for_id_web_fetch_not_html(self, mock_get):
         mock_get.return_value = requests_response('not html', content_type='text/abc')
         self.assertIsNone(Protocol.for_id('http://web.site/xyz'))
         self.assertIsNone(Object.get_by_id('http://web.site/xyz'))
         self.assertIn(self.req('http://web.site/xyz'), mock_get.mock_calls)
 
-    @patch('requests.get')
+    @patch.object(util.session, 'get')
     def test_for_id_web_fetch_no_mf2(self, mock_get):
         mock_get.return_value = requests_response('<html></html>')
         self.assertEqual(Web, Protocol.for_id('http://web.site/xyz'))
@@ -187,12 +187,12 @@ class ProtocolTest(TestCase):
 
         self.assertIn(self.req('http://web.site/xyz'), mock_get.mock_calls)
 
-    @patch('requests.get')
+    @patch.object(util.session, 'get')
     def test_for_id_web_remote_false(self, mock_get):
         self.assertIsNone(Protocol.for_id('http://web.site/', remote=False))
         mock_get.assert_not_called()
 
-    @patch('requests.get')
+    @patch.object(util.session, 'get')
     def test_for_id_synthetic(self, mock_get):
         self.assertEqual(ATProto, Protocol.for_id(
             'at://did:plc:foo/coll/rkey#bridgy-fed-xyz'))
@@ -335,7 +335,7 @@ class ProtocolTest(TestCase):
         self.assertFalse(loaded.new)
         self.assertEqual(['fake:foo'], Fake.fetched)
 
-    @patch('requests.get', return_value=ACTOR_HTML_RESP)
+    @patch.object(util.session, 'get', return_value=ACTOR_HTML_RESP)
     def test_load_remote_true_clear_our_as1(self, _):
         self.store_object(id='https://f.ooo', our_as1={'should': 'disappear'},
                           source_protocol='web')
@@ -1515,7 +1515,7 @@ class ProtocolTest(TestCase):
             url='https://atproto.brid.gy', user=alice.key.urlsafe())
 
     @patch('oauth_dropins.webutil.appengine_config.tasks_client.create_task')
-    @patch('requests.get', return_value=requests_response(status=404))
+    @patch.object(util.session, 'get', return_value=requests_response(status=404))
     def test_block_activitypub_webfinger_lookup_fails(self, mock_get, mock_create_task):
         common.RUN_TASKS_INLINE = False
 
@@ -1528,7 +1528,7 @@ class ProtocolTest(TestCase):
         with self.assertRaises(ValueError):
             ActivityPub.block(bob, '@alice@inst')
 
-    @patch('requests.get', return_value=requests_response(
+    @patch.object(util.session, 'get', return_value=requests_response(
         'domain\nfoo\nbar', content_type='text/csv'))
     def test_block_csv_blocklist(self, mock_get):
         user = self.make_user(id='fake:user', cls=Fake)
@@ -2425,7 +2425,7 @@ class ProtocolReceiveTest(TestCase):
             Target(protocol='other', uri='other://b.ob/:target'),
         ], list(Fake.targets(create, from_user=self.user, crud_obj=note)))
 
-    @patch('requests.get', return_value=requests_response())
+    @patch.object(util.session, 'get', return_value=requests_response())
     def test_targets_dedupe_url_case_normalization(self, _):
         """Target URLs should be normalized (eg lowercase domain) before lookup.
 
@@ -2961,7 +2961,7 @@ class ProtocolReceiveTest(TestCase):
                           ('other:post:target', expected_create),
                           ], OtherFake.sent)
 
-    @patch('requests.post')
+    @patch.object(util.session, 'post')
     def test_deliver_reply_targets_adds_original_posts_mentions(self, mock_post):
         # https://github.com/snarfed/bridgy-fed/issues/1608
         alice = self.make_user(id='http://inst/alice', cls=ActivityPub,
@@ -3464,7 +3464,7 @@ class ProtocolReceiveTest(TestCase):
             'object': profile,
         })], Fake.sent)
 
-    @patch('requests.get', side_effect=[
+    @patch.object(util.session, 'get', side_effect=[
         requests_response(DID_DOC),
         requests_response({
             'uri': 'at://did:plc:user/app.bsky.actor.profile/self',
@@ -4064,8 +4064,8 @@ class ProtocolReceiveTest(TestCase):
         self.assertEqual([], Fake.sent)
         self.assertIsNone(Object.get_by_id('other:follow'))
 
-    @patch('requests.post')
-    @patch('requests.get')
+    @patch.object(util.session, 'post')
+    @patch.object(util.session, 'get')
     def test_skip_web_same_domain(self, mock_get, mock_post):
         self.make_user('user.com', cls=Web)
         mock_get.side_effect = [
@@ -4668,7 +4668,7 @@ class ProtocolReceiveTest(TestCase):
         self.assertEqual('done', memcache.memcache.get(memcache_key))
 
     @patch('protocol.LIMITED_DOMAINS', ['lim.it'])
-    @patch('requests.get')
+    @patch.object(util.session, 'get')
     def test_limited_domain_update_profile_without_follow(self, mock_get):
         actor = {
             **ACTOR,
@@ -4696,7 +4696,7 @@ class ProtocolReceiveTest(TestCase):
 
     @patch('protocol.LIMITED_DOMAINS', ['lim.it'])
     @patch.object(ATProto, 'send')
-    @patch('requests.get')
+    @patch.object(util.session, 'get')
     def test_limited_domain_create_without_follow_no_atproto(
             self, mock_get, mock_send):
         actor = 'https://lim.it/alice'
@@ -4811,7 +4811,7 @@ class ProtocolReceiveTest(TestCase):
             'author': 'user.com',
         }, Object.get_by_id('https://user.com/c').our_as1)
 
-    @patch('requests.get', side_effect=web_user_gets('foo.com') + [ACTOR_HTML_RESP])
+    @patch.object(util.session, 'get', side_effect=web_user_gets('foo.com') + [ACTOR_HTML_RESP])
     def test_receive_task_handler_authed_as_www_subdomain(self, _):
         note = {
             'id': 'http://www.foo.com/post',
@@ -4828,7 +4828,7 @@ class ProtocolReceiveTest(TestCase):
         self.assertEqual(204, got.status_code)
         self.assertEqual(note, Object.get_by_id('http://www.foo.com/post').our_as1)
 
-    @patch('requests.get', return_value=requests_response('<html></html>'))
+    @patch.object(util.session, 'get', return_value=requests_response('<html></html>'))
     def test_receive_task_handler_authed_as_mixed_subdomains(self, _):
         user = self.make_user('user.com', cls=Web, obj_id='https://user.com/')
         note = {
@@ -4846,7 +4846,7 @@ class ProtocolReceiveTest(TestCase):
         self.assertEqual(204, got.status_code)
         self.assertEqual(note, Object.get_by_id('http://user.com/post').our_as1)
 
-    @patch('requests.get', return_value=requests_response('<html></html>'))
+    @patch.object(util.session, 'get', return_value=requests_response('<html></html>'))
     def test_receive_task_handler_authed_as_wrong_domain(self, _):
         note = {
             'id': 'http://bar.com/post',

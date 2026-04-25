@@ -261,7 +261,7 @@ class AdminTest(TestCase):
                          Object.get_by_id('internal:content-blocklist').raw)
         self.assertEqual(['foo', 'bar', 'baz'], filters.CONTENT_BLOCKLIST.obj.raw)
 
-    @patch('requests.get')
+    @patch.object(util.session, 'get')
     def test_admin_object_lookup(self, mock_get):
         mock_get.return_value = self.as2_resp({'id': 'http://in.st/second'})
 

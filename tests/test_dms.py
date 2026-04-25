@@ -485,7 +485,7 @@ class DmsTest(TestCase):
         self.assert_replied(OtherFake, alice, '?', "Sorry, Bridgy Fed doesn't yet support bridging handle other:handle:bob from other-phrase to efake-phrase.")
         self.assertEqual([], OtherFake.sent)
 
-    @patch('requests.post')
+    @patch.object(util.session, 'post')
     def test_receive_prompt_for_activitypub(self, mock_post):
         self.make_user(id='ap.brid.gy', cls=Web)
         self.make_user(id='efake.brid.gy', cls=Web)
@@ -866,7 +866,7 @@ class DmsTest(TestCase):
             }),
         ], OtherFake.sent)
 
-    @patch('requests.get', return_value=requests_response(
+    @patch.object(util.session, 'get', return_value=requests_response(
             'domain\nfoo.com\nbar.org', headers={'Content-Type': 'text/csv'}))
     def test_receive_block_csv_blocklist(self, mock_get):
         alice, _ = self.make_alice_bob()

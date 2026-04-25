@@ -87,7 +87,8 @@ logger = logging.getLogger(__name__)
 
 arroba.server.storage = None  # initialized in init() below
 appview = Client(f'https://{os.environ["APPVIEW_HOST"]}',
-                 headers={'User-Agent': USER_AGENT})
+                 headers={'User-Agent': USER_AGENT},
+                 requests_session=util.session)
 LEXICONS = appview.defs
 
 # https://atproto.com/guides/applications#record-types
@@ -175,7 +176,8 @@ def chat_client(*, repo, method, **kwargs):
         'Authorization': f'Bearer {token}',
     })
     kwargs.setdefault('truncate', True)
-    return Client(f'https://{os.environ["CHAT_HOST"]}', **kwargs)
+    return Client(f'https://{os.environ["CHAT_HOST"]}',
+                  requests_session=util.session, **kwargs)
 
 
 def repo_callback(data=None, lost_seq=None):
@@ -257,7 +259,7 @@ class DatastoreClient(Client):
             in the datastore
         """
         super().__init__(*args, address=f'https://{os.environ["APPVIEW_HOST"]}',
-                         **kwargs)
+                         requests_session=util.session, **kwargs)
         self.remote = remote
 
     def call(self, nsid, input=None, headers={}, **params):
@@ -1632,7 +1634,8 @@ def create_report(*, input, from_user):
                         repo_did=repo_did,
                         privkey=repo.signing_key)
 
-    client = Client(f'https://{mod_host}', truncate=True, headers={
+    client = Client(f'https://{mod_host}', truncate=True,
+                    requests_session=util.session, headers={
                         'User-Agent': USER_AGENT,
                         'Authorization': f'Bearer {token}',
                     })

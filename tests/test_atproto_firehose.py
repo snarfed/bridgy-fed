@@ -811,14 +811,14 @@ class ATProtoFirehoseHandleTest(ATProtoTestCase):
         handle(limit=1)
         mock_create_task.assert_not_called()
 
-    @patch('requests.get', return_value=requests_response({**DID_DOC, 'new': 'stuff'}))
+    @patch.object(util.session, 'get', return_value=requests_response({**DID_DOC, 'new': 'stuff'}))
     def test_account(self, mock_get, mock_create_task):
         commits.put(Op(repo='did:plc:user', action='account', seq=789))
         handle(limit=1)
         self.assertEqual('stuff', Object.get_by_id('did:plc:user').raw['new'])
         mock_create_task.assert_not_called()
 
-    @patch('requests.get', side_effect=[
+    @patch.object(util.session, 'get', side_effect=[
         requests_response({**DID_DOC, 'new': 'stuff'}),
         requests_response(ACTOR_PROFILE_BSKY),
     ])
@@ -1020,7 +1020,7 @@ class ATProtoFirehoseHandleTest(ATProtoTestCase):
         self.assertEqual(1, mock_create_task.call_count)
 
     # getRecord of bskyPostRef
-    @patch('requests.get', return_value=requests_response(NOTE_BSKY_RECORD))
+    @patch.object(util.session, 'get', return_value=requests_response(NOTE_BSKY_RECORD))
     def test_standard_site_document_post_not_in_datastore(self, mock_get,
                                                           mock_create_task):
         post_uri = 'at://did:plc:user/app.bsky.feed.post/abc123'

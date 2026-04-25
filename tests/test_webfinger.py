@@ -561,20 +561,20 @@ class WebfingerTest(TestCase):
         got = self.client.get('/.well-known/webfinger?resource=acct:@localhost')
         self.assertEqual(400, got.status_code, got.get_data(as_text=True))
 
-    @patch('requests.get', return_value=requests_response(
+    @patch.object(util.session, 'get', return_value=requests_response(
         WEBFINGER, content_type='application/jrd+json'))
     def test_fetch(self, mock_get):
         self.assertEqual(WEBFINGER, fetch('@foo@bar'))
         self.assert_req(mock_get,
                         'https://bar/.well-known/webfinger?resource=acct:foo@bar')
 
-    @patch('requests.get', return_value=requests_response(WEBFINGER))
+    @patch.object(util.session, 'get', return_value=requests_response(WEBFINGER))
     def test_fetch_actor_url(self, mock_get):
         self.assertEqual('http://localhost/user.com', fetch_actor_url('@foo@bar'))
         self.assert_req(mock_get,
                         'https://bar/.well-known/webfinger?resource=acct:foo@bar')
 
-    @patch('requests.get', return_value=requests_response({'links': []}))
+    @patch.object(util.session, 'get', return_value=requests_response({'links': []}))
     def test_fetch_actor_url_not_found(self, mock_get):
         self.assertIsNone(fetch_actor_url('@foo@bar'))
         self.assert_req(mock_get,

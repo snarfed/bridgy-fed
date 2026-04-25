@@ -63,7 +63,7 @@ UNDO_FOLLOW = {
 del UNDO_FOLLOW['object']['id']
 
 
-@patch('requests.get')
+@patch.object(util.session, 'get')
 class RemoteFollowTest(TestCase):
 
     def setUp(self):
@@ -157,8 +157,8 @@ class RemoteFollowTest(TestCase):
         self.assertEqual('/web/user.com', got.headers['Location'])
 
 
-@patch('requests.post')
-@patch('requests.get')
+@patch.object(util.session, 'post')
+@patch.object(util.session, 'get')
 class FollowTest(TestCase):
 
     def setUp(self):
@@ -552,8 +552,8 @@ class FollowTest(TestCase):
                          get_flashed_messages())
 
 
-@patch('requests.post')
-@patch('requests.get')
+@patch.object(util.session, 'post')
+@patch.object(util.session, 'get')
 class UnfollowTest(TestCase):
 
     def setUp(self):

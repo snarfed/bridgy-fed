@@ -5,6 +5,7 @@ from unittest.mock import patch
 
 from granary import as2
 from oauth_dropins.webutil.appengine_config import ndb_client
+from oauth_dropins.webutil import util
 from oauth_dropins.webutil.testutil import requests_response
 
 # import first so that Fake is defined before URL routes are registered
@@ -146,7 +147,7 @@ class RedirectTest(testutil.TestCase):
         self.assertEqual(404, resp.status_code, resp.get_data(as_text=True))
         self.assertEqual('Accept', resp.headers['Vary'])
 
-    @patch('requests.get', return_value=requests_response(DID_DOC))
+    @patch.object(util.session, 'get', return_value=requests_response(DID_DOC))
     def test_as2_actor_bsky_profile_url_without_user_404s(self, mock_get):
         Object(id='at://did:web:alice.com/app.bsky.actor.profile/self',
                source_protocol='bsky', bsky=ACTOR_PROFILE_BSKY).put()
@@ -155,14 +156,14 @@ class RedirectTest(testutil.TestCase):
                                headers={'Accept': as2.CONTENT_TYPE})
         self.assertEqual(404, resp.status_code, resp.get_data(as_text=True))
 
-    @patch('requests.get', return_value=requests_response(DID_DOC))
+    @patch.object(util.session, 'get', return_value=requests_response(DID_DOC))
     def test_as2_actor_bsky_profile_url_not_ap_enabled_404s(self, mock_get):
         self.make_user('did:web:alice.com', cls=ATProto, obj_bsky=ACTOR_PROFILE_BSKY)
         resp = self.client.get('/r/https://bsky.app/profile/did:web:alice.com',
                                headers={'Accept': as2.CONTENT_TYPE})
         self.assertEqual(404, resp.status_code, resp.get_data(as_text=True))
 
-    @patch('requests.get')
+    @patch.object(util.session, 'get')
     def test_as2_fetch_post(self, mock_get):
         mock_get.return_value = TOOT_AS2  # from Protocol.for_id
 
@@ -172,7 +173,7 @@ class RedirectTest(testutil.TestCase):
         self.assert_equals(TOOT_AS2_DATA, resp.json)
         self.assertEqual('Accept', resp.headers['Vary'])
 
-    @patch('requests.get', side_effect=[
+    @patch.object(util.session, 'get', side_effect=[
         requests_response(ACTOR_HTML, url='https://user.com/'),  # AS2 fetch
         requests_response(ACTOR_HTML, url='https://user.com/'),  # web fetch
     ])

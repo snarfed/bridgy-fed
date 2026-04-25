@@ -7,6 +7,7 @@ from granary import as2
 from granary.tests.test_as1 import ACTOR, COMMENT, DELETE_OF_ID, UPDATE
 # TODO: this causes a circular/partial import if this file is loaded first
 from models import Object, Target
+from oauth_dropins.webutil import util
 from oauth_dropins.webutil.testutil import requests_response
 from oauth_dropins.webutil.util import domain_from_link, json_loads, parse_mf2
 
@@ -241,7 +242,7 @@ class ConvertTest(testutil.TestCase):
                                base_url='https://ap.brid.gy/')
         self.assertEqual(404, resp.status_code)
 
-    @patch('requests.get')
+    @patch.object(util.session, 'get')
     def test_activitypub_to_web_fetch(self, mock_get):
         url = 'https://user.com/bar?baz=baj&biff'
         mock_get.return_value = self.as2_resp(as2.from_as1({**COMMENT, 'id': url}))
@@ -259,7 +260,7 @@ class ConvertTest(testutil.TestCase):
 
         mock_get.assert_has_calls((self.as2_req(url),))
 
-    @patch('requests.get')
+    @patch.object(util.session, 'get')
     def test_activitypub_to_web_fetch_fails(self, mock_get):
         mock_get.side_effect = [requests_response('', status=405)]
 
@@ -372,7 +373,7 @@ A ☕ reply
         # self.assertEqual(f'https://ap.brid.gy/convert/web/https:/foo%3Fbar%23baz',
         #                  resp.headers['Location'])
 
-    @patch('requests.get', return_value=requests_response(HTML_NO_ID))
+    @patch.object(util.session, 'get', return_value=requests_response(HTML_NO_ID))
     def test_web_to_activitypub_object(self, mock_get):
         self.make_user('user.com', cls=Web)
 
@@ -386,7 +387,7 @@ A ☕ reply
             '<https://web.brid.gy/r/https://user.com/bar?baz=baj&biff>; rel="self"',
             resp.headers['Link'])
 
-    @patch('requests.get')
+    @patch.object(util.session, 'get')
     def test_web_to_activitypub_fetch(self, mock_get):
         mock_get.return_value = requests_response(HTML)  # protocol inference
         url = 'https://user.com/bar?baz=baj&biff'
@@ -398,7 +399,7 @@ A ☕ reply
         self.assertEqual(200, resp.status_code)
         self.assert_equals(COMMENT_AS2, resp.json, ignore=['to'])
 
-    @patch('requests.get')
+    @patch.object(util.session, 'get')
     def test_web_to_activitypub_no_user(self, mock_get):
         hcard = requests_response(ACTOR_HTML, url='https://nope.com/')
         mock_get.side_effect = [
@@ -414,7 +415,7 @@ A ☕ reply
                                base_url='https://web.brid.gy/')
         self.assertEqual(404, resp.status_code)
 
-    @patch('requests.get', return_value=requests_response(HTML_NO_ID))
+    @patch.object(util.session, 'get', return_value=requests_response(HTML_NO_ID))
     def test_web_to_activitypub_url_decode(self, mock_get):
         """https://github.com/snarfed/bridgy-fed/issues/581"""
         self.make_user('user.com', cls=Web)
@@ -468,7 +469,7 @@ A ☕ reply
         resp = self.client.get(path, headers=headers)
         self.assertEqual(403, resp.status_code)
 
-    @patch('requests.get')
+    @patch.object(util.session, 'get')
     def test_fake_to_activitypub_signed(self, mock_get):
         actor = test_activitypub.add_key(copy.deepcopy(test_activitypub.ACTOR))
         mock_get.return_value = self.as2_resp(actor)
@@ -489,7 +490,7 @@ A ☕ reply
         }, resp.json, ignore=['@context'])
         self.assertEqual(f'<{ap_id}>; rel="self"', resp.headers['Link'])
 
-    @patch('requests.get')
+    @patch.object(util.session, 'get')
     def test_fake_to_activitypub_bad_signature(self, mock_get):
         actor = test_activitypub.add_key(copy.deepcopy(test_activitypub.ACTOR))
         mock_get.return_value = self.as2_resp(actor)
@@ -504,7 +505,7 @@ A ☕ reply
         resp = self.client.get(path, headers=headers)
         self.assertEqual(401, resp.status_code)
 
-    @patch('requests.get', side_effect=[
+    @patch.object(util.session, 'get', side_effect=[
         requests_response(METAFORMATS_HTML, url='http://orig.co/post'),
         requests_response('blob contents', content_type='image/png'),
     ])

@@ -404,7 +404,7 @@ class PagesTest(TestCase):
                 'object': {**profile, 'updated': '2022-01-02T03:04:05+00:00'},
             })
 
-    @patch('requests.get', return_value=ACTOR_HTML_RESP)
+    @patch.object(util.session, 'get', return_value=ACTOR_HTML_RESP)
     def test_update_profile_web(self, mock_get):
         self.user.obj.copies = [
             Target(protocol='fake', uri='fake:profile:web:user.com'),
@@ -438,7 +438,7 @@ class PagesTest(TestCase):
 
         self.assertEqual({'user.com': 'user.com'}, OtherFake.usernames)
 
-    @patch('requests.get', return_value=requests_response(
+    @patch.object(util.session, 'get', return_value=requests_response(
         ACTOR_HTML, url='https://www.user.com/'))
     def test_update_profile_web_www(self, mock_get):
         self.user.obj.copies = [
@@ -469,7 +469,7 @@ class PagesTest(TestCase):
             'object': actor_as1,
         })], Fake.sent)
 
-    @patch('requests.get', return_value=requests_response(
+    @patch.object(util.session, 'get', return_value=requests_response(
         ACTOR_HTML.replace('Ms. ☕ Baz', 'Ms. ☕ Baz #nobridge'),
         url='https://user.com/'))
     def test_update_profile_web_delete(self, mock_get):
@@ -836,7 +836,7 @@ class PagesTest(TestCase):
         self.assert_multiline_in(
             f'<input id="{user.key.urlsafe().decode()}-switch" type="checkbox" onClick="bridgingSwitch(event)" >', body)
 
-    @patch('requests.get')
+    @patch.object(util.session, 'get')
     def test_settings_on_login_create_new_user(self, mock_get):
         actor_as2 = {**ACTOR_AS2, 'id': 'http://b.c/a'}
         mock_get.return_value = self.as2_resp(actor_as2)
@@ -853,7 +853,7 @@ class PagesTest(TestCase):
         self.assert_multiline_in('Not bridging', body)
         self.assert_multiline_in('because your account doesn&#39;t have a profile picture', body)
 
-    @patch('requests.get', side_effect=[
+    @patch.object(util.session, 'get', side_effect=[
         requests_response(DID_DOC),
         requests_response({
             'uri': 'at://did:plc:abc/app.bsky.actor.profile/self',
@@ -1028,7 +1028,7 @@ class PagesTest(TestCase):
             'object': 'fake:eve',
         })], Fake.sent)
 
-    @patch('requests.get', return_value=requests_response(
+    @patch.object(util.session, 'get', return_value=requests_response(
             'domain\nfoo.com\nbar.org', headers={'Content-Type': 'text/csv'}))
     def test_block_csv_blocklist(self, mock_get):
         user, _ = self.make_logged_in_bluesky_user(enabled_protocols=['activitypub'])

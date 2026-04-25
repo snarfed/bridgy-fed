@@ -102,6 +102,7 @@ pytz==2026.1.post1
 PyYAML==6.0.3
 redis==6.4.0
 requests==2.33.1
+requests-hardened==1.2.0
 requests-oauthlib==2.0.0
 requests_oauth2client==1.8.0
 rsa==4.9.1
