@@ -1244,7 +1244,7 @@ class ProtocolTest(TestCase):
         self.assertEqual({
             'objectType': 'person',
             'id': 'other:u:user.com',
-            'displayName': '[Unofficial] Alice',
+            'displayName': 'Alice [Unofficial]',
         }, OtherFake.convert(Object(id='user.com', source_protocol='web', our_as1={
             'objectType': 'person',
             'id': 'user.com',

@@ -520,7 +520,7 @@ class ActivityPubTest(TestCase):
         self.assertEqual(200, got.status_code)
         self.assert_equals(add_key({
             **ACTOR_BASE_FULL,
-            'name': '[Unofficial] Ms. ☕ Baz',
+            'name': 'Ms. ☕ Baz [Unofficial]',
             'discoverable': True,
             'indexable': True,
         }), got.json, ignore=['@context', 'publicKeyPem', 'summary'])

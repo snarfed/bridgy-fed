@@ -683,8 +683,8 @@ class Protocol:
                 if obj.our_as1 is orig_our_as1:
                     obj.our_as1 = copy.deepcopy(obj.as1)
                 actor = as1.get_object(obj.our_as1) if is_crud else obj.our_as1
-                if (name := actor.get('displayName')) and not name.startswith('[Unofficial] '):
-                    actor['displayName'] = f'[Unofficial] {name}'
+                if (name := actor.get('displayName')) and not name.endswith(' [Unofficial]'):
+                    actor['displayName'] = f'{name} [Unofficial]'
 
         converted = cls._convert(obj, from_user=from_user, **kwargs)
         obj.our_as1 = orig_our_as1

@@ -276,7 +276,7 @@ class NostrTest(TestCase):
             'kind': KIND_PROFILE,
             'pubkey': user.hex_pubkey(),
             'content': json_dumps({
-                'name': '[Unofficial] Ms Alice',
+                'name': 'Ms Alice [Unofficial]',
                 'about': 'It me',
                 'nip05': 'alice.com@web.brid.gy',
             }, sort_keys=True),

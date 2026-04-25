@@ -134,7 +134,7 @@ ACTOR_AS2_FULL = {
 }
 ACTOR_BSKY = {
   "$type": "app.bsky.actor.profile",
-  "displayName": "[Unofficial] Ms. ☕ Baz",
+  "displayName": "Ms. ☕ Baz [Unofficial]",
   "website": "https://new.com/",
   "description": "🌉 bridged from 🌐 https://new.com/: https://fed.brid.gy/web/new.com",
   "labels": {
@@ -655,7 +655,7 @@ class WebTest(TestCase):
 
         # check that AP conversion includes [Unofficial]
         actor = ActivityPub.convert(user.obj, from_user=user)
-        self.assertEqual('[Unofficial] Ms. ☕ Baz', actor['name'])
+        self.assertEqual('Ms. ☕ Baz [Unofficial]', actor['name'])
 
     def test_verify_www_redirect(self, mock_get, _):
         www_user = self.make_user('www.user.com', cls=Web)

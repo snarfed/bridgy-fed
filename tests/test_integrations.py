@@ -3297,7 +3297,7 @@ class IntegrationTests(TestCase):
             'pubkey': alice.hex_pubkey(),
             'content': json_dumps({
                 'about': 'New bio',
-                'name': '[Unofficial] Alice Updated',
+                'name': 'Alice Updated [Unofficial]',
                 'nip05': 'alice.com@web.brid.gy',
                 'picture': 'http://new-pic',
                 'website': 'https://alice.com/',

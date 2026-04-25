@@ -1260,7 +1260,7 @@ class ATProtoTest(TestCase):
                               last_webmention_in=None)
         self.assertEqual({
             '$type': 'app.bsky.actor.profile',
-            'displayName': '[Unofficial] Alice',
+            'displayName': 'Alice [Unofficial]',
             'description': '🌉 bridged from 🌐 https://user.com/: https://fed.brid.gy/web/user.com',
             'labels': {
                 '$type': 'com.atproto.label.defs#selfLabels',
