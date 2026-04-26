@@ -201,6 +201,7 @@ jobs:
             gcloud -q app services set-traffic router --splits=${ver}=1
 
             # drop back to min_num_instances 1
+            # https://docs.cloud.google.com/appengine/docs/admin-api/reference/rest/v1/apps.services.versions/patch
             curl -X PATCH -H "Authorization: Bearer $(gcloud auth print-access-token)" -H 'Content-Type: application/json' --data '{"automaticScaling": {"minTotalInstances": 1}, "env": "flexible"}' "https://appengine.googleapis.com/v1/apps/bridgy-federated/services/router/versions/${ver}?updateMask=automaticScaling.minTotalInstances"
 
 

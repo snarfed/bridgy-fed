@@ -1062,8 +1062,6 @@ class User(AddRemoveMixin, StringIdModel, metaclass=ProtocolUserMeta):
         if self.obj_key:
             self_ids.append(self.obj_key.id())
 
-        util.d(obj.key, self_ids)
-
         if obj.key and obj.key.id() in self_ids:
             return True
         elif obj.as1:
