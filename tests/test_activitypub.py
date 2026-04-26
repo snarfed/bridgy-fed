@@ -3206,22 +3206,24 @@ class ActivityPubUtilsTest(TestCase):
             'id': 'https://web.brid.gy/r/https://inst/dm#create',
         }, postprocess_as2(copy.deepcopy(dm)))
 
-    @patch.object(util.session, 'get')
-    def test_signed_get_redirects_manually_with_new_sig_headers(self, mock_get):
-        mock_get.side_effect = [
+    @patch.object(util.session, 'send')
+    def test_signed_get_redirects_manually_with_new_sig_headers(self, mock_send):
+        mock_send.side_effect = [
             requests_response(status=302, redirected_url='http://second',
                               allow_redirects=False),
             requests_response(status=200, allow_redirects=False),
         ]
         activitypub.signed_get('https://first')
 
-        first = mock_get.call_args_list[0][1]
-        second = mock_get.call_args_list[1][1]
-        self.assertNotEqual(first['headers'], second['headers'])
+        first_prep = mock_send.call_args_list[0][0][0]
+        second_prep = mock_send.call_args_list[1][0][0]
+        # Different hosts → different signatures
+        self.assertNotEqual(first_prep.headers['signature'],
+                            second_prep.headers['signature'])
 
-    @patch.object(util.session, 'get')
-    def test_signed_get_redirects_to_relative_url(self, mock_get):
-        mock_get.side_effect = [
+    @patch.object(util.session, 'send')
+    def test_signed_get_redirects_to_relative_url(self, mock_send):
+        mock_send.side_effect = [
             # redirected URL is relative, we have to resolve it
             requests_response(status=302, redirected_url='/second',
                               allow_redirects=False),
@@ -3229,16 +3231,14 @@ class ActivityPubUtilsTest(TestCase):
         ]
         activitypub.signed_get('https://first')
 
-        self.assertEqual(('https://first/second',), mock_get.call_args_list[1][0])
-
-        first = mock_get.call_args_list[0][1]
-        second = mock_get.call_args_list[1][1]
-
-        # headers are equal because host is the same
-        self.assertEqual(first['headers'], second['headers'])
-        self.assertEqual(
-            first['auth'].header_signer.sign(first['headers'], method='GET', path='/'),
-            second['auth'].header_signer.sign(second['headers'], method='GET', path='/'))
+        first_prep = mock_send.call_args_list[0][0][0]
+        second_prep = mock_send.call_args_list[1][0][0]
+        self.assertEqual('https://first/', first_prep.url)
+        self.assertEqual('https://first/second', second_prep.url)
+        # Same host but different (request-target) → different signatures,
+        # confirming re-signing happened with the new URL
+        self.assertNotEqual(first_prep.headers['signature'],
+                            second_prep.headers['signature'])
 
     @patch.object(util.session, 'get')
     def test_signed_get_too_many_redirects(self, mock_get):
@@ -4041,6 +4041,16 @@ class ActivityPubUtilsTest(TestCase):
         })
         self.assertIsNone(ActivityPub.target_for(obj))
         self.assertIsNone(ActivityPub.target_for(obj, shared=True))
+
+    @patch.object(util.session, 'post', return_value=requests_response())
+    def test_send_no_host_header(self, mock_post):
+        # Host header in signed_request's headers causes IPFilterAdapter to add a
+        # second Host header (different case), resulting in HTTP 400 from nginx.
+        # https://github.com/saleor/requests-hardened/issues/59
+        ActivityPub.send(Object(as2=NOTE), ACTOR['inbox'], from_user=self.user)
+        _, kwargs = mock_post.call_args
+        self.assertNotIn('Host', kwargs['headers'])
+        self.assertNotIn('host', kwargs['headers'])
 
     @patch.object(util.session, 'post')
     def test_send_blocklisted(self, mock_post):

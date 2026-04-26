@@ -266,7 +266,7 @@ class NostrTest(TestCase):
         })))
 
     def test_convert_web_user_actor(self):
-        user = self.make_user('alice.com', cls=Web, obj_as1={
+        user = self.make_user('alice.com', cls=Web, last_webmention_in=None, obj_as1={
             'objectType': 'person',
             'displayName': 'Ms Alice',
             'summary': 'It me',
@@ -277,9 +277,9 @@ class NostrTest(TestCase):
             'pubkey': user.hex_pubkey(),
             'content': json_dumps({
                 'name': 'Ms Alice [Unofficial]',
-                'about': 'It me',
+                'about': 'It me\n\n🌉 bridged from 🌐 https://alice.com/: https://fed.brid.gy/web/alice.com',
                 'nip05': 'alice.com@web.brid.gy',
-            }, sort_keys=True),
+            }, sort_keys=True, ensure_ascii=False),
             'tags': [['proxy', 'https://alice.com/', 'web']],
             'created_at': NOW_TS,
         }, Nostr.convert(user.obj, from_user=user), ignore=['id', 'sig'])
