@@ -1239,19 +1239,20 @@ class ProtocolTest(TestCase):
             'summary': summary,
         }), from_user=alice))
 
-    def test_convert_web_actor_unofficial_prefix(self):
-        user = self.make_user('user.com', cls=Web)
+    def test_convert_web_actor_unofficial(self):
+        user = self.make_user('user.com', cls=Web, last_webmention_in=None)
         self.assertEqual({
             'objectType': 'person',
             'id': 'other:u:user.com',
             'displayName': 'Alice [Unofficial]',
+            'summary': '🌉 <a href="https://fed.brid.gy/web/user.com">bridged</a> from 🌐 <a href="https://user.com/">user.com</a> by <a href="https://fed.brid.gy/">Bridgy Fed</a>',
         }, OtherFake.convert(Object(id='user.com', source_protocol='web', our_as1={
             'objectType': 'person',
             'id': 'user.com',
             'displayName': 'Alice',
         }), from_user=user))
 
-    def test_convert_web_actor_has_redirects_no_unofficial_prefix(self):
+    def test_convert_web_actor_has_redirects_no_unofficial(self):
         user = self.make_user('user.com', cls=Web, has_redirects=True)
         self.assertEqual({
             'objectType': 'person',

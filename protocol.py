@@ -669,22 +669,28 @@ class Protocol:
         if (from_user and from_user.is_profile(obj)
                 and PROTOCOLS.get(obj.source_protocol) != cls
                 and Protocol.for_bridgy_subdomain(id) not in DOMAINS):
-            if not (from_user.LABEL == 'web' and (from_user.last_webmention_in
-                                                  or from_user.has_redirects)):
+            # TODO: more systematic way to get this that covers all protocols,
+            # eg Nostr NIP-05
+            web_opted_in = (from_user.LABEL == 'web' and
+                            (from_user.last_webmention_in
+                             or from_user.has_redirects
+                             or from_user.handle_as('atproto') == from_user.key.id()))
+            if not web_opted_in:
                 # mark bridged actors as bots and add "bridged by Bridgy Fed" to
                 # their bios. (web users are special cased, they don't get the label
                 # if they've explicitly enabled Bridgy Fed with redirects or
                 # webmentions.)
                 cls.add_source_links(obj=obj, from_user=from_user)
 
-            # web is currently opt out, so add [Unofficial] to their display name
-            # to be explicit that they may not have enabled this themselves
-            if from_user.LABEL == 'web' and not from_user.has_redirects:
-                if obj.our_as1 is orig_our_as1:
-                    obj.our_as1 = copy.deepcopy(obj.as1)
-                actor = as1.get_object(obj.our_as1) if is_crud else obj.our_as1
-                if (name := actor.get('displayName')) and not name.endswith(' [Unofficial]'):
-                    actor['displayName'] = f'{name} [Unofficial]'
+                # web is currently opt out, so add [Unofficial] to their display name
+                # to be explicit that they may not have enabled this themselves
+                if from_user.LABEL == 'web':
+                    if obj.our_as1 is orig_our_as1:
+                        obj.our_as1 = copy.deepcopy(obj.as1)
+                    actor = as1.get_object(obj.our_as1) if is_crud else obj.our_as1
+                    if ((name := actor.get('displayName'))
+                            and not name.endswith(' [Unofficial]')):
+                        actor['displayName'] = f'{name} [Unofficial]'
 
         converted = cls._convert(obj, from_user=from_user, **kwargs)
         obj.our_as1 = orig_our_as1
