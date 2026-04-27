@@ -144,6 +144,8 @@ jobs:
             # oauth-dropins static assets
             git clone --depth=1 https://github.com/snarfed/oauth-dropins.git ../oauth-dropins
 
+            gcloud datastore indexes create --database=us-single-region index.yaml
+
             # deploy router with min_num_instances equal to the current autoscaled
             # number, let it soak while we wait for tests, *then* drop it back
             # down to 1 in migrate-router.
@@ -152,8 +154,7 @@ jobs:
             ver=`gcloud app versions list --hide-no-traffic --service=router --format='value(id)'`
             instances=`gcloud app instances list --service=router --version=${ver} --format='value(id)' |wc -l`
             sed -E "s/min_num_instances: [0-9]+/min_num_instances: ${instances}/" < router.yaml > router.provisioned.yaml
-            gcloud -q app deploy --no-promote << pipeline.parameters.deploy-flags >> index.yaml queue.yaml router.provisioned.yaml
-
+            gcloud -q app deploy --no-promote << pipeline.parameters.deploy-flags >> queue.yaml router.provisioned.yaml
 
   deploy-hub-or-heavy:
     docker:
