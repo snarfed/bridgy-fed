@@ -1578,7 +1578,6 @@ class Object(AddRemoveMixin, StringIdModel):
             user_id = ids.normalize_user_id(id=authed_as, proto=proto)
             profile_id = ids.profile_id(id=authed_as, proto=proto)
             if (owners and user_id not in owners and profile_id not in owners
-                    # temporary, until we handle #2237
                     and authed_as not in (PRIMARY_DOMAIN,) + PROTOCOL_DOMAINS):
                 report_error("Auth: Object: authed_as doesn't match owner",
                              user=f'{user_id} {profile_id} authed_as {authed_as} owners {owners}')
