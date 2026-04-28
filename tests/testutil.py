@@ -610,6 +610,7 @@ class TestCase(unittest.TestCase, testutil.Asserts):
         kwargs.setdefault('data', None)
         headers = {
             'Date': 'Sun, 02 Jan 2022 03:04:05 GMT',
+            'Host': util.domain_from_link(url, minimize=False),
             'Content-Type': as2.CONTENT_TYPE_LD_PROFILE,
             'Digest': ANY,
             **CONNEG_HEADERS_AS2_HTML,

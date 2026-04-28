@@ -5,7 +5,7 @@ from datetime import datetime, timedelta, UTC
 from hashlib import sha256
 import logging
 from unittest import skip
-from unittest.mock import patch
+from unittest.mock import MagicMock, patch
 
 from google.api_core.exceptions import PermissionDenied
 from google.cloud import ndb
@@ -19,6 +19,9 @@ from oauth_dropins.webutil.util import domain_from_link, json_dumps, json_loads
 import requests
 from requests import TooManyRedirects
 from requests.exceptions import InvalidURL
+from requests_hardened import Config as RequestsHardenedConfig, HTTPSession
+import socket
+from urllib3._collections import HTTPHeaderDict
 from urllib3.exceptions import ReadTimeoutError
 from werkzeug.exceptions import BadGateway, BadRequest
 
@@ -3206,24 +3209,22 @@ class ActivityPubUtilsTest(TestCase):
             'id': 'https://web.brid.gy/r/https://inst/dm#create',
         }, postprocess_as2(copy.deepcopy(dm)))
 
-    @patch.object(util.session, 'send')
-    def test_signed_get_redirects_manually_with_new_sig_headers(self, mock_send):
-        mock_send.side_effect = [
+    @patch.object(util.session, 'get')
+    def test_signed_get_redirects_manually_with_new_sig_headers(self, mock_get):
+        mock_get.side_effect = [
             requests_response(status=302, redirected_url='http://second',
                               allow_redirects=False),
             requests_response(status=200, allow_redirects=False),
         ]
         activitypub.signed_get('https://first')
 
-        first_prep = mock_send.call_args_list[0][0][0]
-        second_prep = mock_send.call_args_list[1][0][0]
-        # Different hosts → different signatures
-        self.assertNotEqual(first_prep.headers['signature'],
-                            second_prep.headers['signature'])
+        first = mock_get.call_args_list[0][1]
+        second = mock_get.call_args_list[1][1]
+        self.assertNotEqual(first['headers'], second['headers'])
 
-    @patch.object(util.session, 'send')
-    def test_signed_get_redirects_to_relative_url(self, mock_send):
-        mock_send.side_effect = [
+    @patch.object(util.session, 'get')
+    def test_signed_get_redirects_to_relative_url(self, mock_get):
+        mock_get.side_effect = [
             # redirected URL is relative, we have to resolve it
             requests_response(status=302, redirected_url='/second',
                               allow_redirects=False),
@@ -3231,14 +3232,17 @@ class ActivityPubUtilsTest(TestCase):
         ]
         activitypub.signed_get('https://first')
 
-        first_prep = mock_send.call_args_list[0][0][0]
-        second_prep = mock_send.call_args_list[1][0][0]
-        self.assertEqual('https://first/', first_prep.url)
-        self.assertEqual('https://first/second', second_prep.url)
-        # Same host but different (request-target) → different signatures,
-        # confirming re-signing happened with the new URL
-        self.assertNotEqual(first_prep.headers['signature'],
-                            second_prep.headers['signature'])
+        self.assertEqual(('https://first/second',), mock_get.call_args_list[1][0])
+
+        first = mock_get.call_args_list[0][1]
+        second = mock_get.call_args_list[1][1]
+
+        # headers are equal because host is the same
+        util.d(first['headers'])
+        self.assertEqual(first['headers'], second['headers'])
+        self.assertEqual(
+            first['auth'].header_signer.sign(first['headers'], method='GET', path='/'),
+            second['auth'].header_signer.sign(second['headers'], method='GET', path='/'))
 
     @patch.object(util.session, 'get')
     def test_signed_get_too_many_redirects(self, mock_get):
@@ -4042,15 +4046,41 @@ class ActivityPubUtilsTest(TestCase):
         self.assertIsNone(ActivityPub.target_for(obj))
         self.assertIsNone(ActivityPub.target_for(obj, shared=True))
 
-    @patch.object(util.session, 'post', return_value=requests_response())
-    def test_send_no_host_header(self, mock_post):
-        # Host header in signed_request's headers causes IPFilterAdapter to add a
-        # second Host header (different case), resulting in HTTP 400 from nginx.
+    @patch('socket.getaddrinfo',
+           return_value=[(socket.AF_INET, socket.SOCK_STREAM, 6, '', ('127.0.0.1', 80))])
+    @patch('urllib3.connectionpool.HTTPConnectionPool.urlopen')
+    def test_send_no_host_header(self, mock_urlopen, _):
+        # Verify exactly one Host header reaches urllib3. Previously, signed_request
+        # set Host and IPFilterAdapter also set it (different case), causing a
+        # duplicate that nginx rejected with HTTP 400.
         # https://github.com/saleor/requests-hardened/issues/59
-        ActivityPub.send(Object(as2=NOTE), ACTOR['inbox'], from_user=self.user)
-        _, kwargs = mock_post.call_args
-        self.assertNotIn('Host', kwargs['headers'])
-        self.assertNotIn('host', kwargs['headers'])
+        mock_resp = MagicMock()
+        mock_resp.status = 200
+        mock_resp.headers = HTTPHeaderDict()
+        mock_resp.reason = 'OK'
+        mock_urlopen.return_value = mock_resp
+
+        # requests_fn captures hardened_session at import time, so patching
+        # util.session doesn't affect it. Patch requests_post directly so that
+        # signed_request routes through an SSRF-enabled session, causing
+        # IPFilterAdapter.build_connection_pool_key_attributes to run.
+        ssrf_session = HTTPSession(RequestsHardenedConfig(
+            ip_filter_enable=True,
+            ip_filter_allow_loopback_ips=True,
+            never_redirect=False,
+            default_timeout=None,
+        ))
+        ssrf_session.cookies = util.NoCookieJar()
+
+        def fake_post(url, *args, **kwargs):
+            kwargs.pop('gateway', None)
+            return ssrf_session.post(url, *args, **kwargs)
+
+        with patch.object(util, 'requests_post', fake_post):
+            ActivityPub.send(Object(as2=NOTE), ACTOR['inbox'], from_user=self.user)
+
+        _, kwargs = mock_urlopen.call_args
+        self.assertEqual(1, len([k for k in kwargs['headers'] if k.lower() == 'host']))
 
     @patch.object(util.session, 'post')
     def test_send_blocklisted(self, mock_post):

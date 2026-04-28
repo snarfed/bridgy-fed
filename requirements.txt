@@ -1,5 +1,5 @@
 git+https://github.com/snarfed/arroba.git#egg=arroba
-git+https://github.com/kylewm/brevity.git#egg=brevity
+git+https://github.com/snarfed/brevity.git@new-tlds#egg=brevity
 git+https://github.com/snarfed/carbox.git#egg=carbox
 git+https://github.com/snarfed/dag-json.git#egg=dag_json
 git+https://github.com/snarfed/granary.git#egg=granary
@@ -102,7 +102,7 @@ pytz==2026.1.post1
 PyYAML==6.0.3
 redis==6.4.0
 requests==2.33.1
-requests-hardened==1.2.0
+requests-hardened==1.2.2
 requests-oauthlib==2.0.0
 requests_oauth2client==1.8.0
 rsa==4.9.1

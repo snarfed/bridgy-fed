@@ -911,16 +911,13 @@ def signed_request(fn, url, data=None, headers=None, from_user=None,
         # required for HTTP Signature
         # https://tools.ietf.org/html/draft-cavage-http-signatures-07#section-2.1.3
         'Date': util.now().strftime('%a, %d %b %Y %H:%M:%S GMT'),
+        # required by Mastodon
+        # https://github.com/tootsuite/mastodon/pull/14556#issuecomment-674077648
+        # https://github.com/saleor/requests-hardened/issues/59
+        'Host': domain_from_link(url, minimize=False),
         'Content-Type': as2.CONTENT_TYPE_LD_PROFILE,
         # required for HTTP Signature and Mastodon
         'Digest': f'SHA-256={b64encode(sha256(data or b"").digest()).decode()}',
-        # Host is required by Mastodon
-        # https://github.com/tootsuite/mastodon/pull/14556#issuecomment-674077648
-        # ...however, don't set it here. httpsig gets it from urlparse(url), and
-        # requests-hardened's IPFilterAdapter also sets it. Including it here
-        # causes a duplicate Host header (httpsig lowercases it, then
-        # IPFilterAdapter adds an uppercase Host), which nginx rejects as HTTP 400.
-        # https://github.com/saleor/requests-hardened/issues/59
     }
 
     logger.debug(f"Signing with {from_user.key.id()} 's key")
