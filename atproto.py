@@ -1458,7 +1458,7 @@ class ATProto(User, Protocol):
 
         # 2: export repo as CAR and import to new PDS
         logger.info('Exporting our repo')
-        car_bytes = xrpc_sync.get_repo(None, did=to_user_id)
+        car_bytes = xrpc_sync.get_repo(None, did=to_user_id, internal=True)
         logger.info('Importing repo')
         bs._client.com.atproto.repo.importRepo(car_bytes)
 
