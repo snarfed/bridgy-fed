@@ -3411,7 +3411,8 @@ Sed tortor neque, aliquet quis posuere aliquam, imperdiet sitamet […]
 
         mock_create_task.assert_called()  # atproto-commit
 
-    def test_send_like_did_doc_not_found(self):
+    @patch.object(util.session, 'get', return_value=requests_response(status=404))
+    def test_send_like_did_doc_not_found(self, _):
         user = self.make_user_and_repo()
         Object(id=user.get_copy(ATProto)).key.delete()
 
