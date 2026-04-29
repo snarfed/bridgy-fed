@@ -52,6 +52,10 @@ else:
     for logger in (
             # 'atproto_firehose',
             # 'arroba.firehose',
+
+            # uncomment for MST debugging, eg for load_all profiling for getRepo
+            # 'arroba.mst',
+
             'arroba.storage',
             'arroba.datastore_storage',
             'lexrpc',
