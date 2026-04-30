@@ -239,7 +239,7 @@ def subscribe():
             try:
                 _, blocks = libipld.decode_car(block_bytes)
             except (TypeError, ValueError) as e:
-                report_error(f'failed decoding blocks! skipping seq {seq} {repo} {payload.get("ops")}', exception=True)
+                report_error(f'failed decoding blocks! skipping seq {seq} {repo} {payload.get("ops")} {block_bytes}', exception=True)
                 continue
 
         # detect records from bridged ATProto users that we should handle
