@@ -25,7 +25,15 @@ from atproto import ATProto
 import common
 import memcache
 import models
-from models import Follower, Object, OBJECT_EXPIRE_AGE, PROTOCOLS, Target, User
+from models import (
+    Follower,
+    maybe_truncate_key_id,
+    Object,
+    OBJECT_EXPIRE_AGE,
+    PROTOCOLS,
+    Target,
+    User,
+)
 from nostr import Nostr
 import protocol
 from protocol import Protocol
@@ -2056,3 +2064,38 @@ class FollowerTest(TestCase):
                                           status='inactive')
         got = follower.key.get()
         self.assertEqual('inactive', got.status)
+
+
+class ModelsTest(TestCase):
+
+    def test_maybe_truncate_key_id_short_ascii(self):
+        id = 'https://example.com/foo'
+        self.assertEqual(id, maybe_truncate_key_id(id))
+
+    def test_maybe_truncate_key_id_long_ascii(self):
+        id = 'https://example.com/' + 'x' * 1500
+        result = maybe_truncate_key_id(id)
+        self.assertEqual(1500, len(result.encode('utf-8')))
+
+    def test_maybe_truncate_key_id_long_with_multibyte_unicode(self):
+        # é is 2 bytes in UTF-8; 1500 of them = 3000 bytes, must be truncated
+        id = 'https://example.com/' + 'é' * 1000
+        result = maybe_truncate_key_id(id)
+        self.assertLessEqual(len(result.encode('utf-8')), 1500)
+        # result must be valid UTF-8 (no cut mid-character)
+        result.encode('utf-8')
+
+    def test_maybe_truncate_key_id_truncate_preserves_utf8_boundary(self):
+        # Build a string that, when encoded, is just over 1500 bytes due to
+        # multi-byte chars. The truncation must not split a character.
+        # '—' is 3 bytes in UTF-8. Pad with enough to land mid-char at byte 1500.
+        # 499 ASCII chars + 333 em-dashes + 1 more = 499 + 999 + 3 = 1501 bytes
+        #
+        # https://console.cloud.google.com/errors/detail/CO-fpZfMq_6ktgE;locations=global?project=bridgy-federated
+        id = 'a' * 499 + '—' * 334
+        self.assertGreater(len(id.encode('utf-8')), 1500)
+        result = maybe_truncate_key_id(id)
+        encoded = result.encode('utf-8')
+        self.assertLessEqual(len(encoded), 1500)
+        # must decode cleanly
+        encoded.decode('utf-8')

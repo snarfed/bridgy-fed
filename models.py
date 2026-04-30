@@ -2462,13 +2462,11 @@ def load_user(handle_or_id, proto=None, create=False, allow_opt_out=False,
 
 
 def maybe_truncate_key_id(id):
-    """Returns id, truncated to ``_MAX_KEYPART_BYTES`` if it's longer."""
-    if len(id) > _MAX_KEYPART_BYTES:
-        # TODO: handle Unicode chars. naive approach is to UTF-8 encode,
-        # truncate, then decode, but that might cut mid character. easier to just
-        # hope/assume the URL is already URL-encoded.
-        truncated = id[:_MAX_KEYPART_BYTES]
-        logger.warning(f'Truncating id {id} to {_MAX_KEYPART_BYTES} chars: {truncated}')
+    """Returns id, truncated to ``_MAX_KEYPART_BYTES`` bytes if it's longer."""
+    encoded = id.encode('utf-8')
+    if len(encoded) > _MAX_KEYPART_BYTES:
+        truncated = encoded[:_MAX_KEYPART_BYTES].decode('utf-8', errors='ignore')
+        logger.warning(f'Truncating id {id} to {_MAX_KEYPART_BYTES} bytes: {truncated}')
         return truncated
 
     return id
