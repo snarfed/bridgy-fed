@@ -21,7 +21,6 @@ from oauth_dropins.webutil.appengine_config import ndb_client
 from oauth_dropins.webutil.appengine_info import DEBUG
 from oauth_dropins.webutil.util import HTTP_TIMEOUT, json_dumps, json_loads
 from websockets.exceptions import ConnectionClosed
-from websockets.sync.client import connect
 
 from common import (
     create_task,
@@ -184,9 +183,9 @@ def subscribe(relay, limit=None):
     #
     # https://websockets.readthedocs.io/en/stable/reference/legacy/client.html#websockets.legacy.client.connect
     # https://websockets.readthedocs.io/en/stable/reference/legacy/common.html#websockets.legacy.protocol.WebSocketCommonProtocol
-    with connect(uri, user_agent_header=util.user_agent,
-                 open_timeout=util.HTTP_TIMEOUT, close_timeout=util.HTTP_TIMEOUT,
-                 ) as ws:
+    with util.websocket_connect(uri, user_agent_header=util.user_agent,
+                                open_timeout=util.HTTP_TIMEOUT,
+                                close_timeout=util.HTTP_TIMEOUT) as ws:
         while True:
             nostr_pubkeys_count = len(nostr_pubkeys)
             bridged_pubkeys_count = len(bridged_pubkeys)
