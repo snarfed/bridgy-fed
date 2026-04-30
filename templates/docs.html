@@ -189,7 +189,8 @@
 <p><em>Developers and admins</em></p>
 
 <li><a href="#api">Does Bridgy Fed have an API? Can I integrate my client or service or other tool with it?</a></li>
-<li><a href="#identify-bridged-account">How can I tell if an account is bridged?</a></li>
+<li><a href="#identify-bridged-account">How can I tell if an account is bridged from another network?</a></li>
+<li><a href="#identify-bridged-source-account">How can I tell if an account is bridged <em>to</em> another network?</a></li>
 <li><a href="#identify-bridged-from-post">How can I tell if a post was bridged from another network?</a></li>
 <li><a href="#identify-bridged-to-post">How can I tell if a post was bridged <em>to</em> another network?</a></li>
 <li><a href="#metadata">Can I get additional metadata about a bridged account or post?</a></li>
@@ -1142,7 +1143,7 @@ To receive likes, reposts, replies, @-mentions, and follows from other networks,
 The exact metadata for account and post links varies by network. Read on for details.
 </li>
 
-<li id="identify-bridged-account" class="question">How can I tell if an account is bridged?</li>
+<li id="identify-bridged-account" class="question">How can I tell if an account is bridged from another network?</li>
 <p>For an ActivityPub actor, check its <a href="https://www.w3.org/ns/activitystreams#did-core"><code>alsoKnownAs</code> field</a>. If it's bridged from elsewhere, that field will have its native id as a URI. For example, an account bridged from  Bluesky will have an <a href="https://atproto.com/specs/at-uri-scheme"><code>at:// URI</code></a> with its <a href="https://atproto.com/specs/did">DID</a>:
 <pre>
 {
@@ -1170,6 +1171,17 @@ The exact metadata for account and post links varies by network. Read on for det
   &lt;data class="p-uid" value="<span class='value'>https://indieweb.social/users/snarfed</span>"&gt;&lt;/data&gt;
 </pre>
 <p>You can also use <a href="https://swicg.github.io/activitypub-html-discovery/#html-to-activitypub"><code>rel=alternate</code></a> and <a href="https://docs.joinmastodon.org/user/profile/#verification"><code>rel=me</code></a> to discover fediverse accounts that are associated with a web site, either bridged or otherwise.
+</li>
+
+<li id="identify-bridged-source-account" class="question">How can I tell if an account is bridged <em>to</em> another network?</li>
+<p>Right now, this isn't as clean as detecting accounts bridged from other networks, since we generally don't have access to add metadata to native accounts. Currently, you can check if a native account is bridged elsewhere by fetching its Bridgy Fed user page, eg:
+<ul>
+<li><code>https://fed.brid.gy/web/snarfed.org</code> for a web site
+<li><code>https://fed.brid.gy/ap/@snarfed@indieweb.social</code> for a fediverse account
+<li><code>https://fed.brid.gy/bsky/snarfed.bsky.social</code> or <code>https://fed.brid.gy/bsky/did:plc:3ljmtyyjqcjee2kpewgsifvb</code> for a Bluesky account
+</ul>
+<br>
+<p>If fetching that URL returns HTTP 200, the account is bridged. If it returns HTTP 404, it's not.
 </li>
 
 <li id="identify-bridged-from-post" class="question">How can I tell if a post was bridged from another network?</li>
