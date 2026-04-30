@@ -13,8 +13,8 @@ runtime_config:
     runtime_version: "3.12"
 
 resources:
-  cpu: 2
-  memory_gb: 12.5
+  cpu: 1
+  memory_gb: 6
 
 # run in default VPC for this project
 # https://cloud.google.com/appengine/docs/flexible/using-shared-vpc
@@ -45,10 +45,13 @@ env_variables:
   # https://github.com/snarfed/bridgy-fed/issues/2458
   # READ_ONLY: true
 
+  # DISABLE_GETREPO: true
+  # PROFILE_GETREPO: true
+
 automatic_scaling:
   min_num_instances: 1
-  max_num_instances: 100
-  target_concurrent_requests: 20
+  max_num_instances: 20
+  # target_concurrent_requests: 20
   cpu_utilization:
     target_utilization: 0.9
 
@@ -59,4 +62,4 @@ liveness_check:
 
 # https://cloud.google.com/appengine/docs/flexible/python/runtime#application_startup
 # https://docs.gunicorn.org/en/latest/settings.html
-entrypoint: gunicorn --workers 2 --threads 10 -b :$PORT app:app
+entrypoint: gunicorn --workers 2 --threads 20 -b :$PORT app:app
