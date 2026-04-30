@@ -53,11 +53,11 @@ else:
             # 'atproto_firehose',
             # 'arroba.firehose',
 
-            # uncomment for MST debugging, eg for load_all profiling for getRepo
+            # uncomment for MST and storage debugging, eg for getRepo
             # 'arroba.mst',
+            # 'arroba.datastore_storage',
+            # 'arroba.storage',
 
-            'arroba.storage',
-            'arroba.datastore_storage',
             'lexrpc',
             'oauth_dropins.webutil.webmention',
     ):
