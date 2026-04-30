@@ -233,6 +233,7 @@ def admin_disable():
     key = request.values['key']
     user = Key(urlsafe=key).get()
     proto = PROTOCOLS[request.values['protocol']]
+    user.delete(proto)
     user.disable_protocol(proto)
     flash(f'Disabled {proto.LABEL} for {user.handle}')
     return redirect(f'/admin/user/{key}')

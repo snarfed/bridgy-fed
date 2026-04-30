@@ -15,7 +15,7 @@ import config
 import filters
 import memcache
 import models
-from models import DM, Object, Target
+from models import DM, Follower, Object, Target
 from .testutil import Fake, OtherFake, TestCase
 from web import Web
 
@@ -305,16 +305,28 @@ class AdminTest(TestCase):
         self.assertEqual(['activitypub'], self.user.key.get().enabled_protocols)
 
     def test_disable(self):
-        self.user.enabled_protocols = ['activitypub']
+        self.user.enabled_protocols = ['other']
         self.user.put()
+
+        Follower.get_or_create(
+            from_=self.make_user('other:bob', cls=OtherFake),
+            to=self.user)
+
         key = self.user.key.urlsafe().decode()
         resp = self.client.post('/admin/disable', data={
             'key': key,
-            'protocol': 'activitypub',
+            'protocol': 'other',
         })
         self.assertEqual(302, resp.status_code)
         self.assertEqual(f'/admin/user/{key}', resp.headers['Location'])
         self.assertEqual([], self.user.key.get().enabled_protocols)
+        self.assertEqual([('other:bob:target', {
+            'id': 'fake:profile:user#bridgy-fed-delete-user-other-2022-01-02T03:04:05+00:00',
+            'objectType': 'activity',
+            'verb': 'delete',
+            'actor': 'fake:user',
+            'object': 'fake:user',
+        })], OtherFake.sent)
 
     @patch.object(tasks_client, 'create_task', return_value=Task(name='my task'))
     def test_admin_receive(self, mock_create_task):
