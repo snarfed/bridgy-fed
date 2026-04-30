@@ -210,7 +210,7 @@ class ProtocolUserMeta(type(ndb.Model)):
     def __new__(meta, name, bases, class_dict):
         cls = super().__new__(meta, name, bases, class_dict)
 
-        label = getattr(cls, 'LABEL', None)
+        label = cls.LABEL
         if (label and label not in ('protocol', 'user')
                 and (DEBUG or cls.LABEL not in DEBUG_PROTOCOLS)):
             for label in (label, cls.ABBREV) + cls.OTHER_LABELS:
@@ -357,6 +357,7 @@ class User(AddRemoveMixin, StringIdModel, metaclass=ProtocolUserMeta):
     * *Not* K-256 signing or rotation keys for AT Protocol, those are stored in
       :class:`arroba.datastore_storage.AtpRepo` entities
     """
+    LABEL = None
     GET_ORIGINAL_FN = get_original_user_key
     'used by AddRemoveMixin'
 
