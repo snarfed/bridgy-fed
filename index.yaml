@@ -28,6 +28,11 @@ indexes:
     - name: status
     - name: created
 
+- kind: AtpRepo
+  properties:
+    - name: status
+    - name: updated
+
 - kind: ATProto
   properties:
   - name: created

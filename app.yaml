@@ -17,10 +17,10 @@ entrypoint: gunicorn --workers 2 --threads 15 --timeout 60 -b :$PORT app:app
 automatic_scaling:
   max_instances: 100
   max_idle_instances: 1
-  max_concurrent_requests: 30
+  max_concurrent_requests: 40
   # min_pending_latency: 2s
   # target_cpu_utilization: .8
-  # target_throughput_utilization: .8
+  target_throughput_utilization: .8
 
 inbound_services:
 - warmup
@@ -51,7 +51,7 @@ env_variables:
   # https://github.com/googleapis/python-ndb/blob/c55ec62b5153787404488b046c4bf6ffa02fee64/google/cloud/ndb/utils.py#L78-L81
   # NDB_DEBUG: true
 
-  # DISABLE_GETREPO: true
+  DISABLE_GETREPO: true
   # PROFILE_GETREPO: true
 
 handlers:
