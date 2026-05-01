@@ -41,7 +41,6 @@ from oauth_dropins.webutil.util import add, json_dumps, json_loads
 from requests import RequestException
 import secp256k1
 from websockets.exceptions import ConnectionClosedOK
-from websockets.sync.client import connect
 from werkzeug.exceptions import NotFound
 
 import common
@@ -339,7 +338,7 @@ class Nostr(User, Protocol):
         client = granary.nostr.Nostr()
         relay = normalize_relay_uri(self.target_for(self.obj) or self.DEFAULT_TARGET)
         logger.debug(f'connecting to {relay}')
-        with connect(relay, open_timeout=util.HTTP_TIMEOUT,
+        with util.websocket_connect(relay, open_timeout=util.HTTP_TIMEOUT,
                      close_timeout=util.HTTP_TIMEOUT) as websocket:
             events = client.query(websocket, {
                 'authors': [self.hex_pubkey()],
@@ -401,7 +400,7 @@ class Nostr(User, Protocol):
         relay = normalize_relay_uri(cls.target_for(obj) or cls.DEFAULT_TARGET)
         assert relay
         logger.debug(f'connecting to {relay}')
-        with connect(relay, open_timeout=util.HTTP_TIMEOUT,
+        with util.websocket_connect(relay, open_timeout=util.HTTP_TIMEOUT,
                      close_timeout=util.HTTP_TIMEOUT) as websocket:
             events = client.query(websocket, {'ids': [id]})
 
@@ -540,7 +539,7 @@ class Nostr(User, Protocol):
             }, from_user.nsec()))
 
         logger.debug(f'connecting to {relay_url}')
-        with connect(relay_url, open_timeout=util.HTTP_TIMEOUT,
+        with util.websocket_connect(relay_url, open_timeout=util.HTTP_TIMEOUT,
                      close_timeout=util.HTTP_TIMEOUT) as websocket:
             try:
                 for event in events:

@@ -22,6 +22,7 @@ import dag_cbor.random
 from google.cloud import ndb
 from google.protobuf.timestamp_pb2 import Timestamp
 from granary import as1, as2
+import granary.nostr
 from granary.tests.test_as1 import (
     ACTOR,
     COMMENT,
@@ -414,7 +415,7 @@ class TestCase(unittest.TestCase, testutil.Asserts):
 
         # nostr fake websocket
         FakeConnection.reset()
-        util.websocket_connect = fake_connect
+        granary.nostr.websocket_connect = util.websocket_connect = fake_connect
         nostr_hub.nostr_pubkeys = set()
         nostr_hub.bridged_pubkeys = set()
         nostr_hub.pubkeys_loaded_at = datetime(1900, 1, 1)
