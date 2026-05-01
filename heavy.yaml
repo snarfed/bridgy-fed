@@ -49,7 +49,6 @@ env_variables:
   # PROFILE_GETREPO: true
 
 automatic_scaling:
-  min_num_instances: 1
   max_num_instances: 20
   # target_concurrent_requests: 20
   cpu_utilization:
