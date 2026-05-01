@@ -1327,6 +1327,33 @@ class WebTest(TestCase):
                            deleted=False,
                            )
 
+    def test_create_author_different_domain(self, mock_get, mock_post):
+        """Author URL is on a completely different domain than the source URL.
+
+        Should succeed; should not fail auth with 299.
+
+        https://github.com/snarfed/bridgy-fed/issues/1512
+        """
+        self.make_followers()
+
+        html = NOTE_HTML.replace(
+            '<a class="p-author h-card" href="https://user.com/">',
+            '<a class="p-author h-card" href="https://other.com/">',
+        )
+        mock_get.side_effect = [
+            requests_response(html, url='https://user.com/post'),
+            ACTOR_HTML_RESP,
+            TOOT_AS2,
+            ACTOR,
+        ]
+        mock_post.return_value = requests_response('abc xyz')
+
+        got = self.post('/queue/webmention', data={
+            'source': 'https://user.com/post',
+            'target': 'https://fed.brid.gy/',
+        })
+        self.assertEqual(202, got.status_code)
+
     def test_create_post_use_instead_strip_www(self, mock_get, mock_post):
         self.user.obj.mf2 = {
             'type': ['h-card'],
