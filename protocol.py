@@ -1265,9 +1265,10 @@ class Protocol:
             error(f"Couldn't load actor {actor}", status=204)
 
         # apply protocol-specific filters
-        for filter in from_cls.RECEIVE_FILTERS:
-            if filter(obj, from_user):
-                error(f'Activity {id} blocked by filter {filter.__name__}')
+        if 'force' not in request.values:
+            for filter in from_cls.RECEIVE_FILTERS:
+                if filter(obj, from_user):
+                    error(f'Activity {id} blocked by filter {filter.__name__}')
 
         # check if this is a profile object coming in via a user with use_instead
         # set. if so, override the object's id to be the final user id (from_user's),
