@@ -10,6 +10,7 @@ from google.cloud import ndb
 from google.cloud.ndb.key import _MAX_KEYPART_BYTES
 from granary import as1, as2, atom, microformats2, rss
 from granary.source import html_to_text
+from oauth_dropins import indieauth
 from oauth_dropins.webutil import util
 from oauth_dropins.webutil import appengine_info
 from oauth_dropins.webutil.flask_util import APP_ENGINE_CRON_HEADER, NoContent
@@ -3811,3 +3812,36 @@ class WebUtilTest(TestCase):
 
         got = self.get('/cron/reload-csvs', headers={APP_ENGINE_CRON_HEADER: ''})
         self.assertEqual(500, got.status_code)
+
+
+class IndieAuthTest(TestCase):
+
+    def setUp(self):
+        super().setUp()
+        self.user = self.make_user('alice.com', cls=Web)
+
+    @patch.object(util.session, 'get', return_value=requests_response(''))
+    def test_start(self, mock_get):
+        resp = self.client.post('/oauth/indieauth/start', data={
+            'me': 'https://alice.com',
+        })
+        self.assertEqual(302, resp.status_code)
+        self.assertTrue(resp.headers['Location'].startswith(indieauth.INDIEAUTH_URL),
+                        resp.headers['Location'])
+
+    @patch.object(util.session, 'post', return_value=requests_response('me=https://alice.com'))
+    @patch.object(util.session, 'get', return_value=requests_response(''))
+    def test_callback(self, mock_get, mock_post):
+        state = util.encode_oauth_state({
+            'endpoint': indieauth.INDIEAUTH_URL,
+            'me': 'https://alice.com',
+            'state': '',
+        })
+        resp = self.client.get(f'/oauth/indieauth/finish?code=my_code&state={state}',
+                               base_url='https://fed.brid.gy/')
+        self.assertEqual(302, resp.status_code)
+        self.assertTrue(resp.headers['Location'].startswith('/settings'),
+                        resp.headers['Location'])
+
+        auth = indieauth.IndieAuth.get_by_id('https://alice.com')
+        self.assertIsNotNone(auth)

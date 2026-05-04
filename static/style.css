@@ -1027,6 +1027,37 @@ input:checked + .slider:before {
   margin: 20px;
 }
 
+#login p.row {
+  margin-top: 35px;
+}
+
+.submit-button {
+  position: absolute;
+}
+
+.login-button {
+  cursor: pointer;
+}
+
+.login-button-logotype {
+  display: inline-flex;
+  flex-direction: row;
+  align-items: center;
+  user-select: none;
+}
+
+.login-button-logotype img {
+  pointer-events: none;
+}
+
+.login-button-logotype span {
+  font-size: 28px;
+  font-weight: bold;
+  margin-left: 10px;
+  pointer-events: none;
+  white-space: nowrap;
+}
+
 @media (scripting: none) {
   .login-button {
     margin-top:20px;

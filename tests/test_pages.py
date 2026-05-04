@@ -11,6 +11,7 @@ from google.cloud import ndb
 from google.cloud.tasks_v2.types import Task
 from granary import atom, microformats2, rss
 from oauth_dropins.bluesky import BlueskyAuth
+from oauth_dropins.indieauth import IndieAuth
 from oauth_dropins.mastodon import MastodonAuth
 from oauth_dropins.views import LOGINS_SESSION_KEY
 from oauth_dropins.webutil import appengine_info
@@ -38,6 +39,7 @@ import common
 import config
 import memcache
 from models import Object, Follower, Target
+from pages import login_to_user_key
 from web import Web
 
 from granary.tests.test_bluesky import ACTOR_PROFILE_BSKY
@@ -119,6 +121,33 @@ class PagesTest(TestCase):
         }, **props)
 
         return user, auth
+
+    def make_logged_in_web_user(self, **props):
+        """
+        Returns:
+          (user, auth entity) tuple:
+        """
+        auth = IndieAuth(id='https://alice.com',
+                         user_json='{"me": "https://alice.com"}').put()
+
+        with self.client.session_transaction() as sess:
+            sess[LOGINS_SESSION_KEY] = (sess.get(LOGINS_SESSION_KEY, [])
+                                        + [('IndieAuth', 'https://alice.com')])
+
+        user = self.make_user('alice.com', cls=Web, **props)
+        return user, auth
+
+    def test_settings_web_user(self):
+        self.make_logged_in_web_user()
+
+        resp = self.client.get('/settings')
+        self.assertEqual(200, resp.status_code)
+
+    def test_login_to_user_key_indieauth(self):
+        IndieAuth(id='https://alice.com',
+                  user_json='{"me": "https://alice.com"}').put()
+        login = IndieAuth.get_by_id('https://alice.com')
+        self.assertEqual(Web(id='alice.com').key, login_to_user_key(login))
 
     def test_user(self):
         got = self.client.get('/web/user.com', base_url='https://fed.brid.gy/')

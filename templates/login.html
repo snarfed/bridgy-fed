@@ -13,7 +13,7 @@
         <img id="Bluesky" onclick="toggleInput(this.id)" type="image" height="90" title="Bluesky" class="login-button shadow"
               src="static/bluesky_logotype.png" /><br />
         <input id="Bluesky-input" name="handle" type="text" class="fade-in-element login-input" placeholder="Bluesky handle" required>
-        <input id="Bluesky-submit" type="image" title="Bluesky" class="submit-button fade-in-element shadow" style="position:absolute"
+        <input id="Bluesky-submit" type="image" title="Bluesky" class="submit-button fade-in-element shadow"
               src="static/material-arrow-icon.svg" />
       </div>
       <input name="scope" type="hidden">
@@ -26,7 +26,7 @@
         <img id="Blacksky" onclick="toggleInput(this.id)" type="image" height="90" title="Blacksky" class="login-button shadow"
               src="static/blacksky_logotype.png" /><br />
         <input id="Blacksky-input" name="handle" type="text" class="fade-in-element login-input" placeholder="Blacksky handle" required>
-        <input id="Blacksky-submit" type="image" title="Blacksky" class="submit-button fade-in-element shadow" style="position:absolute"
+        <input id="Blacksky-submit" type="image" title="Blacksky" class="submit-button fade-in-element shadow"
               src="static/material-arrow-icon.svg" />
       </div>
       <input name="scope" type="hidden">
@@ -39,7 +39,7 @@
         <img id="Mastodon" onclick="toggleInput(this.id)" type="image" height="90" title="Mastodon" class="login-button shadow"
               src="static/mastodon_large.png" /><br />
         <input id="Mastodon-input" name="instance" type="url" class="fade-in-element login-input" placeholder="Mastodon instance" scheme="https" required>
-        <input id="Mastodon-submit" type="image" title="Mastodon" class="submit-button fade-in-element shadow" style="position:absolute"
+        <input id="Mastodon-submit" type="image" title="Mastodon" class="submit-button fade-in-element shadow"
               src="static/material-arrow-icon.svg" />
       </div>
       <input name="scope" type="hidden">
@@ -52,15 +52,29 @@
         <img id="Pixelfed" onclick="toggleInput(this.id)" type="image" height="90" title="Pixelfed" class="login-button shadow"
               src="static/pixelfed_large.png" /><br />
         <input id="Pixelfed-input" name="instance" type="url" class="fade-in-element login-input" placeholder="Pixelfed instance" scheme="https" required>
-        <input id="Pixelfed-submit" type="image" title="Pixelfed" class="submit-button fade-in-element shadow" style="position:absolute"
+        <input id="Pixelfed-submit" type="image" title="Pixelfed" class="submit-button fade-in-element shadow"
               src="static/material-arrow-icon.svg" />
       </div>
       <input name="scope" type="hidden">
     </nobr>
   </form>
+
+  <form method="post" action="/oauth/indieauth/start">
+    <nobr>
+      <div class="row big">
+        <div id="IndieAuth" onclick="toggleInput(this.id)" title="IndieAuth" class="login-button shadow login-button-logotype">
+          <img src="/oauth_dropins_static/indieauth_logo.png" height="60" />
+          <span>IndieAuth (web)</span>
+        </div><br />
+        <input id="IndieAuth-input" name="me" type="url" class="fade-in-element login-input" placeholder="Your web site" required>
+        <input id="IndieAuth-submit" type="image" title="IndieAuth" class="submit-button fade-in-element shadow"
+              src="static/material-arrow-icon.svg" />
+      </div>
+    </nobr>
+  </form>
 </div>
 
-<p class="row" style="margin-top:35px">
+<p class="row">
 ...or if you're on another fediverse platform, or the web, <a href="/docs#get-started">get started here</a>.
 </p>
 {% endblock %}

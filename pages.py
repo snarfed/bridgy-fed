@@ -243,6 +243,8 @@ def login_to_user_key(login):
                         flash('You need to <a href="https://help.instagram.com/169559812696339">turn on fediverse sharing</a> first.', escape=False)
                 return None
             return ActivityPub(id=actor_id).key
+        case 'IndieAuth':
+            return Web(id=util.domain_from_link(login.key.id())).key
         case _:
             assert False, repr(login)
 

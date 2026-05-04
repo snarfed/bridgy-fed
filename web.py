@@ -15,6 +15,7 @@ from google.cloud.ndb import ComputedProperty
 from google.cloud.ndb.key import _MAX_KEYPART_BYTES
 from granary import as1, as2, atom, microformats2, rss
 import mf2util
+from oauth_dropins import indieauth
 from oauth_dropins.webutil import flask_util, util
 from oauth_dropins.webutil.appengine_config import tasks_client
 from oauth_dropins.webutil import appengine_info
@@ -22,6 +23,7 @@ from oauth_dropins.webutil.flask_util import (
     cloud_tasks_only,
     error,
     flash,
+    FlashErrors,
 )
 from oauth_dropins.webutil.util import domain_from_link, json_dumps, json_loads
 from oauth_dropins.webutil import webmention
@@ -1149,3 +1151,21 @@ def reload_csvs():
                 raise
 
     return 'OK'
+
+
+#
+# OAuth
+#
+class IndieAuthStart(FlashErrors, indieauth.Start):
+    pass
+
+
+class IndieAuthCallback(FlashErrors, indieauth.Callback):
+    pass
+
+
+app.add_url_rule('/oauth/indieauth/start', view_func=IndieAuthStart.as_view(
+                     '/oauth/indieauth/start', '/oauth/indieauth/finish'),
+                 methods=['POST'])
+app.add_url_rule('/oauth/indieauth/finish', view_func=IndieAuthCallback.as_view(
+                     '/oauth/indieauth/finish', '/settings'))

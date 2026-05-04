@@ -1166,7 +1166,7 @@ class User(AddRemoveMixin, StringIdModel, metaclass=ProtocolUserMeta):
 
         if pictures:
             if logo:
-                logo_html = f'<img class="logo" src="{logo}" /> '
+                logo_html = f'<img class="logo" title="{proto.__name__}" src="{logo}" /> '
             else:
                 logo_html = f'<span class="logo" title="{proto.__name__}">{proto.LOGO_HTML or proto.LOGO_EMOJI}</span> '
             if pic := self.profile_picture():
