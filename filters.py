@@ -38,7 +38,7 @@ MEDIA_BLOCKLIST = Reloader(Object, 'internal:media-blocklist', RELOAD_BLOCKLISTS
 DOMAIN_BLOCKLIST = Reloader(Object, 'internal:domain-blocklist', RELOAD_BLOCKLISTS)
 
 
-def relevant_objects(obj):
+def _relevant_objects(obj):
     """Returns an Object's relevant AS1 objects to filter on
 
     Args:
@@ -57,7 +57,7 @@ def relevant_objects(obj):
     return objects
 
 
-def blocklist_items(blocklist):
+def _blocklist_items(blocklist):
     """Reads blocklist items, ignoring leading/trailing whitespace and # comments.
 
     Also converts all items to lower case.
@@ -76,9 +76,9 @@ def content_blocklisted(obj, from_user=None):
     if not CONTENT_BLOCKLIST.obj or not CONTENT_BLOCKLIST.obj.raw:
         return False
 
-    blocked = blocklist_items(CONTENT_BLOCKLIST)
+    blocked = _blocklist_items(CONTENT_BLOCKLIST)
 
-    for o in relevant_objects(obj):
+    for o in _relevant_objects(obj):
         for field in ('content', 'summary', 'displayName'):
             # don't use granary.source.html_to_text because we don't want Markdown
             text = util.parse_html(o.get(field) or '').get_text(strip=True).lower()
@@ -99,9 +99,9 @@ def media_blocklisted(obj, from_user=None):
     if not MEDIA_BLOCKLIST.obj or not MEDIA_BLOCKLIST.obj.raw:
         return False
 
-    blocked = blocklist_items(MEDIA_BLOCKLIST)
+    blocked = _blocklist_items(MEDIA_BLOCKLIST)
 
-    for o in relevant_objects(obj):
+    for o in _relevant_objects(obj):
         att_urls = [util.get_url(att) if att['objectType'] == 'image'
                     else as1.get_object(att, 'stream').get('url')
                     for att in as1.get_objects(o, 'attachments')
@@ -129,7 +129,7 @@ def domain_blocklisted(obj, from_user=None):
         return False
 
     candidates = [from_user] + list(chain.from_iterable(
-        [o.get('id'), as1.get_owner(o)] for o in relevant_objects(obj)))
+        [o.get('id'), as1.get_owner(o)] for o in _relevant_objects(obj)))
 
     for candidate in candidates:
         if candidate and DOMAIN_BLOCKLIST.obj.domain_blocklist_matches(candidate):
