@@ -52,7 +52,6 @@ env_variables:
   # NDB_DEBUG: true
 
   DISABLE_GETREPO: true
-  # PROFILE_GETREPO: true
 
 handlers:
 

@@ -67,6 +67,7 @@ ATPROTO_HANDLE_DOMAINS = (
     'music-social.com',
     'tags.pub',
     'wetdry.world',
+    'xemele.social',
 )
 
 # https://github.com/snarfed/bridgy-fed/issues/314

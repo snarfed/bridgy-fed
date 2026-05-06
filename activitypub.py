@@ -93,6 +93,7 @@ OLD_ACCOUNT_EXEMPT_DOMAINS = (
     'thebristolcable.social',
     'theforkiverse.com',
     'stefanbohacek.online',
+    'xemele.social',
 )
 
 # domains that we can't yet authorize activities from. currently none.

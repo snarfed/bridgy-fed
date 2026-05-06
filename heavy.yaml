@@ -46,7 +46,6 @@ env_variables:
   # READ_ONLY: true
 
   # DISABLE_GETREPO: true
-  # PROFILE_GETREPO: true
 
 automatic_scaling:
   max_num_instances: 20
