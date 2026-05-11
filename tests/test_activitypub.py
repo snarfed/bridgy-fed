@@ -1739,9 +1739,7 @@ class ActivityPubTest(TestCase):
 
     def test_inbox_verify_sig_fetch_key_fails(self, _, mock_get, __):
         # https://console.cloud.google.com/errors/detail/COLzgISI47vpMg?project=bridgy-federated
-        # bad keyId, requests would raise InvalidURL
-        mock_get.side_effect = InvalidURL('foo')
-
+        # bad keyId URL - signed_request aborts 400 before making any network request
         body = json_dumps(NOTE)
         headers = sign('/ap/sharedInbox', body,
                        key_id='https://ÐºÑÑÑ ÑÐ¸Ñ.Ð¾Ð½Ð»Ð°Ð¹Ð½/oleg')
@@ -3238,11 +3236,16 @@ class ActivityPubUtilsTest(TestCase):
         second = mock_get.call_args_list[1][1]
 
         # headers are equal because host is the same
-        util.d(first['headers'])
         self.assertEqual(first['headers'], second['headers'])
         self.assertEqual(
             first['auth'].header_signer.sign(first['headers'], method='GET', path='/'),
             second['auth'].header_signer.sign(second['headers'], method='GET', path='/'))
+
+    @patch.object(util.session, 'get', return_value=requests_response(
+        status=302, redirected_url='abc: 123', allow_redirects=False))
+    def test_signed_get_redirect_invalid_url(self, mock_get):
+        with self.assertRaises(BadRequest):
+            activitypub.signed_get('https://tinyurl.com/c42ztkn7')
 
     @patch.object(util.session, 'get')
     def test_signed_get_too_many_redirects(self, mock_get):

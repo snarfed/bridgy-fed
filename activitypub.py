@@ -895,6 +895,9 @@ def signed_request(fn, url, data=None, headers=None, from_user=None,
     Returns:
       requests.Response:
     """
+    if ActivityPub.owns_id(url) is False:
+        abort(400, f'Invalid URL: {url}')
+
     if headers is None:
         headers = {}
 
