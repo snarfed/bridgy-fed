@@ -72,6 +72,7 @@ ATPROTO_HANDLE_DOMAINS = (
 
 # https://github.com/snarfed/bridgy-fed/issues/314
 WWW_DOMAINS = frozenset((
+    'rako.space',
     'jvt.me',
 ))
 
