@@ -22,6 +22,7 @@ REQUESTS_LIMIT_EXPIRE = timedelta(days=1)
 REQUESTS_LIMIT_USER = 10
 
 # populated by the command() decorator
+# {str command name: {str protocol label or None: wrapped dispatch fn}}
 _commands = {}
 
 logger = logging.getLogger(__name__)
@@ -38,7 +39,7 @@ class CommandSpec:
        ``None`` for either, or ``'eligible'`` for not bridged but eligible."""
 
 
-def command(names, from_user_bridged=None, to_user_bridged=None):
+def command(names, *, to_proto=None, from_user_bridged=None, to_user_bridged=None):
     """Function decorator. Defines and registers a DM command.
 
     The decorated function's signature determines the cmd_args it accepts.
@@ -51,6 +52,9 @@ def command(names, from_user_bridged=None, to_user_bridged=None):
     Args:
       names (sequence of str): the command strings that trigger this command, or
         ``None`` if this command has no command string
+      to_proto (str): if set, only dispatch to this handler when the DM's
+        recipient protocol has this ``LABEL``. If ``None``, this handler is the
+        generic fallback for any ``to_proto`` without a specific handler.
       from_user_bridged (bool): whether the user sending the DM should be
         bridged. ``True``, ``False``, or ``None`` for either.
       to_user_bridged: whether ``to_user`` should already be bridged. ``True``,
@@ -65,15 +69,35 @@ def command(names, from_user_bridged=None, to_user_bridged=None):
             return dispatch(spec, from_user, to_proto, cmd, cmd_args, dm_as1)
 
         if names is None:
-            assert None not in _commands
-            _commands[None] = wrapped
+            names_ = [None]
         else:
             assert isinstance(names, (tuple, list))
-            for name in names:
-                _commands[name] = wrapped
+            names_ = names
+
+        for name in names_:
+            by_proto = _commands.setdefault(name, {})
+            assert to_proto not in by_proto, \
+                f'duplicate command {name} for to_proto {to_proto}'
+            by_proto[to_proto] = wrapped
+
         return wrapped
 
     return decorator
+
+
+def lookup_command(name, to_proto_label):
+    """Finds the handler for ``name`` registered for ``to_proto_label``.
+
+    Falls back to the generic (unfiltered) handler if there's no
+    protocol-specific one.
+
+    Returns:
+      callable or None
+    """
+    by_proto = _commands.get(name)
+    if not by_proto:
+        return None
+    return by_proto.get(to_proto_label) or by_proto.get(None)
 
 
 def load_user(handle, proto, from_proto, bridged):
@@ -447,11 +471,11 @@ def receive(*, from_user, obj):
     if not tokens:
         return r'¯\_(ツ)_/¯', 204
 
-    if fn := _commands.get(tokens[0]):
+    if fn := lookup_command(tokens[0], to_proto.LABEL):
         return fn(from_user, to_proto, dm_as1=inner_as1,
                   cmd=tokens[0], cmd_args=tokens[1:] if len(tokens) > 1 else [])
     elif len(tokens) == 1:
-        fn = _commands.get(None)
+        fn = lookup_command(None, to_proto.LABEL)
         assert fn, tokens[0]
         return fn(from_user, to_proto, dm_as1=inner_as1, cmd=None, cmd_args=[tokens[0]])
 
