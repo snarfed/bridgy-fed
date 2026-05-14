@@ -562,7 +562,7 @@ class DmsTest(TestCase):
             'content': 'username',
         })))
         self.assert_replied(OtherFake, alice, '?',
-                            'username command needs an argument')
+                            "username: missing a required argument: 'handle'")
 
     def test_receive_username_not_implemented(self):
         self.make_user(id='fa.brid.gy', cls=Web)
@@ -1104,7 +1104,7 @@ class DmsTest(TestCase):
         })
         self.assertEqual(('OK', 200), receive(from_user=alice, obj=obj))
         self.assert_replied(OtherFake, alice, '?',
-                            'migrate-to command needs an argument')
+                            "migrate-to: missing a required argument: 'handle'")
         self.assertEqual([], OtherFake.migrated_out)
 
     def test_receive_DM_recipient_in_cc_instead_of_to(self):

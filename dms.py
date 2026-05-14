@@ -1,6 +1,9 @@
 """Protocol-independent code for sending and receiving DMs aka chat messages."""
+from dataclasses import dataclass
 from datetime import timedelta
+import inspect
 import logging
+from typing import Callable, Optional
 
 from granary import as1, source
 from oauth_dropins.webutil import util
@@ -15,115 +18,51 @@ import memcache
 import models
 import protocol
 
-logger = logging.getLogger(__name__)
-
 REQUESTS_LIMIT_EXPIRE = timedelta(days=1)
 REQUESTS_LIMIT_USER = 10
 
 # populated by the command() decorator
 _commands = {}
 
+logger = logging.getLogger(__name__)
 
-def command(names, arg=False, user_bridged=None, handle_bridged=None, multiple=False):
+
+@dataclass
+class CommandSpec:
+    fn: Callable
+    from_user_bridged: Optional[bool]
+    """Whether the user sending the DM should be bridged.
+       ``True``, ``False``, or ``None`` for either."""
+    to_user_bridged: object        # True / False / 'eligible' / None
+    """Whether ``to_user`` should already be bridged. ``True``, ``False``,
+       ``None`` for either, or ``'eligible'`` for not bridged but eligible."""
+
+
+def command(names, from_user_bridged=None, to_user_bridged=None):
     """Function decorator. Defines and registers a DM command.
+
+    The decorated function's signature determines the cmd_args it accepts.
+    After ``(from_user, to_proto)``, required positionals are required cmd_args,
+    defaulted positionals are optional, and ``*args`` accepts any number.
+
+    If the function declares a ``to_user`` parameter, ``cmd_args[0]`` is loaded via
+    :func:`load_user` and passed in.
 
     Args:
       names (sequence of str): the command strings that trigger this command, or
         ``None`` if this command has no command string
-      arg: whether this command takes an argument. ``False`` for no, ``True``
-        for yes, anything, ``'handle_or_id'`` for yes, a handle or ID in the bot
-        account's protocol for a user that must not already be bridged.
-      user_bridged (bool): whether the user sending the DM should be
-        bridged. ``True`` for yes, ``False`` for no, ``None` for either.
-      handle_bridged (bool): whether the handle arg should be bridged. ``True``
-        for yes, ``False`` for no, ``None` for either, ``'eligible'`` for
-        not bridged but eligible.
-      multiple (bool): whether this command accepts multiple arguments. If ``True``,
-        pass them as ``args`` instead of ``arg``
-
-    The decorated function should have the signature:
-      (from_user, to_proto, arg=None, to_user=None) => (str, None)
-      or if multiple=True:
-      (from_user, to_proto, args=None, to_users=None) => (str, None)
-
-    If it returns a string, that text is sent to the user as a reply to their DM.
-
-    Args for the decorated function:
-      from_user (models.User): the user who sent the DM
-      to_proto (protocol.Protocol): the protocol bot account they sent it to
-      arg (str or None): the argument to the command, if any (if multiple=False)
-      args (list of str or None): the arguments to the command (if multiple=True)
-      to_user (models.User or None): the user for the argument, if it's a handle (if multiple=False)
-      to_users (list of models.User or None): the users for the arguments (if multiple=True)
-
-    The decorated function returns:
-      str: text to reply to the user in a DM, if any
+      from_user_bridged (bool): whether the user sending the DM should be
+        bridged. ``True``, ``False``, or ``None`` for either.
+      to_user_bridged: whether ``to_user`` should already be bridged. ``True``,
+        ``False``, ``None`` for either, or ``'eligible'`` for not bridged but
+        eligible.
     """
-    assert arg in (False, True, 'handle_or_id'), arg
-    if handle_bridged is not None:
-        assert arg == 'handle_or_id', arg
-    if multiple:
-        assert arg, 'multiple requires arg to be set'
-
     def decorator(fn):
+        spec = CommandSpec(fn=fn, from_user_bridged=from_user_bridged,
+                           to_user_bridged=to_user_bridged)
+
         def wrapped(from_user, to_proto, cmd, cmd_args, dm_as1):
-            def reply(text, type=None):
-                maybe_send(from_=to_proto, to_user=from_user, text=text,
-                           type=type, in_reply_to=dm_as1.get('id'))
-                return 'OK', 200
-
-            if arg and not cmd_args:
-                return reply(f'{cmd} command needs an argument<br><br>{help_text(from_user, to_proto)}')
-
-            to_users = []
-            # TODO: extract out into separate fn
-            if arg == 'handle_or_id':
-                from_proto = from_user.__class__
-                for cmd_arg in cmd_args:
-                    try:
-                        to_user = models.load_user(cmd_arg, to_proto, create=True,
-                                                   allow_opt_out=True, raise_=True)
-                    except (AttributeError, RuntimeError, ValueError) as err:
-                        return reply(str(err))
-                    assert to_user
-                    to_users.append(to_user)
-                    enabled = to_user.is_enabled(from_proto)
-                    if handle_bridged is True and not enabled:
-                        return reply(f'{to_user.html_link(proto=from_proto)} is not bridged into {from_proto.PHRASE}.')
-                    elif handle_bridged in (False, 'eligible') and enabled:
-                        return reply(f'{to_user.html_link(proto=from_proto)} is already bridged into {from_proto.PHRASE}.')
-                    elif handle_bridged == 'eligible' and to_user.status:
-                        to_user.reload_profile()
-                        if to_user.status:
-                            because = ''
-                            if desc := to_user.status_description():
-                                because = f' because their {desc}'
-                            return reply(f"{to_user.html_link()} on {to_proto.PHRASE} isn't eligible for bridging into {from_proto.PHRASE}{because}.")
-
-            from_user_enabled = from_user.is_enabled(to_proto)
-            if user_bridged is True and not from_user_enabled:
-                return reply(f"Looks like you're not bridged to {to_proto.PHRASE} yet! Please bridge your account first by following this account.")
-            elif user_bridged is False and from_user_enabled:
-                return reply(f"Looks like you're already bridged to {to_proto.PHRASE}!")
-            # dispatch!
-            kwargs = {}
-            if arg:
-                if multiple:
-                    kwargs['args'] = cmd_args
-                else:
-                    kwargs['arg'] = cmd_args[0]
-
-            if arg == 'handle_or_id':
-                if multiple:
-                    kwargs['to_users'] = to_users
-                else:
-                    kwargs['to_user'] = to_users[0]
-
-            reply_text = fn(from_user, to_proto, **kwargs)
-            if reply_text:
-                reply(reply_text)
-
-            return 'OK', 200
+            return dispatch(spec, from_user, to_proto, cmd, cmd_args, dm_as1)
 
         if names is None:
             assert None not in _commands
@@ -132,10 +71,110 @@ def command(names, arg=False, user_bridged=None, handle_bridged=None, multiple=F
             assert isinstance(names, (tuple, list))
             for name in names:
                 _commands[name] = wrapped
-
         return wrapped
 
     return decorator
+
+
+def load_user(handle, proto, from_proto, bridged):
+    """Loads the user for ``handle`` and applies the ``bridged`` policy.
+
+    Args:
+      handle (str): the handle or id to look up
+      proto (protocol.Protocol): the protocol the handle belongs to
+      from_proto (protocol.Protocol): the sender's protocol, used for the
+        ``bridged`` enabled check
+      bridged (bool or str): whether the user should be bridged into ``from_proto``.
+        ``True``, ``False``, ``None`` for either, or ``'eligible'`` for not bridged
+        but eligible.
+
+    Returns:
+      models.User:
+
+    Raises: ValueError
+    """
+    try:
+        to_user = models.load_user(handle, proto, create=True, allow_opt_out=True,
+                                   raise_=True)
+    except (AttributeError, RuntimeError) as err:
+        raise ValueError(str(err))
+
+    assert to_user
+
+    enabled = to_user.is_enabled(from_proto)
+    if bridged is True and not enabled:
+        raise ValueError(f'{to_user.html_link(proto=from_proto)} is not bridged into {from_proto.PHRASE}.')
+    if bridged in (False, 'eligible') and enabled:
+        raise ValueError(f'{to_user.html_link(proto=from_proto)} is already bridged into {from_proto.PHRASE}.')
+    if bridged == 'eligible' and to_user.status:
+        to_user.reload_profile()
+        if to_user.status:
+            because = ''
+            if desc := to_user.status_description():
+                because = f' because their {desc}'
+            raise ValueError(f"{to_user.html_link()} on {proto.PHRASE} isn't eligible for bridging into {from_proto.PHRASE}{because}.")
+
+    return to_user
+
+
+def dispatch(spec, from_user, to_proto, cmd, cmd_args, dm_as1):
+    """Dispatches a parsed DM command to its handler.
+
+    Validates ``cmd_args``, optionally loads ``to_user`` via :func:`load_user`,
+    enforces ``spec.from_user_bridged``, then invokes ``spec.fn`` and sends its
+    return value (if any) as a reply.
+
+    Args:
+      spec (CommandSpec): the registered command's spec
+      from_user (models.User): the user who sent the DM
+      to_proto (protocol.Protocol): the protocol bot account they sent it to
+      cmd (str or None): the command name as typed, used in error messages
+      cmd_args (list of str): the tokens after the command name
+      dm_as1 (dict): the inbound DM as AS1; ``id`` is used as the reply's
+        ``inReplyTo``
+
+    Returns:
+      (str, int): a ``(body, status)`` tuple suitable for returning from a
+        Flask view. Always ``('OK', 200)`` once a reply (if any) is sent.
+    """
+    def reply(text):
+        maybe_send(from_=to_proto, to_user=from_user, text=text,
+                   in_reply_to=dm_as1.get('id'))
+        return 'OK', 200
+
+    # validate
+    sig = inspect.signature(spec.fn)
+    params = list(sig.parameters.values())
+    has_to_user = any(p.name == 'to_user' for p in params)
+    if spec.to_user_bridged is not None:
+        assert has_to_user, f'{spec.fn.__name__}: to_user_bridged requires a to_user parameter'
+
+    # validate fn signature
+    bind_sig = sig.replace(parameters=[p for p in params if p.name != 'to_user'])
+    try:
+        bind_sig.bind(from_user, to_proto, *cmd_args)
+    except TypeError as e:
+        return reply(f'{cmd}: {e}<br><br>{help_text(from_user, to_proto)}')
+
+    kwargs = {}
+    if has_to_user:
+        try:
+            to_user = load_user(cmd_args[0], to_proto, from_user.__class__,
+                                spec.to_user_bridged)
+        except ValueError as err:
+            return reply(str(err))
+        kwargs['to_user'] = to_user
+
+    enabled = from_user.is_enabled(to_proto)
+    if spec.from_user_bridged is True and not enabled:
+        return reply(f"Looks like you're not bridged to {to_proto.PHRASE} yet! Please bridge your account first by following this account.")
+    if spec.from_user_bridged is False and enabled:
+        return reply(f"Looks like you're already bridged to {to_proto.PHRASE}!")
+
+    reply_text = spec.fn(from_user, to_proto, *cmd_args, **kwargs)
+    if reply_text:
+        reply(reply_text)
+    return 'OK', 200
 
 
 def help_text(from_user, to_proto):
@@ -169,42 +208,42 @@ def help(from_user, to_proto):
     return help_text(from_user, to_proto)
 
 
-@command(['yes', 'ok', 'start'], user_bridged=False)
+@command(['yes', 'ok', 'start'], from_user_bridged=False)
 def start(from_user, to_proto):
     from_user.enable_protocol(to_proto)
     to_proto.bot_maybe_follow_back(from_user)
 
 
 @command(['no', 'stop'])
-def stop(from_user, to_proto, user_bridged=True):
+def stop(from_user, to_proto):
     from_user.delete(to_proto)
     from_user.disable_protocol(to_proto)
 
 
-@command(['notify'], user_bridged=True)
+@command(['notify'], from_user_bridged=True)
 def notify(from_user, to_proto):
     from_user.send_notifs = 'all'
     from_user.put()
     return f"Notifications enabled! You'll now receive batched notifications via DM when someone on {to_proto.PHRASE} who's not bridged replies to you, quotes you, or @-mentions you. To disable, reply with the text 'mute'."
 
 
-@command(['mute'], user_bridged=True)
+@command(['mute'], from_user_bridged=True)
 def mute(from_user, to_proto):
     from_user.send_notifs = 'none'
     from_user.put()
     return f"Notifications disabled. You won't receive DM notifications when someone on {to_proto.PHRASE} who's not bridged replies to you, quotes you, or @-mentions you. To re-enable, reply with the text 'notify'."
 
 
-@command(['did'], user_bridged=True)
+@command(['did'], from_user_bridged=True)
 def did(from_user, to_proto):
     if to_proto.LABEL == 'atproto':
         return f'Your DID is <code>{from_user.get_copy(models.PROTOCOLS["atproto"])}</code>'
 
 
-@command(['username', 'handle'], arg=True, user_bridged=True)
-def username(from_user, to_proto, arg):
+@command(['username', 'handle'], from_user_bridged=True)
+def username(from_user, to_proto, handle):
     try:
-        to_proto.set_username(from_user, arg)
+        to_proto.set_username(from_user, handle)
     except NotImplementedError:
         return f"Sorry, Bridgy Fed doesn't support custom usernames for {to_proto.PHRASE} yet."
     except (ValueError, RuntimeError) as e:
@@ -213,14 +252,14 @@ def username(from_user, to_proto, arg):
     return f"Your username in {to_proto.PHRASE} has been set to {from_user.html_link(proto=to_proto, name=False, handle=True)}. It should appear soon!"
 
 
-@command(['block'], arg=True, user_bridged=True, multiple=True)
-def block(from_user, to_proto, args):
+@command(['block'], from_user_bridged=True)
+def block(from_user, to_proto, *handles):
     # duplicated in unblock
     links = []
 
-    for arg in args:
+    for handle in handles:
         try:
-            result = to_proto.block(from_user, arg)
+            result = to_proto.block(from_user, handle)
             links.append(result.html_link())
         except ValueError as e:
             return str(e)
@@ -228,14 +267,14 @@ def block(from_user, to_proto, args):
     return f"""OK, you're now blocking {', '.join(links)} on {to_proto.PHRASE}."""
 
 
-@command(['unblock'], arg=True, user_bridged=True, multiple=True)
-def unblock(from_user, to_proto, args):
+@command(['unblock'], from_user_bridged=True)
+def unblock(from_user, to_proto, *handles):
     # duplicated in block
     links = []
 
-    for arg in args:
+    for handle in handles:
         try:
-            result = to_proto.unblock(from_user, arg)
+            result = to_proto.unblock(from_user, handle)
             links.append(result.html_link())
         except ValueError as e:
             return str(e)
@@ -243,8 +282,8 @@ def unblock(from_user, to_proto, args):
     return f"""OK, you're not blocking {', '.join(links)} on {to_proto.PHRASE}."""
 
 
-@command(['migrate-to'], arg='handle_or_id', user_bridged=True)
-def migrate_to(from_user, to_proto, arg, to_user):
+@command(['migrate-to'], from_user_bridged=True)
+def migrate_to(from_user, to_proto, handle, *, to_user):
     try:
         to_proto.check_can_migrate_out(from_user, to_user.key.id())
         to_proto.migrate_out(from_user, to_user.key.id())
@@ -261,15 +300,15 @@ def migrate_to(from_user, to_proto, arg, to_user):
     return f"OK, we'll migrate your bridged account on {to_proto.PHRASE} to {to_user.html_link()}."
 
 
-@command(None, arg='handle_or_id', user_bridged=True, handle_bridged='eligible')
-def prompt(from_user, to_proto, arg, to_user):
+@command(None, from_user_bridged=True, to_user_bridged='eligible')
+def prompt(from_user, to_proto, handle, *, to_user):
     """Prompt a non-bridged user to bridge. No command, just the handle, alone."""
     from_proto = from_user.__class__
     try:
         ids.translate_handle(handle=to_user.handle, from_=to_proto, to=from_user)
     except ValueError as e:
         logger.warning(e)
-        return f"Sorry, Bridgy Fed doesn't yet support bridging handle {arg} from {to_proto.PHRASE} to {from_proto.PHRASE}."
+        return f"Sorry, Bridgy Fed doesn't yet support bridging handle {handle} from {to_proto.PHRASE} to {from_proto.PHRASE}."
 
     if (models.DM(protocol=from_proto.LABEL, type='request_bridging')
           in to_user.sent_dms):
