@@ -1084,6 +1084,17 @@ class DmsTest(TestCase):
         self.assert_replied(OtherFake, alice, '?', ALICE_MIGRATE_CONFIRMATION)
         self.assertEqual([(alice, 'other:new-alice')], OtherFake.migrated_out)
 
+    @patch.object(OtherFake, 'check_can_migrate_out',
+                  side_effect=ValueError("alsoKnownAs doesn't contain"))
+    def test_receive_migrate_to_check_can_migrate_out_fails(self, _):
+        alice, bob = self.make_alice_bob()
+        OtherFake.fetchable = {'other:new-alice': {'url': 'http://new/alice'}}
+
+        obj = Object(our_as1=DM_ALICE_MIGRATE)
+        self.assertEqual(('OK', 200), receive(from_user=alice, obj=obj))
+        self.assert_replied(OtherFake, alice, '?', "First, you'll need to <a href='https://docs.joinmastodon.org/user/moving/#summary'>add an alias</a> for this account. In the account settings for other:handle:new-alice, add an alias to <code>other:handle:efake:handle:alice</code>.")
+        self.assertEqual([], OtherFake.migrated_out)
+
     def test_receive_migrate_to_no_handle_arg(self):
         alice, bob = self.make_alice_bob()
 

@@ -246,9 +246,17 @@ def unblock(from_user, to_proto, args):
 @command(['migrate-to'], arg='handle_or_id', user_bridged=True)
 def migrate_to(from_user, to_proto, arg, to_user):
     try:
+        to_proto.check_can_migrate_out(from_user, to_user.key.id())
         to_proto.migrate_out(from_user, to_user.key.id())
     except ValueError as e:
-        return str(e)
+        msg = str(e)
+
+        # WARNING: this is brittle! depends on the exact exception message
+        # from ActivityPub.check_can_migrate_out
+        if "alsoKnownAs doesn't contain" in msg:
+            return f"First, you'll need to <a href='https://docs.joinmastodon.org/user/moving/#summary'>add an alias</a> for this account. In the account settings for {to_user.handle}, add an alias to <code>{from_user.handle_as(to_proto)}</code>."
+
+        return msg
 
     return f"OK, we'll migrate your bridged account on {to_proto.PHRASE} to {to_user.html_link()}."
 
