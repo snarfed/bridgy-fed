@@ -41,6 +41,20 @@ env_variables:
   MEMCACHE_HOST: '10.126.144.67'
   # ...or test against labeler.dholms.xyz / did:plc:vzxheqfwpbi3lxbgdh22js66
 
+  # >- folds newlines into spaces, which arroba strips
+  SUPPORTED_COLLECTIONS: >-
+    app.bsky.actor.profile,
+    app.bsky.feed.like,
+    app.bsky.feed.post,
+    app.bsky.feed.repost,
+    app.bsky.graph.block,
+    app.bsky.graph.follow,
+    app.bsky.graph.listblock,
+    chat.bsky.actor.declaration,
+    community.lexicon.payments.webMonetization,
+    site.standard.document,
+    site.standard.publication
+
   # this disables blob refetching
   # BLOB_REFETCH_TYPES: ''
 
