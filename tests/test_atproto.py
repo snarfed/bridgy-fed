@@ -1681,6 +1681,7 @@ Sed tortor neque, aliquet quis posuere aliquam, imperdiet sitamet […]
         requests_response(),  # PLC directory update
         requests_response(),  # activateAccount
     ])
+    # largely duplicated in test_integrations.py
     @patch.object(util.session, 'get', side_effect=[
         requests_response({  # checkAccountStatus
             'activated': False,

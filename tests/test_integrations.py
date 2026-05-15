@@ -5,6 +5,7 @@ from unittest import skip
 from unittest.mock import ANY, patch
 
 from arroba.datastore_storage import DatastoreStorage
+from arroba.did import encode_did_key
 from arroba import firehose
 from arroba.repo import Repo
 from arroba.storage import SUBSCRIBE_REPOS_NSID
@@ -1174,6 +1175,205 @@ class IntegrationTests(TestCase):
             'published': '2022-01-02T03:04:05+00:00',
             'to': ['https://inst/alice'],
         })
+
+    @patch.object(util.session, 'post', side_effect=[
+        requests_response({  # createAccount
+            'accessJwt': 'access-tok',
+            'refreshJwt': 'refresh-tok',
+            'handle': 'myhandle.new.pds.com',
+            'did': 'did:plc:alice',
+        }),
+        requests_response(),  # importRepo
+        requests_response(),  # PLC update
+        requests_response(),  # activateAccount
+        requests_response(),  # reply DM delivery to alice's inbox
+    ])
+    @patch.object(util.session, 'get', side_effect=[
+        # largely duplicated in test_atproto.py
+        requests_response({  # describeServer
+            'did': 'did:web:new.pds.com',
+            'availableUserDomains': ['.new.pds.com'],
+        }),
+        requests_response({  # checkAccountStatus
+            'activated': False,
+            'validDid': True,
+            'repoCommit': test_atproto.BLOB_CID.encode('base32'),
+            'repoRev': '123',
+            'repoBlocks': 0,
+            'indexedRecords': 0,
+            'privateStateValues': 0,
+            'expectedBlobs': 0,
+            'importedBlobs': 0,
+        }),
+        requests_response({  # getRecommendedDidCredentials
+            'rotationKeys': [encode_did_key(test_atproto.KEY_2.public_key())],
+            'verificationMethods': {
+                'atproto': encode_did_key(test_atproto.KEY_3.public_key()),
+            },
+            'services': {
+                'atproto_pds': {
+                    'type': 'AtprotoPersonalDataServer',
+                    'endpoint': 'https://new.pds.com',
+                },
+            },
+        }),
+        requests_response([{  # PLC audit log
+            'cid': 'prev-cid',
+            'operation': {
+                'alsoKnownAs': ['at://alice.com'],
+                'rotationKeys': ['did:key:old'],
+                'verificationMethods': {'atproto': 'did:key:old'},
+                'services': {
+                    'atproto_pds': {
+                        'type': 'AtprotoPersonalDataServer',
+                        'endpoint': 'https://atproto.brid.gy',
+                    },
+                },
+            },
+        }]),
+    ])
+    def test_activitypub_migrate_to_atproto(self, mock_get, mock_post):
+        """AP DM to @bsky.brid.gy with 'migrate-to ...' migrates the Bluesky repo out.
+
+        ActivityPub user @alice@inst , https://inst/alice , bridged to did:plc:alice
+        DM is https://inst/dm , migrating out to https://new.pds.com
+        """
+        alice = self.make_ap_user('https://inst/alice', 'did:plc:alice')
+        bsky_bot = self.make_user(id='bsky.brid.gy', cls=Web, ap_subdomain='bsky',
+                                  enabled_protocols=['activitypub'])
+
+        body = json_dumps({
+            'type': 'Create',
+            'id': 'https://inst/dm-create',
+            'actor': 'https://inst/alice',
+            'object': {
+                'type': 'Note',
+                'id': 'https://inst/dm',
+                'attributedTo': 'https://inst/alice',
+                'content': 'migrate-to new.pds.com alice@example.com myhandle.new.pds.com Hunter2',
+                'to': ['https://bsky.brid.gy/bsky.brid.gy'],
+            },
+        })
+        headers = sign('/bsky.brid.gy/inbox', body, key_id='https://inst/alice')
+        resp = self.client.post('/bsky.brid.gy/inbox', data=body, headers=headers)
+        self.assertEqual(200, resp.status_code)
+
+        # createAccount on the new PDS
+        create = mock_post.call_args_list[0]
+        self.assertEqual(
+            ('https://new.pds.com/xrpc/com.atproto.server.createAccount',),
+            create.args)
+        self.assertEqual({
+            'handle': 'myhandle.new.pds.com',
+            'did': 'did:plc:alice',
+            'email': 'alice@example.com',
+            'password': 'Hunter2',
+        }, create.kwargs['json'])
+
+        # repo imported to the new PDS
+        self.assertEqual(
+            ('https://new.pds.com/xrpc/com.atproto.repo.importRepo',),
+            mock_post.call_args_list[1].args)
+
+        # our repo deactivated, bridging disabled
+        self.assertEqual('deactivated',
+                         self.storage.load_repo('did:plc:alice').status)
+        alice = alice.key.get()
+        self.assertFalse(alice.is_enabled(ATProto))
+        self.assertEqual([], alice.copies)
+
+        # confirmation reply DM delivered to alice
+        reply = mock_post.call_args_list[-1]
+        self.assertEqual(('https://inst/alice/inbox',), reply.args)
+        self.assertEqual(
+            "<p>OK, we've migrated your bridged Bluesky account to <code>myhandle.new.pds.com</code> on new.pds.com.</p>",
+            json_loads(reply.kwargs['data'])['object']['content'])
+
+    @patch.object(util.session, 'post')
+    @patch.object(util.session, 'get')
+    def test_atproto_migrate_to_activitypub(self, mock_get, mock_post):
+        """ATProto chat DM to @ap.brid.gy with 'migrate-to ...' to ActivityPub.
+
+        ATProto user alice.com, did:plc:alice , bridged to the fediverse
+        ActivityPub bot @ap.brid.gy, did:plc:ap
+        Migrating out to native fediverse account https://inst/alice-new
+        """
+        self.make_web_user('ap.brid.gy', did='did:plc:ap')
+        bot = Web.get_by_id('ap.brid.gy')
+        bot.atproto_last_chat_log_cursor = 'cursor-0'
+        bot.put()
+
+        alice = self.make_atproto_user('did:plc:alice')
+        bob = self.make_ap_user('http://inst/bob')
+        Follower.get_or_create(to=alice, from_=bob)
+
+        # the native fediverse account alice is migrating to, with an
+        # alsoKnownAs alias back to her bridged AP actor
+        alice_ap_id = alice.id_as(ActivityPub)
+        new_actor = {
+            'type': 'Person',
+            'id': 'https://inst/alice-new',
+            'preferredUsername': 'alice-new',
+            'inbox': 'https://inst/alice-new/inbox',
+            'alsoKnownAs': [alice_ap_id],
+        }
+        self.make_user(id='https://inst/alice-new', cls=ActivityPub,
+                       obj_as2=new_actor)
+
+        mock_get.side_effect = [
+            requests_response({  # getLog: alice's migrate-to chat message
+                'cursor': 'cursor-1',
+                'logs': [{
+                    '$type': 'chat.bsky.convo.defs#logCreateMessage',
+                    'convoId': 'convo-abc',
+                    'rev': '111',
+                    'message': {
+                        '$type': 'chat.bsky.convo.defs#messageView',
+                        'id': 'msg-1',
+                        'text': 'migrate-to https://inst/alice-new',
+                        'sender': {'did': 'did:plc:alice'},
+                        'rev': '111',
+                        'sentAt': NOW.isoformat(),
+                    },
+                }],
+            }),
+            self.as2_resp(new_actor),  # load dest actor
+            self.as2_resp(new_actor),  # check_can_migrate_out reloads dest actor
+            BSKY_GET_CONVO_RESP,       # reply DM: getConvoForMembers
+            requests_response({'cursor': 'cursor-1', 'logs': []}),  # getLog: caught up
+        ]
+        mock_post.side_effect = [
+            requests_response(),     # Move delivered to bob's fediverse inbox
+            BSKY_SEND_MESSAGE_RESP,  # reply DM: sendMessage
+        ]
+
+        resp = self.get('/cron/atproto-poll-chat?proto=activitypub')
+        self.assertEqual(200, resp.status_code)
+
+        # Move activity delivered to alice's fediverse follower
+        moves = [c for c in mock_post.call_args_list
+                 if c.args == ('http://inst/bob/inbox',)]
+        self.assertEqual(1, len(moves), mock_post.call_args_list)
+        self.assert_equals({
+            'type': 'Move',
+            'id': f'{alice_ap_id}#move-https://inst/alice-new',
+            'actor': alice_ap_id,
+            'object': alice_ap_id,
+            'target': 'https://inst/alice-new',
+        }, json_loads(moves[0].kwargs['data']), ignore=['to', '@context'])
+
+        # migrate_out set movedTo on alice's bridged AP actor
+        self.assertEqual('https://inst/alice-new',
+                         alice.obj.key.get().as1['movedTo'])
+
+        # confirmation reply DM sent to alice over Bluesky chat
+        sends = [c for c in mock_post.call_args_list
+                 if c.args == ('https://chat.local/xrpc/chat.bsky.convo.sendMessage',)]
+        self.assertEqual(1, len(sends), mock_post.call_args_list)
+        self.assertEqual(
+            "OK, we'll migrate your bridged account on the fediverse to "
+            'alice-new · @alice-new@inst.',
+            sends[0].kwargs['json']['message']['text'])
 
     @patch.object(util.session, 'get', side_effect=[
         # alice profile picture

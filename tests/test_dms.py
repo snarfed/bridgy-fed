@@ -69,13 +69,6 @@ class DmsTest(TestCase):
         bob = self.make_user(id='other:bob', cls=OtherFake, obj_as1={'x': 'y'})
         return alice, bob
 
-    # def make_alice(self, enabled_protocol):
-    #     bots = {'activitypub': 'ap', 'atproto': 'bsky'}
-    #     self.make_user(id=f'{bots[enabled_protocol]}.brid.gy', cls=Web)
-    #     return self.make_user(id='efake:alice', cls=ExplicitFake,
-    #                           enabled_protocols=[enabled_protocol],
-    #                           obj_as1={'x': 'y'})
-
     def assert_replied(self, *args, **kwargs):
         kwargs.setdefault('in_reply_to', 'efake:dm')
         self.assert_sent(*args, **kwargs)
