@@ -2,6 +2,12 @@
 from unittest import mock
 from unittest.mock import patch
 
+from oauth_dropins.webutil.flask_util import NotModified
+from oauth_dropins.webutil import util
+from oauth_dropins.webutil.testutil import requests_response
+from oauth_dropins.webutil.util import json_dumps, json_loads
+from requests import HTTPError
+
 from activitypub import ActivityPub
 from atproto import ATProto
 import common
@@ -9,13 +15,9 @@ from common import memcache
 import dms
 from dms import maybe_send, receive
 import ids
-from models import DM, Follower, Object, Target, User
+from models import DM, Follower, Object, PROTOCOLS, Target, User
 from web import Web
 
-from oauth_dropins.webutil.flask_util import NotModified
-from oauth_dropins.webutil import util
-from oauth_dropins.webutil.testutil import requests_response
-from oauth_dropins.webutil.util import json_dumps, json_loads
 from .testutil import ExplicitFake, Fake, OtherFake, TestCase
 from .test_atproto import DID_DOC
 
@@ -54,22 +56,25 @@ DM_ALICE_UNBLOCK_BOB = {
 }
 ALICE_UNBLOCK_CONFIRMATION = """OK, you're not blocking <a class="h-card u-author mention" rel="me" href="web:other:bob" title="other:handle:bob">other:handle:bob</a> on other-phrase."""
 
-DM_ALICE_MIGRATE = {
-    **DM_BASE,
-    'content': 'migrate-to other:handle:new-alice',
-}
-ALICE_MIGRATE_CONFIRMATION = """OK, we'll migrate your bridged account on other-phrase to <a class="h-card u-author mention" rel="me" href="web:other:new-alice" title="other:handle:new-alice">other:handle:new-alice</a>."""
 
 @patch.object(Fake, 'SUPPORTS_DMS', True)
 class DmsTest(TestCase):
 
-    def make_alice_bob(self):
+    def make_alice_bob(self, alice_enabled=OtherFake):
         self.make_user(id='efake.brid.gy', cls=Web)
-        self.make_user(id='other.brid.gy', cls=Web)
+        self.make_user(id=f'{alice_enabled.ABBREV}.brid.gy', cls=Web)
         alice = self.make_user(id='efake:alice', cls=ExplicitFake,
-                               enabled_protocols=['other'], obj_as1={'x': 'y'})
+                               enabled_protocols=[alice_enabled.LABEL],
+                               obj_as1={'x': 'y'})
         bob = self.make_user(id='other:bob', cls=OtherFake, obj_as1={'x': 'y'})
         return alice, bob
+
+    # def make_alice(self, enabled_protocol):
+    #     bots = {'activitypub': 'ap', 'atproto': 'bsky'}
+    #     self.make_user(id=f'{bots[enabled_protocol]}.brid.gy', cls=Web)
+    #     return self.make_user(id='efake:alice', cls=ExplicitFake,
+    #                           enabled_protocols=[enabled_protocol],
+    #                           obj_as1={'x': 'y'})
 
     def assert_replied(self, *args, **kwargs):
         kwargs.setdefault('in_reply_to', 'efake:dm')
@@ -1075,37 +1080,148 @@ class DmsTest(TestCase):
             }),
         ], OtherFake.sent)
 
-    def test_receive_migrate_to(self):
-        alice, bob = self.make_alice_bob()
-        OtherFake.fetchable = {'other:new-alice': {'url': 'http://new/alice'}}
-
-        obj = Object(our_as1=DM_ALICE_MIGRATE)
-        self.assertEqual(('OK', 200), receive(from_user=alice, obj=obj))
-        self.assert_replied(OtherFake, alice, '?', ALICE_MIGRATE_CONFIRMATION)
-        self.assertEqual([(alice, 'other:new-alice')], OtherFake.migrated_out)
-
-    @patch.object(OtherFake, 'check_can_migrate_out',
-                  side_effect=ValueError("alsoKnownAs doesn't contain"))
-    def test_receive_migrate_to_check_can_migrate_out_fails(self, _):
-        alice, bob = self.make_alice_bob()
-        OtherFake.fetchable = {'other:new-alice': {'url': 'http://new/alice'}}
-
-        obj = Object(our_as1=DM_ALICE_MIGRATE)
-        self.assertEqual(('OK', 200), receive(from_user=alice, obj=obj))
-        self.assert_replied(OtherFake, alice, '?', "First, you'll need to <a href='https://docs.joinmastodon.org/user/moving/#summary'>add an alias</a> for this account. In the account settings for other:handle:new-alice, add an alias to <code>other:handle:efake:handle:alice</code>.")
-        self.assertEqual([], OtherFake.migrated_out)
-
-    def test_receive_migrate_to_no_handle_arg(self):
-        alice, bob = self.make_alice_bob()
+    @patch.object(ActivityPub, 'migrate_out')
+    @patch.object(ActivityPub, 'check_can_migrate_out')
+    @patch.object(util.session, 'get')
+    def test_receive_migrate_to_activitypub(self, mock_get, mock_check, mock_migrate):
+        mock_get.return_value = self.as2_resp({'id': 'http://in.st/carol'})
+        alice, bob = self.make_alice_bob(alice_enabled=ActivityPub)
 
         obj = Object(our_as1={
             **DM_BASE,
+            'to': ['ap.brid.gy'],
+            'content': 'migrate-to http://in.st/carol',
+        })
+        self.assertEqual(('OK', 200), receive(from_user=alice, obj=obj))
+        self.assert_replied(
+            ActivityPub, alice, '?',
+            "OK, we'll migrate your bridged account on the fediverse to ")
+        mock_check.assert_called_once_with(alice, 'http://in.st/carol')
+        mock_migrate.assert_called_once_with(alice, 'http://in.st/carol')
+
+    @patch.object(ActivityPub, 'migrate_out')
+    @patch.object(ActivityPub, 'check_can_migrate_out',
+                  side_effect=ValueError("alsoKnownAs doesn't contain"))
+    @patch.object(util.session, 'get')
+    def test_receive_migrate_to_activitypub_check_can_migrate_out_fails(
+            self, mock_get, mock_check, mock_migrate):
+        mock_get.return_value = self.as2_resp({'id': 'http://in.st/carol'})
+        alice, bob = self.make_alice_bob(alice_enabled=ActivityPub)
+
+        obj = Object(our_as1={
+            **DM_BASE,
+            'to': ['ap.brid.gy'],
+            'content': 'migrate-to http://in.st/carol',
+        })
+        self.assertEqual(('OK', 200), receive(from_user=alice, obj=obj))
+        self.assert_replied(
+            ActivityPub, alice, '?',
+            "First, you'll need to <a href='https://docs.joinmastodon.org/user/moving/#summary'>add an alias</a> for this account.")
+        mock_migrate.assert_not_called()
+
+    @patch.object(ATProto, 'migrate_out')
+    @patch.object(ATProto, 'create_account_for_migrate_out', return_value={
+        'did': 'did:plc:alice',
+        'handle': 'aly.ce',
+        'accessJwt': 'access',
+        'refreshJwt': 'refresh',
+    })
+    @patch.object(util.session, 'get', return_value=requests_response({
+        'did': 'did:web:new.pds.com',
+        'availableUserDomains': ['.pds.com'],
+    }))
+    def test_receive_migrate_to_atproto(self, mock_get, mock_create, mock_migrate):
+        alice, bob = self.make_alice_bob(alice_enabled=ATProto)
+        obj = Object(our_as1={
+            **DM_BASE,
+            'to': ['bsky.brid.gy'],
+            'content': 'migrate-to new.pds.com Alice@PDS.com aly.ce Hunter2 inv-1234',
+        })
+        self.assertEqual(('OK', 200), receive(from_user=alice, obj=obj))
+        self.assert_replied(
+            ATProto, alice, '?',
+            "OK, we've migrated your bridged Bluesky account to <code>aly.ce</code> on new.pds.com.")
+        mock_create.assert_called_once_with(
+            alice, pds='https://new.pds.com', email='Alice@PDS.com',
+            password='Hunter2', handle='aly.ce', invite_code='inv-1234')
+        mock_migrate.assert_called_once_with(
+            alice, 'did:plc:alice', to_pds='https://new.pds.com',
+            access_token='access', refresh_token='refresh', handle='aly.ce')
+
+    def test_receive_migrate_to_atproto_too_few_args(self):
+        alice, bob = self.make_alice_bob(alice_enabled=ATProto)
+        obj = Object(our_as1={
+            **DM_BASE,
+            'to': ['bsky.brid.gy'],
+            'content': 'migrate-to new.pds.com a@b.com',
+        })
+        self.assertEqual(('OK', 200), receive(from_user=alice, obj=obj))
+        self.assert_replied(ATProto, alice, '?',
+                            "migrate-to: missing a required argument: 'handle'")
+
+    def test_receive_migrate_to_atproto_main_pds(self):
+        alice, bob = self.make_alice_bob(alice_enabled=ATProto)
+        obj = Object(our_as1={
+            **DM_BASE,
+            'to': ['bsky.brid.gy'],
+            'content': 'migrate-to bsky.social a@b.com aly.ce hunter2',
+        })
+        self.assertEqual(('OK', 200), receive(from_user=alice, obj=obj))
+        self.assert_replied(ATProto, alice, '?', "Sorry, we can't migrate to")
+
+    @patch.object(util.session, 'get', return_value=requests_response({
+        'did': 'did:web:new.pds.com',
+        'availableUserDomains': ['.pds.com'],
+        'phoneVerificationRequired': True,
+    }))
+    def test_receive_migrate_to_atproto_phone_verification(self, _):
+        alice, bob = self.make_alice_bob(alice_enabled=ATProto)
+        obj = Object(our_as1={
+            **DM_BASE,
+            'to': ['bsky.brid.gy'],
+            'content': 'migrate-to new.pds.com a@b.com aly.ce hunter2',
+        })
+        self.assertEqual(('OK', 200), receive(from_user=alice, obj=obj))
+        self.assert_replied(ATProto, alice, '?', 'Sorry, new.pds.com requires phone')
+
+    @patch.object(util.session, 'get', return_value=requests_response(
+        status=502, body='gateway down'))
+    def test_receive_migrate_to_atproto_pds_unreachable(self, _):
+        alice, bob = self.make_alice_bob(alice_enabled=ATProto)
+        obj = Object(our_as1={
+            **DM_BASE,
+            'to': ['bsky.brid.gy'],
+            'content': 'migrate-to new.pds.com a@b.com aly.ce hunter2',
+        })
+        self.assertEqual(('OK', 200), receive(from_user=alice, obj=obj))
+        self.assert_replied(ATProto, alice, '?', "Couldn't connect")
+
+    @patch.object(ATProto, 'create_account_for_migrate_out', side_effect=HTTPError(
+        response=requests_response({'error': 'InvalidInviteCode',
+                                    'message': 'bad invite'}, status=400)))
+    @patch.object(util.session, 'get', return_value=requests_response({
+        'did': 'did:web:new.pds.com',
+        'availableUserDomains': ['.pds.com'],
+    }))
+    def test_receive_migrate_to_atproto_create_account_error(self, _, __):
+        alice, bob = self.make_alice_bob(alice_enabled=ATProto)
+        obj = Object(our_as1={
+            **DM_BASE,
+            'to': ['bsky.brid.gy'],
+            'content': 'migrate-to new.pds.com a@b.com aly.ce hunter2 bad-invite',
+        })
+        self.assertEqual(('OK', 200), receive(from_user=alice, obj=obj))
+        self.assert_replied(ATProto, alice, '?', 'Error from new.pds.com: bad invite')
+
+    def test_receive_migrate_to_no_handle_arg(self):
+        alice, bob = self.make_alice_bob(alice_enabled=ActivityPub)
+        obj = Object(our_as1={
+            **DM_BASE,
+            'to': ['ap.brid.gy'],
             'content': 'migrate-to ',
         })
         self.assertEqual(('OK', 200), receive(from_user=alice, obj=obj))
-        self.assert_replied(OtherFake, alice, '?',
-                            "migrate-to: missing a required argument: 'handle'")
-        self.assertEqual([], OtherFake.migrated_out)
+        self.assert_replied(ActivityPub, alice, '?', 'migrate-to: missing a required')
 
     def test_receive_DM_recipient_in_cc_instead_of_to(self):
         # eg this is evidently how https://neodb.net/ sends DMs, with the recipient

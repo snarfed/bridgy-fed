@@ -6,13 +6,15 @@ import logging
 from typing import Callable, Optional
 
 from granary import as1, source
+import lexrpc
 from oauth_dropins.webutil import util
+from requests import HTTPError
 from werkzeug.exceptions import BadRequest
 
 from collections import namedtuple
 import common
 from common import create_task
-from domains import DOMAINS
+from domains import DOMAIN_RE, DOMAINS
 import ids
 import memcache
 import models
@@ -20,6 +22,8 @@ import protocol
 
 REQUESTS_LIMIT_EXPIRE = timedelta(days=1)
 REQUESTS_LIMIT_USER = 10
+
+MAIN_PDS_DOMAINS = ('bsky.app', 'bsky.network', 'bsky.social')
 
 # populated by the command() decorator
 # {str command name: {str protocol label or None: wrapped dispatch fn}}
@@ -291,22 +295,101 @@ def unblock(from_user, to_proto, *handles):
     return f"""OK, you're not blocking {', '.join(links)} on {to_proto.PHRASE}."""
 
 
-@command(['migrate-to'], from_user_bridged=True)
-def migrate_to(from_user, to_proto, handle, *, to_user):
+@command(['migrate-to'], to_proto='activitypub', from_user_bridged=True)
+def migrate_to_activitypub(from_user, to_proto, handle):
+    """Migrates a bridged account out to a new fediverse account.
+
+    Args:
+      from_user (models.User)
+      handle (str)
+    """
+    from activitypub import ActivityPub
+    assert to_proto == ActivityPub
+
     try:
-        to_proto.check_can_migrate_out(from_user, to_user.key.id())
-        to_proto.migrate_out(from_user, to_user.key.id())
+        to_user = models.load_user(handle, ActivityPub, create=True,
+                                   allow_opt_out=True, raise_=True)
+    except (AttributeError, RuntimeError, ValueError) as err:
+        return str(err)
+    assert to_user
+
+    logger.info(f'Migrating out {from_user.key.id()} to {to_user.key.id()}')
+
+    try:
+        ActivityPub.check_can_migrate_out(from_user, to_user.key.id())
+        ActivityPub.migrate_out(from_user, to_user.key.id())
     except ValueError as e:
         msg = str(e)
 
         # WARNING: this is brittle! depends on the exact exception message
         # from ActivityPub.check_can_migrate_out
         if "alsoKnownAs doesn't contain" in msg:
-            return f"First, you'll need to <a href='https://docs.joinmastodon.org/user/moving/#summary'>add an alias</a> for this account. In the account settings for {to_user.handle}, add an alias to <code>{from_user.handle_as(to_proto)}</code>."
+            return f"First, you'll need to <a href='https://docs.joinmastodon.org/user/moving/#summary'>add an alias</a> for this account. In the account settings for {to_user.handle}, add an alias to <code>{from_user.handle_as(ActivityPub)}</code>."
 
         return msg
 
     return f"OK, we'll migrate your bridged account on {to_proto.PHRASE} to {to_user.html_link()}."
+
+
+@command(['migrate-to'], to_proto='atproto', from_user_bridged=True)
+def migrate_to_atproto(from_user, to_proto, pds, email, handle, password,
+                       invite_code=None):
+    """Migrates a bridged account out to a new ATProto PDS.
+
+    Args:
+      from_user (models.User)
+      pds (str): the new PDS's domain or URL
+      email (str)
+      handle (str)
+      password (str)
+      invite_code (str): optional
+    """
+    from atproto import ATProto
+    assert to_proto == ATProto
+
+    if DOMAIN_RE.fullmatch(pds):
+        pds = f'https://{pds}'
+
+    if not util.is_web(pds):
+        return f"{pds} doesn't look like a PDS domain or URL."
+
+    pds_domain = util.domain_from_link(pds)
+    if util.domain_or_parent_in(pds_domain, MAIN_PDS_DOMAINS):
+        return f"Sorry, we can't migrate to {pds_domain}; it <a href='https://docs.bsky.app/blog/incoming-migration'>only allows accounts that it originally created</a>."
+
+    client = lexrpc.Client(pds, requests_session=util.session)
+    try:
+        desc = client.com.atproto.server.describeServer()
+    except Exception as e:
+        _, body = util.interpret_http_exception(e)
+        return f"Couldn't connect to {pds}: {body or e}"
+
+    if desc.get('phoneVerificationRequired'):
+        return f"Sorry, {pds_domain} requires phone verification, which Bridgy Fed doesn't support yet."
+
+    logger.info(f'Migrating out {from_user.key.id()} to ATProto PDS {pds_domain}')
+
+    try:
+        resp = ATProto.create_account_for_migrate_out(
+            from_user, pds=pds, email=email, password=password, handle=handle,
+            invite_code=invite_code)
+    except HTTPError as e:
+        msg = str(e)
+        if (e.response is not None
+                and common.content_type(e.response) == 'application/json'):
+            body = e.response.json()
+            msg = body.get('message') or body.get('error') or msg
+        return f'Error from {pds_domain}: {msg}'
+
+    try:
+        ATProto.migrate_out(from_user, resp['did'], to_pds=pds,
+                            access_token=resp['accessJwt'],
+                            refresh_token=resp['refreshJwt'],
+                            handle=resp.get('handle'))
+    except ValueError as e:
+        return str(e)
+
+    return f"OK, we've migrated your bridged Bluesky account to <code>{resp['handle']}</code> on {pds_domain}."
 
 
 @command(None, from_user_bridged=True, to_user_bridged='eligible')
@@ -468,5 +551,7 @@ def receive(*, from_user, obj):
     else:
         return r'¯\_(ツ)_/¯', 204
 
-    fn = command.get(to_proto.LABEL) or command[None]
-    return fn(from_user, to_proto, dm_as1=inner_as1, cmd=cmd, cmd_args=args)
+    if fn := command.get(to_proto.LABEL) or command.get(None):
+        return fn(from_user, to_proto, dm_as1=inner_as1, cmd=cmd, cmd_args=args)
+
+    return r'¯\_(ツ)_/¯', 204
