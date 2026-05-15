@@ -1080,12 +1080,21 @@ class DmsTest(TestCase):
             }),
         ], OtherFake.sent)
 
-    @patch.object(ActivityPub, 'migrate_out')
-    @patch.object(ActivityPub, 'check_can_migrate_out')
+    @patch.object(util.session, 'post')
     @patch.object(util.session, 'get')
-    def test_receive_migrate_to_activitypub(self, mock_get, mock_check, mock_migrate):
-        mock_get.return_value = self.as2_resp({'id': 'http://in.st/carol'})
+    def test_receive_migrate_to_activitypub(self, mock_get, mock_post):
         alice, bob = self.make_alice_bob(alice_enabled=ActivityPub)
+        mock_get.return_value = self.as2_resp({
+            'type': 'Person',
+            'id': 'http://in.st/carol',
+            'alsoKnownAs': [alice.id_as(ActivityPub)],
+        })
+        mock_post.return_value = requests_response()
+
+        # alice has a fediverse follower who should receive the Move
+        dan = self.make_user(id='http://in.st/dan', cls=ActivityPub,
+                             obj_as1={'inbox': 'http://in.st/dan/inbox'})
+        Follower.get_or_create(to=alice, from_=dan)
 
         obj = Object(our_as1={
             **DM_BASE,
@@ -1096,17 +1105,29 @@ class DmsTest(TestCase):
         self.assert_replied(
             ActivityPub, alice, '?',
             "OK, we'll migrate your bridged account on the fediverse to ")
-        mock_check.assert_called_once_with(alice, 'http://in.st/carol')
-        mock_migrate.assert_called_once_with(alice, 'http://in.st/carol')
 
-    @patch.object(ActivityPub, 'migrate_out')
-    @patch.object(ActivityPub, 'check_can_migrate_out',
-                  side_effect=ValueError("alsoKnownAs doesn't contain"))
+        # real migrate_out set movedTo on alice's bridged AP actor
+        self.assertEqual('http://in.st/carol', alice.obj.key.get().as1['movedTo'])
+
+        # ...and delivered a Move activity to alice's follower
+        alice_ap_id = alice.id_as(ActivityPub)
+        self.assert_ap_deliveries(mock_post, ['http://in.st/dan/inbox'],
+                                  from_user=alice, ignore=['to'], data={
+            'type': 'Move',
+            'id': f'{alice_ap_id}#move-http://in.st/carol',
+            'actor': alice_ap_id,
+            'object': alice_ap_id,
+            'target': 'http://in.st/carol',
+        })
+
     @patch.object(util.session, 'get')
-    def test_receive_migrate_to_activitypub_check_can_migrate_out_fails(
-            self, mock_get, mock_check, mock_migrate):
-        mock_get.return_value = self.as2_resp({'id': 'http://in.st/carol'})
+    def test_receive_migrate_to_activitypub_check_can_migrate_out_fails(self, mock_get):
         alice, bob = self.make_alice_bob(alice_enabled=ActivityPub)
+        # destination actor has no alsoKnownAs alias back to alice's bridged actor
+        mock_get.return_value = self.as2_resp({
+            'type': 'Person',
+            'id': 'http://in.st/carol',
+        })
 
         obj = Object(our_as1={
             **DM_BASE,
@@ -1117,7 +1138,6 @@ class DmsTest(TestCase):
         self.assert_replied(
             ActivityPub, alice, '?',
             "First, you'll need to <a href='https://docs.joinmastodon.org/user/moving/#summary'>add an alias</a> for this account.")
-        mock_migrate.assert_not_called()
 
     @patch.object(ATProto, 'migrate_out')
     @patch.object(ATProto, 'create_account_for_migrate_out', return_value={
