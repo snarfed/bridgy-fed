@@ -85,21 +85,6 @@ def command(names, *, to_proto=None, from_user_bridged=None, to_user_bridged=Non
     return decorator
 
 
-def lookup_command(name, to_proto_label):
-    """Finds the handler for ``name`` registered for ``to_proto_label``.
-
-    Falls back to the generic (unfiltered) handler if there's no
-    protocol-specific one.
-
-    Returns:
-      callable or None
-    """
-    by_proto = _commands.get(name)
-    if not by_proto:
-        return None
-    return by_proto.get(to_proto_label) or by_proto.get(None)
-
-
 def load_user(handle, proto, from_proto, bridged):
     """Loads the user for ``handle`` and applies the ``bridged`` policy.
 
@@ -458,25 +443,30 @@ def receive(*, from_user, obj):
 
     # parse message
     text = util.remove_invisible_chars(source.html_to_text(inner_as1.get('content', '')))
-    tokens = text.strip().lower().split()
+    # preserve case because some args are case sensitive, eg migrate-to password
+    tokens = text.strip().split()
     logger.info(f'  tokens: {tokens}')
 
     # remove @-mention of bot, if any
     bot_handles = (DOMAINS + ids.BOT_ACTOR_AP_IDS
                    + tuple(h.lstrip('@') for h in ids.BOT_ACTOR_AP_HANDLES))
-    if tokens and tokens[0].lstrip('@') in bot_handles:
+    if tokens and tokens[0].lstrip('@').lower() in bot_handles:
         logger.debug(f'  first token is bot mention, removing')
         tokens = tokens[1:]
 
     if not tokens:
         return r'¯\_(ツ)_/¯', 204
 
-    if fn := lookup_command(tokens[0], to_proto.LABEL):
-        return fn(from_user, to_proto, dm_as1=inner_as1,
-                  cmd=tokens[0], cmd_args=tokens[1:] if len(tokens) > 1 else [])
-    elif len(tokens) == 1:
-        fn = lookup_command(None, to_proto.LABEL)
-        assert fn, tokens[0]
-        return fn(from_user, to_proto, dm_as1=inner_as1, cmd=None, cmd_args=[tokens[0]])
+    cmd = tokens[0].lower()
+    if command := _commands.get(cmd):
+        args = tokens[1:]
+    elif len(tokens) == 1:  # implicit req't: the no-command prompt to request a user
+                            # to bridge only accepts a single arg
+        command = _commands[None]
+        cmd = None
+        args = tokens
+    else:
+        return r'¯\_(ツ)_/¯', 204
 
-    return r'¯\_(ツ)_/¯', 204
+    fn = command.get(to_proto.LABEL) or command[None]
+    return fn(from_user, to_proto, dm_as1=inner_as1, cmd=cmd, cmd_args=args)
