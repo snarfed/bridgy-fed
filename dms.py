@@ -297,6 +297,9 @@ def unblock(from_user, to_proto, *handles):
 def migrate_to_activitypub(from_user, to_proto, handle):
     """Migrates a bridged account out to a new fediverse account.
 
+    Duplicates :func:`pages.migrate_to_activitypub` and Bounce's `confirm` and
+    `migrate_out`. Keep them in sync!
+
     Args:
       from_user (models.User)
       handle (str)
@@ -328,6 +331,9 @@ def migrate_to_activitypub(from_user, to_proto, handle):
 def migrate_to_atproto(from_user, to_proto, pds, email, handle, password,
                        invite_code=None):
     """Migrates a bridged account out to a new ATProto PDS.
+
+    Duplicates :func:`pages.migrate_to_atproto` and Bounce's `confirm` and
+    `migrate_out`. Keep them in sync!
 
     Args:
       from_user (models.User)

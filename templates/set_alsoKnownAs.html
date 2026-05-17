@@ -1,0 +1,24 @@
+{# NOTE: this template is largely duplicated in bounce. Keep them in sync. #}
+{% set body_id = 'migrate' %}
+{% extends "base.html" %}
+
+{% block content %}
+{% set key = user.key.urlsafe().decode() %}
+
+<div class="row big">
+  <p>Migrating {{ user.html_link()|safe }} to {{ to_user.html_link() }}...
+</div>
+
+<div class="row">
+  <p>First, you'll need to <a href="https://docs.joinmastodon.org/user/moving/#summary" target="_blank">add an alias</a> to that account. In the account settings for <code>{{ to_user.handle_or_id() }}</code>, add an alias to <code>{{ user.handle_as(ActivityPub) }}</code>. Then come back here and click Done.
+</div>
+
+<form action="/settings/migrate-to-activitypub" method="post">
+<div class="row">
+  <input type="hidden" name="key" value="{{ key }}" />
+  <input type="hidden" name="handle" value="{{ handle }}" />
+  <input type="submit" class="btn btn-default" value="Done" />
+</div>
+</form>
+
+{% endblock content %}

@@ -1,0 +1,41 @@
+{# NOTE: this template is largely duplicated in bounce. Keep them in sync. #}
+{% set body_id = 'migrate' %}
+{% extends "base.html" %}
+
+{% block content %}
+{% set key = user.key.urlsafe().decode() %}
+
+<div class="row big">
+  <p>Creating a new <img src="/oauth_dropins_static/bluesky_icon.png" class="logo" title="Bluesky" /> Bluesky account on {{ util.pretty_link(pds)|safe }}...
+</div>
+
+<div class="row">
+  <p>Please enter an email address and password for your new account.
+</div>
+
+<div class="row">
+  <form action="/settings/migrate-to-atproto/create-account" method="post"
+        onsubmit="return window.confirm('Migrating is irreversible. You won\'t be able to log into your bridged Bluesky account and use it interactively any more. Are you sure?')">
+    <input type="hidden" name="key" value="{{ key }}" />
+    <input type="hidden" name="pds" value="{{ pds }}" />
+
+    <p><input type="email" name="email" required placeholder="email"
+              value="{{ email or '' }}" />
+    <p><input type="password" name="password" required placeholder="password" />
+    <p><input type="text" name="handle" maxlength="20"
+              placeholder="handle (optional)" value="{{ handle or '' }}"
+              pattern="[a-z][a-z0-9\-]*" />{{ handle_domain }}
+    <input type="hidden" name="handle_domain" value="{{ handle_domain or '' }}" />
+    {% if show_invite_code %}
+      <p><input type="text" name="invite_code" required placeholder="invite code"
+                value="{{ invite_code or '' }}" />
+    {% endif %}
+    {% if show_phone_verification_code %}
+      <p><input type="text" name="phone_verification_code" required
+                placeholder="phone verification code" />
+    {% endif %}
+    <p><input type="submit" class="btn btn-default" value="Migrate" />
+  </form>
+</div>
+
+{% endblock content %}

@@ -53,6 +53,29 @@ $(document).ready(function() {
       </form>
     {% endif %}
 
+    {% if 'activitypub' in user.enabled_protocols %}
+      <form method="post" action="/settings/migrate-to-activitypub"
+            class="settings-item"
+            onsubmit="return window.confirm('Migrating out is irreversible. Are you sure?')">
+        <input name="key" type="hidden" value="{{ key }}" />
+        <label for="{{ key }}-migrate-ap">Migrate out of the fediverse to:</label>
+        <input id="{{ key }}-migrate-ap" type="text" name="handle"
+               placeholder="@you@instance.com" required />
+        <input type="submit" value="Go" class="btn btn-default" />
+      </form>
+    {% endif %}
+
+    {% if 'atproto' in user.enabled_protocols %}
+      <form method="post" action="/settings/migrate-to-atproto"
+            class="settings-item">
+        <input name="key" type="hidden" value="{{ key }}" />
+        <label for="{{ key }}-migrate-pds">Migrate out of Bluesky to PDS:</label>
+        <input id="{{ key }}-migrate-pds" type="text" name="pds"
+               placeholder="pds.host" required />
+        <input type="submit" value="Go" class="btn btn-default" />
+      </form>
+    {% endif %}
+
     <form method="post" action="/settings/toggle-notifs" class="settings-item">
       <input name="key" type="hidden" value="{{ key }}" />
       <a href="/docs#notifs">DM notifications from unbridged accounts</a>:

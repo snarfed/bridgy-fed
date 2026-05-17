@@ -18,7 +18,7 @@ from oauth_dropins.webutil import appengine_info
 from oauth_dropins.webutil import util
 from oauth_dropins.webutil.appengine_config import tasks_client
 from oauth_dropins.webutil.testutil import requests_response
-from requests import ConnectionError
+from requests import ConnectionError, HTTPError
 from werkzeug.exceptions import ServiceUnavailable
 
 # import first so that Fake is defined before URL routes are registered
@@ -838,17 +838,19 @@ class PagesTest(TestCase):
         self.assertEqual('/login', resp.headers['Location'])
 
     def test_settings(self):
-        self.make_logged_in_mastodon_user(enabled_protocols=['fake'])
-        self.make_logged_in_bluesky_user()
+        self.make_logged_in_mastodon_user(enabled_protocols=['atproto'])
+        self.make_logged_in_bluesky_user(enabled_protocols=['activitypub'])
 
         resp = self.client.get('/settings')
         self.assertEqual(200, resp.status_code)
 
         body = resp.get_data(as_text=True)
+
         self.assert_multiline_in('<a href="/ap/@a@b.c">Bridging: </a>', body)
         self.assert_multiline_in('<a class="h-card u-author mention" rel="me" href="https://bsky.app/profile/ab.c" title="ab.c"><img src="https://some.pds/xrpc/com.atproto.sync.getBlob?did=did:plc:abc&cid=bafyk123" class="profile"> ab.c</a>', body)
-        # TODO: bring back
-        # self.assert_multiline_in('Not bridging', body)
+
+        self.assertIn('action="/settings/migrate-to-activitypub"', body)
+        self.assertIn('action="/settings/migrate-to-atproto"', body)
 
     def test_settings_private_status(self):
         # the enable switch should be enabled even if the user is status=private
@@ -1182,6 +1184,181 @@ class PagesTest(TestCase):
                           'DM notifications disabled for @a@b.c.'],
                          get_flashed_messages())
         self.assertEqual('none', user.key.get().send_notifs)
+
+    @patch.object(util.session, 'post', return_value=requests_response())
+    @patch.object(util.session, 'get')
+    def test_migrate_to_activitypub(self, mock_get, mock_post):
+        user, _ = self.make_logged_in_bluesky_user(enabled_protocols=['activitypub'])
+        mock_get.return_value = self.as2_resp({
+            'type': 'Person',
+            'id': 'http://in.st/carol',
+            'alsoKnownAs': [user.id_as(ActivityPub)],
+        })
+
+        # an AP follower who should receive the Move
+        dan = self.make_user(id='http://in.st/dan', cls=ActivityPub,
+                             obj_as1={'inbox': 'http://in.st/dan/inbox'})
+        Follower.get_or_create(to=user, from_=dan)
+
+        resp = self.client.post('/settings/migrate-to-activitypub', data={
+            'key': user.key.urlsafe().decode(),
+            'handle': 'http://in.st/carol',
+        })
+        self.assertEqual(302, resp.status_code)
+        self.assertEqual('/settings', resp.headers['Location'])
+        self.assertEqual(
+            ["""OK, we'll migrate your bridged account on the fediverse to <a class="h-card u-author mention" rel="me" href="http://in.st/carol" title="http://in.st/carol"><span style="unicode-bidi: isolate">http://in.st/carol</span></a>."""],
+            get_flashed_messages())
+
+        # migrate_out set movedTo on the bridged AP actor
+        self.assertEqual('http://in.st/carol', user.obj.key.get().as1['movedTo'])
+
+    @patch.object(util.session, 'get')
+    def test_migrate_to_activitypub_needs_alias(self, mock_get):
+        user, _ = self.make_logged_in_bluesky_user(enabled_protocols=['activitypub'])
+        # destination actor has no alsoKnownAs alias back to the bridged actor
+        mock_get.return_value = self.as2_resp({
+            'type': 'Person',
+            'id': 'http://in.st/carol',
+        })
+
+        resp = self.client.post('/settings/migrate-to-activitypub', data={
+            'key': user.key.urlsafe().decode(),
+            'handle': 'http://in.st/carol',
+        })
+        self.assertEqual(200, resp.status_code)
+        body = resp.get_data(as_text=True)
+        self.assertIn('add an alias', body)
+        self.assertIn('action="/settings/migrate-to-activitypub"', body)
+        self.assertIn(user.handle_as(ActivityPub), body)
+
+    def test_migrate_to_activitypub_not_logged_in(self):
+        resp = self.client.post('/settings/migrate-to-activitypub', data={
+            'key': ATProto(id='did:plc:nope').key.urlsafe().decode(),
+            'handle': 'http://in.st/carol',
+        })
+        self.assertEqual(302, resp.status_code)
+        self.assertEqual('/login', resp.headers['Location'])
+
+    @patch.object(util.session, 'get', return_value=requests_response({
+        'did': 'did:web:new.pds.com',
+        'availableUserDomains': ['.pds.com'],
+    }))
+    def test_migrate_to_atproto(self, _):
+        user, _ = self.make_logged_in_mastodon_user(enabled_protocols=['atproto'])
+        resp = self.client.post('/settings/migrate-to-atproto', data={
+            'key': user.key.urlsafe().decode(),
+            'pds': 'new.pds.com',
+        })
+        self.assertEqual(200, resp.status_code)
+        body = resp.get_data(as_text=True)
+        self.assertIn('action="/settings/migrate-to-atproto/create-account"', body)
+        self.assertIn('value="https://new.pds.com"', body)
+        self.assertIn('name="handle_domain" value=".pds.com"', body)
+
+    def test_migrate_to_atproto_main_pds(self):
+        user, _ = self.make_logged_in_mastodon_user(enabled_protocols=['atproto'])
+        resp = self.client.post('/settings/migrate-to-atproto', data={
+            'key': user.key.urlsafe().decode(),
+            'pds': 'bsky.social',
+        })
+        self.assertEqual(302, resp.status_code)
+        self.assertEqual('/settings', resp.headers['Location'])
+        self.assertIn("we can't migrate to bsky.social", get_flashed_messages()[0])
+
+    @patch.object(util.session, 'get',
+                  return_value=requests_response(status=502, body='gateway down'))
+    def test_migrate_to_atproto_pds_unreachable(self, _):
+        user, _ = self.make_logged_in_mastodon_user(enabled_protocols=['atproto'])
+        resp = self.client.post('/settings/migrate-to-atproto', data={
+            'key': user.key.urlsafe().decode(),
+            'pds': 'new.pds.com',
+        })
+        self.assertEqual(302, resp.status_code)
+        self.assertEqual('/settings', resp.headers['Location'])
+        self.assertTrue(get_flashed_messages()[0].startswith("Couldn't connect"))
+
+    @patch.object(util.session, 'get', return_value=requests_response({
+        'did': 'did:web:new.pds.com',
+        'availableUserDomains': ['.pds.com'],
+        'phoneVerificationRequired': True,
+    }))
+    def test_migrate_to_atproto_phone_verification(self, _):
+        user, _ = self.make_logged_in_mastodon_user(enabled_protocols=['atproto'])
+        resp = self.client.post('/settings/migrate-to-atproto', data={
+            'key': user.key.urlsafe().decode(),
+            'pds': 'new.pds.com',
+        })
+        self.assertEqual(200, resp.status_code)
+        body = resp.get_data(as_text=True)
+        self.assertIn('action="/settings/migrate-to-atproto/phone-verification"', body)
+        self.assertIn('name="handle_domain" value=".pds.com"', body)
+
+    @patch.object(util.session, 'post', return_value=requests_response({}))
+    def test_migrate_to_atproto_phone_verification_post(self, _):
+        user, _ = self.make_logged_in_mastodon_user(enabled_protocols=['atproto'])
+        resp = self.client.post(
+            '/settings/migrate-to-atproto/phone-verification', data={
+                'key': user.key.urlsafe().decode(),
+                'pds': 'https://new.pds.com',
+                'phone_number': '+1 234-567-8900',
+                'handle_domain': '.pds.com',
+            })
+        self.assertEqual(200, resp.status_code)
+        body = resp.get_data(as_text=True)
+        self.assertIn('action="/settings/migrate-to-atproto/create-account"', body)
+        self.assertIn('phone_verification_code', body)
+        self.assertIn('name="handle_domain" value=".pds.com"', body)
+
+    @patch.object(ATProto, 'migrate_out')
+    @patch.object(ATProto, 'create_account_for_migrate_out', return_value={
+        'did': 'did:plc:newalice',
+        'handle': 'aly.ce',
+        'accessJwt': 'access',
+        'refreshJwt': 'refresh',
+    })
+    def test_migrate_to_atproto_create_account(self, mock_create, mock_migrate):
+        user, _ = self.make_logged_in_mastodon_user(enabled_protocols=['atproto'])
+        resp = self.client.post(
+            '/settings/migrate-to-atproto/create-account', data={
+                'key': user.key.urlsafe().decode(),
+                'pds': 'https://new.pds.com',
+                'email': 'alice@pds.com',
+                'password': 'Hunter2',
+                'handle': 'alyce',
+                'handle_domain': '.pds.com',
+                'invite_code': 'inv-1234',
+            })
+        self.assertEqual(302, resp.status_code)
+        self.assertEqual('/settings', resp.headers['Location'])
+        self.assertEqual(
+            "OK, we've migrated your bridged Bluesky account to <code>aly.ce</code> on new.pds.com.",
+            get_flashed_messages()[0])
+
+        mock_create.assert_called_once_with(
+            user, pds='https://new.pds.com', email='alice@pds.com',
+            password='Hunter2', handle='alyce.pds.com', invite_code='inv-1234',
+            phone_verification_code=None)
+        mock_migrate.assert_called_once_with(
+            user, 'did:plc:newalice', to_pds='https://new.pds.com',
+            access_token='access', refresh_token='refresh', handle='aly.ce')
+
+    @patch.object(ATProto, 'create_account_for_migrate_out',
+                  side_effect=HTTPError(response=requests_response(
+                      {'error': 'InvalidInviteCode', 'message': 'nopey'},
+                      status=400)))
+    def test_migrate_to_atproto_create_account_error(self, _):
+        user, _ = self.make_logged_in_mastodon_user(enabled_protocols=['atproto'])
+        resp = self.client.post(
+            '/settings/migrate-to-atproto/create-account', data={
+                'key': user.key.urlsafe().decode(),
+                'pds': 'https://new.pds.com',
+                'email': 'alice@pds.com',
+                'password': 'Hunter2',
+                'invite_code': 'bad',
+            })
+        self.assertEqual(200, resp.status_code)
+        self.assertIn('Error from new.pds.com: nopey', resp.get_data(as_text=True))
 
     @patch('oauth_dropins.webutil.util.now', return_value=datetime.now())
     def test_respond(self, _):

@@ -1,0 +1,33 @@
+{# NOTE: this template is largely duplicated in bounce. Keep them in sync. #}
+{% set body_id = 'migrate' %}
+{% extends "base.html" %}
+
+{% block content %}
+{% set key = user.key.urlsafe().decode() %}
+
+<div class="row big">
+  <p>Verifying phone number for
+  <img src="/oauth_dropins_static/bluesky_icon.png" class="logo" title="Bluesky" />
+  {{ util.pretty_link(pds)|safe }}...
+</div>
+
+<div class="row">
+  <p>This PDS requires phone verification. Please enter your phone number, and
+  they'll send you a verification code by SMS.
+</div>
+
+<div class="row">
+  <form action="/settings/migrate-to-atproto/phone-verification" method="post">
+    <input type="hidden" name="key" value="{{ key }}" />
+    <input type="hidden" name="pds" value="{{ pds }}" />
+    <input type="hidden" name="handle_domain" value="{{ handle_domain or '' }}" />
+    {% if show_invite_code %}
+    <input type="hidden" name="show_invite_code" value="true" />
+    {% endif %}
+    <input type="tel" name="phone_number" required placeholder="phone number"
+           value="{{ phone_number or '' }}" />
+    <input type="submit" class="btn btn-default" value="Next" />
+  </form>
+</div>
+
+{% endblock content %}

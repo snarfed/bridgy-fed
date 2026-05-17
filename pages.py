@@ -16,6 +16,7 @@ from google.cloud.ndb.query import OR
 from google.cloud.ndb.model import get_multi, Model
 from granary import as1, as2, atom, microformats2, rss
 import jwt
+import lexrpc
 import oauth_dropins
 from oauth_dropins.webutil import flask_util, logs, util
 from oauth_dropins.webutil.flask_util import (
@@ -34,7 +35,7 @@ from werkzeug.exceptions import NotFound
 import activitypub
 from activitypub import ActivityPub
 import atproto
-from atproto import ATProto
+from atproto import ATProto, MAIN_PDS_DOMAINS
 import common
 from common import (
     CACHE_CONTROL,
@@ -46,6 +47,7 @@ from common import (
 )
 from domains import (
     BLOG_REDIRECT_DOMAINS,
+    DOMAIN_RE,
     DomainBlocklist,
     KNOWN_DOMAIN_BLOCKLISTS,
     PRIMARY_DOMAIN,
@@ -514,6 +516,202 @@ def toggle_notifs(user=None):
     user.put()
 
     flash(f'DM notifications {verb} for {user.handle_or_id()}.')
+    return redirect('/settings')
+
+
+@app.post('/settings/migrate-to-activitypub')
+@disable_if_read_only
+@require_login
+def migrate_to_activitypub(user=None):
+    """Migrates a bridged account out to a native fediverse account.
+
+    Duplicates :func:`dms.migrate_to_activitypub` and Bounce's `confirm` and
+    `migrate_out`. Keep them in sync!
+
+    Args:
+      user (models.User)
+
+    Form params:
+      handle (str): the destination fediverse handle or id
+    """
+    handle = flask_util.get_required_param('handle').strip()
+
+    try:
+        to_user = models.load_user(handle, ActivityPub, create=True,
+                                   allow_opt_out=True, raise_=True)
+    except (AttributeError, RuntimeError, ValueError) as err:
+        flash(str(err))
+        return redirect('/settings')
+
+    logger.info(f'Migrating out {user.key.id()} to {to_user.key.id()}')
+
+    try:
+        ActivityPub.check_can_migrate_out(user, to_user.key.id())
+    except activitypub.NeedsAlias:
+        return render('set_alsoKnownAs.html', user=user, to_user=to_user,
+                      handle=handle)
+
+    try:
+        ActivityPub.migrate_out(user, to_user.key.id())
+    except ValueError as e:
+        flash(str(e))
+        return redirect('/settings')
+
+    flash(f"OK, we'll migrate your bridged account on {ActivityPub.PHRASE} to {to_user.html_link()}.", escape=False)
+    return redirect('/settings')
+
+
+@app.post('/settings/migrate-to-atproto')
+@disable_if_read_only
+@require_login
+def migrate_to_atproto(user=None):
+    """First step of migrating a bridged account out to a new ATProto PDS.
+
+    Calls ``describeServer`` on the new PDS, then shows the create account form.
+
+    Duplicates :func:`dms.migrate_to_atproto` and Bounce's `confirm` and
+    `migrate_out`. Keep them in sync!
+
+    Args:
+      user (models.User)
+
+    Form params:
+      pds (str): the new PDS's domain or URL
+    """
+    pds = flask_util.get_required_param('pds').strip()
+    if DOMAIN_RE.fullmatch(pds):
+        pds = f'https://{pds}'
+
+    if not util.is_web(pds):
+        flash(f"{pds} doesn't look like a PDS domain or URL.")
+        return redirect('/settings')
+
+    pds_domain = util.domain_from_link(pds)
+    if util.domain_or_parent_in(pds_domain, MAIN_PDS_DOMAINS):
+        flash(f"Sorry, we can't migrate to {pds_domain}; it <a href='https://docs.bsky.app/blog/incoming-migration'>only allows accounts that it originally created</a>.",
+              escape=False)
+        return redirect('/settings')
+
+    client = lexrpc.Client(pds, requests_session=util.session)
+    try:
+        desc = client.com.atproto.server.describeServer()
+    except Exception as e:
+        _, body = util.interpret_http_exception(e)
+        flash(f"Couldn't connect to {pds}: {body or e}")
+        return redirect('/settings')
+
+    user_domains = desc.get('availableUserDomains')
+    handle_domain = user_domains[0] if user_domains else ''
+    if handle_domain and not handle_domain.startswith('.'):
+        handle_domain = '.' + handle_domain
+
+    show_invite_code = desc.get('inviteCodeRequired')
+    if desc.get('phoneVerificationRequired'):
+        return render('bluesky_phone_verification.html', user=user, pds=pds,
+                      handle_domain=handle_domain, show_invite_code=show_invite_code)
+
+    return render('bluesky_create_account.html', user=user, pds=pds,
+                  handle_domain=handle_domain, show_invite_code=show_invite_code,
+                  show_phone_verification_code=False)
+
+
+@app.post('/settings/migrate-to-atproto/phone-verification')
+@disable_if_read_only
+@require_login
+def migrate_to_atproto_phone_verification(user=None):
+    """Requests a phone verification SMS from the new ATProto PDS.
+
+    Duplicates :func:`dms.migrate_to_atproto` and Bounce's
+    `bluesky_phone_verification_post`. Keep them in sync!
+
+    Args:
+      user (models.User)
+
+    Form params:
+      pds (str): the new PDS's URL
+      phone_number (str)
+    """
+    pds = flask_util.get_required_param('pds')
+    phone_number = flask_util.get_required_param('phone_number')
+    handle_domain = request.values.get('handle_domain', '')
+    show_invite_code = bool(request.values.get('show_invite_code'))
+
+    client = lexrpc.Client(pds, requests_session=util.session)
+    try:
+        client.com.atproto.temp.requestPhoneVerification({'phoneNumber': phone_number})
+    except Exception as e:
+        _, body = util.interpret_http_exception(e)
+        flash(f'Error requesting phone verification: {body or e}')
+        return render('bluesky_phone_verification.html', user=user, pds=pds,
+                      phone_number=phone_number, handle_domain=handle_domain,
+                      show_invite_code=show_invite_code)
+
+    return render('bluesky_create_account.html', user=user, pds=pds,
+                  handle_domain=handle_domain, show_invite_code=show_invite_code,
+                  show_phone_verification_code=True)
+
+
+@app.post('/settings/migrate-to-atproto/create-account')
+@disable_if_read_only
+@require_login
+def migrate_to_atproto_create_account(user=None):
+    """Final step of migrating a bridged account out to a new ATProto PDS.
+
+    Creates the account on the new PDS, then migrates the bridged account out.
+
+    Args:
+      user (models.User)
+
+    Form params:
+      pds (str): the new PDS's URL
+      email (str)
+      password (str)
+      handle (str): optional, the handle's first segment, eg ``alice``
+      handle_domain (str): optional, the new PDS's handle domain, eg ``.pds.com``
+      invite_code (str): optional
+      phone_verification_code (str): optional
+    """
+    pds = flask_util.get_required_param('pds')
+    pds_domain = util.domain_from_link(pds)
+    email = flask_util.get_required_param('email')
+    password = flask_util.get_required_param('password')
+    handle = request.values.get('handle')
+    handle_domain = request.values.get('handle_domain', '')
+    invite_code = request.values.get('invite_code')
+    phone_verification_code = request.values.get('phone_verification_code')
+
+    def create_account_form():
+        return render('bluesky_create_account.html', user=user, pds=pds,
+                      email=email, handle=handle, handle_domain=handle_domain,
+                      invite_code=invite_code, show_invite_code=bool(invite_code),
+                      show_phone_verification_code=bool(phone_verification_code))
+
+    logger.info(f'Migrating out {user.key.id()} to ATProto PDS {pds_domain}')
+
+    try:
+        resp = ATProto.create_account_for_migrate_out(
+            user, pds=pds, email=email, password=password,
+            handle=handle + handle_domain if handle else None,
+            invite_code=invite_code, phone_verification_code=phone_verification_code)
+    except requests.HTTPError as e:
+        msg = str(e)
+        if (e.response is not None
+                and common.content_type(e.response) == 'application/json'):
+            body = e.response.json()
+            msg = body.get('message') or body.get('error') or msg
+        flash(f'Error from {pds_domain}: {msg}')
+        return create_account_form()
+
+    try:
+        ATProto.migrate_out(user, resp['did'], to_pds=pds,
+                            access_token=resp['accessJwt'],
+                            refresh_token=resp['refreshJwt'],
+                            handle=resp.get('handle'))
+    except ValueError as e:
+        flash(str(e))
+        return create_account_form()
+
+    flash(f"OK, we've migrated your bridged Bluesky account to <code>{resp['handle']}</code> on {pds_domain}.", escape=False)
     return redirect('/settings')
 
 
