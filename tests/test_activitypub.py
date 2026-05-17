@@ -34,6 +34,7 @@ from activitypub import (
     ActivityPub,
     AKA_CONTEXT,
     instance_actor,
+    NeedsAlias,
     postprocess_as2,
     postprocess_as2_actor,
     SECURITY_CONTEXT,
@@ -2632,7 +2633,7 @@ class ActivityPubTest(TestCase):
     def test_migrate_out_no_alias_in_to_actor(self, _, mock_get, __):
         mock_get.return_value = self.as2_resp(ACTOR)
 
-        with self.assertRaises(ValueError):
+        with self.assertRaises(NeedsAlias):
             ActivityPub.migrate_out(self.user, 'http://in.st/to')
 
         mock_get.return_value = self.as2_resp({
@@ -2640,7 +2641,7 @@ class ActivityPubTest(TestCase):
             'alsoKnownAs': ['oth', 'er'],
         })
 
-        with self.assertRaises(ValueError):
+        with self.assertRaises(NeedsAlias):
             ActivityPub.migrate_out(self.user, 'http://in.st/to')
 
     def test_check_can_migrate_out(self, _, mock_get, mock_post):
@@ -2656,7 +2657,7 @@ class ActivityPubTest(TestCase):
         mock_get.return_value = self.as2_resp(ACTOR)
 
         self.user.enabled_protocols = ['activitypub']
-        with self.assertRaises(ValueError):
+        with self.assertRaises(NeedsAlias):
             ActivityPub.check_can_migrate_out(self.user, 'http://in.st/to')
 
         mock_get.return_value = self.as2_resp({
@@ -2664,7 +2665,7 @@ class ActivityPubTest(TestCase):
             'alsoKnownAs': ['oth', 'er'],
         })
 
-        with self.assertRaises(ValueError):
+        with self.assertRaises(NeedsAlias):
             ActivityPub.check_can_migrate_out(self.user, 'http://in.st/to')
 
     def test_migrate_in(self, _, mock_get, mock_post):

@@ -100,6 +100,11 @@ COLLECTION_TO_TYPE = {
   'app.bsky.graph.follow': 'follow',
 }
 
+# Bluesky-operated PDSes that only allow accounts they originally created, so we
+# can't migrate accounts to them
+# https://docs.bsky.app/blog/incoming-migration
+MAIN_PDS_DOMAINS = ('bsky.app', 'bsky.network', 'bsky.social')
+
 DNS_GCP_PROJECT = 'brid-gy'
 DNS_ZONE = 'brid-gy'
 DNS_TTL = 10800  # seconds

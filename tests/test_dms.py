@@ -1130,7 +1130,7 @@ class DmsTest(TestCase):
         self.assertEqual(('OK', 200), receive(from_user=alice, obj=obj))
         self.assert_replied(
             ActivityPub, alice, '?',
-            "First, you'll need to <a href='https://docs.joinmastodon.org/user/moving/#summary'>add an alias</a> for this account.")
+            "First, you'll need to <a href='https://docs.joinmastodon.org/user/moving/#summary'>add an alias</a> to that account.")
 
     @patch.object(ATProto, 'migrate_out')
     @patch.object(ATProto, 'create_account_for_migrate_out', return_value={

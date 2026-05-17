@@ -107,6 +107,11 @@ NO_AUTH_DOMAINS = ()
 FEDI_URL_RE = re.compile(r'https://(?P<domain>[^/]+)/(@|users/)(?P<handle>[^/@]+)(@[^/@]+)?(?P<post_id>/(?:statuses/)?[0-9]+)?')
 
 
+class NeedsAlias(ValueError):
+    """Raised when a user can't migrate out because the destination account is
+    missing an ``alsoKnownAs`` alias back to their bridged actor."""
+
+
 def instance_actor():
     global _INSTANCE_ACTOR
 
@@ -730,7 +735,7 @@ class ActivityPub(User, Protocol):
         if user_ap_id not in aka:
             msg = f"{to_user_id} 's alsoKnownAs doesn't contain {user_ap_id}: {aka}"
             logger.warning(msg)
-            raise ValueError(msg)
+            raise NeedsAlias(msg)
 
     @classmethod
     def authed_user_for_request(cls, log_level=logging.DEBUG):

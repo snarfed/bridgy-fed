@@ -23,8 +23,6 @@ import protocol
 REQUESTS_LIMIT_EXPIRE = timedelta(days=1)
 REQUESTS_LIMIT_USER = 10
 
-MAIN_PDS_DOMAINS = ('bsky.app', 'bsky.network', 'bsky.social')
-
 # populated by the command() decorator
 # {str command name: {str protocol label or None: wrapped dispatch fn}}
 _commands = {}
@@ -303,7 +301,7 @@ def migrate_to_activitypub(from_user, to_proto, handle):
       from_user (models.User)
       handle (str)
     """
-    from activitypub import ActivityPub
+    from activitypub import ActivityPub, NeedsAlias
     assert to_proto == ActivityPub
 
     try:
@@ -318,15 +316,10 @@ def migrate_to_activitypub(from_user, to_proto, handle):
     try:
         ActivityPub.check_can_migrate_out(from_user, to_user.key.id())
         ActivityPub.migrate_out(from_user, to_user.key.id())
+    except NeedsAlias:
+        return f"First, you'll need to <a href='https://docs.joinmastodon.org/user/moving/#summary'>add an alias</a> to that account. In the account settings for {to_user.handle}, add an alias to <code>{from_user.handle_as(ActivityPub)}</code>."
     except ValueError as e:
-        msg = str(e)
-
-        # WARNING: this is brittle! depends on the exact exception message
-        # from ActivityPub.check_can_migrate_out
-        if "alsoKnownAs doesn't contain" in msg:
-            return f"First, you'll need to <a href='https://docs.joinmastodon.org/user/moving/#summary'>add an alias</a> for this account. In the account settings for {to_user.handle}, add an alias to <code>{from_user.handle_as(ActivityPub)}</code>."
-
-        return msg
+        return str(e)
 
     return f"OK, we'll migrate your bridged account on {to_proto.PHRASE} to {to_user.html_link()}."
 
@@ -344,7 +337,7 @@ def migrate_to_atproto(from_user, to_proto, pds, email, handle, password,
       password (str)
       invite_code (str): optional
     """
-    from atproto import ATProto
+    from atproto import ATProto, MAIN_PDS_DOMAINS
     assert to_proto == ATProto
 
     if DOMAIN_RE.fullmatch(pds):
