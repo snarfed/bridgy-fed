@@ -96,6 +96,11 @@ handlers:
   secure: always
 
 # dynamic
+- url: /admin/memcache/.*
+  script: auto
+  secure: always
+  login: optional
+
 - url: /admin/sequences/.*
   script: auto
   secure: always
