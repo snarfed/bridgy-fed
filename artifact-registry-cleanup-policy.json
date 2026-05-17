@@ -1,0 +1,17 @@
+[
+  {
+    "name": "delete-old",
+    "action": {"type": "Delete"},
+    "condition": {
+      "olderThan": "7d"
+    }
+  },
+  {
+    "name": "keep-minimum",
+    "action": {"type": "Keep"},
+    "mostRecentVersions": {
+      "packageNamePrefixes": ["app/bounce", "app/default", "hub", "router"],
+      "keepCount": 5
+    }
+  }
+]

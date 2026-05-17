@@ -88,6 +88,22 @@ cd ~/src/bridgy-fed && curl -v -H "Authorization: `cat flask_secret_key`" \
 
 (Ideally we'd like to be able to do this from [blog.anew.social](https://blog.anew.social/) too! [They don't support microformats in the default theme](https://indieweb.org/Ghost#Rejected_microformats2_markup_in_default_theme), though, so we'd need to switch to a microformats-enabled theme first. 😕)
 
+GCP Artifact Registry cleanup policy
+---
+`[artifact-registry-cleanup-policy.json](https://github.com/snarfed/bridgy-fed/blob/main/artifact-registry-cleanup-policy.json)` is an [Artifact Registry cleanup policy](https://docs.cloud.google.com/artifact-registry/docs/repositories/cleanup-policy) that automatically deletes old Docker images built by Cloud Build in our repos, except the five most recent for each service. [Background.](https://github.com/snarfed/bridgy-fed/issues/2473)
+
+Apply with:
+
+```sh
+gcloud artifacts repositories set-cleanup-policies gae-flexible
+    --location us-central1 \
+    --policy=artifact-registry-cleanup-policy.json
+
+gcloud artifacts repositories set-cleanup-policies gae-standard
+    --location us-central1 \
+    --policy=artifact-registry-cleanup-policy.json
+```
+
 
 Stats
 ---
