@@ -79,12 +79,11 @@ class Webfinger(flask_util.XrdOrJrd):
         if not proto:
             error(f"Couldn't determine protocol for f{resource}")
 
-        logger.info(f'Protocol {proto.LABEL}, user id {id}')
+        logger.debug(f'Protocol {proto.LABEL}, user id {id}')
 
         try:
             user = models.load_user(id, proto=proto)
         except RuntimeError as e:
-            logger.info(e)
             error(f'No {proto.LABEL} user found for {id}', status=404)
 
         if (not user.is_enabled(activitypub.ActivityPub)
@@ -105,15 +104,15 @@ class Webfinger(flask_util.XrdOrJrd):
             raise Found(location=url)
 
         actor = user.obj.as1 if user.obj and user.obj.as1 else {}
-        logger.info(f'Generating WebFinger data for {user.key.id()}')
+        logger.debug(f'Generating WebFinger data for {user.key.id()}')
 
         actor_id = user.id_as(activitypub.ActivityPub)
-        logger.info(f'AS1 actor: {actor_id}')
+        logger.debug(f'AS1 actor: {actor_id}')
 
         urls = util.dedupe_urls(util.get_list(actor, 'urls') +
                                 util.get_list(actor, 'url') +
                                 [user.web_url()])
-        logger.info(f'URLs: {urls}')
+        logger.debug(f'URLs: {urls}')
         canonical_url = urls[0]
 
         # generate webfinger content
@@ -263,7 +262,7 @@ def fetch(addr):
         flash(f'WebFinger on {addr_domain} returned non-JSON')
         return None
 
-    logger.info(f'Got WebFinger for {addr}')
+    logger.debug(f'Got WebFinger for {addr}')
     return data
 
 
