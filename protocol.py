@@ -1198,7 +1198,7 @@ class Protocol:
         elif from_cls.owns_id(id) is False:
             error(f'Protocol {from_cls.LABEL} does not own id {id}')
         elif from_cls.is_blocklisted(id, allow_internal=internal):
-            error(f'Activity {id} is blocklisted')
+            error(f'{id} is blocklisted')
 
         # does this protocol support this activity/object type?
         from_cls.check_supported(obj, 'receive')
@@ -1213,7 +1213,7 @@ class Protocol:
         if ('force' not in request.values
             and (not leased
                  or (obj.new is False and obj.changed is False))):
-            error(f'Already seen this activity {id}', status=204)
+            error(f'Already seen', status=204)
 
         pruned = {k: v for k, v in obj.as1.items()
                   if k not in ('contentMap', 'replies', 'signature')}
@@ -1767,7 +1767,7 @@ class Protocol:
         sorted_targets = sorted(targets.items(), key=lambda t: t[0].uri)
 
         # enqueue send task for each targets
-        logger.info(f'Delivering to: {[t for t, _ in sorted_targets]}')
+        logger.info(f'Delivering to {" ".join(t.uri for t, _ in sorted_targets)}')
         user = from_user.key.urlsafe()
         for i, (target, orig_obj) in enumerate(sorted_targets):
             orig_obj_id = orig_obj.key.id() if orig_obj else None
@@ -2023,7 +2023,7 @@ Hi! You <a href="{inner_obj_as1.get('url') or inner_obj_id}">recently {verb}</a>
         if (obj.type in ('post', 'update', 'delete', 'move', 'share', 'undo')
                 and (not is_reply or is_self_reply) and not is_undo_block
                 and to_followers_protos):
-            logger.info(f'Delivering to followers of {user_key} on {[p.LABEL for p in to_followers_protos]}')
+            logger.info(f'Delivering to followers of {user_key.id()} on {[p.LABEL for p in to_followers_protos]}')
             # query each protocol individually
             for proto in to_followers_protos:
                 kind = proto._get_kind()
@@ -2036,14 +2036,14 @@ Hi! You <a href="{inner_obj_as1.get('url') or inner_obj_id}">recently {verb}</a>
                     if not Protocol.for_bridgy_subdomain(f.from_.id()):
                         followers.append(f)
 
-            logger.info(f'  loaded {len(followers)} followers')
+            logger.debug(f'  loaded {len(followers)} followers')
 
             user_keys = [f.from_ for f in followers]
             users = [u for u in ndb.get_multi(user_keys) if u]
-            logger.info(f'  loaded {len(users)} users')
+            logger.debug(f'  loaded {len(users)} users')
 
             User.load_multi(users)
-            logger.info(f'  loaded user objects')
+            logger.debug(f'  loaded user objects')
 
             if (not followers and
                 (util.domain_or_parent_in(from_user.key.id(), LIMITED_DOMAINS)
@@ -2074,7 +2074,7 @@ Hi! You <a href="{inner_obj_as1.get('url') or inner_obj_id}">recently {verb}</a>
                 target = util.normalize_url(target, trailing_slash=False)
                 targets[Target(protocol=user.LABEL, uri=target)] = target_obj
 
-            logger.info(f'  collected {len(targets)} targets')
+            logger.debug(f'  collected {len(targets)} targets')
 
         # deliver to enabled HAS_COPIES protocols proactively
         if obj.type in ('post', 'update', 'delete', 'share'):
