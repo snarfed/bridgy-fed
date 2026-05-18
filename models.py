@@ -2458,7 +2458,7 @@ def load_user(handle_or_id, proto=None, create=False, allow_opt_out=False,
         if user and user.obj and user.obj.as1:
             return user
 
-    raise RuntimeError(f"Couldn't find {handle_or_id} on {proto.PHRASE}")
+    raise RuntimeError(f"Couldn't find bridged {proto.LABEL} account {handle_or_id}")
 
 
 def maybe_truncate_key_id(id):
