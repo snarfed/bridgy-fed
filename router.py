@@ -24,6 +24,13 @@ import notifications
 import pages
 import protocol
 
+# https://docs.cloud.google.com/profiler/docs/profiling-python
+# import googlecloudprofiler
+# googlecloudprofiler.start(
+#     service_version=...,
+#     disable_wall_profiling=True,
+#     task_types=[googlecloudprofiler.TaskType.CPU, googlecloudprofiler.TaskType.HEAP])
+
 models.reset_protocol_properties()
 
 if DEBUG or LOCAL_SERVER:

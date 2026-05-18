@@ -11,6 +11,13 @@ from flask_app import app
 # import all modules to register their Flask handlers
 import activitypub, admin, atproto, convert, farcaster, follow, nostr, pages, redirect, ui, webfinger, web
 
+# https://docs.cloud.google.com/profiler/docs/profiling-python
+# import googlecloudprofiler
+# googlecloudprofiler.start(
+#     service_version='2026-05-26',
+#     disable_wall_profiling=True,
+#     task_types=[googlecloudprofiler.TaskType.CPU, googlecloudprofiler.TaskType.HEAP])
+
 import models
 models.reset_protocol_properties()
 

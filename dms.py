@@ -204,10 +204,12 @@ def help_text(from_user, to_proto):
             if fn.spec.help_text:
                 items.append(f'<li>{fn.spec.help_text}')
 
+    items_text = '\n'.join(items)
+
     text = f"""\
 <p>Hi! I'm a friendly bot that can help you bridge your account into {to_proto.PHRASE}. Here are some commands I respond to:</p>
 <ul>
-{'\n'.join(items)}
+{items_text}
 <li><em>help</em>: print this message
 </ul>"""
 

@@ -3,7 +3,8 @@
 # application: bridgy-federated
 
 # keep this in sync with the test job image's Python version in .circleci/config.yml!
-runtime: python312
+# change to 311 to use Cloud Profiler
+runtime: python311
 
 # default_expiration: 1h
 
