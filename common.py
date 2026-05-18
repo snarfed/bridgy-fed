@@ -402,7 +402,7 @@ class FlashErrors(View):
         except (ValueError, requests.RequestException) as e:
             logger.warning(f'{self.__class__.__name__} error', exc_info=True)
             _, body = interpret_http_exception(e)
-            flask_util.flash(util.linkify(body or str(e), pretty=True))
+            flask_util.flash(body or str(e))
             return redirect('/login')
 
 
