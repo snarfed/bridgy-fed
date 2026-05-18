@@ -905,6 +905,7 @@ class User(AddRemoveMixin, StringIdModel, metaclass=ProtocolUserMeta):
         """Returns handle if we know it, otherwise id."""
         return self.handle or self.key.id()
 
+    @memcache.memoize(key=lambda self: self.key.id())
     def public_pem(self):
         """Returns the user's PEM-encoded ActivityPub public RSA key.
 
@@ -913,9 +914,14 @@ class User(AddRemoveMixin, StringIdModel, metaclass=ProtocolUserMeta):
         """
         self._maybe_generate_ap_key()
         rsa = RSA.construct((base64_to_long(str(self.mod)),
-                             base64_to_long(str(self.public_exponent))))
+                             base64_to_long(str(self.public_exponent))),
+                            # optimization. consistency check is very CPU-expensive,
+                            # and unnecessary for keys we own
+                            # https://github.com/snarfed/bridgy-fed/issues/2488
+                            consistency_check=False)
         return rsa.exportKey(format='PEM')
 
+    @memcache.memoize(key=lambda self: self.key.id())
     def private_pem(self):
         """Returns the user's PEM-encoded ActivityPub private RSA key.
 
@@ -925,7 +931,11 @@ class User(AddRemoveMixin, StringIdModel, metaclass=ProtocolUserMeta):
         self._maybe_generate_ap_key()
         rsa = RSA.construct((base64_to_long(str(self.mod)),
                              base64_to_long(str(self.public_exponent)),
-                             base64_to_long(str(self.private_exponent))))
+                             base64_to_long(str(self.private_exponent))),
+                            # optimization. consistency check is very CPU-expensive,
+                            # and unnecessary for keys we own
+                            # https://github.com/snarfed/bridgy-fed/issues/2488
+                            consistency_check=False)
         return rsa.exportKey(format='PEM')
 
     def _maybe_generate_ap_key(self):
