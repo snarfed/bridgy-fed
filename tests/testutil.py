@@ -364,6 +364,7 @@ class TestCase(unittest.TestCase, testutil.Asserts):
         protocol.Protocol.for_handle.cache.clear()
         User.count_followers.cache.clear()
         common.bot_user_ids.cache_clear()
+        activitypub.http_signature_auths = {}
 
         for cls in ExplicitFake, Fake, OtherFake:
             cls.fetchable = {}

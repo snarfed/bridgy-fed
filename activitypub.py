@@ -70,6 +70,11 @@ CONNEG_HEADERS_AS2_HTML = {
     'Accept': f'{as2.CONNEG_HEADERS["Accept"]}, {CONTENT_TYPE_HTML}; q=0.5'
 }
 
+# (request-target) here is a special HTTP Signatures header that some fediverse
+# implementations require, eg Peertube.
+# https://datatracker.ietf.org/doc/html/draft-cavage-http-signatures-12#section-2.3
+# https://www.w3.org/wiki/SocialCG/ActivityPub/Authentication_Authorization#Signing_requests_using_HTTP_Signatures
+# https://docs.joinmastodon.org/spec/security/#http
 HTTP_SIG_HEADERS = ('Date', 'Host', 'Digest', '(request-target)')
 
 SECURITY_CONTEXT = 'https://w3id.org/security/v1'
@@ -105,6 +110,10 @@ OLD_ACCOUNT_EXEMPT_DOMAINS = (
 NO_AUTH_DOMAINS = ()
 
 FEDI_URL_RE = re.compile(r'https://(?P<domain>[^/]+)/(@|users/)(?P<handle>[^/@]+)(@[^/@]+)?(?P<post_id>/(?:statuses/)?[0-9]+)?')
+
+# dict mapping string keyId to HTTPSignatureAuth. global cache for signing
+# outbound HTTP requests.
+http_signature_auths = {}
 
 
 class NeedsAlias(ValueError):
@@ -931,15 +940,14 @@ def signed_request(fn, url, data=None, headers=None, from_user=None,
 
     logger.debug(f"Signing with {from_user.key.id()} 's key")
 
-    # (request-target) is a special HTTP Signatures header that some fediverse
-    # implementations require, eg Peertube.
-    # https://datatracker.ietf.org/doc/html/draft-cavage-http-signatures-12#section-2.3
-    # https://www.w3.org/wiki/SocialCG/ActivityPub/Authentication_Authorization#Signing_requests_using_HTTP_Signatures
-    # https://docs.joinmastodon.org/spec/security/#http
     key_id = f'{from_user.id_as(ActivityPub)}#key'
-    auth = HTTPSignatureAuth(secret=from_user.private_pem(), key_id=key_id,
-                             algorithm='rsa-sha256', sign_header='signature',
-                             headers=HTTP_SIG_HEADERS)
+    # cache HTTPSignatureAuth instances. big optimization because its parsing private
+    # key PEMs is surprisingly expensive, ~12% of *all* router CPU as of 5/2026!
+    # https://github.com/snarfed/bridgy-fed/issues/2488
+    if not (auth := http_signature_auths.get(key_id)):
+        auth = http_signature_auths[key_id] = HTTPSignatureAuth(
+            secret=from_user.private_pem(), key_id=key_id, algorithm='rsa-sha256',
+            sign_header='signature', headers=HTTP_SIG_HEADERS)
 
     # make HTTP request
     kwargs.setdefault('gateway', True)
