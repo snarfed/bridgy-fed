@@ -3,7 +3,6 @@
 {% extends "base.html" %}
 
 {% block content %}
-{% set key = user.key.urlsafe().decode() %}
 
 <div class="row big">
   <p>Verifying phone number for
@@ -18,7 +17,7 @@
 
 <div class="row">
   <form action="/settings/migrate-to-atproto/phone-verification" method="post">
-    <input type="hidden" name="key" value="{{ key }}" />
+    <input type="hidden" name="key" value="{{ user.key.urlsafe().decode() }}" />
     <input type="hidden" name="pds" value="{{ pds }}" />
     <input type="hidden" name="handle_domain" value="{{ handle_domain or '' }}" />
     {% if show_invite_code %}

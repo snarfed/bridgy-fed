@@ -3,20 +3,19 @@
 {% extends "base.html" %}
 
 {% block content %}
-{% set key = user.key.urlsafe().decode() %}
 
 <div class="row big">
-  <p>Creating a new <img src="/oauth_dropins_static/bluesky_icon.png" class="logo" title="Bluesky" /> Bluesky account on {{ util.pretty_link(pds)|safe }}...
+  <p>Migrating <nobr>{{ user.html_link(proto=ATProto, name=False, pictures=True)|safe }}</nobr> to <nobr><img src="/oauth_dropins_static/bluesky_icon.png" class="logo" title="Bluesky" /> {{ util.pretty_link(pds)|safe }}</nobr>...
 </div>
 
 <div class="row">
-  <p>Please enter an email address and password for your new account.
+  <p>Please enter login details for your new account.
 </div>
 
 <div class="row">
   <form action="/settings/migrate-to-atproto/create-account" method="post"
-        onsubmit="return window.confirm('Migrating is irreversible. You won\'t be able to log into your bridged Bluesky account and use it interactively any more. Are you sure?')">
-    <input type="hidden" name="key" value="{{ key }}" />
+        onsubmit="return window.confirm('Migrating out is irreversible. Are you sure?')">
+    <input type="hidden" name="key" value="{{ user.key.urlsafe().decode() }}" />
     <input type="hidden" name="pds" value="{{ pds }}" />
 
     <p><input type="email" name="email" required placeholder="email"

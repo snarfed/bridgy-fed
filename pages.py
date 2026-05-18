@@ -543,8 +543,6 @@ def migrate_to_activitypub(user=None):
         flash(str(err))
         return redirect('/settings')
 
-    logger.info(f'Migrating out {user.key.id()} to {to_user.key.id()}')
-
     try:
         ActivityPub.check_can_migrate_out(user, to_user.key.id())
     except activitypub.NeedsAlias:
@@ -576,12 +574,9 @@ def migrate_to_atproto(user=None):
       user (models.User)
 
     Form params:
-      pds (str): the new PDS's domain or URL
+      pds (str): the new PDS's URL
     """
     pds = flask_util.get_required_param('pds').strip()
-    if DOMAIN_RE.fullmatch(pds):
-        pds = f'https://{pds}'
-
     if not util.is_web(pds):
         flash(f"{pds} doesn't look like a PDS domain or URL.")
         return redirect('/settings')
@@ -685,8 +680,6 @@ def migrate_to_atproto_create_account(user=None):
                       email=email, handle=handle, handle_domain=handle_domain,
                       invite_code=invite_code, show_invite_code=bool(invite_code),
                       show_phone_verification_code=bool(phone_verification_code))
-
-    logger.info(f'Migrating out {user.key.id()} to ATProto PDS {pds_domain}')
 
     try:
         resp = ATProto.create_account_for_migrate_out(

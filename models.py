@@ -1178,6 +1178,7 @@ class User(AddRemoveMixin, StringIdModel, metaclass=ProtocolUserMeta):
 
         if name and self.name() != full_handle:
             name_str = self.name() or ''
+            handle_str = ellipsize(handle_str, chars=40)
 
         if handle_str and name_str:
             dot = ' &middot; '
@@ -1187,7 +1188,7 @@ class User(AddRemoveMixin, StringIdModel, metaclass=ProtocolUserMeta):
             a_close = '</a>'
 
         name_html = f'<span style="unicode-bidi: isolate">{ellipsize(name_str, chars=40)}</span>' if name_str else ''
-        return f'{logo_html}{a_open}{img}{name_html}{dot}{ellipsize(handle_str, chars=40)}{a_close}'
+        return f'{logo_html}{a_open}{img}{name_html}{dot}{handle_str}{a_close}'
 
     def profile_picture(self):
         """Returns the user's profile picture image URL, if available, or None."""

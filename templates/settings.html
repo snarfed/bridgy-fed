@@ -43,7 +43,7 @@ $(document).ready(function() {
     </form>
 
     {# TODO: generalize #}
-    {% if 'atproto' in user.enabled_protocols %}
+    {% if user.is_enabled(ATProto) and not isinstance(user, ATProto) %}
       <form method="post" action="/settings/set-username" class="settings-item">
         <input name="key" type="hidden" value="{{ key }}" />
         <input name="protocol" type="hidden" value="atproto" />
@@ -53,28 +53,35 @@ $(document).ready(function() {
       </form>
     {% endif %}
 
-    {% if 'activitypub' in user.enabled_protocols %}
-      <form method="post" action="/settings/migrate-to-activitypub"
-            class="settings-item"
+    {# TODO remove for migration launch #}
+    {% if 'snarfed' not in user.handle %} <!-- {% endif %}
+
+    {% if user.is_enabled(ActivityPub) and not isinstance(user, ActivityPub) %}
+      <form method="post" action="/settings/migrate-to-activitypub" class="settings-item"
             onsubmit="return window.confirm('Migrating out is irreversible. Are you sure?')">
         <input name="key" type="hidden" value="{{ key }}" />
-        <label for="{{ key }}-migrate-ap">Migrate out of the fediverse to:</label>
+        <label for="{{ key }}-migrate-ap">
+          <a href="/docs#migration">Migrate fediverse account</a> to:
+        </label>
         <input id="{{ key }}-migrate-ap" type="text" name="handle"
                placeholder="@you@instance.com" required />
         <input type="submit" value="Go" class="btn btn-default" />
       </form>
     {% endif %}
 
-    {% if 'atproto' in user.enabled_protocols %}
-      <form method="post" action="/settings/migrate-to-atproto"
-            class="settings-item">
+    {% if user.is_enabled(ATProto) and not isinstance(user, ATProto) %}
+      <form method="post" action="/settings/migrate-to-atproto" class="settings-item">
         <input name="key" type="hidden" value="{{ key }}" />
-        <label for="{{ key }}-migrate-pds">Migrate out of Bluesky to PDS:</label>
-        <input id="{{ key }}-migrate-pds" type="text" name="pds"
-               placeholder="pds.host" required />
+        <label for="{{ key }}-migrate-pds">
+          <a href="/docs#migration">Migrate Bluesky account</a> to PDS:
+        </label>
+        <input id="{{ key }}-migrate-pds" name="pds" type="url" scheme="https" placeholder="pds.host" required />
         <input type="submit" value="Go" class="btn btn-default" />
       </form>
     {% endif %}
+
+    {# TODO remove for migration launch #}
+    {% if 'snarfed' not in user.handle %} --> {% endif %}
 
     <form method="post" action="/settings/toggle-notifs" class="settings-item">
       <input name="key" type="hidden" value="{{ key }}" />

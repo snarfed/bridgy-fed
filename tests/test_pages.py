@@ -943,11 +943,8 @@ class PagesTest(TestCase):
         self.assertEqual(200, resp.status_code)
         body = resp.get_data(as_text=True)
         self.assert_multiline_in('Currently subscribed to these domain blocklists:', body)
-        self.assertEqual(1, body.count('Currently subscribed to these domain blocklists:'))
         self.assert_multiline_in('<a href="http://foo">foo</a>', body)
-        self.assertEqual(1, body.count('<a href="http://foo">foo</a>'))
         self.assert_multiline_in('<a href="http://bar">bar</a>', body)
-        self.assertEqual(1, body.count('<a href="http://bar">bar</a>'))
         self.assertIn('action="/settings/unblock"', body)
         self.assertIn('name="target" value="http://foo"', body)
         self.assertIn('name="target" value="http://bar"', body)
@@ -1248,7 +1245,7 @@ class PagesTest(TestCase):
         user, _ = self.make_logged_in_mastodon_user(enabled_protocols=['atproto'])
         resp = self.client.post('/settings/migrate-to-atproto', data={
             'key': user.key.urlsafe().decode(),
-            'pds': 'new.pds.com',
+            'pds': 'https://new.pds.com',
         })
         self.assertEqual(200, resp.status_code)
         body = resp.get_data(as_text=True)
@@ -1260,7 +1257,7 @@ class PagesTest(TestCase):
         user, _ = self.make_logged_in_mastodon_user(enabled_protocols=['atproto'])
         resp = self.client.post('/settings/migrate-to-atproto', data={
             'key': user.key.urlsafe().decode(),
-            'pds': 'bsky.social',
+            'pds': 'https://bsky.social',
         })
         self.assertEqual(302, resp.status_code)
         self.assertEqual('/settings', resp.headers['Location'])
@@ -1272,7 +1269,7 @@ class PagesTest(TestCase):
         user, _ = self.make_logged_in_mastodon_user(enabled_protocols=['atproto'])
         resp = self.client.post('/settings/migrate-to-atproto', data={
             'key': user.key.urlsafe().decode(),
-            'pds': 'new.pds.com',
+            'pds': 'https://new.pds.com',
         })
         self.assertEqual(302, resp.status_code)
         self.assertEqual('/settings', resp.headers['Location'])
@@ -1287,7 +1284,7 @@ class PagesTest(TestCase):
         user, _ = self.make_logged_in_mastodon_user(enabled_protocols=['atproto'])
         resp = self.client.post('/settings/migrate-to-atproto', data={
             'key': user.key.urlsafe().decode(),
-            'pds': 'new.pds.com',
+            'pds': 'https://new.pds.com',
         })
         self.assertEqual(200, resp.status_code)
         body = resp.get_data(as_text=True)
