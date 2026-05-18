@@ -10,7 +10,7 @@ runtime: python
 runtime_config:
     operating_system: ubuntu22
     # keep this in sync with the test job image in .circleci/config.yml!
-    runtime_version: "3.11"
+    runtime_version: "3.12"
 
 resources:
   cpu: 1
