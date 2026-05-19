@@ -2520,3 +2520,45 @@ def send_task():
         logger.info(f'Failed sending!')
 
     return '', 200 if sent else 204 if sent is False else 304
+
+
+@cloud_tasks_only(log=None)
+def user_enabled_task():
+    r"""Task handler for when a user enables a protocol.
+
+    DMs any dormant :class:`models.Follower`\s pointing at the user to let them
+    know the user is now bridged, so they can follow them for real, and flips
+    those ``Follower``\s from ``dormant`` to ``inactive``.
+
+    Parameters:
+      user (url-safe google.cloud.ndb.key.Key): the :class:`models.User` who
+        enabled bridging
+      protocol (str): ``LABEL`` of the protocol they enabled
+    """
+    common.log_request()
+
+    proto = PROTOCOLS[request.form['protocol']]
+    user = ndb.Key(urlsafe=request.form['user']).get()
+    assert user
+    logger.info(f'{user.key.id()} is {user.status or "ok"}')
+    if user.status:
+        raise ErrorButDoNotRetryTask()
+
+    followers = Follower.query(Follower.to == user.key,
+                               Follower.status == 'dormant').fetch()
+    from_users = ndb.get_multi(
+        f.from_ for f in followers if f.from_.kind() == proto._get_kind())
+
+    for follower, from_user in zip(followers, from_users):
+        if from_user and not from_user.status:
+            logger.info('Updating and DMing Follower from {from_user.key.id()}')
+            follower.status = 'inactive'
+            follower.put()
+
+            relationship = {
+                'bounce': ', who you originally followed before you Bounced,',
+                'requested': ', who you asked to bridge,',
+            }.get(follower.reason, '')
+            dms.maybe_send(from_=proto, to_user=from_user, text=f'<p>Hi! {user.html_link(proto=proto, proto_fallback=True)}{relationship} has bridged their account into {proto.PHRASE}. You can follow them now if you want.')
+
+    return '', 200

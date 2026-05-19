@@ -5245,3 +5245,48 @@ class ProtocolReceiveTest(TestCase):
 
         expected_eta = NOW_SECONDS + protocol.MEMCACHE_DOWN_TASK_DELAY.total_seconds()
         self.assert_task(mock_create_task, 'send', eta_seconds=expected_eta, **params)
+
+    # These exercise protocol.user_enabled_task. Since tests run tasks inline
+    # (common.RUN_TASKS_INLINE), they only implicitly cover the task's creation
+    # (in User.enable_protocol) and consumption (the /queue/user-enabled route).
+    def test_enable_protocol_dms_dormant_followers(self):
+        self.make_user(id='efake.brid.gy', cls=Web)
+        self.make_user(id='other.brid.gy', cls=Web)
+        alice = self.make_user(id='efake:alice', cls=ExplicitFake,
+                               enabled_protocols=['other'], obj_as1={'x': 'y'})
+        bob = self.make_user(id='other:bob', cls=OtherFake, obj_as1={'x': 'y'})
+        follower = Follower.get_or_create(from_=alice, to=bob, status='dormant',
+                                          reason='requested')
+
+        bob.enable_protocol(ExplicitFake)
+
+        self.assert_sent(ExplicitFake, alice, '?', '<p>Hi! <a class="h-card u-author mention" rel="me" href="web:efake:other:bob" title="other:handle:bob &middot; efake:handle:other:handle:bob"><span style="unicode-bidi: isolate">other:handle:bob</span> &middot; efake:handle:other:handle:bob</a>, who you asked to bridge, has bridged their account into efake-phrase. You can follow them now if you want.')
+        self.assertEqual('inactive', follower.key.get().status)
+
+    def test_enable_protocol_dms_dormant_followers_bounce(self):
+        self.make_user(id='efake.brid.gy', cls=Web)
+        self.make_user(id='other.brid.gy', cls=Web)
+        alice = self.make_user(id='efake:alice', cls=ExplicitFake,
+                               enabled_protocols=['other'], obj_as1={'x': 'y'})
+        bob = self.make_user(id='other:bob', cls=OtherFake, obj_as1={'x': 'y'})
+        follower = Follower.get_or_create(from_=alice, to=bob, status='dormant',
+                                          reason='bounce')
+
+        bob.enable_protocol(ExplicitFake)
+        self.assert_sent(ExplicitFake, alice, '?', '<p>Hi! <a class="h-card u-author mention" rel="me" href="web:efake:other:bob" title="other:handle:bob &middot; efake:handle:other:handle:bob"><span style="unicode-bidi: isolate">other:handle:bob</span> &middot; efake:handle:other:handle:bob</a>, who you originally followed before you Bounced, has bridged their account into efake-phrase. You can follow them now if you want.')
+        self.assertEqual('inactive', follower.key.get().status)
+
+    def test_enable_protocol_skips_dormant_followers_on_other_protocol(self):
+        self.make_user(id='efake.brid.gy', cls=Web)
+        self.make_user(id='other.brid.gy', cls=Web)
+        alice = self.make_user(id='efake:alice', cls=ExplicitFake,
+                               enabled_protocols=['other'], obj_as1={'x': 'y'})
+        bob = self.make_user(id='other:bob', cls=OtherFake, obj_as1={'x': 'y'})
+        follower = Follower.get_or_create(from_=alice, to=bob, status='dormant',
+                                          reason='requested')
+
+        # bob enables fake, but alice is on efake, so she still can't follow him
+        bob.enable_protocol(Fake)
+
+        self.assertEqual([], ExplicitFake.sent)
+        self.assertEqual('dormant', follower.key.get().status)

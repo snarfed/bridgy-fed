@@ -841,8 +841,9 @@ class User(AddRemoveMixin, StringIdModel, metaclass=ProtocolUserMeta):
         dms.maybe_send(from_=to_proto, to_user=self, type='welcome', text=f"""Welcome to Bridgy Fed! Your account will soon be bridged to {to_proto.PHRASE} at {self.html_link(proto=to_proto, name=False)}. <a href="https://fed.brid.gy/docs">See the docs</a> and <a href="https://{PRIMARY_DOMAIN}{self.user_page_path()}">your user page</a> for more information. To disable this and delete your bridged profile, block this account.""")
         self.put()
 
-        msg = f'Enabled {to_proto.LABEL} for {self.key.id()} : {self.user_page_path()}'
-        logger.info(msg)
+        common.create_task(queue='user-enabled', user=self.key.urlsafe(),
+                           protocol=to_proto.LABEL)
+        logger.info(f'Enabled {to_proto.LABEL} for {self.key.id()}')
 
     def disable_protocol(self, to_proto):
         """Removes ``to_proto` from :attr:`enabled_protocols``.
@@ -2065,6 +2066,7 @@ class Object(AddRemoveMixin, StringIdModel):
 class Follower(ndb.Model):
     """A follower of a Bridgy Fed user."""
     STATUSES = ('active', 'inactive', 'dormant')
+    REASONS = ('requested', 'bounce')
 
     from_ = ndb.KeyProperty(name='from', required=True)
     """The follower."""
@@ -2079,8 +2081,9 @@ class Follower(ndb.Model):
     ``dormant`` means the followee isn't bridged (yet), so the follow can't be
     delivered. If they enable the bridge, we notify the follower.
     """
-    reason = ndb.StringProperty()
-    """Optional explanation for this follow's :attr:`status`, eg why it's dormant."""
+    reason = ndb.StringProperty(choices=REASONS)
+    """Optional explanation for this follow's :attr:`status`, eg why it's
+    dormant. One of :attr:`REASONS`."""
 
     created = ndb.DateTimeProperty(auto_now_add=True)
     updated = ndb.DateTimeProperty(auto_now=True)

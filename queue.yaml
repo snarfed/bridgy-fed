@@ -55,6 +55,14 @@ queue:
     min_backoff_seconds: 300
     max_doublings: 2
 
+- name: user-enabled
+  rate: 500/s
+  max_concurrent_requests: 2000
+  retry_parameters:
+    task_retry_limit: 2
+    min_backoff_seconds: 30
+    max_doublings: 2
+
 #
 # Bounce
 #
