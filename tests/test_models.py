@@ -2065,6 +2065,19 @@ class FollowerTest(TestCase):
         got = follower.key.get()
         self.assertEqual('inactive', got.status)
 
+    def test_get_or_create_dormant_over_active_fails(self):
+        Follower.get_or_create(from_=self.user, to=self.other_user)
+
+        with self.assertRaises(AssertionError):
+            Follower.get_or_create(from_=self.user, to=self.other_user,
+                                   status='dormant', reason='requested')
+
+        # inactive => dormant is allowed
+        Follower.get_or_create(from_=self.user, to=self.other_user, status='inactive')
+        follower = Follower.get_or_create(from_=self.user, to=self.other_user,
+                                          status='dormant', reason='requested')
+        self.assertEqual('dormant', follower.key.get().status)
+
 
 class ModelsTest(TestCase):
 

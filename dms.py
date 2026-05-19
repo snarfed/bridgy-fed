@@ -401,11 +401,6 @@ def prompt(from_user, to_proto, handle, *, to_user):
         logger.warning(e)
         return f"Sorry, Bridgy Fed doesn't yet support bridging handle {handle} from {to_proto.PHRASE} to {from_proto.PHRASE}."
 
-    if (models.DM(protocol=from_proto.LABEL, type='request_bridging')
-          in to_user.sent_dms):
-        # already requested
-        return f"We've already sent {to_user.html_link()} a DM. Fingers crossed!"
-
     # check and update rate limits
     attempts_key = f'dm-user-requests-{from_user.LABEL}-{from_user.key.id()}'
     # incr leaves existing expiration as is, doesn't change it
@@ -417,6 +412,17 @@ def prompt(from_user, to_proto, handle, *, to_user):
             expire=int(REQUESTS_LIMIT_EXPIRE.total_seconds()))
     elif attempts > REQUESTS_LIMIT_USER:
         return f"Sorry, you've hit your limit of {REQUESTS_LIMIT_USER} requests per day. Try again tomorrow!"
+
+    # track this as a dormant follow so we can notify the requester if to_user
+    # ever enables the bridge
+    # https://github.com/snarfed/bridgy-fed/issues/1321
+    models.Follower.get_or_create(from_=from_user, to=to_user, status='dormant',
+                                  reason='requested')
+
+    if (models.DM(protocol=from_proto.LABEL, type='request_bridging')
+          in to_user.sent_dms):
+        # already requested
+        return f"We've already sent {to_user.html_link()} a DM. Fingers crossed!"
 
     # send the DM request!
     maybe_send(from_=from_proto, to_user=to_user, type='request_bridging', text=f"""\

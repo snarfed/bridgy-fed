@@ -2064,7 +2064,7 @@ class Object(AddRemoveMixin, StringIdModel):
 
 class Follower(ndb.Model):
     """A follower of a Bridgy Fed user."""
-    STATUSES = ('active', 'inactive')
+    STATUSES = ('active', 'inactive', 'dormant')
 
     from_ = ndb.KeyProperty(name='from', required=True)
     """The follower."""
@@ -2074,7 +2074,13 @@ class Follower(ndb.Model):
     follow = ndb.KeyProperty(Object)
     """The last follow activity."""
     status = ndb.StringProperty(choices=STATUSES, default='active')
-    """Whether this follow is active or not."""
+    """Whether this follow is active or not.
+
+    ``dormant`` means the followee isn't bridged (yet), so the follow can't be
+    delivered. If they enable the bridge, we notify the follower.
+    """
+    reason = ndb.StringProperty()
+    """Optional explanation for this follow's :attr:`status`, eg why it's dormant."""
 
     created = ndb.DateTimeProperty(auto_now_add=True)
     updated = ndb.DateTimeProperty(auto_now=True)
@@ -2121,6 +2127,9 @@ class Follower(ndb.Model):
         elif kwargs:
             # update existing entity with new property values, eg to make an
             # inactive Follower active again
+            assert not (kwargs.get('status') == 'dormant'
+                        and follower.status == 'active'), \
+                f"can't make active Follower {follower.key} dormant"
             for prop, val in kwargs.items():
                 setattr(follower, prop, val)
             follower.put()

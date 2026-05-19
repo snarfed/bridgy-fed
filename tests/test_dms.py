@@ -287,6 +287,11 @@ class DmsTest(TestCase):
         self.assert_sent(ExplicitFake, bob, 'request_bridging',
                          ALICE_REQUEST_CONTENT)
 
+        follower = Follower.query(Follower.from_ == alice.key,
+                                  Follower.to == bob.key).get()
+        self.assertEqual('dormant', follower.status)
+        self.assertEqual('requested', follower.reason)
+
     def test_receive_prompt_strips_leading_at_sign(self):
         alice, bob = self.make_alice_bob()
 
@@ -427,6 +432,11 @@ class DmsTest(TestCase):
         self.assert_replied(OtherFake, alice, '?', """We've already sent <a class="h-card u-author mention" rel="me" href="web:other:bob" title="other:handle:bob">other:handle:bob</a> a DM. Fingers crossed!""")
         self.assertEqual([], OtherFake.sent)
         self.assertEqual([], Fake.sent)
+
+        follower = Follower.query(Follower.from_ == alice.key,
+                                  Follower.to == bob.key).get()
+        self.assertEqual('dormant', follower.status)
+        self.assertEqual('requested', follower.reason)
 
     @patch.object(dms, 'REQUESTS_LIMIT_USER', 2)
     def test_receive_prompt_request_rate_limit(self):
