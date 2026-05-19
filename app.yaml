@@ -11,14 +11,29 @@ runtime: python312
 # https://gunicorn.org/reference/settings/
 entrypoint: gunicorn --workers 2 --threads 15 --timeout 60 -b :$PORT app:app
 
-# background: https://github.com/snarfed/bridgy/issues/578
-# https://github.com/snarfed/bridgy/issues/1051
 # instance_class: F1
+
+# Autoscaling: this service is heavily IO-bound (CPU is only ~1/15 of wall clock
+# time), so CPU - not request throughput - is the binding scaler that sets our
+# instance floor. min_pending_latency is how long a request may wait in the queue
+# before GAE spins up a new instance; the default (~30ms) spawns far too aggressively
+# for a bursty IO-bound workload and badly over-provisions us, so we tolerate up to
+# 1s of queueing instead. max_idle_instances keeps just one cheap warm spare.
+# max_concurrent_requests should stay roughly matched to total gunicorn threads
+# (workers x threads); setting it well above that just hides queueing as request
+# latency. target_throughput_utilization is effectively slack here since CPU, not
+# throughput, is what scales us; target_cpu_utilization (default .6) is the real
+# cost/latency lever - raising it runs instances hotter for fewer instances, which is
+# relatively cheap latency-wise because IO wait dominates total latency.
+#
+# earlier background:
+# https://github.com/snarfed/bridgy/issues/578
+# https://github.com/snarfed/bridgy/issues/1051
 automatic_scaling:
   max_instances: 100
   max_idle_instances: 1
   max_concurrent_requests: 40
-  # min_pending_latency: 2s
+  min_pending_latency: 1s
   # target_cpu_utilization: .8
   target_throughput_utilization: .8
 
