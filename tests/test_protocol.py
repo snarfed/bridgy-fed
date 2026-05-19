@@ -48,7 +48,6 @@ from web import Web
 
 from .test_activitypub import ACTOR, NOTE
 from .test_atproto import DID_DOC
-from . import test_dms
 from .test_web import (
     ACTOR_HTML_RESP,
     ACTOR_AS1_UNWRAPPED_URLS,
@@ -1895,9 +1894,9 @@ class ProtocolReceiveTest(TestCase):
         self.assertEqual(204, code)
 
         # check that we sent a prompt to eve and a notif to other:user
-        test_dms.DmsTest().assert_sent(OtherFake, eve, 'replied_to_bridged_user', """Hi! You <a href="http://efake/reply">recently replied to</a> <a class="h-card u-author mention" rel="me" href="web:other:user" title="other:handle:user">other:handle:user</a>, who's bridged here from other-phrase. If you want them to see your replies, you can bridge your account into other-phrase by following this account. <a href="https://fed.brid.gy/docs">See the docs</a> for more information.""")
+        self.assert_sent(OtherFake, eve, 'replied_to_bridged_user', """Hi! You <a href="http://efake/reply">recently replied to</a> <a class="h-card u-author mention" rel="me" href="web:other:user" title="other:handle:user">other:handle:user</a>, who's bridged here from other-phrase. If you want them to see your replies, you can bridge your account into other-phrase by following this account. <a href="https://fed.brid.gy/docs">See the docs</a> for more information.""")
         token = common.make_jwt(user=user, scope='respond', obj_id='efake:reply')
-        test_dms.DmsTest().assert_sent(ExplicitFake, user, '?', f"""\
+        self.assert_sent(ExplicitFake, user, '?', f"""\
 <p>Hi! Here are your recent interactions from people who aren't bridged into other-phrase. Click the <em>respond</em> links to reply, like, repost, or block them.
 <ul>
 <li><a href="http://efake/reply">efake/reply</a> (<a href="https://fed.brid.gy/other/other:handle:user/respond?obj_id=efake:reply&token={token}">respond</a>)
@@ -1933,9 +1932,9 @@ class ProtocolReceiveTest(TestCase):
         self.assertEqual(204, code)
 
         # check that we sent a prompt to eve and a notif to other:user
-        test_dms.DmsTest().assert_sent(OtherFake, eve, 'replied_to_bridged_user', """Hi! You <a href="http://efake/quote">recently quoted</a> <a class="h-card u-author mention" rel="me" href="web:other:user" title="other:handle:user">other:handle:user</a>, who's bridged here from other-phrase. If you want them to see your quotes, you can bridge your account into other-phrase by following this account. <a href="https://fed.brid.gy/docs">See the docs</a> for more information.""")
+        self.assert_sent(OtherFake, eve, 'replied_to_bridged_user', """Hi! You <a href="http://efake/quote">recently quoted</a> <a class="h-card u-author mention" rel="me" href="web:other:user" title="other:handle:user">other:handle:user</a>, who's bridged here from other-phrase. If you want them to see your quotes, you can bridge your account into other-phrase by following this account. <a href="https://fed.brid.gy/docs">See the docs</a> for more information.""")
         token = common.make_jwt(user=user, scope='respond', obj_id='efake:quote')
-        test_dms.DmsTest().assert_sent(ExplicitFake, user, '?', f"""\
+        self.assert_sent(ExplicitFake, user, '?', f"""\
 <p>Hi! Here are your recent interactions from people who aren't bridged into other-phrase. Click the <em>respond</em> links to reply, like, repost, or block them.
 <ul>
 <li><a href="http://efake/quote">efake/quote</a> (<a href="https://fed.brid.gy/other/other:handle:user/respond?obj_id=efake:quote&token={token}">respond</a>)
@@ -1964,9 +1963,9 @@ class ProtocolReceiveTest(TestCase):
         self.assertEqual(204, code)
 
         # check that we sent a prompt to eve and a notif to other:user
-        test_dms.DmsTest().assert_sent(OtherFake, eve, 'replied_to_bridged_user', """Hi! You <a href="http://efake/mention">recently mentioned</a> <a class="h-card u-author mention" rel="me" href="web:other:user" title="other:handle:user">other:handle:user</a>, who's bridged here from other-phrase. If you want them to see your mentions, you can bridge your account into other-phrase by following this account. <a href="https://fed.brid.gy/docs">See the docs</a> for more information.""")
+        self.assert_sent(OtherFake, eve, 'replied_to_bridged_user', """Hi! You <a href="http://efake/mention">recently mentioned</a> <a class="h-card u-author mention" rel="me" href="web:other:user" title="other:handle:user">other:handle:user</a>, who's bridged here from other-phrase. If you want them to see your mentions, you can bridge your account into other-phrase by following this account. <a href="https://fed.brid.gy/docs">See the docs</a> for more information.""")
         token = common.make_jwt(user=user, scope='respond', obj_id='efake:mention')
-        test_dms.DmsTest().assert_sent(ExplicitFake, user, '?', f"""\
+        self.assert_sent(ExplicitFake, user, '?', f"""\
 <p>Hi! Here are your recent interactions from people who aren't bridged into other-phrase. Click the <em>respond</em> links to reply, like, repost, or block them.
 <ul>
 <li><a href="http://efake/mention">efake/mention</a> (<a href="https://fed.brid.gy/other/other:handle:user/respond?obj_id=efake:mention&token={token}">respond</a>)
@@ -4381,7 +4380,7 @@ class ProtocolReceiveTest(TestCase):
         ], ExplicitFake.sent[1:])
 
         ExplicitFake.sent = ExplicitFake.sent[:1]
-        test_dms.DmsTest().assert_sent(Fake, user, 'welcome', 'Welcome to Bridgy Fed! Your account will soon be bridged to fake-phrase at <a class="h-card u-author mention" rel="me" href="web:fake:efake:user" title="fake:handle:efake:handle:user">fake:handle:efake:handle:user</a>. <a href="https://fed.brid.gy/docs">See the docs</a> and <a href="https://fed.brid.gy/efake/efake:handle:user">your user page</a> for more information. To disable this and delete your bridged profile, block this account.')
+        self.assert_sent(Fake, user, 'welcome', 'Welcome to Bridgy Fed! Your account will soon be bridged to fake-phrase at <a class="h-card u-author mention" rel="me" href="web:fake:efake:user" title="fake:handle:efake:handle:user">fake:handle:efake:handle:user</a>. <a href="https://fed.brid.gy/docs">See the docs</a> and <a href="https://fed.brid.gy/efake/efake:handle:user">your user page</a> for more information. To disable this and delete your bridged profile, block this account.')
 
         # another follow should be a noop
         follow['id'] += '2'
@@ -4529,7 +4528,7 @@ class ProtocolReceiveTest(TestCase):
         self.assertEqual(['efake:user'], ExplicitFake.fetched)
 
         self.assertEqual(2, len(ExplicitFake.sent))
-        test_dms.DmsTest().assert_sent(
+        self.assert_sent(
             Fake, user, 'requires-name',
             "Hi! Your account isn't eligible for bridging yet because your account's name and username are the same.",
             strict=False)
@@ -4569,7 +4568,7 @@ class ProtocolReceiveTest(TestCase):
         self.assertFalse(user.is_enabled(Fake))
 
         self.assertEqual(2, len(ExplicitFake.sent))
-        test_dms.DmsTest().assert_sent(
+        self.assert_sent(
             Fake, user, 'unsupported-handle-fa',
             "Hi! Your account isn't eligible for bridging yet because your handle efake:handle:user-nope translated to fake-phrase is fake:handle:efake:handle:user-nope, which isn't supported there.",
             strict=False)

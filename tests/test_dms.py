@@ -15,7 +15,7 @@ from common import memcache
 import dms
 from dms import maybe_send, receive
 import ids
-from models import DM, Follower, Object, PROTOCOLS, Target, User
+from models import DM, Follower, Object, PROTOCOLS, Target
 from web import Web
 
 from .testutil import ExplicitFake, Fake, OtherFake, TestCase
@@ -72,43 +72,6 @@ class DmsTest(TestCase):
     def assert_replied(self, *args, **kwargs):
         kwargs.setdefault('in_reply_to', 'efake:dm')
         self.assert_sent(*args, **kwargs)
-
-    def assert_sent(self, from_, tos, type, text, in_reply_to=None, strict=True,
-                    **kwargs):
-        if not isinstance(tos, list):
-            tos = [tos]
-
-        self.assertGreaterEqual(len(tos[-1].sent), len(tos))
-
-        if not isinstance(from_, User):
-            from_ = Web.get_by_id(from_.bot_user_id())
-
-        for expected, (target, activity) in zip(tos, tos[-1].sent, strict=strict):
-            id = expected.key.id()
-            self.assertEqual(f'{id}:target', target)
-            content = activity['object'].pop('content')
-            activity['object'].pop('@context', None)
-            if content != text:
-                assert content.startswith(text), content
-            expected = {
-                'objectType': 'activity',
-                'verb': 'post',
-                'id': f'{from_.profile_id()}#bridgy-fed-dm-{type}-{id}-2022-01-02T03:04:05+00:00-create',
-                'actor': from_.key.id(),
-                'object': {
-                    'objectType': 'note',
-                    'id': f'{from_.profile_id()}#bridgy-fed-dm-{type}-{id}-2022-01-02T03:04:05+00:00',
-                    'author': from_.key.id(),
-                    'inReplyTo': in_reply_to,
-                    'tags': [{'objectType': 'mention', 'url': id}],
-                    'published': '2022-01-02T03:04:05+00:00',
-                    'to': [id],
-                    **kwargs,
-                },
-                'published': '2022-01-02T03:04:05+00:00',
-                'to': [id],
-            }
-            self.assertEqual(expected, activity)
 
     def test_maybe_send_from_protocol(self):
         self.make_user(id='fa.brid.gy', cls=Web)

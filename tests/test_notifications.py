@@ -11,8 +11,6 @@ from notifications import add_notification, get_notifications, NOTIFY_TASK_FREQ
 from .testutil import ExplicitFake, Fake, TestCase
 from web import Web
 
-from . import test_dms
-
 
 @patch.object(Fake, 'SUPPORTS_DMS', True)
 class NotificationsTest(TestCase):
@@ -109,7 +107,7 @@ class NotificationsTest(TestCase):
 
         token_a = common.make_jwt(user=user, scope='respond', obj_id='efake:a')
         token_b = common.make_jwt(user=user, scope='respond', obj_id='http://notif/b')
-        test_dms.DmsTest().assert_sent(ExplicitFake, user, '?', f"""\
+        self.assert_sent(ExplicitFake, user, '?', f"""\
 <p>Hi! Here are your recent interactions from people who aren't bridged into fake-phrase. Click the <em>respond</em> links to reply, like, repost, or block them.
 <ul>
 <li><a href="http://notif/a">notif/a</a> (<a href="https://fed.brid.gy/fa/fake:handle:user/respond?obj_id=efake:a&token={token_a}">respond</a>)
