@@ -34,7 +34,7 @@ automatic_scaling:
   max_idle_instances: 1
   max_concurrent_requests: 40
   min_pending_latency: 1s
-  # target_cpu_utilization: .8
+  target_cpu_utilization: .8
   target_throughput_utilization: .8
 
 inbound_services:
