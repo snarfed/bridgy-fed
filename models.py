@@ -2112,20 +2112,23 @@ class Follower(ndb.Model):
         it first.
 
         Args:
-          from_ (User)
-          to (User)
+          from_ (User or Key)
+          to (User or Key)
 
         Returns:
           Follower:
         """
-        assert from_
-        assert to
+        from_key = from_ if isinstance(from_, ndb.Key) else from_.key
+        to_key = to if isinstance(to, ndb.Key) else to.key
 
-        follower = Follower.query(Follower.from_ == from_.key,
-                                  Follower.to == to.key,
+        assert from_key
+        assert to_key
+
+        follower = Follower.query(Follower.from_ == from_key,
+                                  Follower.to == to_key,
                                   ).get()
         if not follower:
-            follower = Follower(from_=from_.key, to=to.key, **kwargs)
+            follower = Follower(from_=from_key, to=to_key, **kwargs)
             follower.put()
         elif kwargs:
             # update existing entity with new property values, eg to make an

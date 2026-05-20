@@ -2054,7 +2054,7 @@ class FollowerTest(TestCase):
         self.assert_entities_equal(follower, follower2)
         self.assertEqual(1, Follower.query().count())
 
-        Follower.get_or_create(to=self.user, from_=self.other_user)
+        Follower.get_or_create(to=self.user.key, from_=self.other_user.key)
         Follower.get_or_create(from_=self.user,
                                to=self.make_user('efake:baz', cls=ExplicitFake))
         self.assertEqual(3, Follower.query().count())
