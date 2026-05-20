@@ -39,9 +39,13 @@ class CommandSpec:
     to_user_bridged: object        # True / False / 'eligible' / None
     """Whether ``to_user`` should already be bridged. ``True``, ``False``,
        ``None`` for either, or ``'eligible'`` for not bridged but eligible."""
+    help_text: Optional[str] = None
+    """One-line help string for this command, including name and args, eg
+       ``'<em>username [domain]</em>: set a custom domain username (handle)'``"""
 
 
-def command(names, *, to_proto=None, from_user_bridged=None, to_user_bridged=None):
+def command(names, *, to_proto=None, from_user_bridged=None, to_user_bridged=None,
+            help_text=None):
     """Function decorator. Defines and registers a DM command.
 
     The decorated function's signature determines the cmd_args it accepts.
@@ -65,10 +69,12 @@ def command(names, *, to_proto=None, from_user_bridged=None, to_user_bridged=Non
     """
     def decorator(fn):
         spec = CommandSpec(fn=fn, from_user_bridged=from_user_bridged,
-                           to_user_bridged=to_user_bridged)
+                           to_user_bridged=to_user_bridged, help_text=help_text)
 
         def wrapped(from_user, to_proto, cmd, cmd_args, dm_as1):
             return dispatch(spec, from_user, to_proto, cmd, cmd_args, dm_as1)
+
+        wrapped.spec = spec
 
         if names is None:
             names_ = [None]
@@ -189,25 +195,19 @@ def dispatch(spec, from_user, to_proto, cmd, cmd_args, dm_as1):
 
 
 def help_text(from_user, to_proto):
-    extra = ''
-    if to_proto.LABEL == 'atproto':
-        extra = """<li><em>did</em>: get your bridged Bluesky account's <a href="https://atproto.com/guides/identity#identifiers">DID</a>"""
+    items = []
+
+    for name, by_proto in _commands.items():
+        if fn := (by_proto.get(to_proto.LABEL) or by_proto.get(None)):
+            if fn.spec.help_text:
+                items.append(f'<li>{fn.spec.help_text}')
 
     text = f"""\
 <p>Hi! I'm a friendly bot that can help you bridge your account into {to_proto.PHRASE}. Here are some commands I respond to:</p>
 <ul>
-<li><em>start</em>: enable bridging for your account
-<li><em>stop</em>: disable bridging for your account
-<li><em>notify</em>: enable notifications when someone who's not bridged replies to you, quotes you, or @-mentions you
-<li><em>mute</em>: disable notifications
-<li><em>username [domain]</em>: set a custom domain username (handle)
-<li><em>[handle or ID]</em>: ask me to DM a user on {to_proto.PHRASE} to request that they bridge their account into {from_user.PHRASE}
-<li><em>block [handle or ID or list URL]...</em>: block one or more users who aren't bridged here, and/or lists, on {to_proto.PHRASE}
-<li><em>unblock [handle or ID or list URL]...</em>: unblock one or more users who aren't bridged here, and/or lists, on {to_proto.PHRASE}
-{extra}
+{'\n'.join(items)}
 <li><em>help</em>: print this message
 </ul>"""
-# <li><em>migrate-to [handle]</em>: migrate your bridged account on {to_proto.PHRASE} out of Bridgy Fed to a native account
 
     if from_user.LABEL == 'atproto':
         text = source.html_to_text(text, ignore_emphasis=True)
@@ -219,39 +219,44 @@ def help(from_user, to_proto):
     return help_text(from_user, to_proto)
 
 
-@command(['yes', 'ok', 'start'], from_user_bridged=False)
+@command(['yes', 'ok', 'start'], from_user_bridged=False,
+         help_text='<em>start</em>: enable bridging for your account')
 def start(from_user, to_proto):
     from_user.enable_protocol(to_proto)
     to_proto.bot_maybe_follow_back(from_user)
 
 
-@command(['no', 'stop'])
+@command(['no', 'stop'], help_text='<em>stop</em>: disable bridging for your account')
 def stop(from_user, to_proto):
     from_user.delete(to_proto)
     from_user.disable_protocol(to_proto)
 
 
-@command(['notify'], from_user_bridged=True)
+@command(['notify'], from_user_bridged=True,
+         help_text="<em>notify</em>: enable notifications when someone who's not bridged replies to you, quotes you, or @-mentions you")
 def notify(from_user, to_proto):
     from_user.send_notifs = 'all'
     from_user.put()
     return f"Notifications enabled! You'll now receive batched notifications via DM when someone on {to_proto.PHRASE} who's not bridged replies to you, quotes you, or @-mentions you. To disable, reply with the text 'mute'."
 
 
-@command(['mute'], from_user_bridged=True)
+@command(['mute'], from_user_bridged=True,
+         help_text='<em>mute</em>: disable notifications')
 def mute(from_user, to_proto):
     from_user.send_notifs = 'none'
     from_user.put()
     return f"Notifications disabled. You won't receive DM notifications when someone on {to_proto.PHRASE} who's not bridged replies to you, quotes you, or @-mentions you. To re-enable, reply with the text 'notify'."
 
 
-@command(['did'], from_user_bridged=True)
+@command(['did'], to_proto='atproto', from_user_bridged=True,
+         help_text="<em>did</em>: get your bridged Bluesky account's <a href=\"https://atproto.com/guides/identity#identifiers\">DID</a>")
 def did(from_user, to_proto):
     if to_proto.LABEL == 'atproto':
         return f'Your DID is <code>{from_user.get_copy(models.PROTOCOLS["atproto"])}</code>'
 
 
-@command(['username', 'handle'], from_user_bridged=True)
+@command(['username', 'handle'], from_user_bridged=True,
+         help_text='<em>username [domain]</em>: set a custom domain username (handle)')
 def username(from_user, to_proto, handle):
     try:
         to_proto.set_username(from_user, handle)
@@ -263,7 +268,8 @@ def username(from_user, to_proto, handle):
     return f"Your username in {to_proto.PHRASE} has been set to {from_user.html_link(proto=to_proto, name=False, handle=True)}. It should appear soon!"
 
 
-@command(['block'], from_user_bridged=True)
+@command(['block'], from_user_bridged=True,
+         help_text="<em>block [handle or ID or list URL]...</em>: block one or more users who aren't bridged here, and/or lists, on {to_proto.PHRASE}")
 def block(from_user, to_proto, *handles):
     # duplicated in unblock
     links = []
@@ -278,7 +284,8 @@ def block(from_user, to_proto, *handles):
     return f"""OK, you're now blocking {', '.join(links)} on {to_proto.PHRASE}."""
 
 
-@command(['unblock'], from_user_bridged=True)
+@command(['unblock'], from_user_bridged=True,
+         help_text="<em>unblock [handle or ID or list URL]...</em>: unblock one or more users who aren't bridged here, and/or lists, on {to_proto.PHRASE}")
 def unblock(from_user, to_proto, *handles):
     # duplicated in block
     links = []
@@ -391,7 +398,8 @@ def migrate_to_atproto(from_user, to_proto, pds, email, handle, password,
     return f"OK, we've migrated your bridged Bluesky account to <code>{resp['handle']}</code> on {pds_domain}."
 
 
-@command(None, from_user_bridged=True, to_user_bridged='eligible')
+@command(None, from_user_bridged=True, to_user_bridged='eligible',
+         help_text='<em>[handle or ID]</em>: ask me to DM a user on {to_proto.PHRASE} to request that they bridge their account into {from_user.PHRASE}')
 def prompt(from_user, to_proto, handle, *, to_user):
     """Prompt a non-bridged user to bridge. No command, just the handle, alone."""
     from_proto = from_user.__class__

@@ -615,6 +615,52 @@ class DmsTest(TestCase):
         reply = Object.get_by_id('https://other.brid.gy/#bridgy-fed-dm-?-did:plc:123-2022-01-02T03:04:05+00:00')
         self.assertIn('start: enable bridging for your account', reply.as1['content'])
 
+    def test_help_text_activitypub(self):
+        alice = self.make_user(id='http://in.st/alice', cls=ActivityPub)
+                             # obj_as1={'inbox': 'http://in.st/alice/inbox'})
+        self.assertEqual("""\
+<p>Hi! I'm a friendly bot that can help you bridge your account into Bluesky. Here are some commands I respond to:</p>
+<ul>
+<li><em>start</em>: enable bridging for your account
+<li><em>start</em>: enable bridging for your account
+<li><em>start</em>: enable bridging for your account
+<li><em>stop</em>: disable bridging for your account
+<li><em>stop</em>: disable bridging for your account
+<li><em>notify</em>: enable notifications when someone who's not bridged replies to you, quotes you, or @-mentions you
+<li><em>mute</em>: disable notifications
+<li><em>did</em>: get your bridged Bluesky account's <a href="https://atproto.com/guides/identity#identifiers">DID</a>
+<li><em>username [domain]</em>: set a custom domain username (handle)
+<li><em>username [domain]</em>: set a custom domain username (handle)
+<li><em>block [handle or ID or list URL]...</em>: block one or more users who aren't bridged here, and/or lists, on {to_proto.PHRASE}
+<li><em>unblock [handle or ID or list URL]...</em>: unblock one or more users who aren't bridged here, and/or lists, on {to_proto.PHRASE}
+<li><em>[handle or ID]</em>: ask me to DM a user on {to_proto.PHRASE} to request that they bridge their account into {from_user.PHRASE}
+<li><em>help</em>: print this message
+</ul>""", dms.help_text(alice, ATProto))
+
+    def test_help_text_atproto(self):
+        self.store_object(id='did:plc:123', raw=DID_DOC)
+        alice = self.make_user(id='did:plc:123', cls=ATProto, obj_bsky={
+            '$type': 'app.bsky.actor.profile',
+            'displayName': 'alice',
+        })
+        self.assertEqual("""\
+Hi! I'm a friendly bot that can help you bridge your account into the fediverse. Here are some commands I respond to:
+
+  * start: enable bridging for your account
+  * start: enable bridging for your account
+  * start: enable bridging for your account
+  * stop: disable bridging for your account
+  * stop: disable bridging for your account
+  * notify: enable notifications when someone who's not bridged replies to you, quotes you, or @-mentions you
+  * mute: disable notifications
+  * username [domain]: set a custom domain username (handle)
+  * username [domain]: set a custom domain username (handle)
+  * block [handle or ID or list URL]...: block one or more users who aren't bridged here, and/or lists, on {to_proto.PHRASE}
+  * unblock [handle or ID or list URL]...: unblock one or more users who aren't bridged here, and/or lists, on {to_proto.PHRASE}
+  * [handle or ID]: ask me to DM a user on {to_proto.PHRASE} to request that they bridge their account into {from_user.PHRASE}
+  * help: print this message
+""", dms.help_text(alice, ActivityPub))
+
     def test_receive_did_atproto(self):
         for content in 'did', 'did foo':
             ExplicitFake.sent = []
