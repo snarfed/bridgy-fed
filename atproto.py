@@ -1670,8 +1670,9 @@ def send_chat(*, msg, from_repo, to_did):
         util.interpret_http_exception(e)
         if e.response is not None and e.response.status_code == 400:
             body = e.response.json()
-            if (body.get('error') == 'InvalidRequest'
-                    and body.get('message') == 'recipient has disabled incoming messages'):
+            if (body.get('error') == 'NotFollowedBySender'
+                or (body.get('error') == 'InvalidRequest'
+                    and body.get('message') == 'recipient has disabled incoming messages')):
                 return False
         raise
 

@@ -4136,6 +4136,25 @@ Sed tortor neque, aliquet quis posuere aliquam, imperdiet sitamet […]
             'https://chat.local/xrpc/chat.bsky.convo.getConvoForMembers?members=did%3Aplc%3Aalice',
             json=None, data=None, headers=ANY)
 
+    @patch.object(util.session, 'get', return_value=requests_response({
+        'error': 'NotFollowedBySender',
+        'message': 'recipient requires incoming messages to come from someone they follow',
+    }, status=400))
+    def test_send_chat_recipient_not_followed_by_sender(self, mock_get):
+        user = self.make_user_and_repo()
+
+        dm = Object(id='fake:dm', source_protocol='fake', our_as1={
+            'objectType': 'note',
+            'actor': user.key.id(),
+            'content': 'hello world',
+            'to': ['did:plc:alice'],
+        })
+        self.assertFalse(ATProto.send(dm, 'https://bsky.brid.gy/'))
+
+        mock_get.assert_any_call(
+            'https://chat.local/xrpc/chat.bsky.convo.getConvoForMembers?members=did%3Aplc%3Aalice',
+            json=None, data=None, headers=ANY)
+
     def test_send_object_without_id(self):
         user = self.make_user_and_repo()
 
