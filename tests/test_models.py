@@ -8,7 +8,9 @@ from arroba.util import at_uri
 from google.cloud import ndb
 from google.cloud.ndb import tasklets
 from google.cloud.tasks_v2.types import Task
+from google.protobuf.json_format import MessageToDict
 from granary.bluesky import NO_UNAUTHENTICATED_LABEL
+from granary.tests.test_farcaster import message, user_data_message
 from granary.tests.test_bluesky import ACTOR_AS, ACTOR_PROFILE_BSKY
 import granary.nostr
 from granary.nostr import KIND_NOTE, KIND_PROFILE
@@ -1409,6 +1411,43 @@ class ObjectTest(TestCase):
             'url': f'https://njump.me/{URI.removeprefix("nostr:")}',
         }, obj.as1)
 
+    def test_as1_from_farcaster_cast(self):
+        msg = message("""
+type: MESSAGE_TYPE_CAST_ADD
+cast_add_body {
+  text: "hello world"
+}
+""")
+        obj = Object(id='farcaster://123/' + f'0x{msg.hash.hex()}',
+                     farcaster=[MessageToDict(msg, preserving_proto_field_name=True)])
+        self.assert_equals({
+            'objectType': 'note',
+            'id': f'farcaster://123/0x{msg.hash.hex()}',
+            'author': 'farcaster://123',
+            'content': 'hello world',
+            'content_is_html': False,
+            'published': '2021-12-20T11:33:20+00:00',
+            'url': f'https://farcaster.xyz/~/conversations/0x{msg.hash.hex()}',
+        }, obj.as1)
+
+    def test_as1_from_farcaster_user_data(self):
+        msgs = [
+            user_data_message(123, 'USER_DATA_TYPE_DISPLAY', 'Alice'),
+            user_data_message(123, 'USER_DATA_TYPE_USERNAME', 'alice'),
+            user_data_message(123, 'USER_DATA_TYPE_BIO', 'hi'),
+        ]
+        obj = Object(id='farcaster://123', farcaster=[
+            MessageToDict(m, preserving_proto_field_name=True) for m in msgs
+        ])
+        self.assert_equals({
+            'objectType': 'person',
+            'id': 'farcaster://123',
+            'url': 'https://farcaster.xyz/~/profiles/123',
+            'displayName': 'Alice',
+            'username': 'alice',
+            'summary': 'hi',
+        }, obj.as1)
+
     def test_as1_image_proxy_domain(self):
         self.assert_equals({
             'id': 'https://www.threads.net/foo',
@@ -1500,6 +1539,23 @@ class ObjectTest(TestCase):
 
         with self.assertRaises(AssertionError):
             Object(id='not a fake', source_protocol='fake').put()
+
+    def test_put_farcaster_must_be_nonempty_list(self):
+        USER_DATA = {'data': {'type': 'MESSAGE_TYPE_USER_DATA_ADD', 'fid': 123}}
+        CAST = {'data': {'type': 'MESSAGE_TYPE_CAST_ADD', 'fid': 123}}
+
+        Object(id='farcaster://123/0xabc').put()
+        Object(id='farcaster://123/0xabc', farcaster=[CAST]).put()
+        Object(id='farcaster://123', farcaster=[USER_DATA, USER_DATA]).put()
+
+        with self.assertRaises(AssertionError):
+            Object(id='farcaster://123/0xabc', farcaster=[]).put()
+
+        with self.assertRaises(AssertionError):
+            Object(id='farcaster://123/0xabc', farcaster=CAST).put()
+
+        with self.assertRaises(AssertionError):
+            Object(id='farcaster://123', farcaster=[USER_DATA, CAST]).put()
 
     def test_resolve_ids_empty(self):
         obj = Object()

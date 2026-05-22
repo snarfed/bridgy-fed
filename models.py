@@ -18,8 +18,17 @@ from Crypto.PublicKey import RSA
 from flask import request
 from google.cloud import ndb
 from google.cloud.ndb.key import _MAX_KEYPART_BYTES
+from google.protobuf.json_format import ParseDict
 from granary import as1, as2, atom, bluesky, microformats2
 from granary.bluesky import BSKY_APP_URL_RE
+import granary.farcaster
+from granary.generated.farcaster.message_pb2 import (
+    Message as FarcasterMessage,
+    MESSAGE_TYPE_USER_DATA_ADD,
+)
+from granary.generated.farcaster.request_response_pb2 import (
+    MessagesResponse as FarcasterMessagesResponse,
+)
 import granary.nostr
 from granary.source import html_to_text
 import humanize
@@ -1335,6 +1344,8 @@ class Object(AddRemoveMixin, StringIdModel):
     'AT Protocol lexicon, for Bluesky'
     csv = ndb.TextProperty()
     'Other standalone CSV data, eg domain blocklist.'
+    farcaster = JsonProperty()
+    'List of Farcaster Message protobuf dicts. (Always a list to support actors as multiple USER_DATA_ADDs.)'
     mf2 = JsonProperty()
     'HTML microformats2 item (*not* top level parse object with ``items`` field)'
     nostr = JsonProperty()
@@ -1459,6 +1470,11 @@ class Object(AddRemoveMixin, StringIdModel):
         elif self.nostr:
             obj = granary.nostr.to_as1(self.nostr)
 
+        elif self.farcaster:
+            msgs = [ParseDict(d, FarcasterMessage()) for d in self.farcaster]
+            obj = granary.farcaster.to_as1(FarcasterMessagesResponse(messages=msgs)
+                                           if len(msgs) > 1 else msgs[0])
+
         else:
             return None
 
@@ -1501,9 +1517,20 @@ class Object(AddRemoveMixin, StringIdModel):
         """
         * Validate that at:// URIs have DIDs
         * Validate that Nostr ids are nostr:[hex] ids
+        * Validate that farcaster is unset or a non-empty list (not [] or a single
+          dict), and that multi-element lists are all USER_DATA_ADD messages
         * Set/remove the activity label
         * Strip @context from as2 (we don't do LD) to save disk space
         """
+        assert (self.farcaster is None
+                or (isinstance(self.farcaster, list) and self.farcaster)), \
+            f'farcaster must be unset or a non-empty list of Message dicts, got {self.farcaster!r}'
+
+        if self.farcaster and len(self.farcaster) > 1:
+            assert all((m.get('data') or {}).get('type') == 'MESSAGE_TYPE_USER_DATA_ADD'
+                       for m in self.farcaster), \
+                'multi-element farcaster lists must be all USER_DATA_ADD messages'
+
         if self.as2:
            self.as2.pop('@context', None)
            for field in 'actor', 'attributedTo', 'author', 'object':
