@@ -18,7 +18,9 @@ from granary import as1, as2, atom, microformats2, rss
 import jwt
 import lexrpc
 import oauth_dropins
+from oauth_dropins.bluesky import BlueskyAuth
 from oauth_dropins.webutil import flask_util, logs, util
+from oauth_dropins.webutil.util import json_dumps
 from oauth_dropins.webutil.flask_util import (
     canonicalize_request_domain,
     error,
@@ -555,6 +557,9 @@ def migrate_to_activitypub(user=None):
         flash(str(e))
         return redirect('/settings')
 
+    common.create_task(queue='migrate-out', user=user.key.urlsafe(),
+                       protocol=ActivityPub.LABEL)
+
     flash(f"OK, we'll migrate your bridged account on {ActivityPub.PHRASE} to {to_user.html_link()}.", escape=False)
     return redirect('/settings')
 
@@ -703,6 +708,16 @@ def migrate_to_atproto_create_account(user=None):
     except ValueError as e:
         flash(str(e))
         return create_account_form()
+
+    # this shouldn't overwrite an existing BlueskyAuth because this account is
+    # currently on our PDS. (or if there is an existing BlueskyAuth, it's old,
+    # from a previous migration in, and obsolete.)
+    auth = BlueskyAuth(id=resp['did'], pds_url=pds, user_json=json_dumps(resp),
+                       session=resp)
+    auth.put()
+
+    common.create_task(queue='migrate-out', user=user.key.urlsafe(),
+                       auth=auth.key.urlsafe(), protocol=ATProto.LABEL)
 
     flash(f"OK, we've migrated your bridged Bluesky account to <code>{resp['handle']}</code> on {pds_domain}.", escape=False)
     return redirect('/settings')

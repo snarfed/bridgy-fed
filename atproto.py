@@ -1501,6 +1501,33 @@ class ATProto(User, Protocol):
         arroba.server.storage.deactivate_repo(repo)
 
     @classmethod
+    def migrate_out_blobs(cls, user, auth):
+        """Copies a user's blobs to an external PDS.
+
+        Args:
+          user (User): the user being migrated
+          auth (oauth_dropins.bluesky.BlueskyAuth): auth for the new PDS
+        """
+        assert not isinstance(user, ATProto), user
+        did = auth.key.id()
+        assert auth.pds_url
+
+        blobs = AtpRemoteBlob.query(AtpRemoteBlob.repos == ndb.Key(AtpRepo, did)
+                                    ).fetch()
+        logger.info(f'Uploading {len(blobs)} blobs for {did} to {auth.pds_url}')
+
+        client = Bluesky.from_auth(auth, timeout=60)
+
+        for blob in blobs:
+            if blob.status:
+                continue
+            url = blob.url or blob.key.id()
+            resp = util.requests_get(url, stream=True)
+            resp.raise_for_status()
+            client._client.com.atproto.repo.uploadBlob(
+                input=resp.content, headers={'Content-Type': blob.mime_type})
+
+    @classmethod
     def add_source_links(cls, obj, from_user):
         """Adds "bridged from ... by Bridgy Fed" text to ``actor['summary']``.
 

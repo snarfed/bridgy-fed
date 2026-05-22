@@ -47,6 +47,7 @@ app.add_url_rule('/queue/receive', view_func=protocol.receive_task, methods=['PO
 app.add_url_rule('/queue/send', view_func=protocol.send_task, methods=['POST'])
 app.add_url_rule('/queue/notify', view_func=notifications.notify_task, methods=['POST'])
 app.add_url_rule('/queue/user-enabled', view_func=protocol.user_enabled_task, methods=['POST'])
+app.add_url_rule('/queue/migrate-out', view_func=protocol.migrate_out_task, methods=['POST'])
 app.add_url_rule('/queue/webmention', view_func=web.webmention_task, methods=['POST'])
 app.add_url_rule('/cron/atproto-poll-chat', view_func=atproto.poll_chat_task,
                  methods=['GET'])

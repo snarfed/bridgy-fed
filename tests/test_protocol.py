@@ -5290,3 +5290,29 @@ class ProtocolReceiveTest(TestCase):
 
         self.assertEqual([], ExplicitFake.sent)
         self.assertEqual('dormant', follower.key.get().status)
+
+    @patch.object(ATProto, 'migrate_out_blobs')
+    def test_migrate_out_task_atproto(self, mock_migrate_out_blobs):
+        user = self.make_user(id='fake:user', cls=Fake,
+                              copies=[Target(uri='did:plc:user', protocol='atproto')])
+        from oauth_dropins.bluesky import BlueskyAuth
+        auth = BlueskyAuth(id='did:plc:user', pds_url='https://new.pds.com/',
+                           user_json='{}', session={'accessJwt': 'tok'}).put().get()
+
+        resp = self.post('/queue/migrate-out', data={
+            'protocol': 'atproto',
+            'user': user.key.urlsafe(),
+            'auth': auth.key.urlsafe(),
+        })
+        self.assertEqual(200, resp.status_code)
+        mock_migrate_out_blobs.assert_called_once_with(user, auth)
+
+    def test_migrate_out_task_activitypub_noop(self):
+        user = self.make_user(id='fake:user', cls=Fake)
+
+        resp = self.post('/queue/migrate-out', data={
+            'protocol': 'activitypub',
+            'user': user.key.urlsafe(),
+        })
+        self.assertEqual(200, resp.status_code)
+

@@ -28,6 +28,7 @@ from granary.tests.test_bluesky import (
 import jwt
 import lexrpc
 from multiformats import CID
+from oauth_dropins.bluesky import BlueskyAuth
 from oauth_dropins.webutil.appengine_config import tasks_client
 from oauth_dropins.webutil import flask_util
 from oauth_dropins.webutil.testutil import NOW, NOW_SECONDS, requests_response
@@ -1746,6 +1747,55 @@ Sed tortor neque, aliquet quis posuere aliquam, imperdiet sitamet […]
             },
             'prev': 'prev-cid',
         }, mock_post.call_args_list[1].kwargs['json'])
+
+    @patch('oauth_dropins.bluesky.oauth_client_for_pds')
+    @patch.object(util.session, 'post', return_value=requests_response({
+        'blob': {'$type': 'blob', 'ref': {'$link': 'baf000'}, 'size': 99},
+    }))
+    @patch.object(util.session, 'get', side_effect=[
+        requests_response(b'blob one', headers={'Content-Type': 'image/jpeg'}),
+        requests_response(b'blob two', headers={'Content-Type': 'video/mp4'}),
+    ])
+    def test_migrate_out_blobs(self, mock_get, mock_post, _):
+        did = 'did:plc:user'
+        user = self.make_user(id='fake:user', cls=Fake,
+                              copies=[Target(uri=did, protocol='atproto')])
+        auth = BlueskyAuth(
+            id=did, pds_url='https://new.pds.com/',
+            user_json=json_dumps({'did': did, 'handle': 'han.dull.brid.gy'}),
+            session={'accessJwt': 'towkin', 'refreshJwt': 'reefresh'})
+
+        repo_key = ndb.Key(AtpRepo, did)
+        AtpRemoteBlob(id='https://in.st/blob1', url='https://in.st/blob1',
+                      mime_type='image/jpeg', repos=[repo_key]).put()
+        AtpRemoteBlob(id='https://in.st/blob2', mime_type='video/mp4',
+                      repos=[repo_key]).put()
+        AtpRemoteBlob(id='https://in.st/blob3', mime_type='image/png',
+                      repos=[repo_key], status='inactive').put()
+
+        ATProto.migrate_out_blobs(user, auth)
+
+        self.assertEqual(2, mock_get.call_count)
+        mock_get.assert_has_calls([
+            call('https://in.st/blob1', stream=True, timeout=15, headers=ANY),
+            call('https://in.st/blob2', stream=True, timeout=15, headers=ANY),
+        ], any_order=True)
+
+        self.assertEqual(2, mock_post.call_count)
+        self.assertEqual([
+            call('https://new.pds.com/xrpc/com.atproto.repo.uploadBlob',
+                 json=None, data=b'blob one', headers={
+                     'Content-Type': 'image/jpeg',
+                     'User-Agent': common.USER_AGENT,
+                     'Authorization': 'Bearer towkin',
+                 }, auth=None, timeout=60),
+            call('https://new.pds.com/xrpc/com.atproto.repo.uploadBlob',
+                 json=None, data=b'blob two', headers={
+                     'Content-Type': 'video/mp4',
+                     'User-Agent': common.USER_AGENT,
+                     'Authorization': 'Bearer towkin',
+                 }, auth=None, timeout=60),
+        ], mock_post.call_args_list)
 
     @patch.object(util.session, 'get', return_value=requests_response('', status=404))
     def test_web_url(self, mock_get):

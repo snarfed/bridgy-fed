@@ -2,6 +2,8 @@
 from unittest import mock
 from unittest.mock import patch
 
+from oauth_dropins.bluesky import BlueskyAuth
+from oauth_dropins.webutil.appengine_config import tasks_client
 from oauth_dropins.webutil.flask_util import NotModified
 from oauth_dropins.webutil import util
 from oauth_dropins.webutil.testutil import requests_response
@@ -1151,34 +1153,45 @@ Hi! I'm a friendly bot that can help you bridge your account into the fediverse.
             ActivityPub, alice, '?',
             "First, you'll need to <a href='https://docs.joinmastodon.org/user/moving/#summary'>add an alias</a> to that account.")
 
+    @patch.object(tasks_client, 'create_task')
     @patch.object(ATProto, 'migrate_out')
-    @patch.object(ATProto, 'create_account_for_migrate_out', return_value={
-        'did': 'did:plc:alice',
-        'handle': 'aly.ce',
-        'accessJwt': 'access',
-        'refreshJwt': 'refresh',
-    })
+    @patch.object(ATProto, 'create_account_for_migrate_out')
     @patch.object(util.session, 'get', return_value=requests_response({
         'did': 'did:web:new.pds.com',
         'availableUserDomains': ['.pds.com'],
     }))
-    def test_receive_migrate_to_atproto(self, mock_get, mock_create, mock_migrate):
+    def test_receive_migrate_to_atproto(self, mock_get, mock_create, mock_migrate,
+                                        mock_create_task):
+        common.RUN_TASKS_INLINE = False
+
         alice, bob = self.make_alice_bob(alice_enabled=ATProto)
+        mock_create.return_value = {
+            'did': 'did:plc:alice',
+            'handle': 'aly.ce',
+            'accessJwt': 'access',
+            'refreshJwt': 'refresh',
+        }
+
         obj = Object(our_as1={
             **DM_BASE,
             'to': ['bsky.brid.gy'],
             'content': 'migrate-to new.pds.com Alice@PDS.com aly.ce Hunter2 inv-1234',
         })
         self.assertEqual(('OK', 200), receive(from_user=alice, obj=obj))
-        self.assert_replied(
-            ATProto, alice, '?',
-            "OK, we've migrated your bridged Bluesky account to <code>aly.ce</code> on new.pds.com.")
+
         mock_create.assert_called_once_with(
             alice, pds='https://new.pds.com', email='Alice@PDS.com',
             password='Hunter2', handle='aly.ce', invite_code='inv-1234')
         mock_migrate.assert_called_once_with(
             alice, 'did:plc:alice', to_pds='https://new.pds.com',
             access_token='access', refresh_token='refresh', handle='aly.ce')
+
+        auth = BlueskyAuth.get_by_id('did:plc:alice')
+        self.assertEqual('https://new.pds.com', auth.pds_url)
+        self.assertEqual(mock_create.return_value, auth.session)
+        self.assert_task(mock_create_task, 'migrate-out', protocol='atproto',
+                         user=alice.key.urlsafe().decode(),
+                         auth=auth.key.urlsafe().decode())
 
     def test_receive_migrate_to_atproto_too_few_args(self):
         alice, bob = self.make_alice_bob(alice_enabled=ATProto)

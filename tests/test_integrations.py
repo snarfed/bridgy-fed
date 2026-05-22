@@ -4,7 +4,7 @@ from datetime import datetime
 from unittest import skip
 from unittest.mock import ANY, patch
 
-from arroba.datastore_storage import DatastoreStorage
+from arroba.datastore_storage import AtpRemoteBlob, AtpRepo, DatastoreStorage
 from arroba.did import encode_did_key
 from arroba import firehose
 from arroba.repo import Repo
@@ -1186,6 +1186,13 @@ class IntegrationTests(TestCase):
         requests_response(),  # importRepo
         requests_response(),  # PLC update
         requests_response(),  # activateAccount
+        # uploadBlob (active blobs only; inactive blob is skipped)
+        requests_response({
+            'blob': {'$type': 'blob', 'ref': {'$link': 'baf000'}, 'size': 99},
+        }),
+        requests_response({
+            'blob': {'$type': 'blob', 'ref': {'$link': 'baf000'}, 'size': 99},
+        }),
         requests_response(),  # reply DM delivery to alice's inbox
     ])
     @patch.object(util.session, 'get', side_effect=[
@@ -1231,6 +1238,9 @@ class IntegrationTests(TestCase):
                 },
             },
         }]),
+        # blob downloads (only the two active blobs)
+        requests_response(b'blob one', headers={'Content-Type': 'image/jpeg'}),
+        requests_response(b'blob two', headers={'Content-Type': 'video/mp4'}),
     ])
     def test_activitypub_migrate_to_atproto(self, mock_get, mock_post):
         """AP DM to @bsky.brid.gy with 'migrate-to ...' migrates the Bluesky repo out.
@@ -1241,6 +1251,14 @@ class IntegrationTests(TestCase):
         alice = self.make_ap_user('https://inst/alice', 'did:plc:alice')
         bsky_bot = self.make_user(id='bsky.brid.gy', cls=Web, ap_subdomain='bsky',
                                   enabled_protocols=['activitypub'])
+
+        repo_key = ndb.Key(AtpRepo, 'did:plc:alice')
+        AtpRemoteBlob(id='https://in.st/blob1', url='https://in.st/blob1',
+                      mime_type='image/jpeg', repos=[repo_key]).put()
+        AtpRemoteBlob(id='https://in.st/blob2', mime_type='video/mp4',
+                      repos=[repo_key]).put()
+        AtpRemoteBlob(id='https://in.st/blob3', mime_type='image/png',
+                      repos=[repo_key], status='inactive').put()
 
         body = json_dumps({
             'type': 'Create',
@@ -1281,6 +1299,20 @@ class IntegrationTests(TestCase):
         alice = alice.key.get()
         self.assertFalse(alice.is_enabled(ATProto))
         self.assertEqual([], alice.copies)
+
+        # active blobs uploaded to the new PDS; inactive blob3 skipped
+        uploads = [c for c in mock_post.call_args_list
+                   if c.args == ('https://new.pds.com/xrpc/com.atproto.repo.uploadBlob',)]
+        self.assertEqual(2, len(uploads))
+        self.assertEqual(b'blob one', uploads[0].kwargs['data'])
+        self.assertEqual('image/jpeg', uploads[0].kwargs['headers']['Content-Type'])
+        self.assertEqual(b'blob two', uploads[1].kwargs['data'])
+        self.assertEqual('video/mp4', uploads[1].kwargs['headers']['Content-Type'])
+
+        blob_fetches = [c for c in mock_get.call_args_list
+                        if c.args and c.args[0].startswith('https://in.st/blob')]
+        self.assertEqual(['https://in.st/blob1', 'https://in.st/blob2'],
+                         [c.args[0] for c in blob_fetches])
 
         # confirmation reply DM delivered to alice
         reply = mock_post.call_args_list[-1]

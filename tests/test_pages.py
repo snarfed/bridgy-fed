@@ -1182,9 +1182,11 @@ class PagesTest(TestCase):
                          get_flashed_messages())
         self.assertEqual('none', user.key.get().send_notifs)
 
+    @patch.object(tasks_client, 'create_task', return_value=Task(name='my task'))
     @patch.object(util.session, 'post', return_value=requests_response())
     @patch.object(util.session, 'get')
-    def test_migrate_to_activitypub(self, mock_get, mock_post):
+    def test_migrate_to_activitypub(self, mock_get, mock_post, mock_create_task):
+        common.RUN_TASKS_INLINE = False
         user, _ = self.make_logged_in_bluesky_user(enabled_protocols=['activitypub'])
         mock_get.return_value = self.as2_resp({
             'type': 'Person',
@@ -1209,6 +1211,9 @@ class PagesTest(TestCase):
 
         # migrate_out set movedTo on the bridged AP actor
         self.assertEqual('http://in.st/carol', user.obj.key.get().as1['movedTo'])
+
+        self.assert_task(mock_create_task, 'migrate-out', protocol='activitypub',
+                         user=user.key.urlsafe().decode())
 
     @patch.object(util.session, 'get')
     def test_migrate_to_activitypub_needs_alias(self, mock_get):
@@ -1307,15 +1312,21 @@ class PagesTest(TestCase):
         self.assertIn('phone_verification_code', body)
         self.assertIn('name="handle_domain" value=".pds.com"', body)
 
+    @patch.object(tasks_client, 'create_task', return_value=Task(name='my task'))
     @patch.object(ATProto, 'migrate_out')
-    @patch.object(ATProto, 'create_account_for_migrate_out', return_value={
-        'did': 'did:plc:newalice',
-        'handle': 'aly.ce',
-        'accessJwt': 'access',
-        'refreshJwt': 'refresh',
-    })
-    def test_migrate_to_atproto_create_account(self, mock_create, mock_migrate):
+    @patch.object(ATProto, 'create_account_for_migrate_out')
+    def test_migrate_to_atproto_create_account(self, mock_create, mock_migrate,
+                                               mock_create_task):
+        common.RUN_TASKS_INLINE = False
         user, _ = self.make_logged_in_mastodon_user(enabled_protocols=['atproto'])
+
+        mock_create.return_value = {
+            'did': 'did:plc:newalice',
+            'handle': 'aly.ce',
+            'accessJwt': 'access',
+            'refreshJwt': 'refresh',
+        }
+
         resp = self.client.post(
             '/settings/migrate-to-atproto/create-account', data={
                 'key': user.key.urlsafe().decode(),
@@ -1339,6 +1350,12 @@ class PagesTest(TestCase):
         mock_migrate.assert_called_once_with(
             user, 'did:plc:newalice', to_pds='https://new.pds.com',
             access_token='access', refresh_token='refresh', handle='aly.ce')
+        auth = BlueskyAuth.get_by_id('did:plc:newalice')
+        self.assertEqual('https://new.pds.com', auth.pds_url)
+        self.assertEqual(mock_create.return_value, auth.session)
+        self.assert_task(mock_create_task, 'migrate-out', protocol='atproto',
+                         user=user.key.urlsafe().decode(),
+                         auth=auth.key.urlsafe().decode())
 
     @patch.object(ATProto, 'create_account_for_migrate_out',
                   side_effect=HTTPError(response=requests_response(

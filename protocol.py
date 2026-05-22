@@ -2562,3 +2562,33 @@ def user_enabled_task():
             dms.maybe_send(from_=proto, to_user=from_user, text=f'<p>Hi! {user.html_link(proto=proto, proto_fallback=True)}{relationship} has bridged their account into {proto.PHRASE}. You can follow them now if you want.')
 
     return '', 200
+
+
+@cloud_tasks_only(log=None)
+def migrate_out_task():
+    """Task handler for finishing a migration out.
+
+    Currently, for migrating out to ATProto, uploads the user's blobs to the new PDS.
+    Otherwise, does nothing.
+
+    Parameters:
+      user (str, url-safe ndb.Key of a User): the bridged :class:`models.User`
+        migrating out
+      protocol (str): destination protocol
+      auth (optional url-safe ndb.Key of an oauth-dropins auth entity): the user's
+        new account. For ATProto, an :class:`oauth_dropins.bluesky.BlueskyAuth`.
+    """
+    from atproto import ATProto
+
+    common.log_request()
+
+    user = ndb.Key(urlsafe=request.form['user']).get()
+    if not user:
+        raise ErrorButDoNotRetryTask()
+
+    if request.form['protocol'] == ATProto.LABEL:
+        auth = ndb.Key(urlsafe=request.form['auth']).get()
+        assert auth
+        ATProto.migrate_out_blobs(user, auth)
+
+    return '', 200

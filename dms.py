@@ -7,7 +7,9 @@ from typing import Callable, Optional
 
 from granary import as1, source
 import lexrpc
+from oauth_dropins.bluesky import BlueskyAuth
 from oauth_dropins.webutil import util
+from oauth_dropins.webutil.util import json_dumps
 from requests import HTTPError
 from werkzeug.exceptions import BadRequest
 
@@ -394,6 +396,16 @@ def migrate_to_atproto(from_user, to_proto, pds, email, handle, password,
                             handle=resp.get('handle'))
     except ValueError as e:
         return str(e)
+
+    # this shouldn't overwrite an existing BlueskyAuth because this account is
+    # currently on our PDS. (or if there is an existing BlueskyAuth, it's old,
+    # from a previous migration in, and obsolete.)
+    auth = BlueskyAuth(id=resp['did'], pds_url=pds, user_json=json_dumps(resp),
+                       session=resp)
+    auth.put()
+
+    common.create_task(queue='migrate-out', user=from_user.key.urlsafe(),
+                       auth=auth.key.urlsafe(), protocol=ATProto.LABEL)
 
     return f"OK, we've migrated your bridged Bluesky account to <code>{resp['handle']}</code> on {pds_domain}."
 
