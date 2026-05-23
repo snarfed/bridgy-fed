@@ -2201,8 +2201,9 @@ class WebTest(TestCase):
                                  our_as1=expected_as1, source_protocol='web',
                                  authed_as='user.com', **timing_params)
 
-        # delay is average of 1h and 3h between posts
-        expected_eta = NOW_SECONDS + timedelta(hours=2).total_seconds()
+        # delay is average of 10h and 6h between posts (b's naive timestamp
+        # treated as UTC)
+        expected_eta = NOW_SECONDS + timedelta(hours=8).total_seconds()
         self.assert_task(mock_create_task, 'poll-feed', domain='user.com',
                          last_polled=NOW.isoformat(), eta_seconds=expected_eta)
 

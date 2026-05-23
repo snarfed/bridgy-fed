@@ -995,8 +995,9 @@ def poll_feed_task():
     published_deltas = []  # timedeltas between entry published times
     for activity in activities:
         try:
-            published = util.parse_iso8601(activity['object']['published'])\
-                            .astimezone(timezone.utc)
+            published = util.parse_iso8601(activity['object']['published'])
+            if published.tzinfo is None:
+                published = published.replace(tzinfo=timezone.utc)
         except (KeyError, ValueError):
             continue
 
