@@ -8,7 +8,6 @@ from arroba.util import at_uri
 from google.cloud import ndb
 from google.cloud.ndb import tasklets
 from google.cloud.tasks_v2.types import Task
-from google.protobuf.json_format import MessageToDict
 from granary.bluesky import NO_UNAUTHENTICATED_LABEL
 from granary.tests.test_farcaster import message, user_data_message
 from granary.tests.test_bluesky import ACTOR_AS, ACTOR_PROFILE_BSKY
@@ -1418,8 +1417,8 @@ cast_add_body {
   text: "hello world"
 }
 """)
-        obj = Object(id='farcaster://123/' + f'0x{msg.hash.hex()}',
-                     farcaster=[MessageToDict(msg, preserving_proto_field_name=True)])
+        obj = Object(id=f'farcaster://123/0x{msg.hash.hex()}',
+                     farcaster=[msg.SerializeToString()])
         self.assert_equals({
             'objectType': 'note',
             'id': f'farcaster://123/0x{msg.hash.hex()}',
@@ -1436,9 +1435,8 @@ cast_add_body {
             user_data_message(123, 'USER_DATA_TYPE_USERNAME', 'alice'),
             user_data_message(123, 'USER_DATA_TYPE_BIO', 'hi'),
         ]
-        obj = Object(id='farcaster://123', farcaster=[
-            MessageToDict(m, preserving_proto_field_name=True) for m in msgs
-        ])
+        obj = Object(id='farcaster://123',
+                     farcaster=[m.SerializeToString() for m in msgs])
         self.assert_equals({
             'objectType': 'person',
             'id': 'farcaster://123',
@@ -1540,22 +1538,23 @@ cast_add_body {
         with self.assertRaises(AssertionError):
             Object(id='not a fake', source_protocol='fake').put()
 
-    def test_put_farcaster_must_be_nonempty_list(self):
-        USER_DATA = {'data': {'type': 'MESSAGE_TYPE_USER_DATA_ADD', 'fid': 123}}
-        CAST = {'data': {'type': 'MESSAGE_TYPE_CAST_ADD', 'fid': 123}}
+    def test_put_farcaster_multi_must_be_user_data(self):
+        cast = message("""
+type: MESSAGE_TYPE_CAST_ADD
+cast_add_body { text: "hi" }
+""").SerializeToString()
+        user_data = user_data_message(
+            123, 'USER_DATA_TYPE_USERNAME', 'alice').SerializeToString()
 
+        # unset / empty / single any-type / multi USER_DATA_ADD all fine
         Object(id='farcaster://123/0xabc').put()
-        Object(id='farcaster://123/0xabc', farcaster=[CAST]).put()
-        Object(id='farcaster://123', farcaster=[USER_DATA, USER_DATA]).put()
+        Object(id='farcaster://123/0xabc', farcaster=[]).put()
+        Object(id='farcaster://123/0xabc', farcaster=[cast]).put()
+        Object(id='farcaster://123', farcaster=[user_data, user_data]).put()
 
+        # multi-element list with a non-USER_DATA_ADD is not
         with self.assertRaises(AssertionError):
-            Object(id='farcaster://123/0xabc', farcaster=[]).put()
-
-        with self.assertRaises(AssertionError):
-            Object(id='farcaster://123/0xabc', farcaster=CAST).put()
-
-        with self.assertRaises(AssertionError):
-            Object(id='farcaster://123', farcaster=[USER_DATA, CAST]).put()
+            Object(id='farcaster://123', farcaster=[user_data, cast]).put()
 
     def test_resolve_ids_empty(self):
         obj = Object()
