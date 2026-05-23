@@ -2081,12 +2081,12 @@ class WebTest(TestCase):
 <entry>
   <link rel="alternate" type="text/html" href="https://user.com/a" />
   <content>I hereby ☕ post</content>
-  <published>2024-12-02 00:00.0</published>
+  <published>nope nope</published>
 </entry>
 <entry>
   <link rel="alternate" type="text/html" href="https://user.com/b" />
   <content>ok then</content>
-  <published>2024-12-30 01:02.1</published>
+  <published>2024-13-99</published>
 </entry>
 </feed>
 """
