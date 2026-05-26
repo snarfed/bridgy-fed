@@ -2134,6 +2134,10 @@ class Follower(ndb.Model):
         If a matching :class:`Follower` doesn't exist in the datastore, creates
         it first.
 
+        If ``status='dormant'`` is passed and the existing Follower is
+        ``active``, the existing Follower is returned unchanged: we never
+        downgrade an active Follower to dormant.
+
         Args:
           from_ (User or Key)
           to (User or Key)
@@ -2152,17 +2156,17 @@ class Follower(ndb.Model):
                                   ).get()
         if not follower:
             follower = Follower(from_=from_key, to=to_key, **kwargs)
-            follower.put()
         elif kwargs:
             # update existing entity with new property values, eg to make an
             # inactive Follower active again
-            assert not (kwargs.get('status') == 'dormant'
-                        and follower.status == 'active'), \
-                f"can't make active Follower {follower.key} dormant"
             for prop, val in kwargs.items():
+                if (prop == 'status' and val == 'dormant'
+                        and follower.status == 'active'):
+                    # don't downgrade an active Follower to dormant
+                    continue
                 setattr(follower, prop, val)
-            follower.put()
 
+        follower.put()
         return follower
 
     @staticmethod

@@ -2106,7 +2106,7 @@ class FollowerTest(TestCase):
         self.assertEqual(1, Follower.query().count())
 
         follower2 = Follower.get_or_create(from_=self.user, to=self.other_user)
-        self.assert_entities_equal(follower, follower2)
+        self.assert_entities_equal(follower, follower2, ignore=('created', 'updated'))
         self.assertEqual(1, Follower.query().count())
 
         Follower.get_or_create(to=self.user.key, from_=self.other_user.key)
@@ -2120,12 +2120,13 @@ class FollowerTest(TestCase):
         got = follower.key.get()
         self.assertEqual('inactive', got.status)
 
-    def test_get_or_create_dormant_over_active_fails(self):
+    def test_get_or_create_dormant_over_active_ignored(self):
         Follower.get_or_create(from_=self.user, to=self.other_user)
 
-        with self.assertRaises(AssertionError):
-            Follower.get_or_create(from_=self.user, to=self.other_user,
-                                   status='dormant', reason='requested')
+        # active => dormant is ignored
+        follower = Follower.get_or_create(from_=self.user, to=self.other_user,
+                                          status='dormant', reason='requested')
+        self.assertEqual('active', follower.key.get().status)
 
         # inactive => dormant is allowed
         Follower.get_or_create(from_=self.user, to=self.other_user, status='inactive')

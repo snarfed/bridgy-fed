@@ -403,6 +403,18 @@ class DmsTest(TestCase):
         self.assertEqual('dormant', follower.status)
         self.assertEqual('requested', follower.reason)
 
+    def test_receive_prompt_active_follower_exists(self):
+        alice, bob = self.make_alice_bob()
+        Follower.get_or_create(from_=alice, to=bob, status='active')
+
+        obj = Object(our_as1=DM_ALICE_REQUESTS_BOB)
+        self.assertEqual(('OK', 200), receive(from_user=alice, obj=obj))
+        self.assert_replied(OtherFake, alice, '?', ALICE_REQUEST_CONFIRMATION)
+
+        follower = Follower.query(Follower.from_ == alice.key,
+                                  Follower.to == bob.key).get()
+        self.assertEqual('active', follower.status)
+
     @patch.object(dms, 'REQUESTS_LIMIT_USER', 2)
     def test_receive_prompt_request_rate_limit(self):
         alice, bob = self.make_alice_bob()
