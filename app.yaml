@@ -95,6 +95,7 @@ env_variables:
   MOD_SERVICE_DID: did:plc:ar7c4by46qjdydhdevvrndac
   MEMCACHE_HOST: '10.126.144.67'
   # ...or test against labeler.dholms.xyz / did:plc:vzxheqfwpbi3lxbgdh22js66
+  SNAPCHAIN_HOST: crackle.farcaster.xyz
 
   # >- folds newlines into spaces, which arroba strips
   SUPPORTED_COLLECTIONS: >-

@@ -47,6 +47,7 @@ env_variables:
   MEMCACHE_HOST: '10.126.144.67'
   ROLLBACK_WINDOW: 50000
   SUBSCRIBE_REPOS_BATCH_DELAY: 4
+  SNAPCHAIN_HOST: crackle.farcaster.xyz
 
   # https://github.com/googleapis/python-ndb/blob/c55ec62b5153787404488b046c4bf6ffa02fee64/google/cloud/ndb/utils.py#L78-L81
   # NDB_DEBUG: true

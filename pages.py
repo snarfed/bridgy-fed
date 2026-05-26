@@ -368,7 +368,8 @@ def enable(user=None):
 
     for proto in set(PROTOCOLS.values()):
         if (proto and not isinstance(user, proto)
-                and proto.LABEL not in ('ui', 'web', 'nostr')  # TODO: nostr
+                # TODO: nostr, farcaster
+                and proto.LABEL not in ('ui', 'web', 'nostr', 'farcaster')
                 and not user.is_enabled(proto)):
             try:
                 user.enable_protocol(proto)

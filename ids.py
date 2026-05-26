@@ -204,7 +204,10 @@ def translate_user_id(*, id, from_, to):
             return id
 
         case _, 'activitypub' | 'web':
-            return subdomain_wrap(from_, f'/{to.ABBREV}/{id}')
+            # strip farcaster://[fid] scheme so URL has bare fid path,
+            # eg https://fc.brid.gy/web/123 (not /web/farcaster://123)
+            bare = id.removeprefix('farcaster://') if from_.LABEL == 'farcaster' else id
+            return subdomain_wrap(from_, f'/{to.ABBREV}/{bare}')
 
         # only for unit tests
         case _, 'fake' | 'other' | 'efake':
@@ -529,7 +532,10 @@ def translate_object_id(*, id, from_, to):
             return urljoin(web_ap_base_domain(util.domain_from_link(id)), f'/r/{id}')
 
         case _, 'activitypub' | 'web':
-            return subdomain_wrap(from_, f'/convert/{to.ABBREV}/{id}')
+            # strip farcaster://[fid] scheme so URL has bare path,
+            # eg https://fc.brid.gy/convert/web/123/0xabc
+            bare = id.removeprefix('farcaster://') if from_.LABEL == 'farcaster' else id
+            return subdomain_wrap(from_, f'/convert/{to.ABBREV}/{bare}')
 
         # only for unit tests
         case _, 'fake' | 'other' | 'efake':

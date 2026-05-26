@@ -655,10 +655,10 @@ class Protocol:
           kwargs: protocol-specific, passed through to :meth:`_convert`
 
         Returns:
-          converted object in the protocol's native format, often a dict
+          converted object in the protocol's native format, often a dict, or None
         """
         if not obj or not obj.as1:
-            return {}
+            return None
 
         id = obj.key.id() if obj.key else obj.as1.get('id')
         is_crud = obj.as1.get('verb') in as1.CRUD_VERBS

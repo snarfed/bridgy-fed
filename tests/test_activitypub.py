@@ -3450,10 +3450,10 @@ class ActivityPubUtilsTest(TestCase):
 
     def test_convert(self):
         obj = Object()
-        self.assertEqual({}, ActivityPub.convert(obj))
+        self.assertIsNone(ActivityPub.convert(obj))
 
         obj.our_as1 = {}
-        self.assertEqual({}, ActivityPub.convert(obj))
+        self.assertIsNone(ActivityPub.convert(obj))
 
         obj.as2 = {'baz': 'biff'}
         self.assert_equals({'baz': 'biff'}, ActivityPub.convert(obj))

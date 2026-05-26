@@ -320,8 +320,25 @@ from memcache import (
     memcache,
     pickle_memcache,
 )
+import farcaster
 from farcaster import Farcaster
 from flask_app import app
+
+# stub out the Farcaster snapchain gRPC client so tests don't hit the network
+class _FakeFarcasterHub:
+    def __getattr__(self, _):
+        def _raise(*args, **kwargs):
+            import grpc
+            raise grpc.RpcError('test fake Farcaster hub')
+        return _raise
+
+class _FakeFarcasterClient:
+    hub = _FakeFarcasterHub()
+    def get_actor(self, fid):
+        return None
+    def get_fid(self, username):
+        return None
+
 from nostr import Nostr
 from web import Web
 
@@ -401,7 +418,7 @@ class TestCase(unittest.TestCase, testutil.Asserts):
         self.request_context = app.test_request_context('/')
         self.request_context.push()
 
-        # arroba config
+        # arroba etc config
         os.environ.update({
             'APPVIEW_HOST': 'appview.local',
             'BGS_HOST': 'bgs.local',
@@ -411,9 +428,14 @@ class TestCase(unittest.TestCase, testutil.Asserts):
             'MOD_SERVICE_DID': 'did:mod-service',
             'CHAT_HOST': 'chat.local',
             'CHAT_DID': 'did:chat',
+            'SNAPCHAIN_HOST': 'snapchain.local',
         })
         atproto.appview.address = 'https://appview.local'
         atproto.init(MemcacheSequences)
+
+        # farcaster
+        farcaster.SNAPCHAIN_HOST = granary.farcaster.DEFAULT_SNAPCHAIN_HOST = \
+            'snapchain.local'
 
         # nostr fake websocket
         FakeConnection.reset()
@@ -424,6 +446,9 @@ class TestCase(unittest.TestCase, testutil.Asserts):
         nostr_hub.pubkeys_initialized.clear()
         nostr_hub.subscribed_relays = {}
         nostr_hub.seen_ids = cachetools.TTLCache(maxsize=1000, ttl=1000)
+
+        # farcaster gRPC client
+        farcaster._client = _FakeFarcasterClient()
 
         # system level local timezone
         os.environ['TZ'] = 'America/Los_Angeles'

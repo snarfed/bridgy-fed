@@ -27,10 +27,12 @@
           onclick="copy('{{ handle }}')"
           title="Copy {{ handle }} to clipboard"></button>
   {% if proto.HAS_COPIES %}
-    {% set did = user.npub() if proto == Nostr else user.get_copy(proto) %}
+    {% set id = user.npub() if proto == Nostr
+                else user.get_copy(proto).removeprefix('farcaster://') if proto == Farcaster
+                else user.get_copy(proto) %}
     <button class="btn btn-default btn-copy glyphicon glyphicon-tag"
-            onclick="copy('{{ did }}')"
-            title="Copy {{ did }} to clipboard"></button>
+            onclick="copy('{{ id }}')"
+            title="Copy {{ id }} to clipboard"></button>
   {% endif %}
   {% if not loop.last %}
     &middot;
