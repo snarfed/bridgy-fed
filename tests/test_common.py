@@ -7,7 +7,7 @@ import flask
 from granary import as2
 import jwt
 from oauth_dropins.webutil.appengine_config import error_reporting_client
-from oauth_dropins.webutil.models import ENCRYPTED_PROPERTY_KEY_BYTES
+from oauth_dropins.webutil import models
 from oauth_dropins.webutil.testutil import NOW
 
 # import first so that Fake is defined before URL routes are registered
@@ -117,8 +117,8 @@ class CommonTest(TestCase):
         token = common.make_jwt(user=user, scope='foo',
                                 expiration=timedelta(minutes=1))
 
-        decoded = jwt.decode(token, key=ENCRYPTED_PROPERTY_KEY_BYTES,
-                            algorithms=['HS256'], options={'verify_exp': False})
+        decoded = jwt.decode(token, key=models.ENCRYPTED_PROPERTY_KEYS_BYTES[0],
+                             algorithms=['HS256'], options={'verify_exp': False})
         self.assertEqual({
             'sub': 'fake:user',
             'scope': 'foo',

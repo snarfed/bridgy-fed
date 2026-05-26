@@ -23,7 +23,7 @@ import jwt
 from oauth_dropins.webutil import flask_util, util, webmention
 from oauth_dropins.webutil.appengine_config import error_reporting_client, tasks_client
 from oauth_dropins.webutil.appengine_info import DEBUG, LOCAL_SERVER, READ_ONLY
-from oauth_dropins.webutil.models import ENCRYPTED_PROPERTY_KEY_BYTES
+from oauth_dropins.webutil import models
 from oauth_dropins.webutil.util import interpret_http_exception, json_dumps
 from negotiator import ContentNegotiator, AcceptParameters, ContentType
 import requests
@@ -363,7 +363,8 @@ def make_jwt(*, user, scope, expiration=timedelta(weeks=1), **claims):
       'scope': scope,
       'exp': util.now() + expiration,
     })
-    return jwt.encode(claims, key=ENCRYPTED_PROPERTY_KEY_BYTES, algorithm='HS256')
+    return jwt.encode(claims, key=models.ENCRYPTED_PROPERTY_KEYS_BYTES[0],
+                      algorithm='HS256')
 
 
 def verify_jwt(token, *, user_id, scope, **claims):
@@ -383,7 +384,7 @@ def verify_jwt(token, *, user_id, scope, **claims):
       werkzeug.exceptions.Forbidden: if the token is valid but for the wrong user or
         scope
     """
-    decoded = jwt.decode(token, key=ENCRYPTED_PROPERTY_KEY_BYTES,
+    decoded = jwt.decode(token, key=models.ENCRYPTED_PROPERTY_KEYS_BYTES[0],
                          algorithms=['HS256'])
 
     for key, expected in list(claims.items()) + [('sub', user_id), ('scope', scope)]:
