@@ -510,7 +510,7 @@ class User(AddRemoveMixin, StringIdModel, metaclass=ProtocolUserMeta):
 
             # TODO: propagate more fields?
             changed = False
-            for field in ['obj', 'obj_key']:
+            for field in ['obj', 'obj_key', 'manual_opt_out']:
                 old_val = getattr(user, field, None)
                 new_val = kwargs.get(field)
                 if old_val is None and new_val is not None:

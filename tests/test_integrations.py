@@ -1507,8 +1507,9 @@ class IntegrationTests(TestCase):
         repo = self.storage.load_repo('did:plc:alice')
         self.assertIsNone(repo.get_record('app.bsky.feed.post', tid))
 
-    @patch.object(util.session, 'post')
-    @patch.object(util.session, 'get')
+    @patch.object(util.session, 'post', return_value=requests_response('OK'))  # PLC create DID
+    @patch.object(util.session, 'get',
+                  return_value=requests_response('blob', headers={'Content-Type': 'image/jpeg'}))
     def test_activitypub_move_rewires_bridge_followers(self, mock_get, mock_post):
         """AP => AP Move rewires ATProto and Web bridge followers.
 
@@ -1539,6 +1540,41 @@ class IntegrationTests(TestCase):
 
         self.assertEqual(new_alice.key, bob_atp_follower.key.get().to)
         self.assertEqual(new_alice.key, bob_web_follower.key.get().to)
+
+    # PLC create DID
+    @patch.object(util.session, 'post', return_value=requests_response('OK'))
+    @patch.object(util.session, 'get',
+                  return_value=requests_response('blob', headers={'Content-Type': 'image/jpeg'}))
+    def test_activitypub_move_bridges_target_to_atproto(self, mock_get, mock_post):
+        """AP => AP Move for a bridged user. Should move the copy account.
+
+        AP @alice@inst, https://inst/alice (bridged to ATProto did:plc:alice)
+        AP @new-alice@inst2, https://inst2/new-alice (not bridged)
+        """
+        alice = self.make_ap_user('https://inst/alice', 'did:plc:alice')
+        self.assertEqual([Target(uri='did:plc:alice', protocol='atproto')],
+                         alice.copies)
+
+        new_alice = self.make_ap_user('https://inst2/new-alice')
+        self.assertEqual([], new_alice.copies)
+
+        body = json_dumps({
+            'type': 'Move',
+            'id': 'https://inst/move',
+            'actor': 'https://inst/alice',
+            'object': 'https://inst/alice',
+            'target': 'https://inst2/new-alice',
+        })
+        headers = sign('/ap/sharedInbox', body, key_id='https://inst/alice')
+        resp = self.client.post('/ap/sharedInbox', data=body, headers=headers)
+        self.assertEqual(204, resp.status_code)
+
+        self.assertEqual([], alice.key.get().copies)
+        new_alice = new_alice.key.get()
+        self.assertEqual([Target(uri='did:plc:alice', protocol='atproto')],
+                         new_alice.copies)
+        self.assertEqual(['atproto'], new_alice.enabled_protocols)
+        self.assertIs(False, new_alice.manual_opt_out)
 
     @patch.object(util.session, 'get')
     def test_web_delete_of_post_bridged_to_atproto(self, mock_get):

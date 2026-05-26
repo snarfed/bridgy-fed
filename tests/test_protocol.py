@@ -3345,6 +3345,34 @@ class ProtocolReceiveTest(TestCase):
         self.assertEqual(alice.key, carol_follower.key.get().to)
         self.assertEqual(alice.key, dave_follower.key.get().to)
 
+    def test_move_bridged_user(self):
+        """Switches the copy account to the target user."""
+        alice = self.make_user('other:alice', cls=OtherFake, obj_id='other:alice',
+                               enabled_protocols=['efake'],
+                               copies=[Target(protocol='efake', uri='efake:alice')])
+        new_alice = self.make_user('fake:new-alice', cls=Fake)
+
+        # active follower (different protocol from both alice and new_alice) - should be moved
+        carol = self.make_user('efake:carol', cls=ExplicitFake)
+        carol_follower = Follower.get_or_create(to=alice, from_=carol)
+
+        _, code = OtherFake.receive_as1({
+            'objectType': 'activity',
+            'verb': 'move',
+            'id': 'other:move',
+            'actor': 'other:alice',
+            'object': 'other:alice',
+            'target': 'fake:new-alice',
+        })
+        self.assertEqual(204, code)
+
+        new_alice = new_alice.key.get()
+        self.assertEqual(['efake'], new_alice.enabled_protocols)
+        self.assertEqual([Target(protocol='efake', uri='efake:alice')],
+                         new_alice.copies)
+        self.assertIs(False, new_alice.manual_opt_out)
+        self.assertEqual(new_alice.key, carol_follower.key.get().to)
+
     def test_move_no_target(self):
         """Test Move activity without target fails."""
         alice = self.make_user('fake:alice', cls=Fake, obj_id='fake:alice')

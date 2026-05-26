@@ -1425,7 +1425,7 @@ cast_add_body {
             'author': 'farcaster://123',
             'content': 'hello world',
             'content_is_html': False,
-            'published': '2021-12-20T11:33:20+00:00',
+            'published': '2022-01-02T03:04:05+00:00',
             'url': f'https://farcaster.xyz/~/conversations/0x{msg.hash.hex()}',
         }, obj.as1)
 

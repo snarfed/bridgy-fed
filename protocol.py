@@ -1631,9 +1631,21 @@ class Protocol:
         if not to_cls:
             error(f"Couldn't determine protocol for target {target_id}")
 
-        to_key = to_cls.key_for(target_id)
-        if not to_key:
-            error(f'Invalid {to_cls.LABEL} user key: {target_id}')
+        to_user = to_cls.get_or_create(target_id, manual_opt_out=False,
+                                       enabled_protocols=from_user.enabled_protocols)
+        if not to_user:
+            error(f"Couldn't create {to_cls.LABEL} user {target_id}", status=299)
+
+        if from_user.enabled_protocols:
+            # from user has bridged copy accounts; transfer them to the new user
+            for label in from_user.enabled_protocols:
+                proto = PROTOCOLS[label]
+                if copy_id := from_user.get_copy(proto):
+                    from_user.remove_copies_on(proto)
+                    to_user.add('copies', Target(uri=copy_id, protocol=label))
+
+            from_user.put()
+            to_user.put()
 
         # query for all active followers of the source account
         followers = Follower.query(
@@ -1647,11 +1659,11 @@ class Protocol:
         updated_followers = []
         for follower in followers:
             # check if this would create a same-protocol follower
-            if follower.from_.kind() != to_key.kind():
-                follower.to = to_key
+            if follower.from_.kind() != to_user.key.kind():
+                follower.to = to_user.key
                 updated_followers.append(follower)
             else:
-                logger.info(f'Skipping same-protocol follower {follower.from_} => {to_key}')
+                logger.info(f'Skipping same-protocol follower {follower.from_.id()} => {to_user.key.id()}')
 
         if updated_followers:
             ndb.put_multi(updated_followers)
