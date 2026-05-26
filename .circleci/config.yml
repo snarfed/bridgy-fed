@@ -9,7 +9,7 @@ version: 2.1
 parameters:
   service:
     type: enum
-    enum: ["hub", "heavy", "default"]
+    enum: ["hub", "default"]
     default: "default"
   deploy-flags:
     type: enum
@@ -156,7 +156,7 @@ jobs:
             sed -E "s/min_num_instances: [0-9]+/min_num_instances: ${instances}/" < router.yaml > router.provisioned.yaml
             gcloud -q app deploy --no-promote << pipeline.parameters.deploy-flags >> queue.yaml router.provisioned.yaml
 
-  deploy-hub-or-heavy:
+  deploy-hub:
     docker:
       - image: cimg/gcp:2026.02
 
@@ -261,15 +261,15 @@ workflows:
             - deploy-router: success
             - migrate-router: terminal
 
-  test-and-deploy-hub-or-heavy:
+  test-and-deploy-hub:
     when: |
-      (pipeline.parameters.service == "hub" or pipeline.parameters.service == "heavy")
+      pipeline.parameters.service == "hub"
         and pipeline.git.branch == "main"
 
     jobs:
       - test
       # TODO: parallelize into deploy, migrate, and stop-old-version, like router
       # (can we parameterize stop-old-version across router and hub?)
-      - deploy-hub-or-heavy:
+      - deploy-hub:
           requires:
             - test: success
