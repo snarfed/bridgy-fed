@@ -46,6 +46,8 @@ from werkzeug.exceptions import HTTPException
 # PROTOCOLS when URL routes are registered.
 import atproto
 from common import GCP_PROJECT_ID, long_to_base64, NDB_CONTEXT_KWARGS, TASKS_LOCATION
+from Crypto.PublicKey import RSA
+from oauth_dropins.webutil.appengine_info import DEBUG
 import filters
 import ids
 from memcache import RateLimitType
@@ -353,6 +355,14 @@ with ndb_client.context():
     # make it actually generate the keypair
     global_user.private_pem()
 
+# cached legacy-format AP key parts for tests that exercise the pre-private_keys
+# storage path. generated once to avoid RSA.generate cost per test.
+_legacy_rsa = RSA.generate(models.KEY_BITS,
+                           randfunc=random.randbytes if DEBUG else None)
+LEGACY_AP_MOD = common.long_to_base64(_legacy_rsa.n).decode()
+LEGACY_AP_PUBLIC_EXPONENT = common.long_to_base64(_legacy_rsa.e).decode()
+LEGACY_AP_PRIVATE_EXPONENT = common.long_to_base64(_legacy_rsa.d).decode()
+
 
 class TestCase(unittest.TestCase, testutil.Asserts):
     maxDiff = None
@@ -533,11 +543,12 @@ class TestCase(unittest.TestCase, testutil.Asserts):
             return copies
 
         kwargs.setdefault('copies', make_copies(id))
-        user = cls(id=id,
-                   mod=global_user.mod,
-                   public_exponent=global_user.public_exponent,
-                   private_exponent=global_user.private_exponent,
-                   **kwargs)
+        kwargs.setdefault('keypairs', [
+            models.KeyPair(protocol=kp.protocol, algorithm=kp.algorithm,
+                           public_key_bytes=kp.public_key_bytes,
+                           private_key_bytes=kp.private_key_bytes)
+            for kp in global_user.keypairs])
+        user = cls(id=id, **kwargs)
 
         user.obj_key = kwargs.pop('obj_key', None)
         if user.obj_key:
@@ -824,8 +835,11 @@ class TestCase(unittest.TestCase, testutil.Asserts):
             self.assertEqual(expected, activity)
 
     def assert_equals(self, expected, actual, msg=None, ignore=(), **kwargs):
+        # keypairs contains bytes that break ujson's bytes rejection when
+        # assert_equals falls back to json sorting
         return super().assert_equals(
-            expected, actual, msg=msg, ignore=tuple(ignore) + ('@context',), **kwargs)
+            expected, actual, msg=msg,
+            ignore=tuple(ignore) + ('@context', 'keypairs'), **kwargs)
 
     @contextlib.contextmanager
     def assertLogs(self):

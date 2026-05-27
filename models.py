@@ -157,8 +157,6 @@ class Target(ndb.Model):
     For repeated StructuredPropertys, the hoisted properties are all repeated on
     the parent entity, and reconstructed into StructuredPropertys based on their
     order.
-
-    https://googleapis.dev/python/python-ndb/latest/model.html#google.cloud.ndb.model.StructuredProperty
     """
     uri = ndb.StringProperty(required=True)
     ''
@@ -166,7 +164,7 @@ class Target(ndb.Model):
     ''
 
     def __eq__(self, other):
-        """Equality excludes Targets' :class:`Key`."""
+        """Equality excludes :class:`Key`."""
         if isinstance(other, Target):
             return self.uri == other.uri and self.protocol == other.protocol
 
@@ -207,8 +205,53 @@ class DM(ndb.Model):
     ''
 
     def __eq__(self, other):
-        """Equality excludes Targets' :class:`Key`."""
+        """Equality excludes :class:`Key`."""
         return self.type == other.type and self.protocol == other.protocol
+
+
+class KeyPair(ndb.Model):
+    """A user's public/private key pair for a single protocol.
+
+    Used in :attr:`User.keypairs` ; not stored as top-level entities in the
+    datastore. The private key is encrypted at rest; the public key is not.
+
+    Format per ``algorithm``:
+
+    * ``rsa``: ``private_key_bytes`` is PKCS#1 PEM
+      (``-----BEGIN RSA PRIVATE KEY-----``); ``public_key_bytes`` is SPKI PEM
+      (``-----BEGIN PUBLIC KEY-----``).
+    * ``secp256k1``: 32 raw bytes private, 32 raw bytes BIP-340 x-only public.
+    * ``ed25519``: 32 raw bytes private, 32 raw bytes public.
+
+    Details for each protocol:
+
+    * ActivityPub: RSA (legacy users still store as :attr:`User.mod`,
+      ``public_exponent``, ``private_exponent``)
+    * ATProto: secp256k1, with ECDSA signatures
+      (keypair is stored in :class:`arroba.datastore_storage.AtpRepo`, *not* here)
+      https://atproto.com/specs/cryptography
+    * Farcaster: Ed25519, with EdDSA signatures
+      https://docs.farcaster.xyz/reference/farcaster/intent-urls#resource-urls
+    * Nostr: secp256k1, with Schnorr signatures
+      https://github.com/nostr-protocol/nips/blob/master/01.md#events-and-signatures
+    """
+    protocol = ndb.StringProperty(choices=list(PROTOCOLS.keys()), required=True)
+    ''
+    algorithm = ndb.StringProperty(choices=('ed25519', 'rsa', 'secp256k1'),
+                                   required=True)
+    ''
+    public_key_bytes = ndb.BlobProperty(required=True)
+    ''
+    private_key_bytes = EncryptedProperty(required=True)
+    ''
+
+    def __eq__(self, other):
+        """Equality excludes :class:`Key`."""
+        if isinstance(other, KeyPair):
+            return (self.protocol == other.protocol
+                    and self.algorithm == other.algorithm
+                    and self.public_key_bytes == other.public_key_bytes
+                    and self.private_key_bytes == other.private_key_bytes)
 
 
 class ProtocolUserMeta(type(ndb.Model)):
@@ -351,18 +394,7 @@ class AddRemoveMixin:
 # gets called! Due to an (arguable) ndb.Model bug:
 # https://github.com/googleapis/python-ndb/issues/1025
 class User(AddRemoveMixin, StringIdModel, metaclass=ProtocolUserMeta):
-    """Abstract base class for a Bridgy Fed user.
-
-    Stores some protocols' keypairs. Currently:
-
-    * RSA keypair for ActivityPub HTTP Signatures
-      properties: ``mod``, ``public_exponent``, ``private_exponent``, all
-      encoded as base64url (ie URL-safe base64) strings as described in RFC
-      4648 and section 5.1 of the Magic Signatures spec:
-      https://tools.ietf.org/html/draft-cavage-http-signatures-12
-    * *Not* K-256 signing or rotation keys for AT Protocol, those are stored in
-      :class:`arroba.datastore_storage.AtpRepo` entities
-    """
+    """Abstract base class for a Bridgy Fed user."""
     GET_ORIGINAL_FN = get_original_user_key
     'used by AddRemoveMixin'
 
@@ -377,6 +409,12 @@ class User(AddRemoveMixin, StringIdModel, metaclass=ProtocolUserMeta):
     ``alsoKnownAs`` in DID docs (and now AS2), etc.
     """
 
+    keypairs = ndb.StructuredProperty(KeyPair, repeated=True)
+    """Key pairs for this user, one per bridged protocol. Private keys
+    encrypted at rest."""
+
+    # LEGACY: replaced by keypairs. read-only fallback for users created
+    # before keypairs existed. backfill and remove eventually.
     mod = ndb.StringProperty()
     """Part of the bridged ActivityPub actor's private key."""
     public_exponent = ndb.StringProperty()
@@ -912,6 +950,12 @@ class User(AddRemoveMixin, StringIdModel, metaclass=ProtocolUserMeta):
         """Returns handle if we know it, otherwise id."""
         return self.handle or self.key.id()
 
+    def _keypair(self, protocol):
+        """Returns this user's :class:`KeyPair` for ``protocol``, or None."""
+        for kp in self.keypairs:
+            if kp.protocol == protocol:
+                return kp
+
     @memcache.memoize(key=lambda self: self.key.id())
     def public_pem(self):
         """Returns the user's PEM-encoded ActivityPub public RSA key.
@@ -920,6 +964,9 @@ class User(AddRemoveMixin, StringIdModel, metaclass=ProtocolUserMeta):
           bytes:
         """
         self._maybe_generate_ap_key()
+        if kp := self._keypair('activitypub'):
+            return kp.public_key_bytes
+
         rsa = RSA.construct((base64_to_long(str(self.mod)),
                              base64_to_long(str(self.public_exponent))),
                             # optimization. consistency check is very CPU-expensive,
@@ -936,6 +983,9 @@ class User(AddRemoveMixin, StringIdModel, metaclass=ProtocolUserMeta):
           bytes:
         """
         self._maybe_generate_ap_key()
+        if kp := self._keypair('activitypub'):
+            return kp.private_key_bytes
+
         rsa = RSA.construct((base64_to_long(str(self.mod)),
                              base64_to_long(str(self.public_exponent)),
                              base64_to_long(str(self.private_exponent))),
@@ -947,15 +997,19 @@ class User(AddRemoveMixin, StringIdModel, metaclass=ProtocolUserMeta):
 
     def _maybe_generate_ap_key(self):
         """Generates this user's ActivityPub private key if necessary."""
-        if not self.public_exponent or not self.private_exponent or not self.mod:
-            logger.info(f'generating AP keypair for {self.key}')
-            assert (not self.public_exponent and not self.private_exponent
-                    and not self.mod), id
-            key = RSA.generate(KEY_BITS, randfunc=random.randbytes if DEBUG else None)
-            self.mod = long_to_base64(key.n)
-            self.public_exponent = long_to_base64(key.e)
-            self.private_exponent = long_to_base64(key.d)
-            self.put()
+        if self._keypair('activitypub'):
+            return
+        if self.mod and self.public_exponent and self.private_exponent:
+            return
+
+        logger.info(f'generating AP keypair for {self.key}')
+        key = RSA.generate(KEY_BITS, randfunc=random.randbytes if DEBUG else None)
+        self.keypairs.append(KeyPair(
+            protocol='activitypub', algorithm='rsa',
+            public_key_bytes=key.publickey().exportKey(format='PEM'),
+            private_key_bytes=key.exportKey(format='PEM'),
+        ))
+        self.put()
 
     def nsec(self):
         """Returns the user's bech32-encoded Nostr private secp256k1 key.
@@ -964,7 +1018,7 @@ class User(AddRemoveMixin, StringIdModel, metaclass=ProtocolUserMeta):
           str:
         """
         self._maybe_generate_nostr_key()
-        privkey = secp256k1.PrivateKey(self.nostr_key_bytes, raw=True)
+        privkey = secp256k1.PrivateKey(self._nostr_private_bytes(), raw=True)
         return granary.nostr.bech32_encode('nsec', privkey.serialize())
 
     def hex_pubkey(self):
@@ -974,7 +1028,9 @@ class User(AddRemoveMixin, StringIdModel, metaclass=ProtocolUserMeta):
           str:
         """
         self._maybe_generate_nostr_key()
-        return granary.nostr.pubkey_from_privkey(self.nostr_key_bytes.hex())
+        if kp := self._keypair('nostr'):
+            return kp.public_key_bytes.hex()
+        return granary.nostr.pubkey_from_privkey(self._nostr_private_bytes().hex())
 
     def npub(self):
         """Returns the user's bech32-encoded ActivityPub public secp256k1 key.
@@ -984,18 +1040,31 @@ class User(AddRemoveMixin, StringIdModel, metaclass=ProtocolUserMeta):
         """
         return granary.nostr.bech32_encode('npub', self.hex_pubkey())
 
+    def _nostr_private_bytes(self):
+        """Returns this user's raw Nostr private key bytes, preferring keypairs."""
+        if kp := self._keypair('nostr'):
+            return kp.private_key_bytes
+        return self.nostr_key_bytes
+
     def _maybe_generate_nostr_key(self):
         """Generates this user's Nostr private key if necessary."""
-        if not self.nostr_key_bytes:
-            logger.info(f'generating Nostr keypair for {self.key}')
-            self.nostr_key_bytes = secp256k1.PrivateKey().private_key
-            self.put()
+        if self._nostr_private_bytes():
+            return
+
+        logger.info(f'generating Nostr keypair for {self.key}')
+        priv = secp256k1.PrivateKey()
+        pub_hex = granary.nostr.pubkey_from_privkey(priv.private_key.hex())
+        self.keypairs.append(KeyPair(
+            protocol='nostr', algorithm='secp256k1',
+            public_key_bytes=bytes.fromhex(pub_hex),
+            private_key_bytes=priv.private_key,
+        ))
+        self.put()
 
     def name(self):
         """Returns this user's human-readable name, eg ``Ryan Barrett``."""
         if self.obj and self.obj.as1:
-            name = self.obj.as1.get('displayName')
-            if name:
+            if name := self.obj.as1.get('displayName'):
                 return name
 
         return self.handle_or_id()
