@@ -11,8 +11,8 @@ import config
 import memcache
 from memcache import memoize, pickle_memcache, task_eta
 from models import Follower, get_original_user_key, Object, Target
-from oauth_dropins.webutil import util
-from oauth_dropins.webutil.testutil import NOW, requests_response
+from webutil import util
+from webutil.testutil import NOW, requests_response
 from .testutil import Fake, OtherFake, TestCase
 from web import Web
 

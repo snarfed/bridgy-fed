@@ -3,9 +3,9 @@
 Import all modules that define views in the app so that their URL routes get
 registered.
 """
-from oauth_dropins.webutil.appengine_info import DEBUG, LOCAL_SERVER
-
 from arroba.datastore_storage import MemcacheSequences
+from webutil.appengine_info import DEBUG, LOCAL_SERVER
+
 from flask_app import app
 
 # import all modules to register their Flask handlers

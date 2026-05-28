@@ -18,9 +18,9 @@ import logging
 from arroba.datastore_storage import AtpRemoteBlob
 from granary import as1
 from granary.source import html_to_text
-from oauth_dropins.webutil import util
-from oauth_dropins.webutil.models import Reloader
 import requests
+from webutil import util
+from webutil.models import Reloader
 
 import memcache
 from memcache import pickle_memcache

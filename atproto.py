@@ -46,18 +46,18 @@ from lexrpc import Client, ValidationError
 from lexrpc.base import AT_URI_RE, DID_RE
 from requests import RequestException
 import oauth_dropins.bluesky
-from oauth_dropins.webutil import util
-from oauth_dropins.webutil.appengine_config import ndb_client
-from oauth_dropins.webutil.appengine_info import DEBUG, LOCAL_SERVER, TESTING
-from oauth_dropins.webutil import flask_util
-from oauth_dropins.webutil.flask_util import (
+from pymemcache.test.utils import MockMemcacheClient
+from webutil import util
+from webutil.appengine_config import ndb_client
+from webutil.appengine_info import DEBUG, LOCAL_SERVER, TESTING
+from webutil import flask_util
+from webutil.flask_util import (
     canonicalize_request_domain,
     FlashErrors,
     get_required_param,
 )
-from oauth_dropins.webutil.models import StringIdModel
-from oauth_dropins.webutil.util import add, json_dumps, json_loads
-from pymemcache.test.utils import MockMemcacheClient
+from webutil.models import StringIdModel
+from webutil.util import add, json_dumps, json_loads
 from werkzeug.exceptions import HTTPException, NotFound
 
 import common

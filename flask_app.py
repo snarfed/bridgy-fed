@@ -11,7 +11,7 @@ import flask_gae_static
 from google.api_core.exceptions import PermissionDenied
 from lexrpc.server import Server
 import lexrpc.flask_server
-from oauth_dropins.webutil import (
+from webutil import (
     appengine_info,
     appengine_config,
     flask_util,

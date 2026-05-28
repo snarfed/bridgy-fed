@@ -6,7 +6,7 @@ cd ~/src/bridgy-fed/ && ve && fullpower pytest -n 6 --dist=worksteal --disable-w
 """
 import os
 
-from oauth_dropins.webutil import appengine_info
+from webutil import appengine_info
 
 appengine_info.TESTING = True
 appengine_info.LOCAL_SERVER = False

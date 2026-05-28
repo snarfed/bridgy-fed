@@ -10,8 +10,8 @@ from urllib.parse import quote, unquote
 
 from flask import redirect, request
 from granary import as1
-from oauth_dropins.webutil import flask_util, util
-from oauth_dropins.webutil.flask_util import error
+from webutil import flask_util, util
+from webutil.flask_util import error
 
 from activitypub import ActivityPub
 from common import CACHE_CONTROL

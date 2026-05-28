@@ -6,8 +6,8 @@ from urllib.parse import urljoin
 from flask import request
 from google.cloud import ndb
 from granary import as1
-from oauth_dropins.webutil import appengine_info, util
-from oauth_dropins.webutil.flask_util import cloud_tasks_only
+from webutil import appengine_info, util
+from webutil.flask_util import cloud_tasks_only
 
 import common
 from domains import PRIMARY_DOMAIN

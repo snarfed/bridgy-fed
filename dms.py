@@ -8,9 +8,9 @@ from typing import Callable, Optional
 from granary import as1, source
 import lexrpc
 from oauth_dropins.bluesky import BlueskyAuth
-from oauth_dropins.webutil import util
-from oauth_dropins.webutil.util import json_dumps
 from requests import HTTPError
+from webutil import util
+from webutil.util import json_dumps
 from werkzeug.exceptions import BadRequest
 
 from collections import namedtuple

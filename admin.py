@@ -18,9 +18,9 @@ from granary import as1, microformats2
 import memcache
 import models
 from models import Object, PROTOCOLS, User
-from oauth_dropins.webutil import flask_util, logs, util
-from oauth_dropins.webutil.flask_util import flash
 import pytz
+from webutil import flask_util, logs, util
+from webutil.flask_util import flash
 
 from activitypub import ActivityPub, FEDI_URL_RE
 from atproto import ATProto

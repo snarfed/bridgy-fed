@@ -20,13 +20,12 @@ from google.cloud.ndb.key import Key
 from google.protobuf.timestamp_pb2 import Timestamp
 from granary import as2
 import jwt
-from oauth_dropins.webutil import flask_util, util, webmention
-from oauth_dropins.webutil.appengine_config import error_reporting_client, tasks_client
-from oauth_dropins.webutil.appengine_info import DEBUG, LOCAL_SERVER, READ_ONLY
-from oauth_dropins.webutil import models
-from oauth_dropins.webutil.util import interpret_http_exception, json_dumps
 from negotiator import ContentNegotiator, AcceptParameters, ContentType
 import requests
+from webutil import flask_util, models, util, webmention
+from webutil.appengine_config import error_reporting_client, tasks_client
+from webutil.appengine_info import DEBUG, LOCAL_SERVER, READ_ONLY
+from webutil.util import interpret_http_exception, json_dumps
 import werkzeug.exceptions
 from werkzeug.exceptions import HTTPException
 
@@ -127,14 +126,14 @@ def long_to_base64(x):
 
 
 def error(err, status=400, exc_info=None, **kwargs):
-    """Like :func:`oauth_dropins.webutil.flask_util.error`, but wraps body in JSON."""
+    """Like :func:`webutil.flask_util.error`, but wraps body in JSON."""
     msg = str(err)
     logger.info(f'Returning {status}: {msg}', exc_info=exc_info)
     abort(status, response=make_response({'error': msg}, status), **kwargs)
 
 
 def pretty_link(url, text=None, user=None, **kwargs):
-    """Wrapper around :func:`oauth_dropins.webutil.util.pretty_link` that converts Mastodon user URLs to @-@ handles.
+    """Wrapper around :func:`webutil.util.pretty_link` that converts Mastodon user URLs to @-@ handles.
 
     Eg for URLs like https://mastodon.social/@foo and
     https://mastodon.social/users/foo, defaults text to ``@foo@mastodon.social``
@@ -144,7 +143,7 @@ def pretty_link(url, text=None, user=None, **kwargs):
       url (str)
       text (str)
       user (models.User): current user
-      kwargs: passed through to :func:`oauth_dropins.webutil.util.pretty_link`
+      kwargs: passed through to :func:`webutil.util.pretty_link`
     """
     if user and user.is_web_url(url):
         return user.html_link(handle=False, pictures=True)

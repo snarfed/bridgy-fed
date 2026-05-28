@@ -14,10 +14,10 @@ import config
 from google.cloud.ndb._cache import global_cache_key
 from google.cloud.ndb.global_cache import _InProcessGlobalCache, MemcacheCache
 from google.cloud.ndb.key import Key
-from oauth_dropins.webutil import appengine_info, util
 from pymemcache.client.base import PooledClient
 from pymemcache.serde import PickleSerde
 from pymemcache.test.utils import MockMemcacheClient
+from webutil import appengine_info, util
 
 from domains import PRIMARY_DOMAIN
 

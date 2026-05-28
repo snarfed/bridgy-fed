@@ -21,9 +21,9 @@ from granary.tests.test_nostr import (
     PRIVKEY,
     PUBKEY,
 )
-from oauth_dropins.webutil import util
-from oauth_dropins.webutil.testutil import NOW
-from oauth_dropins.webutil.util import json_dumps, json_loads
+from webutil import util
+from webutil.testutil import NOW
+from webutil.util import json_dumps, json_loads
 from websockets.exceptions import ConnectionClosedOK, ConnectionClosedError
 
 import common
@@ -45,7 +45,7 @@ FRANK_NSEC_URI = 'nostr:nsec12hj6ylwt5kypmq6hs7tssy3h68hdy5kvwj9qwhgv60vh6qdud8v
 
 
 @patch('secrets.token_urlsafe', return_value='sub123')
-@patch('oauth_dropins.webutil.appengine_config.tasks_client.create_task')
+@patch('webutil.appengine_config.tasks_client.create_task')
 class NostrHubTest(TestCase):
     def setUp(self):
         super().setUp()

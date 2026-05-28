@@ -8,7 +8,7 @@ import re
 import traceback
 
 import arroba.datastore_storage
-from oauth_dropins.webutil import appengine_config, appengine_info, util
+from webutil import appengine_config, appengine_info, util
 
 # This is primarily for flashed messages, since we don't use session data
 # otherwise.
@@ -59,7 +59,7 @@ else:
             # 'arroba.storage',
 
             'lexrpc',
-            'oauth_dropins.webutil.webmention',
+            'webutil.webmention',
     ):
         logging.getLogger(logger).setLevel(logging.DEBUG)
 

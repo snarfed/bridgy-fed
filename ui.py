@@ -2,7 +2,7 @@
 
 Needed for serving /convert/ui/web/... requests.
 """
-from oauth_dropins.webutil import util
+from webutil import util
 
 from google.cloud import ndb
 

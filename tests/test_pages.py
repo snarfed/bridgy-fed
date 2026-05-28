@@ -14,10 +14,10 @@ from oauth_dropins.bluesky import BlueskyAuth
 from oauth_dropins.indieauth import IndieAuth
 from oauth_dropins.mastodon import MastodonAuth
 from oauth_dropins.views import LOGINS_SESSION_KEY
-from oauth_dropins.webutil import appengine_info
-from oauth_dropins.webutil import util
-from oauth_dropins.webutil.appengine_config import tasks_client
-from oauth_dropins.webutil.testutil import requests_response
+from webutil import appengine_info
+from webutil import util
+from webutil.appengine_config import tasks_client
+from webutil.testutil import requests_response
 from requests import ConnectionError, HTTPError
 from werkzeug.exceptions import ServiceUnavailable
 
@@ -1374,7 +1374,7 @@ class PagesTest(TestCase):
         self.assertEqual(200, resp.status_code)
         self.assertIn('Error from new.pds.com: nopey', resp.get_data(as_text=True))
 
-    @patch('oauth_dropins.webutil.util.now', return_value=datetime.now())
+    @patch('webutil.util.now', return_value=datetime.now())
     def test_respond(self, _):
         self.store_object(id='other:post', our_as1={'url': 'https://other/post'})
         token = common.make_jwt(user=self.user, scope='respond', obj_id='other:post')
@@ -1408,21 +1408,21 @@ class PagesTest(TestCase):
             '/web/user.com/respond?obj_id=other:post&token=invalid')
         self.assertEqual(401, resp.status_code)
 
-    @patch('oauth_dropins.webutil.util.now', return_value=datetime.now())
+    @patch('webutil.util.now', return_value=datetime.now())
     def test_respond_object_not_found(self, _):
         token = common.make_jwt(user=self.user, scope='respond', obj_id='other:nope')
         resp = self.client.get(
             f'/web/user.com/respond?obj_id=other:nope&token={token}')
         self.assertEqual(404, resp.status_code)
 
-    @patch('oauth_dropins.webutil.util.now', return_value=datetime.now())
+    @patch('webutil.util.now', return_value=datetime.now())
     def test_respond_wrong_obj_id(self, _):
         token = common.make_jwt(user=self.user, scope='respond', obj_id='other:nope')
         resp = self.client.get(
             f'/web/user.com/respond?obj_id=other:post&token={token}')
         self.assertEqual(403, resp.status_code)
 
-    @patch('oauth_dropins.webutil.util.now', return_value=datetime.now())
+    @patch('webutil.util.now', return_value=datetime.now())
     def test_respond_user_not_found(self, _):
         self.store_object(id='fake:post')
         token = common.make_jwt(user=Fake(id='fake:user'), scope='respond')
@@ -1430,7 +1430,7 @@ class PagesTest(TestCase):
             f'/fake/fake:user/respond?obj_id=other:post&token={token}')
         self.assertEqual(404, resp.status_code)
 
-    @patch('oauth_dropins.webutil.util.now', return_value=datetime.now())
+    @patch('webutil.util.now', return_value=datetime.now())
     @patch.object(tasks_client, 'create_task', return_value=Task(name='my task'))
     def test_respond_reply(self, mock_create_task, _):
         common.RUN_TASKS_INLINE = False
@@ -1464,7 +1464,7 @@ class PagesTest(TestCase):
         })
         self.assertEqual(400, resp.status_code)
 
-    @patch('oauth_dropins.webutil.util.now', return_value=datetime.now())
+    @patch('webutil.util.now', return_value=datetime.now())
     def test_respond_reply_missing_content_flashes(self, _):
         obj = self.store_object(id='fake:post')
         token = common.make_jwt(user=self.user, scope='respond', obj_id='fake:post')
@@ -1478,7 +1478,7 @@ class PagesTest(TestCase):
                          resp.headers['Location'])
         self.assertEqual(['Please enter a reply'], get_flashed_messages())
 
-    @patch('oauth_dropins.webutil.util.now', return_value=datetime.now())
+    @patch('webutil.util.now', return_value=datetime.now())
     def test_respond_reply_wrong_user(self, _):
         self.make_user('fake:bob', cls=Fake)
         resp = self.client.post('/fake/fake:bob/respond/reply', data={
@@ -1489,7 +1489,7 @@ class PagesTest(TestCase):
         })
         self.assertEqual(403, resp.status_code)
 
-    @patch('oauth_dropins.webutil.util.now', return_value=datetime.now())
+    @patch('webutil.util.now', return_value=datetime.now())
     def test_respond_reply_wrong_obj_id(self, _):
         resp = self.client.post('/web/user.com/respond/reply', data={
             'obj_id': 'fake:post',
@@ -1507,7 +1507,7 @@ class PagesTest(TestCase):
         })
         self.assertEqual(401, resp.status_code)
 
-    @patch('oauth_dropins.webutil.util.now', return_value=datetime.now())
+    @patch('webutil.util.now', return_value=datetime.now())
     def test_respond_reply_wrong_scope(self, _):
         resp = self.client.post('/web/user.com/respond/reply', data={
             'obj_id': 'fake:post',
@@ -1515,7 +1515,7 @@ class PagesTest(TestCase):
         })
         self.assertEqual(403, resp.status_code)
 
-    @patch('oauth_dropins.webutil.util.now', return_value=datetime.now())
+    @patch('webutil.util.now', return_value=datetime.now())
     @patch.object(tasks_client, 'create_task', return_value=Task(name='my task'))
     def test_respond_like(self, mock_create_task, _):
         common.RUN_TASKS_INLINE = False
@@ -1547,7 +1547,7 @@ class PagesTest(TestCase):
         })
         self.assertEqual(400, resp.status_code)
 
-    @patch('oauth_dropins.webutil.util.now', return_value=datetime.now())
+    @patch('webutil.util.now', return_value=datetime.now())
     def test_respond_like_wrong_user(self, _):
         self.make_user('fake:bob', cls=Fake)
         resp = self.client.post('/fake/fake:bob/respond/like', data={
@@ -1557,7 +1557,7 @@ class PagesTest(TestCase):
         })
         self.assertEqual(403, resp.status_code)
 
-    @patch('oauth_dropins.webutil.util.now', return_value=datetime.now())
+    @patch('webutil.util.now', return_value=datetime.now())
     def test_respond_like_wrong_obj_id(self, _):
         resp = self.client.post('/web/user.com/respond/like', data={
             'obj_id': 'fake:post',
@@ -1566,7 +1566,7 @@ class PagesTest(TestCase):
         })
         self.assertEqual(403, resp.status_code)
 
-    @patch('oauth_dropins.webutil.util.now', return_value=datetime.now())
+    @patch('webutil.util.now', return_value=datetime.now())
     @patch.object(tasks_client, 'create_task', return_value=Task(name='my task'))
     def test_respond_repost(self, mock_create_task, _):
         common.RUN_TASKS_INLINE = False
@@ -1598,7 +1598,7 @@ class PagesTest(TestCase):
         })
         self.assertEqual(400, resp.status_code)
 
-    @patch('oauth_dropins.webutil.util.now', return_value=datetime.now())
+    @patch('webutil.util.now', return_value=datetime.now())
     def test_respond_repost_wrong_user(self, _):
         self.make_user('fake:bob', cls=Fake)
         resp = self.client.post('/fake/fake:bob/respond/repost', data={
@@ -1607,7 +1607,7 @@ class PagesTest(TestCase):
         })
         self.assertEqual(403, resp.status_code)
 
-    @patch('oauth_dropins.webutil.util.now', return_value=datetime.now())
+    @patch('webutil.util.now', return_value=datetime.now())
     def test_respond_repost_wrong_obj_id(self, _):
         resp = self.client.post('/web/user.com/respond/repost', data={
             'obj_id': 'fake:post',
@@ -1616,7 +1616,7 @@ class PagesTest(TestCase):
         })
         self.assertEqual(403, resp.status_code)
 
-    @patch('oauth_dropins.webutil.util.now', return_value=datetime.now())
+    @patch('webutil.util.now', return_value=datetime.now())
     @patch.object(tasks_client, 'create_task', return_value=Task(name='my task'))
     def test_respond_block(self, mock_create_task, _):
         common.RUN_TASKS_INLINE = False
@@ -1648,7 +1648,7 @@ class PagesTest(TestCase):
         })
         self.assertEqual(400, resp.status_code)
 
-    @patch('oauth_dropins.webutil.util.now', return_value=datetime.now())
+    @patch('webutil.util.now', return_value=datetime.now())
     def test_respond_block_wrong_user(self, _):
         self.make_user('fake:bob', cls=Fake)
         resp = self.client.post('/fake/fake:bob/respond/block', data={
@@ -1657,7 +1657,7 @@ class PagesTest(TestCase):
         })
         self.assertEqual(403, resp.status_code)
 
-    @patch('oauth_dropins.webutil.util.now', return_value=datetime.now())
+    @patch('webutil.util.now', return_value=datetime.now())
     def test_respond_block_wrong_obj_id(self, _):
         resp = self.client.post('/web/user.com/respond/block', data={
             'obj_id': 'fake:post',

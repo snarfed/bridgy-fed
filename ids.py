@@ -16,7 +16,7 @@ from google.cloud.ndb.query import FilterNode, Query
 from granary.bluesky import BSKY_APP_URL_RE, web_url_to_at_uri
 import granary.farcaster
 import granary.nostr
-from oauth_dropins.webutil import util
+from webutil import util
 
 from domains import (
     DOMAIN_RE,

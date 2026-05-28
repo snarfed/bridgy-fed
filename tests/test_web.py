@@ -11,11 +11,11 @@ from google.cloud.ndb.key import _MAX_KEYPART_BYTES
 from granary import as1, as2, atom, microformats2, rss
 from granary.source import html_to_text
 from oauth_dropins import indieauth
-from oauth_dropins.webutil import util
-from oauth_dropins.webutil import appengine_info
-from oauth_dropins.webutil.flask_util import APP_ENGINE_CRON_HEADER, NoContent
-from oauth_dropins.webutil.testutil import NOW, NOW_SECONDS, requests_response
-from oauth_dropins.webutil.util import json_dumps, json_loads
+from webutil import util
+from webutil import appengine_info
+from webutil.flask_util import APP_ENGINE_CRON_HEADER, NoContent
+from webutil.testutil import NOW, NOW_SECONDS, requests_response
+from webutil.util import json_dumps, json_loads
 import requests
 from werkzeug.exceptions import BadGateway, BadRequest
 
@@ -557,12 +557,12 @@ class WebTest(TestCase):
         self.assert_entities_equal(user, Web.get_by_id('foo.bar'))
         self.assertIsNone(Web.get_by_id('..foo.bar.'))
 
-    @patch('oauth_dropins.webutil.appengine_config.tasks_client.create_task')
+    @patch('webutil.appengine_config.tasks_client.create_task')
     def test_get_or_create_existing_no_poll_feed_task(self, mock_create_task, _, __):
         user = Web.get_or_create('user.com')
         mock_create_task.assert_not_called()
 
-    @patch('oauth_dropins.webutil.appengine_config.tasks_client.create_task')
+    @patch('webutil.appengine_config.tasks_client.create_task')
     def test_get_or_create_new_creates_poll_feed_task(self, mock_create_task,
                                                       mock_get, __):
         common.RUN_TASKS_INLINE = False
@@ -622,12 +622,12 @@ class WebTest(TestCase):
         self.assertEqual([], OtherFake.created_for)
         self.assertEqual([], ExplicitFake.created_for)
 
-    @patch('oauth_dropins.webutil.appengine_info.DEBUG', False)
+    @patch('webutil.appengine_info.DEBUG', False)
     def test_get_or_create_bridgy_subdomain(self, *_):
         for subdomain in '', 'fa.', 'fed.', 'web.':
             self.assertIsNone(Web.get_or_create(f'{subdomain}brid.gy'))
 
-    @patch('oauth_dropins.webutil.appengine_config.tasks_client.create_task')
+    @patch('webutil.appengine_config.tasks_client.create_task')
     def test_get_or_create_new_propagate_atproto(self, mock_create_task,
                                                  mock_get, mock_post):
         common.RUN_TASKS_INLINE = False
@@ -726,7 +726,7 @@ class WebTest(TestCase):
         self.user.obj.as2['url'].append('acct:alice@user.com')
         self.assertEqual('alice', self.user.username())
 
-    @patch('oauth_dropins.webutil.appengine_config.tasks_client.create_task')
+    @patch('webutil.appengine_config.tasks_client.create_task')
     def test_make_task(self, mock_create_task, mock_get, mock_post):
         common.RUN_TASKS_INLINE = False
         mock_get.side_effect = [NOTE, ACTOR]
@@ -742,7 +742,7 @@ class WebTest(TestCase):
 
         self.assertEqual(NOW, self.user.key.get().last_webmention_in)
 
-    @patch('oauth_dropins.webutil.appengine_config.tasks_client.create_task')
+    @patch('webutil.appengine_config.tasks_client.create_task')
     def test_make_task_read_only(self, mock_create_task, mock_get, mock_post):
         common.RUN_TASKS_INLINE = False
         appengine_info.READ_ONLY = True
@@ -2003,7 +2003,7 @@ class WebTest(TestCase):
         user = self.user.key.get()
         self.assertEqual(('https://foo/feed', 'atom'), user.feed_url())
 
-    @patch('oauth_dropins.webutil.appengine_config.tasks_client.create_task')
+    @patch('webutil.appengine_config.tasks_client.create_task')
     def test_poll_feed_atom(self, mock_create_task, mock_get, _):
         common.RUN_TASKS_INLINE = False
         self.user.last_polled_feed = NOW
@@ -2066,7 +2066,7 @@ class WebTest(TestCase):
         self.assert_task(mock_create_task, 'poll-feed', domain='user.com',
                          last_polled=NOW.isoformat(), eta_seconds=expected_eta)
 
-    @patch('oauth_dropins.webutil.appengine_config.tasks_client.create_task')
+    @patch('webutil.appengine_config.tasks_client.create_task')
     def test_poll_feed_atom_bad_published_timestamps(self, mock_create_task,
                                                      mock_get, _):
         common.RUN_TASKS_INLINE = False
@@ -2112,7 +2112,7 @@ class WebTest(TestCase):
         self.assert_task(mock_create_task, 'poll-feed', domain='user.com',
                          last_polled=NOW.isoformat(), eta_seconds=expected_eta)
 
-    @patch('oauth_dropins.webutil.appengine_config.tasks_client.create_task')
+    @patch('webutil.appengine_config.tasks_client.create_task')
     def test_poll_feed_rss(self, mock_create_task, mock_get, _):
         common.RUN_TASKS_INLINE = False
         self.user.last_polled_feed = NOW
@@ -2207,7 +2207,7 @@ class WebTest(TestCase):
         self.assert_task(mock_create_task, 'poll-feed', domain='user.com',
                          last_polled=NOW.isoformat(), eta_seconds=expected_eta)
 
-    @patch('oauth_dropins.webutil.appengine_config.tasks_client.create_task')
+    @patch('webutil.appengine_config.tasks_client.create_task')
     def test_poll_feed_xml_content_type(self, mock_create_task, mock_get, _):
         common.RUN_TASKS_INLINE = False
         self.user.obj.mf2 = ACTOR_MF2_REL_FEED_URL
@@ -2239,7 +2239,7 @@ class WebTest(TestCase):
         self.assertEqual('receive', queue)
         self.assertEqual('https://user.com/post', body['id'])
 
-    @patch('oauth_dropins.webutil.appengine_config.tasks_client.create_task')
+    @patch('webutil.appengine_config.tasks_client.create_task')
     def test_poll_feed_use_url_as_id(self, mock_create_task, mock_get, _):
         common.RUN_TASKS_INLINE = False
         self.user.obj.mf2 = ACTOR_MF2_REL_FEED_URL
@@ -2288,7 +2288,7 @@ class WebTest(TestCase):
                          our_as1=expected_as1, source_protocol='web',
                          authed_as='user.com', received_at='2022-01-02T03:04:05+00:00')
 
-    @patch('oauth_dropins.webutil.appengine_config.tasks_client.create_task')
+    @patch('webutil.appengine_config.tasks_client.create_task')
     def test_poll_feed_fails(self, mock_create_task, mock_get, _):
         common.RUN_TASKS_INLINE = False
         self.user.obj.mf2 = ACTOR_MF2_REL_FEED_URL
@@ -2304,7 +2304,7 @@ class WebTest(TestCase):
         self.assert_task(mock_create_task, 'poll-feed', domain='user.com',
                          last_polled=NOW.isoformat(), eta_seconds=expected_eta)
 
-    @patch('oauth_dropins.webutil.appengine_config.tasks_client.create_task')
+    @patch('webutil.appengine_config.tasks_client.create_task')
     def test_poll_feed_unsupported_content_types(self, mock_create_task, mock_get, _):
         common.RUN_TASKS_INLINE = False
         self.user.obj.mf2 = ACTOR_MF2_REL_FEED_URL
@@ -2321,7 +2321,7 @@ class WebTest(TestCase):
         self.assert_task(mock_create_task, 'poll-feed', domain='user.com',
                          last_polled=NOW.isoformat(), eta_seconds=expected_eta)
 
-    @patch('oauth_dropins.webutil.appengine_config.tasks_client.create_task')
+    @patch('webutil.appengine_config.tasks_client.create_task')
     def test_poll_feed_mismatched_content_type(self, mock_create_task, mock_get, _):
         common.RUN_TASKS_INLINE = False
         self.user.obj.mf2 = ACTOR_MF2_REL_FEED_URL
@@ -2337,7 +2337,7 @@ class WebTest(TestCase):
         self.assert_task(mock_create_task, 'poll-feed', domain='user.com',
                          last_polled=NOW.isoformat(), eta_seconds=expected_eta)
 
-    @patch('oauth_dropins.webutil.appengine_config.tasks_client.create_task')
+    @patch('webutil.appengine_config.tasks_client.create_task')
     def test_poll_feed_parse_error(self, mock_create_task, mock_get, _):
         common.RUN_TASKS_INLINE = False
         self.user.obj.mf2 = ACTOR_MF2_REL_FEED_URL
@@ -2364,7 +2364,7 @@ class WebTest(TestCase):
         self.assert_task(mock_create_task, 'poll-feed', domain='user.com',
                          last_polled=NOW.isoformat(), eta_seconds=expected_eta)
 
-    @patch('oauth_dropins.webutil.appengine_config.tasks_client.create_task')
+    @patch('webutil.appengine_config.tasks_client.create_task')
     def test_poll_feed_user_feed_last_item(self, mock_create_task, mock_get, _):
         common.RUN_TASKS_INLINE = False
         self.user.obj.mf2 = ACTOR_MF2_REL_FEED_URL
@@ -2388,7 +2388,7 @@ class WebTest(TestCase):
         self.assert_task(mock_create_task, 'poll-feed', domain='user.com',
                          last_polled=NOW.isoformat(), eta_seconds=expected_eta)
 
-    @patch('oauth_dropins.webutil.appengine_config.tasks_client.create_task')
+    @patch('webutil.appengine_config.tasks_client.create_task')
     def test_poll_feed_blocklisted_entry_url(self, mock_create_task, mock_get, _):
         common.RUN_TASKS_INLINE = False
         self.user.obj.mf2 = ACTOR_MF2_REL_FEED_URL
@@ -2415,7 +2415,7 @@ class WebTest(TestCase):
         self.assertEqual(NOW, user.last_polled_feed)
         self.assertEqual('https://user.com/post', user.feed_last_item)
 
-    @patch('oauth_dropins.webutil.appengine_config.tasks_client.create_task')
+    @patch('webutil.appengine_config.tasks_client.create_task')
     def test_poll_feed_last_webmention_in_noop(self, mock_create_task, mock_get, _):
         common.RUN_TASKS_INLINE = False
 
@@ -2435,7 +2435,7 @@ class WebTest(TestCase):
         mock_create_task.assert_not_called()
         mock_get.assert_not_called()
 
-    @patch('oauth_dropins.webutil.appengine_config.tasks_client.create_task')
+    @patch('webutil.appengine_config.tasks_client.create_task')
     def test_poll_feed_fetch_post_for_image(self, mock_create_task, mock_get, _):
         common.RUN_TASKS_INLINE = False
         self.user.obj.mf2 = ACTOR_MF2_REL_FEED_URL
@@ -2489,7 +2489,7 @@ class WebTest(TestCase):
                          source_protocol='web', our_as1=expected_as1,
                          authed_as='user.com', received_at='2022-01-02T03:04:05+00:00')
 
-    @patch('oauth_dropins.webutil.appengine_config.tasks_client.create_task')
+    @patch('webutil.appengine_config.tasks_client.create_task')
     def test_poll_feed_fetch_post_for_image_fails(self, mock_create_task,
                                                   mock_get, _):
         common.RUN_TASKS_INLINE = False
@@ -2536,7 +2536,7 @@ class WebTest(TestCase):
                          source_protocol='web', our_as1=expected_as1,
                          authed_as='user.com', received_at='2022-01-02T03:04:05+00:00')
 
-    @patch('oauth_dropins.webutil.appengine_config.tasks_client.create_task')
+    @patch('webutil.appengine_config.tasks_client.create_task')
     def test_poll_feed_fetch_post_for_image_same_as_user_profile(
             self, mock_create_task, mock_get, _):
         common.RUN_TASKS_INLINE = False
@@ -2575,7 +2575,7 @@ class WebTest(TestCase):
         self.assertNotIn('image', body['our_as1'])
         self.assertEqual([], body['our_as1']['object']['image'])
 
-    @patch('oauth_dropins.webutil.appengine_config.tasks_client.create_task')
+    @patch('webutil.appengine_config.tasks_client.create_task')
     def test_poll_feed_etag_last_modified(self, mock_create_task, mock_get, _):
         common.RUN_TASKS_INLINE = False
         self.user.obj.mf2 = ACTOR_MF2_REL_FEED_URL
@@ -2608,7 +2608,7 @@ class WebTest(TestCase):
                          last_polled=NOW.isoformat(), eta_seconds=expected_eta)
 
     @patch('web.MAX_FEED_ITEMS_PER_POLL', 2)
-    @patch('oauth_dropins.webutil.appengine_config.tasks_client.create_task')
+    @patch('webutil.appengine_config.tasks_client.create_task')
     def test_poll_feed_max_items_per_poll(self, mock_create_task, mock_get, _):
         common.RUN_TASKS_INLINE = False
         self.user.obj.mf2 = ACTOR_MF2_REL_FEED_URL
@@ -2652,7 +2652,7 @@ class WebTest(TestCase):
         self.assertEqual(NOW, user.last_polled_feed)
         self.assertEqual('https://user.com/A', user.feed_last_item)
 
-    @patch('oauth_dropins.webutil.appengine_config.tasks_client.create_task')
+    @patch('webutil.appengine_config.tasks_client.create_task')
     def test_poll_feed_duplicate_task(self, mock_create_task, _, __):
         common.RUN_TASKS_INLINE = False
         self.user.last_polled_feed = NOW
@@ -3022,7 +3022,7 @@ Current vs expected:<pre>- http://this/404s
         self.assertIn('planned maintenance', body)
         self.assertNotIn('user.com', body)
 
-    @patch('oauth_dropins.webutil.appengine_config.tasks_client.create_task')
+    @patch('webutil.appengine_config.tasks_client.create_task')
     def test_check_web_site(self, mock_create_task, mock_get, _):
         common.RUN_TASKS_INLINE = False
 
@@ -3125,7 +3125,7 @@ Current vs expected:<pre>- http://this/404s
 
         self.assertIsNone(self.user.key.get().status)
 
-    @patch('oauth_dropins.webutil.appengine_config.tasks_client.create_task')
+    @patch('webutil.appengine_config.tasks_client.create_task')
     def test_check_webfinger_redirects_then_fails(self, mock_task, mock_get, __):
         common.RUN_TASKS_INLINE = False
 

@@ -23,10 +23,10 @@ from lexrpc.base import AT_URI_RE
 from lexrpc.client import Client
 import libipld
 from multiformats import CID
-from oauth_dropins.webutil import util
-from oauth_dropins.webutil.appengine_config import ndb_client
-from oauth_dropins.webutil.appengine_info import DEBUG
-from oauth_dropins.webutil.util import json_dumps, json_loads
+from webutil import util
+from webutil.appengine_config import ndb_client
+from webutil.appengine_info import DEBUG
+from webutil.util import json_dumps, json_loads
 
 from atproto import ATProto, Cursor, DatastoreClient
 from common import (

@@ -20,9 +20,12 @@ from httpsig.utils import parse_signature_header
 import oauth_dropins.mastodon
 import oauth_dropins.pixelfed
 import oauth_dropins.threads
-from oauth_dropins.webutil import appengine_info, flask_util, util
-from oauth_dropins.webutil.flask_util import FlashErrors, MovedPermanently
-from oauth_dropins.webutil.util import (
+import requests
+from requests import TooManyRedirects
+from requests.models import DEFAULT_REDIRECT_LIMIT
+from webutil import appengine_info, flask_util, util
+from webutil.flask_util import FlashErrors, MovedPermanently
+from webutil.util import (
     add,
     domain_from_link,
     fragmentless,
@@ -30,9 +33,6 @@ from oauth_dropins.webutil.util import (
     json_dumps,
     json_loads,
 )
-import requests
-from requests import TooManyRedirects
-from requests.models import DEFAULT_REDIRECT_LIMIT
 from werkzeug.exceptions import BadGateway, HTTPException
 
 from flask_app import app
@@ -190,7 +190,7 @@ class ActivityPub(User, Protocol):
         r"""Validate id, require URL, don't allow Bridgy Fed domains.
 
         TODO: normalize scheme and domain to lower case. Add that to
-        :class:`oauth_dropins.webutil.util.UrlCanonicalizer`\?
+        :class:`webutil.util.UrlCanonicalizer`\?
         """
         super()._pre_put_hook()
         id = self.key.id()

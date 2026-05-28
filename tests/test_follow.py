@@ -6,9 +6,9 @@ from unittest.mock import patch
 from flask import get_flashed_messages, session
 from granary import as2
 from oauth_dropins import indieauth
-from oauth_dropins.webutil import util
-from oauth_dropins.webutil.testutil import requests_response
-from oauth_dropins.webutil.util import json_dumps, json_loads
+from webutil import util
+from webutil.testutil import requests_response
+from webutil.util import json_dumps, json_loads
 import requests
 
 # import first so that Fake is defined before URL routes are registered

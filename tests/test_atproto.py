@@ -29,11 +29,11 @@ import jwt
 import lexrpc
 from multiformats import CID
 from oauth_dropins.bluesky import BlueskyAuth
-from oauth_dropins.webutil.appengine_config import tasks_client
-from oauth_dropins.webutil import flask_util
-from oauth_dropins.webutil.testutil import NOW, NOW_SECONDS, requests_response
-from oauth_dropins.webutil import util
-from oauth_dropins.webutil.util import json_dumps, json_loads, trim_nulls
+from webutil.appengine_config import tasks_client
+from webutil import flask_util
+from webutil.testutil import NOW, NOW_SECONDS, requests_response
+from webutil import util
+from webutil.util import json_dumps, json_loads, trim_nulls
 from requests.exceptions import HTTPError
 from requests.exceptions import ConnectionError as RequestsConnectionError
 from werkzeug.exceptions import BadGateway

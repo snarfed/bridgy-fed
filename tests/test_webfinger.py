@@ -7,8 +7,8 @@ from granary.as2 import CONTENT_TYPE, CONTENT_TYPE_LD_PROFILE
 from granary.nostr import KIND_PROFILE
 from granary.tests.test_bluesky import ACTOR_PROFILE_BSKY
 from granary.tests.test_nostr import ID, NPUB, PUBKEY, PUBKEY_URI
-from oauth_dropins.webutil import util
-from oauth_dropins.webutil.testutil import requests_response
+from webutil import util
+from webutil.testutil import requests_response
 
 # import first so that Fake is defined before URL routes are registered
 from .testutil import ExplicitFake, Fake, TestCase

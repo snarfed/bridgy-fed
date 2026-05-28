@@ -48,10 +48,10 @@ from granary.tests.test_nostr import (
     PUBKEY_URI_2,
 )
 from multiformats import CID
-from oauth_dropins.webutil.flask_util import NoContent
-from oauth_dropins.webutil.testutil import NOW, NOW_SECONDS, requests_response
-from oauth_dropins.webutil import util
-from oauth_dropins.webutil.util import json_dumps, json_loads
+from webutil.flask_util import NoContent
+from webutil.testutil import NOW, NOW_SECONDS, requests_response
+from webutil import util
+from webutil.util import json_dumps, json_loads
 
 from activitypub import ActivityPub
 import app
@@ -522,7 +522,7 @@ class IntegrationTests(TestCase):
         }, allow_redirects=False, headers={'Accept': '*/*'})
 
     @patch('dns.resolver.resolve', side_effect=NXDOMAIN())
-    @patch('oauth_dropins.webutil.appengine_config.tasks_client.create_task')
+    @patch('webutil.appengine_config.tasks_client.create_task')
     @patch.object(util.session, 'post', side_effect=[
            requests_response('OK'),  # create DID
     ])
@@ -598,7 +598,7 @@ class IntegrationTests(TestCase):
             'createdAt': '2022-01-02T03:04:05.000Z',
         }], list(repo.get_contents()['app.bsky.graph.follow'].values()))
 
-    @patch('oauth_dropins.webutil.appengine_config.tasks_client.create_task')
+    @patch('webutil.appengine_config.tasks_client.create_task')
     @patch.object(util.session, 'get', side_effect=[
         # getRecord of original post
         requests_response({
@@ -648,7 +648,7 @@ class IntegrationTests(TestCase):
             'createdAt': '2022-01-02T03:04:05.000Z',
         }}, repo.get_contents()['app.bsky.feed.like'])
 
-    @patch('oauth_dropins.webutil.appengine_config.tasks_client.create_task')
+    @patch('webutil.appengine_config.tasks_client.create_task')
     @patch.object(util.session, 'post', return_value=BSKY_SEND_MESSAGE_RESP)
     @patch.object(util.session, 'get', return_value=BSKY_GET_CONVO_RESP)
     def test_activitypub_not_bridged_reply_to_atproto(self, mock_get, mock_post,
@@ -2997,7 +2997,7 @@ class IntegrationTests(TestCase):
         user = ActivityPub.get_by_id('https://inst/alice')
         self.assertTrue(user.is_enabled(Nostr))
 
-    @patch('oauth_dropins.webutil.appengine_config.tasks_client.create_task')
+    @patch('webutil.appengine_config.tasks_client.create_task')
     @patch.object(util.session, 'get', side_effect=[
         requests_response(DID_DOC),  # alice DID
         requests_response(PROFILE_GETRECORD),  # alice profile
@@ -3679,7 +3679,7 @@ class IntegrationTests(TestCase):
             ['EVENT', expected_relays],
         ], FakeConnection.sent)
 
-    @patch('oauth_dropins.webutil.util.now', return_value=datetime.now())
+    @patch('webutil.util.now', return_value=datetime.now())
     def test_activitypub_respond_reply_to_unbridged_atproto(self, _):
         """AP user bridged to ATProto uses web UI to reply to unbridged ATProto post.
 
@@ -3728,7 +3728,7 @@ class IntegrationTests(TestCase):
             },
         }, record, ignore=['bridgyOriginalText', 'bridgyOriginalUrl', 'createdAt'])
 
-    @patch('oauth_dropins.webutil.util.now', return_value=datetime.now())
+    @patch('webutil.util.now', return_value=datetime.now())
     @patch.object(util.session, 'post')
     def test_atproto_respond_repost_to_unbridged_activitypub(self, mock_post,
                                                              mock_now):

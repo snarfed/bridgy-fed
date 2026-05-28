@@ -16,17 +16,17 @@ from google.cloud.ndb.key import _MAX_KEYPART_BYTES
 from granary import as1, as2, atom, microformats2, rss
 import mf2util
 from oauth_dropins import indieauth
-from oauth_dropins.webutil import flask_util, util
-from oauth_dropins.webutil.appengine_config import tasks_client
-from oauth_dropins.webutil import appengine_info
-from oauth_dropins.webutil.flask_util import (
+from webutil import flask_util, util
+from webutil.appengine_config import tasks_client
+from webutil import appengine_info
+from webutil.flask_util import (
     cloud_tasks_only,
     error,
     flash,
     FlashErrors,
 )
-from oauth_dropins.webutil.util import domain_from_link, json_dumps, json_loads
-from oauth_dropins.webutil import webmention
+from webutil.util import domain_from_link, json_dumps, json_loads
+from webutil import webmention
 from requests import HTTPError, RequestException
 from requests.auth import HTTPBasicAuth
 from werkzeug.exceptions import BadGateway, BadRequest, HTTPException, NotFound
@@ -568,7 +568,7 @@ class Web(User, Protocol):
         Args:
           obj (Object)
           gateway (bool): passed through to
-            :func:`oauth_dropins.webutil.util.fetch_mf2`
+            :func:`webutil.util.fetch_mf2`
           check_backlink (bool): optional, whether to require a link to Bridgy
             Fed. Ignored if the URL is a homepage, ie has no path.
           authorship_fetch_mf2 (bool): optional, when running the authorship
@@ -708,7 +708,7 @@ class Web(User, Protocol):
           obj (Object)
           url (str)
           gateway (bool): passed through to
-            :func:`oauth_dropins.webutil.util.requests_get`
+            :func:`webutil.util.requests_get`
         """
         resp = util.requests_get(url, gateway=gateway)
 
@@ -1124,7 +1124,7 @@ def webmention_endpoint_cache_key(url):
 
 @memcache.memoize(expire=timedelta(hours=2), key=webmention_endpoint_cache_key)
 def webmention_discover(url, **kwargs):
-    """Thin cache around :func:`oauth_dropins.webutil.webmention.discover`."""
+    """Thin cache around :func:`webutil.webmention.discover`."""
     # discard the response since we don't use it and it's occasionally too big for
     # memcache
     return webmention.discover(url, **kwargs)._replace(response=None)

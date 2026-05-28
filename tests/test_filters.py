@@ -10,8 +10,8 @@ from filters import (
     media_blocklisted,
 )
 from models import Object, PROTOCOLS
-from oauth_dropins.webutil import util
-from oauth_dropins.webutil.testutil import requests_response
+from webutil import util
+from webutil.testutil import requests_response
 from .testutil import Fake, OtherFake, TestCase
 
 

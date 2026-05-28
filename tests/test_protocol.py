@@ -19,11 +19,11 @@ from granary.tests.test_nostr import (
     PUBKEY_URI,
     URI,
 )
-from oauth_dropins.webutil import appengine_info, util
-from oauth_dropins.webutil.appengine_config import ndb_client
-from oauth_dropins.webutil.flask_util import NoContent, NotModified
-from oauth_dropins.webutil.testutil import NOW, NOW_SECONDS, requests_response
-from oauth_dropins.webutil.util import json_dumps
+from webutil import appengine_info, util
+from webutil.appengine_config import ndb_client
+from webutil.flask_util import NoContent, NotModified
+from webutil.testutil import NOW, NOW_SECONDS, requests_response
+from webutil.util import json_dumps
 from pymemcache.exceptions import MemcacheUnexpectedCloseError
 import requests
 from werkzeug.exceptions import BadRequest
@@ -1482,7 +1482,7 @@ class ProtocolTest(TestCase):
         with self.assertRaises(ValueError):
             Fake.check_can_migrate_out(fake, 'fake:eve')
 
-    @patch('oauth_dropins.webutil.appengine_config.tasks_client.create_task')
+    @patch('webutil.appengine_config.tasks_client.create_task')
     def test_block_bad_url(self, mock_create_task):
         common.RUN_TASKS_INLINE = False
 
@@ -1494,7 +1494,7 @@ class ProtocolTest(TestCase):
 
         mock_create_task.assert_not_called()
 
-    @patch('oauth_dropins.webutil.appengine_config.tasks_client.create_task')
+    @patch('webutil.appengine_config.tasks_client.create_task')
     def test_block_atproto_bsky_app_url(self, mock_create_task):
         common.RUN_TASKS_INLINE = False
 
@@ -1514,7 +1514,7 @@ class ProtocolTest(TestCase):
             orig_obj_id='at://did:plc:user/app.bsky.actor.profile/self',
             url='https://atproto.brid.gy', user=alice.key.urlsafe())
 
-    @patch('oauth_dropins.webutil.appengine_config.tasks_client.create_task')
+    @patch('webutil.appengine_config.tasks_client.create_task')
     @patch.object(util.session, 'get', return_value=requests_response(status=404))
     def test_block_activitypub_webfinger_lookup_fails(self, mock_get, mock_create_task):
         common.RUN_TASKS_INLINE = False
@@ -5040,7 +5040,7 @@ class ProtocolReceiveTest(TestCase):
             'published': '2022-01-02T03:04:05+00:00',
         })], Fake.sent)
 
-    @patch('oauth_dropins.webutil.appengine_config.tasks_client.create_task')
+    @patch('webutil.appengine_config.tasks_client.create_task')
     def test_from_protocol_unsupported_types(self, mock_create_task):
         common.RUN_TASKS_INLINE = False
         self.make_followers()
@@ -5071,7 +5071,7 @@ class ProtocolReceiveTest(TestCase):
                 self.assertEqual([], Fake.sent)
                 mock_create_task.assert_not_called()
 
-    @patch('oauth_dropins.webutil.appengine_config.tasks_client.create_task')
+    @patch('webutil.appengine_config.tasks_client.create_task')
     def test_create_post_send_tasks(self, mock_create_task):
         common.RUN_TASKS_INLINE = False
         self.make_followers()
@@ -5105,7 +5105,7 @@ class ProtocolReceiveTest(TestCase):
         self.assertEqual([], OtherFake.sent)
         self.assertEqual([], Fake.sent)
 
-    @patch('oauth_dropins.webutil.appengine_config.tasks_client.create_task')
+    @patch('webutil.appengine_config.tasks_client.create_task')
     def test_reply_send_tasks_orig_obj(self, mock_create_task):
         common.RUN_TASKS_INLINE = False
         eve = self.make_user('other:eve', cls=OtherFake, obj_id='other:eve')
@@ -5250,7 +5250,7 @@ class ProtocolReceiveTest(TestCase):
         _, kwargs = mock_send.call_args
         self.assertEqual('other:alice', kwargs['from_user'].key.id())
 
-    @patch('oauth_dropins.webutil.appengine_config.tasks_client.create_task')
+    @patch('webutil.appengine_config.tasks_client.create_task')
     @patch.object(Fake, 'send', side_effect=MemcacheUnexpectedCloseError())
     def test_send_task_memcache_exception_reenqueues_with_delay(
             self, mock_send, mock_create_task):

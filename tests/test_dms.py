@@ -3,11 +3,11 @@ from unittest import mock
 from unittest.mock import patch
 
 from oauth_dropins.bluesky import BlueskyAuth
-from oauth_dropins.webutil.appengine_config import tasks_client
-from oauth_dropins.webutil.flask_util import NotModified
-from oauth_dropins.webutil import util
-from oauth_dropins.webutil.testutil import requests_response
-from oauth_dropins.webutil.util import json_dumps, json_loads
+from webutil.appengine_config import tasks_client
+from webutil.flask_util import NotModified
+from webutil import util
+from webutil.testutil import requests_response
+from webutil.util import json_dumps, json_loads
 from requests import HTTPError
 
 from activitypub import ActivityPub

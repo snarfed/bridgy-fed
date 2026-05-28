@@ -11,11 +11,11 @@ from google.api_core.exceptions import PermissionDenied
 from google.cloud import ndb
 from granary import as1, as2, bluesky, microformats2
 from httpsig import HeaderSigner
-from oauth_dropins.webutil import appengine_info
-from oauth_dropins.webutil.flask_util import NoContent
-from oauth_dropins.webutil.testutil import NOW, requests_response
-from oauth_dropins.webutil import util
-from oauth_dropins.webutil.util import domain_from_link, json_dumps, json_loads
+from webutil import appengine_info
+from webutil.flask_util import NoContent
+from webutil.testutil import NOW, requests_response
+from webutil import util
+from webutil.util import domain_from_link, json_dumps, json_loads
 import requests
 from requests import TooManyRedirects
 from requests.exceptions import InvalidURL
@@ -671,13 +671,13 @@ class ActivityPubTest(TestCase):
             got_json.pop(field)
         self.assertEqual(actor_as2, got_json)
 
-    @patch('oauth_dropins.webutil.appengine_info.DEBUG', False)
+    @patch('webutil.appengine_info.DEBUG', False)
     def test_actor_protocol_bot_user_doesnt_exist(self, *_):
         got = self.client.get('/web.brid.gy', base_url='https://web.brid.gy/',
                               headers={'Accept': as2.CONTENT_TYPE})
         self.assertEqual(404, got.status_code, got.get_data(as_text=True))
 
-    @patch('oauth_dropins.webutil.appengine_info.DEBUG', False)
+    @patch('webutil.appengine_info.DEBUG', False)
     def test_actor_protocol_bot_user_skip_sig_check(self, *_):
         self.make_user(ACTOR['id'], cls=ActivityPub, obj_as2=ACTOR)
         self.make_user('bsky.brid.gy', cls=Web, ap_subdomain='bsky')
@@ -767,7 +767,7 @@ class ActivityPubTest(TestCase):
                 })
                 self.assertEqual(400, got.status_code)
 
-    @patch('oauth_dropins.webutil.appengine_config.tasks_client.create_task')
+    @patch('webutil.appengine_config.tasks_client.create_task')
     def test_inbox_create_receive_task(self, mock_create_task, *mocks):
         common.RUN_TASKS_INLINE = False
 
@@ -778,7 +778,7 @@ class ActivityPubTest(TestCase):
                          authed_as=ACTOR['id'],
                          received_at='2022-01-02T03:04:05+00:00')
 
-    @patch('oauth_dropins.webutil.appengine_config.tasks_client.create_task')
+    @patch('webutil.appengine_config.tasks_client.create_task')
     def test_inbox_delete_receive_task(self, mock_create_task, *mocks):
         common.RUN_TASKS_INLINE = False
 
@@ -790,7 +790,7 @@ class ActivityPubTest(TestCase):
                          authed_as=ACTOR['id'],
                          eta_seconds=delayed_eta)
 
-    @patch('oauth_dropins.webutil.appengine_config.tasks_client.create_task')
+    @patch('webutil.appengine_config.tasks_client.create_task')
     def test_inbox_undo_follow_receive_task_no_delay(self, mock_create_task, *mocks):
         common.RUN_TASKS_INLINE = False
 
@@ -801,11 +801,11 @@ class ActivityPubTest(TestCase):
                          authed_as=ACTOR['id'],
                          received_at='2022-01-02T03:04:05+00:00')
 
-    @patch('oauth_dropins.webutil.appengine_config.tasks_client.create_task')
+    @patch('webutil.appengine_config.tasks_client.create_task')
     def test_inbox_add_to_featured_reloads_profile(self, *mocks):
         return self._test_inbox_modify_featured_reloads_profile('Add', *mocks)
 
-    @patch('oauth_dropins.webutil.appengine_config.tasks_client.create_task')
+    @patch('webutil.appengine_config.tasks_client.create_task')
     def test_inbox_remove_from_featured_reloads_profile(self, *mocks):
         return self._test_inbox_modify_featured_reloads_profile('Remove', *mocks)
 
@@ -1644,7 +1644,7 @@ class ActivityPubTest(TestCase):
         self.assertEqual(202, got.status_code)
         self.assertEqual('inactive', follower.key.get().status)
 
-    @patch('oauth_dropins.webutil.appengine_config.tasks_client.create_task')
+    @patch('webutil.appengine_config.tasks_client.create_task')
     def test_inbox_unsupported_type(self, mock_create_task, *_):
         got = self.post('/user.com/inbox', json={
             '@context': as2.CONTEXT,
@@ -1747,8 +1747,8 @@ class ActivityPubTest(TestCase):
         resp = self.client.post('/ap/sharedInbox', data=body, headers=headers)
         self.assertEqual(400, resp.status_code, resp.get_data(as_text=True))
 
-    @patch('oauth_dropins.webutil.appengine_info.DEBUG', False)
-    @patch('oauth_dropins.webutil.appengine_config.tasks_client.create_task')
+    @patch('webutil.appengine_info.DEBUG', False)
+    @patch('webutil.appengine_config.tasks_client.create_task')
     def test_inbox_verify_sig_stored_key(self, mock_create_task, _, mock_get, __):
         common.RUN_TASKS_INLINE = False
 
@@ -1774,7 +1774,7 @@ class ActivityPubTest(TestCase):
         self.assert_object('https://mas.to/users/foo', as2=orig_actor_as2,
                            source_protocol='activitypub')
 
-    @patch('oauth_dropins.webutil.appengine_info.DEBUG', False)
+    @patch('webutil.appengine_info.DEBUG', False)
     def test_inbox_verify_sig_stored_key_missing_publicKey(self, *_):
         body = json_dumps({**NOTE, 'actor': 'http://mas.to/key/id'})
         headers = sign('/ap/sharedInbox', body, key_id='http://mas.to/key/id')
@@ -1785,7 +1785,7 @@ class ActivityPubTest(TestCase):
         resp = self.client.post('/ap/sharedInbox', data=body, headers=headers)
         self.assertEqual(401, resp.status_code, resp.get_data(as_text=True))
 
-    @patch('oauth_dropins.webutil.appengine_info.DEBUG', False)
+    @patch('webutil.appengine_info.DEBUG', False)
     def test_inbox_verify_sig_stored_key_our_as1(self, *_):
         # valid signature, key id's Object has our_as1 instead of as2
         self.make_user(id=ACTOR['id'], cls=ActivityPub, obj_as1=as2.to_as1(ACTOR))
@@ -1796,7 +1796,7 @@ class ActivityPubTest(TestCase):
         self.assertEqual(204, resp.status_code, resp.get_data(as_text=True))
 
     @patch('common.logger.info', side_effect=logging.info)
-    @patch('oauth_dropins.webutil.appengine_info.DEBUG', False)
+    @patch('webutil.appengine_info.DEBUG', False)
     def test_inbox_verify_sig_no_keyId(self, mock_common_log, *_):
         body = json_dumps(NOTE)
         headers = sign('/ap/sharedInbox', body, key_id='PLACEHOLDER')
@@ -1811,7 +1811,7 @@ class ActivityPubTest(TestCase):
                                         exc_info=None)
 
     @patch('common.logger.info', side_effect=logging.info)
-    @patch('oauth_dropins.webutil.appengine_info.DEBUG', False)
+    @patch('webutil.appengine_info.DEBUG', False)
     def test_inbox_verify_sig_content_changed(self, mock_common_log, *_):
         self.key_id_obj.put()
         headers = sign('/ap/sharedInbox', json_dumps(NOTE),
@@ -1824,7 +1824,7 @@ class ActivityPubTest(TestCase):
         mock_common_log.assert_any_call('Returning 401: Invalid Digest', exc_info=None)
 
     @patch('common.logger.info', side_effect=logging.info)
-    @patch('oauth_dropins.webutil.appengine_info.DEBUG', False)
+    @patch('webutil.appengine_info.DEBUG', False)
     def test_inbox_verify_sig_header_changed(self, mock_common_log, *_):
         self.key_id_obj.put()
         body = json_dumps({**NOTE, 'actor': 'http://mas.to/key/id'})
@@ -1837,7 +1837,7 @@ class ActivityPubTest(TestCase):
         mock_common_log.assert_any_call('Returning 401: sig failed', exc_info=None)
 
     @patch('common.logger.info', side_effect=logging.info)
-    @patch('oauth_dropins.webutil.appengine_info.DEBUG', False)
+    @patch('webutil.appengine_info.DEBUG', False)
     def test_inbox_verify_sig_missing_sig(self, mock_common_log, _, __, ___):
         resp = self.client.post('/ap/sharedInbox', json=NOTE)
         self.assertEqual(401, resp.status_code, resp.get_data(as_text=True))

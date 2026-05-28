@@ -6,9 +6,9 @@ from unittest.mock import Mock, patch
 import flask
 from granary import as2
 import jwt
-from oauth_dropins.webutil.appengine_config import error_reporting_client
-from oauth_dropins.webutil import models
-from oauth_dropins.webutil.testutil import NOW
+from webutil.appengine_config import error_reporting_client
+from webutil import models
+from webutil.testutil import NOW
 
 # import first so that Fake is defined before URL routes are registered
 from .testutil import ExplicitFake, Fake, OtherFake, TestCase
@@ -57,14 +57,14 @@ class CommonTest(TestCase):
 
         mock_client.report.assert_called_with('foo', http_context=None, bar='baz')
 
-    @patch('oauth_dropins.webutil.appengine_config.tasks_client.create_task')
+    @patch('webutil.appengine_config.tasks_client.create_task')
     def test_create_task_no_request_context(self, mock_create_task):
         common.RUN_TASKS_INLINE = False
         self.request_context.pop()
         common.create_task('foo')
         mock_create_task.assert_called()
 
-    @patch('oauth_dropins.webutil.appengine_config.tasks_client.create_task')
+    @patch('webutil.appengine_config.tasks_client.create_task')
     def test_create_task_rate_limited(self, mock_create_task):
         common.RUN_TASKS_INLINE = False
 
@@ -125,19 +125,19 @@ class CommonTest(TestCase):
             'exp': NOW.timestamp() + 60,
         }, decoded)
 
-    @patch('oauth_dropins.webutil.util.now', return_value=datetime.now())
+    @patch('webutil.util.now', return_value=datetime.now())
     def test_verify_jwt_success(self, _):
         user = Fake(id='fake:user')
         token = common.make_jwt(user=user, scope='foo')
         common.verify_jwt(token, user_id='fake:user', scope='foo')
 
-    @patch('oauth_dropins.webutil.util.now', return_value=datetime.now())
+    @patch('webutil.util.now', return_value=datetime.now())
     def test_verify_jwt_wrong_user(self, _):
         token = common.make_jwt(user=Fake(id='fake:alice'), scope='foo')
         with self.assertRaises(ValueError):
             common.verify_jwt(token, user_id='fake:bob', scope='foo')
 
-    @patch('oauth_dropins.webutil.util.now', return_value=datetime.now())
+    @patch('webutil.util.now', return_value=datetime.now())
     def test_verify_jwt_wrong_scope(self, _):
         user = Fake(id='fake:user')
         token = common.make_jwt(user=user, scope='foo')
@@ -145,7 +145,7 @@ class CommonTest(TestCase):
         with self.assertRaises(ValueError):
             common.verify_jwt(token, user_id='fake:user', scope='bar')
 
-    @patch('oauth_dropins.webutil.util.now', return_value=datetime.now())
+    @patch('webutil.util.now', return_value=datetime.now())
     def test_verify_jwt_expired(self, _):
         user = Fake(id='fake:user')
         token = common.make_jwt(user=user, scope='foo',
@@ -154,7 +154,7 @@ class CommonTest(TestCase):
         with self.assertRaises(jwt.ExpiredSignatureError):
             common.verify_jwt(token, user_id='fake:user', scope='foo')
 
-    @patch('oauth_dropins.webutil.util.now', return_value=datetime.now())
+    @patch('webutil.util.now', return_value=datetime.now())
     def test_verify_jwt_invalid_signature(self, _):
         user = Fake(id='fake:user')
         token = common.make_jwt(user=user, scope='foo')

@@ -5,8 +5,8 @@ import arroba.server
 from google.cloud.ndb import Key
 
 from google.cloud.tasks_v2.types import Task
-from oauth_dropins.webutil.appengine_config import tasks_client
-from oauth_dropins.webutil import util
+from webutil.appengine_config import tasks_client
+from webutil import util
 
 from activitypub import ActivityPub
 import admin

@@ -16,11 +16,11 @@ from granary.nostr import (
     uri_to_id,
     verify,
 )
-from oauth_dropins.webutil import util
-from oauth_dropins.webutil.appengine_config import ndb_client
-from oauth_dropins.webutil.appengine_info import DEBUG
-from oauth_dropins.webutil.util import HTTP_TIMEOUT, json_dumps, json_loads
 from websockets.exceptions import ConnectionClosed
+from webutil import util
+from webutil.appengine_config import ndb_client
+from webutil.appengine_info import DEBUG
+from webutil.util import HTTP_TIMEOUT, json_dumps, json_loads
 
 from common import (
     create_task,

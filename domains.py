@@ -4,16 +4,16 @@ import re
 from urllib.parse import urljoin, urlparse
 
 from flask import request
-from oauth_dropins.webutil.appengine_info import DEBUG, LOCAL_SERVER
-from oauth_dropins.webutil import util
 from tldextract import TLDExtract
+from webutil.appengine_info import DEBUG, LOCAL_SERVER
+from webutil import util
 
 # allow hostname chars (a-z, 0-9, -), allow arbitrary unicode (eg ☃.net), don't
 # allow specific chars that we'll often see in webfinger, AP handles, etc. (@, :)
 # https://stackoverflow.com/questions/10306690/what-is-a-regular-expression-which-will-match-a-valid-domain-name-without-a-subd
 #
 # TODO: preprocess with domain2idna, then narrow this to just [a-z0-9-]
-# TODO: unify with oauth_dropins.webutil.util.DOMAIN_RE?
+# TODO: unify with webutil.util.DOMAIN_RE?
 DOMAIN_RE = re.compile(r'([^/:;@?!\'.]+\.)+[^/:@_?!\'.]+')
 
 # populated in models.reset_protocol_properties

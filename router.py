@@ -8,8 +8,8 @@ from arroba.datastore_storage import MemcacheSequences
 import arroba.server
 from flask import Flask
 import lexrpc.flask_server
-from oauth_dropins.webutil.appengine_info import DEBUG, LOCAL_SERVER
-from oauth_dropins.webutil import (
+from webutil.appengine_info import DEBUG, LOCAL_SERVER
+from webutil import (
     appengine_config,
     flask_util,
     util,

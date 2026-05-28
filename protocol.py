@@ -15,11 +15,6 @@ from google.cloud.ndb import OR
 from google.cloud.ndb.model import _entity_to_protobuf
 from granary import as1, as2, source
 from granary.source import HTML_ENTITY_RE, html_to_text
-from oauth_dropins.webutil.appengine_info import DEBUG
-from oauth_dropins.webutil.flask_util import cloud_tasks_only
-from oauth_dropins.webutil.models import MAX_ENTITY_SIZE
-from oauth_dropins.webutil import util
-from oauth_dropins.webutil.util import json_dumps, json_loads
 from pymemcache.exceptions import (
     MemcacheServerError,
     MemcacheUnexpectedCloseError,
@@ -27,6 +22,11 @@ from pymemcache.exceptions import (
 )
 from requests import RequestException
 from websockets.exceptions import InvalidStatus
+from webutil.appengine_info import DEBUG
+from webutil.flask_util import cloud_tasks_only
+from webutil.models import MAX_ENTITY_SIZE
+from webutil import util
+from webutil.util import json_dumps, json_loads
 import werkzeug.exceptions
 from werkzeug.exceptions import BadGateway, BadRequest, HTTPException
 

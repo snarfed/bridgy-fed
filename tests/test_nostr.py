@@ -16,10 +16,10 @@ from granary.nostr import (
     KIND_REPOST,
     id_and_sign,
 )
-from oauth_dropins.webutil.flask_util import NoContent
-from oauth_dropins.webutil.testutil import requests_response
-from oauth_dropins.webutil import util
-from oauth_dropins.webutil.util import json_dumps, json_loads
+from webutil.flask_util import NoContent
+from webutil.testutil import requests_response
+from webutil import util
+from webutil.util import json_dumps, json_loads
 import requests
 from secp256k1 import PrivateKey, PublicKey
 from websockets.exceptions import ConnectionClosedOK, WebSocketException

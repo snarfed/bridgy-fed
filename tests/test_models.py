@@ -13,9 +13,9 @@ from granary.tests.test_farcaster import message, user_data_message
 from granary.tests.test_bluesky import ACTOR_AS, ACTOR_PROFILE_BSKY
 import granary.nostr
 from granary.nostr import KIND_NOTE, KIND_PROFILE
-from oauth_dropins.webutil.appengine_config import tasks_client
-from oauth_dropins.webutil.testutil import NOW, requests_response
-from oauth_dropins.webutil import util
+from webutil.appengine_config import tasks_client
+from webutil.testutil import NOW, requests_response
+from webutil import util
 from werkzeug.exceptions import BadRequest, Forbidden
 
 # import first so that Fake is defined before URL routes are registered

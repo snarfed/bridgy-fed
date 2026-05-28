@@ -22,9 +22,9 @@ from granary.tests.test_bluesky import (
     REPOST_BSKY,
 )
 from multiformats import CID
-from oauth_dropins.webutil import util
-from oauth_dropins.webutil.appengine_config import tasks_client
-from oauth_dropins.webutil.testutil import NOW, requests_response
+from webutil import util
+from webutil.appengine_config import tasks_client
+from webutil.testutil import NOW, requests_response
 import simple_websocket
 
 from atproto import ATProto, Cursor
@@ -672,7 +672,7 @@ class ATProtoFirehoseSubscribeTest(ATProtoTestCase):
         self.assertIn('behind', msgs[4])
 
 
-@patch('oauth_dropins.webutil.appengine_config.tasks_client.create_task')
+@patch('webutil.appengine_config.tasks_client.create_task')
 class ATProtoFirehoseHandleTest(ATProtoTestCase):
     def setUp(self):
         super().setUp()

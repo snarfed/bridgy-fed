@@ -19,9 +19,10 @@ import jwt
 import lexrpc
 import oauth_dropins
 from oauth_dropins.bluesky import BlueskyAuth
-from oauth_dropins.webutil import flask_util, logs, util
-from oauth_dropins.webutil.util import json_dumps
-from oauth_dropins.webutil.flask_util import (
+import requests
+from webutil import flask_util, logs, util
+from webutil.util import json_dumps
+from webutil.flask_util import (
     canonicalize_request_domain,
     error,
     flash,
@@ -30,7 +31,6 @@ from oauth_dropins.webutil.flask_util import (
     Found,
     MovedPermanently,
 )
-import requests
 import werkzeug.exceptions
 from werkzeug.exceptions import NotFound
 

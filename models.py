@@ -30,18 +30,18 @@ import granary.nostr
 from granary.source import html_to_text
 import humanize
 from lexrpc.base import AT_URI_RE
-from oauth_dropins.webutil import util
-from oauth_dropins.webutil.appengine_info import DEBUG
-from oauth_dropins.webutil.flask_util import error
-from oauth_dropins.webutil.models import (
+from requests import RequestException
+import secp256k1
+from webutil import util
+from webutil.appengine_info import DEBUG
+from webutil.flask_util import error
+from webutil.models import (
     EncryptedProperty,
     JsonProperty,
     stored_value,
     StringIdModel,
 )
-from oauth_dropins.webutil.util import ellipsize, json_dumps, json_loads
-from requests import RequestException
-import secp256k1
+from webutil.util import ellipsize, json_dumps, json_loads
 
 import common
 from common import (

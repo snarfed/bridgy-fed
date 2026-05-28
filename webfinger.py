@@ -10,9 +10,9 @@ from urllib.parse import urljoin, urlparse
 
 from flask import render_template, request
 from granary import as2
-from oauth_dropins.webutil import flask_util, util
-from oauth_dropins.webutil.flask_util import error, flash, Found
-from oauth_dropins.webutil.util import json_dumps, json_loads
+from webutil import flask_util, util
+from webutil.flask_util import error, flash, Found
+from webutil.util import json_dumps, json_loads
 from requests import RequestException
 
 import activitypub

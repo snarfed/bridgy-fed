@@ -1,8 +1,8 @@
 """Unit tests for notifications.py."""
 from unittest.mock import patch
 
-from oauth_dropins.webutil.testutil import NOW
-from oauth_dropins.webutil import util
+from webutil.testutil import NOW
+from webutil import util
 
 import common
 from memcache import memcache
@@ -19,7 +19,7 @@ class NotificationsTest(TestCase):
         user = self.make_user(id='fake:user', cls=Fake)
         self.assertEqual([], get_notifications(user))
 
-    @patch('oauth_dropins.webutil.appengine_config.tasks_client.create_task')
+    @patch('webutil.appengine_config.tasks_client.create_task')
     def test_add_notification_new_key(self, mock_create_task):
         common.RUN_TASKS_INLINE = False
         user = self.make_user(id='fake:user', cls=Fake)
@@ -34,7 +34,7 @@ class NotificationsTest(TestCase):
         self.assert_task(mock_create_task, 'notify', delayed_eta, user_id='fake:user',
                          protocol='fake')
 
-    @patch('oauth_dropins.webutil.appengine_config.tasks_client.create_task')
+    @patch('webutil.appengine_config.tasks_client.create_task')
     def test_add_notification_requires_web_url(self, mock_create_task):
         common.RUN_TASKS_INLINE = False
         user = self.make_user(id='fake:user', cls=Fake)
@@ -45,7 +45,7 @@ class NotificationsTest(TestCase):
         self.assertIsNone(memcache.get('notifs-fake:user'))
         mock_create_task.assert_not_called()
 
-    @patch('oauth_dropins.webutil.appengine_config.tasks_client.create_task')
+    @patch('webutil.appengine_config.tasks_client.create_task')
     def test_add_notification_for_user_with_send_notifs_none_is_noop(
             self, mock_create_task):
         common.RUN_TASKS_INLINE = False
@@ -57,7 +57,7 @@ class NotificationsTest(TestCase):
         self.assertIsNone(memcache.get('notifs-fake:user'))
         mock_create_task.assert_not_called()
 
-    @patch('oauth_dropins.webutil.appengine_config.tasks_client.create_task')
+    @patch('webutil.appengine_config.tasks_client.create_task')
     def test_add_notification_append_to_existing(self, mock_create_task):
         common.RUN_TASKS_INLINE = False
         user = self.make_user(id='fake:user', cls=Fake)
@@ -72,7 +72,7 @@ class NotificationsTest(TestCase):
                          memcache.get('notifs-fake:user'))
         mock_create_task.assert_not_called()
 
-    @patch('oauth_dropins.webutil.appengine_config.tasks_client.create_task')
+    @patch('webutil.appengine_config.tasks_client.create_task')
     def test_add_notification_deduplicate(self, mock_create_task):
         common.RUN_TASKS_INLINE = False
         user = self.make_user(id='fake:user', cls=Fake)
@@ -87,7 +87,7 @@ class NotificationsTest(TestCase):
         self.assert_task(mock_create_task, 'notify', delayed_eta, user_id='fake:user',
                          protocol='fake')
 
-    @patch('oauth_dropins.webutil.appengine_config.tasks_client.create_task')
+    @patch('webutil.appengine_config.tasks_client.create_task')
     def test_notify_task(self, _):
         common.RUN_TASKS_INLINE = False
         self.make_user(id='efake.brid.gy', cls=Web)
@@ -133,7 +133,7 @@ class NotificationsTest(TestCase):
             }])
         self.assertEqual([], get_notifications(user))
 
-    @patch('oauth_dropins.webutil.appengine_config.tasks_client.create_task')
+    @patch('webutil.appengine_config.tasks_client.create_task')
     def test_notify_task_obj_doesnt_exist(self, _):
         common.RUN_TASKS_INLINE = False
         self.make_user(id='efake.brid.gy', cls=Web)
@@ -171,7 +171,7 @@ class NotificationsTest(TestCase):
         self.assertEqual(204, resp.status_code)
         self.assertEqual([], Fake.sent)
 
-    @patch('oauth_dropins.webutil.appengine_config.tasks_client.create_task')
+    @patch('webutil.appengine_config.tasks_client.create_task')
     def test_notify_task_user_not_enabled(self, _):
         common.RUN_TASKS_INLINE = False
         self.make_user(id='efake.brid.gy', cls=Web)
@@ -189,7 +189,7 @@ class NotificationsTest(TestCase):
         self.assertEqual([], Fake.sent)
         self.assertEqual(['http://notif/a'], get_notifications(user))
 
-    @patch('oauth_dropins.webutil.appengine_config.tasks_client.create_task')
+    @patch('webutil.appengine_config.tasks_client.create_task')
     def test_notify_task_user_notifs_disabled(self, _):
         common.RUN_TASKS_INLINE = False
         self.make_user(id='efake.brid.gy', cls=Web)

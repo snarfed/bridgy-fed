@@ -21,9 +21,9 @@ import urllib.parse
 
 from flask import redirect, request
 from granary import as1
-from oauth_dropins.webutil import flask_util, util
-from oauth_dropins.webutil.flask_util import error
-from oauth_dropins.webutil.util import json_dumps, json_loads
+from webutil import flask_util, util
+from webutil.flask_util import error
+from webutil.util import json_dumps, json_loads
 
 from activitypub import ActivityPub, as2_request_type
 from common import (

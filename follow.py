@@ -9,8 +9,8 @@ import logging
 from flask import redirect, request, session
 from granary import as1
 from oauth_dropins import indieauth
-from oauth_dropins.webutil import util
-from oauth_dropins.webutil.flask_util import error, flash
+from webutil import util
+from webutil.flask_util import error, flash
 
 from activitypub import ActivityPub
 from flask_app import app

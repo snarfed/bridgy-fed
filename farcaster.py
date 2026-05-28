@@ -26,7 +26,7 @@ from granary.generated.farcaster.request_response_pb2 import (
     SubmitBulkMessagesRequest,
 )
 import grpc
-from oauth_dropins.webutil import util
+from webutil import util
 
 from models import Target, User
 from protocol import Protocol, STORE_AS1_TYPES

@@ -17,9 +17,9 @@ import config
 from flask import Flask, render_template, request
 import lexrpc.client
 import lexrpc.flask_server
-from oauth_dropins.webutil.appengine_info import DEBUG, LOCAL_SERVER, TESTING
-from oauth_dropins.webutil import appengine_config, flask_util, util
 import pytz
+from webutil.appengine_info import DEBUG, LOCAL_SERVER, TESTING
+from webutil import appengine_config, flask_util, util
 
 # all protocols
 import activitypub, atproto, nostr, web

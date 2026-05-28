@@ -33,14 +33,13 @@ from granary.nostr import (
     nip05_to_npub,
     uri_to_id,
 )
-from oauth_dropins.webutil import flask_util
-from oauth_dropins.webutil.flask_util import get_required_param
-from oauth_dropins.webutil.models import StringIdModel
-from oauth_dropins.webutil import util
-from oauth_dropins.webutil.util import add, json_dumps, json_loads
 from requests import RequestException
 import secp256k1
 from websockets.exceptions import ConnectionClosedOK
+from webutil import flask_util, util
+from webutil.flask_util import get_required_param
+from webutil.models import StringIdModel
+from webutil.util import add, json_dumps, json_loads
 from werkzeug.exceptions import NotFound
 
 import common

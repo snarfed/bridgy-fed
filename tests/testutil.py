@@ -34,11 +34,11 @@ from granary.tests.test_nostr import (
     FakeConnection,
     PRIVKEY,
 )
-from oauth_dropins.webutil import flask_util, testutil, util
-from oauth_dropins.webutil.appengine_config import ndb_client
-from oauth_dropins.webutil import appengine_info
-from oauth_dropins.webutil.testutil import requests_response
-from oauth_dropins.webutil.util import json_dumps, json_loads
+from webutil import flask_util, testutil, util
+from webutil.appengine_config import ndb_client
+from webutil import appengine_info
+from webutil.testutil import requests_response
+from webutil.util import json_dumps, json_loads
 import requests
 from werkzeug.exceptions import HTTPException
 
@@ -47,7 +47,7 @@ from werkzeug.exceptions import HTTPException
 import atproto
 from common import GCP_PROJECT_ID, long_to_base64, NDB_CONTEXT_KWARGS, TASKS_LOCATION
 from Crypto.PublicKey import RSA
-from oauth_dropins.webutil.appengine_info import DEBUG
+from webutil.appengine_info import DEBUG
 import filters
 import ids
 from memcache import RateLimitType
@@ -845,7 +845,7 @@ class TestCase(unittest.TestCase, testutil.Asserts):
     def assertLogs(self):
         """Wraps :meth:`unittest.TestCase.assertLogs` and enables/disables logs.
 
-        Works around ``oauth_dropins.webutil.tests.__init__``.
+        Works around ``webutil.tests.__init__``.
         """
         orig_disable_level = logging.root.manager.disable
         logging.disable(logging.NOTSET)
