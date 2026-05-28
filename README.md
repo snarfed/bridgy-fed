@@ -39,8 +39,6 @@ env FLASK_ENV=development APPVIEW_HOST=api.bsky.app PLC_HOST=plc.directory BGS_H
 
 If you send a pull request, please include (or update) a test for the new functionality!
 
-If you hit an error during setup, check out the [oauth-dropins Troubleshooting/FAQ section](https://github.com/snarfed/oauth-dropins#troubleshootingfaq).
-
 You may need to change [granary](https://github.com/snarfed/granary), [oauth-dropins](https://github.com/snarfed/oauth-dropins), [mf2util](https://github.com/kylewm/mf2util), or other dependencies as well as as Bridgy Fed. To do that, clone their repo locally, then install them in "source" mode with e.g.:
 
 ```sh
