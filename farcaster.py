@@ -7,7 +7,6 @@ https://snapchain.farcaster.xyz/
 import logging
 import os
 
-from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
 from google.cloud import ndb
 from granary import as1
 import granary.farcaster
@@ -226,7 +225,7 @@ class Farcaster(User, Protocol):
 
         if from_user:
             for msg in msgs:
-                sign(msg, signer_key_for(from_user))
+                sign(msg, from_user.farcaster_key())
 
         return msgs
 
@@ -257,7 +256,7 @@ class Farcaster(User, Protocol):
         for msg in msgs:
             if not msg.signature:
                 # convert() didn't sign (eg no from_user); sign now
-                sign(msg, signer_key_for(from_user))
+                sign(msg, from_user.farcaster_key())
 
         try:
             resp = client().hub.SubmitBulkMessages(
@@ -294,20 +293,3 @@ class Farcaster(User, Protocol):
             add_copy()
 
         return True
-
-
-def signer_key_for(user):
-    """Returns the Ed25519 signer key to sign Farcaster messages for ``user``.
-
-    TODO: real per-user signer keys, registered on-chain via the KeyRegistry.
-    For now, generates a fresh key on each call so we can wire up the rest of
-    the send flow. Messages signed with these keys will be rejected by the hub.
-
-    Args:
-      user (models.User)
-
-    Returns:
-      Ed25519PrivateKey
-    """
-    logger.warning(f'using stub signer key for {user.key.id() if user.key else user}')
-    return Ed25519PrivateKey.generate()

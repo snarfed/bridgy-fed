@@ -15,6 +15,13 @@ import io
 from arroba.util import parse_at_uri
 import cachetools
 from Crypto.PublicKey import RSA
+from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
+from cryptography.hazmat.primitives.serialization import (
+    Encoding,
+    NoEncryption,
+    PrivateFormat,
+    PublicFormat,
+)
 from flask import request
 from google.cloud import ndb
 from google.cloud.ndb.key import _MAX_KEYPART_BYTES
@@ -410,8 +417,7 @@ class User(AddRemoveMixin, StringIdModel, metaclass=ProtocolUserMeta):
     """
 
     keypairs = ndb.StructuredProperty(KeyPair, repeated=True)
-    """Key pairs for this user, one per bridged protocol. Private keys
-    encrypted at rest."""
+    """Key pairs for this user, one per bridged protocol. Encrypted at rest."""
 
     # LEGACY: replaced by keypairs. read-only fallback for users created
     # before keypairs existed. backfill and remove eventually.
@@ -1002,7 +1008,7 @@ class User(AddRemoveMixin, StringIdModel, metaclass=ProtocolUserMeta):
         if self.mod and self.public_exponent and self.private_exponent:
             return
 
-        logger.info(f'generating AP keypair for {self.key}')
+        logger.info(f'generating AP keypair for {self.key.id()}')
         key = RSA.generate(KEY_BITS, randfunc=random.randbytes if DEBUG else None)
         self.keypairs.append(KeyPair(
             protocol='activitypub', algorithm='rsa',
@@ -1051,13 +1057,43 @@ class User(AddRemoveMixin, StringIdModel, metaclass=ProtocolUserMeta):
         if self._nostr_private_bytes():
             return
 
-        logger.info(f'generating Nostr keypair for {self.key}')
+        logger.info(f'generating Nostr keypair for {self.key.id()}')
         priv = secp256k1.PrivateKey()
         pub_hex = granary.nostr.pubkey_from_privkey(priv.private_key.hex())
         self.keypairs.append(KeyPair(
             protocol='nostr', algorithm='secp256k1',
             public_key_bytes=bytes.fromhex(pub_hex),
             private_key_bytes=priv.private_key,
+        ))
+        self.put()
+
+    def farcaster_key(self):
+        """Returns the user's Farcaster signing key.
+
+        TODO: real per-user signer keys, registered on-chain via the
+        KeyRegistry. Messages signed with these stub keys will be rejected by
+        the hub.
+
+        Returns:
+          cryptography.hazmat.primitives.asymmetric.ed25519.Ed25519PrivateKey:
+        """
+        self._maybe_generate_farcaster_key()
+        return Ed25519PrivateKey.from_private_bytes(
+            self._keypair('farcaster').private_key_bytes)
+
+    def _maybe_generate_farcaster_key(self):
+        """Generates this user's Farcaster Ed25519 keypair if necessary."""
+        if self._keypair('farcaster'):
+            return
+
+        logger.info(f'generating Farcaster keypair for {self.key.id()}')
+        priv = Ed25519PrivateKey.generate()
+        self.keypairs.append(KeyPair(
+            protocol='farcaster', algorithm='ed25519',
+            public_key_bytes=priv.public_key().public_bytes(
+                Encoding.Raw, PublicFormat.Raw),
+            private_key_bytes=priv.private_bytes(
+                Encoding.Raw, PrivateFormat.Raw, NoEncryption()),
         ))
         self.put()
 

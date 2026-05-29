@@ -5,6 +5,13 @@ from unittest.mock import patch
 from arroba.datastore_storage import AtpRemoteBlob, AtpRepo
 import arroba.server
 from arroba.util import at_uri
+from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
+from cryptography.hazmat.primitives.serialization import (
+  Encoding,
+  NoEncryption,
+  PrivateFormat,
+  PublicFormat,
+)
 from google.cloud import ndb
 from google.cloud.ndb import tasklets
 from google.cloud.tasks_v2.types import Task
@@ -335,6 +342,34 @@ class UserTest(TestCase):
     def test_hex_pubkey(self):
         self.user.nostr_key_bytes = bytes.fromhex(PRIVKEY)
         self.assertEqual(PUBKEY, self.user.hex_pubkey())
+
+    def test_farcaster_key_new(self):
+        user = Fake(id='fake:a')
+        self.assertEqual([], user.keypairs)
+
+        key = user.farcaster_key()
+        self.assertIsInstance(key, Ed25519PrivateKey)
+        self.assertEqual(1, len(user.keypairs))
+        kp = user.keypairs[0]
+        self.assertEqual('farcaster', kp.protocol)
+        self.assertEqual('ed25519', kp.algorithm)
+        self.assertEqual(32, len(kp.public_key_bytes))
+        self.assertEqual(32, len(kp.private_key_bytes))
+        self.assertEqual(
+            key.public_key().public_bytes(Encoding.Raw, PublicFormat.Raw),
+            kp.public_key_bytes)
+        # persisted
+        self.assertEqual(kp.private_key_bytes,
+                         user.key.get().keypairs[0].private_key_bytes)
+
+    def test_farcaster_key_existing(self):
+        first = self.user.farcaster_key()
+        second = self.user.farcaster_key()
+        raw = lambda k: k.private_bytes(Encoding.Raw, PrivateFormat.Raw,
+                                        NoEncryption())
+        self.assertEqual(raw(first), raw(second))
+        self.assertEqual(1, sum(1 for kp in self.user.keypairs
+                                if kp.protocol == 'farcaster'))
 
     def test_user_page_path(self):
         self.assertEqual('/web/y.za', self.user.user_page_path())
