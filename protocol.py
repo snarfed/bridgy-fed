@@ -1346,6 +1346,11 @@ class Protocol:
                                       Follower.from_ == from_,
                                       Follower.status == 'active').get()
             if follower:
+                follow_id = obj.as1.get('followId')
+                if (follow_id and follower.follow
+                        and follower.follow.id() != follow_id):
+                    logger.info(f"Ignoring stop-following: its follow id {follow_id} doesn't match current {follower.follow.id()}")
+                    return 'OK', 204
                 logger.info(f'Marking {follower} inactive')
                 follower.status = 'inactive'
                 follower.put()

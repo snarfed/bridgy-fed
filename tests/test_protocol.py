@@ -4020,6 +4020,49 @@ class ProtocolReceiveTest(TestCase):
         self.assertEqual('inactive', follower.key.get().status)
         self.assertEqual([('fake:user:target', stop_following_as1)], Fake.sent)
 
+    def test_stop_following_stale_follow_id(self):
+        self.user.obj.our_as1 = {'id': 'fake:user'}
+        self.user.obj.put()
+
+        follower = Follower.get_or_create(
+            to=self.user, from_=self.alice,
+            follow=Object(id='other:current-follow').put())
+
+        stop_as1 = {
+            'id': 'other:stop-following',
+            'objectType': 'activity',
+            'verb': 'stop-following',
+            'actor': 'other:alice',
+            'object': 'fake:user',
+            'followId': 'other:stale-follow',
+        }
+        self.assertEqual(('OK', 204), OtherFake.receive_as1(stop_as1))
+
+        self.assertEqual('active', follower.key.get().status)
+        self.assertEqual([], Fake.sent)
+
+    def test_stop_following_matching_follow_id(self):
+        self.user.obj.our_as1 = {'id': 'fake:user'}
+        self.user.obj.put()
+
+        follower = Follower.get_or_create(
+            to=self.user, from_=self.alice,
+            follow=Object(id='other:follow').put())
+
+        stop_as1 = {
+            'id': 'other:stop-following',
+            'objectType': 'activity',
+            'verb': 'stop-following',
+            'actor': 'other:alice',
+            'object': 'fake:user',
+            'followId': 'other:follow',
+        }
+        _, code = OtherFake.receive_as1(stop_as1)
+        self.assertEqual(202, code)
+
+        self.assertEqual('inactive', follower.key.get().status)
+        self.assertEqual([('fake:user:target', stop_as1)], Fake.sent)
+
     def test_stop_following_cant_determine_object_protocol(self):
         stop_following_as1 = {
             'id': 'other:stop-following',
