@@ -249,7 +249,7 @@ workflows:
         - equal: [ default, << pipeline.parameters.service >> ]
         - equal: [ main, << pipeline.git.branch >> ]
         - not:
-            - equal: [ dependabot, << pipeline.git.commit.author_login >> ]
+            equal: [ dependabot, << pipeline.git.commit.author_login >> ]
         - matches:
             pattern: (?s).*\[deploy\].*
             value: << pipeline.git.commit.body >>
