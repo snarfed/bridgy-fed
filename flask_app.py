@@ -41,8 +41,12 @@ if appengine_info.LOCAL_SERVER and not appengine_info.TESTING:
 app.url_map.merge_slashes = False
 app.url_map.redirect_defaults = False
 
+ndb_context_kwargs = {
+    **common.NDB_CONTEXT_KWARGS,
+    'cache_policy': lambda key: False,
+}
 app.wsgi_app = flask_util.ndb_context_middleware(
-    app.wsgi_app, client=appengine_config.ndb_client, **common.NDB_CONTEXT_KWARGS)
+    app.wsgi_app, client=appengine_config.ndb_client, **ndb_context_kwargs)
 
 # deregister XRPC methods we don't support
 for nsid in (
