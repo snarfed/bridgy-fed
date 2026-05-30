@@ -135,7 +135,7 @@ class ATProtoFirehoseSubscribeTest(ATProtoTestCase):
         # alice is non-Bluesky, bridged
         # bob is Bluesky, not bridged
         self.user = self.make_bridged_atproto_user()
-        AtpRepo(id='did:plc:alice', head='', signing_key_pem=b'').put()
+        AtpRepo(id='did:plc:alice', head='', encrypted_signing_key=b'').put()
         self.store_object(id='did:plc:bob', raw=DID_DOC)
         ATProto(id='did:plc:bob').put()
 
@@ -431,7 +431,7 @@ class ATProtoFirehoseSubscribeTest(ATProtoTestCase):
 
         self.make_user('fa.brid.gy', cls=Web, enabled_protocols=['atproto'],
                        copies=[Target(protocol='atproto', uri='did:fa')])
-        AtpRepo(id='did:fa', head='', signing_key_pem=b'').put()
+        AtpRepo(id='did:fa', head='', encrypted_signing_key=b'').put()
 
         self.assert_enqueues({
             '$type': 'app.bsky.graph.follow',
@@ -580,7 +580,7 @@ class ATProtoFirehoseSubscribeTest(ATProtoTestCase):
         self.subscribe()
 
         # new AtpRepo should be loaded into bridged_dids
-        AtpRepo(id='did:plc:eve', head='', signing_key_pem=b'').put()
+        AtpRepo(id='did:plc:eve', head='', encrypted_signing_key=b'').put()
         self.assert_enqueues({
             '$type': 'app.bsky.graph.follow',
             'subject': 'did:plc:eve',
@@ -590,9 +590,9 @@ class ATProtoFirehoseSubscribeTest(ATProtoTestCase):
     def test_load_dids_tombstoned_deactivated_atprepos(self):
         FakeWebsocketClient.to_receive = [({'op': 1, 't': '#info'}, {})]
 
-        AtpRepo(id='did:plc:eve', head='', signing_key_pem=b'',
+        AtpRepo(id='did:plc:eve', head='', encrypted_signing_key=b'',
                 status=arroba.util.TOMBSTONED).put()
-        AtpRepo(id='did:plc:frank', head='', signing_key_pem=b'',
+        AtpRepo(id='did:plc:frank', head='', encrypted_signing_key=b'',
                 status=arroba.util.DEACTIVATED).put()
 
         self.subscribe()

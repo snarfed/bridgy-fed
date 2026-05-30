@@ -127,7 +127,7 @@ class Nostr(User, Protocol):
         """
         assert self.key.id().startswith('nostr:'), self.key.id()
         assert ID_RE.match(self.key.id().removeprefix('nostr:')), self.key.id()
-        assert not self.nostr_key_bytes, self.key.id()
+        assert not self._keypair('nostr'), self.key.id()
         return super()._pre_put_hook()
 
     def hex_pubkey(self):

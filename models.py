@@ -52,8 +52,6 @@ from webutil.util import ellipsize, json_dumps, json_loads
 
 import common
 from common import (
-    base64_to_long,
-    long_to_base64,
     OLD_ACCOUNT_AGE,
     report_error,
 )
@@ -232,8 +230,7 @@ class KeyPair(ndb.Model):
 
     Details for each protocol:
 
-    * ActivityPub: RSA (legacy users still store as :attr:`User.mod`,
-      ``public_exponent``, ``private_exponent``)
+    * ActivityPub: RSA
     * ATProto: secp256k1, with ECDSA signatures
       (keypair is stored in :class:`arroba.datastore_storage.AtpRepo`, *not* here)
       https://atproto.com/specs/cryptography
@@ -419,17 +416,6 @@ class User(AddRemoveMixin, StringIdModel, metaclass=ProtocolUserMeta):
     keypairs = ndb.StructuredProperty(KeyPair, repeated=True)
     """Key pairs for this user, one per bridged protocol. Encrypted at rest."""
 
-    # LEGACY: replaced by keypairs. read-only fallback for users created
-    # before keypairs existed. backfill and remove eventually.
-    mod = ndb.StringProperty()
-    """Part of the bridged ActivityPub actor's private key."""
-    public_exponent = ndb.StringProperty()
-    """Part of the bridged ActivityPub actor's private key."""
-    private_exponent = ndb.StringProperty()
-    """Part of the bridged ActivityPub actor's private key."""
-    nostr_key_bytes = EncryptedProperty()
-    """The bridged Nostr account's secp256k1 private key, in raw bytes."""
-
     manual_opt_out = ndb.BooleanProperty()
     """Set to True to manually disable this user. Set to False to override spam filters and forcibly enable this user."""
 
@@ -469,6 +455,10 @@ class User(AddRemoveMixin, StringIdModel, metaclass=ProtocolUserMeta):
     # protocol-specific state
     # atproto_notifs_indexed_at = ndb.TextProperty()
     # atproto_feed_indexed_at = ndb.TextProperty()
+    # mod = ndb.StringProperty()  # https://github.com/snarfed/bridgy-fed/issues/794
+    # public_exponent = ndb.StringProperty()
+    # private_exponent = ndb.StringProperty()
+    # nostr_key_bytes = EncryptedProperty()
 
     def __init__(self, **kwargs):
         """Constructor.
@@ -970,16 +960,7 @@ class User(AddRemoveMixin, StringIdModel, metaclass=ProtocolUserMeta):
           bytes:
         """
         self._maybe_generate_ap_key()
-        if kp := self._keypair('activitypub'):
-            return kp.public_key_bytes
-
-        rsa = RSA.construct((base64_to_long(str(self.mod)),
-                             base64_to_long(str(self.public_exponent))),
-                            # optimization. consistency check is very CPU-expensive,
-                            # and unnecessary for keys we own
-                            # https://github.com/snarfed/bridgy-fed/issues/2488
-                            consistency_check=False)
-        return rsa.exportKey(format='PEM')
+        return self._keypair('activitypub').public_key_bytes
 
     @memcache.memoize(key=lambda self: self.key.id())
     def private_pem(self):
@@ -989,23 +970,11 @@ class User(AddRemoveMixin, StringIdModel, metaclass=ProtocolUserMeta):
           bytes:
         """
         self._maybe_generate_ap_key()
-        if kp := self._keypair('activitypub'):
-            return kp.private_key_bytes
-
-        rsa = RSA.construct((base64_to_long(str(self.mod)),
-                             base64_to_long(str(self.public_exponent)),
-                             base64_to_long(str(self.private_exponent))),
-                            # optimization. consistency check is very CPU-expensive,
-                            # and unnecessary for keys we own
-                            # https://github.com/snarfed/bridgy-fed/issues/2488
-                            consistency_check=False)
-        return rsa.exportKey(format='PEM')
+        return self._keypair('activitypub').private_key_bytes
 
     def _maybe_generate_ap_key(self):
         """Generates this user's ActivityPub private key if necessary."""
         if self._keypair('activitypub'):
-            return
-        if self.mod and self.public_exponent and self.private_exponent:
             return
 
         logger.info(f'generating AP keypair for {self.key.id()}')
@@ -1024,7 +993,8 @@ class User(AddRemoveMixin, StringIdModel, metaclass=ProtocolUserMeta):
           str:
         """
         self._maybe_generate_nostr_key()
-        privkey = secp256k1.PrivateKey(self._nostr_private_bytes(), raw=True)
+        privkey = secp256k1.PrivateKey(
+            self._keypair('nostr').private_key_bytes, raw=True)
         return granary.nostr.bech32_encode('nsec', privkey.serialize())
 
     def hex_pubkey(self):
@@ -1034,9 +1004,7 @@ class User(AddRemoveMixin, StringIdModel, metaclass=ProtocolUserMeta):
           str:
         """
         self._maybe_generate_nostr_key()
-        if kp := self._keypair('nostr'):
-            return kp.public_key_bytes.hex()
-        return granary.nostr.pubkey_from_privkey(self._nostr_private_bytes().hex())
+        return self._keypair('nostr').public_key_bytes.hex()
 
     def npub(self):
         """Returns the user's bech32-encoded ActivityPub public secp256k1 key.
@@ -1046,15 +1014,9 @@ class User(AddRemoveMixin, StringIdModel, metaclass=ProtocolUserMeta):
         """
         return granary.nostr.bech32_encode('npub', self.hex_pubkey())
 
-    def _nostr_private_bytes(self):
-        """Returns this user's raw Nostr private key bytes, preferring keypairs."""
-        if kp := self._keypair('nostr'):
-            return kp.private_key_bytes
-        return self.nostr_key_bytes
-
     def _maybe_generate_nostr_key(self):
         """Generates this user's Nostr private key if necessary."""
-        if self._nostr_private_bytes():
+        if self._keypair('nostr'):
             return
 
         logger.info(f'generating Nostr keypair for {self.key.id()}')

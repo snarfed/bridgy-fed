@@ -248,22 +248,8 @@ class UserTest(TestCase):
             b'-----BEGIN PUBLIC KEY-----\n'))
         self.assertTrue(user.keypairs[0].private_key_bytes.startswith(
             b'-----BEGIN RSA PRIVATE KEY-----\n'))
-        self.assertIsNone(user.mod)
-        self.assertIsNone(user.private_exponent)
-        self.assertIsNone(user.public_exponent)
 
         self.assertEqual(pem, user.key.get().public_pem())
-
-    def test_public_pem_legacy_fallback(self):
-        user = Fake(id='fake:legacy', mod=testutil.LEGACY_AP_MOD,
-                    public_exponent=testutil.LEGACY_AP_PUBLIC_EXPONENT,
-                    private_exponent=testutil.LEGACY_AP_PRIVATE_EXPONENT)
-        self.assertEqual([], user.keypairs)
-
-        pem = user.public_pem()
-        self.assertTrue(pem.decode().startswith('-----BEGIN PUBLIC KEY-----\n'), pem)
-        # no new keypair entry created
-        self.assertEqual([], user.keypairs)
 
     def test_private_pem(self):
         user = Fake(id='fake:a')
@@ -279,26 +265,12 @@ class UserTest(TestCase):
             b'-----BEGIN PUBLIC KEY-----\n'))
         self.assertTrue(user.keypairs[0].private_key_bytes.startswith(
             b'-----BEGIN RSA PRIVATE KEY-----\n'))
-        self.assertIsNone(user.mod)
-        self.assertIsNone(user.private_exponent)
-        self.assertIsNone(user.public_exponent)
 
         self.assertEqual(pem, user.key.get().private_pem())
 
-    def test_private_pem_legacy_fallback(self):
-        user = Fake(id='fake:legacy', mod=testutil.LEGACY_AP_MOD,
-                    public_exponent=testutil.LEGACY_AP_PUBLIC_EXPONENT,
-                    private_exponent=testutil.LEGACY_AP_PRIVATE_EXPONENT)
-        self.assertEqual([], user.keypairs)
-
-        pem = user.private_pem()
-        self.assertTrue(pem.decode().startswith('-----BEGIN RSA PRIVATE KEY-----\n'), pem)
-        self.assertEqual([], user.keypairs)
-
-    def test_nsec_new(self):
+    def test_nsec(self):
         user = Fake(id='fake:a')
         self.assertEqual([], user.keypairs)
-        self.assertIsNone(user.nostr_key_bytes)
 
         nsec = user.nsec()
         self.assertTrue(is_bech32(nsec))
@@ -306,21 +278,10 @@ class UserTest(TestCase):
         self.assertEqual('nostr', user.keypairs[0].protocol)
         self.assertEqual('secp256k1', user.keypairs[0].algorithm)
         self.assertIsNotNone(user.keypairs[0].public_key_bytes)
-        self.assertIsNone(user.nostr_key_bytes)
         self.assertEqual(user.keypairs[0].private_key_bytes,
                          user.key.get().keypairs[0].private_key_bytes)
 
-    def test_nsec_existing(self):
-        self.user.nostr_key_bytes = bytes.fromhex(PRIVKEY)
-        self.assertEqual(1, len(self.user.keypairs))
-        self.assertEqual('activitypub', self.user.keypairs[0].protocol)
-
-        # legacy fallback: no Nostr entry added to keypairs
-        self.assertEqual(NSEC_URI.removeprefix('nostr:'), self.user.nsec())
-        self.assertEqual(1, len(self.user.keypairs))
-        self.assertEqual('activitypub', self.user.keypairs[0].protocol)
-
-    def test_npub_new(self):
+    def test_npub(self):
         user = Fake(id='fake:a')
         self.assertEqual([], user.keypairs)
 
@@ -328,20 +289,10 @@ class UserTest(TestCase):
         self.assertTrue(is_bech32(npub))
         self.assertEqual(1, len(user.keypairs))
         self.assertEqual('nostr', user.keypairs[0].protocol)
-        self.assertIsNone(user.nostr_key_bytes)
-
-    def test_npub_existing(self):
-        self.assertEqual(1, len(self.user.keypairs))
-        self.assertEqual('activitypub', self.user.keypairs[0].protocol)
-
-        self.user.nostr_key_bytes = bytes.fromhex(PRIVKEY)
-        self.assertEqual(NPUB_URI.removeprefix('nostr:'), self.user.npub())
-        self.assertEqual(1, len(self.user.keypairs))
-        self.assertEqual('activitypub', self.user.keypairs[0].protocol)
 
     def test_hex_pubkey(self):
-        self.user.nostr_key_bytes = bytes.fromhex(PRIVKEY)
-        self.assertEqual(PUBKEY, self.user.hex_pubkey())
+        user = Fake(id='fake:a')
+        self.assertEqual(64, len(user.hex_pubkey()))
 
     def test_farcaster_key_new(self):
         user = Fake(id='fake:a')

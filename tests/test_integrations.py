@@ -14,6 +14,7 @@ from dns.resolver import NXDOMAIN
 import google.cloud.dns.client
 from google.cloud import ndb
 from granary import as2, bluesky
+import granary.nostr
 from granary.nostr import (
     bech32_encode,
     KIND_ARTICLE,
@@ -58,6 +59,7 @@ import app
 from atproto import ATProto, Cursor
 import atproto_firehose
 import common
+import models
 from models import DM, Follower, Object, Target
 from nostr import Nostr, NostrRelay
 import nostr_hub
@@ -215,7 +217,13 @@ class IntegrationTests(TestCase):
             user.obj.put()
 
     def make_nostr_copy(self, user, key_bytes=None):
-        user.nostr_key_bytes = key_bytes or bytes.fromhex(PRIVKEY_2)
+        priv = key_bytes or bytes.fromhex(PRIVKEY_2)
+        user.keypairs = [kp for kp in user.keypairs if kp.protocol != 'nostr']
+        user.keypairs.append(models.KeyPair(
+            protocol='nostr', algorithm='secp256k1',
+            public_key_bytes=bytes.fromhex(
+                granary.nostr.pubkey_from_privkey(priv.hex())),
+            private_key_bytes=priv))
         assert not user.get_copy(Nostr)
         user.add('copies', Target(uri='nostr:' + user.hex_pubkey(), protocol='nostr'))
         user.put()

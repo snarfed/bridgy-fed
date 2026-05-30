@@ -45,8 +45,7 @@ from werkzeug.exceptions import HTTPException
 # other modules are imported _after_ Fake etc classes is defined so that it's in
 # PROTOCOLS when URL routes are registered.
 import atproto
-from common import GCP_PROJECT_ID, long_to_base64, NDB_CONTEXT_KWARGS, TASKS_LOCATION
-from Crypto.PublicKey import RSA
+from common import GCP_PROJECT_ID, NDB_CONTEXT_KWARGS, TASKS_LOCATION
 from webutil.appengine_info import DEBUG
 import filters
 import ids
@@ -355,14 +354,6 @@ with ndb_client.context():
     # make it actually generate the keypair
     global_user.private_pem()
 
-# cached legacy-format AP key parts for tests that exercise the pre-private_keys
-# storage path. generated once to avoid RSA.generate cost per test.
-_legacy_rsa = RSA.generate(models.KEY_BITS,
-                           randfunc=random.randbytes if DEBUG else None)
-LEGACY_AP_MOD = common.long_to_base64(_legacy_rsa.n).decode()
-LEGACY_AP_PUBLIC_EXPONENT = common.long_to_base64(_legacy_rsa.e).decode()
-LEGACY_AP_PRIVATE_EXPONENT = common.long_to_base64(_legacy_rsa.d).decode()
-
 
 class TestCase(unittest.TestCase, testutil.Asserts):
     maxDiff = None
@@ -530,8 +521,7 @@ class TestCase(unittest.TestCase, testutil.Asserts):
             kwargs.setdefault('last_webmention_in', testutil.NOW)
 
         enabled = kwargs.get('enabled_protocols', [])
-        if 'nostr' in enabled:
-            kwargs.setdefault('nostr_key_bytes', bytes.fromhex(PRIVKEY))
+        nostr_key_bytes = kwargs.pop('nostr_key_bytes', None)
 
         def make_copies(id):
             copies = []
@@ -543,11 +533,19 @@ class TestCase(unittest.TestCase, testutil.Asserts):
             return copies
 
         kwargs.setdefault('copies', make_copies(id))
-        kwargs.setdefault('keypairs', [
+        keypairs = [
             models.KeyPair(protocol=kp.protocol, algorithm=kp.algorithm,
                            public_key_bytes=kp.public_key_bytes,
                            private_key_bytes=kp.private_key_bytes)
-            for kp in global_user.keypairs])
+            for kp in global_user.keypairs]
+        if 'nostr' in enabled or nostr_key_bytes:
+            priv = nostr_key_bytes or bytes.fromhex(PRIVKEY)
+            keypairs.append(models.KeyPair(
+                protocol='nostr', algorithm='secp256k1',
+                public_key_bytes=bytes.fromhex(
+                    granary.nostr.pubkey_from_privkey(priv.hex())),
+                private_key_bytes=priv))
+        kwargs.setdefault('keypairs', keypairs)
         user = cls(id=id, **kwargs)
 
         user.obj_key = kwargs.pop('obj_key', None)
@@ -717,8 +715,7 @@ class TestCase(unittest.TestCase, testutil.Asserts):
 
         # generated, computed, etc
         ignore = ['created', 'handle', 'handle_as_domain',
-                  'handle_pay_level_domain', 'mod', 'obj_key',
-                  'private_exponent', 'public_exponent', 'status', 'updated',
+                  'handle_pay_level_domain', 'obj_key', 'status', 'updated',
                   ] + list(ignore)
         for prop in ignore:
             assert prop not in props

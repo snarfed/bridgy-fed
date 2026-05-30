@@ -30,6 +30,7 @@ import common
 from flask_app import app
 import ids
 from ids import translate_handle, translate_object_id, translate_user_id
+import models
 from models import Follower, Object, Target
 import nostr
 from nostr import Nostr
@@ -97,7 +98,9 @@ class NostrTest(TestCase):
             Nostr(id='foo').put()
 
         with self.assertRaises(AssertionError):
-            Nostr(id=ID_URI, nostr_key_bytes=b'x').put()
+            Nostr(id=ID_URI, keypairs=[models.KeyPair(
+                protocol='nostr', algorithm='secp256k1',
+                public_key_bytes=b'x' * 32, private_key_bytes=b'x' * 32)]).put()
 
     def test_hex_pubkey(self):
         self.assertEqual(PUBKEY, Nostr(id=PUBKEY_URI).hex_pubkey())
@@ -460,7 +463,8 @@ class NostrTest(TestCase):
         })), ignore=['id'])
 
     def test_convert_multiple_follows(self):
-        self.user.nostr_key_bytes = None
+        self.user.keypairs = [kp for kp in self.user.keypairs
+                              if kp.protocol != 'nostr']
         self.user.put()
 
         # these should be added to the follow event

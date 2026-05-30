@@ -210,7 +210,7 @@ class MemcacheTest(TestCase):
                                   use_global_cache=True))
 
     def test_evict_model_without_copies(self):
-        key = AtpRepo(id='did:plc:foo', head='x', signing_key_pem=b'y').put()
+        key = AtpRepo(id='did:plc:foo', head='x', encrypted_signing_key=b'y').put()
         key.get()
         self.assertIsNotNone(key.get(use_cache=False, use_datastore=False,
                                      use_global_cache=True))

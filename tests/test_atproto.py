@@ -289,9 +289,9 @@ class ATProtoTest(TestCase):
 
     def test_handle_to_id_first_opted_out(self):
         AtpRepo(id='did:plc:other', handles=['han.dull.brid.gy'], head='',
-                signing_key_pem=b'', status=arroba.util.TOMBSTONED).put()
+                encrypted_signing_key=b'', status=arroba.util.TOMBSTONED).put()
         AtpRepo(id='did:plc:user', handles=['han.dull.brid.gy'], head='',
-                signing_key_pem=b'').put()
+                encrypted_signing_key=b'').put()
         self.assertEqual('did:plc:user', ATProto.handle_to_id('han.dull.brid.gy'))
 
     @patch('dns.resolver.resolve', side_effect=NXDOMAIN())

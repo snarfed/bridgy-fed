@@ -1,5 +1,4 @@
 """Misc common utilities."""
-import base64
 from datetime import timedelta
 import functools
 import logging
@@ -10,7 +9,6 @@ import threading
 import urllib.parse
 from urllib.parse import urljoin, urlparse
 
-from Crypto.Util import number
 import flask
 from flask import abort, g, has_request_context, make_response, redirect, request
 from flask.views import View
@@ -106,23 +104,6 @@ def bot_user_ids():
                 bot_ids.add(bot.id_as(other_proto))
 
     return bot_ids
-
-
-def base64_to_long(x):
-    """Converts from URL safe base64 encoding to long integer.
-
-    Originally from ``django_salmon.magicsigs``. Used in :meth:`User.public_pem`
-    and :meth:`User.private_pem`.
-    """
-    return number.bytes_to_long(base64.urlsafe_b64decode(x))
-
-
-def long_to_base64(x):
-    """Converts from long integer to base64 URL safe encoding.
-
-    Originally from ``django_salmon.magicsigs``. Used in :meth:`User.get_or_create`.
-    """
-    return base64.urlsafe_b64encode(number.long_to_bytes(x))
 
 
 def error(err, status=400, exc_info=None, **kwargs):
