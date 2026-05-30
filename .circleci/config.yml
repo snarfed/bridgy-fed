@@ -237,7 +237,7 @@ workflows:
             - pipeline.git.commit.author_login starts-with "dependabot"
             - not:
                 matches:
-                  pattern: ".*\\[deploy\\].*"
+                  pattern: (?s).*\[deploy\].*
                   value: << pipeline.git.commit.body >>
     jobs:
       - test
@@ -249,7 +249,7 @@ workflows:
         - pipeline.git.branch == "main"
         - not (pipeline.git.commit.author_login starts-with "dependabot")
         - matches:
-            pattern: ".*\\[deploy\\].*"
+            pattern: (?s).*\[deploy\].*
             value: << pipeline.git.commit.body >>
 
     jobs:
