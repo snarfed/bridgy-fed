@@ -125,7 +125,9 @@ def redir(to):
             if not user or not user.is_enabled(ActivityPub):
                 return f'Object not found: {to}', 404
 
-    ret = ActivityPub.convert(obj, from_user=web_user)
+    if not (ret := ActivityPub.convert(obj, from_user=web_user)):
+        return f'Object not found: {to}', 404
+
     # logger.info(f'Returning: {json_dumps(ret, indent=2)}')
     return ret, {
         'Content-Type': as2_request,

@@ -241,6 +241,13 @@ class RedirectTest(testutil.TestCase):
         self.assertEqual(as2.CONTENT_TYPE_LD_PROFILE, resp.content_type)
         self.assert_equals(REPOST_AS2, resp.json)
 
+    def test_as2_obj_without_as1(self):
+        Object(id='https://user.com/bar', as2={}, source_protocol='web').put()
+
+        resp = self.client.get('/r/https://user.com/bar',
+                               headers={'Accept': as2.CONTENT_TYPE_LD_PROFILE})
+        self.assertEqual(404, resp.status_code, resp.get_data(as_text=True))
+
     def test_as2_atproto_bad_url(self):
         # https://console.cloud.google.com/errors/detail/CI7V5rLOyaWBSg;locations=global;time=P30D?project=bridgy-federated&inv=1&invt=Ab4rRw
         got = self.client.get(
