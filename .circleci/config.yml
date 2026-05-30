@@ -231,10 +231,11 @@ workflows:
     # https://discuss.circleci.com/t/pipeline-git-commit-is-undocumented-useful-for-triggering-workflows-based-on-commit-message/52786
     when:
       and:
-        - pipeline.parameters.service == "default"
+        - equal: [ default, << pipeline.parameters.service >> ]
         - or:
-            - pipeline.git.branch != "main"
-            - pipeline.git.commit.author_login starts-with "dependabot"
+            - not:
+                equal: [ main, << pipeline.git.branch >> ]
+            - equal: [ dependabot, << pipeline.git.commit.author_login >> ]
             - not:
                 matches:
                   pattern: (?s).*\[deploy\].*
@@ -245,9 +246,10 @@ workflows:
   test-and-deploy-app-router:
     when:
       and:
-        - pipeline.parameters.service == "default"
-        - pipeline.git.branch == "main"
-        - not (pipeline.git.commit.author_login starts-with "dependabot")
+        - equal: [ default, << pipeline.parameters.service >> ]
+        - equal: [ main, << pipeline.git.branch >> ]
+        - not:
+            - equal: [ dependabot, << pipeline.git.commit.author_login >> ]
         - matches:
             pattern: (?s).*\[deploy\].*
             value: << pipeline.git.commit.body >>
