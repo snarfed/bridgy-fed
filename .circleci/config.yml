@@ -235,7 +235,10 @@ workflows:
         - or:
             - pipeline.git.branch != "main"
             - pipeline.git.commit.author_login starts-with "dependabot"
-            - not (pipeline.git.commit.body matches ".*\[deploy\].*")
+            - not:
+                matches:
+                  pattern: ".*\\[deploy\\].*"
+                  value: << pipeline.git.commit.body >>
     jobs:
       - test
 
@@ -245,7 +248,9 @@ workflows:
         - pipeline.parameters.service == "default"
         - pipeline.git.branch == "main"
         - not (pipeline.git.commit.author_login starts-with "dependabot")
-        - pipeline.git.commit.body matches ".*\[deploy\].*"
+        - matches:
+            pattern: ".*\\[deploy\\].*"
+            value: << pipeline.git.commit.body >>
 
     jobs:
       - test
