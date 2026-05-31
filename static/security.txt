@@ -6,7 +6,7 @@ Policy: https://fed.brid.gy/docs#vulnerability
 
 Thank you for investigating Bridgy Fed's security! We appreciate any and all reports of vulnerabilities. The code is open source (https://github.com/snarfed/bridgy-fed), feel free to try to break in, let us know if you succeed!
 
-A few guidelines for your report to qualify for a monetary reward:
+A few guidelines:
 
 * Vulnerabilities must be in the application itself, not unrelated services like email (eg SPF/DKIM/DMARC).
 * Out of scope: rate limiting
