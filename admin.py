@@ -1,9 +1,6 @@
 """Admin pages and endpoints: admin UI, hub status, memcache API, etc."""
 from datetime import datetime
-import gc
 import logging
-import sys
-import tracemalloc
 from urllib.parse import quote
 
 from google.cloud import ndb
@@ -23,7 +20,6 @@ import models
 from models import Object, PROTOCOLS, User
 import pytz
 from webutil import flask_util, logs, util
-from webutil.appengine_info import TESTING
 from webutil.flask_util import flash
 
 from activitypub import ActivityPub, FEDI_URL_RE
@@ -42,9 +38,6 @@ BLOCKLISTS = {
 }
 
 logger = logging.getLogger(__name__)
-
-if not TESTING:
-    tracemalloc.start(15)
 
 
 #
@@ -293,36 +286,3 @@ def last_seq():
     nsid = flask_util.get_required_param('nsid')
     result = arroba.server.storage.sequences.last(nsid)
     return str(result)
-
-
-#
-# memory profiling, for finding what's growing per-instance memory in prod
-#
-@app.get('/admin/memory/tracemalloc')
-@flask_util.headers({'Content-Type': 'text/plain'})
-def memory_tracemalloc():
-    """Top allocations."""
-
-    snap = tracemalloc.take_snapshot()
-    return '\n\n'.join(
-        f'{stat.size / 1024:.1f} KiB ({stat.count} blocks)\n  '
-        + '\n  '.join(stat.traceback.format())
-        for stat in snap.statistics('traceback')[:30]
-    )
-
-
-@app.get('/admin/memory/objects')
-@flask_util.headers({'Content-Type': 'text/plain'})
-def memory_objects():
-    """Top live objects by type, summed size and count."""
-    counts = {}
-    sizes = {}
-    for obj in gc.get_objects():
-        t = type(obj).__name__
-        counts[t] = counts.get(t, 0) + 1
-        sizes[t] = sizes.get(t, 0) + sys.getsizeof(obj)
-
-    return '\n'.join(
-        f'{counts[t]:>8}  {sizes[t] / 1024:>10.1f} KiB  {t}'
-        for t in sorted(sizes, key=lambda t: -sizes[t])[:50]
-    )
