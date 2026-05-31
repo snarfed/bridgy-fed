@@ -1,4 +1,5 @@
 """Unit tests for admin.py."""
+import tracemalloc
 from unittest.mock import patch
 
 import arroba.server
@@ -122,6 +123,23 @@ class AdminTest(TestCase):
     def test_sequences_last_bad_auth(self):
         resp = self.client.get('/admin/sequences/last', data={'nsid': 'foo.bar'})
         self.assertEqual(401, resp.status_code)
+
+    def test_memory_tracemalloc(self):
+        tracemalloc.start(15)
+
+        try:
+            resp = self.client.get('/admin/memory/tracemalloc')
+            self.assertEqual(200, resp.status_code)
+            self.assertIn('KiB', resp.get_data(as_text=True))
+        finally:
+            tracemalloc.stop()
+
+    def test_memory_objects(self):
+        resp = self.client.get('/admin/memory/objects')
+        self.assertEqual(200, resp.status_code)
+        body = resp.get_data(as_text=True)
+        self.assertIn('KiB', body)
+        self.assertIn('dict', body)
 
     def test_admin_home(self):
         resp = self.client.get('/admin/')
