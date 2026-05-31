@@ -1,90 +1,70 @@
-# https://cloud.google.com/appengine/docs/standard/reference/app-yaml?tab=python
+# https://cloud.google.com/appengine/docs/flexible/reference/app-yaml?tab=python
 
 # application: bridgy-federated
 
-# keep this in sync with the test job image's Python version in .circleci/config.yml!
-# change to 311 to use Cloud Profiler
-runtime: python311
+service: default
+env: flex
+runtime: python
+runtime_config:
+  operating_system: ubuntu22
+  # keep this in sync with the test job image's Python version in .circleci/config.yml!
+  # change to "3.11" to use Cloud Profiler
+  runtime_version: "3.12"
 
-# default_expiration: 1h
+resources:
+  cpu: 1
+  memory_gb: 1
 
-# https://cloud.google.com/appengine/docs/standard/python3/runtime#entrypoint_best_practices
-# https://gunicorn.org/reference/settings/
-entrypoint: gunicorn --workers 1 --threads 100 --timeout 60 -b :$PORT app:app
+# run in default VPC for this project, same as router/hub
+# https://cloud.google.com/appengine/docs/flexible/using-shared-vpc
+# https://cloud.google.com/appengine/docs/flexible/reference/app-yaml#network_settings
+network:
+  name: projects/bridgy-federated/global/networks/default
 
-# Resource sizing and autoscaling notes:
+# Resource sizing and concurrency notes:
 #
 # This service is heavily IO-bound - CPU is ~1/15 of wall clock time. That
 # shapes most of what's below.
 #
-# instance_class: F2 - memory, not CPU, sets the class. Per-instance steady
-# state on F2 with 1 worker lands somewhere around 300-450MB (mostly in-process
-# caches: PEM, HTTPSignatureAuth, NDB state, imports). F1's 384MB ceiling can't
-# hold that distribution: even when the average sits well below 384, the tail
-# crosses it and instances get killed with "Exceeded hard private memory limit".
-# We measured ~2 OOMs/min on F1 with 2 workers, ~12/hr on F1 with 1 worker -
-# both bad enough that the autoscaler over-provisions to absorb the churn,
-# running F1 fleets ~1.3x larger than F2 and eating most of F1's 2x per-instance
-# price advantage.
-#
 # 1 worker, not 2: each gunicorn worker is a separate Python process with its
 # own copy of imports and caches; going 2 -> 1 saved ~200-250MB per instance,
-# roughly half. Threads share process memory and barely move it, so they're
-# cheap. Tradeoff for 1 worker is a single GIL, which is fine here because IO
-# wait dominates.
+# roughly half (measured on Standard, same dynamic applies here). Threads
+# share process memory and barely move it, so they're cheap. Tradeoff for 1
+# worker is a single GIL, which is fine here because IO wait dominates.
 #
-# threads and max_concurrent_requests should stay matched. If mcr > threads,
-# GAE routes more concurrent requests to an instance than it has threads to
-# serve, and the overflow queues silently inside gunicorn - showing up as
-# request latency rather than as visible queue pressure. Matched keeps
-# queueing honest and visible to the pending-latency scaler.
+# Per-instance steady-state memory is ~500MB (mostly in-process caches: PEM,
+# HTTPSignatureAuth, NDB state, imports). 2GB gives plenty of headroom for
+# burst-time concurrent requests.
 #
-# min_pending_latency: 1s was the single biggest cost win. The default (~30ms)
-# spawns a new instance any time a request waits in the queue, which for a
-# bursty IO-bound workload means constant over-provisioning. 1s tolerates
-# brief queueing during bursts and dropped the fleet ~25% with no measurable
-# latency cost.
-#
-# max_idle_instances: 1 is the most cost-favorable setting. It's a global-per-
-# version cap on warm spare instances (NOT per-zone, despite what the dashboard
-# might suggest). Unrelated to the "idle" state in the instance_count metric,
-# which just means "no request in flight right now" - any instance hits that
-# state between requests.
-#
-# target_cpu_utilization and target_throughput_utilization are both .8, but
-# neither appears to be the binding scaler here: raising cpu target from .6 to
-# .8 didn't move the fleet, and the throughput target (mcr * 0.8) sits far
-# above mean fleet concurrency (~17). Left at .8 - doesn't hurt, and one may
-# become binding under different load patterns.
-#
-# Open question: even with all of the above, the fleet sits at ~30 instances
-# across ~10 zones, well above what any visible scaler "wants." What's setting
-# that floor (per-zone scheduling, warm-spare distribution, something else)
-# isn't yet understood. None of the knobs above move it - it's the next thing
-# to investigate if more cost reduction is needed.
+# Threads at 100 / mean fleet concurrency of ~17: even a single instance can
+# absorb typical load with margin. The autoscaler will scale on CPU.
 #
 # earlier background:
 # https://github.com/snarfed/bridgy/issues/578
 # https://github.com/snarfed/bridgy/issues/1051
-instance_class: F2
-
 automatic_scaling:
-  max_instances: 100
-  min_idle_instances: 0
-  max_idle_instances: 1
-  # matches total number of gunicorn threads, across workers
-  max_concurrent_requests: 100
-  min_pending_latency: 1s
-  target_cpu_utilization: .8
-  target_throughput_utilization: .8
+  min_num_instances: 1
+  max_num_instances: 50
+  cpu_utilization:
+    target_utilization: 0.85
 
-inbound_services:
-- warmup
+  # max_instances: 100
+  # min_idle_instances: 0
+  # max_idle_instances: 1
+  # # matches total number of gunicorn threads, across workers
+  # max_concurrent_requests: 100
+  # min_pending_latency: 1s
+  # target_cpu_utilization: .8
+  # target_throughput_utilization: .8
 
-# Serverless VPC Access for Memorystore memcache
-# https://cloud.google.com/vpc/docs/serverless-vpc-access
-vpc_access_connector:
-  name: projects/bridgy-federated/locations/us-central1/connectors/bridgy-fed
+liveness_check:
+  # default 300; lowering it speeds up deploy
+  # https://cloud.google.com/appengine/docs/flexible/reference/app-yaml?tab=python#liveness_checks
+  initial_delay_sec: 30
+
+# https://cloud.google.com/appengine/docs/flexible/python/runtime#application_startup
+# https://gunicorn.org/reference/settings/
+entrypoint: gunicorn --workers 1 --threads 50 --timeout 60 -b :$PORT app:app
 
 env_variables:
   DATASTORE_DB: us-single-region
@@ -123,51 +103,3 @@ env_variables:
   # NDB_DEBUG: true
 
   DISABLE_GETREPO: true
-
-handlers:
-
-# static
-- url: /static
-  static_dir: static
-  secure: always
-
-- url: /oauth_dropins_static
-  static_dir: oauth_dropins_static
-
-- url: /fonts
-  static_dir: oauth_dropins_fonts
-
-- url: /favicon.ico
-  static_files: static/favicon.ico
-  upload: static/favicon.ico
-  secure: always
-
-- url: /robots.txt
-  static_files: static/robots.txt
-  upload: static/robots.txt
-  secure: always
-
-- url: /.well-known/security.txt
-  static_files: static/security.txt
-  upload: static/security.txt
-  secure: always
-
-# dynamic
-- url: /admin/memcache/.*
-  script: auto
-  secure: always
-  login: optional
-
-- url: /admin/sequences/.*
-  script: auto
-  secure: always
-  login: optional
-
-- url: /admin/.*
-  script: auto
-  secure: always
-  login: admin
-
-- url: .*
-  script: auto
-  secure: always
