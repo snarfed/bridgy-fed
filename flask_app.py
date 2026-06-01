@@ -6,7 +6,8 @@ import sys
 
 import arroba.server
 from arroba import xrpc_repo, xrpc_server, xrpc_sync
-from flask import Blueprint, Flask, g
+from flask import Flask, g
+import flask_gae_static
 from google.api_core.exceptions import PermissionDenied
 from lexrpc.server import Server
 import lexrpc.flask_server
@@ -23,7 +24,7 @@ logging.getLogger('negotiator').setLevel(logging.WARNING)
 
 app_dir = Path(__file__).parent
 
-app = Flask(__name__, static_folder='static')
+app = Flask(__name__, static_folder=None)
 app.template_folder = './templates'
 app.json.compact = False
 app.config.from_pyfile(app_dir / 'config.py')
@@ -33,16 +34,8 @@ app.after_request(flask_util.default_modern_headers)
 app.register_error_handler(Exception, flask_util.handle_exception)
 app.register_error_handler(PermissionDenied, flask_util.handle_read_only_permission_denied)
 
-app.register_blueprint(Blueprint(
-    'oauth_dropins_static', __name__, static_folder='oauth_dropins_static'))
-app.register_blueprint(Blueprint(
-    'oauth_dropins_fonts', __name__, static_folder='oauth_dropins_fonts',
-    static_url_path='/fonts'))
-
-@app.route('/<any(robots.txt,favicon.ico):filename>')
-def static_file(filename):
-    return app.send_static_file(filename)
-
+if appengine_info.LOCAL_SERVER and not appengine_info.TESTING:
+    flask_gae_static.init_app(app)
 
 # don't redirect API requests with blank path elements
 app.url_map.merge_slashes = False
