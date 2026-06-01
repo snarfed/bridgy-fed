@@ -73,7 +73,7 @@ $(document).ready(function() {
       <form method="post" action="/settings/migrate-to-atproto" class="settings-item">
         <input name="key" type="hidden" value="{{ key }}" />
         <label for="{{ key }}-migrate-pds">
-          <a href="/docs#migration">Migrate Bluesky account</a> to PDS:
+          <a href="/docs#migration">Migrate</a> <a href="https://atmosphereaccount.com/">Atmosphere account</a> to PDS:
         </label>
         <input id="{{ key }}-migrate-pds" name="pds" type="url" scheme="https" placeholder="pds.host" required />
         <input type="submit" value="Go" class="btn btn-default" />
