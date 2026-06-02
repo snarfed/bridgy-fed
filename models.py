@@ -106,9 +106,11 @@ PAGE_SIZE = 20
 #
 # need to keep follows because we attach them to Followers and use them for
 # unfollows
-DONT_EXPIRE_OBJECT_TYPES = (as1.ACTOR_TYPES | as1.POST_TYPES
-                            | set(['block', 'flag', 'follow', 'like', 'share']))
-OBJECT_EXPIRE_AGE = timedelta(days=90)
+DONT_EXPIRE_OBJECT_TYPES = as1.ACTOR_TYPES
+EXPIRE_LATE_OBJECT_TYPES = as1.POST_TYPES | set([
+    'block', 'flag', 'follow', 'like', 'share'])
+OBJECT_EARLY_EXPIRE_AGE = timedelta(days=2 * 30)
+OBJECT_LATE_EXPIRE_AGE = timedelta(days=6 * 30)
 
 GET_ORIGINALS_CACHE_EXPIRATION = timedelta(days=1)
 FOLLOWERS_CACHE_EXPIRATION = timedelta(hours=2)
@@ -1572,12 +1574,16 @@ class Object(AddRemoveMixin, StringIdModel):
         https://cloud.google.com/datastore/docs/ttl#ttl_properties_and_indexes
         """
         now = self.updated or util.now()
+
         if self.deleted:
             return now + timedelta(days=1)
-        elif (self.type not in DONT_EXPIRE_OBJECT_TYPES
-              and not self.key.id().startswith('internal:')
-              and not self.is_csv):
-            return now + OBJECT_EXPIRE_AGE
+        elif (self.key.id().startswith('internal:') or self.raw or self.is_csv
+              or self.type in DONT_EXPIRE_OBJECT_TYPES or self.copies):
+            return None
+        elif self.type in EXPIRE_LATE_OBJECT_TYPES:
+            return now + OBJECT_LATE_EXPIRE_AGE
+
+        return now + OBJECT_EARLY_EXPIRE_AGE
 
     expire = ndb.ComputedProperty(_expire, indexed=False)
 

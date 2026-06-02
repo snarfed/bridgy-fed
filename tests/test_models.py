@@ -37,7 +37,8 @@ from models import (
     Follower,
     maybe_truncate_key_id,
     Object,
-    OBJECT_EXPIRE_AGE,
+    OBJECT_EARLY_EXPIRE_AGE,
+    OBJECT_LATE_EXPIRE_AGE,
     PROTOCOLS,
     Target,
     User,
@@ -1238,15 +1239,19 @@ class ObjectTest(TestCase):
 
     def test_expire(self):
         obj = Object(id='a', our_as1={'objectType': 'activity', 'verb': 'update'})
-        self.assertEqual(NOW + OBJECT_EXPIRE_AGE, obj.expire)
+        self.assertEqual(NOW + OBJECT_EARLY_EXPIRE_AGE, obj.expire)
 
         obj.our_as1['verb'] = 'like'
-        self.assertIsNone(obj.expire)
+        self.assertEqual(NOW + OBJECT_LATE_EXPIRE_AGE, obj.expire)
 
         obj.our_as1['objectType'] = 'note'
+        self.assertEqual(NOW + OBJECT_LATE_EXPIRE_AGE, obj.expire)
+        obj.copies = [Target(protocol='fake', uri='fake:abc')]
         self.assertIsNone(obj.expire)
 
         obj.our_as1['objectType'] = 'person'
+        self.assertIsNone(obj.expire)
+        obj.copies = []
         self.assertIsNone(obj.expire)
 
         obj.deleted = True
@@ -1255,6 +1260,8 @@ class ObjectTest(TestCase):
         self.assertIsNone(Object(id='internal:foo').expire)
 
         self.assertIsNone(Object(id='http://li/st', is_csv=True).expire)
+
+        self.assertIsNone(Object(id='http://ra/w', raw={'x': 'y'}).expire)
 
     def test_as1_from_as2(self):
         self.assert_equals({
