@@ -373,7 +373,7 @@ def handler():
 def _handle_commit_op(op):
     """
     Args:
-      op (CommitOp)
+      op (Op)
     """
     at_uri = f'at://{op.repo}/{op.path}'
     type, _ = op.path.strip('/').split('/', maxsplit=1)
@@ -466,13 +466,22 @@ def handle(limit=None):
                 if user := ATProto.get_by_id(op.repo):
                     user.put()
                     if user.obj and user.obj.as1:
-                        _handle_commit_op(
-                            Op(repo=op.repo, action='update', record=user.obj.bsky,
-                               path='app.bsky.actor.profile/self', seq=op.seq,
-                               time=op.time))
+                        identity_op = Op(repo=op.repo, action='update',
+                                         record=user.obj.bsky,
+                                         path='app.bsky.actor.profile/self',
+                                         seq=op.seq, time=op.time)
+                        try:
+                            _handle_commit_op(identity_op)
+                        except BaseException:
+                            logger.error(f'Error handling op: {identity_op}')
+                            raise
 
             case _:
-                _handle_commit_op(op)
+                try:
+                    _handle_commit_op(op)
+                except BaseException:
+                    logger.error(f'Error handling op: {op}')
+                    raise
 
         seen += 1
         if limit is not None and seen >= limit:
@@ -492,7 +501,7 @@ def _handle_standard_site_document(op):
     https://github.com/snarfed/bridgy-fed/issues/2324
 
     Args:
-      op (arroba.storage.CommitOp)
+      op (Op)
     """
     if not (post_uri := op.record.get('bskyPostRef', {}).get('uri')):
         return
@@ -537,7 +546,7 @@ def _handle_standard_site_document(op):
 def _handle_webMonetization(op):
     """
     Args:
-      op (arroba.storage.CommitOp)
+      op (Op)
     """
     profile_uri = at_uri(op.repo, 'app.bsky.actor.profile', 'self')
     profile = Object.get_or_insert(profile_uri)
