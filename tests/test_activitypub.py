@@ -20,6 +20,7 @@ import requests
 from requests import TooManyRedirects
 from requests.exceptions import InvalidURL
 from requests_hardened import Config as RequestsHardenedConfig, HTTPSession
+from requests_hardened.ip_filter_adapter import IPFilterAdapter
 import socket
 from urllib3._collections import HTTPHeaderDict
 from urllib3.exceptions import ReadTimeoutError
@@ -1737,6 +1738,9 @@ class ActivityPubTest(TestCase):
         # https://github.com/snarfed/bridgy-fed/issues/2266
         self.assert_object('https://mas.to/users/foo', as2=orig_actor_as2,
                            source_protocol='activitypub')
+
+    # also see test_inbox_verify_sig_fetch_key_* in ActivityPubUtilsTest
+    # those are there to avoid the class-level patches here
 
     def test_inbox_verify_sig_fetch_key_fails(self, _, mock_get, __):
         # https://console.cloud.google.com/errors/detail/COLzgISI47vpMg?project=bridgy-federated
@@ -4193,3 +4197,36 @@ class ActivityPubUtilsTest(TestCase):
             with (self.subTest(accept=accept),
                   app.test_request_context('/', headers={'Accept': accept})):
                 self.assertEqual(expected, activitypub.as2_request_type())
+
+    @patch.multiple('webutil.util', DEBUG=False, TESTING=False, LOCAL_SERVER=False)
+    def test_inbox_verify_sig_fetch_key_blocked_ip(self):
+        body = json_dumps(NOTE)
+        headers = sign('/ap/sharedInbox', body, key_id='https://169.254.169.254/key')
+
+        with patch('webutil.util.session', util.make_session()):
+            assert util.session._config.ip_filter_enable
+            resp = self.client.post('/ap/sharedInbox', data=body, headers=headers)
+
+        self.assertEqual(400, resp.status_code, resp.get_data(as_text=True))
+
+    @patch.multiple('webutil.util', DEBUG=False, TESTING=False, LOCAL_SERVER=False)
+    def test_inbox_verify_sig_fetch_key_redirects_to_blocked_ip(self):
+        body = json_dumps(NOTE)
+        headers = sign('/ap/sharedInbox', body, key_id='https://mas.to/key/id')
+
+        with patch('webutil.util.session', util.make_session()):
+            orig_session_get = util.session.get
+            call_count = 0
+            def fake_get(url, *args, **kwargs):
+                nonlocal call_count
+                call_count += 1
+                if call_count == 1:
+                    return requests_response(
+                        status=302, allow_redirects=False,
+                        redirected_url='https://169.254.169.254/key')
+                return orig_session_get(url, **kwargs)
+
+            with patch.object(util.session, 'get', new=fake_get):
+                resp = self.client.post('/ap/sharedInbox', data=body, headers=headers)
+
+        self.assertEqual(400, resp.status_code, resp.get_data(as_text=True))
