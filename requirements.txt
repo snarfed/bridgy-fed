@@ -122,7 +122,7 @@ update-checker==0.18.0
 uritemplate==4.2.0
 urllib3==2.7.0
 webencodings==0.5.1
-WebOb==1.8.9
+WebOb==1.8.10
 websocket-client==1.9.0
 websockets==16.0
 Werkzeug==3.1.8
