@@ -20,9 +20,9 @@ import sys
 
 import arroba.server
 from google.cloud import ndb
-from oauth_dropins.webutil import appengine_info
+from webutil import appengine_info
 appengine_info.DEBUG = False
-from oauth_dropins.webutil import appengine_config, flask_util, util
+from webutil import appengine_config, flask_util, util
 
 from activitypub import ActivityPub
 from app import app
