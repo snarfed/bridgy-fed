@@ -67,7 +67,7 @@ from web import Web
 
 from .testutil import ATPROTO_KEY, TestCase
 from .test_activitypub import ACTOR, add_key, sign
-from .test_atproto_firehose import FakeWebsocketClient, setup_firehose
+from .test_atproto_firehose import A_CID, FakeWebsocketClient, setup_firehose
 from . import test_atproto
 from . import test_web
 
@@ -272,6 +272,7 @@ class IntegrationTests(TestCase):
         post = {
             '$type': 'app.bsky.feed.post',
             'text': 'I hereby post',
+            'createdAt': '2022-01-02T03:04:05.000Z',
         }
         self.firehose(repo='did:plc:alice', action='create', seq=123,
                       path='app.bsky.feed.post/123', record=post)
@@ -290,6 +291,7 @@ class IntegrationTests(TestCase):
                 'attributedTo': 'https://bsky.brid.gy/ap/did:plc:alice',
                 'content': '<p>I hereby post</p>',
                 'contentMap': {'en': '<p>I hereby post</p>'},
+                'published': '2022-01-02T03:04:05.000Z',
                 'to': ['https://www.w3.org/ns/activitystreams#Public'],
             },
             'to': ['https://www.w3.org/ns/activitystreams#Public'],
@@ -357,13 +359,14 @@ class IntegrationTests(TestCase):
         reply = {
             '$type': 'app.bsky.feed.post',
             'text': 'I hereby reply',
+            'createdAt': '2022-01-02T03:04:05.000Z',
             'reply': {
                 'root': {
-                    'cid': '...',
+                    'cid': A_CID.encode(),
                     'uri': 'at://did:plc:bob/app.bsky.feed.post/123',
                 },
                 'parent': {
-                    'cid': '...',
+                    'cid': A_CID.encode(),
                     'uri': 'at://did:plc:bob/app.bsky.feed.post/123',
                 },
             },
@@ -384,6 +387,7 @@ class IntegrationTests(TestCase):
                 'attributedTo': 'https://bsky.brid.gy/ap/did:plc:alice',
                 'content': '<p>I hereby reply</p>',
                 'contentMap': {'en': '<p>I hereby reply</p>'},
+                'published': '2022-01-02T03:04:05.000Z',
                 'inReplyTo': 'http://inst/post',
                 'tag': [{'type': 'Mention', 'href': 'http://inst/bob'}],
                 'cc': ['http://inst/bob'],
@@ -417,13 +421,14 @@ class IntegrationTests(TestCase):
         reply = {
             '$type': 'app.bsky.feed.post',
             'text': 'I hereby reply',
+            'createdAt': '2022-01-02T03:04:05.000Z',
             'reply': {
                 'root': {
-                    'cid': '...',
+                    'cid': A_CID.encode(),
                     'uri': 'at://did:plc:bob/app.bsky.feed.post/123',
                 },
                 'parent': {
-                    'cid': '...',
+                    'cid': A_CID.encode(),
                     'uri': 'at://did:plc:bob/app.bsky.feed.post/123',
                 },
             },
@@ -516,7 +521,7 @@ class IntegrationTests(TestCase):
                 '$type': 'app.bsky.embed.record',
                 'record': {
                     'uri': 'at://did:plc:bob/app.bsky.feed.post/123',
-                    'cid': '...',
+                    'cid': A_CID.encode(),
                 },
             },
         }
@@ -982,6 +987,7 @@ class IntegrationTests(TestCase):
         follow = {
             '$type': 'app.bsky.graph.follow',
             'subject': 'did:plc:ap',
+            'createdAt': '2022-01-02T03:04:05.000Z',
         }
         self.firehose(repo='did:plc:alice', action='create', seq=123,
                       path='app.bsky.graph.follow/123', record=follow)
@@ -1711,6 +1717,7 @@ class IntegrationTests(TestCase):
         post = {
             '$type': 'app.bsky.feed.post',
             'text': 'maybe if @bob.inst.ap.brid.gy and Alf meet up',
+            'createdAt': '2022-01-02T03:04:05.000Z',
             'facets': [{
                 '$type': 'app.bsky.richtext.facet',
                 'features': [{
@@ -1738,6 +1745,7 @@ class IntegrationTests(TestCase):
                 'url': 'http://localhost/r/https://bsky.app/profile/did:plc:alice/post/123',
                 'attributedTo': 'https://bsky.brid.gy/ap/did:plc:alice',
                 'content': '<p>maybe if <a class="mention h-card" href="https://inst/bob">@bob@inst</a> and Alf meet up</p>',
+                'published': '2022-01-02T03:04:05.000Z',
                 'tag': [{
                     'type': 'Mention',
                     'name': '@bob@inst',
@@ -2851,6 +2859,7 @@ class IntegrationTests(TestCase):
         post = {
             '$type': 'app.bsky.feed.post',
             'text': 'Hello from ATProto!',
+            'createdAt': '2022-01-02T03:04:05.000Z',
         }
         self.firehose(repo='did:plc:alice', action='create', seq=123,
                       path='app.bsky.feed.post/123', record=post)
@@ -3025,6 +3034,7 @@ class IntegrationTests(TestCase):
         follow = {
             '$type': 'app.bsky.graph.follow',
             'subject': 'did:plc:nostr',
+            'createdAt': '2022-01-02T03:04:05.000Z',
         }
         self.firehose(repo='did:plc:alice', action='create', seq=123,
                       path='app.bsky.graph.follow/123', record=follow)
@@ -3441,6 +3451,7 @@ class IntegrationTests(TestCase):
         reply = {
             '$type': 'app.bsky.feed.post',
             'text': 'Replying to Bob!',
+            'createdAt': '2022-01-02T03:04:05.000Z',
         }
         self.firehose(repo='did:plc:alice', action='create', seq=456,
                       path='app.bsky.feed.post/456', record=reply)

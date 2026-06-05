@@ -866,6 +866,24 @@ class ATProtoFirehoseHandleTest(ATProtoTestCase):
         self.assertEqual(orig_objs, Object.query().count())
         mock_create_task.assert_not_called()
 
+    @patch('common.DEBUG', new=False)  # for common.report_error
+    @patch.object(common.error_reporting_client, 'report')
+    @patch('webutil.appengine_config.tasks_client.create_task')
+    def test_invalid_record(self, mock_create_task, mock_report_error, _):
+        orig_objs = Object.query().count()
+
+        commits.put(Op(repo='did:plc:user', action='create', seq=789,
+                       path='app.bsky.feed.post/123', record={
+                           '$type': 'app.bsky.feed.post',
+                           'createdAt': '2024-01-01T00:00:00.000Z',
+                           # missing required text field
+                       }))
+        handle(limit=1)
+
+        self.assertEqual(orig_objs, Object.query().count())
+        mock_create_task.assert_not_called()
+        mock_report_error.assert_called()
+
     @patch.object(common.error_reporting_client, 'report_exception')
     @patch.object(Object, 'get_or_create', side_effect=RuntimeError('oops'))
     @patch('common.DEBUG', new=False)  # with DEBUG True, report_error just raises

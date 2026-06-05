@@ -21,6 +21,7 @@ from google.cloud import ndb
 from google.cloud.ndb.exceptions import ContextError
 from lexrpc.base import AT_URI_RE
 from lexrpc.client import Client
+from lexrpc import ValidationError
 import libipld
 from multiformats import CID
 from webutil import util
@@ -43,6 +44,8 @@ from protocol import DELETE_TASK_DELAY
 from web import Web
 
 logger = logging.getLogger(__name__)
+
+_validator = Client()
 
 RECONNECT_DELAY = timedelta(seconds=30)
 STORE_CURSOR_FREQ = timedelta(seconds=10)
@@ -395,10 +398,15 @@ def _handle_commit_op(op):
         return
 
     # store object, enqueue receive task
-    verb = None
     if op.action in ('create', 'update'):
         record_kwarg = {'bsky': record}
         obj_id = at_uri
+
+        try:
+            _validator.validate(type, 'record', record)
+        except ValidationError as e:
+            report_error(f'invalid {type} record: {e}; {op}')
+            return
 
         if type == 'site.standard.document':
             _handle_standard_site_document(op)
@@ -428,9 +436,6 @@ def _handle_commit_op(op):
 
     else:
         logger.error(f'Unknown action {op.action} for {op.repo} {op.path}')
-        return
-
-    if verb and verb not in ATProto.SUPPORTED_AS1_TYPES:
         return
 
     logger.info(f'Got {op.seq} {op.action} {op.repo} {op.path}')
