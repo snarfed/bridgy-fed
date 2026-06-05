@@ -305,7 +305,8 @@ def unblock(from_user, to_proto, *handles):
 
 
 @command(['migrate-to'], to_proto='activitypub', from_user_bridged=True)
-def migrate_to_activitypub(from_user, to_proto, handle):
+def migrate_to_activitypub(from_user, to_proto, handle,
+                           help_text='<em>migrate-to [handle]</em>: migrate your bridged fediverse account out of Bridgy Fed to a native fediverse instance'):
     """Migrates a bridged account out to a new fediverse account.
 
     Duplicates :func:`pages.migrate_to_activitypub` and Bounce's `confirm` and
@@ -340,7 +341,8 @@ def migrate_to_activitypub(from_user, to_proto, handle):
 
 @command(['migrate-to'], to_proto='atproto', from_user_bridged=True)
 def migrate_to_atproto(from_user, to_proto, pds, email, handle, password,
-                       invite_code=None):
+                       invite_code=None,
+                       help_text='<em>migrate-to [PDS domain] [email address] [new handle] [password] [invite code (optional)]</em>: migrate your bridged Atmosphere account out of Bridgy Fed to a native PDS'):
     """Migrates a bridged account out to a new ATProto PDS.
 
     Duplicates :func:`pages.migrate_to_atproto` and Bounce's `confirm` and

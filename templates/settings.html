@@ -53,9 +53,6 @@ $(document).ready(function() {
       </form>
     {% endif %}
 
-    {# TODO remove for migration launch #}
-    {% if 'snarfed' not in user.handle %} <!-- {% endif %}
-
     {% if user.is_enabled(ActivityPub) and not isinstance(user, ActivityPub) %}
       <form method="post" action="/settings/migrate-to-activitypub" class="settings-item"
             onsubmit="return window.confirm('Migrating out is irreversible. Are you sure?')">
@@ -79,9 +76,6 @@ $(document).ready(function() {
         <input type="submit" value="Go" class="btn btn-default" />
       </form>
     {% endif %}
-
-    {# TODO remove for migration launch #}
-    {% if 'snarfed' not in user.handle %} --> {% endif %}
 
     <form method="post" action="/settings/toggle-notifs" class="settings-item">
       <input name="key" type="hidden" value="{{ key }}" />

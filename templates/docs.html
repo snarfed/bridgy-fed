@@ -344,10 +344,9 @@
 
 <li id="migration" class="question">Is account migration supported?</li>
 <li class="answer">
-<!-- <p>Somewhat. Currently, if you have a Bluesky account or web site that's bridged into the fediverse, you can <a href="https://docs.joinmastodon.org/user/moving/#migration">migrate</a> that bridged fediverse account out to a native fediverse account with the <a href="#dm-commands"><code>migrate-to</code> DM command</a>. -->
-<!-- <p>Otherwise,  -->
+<p>Yes!
 <p>If you bridge your web site and then move to a different host, but keep the same domain, everything will keep working. Same if you bridge a Bluesky account and then migrate to a new PDS, or if you bridge a fediverse account and then migrate it to a different fediverse account. Your bridged accounts in other network(s) will switch to bridging from your new PDS or fediverse account.
-<p>We do eventually want to support migrating existing accounts <em>into</em> Bridgy Fed to become bridged accounts, and migrating bridged accounts <em>out</em> to be native accounts.</a> <a href="https://github.com/snarfed/bridgy-fed/issues/1137">Follow progress on that here.</a>
+<p>Also, if you're bridged to another network, you can later migrate your bridged account in that network out to become a native account, either on your settings page or with the <a href="#dm-commands"><code>migrate-to</code> DM command</a>.
 <p>Also check out <a href="https://bounce.anew.social/">Bounce</a>, our cross-network migration tool!
 </li>
 
@@ -484,7 +483,8 @@
 <li><em>did</em>: get your bridged Bluesky account's <a href="https://atproto.com/guides/identity#identifiers">DID</a> (only supported with the Bluesky bot)
 <li><em>block [handle or list URL, ...]</em>: <a href="#block">block one or more user who aren't bridged, and/or lists, on another network</a>
 <li><em>unblock [handle or list URL, ...]</em>: <a href="#block">unblock one or more users who aren't bridged, and/or lists, on another network</a>
-<!-- <li><em>migrate-to [handle]</em>: <a href="#migrate-to">migrate your bridged account out of Bridgy Fed to a native account</a> -->
+<li><em>migrate-to [handle]</em>: <a href="#migration">migrate your bridged fediverse account out of Bridgy Fed to a native fediverse instance</a>
+<li><em>migrate-to [PDS domain] [email address] [new handle] [password] [invite code (optional)]</em>: <a href="#migration">migrate your bridged Atmosphere account out of Bridgy Fed to a native PDS</a>
 </ul>
 </li>
 
