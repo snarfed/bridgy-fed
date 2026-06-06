@@ -11,6 +11,7 @@ from webutil.util import json_dumps, json_loads
 from requests import HTTPError
 
 from activitypub import ActivityPub
+import arroba.server
 from atproto import ATProto
 import common
 from common import memcache
@@ -22,6 +23,7 @@ from web import Web
 
 from .testutil import ExplicitFake, Fake, OtherFake, TestCase
 from .test_atproto import DID_DOC
+from .test_integrations import IntegrationTests
 
 DM_BASE = {
     'objectType': 'note',
@@ -607,28 +609,6 @@ class DmsTest(TestCase):
                 self.assertEqual(('OK', 200), receive(from_user=alice, obj=obj))
                 self.assert_replied(OtherFake, alice, '?', "<p>Hi! I'm a friendly bot")
 
-    def test_receive_help_atproto_plain_text(self):
-        self.store_object(id='did:plc:123', raw=DID_DOC)
-        self.store_object(id='did:plc:999', raw=DID_DOC)
-
-        self.make_user(id='other.brid.gy', cls=Web, enabled_protocols=['atproto'],
-                       copies=[Target(protocol='atproto', uri='did:plc:999')])
-        alice = self.make_user(id='did:plc:123', cls=ATProto, obj_bsky={
-            '$type': 'app.bsky.actor.profile',
-            'displayName': 'alice'
-        })
-        obj = Object(our_as1={
-            'objectType': 'note',
-            'id': 'at://did:plc:123/msg/abc',
-            'actor': 'did:plc:123',
-            'content': 'help',
-            'to': ['other.brid.gy'],
-        })
-        self.assertEqual(('OK', 200), receive(from_user=alice, obj=obj))
-
-        reply = Object.get_by_id('https://other.brid.gy/#bridgy-fed-dm-?-did:plc:123-2022-01-02T03:04:05+00:00')
-        self.assertIn('start: enable bridging for your account', reply.as1['content'])
-
     def test_help_text_activitypub(self):
         alice = self.make_user(id='http://in.st/alice', cls=ActivityPub)
                              # obj_as1={'inbox': 'http://in.st/alice/inbox'})
@@ -647,6 +627,7 @@ class DmsTest(TestCase):
 <li><em>username [domain]</em>: set a custom domain username (handle)
 <li><em>block [handle or ID or list URL]...</em>: block one or more users who aren't bridged here, and/or lists, on {to_proto.PHRASE}
 <li><em>unblock [handle or ID or list URL]...</em>: unblock one or more users who aren't bridged here, and/or lists, on {to_proto.PHRASE}
+<li><em>migrate-to [PDS domain] [email address] [new handle] [password] [invite code (optional)]</em>: migrate your bridged Atmosphere account out of Bridgy Fed to a native PDS
 <li><em>[handle or ID]</em>: ask me to DM a user on {to_proto.PHRASE} to request that they bridge their account into {from_user.PHRASE}
 <li><em>help</em>: print this message
 </ul>""", dms.help_text(alice, ATProto))
@@ -658,22 +639,65 @@ class DmsTest(TestCase):
             'displayName': 'alice',
         })
         self.assertEqual("""\
+<p>Hi! I'm a friendly bot that can help you bridge your account into the fediverse. Here are some commands I respond to:</p>
+<ul>
+<li><em>start</em>: enable bridging for your account
+<li><em>start</em>: enable bridging for your account
+<li><em>start</em>: enable bridging for your account
+<li><em>stop</em>: disable bridging for your account
+<li><em>stop</em>: disable bridging for your account
+<li><em>notify</em>: enable notifications when someone who's not bridged replies to you, quotes you, or @-mentions you
+<li><em>mute</em>: disable notifications
+<li><em>username [domain]</em>: set a custom domain username (handle)
+<li><em>username [domain]</em>: set a custom domain username (handle)
+<li><em>block [handle or ID or list URL]...</em>: block one or more users who aren't bridged here, and/or lists, on {to_proto.PHRASE}
+<li><em>unblock [handle or ID or list URL]...</em>: unblock one or more users who aren't bridged here, and/or lists, on {to_proto.PHRASE}
+<li><em>migrate-to [handle]</em>: migrate your bridged fediverse account out of Bridgy Fed to a native fediverse instance
+<li><em>[handle or ID]</em>: ask me to DM a user on {to_proto.PHRASE} to request that they bridge their account into {from_user.PHRASE}
+<li><em>help</em>: print this message
+</ul>""", dms.help_text(alice, ActivityPub))
+
+    @patch('atproto.send_chat')
+    def test_error_reply_atproto_uses_newlines(self, mock_send):
+        it = IntegrationTests()
+        it.storage = arroba.server.storage
+        it.make_web_user('ap.brid.gy', did='did:plc:999',
+                         enabled_protocols=['atproto'])
+
+        self.store_object(id='did:plc:123', raw=DID_DOC)
+        alice = self.make_user(id='did:plc:123', cls=ATProto, obj_bsky={
+            '$type': 'app.bsky.actor.profile',
+            'displayName': 'alice',
+        }, enabled_protocols=['activitypub'])
+
+        obj = Object(our_as1={
+            'objectType': 'note',
+            'id': 'at://did:plc:123/chat.bsky.convo.defs.messageView/1',
+            'actor': 'did:plc:123',
+            'to': ['ap.brid.gy'],
+            'content': 'migrate-to',
+        })
+        receive(from_user=alice, obj=obj)
+
+        mock_send.assert_called_once()
+        self.assertEqual("""\
+migrate-to: missing a required argument: 'handle'
+
 Hi! I'm a friendly bot that can help you bridge your account into the fediverse. Here are some commands I respond to:
 
-  * start: enable bridging for your account
-  * start: enable bridging for your account
-  * start: enable bridging for your account
-  * stop: disable bridging for your account
-  * stop: disable bridging for your account
-  * notify: enable notifications when someone who's not bridged replies to you, quotes you, or @-mentions you
-  * mute: disable notifications
-  * username [domain]: set a custom domain username (handle)
-  * username [domain]: set a custom domain username (handle)
-  * block [handle or ID or list URL]...: block one or more users who aren't bridged here, and/or lists, on {to_proto.PHRASE}
-  * unblock [handle or ID or list URL]...: unblock one or more users who aren't bridged here, and/or lists, on {to_proto.PHRASE}
-  * [handle or ID]: ask me to DM a user on {to_proto.PHRASE} to request that they bridge their account into {from_user.PHRASE}
-  * help: print this message
-""", dms.help_text(alice, ActivityPub))
+  * _start_ : enable bridging for your account
+  * _start_ : enable bridging for your account
+  * _start_ : enable bridging for your account
+  * _stop_ : disable bridging for your account
+  * _stop_ : disable bridging for your account
+  * _notify_ : enable notifications when someone who's not bridged replies to you, quotes you, or @-mentions you
+  * _mute_ : disable notifications
+  * _username [domain]_ : set a custom domain username (handle)
+  * _username [domain]_ : set a custom domain username (handle)
+  * _block [handle or ID or list URL]..._ : block one or more users who aren't bridged here, and/or lists, on {to_proto.PHRASE}
+  * _unblock [handle or ID or list URL]..._ : unblock one or more users who aren't bridged here, and/or lists, on {to_proto.PHRASE}
+  * _migrate-to [handle]_ : migrate your bridged […]""", mock_send.call_args.kwargs['msg']['text'])
+        self.assertEqual('did:plc:123', mock_send.call_args.kwargs['to_did'])
 
     def test_receive_did_atproto(self):
         for content in 'did', 'did foo':

@@ -405,7 +405,7 @@ def _handle_commit_op(op):
         try:
             _validator.validate(type, 'record', record)
         except ValidationError as e:
-            report_error(f'invalid {type} record: {e}; {op}')
+            report_error(f'skipping invalid {type} record on firehose: {e}; {op}')
             return
 
         if type == 'site.standard.document':

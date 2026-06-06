@@ -173,7 +173,7 @@ def dispatch(spec, from_user, to_proto, cmd, cmd_args, dm_as1):
     try:
         bind_sig.bind(from_user, to_proto, *cmd_args)
     except TypeError as e:
-        return reply(f'{cmd}: {e}<br><br>{help_text(from_user, to_proto)}')
+        return reply(f'{cmd}: {e}{help_text(from_user, to_proto)}')
 
     kwargs = {}
     if has_to_user:
@@ -212,9 +212,6 @@ def help_text(from_user, to_proto):
 {items_text}
 <li><em>help</em>: print this message
 </ul>"""
-
-    if from_user.LABEL == 'atproto':
-        text = source.html_to_text(text, ignore_emphasis=True)
 
     return text
 
@@ -255,8 +252,7 @@ def mute(from_user, to_proto):
 @command(['did'], to_proto='atproto', from_user_bridged=True,
          help_text="<em>did</em>: get your bridged Bluesky account's <a href=\"https://atproto.com/guides/identity#identifiers\">DID</a>")
 def did(from_user, to_proto):
-    if to_proto.LABEL == 'atproto':
-        return f'Your DID is <code>{from_user.get_copy(models.PROTOCOLS["atproto"])}</code>'
+    return f'Your DID is <code>{from_user.get_copy(models.PROTOCOLS["atproto"])}</code>'
 
 
 @command(['username', 'handle'], from_user_bridged=True,
@@ -304,9 +300,9 @@ def unblock(from_user, to_proto, *handles):
     return f"""OK, you're not blocking {', '.join(links)} on {to_proto.PHRASE}."""
 
 
-@command(['migrate-to'], to_proto='activitypub', from_user_bridged=True)
-def migrate_to_activitypub(from_user, to_proto, handle,
-                           help_text='<em>migrate-to [handle]</em>: migrate your bridged fediverse account out of Bridgy Fed to a native fediverse instance'):
+@command(['migrate-to'], to_proto='activitypub', from_user_bridged=True,
+         help_text='<em>migrate-to [handle]</em>: migrate your bridged fediverse account out of Bridgy Fed to a native fediverse instance')
+def migrate_to_activitypub(from_user, to_proto, handle):
     """Migrates a bridged account out to a new fediverse account.
 
     Duplicates :func:`pages.migrate_to_activitypub` and Bounce's `confirm` and
@@ -339,10 +335,10 @@ def migrate_to_activitypub(from_user, to_proto, handle,
     return f"OK, we'll migrate your bridged account on {to_proto.PHRASE} to {to_user.html_link()}."
 
 
-@command(['migrate-to'], to_proto='atproto', from_user_bridged=True)
+@command(['migrate-to'], to_proto='atproto', from_user_bridged=True,
+         help_text='<em>migrate-to [PDS domain] [email address] [new handle] [password] [invite code (optional)]</em>: migrate your bridged Atmosphere account out of Bridgy Fed to a native PDS')
 def migrate_to_atproto(from_user, to_proto, pds, email, handle, password,
-                       invite_code=None,
-                       help_text='<em>migrate-to [PDS domain] [email address] [new handle] [password] [invite code (optional)]</em>: migrate your bridged Atmosphere account out of Bridgy Fed to a native PDS'):
+                       invite_code=None):
     """Migrates a bridged account out to a new ATProto PDS.
 
     Duplicates :func:`pages.migrate_to_atproto` and Bounce's `confirm` and
