@@ -1754,6 +1754,37 @@ Sed tortor neque, aliquet quis posuere aliquam, imperdiet sitamet […]
     }))
     @patch.object(util.session, 'get', side_effect=[
         requests_response(b'blob one', headers={'Content-Type': 'image/jpeg'}),
+        requests_response(b'', status=404),
+        requests_response(b'blob two', headers={'Content-Type': 'video/mp4'}),
+    ])
+    def test_migrate_out_blobs_4xx_skipped(self, mock_get, mock_post, _):
+        did = 'did:plc:user'
+        user = self.make_user(id='fake:user', cls=Fake,
+                              copies=[Target(uri=did, protocol='atproto')])
+        auth = BlueskyAuth(
+            id=did, pds_url='https://new.pds.com/',
+            user_json=json_dumps({'did': did, 'handle': 'han.dull.brid.gy'}),
+            session={'accessJwt': 'towkin', 'refreshJwt': 'reefresh'})
+
+        repo_key = ndb.Key(AtpRepo, did)
+        AtpRemoteBlob(id='https://in.st/blob1', url='https://in.st/blob1',
+                      mime_type='image/jpeg', repos=[repo_key]).put()
+        AtpRemoteBlob(id='https://in.st/blob2', mime_type='image/png',
+                      repos=[repo_key]).put()
+        AtpRemoteBlob(id='https://in.st/blob3', mime_type='video/mp4',
+                      repos=[repo_key]).put()
+
+        ATProto.migrate_out_blobs(user, auth)
+
+        self.assertEqual(3, mock_get.call_count)
+        self.assertEqual(2, mock_post.call_count)
+
+    @patch('oauth_dropins.bluesky.oauth_client_for_pds')
+    @patch.object(util.session, 'post', return_value=requests_response({
+        'blob': {'$type': 'blob', 'ref': {'$link': 'baf000'}, 'size': 99},
+    }))
+    @patch.object(util.session, 'get', side_effect=[
+        requests_response(b'blob one', headers={'Content-Type': 'image/jpeg'}),
         requests_response(b'blob two', headers={'Content-Type': 'video/mp4'}),
     ])
     def test_migrate_out_blobs(self, mock_get, mock_post, _):

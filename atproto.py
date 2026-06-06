@@ -1523,6 +1523,9 @@ class ATProto(User, Protocol):
                 continue
             url = blob.url or blob.key.id()
             resp = util.requests_get(url, stream=True)
+            if resp.status_code // 100 == 4:
+                logger.warning(f'Got {resp.status_code} fetching {url}, skipping')
+                continue
             resp.raise_for_status()
             client._client.com.atproto.repo.uploadBlob(
                 input=resp.content, headers={'Content-Type': blob.mime_type})
