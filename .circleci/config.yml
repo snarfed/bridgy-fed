@@ -242,6 +242,11 @@ workflows:
     when:
       and:
         - equal: [ default, << pipeline.parameters.service >> ]
+        - not:
+            # TODO: switch to pipeline.trigger.type . trigger_source is deprecated,
+            # but trigger.type doesn't support GitHub OAuth yet. :(
+            # https://circleci.com/docs/guides/orchestrate/pipeline-variables/#trigger-and-event-information
+            equal: [ api, << pipeline.trigger_source >> ]
         - or:
             - not:
                 equal: [ main, << pipeline.git.branch >> ]
@@ -260,9 +265,14 @@ workflows:
         - equal: [ main, << pipeline.git.branch >> ]
         - not:
             equal: [ dependabot, << pipeline.git.commit.author_login >> ]
-        - matches:
-            pattern: (?s).*\[deploy\].*
-            value: << pipeline.git.commit.body >>
+        - or:
+            - matches:
+                pattern: (?s).*\[deploy\].*
+                value: << pipeline.git.commit.body >>
+            # TODO: switch to pipeline.trigger.type . trigger_source is deprecated,
+            # but trigger.type doesn't support GitHub OAuth yet. :(
+            # https://circleci.com/docs/guides/orchestrate/pipeline-variables/#trigger-and-event-information
+            - equal: [ api, << pipeline.trigger_source >> ]
 
     jobs:
       - test
