@@ -135,7 +135,7 @@ jobs:
 
             # oauth-dropins static assets
             git clone --depth=1 https://github.com/snarfed/oauth-dropins.git ../oauth-dropins
-            gcloud -q app deploy --no-cache --no-promote << pipeline.parameters.deploy-flags >> app.yaml
+            gcloud -q app deploy --no-promote << pipeline.parameters.deploy-flags >> app.yaml
 
 
   deploy-router:
