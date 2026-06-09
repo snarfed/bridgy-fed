@@ -17,7 +17,7 @@ from requests import RequestException
 
 import activitypub
 import common
-from common import CACHE_CONTROL
+from common import CACHE_CONTROL, CACHE_CONTROL_VARY_ACCEPT
 import domains
 from domains import (
     LOCAL_DOMAINS,
@@ -27,6 +27,7 @@ from domains import (
     SUPERDOMAIN,
 )
 from flask_app import app
+import memcache
 import models
 from protocol import Protocol
 import web
@@ -43,9 +44,11 @@ class Webfinger(flask_util.XrdOrJrd):
     Supports both JRD and XRD; defaults to JRD.
     https://tools.ietf.org/html/rfc7033#section-4
     """
-    @flask_util.headers(CACHE_CONTROL)
-    def dispatch_request(self, *args, **kwargs):
-        return super().dispatch_request(*args, **kwargs)
+    @memcache.memoize(expire=timedelta(hours=1),
+                      key=lambda self: (request.url, request.headers.get('Accept')))
+    @flask_util.headers(CACHE_CONTROL_VARY_ACCEPT)
+    def dispatch_request(self):
+        return super().dispatch_request()
 
     def template_prefix(self):
         return 'webfinger_user'

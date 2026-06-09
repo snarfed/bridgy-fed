@@ -1,7 +1,7 @@
 """ActivityPub protocol implementation."""
 from base64 import b64encode
 import copy
-import datetime
+from datetime import timedelta
 from hashlib import sha256
 import itertools
 import logging
@@ -1309,6 +1309,8 @@ def _load_user(handle_or_id, create=False, allow_opt_out=False):
 # special case Web users on fed.brid.gy subdomain without /ap/ prefix, for
 # backward compatibility
 @app.get(f'/<regex("{DOMAIN_RE.pattern}"):handle_or_id>')
+@memcache.memoize(expire=timedelta(hours=1),
+                  key=lambda **kwargs: (kwargs, as2_request_type()))
 @flask_util.headers(CACHE_CONTROL_VARY_ACCEPT)
 def actor(handle_or_id):
     """Serves a user's AS2 actor from the datastore."""
@@ -1518,6 +1520,8 @@ def inbox(protocol=None, id=None):
 # backward compatibility
 @app.route(f'/<regex("{DOMAIN_RE.pattern}"):id>/<any(followers,following):collection>',
            methods=['GET', 'HEAD'])
+@memcache.memoize(expire=timedelta(hours=1),
+                  key=lambda **kwargs: (request.method, kwargs))
 @flask_util.headers(CACHE_CONTROL)
 def follower_collection(id, collection):
     """ActivityPub Followers and Following collections.
@@ -1588,6 +1592,8 @@ def follower_collection(id, collection):
 # special case Web users on fed.brid.gy subdomain without /ap/web/ prefix, for
 # backward compatibility
 @app.route(f'/<regex("{DOMAIN_RE.pattern}"):id>/outbox', methods=['GET', 'HEAD'])
+@memcache.memoize(expire=timedelta(hours=1),
+                  key=lambda **kwargs: (request.method, kwargs))
 @flask_util.headers(CACHE_CONTROL)
 def outbox(id):
     """Serves a user's AP outbox.
@@ -1709,7 +1715,7 @@ def nodeinfo_jrd():
 
 @app.get('/nodeinfo.json')
 @flask_util.canonicalize_request_domain(PROTOCOL_DOMAINS, PRIMARY_DOMAIN)
-@memcache.memoize(expire=datetime.timedelta(hours=1))
+@memcache.memoize(expire=timedelta(hours=1))
 @flask_util.headers(CACHE_CONTROL)
 def nodeinfo():
     """

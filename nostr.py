@@ -7,10 +7,11 @@ https://github.com/nostr-protocol/nips#list
 Nostr Object key ids are NIP-21 nostr:... URIs.
 https://nips.nostr.com/21
 """
-from datetime import timezone
+from datetime import timedelta, timezone
 import logging
 from urllib.parse import urlparse, urlunparse
 
+from flask import request
 from google.cloud import ndb
 from google.cloud.ndb.query import OR
 from granary import as1
@@ -49,7 +50,7 @@ import filters
 from domains import DOMAINS
 from flask_app import app
 import ids
-from memcache import RateLimitType
+import memcache
 from models import Follower, Object, PROTOCOLS, Target, User
 from protocol import Protocol, STORE_AS1_TYPES
 import web
@@ -112,7 +113,7 @@ class Nostr(User, Protocol):
         filters.duplicate_content,
         filters.media_blocklisted,
     )
-    RATE_LIMIT_TYPE = RateLimitType.EXPONENTIAL
+    RATE_LIMIT_TYPE = memcache.RateLimitType.EXPONENTIAL
 
     relays = ndb.KeyProperty(kind='Object')
     """NIP-65 kind 10002 event with this user's relays."""
@@ -576,6 +577,7 @@ class Nostr(User, Protocol):
 
 
 @app.get('/.well-known/nostr.json')
+@memcache.memoize(expire=timedelta(hours=1), key=lambda: request.args.to_dict())
 @flask_util.headers(common.CACHE_CONTROL)
 def nip_05():
     """NIP-05 endpoint that serves handles for users bridged into Nostr.

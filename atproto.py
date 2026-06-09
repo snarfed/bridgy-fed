@@ -1783,6 +1783,7 @@ def hashtag_redirect(hashtag):
 
 
 @app.get('/.well-known/atproto-did')
+@memcache.memoize(expire=timedelta(hours=1), key=lambda: request.args.to_dict())
 @flask_util.headers(CACHE_CONTROL)
 def atproto_did():
     """Programmatic handle resolution for bridged users.
@@ -1820,6 +1821,7 @@ def atproto_did():
 
 
 @app.get('/.well-known/site.standard.publication')
+@memcache.memoize(expire=timedelta(hours=1), key=lambda: request.args.to_dict())
 @flask_util.headers(CACHE_CONTROL)
 def site_standard_publication():
     """Serves site.standard.publication records for bridged users.

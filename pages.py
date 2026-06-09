@@ -1,5 +1,6 @@
 """UI pages."""
 import copy
+from datetime import timedelta
 from functools import wraps
 import html
 import itertools
@@ -867,8 +868,15 @@ def followers_or_following(protocol, id, collection):
 
 @app.get(f'/<any({",".join(PROTOCOLS)}):protocol>/<id>/feed')
 @canonicalize_request_domain(PROTOCOL_DOMAINS, PRIMARY_DOMAIN)
+@memcache.memoize(expire=timedelta(hours=1),
+                  key=lambda **kwargs: (kwargs, request.args.to_dict()))
 @flask_util.headers(CACHE_CONTROL)
 def feed(protocol, id):
+    """
+
+    Query params:
+      format: html, atom, or rss
+    """
     user = load_user(protocol, id)
     query = Object.query(Object.feed == user.key)
     objects, _, _ = fetch_objects(query, by=Object.created, user=user)
