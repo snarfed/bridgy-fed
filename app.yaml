@@ -25,11 +25,11 @@ network:
   name: projects/bridgy-federated/global/networks/default
 
 automatic_scaling:
-  min_num_instances: 2
+  min_num_instances: 1
   max_num_instances: 20
   cool_down_period_sec: 120
   cpu_utilization:
-    target_utilization: 0.85
+    target_utilization: 0.70
 
   # GAE Standard autoscaling settings:
   # max_instances: 100
