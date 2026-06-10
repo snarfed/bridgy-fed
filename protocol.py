@@ -58,7 +58,7 @@ from models import (
 )
 import notifications
 
-OBJECT_REFRESH_AGE = timedelta(days=30)
+OBJECT_REFRESH_AGE = timedelta(days=90)
 DELETE_TASK_DELAY = timedelta(minutes=1)
 CREATE_MAX_AGE = timedelta(weeks=2)
 CREATE_MAX_AGE_EXEMPT_DOMAINS = (
