@@ -29,6 +29,7 @@ PROTOCOL_DOMAINS = (
     'ap.brid.gy',
     'atproto.brid.gy',
     'bsky.brid.gy',
+    'fc.brid.gy',
     'nostr.brid.gy',
     'web.brid.gy',
 )
@@ -36,7 +37,6 @@ if DEBUG:
     PROTOCOL_DOMAINS += (
         'efake.brid.gy',
         'fa.brid.gy',
-        'fc.brid.gy',
         'other.brid.gy',
     )
 OTHER_DOMAINS = (
