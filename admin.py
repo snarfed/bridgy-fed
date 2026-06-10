@@ -66,14 +66,14 @@ def format_properties(entity):
     return vars
 
 
-@app.get('/admin/')
+# @app.get('/admin/')
 def admin_home():
     for reloader in BLOCKLISTS.values():
         reloader.reload()
     return render('admin.html', filters=filters)
 
 
-@app.post('/admin/blocklist')
+# @app.post('/admin/blocklist')
 def save_blocklist():
     """
     Form values:
@@ -88,7 +88,7 @@ def save_blocklist():
     return redirect('/admin/')
 
 
-@app.get('/admin/user')
+# @app.get('/admin/user')
 def admin_user_search():
     """
     Query params:
@@ -140,7 +140,7 @@ def admin_user_search():
     return render('admin_users.html', query=orig_query, users=users)
 
 
-@app.get('/admin/user/<key>')
+# @app.get('/admin/user/<key>')
 def admin_user(key):
     user = Key(urlsafe=key).get()
     if not user or not isinstance(user, User):
@@ -150,7 +150,7 @@ def admin_user(key):
     return redirect(f'/admin/user?query={quote(user.key.id())}')
 
 
-@app.post('/admin/object')
+# @app.post('/admin/object')
 def admin_object_lookup():
     """
     Form values:
@@ -167,7 +167,7 @@ def admin_object_lookup():
     return redirect('/admin/')
 
 
-@app.get('/admin/object/<path:id>')
+# @app.get('/admin/object/<path:id>')
 def admin_object(id):
     if not (obj := Object.get_by_id(id)):
         flash('object not found')
@@ -199,7 +199,7 @@ def admin_object(id):
         **format_properties(obj))
 
 
-@app.post('/admin/receive')
+# @app.post('/admin/receive')
 def admin_receive():
     obj_key = Key(urlsafe=request.values['obj_key'])
     user_key = Key(urlsafe=request.values['user_key'])
@@ -208,7 +208,7 @@ def admin_receive():
     return redirect(f'/admin/object/{obj_key.id()}')
 
 
-@app.post('/admin/enable')
+# @app.post('/admin/enable')
 def admin_enable():
     """
     Form values:
@@ -223,7 +223,7 @@ def admin_enable():
     return redirect(f'/admin/user/{key}')
 
 
-@app.post('/admin/disable')
+# @app.post('/admin/disable')
 def admin_disable():
     """
     Form values:
