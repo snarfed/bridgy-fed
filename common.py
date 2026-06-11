@@ -275,7 +275,7 @@ def report_error(msg, *, exception=False, **kwargs):
 
     try:
         if exception:
-            logger.error(msg, exc_info=True)
+            logger.warning(msg, exc_info=True)
             error_reporting_client.report_exception(http_context=http_context, **kwargs)
         else:
             logger.error(msg)
