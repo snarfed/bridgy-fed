@@ -66,6 +66,7 @@ def format_properties(entity):
     return vars
 
 
+# TODO: bring back
 # @app.get('/admin/')
 def admin_home():
     for reloader in BLOCKLISTS.values():

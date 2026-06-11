@@ -10,6 +10,7 @@ from flask import Blueprint, Flask, g
 from google.api_core.exceptions import PermissionDenied
 from lexrpc.server import Server
 import lexrpc.flask_server
+import oauth_dropins
 from webutil import (
     appengine_info,
     appengine_config,
@@ -33,13 +34,19 @@ app.after_request(flask_util.default_modern_headers)
 app.register_error_handler(Exception, flask_util.handle_exception)
 app.register_error_handler(PermissionDenied, flask_util.handle_read_only_permission_denied)
 
+od_path = Path(oauth_dropins.__file__).parent
 app.register_blueprint(Blueprint(
-    'oauth_dropins_static', __name__, static_folder='oauth_dropins_static'))
+    'oauth_dropins_static', __name__, static_folder=od_path / 'static',
+    static_url_path='/oauth_dropins_static'))
 app.register_blueprint(Blueprint(
-    'oauth_dropins_fonts', __name__, static_folder='oauth_dropins_fonts',
+    'oauth_dropins_fonts', __name__, static_folder=od_path / 'fonts',
     static_url_path='/fonts'))
 
-@app.route('/<any(favicon.ico,robots.txt,security.txt):filename>')
+@app.get('/.well-known/security.txt')
+def security_txt():
+    return app.send_static_file('security.txt')
+
+@app.get('/<any(favicon.ico,robots.txt):filename>')
 def static_file(filename):
     return app.send_static_file(filename)
 
