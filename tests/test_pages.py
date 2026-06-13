@@ -331,41 +331,102 @@ class PagesTest(TestCase):
         got = self.client.get('/web/user.com')
         self.assert_equals(200, got.status_code)
 
+    @skip('paging disabled on profile/home/notifications')
     def test_user_before(self):
         self.add_objects()
         got = self.client.get(f'/web/user.com?before={util.now().isoformat()}')
         self.assert_equals(200, got.status_code)
 
+    @skip('paging disabled on profile/home/notifications')
     def test_user_after(self):
         self.add_objects()
         got = self.client.get(f'/web/user.com?after={util.now().isoformat()}')
         self.assert_equals(200, got.status_code)
 
+    @skip('paging disabled on profile/home/notifications')
     def test_user_before_bad(self):
         self.add_objects()
         got = self.client.get('/web/user.com?before=nope')
         self.assert_equals(400, got.status_code)
 
+    @skip('paging disabled on profile/home/notifications')
     def test_user_before_and_after(self):
         self.add_objects()
         got = self.client.get('/web/user.com?before=2024-01-01+01:01:01&after=2023-01-01+01:01:01')
         self.assert_equals(400, got.status_code)
 
+    @skip('paging disabled on profile/home/notifications')
     def test_user_before_older_than_max_age(self):
         before = (util.now() - timedelta(days=100)).isoformat()
         got = self.client.get(f'/web/user.com?before={before}')
         self.assert_equals(400, got.status_code)
 
+    @skip('paging disabled on profile/home/notifications')
     def test_user_after_older_than_max_age(self):
         after = (util.now() - timedelta(days=100)).isoformat()
         got = self.client.get(f'/web/user.com?after={after}')
         self.assert_equals(400, got.status_code)
 
+    @skip('paging disabled on profile/home/notifications')
     def test_older_link_rendered_within_max_age(self):
         after = (util.now() - timedelta(days=10)).isoformat()
         got = self.client.get(f'/web/user.com?after={after}')
         self.assert_equals(200, got.status_code)
         self.assertIn('Older', got.get_data(as_text=True))
+
+    def test_profile_before_400(self):
+        got = self.client.get(f'/web/user.com?before={util.now().isoformat()}')
+        self.assert_equals(400, got.status_code)
+
+    def test_profile_after_400(self):
+        got = self.client.get(f'/web/user.com?after={util.now().isoformat()}')
+        self.assert_equals(400, got.status_code)
+
+    def test_profile_no_paging_links(self):
+        self.add_objects()
+        got = self.client.get('/web/user.com')
+        self.assert_equals(200, got.status_code)
+        body = got.get_data(as_text=True)
+        self.assertNotIn('Older', body)
+        self.assertNotIn('Newer', body)
+
+    def test_home_before_400(self):
+        got = self.client.get(f'/web/user.com/home?before={util.now().isoformat()}')
+        self.assert_equals(400, got.status_code)
+
+    def test_home_after_400(self):
+        got = self.client.get(f'/web/user.com/home?after={util.now().isoformat()}')
+        self.assert_equals(400, got.status_code)
+
+    def test_home_no_paging_links(self):
+        self.add_objects()
+        got = self.client.get('/web/user.com/home')
+        self.assert_equals(200, got.status_code)
+        body = got.get_data(as_text=True)
+        self.assertNotIn('Older', body)
+        self.assertNotIn('Newer', body)
+
+    def test_notifications_before_400(self):
+        got = self.client.get(f'/web/user.com/notifications?before={util.now().isoformat()}')
+        self.assert_equals(400, got.status_code)
+
+    def test_notifications_after_400(self):
+        got = self.client.get(f'/web/user.com/notifications?after={util.now().isoformat()}')
+        self.assert_equals(400, got.status_code)
+
+    def test_notifications_no_paging_links(self):
+        self.add_objects()
+        got = self.client.get('/web/user.com/notifications')
+        self.assert_equals(200, got.status_code)
+        body = got.get_data(as_text=True)
+        self.assertNotIn('Older', body)
+        self.assertNotIn('Newer', body)
+
+    def test_profile_and_more(self):
+        self.add_objects()
+        got = self.client.get('/web/user.com')
+        self.assert_equals(200, got.status_code)
+        self.assertIn('...and more', got.get_data(as_text=True))
 
     def test_user_protocol_bot_user(self):
         bot = self.make_user(id='fa.brid.gy', cls=Web)
@@ -682,13 +743,47 @@ class PagesTest(TestCase):
         got = self.client.get('/web/nope.com/following')
         self.assert_equals(404, got.status_code)
 
+    @skip('paging disabled on followers/following')
     def test_following_before_empty(self):
         got = self.client.get(f'/web/user.com/following?before={util.now().isoformat()}')
         self.assert_equals(200, got.status_code)
 
+    @skip('paging disabled on followers/following')
     def test_following_after_empty(self):
         got = self.client.get(f'/web/user.com/following?after={util.now().isoformat()}')
         self.assert_equals(200, got.status_code)
+
+    def test_followers_before_400(self):
+        got = self.client.get(f'/web/user.com/followers?before={util.now().isoformat()}')
+        self.assert_equals(400, got.status_code)
+
+    def test_followers_after_400(self):
+        got = self.client.get(f'/web/user.com/followers?after={util.now().isoformat()}')
+        self.assert_equals(400, got.status_code)
+
+    def test_following_before_400(self):
+        got = self.client.get(f'/web/user.com/following?before={util.now().isoformat()}')
+        self.assert_equals(400, got.status_code)
+
+    def test_following_after_400(self):
+        got = self.client.get(f'/web/user.com/following?after={util.now().isoformat()}')
+        self.assert_equals(400, got.status_code)
+
+    def test_followers_no_paging_links(self):
+        got = self.client.get('/web/user.com/followers')
+        self.assert_equals(200, got.status_code)
+        body = got.get_data(as_text=True)
+        self.assertNotIn('Older', body)
+        self.assertNotIn('Newer', body)
+        self.assertIn('...and more', body)
+
+    def test_following_no_paging_links(self):
+        got = self.client.get('/web/user.com/following')
+        self.assert_equals(200, got.status_code)
+        body = got.get_data(as_text=True)
+        self.assertNotIn('Older', body)
+        self.assertNotIn('Newer', body)
+        self.assertIn('...and more', body)
 
     def test_feed_user_not_found(self):
         got = self.client.get('/web/nope.com/feed')

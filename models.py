@@ -2243,7 +2243,7 @@ class Follower(ndb.Model):
         return follower
 
     @staticmethod
-    def fetch_page(collection, user):
+    def fetch_page(collection, user, paging=False):
         r"""Fetches a page of :class:`Follower`\s for a given user.
 
         Wraps :func:`fetch_page`. Paging uses the ``before`` and ``after`` query
@@ -2252,6 +2252,7 @@ class Follower(ndb.Model):
         Args:
           collection (str): ``followers`` or ``following``
           user (User)
+          paging (bool): passed through to :func:`fetch_page`
 
         Returns:
           (list of Follower, str, str) tuple: results, annotated with an extra
@@ -2267,7 +2268,8 @@ class Follower(ndb.Model):
             filter_prop == user.key,
         )
 
-        followers, before, after = fetch_page(query, Follower, by=Follower.updated)
+        followers, before, after = fetch_page(query, Follower, by=Follower.updated,
+                                              paging=paging)
         users = ndb.get_multi(f.from_ if collection == 'followers' else f.to
                               for f in followers)
         User.load_multi(u for u in users if u)
@@ -2284,7 +2286,7 @@ class Follower(ndb.Model):
         return followers, before, after
 
 
-def fetch_objects(query, by=None, user=None, max_age=None):
+def fetch_objects(query, by=None, user=None, max_age=None, paging=False):
     """Fetches a page of :class:`Object` entities from a datastore query.
 
     Wraps :func:`fetch_page` and adds attributes to the returned
@@ -2296,6 +2298,7 @@ def fetch_objects(query, by=None, user=None, max_age=None):
         :attr:`Object.created`
       user (User): current user
       max_age (datetime.timedelta): passed through to :func:`fetch_page`
+      paging (bool): passed through to :func:`fetch_page`
 
     Returns:
       (list of Object, str, str) tuple:
@@ -2304,7 +2307,8 @@ def fetch_objects(query, by=None, user=None, max_age=None):
     """
     assert by is Object.updated or by is Object.created
     objects, new_before, new_after = fetch_page(query, Object, by=by,
-                                                max_age=max_age)
+                                                max_age=max_age,
+                                                paging=paging)
     objects = [o for o in objects if as1.is_public(o.as1) and not o.deleted]
 
     # synthesize human-friendly content for objects
@@ -2439,7 +2443,7 @@ def hydrate(activity, fields=('author', 'actor', 'object')):
     return futures
 
 
-def fetch_page(query, model_class, by=None, max_age=None):
+def fetch_page(query, model_class, by=None, max_age=None, paging=False):
     """Fetches a page of results from a datastore query.
 
     Uses the ``before`` and ``after`` query params (if provided; should be
@@ -2455,6 +2459,9 @@ def fetch_page(query, model_class, by=None, max_age=None):
         or :attr:`Object.created`
       max_age (datetime.timedelta): if provided, reject ``before``/``after``
         params older than this, and don't generate paging links past it
+      paging (bool): if False, reject any ``before``/``after`` params with 400
+        and return ``'more'`` as ``new_before`` instead of a cursor when there
+        are more results
 
     Returns:
       (list of Object or Follower, str, str) tuple: (results, new_before,
@@ -2463,6 +2470,9 @@ def fetch_page(query, model_class, by=None, max_age=None):
       respectively
     """
     assert by
+
+    if not paging and (request.values.get('before') or request.values.get('after')):
+        error('Paging is disabled', status=400)
 
     now = util.now().replace(tzinfo=None)
 
@@ -2495,6 +2505,9 @@ def fetch_page(query, model_class, by=None, max_age=None):
     query_iter = query.iter()
     results = sorted(itertools.islice(query_iter, 0, PAGE_SIZE),
                      key=lambda r: r.updated, reverse=True)
+
+    if not paging:
+        return results, None, None
 
     # calculate new paging param(s)
     has_next = results and query_iter.probably_has_next()

@@ -97,7 +97,8 @@ TEMPLATE_VARS = {
 }
 
 # how far back the before/after paging links and params are allowed to go
-PAGING_MAX_AGE = timedelta(days=90)
+# currently unused
+PAGING_MAX_AGE = timedelta(days=30)
 
 # precompute this because we get a ton of requests for non-existing users
 # from weird open redirect referrers:
@@ -739,8 +740,7 @@ def profile(protocol, id):
 
     user = load_user(protocol, id)
     query = Object.query(Object.users == user.key)
-    objects, before, after = fetch_objects(query, by=Object.updated, user=user,
-                                           max_age=PAGING_MAX_AGE)
+    objects, before, after = fetch_objects(query, by=Object.updated, user=user)
     num_followers, num_following = user.count_followers()
     return render('profile.html', **locals())
 
@@ -750,8 +750,7 @@ def profile(protocol, id):
 def home(protocol, id):
     user = load_user(protocol, id)
     query = Object.query(Object.feed == user.key)
-    objects, before, after = fetch_objects(query, by=Object.created, user=user,
-                                           max_age=PAGING_MAX_AGE)
+    objects, before, after = fetch_objects(query, by=Object.created, user=user)
 
     # this calls Object.actor_link serially for each object, which loads the
     # actor from the datastore if necessary. TODO: parallelize those fetches
@@ -764,8 +763,7 @@ def notifications(protocol, id):
     user = load_user(protocol, id)
 
     query = Object.query(Object.notify == user.key)
-    objects, before, after = fetch_objects(query, by=Object.updated, user=user,
-                                           max_age=PAGING_MAX_AGE)
+    objects, before, after = fetch_objects(query, by=Object.updated, user=user)
 
     format = request.args.get('format')
     if format:
@@ -885,8 +883,7 @@ def feed(protocol, id):
     """
     user = load_user(protocol, id)
     query = Object.query(Object.feed == user.key)
-    objects, _, _ = fetch_objects(query, by=Object.created, user=user,
-                                  max_age=PAGING_MAX_AGE)
+    objects, _, _ = fetch_objects(query, by=Object.created, user=user)
     return serve_feed(objects=objects, format=request.args.get('format', 'html'),
                       user=user, title=f'Bridgy Fed feed for {id}')
 
