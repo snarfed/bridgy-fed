@@ -1544,8 +1544,7 @@ def follower_collection(id, collection):
         return '', {'Content-Type': as2.CONTENT_TYPE_LD_PROFILE}
 
     # page
-    followers, new_before, new_after = Follower.fetch_page(collection, user=user,
-                                                           paging=True)
+    followers, new_before, new_after = Follower.fetch_page(collection, user=user)
     page = {
         'type': 'CollectionPage',
         'partOf': request.base_url,

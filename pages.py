@@ -141,6 +141,16 @@ def load_user(proto, id):
     error(f'{proto} user {id} not found', status=404)
 
 
+def no_paging(fn):
+    """Returns 400 if the request has ``before`` or ``after`` params."""
+    @wraps(fn)
+    def wrapper(*args, **kwargs):
+        if request.values.get('before') or request.values.get('after'):
+            error('Paging is disabled', status=400)
+        return fn(*args, **kwargs)
+    return wrapper
+
+
 def require_login(fn):
     """Decorator that requires and loads the current request's logged in user.
 
@@ -734,6 +744,7 @@ def migrate_to_atproto_create_account(user=None):
 # for handles with leading @ character. be careful when changing this route!
 @app.get(f'/ap/@<id>', defaults={'protocol': 'ap'})
 @canonicalize_request_domain(PROTOCOL_DOMAINS, PRIMARY_DOMAIN)
+@no_paging
 def profile(protocol, id):
     if protocol == 'ap':
         id = '@' + id
@@ -747,6 +758,7 @@ def profile(protocol, id):
 
 @app.get(f'/<any({",".join(PROTOCOLS)}):protocol>/<id>/home')
 @canonicalize_request_domain(PROTOCOL_DOMAINS, PRIMARY_DOMAIN)
+@no_paging
 def home(protocol, id):
     user = load_user(protocol, id)
     query = Object.query(Object.feed == user.key)
@@ -759,6 +771,7 @@ def home(protocol, id):
 
 @app.get(f'/<any({",".join(PROTOCOLS)}):protocol>/<id>/notifications')
 @canonicalize_request_domain(PROTOCOL_DOMAINS, PRIMARY_DOMAIN)
+@no_paging
 def notifications(protocol, id):
     user = load_user(protocol, id)
 
@@ -847,6 +860,7 @@ def update_profile(protocol, id):
 @memcache.memoize(expire=timedelta(hours=1),
                   key=lambda *args, **kwargs: (args, kwargs, request.args.to_dict()))
 @flask_util.headers(CACHE_CONTROL)
+@no_paging
 def followers_or_following(protocol, id, collection):
     user = load_user(protocol, id)
     id = user.key.id()
@@ -878,6 +892,7 @@ def followers_or_following(protocol, id, collection):
 @memcache.memoize(expire=timedelta(hours=1),
                   key=lambda **kwargs: (kwargs, request.args.to_dict()))
 @flask_util.headers(CACHE_CONTROL)
+@no_paging
 def feed(protocol, id):
     """
 
