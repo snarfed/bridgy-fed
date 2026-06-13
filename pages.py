@@ -844,6 +844,9 @@ def update_profile(protocol, id):
 
 @app.get(f'/<any({",".join(PROTOCOLS)}):protocol>/<id>/<any(followers,following):collection>')
 @canonicalize_request_domain(PROTOCOL_DOMAINS, PRIMARY_DOMAIN)
+@memcache.memoize(expire=timedelta(hours=1),
+                  key=lambda *args, **kwargs: (args, kwargs, request.args.to_dict()))
+@flask_util.headers(CACHE_CONTROL)
 def followers_or_following(protocol, id, collection):
     user = load_user(protocol, id)
     id = user.key.id()
