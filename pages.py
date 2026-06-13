@@ -96,6 +96,9 @@ TEMPLATE_VARS = {
     'Web': Web,
 }
 
+# how far back the before/after paging links and params are allowed to go
+PAGING_MAX_AGE = timedelta(days=90)
+
 # precompute this because we get a ton of requests for non-existing users
 # from weird open redirect referrers:
 # https://github.com/snarfed/bridgy-fed/issues/422
@@ -736,7 +739,8 @@ def profile(protocol, id):
 
     user = load_user(protocol, id)
     query = Object.query(Object.users == user.key)
-    objects, before, after = fetch_objects(query, by=Object.updated, user=user)
+    objects, before, after = fetch_objects(query, by=Object.updated, user=user,
+                                           max_age=PAGING_MAX_AGE)
     num_followers, num_following = user.count_followers()
     return render('profile.html', **locals())
 
@@ -746,7 +750,8 @@ def profile(protocol, id):
 def home(protocol, id):
     user = load_user(protocol, id)
     query = Object.query(Object.feed == user.key)
-    objects, before, after = fetch_objects(query, by=Object.created, user=user)
+    objects, before, after = fetch_objects(query, by=Object.created, user=user,
+                                           max_age=PAGING_MAX_AGE)
 
     # this calls Object.actor_link serially for each object, which loads the
     # actor from the datastore if necessary. TODO: parallelize those fetches
@@ -759,7 +764,8 @@ def notifications(protocol, id):
     user = load_user(protocol, id)
 
     query = Object.query(Object.notify == user.key)
-    objects, before, after = fetch_objects(query, by=Object.updated, user=user)
+    objects, before, after = fetch_objects(query, by=Object.updated, user=user,
+                                           max_age=PAGING_MAX_AGE)
 
     format = request.args.get('format')
     if format:
@@ -879,7 +885,8 @@ def feed(protocol, id):
     """
     user = load_user(protocol, id)
     query = Object.query(Object.feed == user.key)
-    objects, _, _ = fetch_objects(query, by=Object.created, user=user)
+    objects, _, _ = fetch_objects(query, by=Object.created, user=user,
+                                  max_age=PAGING_MAX_AGE)
     return serve_feed(objects=objects, format=request.args.get('format', 'html'),
                       user=user, title=f'Bridgy Fed feed for {id}')
 

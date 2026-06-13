@@ -2284,7 +2284,7 @@ class Follower(ndb.Model):
         return followers, before, after
 
 
-def fetch_objects(query, by=None, user=None):
+def fetch_objects(query, by=None, user=None, max_age=None):
     """Fetches a page of :class:`Object` entities from a datastore query.
 
     Wraps :func:`fetch_page` and adds attributes to the returned
@@ -2295,6 +2295,7 @@ def fetch_objects(query, by=None, user=None):
       by (ndb.model.Property): either :attr:`Object.updated` or
         :attr:`Object.created`
       user (User): current user
+      max_age (datetime.timedelta): passed through to :func:`fetch_page`
 
     Returns:
       (list of Object, str, str) tuple:
@@ -2302,7 +2303,8 @@ def fetch_objects(query, by=None, user=None):
       to fetch the previous and next pages, respectively
     """
     assert by is Object.updated or by is Object.created
-    objects, new_before, new_after = fetch_page(query, Object, by=by)
+    objects, new_before, new_after = fetch_page(query, Object, by=by,
+                                                max_age=max_age)
     objects = [o for o in objects if as1.is_public(o.as1) and not o.deleted]
 
     # synthesize human-friendly content for objects
@@ -2437,7 +2439,7 @@ def hydrate(activity, fields=('author', 'actor', 'object')):
     return futures
 
 
-def fetch_page(query, model_class, by=None):
+def fetch_page(query, model_class, by=None, max_age=None):
     """Fetches a page of results from a datastore query.
 
     Uses the ``before`` and ``after`` query params (if provided; should be
@@ -2451,6 +2453,8 @@ def fetch_page(query, model_class, by=None):
       model_class (class)
       by (ndb.model.Property): paging property, eg :attr:`Object.updated`
         or :attr:`Object.created`
+      max_age (datetime.timedelta): if provided, reject ``before``/``after``
+        params older than this, and don't generate paging links past it
 
     Returns:
       (list of Object or Follower, str, str) tuple: (results, new_before,
@@ -2459,6 +2463,8 @@ def fetch_page(query, model_class, by=None):
       respectively
     """
     assert by
+
+    now = util.now().replace(tzinfo=None)
 
     # if there's a paging param ('before' or 'after'), update query with it
     # TODO: unify this with Bridgy's user page
@@ -2471,6 +2477,8 @@ def fetch_page(query, model_class, by=None):
                 error(f"Couldn't parse {param}, {val!r} as ISO8601: {e}")
             if dt.tzinfo:
                 dt = dt.astimezone(timezone.utc).replace(tzinfo=None)
+            if max_age and now - dt > max_age:
+                error(f'{param} is too old')
             return dt
 
     before = get_paging_param('before')
@@ -2501,6 +2509,9 @@ def fetch_page(query, model_class, by=None):
         after if after else
         results[-1].updated if has_next
         else None)
+    if new_before and max_age and now - new_before > max_age:
+        # don't link to pages older than the max paging age
+        new_before = None
     if new_before:
         new_before = new_before.isoformat()
 

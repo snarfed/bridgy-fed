@@ -1,5 +1,5 @@
 """Unit tests for pages.py."""
-from datetime import datetime
+from datetime import datetime, timedelta
 from unittest import skip
 from unittest.mock import patch
 
@@ -350,6 +350,22 @@ class PagesTest(TestCase):
         self.add_objects()
         got = self.client.get('/web/user.com?before=2024-01-01+01:01:01&after=2023-01-01+01:01:01')
         self.assert_equals(400, got.status_code)
+
+    def test_user_before_older_than_max_age(self):
+        before = (util.now() - timedelta(days=100)).isoformat()
+        got = self.client.get(f'/web/user.com?before={before}')
+        self.assert_equals(400, got.status_code)
+
+    def test_user_after_older_than_max_age(self):
+        after = (util.now() - timedelta(days=100)).isoformat()
+        got = self.client.get(f'/web/user.com?after={after}')
+        self.assert_equals(400, got.status_code)
+
+    def test_older_link_rendered_within_max_age(self):
+        after = (util.now() - timedelta(days=10)).isoformat()
+        got = self.client.get(f'/web/user.com?after={after}')
+        self.assert_equals(200, got.status_code)
+        self.assertIn('Older', got.get_data(as_text=True))
 
     def test_user_protocol_bot_user(self):
         bot = self.make_user(id='fa.brid.gy', cls=Web)
