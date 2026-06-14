@@ -134,7 +134,7 @@ jobs:
 
             # oauth-dropins static assets
             git clone --depth=1 https://github.com/snarfed/oauth-dropins.git ../oauth-dropins
-            gcloud -q run deploy frontend --source=. --no-traffic
+            gcloud -q run deploy frontend --source=. --region=us-central1 --no-traffic
 
 
   deploy-router:
