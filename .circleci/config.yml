@@ -180,7 +180,7 @@ jobs:
 
             # oauth-dropins static assets
             git clone --depth=1 https://github.com/snarfed/oauth-dropins.git ../oauth-dropins
-            gcloud -q app deploy hub.yaml << pipeline.parameters.promote or "--no-promote" >>
+            gcloud -q app deploy hub.yaml << pipeline.parameters.promote and "" or "--no-promote" >>
 
 
   migrate-frontend:
