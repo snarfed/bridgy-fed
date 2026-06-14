@@ -3,10 +3,7 @@
 dispatch:
 
   # hub
-  - url: "*.brid.gy/admin/hub"
-    service: hub
-
-  - url: "atproto.brid.gy/xrpc/com.atproto.sync.subscribeRepos"
+  - url: "atproto.brid.gy/*"
     service: hub
 
   - url: "*/queue/atproto-commit"
