@@ -20,6 +20,7 @@ import lexrpc.flask_server
 import pytz
 from webutil.appengine_info import DEBUG, LOCAL_SERVER, TESTING
 from webutil import appengine_config, flask_util, util
+from werkzeug.middleware.proxy_fix import ProxyFix
 
 # all protocols
 import activitypub, atproto, nostr, web
@@ -99,6 +100,13 @@ app.config.from_pyfile(app_dir / 'config.py')
 
 app.wsgi_app = flask_util.ndb_context_middleware(
     app.wsgi_app, client=appengine_config.ndb_client, **common.NDB_CONTEXT_KWARGS)
+
+# make Flask's request info (request.url etc) reflect the actual end user's HTTP
+# request (https, host, etc), based on X-Forwarded-* etc headers
+#
+# https://docs.cloud.google.com/functions/docs/reference/headers
+# https://werkzeug.palletsprojects.com/en/stable/middleware/proxy_fix/
+app.wsgi_app = ProxyFix(app.wsgi_app, x_proto=1, x_for=1)
 
 
 @app.get('/liveness_check')
