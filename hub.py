@@ -10,7 +10,7 @@ import socket
 import threading
 from threading import Thread, Timer
 
-from arroba import firehose
+from arroba import firehose, xrpc_sync
 from arroba.datastore_storage import MemcacheSequences
 import arroba.server
 import config
@@ -111,7 +111,20 @@ def health_check():
     return 'OK'
 
 
-# ATProto XRPC server
+# ATProto XRPC server. Only serve subscribeRepos; redirect everything else to Cloud
+# Run.
+#
+# xrpc_redirect must be registered before init_flask so that it takes priority over
+# xrpc-endpoint for GET requests in Werkzeug's URL routing.
+@app.get('/xrpc/<method>')
+@flask_util.canonicalize_request_domain(['atproto.brid.gy'], 'bsky.brid.gy')
+def xrpc_redirect(method):
+    assert False, 'should never happen'
+
+
+arroba.server.server._methods = {
+    'com.atproto.sync.subscribeRepos': xrpc_sync.subscribe_repos,
+}
 lexrpc.flask_server.init_flask(arroba.server.server, app)
 
 
