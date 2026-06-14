@@ -192,7 +192,7 @@ jobs:
       - run:
           name: Migrate frontend traffic to new version
           command: |
-            gcloud run services update-traffic frontend --to-latest
+            gcloud -q run services update-traffic frontend --region=us-central1 --to-latest
 
 
   migrate-router:
