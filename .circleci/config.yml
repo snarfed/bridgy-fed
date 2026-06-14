@@ -9,13 +9,12 @@ version: 2.1
 parameters:
   service:
     type: enum
-    enum: ["hub", "default"]
-    default: "default"
-  deploy-flags:
-    type: enum
-    enum: ["--no-promote", "--no-stop-previous-version", ""]
-    description: additional flags for gcloud app deploy
-    default: ""
+    enum: ["hub", "frontend-router"]
+    default: "frontend-router"
+  promote:
+    type: boolean
+    description: whether the new version should serve traffic
+    default: true
 
 
 commands:
@@ -116,7 +115,7 @@ jobs:
           path: /tmp/coverage_html
 
 
-  deploy-app:
+  deploy-frontend:
     docker:
       - image: cimg/gcp:2026.02
 
@@ -124,7 +123,7 @@ jobs:
       - checkout
       - auth-gcloud
       - run:
-          name: Deploy app
+          name: Deploy frontend
           command: |
             echo $ENCRYPTED_PROPERTY_KEY > encrypted_property_key
             echo $FLASK_SECRET_KEY > flask_secret_key
@@ -135,7 +134,7 @@ jobs:
 
             # oauth-dropins static assets
             git clone --depth=1 https://github.com/snarfed/oauth-dropins.git ../oauth-dropins
-            gcloud -q app deploy --no-promote << pipeline.parameters.deploy-flags >> app.yaml
+            gcloud -q run deploy frontend --source=. --no-traffic
 
 
   deploy-router:
@@ -164,7 +163,7 @@ jobs:
             ver=`gcloud app versions list --hide-no-traffic --service=router --format='value(id)'`
             instances=`gcloud app instances list --service=router --version=${ver} --format='value(id)' |wc -l`
             sed -E "s/min_num_instances: [0-9]+/min_num_instances: ${instances}/" < router.yaml > router.provisioned.yaml
-            gcloud -q app deploy --no-promote << pipeline.parameters.deploy-flags >> queue.yaml router.provisioned.yaml
+            gcloud -q app deploy --no-promote queue.yaml router.provisioned.yaml
 
   deploy-hub:
     docker:
@@ -181,21 +180,19 @@ jobs:
 
             # oauth-dropins static assets
             git clone --depth=1 https://github.com/snarfed/oauth-dropins.git ../oauth-dropins
-            gcloud -q app deploy << pipeline.parameters.deploy-flags >> << pipeline.parameters.service >>.yaml
+            gcloud -q app deploy hub.yaml << pipeline.parameters.promote or "--no-promote" >>
 
 
-  migrate-app:
+  migrate-frontend:
     docker:
       - image: cimg/gcp:2026.02
 
     steps:
       - auth-gcloud
       - run:
-          name: Migrate app traffic to new version
+          name: Migrate frontend traffic to new version
           command: |
-            ver=$(gcloud app versions list --service=default --sort-by=~last_deployed_time --limit=1 --format='value(id)')
-            echo Migrating all app traffic to $ver
-            gcloud -q app versions migrate ${ver} --service=default
+            gcloud run services update-traffic frontend --to-latest
 
 
   migrate-router:
@@ -241,7 +238,7 @@ workflows:
     # https://discuss.circleci.com/t/pipeline-git-commit-is-undocumented-useful-for-triggering-workflows-based-on-commit-message/52786
     when:
       and:
-        - equal: [ default, << pipeline.parameters.service >> ]
+        - equal: [ frontend-router, << pipeline.parameters.service >> ]
         - not:
             # TODO: switch to pipeline.trigger.type . trigger_source is deprecated,
             # but trigger.type doesn't support GitHub OAuth yet. :(
@@ -258,10 +255,10 @@ workflows:
     jobs:
       - test
 
-  test-and-deploy-app-router:
+  test-and-deploy-frontend-router:
     when:
       and:
-        - equal: [ default, << pipeline.parameters.service >> ]
+        - equal: [ frontend-router, << pipeline.parameters.service >> ]
         - equal: [ main, << pipeline.git.branch >> ]
         - not:
             equal: [ dependabot, << pipeline.git.commit.author_login >> ]
@@ -276,15 +273,17 @@ workflows:
 
     jobs:
       - test
-      - deploy-app
+      - deploy-frontend
       - deploy-router
 
-      - migrate-app:
+      - migrate-frontend:
+          filters: pipeline.parameters.promote
           requires:
             - test: success
-            - deploy-app: success
+            - deploy-frontend: success
 
       - migrate-router:
+          filters: pipeline.parameters.promote
           requires:
             - test: success
             - deploy-router: success
