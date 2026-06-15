@@ -49,6 +49,9 @@ env_variables:
   SUBSCRIBE_REPOS_BATCH_DELAY: 4
   SNAPCHAIN_HOST: crackle.farcaster.xyz
 
+  # this disables blob refetching
+  BLOB_REFETCH_TYPES: ''
+
   # https://github.com/googleapis/python-ndb/blob/c55ec62b5153787404488b046c4bf6ffa02fee64/google/cloud/ndb/utils.py#L78-L81
   # NDB_DEBUG: true
 
