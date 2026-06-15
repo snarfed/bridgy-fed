@@ -132,12 +132,14 @@ def health_check():
 # https://github.com/snarfed/bridgy-fed/issues/2516
 
 @app.get('/xrpc/com.atproto.sync.getBlob')
+@flask_util.headers(lexrpc.flask_server.RESPONSE_HEADERS)
 def xrpc_get_blob():
     return lexrpc.flask_server.XrpcEndpoint(arroba.server.server).dispatch_request(
         'com.atproto.sync.getBlob')
 
 
 @app.get('/xrpc/<method>')
+@flask_util.headers(lexrpc.flask_server.RESPONSE_HEADERS)
 @flask_util.canonicalize_request_domain(['atproto.brid.gy'], 'bsky.brid.gy')
 def xrpc_redirect(method):
     assert False, 'should never happen'

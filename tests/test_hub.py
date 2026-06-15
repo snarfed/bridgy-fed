@@ -14,6 +14,7 @@ class HubTest(TestCase):
                           base_url='https://atproto.brid.gy/')
         self.assertEqual(301, resp.status_code)
         self.assertEqual('https://blob.example.com/foo', resp.headers['Location'])
+        self.assertEqual('*', resp.headers['Access-Control-Allow-Origin'])
 
     def test_xrpc_redirect_atproto_to_bsky(self):
         client = hub.app.test_client()
@@ -22,3 +23,4 @@ class HubTest(TestCase):
         self.assertEqual(301, resp.status_code)
         self.assertEqual('https://bsky.brid.gy/xrpc/com.atproto.repo.getRecord',
                          resp.headers['Location'])
+        self.assertEqual('*', resp.headers['Access-Control-Allow-Origin'])
