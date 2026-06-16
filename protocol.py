@@ -1,5 +1,4 @@
 """Base protocol class and common code."""
-from bs4 import BeautifulSoup
 import copy
 from datetime import datetime, timedelta, timezone
 import logging
@@ -14,7 +13,7 @@ from google.cloud import ndb
 from google.cloud.ndb import OR
 from google.cloud.ndb.model import _entity_to_protobuf
 from granary import as1, as2, source
-from granary.source import HTML_ENTITY_RE, html_to_text
+from granary.source import html_to_text
 from pymemcache.exceptions import (
     MemcacheServerError,
     MemcacheUnexpectedCloseError,
@@ -1113,10 +1112,7 @@ class Protocol:
 
         content = obj.get('content')
         tags = obj.get('tags')
-        if (not content or not tags
-                or obj.get('content_is_html')
-                or bool(BeautifulSoup(content, 'html.parser').find())
-                or HTML_ENTITY_RE.search(content)):
+        if not content or not tags or as1.is_content_html(obj):
             return util.trim_nulls(obj)
 
         indexed = [tag for tag in tags if tag.get('startIndex') and tag.get('length')]

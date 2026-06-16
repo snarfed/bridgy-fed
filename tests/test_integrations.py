@@ -289,8 +289,8 @@ class IntegrationTests(TestCase):
                 'id': 'https://bsky.brid.gy/convert/ap/at://did:plc:alice/app.bsky.feed.post/123',
                 'url': 'http://localhost/r/https://bsky.app/profile/did:plc:alice/post/123',
                 'attributedTo': 'https://bsky.brid.gy/ap/did:plc:alice',
-                'content': '<p>I hereby post</p>',
-                'contentMap': {'en': '<p>I hereby post</p>'},
+                'content': 'I hereby post',
+                'contentMap': {'en': 'I hereby post'},
                 'published': '2022-01-02T03:04:05.000Z',
                 'to': ['https://www.w3.org/ns/activitystreams#Public'],
             },
@@ -385,8 +385,8 @@ class IntegrationTests(TestCase):
                 'id': 'https://bsky.brid.gy/convert/ap/at://did:plc:alice/app.bsky.feed.post/456',
                 'url': 'http://localhost/r/https://bsky.app/profile/did:plc:alice/post/456',
                 'attributedTo': 'https://bsky.brid.gy/ap/did:plc:alice',
-                'content': '<p>I hereby reply</p>',
-                'contentMap': {'en': '<p>I hereby reply</p>'},
+                'content': 'I hereby reply',
+                'contentMap': {'en': 'I hereby reply'},
                 'published': '2022-01-02T03:04:05.000Z',
                 'inReplyTo': 'http://inst/post',
                 'tag': [{'type': 'Mention', 'href': 'http://inst/bob'}],
@@ -737,7 +737,7 @@ class IntegrationTests(TestCase):
         }, message, ignore=['bridgyOriginalText', 'bridgyOriginalUrl'])
 
         self.assertEqual(('https://inst/bob/inbox',), mock_post.call_args_list[1][0])
-        self.assertEqual("""<p>Hi! You <a href="http://inst/reply">recently replied to</a> <a class="h-card u-author mention" rel="me" href="https://bsky.app/profile/alice.com" title="Alice &middot; alice.com"><span style="unicode-bidi: isolate">Alice</span> &middot; alice.com</a>, who's bridged here from Bluesky. If you want them to see your replies, you can bridge your account into Bluesky by following this account. <a href="https://fed.brid.gy/docs">See the docs</a> for more information.</p>""",
+        self.assertEqual("""Hi! You <a href="http://inst/reply">recently replied to</a> <a class="h-card u-author mention" rel="me" href="https://bsky.app/profile/alice.com" title="Alice &middot; alice.com"><span style="unicode-bidi: isolate">Alice</span> &middot; alice.com</a>, who's bridged here from Bluesky. If you want them to see your replies, you can bridge your account into Bluesky by following this account. <a href="https://fed.brid.gy/docs">See the docs</a> for more information.""",
             json_loads(mock_post.call_args_list[1][1]['data'])['object']['content'])
 
     @patch.object(util.session, 'post')
@@ -836,7 +836,7 @@ class IntegrationTests(TestCase):
         args, kwargs = mock_post.call_args_list[1]
         self.assert_equals(('http://inst/inbox',), args)
         message = """\
-<p>Welcome to Bridgy Fed! Your account will soon be bridged to Bluesky at <a class="h-card u-author mention" rel="me" href="https://bsky.app/profile/alice.wf.com.ap.brid.gy" title="alice.wf.com.ap.brid.gy">alice.wf.com.ap.brid.gy</a>. <a href="https://fed.brid.gy/docs">See the docs</a> and <a href="https://fed.brid.gy/ap/@alice@wf.com">your user page</a> for more information. To disable this and delete your bridged profile, block this account.</p>"""
+Welcome to Bridgy Fed! Your account will soon be bridged to Bluesky at <a class="h-card u-author mention" rel="me" href="https://bsky.app/profile/alice.wf.com.ap.brid.gy" title="alice.wf.com.ap.brid.gy">alice.wf.com.ap.brid.gy</a>. <a href="https://fed.brid.gy/docs">See the docs</a> and <a href="https://fed.brid.gy/ap/@alice@wf.com">your user page</a> for more information. To disable this and delete your bridged profile, block this account."""
         self.assert_equals({
             'type': 'Create',
             'id': 'https://bsky.brid.gy/#bridgy-fed-dm-welcome-https://inst/alice-2022-01-02T03:04:05+00:00-create',
@@ -1169,7 +1169,7 @@ class IntegrationTests(TestCase):
         }}, repo.get_contents())
 
         # check reply DM was sent
-        message = """<p>OK, you're now blocking <a href="https://bsky.app/profile/did:plc:bob/lists/abc">My stuff</a> on Bluesky.</p>"""
+        message = """OK, you're now blocking <a href="https://bsky.app/profile/did:plc:bob/lists/abc">My stuff</a> on Bluesky."""
         self.assert_ap_deliveries(mock_post, ['https://inst/alice/inbox'],
                                   from_user=bsky_bot, data={
             'type': 'Create',
@@ -1332,7 +1332,7 @@ class IntegrationTests(TestCase):
         reply = mock_post.call_args_list[-1]
         self.assertEqual(('https://inst/alice/inbox',), reply.args)
         self.assertEqual(
-            "<p>OK, we've migrated your bridged Bluesky account to <code>myhandle.new.pds.com</code> on new.pds.com.</p>",
+            "OK, we've migrated your bridged Bluesky account to <code>myhandle.new.pds.com</code> on new.pds.com.",
             json_loads(reply.kwargs['data'])['object']['content'])
 
     @patch.object(util.session, 'post')
@@ -1744,7 +1744,7 @@ class IntegrationTests(TestCase):
                 'id': 'https://bsky.brid.gy/convert/ap/at://did:plc:alice/app.bsky.feed.post/123',
                 'url': 'http://localhost/r/https://bsky.app/profile/did:plc:alice/post/123',
                 'attributedTo': 'https://bsky.brid.gy/ap/did:plc:alice',
-                'content': '<p>maybe if <a class="mention h-card" href="https://inst/bob">@bob@inst</a> and Alf meet up</p>',
+                'content': 'maybe if <a class="mention h-card" href="https://inst/bob">@bob@inst</a> and Alf meet up',
                 'published': '2022-01-02T03:04:05.000Z',
                 'tag': [{
                     'type': 'Mention',
@@ -1960,9 +1960,9 @@ class IntegrationTests(TestCase):
         self.assert_equals({
             'type': 'Note',
             'id': 'https://bsky.brid.gy/convert/ap/at://did:plc:alice/post/123',
-            'content': '<p>My <a class="hashtag" rel="tag" href="https://bsky.app/search?q=%23original">#original</a> post</p>',
+            'content': 'My <a class="hashtag" rel="tag" href="https://bsky.app/search?q=%23original">#original</a> post',
             'contentMap': {
-                'en': '<p>My <a class="hashtag" rel="tag" href="https://bsky.app/search?q=%23original">#original</a> post</p>',
+                'en': 'My <a class="hashtag" rel="tag" href="https://bsky.app/search?q=%23original">#original</a> post',
             },
             'tag': [{
                 'type': 'Hashtag',
@@ -2017,7 +2017,7 @@ class IntegrationTests(TestCase):
             }],
         })
 
-        expected_content = '<p><a class="hashtag" rel="tag" href="https://bsky.app/search?q=%23foo">#foo</a> <a href="http://bar">bar</a> <a class="mention h-card" href="https://bsky.brid.gy/ap/https://bsky.app/profile/did:plc:bob">@b.ob@bsky.brid.gy</a></p>'
+        expected_content = '<a class="hashtag" rel="tag" href="https://bsky.app/search?q=%23foo">#foo</a> <a href="http://bar">bar</a> <a class="mention h-card" href="https://bsky.brid.gy/ap/https://bsky.app/profile/did:plc:bob">@b.ob@bsky.brid.gy</a>'
         expected = {
             'type': 'Note',
             'id': 'https://bsky.brid.gy/convert/ap/at://did:plc:alice/post/123',
@@ -2076,7 +2076,7 @@ class IntegrationTests(TestCase):
             }],
         })
 
-        expected_content = '<p>a <a class="mention h-card" href="https://bsky.brid.gy/ap/https://bsky.app/profile/did:plc:eve">@e.ve@bsky.brid.gy</a> c<span class="quote-inline"><br><br>RE: <a href="https://bsky.app/profile/did:plc:bob/post/123">https://bsky.app/profile/did:plc:bob/post/123</a></span></p>'
+        expected_content = 'a <a class="mention h-card" href="https://bsky.brid.gy/ap/https://bsky.app/profile/did:plc:eve">@e.ve@bsky.brid.gy</a> c<span class="quote-inline"><br><br>RE: <a href="https://bsky.app/profile/did:plc:bob/post/123">https://bsky.app/profile/did:plc:bob/post/123</a></span>'
         expected = {
             'type': 'Note',
             'id': 'https://bsky.brid.gy/convert/ap/at://did:plc:alice/post/123',
@@ -2142,8 +2142,8 @@ class IntegrationTests(TestCase):
                 'type': 'Note',
                 'id': f'https://nostr.brid.gy/convert/ap/{post_id}',
                 'attributedTo': f'https://nostr.brid.gy/ap/{bob.key.id()}',
-                'content': '<p>Hello from Nostr!</p>',
-                'contentMap': {'en': '<p>Hello from Nostr!</p>'},
+                'content': 'Hello from Nostr!',
+                'contentMap': {'en': 'Hello from Nostr!'},
                 'published': '2022-01-02T03:04:05+00:00',
                 'url': f'http://localhost/r/https://njump.me/{bech32_encode("note", post_event["id"])}',
             },
@@ -2236,7 +2236,7 @@ class IntegrationTests(TestCase):
                 'type': 'Note',
                 'id': f'https://nostr.brid.gy/convert/ap/{post_id}',
                 'attributedTo': f'https://nostr.brid.gy/ap/{bob.key.id()}',
-                'content': f'<p>Hi <a class="mention h-card" href="https://nostr.brid.gy/ap/{bob.key.id()}">@bob.nos.tr@nostr.brid.gy</a> and <a class="mention h-card" href="https://inst/alice">@alice@inst</a> and <a class="mention h-card" href="https://bsky.brid.gy/ap/did:plc:charlie">@charl.ie@bsky.brid.gy</a>!</p>',
+                'content': f'Hi <a class="mention h-card" href="https://nostr.brid.gy/ap/{bob.key.id()}">@bob.nos.tr@nostr.brid.gy</a> and <a class="mention h-card" href="https://inst/alice">@alice@inst</a> and <a class="mention h-card" href="https://bsky.brid.gy/ap/did:plc:charlie">@charl.ie@bsky.brid.gy</a>!',
                 'tag': [{
                     'type': 'Mention',
                     'href': f'https://nostr.brid.gy/ap/{bob.key.id()}',
@@ -2825,8 +2825,8 @@ class IntegrationTests(TestCase):
                 'url': 'https://bsky.brid.gy/internal/snarfed.org/post',
                 'attributedTo': 'https://bsky.brid.gy/bsky.brid.gy',
                 'name': 'Hello from my blog!',
-                'content': '<p>Hello from my blog!</p>',
-                'contentMap': {'en': '<p>Hello from my blog!</p>'},
+                'content': 'Hello from my blog!',
+                'contentMap': {'en': 'Hello from my blog!'},
                 'to': ['https://www.w3.org/ns/activitystreams#Public'],
             },
             'to': ['https://www.w3.org/ns/activitystreams#Public'],
@@ -3209,8 +3209,8 @@ class IntegrationTests(TestCase):
                 'type': 'Note',
                 'id': f'https://nostr.brid.gy/convert/ap/{reply_id}',
                 'attributedTo': f'https://nostr.brid.gy/ap/{PUBKEY_URI}',
-                'content': '<p>Replying to Alice!</p>',
-                'contentMap': {'en': '<p>Replying to Alice!</p>'},
+                'content': 'Replying to Alice!',
+                'contentMap': {'en': 'Replying to Alice!'},
                 'inReplyTo': 'https://inst/post',
                 'url': f'http://localhost/r/https://njump.me/{bech32_encode("note", reply["id"])}',
                 'tag': [{'type': 'Mention', 'href': 'https://inst/alice'}],

@@ -1160,7 +1160,7 @@ def postprocess_as2(activity, orig_obj=None, wrap=True):
             if not name.startswith('#'):
                 tag['name'] = f'#{name}'
 
-    as2.link_tags(obj_or_activity)
+    as2.render_content(obj_or_activity)
 
     activity['object'] = [
         postprocess_as2(o, orig_obj=orig_obj,
@@ -1173,13 +1173,6 @@ def postprocess_as2(activity, orig_obj=None, wrap=True):
         # language, in contentMap
         # https://github.com/snarfed/bridgy-fed/issues/681
         obj_or_activity.setdefault('contentMap', {'en': content})
-
-        # wrap in <p>. some fediverse servers (eg Mastodon) have a white-space:
-        # pre-wrap style that applies to p inside content. this preserves
-        # meaningful whitespace in plain text content.
-        # https://github.com/snarfed/bridgy-fed/issues/990
-        if not content.startswith('<p>'):
-            as2.set_content(obj_or_activity, f'<p>{content}</p>')
 
     activity.pop('content_is_html', None)
     return util.trim_nulls(activity)

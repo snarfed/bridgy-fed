@@ -292,14 +292,14 @@ AS2_CREATE = {
         'id': 'http://localhost/r/https://user.com/reply',
         'name': 'foo ☕ bar',
         'content': """\
-<p><a class="u-in-reply-to" href="http://no.tt/fediverse"></a>
+<a class="u-in-reply-to" href="http://no.tt/fediverse"></a>
 <a class="u-in-reply-to" href="https://mas.to/toot/id">foo ☕ bar</a>
-<a href="http://localhost/"></a></p>""",
+<a href="http://localhost/"></a>""",
         'contentMap': {
             'en': """\
-<p><a class="u-in-reply-to" href="http://no.tt/fediverse"></a>
+<a class="u-in-reply-to" href="http://no.tt/fediverse"></a>
 <a class="u-in-reply-to" href="https://mas.to/toot/id">foo ☕ bar</a>
-<a href="http://localhost/"></a></p>""",
+<a href="http://localhost/"></a>""",
         },
         'inReplyTo': 'https://mas.to/toot/id',
         'to': [as2.PUBLIC_AUDIENCE],
@@ -430,8 +430,8 @@ NOTE_AS2 = {
     'id': 'http://localhost/r/https://user.com/post',
     'attributedTo': 'http://localhost/user.com',
     'name': 'hello i am a post',
-    'content': '<p>hello i am a post</p>',
-    'contentMap': {'en': '<p>hello i am a post</p>'},
+    'content': 'hello i am a post',
+    'contentMap': {'en': 'hello i am a post'},
     'to': [as2.PUBLIC_AUDIENCE],
 }
 CREATE_AS2 = {
@@ -1171,8 +1171,8 @@ class WebTest(TestCase):
             'type': 'Announce',
             'id': 'http://localhost/r/https://user.com/multiple',
             'actor': 'http://localhost/user.com',
-            'content': '<p>hello i am a post</p>',
-            'contentMap': {'en': '<p>hello i am a post</p>'},
+            'content': 'hello i am a post',
+            'contentMap': {'en': 'hello i am a post'},
             'name': 'hello i am a post',
             'object': 'http://localhost/r/http://bob.com/post',
             'url': [{
