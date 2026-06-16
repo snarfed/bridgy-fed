@@ -2,11 +2,6 @@
 
 dispatch:
 
-  # TODO: remove once we're back to redirecting getBlob to frontend
-  # https://github.com/snarfed/bridgy-fed/issues/2516
-  - url: "atproto.brid.gy/xrpc/com.atproto.sync.getBlob"
-    service: default
-
   # hub
   - url: "atproto.brid.gy/*"
     service: hub

@@ -121,25 +121,11 @@ def health_check():
     return 'OK'
 
 
-# ATProto XRPC server. Serve getBlob and subscribeRepos directly; redirect
-# everything else to Cloud Run.
+# ATProto XRPC server. Serve subscribeRepos directly, redirect everything else to
+# Cloud Run.
 #
-# xrpc_get_blob and xrpc_redirect must be registered before init_flask so that
-# they take priority over xrpc-endpoint for GET requests in Werkzeug's URL
-# routing. xrpc_get_blob's static URL also takes priority over xrpc_redirect's
-# dynamic <method> URL.
-#
-# TODO: switch getBlobs back to redirecting once Bluesky's CDN supports multi-hop
-# redirects.
-# https://github.com/snarfed/bridgy-fed/issues/2516
-
-@app.get('/xrpc/com.atproto.sync.getBlob')
-@flask_util.headers(lexrpc.flask_server.RESPONSE_HEADERS)
-def xrpc_get_blob():
-    return lexrpc.flask_server.XrpcEndpoint(arroba.server.server).dispatch_request(
-        'com.atproto.sync.getBlob')
-
-
+# xrpc_redirect must be registered before init_flask so that it takes priority over
+# xrpc-endpoint for GET requests in Werkzeug's URL routing.
 @app.get('/xrpc/<method>')
 @flask_util.headers(lexrpc.flask_server.RESPONSE_HEADERS)
 @flask_util.canonicalize_request_domain(['atproto.brid.gy'], 'bsky.brid.gy')
@@ -148,7 +134,6 @@ def xrpc_redirect(method):
 
 
 arroba.server.server._methods = {
-    'com.atproto.sync.getBlob': xrpc_sync.get_blob,
     'com.atproto.sync.subscribeRepos': xrpc_sync.subscribe_repos,
 }
 lexrpc.flask_server.init_flask(arroba.server.server, app)
