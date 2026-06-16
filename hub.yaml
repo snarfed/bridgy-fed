@@ -61,7 +61,17 @@ manual_scaling:
   instances: 1
 
 liveness_check:
-  initial_delay_sec: 120  # preloading rollback window
+  initial_delay_sec: 30  # speed up VM startup
+
+# specify this explicitly to make App Engine pass it through to our code,
+# so that we can preload the rollback window before we start serving
+readiness_check:
+  path: "/readiness_check"
+  check_interval_sec: 5
+  timeout_sec: 4
+  failure_threshold: 10
+  success_threshold: 2
+  app_start_timeout_sec: 1200 # 20m
 
 # https://cloud.google.com/appengine/docs/flexible/python/runtime#application_startup
 # https://docs.gunicorn.org/en/latest/settings.html#timeout

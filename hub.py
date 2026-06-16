@@ -92,6 +92,8 @@ if not TESTING and (LOCAL_SERVER or not DEBUG):
     firehose.start()
 
 
+logger.info('Continuing startup, setting up Flask app and registering URL handlers')
+
 # Flask app
 app = Flask(__name__)
 app.json.compact = False
