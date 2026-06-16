@@ -3093,6 +3093,18 @@ class ActivityPubUtilsTest(TestCase):
             '@context': [SECURITY_CONTEXT],
         }, user=self.user)['@context'])
 
+    def test_postprocess_as2_actor_alsoKnownAs_other_protocols(self):
+        user = self.make_user(
+            'other.com', cls=Web, enabled_protocols=['atproto'],
+            copies=[Target(protocol='atproto', uri='did:plc:abc')])
+
+        got = postprocess_as2_actor(as2.from_as1({
+            'objectType': 'person',
+            'id': 'http://other.com/',
+        }), user=user)
+
+        self.assertEqual(['https://other.com/', 'did:plc:abc'], got['alsoKnownAs'])
+
     def test_postprocess_as2_actor_preserves_preferredUsername(self):
         # preferredUsername stays y.z despite user's username. since Mastodon
         # queries Webfinger for preferredUsername@fed.brid.gy

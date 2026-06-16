@@ -1427,6 +1427,39 @@ Sed tortor neque, aliquet quis posuere aliquam, imperdiet sitamet […]
         self.assert_task(mock_create_task, 'receive', authed_as='fake:user',
                          obj_id='fake:profile:user')
 
+    @patch.object(util.session, 'post', side_effect=[
+        requests_response({'operation': {'signed': 'op'}}),  # signPlcOperation
+        requests_response(),  # plc.directory update
+        requests_response(),  # deactivateAccount
+    ])
+    @patch.object(util.session, 'get', side_effect=[
+        requests_response(DID_DOC),  # resolve did:plc:user
+    ])
+    @patch.object(tasks_client, 'create_task')
+    def test_migrate_in_also_known_as_other_protocols(self, mock_create_task, _,
+                                                      mock_post):
+        self.make_user_and_repo(enabled_protocols=['activitypub'])
+
+        pds_client = lexrpc.Client('https://some.pds', requests_session=util.session)
+        ATProto.migrate_in(self.user, 'did:plc:user', plc_code='kode',
+                           pds_client=pds_client)
+
+        self.assert_equals({
+            'token': 'kode',
+            'alsoKnownAs': [
+                'at://han.dull.brid.gy',
+                'uri:fake:user',
+                'https://fa.brid.gy/ap/fake:user'
+            ],
+            'services': {
+                'atproto_pds': {
+                    'type': 'AtprotoPersonalDataServer',
+                    'endpoint': 'https://atproto.brid.gy'
+                }
+            }
+        }, mock_post.call_args_list[0].kwargs['json'],
+        ignore=['rotationKeys', 'verificationMethods'])
+
     def test_migrate_in_bad_user_id(self, *_):
         eve = self.make_user('fake:eve', cls=Fake)
         with self.assertRaises(ValueError):
@@ -1942,7 +1975,23 @@ Sed tortor neque, aliquet quis posuere aliquam, imperdiet sitamet […]
         mock_create_task.assert_called()  # atproto-commit
 
     @patch.object(tasks_client, 'create_task', return_value=Task(name='my task'))
-    @patch.object(util.session, 'post', return_value=requests_response('OK'))  # create DID on PLC
+    # create DID on PLC
+    @patch.object(util.session, 'post', return_value=requests_response('OK'))
+    def test_create_for_also_known_as_other_protocols(self, mock_post, _):
+        Fake.fetchable = {'fake:profile:us_er': {
+            **ACTOR_AS,
+            'image': [],
+            'id': 'fake:profile:us_er',
+        }}
+        user = Fake(id='fake:us_er', enabled_protocols=['activitypub'])
+        ATProto.create_for(user)
+        self.assertEqual(
+            ['uri:fake:us_er', 'https://fa.brid.gy/ap/fake:us_er'],
+            mock_post.call_args_list[0].kwargs['json']['alsoKnownAs'][1:])
+
+    @patch.object(tasks_client, 'create_task', return_value=Task(name='my task'))
+    # create DID on PLC
+    @patch.object(util.session, 'post', return_value=requests_response('OK'))
     def test_create_for_with_pinned_post(self, mock_post, mock_create_task):
         self.make_user(cls=Web, id='fa.brid.gy',
                        copies=[Target(protocol='atproto', uri='did:fa')])

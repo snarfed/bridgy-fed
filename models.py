@@ -944,6 +944,34 @@ class User(AddRemoveMixin, StringIdModel, metaclass=ProtocolUserMeta):
         return ids.translate_user_id(id=self.key.id(), from_=self.__class__,
                                      to=to_proto)
 
+    def all_ids(self, default_protocols=False, except_=None):
+        """Returns this user's ids in its native protocol and all bridged protocols.
+
+        Args:
+          default_protocols (bool): if False, only consider protocols in
+            :attr:`enabled_protocols`. If True, also consider protocols that
+            don't require explicit opt in, eg :attr:`DEFAULT_ENABLED_PROTOCOLS`.
+          except_ (str or Protocol subclass): protocol to omit from the result,
+            eg the protocol that's about to consume it
+
+        Returns:
+          list of str
+        """
+        found = []
+        if self.__class__ != except_:
+            found.append(self.id_uri())
+
+        protos = (set(PROTOCOLS.values()) if default_protocols
+                  else (PROTOCOLS[label] for label in self.enabled_protocols))
+
+        for proto in protos:
+            if (proto and proto != except_ and proto != self.__class__
+                    and self.is_enabled(proto)
+                    and (uri := self.id_as(proto))):
+                found.append(uri)
+
+        return found
+
     def handle_or_id(self):
         """Returns handle if we know it, otherwise id."""
         return self.handle or self.key.id()

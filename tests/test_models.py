@@ -477,6 +477,31 @@ class UserTest(TestCase):
         user.put()
         self.assertEqual('https://fa.brid.gy/ap/fake:user', user.id_as('ap'))
 
+    def test_all_ids(self):
+        user = self.make_user('fake:user', cls=Fake)
+        self.assertEqual(['uri:fake:user'], user.all_ids())
+        self.assertEqual(['uri:fake:user', 'other:u:fake:user'],
+                         user.all_ids(default_protocols=True))
+
+        user.enabled_protocols = ['activitypub', 'atproto']
+        user.copies = [Target(protocol='atproto', uri='did:plc:abc')]
+        user.put()
+
+        self.assert_equals([
+            'uri:fake:user',
+            'https://fa.brid.gy/ap/fake:user',
+            'did:plc:abc',
+        ], user.all_ids())
+        self.assert_equals([
+            'uri:fake:user',
+            'https://fa.brid.gy/ap/fake:user',
+            'did:plc:abc',
+            'other:u:fake:user',
+        ], user.all_ids(default_protocols=True))
+
+        self.assert_equals(['uri:fake:user', 'did:plc:abc'],
+                           user.all_ids(except_=ActivityPub))
+
     def test_handle_as(self):
         user = self.make_user('fake:user', cls=Fake)
         self.assertEqual('fake:handle:user', user.handle_as(Fake))

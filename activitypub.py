@@ -1219,7 +1219,11 @@ def postprocess_as2_actor(actor, user):
         id = actor['id'] = user.id_as(ActivityPub)
         actor['@context'] = util.get_list(actor, '@context')
         add(actor['@context'], AKA_CONTEXT)
-        add(actor.setdefault('alsoKnownAs', []), user.id_uri())
+
+        # add this user's native id and other bridged ids to alsoKnownAs
+        aka = actor.setdefault('alsoKnownAs', [])
+        for uri in user.all_ids(except_=ActivityPub):
+            add(aka, uri)
 
     # required by ActivityPub
     # https://www.w3.org/TR/activitypub/#actor-objects

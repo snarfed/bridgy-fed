@@ -3682,6 +3682,31 @@ class WebUtilTest(TestCase):
 </html>
 """, Web.convert(obj, from_user=None), ignore_blanks=True)
 
+    def test_convert_rel_me_other_protocols(self, *_):
+        user = self.make_user(
+            'fake:user', cls=Fake, enabled_protocols=['web', 'atproto'],
+            copies=[Target(protocol='atproto', uri='did:plc:abc')])
+        obj = self.store_object(id='fake:post', source_protocol='fake', our_as1={
+            'objectType': 'note',
+            'id': 'fake:post',
+            'content': 'hello',
+        })
+
+        self.assert_multiline_equals("""\
+<!DOCTYPE html>
+<html>
+<head><meta charset="utf-8"></head>
+<body class="">
+<article class="h-entry">
+<span class="p-uid">https://fa.brid.gy/convert/web/fake:post</span>
+<div class="e-content p-name">
+hello
+</div>
+</article>
+</body>
+</html>
+""", Web.convert(obj, from_user=user), ignore_blanks=True)
+
     def test_convert_translates_ids(self, *_):
         self.store_object(id='http://fed/post', source_protocol='activitypub')
         obj = self.store_object(id='fake:reply', source_protocol='fake', our_as1={
