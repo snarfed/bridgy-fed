@@ -604,8 +604,16 @@
 
 <ul>
 <li>Add a link to your web site to the account you've bridged to the fediverse. (If you bridged your web site itself, skip this.)
-<li><em>If you're coming from Bluesky:</em> add a <a href="https://indieweb.org/rel-me"><code>rel=me</code> link</a> (it can be invisible) to your web site's home page that points to <code>https://bsky.brid.gy/ap/[DID]</code>, where <code>[DID]</code> is <a href="https://internect.info/">your Bluesky account's DID</a>, eg <code>https://bsky.brid.gy/ap/did:plc:fdme4gb7mu7zrie7peay7tst</code>.</li>
-<li><em>If you're coming from the web:</em> add a <a href="https://indieweb.org/rel-me"><code>rel=me</code> link</a> (it can be invisible) to your web site's home page that points to <code>https://web.brid.gy/[DOMAIN]</code>, where <code>[DOMAIN]</code> is your site's domain, eg <code>https://web.brid.gy/snarfed.org</code>.</li>
+<li><em>If you're coming from Bluesky:</em> add a <a href="https://indieweb.org/rel-me"><code>rel=me</code> link</a> (it can be invisible) to your web site's home page that points to <code>https://bsky.brid.gy/ap/[DID]</code>, where <code>[DID]</code> is <a href="https://internect.info/">your Bluesky account's DID</a>. For example:.
+<pre>
+&lt;a rel="<span class='keyword'>me</span>" href="<span class='value'>https://bsky.brid.gy/ap/did:plc:fdme4gb7mu7zrie7peay7tst</span>" /&gt;
+</pre>
+</li>
+<li><em>If you're coming from the web:</em> add a <a href="https://indieweb.org/rel-me"><code>rel=me</code> link</a> (it can be invisible) to your web site's home page that points to <code>https://web.brid.gy/r/https://[DOMAIN]/</code>, where <code>[DOMAIN]</code> is your site's domain. For example:
+<pre>
+&lt;a rel="<span class='keyword'>me</span>" href="<span class='value'>https://web.brid.gy/r/https://example.com/</span>" /&gt;
+</pre>
+</li>
 <li>On your Bridgy Fed <a href="#user-page">user page</a>, click the <button class="btn btn-default glyphicon glyphicon-refresh"></button> button to update your profile, then copy your fediverse handle.</li>
 <li>Log into any Mastodon instance where you have an account.</li>
 <li>Search for your fediverse handle.</li>
