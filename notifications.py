@@ -66,7 +66,7 @@ def add_notification(user, obj):
 
     assert ' ' not in obj.key.id()  # since the memcache value is space-separated
 
-    if memcache.add(key, obj.key.id().encode()):
+    if memcache.add(key, obj.key.id()):
         common.create_task(queue='notify', delay=NOTIFY_TASK_FREQ,
                            user_id=user.key.id(), protocol=user.LABEL)
     else:

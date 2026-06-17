@@ -726,7 +726,7 @@ class ATProtoFirehoseHandleTest(ATProtoTestCase):
         ):
             with self.subTest(record=record):
                 mock_create_task.reset_mock()
-                memcache.client_pool.clear()
+                memcache.clear()
 
                 commits.put(Op(repo='did:plc:user', action='create', seq=789,
                                path='app.bsky.feed.post/123', record=record,

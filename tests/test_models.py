@@ -689,7 +689,7 @@ class UserTest(TestCase):
         self.assertEqual((0, 0), user.count_followers())
 
         # clear both
-        memcache.pickle_memcache.client_pool.clear()
+        memcache.pickle_memcache.clear()
         user.count_followers.cache.clear()
         self.assertEqual((1, 2), user.count_followers())
 
@@ -1645,7 +1645,7 @@ cast_add_body { text: "hi" }
 
         models.get_original_user_key.cache_clear()
         models.get_original_object_key.cache_clear()
-        memcache.pickle_memcache.client_pool.clear()
+        memcache.pickle_memcache.clear()
 
         # matching copy users
         self.make_user('other:alice', cls=OtherFake,
@@ -1684,7 +1684,7 @@ cast_add_body { text: "hi" }
 
         models.get_original_user_key.cache_clear()
         models.get_original_object_key.cache_clear()
-        memcache.pickle_memcache.client_pool.clear()
+        memcache.pickle_memcache.clear()
 
         # matching copies
         self.make_user('other:alice', cls=OtherFake,
@@ -1727,7 +1727,7 @@ cast_add_body { text: "hi" }
 
         models.get_original_user_key.cache_clear()
         models.get_original_object_key.cache_clear()
-        memcache.pickle_memcache.client_pool.clear()
+        memcache.pickle_memcache.clear()
 
         # matching copies
         self.store_object(id='other:a',
@@ -1913,7 +1913,7 @@ cast_add_body { text: "hi" }
     def test_get_original_user_key(self):
         self.assertIsNone(models.get_original_user_key('other:user'))
         models.get_original_user_key.cache_clear()
-        memcache.pickle_memcache.client_pool.clear()
+        memcache.pickle_memcache.clear()
         user = self.make_user('fake:user', cls=Fake,
                               copies=[Target(uri='other:user', protocol='other')])
         self.assertEqual(user.key, models.get_original_user_key('other:user'))
@@ -1921,7 +1921,7 @@ cast_add_body { text: "hi" }
     def test_get_original_object_key(self):
         self.assertIsNone(models.get_original_object_key('other:post'))
         models.get_original_object_key.cache_clear()
-        memcache.pickle_memcache.client_pool.clear()
+        memcache.pickle_memcache.clear()
         obj = self.store_object(id='fake:post',
                                 copies=[Target(uri='other:post', protocol='other')])
         self.assertEqual(obj.key, models.get_original_object_key('other:post'))

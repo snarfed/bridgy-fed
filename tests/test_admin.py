@@ -50,7 +50,7 @@ class AdminTest(TestCase):
         self.assertEqual('not found', resp.get_data(as_text=True))
 
         memcache.memcache.add('foo', 'bar')
-        self.assertEqual('bar', memcache.memcache.get('foo'))
+        self.assertEqual(b'bar', memcache.memcache.get('foo'))
 
         resp = self.client.post('/admin/memcache/evict', data={'raw': 'foo'},
                                 headers={'Authorization': config.SECRET_KEY})
@@ -91,7 +91,7 @@ class AdminTest(TestCase):
         resp = self.client.get('/admin/memcache/get?raw=foo',
                                headers={'Authorization': config.SECRET_KEY})
         self.assertEqual(200, resp.status_code)
-        self.assertEqual("'bar'", resp.get_data(as_text=True))
+        self.assertEqual("b'bar'", resp.get_data(as_text=True))
 
     def test_sequences_alloc(self):
         resp = self.client.post('/admin/sequences/alloc', data={'nsid': 'foo.bar'},

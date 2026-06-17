@@ -2716,7 +2716,7 @@ class ProtocolReceiveTest(TestCase):
         }
         self.store_object(id='fake:post', our_as1=post_as1, source_protocol='fake',
                           copies=[Target(uri='other:post', protocol='other')])
-        memcache.memcache.set(protocol.activity_id_memcache_key('fake:post'), b'done')
+        memcache.memcache.set(protocol.activity_id_memcache_key('fake:post'), 'done')
 
         post_as1['content'] = 'second'
         _, code = Fake.receive_as1(post_as1, new=False, changed=True)
@@ -4297,8 +4297,8 @@ class ProtocolReceiveTest(TestCase):
 
         models.get_original_user_key.cache_clear()
         models.get_original_object_key.cache_clear()
-        memcache.memcache.client_pool.clear()
-        memcache.pickle_memcache.client_pool.clear()
+        memcache.memcache.clear()
+        memcache.pickle_memcache.clear()
 
         obj.new = True
         Fake.fetchable = {
@@ -4333,8 +4333,8 @@ class ProtocolReceiveTest(TestCase):
 
         models.get_original_user_key.cache_clear()
         models.get_original_object_key.cache_clear()
-        memcache.memcache.client_pool.clear()
-        memcache.pickle_memcache.client_pool.clear()
+        memcache.memcache.clear()
+        memcache.pickle_memcache.clear()
         obj.new = True
 
         _, code = Fake.receive(obj, authed_as='fake:user')
@@ -4388,8 +4388,8 @@ class ProtocolReceiveTest(TestCase):
 
         models.get_original_user_key.cache_clear()
         models.get_original_object_key.cache_clear()
-        memcache.memcache.client_pool.clear()
-        memcache.pickle_memcache.client_pool.clear()
+        memcache.memcache.clear()
+        memcache.pickle_memcache.clear()
 
         self.assertEqual(('OK', 202), Fake.receive_as1(reply, new=True))
 
@@ -4827,7 +4827,7 @@ class ProtocolReceiveTest(TestCase):
             second.start()
             with at_send:
                 at_send.wait(10)  # timeout in seconds
-            self.assertEqual('leased', memcache.memcache.get(memcache_key))
+            self.assertEqual(b'leased', memcache.memcache.get(memcache_key))
             with continue_send:
                 continue_send.notify(1)
             first.join()
@@ -4837,7 +4837,7 @@ class ProtocolReceiveTest(TestCase):
         self.assertEqual([('other:alice:target', post_as1)], OtherFake.sent)
 
         lease_key = protocol.activity_id_memcache_key('fake:post')
-        self.assertEqual('done', memcache.memcache.get(memcache_key))
+        self.assertEqual(b'done', memcache.memcache.get(memcache_key))
 
     @patch('protocol.LIMITED_DOMAINS', ['lim.it'])
     @patch.object(util.session, 'get')

@@ -368,8 +368,8 @@ class TestCase(unittest.TestCase, testutil.Asserts):
         common.RUN_TASKS_INLINE = True
         app.testing = True
 
-        memcache.client_pool.clear()
-        pickle_memcache.client_pool.clear()
+        memcache.clear()
+        pickle_memcache.clear()
         global_cache.clear()
 
         models.get_original_object_key.cache_clear()

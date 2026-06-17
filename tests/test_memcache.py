@@ -114,11 +114,9 @@ class MemcacheTest(TestCase):
 
         self.assertEqual('5', foo(5))
         self.assertEqual([5], calls)
-        self.assertEqual(0, len(pickle_memcache.client_pool.free))
 
         self.assertEqual('5', foo(5))
         self.assertEqual([5, 5], calls)
-        self.assertEqual(0, len(pickle_memcache.client_pool.free))
 
     def test_memoize_write_false(self):
         calls = []
@@ -250,7 +248,7 @@ class MemcacheTest(TestCase):
 
     def test_evict_raw(self):
         memcache.memcache.add('foo', 'bar')
-        self.assertEqual('bar', memcache.memcache.get('foo'))
+        self.assertEqual(b'bar', memcache.memcache.get('foo'))
         memcache.evict_raw('foo')
         self.assertIsNone(memcache.memcache.get('foo'))
 

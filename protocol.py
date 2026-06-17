@@ -1216,8 +1216,7 @@ class Protocol:
         if 'force' not in request.values:
             prior = None
             if not leased and (prior := memcache.memcache.get(memcache_key)):
-                if isinstance(prior, bytes):
-                    prior = prior.decode()
+                prior = prior.decode()
                 if prior == 'leased':
                     error('Already in progress', status=204)
 
