@@ -1206,10 +1206,23 @@ class Protocol:
             expire=int(MEMCACHE_LEASE_EXPIRATION.total_seconds()))
 
         # short circuit if we've already seen this activity id
-        if ('force' not in request.values
-            and (not leased
-                 or (obj.new is False and obj.changed is False))):
-            error(f'Already seen', status=204)
+        #
+        # * 'leased' (25s): if add failed and the value is 'leased', another task is
+        #   processing this same id right now, so skip.
+        #
+        # * 'done' (1w): set at the end of receive below. if it's 'done' here, or
+        #   we just have the obj in the datastore, and content hasn't changed, skip.
+        #   if content has changed, fall through to process the update.
+        if 'force' not in request.values:
+            prior = None
+            if not leased and (prior := memcache.memcache.get(memcache_key)):
+                if isinstance(prior, bytes):
+                    prior = prior.decode()
+                if prior == 'leased':
+                    error('Already in progress', status=204)
+
+            if (prior == 'done' or obj.new is False) and obj.changed is False:
+                error('Already seen', status=204)
 
         pruned = {k: v for k, v in obj.as1.items()
                   if k not in ('contentMap', 'replies', 'signature')}

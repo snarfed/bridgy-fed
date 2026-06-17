@@ -2704,6 +2704,42 @@ class ProtocolReceiveTest(TestCase):
             'fake:post#bridgy-fed-update-2022-01-02T03:04:05+00:00'))
         self.assertEqual([], OtherFake.sent)
 
+    def test_update_post_bare_object_memcache_lease_done(self):
+        """Previous receive left 'done' in memcache; update should still process."""
+        self.make_followers()
+
+        post_as1 = {
+            'id': 'fake:post',
+            'objectType': 'note',
+            'author': 'fake:user',
+            'content': 'first',
+        }
+        self.store_object(id='fake:post', our_as1=post_as1, source_protocol='fake',
+                          copies=[Target(uri='other:post', protocol='other')])
+        memcache.memcache.set(protocol.activity_id_memcache_key('fake:post'), b'done')
+
+        post_as1['content'] = 'second'
+        _, code = Fake.receive_as1(post_as1, new=False, changed=True)
+        self.assertEqual(202, code)
+
+        update = {
+            'objectType': 'activity',
+            'verb': 'update',
+            'id': 'fake:post#bridgy-fed-update-2022-01-02T03:04:05+00:00',
+            'actor': 'fake:user',
+            'object': {
+                'objectType': 'note',
+                'id': 'fake:post',
+                'author': 'fake:user',
+                'content': 'second',
+                'updated': '2022-01-02T03:04:05+00:00',
+            },
+        }
+        self.assert_equals([
+            ('other:alice:target', update),
+            ('other:bob:target', update),
+        ], OtherFake.sent)
+
     def test_update_post_fetch_object(self):
         post = {
             'id': 'fake:post',
