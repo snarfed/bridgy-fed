@@ -68,7 +68,7 @@ jobs:
             chmod +x sfw
 
             # make sure we install these at head, below
-            ./sfw pip uninstall -y arroba brevity dag-json granary lexrpc oauth-dropins pywebutil
+            ./sfw pip uninstall -y arroba brevity dag-json granary lexrpc oauth-dropins pymemcache pywebutil
 
             # sfw breaks when attempting to install this inside it
             pip install "git+https://github.com/snarfed/secp256k1-py.git@setup-requires-pycparser#egg=secp256k1"
