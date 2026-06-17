@@ -1174,6 +1174,13 @@ def postprocess_as2(activity, orig_obj=None, wrap=True):
         # https://github.com/snarfed/bridgy-fed/issues/681
         obj_or_activity.setdefault('contentMap', {'en': content})
 
+        # wrap in <p>. Mastodon needs this to de-dupe the inline RE: ... quote
+        # link against the quote it renders natively from quoteUrl/FEP-e232;
+        # without it, the quote shows twice.
+        # https://github.com/snarfed/bridgy-fed/issues/2521
+        if not content.startswith('<p>'):
+            as2.set_content(obj_or_activity, f'<p>{content}</p>')
+
     activity.pop('content_is_html', None)
     return util.trim_nulls(activity)
 

@@ -28,8 +28,8 @@ COMMENT_AS2 = {
     'id': 'https://web.brid.gy/r/https://fake.com/123456',
     'url': 'https://web.brid.gy/r/https://fake.com/123456',
     'name': 'A ☕ reply',
-    'content': 'A ☕ reply',
-    'contentMap': {'en': 'A ☕ reply'},
+    'content': '<p>A ☕ reply</p>',
+    'contentMap': {'en': '<p>A ☕ reply</p>'},
     'inReplyTo': 'https://web.brid.gy/r/https://fake.com/123',
     'published': '2012-12-05T00:58:26+00:00',
 }

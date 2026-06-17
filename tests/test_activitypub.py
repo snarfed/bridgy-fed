@@ -2857,8 +2857,8 @@ class ActivityPubUtilsTest(TestCase):
         self.assert_equals({
             'id': 'http://localhost/r/xyz',
             'type': 'Note',
-            'content': 'foo',
-            'contentMap': {'en': 'foo'},
+            'content': '<p>foo</p>',
+            'contentMap': {'en': '<p>foo</p>'},
             'to': [as2.PUBLIC_AUDIENCE],
         }, postprocess_as2({
             'id': 'xyz',
@@ -2870,8 +2870,8 @@ class ActivityPubUtilsTest(TestCase):
     def test_postprocess_as2_note_update_contentMap(self):
         self.assert_equals({
             'type': 'Note',
-            'content': 'foo',
-            'contentMap': {'en': 'foo'},
+            'content': '<p>foo</p>',
+            'contentMap': {'en': '<p>foo</p>'},
             'to': [as2.PUBLIC_AUDIENCE],
         }, postprocess_as2({
             'type': 'Note',
@@ -2902,7 +2902,7 @@ class ActivityPubUtilsTest(TestCase):
         }))
 
     def test_postprocess_as2_plain_text_content_links_hashtags_mentions(self):
-        expected = 'foo <a class="mention h-card" href="http://inst/bar">@bar</a> <a class="hashtag" rel="tag" href="http://inst/baz">#baz</a>'
+        expected = '<p>foo <a class="mention h-card" href="http://inst/bar">@bar</a> <a class="hashtag" rel="tag" href="http://inst/baz">#baz</a></p>'
         self.assert_equals({
             'content': expected,
             'contentMap': {'en': expected},
@@ -2934,9 +2934,9 @@ class ActivityPubUtilsTest(TestCase):
         # https://github.com/snarfed/bridgy-fed/issues/958
         self.assert_equals({
             'type': 'Note',
-            'content': '<a href="http://a/link">check it out</a><br><br><a href="http://another/link">another/link</a>',
+            'content': '<p><a href="http://a/link">check it out</a><br><br><a href="http://another/link">another/link</a></p>',
             'contentMap': {
-                'en': '<a href="http://a/link">check it out</a><br><br><a href="http://another/link">another/link</a>',
+                'en': '<p><a href="http://a/link">check it out</a><br><br><a href="http://another/link">another/link</a></p>',
             },
         }, postprocess_as2({
             'type': 'Note',
@@ -2954,9 +2954,9 @@ class ActivityPubUtilsTest(TestCase):
         # https://github.com/snarfed/bridgy-fed/issues/958
         self.assert_equals({
             'type': 'Note',
-            'content': 'original<br><br><a href="http://a/link">a/link</a>',
+            'content': '<p>original<br><br><a href="http://a/link">a/link</a></p>',
             'contentMap': {
-                'en': 'original<br><br><a href="http://a/link">a/link</a>',
+                'en': '<p>original<br><br><a href="http://a/link">a/link</a></p>',
             },
         }, postprocess_as2({
             'type': 'Note',
@@ -2995,7 +2995,7 @@ class ActivityPubUtilsTest(TestCase):
         }
 
         self.assert_equals({
-            'content': 'ok',
+            'content': '<p>ok</p>',
             'inReplyTo': 'http://inst/note',
             'tag': [
                 {'type': 'Mention', 'href': 'http://inst/foo'},
@@ -3643,7 +3643,7 @@ class ActivityPubUtilsTest(TestCase):
             'type': 'Note',
             'id': 'https://bsky.brid.gy/convert/ap/at://did:plc:alice/app.bsky.feed.post/123',
             'url': 'http://localhost/r/https://bsky.app/profile/did:plc:alice/post/123',
-            'content': 'foo bar<span class="quote-inline"><br><br>RE: <a href="https://bsky.app/profile/did:plc:bob/post/456">https://bsky.app/profile/did:plc:bob/post/456</a></span>',
+            'content': '<p>foo bar<span class="quote-inline"><br><br>RE: <a href="https://bsky.app/profile/did:plc:bob/post/456">https://bsky.app/profile/did:plc:bob/post/456</a></span></p>',
             'attributedTo': 'https://bsky.brid.gy/ap/did:plc:alice',
             '_misskey_quote': 'https://bsky.brid.gy/convert/ap/at://did:plc:bob/app.bsky.feed.post/456',
             'quoteUrl': 'https://bsky.brid.gy/convert/ap/at://did:plc:bob/app.bsky.feed.post/456',
@@ -3663,7 +3663,7 @@ class ActivityPubUtilsTest(TestCase):
             'id': 'https://bsky.brid.gy/convert/ap/at://did:plc:bob/app.bsky.feed.post/456',
             'url': 'http://localhost/r/https://bsky.app/profile/did:plc:bob/post/456',
             'attributedTo': 'https://bsky.brid.gy/ap/did:plc:bob',
-            'content': 'foo bar<br><br><a href="http://a.li/nc">a linc</a>',
+            'content': '<p>foo bar<br><br><a href="http://a.li/nc">a linc</a></p>',
         }, ActivityPub.convert(Object(id='at://did:plc:bob/app.bsky.feed.post/456', bsky={
             "$type": "app.bsky.feed.post",
             "text": "foo bar",
@@ -3694,8 +3694,8 @@ class ActivityPubUtilsTest(TestCase):
         self.assertEqual({
             '@context': as2.CONTEXT,
             'type': 'Note',
-            'content': 'hello <a class="mention h-card" href="https://bsky.brid.gy/ap/did:plc:5zspv27pk4iqtrl2ql2nykjh">@snarfed2.bsky.social</a>',
-            'contentMap': {'en': 'hello <a class="mention h-card" href="https://bsky.brid.gy/ap/did:plc:5zspv27pk4iqtrl2ql2nykjh">@snarfed2.bsky.social</a>'},
+            'content': '<p>hello <a class="mention h-card" href="https://bsky.brid.gy/ap/did:plc:5zspv27pk4iqtrl2ql2nykjh">@snarfed2.bsky.social</a></p>',
+            'contentMap': {'en': '<p>hello <a class="mention h-card" href="https://bsky.brid.gy/ap/did:plc:5zspv27pk4iqtrl2ql2nykjh">@snarfed2.bsky.social</a></p>'},
             'tag': [{
                 'type': 'Mention',
                 'name': '@snarfed2.bsky.social',
@@ -4157,8 +4157,8 @@ class ActivityPubUtilsTest(TestCase):
             'type': 'Note',
             'id': 'http://localhost/r/https://internal.brid.gy/dm',
             'attributedTo': 'https://web.brid.gy/web.brid.gy',
-            'content': 'hello world',
-            'contentMap': {'en': 'hello world'},
+            'content': '<p>hello world</p>',
+            'contentMap': {'en': '<p>hello world</p>'},
             'url': [{
                 'href': 'https://internal.brid.gy/dm',
                 'rel': 'canonical',

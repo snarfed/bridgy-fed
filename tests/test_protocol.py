@@ -3046,7 +3046,7 @@ class ProtocolReceiveTest(TestCase):
                 'type': 'Note',
                 'id': 'https://fa.brid.gy/convert/ap/fake:reply',
                 'attributedTo': 'https://fa.brid.gy/ap/fake:frank',
-                'content': 'ok',
+                'content': '<p>ok</p>',
                 'inReplyTo': 'http://inst/note',
                 'tag': [
                     {'type': 'Mention', 'href': 'http://inst/alice'},
