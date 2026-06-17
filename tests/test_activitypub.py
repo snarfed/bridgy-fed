@@ -2879,6 +2879,29 @@ class ActivityPubUtilsTest(TestCase):
             'contentMap': {'en': 'foo'},
         }))
 
+    def test_postprocess_as2_quote_renders_re_link_once(self):
+        # the Create-wrapping recursion calls render_content twice; the inline
+        # RE: ... quote link should still only appear once
+        # https://github.com/snarfed/bridgy-fed/issues/2521
+        create = postprocess_as2({
+            'type': 'Create',
+            'id': 'http://inst/create',
+            'object': {
+                'type': 'Note',
+                'id': 'http://inst/note',
+                'content': 'Ok',
+                'quoteUrl': 'https://bsky.brid.gy/convert/ap/at://x/post/y',
+                'tag': [{
+                    'type': 'Link',
+                    'mediaType': as2.CONTENT_TYPE_LD_PROFILE,
+                    'href': 'https://bsky.brid.gy/convert/ap/at://x/post/y',
+                    'name': 'RE: https://bsky.app/profile/x/post/y',
+                }],
+            },
+        })
+        content = create['object']['content']
+        self.assertEqual(1, content.count('quote-inline'), content)
+
     def test_postprocess_as2_hashtag(self):
         """https://github.com/snarfed/bridgy-fed/issues/45"""
         self.assert_equals({

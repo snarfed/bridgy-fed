@@ -298,6 +298,66 @@ class IntegrationTests(TestCase):
         })
 
     @patch.object(util.session, 'post')
+    def test_atproto_quote_post_to_activitypub(self, mock_post):
+        """ATProto quote post, from firehose to ActivityPub.
+
+        The inline RE: ... quote link should only appear once, even though
+        postprocess_as2 renders the wrapped object twice.
+        https://github.com/snarfed/bridgy-fed/issues/2521
+        """
+        self.store_object(id='did:plc:alice', raw=DID_DOC)
+        alice = self.make_user(
+            id='did:plc:alice', cls=ATProto, enabled_protocols=['activitypub'],
+            obj_bsky=test_atproto.ACTOR_PROFILE_BSKY)
+
+        bob = self.make_ap_user('http://inst/bob')
+        Follower.get_or_create(to=alice, from_=bob)
+
+        # need at least one repo for firehose subscriber to load DIDs and run
+        Repo.create(self.storage, 'did:unused', signing_key=ATPROTO_KEY)
+
+        post = {
+            '$type': 'app.bsky.feed.post',
+            'text': 'Ok',
+            'createdAt': '2022-01-02T03:04:05.000Z',
+            'embed': {
+                '$type': 'app.bsky.embed.record',
+                'record': {
+                    'cid': 'bafyreiam6fisrctmj7uv6is5wkk4fqw6bxzlooepaapxntuv45j3mu34p4',
+                    'uri': 'at://did:plc:eve/app.bsky.feed.post/456',
+                },
+            },
+        }
+        self.firehose(repo='did:plc:alice', action='create', seq=123,
+                      path='app.bsky.feed.post/123', record=post)
+
+        re_link = '<span class="quote-inline"><br><br>RE: <a href="https://bsky.app/profile/did:plc:eve/post/456"> https://bsky.app/profile/did:plc:eve/post/456</a></span>'
+        self.assert_ap_deliveries(mock_post, ['http://inst/bob/inbox'],
+                                  from_user=alice, ignore=['@context', 'to'], data={
+            'type': 'Create',
+            'id': 'https://bsky.brid.gy/convert/ap/at://did:plc:alice/app.bsky.feed.post/123#bridgy-fed-create-2022-01-02T03:04:05+00:00',
+            'actor': 'https://bsky.brid.gy/ap/did:plc:alice',
+            'published': '2022-01-02T03:04:05+00:00',
+            'object': {
+                'type': 'Note',
+                'id': 'https://bsky.brid.gy/convert/ap/at://did:plc:alice/app.bsky.feed.post/123',
+                'url': 'http://localhost/r/https://bsky.app/profile/did:plc:alice/post/123',
+                'attributedTo': 'https://bsky.brid.gy/ap/did:plc:alice',
+                'content': f'<p>Ok {re_link}</p>',
+                'contentMap': {'en': f'<p>Ok {re_link}</p>'},
+                'published': '2022-01-02T03:04:05.000Z',
+                'quoteUrl': 'https://bsky.brid.gy/convert/ap/at://did:plc:eve/app.bsky.feed.post/456',
+                '_misskey_quote': 'https://bsky.brid.gy/convert/ap/at://did:plc:eve/app.bsky.feed.post/456',
+                'tag': [{
+                    'type': 'Link',
+                    'mediaType': as2.CONTENT_TYPE_LD_PROFILE,
+                    'href': 'https://bsky.brid.gy/convert/ap/at://did:plc:eve/app.bsky.feed.post/456',
+                    'name': 'RE: https://bsky.app/profile/did:plc:eve/post/456',
+                }],
+            },
+        })
+
+    @patch.object(util.session, 'post')
     def test_atproto_profile_update_to_activitypub(self, mock_post):
         """ATProto profile update, from firehose to ActivityPub.
 
