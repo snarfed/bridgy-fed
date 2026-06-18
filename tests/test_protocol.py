@@ -2740,6 +2740,57 @@ class ProtocolReceiveTest(TestCase):
             ('other:bob:target', update),
         ], OtherFake.sent)
 
+    def test_post_memcache_lease_done_not_changed(self):
+        """Duplicate delivery after a prior receive completed; should skip.
+
+        Reproduces duplicate posts: the prior receive left 'done' in memcache,
+        and this delivery has changed unset (None), not False.
+        https://github.com/snarfed/bridgy-fed/issues/2507
+        """
+        self.make_followers()
+
+        post = {
+            'objectType': 'activity',
+            'verb': 'post',
+            'id': 'fake:post:activity',
+            'actor': 'fake:user',
+            'object': {
+                'objectType': 'note',
+                'id': 'fake:post',
+                'author': 'fake:user',
+                'content': 'first',
+            },
+        }
+        memcache.memcache.set(
+            protocol.activity_id_memcache_key('fake:post:activity'), 'done')
+
+        _, code = Fake.receive_as1(post)
+        self.assertEqual(204, code)
+        self.assertEqual([], OtherFake.sent)
+
+    def test_post_memcache_lease_in_progress(self):
+        """Another task is processing this same id right now; should skip."""
+        self.make_followers()
+
+        post = {
+            'objectType': 'activity',
+            'verb': 'post',
+            'id': 'fake:post:activity',
+            'actor': 'fake:user',
+            'object': {
+                'objectType': 'note',
+                'id': 'fake:post',
+                'author': 'fake:user',
+                'content': 'first',
+            },
+        }
+        memcache.memcache.set(
+            protocol.activity_id_memcache_key('fake:post:activity'), 'leased')
+
+        _, code = Fake.receive_as1(post)
+        self.assertEqual(204, code)
+        self.assertEqual([], OtherFake.sent)
+
     def test_update_post_fetch_object(self):
         post = {
             'id': 'fake:post',

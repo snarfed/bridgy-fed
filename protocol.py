@@ -1211,8 +1211,9 @@ class Protocol:
         #   processing this same id right now, so skip.
         #
         # * 'done' (1w): set at the end of receive below. if it's 'done' here, or
-        #   we just have the obj in the datastore, and content hasn't changed, skip.
-        #   if content has changed, fall through to process the update.
+        #   we just have the obj in the datastore, skip unless content has changed
+        #   (changed is True). changed is often None here, eg a duplicate inbox
+        #   delivery, so we deliberately check `is not True`, not `is False`.
         if 'force' not in request.values:
             prior = None
             if not leased and (prior := memcache.memcache.get(memcache_key)):
@@ -1220,7 +1221,7 @@ class Protocol:
                 if prior == 'leased':
                     error('Already in progress', status=204)
 
-            if (prior == 'done' or obj.new is False) and obj.changed is False:
+            if (prior == 'done' or obj.new is False) and obj.changed is not True:
                 error('Already seen', status=204)
 
         pruned = {k: v for k, v in obj.as1.items()
