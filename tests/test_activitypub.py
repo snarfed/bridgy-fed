@@ -4117,6 +4117,7 @@ class ActivityPubUtilsTest(TestCase):
 
         def fake_post(url, *args, **kwargs):
             kwargs.pop('gateway', None)
+            kwargs.pop('log_data', None)
             return ssrf_session.post(url, *args, **kwargs)
 
         with patch.object(util, 'requests_post', fake_post):

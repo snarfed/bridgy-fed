@@ -406,7 +406,10 @@ class ActivityPub(User, Protocol):
                                       from_user=from_user)
         activity = to_cls.convert(obj, from_user=from_user, orig_obj=orig_obj)
 
-        return signed_post(inbox_url, data=activity, from_user=from_user).ok
+        log_data = request.values.get('first', '').lower() == 'true'
+        resp = signed_post(inbox_url, data=activity, from_user=from_user,
+                           log_data=log_data)
+        return resp.ok
 
     @classmethod
     def fetch(cls, obj, use_fetched_id=True, **_):

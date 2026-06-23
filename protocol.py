@@ -1795,10 +1795,15 @@ class Protocol:
         # enqueue send task for each targets
         logger.info(f'Delivering to {" ".join(t.uri for t, _ in sorted_targets)}')
         user = from_user.key.urlsafe()
+        # maps protocol label to whether we've sent to one of its targets yet
+        first_per_protocol = {}
         for i, (target, orig_obj) in enumerate(sorted_targets):
             orig_obj_id = orig_obj.key.id() if orig_obj else None
+            first = target.protocol not in first_per_protocol
+            first_per_protocol[target.protocol] = True
             common.create_task(queue='send', url=target.uri, protocol=target.protocol,
-                               orig_obj_id=orig_obj_id, user=user, **obj_params)
+                               orig_obj_id=orig_obj_id, user=user, first=first,
+                               **obj_params)
 
         return 'OK', 202
 
@@ -2493,8 +2498,11 @@ def send_task():
         this activity is from
       *: If ``obj_id`` is unset, all other parameters are properties for a new
         :class:`models.Object` to handle
+      first: ``true`` if this is the first task of this group (eg sends for
+        a given receive) for this protocol, ``false`` otherwise
     """
-    common.log_request()
+    if request.values.get('first', '').lower() == 'true':
+        common.log_request()
 
     # prepare
     form = request.form.to_dict()

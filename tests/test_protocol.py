@@ -1509,7 +1509,7 @@ class ProtocolTest(TestCase):
         ATProto.block(alice, 'https://bsky.app/profile/han.dull.brid.gy')
 
         self.assert_task(
-            mock_create_task, 'send', protocol='atproto',
+            mock_create_task, 'send', protocol='atproto', first='True',
             obj_id='fake:alice#bridgy-fed-block-2022-01-02T03:04:05+00:00',
             orig_obj_id='at://did:plc:user/app.bsky.actor.profile/self',
             url='https://atproto.brid.gy', user=alice.key.urlsafe())
@@ -5214,8 +5214,9 @@ class ProtocolReceiveTest(TestCase):
         }
         self.assertEqual(('OK', 202), Fake.receive_as1(note_as1))
 
+        id = 'fake:post#bridgy-fed-create-2022-01-02T03:04:05+00:00'
         create_as1 = {
-            'id': 'fake:post#bridgy-fed-create-2022-01-02T03:04:05+00:00',
+            'id': id,
             'objectType': 'activity',
             'verb': 'post',
             'actor': 'fake:user',
@@ -5224,11 +5225,11 @@ class ProtocolReceiveTest(TestCase):
         }
         self.assertEqual(2, mock_create_task.call_count)
         self.assert_task(mock_create_task, 'send', source_protocol='fake',
-                         protocol='other', id='fake:post#bridgy-fed-create-2022-01-02T03:04:05+00:00',
+                         protocol='other', id=id, first='True',
                          our_as1=create_as1, url='other:alice:target',
                          user=self.user.key.urlsafe())
         self.assert_task(mock_create_task, 'send', source_protocol='fake',
-                         protocol='other', id='fake:post#bridgy-fed-create-2022-01-02T03:04:05+00:00',
+                         protocol='other', id=id, first='False',
                          our_as1=create_as1, url='other:bob:target',
                          user=self.user.key.urlsafe())
 
@@ -5271,7 +5272,7 @@ class ProtocolReceiveTest(TestCase):
             'published': '2022-01-02T03:04:05+00:00',
         }
         self.assert_task(mock_create_task, 'send', source_protocol='fake',
-                         protocol='other', orig_obj_id='other:post',
+                         protocol='other', orig_obj_id='other:post', first='True',
                          id='fake:reply#bridgy-fed-create-2022-01-02T03:04:05+00:00', our_as1=create_as1,
                          url='other:post:target', user=self.user.key.urlsafe())
 

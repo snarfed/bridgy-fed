@@ -168,9 +168,6 @@ def create_task(queue, app_id=GCP_PROJECT_ID, delay=None, app=None, **params):
     assert queue
     path = f'/queue/{queue}'
 
-    # removed from "Added X task ..." log message below to cut logging costs
-    # https://github.com/snarfed/bridgy-fed/issues/1149#issuecomment-2265861956
-    # loggable = {k: '{...}' if isinstance(v, dict) else v for k, v in params.items()}
     params = {
         k: json_dumps(v, sort_keys=True) if isinstance(v, dict) else v
         for k, v in params.items()
@@ -179,7 +176,9 @@ def create_task(queue, app_id=GCP_PROJECT_ID, delay=None, app=None, **params):
 
     try:
         authorization = request.headers.get('Authorization') or ''
-        traceparent = request.headers.get('traceparent') or ''
+        traceparent = (request.headers.get('traceparent')
+                       or request.headers.get('X-Cloud-Trace-Context')
+                       or '')
     except RuntimeError:  # not currently in a request context
         authorization = traceparent = ''
 
@@ -243,7 +242,7 @@ def create_task(queue, app_id=GCP_PROJECT_ID, delay=None, app=None, **params):
     task = tasks_client.create_task(parent=parent, task=task)
 
     msg = f'Added {queue} {task.name.split("/")[-1]} {delay_msg}'
-    if delay_msg or not traceparent:
+    if not traceparent:
         logger.info(msg)
 
     return msg, 202
