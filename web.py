@@ -206,7 +206,10 @@ class Web(User, Protocol):
             redirects, etc. Defaults to calling it only if the user is new.
         """
         # normalize id (domain)
-        domain = cls.key_for(id, allow_opt_out=True).id()
+        if not (key := cls.key_for(id, allow_opt_out=True)):
+            return None
+
+        domain = key.id()
         is_bot = util.domain_or_parent_in(domain, [SUPERDOMAIN.strip('.')])
         if is_bot and not appengine_info.DEBUG:
             return super().get_by_id(domain)

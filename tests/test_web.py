@@ -591,6 +591,9 @@ class WebTest(TestCase):
         self.user.put()
         self.assertIsNone(Web.get_or_create('uSeR.cOm'))
 
+    def test_get_or_create_non_domain_url(self, *_):
+        self.assertIsNone(Web.get_or_create('https://foo.com/bar/baz'))
+
     @patch.object(Web, 'DEFAULT_ENABLED_PROTOCOLS', ['other'])
     def test_get_or_create_propagate_fetch_opted_out(self, mock_get, _):
         no_feed = requests_response(ACTOR_HTML_METAFORMATS, url='https://new.com/')
