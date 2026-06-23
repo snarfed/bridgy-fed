@@ -91,7 +91,7 @@ pytz==2026.2
 redis==7.0.1
 requests==2.34.2
 requests-file==3.0.1
-requests-hardened==1.1.1
+requests-hardened==1.2.1
 requests-oauth2client==1.8.0
 requests-oauthlib==2.0.0
 setuptools==82.0.1
