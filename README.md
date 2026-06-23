@@ -24,6 +24,8 @@ pip install -r requirements.txt
 ln -sf local/lib/python3*/site-packages/oauth_dropins/static oauth_dropins_static
 ```
 
+You can also use `uv` instead of `pip`, but if you do, pass it `--no-sources`.
+
 Now, run the tests to check that everything is set up ok:
 
 ```shell

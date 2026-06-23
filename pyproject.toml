@@ -54,6 +54,10 @@ tests = [
     'pytest',
     'pytest-xdist',
 ]
+docs = [
+    'sphinx>=7.0.0',
+    'sphinx-rtd-theme>=3.0.0',
+]
 
 [tool.uv]
 package = false
@@ -90,5 +94,7 @@ DEP002 = [
     'mox3',
     'pytest',
     'pytest-xdist',
+    'sphinx',
+    'sphinx-rtd-theme',
     'ujson',
 ]
