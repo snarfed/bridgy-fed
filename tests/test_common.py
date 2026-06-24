@@ -65,6 +65,20 @@ class CommonTest(TestCase):
         mock_create_task.assert_called()
 
     @patch('webutil.appengine_config.tasks_client.create_task')
+    def test_create_task_propagates_trace_headers(self, mock_create_task):
+        common.RUN_TASKS_INLINE = False
+
+        with app.test_request_context('/', headers={
+                'traceparent': 'a1b2',
+                'X-Cloud-Trace-Context': 'c3d4',
+        }):
+            common.create_task('receive')
+
+        headers = mock_create_task.call_args[1]['task']['app_engine_http_request']['headers']
+        self.assertEqual('a1b2', headers['traceparent'])
+        self.assertEqual('c3d4', headers['X-Cloud-Trace-Context'])
+
+    @patch('webutil.appengine_config.tasks_client.create_task')
     def test_create_task_rate_limited(self, mock_create_task):
         common.RUN_TASKS_INLINE = False
 

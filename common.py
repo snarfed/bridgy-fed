@@ -176,11 +176,10 @@ def create_task(queue, app_id=GCP_PROJECT_ID, delay=None, app=None, **params):
 
     try:
         authorization = request.headers.get('Authorization') or ''
-        traceparent = (request.headers.get('traceparent')
-                       or request.headers.get('X-Cloud-Trace-Context')
-                       or '')
+        traceparent = request.headers.get('traceparent') or ''
+        cloud_trace = request.headers.get('X-Cloud-Trace-Context') or ''
     except RuntimeError:  # not currently in a request context
-        authorization = traceparent = ''
+        authorization = traceparent = cloud_trace = ''
 
     if RUN_TASKS_INLINE or LOCAL_SERVER:
         logger.info(f'Running task inline: {queue} {params}')
@@ -226,12 +225,13 @@ def create_task(queue, app_id=GCP_PROJECT_ID, delay=None, app=None, **params):
             'body': body,
             'headers': {
                 'Content-Type': 'application/x-www-form-urlencoded',
-                'Authorization': (request.headers.get('Authorization', '')
-                                  if flask.has_request_context() else ''),
-                # propagate trace id
+                'Authorization': authorization,
+                # propagate trace id. these two headers use different formats, so
+                # pass each through under its own name instead of crossing them.
                 # https://cloud.google.com/trace/docs/trace-context#http-requests
                 # https://stackoverflow.com/a/71343735/186123
                 'traceparent': traceparent,
+                'X-Cloud-Trace-Context': cloud_trace,
             },
         },
     }
@@ -242,7 +242,7 @@ def create_task(queue, app_id=GCP_PROJECT_ID, delay=None, app=None, **params):
     task = tasks_client.create_task(parent=parent, task=task)
 
     msg = f'Added {queue} {task.name.split("/")[-1]} {delay_msg}'
-    if not traceparent:
+    if not traceparent and not cloud_trace:
         logger.info(msg)
 
     return msg, 202
