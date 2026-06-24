@@ -12,7 +12,7 @@ cbor2==6.1.2
 certifi==2026.6.17
 cffi==2.0.0
 charset-normalizer==3.4.7
-click==8.3.2
+click==8.4.1
 colorama==0.4.6
 cryptography==49.0.0
 dag-cbor==0.3.3
