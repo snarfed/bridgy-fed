@@ -212,7 +212,7 @@ class NostrTest(TestCase):
             with self.subTest(handle=handle):
                 self.assertEqual(False, Nostr.owns_handle(handle))
 
-    @patch.object(util.session, 'get')
+    @patch.object(util.session, 'get', autospec=True)
     def test_handle_to_id(self, mock_get):
         nip05_resp = requests_response({
             'names': {'alice': PUBKEY},
@@ -971,7 +971,7 @@ class NostrTest(TestCase):
         self.assertEqual('ws://re.lay2/', Nostr.target_for(Object(nostr=NOTE_NOSTR)))
 
     @patch('secrets.token_urlsafe', return_value='towkin')
-    @patch.object(util.session, 'get', return_value=requests_response({
+    @patch.object(util.session, 'get', autospec=True, return_value=requests_response({
         'names': {'alice': PUBKEY},
     }))
     def test_reload_profile(self, mock_get, _):
@@ -1046,7 +1046,7 @@ class NostrTest(TestCase):
         self.assertIsNone(user.handle_pay_level_domain)
 
     @patch('secrets.token_urlsafe', return_value='towkin')
-    @patch.object(util.session, 'get', return_value=requests_response({
+    @patch.object(util.session, 'get', autospec=True, return_value=requests_response({
         'names': {'alice': 'cba321'},
     }))
     def test_reload_profile_nip05_wrong_pubkey(self, mock_get, _):
@@ -1068,7 +1068,7 @@ class NostrTest(TestCase):
         self.assertIsNone(user.valid_nip05)
 
     @patch('secrets.token_urlsafe', return_value='towkin')
-    @patch.object(util.session, 'get', side_effect=OSError('nope'))
+    @patch.object(util.session, 'get', autospec=True, side_effect=OSError('nope'))
     def test_reload_profile_nip05_fetch_error(self, mock_get, _):
         profile = self.make_profile()
         FakeConnection.to_receive = [
@@ -1082,7 +1082,7 @@ class NostrTest(TestCase):
         self.assert_req(mock_get, 'https://foo.com/.well-known/nostr.json?name=alice')
         self.assertIsNone(user.valid_nip05)
 
-    @patch.object(util.session, 'get', return_value=requests_response(''))  # NIP-05 checks
+    @patch.object(util.session, 'get', autospec=True, return_value=requests_response(''))  # NIP-05 checks
     def test_status(self, _):
         self.assertEqual('no-profile', Nostr().status)
         self.assertEqual('no-profile', Nostr(valid_nip05='alice@foo.com').status)
@@ -1102,7 +1102,7 @@ class NostrTest(TestCase):
         self.assertIsNone(user.status)
         self.assertEqual('foo.com', user.handle_pay_level_domain)
 
-    @patch.object(util.session, 'get', return_value=requests_response({
+    @patch.object(util.session, 'get', autospec=True, return_value=requests_response({
         'names': {'alice': PUBKEY_2},
     }))
     def test_status_unsets_valid_nip05_on_other_users(self, mock_get):

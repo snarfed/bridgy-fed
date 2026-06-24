@@ -244,7 +244,7 @@ class IntegrationTests(TestCase):
             atproto_firehose.handle(limit=limit)
         assert atproto_firehose.commits.empty()
 
-    @patch.object(util.session, 'post')
+    @patch.object(util.session, 'post', autospec=True)
     def test_atproto_post_to_activitypub(self, mock_post):
         """ATProto post, from firehose to ActivityPub.
 
@@ -299,7 +299,7 @@ class IntegrationTests(TestCase):
 
     # the quoted post isn't bridged; its fetch should fail and we deliver to
     # alice's followers
-    @patch.object(util.session, 'post')
+    @patch.object(util.session, 'post', autospec=True)
     def test_atproto_quote_post_to_activitypub(self, mock_post):
         """ATProto quote post, from firehose to ActivityPub.
 
@@ -364,7 +364,7 @@ class IntegrationTests(TestCase):
             },
         })
 
-    @patch.object(util.session, 'post')
+    @patch.object(util.session, 'post', autospec=True)
     def test_atproto_profile_update_to_activitypub(self, mock_post):
         """ATProto profile update, from firehose to ActivityPub.
 
@@ -405,7 +405,7 @@ class IntegrationTests(TestCase):
             },
         }, ignore=('attachment', 'publicKey', 'to'))
 
-    @patch.object(util.session, 'post')
+    @patch.object(util.session, 'post', autospec=True)
     def test_atproto_reply_to_activitypub(self, mock_post):
         """ATProto reply, from firehose to ActivityPub.
 
@@ -462,8 +462,8 @@ class IntegrationTests(TestCase):
             'cc': ['http://inst/bob'],
         }, ignore=['@context', 'to'])
 
-    @patch.object(util.session, 'post', return_value=BSKY_SEND_MESSAGE_RESP)
-    @patch.object(util.session, 'get', return_value=BSKY_GET_CONVO_RESP)
+    @patch.object(util.session, 'post', autospec=True, return_value=BSKY_SEND_MESSAGE_RESP)
+    @patch.object(util.session, 'get', autospec=True, return_value=BSKY_GET_CONVO_RESP)
     def test_atproto_not_bridged_reply_to_activitypub(self, mock_get, mock_post):
         """ATProto reply from a non-bridged user, from firehose to ActivityPub.
 
@@ -520,8 +520,8 @@ class IntegrationTests(TestCase):
         text = kwargs['json']['message']['text']
         self.assertTrue(text.startswith("""Hi! You recently replied to My Name · @bob@inst, who's bridged here from the fediverse."""), text)
 
-    @patch.object(util.session, 'post', return_value=requests_response(''))
-    @patch.object(util.session, 'get', return_value=test_web.WEBMENTION_REL_LINK)
+    @patch.object(util.session, 'post', autospec=True, return_value=requests_response(''))
+    @patch.object(util.session, 'get', autospec=True, return_value=test_web.WEBMENTION_REL_LINK)
     def test_atproto_follow_of_web(self, mock_get, mock_post):
         """ATProto follow to Web.
 
@@ -551,8 +551,8 @@ class IntegrationTests(TestCase):
             'target': 'https://bob.com/',
         }, allow_redirects=False, headers={'Accept': '*/*'})
 
-    @patch.object(util.session, 'post', return_value=requests_response(''))
-    @patch.object(util.session, 'get', side_effect=[
+    @patch.object(util.session, 'post', autospec=True, return_value=requests_response(''))
+    @patch.object(util.session, 'get', autospec=True, side_effect=[
         test_web.WEBMENTION_REL_LINK,
     ])
     def test_atproto_quote_to_web(self, mock_get, mock_post):
@@ -603,10 +603,10 @@ class IntegrationTests(TestCase):
 
     @patch('dns.resolver.resolve', side_effect=NXDOMAIN())
     @patch('webutil.appengine_config.tasks_client.create_task')
-    @patch.object(util.session, 'post', side_effect=[
+    @patch.object(util.session, 'post', autospec=True, side_effect=[
            requests_response('OK'),  # create DID
     ])
-    @patch.object(util.session, 'get', side_effect = [
+    @patch.object(util.session, 'get', autospec=True, side_effect = [
         # webmention source page, follow HTML
         requests_response("""\
 <html>
@@ -679,7 +679,7 @@ class IntegrationTests(TestCase):
         }], list(repo.get_contents()['app.bsky.graph.follow'].values()))
 
     @patch('webutil.appengine_config.tasks_client.create_task')
-    @patch.object(util.session, 'get', side_effect=[
+    @patch.object(util.session, 'get', autospec=True, side_effect=[
         # getRecord of original post
         requests_response({
             'uri': 'at://did:plc:alice/app.bsky.feed.post/123',
@@ -729,8 +729,8 @@ class IntegrationTests(TestCase):
         }}, repo.get_contents()['app.bsky.feed.like'])
 
     @patch('webutil.appengine_config.tasks_client.create_task')
-    @patch.object(util.session, 'post', return_value=BSKY_SEND_MESSAGE_RESP)
-    @patch.object(util.session, 'get', return_value=BSKY_GET_CONVO_RESP)
+    @patch.object(util.session, 'post', autospec=True, return_value=BSKY_SEND_MESSAGE_RESP)
+    @patch.object(util.session, 'get', autospec=True, return_value=BSKY_GET_CONVO_RESP)
     def test_activitypub_not_bridged_reply_to_atproto(self, mock_get, mock_post,
                                                       mock_create_task):
         """AP inbox delivery of a reply from an unbridged user to an ATProto post.
@@ -807,7 +807,7 @@ class IntegrationTests(TestCase):
         self.assertEqual("""<p>Hi! You <a href="http://inst/reply">recently replied to</a> <a class="h-card u-author mention" rel="me" href="https://bsky.app/profile/alice.com" title="Alice &middot; alice.com"><span style="unicode-bidi: isolate">Alice</span> &middot; alice.com</a>, who's bridged here from Bluesky. If you want them to see your replies, you can bridge your account into Bluesky by following this account. <a href="https://fed.brid.gy/docs">See the docs</a> for more information.</p>""",
             json_loads(mock_post.call_args_list[1][1]['data'])['object']['content'])
 
-    @patch.object(util.session, 'post')
+    @patch.object(util.session, 'post', autospec=True)
     def test_activitypub_follow_to_atproto_not_bridged(self, mock_post):
         """AP inbox delivery of a follow to an ATProto user without bridge enabled.
 
@@ -839,8 +839,8 @@ class IntegrationTests(TestCase):
         # no atproto write, didn't create repo
         self.assertIsNone(self.storage.load_repo('did:plc:alice'))
 
-    @patch.object(util.session, 'post', return_value=requests_response('OK'))  # create DID
-    @patch.object(util.session, 'get')
+    @patch.object(util.session, 'post', autospec=True, return_value=requests_response('OK'))  # create DID
+    @patch.object(util.session, 'get', autospec=True)
     def test_activitypub_follow_bsky_bot_user_enables_protocol(self, mock_get, mock_post):
         """AP follow of @bsky.brid.gy@bsky.brid.gy bridges the account into Bluesky.
 
@@ -955,8 +955,8 @@ class IntegrationTests(TestCase):
     @patch('atproto.DEBUG', new=False)
     @patch.object(google.cloud.dns.client.ManagedZone, 'changes')
     # PLC directory create DID, welcome DM AP inbox delivery
-    @patch.object(util.session, 'post', return_value=requests_response('OK'))
-    @patch.object(util.session, 'get', side_effect=[
+    @patch.object(util.session, 'post', autospec=True, return_value=requests_response('OK'))
+    @patch.object(util.session, 'get', autospec=True, side_effect=[
         # alice profile picture
         requests_response('blob', headers={'Content-Type': 'image/jpeg'}),
     ])
@@ -996,8 +996,8 @@ class IntegrationTests(TestCase):
         # shouldn't have set DNS, we're using HTTP for handle resolution
         mock_dns_changes.assert_not_called()
 
-    @patch.object(util.session, 'post')  # for Reject, DM explaining why not
-    @patch.object(util.session, 'get')
+    @patch.object(util.session, 'post', autospec=True)  # for Reject, DM explaining why not
+    @patch.object(util.session, 'get', autospec=True)
     def test_activitypub_follow_bsky_bot_bad_username_error(self, mock_get, mock_post):
         """AP follow of @bsky.brid.gy@bsky.brid.gy from bad username fails.
 
@@ -1031,8 +1031,8 @@ class IntegrationTests(TestCase):
         self.assertFalse(user.is_enabled(ATProto))
         self.assertEqual(0, len(user.copies))
 
-    @patch.object(util.session, 'post', return_value=BSKY_SEND_MESSAGE_RESP)
-    @patch.object(util.session, 'get', side_effect=[
+    @patch.object(util.session, 'post', autospec=True, return_value=BSKY_SEND_MESSAGE_RESP)
+    @patch.object(util.session, 'get', autospec=True, side_effect=[
         requests_response(DID_DOC),  # alice DID
         requests_response(PROFILE_GETRECORD),  # alice profile
         requests_response(PROFILE_GETRECORD),  # alice profile
@@ -1106,8 +1106,8 @@ class IntegrationTests(TestCase):
                 },
             }, data=None, headers=headers)
 
-    @patch.object(util.session, 'post')
-    @patch.object(util.session, 'get')
+    @patch.object(util.session, 'post', autospec=True)
+    @patch.object(util.session, 'get', autospec=True)
     def test_atproto_block_ap_bot_user_disables_protocol_deletes_actor(
             self, mock_get, mock_post):
         """Bluesky user blocks ap.brid.gy: disables protocol, deletes their AP actor.
@@ -1142,7 +1142,7 @@ class IntegrationTests(TestCase):
                 'to': ['https://www.w3.org/ns/activitystreams#Public'],
             }, json_loads(kwargs['data']))
 
-    @patch.object(util.session, 'get', side_effect=[
+    @patch.object(util.session, 'get', autospec=True, side_effect=[
         # alice profile picture
         requests_response('blob', headers={'Content-Type': 'image/jpeg'}),
     ])
@@ -1172,8 +1172,8 @@ class IntegrationTests(TestCase):
 
         self.assertEqual('deactivated', self.storage.load_repo('did:plc:alice').status)
 
-    @patch.object(util.session, 'post')
-    @patch.object(util.session, 'get')
+    @patch.object(util.session, 'post', autospec=True)
+    @patch.object(util.session, 'get', autospec=True)
     def test_activitypub_block_list_dm_to_atproto(self, mock_get, mock_post):
         """AP DM to @bsky.brid.gy with 'block LIST_URL' creates a listblock record.
 
@@ -1257,7 +1257,7 @@ class IntegrationTests(TestCase):
             'to': ['https://inst/alice'],
         })
 
-    @patch.object(util.session, 'post', side_effect=[
+    @patch.object(util.session, 'post', autospec=True, side_effect=[
         requests_response({  # createAccount
             'accessJwt': 'access-tok',
             'refreshJwt': 'refresh-tok',
@@ -1276,7 +1276,7 @@ class IntegrationTests(TestCase):
         }),
         requests_response(),  # reply DM delivery to alice's inbox
     ])
-    @patch.object(util.session, 'get', side_effect=[
+    @patch.object(util.session, 'get', autospec=True, side_effect=[
         # largely duplicated in test_atproto.py
         requests_response({  # describeServer
             'did': 'did:web:new.pds.com',
@@ -1402,8 +1402,8 @@ class IntegrationTests(TestCase):
             "<p>OK, we've migrated your bridged Bluesky account to <code>myhandle.new.pds.com</code> on new.pds.com.</p>",
             json_loads(reply.kwargs['data'])['object']['content'])
 
-    @patch.object(util.session, 'post')
-    @patch.object(util.session, 'get')
+    @patch.object(util.session, 'post', autospec=True)
+    @patch.object(util.session, 'get', autospec=True)
     def test_atproto_migrate_to_activitypub(self, mock_get, mock_post):
         """ATProto chat DM to @ap.brid.gy with 'migrate-to ...' to ActivityPub.
 
@@ -1488,7 +1488,7 @@ class IntegrationTests(TestCase):
             'alice-new · @alice-new@inst.',
             sends[0].kwargs['json']['message']['text'])
 
-    @patch.object(util.session, 'get', side_effect=[
+    @patch.object(util.session, 'get', autospec=True, side_effect=[
         # alice profile picture
         requests_response('blob', headers={'Content-Type': 'image/jpeg'}),
     ])
@@ -1518,7 +1518,7 @@ class IntegrationTests(TestCase):
 
         self.assertEqual('deactivated', self.storage.load_repo('did:plc:alice').status)
 
-    @patch.object(util.session, 'get', side_effect=[
+    @patch.object(util.session, 'get', autospec=True, side_effect=[
         # alice profile picture
         requests_response('blob', headers={'Content-Type': 'image/jpeg'}),
     ])
@@ -1588,8 +1588,8 @@ class IntegrationTests(TestCase):
         repo = self.storage.load_repo('did:plc:alice')
         self.assertIsNone(repo.get_record('app.bsky.feed.post', tid))
 
-    @patch.object(util.session, 'post', return_value=requests_response('OK'))  # PLC create DID
-    @patch.object(util.session, 'get',
+    @patch.object(util.session, 'post', autospec=True, return_value=requests_response('OK'))  # PLC create DID
+    @patch.object(util.session, 'get', autospec=True,
                   return_value=requests_response('blob', headers={'Content-Type': 'image/jpeg'}))
     def test_activitypub_move_rewires_bridge_followers(self, mock_get, mock_post):
         """AP => AP Move rewires ATProto and Web bridge followers.
@@ -1623,8 +1623,8 @@ class IntegrationTests(TestCase):
         self.assertEqual(new_alice.key, bob_web_follower.key.get().to)
 
     # PLC create DID
-    @patch.object(util.session, 'post', return_value=requests_response('OK'))
-    @patch.object(util.session, 'get',
+    @patch.object(util.session, 'post', autospec=True, return_value=requests_response('OK'))
+    @patch.object(util.session, 'get', autospec=True,
                   return_value=requests_response('blob', headers={'Content-Type': 'image/jpeg'}))
     def test_activitypub_move_bridges_target_to_atproto(self, mock_get, mock_post):
         """AP => AP Move for a bridged user. Should move the copy account.
@@ -1657,7 +1657,7 @@ class IntegrationTests(TestCase):
         self.assertEqual(['atproto'], new_alice.enabled_protocols)
         self.assertIs(False, new_alice.manual_opt_out)
 
-    @patch.object(util.session, 'get')
+    @patch.object(util.session, 'get', autospec=True)
     def test_web_delete_of_post_bridged_to_atproto(self, mock_get):
         """Web Delete (410) of a post removes it from the ATProto repo.
 
@@ -1698,8 +1698,8 @@ class IntegrationTests(TestCase):
         repo = self.storage.load_repo('did:plc:alice')
         self.assertIsNone(repo.get_record('app.bsky.feed.post', tid))
 
-    @patch.object(util.session, 'post', return_value=requests_response(''))
-    @patch.object(util.session, 'get', return_value=requests_response("""\
+    @patch.object(util.session, 'post', autospec=True, return_value=requests_response(''))
+    @patch.object(util.session, 'get', autospec=True, return_value=requests_response("""\
 <html>
   <body class="h-card"><a rel="me" href="/">me</a> #nobridge</body>
 </html>""", url='https://alice.com/'))
@@ -1740,8 +1740,8 @@ class IntegrationTests(TestCase):
             'object': 'http://localhost/alice.com',
         }, json_loads(kwargs['data']), ignore=['@context', 'contentMap', 'to', 'cc'])
 
-    @patch.object(util.session, 'post', return_value=requests_response(''))
-    @patch.object(util.session, 'get', return_value=requests_response("""\
+    @patch.object(util.session, 'post', autospec=True, return_value=requests_response(''))
+    @patch.object(util.session, 'get', autospec=True, return_value=requests_response("""\
 <html><body class="h-card">
   <a class="u-url" href="/"></a>
   <a class="u-url" href="acct:fooey@alice.com"></a>
@@ -1770,8 +1770,8 @@ class IntegrationTests(TestCase):
         self.assertEqual('fooey', alice.username())
         self.assertEqual('@fooey@alice.com', alice.handle_as(ActivityPub))
 
-    @patch.object(util.session, 'post')
-    @patch.object(util.session, 'get')
+    @patch.object(util.session, 'post', autospec=True)
+    @patch.object(util.session, 'get', autospec=True)
     def test_atproto_mention_activitypub(self, mock_get, mock_post):
         """Bluesky @-mention of *.ap.brid.gy user.
 
@@ -1821,8 +1821,8 @@ class IntegrationTests(TestCase):
             },
         }, ignore=['@context', 'contentMap', 'to', 'cc'])
 
-    @patch.object(util.session, 'post')
-    @patch.object(util.session, 'get')
+    @patch.object(util.session, 'post', autospec=True)
+    @patch.object(util.session, 'get', autospec=True)
     def test_atproto_undo_block_of_activitypub(self, mock_get, mock_post):
         """Bluesky undo of a block of an AP user.
 
@@ -1854,8 +1854,8 @@ class IntegrationTests(TestCase):
             'object': 'https://bsky.brid.gy/convert/ap/at://did:plc:alice/app.bsky.graph.block/123',
         }, ignore=['@context', 'contentMap', 'to', 'cc'])
 
-    @patch.object(util.session, 'post')
-    @patch.object(util.session, 'get')
+    @patch.object(util.session, 'post', autospec=True)
+    @patch.object(util.session, 'get', autospec=True)
     def test_activitypub_undo_block_of_atproto(self, mock_get, mock_post):
         """ActivityPub undo of a block of an ATProto user.
 
@@ -1944,7 +1944,7 @@ class IntegrationTests(TestCase):
         last = self.storage.sequences.last(firehose.SUBSCRIBE_REPOS_NSID)
         self.assertEqual(last_seq, last)
 
-    @patch.object(util.session, 'post', side_effect=[
+    @patch.object(util.session, 'post', autospec=True, side_effect=[
         requests_response('OK'),  # create DID
         requests_response({       # createReport
             'id': 3,
@@ -1959,7 +1959,7 @@ class IntegrationTests(TestCase):
             'createdAt': NOW.isoformat(),
         }),
     ])
-    @patch.object(util.session, 'get', side_effect=[
+    @patch.object(util.session, 'get', autospec=True, side_effect=[
         requests_response(PROFILE_GETRECORD),
         requests_response(DID_DOC),
     ])
@@ -2038,7 +2038,7 @@ class IntegrationTests(TestCase):
             }],
         }, ActivityPub.convert(obj), ignore=['@context', 'attributedTo', 'to'])
 
-    @patch.object(util.session, 'get', side_effect=[
+    @patch.object(util.session, 'get', autospec=True, side_effect=[
         requests_response({**DID_DOC, 'alsoKnownAs': ['at://b.az']}),
         requests_response(PROFILE_GETRECORD),
     ])
@@ -2172,7 +2172,7 @@ class IntegrationTests(TestCase):
         self.assert_equals(expected, ActivityPub.convert(obj),
                            ignore=['@context', 'to'])
 
-    @patch.object(util.session, 'post')
+    @patch.object(util.session, 'post', autospec=True)
     def test_nostr_post_to_activitypub_follower(self, mock_post):
         """Nostr post delivered to ActivityPub follower.
 
@@ -2253,7 +2253,7 @@ class IntegrationTests(TestCase):
             'createdAt': '2022-01-02T03:04:05.000Z',
         }}}, repo.get_contents())
 
-    @patch.object(util.session, 'post')
+    @patch.object(util.session, 'post', autospec=True)
     def test_nostr_post_mentions_activitypub_and_atproto_users(self, mock_post):
         """Nostr post with NIP-27 mentions delivered to AP and ATProto users.
 
@@ -2368,7 +2368,7 @@ class IntegrationTests(TestCase):
             }],
         }}}, bob_repo.get_contents())
 
-    @patch.object(util.session, 'post')
+    @patch.object(util.session, 'post', autospec=True)
     def test_nostr_delete_post_to_activitypub_and_atproto(self, mock_post):
         """Nostr delete of a post, sent to AP and ATProto.
 
@@ -2673,7 +2673,7 @@ class IntegrationTests(TestCase):
             Target(protocol='nostr', uri='nostr:' + expected_event['id']),
         ], Object.get_by_id('https://inst/post').copies)
 
-    @patch.object(util.session, 'get', return_value=requests_response(
+    @patch.object(util.session, 'get', autospec=True, return_value=requests_response(
         'cover image contents', content_type='image/jpeg'))
     def test_activitypub_create_article_to_atproto(self, mock_get):
         """ActivityPub user creates article, delivered to ATProto.
@@ -2804,7 +2804,7 @@ class IntegrationTests(TestCase):
                 'created_at': NOW_SECONDS,
             }, privkey=alice.nsec())]], FakeConnection.sent)
 
-    @patch.object(util.session, 'get', side_effect=[
+    @patch.object(util.session, 'get', autospec=True, side_effect=[
         requests_response("""\
 <html>
 <body class="h-entry">
@@ -2847,8 +2847,8 @@ class IntegrationTests(TestCase):
             Target(protocol='nostr', uri='nostr:' + expected_event['id']),
         ], Object.get_by_id('https://alice.com/post').copies)
 
-    @patch.object(util.session, 'post')
-    @patch.object(util.session, 'get')
+    @patch.object(util.session, 'post', autospec=True)
+    @patch.object(util.session, 'get', autospec=True)
     def test_web_blog_redirect_post_to_activitypub_follower(self, mock_get, mock_post):
         """Blog redirect: webmention from bsky.brid.gy/internal/snarfed.org/post.
 
@@ -2936,7 +2936,7 @@ class IntegrationTests(TestCase):
             Target(protocol='nostr', uri='nostr:' + expected_event['id']),
         ], Object.get_by_id(at_uri).copies)
 
-    @patch.object(util.session, 'get', side_effect=[
+    @patch.object(util.session, 'get', autospec=True, side_effect=[
         requests_response({'names': {'bob': 'deadbeef'}}),  # NIP-05 validation
     ])
     def test_nostr_follow_activitypub_bot_user_invalid_nip05(self, mock_get):
@@ -2969,7 +2969,7 @@ class IntegrationTests(TestCase):
 
     # TODO: https://github.com/snarfed/bridgy-fed/issues/2203
     @skip
-    @patch.object(util.session, 'post', return_value=requests_response('OK'))
+    @patch.object(util.session, 'post', autospec=True, return_value=requests_response('OK'))
     @patch('secrets.token_urlsafe',
            side_effect=['sub123', 'sub456', 'sub789', 'subabc'])
     def test_nostr_follow_activitypub_bot_user_enables_protocol(self, _, mock_post):
@@ -3002,8 +3002,8 @@ class IntegrationTests(TestCase):
 
     # TODO: https://github.com/snarfed/bridgy-fed/issues/2203
     @skip
-    @patch.object(util.session, 'post', return_value=requests_response('OK'))
-    @patch.object(util.session, 'get', side_effect=[
+    @patch.object(util.session, 'post', autospec=True, return_value=requests_response('OK'))
+    @patch.object(util.session, 'get', autospec=True, side_effect=[
         requests_response(''),  # bob profile picture
     ])
     @patch('secrets.token_urlsafe',
@@ -3048,8 +3048,8 @@ class IntegrationTests(TestCase):
         bob = bob.key.get()
         self.assertTrue(bob.is_enabled(ATProto))
 
-    @patch.object(util.session, 'get')
-    @patch.object(util.session, 'post')
+    @patch.object(util.session, 'get', autospec=True)
+    @patch.object(util.session, 'post', autospec=True)
     def test_activitypub_follow_nostr_bot_user_enables_protocol(self, mock_post,
                                                                 mock_get):
         """ActivityPub follow of @nostr.brid.gy enables the Nostr protocol.
@@ -3082,12 +3082,12 @@ class IntegrationTests(TestCase):
         self.assertTrue(user.is_enabled(Nostr))
 
     @patch('webutil.appengine_config.tasks_client.create_task')
-    @patch.object(util.session, 'get', side_effect=[
+    @patch.object(util.session, 'get', autospec=True, side_effect=[
         requests_response(DID_DOC),  # alice DID
         requests_response(PROFILE_GETRECORD),  # alice profile
         BSKY_GET_CONVO_RESP,
     ])
-    @patch.object(util.session, 'post', return_value=BSKY_SEND_MESSAGE_RESP)
+    @patch.object(util.session, 'post', autospec=True, return_value=BSKY_SEND_MESSAGE_RESP)
     def test_atproto_follow_nostr_bot_user_enables_protocol(self, mock_post, mock_get,
                                                             mock_create_task):
         """ATProto follow of nostr.brid.gy enables the Nostr protocol.
@@ -3110,8 +3110,8 @@ class IntegrationTests(TestCase):
 
     # TODO: https://github.com/snarfed/bridgy-fed/issues/2203
     @skip
-    @patch.object(util.session, 'post')
-    @patch.object(util.session, 'get')
+    @patch.object(util.session, 'post', autospec=True)
+    @patch.object(util.session, 'get', autospec=True)
     def test_nostr_follow_activitypub_user(self, mock_get, mock_post):
         """Nostr follow of a normal ActivityPub user.
 
@@ -3212,7 +3212,7 @@ class IntegrationTests(TestCase):
             'createdAt': '2022-01-02T03:04:05.000Z',
         }}}, repo.get_contents())
 
-    @patch.object(util.session, 'post')
+    @patch.object(util.session, 'post', autospec=True)
     def test_nostr_reply_to_activitypub(self, mock_post):
         """Nostr reply to ActivityPub user's post.
 
@@ -3342,7 +3342,7 @@ class IntegrationTests(TestCase):
         ], Object.get_by_id('https://inst/reply').copies)
 
     @patch('secrets.token_urlsafe', side_effect=['sub123'])
-    @patch.object(util.session, 'get')
+    @patch.object(util.session, 'get', autospec=True)
     def test_web_reply_to_nostr_user(self, mock_get, _):
         """Web reply to Nostr user's post.
 
@@ -3528,8 +3528,8 @@ class IntegrationTests(TestCase):
             Target(protocol='nostr', uri='nostr:' + expected_event['id']),
         ], Object.get_by_id(at_uri).copies)
 
-    @patch.object(util.session, 'post')
-    @patch.object(util.session, 'get', return_value=requests_response({
+    @patch.object(util.session, 'post', autospec=True)
+    @patch.object(util.session, 'get', autospec=True, return_value=requests_response({
         'names': {'bob': PUBKEY},
     }))
     def test_nostr_user_profile_update_to_activitypub(self, mock_get, mock_post):
@@ -3662,7 +3662,7 @@ class IntegrationTests(TestCase):
             ['EVENT', expected_relays],
         ], FakeConnection.sent)
 
-    @patch.object(util.session, 'get', return_value=requests_response("""\
+    @patch.object(util.session, 'get', autospec=True, return_value=requests_response("""\
 <html><body class="h-card">
   <a class="u-url p-name" href="/">Alice Updated</a>
   <p class="p-summary">New bio</p>
@@ -3815,7 +3815,7 @@ class IntegrationTests(TestCase):
         }, record, ignore=['bridgyOriginalText', 'bridgyOriginalUrl', 'createdAt'])
 
     @patch('webutil.util.now', return_value=datetime.now())
-    @patch.object(util.session, 'post')
+    @patch.object(util.session, 'post', autospec=True)
     def test_atproto_respond_repost_to_unbridged_activitypub(self, mock_post,
                                                              mock_now):
         """ATProto user bridged to AP uses web UI to reply to unbridged AP post.

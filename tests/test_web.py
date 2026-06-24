@@ -3158,8 +3158,8 @@ Current vs expected:<pre>- http://this/404s
             get_flashed_messages())
 
 
-@patch.object(util.session, 'post')
-@patch.object(util.session, 'get')
+@patch.object(util.session, 'post', autospec=True)
+@patch.object(util.session, 'get', autospec=True)
 class WebUtilTest(TestCase):
 
     def setUp(self):
@@ -3849,7 +3849,7 @@ class IndieAuthTest(TestCase):
         super().setUp()
         self.user = self.make_user('alice.com', cls=Web)
 
-    @patch.object(util.session, 'get', return_value=requests_response(''))
+    @patch.object(util.session, 'get', autospec=True, return_value=requests_response(''))
     def test_start(self, mock_get):
         resp = self.client.post('/oauth/indieauth/start', data={
             'me': 'https://alice.com',
@@ -3858,8 +3858,8 @@ class IndieAuthTest(TestCase):
         self.assertTrue(resp.headers['Location'].startswith(indieauth.INDIEAUTH_URL),
                         resp.headers['Location'])
 
-    @patch.object(util.session, 'post', return_value=requests_response('me=https://alice.com'))
-    @patch.object(util.session, 'get', return_value=requests_response(''))
+    @patch.object(util.session, 'post', autospec=True, return_value=requests_response('me=https://alice.com'))
+    @patch.object(util.session, 'get', autospec=True, return_value=requests_response(''))
     def test_callback(self, mock_get, mock_post):
         state = util.encode_oauth_state({
             'endpoint': indieauth.INDIEAUTH_URL,

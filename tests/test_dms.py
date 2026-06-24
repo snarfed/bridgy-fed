@@ -472,7 +472,7 @@ class DmsTest(TestCase):
         self.assert_replied(OtherFake, alice, '?', "Sorry, Bridgy Fed doesn't yet support bridging handle other:handle:bob from other-phrase to efake-phrase.")
         self.assertEqual([], OtherFake.sent)
 
-    @patch.object(util.session, 'post')
+    @patch.object(util.session, 'post', autospec=True)
     def test_receive_prompt_for_activitypub(self, mock_post):
         self.make_user(id='ap.brid.gy', cls=Web)
         self.make_user(id='efake.brid.gy', cls=Web)
@@ -921,7 +921,7 @@ Hi! I'm a friendly bot that can help you bridge your account into the fediverse.
             }),
         ], OtherFake.sent)
 
-    @patch.object(util.session, 'get', return_value=requests_response(
+    @patch.object(util.session, 'get', autospec=True, return_value=requests_response(
             'domain\nfoo.com\nbar.org', headers={'Content-Type': 'text/csv'}))
     def test_receive_block_csv_blocklist(self, mock_get):
         alice, _ = self.make_alice_bob()
@@ -1130,8 +1130,8 @@ Hi! I'm a friendly bot that can help you bridge your account into the fediverse.
             }),
         ], OtherFake.sent)
 
-    @patch.object(util.session, 'post')
-    @patch.object(util.session, 'get')
+    @patch.object(util.session, 'post', autospec=True)
+    @patch.object(util.session, 'get', autospec=True)
     def test_receive_migrate_to_activitypub(self, mock_get, mock_post):
         alice, bob = self.make_alice_bob(alice_enabled=ActivityPub)
         mock_get.return_value = self.as2_resp({
@@ -1170,7 +1170,7 @@ Hi! I'm a friendly bot that can help you bridge your account into the fediverse.
             'target': 'http://in.st/carol',
         })
 
-    @patch.object(util.session, 'get')
+    @patch.object(util.session, 'get', autospec=True)
     def test_receive_migrate_to_activitypub_check_can_migrate_out_fails(self, mock_get):
         alice, bob = self.make_alice_bob(alice_enabled=ActivityPub)
         # destination actor has no alsoKnownAs alias back to alice's bridged actor
@@ -1192,7 +1192,7 @@ Hi! I'm a friendly bot that can help you bridge your account into the fediverse.
     @patch.object(tasks_client, 'create_task')
     @patch.object(ATProto, 'migrate_out')
     @patch.object(ATProto, 'create_account_for_migrate_out')
-    @patch.object(util.session, 'get', return_value=requests_response({
+    @patch.object(util.session, 'get', autospec=True, return_value=requests_response({
         'did': 'did:web:new.pds.com',
         'availableUserDomains': ['.pds.com'],
     }))
@@ -1250,7 +1250,7 @@ Hi! I'm a friendly bot that can help you bridge your account into the fediverse.
         self.assertEqual(('OK', 200), receive(from_user=alice, obj=obj))
         self.assert_replied(ATProto, alice, '?', "Sorry, we can't migrate to")
 
-    @patch.object(util.session, 'get', return_value=requests_response({
+    @patch.object(util.session, 'get', autospec=True, return_value=requests_response({
         'did': 'did:web:new.pds.com',
         'availableUserDomains': ['.pds.com'],
         'phoneVerificationRequired': True,
@@ -1265,7 +1265,7 @@ Hi! I'm a friendly bot that can help you bridge your account into the fediverse.
         self.assertEqual(('OK', 200), receive(from_user=alice, obj=obj))
         self.assert_replied(ATProto, alice, '?', 'Sorry, new.pds.com requires phone')
 
-    @patch.object(util.session, 'get', return_value=requests_response(
+    @patch.object(util.session, 'get', autospec=True, return_value=requests_response(
         status=502, body='gateway down'))
     def test_receive_migrate_to_atproto_pds_unreachable(self, _):
         alice, bob = self.make_alice_bob(alice_enabled=ATProto)
@@ -1280,7 +1280,7 @@ Hi! I'm a friendly bot that can help you bridge your account into the fediverse.
     @patch.object(ATProto, 'create_account_for_migrate_out', side_effect=HTTPError(
         response=requests_response({'error': 'InvalidInviteCode',
                                     'message': 'bad invite'}, status=400)))
-    @patch.object(util.session, 'get', return_value=requests_response({
+    @patch.object(util.session, 'get', autospec=True, return_value=requests_response({
         'did': 'did:web:new.pds.com',
         'availableUserDomains': ['.pds.com'],
     }))

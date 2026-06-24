@@ -510,7 +510,7 @@ class PagesTest(TestCase):
                 'object': {**profile, 'updated': '2022-01-02T03:04:05+00:00'},
             })
 
-    @patch.object(util.session, 'get', return_value=ACTOR_HTML_RESP)
+    @patch.object(util.session, 'get', autospec=True, return_value=ACTOR_HTML_RESP)
     def test_update_profile_web(self, mock_get):
         self.user.obj.copies = [
             Target(protocol='fake', uri='fake:profile:web:user.com'),
@@ -544,7 +544,7 @@ class PagesTest(TestCase):
 
         self.assertEqual({'user.com': 'user.com'}, OtherFake.usernames)
 
-    @patch.object(util.session, 'get', return_value=requests_response(
+    @patch.object(util.session, 'get', autospec=True, return_value=requests_response(
         ACTOR_HTML, url='https://www.user.com/'))
     def test_update_profile_web_www(self, mock_get):
         self.user.obj.copies = [
@@ -575,7 +575,7 @@ class PagesTest(TestCase):
             'object': actor_as1,
         })], Fake.sent)
 
-    @patch.object(util.session, 'get', return_value=requests_response(
+    @patch.object(util.session, 'get', autospec=True, return_value=requests_response(
         ACTOR_HTML.replace('Ms. ☕ Baz', 'Ms. ☕ Baz #nobridge'),
         url='https://user.com/'))
     def test_update_profile_web_delete(self, mock_get):
@@ -978,7 +978,7 @@ class PagesTest(TestCase):
         self.assert_multiline_in(
             f'<input id="{user.key.urlsafe().decode()}-switch" type="checkbox" onClick="bridgingSwitch(event)" >', body)
 
-    @patch.object(util.session, 'get')
+    @patch.object(util.session, 'get', autospec=True)
     def test_settings_on_login_create_new_user(self, mock_get):
         actor_as2 = {**ACTOR_AS2, 'id': 'http://b.c/a'}
         mock_get.return_value = self.as2_resp(actor_as2)
@@ -995,7 +995,7 @@ class PagesTest(TestCase):
         self.assert_multiline_in('Not bridging', body)
         self.assert_multiline_in('because your account doesn&#39;t have a profile picture', body)
 
-    @patch.object(util.session, 'get', side_effect=[
+    @patch.object(util.session, 'get', autospec=True, side_effect=[
         requests_response(DID_DOC),
         requests_response({
             'uri': 'at://did:plc:abc/app.bsky.actor.profile/self',
@@ -1167,7 +1167,7 @@ class PagesTest(TestCase):
             'object': 'fake:eve',
         })], Fake.sent)
 
-    @patch.object(util.session, 'get', return_value=requests_response(
+    @patch.object(util.session, 'get', autospec=True, return_value=requests_response(
             'domain\nfoo.com\nbar.org', headers={'Content-Type': 'text/csv'}))
     def test_block_csv_blocklist(self, mock_get):
         user, _ = self.make_logged_in_bluesky_user(enabled_protocols=['activitypub'])
@@ -1294,8 +1294,8 @@ class PagesTest(TestCase):
         self.assertEqual('none', user.key.get().send_notifs)
 
     @patch.object(tasks_client, 'create_task', return_value=Task(name='my task'))
-    @patch.object(util.session, 'post', return_value=requests_response())
-    @patch.object(util.session, 'get')
+    @patch.object(util.session, 'post', autospec=True, return_value=requests_response())
+    @patch.object(util.session, 'get', autospec=True)
     def test_migrate_to_activitypub(self, mock_get, mock_post, mock_create_task):
         common.RUN_TASKS_INLINE = False
         user, _ = self.make_logged_in_bluesky_user(enabled_protocols=['activitypub'])
@@ -1326,7 +1326,7 @@ class PagesTest(TestCase):
         self.assert_task(mock_create_task, 'migrate-out', protocol='activitypub',
                          user=user.key.urlsafe().decode())
 
-    @patch.object(util.session, 'get')
+    @patch.object(util.session, 'get', autospec=True)
     def test_migrate_to_activitypub_needs_alias(self, mock_get):
         user, _ = self.make_logged_in_bluesky_user(enabled_protocols=['activitypub'])
         # destination actor has no alsoKnownAs alias back to the bridged actor
@@ -1353,7 +1353,7 @@ class PagesTest(TestCase):
         self.assertEqual(302, resp.status_code)
         self.assertEqual('/login', resp.headers['Location'])
 
-    @patch.object(util.session, 'get', return_value=requests_response({
+    @patch.object(util.session, 'get', autospec=True, return_value=requests_response({
         'did': 'did:web:new.pds.com',
         'availableUserDomains': ['.pds.com'],
     }))
@@ -1379,7 +1379,7 @@ class PagesTest(TestCase):
         self.assertEqual('/settings', resp.headers['Location'])
         self.assertIn("we can't migrate to bsky.social", get_flashed_messages()[0])
 
-    @patch.object(util.session, 'get',
+    @patch.object(util.session, 'get', autospec=True,
                   return_value=requests_response(status=502, body='gateway down'))
     def test_migrate_to_atproto_pds_unreachable(self, _):
         user, _ = self.make_logged_in_mastodon_user(enabled_protocols=['atproto'])
@@ -1391,7 +1391,7 @@ class PagesTest(TestCase):
         self.assertEqual('/settings', resp.headers['Location'])
         self.assertTrue(get_flashed_messages()[0].startswith("Couldn't connect"))
 
-    @patch.object(util.session, 'get', return_value=requests_response({
+    @patch.object(util.session, 'get', autospec=True, return_value=requests_response({
         'did': 'did:web:new.pds.com',
         'availableUserDomains': ['.pds.com'],
         'phoneVerificationRequired': True,
@@ -1407,7 +1407,7 @@ class PagesTest(TestCase):
         self.assertIn('action="/settings/migrate-to-atproto/phone-verification"', body)
         self.assertIn('name="handle_domain" value=".pds.com"', body)
 
-    @patch.object(util.session, 'post', return_value=requests_response({}))
+    @patch.object(util.session, 'post', autospec=True, return_value=requests_response({}))
     def test_migrate_to_atproto_phone_verification_post(self, _):
         user, _ = self.make_logged_in_mastodon_user(enabled_protocols=['atproto'])
         resp = self.client.post(

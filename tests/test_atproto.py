@@ -152,38 +152,38 @@ class RemoteSequencesTest(TestCase):
             stream=True,
             **params)
 
-    @patch.object(util.session, 'post', return_value=requests_response('1'))
+    @patch.object(util.session, 'post', autospec=True, return_value=requests_response('1'))
     def test_allocate(self, mock_post):
         result = self.sequences.allocate('foo.bar')
         self.assertEqual(1, result)
         self.check_call(mock_post, 'alloc')
 
-    @patch.object(util.session, 'post', return_value=requests_response('42'))
+    @patch.object(util.session, 'post', autospec=True, return_value=requests_response('42'))
     def test_allocate_strips_trailing_slash(self, mock_post):
         self.assertEqual(42, self.sequences.allocate('foo.bar'))
         self.check_call(mock_post, 'alloc')
 
-    @patch.object(util.session, 'post', return_value=requests_response(status=404))
+    @patch.object(util.session, 'post', autospec=True, return_value=requests_response(status=404))
     def test_allocate_fails(self, mock_post):
         with self.assertRaises(HTTPError):
             self.sequences.allocate('foo.bar')
 
-    @patch.object(util.session, 'get', return_value=requests_response('5'))
+    @patch.object(util.session, 'get', autospec=True, return_value=requests_response('5'))
     def test_last(self, mock_get):
         self.assertEqual(5, self.sequences.last('foo.bar'))
         self.check_call(mock_get, 'last')
 
-    @patch.object(util.session, 'get', return_value=requests_response('None'))
+    @patch.object(util.session, 'get', autospec=True, return_value=requests_response('None'))
     def test_last_none(self, mock_get):
         self.assertIsNone(self.sequences.last('foo.bar'))
         self.check_call(mock_get, 'last')
 
-    @patch.object(util.session, 'get', return_value=requests_response(''))
+    @patch.object(util.session, 'get', autospec=True, return_value=requests_response(''))
     def test_last_empty(self, mock_get):
         self.assertIsNone(self.sequences.last('foo.bar'))
         self.check_call(mock_get, 'last')
 
-    @patch.object(util.session, 'get', return_value=requests_response(status=404))
+    @patch.object(util.session, 'get', autospec=True, return_value=requests_response(status=404))
     def test_last_fails(self, mock_post):
         with self.assertRaises(HTTPError):
             self.sequences.last('foo.bar')
@@ -210,7 +210,7 @@ class ATProtoTest(TestCase):
 
         return self.user
 
-    @patch.object(util.session, 'get', return_value=requests_response(DID_DOC))
+    @patch.object(util.session, 'get', autospec=True, return_value=requests_response(DID_DOC))
     def test_put_validates_id(self, mock_get):
         for bad in (
             '',
@@ -236,7 +236,7 @@ class ATProtoTest(TestCase):
         })
         self.assertEqual('han.dull', ATProto(id='did:plc:user').handle)
 
-    @patch.object(util.session, 'get', return_value=requests_response(DID_DOC))
+    @patch.object(util.session, 'get', autospec=True, return_value=requests_response(DID_DOC))
     def test_get_or_create(self, _):
         user = self.make_user('did:plc:user', cls=ATProto)
         self.assertEqual('han.dull.brid.gy', user.key.get().handle)
@@ -296,11 +296,11 @@ class ATProtoTest(TestCase):
 
     @patch('dns.resolver.resolve', side_effect=NXDOMAIN())
     # resolving handle, HTTPS method, not found
-    @patch.object(util.session, 'get', return_value=requests_response('', status=404))
+    @patch.object(util.session, 'get', autospec=True, return_value=requests_response('', status=404))
     def test_handle_to_id_not_found(self, *_):
         self.assertIsNone(ATProto.handle_to_id('han.dull.brid.gy'))
 
-    @patch.object(util.session, 'get', side_effect=[
+    @patch.object(util.session, 'get', autospec=True, side_effect=[
         requests_response(DID_DOC),
         requests_response({
             'uri': 'at://did:plc:user/app.bsky.actor.profile/self',
@@ -322,7 +322,7 @@ class ATProtoTest(TestCase):
         self.assertIsNone(obj.bsky)
         self.assertIsNone(obj.our_as1)
 
-    @patch.object(util.session, 'get', side_effect=[
+    @patch.object(util.session, 'get', autospec=True, side_effect=[
         requests_response({**DID_DOC, 'alsoKnownAs': ['at://new.handle']}),
         requests_response({
             'uri': 'at://did:plc:user/app.bsky.actor.profile/self',
@@ -381,7 +381,7 @@ class ATProtoTest(TestCase):
             'cid': 'my++sidd',
         })))
 
-    @patch.object(util.session, 'get', return_value=requests_response(DID_DOC))
+    @patch.object(util.session, 'get', autospec=True, return_value=requests_response(DID_DOC))
     def test_pds_for_fetch_did(self, mock_get):
         got = ATProto.pds_for(Object(id='at://did:plc:user/co.ll/123'))
         self.assertEqual('https://some.pds', got)
@@ -410,7 +410,7 @@ class ATProtoTest(TestCase):
         self.assertEqual('https://some.pds', got)
 
     @patch('dns.resolver.resolve', side_effect=NXDOMAIN())
-    @patch.object(util.session, 'get', side_effect=[
+    @patch.object(util.session, 'get', autospec=True, side_effect=[
         # resolving handle, HTTPS method
         requests_response('did:plc:user', content_type='text/plain'),
         # fetching DID doc
@@ -449,7 +449,7 @@ class ATProtoTest(TestCase):
             Object(id='at://did:plc:foo/app.bsky.feed.post/123')))
         self.assertIsNone(ATProto.target_for(Object(id='fake:post')))
 
-    @patch.object(util.session, 'get', return_value=requests_response({'foo': 'bar'}))
+    @patch.object(util.session, 'get', autospec=True, return_value=requests_response({'foo': 'bar'}))
     def test_fetch_did_plc(self, mock_get):
         obj = Object(id='did:plc:123')
         self.assertTrue(ATProto.fetch(obj))
@@ -459,7 +459,7 @@ class ATProtoTest(TestCase):
             self.req('https://plc.local/did:plc:123'),
         ))
 
-    @patch.object(util.session, 'get', return_value=requests_response({'foo': 'bar'}))
+    @patch.object(util.session, 'get', autospec=True, return_value=requests_response({'foo': 'bar'}))
     def test_fetch_did_web(self, mock_get):
         obj = Object(id='did:web:user.com')
         self.assertTrue(ATProto.fetch(obj))
@@ -469,13 +469,13 @@ class ATProtoTest(TestCase):
             self.req('https://user.com/.well-known/did.json'),
         ))
 
-    @patch.object(util.session, 'get', return_value=requests_response('not json'))
+    @patch.object(util.session, 'get', autospec=True, return_value=requests_response('not json'))
     def test_fetch_did_plc_not_json(self, mock_get):
         obj = Object(id='did:web:user.com')
         self.assertFalse(ATProto.fetch(obj))
         self.assertIsNone(obj.raw)
 
-    @patch.object(util.session, 'get', return_value=requests_response({
+    @patch.object(util.session, 'get', autospec=True, return_value=requests_response({
         'uri': 'at://did:plc:abc/app.bsky.feed.post/123',
         'cid': 'bafyreigd',
         'value': {'foo': 'bar'},
@@ -497,7 +497,7 @@ class ATProtoTest(TestCase):
             },
         )
 
-    @patch.object(util.session, 'get', return_value=requests_response({
+    @patch.object(util.session, 'get', autospec=True, return_value=requests_response({
         'error':'InvalidRequest',
         'message':'Could not locate record: at://did:plc:abc/app.bsky.feed.post/123',
     }, status=400))
@@ -508,7 +508,7 @@ class ATProtoTest(TestCase):
             'https://appview.local/xrpc/com.atproto.repo.getRecord?repo=did%3Aplc%3Aabc&collection=app.bsky.feed.post&rkey=123',
             json=None, data=None, headers=ANY)
 
-    @patch.object(util.session, 'get')
+    @patch.object(util.session, 'get', autospec=True)
     def test_fetch_bad_at_uri(self, mock_get):
         for uri in ('at://did:plc:abc/app.bsky.feed.post',
                     'at://did:plc:abc/app.bsky.feed.post/',
@@ -531,7 +531,7 @@ class ATProtoTest(TestCase):
                 ATProto.fetch(Object(id=uri))
 
     @patch('dns.resolver.resolve', side_effect=NXDOMAIN())
-    @patch.object(util.session, 'get', return_value=requests_response(status=404))
+    @patch.object(util.session, 'get', autospec=True, return_value=requests_response(status=404))
     def test_fetch_resolve_handle_fails(self, mock_get, _):
         obj = Object(id='at://bad.com/app.bsky.feed.post/789')
         self.assertFalse(ATProto.fetch(obj))
@@ -548,7 +548,7 @@ class ATProtoTest(TestCase):
         self.assert_entities_equal(profile, ATProto.load(id))
 
     @patch('dns.resolver.resolve', side_effect=NXDOMAIN())
-    @patch.object(util.session, 'get', side_effect=[
+    @patch.object(util.session, 'get', autospec=True, side_effect=[
         # resolving handle, HTTPS method
         requests_response('did:plc:user', content_type='text/plain'),
         # AppView getRecord
@@ -577,7 +577,7 @@ class ATProtoTest(TestCase):
             })
         self.assert_req(mock_get, 'https://plc.local/did:plc:user')
 
-    @patch.object(util.session, 'get', return_value=requests_response({
+    @patch.object(util.session, 'get', autospec=True, return_value=requests_response({
         'uri': 'at://did:plc:user/app.bsky.actor.profile/self',
         'cid': 'bafyreigd',
         'value': {'$type': 'app.bsky.actor.profile', 'bar': 'baz'},
@@ -714,7 +714,7 @@ class ATProtoTest(TestCase):
             'inReplyTo': 'at://did:plc:bob/app.bsky.feed.post/tid',
         })))
 
-    @patch.object(util.session, 'get', return_value=requests_response(status=404))  # getRecord
+    @patch.object(util.session, 'get', autospec=True, return_value=requests_response(status=404))  # getRecord
     def test_convert_populate_cid_record_not_found(self, _):
         self.assertEqual({}, ATProto.convert(Object(our_as1={
             'objectType': 'activity',
@@ -723,7 +723,7 @@ class ATProtoTest(TestCase):
         })))
 
     @patch('dns.resolver.resolve', side_effect=NXDOMAIN())
-    @patch.object(util.session, 'get', side_effect=[
+    @patch.object(util.session, 'get', autospec=True, side_effect=[
         # appview resolveHandle
         requests_response({'did': 'did:plc:user'}),
         # AppView getRecord
@@ -759,7 +759,7 @@ class ATProtoTest(TestCase):
 
     @patch('dns.resolver.resolve', side_effect=NXDOMAIN())
     # appview resolveHandle
-    @patch.object(util.session, 'get', return_value=requests_response(status=404))
+    @patch.object(util.session, 'get', autospec=True, return_value=requests_response(status=404))
     def test_convert_populate_cid_fetch_remote_record_bad_handle(self, _, __):
         # skips getRecord because handle didn't resolve
         self.assertEqual({}, ATProto.convert(Object(our_as1={
@@ -805,7 +805,7 @@ class ATProtoTest(TestCase):
             'image': [{'url': 'http://my/pic'}],
         }), fetch_blobs=False))
 
-    @patch.object(util.session, 'get', return_value=requests_response(
+    @patch.object(util.session, 'get', autospec=True, return_value=requests_response(
         'blob contents', content_type='image/png'))
     def test_convert_fetch_blobs_true(self, mock_get):
         user = self.make_user_and_repo()
@@ -836,7 +836,7 @@ class ATProtoTest(TestCase):
         blob = AtpRemoteBlob.get_by_id('http://my/pic')
         self.assertEqual([AtpRepo(id='did:plc:user').key], blob.repos)
 
-    @patch.object(util.session, 'get', return_value=requests_response(
+    @patch.object(util.session, 'get', autospec=True, return_value=requests_response(
         'blob contents', content_type='video/mp4'))
     def test_convert_fetch_blobs_true_video(self, mock_get):
         cid = CID.decode('bafkreicqpqncshdd27sgztqgzocd3zhhqnnsv6slvzhs5uz6f57cq6lmtq')
@@ -871,7 +871,7 @@ class ATProtoTest(TestCase):
     @patch.dict(atproto.appview.defs, {
         'app.bsky.embed.video': {'properties': {'video': {'maxSize': 10}}},
     })
-    @patch.object(util.session, 'get', return_value=requests_response(
+    @patch.object(util.session, 'get', autospec=True, return_value=requests_response(
         'blob contents', content_type='video/mp4'))
     def test_convert_fetch_blobs_true_video_over_maxSize(self, mock_get):
         self.assertEqual({
@@ -902,7 +902,7 @@ class ATProtoTest(TestCase):
                 last_fetched=NOW),
         ], AtpRemoteBlob.query().fetch(), ignore=['created', 'updated'])
 
-    @patch.object(util.session, 'get', return_value=requests_response(
+    @patch.object(util.session, 'get', autospec=True, return_value=requests_response(
         'blob contents', content_type='not/ok'))
     def test_convert_fetch_blobs_true_video_type_not_in_accept(self, mock_get):
         self.assertEqual({
@@ -931,7 +931,7 @@ class ATProtoTest(TestCase):
         ], AtpRemoteBlob.query().fetch(), ignore=['created', 'updated'])
         mock_get.assert_has_calls([self.req('https://my/vid')])
 
-    @patch.object(util.session, 'get', return_value=requests_response(
+    @patch.object(util.session, 'get', autospec=True, return_value=requests_response(
         Path(__file__).with_name('activitypub_logo.png').read_bytes(),
         content_type='image/png'))
     def test_convert_fetch_blobs_true_image_aspect_ratio(self, mock_get):
@@ -963,7 +963,7 @@ class ATProtoTest(TestCase):
         }), fetch_blobs=True))
         mock_get.assert_has_calls([self.req('http://my/pic/1')])
 
-    @patch.object(util.session, 'get', side_effect=[
+    @patch.object(util.session, 'get', autospec=True, side_effect=[
         requests_response(status=404),
         requests_response('second blob contents', content_type='image/png')
     ])
@@ -1018,7 +1018,7 @@ class ATProtoTest(TestCase):
         }), fetch_blobs=True), ignore=('labels',))
 
     # resolveHandle
-    @patch.object(util.session, 'get', return_value=requests_response({'did': 'did:plc:user'}))
+    @patch.object(util.session, 'get', autospec=True, return_value=requests_response({'did': 'did:plc:user'}))
     def test_convert_resolve_mention_handle(self, mock_get):
         self.store_object(id='did:plc:user', raw=DID_DOC)
 
@@ -1085,7 +1085,7 @@ class ATProtoTest(TestCase):
             }],
         })))
 
-    @patch.object(util.session, 'get')
+    @patch.object(util.session, 'get', autospec=True)
     def test_send_note_mention_tag_doesnt_get_link_preview(self, mock_get):
         """URLs in mention tags should not be used for external embeds."""
         mock_get.return_value = requests_response(test_web.REPLY_HTML,
@@ -1116,7 +1116,7 @@ class ATProtoTest(TestCase):
             }],
         })))
 
-    @patch.object(util.session, 'get')
+    @patch.object(util.session, 'get', autospec=True)
     def test_convert_mention_non_atproto_url_gets_link_facet(self, mock_get):
         """Mention tags with non-ATProto URLs should get #link facets."""
         mock_get.return_value = requests_response(
@@ -1150,7 +1150,7 @@ class ATProtoTest(TestCase):
         })))
 
     @patch.object(tasks_client, 'create_task', return_value=Task(name='my task'))
-    @patch.object(util.session, 'get')
+    @patch.object(util.session, 'get', autospec=True)
     def test_send_note_mention_link_doesnt_get_link_preview(self, mock_get, _):
         mock_get.return_value = requests_response(
             test_web.ACTOR_HTML, url='http://in.st/@user')
@@ -1335,12 +1335,12 @@ Sed tortor neque, aliquet quis posuere aliquam, imperdiet sitamet […]
             'summary': '<a href="http://foo">bar</a>',
         }), from_user=user))
 
-    @patch.object(util.session, 'post', side_effect=[
+    @patch.object(util.session, 'post', autospec=True, side_effect=[
         requests_response({'operation': {'signed': 'op'}}),  # signPlcOperation
         requests_response(),  # plc.directory update
         requests_response(),  # deactivateAccount
     ])
-    @patch.object(util.session, 'get', side_effect=[
+    @patch.object(util.session, 'get', autospec=True, side_effect=[
         requests_response(DID_DOC),  # resolve did:plc:user
     ])
     @patch.object(tasks_client, 'create_task')
@@ -1427,12 +1427,12 @@ Sed tortor neque, aliquet quis posuere aliquam, imperdiet sitamet […]
         self.assert_task(mock_create_task, 'receive', authed_as='fake:user',
                          obj_id='fake:profile:user')
 
-    @patch.object(util.session, 'post', side_effect=[
+    @patch.object(util.session, 'post', autospec=True, side_effect=[
         requests_response({'operation': {'signed': 'op'}}),  # signPlcOperation
         requests_response(),  # plc.directory update
         requests_response(),  # deactivateAccount
     ])
-    @patch.object(util.session, 'get', side_effect=[
+    @patch.object(util.session, 'get', autospec=True, side_effect=[
         requests_response(DID_DOC),  # resolve did:plc:user
     ])
     @patch.object(tasks_client, 'create_task')
@@ -1482,7 +1482,7 @@ Sed tortor neque, aliquet quis posuere aliquam, imperdiet sitamet […]
             ATProto.migrate_in(eve, 'did:plc:outside', plc_code='kode',
                                pds_client=None)
 
-    @patch.object(util.session, 'post', side_effect=[
+    @patch.object(util.session, 'post', autospec=True, side_effect=[
         requests_response({'operation': {'signed': 'op'}}),  # signPlcOperation
         requests_response(),  # plc.directory update
         requests_response(),  # deactivateAccount
@@ -1513,7 +1513,7 @@ Sed tortor neque, aliquet quis posuere aliquam, imperdiet sitamet […]
         self.assert_task(mock_create_task, 'receive', authed_as='fake:user',
                          obj_id='fake:profile:user')
 
-    @patch.object(util.session, 'post', side_effect=[
+    @patch.object(util.session, 'post', autospec=True, side_effect=[
         requests_response({'operation': {'signed': 'op'}}),  # signPlcOperation
         requests_response(status=400),  # plc.directory update
     ])
@@ -1529,8 +1529,8 @@ Sed tortor neque, aliquet quis posuere aliquam, imperdiet sitamet […]
             ATProto.migrate_in(self.user, 'did:plc:user', plc_code='kode',
                                pds_client=pds_client)
 
-    @patch.object(util.session, 'post')
-    @patch.object(util.session, 'get', side_effect=[
+    @patch.object(util.session, 'post', autospec=True)
+    @patch.object(util.session, 'get', autospec=True, side_effect=[
         requests_response({  # describeServer
             'did': 'did:web:pds',
             'availableUserDomains': ['.handulls.pds.com'],
@@ -1570,8 +1570,8 @@ Sed tortor neque, aliquet quis posuere aliquam, imperdiet sitamet […]
             self.repo.signing_key.public_key(), algorithms=['ES256K'],
             audience='did:web:new.pds.com', leeway=timedelta(weeks=9999))
 
-    @patch.object(util.session, 'post')
-    @patch.object(util.session, 'get', side_effect=[
+    @patch.object(util.session, 'post', autospec=True)
+    @patch.object(util.session, 'get', autospec=True, side_effect=[
         requests_response({  # describeServer
             'did': 'did:web:pds',
             'availableUserDomains': ['.handulls.pds.com'],
@@ -1610,12 +1610,12 @@ Sed tortor neque, aliquet quis posuere aliquam, imperdiet sitamet […]
             'password': 'hunter2',
         }, mock_post.call_args_list[0].kwargs['json'])
 
-    @patch.object(util.session, 'post', side_effect=[
+    @patch.object(util.session, 'post', autospec=True, side_effect=[
         requests_response(),  # importRepo
         requests_response(),  # PLC directory update
         requests_response(),  # activateAccount
     ])
-    @patch.object(util.session, 'get', side_effect=[
+    @patch.object(util.session, 'get', autospec=True, side_effect=[
         requests_response({  # checkAccountStatus
             'activated': False,
             'validDid': True,
@@ -1710,13 +1710,13 @@ Sed tortor neque, aliquet quis posuere aliquam, imperdiet sitamet […]
         self.assertFalse(user.is_enabled(ATProto))
         self.assertEqual([], user.copies)
 
-    @patch.object(util.session, 'post', side_effect=[
+    @patch.object(util.session, 'post', autospec=True, side_effect=[
         requests_response(),  # importRepo
         requests_response(),  # PLC directory update
         requests_response(),  # activateAccount
     ])
     # largely duplicated in test_integrations.py
-    @patch.object(util.session, 'get', side_effect=[
+    @patch.object(util.session, 'get', autospec=True, side_effect=[
         requests_response({  # checkAccountStatus
             'activated': False,
             'validDid': True,
@@ -1782,10 +1782,10 @@ Sed tortor neque, aliquet quis posuere aliquam, imperdiet sitamet […]
         }, mock_post.call_args_list[1].kwargs['json'])
 
     @patch('oauth_dropins.bluesky.oauth_client_for_pds')
-    @patch.object(util.session, 'post', return_value=requests_response({
+    @patch.object(util.session, 'post', autospec=True, return_value=requests_response({
         'blob': {'$type': 'blob', 'ref': {'$link': 'baf000'}, 'size': 99},
     }))
-    @patch.object(util.session, 'get', side_effect=[
+    @patch.object(util.session, 'get', autospec=True, side_effect=[
         requests_response(b'blob one', headers={'Content-Type': 'image/jpeg'}),
         requests_response(b'', status=404),
         requests_response(b'blob two', headers={'Content-Type': 'video/mp4'}),
@@ -1813,10 +1813,10 @@ Sed tortor neque, aliquet quis posuere aliquam, imperdiet sitamet […]
         self.assertEqual(2, mock_post.call_count)
 
     @patch('oauth_dropins.bluesky.oauth_client_for_pds')
-    @patch.object(util.session, 'post', return_value=requests_response({
+    @patch.object(util.session, 'post', autospec=True, return_value=requests_response({
         'blob': {'$type': 'blob', 'ref': {'$link': 'baf000'}, 'size': 99},
     }))
-    @patch.object(util.session, 'get', side_effect=[
+    @patch.object(util.session, 'get', autospec=True, side_effect=[
         requests_response(b'blob one', headers={'Content-Type': 'image/jpeg'}),
         requests_response(b'blob two', headers={'Content-Type': 'video/mp4'}),
     ])
@@ -1861,7 +1861,7 @@ Sed tortor neque, aliquet quis posuere aliquam, imperdiet sitamet […]
                  }, auth=None, timeout=60),
         ], mock_post.call_args_list)
 
-    @patch.object(util.session, 'get', return_value=requests_response('', status=404))
+    @patch.object(util.session, 'get', autospec=True, return_value=requests_response('', status=404))
     def test_web_url(self, mock_get):
         user = self.make_user('did:plc:user', cls=ATProto)
         self.assertEqual('https://bsky.app/profile/did:plc:user', user.web_url())
@@ -1869,7 +1869,7 @@ Sed tortor neque, aliquet quis posuere aliquam, imperdiet sitamet […]
         self.store_object(id='did:plc:user', raw=DID_DOC)
         self.assertEqual('https://bsky.app/profile/han.dull.brid.gy', user.web_url())
 
-    @patch.object(util.session, 'get', return_value=requests_response('', status=404))
+    @patch.object(util.session, 'get', autospec=True, return_value=requests_response('', status=404))
     def test_handle_or_id(self, mock_get):
         user = self.make_user('did:plc:user', cls=ATProto)
         self.assertIsNone(user.handle)
@@ -1879,7 +1879,7 @@ Sed tortor neque, aliquet quis posuere aliquam, imperdiet sitamet […]
         self.assertEqual('han.dull.brid.gy', user.handle)
         self.assertEqual('han.dull.brid.gy', user.handle_or_id())
 
-    @patch.object(util.session, 'get', return_value=requests_response('', status=404))
+    @patch.object(util.session, 'get', autospec=True, return_value=requests_response('', status=404))
     def test_handle_as(self, mock_get):
         user = self.make_user('did:plc:user', cls=ATProto)
 
@@ -1904,7 +1904,7 @@ Sed tortor neque, aliquet quis posuere aliquam, imperdiet sitamet […]
         self.assertEqual('alice_bob.bsky.social', user.handle)
         self.assertEqual('alice-bob.bsky.social', user.handle_as_domain)
 
-    @patch.object(util.session, 'get', return_value=requests_response(DID_DOC))
+    @patch.object(util.session, 'get', autospec=True, return_value=requests_response(DID_DOC))
     def test_profile_id(self, mock_get):
         self.assertEqual('at://did:plc:user/app.bsky.actor.profile/self',
                          self.make_user('did:plc:user', cls=ATProto).profile_id())
@@ -1913,7 +1913,7 @@ Sed tortor neque, aliquet quis posuere aliquam, imperdiet sitamet […]
     @patch.object(atproto.dns_discovery_api, 'resourceRecordSets')
     @patch('google.cloud.dns.client.ManagedZone', autospec=True)
     @patch.object(tasks_client, 'create_task', return_value=Task(name='my task'))
-    @patch.object(util.session, 'post', return_value=requests_response('OK'))  # create DID on PLC
+    @patch.object(util.session, 'post', autospec=True, return_value=requests_response('OK'))  # create DID on PLC
     def test_create_for(self, mock_post, mock_create_task, mock_zone, mock_rrsets):
         mock_zone.return_value = zone = MagicMock()
         zone.resource_record_set = MagicMock()
@@ -1976,7 +1976,7 @@ Sed tortor neque, aliquet quis posuere aliquam, imperdiet sitamet […]
 
     @patch.object(tasks_client, 'create_task', return_value=Task(name='my task'))
     # create DID on PLC
-    @patch.object(util.session, 'post', return_value=requests_response('OK'))
+    @patch.object(util.session, 'post', autospec=True, return_value=requests_response('OK'))
     def test_create_for_also_known_as_other_protocols(self, mock_post, _):
         Fake.fetchable = {'fake:profile:us_er': {
             **ACTOR_AS,
@@ -1991,7 +1991,7 @@ Sed tortor neque, aliquet quis posuere aliquam, imperdiet sitamet […]
 
     @patch.object(tasks_client, 'create_task', return_value=Task(name='my task'))
     # create DID on PLC
-    @patch.object(util.session, 'post', return_value=requests_response('OK'))
+    @patch.object(util.session, 'post', autospec=True, return_value=requests_response('OK'))
     def test_create_for_with_pinned_post(self, mock_post, mock_create_task):
         self.make_user(cls=Web, id='fa.brid.gy',
                        copies=[Target(protocol='atproto', uri='did:fa')])
@@ -2040,7 +2040,7 @@ Sed tortor neque, aliquet quis posuere aliquam, imperdiet sitamet […]
         ignore=['bridgyOriginalText', 'bridgyOriginalUrl'])
 
     @patch.object(tasks_client, 'create_task', return_value=Task(name='my task'))
-    @patch.object(util.session, 'post', return_value=requests_response('OK'))  # create DID on PLC
+    @patch.object(util.session, 'post', autospec=True, return_value=requests_response('OK'))  # create DID on PLC
     def test_create_for_cant_convert_pinned_post(self, mock_post, mock_create_task):
         self.make_user(cls=Web, id='fa.brid.gy',
                        copies=[Target(protocol='atproto', uri='did:fa')])
@@ -2079,7 +2079,7 @@ Sed tortor neque, aliquet quis posuere aliquam, imperdiet sitamet […]
         ignore=['bridgyOriginalDescription', 'bridgyOriginalUrl', 'labels'])
 
     @patch.object(tasks_client, 'create_task', return_value=Task(name='my task'))
-    @patch.object(util.session, 'post', return_value=requests_response('OK'))  # create DID on PLC
+    @patch.object(util.session, 'post', autospec=True, return_value=requests_response('OK'))  # create DID on PLC
     def test_create_for_with_web_monetization(self, mock_post, mock_create_task):
         self.make_user(cls=Web, id='fa.brid.gy',
                        copies=[Target(protocol='atproto', uri='did:fa')])
@@ -2118,7 +2118,7 @@ Sed tortor neque, aliquet quis posuere aliquam, imperdiet sitamet […]
                 ATProto.create_for(Fake(id=bad))
 
     @patch.object(tasks_client, 'create_task', return_value=Task(name='my task'))
-    @patch.object(util.session, 'post', return_value=requests_response('OK'))
+    @patch.object(util.session, 'post', autospec=True, return_value=requests_response('OK'))
     def test_create_for_status_nobot(self, mock_post, mock_create_task):
         """User with status='nobot' should be able to create profile.
 
@@ -2239,8 +2239,8 @@ Sed tortor neque, aliquet quis posuere aliquam, imperdiet sitamet […]
     @patch.object(atproto.dns_discovery_api, 'resourceRecordSets')
     @patch('google.cloud.dns.client.ManagedZone', autospec=True)
     @patch.object(tasks_client, 'create_task', return_value=Task(name='my task'))
-    @patch.object(util.session, 'post', return_value=requests_response('OK'))  # create DID on PLC
-    @patch.object(util.session, 'get', return_value=requests_response(status=404))  # profile pic
+    @patch.object(util.session, 'post', autospec=True, return_value=requests_response('OK'))  # create DID on PLC
+    @patch.object(util.session, 'get', autospec=True, return_value=requests_response(status=404))  # profile pic
     def test_create_for_tombstoned(self, mock_get, mock_post, mock_create_task,
                                    mock_zone, mock_rrsets):
         """Should wipe existing copies and start from scratch with a new DID."""
@@ -2303,7 +2303,7 @@ Sed tortor neque, aliquet quis posuere aliquam, imperdiet sitamet […]
 
     @patch.object(tasks_client, 'create_task', return_value=Task(name='my task'))
     @patch.object(Repo, 'create', side_effect=AssertionError('nope'))
-    @patch.object(util.session, 'post', return_value=requests_response('OK'))  # create DID on PLC
+    @patch.object(util.session, 'post', autospec=True, return_value=requests_response('OK'))  # create DID on PLC
     def test_create_for_error_doesnt_add_to_copies(self, _, __, ___):
         user = self.make_user(id='fake:user', cls=Fake)
         assert not user.obj.as1
@@ -2389,7 +2389,7 @@ Sed tortor neque, aliquet quis posuere aliquam, imperdiet sitamet […]
     # resolve handle, DNS method, not found
     @patch('dns.resolver.resolve', side_effect=NXDOMAIN())
     @patch.object(tasks_client, 'create_task', return_value=Task(name='my task'))
-    @patch.object(util.session, 'get', side_effect=[
+    @patch.object(util.session, 'get', autospec=True, side_effect=[
         # resolve handle, HTTPS method
         requests_response('did:plc:user', content_type='text/plain'),
         # fetch PLC operation log
@@ -2403,7 +2403,7 @@ Sed tortor neque, aliquet quis posuere aliquam, imperdiet sitamet […]
             'alsoKnownAs': ['at://ne.w'],
         }),
     ])
-    @patch.object(util.session, 'post', return_value=requests_response('OK'))  # update DID on PLC
+    @patch.object(util.session, 'post', autospec=True, return_value=requests_response('OK'))  # update DID on PLC
     def test_set_username(self, mock_post, mock_get, mock_create_task, _):
         user = self.make_user_and_repo(enabled_protocols=['atproto'])
         ATProto.set_username(user, 'ne.w')
@@ -2451,7 +2451,7 @@ Sed tortor neque, aliquet quis posuere aliquam, imperdiet sitamet […]
     # resolve handle, DNS method, not found
     @patch('dns.resolver.resolve', side_effect=NXDOMAIN())
     # resolve handle, HTTPS method, not found
-    @patch.object(util.session, 'get', return_value=requests_response(status=404))
+    @patch.object(util.session, 'get', autospec=True, return_value=requests_response(status=404))
     def test_set_username_handle_doesnt_resolve(self, _, __):
         user = self.make_user_and_repo(enabled_protocols=['atproto'])
         with self.assertRaises(RuntimeError) as e:
@@ -2466,7 +2466,7 @@ Sed tortor neque, aliquet quis posuere aliquam, imperdiet sitamet […]
     # resolve handle, DNS method, not found
     @patch('dns.resolver.resolve', side_effect=NXDOMAIN())
     # resolve handle, HTTPS method, wrong did
-    @patch.object(util.session, 'get', return_value=requests_response(
+    @patch.object(util.session, 'get', autospec=True, return_value=requests_response(
         'did:plc:nope', content_type='text/plain'))
     def test_set_username_handle_resolves_to_wrong_did(self, _, __):
         user = self.make_user_and_repo(enabled_protocols=['atproto'])
@@ -2523,7 +2523,7 @@ Sed tortor neque, aliquet quis posuere aliquam, imperdiet sitamet […]
 
     @patch('google.cloud.dns.client.ManagedZone', autospec=True)
     @patch.object(tasks_client, 'create_task', return_value=Task(name='my task'))
-    @patch.object(util.session, 'post', return_value=requests_response('OK'))  # create DID on PLC
+    @patch.object(util.session, 'post', autospec=True, return_value=requests_response('OK'))  # create DID on PLC
     def test_send_new_repo(self, mock_post, mock_create_task, _):
         user = self.make_user(id='fake:user', cls=Fake, enabled_protocols=['atproto'])
         obj = Object(id='fake:post', source_protocol='fake', our_as1=NOTE_AS)
@@ -2581,11 +2581,11 @@ Sed tortor neque, aliquet quis posuere aliquam, imperdiet sitamet […]
         self.assertEqual(7, mock_create_task.call_count)
         self.assert_task(mock_create_task, 'atproto-commit')
 
-    @patch.object(util.session, 'get', return_value=requests_response(
+    @patch.object(util.session, 'get', autospec=True, return_value=requests_response(
         'blob contents', content_type='image/png'))  # image blob fetch
     @patch('google.cloud.dns.client.ManagedZone', autospec=True)
     @patch.object(tasks_client, 'create_task', return_value=Task(name='my task'))
-    @patch.object(util.session, 'post', return_value=requests_response('OK'))  # create DID on PLC
+    @patch.object(util.session, 'post', autospec=True, return_value=requests_response('OK'))  # create DID on PLC
     def test_send_new_repo_includes_user_profile(self, mock_get, mock_create_task,
                                                  _, __):
         user = self.make_user(id='fake:user', cls=Fake, enabled_protocols=['atproto'],
@@ -2699,7 +2699,7 @@ Sed tortor neque, aliquet quis posuere aliquam, imperdiet sitamet […]
         mock_create_task.assert_called()  # atproto-commit
 
     @patch.object(tasks_client, 'create_task', return_value=Task(name='my task'))
-    @patch.object(util.session, 'get', side_effect=[
+    @patch.object(util.session, 'get', autospec=True, side_effect=[
         requests_response(METAFORMATS_HTML, url='http://orig.co/post'),
         requests_response('blob contents', content_type='image/png'),
     ])
@@ -2737,7 +2737,7 @@ Sed tortor neque, aliquet quis posuere aliquam, imperdiet sitamet […]
         }, repo.get_record('app.bsky.feed.post', last_tid), ignore=['facets'])
 
     @patch.object(tasks_client, 'create_task', return_value=Task(name='my task'))
-    @patch.object(util.session, 'get')
+    @patch.object(util.session, 'get', autospec=True)
     def test_send_note_first_link_preview_embed_html_content(self, mock_get, __):
         mock_get.return_value = requests_response(
             test_web.REPLY_HTML, url='http://orig.co/post')
@@ -2790,7 +2790,7 @@ Sed tortor neque, aliquet quis posuere aliquam, imperdiet sitamet […]
         }, repo.get_record('app.bsky.feed.post', last_tid), ignore=['facets'])
 
     @patch.object(tasks_client, 'create_task', return_value=Task(name='my task'))
-    @patch.object(util.session, 'get', side_effect=[
+    @patch.object(util.session, 'get', autospec=True, side_effect=[
         requests_response(f'<html><head><title>A poast</title></head></html>',
                           url='http://orig.co/post'),
     ])
@@ -2813,7 +2813,7 @@ Sed tortor neque, aliquet quis posuere aliquam, imperdiet sitamet […]
         }, repo.get_record('app.bsky.feed.post', last_tid), ignore=['facets'])
 
     @patch.object(tasks_client, 'create_task', return_value=Task(name='my task'))
-    @patch.object(util.session, 'get', return_value=requests_response(
+    @patch.object(util.session, 'get', autospec=True, return_value=requests_response(
         ' <html><body class="h-entry"><p class="u-url">not a url</p></body></html>',
         url='http://orig.co/post'))
     def test_send_note_link_preview_bad_mf2_u_url(self, mock_get, mock_create_task):
@@ -2879,7 +2879,7 @@ Sed tortor neque, aliquet quis posuere aliquam, imperdiet sitamet […]
         }, repo.get_record('app.bsky.feed.post', last_tid), ignore=['facets'])
 
     @patch.object(tasks_client, 'create_task', return_value=Task(name='my task'))
-    @patch.object(util.session, 'get')
+    @patch.object(util.session, 'get', autospec=True)
     def test_send_note_link_preview_blocklisted_domain(self, mock_get, __):
         user = self.make_user_and_repo()
 
@@ -2899,7 +2899,7 @@ Sed tortor neque, aliquet quis posuere aliquam, imperdiet sitamet […]
         }, repo.get_record('app.bsky.feed.post', last_tid), ignore=['facets'])
 
     @patch.object(tasks_client, 'create_task', return_value=Task(name='my task'))
-    @patch.object(util.session, 'get', side_effect=[
+    @patch.object(util.session, 'get', autospec=True, side_effect=[
         requests_response(METAFORMATS_HTML, url='http://orig.co/post'),
         requests_response('blob contents', content_type='image/png'),
     ])
@@ -3542,7 +3542,7 @@ Sed tortor neque, aliquet quis posuere aliquam, imperdiet sitamet […]
 
         mock_create_task.assert_called()  # atproto-commit
 
-    @patch.object(util.session, 'get', return_value=requests_response(status=404))
+    @patch.object(util.session, 'get', autospec=True, return_value=requests_response(status=404))
     def test_send_like_did_doc_not_found(self, _):
         user = self.make_user_and_repo()
         Object(id=user.get_copy(ATProto)).key.delete()
@@ -3586,7 +3586,7 @@ Sed tortor neque, aliquet quis posuere aliquam, imperdiet sitamet […]
         mock_create_task.assert_called()  # atproto-commit
 
     @patch.object(tasks_client, 'create_task', return_value=Task(name='my task'))
-    @patch.object(util.session, 'get', return_value=requests_response({
+    @patch.object(util.session, 'get', autospec=True, return_value=requests_response({
         'uri': 'at://did:bo:b/app.bsky.feed.post/tid',
         'cid': 'my++sidd',
         'value': {
@@ -4119,7 +4119,7 @@ Sed tortor neque, aliquet quis posuere aliquam, imperdiet sitamet […]
         mock_create_task.assert_called()  # atproto-commit
 
     # createReport
-    @patch.object(util.session, 'post', return_value=requests_response({
+    @patch.object(util.session, 'post', autospec=True, return_value=requests_response({
         'id': 3,
         'reasonType': 'com.atproto.moderation.defs#reasonSpam',
         'reason': '',
@@ -4131,7 +4131,7 @@ Sed tortor neque, aliquet quis posuere aliquam, imperdiet sitamet […]
         'createdAt': NOW.isoformat(),
     }))
     # did:plc:eve
-    @patch.object(util.session, 'get', return_value=requests_response({
+    @patch.object(util.session, 'get', autospec=True, return_value=requests_response({
             **DID_DOC,
             'id': 'did:plc:eve',
         }))
@@ -4173,8 +4173,8 @@ Sed tortor neque, aliquet quis posuere aliquam, imperdiet sitamet […]
                 'Authorization': ANY,
             })
 
-    @patch.object(util.session, 'post', return_value=requests_response(SEND_MESSAGE_OUTPUT))
-    @patch.object(util.session, 'get', side_effect=[
+    @patch.object(util.session, 'post', autospec=True, return_value=requests_response(SEND_MESSAGE_OUTPUT))
+    @patch.object(util.session, 'get', autospec=True, side_effect=[
         requests_response(GET_CONVO_FOR_MEMBERS_OUTPUT),
         requests_response(DID_DOC),
     ])
@@ -4211,8 +4211,8 @@ Sed tortor neque, aliquet quis posuere aliquam, imperdiet sitamet […]
                 },
             }, data=None, headers=headers)
 
-    @patch.object(util.session, 'post', return_value=requests_response(SEND_MESSAGE_OUTPUT))
-    @patch.object(util.session, 'get', side_effect=[
+    @patch.object(util.session, 'post', autospec=True, return_value=requests_response(SEND_MESSAGE_OUTPUT))
+    @patch.object(util.session, 'get', autospec=True, side_effect=[
         requests_response(GET_CONVO_FOR_MEMBERS_OUTPUT),
         requests_response(DID_DOC),
     ])
@@ -4247,7 +4247,7 @@ Sed tortor neque, aliquet quis posuere aliquam, imperdiet sitamet […]
             }, data=None, headers=ANY)
 
     # getConvoForMembers
-    @patch.object(util.session, 'get', return_value=requests_response({
+    @patch.object(util.session, 'get', autospec=True, return_value=requests_response({
         'error': 'InvalidRequest',
         'message': 'recipient has disabled incoming messages',
     }, status=400))
@@ -4266,7 +4266,7 @@ Sed tortor neque, aliquet quis posuere aliquam, imperdiet sitamet […]
             'https://chat.local/xrpc/chat.bsky.convo.getConvoForMembers?members=did%3Aplc%3Aalice',
             json=None, data=None, headers=ANY)
 
-    @patch.object(util.session, 'get', return_value=requests_response({
+    @patch.object(util.session, 'get', autospec=True, return_value=requests_response({
         'error': 'NotFollowedBySender',
         'message': 'recipient requires incoming messages to come from someone they follow',
     }, status=400))
@@ -4336,7 +4336,7 @@ Sed tortor neque, aliquet quis posuere aliquam, imperdiet sitamet […]
         }, client.com.atproto.repo.getRecord(repo='did:plc:user',
                                              collection='co.l.l', rkey='post'))
 
-    @patch.object(util.session, 'get', return_value=requests_response(NOTE_BSKY_RECORD))
+    @patch.object(util.session, 'get', autospec=True, return_value=requests_response(NOTE_BSKY_RECORD))
     def test_datastore_client_get_record_pass_through(self, mock_get):
         self.store_object(id='did:plc:user', raw=DID_DOC)  # uses https://some.pds
 
@@ -4348,7 +4348,7 @@ Sed tortor neque, aliquet quis posuere aliquam, imperdiet sitamet […]
             'https://appview.local/xrpc/com.atproto.repo.getRecord?repo=did%3Aplc%3Auser&collection=co.l.l&rkey=post',
             json=None, data=None, headers=ANY)
 
-    @patch.object(util.session, 'get', return_value=requests_response(NOTE_BSKY_RECORD))
+    @patch.object(util.session, 'get', autospec=True, return_value=requests_response(NOTE_BSKY_RECORD))
     def test_datastore_client_get_record_pass_through_if_bsky_unset(self, mock_get):
         self.store_object(id='did:plc:user', raw=DID_DOC)  # uses https://some.pds
         self.store_object(id='at://did:plc:user/co.l.l/post', our_as1={'foo': 'bar'})
@@ -4364,7 +4364,7 @@ Sed tortor neque, aliquet quis posuere aliquam, imperdiet sitamet […]
             'https://appview.local/xrpc/com.atproto.repo.getRecord?repo=did%3Aplc%3Auser&collection=co.l.l&rkey=post',
             json=None, data=None, headers=ANY)
 
-    @patch.object(util.session, 'get', return_value=requests_response(status=404))
+    @patch.object(util.session, 'get', autospec=True, return_value=requests_response(status=404))
     def test_datastore_client_get_record_pass_through_bsky_unset_no_record(self, mock_get):
         self.store_object(id='did:plc:user', raw=DID_DOC)  # uses https://some.pds
         self.store_object(id='at://did:plc:user/co.l.l/post', our_as1={'foo': 'bar'})
@@ -4377,7 +4377,7 @@ Sed tortor neque, aliquet quis posuere aliquam, imperdiet sitamet […]
             'https://appview.local/xrpc/com.atproto.repo.getRecord?repo=did%3Aplc%3Auser&collection=co.l.l&rkey=post',
             json=None, data=None, headers=ANY)
 
-    @patch.object(util.session, 'get', side_effect=HTTPError(
+    @patch.object(util.session, 'get', autospec=True, side_effect=HTTPError(
         response=requests_response(status=500)))
     def test_datastore_client_get_record_pass_through_fails(self, mock_get):
         client = DatastoreClient()
@@ -4411,7 +4411,7 @@ Sed tortor neque, aliquet quis posuere aliquam, imperdiet sitamet […]
         self.assertEqual({'did': 'did:plc:user-new'},
                          client.com.atproto.identity.resolveHandle(handle='han.dull.brid.gy'))
 
-    @patch.object(util.session, 'get', return_value=requests_response({'did': 'did:dy:d'}))
+    @patch.object(util.session, 'get', autospec=True, return_value=requests_response({'did': 'did:dy:d'}))
     def test_datastore_client_resolve_handle_pass_through(self, mock_get):
         client = DatastoreClient()
         self.assertEqual({'did': 'did:dy:d'},
@@ -4421,7 +4421,7 @@ Sed tortor neque, aliquet quis posuere aliquam, imperdiet sitamet […]
             'https://appview.local/xrpc/com.atproto.identity.resolveHandle?handle=han.dull.brid.gy',
             json=None, data=None, headers=ANY)
 
-    @patch.object(util.session, 'get')
+    @patch.object(util.session, 'get', autospec=True)
     def test_datastore_client_other_call_pass_through(self, mock_get):
         output = {
             'handle': 'y.z',
@@ -4464,7 +4464,7 @@ Sed tortor neque, aliquet quis posuere aliquam, imperdiet sitamet […]
             client.com.atproto.identity.resolveHandle(handle='han.dull.brid.gy'))
 
     @patch.object(tasks_client, 'create_task')
-    @patch.object(util.session, 'get', side_effect=[
+    @patch.object(util.session, 'get', autospec=True, side_effect=[
         requests_response({'logs': [], 'cursor': 'neckst'}),
     ])
     def test_poll_atproto_chat_empty(self, mock_get, mock_create_task):
@@ -4480,7 +4480,7 @@ Sed tortor neque, aliquet quis posuere aliquam, imperdiet sitamet […]
         mock_create_task.assert_not_called()
 
     @patch.object(tasks_client, 'create_task')
-    @patch.object(util.session, 'get', side_effect=[
+    @patch.object(util.session, 'get', autospec=True, side_effect=[
         requests_response({
             'cursor': 'neckst',
             'logs': [{
@@ -4525,7 +4525,7 @@ Sed tortor neque, aliquet quis posuere aliquam, imperdiet sitamet […]
         mock_create_task.assert_not_called()
 
     @patch.object(tasks_client, 'create_task')
-    @patch.object(util.session, 'get')
+    @patch.object(util.session, 'get', autospec=True)
     def test_poll_atproto_chat_messages(self, mock_get, mock_create_task):
         msg_alice = {
             '$type': 'chat.bsky.convo.defs#messageView',

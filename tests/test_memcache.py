@@ -236,7 +236,7 @@ class MemcacheTest(TestCase):
         self.assertIsNone(get_original_user_key('other:a'))
         self.assertIsNone(get_original_user_key('other:b'))
 
-    @patch.object(util.session, 'post', return_value=requests_response())
+    @patch.object(util.session, 'post', autospec=True, return_value=requests_response())
     def test_remote_evict(self, mock_post):
         key = Fake(id='fake:foo').key
         memcache.remote_evict(key)
