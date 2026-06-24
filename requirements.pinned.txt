@@ -36,7 +36,7 @@ google-cloud-audit-log==0.6.0
 google-cloud-core==2.6.0
 google-cloud-datastore==2.25.0
 google-cloud-dns==0.37.0
-google-cloud-error-reporting==1.15.0
+google-cloud-error-reporting==1.16.0
 google-cloud-logging==3.16.0
 google-cloud-ndb==2.5.0
 google-cloud-tasks==2.22.0
