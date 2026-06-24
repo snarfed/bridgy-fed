@@ -1071,22 +1071,12 @@ def postprocess_as2(activity, orig_obj=None, wrap=True):
 
     obj_or_activity = obj if obj.keys() > set(['id']) else activity
 
-    # move Link attachments to links in text since fediverse instances generate
-    # their own link previews.
-    # https://github.com/snarfed/bridgy-fed/issues/958
+    # separate out Link attachments; we move them to links in content below,
+    # after render_content, since fediverse instances generate their own link
+    # previews. https://github.com/snarfed/bridgy-fed/issues/958
     atts = util.pop_list(obj_or_activity, 'attachment')
     obj_or_activity['attachment'] = [a for a in atts if a.get('type') != 'Link']
     link_atts = [a for a in atts if a.get('type') == 'Link']
-
-    content = obj_or_activity.get('content', '')
-    for link in link_atts:
-        for url in util.get_list(link, 'href'):
-            if content:
-                content += '<br><br>'
-            content += util.pretty_link(url, text=link.get('name'))
-
-    if content:
-        as2.set_content(obj_or_activity, content)
 
     # copy image(s) into attachment(s). may be Mastodon-specific.
     # https://github.com/snarfed/bridgy-fed/issues/33#issuecomment-440965618
@@ -1164,6 +1154,19 @@ def postprocess_as2(activity, orig_obj=None, wrap=True):
                 tag['name'] = f'#{name}'
 
     as2.render_content(obj_or_activity)
+
+    # move Link attachments to links in content. MUST be after render_content,
+    # which requires plain text content and does the whole plain => HTML
+    # conversion; here we just concatenate trusted HTML onto its output.
+    # https://github.com/snarfed/bridgy-fed/issues/958
+    if link_atts:
+        content = obj_or_activity.get('content', '')
+        for link in link_atts:
+            for url in util.get_list(link, 'href'):
+                if content:
+                    content += '<br><br>'
+                content += util.pretty_link(url, text=link.get('name'))
+        as2.set_content(obj_or_activity, content)
 
     activity['object'] = [
         postprocess_as2(o, orig_obj=orig_obj,

@@ -2990,6 +2990,24 @@ class ActivityPubUtilsTest(TestCase):
             }],
         }), ignore=['to'])
 
+    def test_postprocess_as2_links_indexed_tags_with_link_attachment(self):
+        # indexed facets must still be linked even when a Link attachment is
+        # appended to content. regression: appending the link first made
+        # render_content treat the content as already-HTML and skip linking.
+        # https://github.com/snarfed/bridgy-fed/issues/2521
+        expected = '<p>foo <a class="hashtag" rel="tag" href="http://inst/baz">#baz</a><br><br><a href="http://a/link">a/link</a></p>'
+        self.assert_equals({
+            'type': 'Note',
+            'content': expected,
+            'contentMap': {'en': expected},
+        }, postprocess_as2({
+            'type': 'Note',
+            'content': 'foo #baz',
+            'tag': [{'type': 'Tag', 'href': 'http://inst/baz',
+                     'startIndex': 4, 'length': 4}],
+            'attachment': [{'type': 'Link', 'href': 'http://a/link'}],
+        }), ignore=['to', 'tag'])
+
     def test_postprocess_as2_reply_includes_original_posts_mentions(self):
         note = {
             'type': 'Note',
