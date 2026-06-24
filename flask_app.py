@@ -32,6 +32,23 @@ app.config.from_pyfile(app_dir / 'config.py')
 app.url_map.converters['regex'] = flask_util.RegexConverter
 app.after_request(flask_util.default_modern_headers)
 
+# quick and dirty WAF, so that we don't incur the complexity and cost of using
+# a GCP LB and Cloud Armor
+#
+# blocking abusive bots that ignore robots.txt. these replace the IP blocks we had in
+# the App Engine firewall before this service moved to Cloud Run.
+#
+# TODO: move to datastore with webutil.models.Reloader?
+BLOCKED_CIDRS = (
+    # '2a03:2880::/32',     # Meta/Facebook
+    # '57.141.0.0/16',      # Meta/Facebook
+)
+BLOCKED_USER_AGENTS = (
+    'meta-externalagent',
+)
+app.before_request(flask_util.block(cidrs=BLOCKED_CIDRS,
+                                    user_agents=BLOCKED_USER_AGENTS))
+
 app.register_error_handler(Exception, flask_util.handle_exception)
 app.register_error_handler(PermissionDenied, flask_util.handle_read_only_permission_denied)
 
