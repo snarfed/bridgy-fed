@@ -13,7 +13,7 @@ import granary.farcaster
 from granary.farcaster import (
     FARCASTER_URI_RE,
     from_as1,
-    sign,
+    hash_and_sign,
 )
 from granary.generated.farcaster.message_pb2 import (
     CastId,
@@ -225,7 +225,7 @@ class Farcaster(User, Protocol):
 
         if from_user:
             for msg in msgs:
-                sign(msg, from_user.farcaster_key())
+                hash_and_sign(msg, from_user.farcaster_key())
 
         return msgs
 
@@ -256,7 +256,7 @@ class Farcaster(User, Protocol):
         for msg in msgs:
             if not msg.signature:
                 # convert() didn't sign (eg no from_user); sign now
-                sign(msg, from_user.farcaster_key())
+                hash_and_sign(msg, from_user.farcaster_key())
 
         try:
             resp = client().hub.SubmitBulkMessages(
