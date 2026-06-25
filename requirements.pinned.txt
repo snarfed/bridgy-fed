@@ -65,7 +65,7 @@ mf2py==2.0.1
 multiformats==0.3.1.post4
 multiformats-config==0.3.1
 oauthlib==3.3.1
-opentelemetry-api==1.42.1
+opentelemetry-api==1.43.0
 orderedmultidict==1.0.2
 packaging==26.2
 pbr==7.0.3
