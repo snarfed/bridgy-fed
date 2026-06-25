@@ -667,10 +667,13 @@ class ActivityPubTest(TestCase):
         # @context is duplicated
         # https://github.com/snarfed/bridgy-fed/issues/1003
         got_json = copy.deepcopy(got.json)
-        for field in ['inbox', 'outbox', 'endpoints', 'followers', 'following',
-                      'publicKey']:
+        for field in ['inbox', 'outbox', 'endpoints', 'publicKey']:
             got_json.pop(field)
         self.assertEqual(actor_as2, got_json)
+
+        # we no longer serve AP follower/following collections for the bot users
+        self.assertNotIn('followers', got_json)
+        self.assertNotIn('following', got_json)
 
     @patch('webutil.appengine_info.DEBUG', False)
     def test_actor_protocol_bot_user_doesnt_exist(self, *_):
@@ -2244,19 +2247,7 @@ class ActivityPubTest(TestCase):
 
         resp = self.client.get('/bsky.brid.gy/followers',
                                base_url='https://bsky.brid.gy')
-        self.assertEqual(200, resp.status_code)
-        self.assert_equals({
-            '@context': as2.CONTEXT,
-            'id': 'https://bsky.brid.gy/bsky.brid.gy/followers',
-            'type': 'Collection',
-            'summary': "bsky.brid.gy's followers",
-            'totalItems': 3,
-            'first': {
-                'type': 'CollectionPage',
-                'partOf': 'https://bsky.brid.gy/bsky.brid.gy/followers',
-                'items': [ACTOR, ACTOR],
-            },
-        }, resp.json)
+        self.assertEqual(404, resp.status_code)
 
     @patch('models.PAGE_SIZE', 2)
     def test_followers_collection_page(self, *_):
@@ -2286,7 +2277,7 @@ class ActivityPubTest(TestCase):
         before = (datetime.now(UTC) + timedelta(seconds=1)).isoformat()
         resp = self.client.get(f'/bsky.brid.gy/followers?before={before}',
                                base_url='https://bsky.brid.gy')
-        self.assertEqual(200, resp.status_code)
+        self.assertEqual(404, resp.status_code)
 
     def test_following_collection_unknown_user(self, *_):
         resp = self.client.get('/nope.com/following')
@@ -2350,19 +2341,7 @@ class ActivityPubTest(TestCase):
 
         resp = self.client.get('/bsky.brid.gy/following',
                                base_url='https://bsky.brid.gy')
-        self.assertEqual(200, resp.status_code)
-        self.assert_equals({
-            '@context': as2.CONTEXT,
-            'id': 'https://bsky.brid.gy/bsky.brid.gy/following',
-            'type': 'Collection',
-            'summary': "bsky.brid.gy's following",
-            'totalItems': 2,
-            'first': {
-                'type': 'CollectionPage',
-                'partOf': 'https://bsky.brid.gy/bsky.brid.gy/following',
-                'items': [ACTOR, ACTOR],
-            },
-        }, resp.json)
+        self.assertEqual(404, resp.status_code)
 
     @patch('models.PAGE_SIZE', 1)
     def test_following_collection_page(self, *_):
@@ -2383,15 +2362,6 @@ class ActivityPubTest(TestCase):
             'next': f'http://localhost/user.com/following?before={after}',
             'items': [ACTOR],
         }, resp.json)
-
-    def test_following_collection_page_protocol_bot_user(self, *_):
-        self.user = self.make_user('bsky.brid.gy', cls=Web, ap_subdomain='bsky')
-        self.store_following()
-
-        before = (datetime.now(UTC) + timedelta(seconds=1)).isoformat()
-        resp = self.client.get(f'/bsky.brid.gy/following?before={before}',
-                               base_url='https://bsky.brid.gy')
-        self.assertEqual(200, resp.status_code)
 
     def test_following_collection_head(self, *_):
         resp = self.client.head(f'/user.com/following')

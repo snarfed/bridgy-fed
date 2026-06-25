@@ -1372,12 +1372,17 @@ def actor(handle_or_id):
         'id': id,
         'inbox': id + '/inbox',
         'outbox': id + '/outbox',
-        'following': id + '/following',
-        'followers': id + '/followers',
         'endpoints': {
             'sharedInbox': urljoin(id, '/ap/sharedInbox'),
         },
     })
+
+    # we don't currently serve follower/following collections for bot users
+    if id not in ids.BOT_ACTOR_AP_IDS:
+        actor.update({
+            'following': id + '/following',
+            'followers': id + '/followers',
+        })
 
     logger.debug(f'Returning: {json_dumps(actor, indent=2)}')
     return actor, {
@@ -1548,6 +1553,9 @@ def follower_collection(id, collection):
         import pages
         return pages.followers_or_following('ap', id, collection)
 
+    if id in PROTOCOL_DOMAINS:
+        return '', 404
+
     user = _load_user(id)
 
     if request.method == 'HEAD':
@@ -1575,21 +1583,15 @@ def follower_collection(id, collection):
         logger.debug(f'Returning {json_dumps(page, indent=2)}')
         return page, {'Content-Type': as2.CONTENT_TYPE_LD_PROFILE}
 
+    num_followers, num_following = user.count_followers()
     ret = {
         '@context': 'https://www.w3.org/ns/activitystreams',
         'id': request.base_url,
         'type': 'Collection',
+        'totalItems': num_followers if collection == 'followers' else num_following,
         'summary': f"{id}'s {collection}",
         'first': page,
     }
-
-    # count total if it's small, <= 1k. we should eventually precompute this
-    # so that we can always return it cheaply.
-    prop = Follower.to if collection == 'followers' else Follower.from_
-    count = Follower.query(prop == user.key, Follower.status == 'active')\
-                    .count(limit=1001)
-    if count != 1001:
-        ret['totalItems'] = count
 
     logger.debug(f'Returning {json_dumps(collection, indent=2)}')
     return ret, {
