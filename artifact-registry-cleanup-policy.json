@@ -3,15 +3,22 @@
     "name": "delete-old",
     "action": {"type": "Delete"},
     "condition": {
-      "olderThan": "7d"
+      "olderThan": "30d"
     }
   },
   {
     "name": "keep-minimum",
     "action": {"type": "Keep"},
     "mostRecentVersions": {
-      "packageNamePrefixes": ["app/bounce", "app/default", "hub", "router"],
-      "keepCount": 5
+      "packageNamePrefixes": [
+        "app/bounce",
+        "app/default",
+        "default",
+        "frontend",
+        "hub",
+        "router"
+      ],
+      "keepCount": 10
     }
   }
 ]
