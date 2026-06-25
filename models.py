@@ -1915,7 +1915,19 @@ class Object(AddRemoveMixin, StringIdModel):
           str:
         """
         copies = self.get_copies(proto)
-        return copies[0] if copies else None
+        if not copies:
+            return None
+
+        # for ATProto, prefer ids from types in granary.bluesky.FROM_AS1_TYPES order,
+        # eg for article, site.standard.document over app.bsky.feed.post
+        if proto.LABEL == 'atproto':
+            for type in bluesky.FROM_AS1_TYPES.get(self.type, []):
+                for copy in copies:
+                    _, coll, _ = parse_at_uri(copy)
+                    if type == coll:
+                        return copy
+
+        return copies[0]
 
     def get_copies(self, proto):
         """Returns all ids of copies of this object in a given protocol.

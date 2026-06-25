@@ -1956,6 +1956,24 @@ cast_add_body { text: "hi" }
         obj.copies.append(Target(uri='fake:foo', protocol='fake'))
         self.assertEqual('fake:foo', obj.get_copy(Fake))
 
+    def test_get_copy_atproto_article_prefers_document(self):
+        obj = Object(id='x', source_protocol='web', our_as1={'objectType': 'article'})
+        obj.copies = [
+            Target(uri='at://did:plc:foo/app.bsky.feed.post/123', protocol='atproto'),
+            Target(uri='at://did:plc:foo/site.standard.document/123', protocol='atproto'),
+        ]
+        self.assertEqual('at://did:plc:foo/site.standard.document/123',
+                         obj.get_copy(ATProto))
+
+    def test_get_copy_atproto_note_prefers_post(self):
+        obj = Object(id='x', source_protocol='web', our_as1={'objectType': 'note'})
+        obj.copies = [
+            Target(uri='at://did:plc:foo/app.bsky.feed.post/123', protocol='atproto'),
+            Target(uri='at://did:plc:foo/site.standard.document/123', protocol='atproto'),
+        ]
+        self.assertEqual('at://did:plc:foo/app.bsky.feed.post/123',
+                         obj.get_copy(ATProto))
+
     def test_add_to_copies_updates_memcache(self):
         cache_key = memcache.memoize_key(
             models.get_original_object_key, 'other:x')
