@@ -74,7 +74,7 @@ pluggy==1.6.0
 praw==8.0.1
 prawcore==4.0.0
 proto-plus==1.28.0
-protobuf==7.35.0
+protobuf==7.35.1
 pyasn1==0.6.3
 pyasn1-modules==0.4.2
 pycparser==3.0
