@@ -302,7 +302,9 @@ def handle(event):
             or mentions & bridged_pubkeys):  # mentions a user bridged into Nostr
         return
 
-    if not verify(event):
+    try:
+        verify(event)
+    except ValueError:
         logger.debug(f'bad id or sig for {id}')
         return
 

@@ -508,7 +508,7 @@ class NostrTest(TestCase):
             'tags': [['proxy', 'fake:post', 'fake']],
             'sig': '64bbe5dab3554ec3992434bf6405cde379bbc485cdc08b3b25d3c803e0c96eb9ad1cf046d87bd9836adcf27f1ecba32e080d6e5d6132ff17890ca07e6d0afe33',
         }, got)
-        self.assertTrue(granary.nostr.verify(got))
+        granary.nostr.verify(got)
 
     def test_convert_article(self):
         obj = Object(id='fake:post', our_as1={
@@ -566,7 +566,7 @@ class NostrTest(TestCase):
         self.assertTrue(Nostr.send(obj, 'reeelaaay', from_user=self.user))
         self.assert_equals(['reeelaaay'], FakeConnection.relays)
         self.assert_equals([['EVENT', expected]], FakeConnection.sent)
-        self.assertTrue(granary.nostr.verify(expected))
+        granary.nostr.verify(expected)
         expected_copy = [Target(uri='nostr:' + id, protocol='nostr')]
         self.assertEqual(expected_copy, obj.key.get().copies)
 
@@ -585,7 +585,7 @@ class NostrTest(TestCase):
         mock_now.assert_not_called()
         self.assert_equals(['other-relay'], FakeConnection.relays)
         self.assert_equals([['EVENT', expected]], FakeConnection.sent)
-        self.assertTrue(granary.nostr.verify(expected))
+        granary.nostr.verify(expected)
         self.assertEqual(expected_copy, obj.key.get().copies)
 
     def test_send_note_create(self):
@@ -619,7 +619,7 @@ class NostrTest(TestCase):
         self.assertTrue(Nostr.send(create, 'reeelaaay', from_user=self.user))
         self.assert_equals(['reeelaaay'], FakeConnection.relays)
         self.assert_equals([['EVENT', expected]], FakeConnection.sent)
-        self.assertTrue(granary.nostr.verify(expected))
+        granary.nostr.verify(expected)
         self.assertEqual([Target(uri='nostr:' + id, protocol='nostr')],
                          note.key.get().copies)
         self.assertIsNone(create.key.get())
