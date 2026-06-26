@@ -105,8 +105,8 @@ class IdsTest(TestCase):
             (ATProto, 'https://bsky.app/profile/user.com', ATProto, 'did:plc:123'),
             (ATProto, 'https://bsky.app/profile/did:plc:123', ATProto, 'did:plc:123'),
 
-            (Farcaster, 'farcaster://555', Web, 'https://fc.brid.gy/web/555'),
-            (Farcaster, 'farcaster://555', ActivityPub, 'https://fc.brid.gy/ap/555'),
+            (Farcaster, 'farcaster://555', Web, 'https://fc.brid.gy/web/farcaster://555'),
+            (Farcaster, 'farcaster://555', ActivityPub, 'https://fc.brid.gy/ap/farcaster://555'),
             (Farcaster, 'farcaster://555', ATProto, None),
             (Farcaster, 'farcaster://555', Nostr, None),
 
@@ -464,9 +464,9 @@ class IdsTest(TestCase):
             (Web, 'http://po.st', Web, 'http://po.st'),
             (Nostr, 'nostr:456', Fake, 'fake:o:nostr:nostr:456'),
             (Farcaster, 'farcaster://123/0xabc', Web,
-             'https://fc.brid.gy/convert/web/123/0xabc'),
+             'https://fc.brid.gy/convert/web/farcaster://123/0xabc'),
             (Farcaster, 'farcaster://123/0xabc', ActivityPub,
-             'https://fc.brid.gy/convert/ap/123/0xabc'),
+             'https://fc.brid.gy/convert/ap/farcaster://123/0xabc'),
             (Farcaster, 'farcaster://123/0xabc', ATProto, 'farcaster://123/0xabc'),
             (Farcaster, 'farcaster://123/0xabc', Nostr, 'farcaster://123/0xabc'),
             (Web, 'http://po.st', Farcaster, 'http://po.st'),
