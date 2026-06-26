@@ -71,7 +71,7 @@ packaging==26.2
 pbr==7.0.3
 pkce==1.0.3
 pluggy==1.6.0
-praw==8.0.1
+praw==8.0.2
 prawcore==4.0.0
 proto-plus==1.28.0
 protobuf==7.35.1
