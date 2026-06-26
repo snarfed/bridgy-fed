@@ -1,10 +1,12 @@
 """Unit tests for ids.py."""
 from unittest.mock import patch
 
+from granary.generated.farcaster.username_proof_pb2 import UserNameProof
 from granary.tests.test_nostr import ID, NPUB, NPUB_URI, PUBKEY, PUBKEY_URI
 
 from activitypub import ActivityPub
 from atproto import ATProto
+import farcaster
 from farcaster import Farcaster
 from flask_app import app
 from google.cloud.ndb.key import _MAX_KEYPART_BYTES
@@ -244,6 +246,14 @@ class IdsTest(TestCase):
                          ids.normalize_user_id(id=NOSTR_ID_0.removeprefix('nostr:'),
                                                proto=Nostr))
         self.assertEqual(PUBKEY_URI, ids.normalize_user_id(id=NOSTR_ID_0, proto=Nostr))
+
+    @patch('granary.farcaster.rpc_pb2_grpc.HubServiceStub')
+    def test_normalize_user_id_farcaster_username(self, mock_stub):
+        farcaster._client = None
+        mock_stub.return_value.GetUsernameProof.return_value = \
+            UserNameProof(fid=123, name=b'user')
+        self.assertEqual('farcaster://123', ids.normalize_user_id(
+            id='farcaster://@user', proto=Farcaster))
 
     def test_normalize_user_id_not_user_id(self):
         for proto, id in [

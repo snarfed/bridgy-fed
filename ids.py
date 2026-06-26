@@ -235,6 +235,7 @@ def normalize_user_id(*, id, proto):
       * https://bsky.app/profile/did:plc:123 => did:plc:123
     * Farcaster:
       * 123 => farcaster://123
+      * farcaster://@user => farcaster://123
 
     Note that :func:`profile_id` is a narrower inverse of this; it converts
     user ids to profile ids.
@@ -264,6 +265,12 @@ def normalize_user_id(*, id, proto):
     elif proto.LABEL == 'farcaster':
         if util.is_int(id):
             return granary.farcaster.uri(id)
+
+        if ((match := granary.farcaster.FARCASTER_URI_RE.fullmatch(id))
+                and match['username'] and not match['hash']):
+            # TODO: look up in datastore first?
+            if fid := proto.handle_to_id(match['username']):
+                return fid
 
     elif proto.LABEL == 'nostr':
         obj_key = models.Object(id=normalized).key
