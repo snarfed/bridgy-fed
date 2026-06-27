@@ -2386,9 +2386,9 @@ class ProtocolReceiveTest(TestCase):
 
     def test_targets_excludes_blocklisted_direct_targets(self):
         OtherFake.fetchable = {
-            'other://b.ob/': {'objectType': 'person', 'id': 'other://b.ob'},
-            'other://e.ve/': {'objectType': 'person', 'id': 'other://e.ve'},
-            'other://fra.nk/': {'objectType': 'person', 'id': 'other://fra.nk'},
+            'other://b.ob': {'objectType': 'person', 'id': 'other://b.ob'},
+            'other://e.ve': {'objectType': 'person', 'id': 'other://e.ve'},
+            'other://fra.nk': {'objectType': 'person', 'id': 'other://fra.nk'},
             'other://e.ve/note': {
                 'objectType': 'note',
                 'id': 'other://e.ve/note',
@@ -2422,7 +2422,7 @@ class ProtocolReceiveTest(TestCase):
         })
         self.assertEqual([
             # not eve or frank
-            Target(protocol='other', uri='other://b.ob/:target'),
+            Target(protocol='other', uri='other://b.ob:target'),
         ], list(Fake.targets(create, from_user=self.user, crud_obj=note)))
 
     @patch.object(util.session, 'get', autospec=True, return_value=requests_response())
