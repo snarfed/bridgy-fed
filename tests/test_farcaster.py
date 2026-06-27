@@ -185,6 +185,29 @@ cast_add_body {
             user_data_message(123, 'USER_DATA_TYPE_BIO', 'hi'),
         ], Farcaster.convert(obj))
 
+    def test_convert_from_user_sets_fid(self, _):
+        # the message fid comes from from_user, overriding the object's author id
+        obj = Object(id='farcaster://456/0xabcd', source_protocol='ui', our_as1={
+            'objectType': 'note',
+            'content': 'hello world',
+            'author': 'farcaster://456',
+        })
+        msgs = Farcaster.convert(obj, from_user=self.user)
+        self.assertEqual([123], [msg.data.fid for msg in msgs])
+
+    def test_convert_actor_from_user_sets_fid(self, _):
+        # the object id isn't a farcaster:// uri so its fid can't be recovered,
+        # eg an ATProto profile record id; the fid comes from from_user
+        obj = Object(id='at://did:plc:abc/app.bsky.actor.profile/self',
+                     source_protocol='atproto', our_as1={
+            'objectType': 'person',
+            'id': 'at://did:plc:abc/app.bsky.actor.profile/self',
+            'displayName': 'Alice',
+            'username': 'alice',
+        })
+        msgs = Farcaster.convert(obj, from_user=self.user)
+        self.assertEqual([123, 123], [msg.data.fid for msg in msgs])
+
     def test_send_cast(self, mock_stub):
         resp = message("""
 type: MESSAGE_TYPE_CAST_ADD

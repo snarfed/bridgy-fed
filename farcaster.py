@@ -224,6 +224,12 @@ class Farcaster(User, Protocol):
             msgs = [msgs]
 
         if from_user:
+            if fc_uri := from_user.id_as(to_cls):
+                match = FARCASTER_URI_RE.fullmatch(fc_uri)
+                assert match['fid'], (from_user.key.id(), fc_uri)
+                for msg in msgs:
+                    msg.data.fid = int(match['fid'])
+
             for msg in msgs:
                 hash_and_sign(msg, from_user.farcaster_key())
 
