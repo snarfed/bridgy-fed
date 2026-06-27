@@ -76,6 +76,8 @@ PROTOCOLS = {label: None for label in (
     'ap',
     'atproto',
     'bsky',
+    'farcaster',
+    'fc',
     'nostr',
     'ostatus',
     'web',
@@ -86,8 +88,6 @@ DEBUG_PROTOCOLS = (
     'fa',
     'fake',
     'efake',
-    'farcaster',
-    'fc',
     'other',
 )
 if DEBUG:
