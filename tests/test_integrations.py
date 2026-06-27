@@ -13,6 +13,7 @@ import arroba.util
 from dns.resolver import NXDOMAIN
 import google.cloud.dns.client
 from google.cloud import ndb
+from google.protobuf.text_encoding import CEscape
 from granary import as2, bluesky
 import granary.nostr
 from granary.nostr import (
@@ -28,6 +29,12 @@ from granary.nostr import (
     uri_for,
     uri_to_id,
 )
+import granary.farcaster
+from granary.generated.farcaster.request_response_pb2 import (
+    BulkMessageResponse,
+    SubmitBulkMessagesResponse,
+)
+from granary.tests.test_farcaster import message as fc_message, user_data_message
 from granary.tests.test_bluesky import ACTOR_PROFILE_BSKY, POST_BSKY
 from granary.tests.test_nostr import (
     FakeConnection,
@@ -59,6 +66,8 @@ import app
 from atproto import ATProto, Cursor
 import atproto_firehose
 import common
+import farcaster
+from farcaster import Farcaster
 import models
 from models import DM, Follower, Object, Target
 from nostr import Nostr, NostrRelay
@@ -234,6 +243,49 @@ class IntegrationTests(TestCase):
             self.store_object(id=id, nostr=profile)
             user.obj.add('copies', Target(uri=id, protocol='nostr'))
             user.obj.put()
+
+    def make_farcaster_user(self, fid, username='bob',
+                            enabled_protocols=['activitypub'], **props):
+        id = granary.farcaster.uri(fid)
+        profile = Object(id=id, source_protocol='farcaster', farcaster=[
+            user_data_message(fid, 'USER_DATA_TYPE_DISPLAY',
+                              username.capitalize()).SerializeToString(),
+            user_data_message(fid, 'USER_DATA_TYPE_USERNAME',
+                              username).SerializeToString(),
+            user_data_message(fid, 'USER_DATA_TYPE_PFP',
+                              'http://pic').SerializeToString(),
+        ])
+        profile.put()
+        return self.make_user(id=id, cls=Farcaster, obj_key=profile.key,
+                              enabled_protocols=enabled_protocols, **props)
+
+    def make_farcaster_copy(self, user, fid):
+        farcaster._client = None
+        user.add('enabled_protocols', 'farcaster')
+        fid_uri = granary.farcaster.uri(fid)
+        user.add('copies', Target(uri=fid_uri, protocol='farcaster'))
+        user.put()
+
+        if user.obj:
+            user.obj.add('copies', Target(uri=fid_uri, protocol='farcaster'))
+            user.obj.put()
+
+    def assert_farcaster_sent(self, mock_stub, expected):
+        """Asserts the messages submitted to the hub, ignoring signatures."""
+        actual = mock_stub.return_value.SubmitBulkMessages.call_args[0][0]
+        for msg in actual.messages:
+            msg.ClearField('signature')
+            msg.ClearField('signer')
+            msg.ClearField('signature_scheme')
+        self.assertEqual(list(expected), list(actual.messages))
+
+    def setup_farcaster_hub(self, mock_stub):
+        """Makes the mocked hub echo back submitted messages in its response."""
+        def submit(req):
+            return SubmitBulkMessagesResponse(messages=[
+                BulkMessageResponse(message=msg) for msg in req.messages])
+
+        mock_stub.return_value.SubmitBulkMessages.side_effect = submit
 
     def firehose(self, limit=1, **op):
         setup_firehose()
@@ -841,7 +893,7 @@ class IntegrationTests(TestCase):
 
     @patch.object(util.session, 'post', autospec=True, return_value=requests_response('OK'))  # create DID
     @patch.object(util.session, 'get', autospec=True)
-    def test_activitypub_follow_bsky_bot_user_enables_protocol(self, mock_get, mock_post):
+    def test_activitypub_follow_bsky_bot_enables_protocol(self, mock_get, mock_post):
         """AP follow of @bsky.brid.gy@bsky.brid.gy bridges the account into Bluesky.
 
         ActivityPub user @alice@inst , https://inst/alice
@@ -1038,7 +1090,7 @@ class IntegrationTests(TestCase):
         requests_response(PROFILE_GETRECORD),  # alice profile
         BSKY_GET_CONVO_RESP,
     ])
-    def test_atproto_follow_ap_bot_user_enables_protocol(self, mock_get, mock_post):
+    def test_atproto_follow_ap_bot_enables_protocol(self, mock_get, mock_post):
         """ATProto follow of @ap.brid.gy enables the ActivityPub protocol.
 
         ATProto user alice.com, did:plc:alice
@@ -1108,7 +1160,7 @@ class IntegrationTests(TestCase):
 
     @patch.object(util.session, 'post', autospec=True)
     @patch.object(util.session, 'get', autospec=True)
-    def test_atproto_block_ap_bot_user_disables_protocol_deletes_actor(
+    def test_atproto_block_ap_bot_disables_protocol_deletes_actor(
             self, mock_get, mock_post):
         """Bluesky user blocks ap.brid.gy: disables protocol, deletes their AP actor.
 
@@ -1146,7 +1198,7 @@ class IntegrationTests(TestCase):
         # alice profile picture
         requests_response('blob', headers={'Content-Type': 'image/jpeg'}),
     ])
-    def test_activitypub_block_bsky_bot_user_deactivates_atproto_repo(self, mock_get):
+    def test_activitypub_block_bsky_bot_deactivates_atproto_repo(self, mock_get):
         """AP Block of @bsky.brid.gy@bsky.brid.gy deactivates the Bluesky repo.
 
         ActivityPub user @alice@inst , https://inst/alice , did:plc:alice
@@ -1492,7 +1544,7 @@ class IntegrationTests(TestCase):
         # alice profile picture
         requests_response('blob', headers={'Content-Type': 'image/jpeg'}),
     ])
-    def test_activitypub_delete_user_deactivates_atproto_repo(self, mock_get):
+    def test_activitypub_delete_deactivates_atproto_repo(self, mock_get):
         """AP Delete of user deactivates the Bluesky repo.
 
         ActivityPub user @alice@inst , https://inst/alice , did:plc:alice
@@ -2939,7 +2991,7 @@ class IntegrationTests(TestCase):
     @patch.object(util.session, 'get', autospec=True, side_effect=[
         requests_response({'names': {'bob': 'deadbeef'}}),  # NIP-05 validation
     ])
-    def test_nostr_follow_activitypub_bot_user_invalid_nip05(self, mock_get):
+    def test_nostr_follow_activitypub_bot_invalid_nip05(self, mock_get):
         """Nostr follow of ap.brid.gy bot user, invalid NIP-05.
 
         Nostr user bob@nos.tr (NPUB_URI) without valid NIP-05
@@ -2972,7 +3024,7 @@ class IntegrationTests(TestCase):
     @patch.object(util.session, 'post', autospec=True, return_value=requests_response('OK'))
     @patch('secrets.token_urlsafe',
            side_effect=['sub123', 'sub456', 'sub789', 'subabc'])
-    def test_nostr_follow_activitypub_bot_user_enables_protocol(self, _, mock_post):
+    def test_nostr_follow_activitypub_bot_enables_protocol(self, _, mock_post):
         """Nostr follow of ap.brid.gy bot user enables the ActivityPub protocol.
 
         Nostr user bob@nos.tr (NPUB_URI) with valid NIP-05
@@ -3008,7 +3060,7 @@ class IntegrationTests(TestCase):
     ])
     @patch('secrets.token_urlsafe',
            side_effect=['sub123', 'sub456', 'sub789', 'subabc'])
-    def test_nostr_follow_atproto_bot_user_enables_protocol(self, _, mock_get,
+    def test_nostr_follow_atproto_bot_enables_protocol(self, _, mock_get,
                                                             mock_post):
         """Nostr follow of bsky.brid.gy bot user enables the ATProto protocol.
 
@@ -3050,7 +3102,7 @@ class IntegrationTests(TestCase):
 
     @patch.object(util.session, 'get', autospec=True)
     @patch.object(util.session, 'post', autospec=True)
-    def test_activitypub_follow_nostr_bot_user_enables_protocol(self, mock_post,
+    def test_activitypub_follow_nostr_bot_enables_protocol(self, mock_post,
                                                                 mock_get):
         """ActivityPub follow of @nostr.brid.gy enables the Nostr protocol.
 
@@ -3088,7 +3140,7 @@ class IntegrationTests(TestCase):
         BSKY_GET_CONVO_RESP,
     ])
     @patch.object(util.session, 'post', autospec=True, return_value=BSKY_SEND_MESSAGE_RESP)
-    def test_atproto_follow_nostr_bot_user_enables_protocol(self, mock_post, mock_get,
+    def test_atproto_follow_nostr_bot_enables_protocol(self, mock_post, mock_get,
                                                             mock_create_task):
         """ATProto follow of nostr.brid.gy enables the Nostr protocol.
 
@@ -3112,7 +3164,7 @@ class IntegrationTests(TestCase):
     @skip
     @patch.object(util.session, 'post', autospec=True)
     @patch.object(util.session, 'get', autospec=True)
-    def test_nostr_follow_activitypub_user(self, mock_get, mock_post):
+    def test_nostr_follow_activitypub(self, mock_get, mock_post):
         """Nostr follow of a normal ActivityPub user.
 
         Nostr user bob@nos.tr (NPUB_URI)
@@ -3167,7 +3219,7 @@ class IntegrationTests(TestCase):
 
     # TODO: https://github.com/snarfed/bridgy-fed/issues/2203
     @skip
-    def test_nostr_follow_atproto_user(self):
+    def test_nostr_follow_atproto(self):
         """Nostr follow of a normal ATProto user.
 
         Nostr user bob@nos.tr (NPUB_URI)
@@ -3286,7 +3338,7 @@ class IntegrationTests(TestCase):
             },
         }, ignore=['@context', 'to'])
 
-    def test_activitypub_reply_to_nostr_user(self):
+    def test_activitypub_reply_to_nostr(self):
         """ActivityPub reply to Nostr user's post.
 
         ActivityPub user https://inst/alice
@@ -3343,7 +3395,7 @@ class IntegrationTests(TestCase):
 
     @patch('secrets.token_urlsafe', side_effect=['sub123'])
     @patch.object(util.session, 'get', autospec=True)
-    def test_web_reply_to_nostr_user(self, mock_get, _):
+    def test_web_reply_to_nostr(self, mock_get, _):
         """Web reply to Nostr user's post.
 
         Web user alice.com
@@ -3400,7 +3452,7 @@ class IntegrationTests(TestCase):
         ], Object.get_by_id('https://alice.com/reply').copies)
 
     @patch('secrets.token_urlsafe', side_effect=['sub123', 'sub456', 'sub789'])
-    def test_nostr_reply_to_atproto_user(self, _):
+    def test_nostr_reply_to_atproto(self, _):
         """Nostr reply to ATProto user's post.
 
         Nostr user bob@nos.tr (NPUB_URI)
@@ -3483,7 +3535,7 @@ class IntegrationTests(TestCase):
             },
         }}}, repo.get_contents(), ignore=['bridgyOriginalText', 'bridgyOriginalUrl'])
 
-    def test_atproto_reply_to_nostr_user(self):
+    def test_atproto_reply_to_nostr(self):
         """ATProto reply to Nostr user's post.
 
         ATProto user did:plc:alice
@@ -3532,7 +3584,7 @@ class IntegrationTests(TestCase):
     @patch.object(util.session, 'get', autospec=True, return_value=requests_response({
         'names': {'bob': PUBKEY},
     }))
-    def test_nostr_user_profile_update_to_activitypub(self, mock_get, mock_post):
+    def test_nostr_profile_update_to_activitypub(self, mock_get, mock_post):
         """Nostr user updates their profile, delivered to AP follower.
 
         Nostr user bob@nos.tr (NPUB_URI)
@@ -3604,7 +3656,7 @@ class IntegrationTests(TestCase):
             },
         }, ignore=['@context', 'to'])
 
-    def test_activitypub_user_profile_update_to_nostr(self):
+    def test_activitypub_profile_update_to_nostr(self):
         """ActivityPub user bridged to Nostr updates their profile.
 
         ActivityPub user https://inst/alice
@@ -3668,7 +3720,7 @@ class IntegrationTests(TestCase):
   <p class="p-summary">New bio</p>
   <img class="u-photo" src="http://new-pic" />
 </body></html>""", url='https://alice.com/'))
-    def test_web_user_profile_update_to_nostr(self, mock_get):
+    def test_web_profile_update_to_nostr(self, mock_get):
         """Web user bridged to Nostr updates their profile via /web-site.
 
         Web user alice.com
@@ -3712,7 +3764,7 @@ class IntegrationTests(TestCase):
             ['EVENT', expected_relays],
         ], FakeConnection.sent)
 
-    def test_atproto_user_profile_update_to_nostr(self):
+    def test_atproto_profile_update_to_nostr(self):
         """ATProto user bridged to Nostr updates their profile.
 
         ATProto user did:plc:alice
@@ -3850,3 +3902,603 @@ class IntegrationTests(TestCase):
             'actor': 'https://bsky.brid.gy/ap/did:plc:bob',
             'object': 'http://inst.com/post',
         }, ignore=['@context', 'to', 'url'])
+
+    @patch('granary.farcaster.rpc_pb2_grpc.HubServiceStub')
+    def test_activitypub_post_to_farcaster_follower(self, mock_stub):
+        """ActivityPub post delivered to a Farcaster follower.
+
+        ActivityPub user https://inst/alice (Farcaster fid 123)
+        Farcaster follower bob (fid 456)
+        """
+        self.setup_farcaster_hub(mock_stub)
+        alice = self.make_ap_user('https://inst/alice')
+        self.make_farcaster_copy(alice, 123)
+        bob = self.make_farcaster_user(456)
+
+        Follower.get_or_create(to=alice, from_=bob)
+
+        create = {
+            '@context': 'https://www.w3.org/ns/activitystreams',
+            'type': 'Create',
+            'id': 'https://inst/post#create',
+            'actor': 'https://inst/alice',
+            'object': {
+                'type': 'Note',
+                'id': 'https://inst/post',
+                'attributedTo': 'https://inst/alice',
+                'content': 'Hello from ActivityPub!',
+            },
+        }
+        body = json_dumps(create)
+        headers = sign('/ap/sharedInbox', body, key_id='https://inst/alice')
+        resp = self.client.post('/ap/sharedInbox', data=body, headers=headers)
+        self.assertEqual(202, resp.status_code)
+
+        self.assert_farcaster_sent(mock_stub, [fc_message("""
+type: MESSAGE_TYPE_CAST_ADD
+cast_add_body { text: "Hello from ActivityPub!" }
+""", fid=123)])
+
+    @patch.object(util.session, 'get', autospec=True, side_effect=[
+        requests_response("""\
+<html>
+<body class="h-entry">
+<a class="u-url" href="https://alice.com/post"></a>
+<div class="e-content">Hello from Web!</div>
+<a class="u-author h-card" href="https://alice.com/">Alice</a>
+<a href="http://localhost/"></a>
+</body>
+</html>
+"""),
+    ])
+    @patch('granary.farcaster.rpc_pb2_grpc.HubServiceStub')
+    def test_web_post_to_farcaster_follower(self, mock_stub, mock_get):
+        """Web post delivered to a Farcaster follower.
+
+        Web user alice.com (Farcaster fid 123)
+        Farcaster follower bob (fid 456)
+        """
+        self.setup_farcaster_hub(mock_stub)
+        alice = self.make_web_user('alice.com')
+        self.make_farcaster_copy(alice, 123)
+        bob = self.make_farcaster_user(456)
+
+        Follower.get_or_create(to=alice, from_=bob)
+
+        resp = self.post('/queue/webmention', data={
+            'source': 'https://alice.com/post',
+            'target': 'http://localhost/',
+        })
+        self.assertEqual(202, resp.status_code)
+
+        self.assert_farcaster_sent(mock_stub, [fc_message("""
+type: MESSAGE_TYPE_CAST_ADD
+cast_add_body { text: "Hello from Web!" }
+""", fid=123)])
+
+    @patch('granary.farcaster.rpc_pb2_grpc.HubServiceStub')
+    def test_atproto_post_to_farcaster_follower(self, mock_stub):
+        """ATProto post delivered to a Farcaster follower.
+
+        ATProto user did:plc:alice (Farcaster fid 123)
+        Farcaster follower bob (fid 456)
+        """
+        self.setup_farcaster_hub(mock_stub)
+        alice = self.make_atproto_user('did:plc:alice')
+        self.make_farcaster_copy(alice, 123)
+        bob = self.make_farcaster_user(456)
+
+        Follower.get_or_create(to=alice, from_=bob)
+
+        Repo.create(self.storage, 'did:unused', signing_key=ATPROTO_KEY)
+
+        post = {
+            '$type': 'app.bsky.feed.post',
+            'text': 'Hello from ATProto!',
+            'createdAt': '2022-01-02T03:04:05.000Z',
+        }
+        self.firehose(repo='did:plc:alice', action='create', seq=123,
+                      path='app.bsky.feed.post/123', record=post)
+
+        self.assert_farcaster_sent(mock_stub, [fc_message("""
+type: MESSAGE_TYPE_CAST_ADD
+cast_add_body { text: "Hello from ATProto!" }
+""", fid=123)])
+
+    @patch('granary.farcaster.rpc_pb2_grpc.HubServiceStub')
+    def test_activitypub_profile_update_to_farcaster(self, mock_stub):
+        """ActivityPub user bridged to Farcaster updates their profile.
+
+        ActivityPub user https://inst/alice (Farcaster fid 123)
+        Farcaster follower bob (fid 456)
+        """
+        self.setup_farcaster_hub(mock_stub)
+        alice = self.make_ap_user('https://inst/alice')
+        self.make_farcaster_copy(alice, 123)
+        bob = self.make_farcaster_user(456)
+
+        Follower.get_or_create(to=alice, from_=bob)
+
+        update = {
+            '@context': 'https://www.w3.org/ns/activitystreams',
+            'type': 'Update',
+            'id': 'https://inst/alice#update',
+            'actor': 'https://inst/alice',
+            'object': {
+                'type': 'Person',
+                'id': 'https://inst/alice',
+                'name': 'Alice Updated',
+                'summary': 'New bio',
+                'icon': {'type': 'Image', 'url': 'http://new-pic'},
+            },
+        }
+        body = json_dumps(update)
+        headers = sign('/ap/sharedInbox', body, key_id='https://inst/alice')
+        resp = self.client.post('/ap/sharedInbox', data=body, headers=headers)
+        self.assertEqual(202, resp.status_code)
+
+        self.assert_farcaster_sent(mock_stub, [
+            user_data_message(123, 'USER_DATA_TYPE_DISPLAY', 'Alice Updated'),
+            user_data_message(123, 'USER_DATA_TYPE_BIO', 'New bio\n\n🌉 bridged from ⁂ https://inst/alice by https://fed.brid.gy/'),
+            user_data_message(123, 'USER_DATA_TYPE_PFP', 'http://new-pic/'),
+        ])
+
+    @patch.object(util.session, 'get', autospec=True, return_value=requests_response("""\
+<html><body class="h-card">
+  <a class="u-url p-name" href="/">Alice Updated</a>
+  <p class="p-summary">New bio</p>
+  <img class="u-photo" src="http://new-pic" />
+</body></html>""", url='https://alice.com/'))
+    @patch('granary.farcaster.rpc_pb2_grpc.HubServiceStub')
+    def test_web_profile_update_to_farcaster(self, mock_stub, mock_get):
+        """Web user bridged to Farcaster updates their profile.
+
+        Web user alice.com (Farcaster fid 123)
+        Farcaster follower bob (fid 456)
+        """
+        self.setup_farcaster_hub(mock_stub)
+        alice = self.make_web_user('alice.com')
+        self.make_farcaster_copy(alice, 123)
+        bob = self.make_farcaster_user(456)
+
+        Follower.get_or_create(to=alice, from_=bob)
+
+        resp = self.client.post('/web/alice.com/update-profile')
+        self.assertEqual(302, resp.status_code)
+
+        self.assert_farcaster_sent(mock_stub, [
+            user_data_message(123, 'USER_DATA_TYPE_DISPLAY', 'Alice Updated'),
+            user_data_message(123, 'USER_DATA_TYPE_BIO', 'New bio'),
+            user_data_message(123, 'USER_DATA_TYPE_PFP', 'http://new-pic'),
+            user_data_message(123, 'USER_DATA_TYPE_URL', 'https://alice.com/'),
+        ])
+
+    @patch('granary.farcaster.rpc_pb2_grpc.HubServiceStub')
+    def test_atproto_profile_update_to_farcaster(self, mock_stub):
+        """ATProto user bridged to Farcaster updates their profile.
+
+        ATProto user did:plc:alice (Farcaster fid 123)
+        Farcaster follower bob (fid 456)
+        """
+        self.setup_farcaster_hub(mock_stub)
+        alice = self.make_atproto_user('did:plc:alice')
+        self.make_farcaster_copy(alice, 123)
+        bob = self.make_farcaster_user(456)
+
+        Follower.get_or_create(to=alice, from_=bob)
+
+        Repo.create(self.storage, 'did:unused', signing_key=ATPROTO_KEY)
+
+        new_profile = {
+            '$type': 'app.bsky.actor.profile',
+            'displayName': 'Alice Updated',
+            'description': 'New bio',
+            'avatar': {'$type': 'blob', 'ref': {'$link': 'bafy'}},
+        }
+        self.firehose(repo='did:plc:alice', action='update', seq=123,
+                      path='app.bsky.actor.profile/self', record=new_profile)
+
+        self.assert_farcaster_sent(mock_stub, [
+            user_data_message(123, 'USER_DATA_TYPE_DISPLAY', 'Alice Updated'),
+            user_data_message(123, 'USER_DATA_TYPE_USERNAME', 'alice.com'),
+            user_data_message(123, 'USER_DATA_TYPE_BIO', 'New bio\n\n🌉 bridged from 🦋 https://bsky.app/profile/alice.com by https://fed.brid.gy/'),
+            user_data_message(123, 'USER_DATA_TYPE_PFP', 'https://some.pds/xrpc/com.atproto.sync.getBlob?did=did:plc:alice&cid=bafy'),
+            user_data_message(123, 'USER_DATA_TYPE_URL', 'https://bsky.app/profile/alice.com'),
+        ])
+
+    @patch('granary.farcaster.rpc_pb2_grpc.HubServiceStub')
+    def test_activitypub_reply_to_farcaster(self, mock_stub):
+        """ActivityPub reply to a Farcaster user's post.
+
+        ActivityPub user https://inst/alice (Farcaster fid 123)
+        Farcaster user bob (fid 456)
+        """
+        self.setup_farcaster_hub(mock_stub)
+        alice = self.make_ap_user('https://inst/alice')
+        self.make_farcaster_copy(alice, 123)
+        bob = self.make_farcaster_user(456)
+
+        bob_post = fc_message("""
+fid: 456
+type: MESSAGE_TYPE_CAST_ADD
+cast_add_body { text: "Hi from Bob" }
+""", fid=123)
+        bob_uri = granary.farcaster.uri(456, hash=bob_post.hash)
+        self.store_object(id=bob_uri, source_protocol='farcaster',
+                          farcaster=[bob_post.SerializeToString()])
+
+        create = {
+            '@context': 'https://www.w3.org/ns/activitystreams',
+            'type': 'Create',
+            'id': 'https://inst/reply#create',
+            'actor': 'https://inst/alice',
+            'object': {
+                'type': 'Note',
+                'id': 'https://inst/reply',
+                'attributedTo': 'https://inst/alice',
+                'content': 'Replying to Bob!',
+                'inReplyTo': f'https://fc.brid.gy/convert/ap/farcaster://456/0x{bob_post.hash.hex()}',
+            },
+        }
+        body = json_dumps(create)
+        headers = sign('/ap/sharedInbox', body, key_id='https://inst/alice')
+        resp = self.client.post('/ap/sharedInbox', data=body, headers=headers)
+        self.assertEqual(202, resp.status_code)
+
+        self.assert_farcaster_sent(mock_stub, [fc_message(f"""
+type: MESSAGE_TYPE_CAST_ADD
+cast_add_body {{
+  text: "Replying to Bob!"
+  parent_cast_id {{
+    fid: 456
+    hash: "{CEscape(bob_post.hash, as_utf8=False)}"
+  }}
+}}
+""", fid=123)])
+
+    @patch.object(util.session, 'get', autospec=True)
+    @patch('granary.farcaster.rpc_pb2_grpc.HubServiceStub')
+    def test_web_reply_to_farcaster(self, mock_stub, mock_get):
+        """Web reply to a Farcaster user's post.
+
+        Web user alice.com (Farcaster fid 123)
+        Farcaster user bob (fid 456)
+        """
+        self.setup_farcaster_hub(mock_stub)
+        alice = self.make_web_user('alice.com')
+        self.make_farcaster_copy(alice, 123)
+        bob = self.make_farcaster_user(456)
+
+        bob_post = fc_message("""
+fid: 456
+type: MESSAGE_TYPE_CAST_ADD
+cast_add_body { text: "Hi from Bob" }
+""", fid=123)
+        bob_uri = granary.farcaster.uri(456, hash=bob_post.hash)
+        self.store_object(id=bob_uri, source_protocol='farcaster',
+                          farcaster=[bob_post.SerializeToString()])
+
+        mock_get.return_value = requests_response(f"""\
+<html>
+<body class="h-entry">
+<a class="u-url" href="https://alice.com/reply"></a>
+<div class="e-content">Replying to Bob!</div>
+<a class="u-author h-card" href="https://alice.com/">Alice</a>
+<a class="u-in-reply-to" href="https://fc.brid.gy/convert/web/farcaster://456/0x{bob_post.hash.hex()}"></a>
+<a href="http://localhost/"></a>
+</body>
+</html>
+""")
+
+        resp = self.post('/queue/webmention', data={
+            'source': 'https://alice.com/reply',
+            'target': 'http://localhost/',
+        })
+        self.assertEqual(202, resp.status_code)
+
+        self.assert_farcaster_sent(mock_stub, [fc_message(f"""
+type: MESSAGE_TYPE_CAST_ADD
+cast_add_body {{
+  text: "Replying to Bob!"
+  parent_cast_id {{
+    fid: 456
+    hash: "{CEscape(bob_post.hash, as_utf8=False)}"
+  }}
+}}
+""", fid=123)])
+
+    @patch('granary.farcaster.rpc_pb2_grpc.HubServiceStub')
+    def test_atproto_reply_to_farcaster(self, mock_stub):
+        """ATProto reply to a Farcaster user's post.
+
+        ATProto user did:plc:alice (Farcaster fid 123)
+        Farcaster user bob (fid 456)
+        """
+        self.setup_farcaster_hub(mock_stub)
+        alice = self.make_atproto_user('did:plc:alice')
+        self.make_farcaster_copy(alice, 123)
+        bob = self.make_farcaster_user(456)
+        self.make_atproto_copy(bob, 'did:plc:bob')
+
+        bob_post = fc_message("""
+fid: 456
+type: MESSAGE_TYPE_CAST_ADD
+cast_add_body { text: "Hi from Bob" }
+""", fid=123)
+        bob_uri = granary.farcaster.uri(456, hash=bob_post.hash)
+        bob_at_uri = 'at://did:plc:bob/app.bsky.feed.post/123'
+        self.store_object(id=bob_uri, source_protocol='farcaster',
+                          farcaster=[bob_post.SerializeToString()],
+                          copies=[Target(uri=bob_at_uri, protocol='atproto')])
+
+        Repo.create(self.storage, 'did:unused', signing_key=ATPROTO_KEY)
+
+        reply = {
+            '$type': 'app.bsky.feed.post',
+            'text': 'Replying to Bob!',
+            'createdAt': '2022-01-02T03:04:05.000Z',
+            'reply': {
+                'root': {'cid': A_CID.encode(), 'uri': bob_at_uri},
+                'parent': {'cid': A_CID.encode(), 'uri': bob_at_uri},
+            },
+        }
+        self.firehose(repo='did:plc:alice', action='create', seq=456,
+                      path='app.bsky.feed.post/456', record=reply)
+
+        self.assert_farcaster_sent(mock_stub, [fc_message(f"""
+type: MESSAGE_TYPE_CAST_ADD
+cast_add_body {{
+  text: "Replying to Bob!"
+  parent_cast_id {{
+    fid: 456
+    hash: "{CEscape(bob_post.hash, as_utf8=False)}"
+  }}
+}}
+""", fid=123)])
+
+    @patch('granary.farcaster.rpc_pb2_grpc.HubServiceStub')
+    def test_activitypub_like_to_farcaster(self, mock_stub):
+        """ActivityPub like of a Farcaster user's post.
+
+        ActivityPub user https://inst/alice (Farcaster fid 123)
+        Farcaster user bob (fid 456)
+        """
+        self.setup_farcaster_hub(mock_stub)
+        alice = self.make_ap_user('https://inst/alice')
+        self.make_farcaster_copy(alice, 123)
+        bob = self.make_farcaster_user(456)
+
+        bob_post = fc_message("""
+fid: 456
+type: MESSAGE_TYPE_CAST_ADD
+cast_add_body { text: "Hi from Bob" }
+""", fid=123)
+        bob_uri = granary.farcaster.uri(456, hash=bob_post.hash)
+        self.store_object(id=bob_uri, source_protocol='farcaster',
+                          farcaster=[bob_post.SerializeToString()])
+
+        like = {
+            '@context': 'https://www.w3.org/ns/activitystreams',
+            'type': 'Like',
+            'id': 'https://inst/like',
+            'actor': 'https://inst/alice',
+            'object': f'https://fc.brid.gy/convert/ap/farcaster://456/0x{bob_post.hash.hex()}',
+        }
+        body = json_dumps(like)
+        headers = sign('/ap/sharedInbox', body, key_id='https://inst/alice')
+        resp = self.client.post('/ap/sharedInbox', data=body, headers=headers)
+        self.assertEqual(202, resp.status_code)
+
+        self.assert_farcaster_sent(mock_stub, [fc_message(f"""
+type: MESSAGE_TYPE_REACTION_ADD
+reaction_body {{
+  type: REACTION_TYPE_LIKE
+  target_cast_id {{
+    fid: 456
+    hash: "{CEscape(bob_post.hash, as_utf8=False)}"
+  }}
+}}
+""", fid=123)])
+
+    @patch('granary.farcaster.rpc_pb2_grpc.HubServiceStub')
+    def test_activitypub_repost_to_farcaster(self, mock_stub):
+        """ActivityPub repost (Announce) of a Farcaster user's post.
+
+        ActivityPub user https://inst/alice (Farcaster fid 123)
+        Farcaster user bob (fid 456)
+        """
+        self.setup_farcaster_hub(mock_stub)
+        alice = self.make_ap_user('https://inst/alice')
+        self.make_farcaster_copy(alice, 123)
+        bob = self.make_farcaster_user(456)
+
+        bob_post = fc_message("""
+fid: 456
+type: MESSAGE_TYPE_CAST_ADD
+cast_add_body { text: "Hi from Bob" }
+""", fid=123)
+        bob_uri = granary.farcaster.uri(456, hash=bob_post.hash)
+        self.store_object(id=bob_uri, source_protocol='farcaster',
+                          farcaster=[bob_post.SerializeToString()])
+
+        announce = {
+            '@context': 'https://www.w3.org/ns/activitystreams',
+            'type': 'Announce',
+            'id': 'https://inst/repost',
+            'actor': 'https://inst/alice',
+            'object': f'https://fc.brid.gy/convert/ap/farcaster://456/0x{bob_post.hash.hex()}',
+        }
+        body = json_dumps(announce)
+        headers = sign('/ap/sharedInbox', body, key_id='https://inst/alice')
+        resp = self.client.post('/ap/sharedInbox', data=body, headers=headers)
+        self.assertEqual(202, resp.status_code)
+
+        self.assert_farcaster_sent(mock_stub, [fc_message(f"""
+type: MESSAGE_TYPE_REACTION_ADD
+reaction_body {{
+  type: REACTION_TYPE_RECAST
+  target_cast_id {{
+    fid: 456
+    hash: "{CEscape(bob_post.hash, as_utf8=False)}"
+  }}
+}}
+""", fid=123)])
+
+    @patch.object(util.session, 'get', autospec=True)
+    @patch('granary.farcaster.rpc_pb2_grpc.HubServiceStub')
+    def test_web_repost_to_farcaster(self, mock_stub, mock_get):
+        """Web repost of a Farcaster user's post.
+
+        Web user alice.com (Farcaster fid 123)
+        Farcaster user bob (fid 456)
+        """
+        self.setup_farcaster_hub(mock_stub)
+        alice = self.make_web_user('alice.com')
+        self.make_farcaster_copy(alice, 123)
+        bob = self.make_farcaster_user(456)
+
+        bob_post = fc_message("""
+fid: 456
+type: MESSAGE_TYPE_CAST_ADD
+cast_add_body { text: "Hi from Bob" }
+""", fid=123)
+        bob_uri = granary.farcaster.uri(456, hash=bob_post.hash)
+        self.store_object(id=bob_uri, source_protocol='farcaster',
+                          farcaster=[bob_post.SerializeToString()])
+
+        mock_get.return_value = requests_response(f"""\
+<html>
+<body class="h-entry">
+<a class="u-url" href="https://alice.com/repost"></a>
+<a class="u-repost-of" href="https://fc.brid.gy/convert/web/farcaster://456/0x{bob_post.hash.hex()}"></a>
+<a class="u-author h-card" href="https://alice.com/">Alice</a>
+<a href="http://localhost/"></a>
+</body>
+</html>
+""")
+
+        resp = self.post('/queue/webmention', data={
+            'source': 'https://alice.com/repost',
+            'target': 'http://localhost/',
+        })
+        self.assertEqual(202, resp.status_code)
+
+        self.assert_farcaster_sent(mock_stub, [fc_message(f"""
+type: MESSAGE_TYPE_REACTION_ADD
+reaction_body {{
+  type: REACTION_TYPE_RECAST
+  target_cast_id {{
+    fid: 456
+    hash: "{CEscape(bob_post.hash, as_utf8=False)}"
+  }}
+}}
+""", fid=123)])
+
+    @patch('granary.farcaster.rpc_pb2_grpc.HubServiceStub')
+    def test_atproto_repost_to_farcaster(self, mock_stub):
+        """ATProto repost of a Farcaster user's post.
+
+        ATProto user did:plc:alice (Farcaster fid 123)
+        Farcaster user bob (fid 456)
+        """
+        self.setup_farcaster_hub(mock_stub)
+        alice = self.make_atproto_user('did:plc:alice')
+        self.make_farcaster_copy(alice, 123)
+        bob = self.make_farcaster_user(456)
+        self.make_atproto_copy(bob, 'did:plc:bob')
+
+        bob_post = fc_message("""
+fid: 456
+type: MESSAGE_TYPE_CAST_ADD
+cast_add_body { text: "Hi from Bob" }
+""")
+        bob_uri = granary.farcaster.uri(456, hash=bob_post.hash)
+        bob_at_uri = 'at://did:plc:bob/app.bsky.feed.post/123'
+        self.store_object(id=bob_uri, source_protocol='farcaster',
+                          farcaster=[bob_post.SerializeToString()],
+                          copies=[Target(uri=bob_at_uri, protocol='atproto')])
+
+        Repo.create(self.storage, 'did:unused', signing_key=ATPROTO_KEY)
+
+        repost = {
+            '$type': 'app.bsky.feed.repost',
+            'subject': {'cid': A_CID.encode(), 'uri': bob_at_uri},
+            'createdAt': '2022-01-02T03:04:05.000Z',
+        }
+        self.firehose(repo='did:plc:alice', action='create', seq=456,
+                      path='app.bsky.feed.repost/456', record=repost)
+
+        self.assert_farcaster_sent(mock_stub, [fc_message(f"""
+type: MESSAGE_TYPE_REACTION_ADD
+reaction_body {{
+  type: REACTION_TYPE_RECAST
+  target_cast_id {{
+    fid: 456
+    hash: "{CEscape(bob_post.hash, as_utf8=False)}"
+  }}
+}}
+""", fid=123)])
+
+    @patch('granary.farcaster.rpc_pb2_grpc.HubServiceStub')
+    def test_atproto_follow_to_farcaster(self, mock_stub):
+        """ATProto follow of a Farcaster user.
+
+        ATProto user did:plc:alice (Farcaster fid 123)
+        Farcaster user bob (fid 456, did:plc:bob)
+        """
+        self.setup_farcaster_hub(mock_stub)
+        alice = self.make_atproto_user('did:plc:alice')
+        self.make_farcaster_copy(alice, 123)
+        bob = self.make_farcaster_user(456)
+        self.make_atproto_copy(bob, 'did:plc:bob')
+
+        Repo.create(self.storage, 'did:unused', signing_key=ATPROTO_KEY)
+
+        follow = {
+            '$type': 'app.bsky.graph.follow',
+            'subject': 'did:plc:bob',
+            'createdAt': '2022-01-02T03:04:05.000Z',
+        }
+        self.firehose(repo='did:plc:alice', action='create', seq=123,
+                      path='app.bsky.graph.follow/123', record=follow)
+
+        self.assert_farcaster_sent(mock_stub, [fc_message("""
+type: MESSAGE_TYPE_LINK_ADD
+link_body {
+  type: "follow"
+  target_fid: 456
+  displayTimestamp: 1641092645
+}
+""", fid=123)])
+
+    @patch('granary.farcaster.rpc_pb2_grpc.HubServiceStub')
+    def test_atproto_block_to_farcaster(self, mock_stub):
+        """ATProto block of a Farcaster user.
+
+        ATProto user did:plc:alice (Farcaster fid 123)
+        Farcaster user bob (fid 456, did:plc:bob)
+        """
+        self.setup_farcaster_hub(mock_stub)
+        alice = self.make_atproto_user('did:plc:alice')
+        self.make_farcaster_copy(alice, 123)
+        bob = self.make_farcaster_user(456)
+        self.make_atproto_copy(bob, 'did:plc:bob')
+
+        Repo.create(self.storage, 'did:unused', signing_key=ATPROTO_KEY)
+
+        block = {
+            '$type': 'app.bsky.graph.block',
+            'subject': 'did:plc:bob',
+            'createdAt': '2022-01-02T03:04:05.000Z',
+        }
+        self.firehose(repo='did:plc:alice', action='create', seq=123,
+                      path='app.bsky.graph.block/123', record=block)
+
+        self.assert_farcaster_sent(mock_stub, [fc_message("""
+type: MESSAGE_TYPE_LINK_ADD
+link_body {
+  type: "block"
+  target_fid: 456
+  displayTimestamp: 1641092645
+}
+""", fid=123)])
