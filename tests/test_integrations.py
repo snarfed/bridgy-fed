@@ -1702,7 +1702,9 @@ class IntegrationTests(TestCase):
         resp = self.client.post('/ap/sharedInbox', data=body, headers=headers)
         self.assertEqual(204, resp.status_code)
 
-        self.assertEqual([], alice.key.get().copies)
+        alice = alice.key.get()
+        self.assertEqual([], alice.copies)
+        self.assertEqual([], alice.enabled_protocols)
         new_alice = new_alice.key.get()
         self.assertEqual([Target(uri='did:plc:alice', protocol='atproto')],
                          new_alice.copies)

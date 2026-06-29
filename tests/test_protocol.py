@@ -3433,7 +3433,7 @@ class ProtocolReceiveTest(TestCase):
         self.assertEqual(alice.key, dave_follower.key.get().to)
 
     def test_move_bridged_user(self):
-        """Switches the copy account to the target user."""
+        """Transfers the copy account, enables the target, disables the source."""
         alice = self.make_user('other:alice', cls=OtherFake, obj_id='other:alice',
                                enabled_protocols=['efake'],
                                copies=[Target(protocol='efake', uri='efake:alice')])
@@ -3453,12 +3453,53 @@ class ProtocolReceiveTest(TestCase):
         })
         self.assertEqual(204, code)
 
+        # new account should be enabled on efake with the transferred copy
         new_alice = new_alice.key.get()
         self.assertEqual(['efake'], new_alice.enabled_protocols)
         self.assertEqual([Target(protocol='efake', uri='efake:alice')],
                          new_alice.copies)
         self.assertIs(False, new_alice.manual_opt_out)
         self.assertEqual(new_alice.key, carol_follower.key.get().to)
+
+        # old account should be disabled on efake with no copies
+        alice = alice.key.get()
+        self.assertEqual([], alice.enabled_protocols)
+        self.assertEqual([], alice.copies)
+
+    @patch.object(Fake, 'REQUIRES_OLD_ACCOUNT', True)
+    def test_move_bridged_user_dest_not_yet_eligible(self):
+        """Move to an existing dest account that isn't otherwise eligible to bridge.
+
+        eg the dest account is too new. The move should still enable it, by
+        opting it in (manual_opt_out=False) to override its status.
+        """
+        alice = self.make_user('other:alice', cls=OtherFake, obj_id='other:alice',
+                               enabled_protocols=['efake'],
+                               copies=[Target(protocol='efake', uri='efake:alice')])
+        new_alice = self.make_user('fake:new-alice', cls=Fake, obj_as1={
+            'objectType': 'person',
+            'id': 'fake:new-alice',
+            'published': util.now().isoformat(),
+        })
+        self.assertEqual('requires-old-account', new_alice.status)
+
+        _, code = OtherFake.receive_as1({
+            'objectType': 'activity',
+            'verb': 'move',
+            'id': 'other:move',
+            'actor': 'other:alice',
+            'object': 'other:alice',
+            'target': 'fake:new-alice',
+        })
+        self.assertEqual(204, code)
+
+        new_alice = new_alice.key.get()
+        self.assertIs(False, new_alice.manual_opt_out)
+        self.assertIsNone(new_alice.status)
+        self.assertEqual(['efake'], new_alice.enabled_protocols)
+        self.assertEqual([Target(protocol='efake', uri='efake:alice')],
+                         new_alice.copies)
+        self.assertTrue(new_alice.is_enabled(ExplicitFake))
 
     def test_move_no_target(self):
         """Test Move activity without target fails."""

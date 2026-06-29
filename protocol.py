@@ -1645,8 +1645,9 @@ class Protocol:
         if not to_cls:
             error(f"Couldn't determine protocol for target {target_id}")
 
-        to_user = to_cls.get_or_create(target_id, manual_opt_out=False,
-                                       enabled_protocols=from_user.enabled_protocols)
+        to_user = to_cls.get_or_create(
+            target_id, manual_opt_out=False, allow_opt_out=True,
+            enabled_protocols=from_user.enabled_protocols)
         if not to_user:
             error(f"Couldn't create {to_cls.LABEL} user {target_id}", status=299)
 
@@ -1658,8 +1659,9 @@ class Protocol:
                     from_user.remove_copies_on(proto)
                     to_user.add('copies', Target(uri=copy_id, protocol=label))
 
-            from_user.put()
             to_user.put()
+            from_user.enabled_protocols = []
+            from_user.put()
 
         # query for all active followers of the source account
         followers = Follower.query(
