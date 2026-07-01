@@ -50,7 +50,6 @@ app = [
     'werkzeug>=3.0.0',
 ]
 tests = [
-    'mox3 @ git+https://github.com/snarfed/mox3.git',
     'pytest',
     'pytest-xdist',
 ]
@@ -58,6 +57,9 @@ docs = [
     'sphinx>=7.0.0',
     'sphinx-rtd-theme>=3.0.0',
 ]
+
+[tool.setuptools]
+packages = []
 
 [tool.uv]
 package = false
@@ -73,7 +75,6 @@ granary =           { editable = true, path = "../granary" }
 httpsig =           { editable = true, path = "../httpsig" }
 lexrpc =            { editable = true, path = "../lexrpc" }
 mf2util =           { editable = true, path = "../mf2util" }
-mox3 =              { editable = true, path = "../mox3" }
 negotiator =        { editable = true, path = "../negotiator" }
 oauth-dropins =     { editable = true, path = "../oauth-dropins" }
 pymemcache =        { editable = true, path = "../pymemcache" }
@@ -88,10 +89,9 @@ extend_exclude = ['build', 'dist', 'docs']
 
 [tool.deptry.per_rule_ignores]
 # these deps aren't imported directly but we still need them: gunicorn (WSGI
-# server), mox3 (tests), ujson
+# server), ujson
 DEP002 = [
     'gunicorn',
-    'mox3',
     'pytest',
     'pytest-xdist',
     'sphinx',
