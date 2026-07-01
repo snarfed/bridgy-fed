@@ -51,7 +51,7 @@ html2text==2025.4.15
 html5lib==1.1
 httplib2==0.32.0
 humanfriendly==10.0
-humanize==4.15.0
+humanize==4.16.0
 idna==3.18
 iniconfig==2.3.0
 iterators==0.2.0
