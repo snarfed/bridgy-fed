@@ -2169,8 +2169,7 @@ class ActivityPubTest(TestCase):
             'id': 'http://localhost/user.com/followers',
             'type': 'Collection',
             'summary': "user.com's followers",
-            # TODO: bring back
-            # 'totalItems': 0,
+            'totalItems': 0,
             'first': {
                 'type': 'CollectionPage',
                 'partOf': 'http://localhost/user.com/followers',
@@ -2216,8 +2215,7 @@ class ActivityPubTest(TestCase):
             'id': 'https://fa.brid.gy/ap/fake:foo/followers',
             'type': 'Collection',
             'summary': "fake:foo's followers",
-            # TODO: bring back
-            # 'totalItems': 0,
+            'totalItems': 0,
             'first': {
                 'type': 'CollectionPage',
                 'partOf': 'https://fa.brid.gy/ap/fake:foo/followers',
@@ -2235,8 +2233,7 @@ class ActivityPubTest(TestCase):
             'id': 'http://localhost/user.com/followers',
             'type': 'Collection',
             'summary': "user.com's followers",
-            # TODO: bring back
-            # 'totalItems': 3,
+            'totalItems': 3,
             'first': {
                 'type': 'CollectionPage',
                 'partOf': 'http://localhost/user.com/followers',
@@ -2294,8 +2291,7 @@ class ActivityPubTest(TestCase):
             'id': 'http://localhost/user.com/following',
             'summary': "user.com's following",
             'type': 'Collection',
-            # TODO: bring back
-            # 'totalItems': 0,
+            'totalItems': 0,
             'first': {
                 'type': 'CollectionPage',
                 'partOf': 'http://localhost/user.com/following',
@@ -2331,8 +2327,7 @@ class ActivityPubTest(TestCase):
             'id': 'http://localhost/user.com/following',
             'summary': "user.com's following",
             'type': 'Collection',
-            # TODO: bring back
-            # 'totalItems': 2,
+            'totalItems': 2,
             'first': {
                 'type': 'CollectionPage',
                 'partOf': 'http://localhost/user.com/following',
