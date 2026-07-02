@@ -1583,12 +1583,13 @@ def follower_collection(id, collection):
         logger.debug(f'Returning {json_dumps(page, indent=2)}')
         return page, {'Content-Type': as2.CONTENT_TYPE_LD_PROFILE}
 
-    num_followers, num_following = user.count_followers()
+    # TODO: bring back. too expensive right now (7/2026)
+    # num_followers, num_following = user.count_followers()
     ret = {
         '@context': 'https://www.w3.org/ns/activitystreams',
         'id': request.base_url,
         'type': 'Collection',
-        'totalItems': num_followers if collection == 'followers' else num_following,
+        # 'totalItems': num_followers if collection == 'followers' else num_following,
         'summary': f"{id}'s {collection}",
         'first': page,
     }
