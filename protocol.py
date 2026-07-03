@@ -2363,7 +2363,7 @@ Hi! You <a href="{inner_obj_as1.get('url') or inner_obj_id}">recently {verb}</a>
                 fail(f"{arg} doesn't look like a user or list{' on ' + cls.PHRASE if cls else ''}, or we couldn't fetch it")
 
         logger.info(f'  blocking {blockee.key.id()}')
-        id = f'{from_user.key.id()}#bridgy-fed-block-{util.now().isoformat()}'
+        id = f'{from_user.profile_id()}#bridgy-fed-block-{util.now().isoformat()}'
         obj = Object(id=id, source_protocol=from_user.LABEL, our_as1={
             'objectType': 'activity',
             'verb': 'block',
@@ -2419,7 +2419,7 @@ Hi! You <a href="{inner_obj_as1.get('url') or inner_obj_id}">recently {verb}</a>
                 fail(f"{arg} doesn't look like a user or list{' on ' + cls.PHRASE if cls else ''}, or we couldn't fetch it")
 
         logger.info(f'  unblocking {blockee.key.id()}')
-        id = f'{from_user.key.id()}#bridgy-fed-unblock-{util.now().isoformat()}'
+        id = f'{from_user.profile_id()}#bridgy-fed-unblock-{util.now().isoformat()}'
         obj = Object(id=id, source_protocol=from_user.LABEL, our_as1={
             'objectType': 'activity',
             'verb': 'undo',

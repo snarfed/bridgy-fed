@@ -1495,6 +1495,58 @@ class ProtocolTest(TestCase):
         mock_create_task.assert_not_called()
 
     @patch('webutil.appengine_config.tasks_client.create_task')
+    def test_block_web_user(self, mock_create_task):
+        common.RUN_TASKS_INLINE = False
+
+        alice = self.make_user(id='alice.com', cls=Web,
+                               enabled_protocols=['atproto'])
+
+        Object(id='did:plc:user', raw=DID_DOC).put()
+        self.make_user(id='did:plc:user', cls=ATProto, obj_bsky={
+            '$type': 'app.bsky.actor.profile',
+        })
+
+        ATProto.block(alice, 'https://bsky.app/profile/han.dull.brid.gy')
+
+        self.assert_task(
+            mock_create_task, 'send', protocol='atproto', first='True',
+            obj_id='https://alice.com/#bridgy-fed-block-2022-01-02T03:04:05+00:00',
+            orig_obj_id='at://did:plc:user/app.bsky.actor.profile/self',
+            url='https://atproto.brid.gy', user=alice.key.urlsafe())
+
+    @patch('webutil.appengine_config.tasks_client.create_task')
+    def test_unblock_web_user(self, mock_create_task):
+        common.RUN_TASKS_INLINE = False
+
+        alice = self.make_user(id='alice.com', cls=Web,
+                               enabled_protocols=['atproto'])
+
+        Object(id='did:plc:user', raw=DID_DOC).put()
+        self.make_user(id='did:plc:user', cls=ATProto, obj_bsky={
+            '$type': 'app.bsky.actor.profile',
+        })
+
+        ATProto.unblock(alice, 'https://bsky.app/profile/han.dull.brid.gy')
+
+        id = 'https://alice.com/#bridgy-fed-unblock-2022-01-02T03:04:05+00:00'
+        self.assert_task(
+            mock_create_task, 'send', protocol='atproto', first='True',
+            id=id, source_protocol='web', our_as1={
+                'objectType': 'activity',
+                'verb': 'undo',
+                'id': id,
+                'actor': 'alice.com',
+                'object': {
+                    'objectType': 'activity',
+                    'verb': 'block',
+                    'actor': 'alice.com',
+                    'object': 'did:plc:user',
+                },
+            },
+            orig_obj_id='at://did:plc:user/app.bsky.actor.profile/self',
+            url='https://atproto.brid.gy', user=alice.key.urlsafe())
+
+    @patch('webutil.appengine_config.tasks_client.create_task')
     def test_block_atproto_bsky_app_url(self, mock_create_task):
         common.RUN_TASKS_INLINE = False
 
@@ -1510,7 +1562,7 @@ class ProtocolTest(TestCase):
 
         self.assert_task(
             mock_create_task, 'send', protocol='atproto', first='True',
-            obj_id='fake:alice#bridgy-fed-block-2022-01-02T03:04:05+00:00',
+            obj_id='fake:profile:alice#bridgy-fed-block-2022-01-02T03:04:05+00:00',
             orig_obj_id='at://did:plc:user/app.bsky.actor.profile/self',
             url='https://atproto.brid.gy', user=alice.key.urlsafe())
 
