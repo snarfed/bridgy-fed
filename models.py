@@ -1220,17 +1220,20 @@ class User(AddRemoveMixin, StringIdModel, metaclass=ProtocolUserMeta):
         this user's key id.
 
         Args:
-          proto: :class:`Protocol` subclass
+          proto (str or :class:`Protocol` subclass)
 
         Returns:
           str:
         """
+        if not isinstance(proto, str):
+            proto = proto.LABEL
+
         # don't use isinstance because the testutil Fake protocol has subclasses
-        if self.LABEL == proto.LABEL:
+        if self.LABEL == proto:
             return self.key.id()
 
         for copy in self.copies:
-            if copy.protocol in (proto.LABEL, proto.ABBREV):
+            if copy.protocol == proto:
                 return copy.uri
 
     def html_link(self, name=True, handle=True, pictures=False, logo=None,
@@ -1901,18 +1904,21 @@ class Object(AddRemoveMixin, StringIdModel):
         https://console.cloud.google.com/errors/detail/COK22a6w4O2JVg;locations=global;time=P30D?project=bridgy-federated
 
         Args:
-          proto: :class:`Protocol` subclass
+          proto (str or :class:`Protocol` subclass)
 
         Returns:
           str:
         """
+        if not isinstance(proto, str):
+            proto = proto.LABEL
+
         copies = self.get_copies(proto)
         if not copies:
             return None
 
         # for ATProto, prefer ids from types in granary.bluesky.FROM_AS1_TYPES order,
         # eg for article, site.standard.document over app.bsky.feed.post
-        if proto.LABEL == 'atproto':
+        if proto == 'atproto':
             for type in bluesky.FROM_AS1_TYPES.get(self.type, []):
                 for copy in copies:
                     _, coll, _ = parse_at_uri(copy)
@@ -1927,16 +1933,18 @@ class Object(AddRemoveMixin, StringIdModel):
         If ``proto`` is ``source_protocol``, returns this object's key id.
 
         Args:
-          proto: :class:`Protocol` subclass
+          proto (str or :class:`Protocol` subclass)
 
         Returns:
           list of str:
         """
-        if self.source_protocol in (proto.LABEL, proto.ABBREV):
+        if not isinstance(proto, str):
+            proto = proto.LABEL
+
+        if self.source_protocol == proto:
             return [self.key.id()]
 
-        return [copy.uri for copy in self.copies
-                if copy.protocol in (proto.LABEL, proto.ABBREV)]
+        return [copy.uri for copy in self.copies if copy.protocol == proto]
 
     def resolve_ids(self):
         """Replaces "copy" ids, subdomain ids, etc with their originals.
