@@ -439,8 +439,8 @@ def translate_handle(*, from_user, to, short=False):
                 return handle
 
             # first check DID doc
-            from atproto import ATProto, did_to_handle
-            if did := from_user.get_copy(ATProto):
+            if did := from_user.get_copy('atproto'):
+                from atproto import did_to_handle
                 if handle := did_to_handle(did, remote=False):
                     return handle
 
@@ -458,6 +458,12 @@ def translate_handle(*, from_user, to, short=False):
         case _, 'farcaster':
             if handle == PRIMARY_DOMAIN or handle in PROTOCOL_DOMAINS:
                 return handle
+
+            # first check the copy's profile Object
+            if fid := from_user.get_copy('farcaster'):
+                if profile := models.Object.get_by_id(fid):
+                    if username := (profile.as1 or {}).get('username'):
+                        return username
 
             output = flattened.replace('.', '-')
 

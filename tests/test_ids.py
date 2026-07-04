@@ -466,6 +466,14 @@ class IdsTest(TestCase):
         self.assertEqual('custom.example.com', translate_handle(
             from_user=user, to=ATProto))
 
+    def test_translate_handle_farcaster_profile_override(self):
+        """Translating to Farcaster prefers the username in the copy's profile Object."""
+        self.store_object(id='farcaster://123', our_as1={'username': 'alice'})
+        user = Fake(id='fake:user',
+                    copies=[Target(uri='farcaster://123', protocol='farcaster')])
+
+        self.assertEqual('alice', translate_handle(from_user=user, to=Farcaster))
+
     def test_translate_object_id(self):
         self.store_object(id='http://po.st', copies=[
             Target(uri='at://did:plc:abc/web/post', protocol='atproto'),
