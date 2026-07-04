@@ -913,21 +913,7 @@ class User(AddRemoveMixin, StringIdModel, metaclass=ProtocolUserMeta):
         if isinstance(to_proto, str):
             to_proto = PROTOCOLS[to_proto]
 
-        # override to-ATProto to use custom domain handle in DID doc
-        from atproto import ATProto, did_to_handle
-        if to_proto == ATProto:
-            if did := self.get_copy(ATProto):
-                if handle := did_to_handle(did, remote=False):
-                    return handle
-
-        # override web users to always use domain instead of custom username
-        # TODO: fall back to id if handle is unset?
-        handle = self.key.id() if self.LABEL == 'web' else self.handle
-        if not handle:
-            return None
-
-        return ids.translate_handle(handle=handle, from_=self.__class__,
-                                    to=to_proto, short=short)
+        return ids.translate_handle(from_user=self, to=to_proto, short=short)
 
     def id_as(self, to_proto):
         """Returns this user's id in a different protocol.

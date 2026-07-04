@@ -552,7 +552,7 @@ class TestCase(unittest.TestCase, testutil.Asserts):
         user.obj_key = kwargs.pop('obj_key', None)
         if user.obj_key:
             assert not (obj_as1 or obj_as2 or obj_bsky or obj_mf2 or obj_nostr
-                        or obj_fc or obj_id)
+                        or objs_fc or obj_id)
         elif cls != ATProto or obj_bsky:
             if not obj_id:
                 obj_id = ((obj_as2 or {}).get('id')

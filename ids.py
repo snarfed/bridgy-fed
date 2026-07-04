@@ -376,39 +376,43 @@ def profile_id(*, id, proto):
             return id
 
 
-def translate_handle(*, handle, from_, to, short=False):
-    """Translates a user handle from one protocol to another.
+def translate_handle(*, from_user, to, short=False):
+    """Translates a user's handle to another protocol.
 
     Args:
-      handle (str)
-      from_ (protocol.Protocol)
+      from_user (models.User): the user whose handle to translate
       to (protocol.Protocol)
       short (bool): whether to return the full handle or a shortened form.
         Default False. Currently only affects ActivityPub; returns just ``@[user]``
         instead of ``@[user]@[domain]``
 
     Returns:
-      str: the corresponding handle in ``to``
+      str: the corresponding handle in ``to``, or None if ``from_user`` has no
+        handle
 
     Raises:
       ValueError: if the user's handle is invalid, eg begins or ends with an
         underscore or dash
     """
-    handle, from_, to = validate(handle, from_, to)
+    # normalize to to class
+    if not inspect.isclass(to):
+        to = to.__class__
 
-    if from_ == to:
+    if not (handle := from_user.handle):
+        return None
+
+    # override web users to always use domain instead of custom username
+    if from_user.LABEL == 'web':
+        handle = from_user.key.id()
+
+    if from_user.LABEL == to.LABEL:
         if to.LABEL == 'activitypub' and short:
             return handle.rsplit('@', maxsplit=1)[0]
         return handle
 
-    if from_.LABEL != 'ui':
-        if from_.owns_handle(handle, allow_internal=True) is False:
-            raise ValueError(f'input handle {handle} is not valid for {from_.LABEL}')
-
-    if from_.LABEL == 'nostr':
-        # _ username is NIP-05 shortcut for just the domain itself
-        # https://nips.nostr.com/5#showing-just-the-domain-as-an-identifier
-        handle = handle.removeprefix('_@')
+    if from_user.LABEL != 'ui':
+        if from_user.owns_handle(handle, allow_internal=True) is False:
+            raise ValueError(f'input handle {handle} is not valid for {from_user.LABEL}')
 
     # "flatten" [@]user@domain handles to just domain-like, eg user.domain,
     # and then append @[protocol domain], so we end up with user.domain@proto.brid.gy
@@ -417,13 +421,13 @@ def translate_handle(*, handle, from_, to, short=False):
         flattened = flattened.replace(from_char, '-')
 
     def flattened_user_at_domain():
-        domain = f'{from_.ABBREV}{SUPERDOMAIN}'
+        domain = f'{from_user.ABBREV}{SUPERDOMAIN}'
         if handle == PRIMARY_DOMAIN or handle in PROTOCOL_DOMAINS:
             domain = flattened
         return f'{flattened}@{domain}'
 
     output = None
-    match from_.LABEL, to.LABEL:
+    match from_user.LABEL, to.LABEL:
         case _, 'activitypub':
             if short:
                 return '@' + flattened
@@ -433,6 +437,12 @@ def translate_handle(*, handle, from_, to, short=False):
         case _, 'atproto':
             if handle == PRIMARY_DOMAIN or handle in PROTOCOL_DOMAINS:
                 return handle
+
+            # first check DID doc
+            from atproto import ATProto, did_to_handle
+            if did := from_user.get_copy(ATProto):
+                if handle := did_to_handle(did, remote=False):
+                    return handle
 
             if util.domain_or_parent_in(flattened, ATPROTO_HANDLE_DOMAINS):
                 output = flattened
@@ -464,7 +474,7 @@ def translate_handle(*, handle, from_, to, short=False):
         case _, 'fake' | 'other' | 'efake':
             output = f'{to.LABEL}:handle:{handle}'
 
-    assert output, (handle, from_.LABEL, to.LABEL)
+    assert output, (handle, from_user.LABEL, to.LABEL)
     # don't check Web handles because they're sometimes URLs, eg
     # @user@instance => https://instance/@user
     if to.LABEL != 'web' and to.owns_handle(output, allow_internal=True) is False:

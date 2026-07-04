@@ -1,8 +1,13 @@
 """Unit tests for ids.py."""
+import hashlib
 from unittest.mock import patch
 
 from granary.generated.farcaster.username_proof_pb2 import UserNameProof
+from granary.nostr import KIND_PROFILE
+from granary.tests.test_farcaster import user_data_message
 from granary.tests.test_nostr import ID, NPUB, NPUB_URI, PUBKEY, PUBKEY_URI
+from webutil import util
+from webutil.util import json_dumps
 
 from activitypub import ActivityPub
 from atproto import ATProto
@@ -311,92 +316,155 @@ class IdsTest(TestCase):
             id=PUBKEY_URI.removeprefix('nostr:'), proto=Nostr))
         self.assertEqual(NOSTR_ID_0, user.profile_id())
 
-    def test_translate_handle(self):
-        for from_, handle, to, expected in [
+    @patch.object(util.session, 'get', autospec=True)
+    def test_translate_handle(self, _):
+        # ATProto handles come from a DID doc's alsoKnownAs, keyed by DID
+        self.store_object(id='did:plc:user', raw={
+            'id': 'did:plc:user', 'alsoKnownAs': ['at://user.com']})
+        self.store_object(id='did:plc:u-se-r', raw={
+            'id': 'did:plc:u-se-r', 'alsoKnownAs': ['at://u-se-r.com']})
+
+        def ap_user(addr):
+            return ActivityPub(webfinger_addr=addr)
+
+        id = 0
+        def fc_user(username):
+            nonlocal id
+            id += 1
+            return self.make_user(cls=Farcaster, id=f'farcaster://{id}', objs_fc=[
+                user_data_message(123, 'USER_DATA_TYPE_USERNAME', username)
+            ] * 2)
+
+        def nostr_user(nip05):
+            nonlocal id
+            id += 1
+            return self.make_user(cls=Nostr, id=PUBKEY_URI, obj_nostr={
+                'id': hashlib.sha256(bytes(id)).hexdigest(),
+                'kind': KIND_PROFILE,
+                'pubkey': PUBKEY,
+                'content': json_dumps({'nip05': nip05}),
+            })
+
+        for from_user, to, expected in [
             # basic
-            (Web, 'user.com', ActivityPub, '@user.com@web.brid.gy'),
-            (Web, 'user.com', ATProto, 'user.com.web.brid.gy'),
-            (Web, 'user.com', Fake, 'fake:handle:user.com'),
-            (Web, 'u_se-r.com', Fake, 'fake:handle:u_se-r.com'),
-            (Web, 'user.com', Farcaster, 'user-com'),
-            (Web, 'user.com', Nostr, 'user.com@web.brid.gy'),
-            (Web, 'user.com', Web, 'user.com'),
+            (Web(id='user.com'), ActivityPub, '@user.com@web.brid.gy'),
+            (Web(id='user.com'), ATProto, 'user.com.web.brid.gy'),
+            (Web(id='user.com'), Fake, 'fake:handle:user.com'),
+            (Web(id='u_se-r.com'), Fake, 'fake:handle:u_se-r.com'),
+            (Web(id='user.com'), Farcaster, 'user-com'),
+            (Web(id='user.com'), Nostr, 'user.com@web.brid.gy'),
+            (Web(id='user.com'), Web, 'user.com'),
 
-            (ActivityPub, '@user@instance', ActivityPub, '@user@instance'),
-            (ActivityPub, '@user@instance', ATProto, 'user.instance.ap.brid.gy'),
-            (ActivityPub, '@u_se~r@instance', ATProto, 'u-se-r.instance.ap.brid.gy'),
-            (ActivityPub, '@user@instance', Fake, 'fake:handle:@user@instance'),
-            (ActivityPub, '@user@instance', Farcaster, 'user-instance'),
-            (ActivityPub, '@user@instance', Nostr, 'user.instance@ap.brid.gy'),
-            (ActivityPub, '@user@instance', Web, 'https://instance/@user'),
+            (ap_user('@user@instance'), ActivityPub, '@user@instance'),
+            (ap_user('@user@instance'), ATProto, 'user.instance.ap.brid.gy'),
+            (ap_user('@u_se~r@instance'), ATProto, 'u-se-r.instance.ap.brid.gy'),
+            (ap_user('@user@instance'), Fake, 'fake:handle:@user@instance'),
+            (ap_user('@user@instance'), Farcaster, 'user-instance'),
+            (ap_user('@user@instance'), Nostr, 'user.instance@ap.brid.gy'),
+            (ap_user('@user@instance'), Web, 'https://instance/@user'),
 
-            (ATProto, 'user.com', ActivityPub, '@user.com@bsky.brid.gy'),
-            (ATProto, 'u-se-r.com', ActivityPub, '@u-se-r.com@bsky.brid.gy'),
-            (ATProto, 'user.com', ATProto, 'user.com'),
-            (ATProto, 'user.com', Fake, 'fake:handle:user.com'),
-            (ATProto, 'user.com', Farcaster, 'user-com'),
-            (ATProto, 'user.com', Nostr, 'user.com@bsky.brid.gy'),
-            (ATProto, 'user.com', Web, 'user.com'),
+            (ATProto(id='did:plc:user'), ActivityPub, '@user.com@bsky.brid.gy'),
+            (ATProto(id='did:plc:u-se-r'), ActivityPub, '@u-se-r.com@bsky.brid.gy'),
+            (ATProto(id='did:plc:user'), ATProto, 'user.com'),
+            (ATProto(id='did:plc:user'), Fake, 'fake:handle:user.com'),
+            (ATProto(id='did:plc:user'), Farcaster, 'user-com'),
+            (ATProto(id='did:plc:user'), Nostr, 'user.com@bsky.brid.gy'),
+            (ATProto(id='did:plc:user'), Web, 'user.com'),
 
-            (Fake, 'fake:handle:user', ActivityPub, '@fake-handle-user@fa.brid.gy'),
-            (Fake, 'fake:handle:user', ATProto, 'fake-handle-user.fa.brid.gy'),
-            (Fake, 'fake:handle:user', Fake, 'fake:handle:user'),
-            (Fake, 'fake:handle:user', Nostr, 'fake-handle-user@fa.brid.gy'),
-            (Fake, 'fake:handle:user', Web, 'fake:handle:user'),
+            (Fake(id='fake:user'), ActivityPub, '@fake-handle-user@fa.brid.gy'),
+            (Fake(id='fake:user'), ATProto, 'fake-handle-user.fa.brid.gy'),
+            (Fake(id='fake:user'), Fake, 'fake:handle:user'),
+            (Fake(id='fake:user'), Nostr, 'fake-handle-user@fa.brid.gy'),
+            (Fake(id='fake:user'), Web, 'fake:handle:user'),
 
-            (Farcaster, 'me', ActivityPub, '@me@fc.brid.gy'),
-            (Farcaster, 'me.eth', ActivityPub, '@me.eth@fc.brid.gy'),
-            (Farcaster, 'me', ATProto, 'me.fc.brid.gy'),
-            (Farcaster, 'me.eth', ATProto, 'me.eth.fc.brid.gy'),
-            (Farcaster, 'me', Nostr, 'me@fc.brid.gy'),
-            (Farcaster, 'me', Web, 'me'),
+            (fc_user('me'), ActivityPub, '@me@fc.brid.gy'),
+            (fc_user('me.eth'), ActivityPub, '@me.eth@fc.brid.gy'),
+            (fc_user('me'), ATProto, 'me.fc.brid.gy'),
+            (fc_user('me.eth'), ATProto, 'me.eth.fc.brid.gy'),
+            (fc_user('me'), Farcaster, 'me'),
+            (fc_user('me'), Nostr, 'me@fc.brid.gy'),
+            (fc_user('me'), Web, 'me'),
 
-            (Nostr, 'user@dom.ain', Nostr, 'user@dom.ain'),
-            (Nostr, 'user@dom.ain', ActivityPub, '@user.dom.ain@nostr.brid.gy'),
-            (Nostr, 'user@dom.ain', ATProto, 'user.dom.ain.nostr.brid.gy'),
-            (Nostr, 'user@dom.ain', Fake, 'fake:handle:user@dom.ain'),
-            (Nostr, 'user@dom.ain', Farcaster, 'user-dom-ain'),
-            (Nostr, 'user@dom.ain', Web, 'user@dom.ain'),
+            (nostr_user('user@dom.ain'), Nostr, 'user@dom.ain'),
+            (nostr_user('user@dom.ain'), ActivityPub, '@user.dom.ain@nostr.brid.gy'),
+            (nostr_user('user@dom.ain'), ATProto, 'user.dom.ain.nostr.brid.gy'),
+            (nostr_user('user@dom.ain'), Fake, 'fake:handle:user@dom.ain'),
+            (nostr_user('user@dom.ain'), Farcaster, 'user-dom-ain'),
+            (nostr_user('user@dom.ain'), Web, 'user@dom.ain'),
 
-            (Nostr, '_@dom.ain', Nostr, '_@dom.ain'),
-            (Nostr, '_@dom.ain', ActivityPub, '@dom.ain@nostr.brid.gy'),
-            (Nostr, '_@dom.ain', ATProto, 'dom.ain.nostr.brid.gy'),
-            (Nostr, '_@dom.ain', Fake, 'fake:handle:dom.ain'),
-            (Nostr, '_@dom.ain', Farcaster, 'dom-ain'),
-            (Nostr, '_@dom.ain', Web, 'dom.ain'),
+            # domain-only NIP-05 shortcut ('_@si.te' in the profile);
+            # Nostr.handle already strips the leading _@, so the real handle
+            # is the bare domain
+            (nostr_user('_@example.com'), Nostr, 'example.com'),
+            (nostr_user('_@example.com'), ActivityPub, '@example.com@nostr.brid.gy'),
+            (nostr_user('_@example.com'), ATProto, 'example.com.nostr.brid.gy'),
+            (nostr_user('_@example.com'), Fake, 'fake:handle:example.com'),
+            (nostr_user('_@example.com'), Farcaster, 'example-com'),
+            (nostr_user('_@example.com'), Web, 'example.com'),
 
             # instance actor, protocol bot users
-            (Web, 'fed.brid.gy', ActivityPub, '@fed.brid.gy@fed.brid.gy'),
-            (Web, 'bsky.brid.gy', ActivityPub, '@bsky.brid.gy@bsky.brid.gy'),
-            (Web, 'ap.brid.gy', ATProto, 'ap.brid.gy'),
-            (Web, 'ap.brid.gy', Nostr, 'ap.brid.gy'),
+            (Web(id='fed.brid.gy'), ActivityPub, '@fed.brid.gy@fed.brid.gy'),
+            (Web(id='bsky.brid.gy'), ActivityPub, '@bsky.brid.gy@bsky.brid.gy'),
+            (Web(id='ap.brid.gy'), ATProto, 'ap.brid.gy'),
+            (Web(id='ap.brid.gy'), Nostr, 'ap.brid.gy'),
         ]:
-            with self.subTest(from_=from_.LABEL, handle=handle, to=to.LABEL):
-                self.assertEqual(expected, translate_handle(
-                    handle=handle, from_=from_, to=to))
+            with self.subTest(from_=from_user.LABEL, handle=from_user.handle, to=to.LABEL):
+                self.assertEqual(expected, translate_handle(from_user=from_user, to=to))
 
         for input in '@_user@instance', '@user~@instance':
             with self.subTest(input=input), self.assertRaises(ValueError):
-                translate_handle(handle=input, from_=ActivityPub, to=ATProto)
+                translate_handle(from_user=ActivityPub(
+                    id='https://instance/user', webfinger_addr=input), to=ATProto)
 
         # to ActivityPub, short=True
-        for from_, handle in (
-            (ActivityPub, '@us.er@instance'),
-            (ATProto, 'us.er'),
-            (Nostr, 'us@er'),
-            (Nostr, '_@us.er'),
+        self.store_object(id='did:plc:us-er', raw={
+            'id': 'did:plc:us-er', 'alsoKnownAs': ['at://us.er']})
+        for from_user in (
+            ActivityPub(id='https://instance/user', webfinger_addr='@us.er@instance'),
+            ATProto(id='did:plc:us-er'),
+            self.make_user(id=PUBKEY_URI, cls=Nostr, obj_nostr={
+                'id': hashlib.sha256(b'us-er-1').hexdigest(), 'kind': KIND_PROFILE, 'pubkey': PUBKEY,
+                'content': json_dumps({'nip05': 'us@er'})}),
+            self.make_user(id=PUBKEY_URI, cls=Nostr, obj_nostr={
+                'id': hashlib.sha256(b'underscore-us-er-1').hexdigest(), 'kind': KIND_PROFILE, 'pubkey': PUBKEY,
+                'content': json_dumps({'nip05': '_@us.er'})}),
         ):
-            self.assertEqual('@us.er',translate_handle(
-                handle=handle, from_=from_, to=ActivityPub, short=True))
+            self.assertEqual('@us.er', translate_handle(
+                from_user=from_user, to=ActivityPub, short=True))
 
     @patch('ids.ATPROTO_HANDLE_DOMAINS', set(('example.com',)))
     def test_translate_handle_atproto_handle_domains(self):
         self.assertEqual('alice.example.com', translate_handle(
-            handle='alice.example.com', from_=Web, to=ATProto))
+            from_user=Web(id='alice.example.com'), to=ATProto))
         self.assertEqual('bob.example.com', translate_handle(
-            handle='@bob@example.com', from_=ActivityPub, to=ATProto))
+            from_user=ActivityPub(id='https://instance/bob', webfinger_addr='@bob@example.com'),
+            to=ATProto))
         self.assertEqual('bob.example.com', translate_handle(
-            handle='bob@example.com', from_=Nostr, to=ATProto))
+            from_user=self.make_user(id=PUBKEY_URI, cls=Nostr, obj_nostr={
+                'id': hashlib.sha256(b'bob-example-com-1').hexdigest(), 'kind': KIND_PROFILE, 'pubkey': PUBKEY,
+                'content': json_dumps({'nip05': 'bob@example.com'})}),
+            to=ATProto))
+
+    def test_translate_handle_web_domain_override(self):
+        """Web users always translate via their domain, not a custom username."""
+        user = Web(id='user.com', obj=Object(
+            id='a', as2={'url': ['acct:baz@user.com']}))
+        self.assertEqual('baz', user.handle)
+
+        self.assertEqual('fake:handle:user.com', translate_handle(
+            from_user=user, to=Fake))
+
+    def test_translate_handle_atproto_did_doc_override(self):
+        """Translating to ATProto prefers the handle in the user's own DID doc."""
+        self.store_object(id='did:plc:xyz', raw={
+            'id': 'did:plc:xyz',
+            'alsoKnownAs': ['at://custom.example.com'],
+        })
+        user = Fake(id='fake:user',
+                    copies=[Target(uri='did:plc:xyz', protocol='atproto')])
+
+        self.assertEqual('custom.example.com', translate_handle(
+            from_user=user, to=ATProto))
 
     def test_translate_object_id(self):
         self.store_object(id='http://po.st', copies=[
