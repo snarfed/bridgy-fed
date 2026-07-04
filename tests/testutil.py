@@ -515,6 +515,7 @@ class TestCase(unittest.TestCase, testutil.Asserts):
         obj_bsky = copy.deepcopy(kwargs.pop('obj_bsky', None))
         obj_mf2 = copy.deepcopy(kwargs.pop('obj_mf2', None))
         obj_nostr = copy.deepcopy(kwargs.pop('obj_nostr', None))
+        objs_fc = [m.SerializeToString() for m in kwargs.pop('objs_fc', ())]
         obj_id = copy.deepcopy(kwargs.pop('obj_id', None))
 
         if cls == Web and not obj_mf2:
@@ -551,7 +552,7 @@ class TestCase(unittest.TestCase, testutil.Asserts):
         user.obj_key = kwargs.pop('obj_key', None)
         if user.obj_key:
             assert not (obj_as1 or obj_as2 or obj_bsky or obj_mf2 or obj_nostr
-                        or obj_id)
+                        or obj_fc or obj_id)
         elif cls != ATProto or obj_bsky:
             if not obj_id:
                 obj_id = ((obj_as2 or {}).get('id')
@@ -561,7 +562,7 @@ class TestCase(unittest.TestCase, testutil.Asserts):
             if obj_id:
                 user.obj_key = Object.get_or_create(
                     id=obj_id, authed_as=obj_id, our_as1=obj_as1, as2=obj_as2,
-                    bsky=obj_bsky, mf2=obj_mf2, nostr=obj_nostr,
+                    bsky=obj_bsky, mf2=obj_mf2, nostr=obj_nostr, farcaster=objs_fc,
                     source_protocol=cls.LABEL, copies=make_copies(obj_id)).key
 
         user.put()
