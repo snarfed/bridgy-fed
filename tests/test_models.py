@@ -1514,6 +1514,16 @@ cast_add_body {
             'summary': 'hi',
         }, obj.as1)
 
+    def test_as1_from_farcaster_single_user_data(self):
+        msg = user_data_message(123, 'USER_DATA_TYPE_USERNAME', 'alice')
+        obj = Object(id='farcaster://123', farcaster=[msg.SerializeToString()])
+        self.assert_equals({
+            'objectType': 'person',
+            'id': 'farcaster://123',
+            'url': 'https://farcaster.xyz/~/profiles/123',
+            'username': 'alice',
+        }, obj.as1)
+
     def test_as1_image_proxy_domain(self):
         self.assert_equals({
             'id': 'https://www.threads.net/foo',

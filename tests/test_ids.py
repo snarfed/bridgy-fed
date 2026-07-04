@@ -333,7 +333,7 @@ class IdsTest(TestCase):
             id += 1
             return self.make_user(cls=Farcaster, id=f'farcaster://{id}', objs_fc=[
                 user_data_message(123, 'USER_DATA_TYPE_USERNAME', username)
-            ] * 2)
+            ])
 
         def nostr_user(nip05):
             nonlocal id
