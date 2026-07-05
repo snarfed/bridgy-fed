@@ -150,9 +150,9 @@ cast_add_body { text: "hi" }
         obj = Object(id='farcaster://123/0x456', farcaster=[msg.SerializeToString()])
 
         expected = text_format.Merge(r"""
-hash: "Uy\373U\312<\036S<@}\206\315\263\031C&\302\341\253"
+hash: "\000\211E@u\017\0074\340\253\311\"\254\202\334AI\314\302\261"
 hash_scheme: HASH_SCHEME_BLAKE3
-data_bytes: "\010\001\020{\030\245\254\304\216\006 \001*\004\"\002hi"
+data_bytes: "\010\001\020{\030\245\340\212\017 \001*\004\"\002hi"
 """, msg)
         self.assertEqual([expected], Farcaster.convert(obj))
 

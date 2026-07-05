@@ -4469,7 +4469,7 @@ type: MESSAGE_TYPE_LINK_ADD
 link_body {
   type: "follow"
   target_fid: 456
-  displayTimestamp: 1641092645
+  displayTimestamp: 31633445
 }
 """, fid=123)])
 
@@ -4501,6 +4501,6 @@ type: MESSAGE_TYPE_LINK_ADD
 link_body {
   type: "block"
   target_fid: 456
-  displayTimestamp: 1641092645
+  displayTimestamp: 31633445
 }
 """, fid=123)])
