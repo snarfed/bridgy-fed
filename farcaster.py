@@ -277,7 +277,7 @@ class Farcaster(User, Protocol):
 
         for msg in resp.messages:
             if msg.HasField('message_error'):
-                logger.warning(f'hub SubmitBulkMessages error: {resp.message_error}')
+                logger.warning(f'hub SubmitBulkMessages error: {msg.message_error}')
                 return False
             elif not msg.message.HasField('data'):
                 logger.warning(f'response message missing data! {msg}')

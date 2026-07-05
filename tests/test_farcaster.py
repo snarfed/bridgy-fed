@@ -14,6 +14,7 @@ from granary.generated.farcaster.message_pb2 import (
 from granary.generated.farcaster.request_response_pb2 import (
     BulkMessageResponse,
     FidRequest,
+    MessageError,
     MessagesResponse,
     SubmitBulkMessagesRequest,
     SubmitBulkMessagesResponse,
@@ -239,6 +240,22 @@ cast_add_body { text: "hello world" }
             [Target(uri=f'farcaster://123/0x{resp.hash.hex()}',
                     protocol='farcaster')],
             obj.key.get().copies)
+
+    def test_send_cast_message_error(self, mock_stub):
+        mock_stub.return_value.SubmitBulkMessages.return_value = \
+            SubmitBulkMessagesResponse(messages=[
+                BulkMessageResponse(message_error=MessageError(message='nope')),
+            ])
+
+        obj = Object(id='farcaster://123/0xabcd', our_as1={
+            'objectType': 'note',
+            'content': 'hello world',
+            'author': 'farcaster://123',
+        })
+        obj.put()
+
+        self.assertFalse(Farcaster.send(obj, Farcaster.DEFAULT_TARGET,
+                                        from_user=self.user))
 
     def test_send_actor(self, mock_stub):
         resps = [
