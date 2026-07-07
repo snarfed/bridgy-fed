@@ -209,6 +209,20 @@ cast_add_body {
         msgs = Farcaster.convert(obj, from_user=self.user)
         self.assertEqual([123, 123], [msg.data.fid for msg in msgs])
 
+    def test_convert_actor_from_user_overrides_username(self, _):
+        # from_user's handle overrides the username in the object's AS1
+        obj = Object(id='at://did:plc:abc/app.bsky.actor.profile/self',
+                     source_protocol='atproto', our_as1={
+            'objectType': 'person',
+            'id': 'at://did:plc:abc/app.bsky.actor.profile/self',
+            'displayName': 'Alice',
+            'username': 'alice',
+        })
+        msgs = Farcaster.convert(obj, from_user=self.user)
+        username_msg = [msg for msg in msgs
+                         if msg.data.user_data_body.type == USER_DATA_TYPE_USERNAME][0]
+        self.assertEqual('123', username_msg.data.user_data_body.value)
+
     def test_send_cast(self, mock_stub):
         resp = message("""
 type: MESSAGE_TYPE_CAST_ADD
@@ -266,6 +280,11 @@ cast_add_body { text: "hello world" }
         mock_stub.return_value.SubmitBulkMessages.return_value = \
             SubmitBulkMessagesResponse(messages=[
                 BulkMessageResponse(message=m) for m in resps])
+
+        self.user.obj_key = Object(id='farcaster://123/0x456', our_as1={
+            'objectType': 'person',
+            'username': 'alice',
+        }).put()
 
         obj = Object(id='farcaster://123', source_protocol='ui', our_as1={
             'objectType': 'person',

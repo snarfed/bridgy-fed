@@ -4041,6 +4041,7 @@ cast_add_body { text: "Hello from ATProto!" }
 
         self.assert_farcaster_sent(mock_stub, [
             user_data_message(123, 'USER_DATA_TYPE_DISPLAY', 'Alice Updated'),
+            user_data_message(123, 'USER_DATA_TYPE_USERNAME', 'alice-inst'),
             user_data_message(123, 'USER_DATA_TYPE_BIO', 'New bio\n\n🌉 bridged from ⁂ https://inst/alice by https://fed.brid.gy/'),
             user_data_message(123, 'USER_DATA_TYPE_PFP', 'http://new-pic/'),
         ])
@@ -4070,6 +4071,7 @@ cast_add_body { text: "Hello from ATProto!" }
 
         self.assert_farcaster_sent(mock_stub, [
             user_data_message(123, 'USER_DATA_TYPE_DISPLAY', 'Alice Updated'),
+            user_data_message(123, 'USER_DATA_TYPE_USERNAME', 'alice-com'),
             user_data_message(123, 'USER_DATA_TYPE_BIO', 'New bio'),
             user_data_message(123, 'USER_DATA_TYPE_PFP', 'http://new-pic'),
             user_data_message(123, 'USER_DATA_TYPE_URL', 'https://alice.com/'),
@@ -4102,7 +4104,7 @@ cast_add_body { text: "Hello from ATProto!" }
 
         self.assert_farcaster_sent(mock_stub, [
             user_data_message(123, 'USER_DATA_TYPE_DISPLAY', 'Alice Updated'),
-            user_data_message(123, 'USER_DATA_TYPE_USERNAME', 'alice.com'),
+            user_data_message(123, 'USER_DATA_TYPE_USERNAME', 'alice-com'),
             user_data_message(123, 'USER_DATA_TYPE_BIO', 'New bio\n\n🌉 bridged from 🦋 https://bsky.app/profile/alice.com by https://fed.brid.gy/'),
             user_data_message(123, 'USER_DATA_TYPE_PFP', 'https://some.pds/xrpc/com.atproto.sync.getBlob?did=did:plc:alice&cid=bafy'),
             user_data_message(123, 'USER_DATA_TYPE_URL', 'https://bsky.app/profile/alice.com'),

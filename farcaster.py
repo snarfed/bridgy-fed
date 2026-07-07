@@ -218,8 +218,9 @@ class Farcaster(User, Protocol):
             return []
 
         translated = to_cls.translate_ids(obj.as1)
+        username = from_user.handle_as(Farcaster) if from_user else None
         # actors return a list of USER_DATA_ADD messages, other types a single Message
-        msgs = from_as1(translated)
+        msgs = from_as1(translated, username=username)
         if not isinstance(msgs, list):
             msgs = [msgs]
 
