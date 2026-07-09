@@ -2324,6 +2324,36 @@ class Follower(ndb.Model):
         return followers, before, after
 
 
+class Cursor(StringIdModel):
+    """The last cursor (eg sequence number) we've seen for an event stream.
+
+    Examples:
+
+    * https://atproto.com/specs/event-stream#sequence-numbers
+    * https://snapchain.farcaster.xyz/reference/grpcapi/events
+    * https://nips.nostr.com/1#from-client-to-relay-sending-events-and-creating-subscriptions
+
+    Key id is generally ``[HOST][:PORT] [XRPC]``, where ``[METHOD]`` is the
+    subscription/event stream method name. Specifically:
+
+    * ATProto: host is the relay, no port; method name is NSID of the XRPC method for
+      the event stream. For example, the cursor key id of the `subscribeRepos` on the
+      production relay is ``bsky.network com.atproto.sync.subscribeRepos``.
+    * Farcaster: host is the Snapchain hub, no port; method name is ``Subscribe``.
+      For example. the current production cursor is
+      ``crackle.farcaster.xyz Subscribe``.
+
+    ``cursor`` is the latest event that we know we've seen, so when we re-subscribe,
+    we should start at ``cursor + 1``.
+    """
+    cursor = ndb.IntegerProperty()
+    ''
+    created = ndb.DateTimeProperty(auto_now_add=True)
+    ''
+    updated = ndb.DateTimeProperty(auto_now=True)
+    ''
+
+
 def fetch_objects(query, by=None, user=None, max_age=None):
     """Fetches a page of :class:`Object` entities from a datastore query.
 

@@ -63,13 +63,13 @@ from webutil.util import json_dumps, json_loads
 
 from activitypub import ActivityPub
 import app
-from atproto import ATProto, Cursor
+from atproto import ATProto
 import atproto_firehose
 import common
 import farcaster
 from farcaster import Farcaster
 import models
-from models import DM, Follower, Object, Target
+from models import Cursor, DM, Follower, Object, Target
 from nostr import Nostr, NostrRelay
 import nostr_hub
 from web import Web

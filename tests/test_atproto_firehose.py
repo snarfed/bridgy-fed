@@ -27,12 +27,12 @@ from webutil.appengine_config import tasks_client
 from webutil.testutil import NOW, requests_response
 import simple_websocket
 
-from atproto import ATProto, Cursor
+from atproto import ATProto
 import atproto_firehose
 from atproto_firehose import commits, handle, Op, STORE_CURSOR_FREQ
 import common
 from memcache import memcache
-from models import Object, Target
+from models import Cursor, Object, Target
 import protocol
 from protocol import DELETE_TASK_DELAY
 from .testutil import TestCase

@@ -29,7 +29,7 @@ from webutil.appengine_config import ndb_client
 from webutil.appengine_info import DEBUG
 from webutil.util import json_dumps, json_loads
 
-from atproto import ATProto, Cursor, DatastoreClient
+from atproto import ATProto, DatastoreClient
 from common import (
     BETA_USER_IDS,
     create_task,
@@ -39,7 +39,7 @@ from common import (
     USER_AGENT,
 )
 from domains import PROTOCOL_DOMAINS
-from models import Object, Target
+from models import Cursor, Object, Target
 from protocol import DELETE_TASK_DELAY
 from web import Web
 

@@ -334,26 +334,6 @@ def did_to_handle(did, remote=None):
         return get_handle(did_obj.raw)
 
 
-class Cursor(StringIdModel):
-    """The last cursor (sequence number) we've seen for a host and event stream.
-
-    https://atproto.com/specs/event-stream#sequence-numbers
-
-    Key id is ``[HOST] [XRPC]``, where ``[XRPC]`` is the NSID of the XRPC method
-    for the event stream. For example, `subscribeRepos` on the production relay
-    is ``bsky.network com.atproto.sync.subscribeRepos``.
-
-    ``cursor`` is the latest sequence number that we know we've seen, so when we
-    re-subscribe to this event stream, we should send ``cursor + 1``.
-    """
-    cursor = ndb.IntegerProperty()
-    ''
-    created = ndb.DateTimeProperty(auto_now_add=True)
-    ''
-    updated = ndb.DateTimeProperty(auto_now=True)
-    ''
-
-
 class ATProto(User, Protocol):
     """AT Protocol class.
 
