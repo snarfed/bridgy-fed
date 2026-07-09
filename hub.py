@@ -23,10 +23,11 @@ from webutil import appengine_config, flask_util, util
 from werkzeug.middleware.proxy_fix import ProxyFix
 
 # all protocols
-import activitypub, atproto, nostr, web
+import activitypub, atproto, farcaster, nostr, web
 from atproto import RemoteSequences
 import atproto_firehose
 import common
+import farcaster_hub
 import models
 import nostr_hub
 import pages
@@ -69,13 +70,15 @@ if DEBUG or LOCAL_SERVER:
 else:
     atproto.init(MemcacheSequences)
 
-# start ATProto firehose consumer and server threads, Nostr relay subscribers
+# start ATProto firehose consumer and server threads, Nostr relay subscribers,
+# Farcaster hub subscriber
 #
 # ...*before* initializing Flask app and request handlers, including health check,
 # so that we don't go into service and start serving subscribers until the preload
 # window is loaded
 if not TESTING and (LOCAL_SERVER or not DEBUG):
     nostr_hub.init()
+    farcaster_hub.init()
 
     # ATProto firehose consumer
     for thread in threading.enumerate():
@@ -177,6 +180,7 @@ def hub_admin():
     return render_template(
         'hub.html',
         datetime=datetime,
+        farcaster_hub=farcaster_hub,
         firehose=firehose,
         gethostbyaddr=gethostbyaddr,
         len=len,

@@ -99,7 +99,6 @@ def _load_users(subscribe=True):
             new_bridged = []
             for proto in PROTOCOLS.values():
                 if proto and proto not in (Nostr, UIProtocol):
-                    # query for all users, then filter for nostr enabled
                     users = proto.query(proto.status == None,
                                         proto.enabled_protocols == 'nostr',
                                         proto.updated > pubkeys_loaded_at,

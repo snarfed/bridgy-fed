@@ -48,6 +48,13 @@ td {
         {% if relay.since %} {{ datetime.fromtimestamp(relay.since) }} {% endif %}
     {% endfor %}
   </ul>
+
+<li>Farcaster hub:
+  <ul>
+    <li>native FIDs: {{ len(farcaster_hub.fids) }}
+    <li>bridged FIDs: {{ len(farcaster_hub.bridged_fids) }}
+    <li>cursor: {{ farcaster_hub.cursor.cursor if farcaster_hub.cursor }}
+  </ul>
 </ul>
 
 {% endblock %}
