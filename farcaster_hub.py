@@ -23,7 +23,10 @@ from granary.generated.farcaster.message_pb2 import (
     MESSAGE_TYPE_REACTION_REMOVE,
     MESSAGE_TYPE_USER_DATA_ADD,
 )
-from granary.generated.farcaster.request_response_pb2 import FidRequest, SubscribeRequest
+from granary.generated.farcaster.request_response_pb2 import (
+  FidRequest,
+  SubscribeRequest,
+)
 import grpc
 from webutil import util
 from webutil.appengine_config import ndb_client
@@ -63,20 +66,6 @@ seen_hashes_lock = Lock()
 
 # global so that subscribe can reuse it across calls
 cursor = None
-
-
-def encode_messages(msgs):
-    """Base64-encodes serialized Farcaster messages for a task's ``farcaster`` param.
-
-    :meth:`models.Object.from_request` decodes this back into ``obj.farcaster``.
-
-    Args:
-      msgs (sequence of bytes): serialized ``message_pb2.Message``s
-
-    Returns:
-      str: JSON list of base64-encoded strings
-    """
-    return json_dumps([base64.b64encode(msg).decode() for msg in msgs])
 
 
 def ndb_context():
@@ -213,25 +202,44 @@ def handle(event):
         return
 
     fid = data.fid
-    msg_type = data.type
+    user_id = granary.farcaster.uri(fid)
 
-    if msg_type == MESSAGE_TYPE_USER_DATA_ADD:
+    def enqueue(obj_id, msgs):
+        logger.debug(f'Got Farcaster message(s) {obj_id}')
+        delay = DELETE_TASK_DELAY if data.type in DELETE_MESSAGE_TYPES else None
+        encoded_msgs = json_dumps([base64.b64encode(msg.SerializeToString()).decode()
+                                   for msg in msgs])
+        try:
+            create_task(queue='receive', id=obj_id, source_protocol=Farcaster.LABEL,
+                        authed_as=user_id, delay=delay, farcaster=encoded_msgs)
+        except ContextError:
+            raise  # handled in subscriber()
+        except BaseException:
+            report_error(obj_id, exception=True)
+
+    # profile update
+    if data.type == MESSAGE_TYPE_USER_DATA_ADD:
         if fid in fids:
-            _handle_profile_update(fid)
+            # fetch complete user profile
+            try:
+                resp = client().hub.GetUserDataByFid(FidRequest(fid=fid))
+                enqueue(user_id, resp.messages)
+            except grpc.RpcError as e:
+                logger.warning(f'profile fetch failed for {fid}')
         return
 
     targets = set()  # int fids
-    if msg_type == MESSAGE_TYPE_CAST_ADD:
+    if data.type == MESSAGE_TYPE_CAST_ADD:
         cast = data.cast_add_body
         targets.update(cast.mentions)
         if cast.HasField('parent_cast_id'):
             targets.add(cast.parent_cast_id.fid)
-    elif msg_type in (MESSAGE_TYPE_REACTION_ADD, MESSAGE_TYPE_REACTION_REMOVE):
+    elif data.type in (MESSAGE_TYPE_REACTION_ADD, MESSAGE_TYPE_REACTION_REMOVE):
         if data.reaction_body.HasField('target_cast_id'):
             targets.add(data.reaction_body.target_cast_id.fid)
-    elif msg_type in (MESSAGE_TYPE_LINK_ADD, MESSAGE_TYPE_LINK_REMOVE):
+    elif data.type in (MESSAGE_TYPE_LINK_ADD, MESSAGE_TYPE_LINK_REMOVE):
         targets.add(data.link_body.target_fid)
-    elif msg_type != MESSAGE_TYPE_CAST_REMOVE:
+    elif data.type != MESSAGE_TYPE_CAST_REMOVE:
         # unsupported/unknown message type
         return
 
@@ -250,49 +258,4 @@ def handle(event):
     if seen:
         return
 
-    obj_id = granary.farcaster.uri(fid, msg.hash)
-    authed_as = granary.farcaster.uri(fid)
-    logger.debug(f'Got Farcaster message {obj_id}')
-
-    delay = DELETE_TASK_DELAY if msg_type in DELETE_MESSAGE_TYPES else None
-    try:
-        create_task(queue='receive', id=obj_id, source_protocol=Farcaster.LABEL,
-                    authed_as=authed_as, delay=delay,
-                    farcaster=encode_messages([msg.SerializeToString()]))
-    except ContextError:
-        raise  # handled in subscriber()
-    except BaseException:
-        report_error(obj_id, exception=True)
-
-
-def _handle_profile_update(fid):
-    """Refetches a bridged Farcaster user's full profile, enqueues a receive task.
-
-    Individual ``USER_DATA_ADD`` messages only carry a single field, but
-    profile :class:`models.Object` instances are expected to hold the user's
-    whole profile, so we refetch it from the hub instead of bridging the
-    single field update. Similar to how ``atproto_firehose`` reloads the whole
-    DID doc on ``#identity`` events instead of applying a partial diff.
-
-    Args:
-      fid (int)
-    """
-    try:
-        resp = client().hub.GetUserDataByFid(FidRequest(fid=fid))
-    except grpc.RpcError as e:
-        logger.warning(f'GetUserDataByFid({fid}) failed: {e}')
-        return
-
-    if not resp.messages:
-        return
-
-    obj_id = granary.farcaster.uri(fid)
-    try:
-        create_task(queue='receive', id=obj_id, source_protocol=Farcaster.LABEL,
-                    authed_as=obj_id,
-                    farcaster=encode_messages(
-                        m.SerializeToString() for m in resp.messages))
-    except ContextError:
-        raise  # handled in subscriber()
-    except BaseException:
-        report_error(obj_id, exception=True)
+    enqueue(granary.farcaster.uri(fid, msg.hash), [msg])

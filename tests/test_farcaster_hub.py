@@ -1,4 +1,5 @@
 """Unit tests for farcaster_hub.py."""
+import base64
 from datetime import datetime, timedelta
 from unittest.mock import patch
 
@@ -10,12 +11,12 @@ from granary.generated.farcaster.hub_event_pb2 import (
 from granary.generated.farcaster.request_response_pb2 import MessagesResponse
 from granary.tests.test_farcaster import message, user_data_message
 from webutil.testutil import NOW
+from webutil.util import json_dumps
 
 import common
 import farcaster_hub
 import farcaster
 from farcaster import Farcaster
-from farcaster_hub import encode_messages
 from models import Cursor, Target
 from protocol import DELETE_TASK_DELAY
 from .testutil import Fake, TestCase
@@ -24,6 +25,10 @@ from .testutil import Fake, TestCase
 def merge_event(msg, id=1):
     return HubEvent(id=id, type=HUB_EVENT_TYPE_MERGE_MESSAGE,
                     merge_message_body=MergeMessageBody(message=msg))
+
+def encode_messages(msgs):
+    return json_dumps([base64.b64encode(msg.SerializeToString()).decode()
+                       for msg in msgs])
 
 
 @patch('granary.farcaster.rpc_pb2_grpc.HubServiceStub')
@@ -81,7 +86,7 @@ cast_add_body {
                              id=f'farcaster://123/0x{msg.hash.hex()}',
                              source_protocol='farcaster',
                              authed_as='farcaster://123',
-                             farcaster=encode_messages([msg.SerializeToString()]))
+                             farcaster=encode_messages([msg]))
 
     def test_subscribe_mention_of_bridged_user(self, mock_stub):
         with patch('webutil.appengine_config.tasks_client.create_task') as mock_create_task:
@@ -99,7 +104,7 @@ cast_add_body {
                              id=f'farcaster://999/0x{msg.hash.hex()}',
                              source_protocol='farcaster',
                              authed_as='farcaster://999',
-                             farcaster=encode_messages([msg.SerializeToString()]))
+                             farcaster=encode_messages([msg]))
 
     def test_subscribe_reply_to_bridged_user(self, mock_stub):
         with patch('webutil.appengine_config.tasks_client.create_task') as mock_create_task:
@@ -119,7 +124,7 @@ cast_add_body {
                              id=f'farcaster://999/0x{msg.hash.hex()}',
                              source_protocol='farcaster',
                              authed_as='farcaster://999',
-                             farcaster=encode_messages([msg.SerializeToString()]))
+                             farcaster=encode_messages([msg]))
 
     def test_subscribe_reaction_on_bridged_users_cast(self, mock_stub):
         with patch('webutil.appengine_config.tasks_client.create_task') as mock_create_task:
@@ -139,7 +144,7 @@ reaction_body {
                              id=f'farcaster://999/0x{msg.hash.hex()}',
                              source_protocol='farcaster',
                              authed_as='farcaster://999',
-                             farcaster=encode_messages([msg.SerializeToString()]))
+                             farcaster=encode_messages([msg]))
 
     def test_subscribe_follow_of_bridged_user(self, mock_stub):
         with patch('webutil.appengine_config.tasks_client.create_task') as mock_create_task:
@@ -157,7 +162,7 @@ link_body {
                              id=f'farcaster://999/0x{msg.hash.hex()}',
                              source_protocol='farcaster',
                              authed_as='farcaster://999',
-                             farcaster=encode_messages([msg.SerializeToString()]))
+                             farcaster=encode_messages([msg]))
 
     def test_subscribe_unfollow_of_bridged_user_delayed(self, mock_stub):
         with patch('webutil.appengine_config.tasks_client.create_task') as mock_create_task:
@@ -176,7 +181,7 @@ link_body {
                              id=f'farcaster://999/0x{msg.hash.hex()}',
                              source_protocol='farcaster',
                              authed_as='farcaster://999',
-                             farcaster=encode_messages([msg.SerializeToString()]),
+                             farcaster=encode_messages([msg]),
                              eta_seconds=delayed_eta)
 
     def test_subscribe_cast_remove_from_bridged_out_user_delayed(self, mock_stub):
@@ -194,7 +199,7 @@ cast_remove_body {
                              id=f'farcaster://123/0x{msg.hash.hex()}',
                              source_protocol='farcaster',
                              authed_as='farcaster://123',
-                             farcaster=encode_messages([msg.SerializeToString()]),
+                             farcaster=encode_messages([msg]),
                              eta_seconds=delayed_eta)
 
     def test_subscribe_unrelated_event(self, mock_stub):
@@ -236,7 +241,7 @@ cast_add_body {
                              id='farcaster://123',
                              source_protocol='farcaster',
                              authed_as='farcaster://123',
-                             farcaster=encode_messages(m.SerializeToString() for m in full_msgs))
+                             farcaster=encode_messages(full_msgs))
 
     def test_subscribe_profile_update_non_bridged_user(self, mock_stub):
         with patch('webutil.appengine_config.tasks_client.create_task') as mock_create_task:
