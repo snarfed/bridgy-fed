@@ -49,8 +49,8 @@ def client():
     """
     global _client
     if _client is None:
-        _client = granary.farcaster.Farcaster(host=SNAPCHAIN_HOST,
-                                              port=SNAPCHAIN_PORT)
+        _client = granary.farcaster.Farcaster(
+            host=SNAPCHAIN_HOST, port=SNAPCHAIN_PORT, log_requests_responses=True)
     return _client
 
 

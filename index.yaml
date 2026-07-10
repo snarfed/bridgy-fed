@@ -49,6 +49,12 @@ indexes:
   - name: enabled_protocols
   - name: updated
 
+- kind: Farcaster
+  properties:
+  - name: status
+  - name: enabled_protocols
+  - name: updated
+
 - kind: Follower
   properties:
   - name: from

@@ -54,6 +54,8 @@ td {
     <li>native FIDs: {{ len(farcaster_hub.fids) }}
     <li>bridged FIDs: {{ len(farcaster_hub.bridged_fids) }}
     <li>cursor: {{ farcaster_hub.cursor.cursor if farcaster_hub.cursor }}
+    <li>last event seen: {{ farcaster_hub.last_event_at }}
+    <li>last event enqueued: {{ farcaster_hub.last_enqueued_at }}
   </ul>
 </ul>
 
