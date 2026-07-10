@@ -217,7 +217,7 @@ def create_task(queue, app_id=GCP_PROJECT_ID, delay=None, app=None, **params):
         delay_msg = f'in {eta - now}'
 
     # construct task object
-    body = urllib.parse.urlencode(sorted(params.items())).encode()
+    body = urllib.parse.urlencode(sorted(params.items()), doseq=True).encode()
     task = {
         'app_engine_http_request': {
             'http_method': 'POST',

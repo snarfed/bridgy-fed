@@ -15,6 +15,7 @@ from cryptography.hazmat.primitives.serialization import (
 from google.cloud import ndb
 from google.cloud.ndb import tasklets
 from google.cloud.tasks_v2.types import Task
+from google.protobuf import text_format
 from granary.bluesky import NO_UNAUTHENTICATED_LABEL
 from granary.tests.test_farcaster import message, user_data_message
 from granary.tests.test_bluesky import ACTOR_AS, ACTOR_PROFILE_BSKY
@@ -31,6 +32,7 @@ from .testutil import ExplicitFake, Fake, OtherFake, TestCase
 from activitypub import ActivityPub
 from atproto import ATProto
 import common
+from flask_app import app
 import memcache
 import models
 from models import (
@@ -1523,6 +1525,25 @@ cast_add_body {
             'url': 'https://farcaster.xyz/~/profiles/123',
             'username': 'alice',
         }, obj.as1)
+
+    def test_to_from_request_farcaster(self):
+        msg = message("""
+type: MESSAGE_TYPE_CAST_ADD
+cast_add_body {
+  text: "hello world"
+}
+""")
+        obj = Object(farcaster=[msg.SerializeToString()])
+
+        form = obj.to_request()
+        self.assertEqual(
+            [r'''data { type: MESSAGE_TYPE_CAST_ADD fid: 123 timestamp: 31633445 network: FARCASTER_NETWORK_MAINNET cast_add_body { text: "hello world" } } hash: "\005\231fC8\303V\234\270\365\350\371\323XU1\316O2}" hash_scheme: HASH_SCHEME_BLAKE3 data_bytes: "\010\001\020{\030\245\340\212\017 \001*\r\"\013hello world"'''],
+            form['fc'])
+
+        with app.test_request_context('/', method='POST', data=form):
+            got = Object.from_request()
+
+        self.assertEqual(obj.farcaster, got.farcaster)
 
     def test_as1_image_proxy_domain(self):
         self.assert_equals({

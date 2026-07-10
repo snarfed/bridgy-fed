@@ -25,6 +25,7 @@ from cryptography.hazmat.primitives.serialization import (
 from flask import request
 from google.cloud import ndb
 from google.cloud.ndb.key import _MAX_KEYPART_BYTES
+from google.protobuf import text_format
 from granary import as1, as2, atom, bluesky, microformats2
 from granary.bluesky import BSKY_APP_URL_RE
 import granary.farcaster
@@ -1796,6 +1797,10 @@ class Object(AddRemoveMixin, StringIdModel):
             if val := request.form.get(json_prop):
                 props[json_prop] = json_loads(val)
 
+        if val := request.form.getlist('fc'):
+            props['farcaster'] = [text_format.Parse(v, Message()).SerializeToString()
+                                  for v in val]
+
         obj = Object(**props)
         if not obj.key and obj.as1:
             if id := obj.as1.get('id'):
@@ -1810,6 +1815,13 @@ class Object(AddRemoveMixin, StringIdModel):
         for json_prop in 'as2', 'bsky', 'mf2', 'nostr', 'our_as1', 'raw':
             if val := getattr(self, json_prop, None):
                 form[json_prop] = json_dumps(val, sort_keys=True)
+
+        if self.farcaster:
+            form['fc'] = [
+                text_format.MessageToString(Message.FromString(val), as_one_line=True,
+                                            use_short_repeated_primitives=True)
+                for val in self.farcaster
+            ]
 
         for prop in ['source_protocol']:
             if val := getattr(self, prop):
