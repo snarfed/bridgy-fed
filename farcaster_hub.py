@@ -220,7 +220,7 @@ def handle(event):
         fc = [text_format.MessageToString(msg, as_one_line=True,
                                           use_short_repeated_primitives=True)
              for msg in msgs]
-        logger.debug(f'Got {obj_id} {"\n".join(fc)}')
+        logger.info(f'Got {obj_id} {"\n".join(fc)}')
 
         try:
             create_task(queue='receive', id=obj_id, source_protocol=Farcaster.LABEL,

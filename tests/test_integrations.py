@@ -4111,6 +4111,16 @@ cast_add_body { text: "Hello from ATProto!" }
         ])
 
     @patch('granary.farcaster.rpc_pb2_grpc.HubServiceStub')
+    def test_activitypub_serves_farcaster_user(self, mock_stub):
+        self.setup_farcaster_hub(mock_stub)
+        self.make_farcaster_user(123)
+
+        got = self.client.get('/ap/farcaster:123', base_url='https://fc.brid.gy/',
+                              headers={'Accept': as2.CONTENT_TYPE})
+        self.assertEqual(200, got.status_code, got.get_data(as_text=True))
+        self.assertEqual('https://fc.brid.gy/ap/farcaster:123', got.json['id'])
+
+    @patch('granary.farcaster.rpc_pb2_grpc.HubServiceStub')
     def test_activitypub_reply_to_farcaster(self, mock_stub):
         """ActivityPub reply to a Farcaster user's post.
 

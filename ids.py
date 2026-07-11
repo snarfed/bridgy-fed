@@ -203,6 +203,9 @@ def translate_user_id(*, id, from_, to):
         case 'activitypub', 'web':
             return id
 
+        case 'farcaster', 'activitypub' | 'web':
+            return subdomain_wrap(from_, f'/{to.ABBREV}/{id.replace("://", ":")}')
+
         case _, 'activitypub' | 'web':
             return subdomain_wrap(from_, f'/{to.ABBREV}/{id}')
 
@@ -260,14 +263,16 @@ def normalize_user_id(*, id, proto):
             normalized = repo
 
     elif proto.LABEL == 'farcaster':
-        if util.is_int(id):
-            return granary.farcaster.uri(id)
+        if match := re.fullmatch(r'(farcaster:)?([0-9]+)', id):
+            return granary.farcaster.uri(match.group(2))
 
         if ((match := granary.farcaster.FARCASTER_URI_RE.fullmatch(id))
-                and match['username'] and not match['hash']):
-            # TODO: look up in datastore first?
-            if fid := proto.handle_to_id(match['username']):
-                return fid
+                and not match['hash']):
+            if match['fid']:
+                return granary.farcaster.uri(match['fid'])
+            elif match['username']:
+                # TODO: look up in datastore first?
+                return proto.handle_to_id(match['username'])
 
     elif proto.LABEL == 'nostr':
         obj_key = models.Object(id=normalized).key

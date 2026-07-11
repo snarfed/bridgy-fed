@@ -6,6 +6,7 @@ https://snapchain.farcaster.xyz/
 """
 import logging
 import os
+import re
 
 from google.cloud import ndb
 from granary import as1
@@ -91,7 +92,8 @@ class Farcaster(User, Protocol):
 
     @classmethod
     def owns_id(cls, id):
-        return id and id.startswith('farcaster://')
+        return bool(id and (id.startswith('farcaster://')
+                            or re.fullmatch(r'farcaster:[0-9]+', id)))
 
     @classmethod
     def owns_handle(cls, handle, allow_internal=False):

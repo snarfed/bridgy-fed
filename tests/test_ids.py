@@ -110,8 +110,8 @@ class IdsTest(TestCase):
             (ATProto, 'https://bsky.app/profile/user.com', ATProto, 'did:plc:123'),
             (ATProto, 'https://bsky.app/profile/did:plc:123', ATProto, 'did:plc:123'),
 
-            (Farcaster, 'farcaster://555', Web, 'https://fc.brid.gy/web/farcaster://555'),
-            (Farcaster, 'farcaster://555', ActivityPub, 'https://fc.brid.gy/ap/farcaster://555'),
+            (Farcaster, 'farcaster://555', Web, 'https://fc.brid.gy/web/farcaster:555'),
+            (Farcaster, 'farcaster://555', ActivityPub, 'https://fc.brid.gy/ap/farcaster:555'),
             (Farcaster, 'farcaster://555', ATProto, None),
             (Farcaster, 'farcaster://555', Nostr, None),
 
@@ -233,6 +233,7 @@ class IdsTest(TestCase):
             (Fake, 'fake:profile:user', 'fake:user'),
             (Farcaster, '123', 'farcaster://123'),
             (Farcaster, 'farcaster://123', 'farcaster://123'),
+            (Farcaster, 'farcaster:123', 'farcaster://123'),
             (Web, 'user.com', 'user.com'),
             (Web, 'https://user.com/', 'user.com'),
             (Web, 'https://www.user.com/', 'user.com'),

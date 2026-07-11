@@ -48,6 +48,7 @@ class FarcasterTest(TestCase):
 
     def test_owns_id(self, _):
         self.assertTrue(Farcaster.owns_id('farcaster://123'))
+        self.assertTrue(Farcaster.owns_id('farcaster:123'))
         self.assertTrue(Farcaster.owns_id('farcaster://123/0x456'))
         self.assertFalse(Farcaster.owns_id(''))
         self.assertFalse(Farcaster.owns_id('789'))
