@@ -115,6 +115,16 @@ class IntegrationTests(TestCase):
         super().setUp()
         self.storage = arroba.server.storage  # convenience
 
+        def fc_submit(req):
+            return SubmitBulkMessagesResponse(messages=[
+                BulkMessageResponse(message=msg) for msg in req.messages
+            ])
+
+        fc_stub_patch = patch('granary.farcaster.rpc_pb2_grpc.HubServiceStub')
+        self.mock_fc_stub = fc_stub_patch.start()
+        self.mock_fc_stub.return_value.SubmitBulkMessages.side_effect = fc_submit
+        self.addCleanup(fc_stub_patch.stop)
+
     def make_ap_user(self, ap_id, did=None, nostr_key_bytes=None, **props):
         actor = {
             'type': 'Person',
@@ -270,22 +280,14 @@ class IntegrationTests(TestCase):
             user.obj.add('copies', Target(uri=fid_uri, protocol='farcaster'))
             user.obj.put()
 
-    def assert_farcaster_sent(self, mock_stub, expected):
+    def assert_farcaster_sent(self, expected):
         """Asserts the messages submitted to the hub, ignoring signatures."""
-        actual = mock_stub.return_value.SubmitBulkMessages.call_args[0][0]
+        actual = self.mock_fc_stub.return_value.SubmitBulkMessages.call_args[0][0]
         for msg in actual.messages:
             msg.ClearField('signature')
             msg.ClearField('signer')
             msg.ClearField('signature_scheme')
         self.assertEqual(list(expected), list(actual.messages))
-
-    def setup_farcaster_hub(self, mock_stub):
-        """Makes the mocked hub echo back submitted messages in its response."""
-        def submit(req):
-            return SubmitBulkMessagesResponse(messages=[
-                BulkMessageResponse(message=msg) for msg in req.messages])
-
-        mock_stub.return_value.SubmitBulkMessages.side_effect = submit
 
     def firehose(self, limit=1, **op):
         setup_firehose()
@@ -3905,14 +3907,12 @@ class IntegrationTests(TestCase):
             'object': 'http://inst.com/post',
         }, ignore=['@context', 'to', 'url'])
 
-    @patch('granary.farcaster.rpc_pb2_grpc.HubServiceStub')
-    def test_activitypub_post_to_farcaster_follower(self, mock_stub):
+    def test_activitypub_post_to_farcaster_follower(self):
         """ActivityPub post delivered to a Farcaster follower.
 
         ActivityPub user https://inst/alice (Farcaster fid 123)
         Farcaster follower bob (fid 456)
         """
-        self.setup_farcaster_hub(mock_stub)
         alice = self.make_ap_user('https://inst/alice')
         self.make_farcaster_copy(alice, 123)
         bob = self.make_farcaster_user(456)
@@ -3936,7 +3936,7 @@ class IntegrationTests(TestCase):
         resp = self.client.post('/ap/sharedInbox', data=body, headers=headers)
         self.assertEqual(202, resp.status_code)
 
-        self.assert_farcaster_sent(mock_stub, [fc_message("""
+        self.assert_farcaster_sent([fc_message("""
 type: MESSAGE_TYPE_CAST_ADD
 cast_add_body { text: "Hello from ActivityPub!" }
 """, fid=123)])
@@ -3953,14 +3953,12 @@ cast_add_body { text: "Hello from ActivityPub!" }
 </html>
 """),
     ])
-    @patch('granary.farcaster.rpc_pb2_grpc.HubServiceStub')
-    def test_web_post_to_farcaster_follower(self, mock_stub, mock_get):
+    def test_web_post_to_farcaster_follower(self, mock_get):
         """Web post delivered to a Farcaster follower.
 
         Web user alice.com (Farcaster fid 123)
         Farcaster follower bob (fid 456)
         """
-        self.setup_farcaster_hub(mock_stub)
         alice = self.make_web_user('alice.com')
         self.make_farcaster_copy(alice, 123)
         bob = self.make_farcaster_user(456)
@@ -3973,19 +3971,17 @@ cast_add_body { text: "Hello from ActivityPub!" }
         })
         self.assertEqual(202, resp.status_code)
 
-        self.assert_farcaster_sent(mock_stub, [fc_message("""
+        self.assert_farcaster_sent([fc_message("""
 type: MESSAGE_TYPE_CAST_ADD
 cast_add_body { text: "Hello from Web!" }
 """, fid=123)])
 
-    @patch('granary.farcaster.rpc_pb2_grpc.HubServiceStub')
-    def test_atproto_post_to_farcaster_follower(self, mock_stub):
+    def test_atproto_post_to_farcaster_follower(self):
         """ATProto post delivered to a Farcaster follower.
 
         ATProto user did:plc:alice (Farcaster fid 123)
         Farcaster follower bob (fid 456)
         """
-        self.setup_farcaster_hub(mock_stub)
         alice = self.make_atproto_user('did:plc:alice')
         self.make_farcaster_copy(alice, 123)
         bob = self.make_farcaster_user(456)
@@ -4002,19 +3998,17 @@ cast_add_body { text: "Hello from Web!" }
         self.firehose(repo='did:plc:alice', action='create', seq=123,
                       path='app.bsky.feed.post/123', record=post)
 
-        self.assert_farcaster_sent(mock_stub, [fc_message("""
+        self.assert_farcaster_sent([fc_message("""
 type: MESSAGE_TYPE_CAST_ADD
 cast_add_body { text: "Hello from ATProto!" }
 """, fid=123)])
 
-    @patch('granary.farcaster.rpc_pb2_grpc.HubServiceStub')
-    def test_activitypub_profile_update_to_farcaster(self, mock_stub):
+    def test_activitypub_profile_update_to_farcaster(self):
         """ActivityPub user bridged to Farcaster updates their profile.
 
         ActivityPub user https://inst/alice (Farcaster fid 123)
         Farcaster follower bob (fid 456)
         """
-        self.setup_farcaster_hub(mock_stub)
         alice = self.make_ap_user('https://inst/alice')
         self.make_farcaster_copy(alice, 123)
         bob = self.make_farcaster_user(456)
@@ -4039,7 +4033,7 @@ cast_add_body { text: "Hello from ATProto!" }
         resp = self.client.post('/ap/sharedInbox', data=body, headers=headers)
         self.assertEqual(202, resp.status_code)
 
-        self.assert_farcaster_sent(mock_stub, [
+        self.assert_farcaster_sent([
             user_data_message(123, 'USER_DATA_TYPE_DISPLAY', 'Alice Updated'),
             user_data_message(123, 'USER_DATA_TYPE_USERNAME', 'alice-inst'),
             user_data_message(123, 'USER_DATA_TYPE_BIO', 'New bio\n\n🌉 bridged from ⁂ https://inst/alice by https://fed.brid.gy/'),
@@ -4052,14 +4046,12 @@ cast_add_body { text: "Hello from ATProto!" }
   <p class="p-summary">New bio</p>
   <img class="u-photo" src="http://new-pic" />
 </body></html>""", url='https://alice.com/'))
-    @patch('granary.farcaster.rpc_pb2_grpc.HubServiceStub')
-    def test_web_profile_update_to_farcaster(self, mock_stub, mock_get):
+    def test_web_profile_update_to_farcaster(self, mock_get):
         """Web user bridged to Farcaster updates their profile.
 
         Web user alice.com (Farcaster fid 123)
         Farcaster follower bob (fid 456)
         """
-        self.setup_farcaster_hub(mock_stub)
         alice = self.make_web_user('alice.com')
         self.make_farcaster_copy(alice, 123)
         bob = self.make_farcaster_user(456)
@@ -4069,7 +4061,7 @@ cast_add_body { text: "Hello from ATProto!" }
         resp = self.client.post('/web/alice.com/update-profile')
         self.assertEqual(302, resp.status_code)
 
-        self.assert_farcaster_sent(mock_stub, [
+        self.assert_farcaster_sent([
             user_data_message(123, 'USER_DATA_TYPE_DISPLAY', 'Alice Updated'),
             user_data_message(123, 'USER_DATA_TYPE_USERNAME', 'alice-com'),
             user_data_message(123, 'USER_DATA_TYPE_BIO', 'New bio'),
@@ -4077,14 +4069,12 @@ cast_add_body { text: "Hello from ATProto!" }
             user_data_message(123, 'USER_DATA_TYPE_URL', 'https://alice.com/'),
         ])
 
-    @patch('granary.farcaster.rpc_pb2_grpc.HubServiceStub')
-    def test_atproto_profile_update_to_farcaster(self, mock_stub):
+    def test_atproto_profile_update_to_farcaster(self):
         """ATProto user bridged to Farcaster updates their profile.
 
         ATProto user did:plc:alice (Farcaster fid 123)
         Farcaster follower bob (fid 456)
         """
-        self.setup_farcaster_hub(mock_stub)
         alice = self.make_atproto_user('did:plc:alice')
         self.make_farcaster_copy(alice, 123)
         bob = self.make_farcaster_user(456)
@@ -4102,7 +4092,7 @@ cast_add_body { text: "Hello from ATProto!" }
         self.firehose(repo='did:plc:alice', action='update', seq=123,
                       path='app.bsky.actor.profile/self', record=new_profile)
 
-        self.assert_farcaster_sent(mock_stub, [
+        self.assert_farcaster_sent([
             user_data_message(123, 'USER_DATA_TYPE_DISPLAY', 'Alice Updated'),
             user_data_message(123, 'USER_DATA_TYPE_USERNAME', 'alice-com'),
             user_data_message(123, 'USER_DATA_TYPE_BIO', 'New bio\n\n🌉 bridged from 🦋 https://bsky.app/profile/alice.com by https://fed.brid.gy/'),
@@ -4110,9 +4100,7 @@ cast_add_body { text: "Hello from ATProto!" }
             user_data_message(123, 'USER_DATA_TYPE_URL', 'https://bsky.app/profile/alice.com'),
         ])
 
-    @patch('granary.farcaster.rpc_pb2_grpc.HubServiceStub')
-    def test_activitypub_serves_farcaster_user(self, mock_stub):
-        self.setup_farcaster_hub(mock_stub)
+    def test_activitypub_serves_farcaster_user(self):
         self.make_farcaster_user(123)
 
         got = self.client.get('/ap/farcaster:123', base_url='https://fc.brid.gy/',
@@ -4120,14 +4108,12 @@ cast_add_body { text: "Hello from ATProto!" }
         self.assertEqual(200, got.status_code, got.get_data(as_text=True))
         self.assertEqual('https://fc.brid.gy/ap/farcaster:123', got.json['id'])
 
-    @patch('granary.farcaster.rpc_pb2_grpc.HubServiceStub')
-    def test_activitypub_reply_to_farcaster(self, mock_stub):
+    def test_activitypub_reply_to_farcaster(self):
         """ActivityPub reply to a Farcaster user's post.
 
         ActivityPub user https://inst/alice (Farcaster fid 123)
         Farcaster user bob (fid 456)
         """
-        self.setup_farcaster_hub(mock_stub)
         alice = self.make_ap_user('https://inst/alice')
         self.make_farcaster_copy(alice, 123)
         bob = self.make_farcaster_user(456)
@@ -4159,7 +4145,7 @@ cast_add_body { text: "Hi from Bob" }
         resp = self.client.post('/ap/sharedInbox', data=body, headers=headers)
         self.assertEqual(202, resp.status_code)
 
-        self.assert_farcaster_sent(mock_stub, [fc_message(f"""
+        self.assert_farcaster_sent([fc_message(f"""
 type: MESSAGE_TYPE_CAST_ADD
 cast_add_body {{
   text: "Replying to Bob!"
@@ -4171,14 +4157,12 @@ cast_add_body {{
 """, fid=123)])
 
     @patch.object(util.session, 'get', autospec=True)
-    @patch('granary.farcaster.rpc_pb2_grpc.HubServiceStub')
-    def test_web_reply_to_farcaster(self, mock_stub, mock_get):
+    def test_web_reply_to_farcaster(self, mock_get):
         """Web reply to a Farcaster user's post.
 
         Web user alice.com (Farcaster fid 123)
         Farcaster user bob (fid 456)
         """
-        self.setup_farcaster_hub(mock_stub)
         alice = self.make_web_user('alice.com')
         self.make_farcaster_copy(alice, 123)
         bob = self.make_farcaster_user(456)
@@ -4210,7 +4194,7 @@ cast_add_body { text: "Hi from Bob" }
         })
         self.assertEqual(202, resp.status_code)
 
-        self.assert_farcaster_sent(mock_stub, [fc_message(f"""
+        self.assert_farcaster_sent([fc_message(f"""
 type: MESSAGE_TYPE_CAST_ADD
 cast_add_body {{
   text: "Replying to Bob!"
@@ -4221,14 +4205,12 @@ cast_add_body {{
 }}
 """, fid=123)])
 
-    @patch('granary.farcaster.rpc_pb2_grpc.HubServiceStub')
-    def test_atproto_reply_to_farcaster(self, mock_stub):
+    def test_atproto_reply_to_farcaster(self):
         """ATProto reply to a Farcaster user's post.
 
         ATProto user did:plc:alice (Farcaster fid 123)
         Farcaster user bob (fid 456)
         """
-        self.setup_farcaster_hub(mock_stub)
         alice = self.make_atproto_user('did:plc:alice')
         self.make_farcaster_copy(alice, 123)
         bob = self.make_farcaster_user(456)
@@ -4259,7 +4241,7 @@ cast_add_body { text: "Hi from Bob" }
         self.firehose(repo='did:plc:alice', action='create', seq=456,
                       path='app.bsky.feed.post/456', record=reply)
 
-        self.assert_farcaster_sent(mock_stub, [fc_message(f"""
+        self.assert_farcaster_sent([fc_message(f"""
 type: MESSAGE_TYPE_CAST_ADD
 cast_add_body {{
   text: "Replying to Bob!"
@@ -4270,14 +4252,12 @@ cast_add_body {{
 }}
 """, fid=123)])
 
-    @patch('granary.farcaster.rpc_pb2_grpc.HubServiceStub')
-    def test_activitypub_like_to_farcaster(self, mock_stub):
+    def test_activitypub_like_to_farcaster(self):
         """ActivityPub like of a Farcaster user's post.
 
         ActivityPub user https://inst/alice (Farcaster fid 123)
         Farcaster user bob (fid 456)
         """
-        self.setup_farcaster_hub(mock_stub)
         alice = self.make_ap_user('https://inst/alice')
         self.make_farcaster_copy(alice, 123)
         bob = self.make_farcaster_user(456)
@@ -4303,7 +4283,7 @@ cast_add_body { text: "Hi from Bob" }
         resp = self.client.post('/ap/sharedInbox', data=body, headers=headers)
         self.assertEqual(202, resp.status_code)
 
-        self.assert_farcaster_sent(mock_stub, [fc_message(f"""
+        self.assert_farcaster_sent([fc_message(f"""
 type: MESSAGE_TYPE_REACTION_ADD
 reaction_body {{
   type: REACTION_TYPE_LIKE
@@ -4314,14 +4294,12 @@ reaction_body {{
 }}
 """, fid=123)])
 
-    @patch('granary.farcaster.rpc_pb2_grpc.HubServiceStub')
-    def test_activitypub_repost_to_farcaster(self, mock_stub):
+    def test_activitypub_repost_to_farcaster(self):
         """ActivityPub repost (Announce) of a Farcaster user's post.
 
         ActivityPub user https://inst/alice (Farcaster fid 123)
         Farcaster user bob (fid 456)
         """
-        self.setup_farcaster_hub(mock_stub)
         alice = self.make_ap_user('https://inst/alice')
         self.make_farcaster_copy(alice, 123)
         bob = self.make_farcaster_user(456)
@@ -4347,7 +4325,7 @@ cast_add_body { text: "Hi from Bob" }
         resp = self.client.post('/ap/sharedInbox', data=body, headers=headers)
         self.assertEqual(202, resp.status_code)
 
-        self.assert_farcaster_sent(mock_stub, [fc_message(f"""
+        self.assert_farcaster_sent([fc_message(f"""
 type: MESSAGE_TYPE_REACTION_ADD
 reaction_body {{
   type: REACTION_TYPE_RECAST
@@ -4359,14 +4337,12 @@ reaction_body {{
 """, fid=123)])
 
     @patch.object(util.session, 'get', autospec=True)
-    @patch('granary.farcaster.rpc_pb2_grpc.HubServiceStub')
-    def test_web_repost_to_farcaster(self, mock_stub, mock_get):
+    def test_web_repost_to_farcaster(self, mock_get):
         """Web repost of a Farcaster user's post.
 
         Web user alice.com (Farcaster fid 123)
         Farcaster user bob (fid 456)
         """
-        self.setup_farcaster_hub(mock_stub)
         alice = self.make_web_user('alice.com')
         self.make_farcaster_copy(alice, 123)
         bob = self.make_farcaster_user(456)
@@ -4397,7 +4373,7 @@ cast_add_body { text: "Hi from Bob" }
         })
         self.assertEqual(202, resp.status_code)
 
-        self.assert_farcaster_sent(mock_stub, [fc_message(f"""
+        self.assert_farcaster_sent([fc_message(f"""
 type: MESSAGE_TYPE_REACTION_ADD
 reaction_body {{
   type: REACTION_TYPE_RECAST
@@ -4408,14 +4384,12 @@ reaction_body {{
 }}
 """, fid=123)])
 
-    @patch('granary.farcaster.rpc_pb2_grpc.HubServiceStub')
-    def test_atproto_repost_to_farcaster(self, mock_stub):
+    def test_atproto_repost_to_farcaster(self):
         """ATProto repost of a Farcaster user's post.
 
         ATProto user did:plc:alice (Farcaster fid 123)
         Farcaster user bob (fid 456)
         """
-        self.setup_farcaster_hub(mock_stub)
         alice = self.make_atproto_user('did:plc:alice')
         self.make_farcaster_copy(alice, 123)
         bob = self.make_farcaster_user(456)
@@ -4442,7 +4416,7 @@ cast_add_body { text: "Hi from Bob" }
         self.firehose(repo='did:plc:alice', action='create', seq=456,
                       path='app.bsky.feed.repost/456', record=repost)
 
-        self.assert_farcaster_sent(mock_stub, [fc_message(f"""
+        self.assert_farcaster_sent([fc_message(f"""
 type: MESSAGE_TYPE_REACTION_ADD
 reaction_body {{
   type: REACTION_TYPE_RECAST
@@ -4453,14 +4427,12 @@ reaction_body {{
 }}
 """, fid=123)])
 
-    @patch('granary.farcaster.rpc_pb2_grpc.HubServiceStub')
-    def test_atproto_follow_to_farcaster(self, mock_stub):
+    def test_atproto_follow_to_farcaster(self):
         """ATProto follow of a Farcaster user.
 
         ATProto user did:plc:alice (Farcaster fid 123)
         Farcaster user bob (fid 456, did:plc:bob)
         """
-        self.setup_farcaster_hub(mock_stub)
         alice = self.make_atproto_user('did:plc:alice')
         self.make_farcaster_copy(alice, 123)
         bob = self.make_farcaster_user(456)
@@ -4476,7 +4448,7 @@ reaction_body {{
         self.firehose(repo='did:plc:alice', action='create', seq=123,
                       path='app.bsky.graph.follow/123', record=follow)
 
-        self.assert_farcaster_sent(mock_stub, [fc_message("""
+        self.assert_farcaster_sent([fc_message("""
 type: MESSAGE_TYPE_LINK_ADD
 link_body {
   type: "follow"
@@ -4485,14 +4457,12 @@ link_body {
 }
 """, fid=123)])
 
-    @patch('granary.farcaster.rpc_pb2_grpc.HubServiceStub')
-    def test_atproto_block_to_farcaster(self, mock_stub):
+    def test_atproto_block_to_farcaster(self):
         """ATProto block of a Farcaster user.
 
         ATProto user did:plc:alice (Farcaster fid 123)
         Farcaster user bob (fid 456, did:plc:bob)
         """
-        self.setup_farcaster_hub(mock_stub)
         alice = self.make_atproto_user('did:plc:alice')
         self.make_farcaster_copy(alice, 123)
         bob = self.make_farcaster_user(456)
@@ -4508,7 +4478,7 @@ link_body {
         self.firehose(repo='did:plc:alice', action='create', seq=123,
                       path='app.bsky.graph.block/123', record=block)
 
-        self.assert_farcaster_sent(mock_stub, [fc_message("""
+        self.assert_farcaster_sent([fc_message("""
 type: MESSAGE_TYPE_LINK_ADD
 link_body {
   type: "block"
