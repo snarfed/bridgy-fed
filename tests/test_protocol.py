@@ -3737,6 +3737,33 @@ class ProtocolReceiveTest(TestCase):
             'object': profile,
         })], Fake.sent)
 
+    def test_update_profile_bare_object_id_already_has_bridgy_fed_suffix(self):
+        id = 'other:alice#bridgy-fed-update-2021-01-01T00:00:00+00:00'
+        profile = {
+            'objectType': 'person',
+            'id': 'other:alice',
+            'displayName': 'Ms. ☕ Baz',
+            'summary': 'first',
+        }
+        self.alice.obj = self.store_object(id=id, our_as1=profile,
+                                           source_protocol='other')
+        self.alice.put()
+
+        Follower.get_or_create(to=self.alice, from_=self.user)
+
+        obj = Object(id=id, our_as1=profile, source_protocol='other')
+        obj.new = True
+        OtherFake.receive(obj)
+
+        profile['updated'] = '2022-01-02T03:04:05+00:00'
+        self.assertEqual([('fake:shared:target', {
+            'objectType': 'activity',
+            'verb': 'update',
+            'id': id,
+            'actor': 'other:alice',
+            'object': profile,
+        })], Fake.sent)
+
     @patch.object(util.session, 'get', autospec=True, side_effect=[
         requests_response(DID_DOC),
         requests_response({

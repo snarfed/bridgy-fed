@@ -1711,7 +1711,9 @@ class Protocol:
                 logger.info(f'Content has changed from last time at {obj.updated}! Redelivering to all inboxes')
             else:
                 logger.info(f'Got actor profile object, wrapping in update')
-            id = f'{obj.key.id()}#bridgy-fed-update-{now}'
+            id = obj.key.id()
+            if '#bridgy-fed-' not in id:
+                id = f'{id}#bridgy-fed-update-{now}'
             update_as1 = {
                 'objectType': 'activity',
                 'verb': 'update',

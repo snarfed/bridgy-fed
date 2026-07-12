@@ -235,12 +235,14 @@ cast_add_body {
             MessagesResponse(messages=[display_msg, username_msg])
 
         self.serve_and_subscribe([merge_event(username_msg)])
-        self.assert_task(self.mock_create_task, 'receive',
-                         id='farcaster://123',
-                         source_protocol='farcaster',
-                         authed_as='farcaster://123',
-                         fc=encode_messages([display_msg, username_msg]),
-                         received_at=NOW.isoformat())
+        self.assert_task(
+            self.mock_create_task,
+            'receive',
+            id='farcaster://123#bridgy-fed-update-2022-01-02T03:04:05+00:00',
+            source_protocol='farcaster',
+            authed_as='farcaster://123',
+            fc=encode_messages([display_msg, username_msg]),
+            received_at=NOW.isoformat())
 
     def test_subscribe_profile_update_non_bridged_user(self):
         update_msg = user_data_message(999, 'USER_DATA_TYPE_USERNAME', 'eve')

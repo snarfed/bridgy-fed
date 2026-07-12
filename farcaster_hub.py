@@ -238,7 +238,8 @@ def handle(event):
             # fetch complete user profile
             try:
                 resp = farcaster.client().hub.GetUserDataByFid(FidRequest(fid=fid))
-                enqueue(user_id, resp.messages)
+                enqueue(f'{user_id}#bridgy-fed-update-{util.now().isoformat()}',
+                        resp.messages)
             except grpc.RpcError as e:
                 logger.warning(f'profile fetch failed for {fid}')
         return
