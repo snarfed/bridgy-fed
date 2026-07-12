@@ -747,9 +747,10 @@ class Web(User, Protocol):
             for field in 'author', 'actor':
                 val = as1.get_object(obj_as1, field)
                 if val.keys() == set(['id']) and val['id']:
-                    loaded = from_proto.load(val['id'], raise_=False)
+                    loaded = from_proto.load(
+                        ids.profile_id(id=val['id'], proto=from_proto), raise_=False)
                     if loaded and loaded.as1:
-                        obj_as1 = {**obj_as1, field: loaded.as1}
+                        obj_as1 = {**obj_as1, field: {**loaded.as1, 'id': val['id']}}
         else:
             logger.debug(f'Not hydrating actor or author due to source_protocol {obj.source_protocol}')
 

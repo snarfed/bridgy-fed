@@ -3739,6 +3739,29 @@ hello
 <a class="u-in-reply-to" href="https://ap.brid.gy/convert/web/http://fed/post"></a>
 </article>""", Web.convert(obj, from_user=None), ignore_blanks=True)
 
+    def test_convert_hydrates_author_via_profile_id(self, *_):
+        # carol isn't one of the special cased Fake usernames in
+        # ids.normalize_object_id, so this exercises hydrating a bare author id
+        # whose profile object is stored at a different id, eg ATProto DIDs
+        # vs their at://.../app.bsky.actor.profile/self profile records.
+        self.make_user('fake:carol', cls=Fake, obj_as1={
+            'objectType': 'person',
+            'id': 'fake:profile:carol',
+            'displayName': 'Ms. Carol',
+        })
+        obj = Object(id='fake:post', source_protocol='fake', our_as1={
+            'objectType': 'note',
+            'id': 'fake:post',
+            'content': 'hello',
+            'author': 'fake:carol',
+        })
+
+        self.assert_multiline_in("""\
+<span class="p-author h-card">
+  <data class="p-uid" value="https://fa.brid.gy/web/fake:carol"></data>
+  <span class="p-name">Ms. Carol</span>
+</span>""", Web.convert(obj), ignore_blanks=True)
+
     def test_convert_mention_web_user_translate_domain_id_to_homepage_url(self, *_):
         obj = self.store_object(id='fake:mention', source_protocol='fake', our_as1={
             'objectType': 'note',

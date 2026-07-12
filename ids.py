@@ -324,7 +324,7 @@ def normalize_object_id(*, id, proto):
 
     elif proto.LABEL == 'fake':
         username = id.split(':', 1)[1]
-        # TODO: thiis will cause hard-to-debug test failures if we ever use other
+        # TODO: this will cause hard-to-debug test failures if we ever use other
         # test Fake user usernames
         if username in ('alice', 'bob', 'eve', 'frank', 'user'):
             return profile_id(id=id, proto=proto)
