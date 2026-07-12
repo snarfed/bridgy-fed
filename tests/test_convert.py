@@ -277,8 +277,9 @@ class ConvertTest(testutil.TestCase):
         resp = self.client.get('/convert/web/http://fo/o',
                                base_url='https://ap.brid.gy/')
         self.assertEqual(200, resp.status_code)
-        self.assert_multiline_equals(AUTHOR_HTML, resp.get_data(as_text=True),
-                                     ignore_blanks=True)
+        self.assert_multiline_equals(
+            AUTHOR_HTML.replace('tag:fake.com:444', 'http://bob/by'),
+            resp.get_data(as_text=True), ignore_blanks=True)
 
     def test_activitypub_to_web_no_url(self):
         comment = copy.deepcopy(COMMENT)
