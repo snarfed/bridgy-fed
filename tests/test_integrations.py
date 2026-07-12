@@ -4215,11 +4215,6 @@ cast_add_body {{
 
         Farcaster user bob (fid 123)
         ATProto user did:plc:alice (bridged to Farcaster, fid 456)
-
-        TODO: Farcaster's ``inReplyTo`` is a dict with ``id`` and ``author``,
-        not a plain string id or url like nostr's, so granary's
-        ``bluesky.base_object`` can't resolve it to a strong ref. The reply
-        gets bridged as a top level post, without ``reply`` threading.
         """
         alice = self.make_atproto_user('did:plc:alice')
         self.make_farcaster_copy(alice, 456)
@@ -4260,6 +4255,16 @@ cast_add_body {{
             '$type': 'app.bsky.feed.post',
             'text': 'Replying to Alice!',
             'createdAt': '2022-01-02T03:04:05.000Z',
+            'reply': {
+                '$type': 'app.bsky.feed.post#replyRef',
+                'parent': {
+                    'cid': 'bafyreih25jnzwc5izsjs4h5djjbw6k66vy3xerjksl34nmmrdg4ziq4v4m',
+                    'uri': 'at://did:plc:alice/app.bsky.feed.post/123'},
+                'root': {
+                    'cid': 'bafyreih25jnzwc5izsjs4h5djjbw6k66vy3xerjksl34nmmrdg4ziq4v4m',
+                    'uri': 'at://did:plc:alice/app.bsky.feed.post/123',
+                },
+            },
         }}}, repo.get_contents(),
             ignore=['bridgyOriginalText', 'bridgyOriginalUrl'])
 
