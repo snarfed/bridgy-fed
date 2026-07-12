@@ -30,8 +30,14 @@ from granary.nostr import (
     uri_to_id,
 )
 import granary.farcaster
+from granary.generated.farcaster.hub_event_pb2 import (
+    HUB_EVENT_TYPE_MERGE_MESSAGE,
+    HubEvent,
+    MergeMessageBody,
+)
 from granary.generated.farcaster.request_response_pb2 import (
     BulkMessageResponse,
+    MessagesResponse,
     SubmitBulkMessagesResponse,
 )
 from granary.tests.test_farcaster import message as fc_message, user_data_message
@@ -68,6 +74,7 @@ import atproto_firehose
 import common
 import farcaster
 from farcaster import Farcaster
+import farcaster_hub
 import models
 from models import Cursor, DM, Follower, Object, Target
 from nostr import Nostr, NostrRelay
@@ -124,6 +131,13 @@ class IntegrationTests(TestCase):
         self.mock_fc_stub = fc_stub_patch.start()
         self.mock_fc_stub.return_value.SubmitBulkMessages.side_effect = fc_submit
         self.addCleanup(fc_stub_patch.stop)
+
+        farcaster_hub.fids = set()
+        farcaster_hub.bridged_fids = set()
+        farcaster_hub.fids_loaded_at = datetime(1900, 1, 1)
+        farcaster_hub.fids_initialized.clear()
+        farcaster_hub.cursor = None
+        farcaster._client = None
 
     def make_ap_user(self, ap_id, did=None, nostr_key_bytes=None, **props):
         actor = {
@@ -279,6 +293,12 @@ class IntegrationTests(TestCase):
         if user.obj:
             user.obj.add('copies', Target(uri=fid_uri, protocol='farcaster'))
             user.obj.put()
+
+    @staticmethod
+    def fc_merge_event(msg, id=1):
+        return HubEvent(id=id, type=HUB_EVENT_TYPE_MERGE_MESSAGE,
+                        timestamp=granary.farcaster.to_timestamp(NOW),
+                        merge_message_body=MergeMessageBody(message=msg))
 
     def assert_farcaster_sent(self, expected):
         """Asserts the messages submitted to the hub, ignoring signatures."""
@@ -3906,6 +3926,433 @@ class IntegrationTests(TestCase):
             'actor': 'https://bsky.brid.gy/ap/did:plc:bob',
             'object': 'http://inst.com/post',
         }, ignore=['@context', 'to', 'url'])
+
+    @patch.object(util.session, 'post', autospec=True)
+    def test_farcaster_post_to_activitypub_follower(self, mock_post):
+        """Farcaster post delivered to an ActivityPub follower.
+
+        Farcaster user bob (fid 123)
+        ActivityPub follower https://inst/alice
+        """
+        bob = self.make_farcaster_user(123, enabled_protocols=['activitypub'])
+        alice = self.make_ap_user('https://inst/alice')
+
+        farcaster_hub._load_fids()
+        Follower.get_or_create(to=bob, from_=alice)
+
+        post_msg = fc_message("""
+type: MESSAGE_TYPE_CAST_ADD
+cast_add_body { text: "Hello from Farcaster!" }
+""", fid=123)
+        self.mock_fc_stub.return_value.Subscribe.return_value = [
+            self.fc_merge_event(post_msg),
+        ]
+        farcaster_hub.subscribe()
+
+        post_id = granary.farcaster.uri(123, hash=post_msg.hash)
+        self.assert_ap_deliveries(mock_post, ['https://inst/alice/inbox'],
+                                  from_user=bob, data={
+            'type': 'Create',
+            'id': f'https://fc.brid.gy/convert/ap/{post_id}#bridgy-fed-create-2022-01-02T03:04:05+00:00',
+            'actor': 'https://fc.brid.gy/ap/farcaster:123',
+            'object': {
+                'type': 'Note',
+                'id': f'https://fc.brid.gy/convert/ap/{post_id}',
+                'attributedTo': 'https://fc.brid.gy/ap/farcaster:123',
+                'content': '<p>Hello from Farcaster!</p>',
+                'published': '2022-01-02T03:04:05+00:00',
+                'url': f'http://localhost/r/https://farcaster.xyz/~/conversations/0x{post_msg.hash.hex()}',
+            },
+            'published': '2022-01-02T03:04:05+00:00',
+        }, ignore=['@context', 'to', 'contentMap'])
+
+    def test_farcaster_post_to_atproto_follower(self):
+        """Farcaster post delivered to an ATProto follower.
+
+        Farcaster user bob (fid 123)
+        ATProto follower did:plc:alice
+        """
+        bob = self.make_farcaster_user(123, enabled_protocols=['atproto'])
+        self.make_atproto_copy(bob, 'did:plc:bob')
+        alice = self.make_atproto_user('did:plc:alice')
+
+        farcaster_hub._load_fids()
+
+        Follower.get_or_create(to=bob, from_=alice)
+
+        post_msg = fc_message("""
+type: MESSAGE_TYPE_CAST_ADD
+cast_add_body { text: "Hello from Farcaster!" }
+""", fid=123)
+
+        self.mock_fc_stub.return_value.Subscribe.return_value = [
+            self.fc_merge_event(post_msg),
+        ]
+        farcaster_hub.subscribe()
+
+        repo = self.storage.load_repo('did:plc:bob')
+        tid = arroba.util.int_to_tid(arroba.util._tid_ts_last)
+        self.assert_equals({'app.bsky.feed.post': {tid: {
+            '$type': 'app.bsky.feed.post',
+            'text': 'Hello from Farcaster!',
+            'bridgyOriginalText': 'Hello from Farcaster!',
+            'bridgyOriginalUrl': f'https://farcaster.xyz/~/conversations/0x{post_msg.hash.hex()}',
+            'createdAt': '2022-01-02T03:04:05.000Z',
+        }}}, repo.get_contents())
+
+    @patch.object(util.session, 'post', autospec=True)
+    def test_farcaster_post_mentions_activitypub_and_atproto_users(self, mock_post):
+        """Farcaster post mentioning bridged AP and ATProto users.
+
+        Farcaster user bob (fid 123)
+        ActivityPub user https://inst/alice (bridged to Farcaster, fid 456)
+        ATProto user did:plc:charlie (bridged to Farcaster, fid 789)
+        """
+        bob = self.make_farcaster_user(123, enabled_protocols=['activitypub'])
+        alice = self.make_ap_user('https://inst/alice')
+        self.make_farcaster_copy(alice, 456)
+        charlie = self.make_atproto_user('did:plc:charlie', handle='charl.ie')
+        self.make_farcaster_copy(charlie, 789)
+
+        farcaster_hub._load_fids()
+        Follower.get_or_create(to=bob, from_=alice)
+
+        post_msg = fc_message("""
+type: MESSAGE_TYPE_CAST_ADD
+cast_add_body {
+  text: "Hi  and !"
+  mentions: 456
+  mentions: 789
+  mentions_positions: 3
+  mentions_positions: 9
+}
+""", fid=123)
+        self.mock_fc_stub.return_value.Subscribe.return_value = [
+            self.fc_merge_event(post_msg),
+        ]
+        farcaster_hub.subscribe()
+
+        post_id = granary.farcaster.uri(123, hash=post_msg.hash)
+        self.assert_ap_deliveries(mock_post, ['https://inst/alice/inbox'],
+                                  from_user=bob, data={
+            'type': 'Create',
+            'id': f'https://fc.brid.gy/convert/ap/{post_id}#bridgy-fed-create-2022-01-02T03:04:05+00:00',
+            'actor': 'https://fc.brid.gy/ap/farcaster:123',
+            'object': {
+                'type': 'Note',
+                'id': f'https://fc.brid.gy/convert/ap/{post_id}',
+                'attributedTo': 'https://fc.brid.gy/ap/farcaster:123',
+                'content': '<p>Hi  and !</p>',
+                'tag': [{
+                    'type': 'Mention',
+                    'href': 'https://inst/alice',
+                    'startIndex': 3,
+                }, {
+                    'type': 'Mention',
+                    'href': 'https://bsky.brid.gy/ap/did:plc:charlie',
+                    'startIndex': 9,
+                }],
+                'published': '2022-01-02T03:04:05+00:00',
+                'url': f'http://localhost/r/https://farcaster.xyz/~/conversations/0x{post_msg.hash.hex()}',
+            },
+            'published': '2022-01-02T03:04:05+00:00',
+        }, ignore=['@context', 'to', 'cc', 'contentMap'])
+
+    @patch.object(util.session, 'post', autospec=True)
+    def test_farcaster_delete_post_to_activitypub_and_atproto(self, mock_post):
+        """Farcaster delete of a post, sent to AP and ATProto.
+
+        Farcaster user alice (fid 123)
+        AP follower https://inst/bob
+        """
+        alice = self.make_farcaster_user(123, enabled_protocols=['activitypub', 'atproto'])
+        self.make_atproto_copy(alice, 'did:plc:alice')
+        bob = self.make_ap_user('https://inst/bob')
+
+        Follower.get_or_create(to=alice, from_=bob)
+
+        repo = self.storage.load_repo('did:plc:alice')
+        record = {
+            '$type': 'app.bsky.feed.post',
+            'text': 'hello world',
+            'createdAt': '2022-01-02T03:04:05.000Z',
+        }
+        self.storage.commit(repo, arroba.repo.Write(
+            action=arroba.storage.Action.CREATE,
+            collection='app.bsky.feed.post',
+            rkey='abc',
+            record=record,
+        ))
+        at_uri = 'at://did:plc:alice/app.bsky.feed.post/abc'
+        self.assertEqual({'app.bsky.feed.post': {'abc': record}}, repo.get_contents())
+
+        post_msg = fc_message("""
+type: MESSAGE_TYPE_CAST_ADD
+cast_add_body { text: "hello world" }
+""", fid=123)
+        post_id = granary.farcaster.uri(123, hash=post_msg.hash)
+        self.store_object(id=post_id, source_protocol='farcaster',
+                          farcaster=[post_msg.SerializeToString()],
+                          copies=[Target(uri=at_uri, protocol='atproto')])
+
+        remove_msg = fc_message(f"""
+type: MESSAGE_TYPE_CAST_REMOVE
+cast_remove_body {{ target_hash: "{CEscape(post_msg.hash, as_utf8=False)}" }}
+""", fid=123)
+        farcaster_hub._load_fids()
+
+        self.mock_fc_stub.return_value.Subscribe.return_value = [
+            self.fc_merge_event(remove_msg),
+        ]
+        farcaster_hub.subscribe()
+
+        # ATProto delete
+        repo = self.storage.load_repo('did:plc:alice')
+        self.assertEqual({}, repo.get_contents())
+
+        # AP delivery
+        self.assert_ap_deliveries(mock_post, ['https://inst/bob/inbox'],
+                                  from_user=alice, data={
+            'type': 'Delete',
+            'id': f'https://fc.brid.gy/convert/ap/{granary.farcaster.uri(123, hash=remove_msg.hash)}',
+            'actor': 'https://fc.brid.gy/ap/farcaster:123',
+            'object': f'https://fc.brid.gy/convert/ap/{post_id}',
+            'published': NOW.isoformat(),
+            'to': ['https://www.w3.org/ns/activitystreams#Public'],
+        }, ignore=['@context', 'to'])
+
+    @patch.object(util.session, 'post', autospec=True)
+    def test_farcaster_follow_activitypub(self, mock_post):
+        """Farcaster follow of a normal ActivityPub user.
+
+        Farcaster user bob (fid 123)
+        ActivityPub user https://inst/alice (bridged to Farcaster, fid 456)
+        """
+        alice = self.make_ap_user('https://inst/alice')
+        self.make_farcaster_copy(alice, 456)
+        bob = self.make_farcaster_user(123, enabled_protocols=['activitypub'])
+
+        farcaster_hub._load_fids()
+
+        follow_msg = fc_message("""
+type: MESSAGE_TYPE_LINK_ADD
+link_body { type: "follow" target_fid: 456 }
+""", fid=123)
+        self.mock_fc_stub.return_value.Subscribe.return_value = [
+            self.fc_merge_event(follow_msg),
+        ]
+        farcaster_hub.subscribe()
+
+        follow_id = granary.farcaster.uri(123, hash=follow_msg.hash)
+        self.assert_ap_deliveries(mock_post, ['https://inst/alice/inbox'],
+                                  from_user=bob, data={
+            'type': 'Follow',
+            'id': f'https://fc.brid.gy/convert/ap/{follow_id}',
+            'actor': 'https://fc.brid.gy/ap/farcaster:123',
+            'object': 'https://inst/alice',
+            'url': [{'type': 'Link', 'rel': 'canonical', 'href': follow_id}],
+        }, ignore=['@context', 'to', 'published'])
+
+    @patch.object(util.session, 'post', autospec=True)
+    def test_farcaster_reply_to_activitypub(self, mock_post):
+        """Farcaster reply to an ActivityPub user's post.
+
+        Farcaster user bob (fid 123)
+        ActivityPub user https://inst/alice (bridged to Farcaster, fid 456)
+        """
+        alice = self.make_ap_user('https://inst/alice')
+        self.make_farcaster_copy(alice, 456)
+        bob = self.make_farcaster_user(123, enabled_protocols=['activitypub'])
+
+        farcaster_hub._load_fids()
+
+        parent_hash = bytes.fromhex('01' * 20)
+        parent_id = granary.farcaster.uri(456, hash=parent_hash)
+        self.store_object(id='https://inst/post', source_protocol='activitypub',
+                          copies=[Target(uri=parent_id, protocol='farcaster')],
+                          our_as1={
+                              'objectType': 'note',
+                              'id': 'https://inst/post',
+                              'author': 'https://inst/alice',
+                              'content': 'Hello from Alice!',
+                          })
+
+        reply_msg = fc_message(f"""
+type: MESSAGE_TYPE_CAST_ADD
+cast_add_body {{
+  text: "Replying to Alice!"
+  parent_cast_id {{
+    fid: 456
+    hash: "{CEscape(parent_hash, as_utf8=False)}"
+  }}
+}}
+""", fid=123)
+        self.mock_fc_stub.return_value.Subscribe.return_value = [
+            self.fc_merge_event(reply_msg),
+        ]
+        farcaster_hub.subscribe()
+
+        reply_id = granary.farcaster.uri(123, hash=reply_msg.hash)
+        self.assert_ap_deliveries(mock_post, ['https://inst/alice/inbox'],
+                                  from_user=bob, data={
+            'type': 'Create',
+            'id': f'https://fc.brid.gy/convert/ap/{reply_id}#bridgy-fed-create-2022-01-02T03:04:05+00:00',
+            'actor': 'https://fc.brid.gy/ap/farcaster:123',
+            'object': {
+                'type': 'Note',
+                'id': f'https://fc.brid.gy/convert/ap/{reply_id}',
+                'attributedTo': 'https://fc.brid.gy/ap/farcaster:123',
+                'content': '<p>Replying to Alice!</p>',
+                'inReplyTo': 'https://inst/post',
+                'tag': [{'type': 'Mention', 'href': 'https://inst/alice'}],
+                'published': '2022-01-02T03:04:05+00:00',
+            },
+            'published': '2022-01-02T03:04:05+00:00',
+        }, ignore=['@context', 'to', 'cc', 'contentMap', 'url'])
+
+    def test_farcaster_reply_to_atproto(self):
+        """Farcaster reply to an ATProto user's post.
+
+        Farcaster user bob (fid 123)
+        ATProto user did:plc:alice (bridged to Farcaster, fid 456)
+
+        TODO: Farcaster's ``inReplyTo`` is a dict with ``id`` and ``author``,
+        not a plain string id or url like nostr's, so granary's
+        ``bluesky.base_object`` can't resolve it to a strong ref. The reply
+        gets bridged as a top level post, without ``reply`` threading.
+        """
+        alice = self.make_atproto_user('did:plc:alice')
+        self.make_farcaster_copy(alice, 456)
+        bob = self.make_farcaster_user(123, enabled_protocols=['atproto'])
+        self.make_atproto_copy(bob, 'did:plc:bob')
+
+        farcaster_hub._load_fids()
+
+        parent_hash = bytes.fromhex('01' * 20)
+        parent_id = granary.farcaster.uri(456, hash=parent_hash)
+        at_uri = 'at://did:plc:alice/app.bsky.feed.post/123'
+        self.store_object(id=at_uri, source_protocol='atproto',
+                          copies=[Target(uri=parent_id, protocol='farcaster')],
+                          bsky={
+                              '$type': 'app.bsky.feed.post',
+                              'text': 'Hello from Alice!',
+                              'createdAt': '2022-01-02T03:04:05.000Z',
+                          })
+
+        reply_msg = fc_message(f"""
+type: MESSAGE_TYPE_CAST_ADD
+cast_add_body {{
+  text: "Replying to Alice!"
+  parent_cast_id {{
+    fid: 456
+    hash: "{CEscape(parent_hash, as_utf8=False)}"
+  }}
+}}
+""", fid=123)
+        self.mock_fc_stub.return_value.Subscribe.return_value = [
+            self.fc_merge_event(reply_msg),
+        ]
+        farcaster_hub.subscribe()
+
+        repo = self.storage.load_repo('did:plc:bob')
+        tid = arroba.util.int_to_tid(arroba.util._tid_ts_last)
+        self.assert_equals({'app.bsky.feed.post': {tid: {
+            '$type': 'app.bsky.feed.post',
+            'text': 'Replying to Alice!',
+            'createdAt': '2022-01-02T03:04:05.000Z',
+        }}}, repo.get_contents(),
+            ignore=['bridgyOriginalText', 'bridgyOriginalUrl'])
+
+    @patch.object(util.session, 'get', autospec=True)
+    @patch.object(util.session, 'post', autospec=True)
+    def test_farcaster_profile_update_to_activitypub(self, mock_post, mock_get):
+        """Farcaster user updates their profile, delivered to AP follower.
+
+        Farcaster user bob (fid 123)
+        ActivityPub follower https://inst/alice
+        """
+        bob = self.make_farcaster_user(123, enabled_protocols=['activitypub'])
+        alice = self.make_ap_user('https://inst/alice')
+        Follower.get_or_create(to=bob, from_=alice)
+
+        farcaster_hub._load_fids()
+
+        display_msg = user_data_message(123, 'USER_DATA_TYPE_DISPLAY', 'Bob Updated')
+        username_msg = user_data_message(123, 'USER_DATA_TYPE_USERNAME', 'bob')
+        pfp_msg = user_data_message(123, 'USER_DATA_TYPE_PFP', 'http://new-pic')
+        self.mock_fc_stub.return_value.GetUserDataByFid.return_value = \
+            MessagesResponse(messages=[display_msg, username_msg, pfp_msg])
+
+        self.mock_fc_stub.return_value.Subscribe.return_value = [
+            self.fc_merge_event(display_msg),
+        ]
+        farcaster_hub.subscribe()
+
+        self.assert_ap_deliveries(mock_post, ['https://inst/alice/inbox'],
+                                  from_user=bob, data={
+            'type': 'Update',
+            'actor': 'https://fc.brid.gy/ap/farcaster:123',
+            'object': {
+                'type': 'Person',
+                'id': 'https://fc.brid.gy/ap/farcaster:123',
+                'name': 'Bob Updated',
+                'preferredUsername': 'bob',
+                'image': {'type': 'Image', 'url': 'http://new-pic'},
+                'icon': {'type': 'Image', 'url': 'http://new-pic'},
+            },
+        }, ignore=['@context', 'to', 'id', 'inbox', 'outbox', 'url', 'attachment',
+                  'published', 'updated', 'summary', 'alsoKnownAs',
+                  'manuallyApprovesFollowers', 'discoverable', 'indexable'])
+
+    @patch.object(util.session, 'post', autospec=True)
+    def test_farcaster_like_to_activitypub(self, mock_post):
+        """Farcaster like of an ActivityPub user's post.
+
+        Farcaster user bob (fid 123)
+        ActivityPub user https://inst/alice (bridged to Farcaster, fid 456)
+        """
+        alice = self.make_ap_user('https://inst/alice')
+        self.make_farcaster_copy(alice, 456)
+        bob = self.make_farcaster_user(123, enabled_protocols=['activitypub'])
+
+        farcaster_hub._load_fids()
+
+        target_hash = bytes.fromhex('01' * 20)
+        target_id = granary.farcaster.uri(456, hash=target_hash)
+        self.store_object(id='https://inst/post', source_protocol='activitypub',
+                          copies=[Target(uri=target_id, protocol='farcaster')],
+                          our_as1={
+                              'objectType': 'note',
+                              'id': 'https://inst/post',
+                              'author': 'https://inst/alice',
+                              'content': 'Hello from Alice!',
+                          })
+
+        like_msg = fc_message(f"""
+type: MESSAGE_TYPE_REACTION_ADD
+reaction_body {{
+  type: REACTION_TYPE_LIKE
+  target_cast_id {{
+    fid: 456
+    hash: "{CEscape(target_hash, as_utf8=False)}"
+  }}
+}}
+""", fid=123)
+
+        self.mock_fc_stub.return_value.Subscribe.return_value = [
+            self.fc_merge_event(like_msg),
+        ]
+        farcaster_hub.subscribe()
+
+        like_id = granary.farcaster.uri(123, hash=like_msg.hash)
+        self.assert_ap_deliveries(mock_post, ['https://inst/alice/inbox'],
+                                  from_user=bob, data={
+            'type': 'Like',
+            'id': f'https://fc.brid.gy/convert/ap/{like_id}',
+            'actor': 'https://fc.brid.gy/ap/farcaster:123',
+            'object': 'https://inst/post',
+            'url': [{'type': 'Link', 'rel': 'canonical', 'href': like_id}],
+        }, ignore=['@context', 'to', 'published'])
 
     def test_activitypub_post_to_farcaster_follower(self):
         """ActivityPub post delivered to a Farcaster follower.
