@@ -3326,6 +3326,51 @@ Sed tortor neque, aliquet quis posuere aliquam, imperdiet sitamet […]
 
         mock_create_task.assert_called()  # atproto-commit
 
+    @patch.object(tasks_client, 'create_task', return_value=Task(name='my task'))
+    def test_send_update_actor_skips_pinned_post_with_no_as1(self, mock_create_task):
+        user = self.make_user_and_repo(obj_as1={'objectType': 'person', 'foo': 'bar'})
+
+        # create profile object, set copy
+        create = Write(action=Action.CREATE, collection='app.bsky.actor.profile',
+                       rkey='self', record=ACTOR_PROFILE_BSKY)
+        self.storage.commit(self.repo, create)
+        user.obj.copies = [Target(uri='at://did:plc:user/app.bsky.actor.profile/self',
+                                  protocol='atproto')]
+        user.obj.put()
+
+        # pinned post exists in the datastore as an empty stub, eg because it
+        # was referenced but never successfully fetched
+        self.store_object(id='fake:pinned')
+
+        # update profile with pinned post
+        update = Object(id='fake:update', source_protocol='fake', our_as1={
+            'objectType': 'activity',
+            'verb': 'update',
+            'actor': 'fake:user',
+            'object': {
+                'objectType': 'person',
+                'id': 'fake:profile:user',
+                'updated': '2024-06-24T01:02:03+00:00',
+                'displayName': 'fooey',
+                'featured': {'items': ['fake:pinned']},
+            },
+        })
+        self.assertTrue(ATProto.send(update, 'https://bsky.brid.gy/', from_user=user))
+
+        # should only have profile, no pinned post
+        repo = self.storage.load_repo('did:plc:user')
+        self.assert_equals({
+            'app.bsky.actor.profile': {
+                'self': {
+                    '$type': 'app.bsky.actor.profile',
+                    'displayName': 'fooey',
+                    'description': '🌉 bridged from 🤡 web:fake:user by https://fed.brid.gy/',
+                },
+            },
+        }, repo.get_contents(), ignore=['bridgyOriginalUrl', 'labels', 'cid'])
+
+        mock_create_task.assert_called()  # atproto-commit
+
     def test_send_update_doesnt_exist(self):
         self.test_send_bare_note_existing_repo()
         user = self.make_user_and_repo()

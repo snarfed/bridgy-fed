@@ -770,7 +770,7 @@ class ATProto(User, Protocol):
                     feat_as1 = as1.get_object(base_obj_as1, 'featured')
                     if feat_id := as1.get_id(feat_as1, 'items'):
                         from_cls = obj.owner_protocol()
-                        if ((feat_obj := from_cls.load(feat_id))
+                        if ((feat_obj := from_cls.load(feat_id)) and feat_obj.as1
                                 and not feat_obj.get_copy(ATProto)):
                             logger.info(f'first, creating pinned post {feat_id}')
                             ATProto.send(feat_obj, pds_url, from_user=from_user)
