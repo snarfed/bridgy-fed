@@ -40,6 +40,7 @@ logger = logging.getLogger(__name__)
 
 DOMAIN_ALLOWLIST = frozenset((
     'bsky.app',
+    'farcaster.xyz',
 ))
 
 
