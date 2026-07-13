@@ -259,6 +259,10 @@ class Farcaster(User, Protocol):
         assert from_user
         assert obj.source_protocol != 'farcaster'
 
+        if obj.type in ('post', 'update'):
+            if not (obj := to_cls.load(as1.get_id(obj.as1, 'object'))):
+                return False
+
         if not (msgs := to_cls.convert(obj, from_user=from_user)):
             return False
 

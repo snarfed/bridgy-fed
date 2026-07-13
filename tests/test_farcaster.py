@@ -256,6 +256,42 @@ cast_add_body { text: "hello world" }
                     protocol='farcaster')],
             obj.key.get().copies)
 
+    def test_send_post_activity(self, mock_stub):
+        note = self.store_object(id='farcaster://123/0xabcd', our_as1={
+            'objectType': 'note',
+            'content': 'hello world',
+            'author': 'farcaster://123',
+        })
+        create = Object(id='farcaster://123/0xcreate', our_as1={
+            'objectType': 'activity',
+            'verb': 'post',
+            'author': 'farcaster://123',
+            'object': note.as1,
+        })
+
+        resp = message("""
+type: MESSAGE_TYPE_CAST_ADD
+cast_add_body { text: "hello world" }
+""")
+        mock_stub.return_value.SubmitBulkMessages.return_value = \
+            SubmitBulkMessagesResponse(messages=[BulkMessageResponse(message=resp)])
+
+        self.assertTrue(Farcaster.send(create, Farcaster.DEFAULT_TARGET,
+                                       from_user=self.user))
+
+        actual = mock_stub.return_value.SubmitBulkMessages.call_args[0][0]
+        for m in actual.messages:
+            m.ClearField('signature')
+            m.ClearField('signer')
+            m.ClearField('signature_scheme')
+        self.assertEqual(SubmitBulkMessagesRequest(messages=[message("""
+type: MESSAGE_TYPE_CAST_ADD
+cast_add_body { text: "hello world" }
+""")]), actual)
+        self.assertEqual([
+            Target(uri=f'farcaster://123/0x{resp.hash.hex()}', protocol='farcaster'),
+        ], note.key.get().copies)
+
     def test_send_cast_message_error(self, mock_stub):
         mock_stub.return_value.SubmitBulkMessages.return_value = \
             SubmitBulkMessagesResponse(messages=[
