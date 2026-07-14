@@ -4788,6 +4788,41 @@ reaction_body {{
 }}
 """, fid=123)])
 
+    @patch.object(util.session, 'post', autospec=True)
+    def test_activitypub_follow_to_farcaster(self, mock_post):
+        """ActivityPub follow of a Farcaster user.
+
+        The Follow's object is the followee's bridged AP actor id, which uses
+        Farcaster's external farcaster:FID form.
+
+        ActivityPub user https://inst/alice (Farcaster fid 123)
+        Farcaster user bob (fid 456)
+        """
+        alice = self.make_ap_user('https://inst/alice')
+        self.make_farcaster_copy(alice, 123)
+        bob = self.make_farcaster_user(456, enabled_protocols=['activitypub'])
+
+        follow = {
+            '@context': 'https://www.w3.org/ns/activitystreams',
+            'type': 'Follow',
+            'id': 'https://inst/follow',
+            'actor': 'https://inst/alice',
+            'object': 'https://fc.brid.gy/ap/farcaster:456',
+        }
+        body = json_dumps(follow)
+        headers = sign('/ap/sharedInbox', body, key_id='https://inst/alice')
+        resp = self.client.post('/ap/sharedInbox', data=body, headers=headers)
+        self.assertEqual(202, resp.status_code)
+
+        self.assert_farcaster_sent([fc_message("""
+type: MESSAGE_TYPE_LINK_ADD
+link_body {
+  type: "follow"
+  target_fid: 456
+  displayTimestamp: 31633445
+}
+""", fid=123)])
+
     @patch.object(util.session, 'get', autospec=True)
     def test_web_repost_to_farcaster(self, mock_get):
         """Web repost of a Farcaster user's post.
