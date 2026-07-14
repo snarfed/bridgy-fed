@@ -145,18 +145,29 @@ def notify_task():
     for obj in objs:
         if not obj:
             continue
-        elif not (url := as1.get_url(obj.as1) or obj.key.id()):
+
+        obj_as1 = obj.as1 or {}
+        if not (url := as1.get_url(obj_as1) or obj.key.id()):
             continue
+
+        content = obj_as1.get('content')
+        author = as1.get_object(obj_as1, 'author')
+        if author_name := author.get('displayName') or author.get('username'):
+            author_name += ':'
+        snippet = util.pretty_link(url, text=content, text_prefix=author_name,
+                                   max_length=100)
 
         token = common.make_jwt(user=user, scope='respond', obj_id=obj.key.id())
         params = f'obj_id={obj.key.id()}&token={token}'
         base = f'https://{PRIMARY_DOMAIN}/'
         respond_url = urljoin(base, user.user_page_path(f'respond?{params}'))
 
-        lines += f'<li>{util.pretty_link(url)} ({util.pretty_link(respond_url, "respond")})\n'
+        lines += f'<li>{snippet} ({util.pretty_link(respond_url, "respond")})\n'
         attachments.append({
             'objectType': 'link',
             'url': url,
+            'content': content,
+            'author': author,
             'bf:respond': respond_url,
             'bf:reply': urljoin(base, user.user_page_path(f'respond/reply?{params}')),
             'bf:like': urljoin(base, user.user_page_path(f'respond/like?{params}')),

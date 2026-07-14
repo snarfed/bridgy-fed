@@ -586,7 +586,7 @@ class IntegrationTests(TestCase):
         self.assertTrue(content.startswith("""\
 <p>Hi! Here are your recent interactions from people who aren't bridged into the fediverse. Click the <em>respond</em> links to reply, like, repost, or block them.
 <ul>
-<li><a title="bsky.app/profile/did:plc:alice/post/456" href="https://bsky.app/profile/did:plc:alice/post/456">"""), content)
+<li><a href="https://bsky.app/profile/did:plc:alice/post/456">I hereby reply</a>"""), content)
 
         # "you replied to a bridged user" DM to alice
         args, kwargs = mock_post.call_args_list[1]
@@ -855,12 +855,12 @@ class IntegrationTests(TestCase):
         self.assertNotEqual(respond_uri.removeprefix(expected_prefix), '')
         self.assert_equals({
             '$type': 'chat.bsky.convo.defs#messageInput',
-            'text': "Hi! Here are your recent interactions from people who aren't bridged into Bluesky. Click the _respond_ links to reply, like, repost, or block them.\n\n  * inst/reply (respond)\n\n\nTo disable these messages, reply with the text 'mute'.",
+            'text': "Hi! Here are your recent interactions from people who aren't bridged into Bluesky. Click the _respond_ links to reply, like, repost, or block them.\n\n  * I hereby reply (respond)\n\n\nTo disable these messages, reply with the text 'mute'.",
             'createdAt': '2022-01-02T03:04:05.000Z',
             'facets': [
                 {
                     '$type': 'app.bsky.richtext.facet',
-                    'index': {'byteStart': 153, 'byteEnd': 163},
+                    'index': {'byteStart': 153, 'byteEnd': 167},
                     'features': [{
                         '$type': 'app.bsky.richtext.facet#link',
                         'uri': 'http://inst/reply',
@@ -868,7 +868,7 @@ class IntegrationTests(TestCase):
                 },
                 {
                     '$type': 'app.bsky.richtext.facet',
-                    'index': {'byteStart': 165, 'byteEnd': 172},
+                    'index': {'byteStart': 169, 'byteEnd': 176},
                     'features': [{
                         '$type': 'app.bsky.richtext.facet#link',
                         # 'uri': ..., # checked above

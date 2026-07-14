@@ -1939,7 +1939,10 @@ class ProtocolReceiveTest(TestCase):
             'id': 'efake:reply',
             'url': 'http://efake/reply',
             'objectType': 'note',
-            'actor': 'efake:eve',
+            'author': {
+                'id': 'efake:eve',
+                'username': 'evey',
+            },
             'inReplyTo': 'other:post',
             'content': 'foo',
         })
@@ -1951,7 +1954,7 @@ class ProtocolReceiveTest(TestCase):
         self.assert_sent(ExplicitFake, user, '?', f"""\
 <p>Hi! Here are your recent interactions from people who aren't bridged into other-phrase. Click the <em>respond</em> links to reply, like, repost, or block them.
 <ul>
-<li><a href="http://efake/reply">efake/reply</a> (<a href="https://fed.brid.gy/other/other:handle:user/respond?obj_id=efake:reply&token={token}">respond</a>)
+<li><a href="http://efake/reply">evey: foo</a> (<a href="https://fed.brid.gy/other/other:handle:user/respond?obj_id=efake:reply&token={token}">respond</a>)
 </ul>""", attachments=ANY)
 
     @patch.object(ExplicitFake, 'REQUIRES_AVATAR', new=True)
@@ -1989,7 +1992,7 @@ class ProtocolReceiveTest(TestCase):
         self.assert_sent(ExplicitFake, user, '?', f"""\
 <p>Hi! Here are your recent interactions from people who aren't bridged into other-phrase. Click the <em>respond</em> links to reply, like, repost, or block them.
 <ul>
-<li><a href="http://efake/quote">efake/quote</a> (<a href="https://fed.brid.gy/other/other:handle:user/respond?obj_id=efake:quote&token={token}">respond</a>)
+<li><a href="http://efake/quote">weird flex but ok</a> (<a href="https://fed.brid.gy/other/other:handle:user/respond?obj_id=efake:quote&token={token}">respond</a>)
 </ul>""", attachments=ANY)
 
     def test_mention_non_bridged_user_isnt_bridged_gets_dm_prompt_and_notif(self):
@@ -2020,7 +2023,7 @@ class ProtocolReceiveTest(TestCase):
         self.assert_sent(ExplicitFake, user, '?', f"""\
 <p>Hi! Here are your recent interactions from people who aren't bridged into other-phrase. Click the <em>respond</em> links to reply, like, repost, or block them.
 <ul>
-<li><a href="http://efake/mention">efake/mention</a> (<a href="https://fed.brid.gy/other/other:handle:user/respond?obj_id=efake:mention&token={token}">respond</a>)
+<li><a href="http://efake/mention">weird flex but ok</a> (<a href="https://fed.brid.gy/other/other:handle:user/respond?obj_id=efake:mention&token={token}">respond</a>)
 </ul>""", attachments=ANY)
 
     @patch.object(ATProto, 'send', return_value=True)
