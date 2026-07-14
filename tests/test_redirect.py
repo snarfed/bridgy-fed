@@ -130,6 +130,13 @@ class RedirectTest(testutil.TestCase):
         got = self.client.get(r'/r/https:/[DOMAIN]/')
         self.assertEqual(400, got.status_code)
 
+    def test_redirect_sanitizes_web_domain(self):
+        got = self.client.get(r"/r/https://%3E%3Cscript foo%3E.org/")
+        self.assertEqual(404, got.status_code)
+        self.assertEqual(
+            "No web user found for any of {None, &#x27;&gt;&lt;script foo&gt;.org&#x27;}",
+            got.get_data(as_text=True))
+
     def test_as2(self):
         self._test_as2(as2.CONTENT_TYPE)
 

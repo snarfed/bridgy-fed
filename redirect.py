@@ -90,7 +90,7 @@ def redir(to):
                 break
     else:
         if not as2_request:
-            return f'No web user found for any of {domains}', 404
+            error(f'No web user found for any of {domains}', status=404)
 
     if not as2_request:
         # redirect. include rel-alternate link to make posts discoverable by entering
@@ -104,30 +104,29 @@ def redir(to):
     </head>
     <title>Redirecting...</title>
     <h1>Redirecting...</h1>
-    <p>You should be redirected automatically to the target URL: <a href="{to}">{to}</a>. If not, click the link.
     </html>
     """, 301, {'Location': to}
 
     # AS2 requested, fetch and convert and serve
     proto = Protocol.for_id(to)
     if not proto:
-        return f"Couldn't determine protocol for {to}", 404
+        error(f"Couldn't determine protocol for {to}", status=404)
 
     obj = proto.load(to)
     if not obj or obj.deleted:
-        return f'Object not found: {to}', 404
+        error(f'Object not found: {to}', status=404)
 
     if proto == Web:
         if not web_user:
-            return f'Object not found: {to}', 404
+            error(f'Object not found: {to}', status=404)
     else:
         if obj.type in as1.ACTOR_TYPES:
             user = proto.query(proto.obj_key == obj.key).get()
             if not user or not user.is_enabled(ActivityPub):
-                return f'Object not found: {to}', 404
+                error(f'Object not found: {to}', status=404)
 
     if not (ret := ActivityPub.convert(obj, from_user=web_user)):
-        return f'Object not found: {to}', 404
+        error(f'Object not found: {to}', status=404)
 
     # logger.info(f'Returning: {json_dumps(ret, indent=2)}')
     return ret, {
