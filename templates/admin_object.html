@@ -85,7 +85,7 @@
 
 <hr>
 
-{% for field in 'as2', 'bsky', 'mf2', 'nostr', 'our_as1', 'raw', 'as1' %}
+{% for field in 'as2', 'bsky', 'fc', 'mf2', 'nostr', 'our_as1', 'raw', 'as1' %}
   {% set val = getattr(obj, field) %}
   {% if val %}
     <h3>{{ field }}</h3>
