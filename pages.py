@@ -1030,8 +1030,7 @@ def respond_reply(user):
 
     flash('Sending reply...')
     return render('respond.html', user=user, obj=obj,
-                  token=get_required_param('token'),
-                  IFRAMELY_API_KEY_MD5=IFRAMELY_API_KEY_MD5)
+                  token=get_required_param('token'))
 
 
 @app.post(f'/<any({",".join(PROTOCOLS)}):protocol>/<user_id>/respond/like')
@@ -1061,8 +1060,7 @@ def respond_like(user):
 
     flash('Sending like...')
     return render('respond.html', user=user, obj=obj,
-                  token=get_required_param('token'),
-                  IFRAMELY_API_KEY_MD5=IFRAMELY_API_KEY_MD5)
+                  token=get_required_param('token'))
 
 
 @app.post(f'/<any({",".join(PROTOCOLS)}):protocol>/<user_id>/respond/repost')
@@ -1092,8 +1090,7 @@ def respond_repost(user):
 
     flash('Sending repost...')
     return render('respond.html', user=user, obj=obj,
-                  token=get_required_param('token'),
-                  IFRAMELY_API_KEY_MD5=IFRAMELY_API_KEY_MD5)
+                  token=get_required_param('token'))
 
 
 @app.post(f'/<any({",".join(PROTOCOLS)}):protocol>/<user_id>/respond/block')
@@ -1128,8 +1125,7 @@ def respond_block(user):
 
     flash('Blocking...')
     return render('respond.html', user=user, obj=obj,
-                  token=get_required_param('token'),
-                  IFRAMELY_API_KEY_MD5=IFRAMELY_API_KEY_MD5)
+                  token=get_required_param('token'))
 
 
 @app.get('/log')

@@ -1485,6 +1485,7 @@ class PagesTest(TestCase):
         self.assertEqual(200, resp.status_code)
         self.assertIn('Error from new.pds.com: nopey', resp.get_data(as_text=True))
 
+    @patch.dict('pages.TEMPLATE_VARS', IFRAMELY_API_KEY_MD5='iframelee-key')
     @patch('webutil.util.now', return_value=datetime.now())
     def test_respond(self, _):
         self.store_object(id='other:post', our_as1={'url': 'https://other/post'})
@@ -1498,6 +1499,8 @@ class PagesTest(TestCase):
         self.assertIn('https://other/post', html)
         self.assertIn('user.com', html)
         self.assertIn(token, html)
+        self.assertIn('https://iframely.net/embed.js?key=iframelee-key&theme=light',
+                      html)
 
     def test_respond_missing_token(self):
         self.store_object(id='other:post')
