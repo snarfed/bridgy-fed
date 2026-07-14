@@ -1,4 +1,2 @@
-*_jwt
-iframely_api_key_md5
-limited_domains
-threads_app_*
+# WARNING: anything here won't be deployed by gcloud! .gcloudignore automatically
+# includes .gitignore
