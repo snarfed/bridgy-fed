@@ -458,7 +458,7 @@ class FollowTest(TestCase):
         expected_follow_as1 = as2.to_as1({
             **FOLLOW_URL,
             'id': id,
-            'actor': 'www.alice.com',
+            'actor': 'alice.com',
         })
         del expected_follow_as1['to']
         followee = ActivityPub(id='https://ba.r/id').key

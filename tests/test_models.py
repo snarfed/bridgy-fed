@@ -32,6 +32,7 @@ from .testutil import ExplicitFake, Fake, OtherFake, TestCase
 from activitypub import ActivityPub
 from atproto import ATProto
 import common
+from farcaster import Farcaster
 from flask_app import app
 import memcache
 import models
@@ -1853,6 +1854,24 @@ cast_add_body { text: "hi" }
             'id': 'fake:follow',
             'actor': 'did:plc:123',
             'object': 'did:plc:user',
+        }, obj.our_as1)
+
+    def test_normalize_ids_follow_farcaster(self):
+        # incoming AP follow of a bridged Farcaster user, whose actor id uses the
+        # external farcaster:FID form; should normalize to internal farcaster://FID
+        obj = Object(id='fake:follow', our_as1={
+            'objectType': 'activity',
+            'verb': 'follow',
+            'actor': 'https://inst/alice',
+            'object': 'farcaster:3341661',
+        })
+        obj.normalize_ids()
+        self.assert_equals({
+            'objectType': 'activity',
+            'verb': 'follow',
+            'id': 'fake:follow',
+            'actor': 'https://inst/alice',
+            'object': 'farcaster://3341661',
         }, obj.our_as1)
 
     def test_normalize_ids_block(self):

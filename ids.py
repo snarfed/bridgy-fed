@@ -156,20 +156,6 @@ def translate_user_id(*, id, from_, to):
         # home page; replace with domain
         id = parsed.netloc
 
-    # bsky.app profile URL to DID
-    if to.LABEL == 'atproto':
-        if (match := BSKY_APP_URL_RE.match(id)) and not match['type']:
-            repo = match.group('id')
-            if repo.startswith('did:'):
-                return repo
-
-            from atproto import ATProto
-            try:
-                return ATProto.handle_to_id(repo)
-            except (AssertionError, ValueError) as e:
-                logger.warning(e)
-                return None
-
     if from_.LABEL == 'nostr':
         if granary.nostr.is_bech32(id):
             id = granary.nostr.uri_to_id(id)
@@ -177,7 +163,8 @@ def translate_user_id(*, id, from_, to):
             id = 'nostr:' + id
 
     if from_ == to:
-        return id
+        # same protocol: return the fully canonicalized id
+        return normalize_user_id(id=id, proto=from_)
 
     # follow use_instead
     user = from_.get_by_id(id, allow_opt_out=True)
@@ -247,22 +234,9 @@ def normalize_user_id(*, id, proto):
     Returns:
       str: the normalized user id
     """
-    import nostr
-
-    normalized = translate_user_id(id=id, from_=proto, to=proto)
-
-    if proto.LABEL == 'web':
-        normalized = util.domain_from_link(normalized)
-        if normalized in WWW_DOMAINS:
-            return 'www.' + normalized
-        return normalized
-
-    elif proto.LABEL == 'atproto' and id.startswith('at://'):
-        repo, coll, tid = parse_at_uri(id)
-        if repo and (not coll or coll == 'app.bsky.actor.profile'):
-            normalized = repo
-
-    elif proto.LABEL == 'farcaster':
+    # Farcaster bare/external fids (eg 123, farcaster:123) aren't owned by
+    # owns_id, but are still normalizable here, so handle before the guard below.
+    if proto.LABEL == 'farcaster':
         if match := re.fullmatch(r'(farcaster:)?([0-9]+)', id):
             return granary.farcaster.uri(match.group(2))
 
@@ -274,15 +248,48 @@ def normalize_user_id(*, id, proto):
                 # TODO: look up in datastore first?
                 return proto.handle_to_id(match['username'])
 
+        return id
+
+    if proto.owns_id(id) is False and proto.LABEL != 'ui':
+        return id
+
+    if proto.LABEL == 'web':
+        normalized = util.domain_from_link(id)
+        if normalized in WWW_DOMAINS:
+            return 'www.' + normalized
+        return normalized
+
+    elif proto.LABEL == 'atproto':
+        # id = translate_user_id(id=id, from_=proto, to=proto)
+
+        # bsky.app profile URL to DID
+        if (match := BSKY_APP_URL_RE.match(id)) and not match['type']:
+            repo = match.group('id')
+            if repo.startswith('did:'):
+                return repo
+
+            from atproto import ATProto
+            try:
+                return ATProto.handle_to_id(repo)
+            except (AssertionError, ValueError) as e:
+                logger.warning(e)
+                return None
+
+        if id.startswith('at://'):
+            repo, coll, tid = parse_at_uri(id)
+            if repo and (not coll or coll == 'app.bsky.actor.profile'):
+                return repo
+
     elif proto.LABEL == 'nostr':
-        obj_key = models.Object(id=normalized).key
-        if user := nostr.Nostr.query(nostr.Nostr.obj_key == obj_key).get():
-            normalized = user.key.id()
+        if granary.nostr.is_bech32(id):
+            id = granary.nostr.uri_to_id(id)
+        if not id.startswith('nostr:'):
+            id = 'nostr:' + id
 
     elif proto.LABEL in ('fake', 'efake', 'other'):
-        normalized = normalized.replace(':profile:', ':')
+        return id.replace(':profile:', ':')
 
-    return normalized
+    return id
 
 
 def normalize_object_id(*, id, proto):

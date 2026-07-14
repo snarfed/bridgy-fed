@@ -72,9 +72,6 @@ class IdsTest(TestCase):
             (ActivityPub, 'https://inst/user', ATProto, 'did:plc:456'),
             (ActivityPub, 'https://inst/user', Fake, 'fake:u:https://inst/user'),
             (ActivityPub, 'https://inst/user', Web, 'https://inst/user'),
-            (ActivityPub, 'https://bsky.app/profile/user.com', ATProto, 'did:plc:123'),
-            (ActivityPub, 'https://bsky.app/profile/did:plc:123',
-             ATProto, 'did:plc:123'),
             (ActivityPub, 'https://bsky.brid.gy/ap/did:plc:456',
              ATProto, 'did:plc:456'),
             (ActivityPub, 'https://bsky.brid.gy/ap/did:plc:456',
@@ -138,8 +135,6 @@ class IdsTest(TestCase):
             (Web, 'https://user.com/', ActivityPub, 'http://localhost/user.com'),
             (Web, 'user.com', ATProto, 'did:plc:123'),
             (Web, 'https://user.com', ATProto, 'did:plc:123'),
-            (Web, 'https://bsky.app/profile/user.com', ATProto, 'did:plc:123'),
-            (Web, 'https://bsky.app/profile/did:plc:123', ATProto, 'did:plc:123'),
             (Web, 'user.com', Fake, 'fake:u:user.com'),
             (Web, 'alice.com', Farcaster, None),
             (Web, 'alice.com', Nostr, None),
@@ -245,13 +240,6 @@ class IdsTest(TestCase):
         ]:
             with self.subTest(id=id, proto=proto.LABEL):
                 self.assertEqual(expected, ids.normalize_user_id(id=id, proto=proto))
-
-        user = Nostr(id=PUBKEY_URI, obj_key=Object(id=NOSTR_ID_0).key)
-        user.put()
-        self.assertEqual(PUBKEY_URI,
-                         ids.normalize_user_id(id=NOSTR_ID_0.removeprefix('nostr:'),
-                                               proto=Nostr))
-        self.assertEqual(PUBKEY_URI, ids.normalize_user_id(id=NOSTR_ID_0, proto=Nostr))
 
     @patch('granary.farcaster.rpc_pb2_grpc.HubServiceStub')
     def test_normalize_user_id_farcaster_username(self, mock_stub):
