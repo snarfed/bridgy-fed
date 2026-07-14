@@ -222,6 +222,9 @@ def unwrap(val, field=None):
                 return val
             elif field in id_fields and DOMAIN_RE.fullmatch(unwrapped):
                 return f'https://{unwrapped}/'
+            elif fc := re.fullmatch(r'farcaster:([0-9]+)', unwrapped):
+                # external farcaster:FID form back to internal farcaster://FID
+                return f'farcaster://{fc.group(1)}'
             return unwrapped
 
     return val

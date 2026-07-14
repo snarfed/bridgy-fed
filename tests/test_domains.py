@@ -43,6 +43,7 @@ class DomainsTest(TestCase):
                 ('https://fa.brid.gy/ap/fake:foo', 'fake:foo'),
                 ('https://bsky.brid.gy/convert/ap/did:plc:123', 'did:plc:123'),
                 ('https://web.brid.gy/foo.com', 'foo.com'),
+                ('https://fc.brid.gy/ap/farcaster:3341661', 'farcaster://3341661'),
                 # preserve protocol bot user ids
                 ('https://fed.brid.gy/', 'https://fed.brid.gy/'),
                 ('https://fa.brid.gy/', 'https://fa.brid.gy/'),
