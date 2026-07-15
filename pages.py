@@ -735,7 +735,7 @@ def migrate_to_atproto_create_account(user=None):
     common.create_task(queue='migrate-out', user=user.key.urlsafe(),
                        auth=auth.key.urlsafe(), protocol=ATProto.LABEL)
 
-    flash(f"OK, we've migrated your bridged Bluesky account to <code>{resp['handle']}</code> on {pds_domain}.")
+    flash(f"OK, we've migrated your bridged Bluesky account to {resp['handle']} on {pds_domain}.")
     return redirect('/settings')
 
 

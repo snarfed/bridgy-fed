@@ -1451,7 +1451,7 @@ class PagesTest(TestCase):
         self.assertEqual(302, resp.status_code)
         self.assertEqual('/settings', resp.headers['Location'])
         self.assertEqual(
-            "OK, we've migrated your bridged Bluesky account to <code>aly.ce</code> on new.pds.com.",
+            "OK, we've migrated your bridged Bluesky account to aly.ce on new.pds.com.",
             get_flashed_messages()[0])
 
         mock_create.assert_called_once_with(
