@@ -1,6 +1,7 @@
 """Webmention protocol with microformats2 in HTML, aka the IndieWeb stack."""
 from datetime import timedelta, timezone
 import difflib
+import html
 import logging
 import re
 import statistics
@@ -793,7 +794,7 @@ def check_web_site():
         logger.info(f'bad web id? {url}', exc_info=True)
         domain = None
 
-    invalid_msg = util.linkify(f'{url} is not a <a href="/docs#web-get-started">valid or supported web site</a>', pretty=True)
+    invalid_msg = util.linkify(f'{html.escape(url, quote=False)} is not a <a href="/docs#web-get-started">valid or supported web site</a>', pretty=True)
     if not domain or not is_valid_domain(domain, allow_internal=False):
         flash(invalid_msg, escape=False)
         return render_template('enter_web_site.html'), 400

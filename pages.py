@@ -451,7 +451,7 @@ def set_username(user=None):
     except NotImplementedError:
         flash(f"Custom usernames aren't supported on {proto.PHRASE}.")
     except (ValueError, RuntimeError) as e:
-        flash(f"Couldn't set username on {proto.PHRASE} to {username}: {e}",
+        flash(f"Couldn't set username on {proto.PHRASE} to {html.escape(username, quote=False)}: {e}",
               escape=False)
 
     return redirect('/settings')
@@ -604,7 +604,7 @@ def migrate_to_atproto(user=None):
 
     pds_domain = util.domain_from_link(pds)
     if util.domain_or_parent_in(pds_domain, MAIN_PDS_DOMAINS):
-        flash(f"Sorry, we can't migrate to {pds_domain}; it <a href='https://docs.bsky.app/blog/incoming-migration'>only allows accounts that it originally created</a>.",
+        flash(f"Sorry, we can't migrate to {html.escape(pds_domain, quote=False)}; it <a href='https://docs.bsky.app/blog/incoming-migration'>only allows accounts that it originally created</a>.",
               escape=False)
         return redirect('/settings')
 
@@ -735,7 +735,7 @@ def migrate_to_atproto_create_account(user=None):
     common.create_task(queue='migrate-out', user=user.key.urlsafe(),
                        auth=auth.key.urlsafe(), protocol=ATProto.LABEL)
 
-    flash(f"OK, we've migrated your bridged Bluesky account to <code>{resp['handle']}</code> on {pds_domain}.", escape=False)
+    flash(f"OK, we've migrated your bridged Bluesky account to <code>{resp['handle']}</code> on {pds_domain}.")
     return redirect('/settings')
 
 

@@ -3077,6 +3077,14 @@ Current vs expected:<pre>- http://this/404s
             get_flashed_messages())
         self.assertEqual(1, Web.query().count())
 
+    def test_check_web_site_sanitize_url(self, _, __):
+        got = self.post('/web-site', data={'url': '"><script>alert()</script>'})
+        self.assert_equals(400, got.status_code)
+        self.assertEqual(
+            ['"&gt;&lt;script&gt;alert()&lt;/script&gt; is not a <a href="/docs#web-get-started">valid or supported web site</a>'],
+            get_flashed_messages())
+        self.assertEqual(1, Web.query().count())
+
     def test_check_web_site_url_with_path(self, _, __):
         got = self.post('/web-site', data={'url': 'https://a.site/foo/bar'})
         self.assert_equals(400, got.status_code)
