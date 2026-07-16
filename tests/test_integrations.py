@@ -586,7 +586,7 @@ class IntegrationTests(TestCase):
         self.assertTrue(content.startswith("""\
 <p>Hi! Here are your recent interactions from people who aren't bridged into the fediverse. Click the <em>respond</em> links to reply, like, repost, or block them.
 <ul>
-<li><a href="https://bsky.app/profile/did:plc:alice/post/456">I hereby reply</a>"""), content)
+<li><a class="h-card u-author mention" rel="me" href="https://bsky.app/profile/alice.com" title="Alice &middot; alice.com"><span style="unicode-bidi: isolate">Alice</span> &middot; alice.com</a>: <a href="https://bsky.app/profile/did:plc:alice/post/456">I hereby reply</a>"""), content)
 
         # "you replied to a bridged user" DM to alice
         args, kwargs = mock_post.call_args_list[1]
@@ -848,19 +848,28 @@ class IntegrationTests(TestCase):
         self.assertEqual(('https://chat.local/xrpc/chat.bsky.convo.sendMessage',),
                          mock_post.call_args_list[0][0])
 
+        # unbridged reply notif
         message = mock_post.call_args_list[0][1]['json']['message']
-        respond_uri = message['facets'][1]['features'][0].pop('uri')
+        respond_uri = message['facets'][2]['features'][0].pop('uri')
         expected_prefix = 'https://fed.brid.gy/bsky/alice.com/respond?obj_id=http://inst/reply&token='
         self.assertTrue(respond_uri.startswith(expected_prefix), respond_uri)
         self.assertNotEqual(respond_uri.removeprefix(expected_prefix), '')
         self.assert_equals({
             '$type': 'chat.bsky.convo.defs#messageInput',
-            'text': "Hi! Here are your recent interactions from people who aren't bridged into Bluesky. Click the _respond_ links to reply, like, repost, or block them.\n\n  * My Name: I hereby reply (respond)\n\n\nTo disable these messages, reply with the text 'mute'.",
+            'text': "Hi! Here are your recent interactions from people who aren't bridged into Bluesky. Click the _respond_ links to reply, like, repost, or block them.\n\n  * My Name · @alice@inst: I hereby reply (respond)\n\n\n\nTo disable these messages, reply with the text 'mute'.",
             'createdAt': '2022-01-02T03:04:05.000Z',
             'facets': [
                 {
                     '$type': 'app.bsky.richtext.facet',
-                    'index': {'byteStart': 153, 'byteEnd': 176},
+                    'index': {'byteStart': 153, 'byteEnd': 175},
+                    'features': [{
+                        '$type': 'app.bsky.richtext.facet#link',
+                        'uri': 'https://inst/bob',
+                    }]
+                },
+                {
+                    '$type': 'app.bsky.richtext.facet',
+                    'index': {'byteStart': 177, 'byteEnd': 191},
                     'features': [{
                         '$type': 'app.bsky.richtext.facet#link',
                         'uri': 'http://inst/reply',
@@ -868,7 +877,7 @@ class IntegrationTests(TestCase):
                 },
                 {
                     '$type': 'app.bsky.richtext.facet',
-                    'index': {'byteStart': 178, 'byteEnd': 185},
+                    'index': {'byteStart': 193, 'byteEnd': 200},
                     'features': [{
                         '$type': 'app.bsky.richtext.facet#link',
                         # 'uri': ..., # checked above

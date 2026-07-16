@@ -149,36 +149,29 @@ def notify_task():
         obj_as1 = obj.as1 or {}
         if not (url := as1.get_url(obj_as1) or obj.key.id()):
             continue
+        logger.info(f'notif for {url}')
+
+        author_prefix = ''
+        if author_id := as1.get_id(obj_as1, 'author'):
+            author_proto = PROTOCOLS[obj.source_protocol]
+            if author := author_proto.get_or_create(author_id, allow_opt_out=True):
+                author_prefix = author.html_link() + ': '
 
         content = obj_as1.get('content')
-
-        author = as1.get_object(obj_as1, 'author')
-        author_name = author.get('displayName') or author.get('username')
-        if (not author_name and obj.source_protocol
-                and (author_id := author.get('id'))):
-            if author_obj := PROTOCOLS[obj.source_protocol].load(author_id,
-                                                                 raise_=False):
-                author = author_obj.as1 or {}
-                author_name = author.get('displayName') or author.get('username')
-
-        if author_name:
-            author_name += ':'
-
-        snippet = util.pretty_link(
-            url, text=source.html_to_text(content, ignore_links=True),
-            text_prefix=author_name, max_length=100)
+        text = source.html_to_text(content, ignore_links=True)
+        snippet = util.pretty_link(url, text=text, max_length=100)
 
         token = common.make_jwt(user=user, scope='respond', obj_id=obj.key.id())
         params = f'obj_id={obj.key.id()}&token={token}'
         base = f'https://{PRIMARY_DOMAIN}/'
         respond_url = urljoin(base, user.user_page_path(f'respond?{params}'))
 
-        lines += f'<li>{snippet} ({util.pretty_link(respond_url, "respond")})\n'
+        lines += f'<li>{author_prefix}{snippet} ({util.pretty_link(respond_url, "respond")})\n'
         attachments.append({
             'objectType': 'link',
             'url': url,
             'content': content,
-            'author': author,
+            'author': author_id,
             'bf:respond': respond_url,
             'bf:reply': urljoin(base, user.user_page_path(f'respond/reply?{params}')),
             'bf:like': urljoin(base, user.user_page_path(f'respond/like?{params}')),

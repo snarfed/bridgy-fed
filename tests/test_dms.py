@@ -23,7 +23,7 @@ from web import Web
 
 from .testutil import ExplicitFake, Fake, OtherFake, TestCase
 from .test_atproto import DID_DOC
-from .test_integrations import IntegrationTests
+from . import test_integrations
 
 DM_BASE = {
     'objectType': 'note',
@@ -659,7 +659,7 @@ class DmsTest(TestCase):
 
     @patch('atproto.send_chat')
     def test_error_reply_atproto_uses_newlines(self, mock_send):
-        it = IntegrationTests()
+        it = test_integrations.IntegrationTests()
         it.storage = arroba.server.storage
         it.make_web_user('ap.brid.gy', did='did:plc:999',
                          enabled_protocols=['atproto'])
