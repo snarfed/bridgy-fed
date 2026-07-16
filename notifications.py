@@ -5,7 +5,7 @@ from urllib.parse import urljoin
 
 from flask import request
 from google.cloud import ndb
-from granary import as1
+from granary import as1, source
 from webutil import appengine_info, util
 from webutil.flask_util import cloud_tasks_only
 
@@ -154,8 +154,9 @@ def notify_task():
         author = as1.get_object(obj_as1, 'author')
         if author_name := author.get('displayName') or author.get('username'):
             author_name += ':'
-        snippet = util.pretty_link(url, text=content, text_prefix=author_name,
-                                   max_length=100)
+        snippet = util.pretty_link(
+            url, text=source.html_to_text(content, ignore_links=True),
+            text_prefix=author_name, max_length=100)
 
         token = common.make_jwt(user=user, scope='respond', obj_id=obj.key.id())
         params = f'obj_id={obj.key.id()}&token={token}'

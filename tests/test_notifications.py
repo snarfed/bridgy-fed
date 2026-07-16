@@ -147,6 +147,38 @@ class NotificationsTest(TestCase):
         self.assertEqual([], get_notifications(user))
 
     @patch('webutil.appengine_config.tasks_client.create_task')
+    def test_notify_task_html_content_snippet(self, _):
+        common.RUN_TASKS_INLINE = False
+        self.make_user(id='efake.brid.gy', cls=Web)
+        user = self.make_user(id='fake:user', cls=Fake, enabled_protocols=['efake'],
+                              obj_as1={'x': 'y'})
+
+        content = ('<p>' + 'A ' * 45 +
+                  '<a href="http://example.com/foo">link text and more words '
+                  'here to push it over one hundred characters total</a></p>')
+        add_notification(user, self.store_object(id='efake:a', our_as1={
+            'url': 'http://notif/a',
+            'content': content,
+            'author': {
+                'url': 'http://alice',
+                'displayName': 'Ms Alice',
+            },
+        }))
+
+        common.RUN_TASKS_INLINE = True
+        resp = self.post('/queue/notify', data={
+            'user_id': 'fake:user',
+            'protocol': 'fake',
+        })
+        self.assertEqual(200, resp.status_code)
+
+        sent_content = Fake.sent[0][1]['object']['content']
+        self.assertNotIn('&lt;p&gt;', sent_content)
+        self.assertNotIn('&lt;a', sent_content)
+        self.assertNotIn('example.com', sent_content)
+        self.assertIn('Ms Alice: ' + 'A ' * 45 + 'link text ...', sent_content)
+
+    @patch('webutil.appengine_config.tasks_client.create_task')
     def test_notify_task_obj_doesnt_exist(self, _):
         common.RUN_TASKS_INLINE = False
         self.make_user(id='efake.brid.gy', cls=Web)
