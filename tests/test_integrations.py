@@ -855,12 +855,12 @@ class IntegrationTests(TestCase):
         self.assertNotEqual(respond_uri.removeprefix(expected_prefix), '')
         self.assert_equals({
             '$type': 'chat.bsky.convo.defs#messageInput',
-            'text': "Hi! Here are your recent interactions from people who aren't bridged into Bluesky. Click the _respond_ links to reply, like, repost, or block them.\n\n  * I hereby reply (respond)\n\n\nTo disable these messages, reply with the text 'mute'.",
+            'text': "Hi! Here are your recent interactions from people who aren't bridged into Bluesky. Click the _respond_ links to reply, like, repost, or block them.\n\n  * My Name: I hereby reply (respond)\n\n\nTo disable these messages, reply with the text 'mute'.",
             'createdAt': '2022-01-02T03:04:05.000Z',
             'facets': [
                 {
                     '$type': 'app.bsky.richtext.facet',
-                    'index': {'byteStart': 153, 'byteEnd': 167},
+                    'index': {'byteStart': 153, 'byteEnd': 176},
                     'features': [{
                         '$type': 'app.bsky.richtext.facet#link',
                         'uri': 'http://inst/reply',
@@ -868,7 +868,7 @@ class IntegrationTests(TestCase):
                 },
                 {
                     '$type': 'app.bsky.richtext.facet',
-                    'index': {'byteStart': 169, 'byteEnd': 176},
+                    'index': {'byteStart': 178, 'byteEnd': 185},
                     'features': [{
                         '$type': 'app.bsky.richtext.facet#link',
                         # 'uri': ..., # checked above

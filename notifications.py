@@ -151,9 +151,19 @@ def notify_task():
             continue
 
         content = obj_as1.get('content')
+
         author = as1.get_object(obj_as1, 'author')
-        if author_name := author.get('displayName') or author.get('username'):
+        author_name = author.get('displayName') or author.get('username')
+        if (not author_name and obj.source_protocol
+                and (author_id := author.get('id'))):
+            if author_obj := PROTOCOLS[obj.source_protocol].load(author_id,
+                                                                 raise_=False):
+                author = author_obj.as1 or {}
+                author_name = author.get('displayName') or author.get('username')
+
+        if author_name:
             author_name += ':'
+
         snippet = util.pretty_link(
             url, text=source.html_to_text(content, ignore_links=True),
             text_prefix=author_name, max_length=100)
