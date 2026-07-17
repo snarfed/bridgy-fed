@@ -78,6 +78,10 @@ class ProtocolTest(TestCase):
                 ('ap.brid.gy', ActivityPub),
                 ('activitypub.brid.gy', ActivityPub),
                 ('web.brid.gy', Web),
+                ('fake.brid.gy.test', Fake),
+                ('web.brid.gy.test', Web),
+                ('web.brid.gy.test:8080', Web),
+                ('brid.gy.test', None),
                 (None, None),
                 ('brid.gy', None),
                 ('www.brid.gy', None),
@@ -90,6 +94,11 @@ class ProtocolTest(TestCase):
                 self.assertEqual(expected, Protocol.for_bridgy_subdomain(domain))
                 with app.test_request_context('/foo', base_url=f'https://{domain}/'):
                     self.assertEqual(expected, Protocol.for_request())
+
+    @patch('protocol.DEBUG', False)
+    @patch('protocol.LOCAL_SERVER', False)
+    def test_for_bridgy_subdomain_local_test_suffix_prod_disabled(self):
+        self.assertIsNone(Protocol.for_bridgy_subdomain('fake.brid.gy.test'))
 
     def test_for_bridgy_subdomain_for_request_fed(self):
         for url, expected in [

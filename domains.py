@@ -22,6 +22,8 @@ SUBDOMAIN_BASE_URL_RE = None
 PRIMARY_DOMAIN = 'fed.brid.gy'
 # protocol-specific subdomains are under this "super"domain
 SUPERDOMAIN = '.brid.gy'
+# local dev equivalent of SUPERDOMAIN, eg web.brid.gy.test
+LOCAL_SUPERDOMAIN = '.brid.gy.test'
 # TODO: add a Flask route decorator version of util.canonicalize_domain, then
 # use it to canonicalize most UI routes from these to fed.brid.gy.
 # TODO: unify with models.PROTOCOLS

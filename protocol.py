@@ -21,7 +21,7 @@ from pymemcache.exceptions import (
 )
 from requests import RequestException
 from websockets.exceptions import InvalidStatus
-from webutil.appengine_info import DEBUG
+from webutil.appengine_info import DEBUG, LOCAL_SERVER
 from webutil.flask_util import cloud_tasks_only
 from webutil.models import MAX_ENTITY_SIZE
 from webutil import util
@@ -37,6 +37,7 @@ from common import (
 from domains import (
     DOMAINS,
     LOCAL_DOMAINS,
+    LOCAL_SUPERDOMAIN,
     PRIMARY_DOMAIN,
     PROTOCOL_DOMAINS,
     SUPERDOMAIN,
@@ -191,14 +192,16 @@ class Protocol:
           hostname domain is not a subdomain of ``brid.gy`` or isn't a known
           protocol
         """
-        domain = (util.domain_from_link(domain_or_url, minimize=False)
-                  if util.is_web(domain_or_url)
-                  else domain_or_url)
+        if not (domain := util.domain_from_link(domain_or_url, minimize=False)):
+            return
 
         if domain == PRIMARY_DOMAIN or domain in LOCAL_DOMAINS:
             return PROTOCOLS[fed] if isinstance(fed, str) else fed
-        elif domain and domain.endswith(SUPERDOMAIN):
+        elif domain.endswith(SUPERDOMAIN):
             label = domain.removesuffix(SUPERDOMAIN)
+            return PROTOCOLS.get(label)
+        elif (DEBUG or LOCAL_SERVER) and domain.endswith(LOCAL_SUPERDOMAIN):
+            label = domain.removesuffix(LOCAL_SUPERDOMAIN)
             return PROTOCOLS.get(label)
 
     @classmethod
