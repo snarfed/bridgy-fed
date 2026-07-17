@@ -25,6 +25,7 @@ app = [
     'secp256k1',
 
     # third-party
+    'authlib>=1.0.0',
     'cachetools>=5.0.0',
     'cryptography>=41.0.0',
     'domain2idna>=1.12',
