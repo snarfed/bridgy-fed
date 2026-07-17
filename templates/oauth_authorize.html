@@ -1,0 +1,25 @@
+{% set body_id = 'login' %}
+{% extends "base.html" %}
+
+{% block content %}
+
+<p class="row big"><strong>{{ client_name }}</strong> wants to connect to your Bridgy Fed account.</p>
+
+<div class="row big" style="font-size: 14px">
+  <form method="post" action="/oauth/authorize/indieauth/start">
+    <nobr>
+      <div class="row big">
+        <div id="IndieAuth" title="IndieAuth" class="login-button shadow login-button-logotype">
+          <img src="/oauth_dropins_static/indieauth_logo.png" height="60" />
+          <span>IndieAuth (web)</span>
+        </div><br />
+        <input id="IndieAuth-input" name="me" type="url" class="login-input" placeholder="Your web site" required>
+        <input id="IndieAuth-submit" type="image" title="IndieAuth" class="submit-button shadow"
+              src="static/material-arrow-icon.svg" />
+      </div>
+      <input name="state" type="hidden" value="{{ state }}">
+    </nobr>
+  </form>
+</div>
+
+{% endblock %}

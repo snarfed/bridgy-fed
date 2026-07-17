@@ -4822,9 +4822,10 @@ Sed tortor neque, aliquet quis posuere aliquam, imperdiet sitamet […]
         self.assert_equals(400, resp.status_code)
 
     def test_oauth(self):
-        for slug in 'oauth-protected-resource', 'oauth-authorization-server':
-            resp = self.get(f'/.well-known/{slug}')
-            self.assertEqual(404, resp.status_code)
+        # oauth-authorization-server is served by mastodon_api.py on web.brid.gy now;
+        # see tests/test_mastodon_api.py
+        resp = self.get('/.well-known/oauth-protected-resource')
+        self.assertEqual(404, resp.status_code)
 
     def test_bluesky_oauth_client_metadata(self):
         self._test_bluesky_oauth_client_metadata()

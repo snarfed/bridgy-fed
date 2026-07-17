@@ -1840,7 +1840,6 @@ def site_standard_publication():
 # OAuth
 #
 @app.get('/.well-known/oauth-protected-resource')
-@app.get('/.well-known/oauth-authorization-server')
 @flask_util.headers(CACHE_CONTROL)
 def no_oauth():
     return "Sorry, Bridgy Fed doesn't serve OAuth. https://fed.brid.gy/docs#use-like-normal", 404

@@ -1,0 +1,13 @@
+{% set body_id = 'login' %}
+{% extends "base.html" %}
+
+{% block content %}
+
+<p class="row big">Copy this code into your app:</p>
+
+<p class="row big">
+  <input type="text" id="code" readonly value="{{ code }}" onclick="this.select()"
+        style="font-family: monospace; width: 100%;">
+</p>
+
+{% endblock %}
