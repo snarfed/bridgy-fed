@@ -1,8 +1,9 @@
-"""Serves Mastodon API and OAuth, passes through to other protocols."""
+"""Serves Mastodon OAuth, passes through to other protocols."""
 from datetime import datetime, timedelta
 import hashlib
 import hmac
 import logging
+import os
 import time
 from urllib.parse import parse_qsl
 
@@ -10,7 +11,14 @@ from authlib.integrations.flask_oauth2 import AuthorizationServer, ResourceProte
 from authlib.integrations.flask_oauth2.requests import FlaskOAuth2Request
 from authlib.integrations.flask_oauth2.resource_protector import current_token
 from authlib.oauth2 import OAuth2Error
-from authlib.oauth2.rfc6749 import AccessDeniedError, AuthorizationCodeGrant, OAuth2Request
+from authlib.oauth2.rfc6749 import (
+    AccessDeniedError,
+    AuthorizationCodeGrant,
+    AuthorizationCodeMixin,
+    ClientMixin,
+    OAuth2Request,
+    TokenMixin,
+)
 from authlib.oauth2.rfc6749.requests import BasicOAuth2Payload
 from authlib.oauth2.rfc6750 import BearerTokenValidator
 from authlib.oauth2.rfc7636 import CodeChallenge, create_s256_code_challenge
@@ -51,13 +59,8 @@ def _response_body(resp):
     return repr(resp)
 
 
-def _logged(fn):
-    """Logs the full request and response for this view, at INFO level.
-
-    TEMPORARY, for debugging the OAuth flow against real clients. This logs
-    sensitive material -- tokens, client secrets, auth codes -- so it should come
-    back out once we're done chasing interop bugs.
-    """
+def log_request_response(fn):
+    """Logs the full request and response for this view."""
     def wrapper(*args, **kwargs):
         logger.info(f'>> {request.method} {request.url}')
         if auth := request.headers.get('Authorization'):
@@ -171,10 +174,10 @@ def decode_token(token):
     return payload
 
 
-class Client:
+class Client(ClientMixin):
     """In-memory :class:`authlib.oauth2.rfc6749.ClientMixin`.
 
-    Unsigned from a self-encoding ``client_id``; nothing is stored.
+    ``client_id`` is self-contained; nothing is stored.
     """
     def __init__(self, client_id, payload):
         self.client_id = client_id
@@ -195,7 +198,7 @@ class Client:
         return redirect_uri in self.redirect_uris
 
     def check_client_secret(self, client_secret):
-        return hmac.compare_digest(client_secret_for(self.client_id), client_secret)
+        return client_secret_for(self.client_id) == client_secret
 
     def check_endpoint_auth_method(self, method, endpoint):
         return True
@@ -207,33 +210,10 @@ class Client:
         return grant_type == 'authorization_code'
 
 
-def query_client(client_id):
-    if payload := decode_client(client_id):
-        return Client(client_id, payload)
-    logger.info(f'query_client: no client for {client_id!r}')
-
-
-def save_token(token, request):
-    """No-op; our tokens are self-encoding and never stored."""
-    pass
-
-
-def generate_bearer_token(grant_type, client, user=None, scope=None,
-                          expires_in=None, include_refresh_token=True):
-    token = encode_token(user_key=user.key, client_id=client.get_client_id(),
-                         scope=scope)
-    return {
-        'access_token': token,
-        'token_type': 'Bearer',
-        'scope': scope or '',
-        'created_at': int(time.time()),
-    }
-
-
-class AuthCode:
+class AuthCode(AuthorizationCodeMixin):
     """In-memory :class:`authlib.oauth2.rfc6749.AuthorizationCodeMixin`.
 
-    Unsigned from a self-encoding authorization code; nothing is stored.
+    Unsigned from a self-contained authorization code; nothing is stored.
     """
     def __init__(self, payload):
         self.user_key = Key(urlsafe=payload['user_key'])
@@ -286,10 +266,7 @@ class BFAuthorizationCodeGrant(AuthorizationCodeGrant):
         if not payload:
             return None
         if payload['client_id_hash'] != hash_client_id(client.get_client_id()):
-            logger.info(f"query_authorization_code: client_id_hash mismatch, "
-                       f"code was issued to {payload['client_id_hash']!r}, "
-                       f"token request is from {client.get_client_id()!r} "
-                       f"(hash {hash_client_id(client.get_client_id())!r})")
+            logger.info(f"query_authorization_code: client_id_hash mismatch, code was issued to {payload['client_id_hash']}, token request is from {client.get_client_id()} (hash {hash_client_id(client.get_client_id())})")
             return None
         return AuthCode(payload)
 
@@ -302,10 +279,10 @@ class BFAuthorizationCodeGrant(AuthorizationCodeGrant):
         return authorization_code.user_key.get()
 
 
-class Token:
+class Token(TokenMixin):
     """In-memory :class:`authlib.oauth2.rfc6749.TokenMixin`.
 
-    Unsigned from a self-encoding access token; nothing is stored.
+    The access token itself is self-contained and provides all data.
     """
     def __init__(self, payload):
         self.user_key = Key(urlsafe=payload['user_key'])
@@ -342,6 +319,24 @@ class BearerValidator(BearerTokenValidator):
             return Token(payload)
 
 
+def query_client(client_id):
+    if payload := decode_client(client_id):
+        return Client(client_id, payload)
+    logger.info(f'query_client: no client for {client_id}')
+
+
+def generate_bearer_token(grant_type, client, user=None, scope=None,
+                          expires_in=None, include_refresh_token=True):
+    token = encode_token(user_key=user.key, client_id=client.get_client_id(),
+                         scope=scope)
+    return {
+        'access_token': token,
+        'token_type': 'Bearer',
+        'scope': scope or '',
+        'created_at': int(time.time()),
+    }
+
+
 class JsonAwareOAuth2Request(FlaskOAuth2Request):
     """Like :class:`FlaskOAuth2Request`, but also reads JSON bodies.
 
@@ -362,12 +357,15 @@ class JsonAwareOAuth2Request(FlaskOAuth2Request):
         return super().form
 
 
-class BFAuthorizationServer(AuthorizationServer):
+class JsonAwareAuthorizationServer(AuthorizationServer):
     def create_oauth2_request(self, _request):
         return JsonAwareOAuth2Request(request)
 
 
-server = BFAuthorizationServer(app, query_client, save_token)
+server = JsonAwareAuthorizationServer(
+    app, query_client=query_client,
+    # noop; our tokens are self-contained, not stored
+    save_token=lambda token, request: None)
 server.register_token_generator('default', generate_bearer_token)
 server.register_grant(BFAuthorizationCodeGrant, [CodeChallenge(required=False)])
 
@@ -375,29 +373,21 @@ require_oauth = ResourceProtector()
 require_oauth.register_token_validator(BearerValidator())
 
 
-def _oauth_error_response(error):
-    logger.info(f'OAuth2Error: {error.error} {getattr(error, "description", None)}')
-    return server.handle_response(*error(server.get_error_uri(None, error)))
-
-
 @app.get('/.well-known/oauth-authorization-server')
 @app.get('/.well-known/oauth-authorization-server/')
-@_logged
+@log_request_response
 def oauth_metadata():
-    # mirrors the request's actual scheme; in production this is always https
-    # (ProxyFix reads X-Forwarded-Proto). For plain-http local testing, set
-    # AUTHLIB_INSECURE_TRANSPORT=1 so both this and authlib's own per-request
-    # checks accept it.
-    base = request.host_url.rstrip('/')
     metadata = AuthorizationServerMetadata({
-        'issuer': base,
-        'authorization_endpoint': f'{base}/oauth/authorize',
-        'token_endpoint': f'{base}/oauth/token',
-        'registration_endpoint': f'{base}/oauth/register',
+        'issuer': domains.host_url(),
+        'authorization_endpoint': domains.host_url('/oauth/authorize'),
+        'token_endpoint': domains.host_url('/oauth/token'),
+        'registration_endpoint': domains.host_url('/oauth/register'),
         'response_types_supported': ['code'],
         'grant_types_supported': ['authorization_code'],
         'token_endpoint_auth_methods_supported': [
-            'client_secret_basic', 'client_secret_post'],
+            'client_secret_basic',
+            'client_secret_post',
+        ],
         'code_challenge_methods_supported': ['S256', 'plain'],
         'scopes_supported': [],
     })
@@ -406,7 +396,7 @@ def oauth_metadata():
 
 
 @app.post('/api/v1/apps')
-@_logged
+@log_request_response
 def create_app():
     params = request.get_json(silent=True) or request.values
 
@@ -431,7 +421,7 @@ def create_app():
 
 
 @app.post('/oauth/register')
-@_logged
+@log_request_response
 def oauth_register():
     data = request.get_json(force=True, silent=True) or {}
     redirect_uris = data.get('redirect_uris') or []
@@ -467,15 +457,16 @@ def _grant_or_deny(grant_user, state):
         grant_user = None
 
     params = dict(parse_qsl(state or ''))
-    req = OAuth2Request('GET', f'{request.host_url.rstrip("/")}/oauth/authorize')
+    req = OAuth2Request('GET', domains.host_url('/oauth/authorize'))
     req.payload = BasicOAuth2Payload(params)
 
     try:
         grant = server.get_authorization_grant(req)
         resp = server.create_authorization_response(
             request=req, grant_user=grant_user, grant=grant)
-    except OAuth2Error as oauth_error:
-        return _oauth_error_response(oauth_error)
+    except OAuth2Error as err:
+        logger.info(err)
+        return server.handle_error_response(None, err)
 
     logger.info(f'<< {_response_body(resp)}, Location: {resp.headers.get("Location")}')
     return resp
@@ -487,11 +478,10 @@ def _finish_proxy_login(auth_entity, state):
     Resolves the oauth-dropins auth entity to a Bridgy Fed user via
     :func:`pages.login_to_user_key`, then hands off to :func:`_grant_or_deny`.
     """
-    logger.info(f'auth_entity: {auth_entity.key.id() if auth_entity else None}, '
-               f'state: {state!r}')
+    logger.info(f'auth_entity: {auth_entity}, state: {state}')
 
     if not auth_entity:
-        flash('Login canceled.')
+        flash("OK, you're not logged in.")
         return redirect('/')
 
     user_key = pages.login_to_user_key(auth_entity)
@@ -505,12 +495,13 @@ def _finish_proxy_login(auth_entity, state):
 
 @app.get('/oauth/authorize')
 @app.get('/oauth/authorize/')
-@_logged
+@log_request_response
 def oauth_authorize():
     try:
         grant = server.get_consent_grant()
-    except OAuth2Error as oauth_error:
-        return _oauth_error_response(oauth_error)
+    except OAuth2Error as err:
+        logger.info(err)
+        return server.handle_error_response(None, err)
 
     client_name = grant.request.client.client_name
     state = request.query_string.decode()
@@ -526,10 +517,10 @@ def oauth_authorize():
 
 
 @app.post('/oauth/authorize')
-@_logged
+@log_request_response
 def oauth_authorize_consent():
     """Handles the consent form from the session-reuse path in :func:`oauth_authorize`."""
-    state = request.form.get('state', '')
+    state = request.form.get('state') or ''
     grant_user = None
     if not request.form.get('deny') and (key := request.form.get('user_key')):
         grant_user = Key(urlsafe=key).get()
@@ -672,27 +663,28 @@ app.add_url_rule(
 
 
 @app.post('/oauth/token')
-@_logged
+@log_request_response
 def oauth_token():
     return server.create_token_response()
 
 
 @app.get('/api/v2/instance')
 @app.get('/api/v2/instance/')
-@_logged
+@log_request_response
 def instance_v2():
     return {
         'domain': request.host,
         'title': 'Bridgy Fed',
-        'version': '4.0.0',
-        'source_url': 'https://github.com/snarfed/bridgy-fed',
-        'description': 'Bridgy Fed',
-        'usage': {'users': {'active_month': 0}},
+        'version': os.getenv('GAE_VERSION'),
+        'source_url': 'https://fed.brid.gy/',
+        'description': 'Bridges other networks to the fediverse',
         'thumbnail': {},
         'languages': ['en'],
         'configuration': {},
         'registrations': {'enabled': False, 'approval_required': False},
-        'contact': {},
+        'contact': {
+            'email': 'feedback@brid.gy',
+        },
         'rules': [],
     }
 
@@ -723,7 +715,7 @@ def account_dict(user):
 
 @app.get('/api/v1/accounts/verify_credentials')
 @app.get('/api/v1/accounts/verify_credentials/')
-@_logged
+@log_request_response
 @require_oauth()
 def verify_credentials():
     if not (user := current_token.get_user()):

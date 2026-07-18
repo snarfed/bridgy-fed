@@ -118,7 +118,7 @@ class MastodonApiTest(TestCase):
         resp = self.client.get('/.well-known/oauth-authorization-server',
                                base_url=BASE_URL)
         self.assertEqual(200, resp.status_code)
-        self.assertEqual(BASE_URL.rstrip('/'), resp.json['issuer'])
+        self.assertEqual(BASE_URL, resp.json['issuer'])
         self.assertIn('/oauth/authorize', resp.json['authorization_endpoint'])
         self.assertIn('/oauth/token', resp.json['token_endpoint'])
 
