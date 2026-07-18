@@ -1,5 +1,5 @@
 """Serves Mastodon API and OAuth, passes through to other protocols."""
-from datetime import timedelta
+from datetime import datetime, timedelta
 import hashlib
 import hmac
 import logging
@@ -19,6 +19,9 @@ from flask import redirect, request
 from google.cloud.ndb.key import Key
 import jwt
 from oauth_dropins import indieauth
+import oauth_dropins.bluesky
+import oauth_dropins.mastodon
+import oauth_dropins.pixelfed
 from webutil import util
 from webutil.models import ENCRYPTED_PROPERTY_KEYS_BYTES
 from webutil.flask_util import error, FlashErrors, flash
@@ -26,9 +29,9 @@ from werkzeug.exceptions import HTTPException
 
 import common
 from common import render_template
+import domains
 from flask_app import app
-from protocol import Protocol
-from web import Web
+import pages
 
 logger = logging.getLogger(__name__)
 
@@ -38,16 +41,6 @@ CODE_TYP = 'mastodon-oauth-code'
 TOKEN_TYP = 'mastodon-oauth-token'
 CODE_MAX_AGE = timedelta(seconds=60)
 OOB_REDIRECT_URI = 'urn:ietf:wg:oauth:2.0:oob'
-
-
-def _web_only(fn):
-    """Decorator that 404s unless the request is on a ``Web``-backed subdomain."""
-    def wrapper(*args, **kwargs):
-        if Protocol.for_request(fed=Web) is not Web:
-            error('Not found', status=404)
-        return fn(*args, **kwargs)
-    wrapper.__name__ = fn.__name__
-    return wrapper
 
 
 def _response_body(resp):
@@ -269,7 +262,7 @@ class BFAuthorizationCodeGrant(AuthorizationCodeGrant):
         self.request.user = grant_user
         code = self.generate_authorization_code()
         self.save_authorization_code(code, self.request)
-        return 200, render_template('oauth_code.html', code=code), []
+        return 200, render_template('mastodon_oauth_code.html', code=code), []
 
     def generate_authorization_code(self):
         req = self.request
@@ -390,7 +383,6 @@ def _oauth_error_response(error):
 @app.get('/.well-known/oauth-authorization-server')
 @app.get('/.well-known/oauth-authorization-server/')
 @_logged
-@_web_only
 def oauth_metadata():
     # mirrors the request's actual scheme; in production this is always https
     # (ProxyFix reads X-Forwarded-Proto). For plain-http local testing, set
@@ -415,7 +407,6 @@ def oauth_metadata():
 
 @app.post('/api/v1/apps')
 @_logged
-@_web_only
 def create_app():
     params = request.get_json(silent=True) or request.values
 
@@ -441,7 +432,6 @@ def create_app():
 
 @app.post('/oauth/register')
 @_logged
-@_web_only
 def oauth_register():
     data = request.get_json(force=True, silent=True) or {}
     redirect_uris = data.get('redirect_uris') or []
@@ -461,90 +451,228 @@ def oauth_register():
     }, 201
 
 
+def _grant_or_deny(grant_user, state):
+    """Common consent-decision logic, shared by every backend's callback and by
+    the session-reuse consent form.
+
+    Applies the beta gate, then finishes (or denies) the OAuth authorization
+    response for the original ``/oauth/authorize`` request captured in ``state``.
+
+    Args:
+      grant_user (models.User): the resolved Bridgy Fed user, or None to deny
+      state (str): the original ``/oauth/authorize`` query string
+    """
+    if grant_user and grant_user.key.id() not in common.BETA_USER_IDS:
+        flash('Mastodon OAuth login is limited to beta testers for now.')
+        grant_user = None
+
+    params = dict(parse_qsl(state or ''))
+    req = OAuth2Request('GET', f'{request.host_url.rstrip("/")}/oauth/authorize')
+    req.payload = BasicOAuth2Payload(params)
+
+    try:
+        grant = server.get_authorization_grant(req)
+        resp = server.create_authorization_response(
+            request=req, grant_user=grant_user, grant=grant)
+    except OAuth2Error as oauth_error:
+        return _oauth_error_response(oauth_error)
+
+    logger.info(f'<< {_response_body(resp)}, Location: {resp.headers.get("Location")}')
+    return resp
+
+
+def _finish_proxy_login(auth_entity, state):
+    """Common ``finish()`` logic for every backend's proxy login callback.
+
+    Resolves the oauth-dropins auth entity to a Bridgy Fed user via
+    :func:`pages.login_to_user_key`, then hands off to :func:`_grant_or_deny`.
+    """
+    logger.info(f'auth_entity: {auth_entity.key.id() if auth_entity else None}, '
+               f'state: {state!r}')
+
+    if not auth_entity:
+        flash('Login canceled.')
+        return redirect('/')
+
+    user_key = pages.login_to_user_key(auth_entity)
+    grant_user = user_key.get() if user_key else None
+    logger.info(f'grant_user: {grant_user}')
+    if not grant_user:
+        flash("That account isn't set up on Bridgy Fed yet.")
+
+    return _grant_or_deny(grant_user, state)
+
+
 @app.get('/oauth/authorize')
 @app.get('/oauth/authorize/')
 @_logged
-@_web_only
 def oauth_authorize():
     try:
         grant = server.get_consent_grant()
     except OAuth2Error as oauth_error:
         return _oauth_error_response(oauth_error)
 
-    return render_template('oauth_authorize.html',
-                           client_name=grant.request.client.client_name,
-                           state=request.query_string.decode())
+    client_name = grant.request.client.client_name
+    state = request.query_string.decode()
+
+    # reuse an existing Bridgy Fed session login, if there is one, instead of
+    # showing the login form again
+    for login in pages.get_logins():
+        if (user_key := pages.login_to_user_key(login)) and (user := user_key.get()):
+            return render_template('mastodon_oauth_consent.html', client_name=client_name,
+                                   state=state, user=user)
+
+    return render_template('mastodon_oauth_login.html', client_name=client_name, state=state)
 
 
-class MastodonIndieAuthStart(FlashErrors, indieauth.Start):
+@app.post('/oauth/authorize')
+@_logged
+def oauth_authorize_consent():
+    """Handles the consent form from the session-reuse path in :func:`oauth_authorize`."""
+    state = request.form.get('state', '')
+    grant_user = None
+    if not request.form.get('deny') and (key := request.form.get('user_key')):
+        grant_user = Key(urlsafe=key).get()
+
+    return _grant_or_deny(grant_user, state)
+
+
+class ProxyIndieAuthStart(FlashErrors, indieauth.Start):
     ON_ERROR_REDIRECT_TO = '/'
 
-    def redirect_url(self, state=None, me=None):
-        logger.info(f'>> POST {request.url}')
-        logger.info(f'>> form: {dict(request.form)}')
 
-        me = me or request.values['me'].strip()
-        domain = util.domain_from_link(me)
-        if domain not in common.BETA_USER_IDS:
-            logger.info(f'<< 403: {domain} is not a beta user')
-            error('Mastodon OAuth login is limited to beta testers for now.',
-                 status=403)
-
-        url = super().redirect_url(state=state, me=me)
-        logger.info(f'<< redirecting to {url}')
-        return url
-
-
-class MastodonIndieAuthCallback(FlashErrors, indieauth.Callback):
+class ProxyIndieAuthCallback(FlashErrors, indieauth.Callback):
     ON_ERROR_REDIRECT_TO = '/'
 
     def finish(self, auth_entity, state=None):
-        logger.info(f'>> GET {request.url}')
-        logger.info(f'>> auth_entity: {auth_entity.key.id() if auth_entity else None}, '
-                   f'state: {state!r}')
-
-        if not auth_entity:
-            flash('Login canceled.')
-            logger.info(f'<< redirecting to {self.ON_ERROR_REDIRECT_TO}')
-            return redirect(self.ON_ERROR_REDIRECT_TO)
-
-        domain = util.domain_from_link(auth_entity.key.id())
-        grant_user = Web.get_by_id(domain)
-        logger.info(f'grant_user for {domain}: {grant_user}')
-        if not grant_user:
-            flash(f"{domain} isn't set up on Bridgy Fed yet.")
-
-        params = dict(parse_qsl(state or ''))
-        logger.info(f'authorize params from state: {params}')
-        req = OAuth2Request('GET', f'{request.host_url.rstrip("/")}/oauth/authorize')
-        req.payload = BasicOAuth2Payload(params)
-
-        try:
-            grant = server.get_authorization_grant(req)
-            resp = server.create_authorization_response(
-                request=req, grant_user=grant_user, grant=grant)
-        except OAuth2Error as oauth_error:
-            return _oauth_error_response(oauth_error)
-
-        logger.info(f'<< {_response_body(resp)}, '
-                   f'Location: {resp.headers.get("Location")}')
-        return resp
+        return _finish_proxy_login(auth_entity, state)
 
 
 app.add_url_rule(
     '/oauth/authorize/indieauth/start',
-    view_func=MastodonIndieAuthStart.as_view(
-        'mastodon_indieauth_start', '/oauth/authorize/indieauth/finish'),
+    view_func=ProxyIndieAuthStart.as_view(
+        'proxy_indieauth_start', '/oauth/authorize/indieauth/finish'),
     methods=['POST'])
 app.add_url_rule(
     '/oauth/authorize/indieauth/finish',
-    view_func=MastodonIndieAuthCallback.as_view(
-        'mastodon_indieauth_finish', '/oauth/authorize'))
+    view_func=ProxyIndieAuthCallback.as_view(
+        'proxy_indieauth_finish', '/oauth/authorize'))
+
+
+def _bluesky_proxy_client_metadata():
+    return {
+        **oauth_dropins.bluesky.CLIENT_METADATA_TEMPLATE,
+        'client_id': domains.host_url('/oauth/authorize/bluesky/client-metadata.json'),
+        'client_name': 'Bridgy Fed (Mastodon API)',
+        'client_uri': domains.host_url(),
+        'redirect_uris': [domains.host_url('/oauth/authorize/bluesky/finish')],
+    }
+
+
+@app.get('/oauth/authorize/bluesky/client-metadata.json')
+def bluesky_proxy_client_metadata():
+    return _bluesky_proxy_client_metadata()
+
+
+class ProxyBlueskyStart(FlashErrors, oauth_dropins.bluesky.OAuthStart):
+    ON_ERROR_REDIRECT_TO = '/'
+
+    @property
+    def CLIENT_METADATA(self):
+        return _bluesky_proxy_client_metadata()
+
+
+class ProxyBlueskyCallback(FlashErrors, oauth_dropins.bluesky.OAuthCallback):
+    ON_ERROR_REDIRECT_TO = '/'
+
+    @property
+    def CLIENT_METADATA(self):
+        return _bluesky_proxy_client_metadata()
+
+    def finish(self, auth_entity, state=None):
+        return _finish_proxy_login(auth_entity, state)
+
+
+app.add_url_rule(
+    '/oauth/authorize/bluesky/start',
+    view_func=ProxyBlueskyStart.as_view(
+        'proxy_bluesky_start', '/oauth/authorize/bluesky/finish'),
+    methods=['POST'])
+app.add_url_rule(
+    '/oauth/authorize/bluesky/finish',
+    view_func=ProxyBlueskyCallback.as_view(
+        'proxy_bluesky_finish', '/oauth/authorize'))
+
+
+class ProxyMastodonStart(FlashErrors, oauth_dropins.mastodon.Start):
+    ON_ERROR_REDIRECT_TO = '/'
+
+    # distinct app_name/app_url so this registers its own MastodonApp entity,
+    # separate from activitypub.MastodonStart's. that one's app was registered
+    # with a different redirect_uris list (just /oauth/mastodon/finish), and
+    # Mastodon servers reject an authorize request whose redirect_uri wasn't in
+    # the app's original registration. EXPIRE_APPS_BEFORE is defensive, in case
+    # we iterate on this and need to force re-registration.
+    EXPIRE_APPS_BEFORE = datetime(2026, 7, 17)
+
+    def app_name(self):
+        return 'Bridgy Fed (Mastodon API)'
+
+    def app_url(self):
+        return 'https://fed.brid.gy/oauth-proxy'
+
+
+class ProxyMastodonCallback(FlashErrors, oauth_dropins.mastodon.Callback):
+    ON_ERROR_REDIRECT_TO = '/'
+
+    def finish(self, auth_entity, state=None):
+        return _finish_proxy_login(auth_entity, state)
+
+
+app.add_url_rule(
+    '/oauth/authorize/mastodon/start',
+    view_func=ProxyMastodonStart.as_view(
+        'proxy_mastodon_start', '/oauth/authorize/mastodon/finish'),
+    methods=['POST'])
+app.add_url_rule(
+    '/oauth/authorize/mastodon/finish',
+    view_func=ProxyMastodonCallback.as_view(
+        'proxy_mastodon_finish', '/oauth/authorize'))
+
+
+class ProxyPixelfedStart(FlashErrors, oauth_dropins.pixelfed.Start):
+    ON_ERROR_REDIRECT_TO = '/'
+
+    # see ProxyMastodonStart for why these are distinct from activitypub.PixelfedStart
+    EXPIRE_APPS_BEFORE = datetime(2026, 7, 17)
+
+    def app_name(self):
+        return 'Bridgy Fed (Mastodon API)'
+
+    def app_url(self):
+        return 'https://fed.brid.gy/oauth-proxy'
+
+
+class ProxyPixelfedCallback(FlashErrors, oauth_dropins.pixelfed.Callback):
+    ON_ERROR_REDIRECT_TO = '/'
+
+    def finish(self, auth_entity, state=None):
+        return _finish_proxy_login(auth_entity, state)
+
+
+app.add_url_rule(
+    '/oauth/authorize/pixelfed/start',
+    view_func=ProxyPixelfedStart.as_view(
+        'proxy_pixelfed_start', '/oauth/authorize/pixelfed/finish'),
+    methods=['POST'])
+app.add_url_rule(
+    '/oauth/authorize/pixelfed/finish',
+    view_func=ProxyPixelfedCallback.as_view(
+        'proxy_pixelfed_finish', '/oauth/authorize'))
 
 
 @app.post('/oauth/token')
 @_logged
-@_web_only
 def oauth_token():
     return server.create_token_response()
 
@@ -552,7 +680,6 @@ def oauth_token():
 @app.get('/api/v2/instance')
 @app.get('/api/v2/instance/')
 @_logged
-@_web_only
 def instance_v2():
     return {
         'domain': request.host,
@@ -597,7 +724,6 @@ def account_dict(user):
 @app.get('/api/v1/accounts/verify_credentials')
 @app.get('/api/v1/accounts/verify_credentials/')
 @_logged
-@_web_only
 @require_oauth()
 def verify_credentials():
     if not (user := current_token.get_user()):

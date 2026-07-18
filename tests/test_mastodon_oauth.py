@@ -1,4 +1,4 @@
-"""Unit tests for mastodon_api.py."""
+"""Unit tests for mastodon_oauth.py."""
 import re
 import time
 from unittest.mock import patch
@@ -11,8 +11,9 @@ import webutil.models
 from webutil.testutil import requests_response
 
 from . import testutil
+import activitypub
 import common
-import mastodon_api
+import mastodon_oauth
 from web import Web
 from .testutil import TestCase
 
@@ -121,36 +122,101 @@ class MastodonApiTest(TestCase):
         self.assertIn('/oauth/authorize', resp.json['authorization_endpoint'])
         self.assertIn('/oauth/token', resp.json['token_endpoint'])
 
-    def test_non_web_subdomain_404(self):
-        app = self.register_app()
-        get_urls = ('/.well-known/oauth-authorization-server',
-                    f"/oauth/authorize?{self.authorize_query(app['client_id'])}",
-                    '/api/v2/instance', '/api/v1/accounts/verify_credentials')
-        for url in get_urls:
-            resp = self.client.get(url, base_url='https://atproto.brid.gy/')
-            self.assertEqual(404, resp.status_code, url)
-
-        for url in ('/api/v1/apps', '/oauth/token'):
-            resp = self.client.post(url, base_url='https://atproto.brid.gy/')
-            self.assertEqual(404, resp.status_code, url)
-
-    def test_authorize_renders_form(self):
+    def test_authorize_renders_login_form(self):
         app = self.register_app()
         resp = self.client.get(
             f"/oauth/authorize?{self.authorize_query(app['client_id'])}",
             base_url=BASE_URL)
         self.assertEqual(200, resp.status_code)
         self.assertIn('My App', resp.get_data(as_text=True))
+        self.assertIn('IndieAuth', resp.get_data(as_text=True))
 
-    def test_indieauth_start_non_beta_user_rejected(self):
+    def test_authorize_reuses_session_login(self):
+        """If the browser already has a Bridgy Fed session login, /oauth/authorize
+        should show a consent page instead of the login form.
+        """
+        indieauth.IndieAuth(id='https://alice.com', user_json='{}').put()
+        app = self.register_app()
+        with self.client.session_transaction(base_url=BASE_URL) as sess:
+            sess['oauth-dropins.logins'] = [('IndieAuth', 'https://alice.com')]
+
+        resp = self.client.get(
+            f"/oauth/authorize?{self.authorize_query(app['client_id'])}",
+            base_url=BASE_URL)
+        self.assertEqual(200, resp.status_code)
+        body = resp.get_data(as_text=True)
+        self.assertIn('My App', body)
+        self.assertIn('alice.com', body)
+        self.assertNotIn('IndieAuth-input', body)
+
+    def test_session_consent_issues_token(self):
+        indieauth.IndieAuth(id='https://alice.com', user_json='{}').put()
+        app = self.register_app()
+        with self.client.session_transaction(base_url=BASE_URL) as sess:
+            sess['oauth-dropins.logins'] = [('IndieAuth', 'https://alice.com')]
+
+        qs = self.authorize_query(app['client_id'])
+        resp = self.client.get(f'/oauth/authorize?{qs}', base_url=BASE_URL)
+        self.assertEqual(200, resp.status_code)
+
+        resp = self.client.post('/oauth/authorize', data={
+            'state': qs,
+            'user_key': self.user.key.urlsafe().decode(),
+        }, base_url=BASE_URL)
+        self.assertEqual(302, resp.status_code, resp.get_data(as_text=True))
+        location = resp.headers['Location']
+        self.assertTrue(location.startswith('https://app.example/callback'), location)
+        code = parse_qs(urlparse(location).query)['code'][0]
+
+        resp = self.client.post('/oauth/token', data={
+            'grant_type': 'authorization_code',
+            'code': code,
+            'redirect_uri': 'https://app.example/callback',
+            'client_id': app['client_id'],
+            'client_secret': app['client_secret'],
+        }, base_url=BASE_URL)
+        self.assertEqual(200, resp.status_code, resp.get_data(as_text=True))
+        self.assertTrue(resp.json['access_token'])
+
+    def test_session_consent_deny(self):
+        app = self.register_app()
+        qs = self.authorize_query(app['client_id'])
+        resp = self.client.post('/oauth/authorize', data={
+            'state': qs,
+            'deny': '1',
+        }, base_url=BASE_URL)
+        self.assertEqual(302, resp.status_code, resp.get_data(as_text=True))
+        parsed_qs = parse_qs(urlparse(resp.headers['Location']).query)
+        self.assertEqual('access_denied', parsed_qs['error'][0])
+
+    @patch.object(util.session, 'get', autospec=True, return_value=requests_response(''))
+    @patch.object(util.session, 'post', autospec=True,
+                  return_value=requests_response('me=https://bob.com'))
+    def test_non_beta_user_denied(self, mock_post, mock_get):
         self.make_user('bob.com', cls=Web)
         app = self.register_app()
         qs = self.authorize_query(app['client_id'])
+
+        resp = self.client.get(f'/oauth/authorize?{qs}', base_url=BASE_URL)
+        self.assertEqual(200, resp.status_code)
+
         resp = self.client.post('/oauth/authorize/indieauth/start', data={
             'me': 'https://bob.com',
             'state': qs,
         }, base_url=BASE_URL)
-        self.assertEqual(403, resp.status_code)
+        self.assertEqual(302, resp.status_code)
+        location = resp.headers['Location']
+        state = parse_qs(urlparse(location).query)['state'][0]
+
+        resp = self.client.get(
+            f'/oauth/authorize/indieauth/finish?code=my_code&state={state}',
+            base_url=BASE_URL)
+        self.assertEqual(302, resp.status_code, resp.get_data(as_text=True))
+        location = resp.headers['Location']
+        self.assertTrue(location.startswith('https://app.example/callback'), location)
+        parsed_qs = parse_qs(urlparse(location).query)
+        self.assertEqual('access_denied', parsed_qs['error'][0])
+        self.assertNotIn('code', parsed_qs)
 
     def test_authorize_bad_client_id(self):
         resp = self.client.get(
@@ -215,16 +281,16 @@ class MastodonApiTest(TestCase):
             'image': [{'url': 'https://bob.com/avatar.jpg'}],
             'summary': 'hi',
         })
-        got = mastodon_api.account_dict(user)
+        got = mastodon_oauth.account_dict(user)
         self.assertEqual('https://bob.com/avatar.jpg', got['avatar'])
         self.assertEqual('https://bob.com/avatar.jpg', got['avatar_static'])
         self.assertEqual('Bob', got['display_name'])
         self.assertEqual('hi', got['note'])
 
     def test_oob_flow_shows_code_instead_of_redirecting(self):
-        app = self.register_app(redirect_uris=mastodon_api.OOB_REDIRECT_URI)
+        app = self.register_app(redirect_uris=mastodon_oauth.OOB_REDIRECT_URI)
         qs = self.authorize_query(app['client_id'],
-                                  redirect_uri=mastodon_api.OOB_REDIRECT_URI)
+                                  redirect_uri=mastodon_oauth.OOB_REDIRECT_URI)
         resp = self.login_raw(app['client_id'], authorize_qs=qs)
         self.assertEqual(200, resp.status_code, resp.get_data(as_text=True))
         self.assertNotIn('Location', resp.headers)
@@ -232,14 +298,14 @@ class MastodonApiTest(TestCase):
         body = resp.get_data(as_text=True)
         match = re.search(r'id="code" readonly value="([^"]+)"', body)
         self.assertTrue(match, body)
-        payload = mastodon_api.decode_code(match.group(1))
+        payload = mastodon_oauth.decode_code(match.group(1))
         self.assertIsNotNone(payload)
-        self.assertEqual(mastodon_api.OOB_REDIRECT_URI, payload['redirect_uri'])
+        self.assertEqual(mastodon_oauth.OOB_REDIRECT_URI, payload['redirect_uri'])
 
     def test_pkce_happy_path(self):
         app = self.register_app()
         code_verifier = 'x' * 43
-        code_challenge = mastodon_api.create_s256_code_challenge(code_verifier)
+        code_challenge = mastodon_oauth.create_s256_code_challenge(code_verifier)
         qs = self.authorize_query(app['client_id'], code_challenge=code_challenge,
                                   code_challenge_method='S256')
         location = self.login(app['client_id'], authorize_qs=qs)
@@ -258,7 +324,7 @@ class MastodonApiTest(TestCase):
     def test_pkce_wrong_code_verifier(self):
         app = self.register_app()
         code_verifier = 'x' * 43
-        code_challenge = mastodon_api.create_s256_code_challenge(code_verifier)
+        code_challenge = mastodon_oauth.create_s256_code_challenge(code_verifier)
         qs = self.authorize_query(app['client_id'], code_challenge=code_challenge,
                                   code_challenge_method='S256')
         location = self.login(app['client_id'], authorize_qs=qs)
@@ -281,10 +347,10 @@ class MastodonApiTest(TestCase):
 
         # decode, force exp into the past, re-encode with the real key, since we
         # can't easily wait 60s in a test
-        payload = jwt.decode(code, algorithms=[mastodon_api.JWT_ALG],
+        payload = jwt.decode(code, algorithms=[mastodon_oauth.JWT_ALG],
                              key=webutil.models.ENCRYPTED_PROPERTY_KEYS_BYTES[0])
         payload['exp'] = int(time.time()) - 1
-        expired_code = jwt.encode(payload, algorithm=mastodon_api.JWT_ALG,
+        expired_code = jwt.encode(payload, algorithm=mastodon_oauth.JWT_ALG,
                                   key=webutil.models.ENCRYPTED_PROPERTY_KEYS_BYTES[0])
 
         resp = self.client.post('/oauth/token', data={
@@ -334,7 +400,7 @@ class MastodonApiTest(TestCase):
     def test_cross_type_blob_rejected_as_code(self):
         """A signed access token used as an authorization code must be rejected."""
         app = self.register_app()
-        token = mastodon_api.encode_token(user_key=self.user.key,
+        token = mastodon_oauth.encode_token(user_key=self.user.key,
                                           client_id=app['client_id'], scope='read')
 
         resp = self.client.post('/oauth/token', data={
@@ -369,3 +435,35 @@ class MastodonApiTest(TestCase):
         resp = self.client.get('/api/v1/accounts/verify_credentials',
                                base_url=BASE_URL)
         self.assertEqual(401, resp.status_code)
+
+    def test_bluesky_proxy_client_metadata(self):
+        resp = self.client.get('/oauth/authorize/bluesky/client-metadata.json',
+                               base_url=BASE_URL)
+        self.assertEqual(200, resp.status_code)
+        self.assertEqual(
+            [f'{BASE_URL.rstrip("/")}/oauth/authorize/bluesky/finish'],
+            resp.json['redirect_uris'])
+        # distinct client_id from atproto.py's own /settings-flow client metadata
+        self.assertNotEqual('/oauth/bluesky/client-metadata.json',
+                            resp.json['client_id'])
+
+    def test_proxy_mastodon_pixelfed_distinct_app_registration(self):
+        """The proxy Mastodon/Pixelfed flows must register their own app, with
+        their own redirect_uris, separate from activitypub.py's /settings-flow
+        apps -- otherwise a cached app registered without our proxy redirect_uri
+        would get reused and rejected by the remote instance.
+        """
+        self.assertNotEqual(activitypub.MastodonStart('/x').app_url(),
+                            mastodon_oauth.ProxyMastodonStart('/x').app_url())
+        self.assertNotEqual(activitypub.PixelfedStart('/x').app_url(),
+                            mastodon_oauth.ProxyPixelfedStart('/x').app_url())
+
+    def test_proxy_start_routes_registered(self):
+        # these just need to not 404; full live-flow tests would need mocking
+        # remote app registration, which activitypub.py's own non-proxy Mastodon
+        # and Pixelfed flows don't have test coverage for either
+        for path in ('/oauth/authorize/bluesky/start',
+                    '/oauth/authorize/mastodon/start',
+                    '/oauth/authorize/pixelfed/start'):
+            resp = self.client.post(path, base_url=BASE_URL)
+            self.assertNotEqual(404, resp.status_code, path)
