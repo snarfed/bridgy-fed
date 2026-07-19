@@ -38,8 +38,8 @@ def verify_credentials(user):
     return {
         'id': user.key.id(),
         'uri': user.id_as(ActivityPub),
-        'username': user.username(),
-        'acct': user.handle,
+        'username': user.handle,
+        'acct': user.handle_as(ActivityPub),
         'display_name': user.name(),
         'url': user.web_url(),
         'avatar': image,
