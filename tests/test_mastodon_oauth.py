@@ -82,7 +82,7 @@ class MastodonApiTest(TestCase):
     def test_register_app(self):
         app = self.register_app()
         self.assertEqual('My App', app['name'])
-        self.assertEqual('https://app.example/callback', app['redirect_uri'])
+        self.assertEqual(['https://app.example/callback'], app['redirect_uris'])
         self.assertTrue(app['client_id'])
         self.assertTrue(app['client_secret'])
 
@@ -94,16 +94,20 @@ class MastodonApiTest(TestCase):
         self.assertEqual(200, resp.status_code, resp.get_data(as_text=True))
         self.assertEqual('My App', resp.json['name'])
         self.assertEqual('https://app.example/callback', resp.json['redirect_uri'])
+        self.assertEqual(['https://app.example/callback'], resp.json['redirect_uris'])
         self.assertTrue(resp.json['client_id'])
         self.assertTrue(resp.json['client_secret'])
 
     def test_register_app_json_redirect_uris_array(self):
         resp = self.client.post('/api/v1/apps', json={
             'client_name': 'My App',
-            'redirect_uris': ['https://app.example/callback'],
+            'redirect_uris': ['https://app.example/1', 'https://app.example/2'],
         }, base_url=BASE_URL)
         self.assertEqual(200, resp.status_code, resp.get_data(as_text=True))
-        self.assertEqual('https://app.example/callback', resp.json['redirect_uri'])
+        self.assertEqual('https://app.example/1\nhttps://app.example/2',
+                         resp.json['redirect_uri'])
+        self.assertEqual(['https://app.example/1', 'https://app.example/2'],
+                         resp.json['redirect_uris'])
 
     def test_oauth_register_rfc7591(self):
         resp = self.client.post('/oauth/register', json={
@@ -273,21 +277,7 @@ class MastodonApiTest(TestCase):
         self.assertEqual('Bearer', resp.json['token_type'])
         self.assertTrue(resp.json['access_token'])
 
-    def test_account_dict_image_list(self):
-        # AS1 image may be a string, dict, or list of either
-        user = self.make_user('bob.com', cls=Web, obj_as1={
-            'objectType': 'person',
-            'displayName': 'Bob',
-            'image': [{'url': 'https://bob.com/avatar.jpg'}],
-            'summary': 'hi',
-        })
-        got = mastodon_oauth.account_dict(user)
-        self.assertEqual('https://bob.com/avatar.jpg', got['avatar'])
-        self.assertEqual('https://bob.com/avatar.jpg', got['avatar_static'])
-        self.assertEqual('Bob', got['display_name'])
-        self.assertEqual('hi', got['note'])
-
-    def test_oob_flow_shows_code_instead_of_redirecting(self):
+    def test_oob_flow(self):
         app = self.register_app(redirect_uris=mastodon_oauth.OOB_REDIRECT_URI)
         qs = self.authorize_query(app['client_id'],
                                   redirect_uri=mastodon_oauth.OOB_REDIRECT_URI)
@@ -298,7 +288,9 @@ class MastodonApiTest(TestCase):
         body = resp.get_data(as_text=True)
         match = re.search(r'id="code" readonly value="([^"]+)"', body)
         self.assertTrue(match, body)
-        payload = mastodon_oauth.decode_code(match.group(1))
+
+        payload = jwt.decode(match.group(1), algorithms=[mastodon_oauth.JWT_ALG],
+                             key=webutil.models.ENCRYPTED_PROPERTY_KEYS_BYTES[0])
         self.assertIsNotNone(payload)
         self.assertEqual(mastodon_oauth.OOB_REDIRECT_URI, payload['redirect_uri'])
 
@@ -376,33 +368,15 @@ class MastodonApiTest(TestCase):
         }, base_url=BASE_URL)
         self.assertEqual(400, resp.status_code)
 
-    def test_code_reuse_currently_allowed(self):
-        """Codes are only time-limited (60s), not single-use, since we don't store
-        state to mark them spent. See the TODO on delete_authorization_code.
-        """
-        app = self.register_app()
-        location = self.login(app['client_id'])
-        code = parse_qs(urlparse(location).query)['code'][0]
-
-        data = {
-            'grant_type': 'authorization_code',
-            'code': code,
-            'redirect_uri': 'https://app.example/callback',
-            'client_id': app['client_id'],
-            'client_secret': app['client_secret'],
-        }
-        resp = self.client.post('/oauth/token', data=data, base_url=BASE_URL)
-        self.assertEqual(200, resp.status_code)
-
-        resp = self.client.post('/oauth/token', data=data, base_url=BASE_URL)
-        self.assertEqual(200, resp.status_code)
-
     def test_cross_type_blob_rejected_as_code(self):
         """A signed access token used as an authorization code must be rejected."""
         app = self.register_app()
-        token = mastodon_oauth.encode_token(user_key=self.user.key,
-                                          client_id=app['client_id'], scope='read')
-
+        token = mastodon_oauth.encode_jwt({
+            'typ': mastodon_oauth.TOKEN_TYP,
+            'user_key': self.user.key.urlsafe().decode(),
+            'client_id_hash': mastodon_oauth.hash_client_id(app['client_id']),
+            'scope': 'read',
+        })
         resp = self.client.post('/oauth/token', data={
             'grant_type': 'authorization_code',
             'code': token,

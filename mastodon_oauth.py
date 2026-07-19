@@ -35,6 +35,7 @@ from webutil.models import ENCRYPTED_PROPERTY_KEYS_BYTES
 from webutil.flask_util import error, FlashErrors, flash
 from werkzeug.exceptions import HTTPException
 
+from activitypub import ActivityPub
 import common
 from common import render_template
 import domains
@@ -49,14 +50,6 @@ CODE_TYP = 'mastodon-oauth-code'
 TOKEN_TYP = 'mastodon-oauth-token'
 CODE_MAX_AGE = timedelta(seconds=60)
 OOB_REDIRECT_URI = 'urn:ietf:wg:oauth:2.0:oob'
-
-
-def _response_body(resp):
-    if isinstance(resp, tuple):
-        resp = resp[0]
-    if hasattr(resp, 'get_data'):
-        return resp.get_data(as_text=True)
-    return repr(resp)
 
 
 def log_request_response(fn):
@@ -79,7 +72,10 @@ def log_request_response(fn):
             logger.info(f'<< {e.code}: {body}')
             raise
 
-        logger.info(f'<< {_response_body(resp)}')
+        body = resp[0] if isinstance(resp, tuple) else resp
+        if hasattr(body, 'get_data'):
+            body = body.get_data(as_text=True)
+        logger.info(f'<< {resp}')
         return resp
 
     wrapper.__name__ = fn.__name__
@@ -90,25 +86,21 @@ def hash_client_id(client_id):
     return hashlib.sha256(client_id.encode()).hexdigest()
 
 
-def encode_client(client_name, website, redirect_uris):
-    return jwt.encode({
-        'typ': CLIENT_TYP,
-        'client_name': client_name,
-        'website': website,
-        'redirect_uris': redirect_uris,
-    }, key=ENCRYPTED_PROPERTY_KEYS_BYTES[0], algorithm=JWT_ALG)
+def encode_jwt(val):
+    return jwt.encode(val, key=ENCRYPTED_PROPERTY_KEYS_BYTES[0], algorithm=JWT_ALG)
 
 
-def decode_client(client_id):
+def decode_jwt(val, typ):
+    """Decodes a JWT and checks its ``typ``."""
     try:
-        payload = jwt.decode(client_id, key=ENCRYPTED_PROPERTY_KEYS_BYTES[0],
+        payload = jwt.decode(val, key=ENCRYPTED_PROPERTY_KEYS_BYTES[0],
                              algorithms=[JWT_ALG])
     except jwt.InvalidTokenError as e:
-        logger.info(f'decode_client failed for {client_id!r}: {e}')
+        logger.info(f'decode failed for {val}: {e}')
         return None
 
-    if payload.get('typ') != CLIENT_TYP:
-        logger.info(f"decode_client: wrong typ {payload.get('typ')!r} for {client_id!r}")
+    if payload.get('typ') != typ:
+        logger.info(f"expected type {typ} but got {payload['typ']} in {val}")
         return None
 
     return payload
@@ -117,61 +109,6 @@ def decode_client(client_id):
 def client_secret_for(client_id):
     return hmac.new(ENCRYPTED_PROPERTY_KEYS_BYTES[0], client_id.encode(),
                     hashlib.sha256).hexdigest()
-
-
-def encode_code(*, user_key, client_id, redirect_uri, scope, code_challenge,
-                code_challenge_method):
-    return jwt.encode({
-        'typ': CODE_TYP,
-        # real wall-clock time, not util.now(): PyJWT checks 'exp' against real time
-        # regardless of any test-time mocking
-        'exp': int(time.time() + CODE_MAX_AGE.total_seconds()),
-        'user_key': user_key.urlsafe().decode(),
-        'client_id_hash': hash_client_id(client_id),
-        'redirect_uri': redirect_uri,
-        'scope': scope,
-        'code_challenge': code_challenge,
-        'code_challenge_method': code_challenge_method,
-    }, key=ENCRYPTED_PROPERTY_KEYS_BYTES[0], algorithm=JWT_ALG)
-
-
-def decode_code(code):
-    try:
-        payload = jwt.decode(code, key=ENCRYPTED_PROPERTY_KEYS_BYTES[0],
-                             algorithms=[JWT_ALG])
-    except jwt.InvalidTokenError as e:
-        logger.info(f'decode_code failed for {code!r}: {e}')
-        return None
-
-    if payload.get('typ') != CODE_TYP:
-        logger.info(f"decode_code: wrong typ {payload.get('typ')!r} for {code!r}")
-        return None
-
-    return payload
-
-
-def encode_token(*, user_key, client_id, scope):
-    return jwt.encode({
-        'typ': TOKEN_TYP,
-        'user_key': user_key.urlsafe().decode(),
-        'client_id_hash': hash_client_id(client_id),
-        'scope': scope,
-    }, key=ENCRYPTED_PROPERTY_KEYS_BYTES[0], algorithm=JWT_ALG)
-
-
-def decode_token(token):
-    try:
-        payload = jwt.decode(token, key=ENCRYPTED_PROPERTY_KEYS_BYTES[0],
-                             algorithms=[JWT_ALG])
-    except jwt.InvalidTokenError as e:
-        logger.info(f'decode_token failed for {token!r}: {e}')
-        return None
-
-    if payload.get('typ') != TOKEN_TYP:
-        logger.info(f"decode_token: wrong typ {payload.get('typ')!r} for {token!r}")
-        return None
-
-    return payload
 
 
 class Client(ClientMixin):
@@ -231,43 +168,49 @@ class AuthCode(AuthorizationCodeMixin):
 
 class BFAuthorizationCodeGrant(AuthorizationCodeGrant):
     def create_authorization_response(self, redirect_uri, grant_user):
-        if redirect_uri != OOB_REDIRECT_URI:
-            return super().create_authorization_response(redirect_uri, grant_user)
+        # out of band flow for non-web clients that can't show a webview
+        if redirect_uri == OOB_REDIRECT_URI:
+            logger.info('oob flow, rendering an authorization code')
 
-        # can't redirect to the oob URN, so show the code as text instead, like
-        # real Mastodon does
-        if not grant_user:
-            raise AccessDeniedError(redirect_uri=redirect_uri)
+            if not grant_user:
+                raise AccessDeniedError(redirect_uri=redirect_uri)
 
-        self.request.user = grant_user
-        code = self.generate_authorization_code()
-        self.save_authorization_code(code, self.request)
-        return 200, render_template('mastodon_oauth_code.html', code=code), []
+            self.request.user = grant_user
+            code = self.generate_authorization_code()
+            self.save_authorization_code(code, self.request)
+            return 200, render_template('mastodon_oauth_code.html', code=code), []
+
+        return super().create_authorization_response(redirect_uri, grant_user)
 
     def generate_authorization_code(self):
-        req = self.request
-        # same defaulting authlib itself applies in create_authorization_response();
-        # the resolved redirect_uri isn't otherwise available here
-        redirect_uri = req.payload.redirect_uri or req.client.get_default_redirect_uri()
-        return encode_code(
-            user_key=req.user.key,
-            client_id=req.client.get_client_id(),
-            redirect_uri=redirect_uri,
-            scope=req.scope,
-            code_challenge=req.payload.data.get('code_challenge'),
-            code_challenge_method=req.payload.data.get('code_challenge_method'),
-        )
+        return encode_jwt({
+            'typ': CODE_TYP,
+            # real wall-clock time, not util.now(): PyJWT checks 'exp' against real
+            # time regardless of any test-time mocking
+            'exp': int(time.time() + CODE_MAX_AGE.total_seconds()),
+            'user_key': self.request.user.key.urlsafe().decode(),
+            'client_id_hash': hash_client_id(self.request.client.get_client_id()),
+            # same defaulting as authlib itself, in create_authorization_response();
+            # the resolved redirect_uri isn't otherwise available here
+            'redirect_uri': (self.request.payload.redirect_uri
+                             or self.request.client.get_default_redirect_uri()),
+            'scope': self.request.scope,
+            'code_challenge': self.request.payload.data.get('code_challenge'),
+            'code_challenge_method': self.request.payload.data.get('code_challenge_method'),
+        })
 
     def save_authorization_code(self, code, request):
         pass
 
     def query_authorization_code(self, code, client):
-        payload = decode_code(code)
-        if not payload:
+        if not (payload := decode_jwt(code, CODE_TYP)):
             return None
-        if payload['client_id_hash'] != hash_client_id(client.get_client_id()):
-            logger.info(f"query_authorization_code: client_id_hash mismatch, code was issued to {payload['client_id_hash']}, token request is from {client.get_client_id()} (hash {hash_client_id(client.get_client_id())})")
+
+        client_id_hash = hash_client_id(client.get_client_id())
+        if payload['client_id_hash'] != client_id_hash:
+            logger.info(f"query_authorization_code: client_id_hash mismatch, code was issued to {payload['client_id_hash']}, token request is from {client.get_client_id()} (hash {client_id_hash})")
             return None
+
         return AuthCode(payload)
 
     def delete_authorization_code(self, authorization_code):
@@ -314,21 +257,25 @@ class Token(TokenMixin):
 
 
 class BearerValidator(BearerTokenValidator):
-    def authenticate_token(self, token_string):
-        if payload := decode_token(token_string):
+    def authenticate_token(self, token):
+        if payload := decode_jwt(token, TOKEN_TYP):
             return Token(payload)
 
 
 def query_client(client_id):
-    if payload := decode_client(client_id):
+    if payload := decode_jwt(client_id, CLIENT_TYP):
         return Client(client_id, payload)
     logger.info(f'query_client: no client for {client_id}')
 
 
 def generate_bearer_token(grant_type, client, user=None, scope=None,
                           expires_in=None, include_refresh_token=True):
-    token = encode_token(user_key=user.key, client_id=client.get_client_id(),
-                         scope=scope)
+    token = encode_jwt({
+        'typ': TOKEN_TYP,
+        'user_key': user.key.urlsafe().decode(),
+        'client_id_hash': hash_client_id(client.get_client_id()),
+        'scope': scope,
+    })
     return {
         'access_token': token,
         'token_type': 'Bearer',
@@ -358,7 +305,7 @@ class JsonAwareOAuth2Request(FlaskOAuth2Request):
 
 
 class JsonAwareAuthorizationServer(AuthorizationServer):
-    def create_oauth2_request(self, _request):
+    def create_oauth2_request(self, _):
         return JsonAwareOAuth2Request(request)
 
 
@@ -408,12 +355,18 @@ def create_app():
         redirect_uris = redirect_uris.split()
 
     website = params.get('website') or ''
-    client_id = encode_client(client_name, website, redirect_uris)
+    client_id = encode_jwt({
+        'typ': CLIENT_TYP,
+        'client_name': client_name,
+        'website': website,
+        'redirect_uris': redirect_uris,
+    })
     return {
         'id': hash_client_id(client_id)[:16],
         'name': client_name,
         'website': website,
-        'redirect_uri': redirect_uris[0],
+        'redirect_uri': '\n'.join(redirect_uris),
+        'redirect_uris': redirect_uris,
         'client_id': client_id,
         'client_secret': client_secret_for(client_id),
         'vapid_key': '',
@@ -430,7 +383,12 @@ def oauth_register():
 
     client_name = data.get('client_name') or ''
     website = data.get('client_uri') or ''
-    client_id = encode_client(client_name, website, redirect_uris)
+    client_id = encode_jwt({
+        'typ': CLIENT_TYP,
+        'client_name': client_name,
+        'website': website,
+        'redirect_uris': redirect_uris,
+    })
     return {
         'client_id': client_id,
         'client_secret': client_secret_for(client_id),
@@ -466,9 +424,9 @@ def _grant_or_deny(grant_user, state):
             request=req, grant_user=grant_user, grant=grant)
     except OAuth2Error as err:
         logger.info(err)
-        return server.handle_error_response(None, err)
+        resp = server.handle_error_response(None, err)
 
-    logger.info(f'<< {_response_body(resp)}, Location: {resp.headers.get("Location")}')
+    logger.info(f'<< {resp.get_data(as_text=True)}, Location: {resp.headers.get("Location")}')
     return resp
 
 
@@ -689,30 +647,6 @@ def instance_v2():
     }
 
 
-def account_dict(user):
-    as1 = user.obj.as1 if user.obj and user.obj.as1 else {}
-    # AS1 image may be a string, dict, or list of either
-    image = util.get_url(as1, 'image') or ''
-    return {
-        'id': user.key.id(),
-        'username': user.handle,
-        'acct': user.handle,
-        'display_name': user.name(),
-        'url': user.web_url(),
-        'avatar': image,
-        'avatar_static': image,
-        'header': '',
-        'header_static': '',
-        'note': as1.get('summary') or '',
-        'locked': False,
-        'bot': False,
-        'created_at': as1.get('published') or '',
-        'followers_count': 0,
-        'following_count': 0,
-        'statuses_count': 0,
-    }
-
-
 @app.get('/api/v1/accounts/verify_credentials')
 @app.get('/api/v1/accounts/verify_credentials/')
 @log_request_response
@@ -721,4 +655,25 @@ def verify_credentials():
     if not (user := current_token.get_user()):
         error('Account not found', status=401)
 
-    return account_dict(user)
+    # TODO: move to granary.mastodon
+    obj_as1 = user.obj.as1 if user.obj and user.obj.as1 else {}
+    image = util.get_url(obj_as1, 'image')
+    return {
+        'id': user.key.id(),
+        'uri': user.id_as(ActivityPub),
+        'username': user.handle,
+        'acct': user.handle,
+        'display_name': user.name(),
+        'url': user.web_url(),
+        'avatar': image,
+        'avatar_static': image,
+        'header': '',
+        'header_static': '',
+        'note': obj_as1.get('summary'),
+        'locked': False,
+        'bot': False,
+        'created_at': obj_as1.get('published'),
+        'followers_count': 0,
+        'following_count': 0,
+        'statuses_count': 0,
+    }
