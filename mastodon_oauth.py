@@ -23,7 +23,8 @@ from authlib.oauth2.rfc6749.requests import BasicOAuth2Payload
 from authlib.oauth2.rfc6750 import BearerTokenValidator
 from authlib.oauth2.rfc7636 import CodeChallenge, create_s256_code_challenge
 from authlib.oauth2.rfc8414 import AuthorizationServerMetadata
-from flask import redirect, request
+from flask import redirect, Response, request
+from google.cloud import ndb
 from google.cloud.ndb.key import Key
 import jwt
 from oauth_dropins import indieauth
@@ -32,7 +33,7 @@ import oauth_dropins.mastodon
 import oauth_dropins.pixelfed
 from webutil import util
 from webutil.models import ENCRYPTED_PROPERTY_KEYS_BYTES
-from webutil.flask_util import error, FlashErrors, flash
+from webutil.flask_util import error, FlashErrors, flash, get_required_param
 from werkzeug.exceptions import HTTPException
 
 from activitypub import ActivityPub
@@ -72,10 +73,9 @@ def log_request_response(fn):
             logger.info(f'<< {e.code}: {body}')
             raise
 
-        body = resp[0] if isinstance(resp, tuple) else resp
-        if hasattr(body, 'get_data'):
-            body = body.get_data(as_text=True)
-        logger.info(f'<< {body}')
+        if not isinstance(resp, str):
+            logger.info(f'<< {resp}')
+
         return resp
 
     wrapper.__name__ = fn.__name__
@@ -414,11 +414,10 @@ def _finish_proxy_login(auth_entity, state):
         flash("OK, you're not logged in.")
         return redirect('/')
 
-    user_key = pages.login_to_user_key(auth_entity)
-    grant_user = user_key.get() if user_key else None
-    logger.info(f'grant_user: {grant_user}')
-    if not grant_user:
+    if (not (user_key := pages.login_to_user_key(auth_entity))
+            or not (grant_user := user_key.get())):
         flash("That account isn't set up on Bridgy Fed yet.")
+        return redirect('/')
 
     return _grant_or_deny(grant_user, state)
 
@@ -433,28 +432,23 @@ def oauth_authorize():
         logger.info(err)
         return server.handle_error_response(None, err)
 
-    existing_logins = []
-    for login in pages.get_logins():
-        if (user_key := pages.login_to_user_key(login)) and (user := user_key.get()):
-            existing_logins.append(user)
-
+    logins = ndb.get_multi(pages.login_to_user_key(l) for l in pages.get_logins())
     client_name = grant.request.client.client_name
     state = request.query_string.decode()
 
     return render_template('mastodon_oauth_login.html', client_name=client_name,
-                           state=state, existing_logins=existing_logins)
+                           state=state, existing_logins=logins)
 
 
 @app.post('/oauth/authorize')
 @log_request_response
 def oauth_authorize_consent():
     """Shows the authorization consent prompt."""
-    state = request.form.get('state') or ''
     grant_user = None
     if not request.form.get('deny') and (key := request.form.get('user_key')):
         grant_user = Key(urlsafe=key).get()
 
-    return _grant_or_deny(grant_user, state)
+    return _grant_or_deny(grant_user, get_required_param('state'))
 
 
 @app.post('/oauth/token')

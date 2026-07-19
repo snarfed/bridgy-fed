@@ -282,6 +282,8 @@ class Nostr(User, Protocol):
                 return granary.nostr.Nostr.user_url(
                     id_to_uri('npub', id).removeprefix('nostr:'))
 
+        return super().bridged_web_url_for(user, fallback=fallback)
+
     @classmethod
     def target_for(cls, obj, shared=False):
         """Returns the first NIP-65 relay for the given object's author."""

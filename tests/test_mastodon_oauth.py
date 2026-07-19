@@ -297,7 +297,7 @@ class MastodonApiTest(TestCase):
         self.assertIsNotNone(payload)
         self.assertEqual(mastodon_oauth.OOB_REDIRECT_URI, payload['redirect_uri'])
 
-    def test_pkce_happy_path(self):
+    def test_pkce(self):
         app = self.register_app()
         code_verifier = 'x' * 43
         code_challenge = mastodon_oauth.create_s256_code_challenge(code_verifier)

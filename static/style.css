@@ -1058,6 +1058,13 @@ input:checked + .slider:before {
   white-space: nowrap;
 }
 
+/* Mastodon OAuth */
+.account-chooser button a {
+  /* the user's link shouldn't navigate; clicks should always submit the form */
+  pointer-events: none;
+}
+
+
 @media (scripting: none) {
   .login-button {
     margin-top:20px;

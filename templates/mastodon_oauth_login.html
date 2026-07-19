@@ -3,19 +3,24 @@
 
 {% block content %}
 
-<p class="row big"><strong>{{ client_name }}</strong> wants to connect via Bridgy Fed. Choose an account:</p>
+<p class="row big"><strong>{{ client_name }}</strong> wants to connect to Bridgy Fed. Choose an account:</p>
 
-{% if existing_logins %}
-<div class="row big" style="font-size: 14px">
-  {% for user in existing_logins %}
+<style>
+  /* html_link()'s own <a> shouldn't navigate; clicks should always submit the
+     surrounding button */
+  .account-chooser button a { pointer-events: none; }
+</style>
+{% for user in existing_logins %}
+<div class="row big account-chooser">
   <form method="post" action="/oauth/authorize" style="display: inline">
     <input name="state" type="hidden" value="{{ state }}">
     <input name="user_key" type="hidden" value="{{ user.key.urlsafe().decode() }}">
-    <input type="submit" class="btn-link" value="{{ user.handle_or_id() }}">
+    <button type="submit" class="btn-link">{{ user.html_link(pictures=True)|safe }}</button>
   </form>
-  {% endfor %}
 </div>
+{% endfor %}
 
+{% if existing_logins %}
 <p class="row big">
 ...or log into another account:
 </p>
