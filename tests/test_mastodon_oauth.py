@@ -281,6 +281,28 @@ class MastodonApiTest(TestCase):
         self.assertEqual('Bearer', resp.json['token_type'])
         self.assertTrue(resp.json['access_token'])
 
+    def test_tokens_are_unique_per_issuance(self):
+        """Two tokens for the same user + client + scope must differ, so that
+        revoking one (future denylist) doesn't kill a re-issued one.
+        """
+        app = self.register_app()
+        location = self.login(app['client_id'])
+        code = parse_qs(urlparse(location).query)['code'][0]
+
+        tokens = []
+        for i in range(2):
+            resp = self.client.post('/oauth/token', data={
+                'grant_type': 'authorization_code',
+                'code': code,
+                'redirect_uri': 'https://app.example/callback',
+                'client_id': app['client_id'],
+                'client_secret': app['client_secret'],
+            }, base_url=BASE_URL)
+            self.assertEqual(200, resp.status_code, resp.get_data(as_text=True))
+            tokens.append(resp.json['access_token'])
+
+        self.assertNotEqual(tokens[0], tokens[1])
+
     def test_oob_flow(self):
         app = self.register_app(redirect_uris=mastodon_oauth.OOB_REDIRECT_URI)
         qs = self.authorize_query(app['client_id'],

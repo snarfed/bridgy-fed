@@ -4,6 +4,7 @@ import hashlib
 import hmac
 import logging
 import os
+import secrets
 import time
 from urllib.parse import parse_qsl
 
@@ -224,6 +225,7 @@ class Token(TokenMixin):
     The access token itself is a self-contained JWT and provides all data.
     """
     def __init__(self, payload):
+        self.jti = payload.get('jti')
         self.user_key = Key(urlsafe=payload['user_key'])
         self.scope = payload.get('scope') or ''
 
@@ -237,7 +239,7 @@ class Token(TokenMixin):
         return False
 
     def is_revoked(self):
-        # TODO: check a datastore denylist of revoked token hashes, once we add
+        # TODO: check a datastore denylist of revoked jtis, once we add
         # POST /oauth/revoke. Storing only revocations keeps this stateless in
         # the common case.
         return False
@@ -267,7 +269,10 @@ def query_client(client_id):
 def generate_bearer_token(grant_type, client, user=None, scope=None,
                           expires_in=None, include_refresh_token=True):
     token = encode_jwt({
+        # https://datatracker.ietf.org/doc/html/rfc7519#section-5.1
         'typ': TOKEN_TYP,
+        # unique nonce, https://datatracker.ietf.org/doc/html/rfc7519#section-4.1.7
+        'jti': secrets.token_urlsafe(16),
         'user_key': user.key.urlsafe().decode(),
         'client_id_hash': hash_client_id(client.get_client_id()),
         'scope': scope,
