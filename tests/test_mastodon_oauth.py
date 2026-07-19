@@ -390,30 +390,6 @@ class MastodonApiTest(TestCase):
         }, base_url=BASE_URL)
         self.assertEqual(400, resp.status_code)
 
-    def test_verify_credentials_tampered_token(self):
-        app = self.register_app()
-        location = self.login(app['client_id'])
-        code = parse_qs(urlparse(location).query)['code'][0]
-        resp = self.client.post('/oauth/token', data={
-            'grant_type': 'authorization_code',
-            'code': code,
-            'redirect_uri': 'https://app.example/callback',
-            'client_id': app['client_id'],
-            'client_secret': app['client_secret'],
-        }, base_url=BASE_URL)
-        token = resp.json['access_token']
-        bad_token = token[:-1] + ('x' if token[-1] != 'x' else 'y')
-
-        resp = self.client.get('/api/v1/accounts/verify_credentials',
-                               headers={'Authorization': f'Bearer {bad_token}'},
-                               base_url=BASE_URL)
-        self.assertEqual(401, resp.status_code)
-
-    def test_verify_credentials_no_token(self):
-        resp = self.client.get('/api/v1/accounts/verify_credentials',
-                               base_url=BASE_URL)
-        self.assertEqual(401, resp.status_code)
-
     def test_atproto_proxy_client_metadata(self):
         resp = self.client.get('/oauth/atproto/client-metadata.json',
                                base_url=BASE_URL)

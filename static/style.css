@@ -1059,6 +1059,10 @@ input:checked + .slider:before {
 }
 
 /* Mastodon OAuth */
+.account-chooser .btn-link {
+  font-weight: 300;
+}
+
 .account-chooser button a {
   /* the user's link shouldn't navigate; clicks should always submit the form */
   pointer-events: none;

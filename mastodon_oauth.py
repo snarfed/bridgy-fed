@@ -9,7 +9,6 @@ from urllib.parse import parse_qsl
 
 from authlib.integrations.flask_oauth2 import AuthorizationServer, ResourceProtector
 from authlib.integrations.flask_oauth2.requests import FlaskOAuth2Request
-from authlib.integrations.flask_oauth2.resource_protector import current_token
 from authlib.oauth2 import OAuth2Error
 from authlib.oauth2.rfc6749 import (
     AccessDeniedError,
@@ -31,12 +30,10 @@ from oauth_dropins import indieauth
 import oauth_dropins.bluesky
 import oauth_dropins.mastodon
 import oauth_dropins.pixelfed
-from webutil import util
 from webutil.models import ENCRYPTED_PROPERTY_KEYS_BYTES
 from webutil.flask_util import error, FlashErrors, flash, get_required_param
 from werkzeug.exceptions import HTTPException
 
-from activitypub import ActivityPub
 import common
 from common import render_template
 import domains
@@ -474,38 +471,6 @@ def instance_v2():
             'email': 'feedback@brid.gy',
         },
         'rules': [],
-    }
-
-
-@app.get('/api/v1/accounts/verify_credentials')
-@app.get('/api/v1/accounts/verify_credentials/')
-@log_request_response
-@require_oauth()
-def verify_credentials():
-    if not (user := current_token.get_user()):
-        error('Account not found', status=401)
-
-    # TODO: move to granary.mastodon
-    obj_as1 = user.obj.as1 if user.obj and user.obj.as1 else {}
-    image = util.get_url(obj_as1, 'image')
-    return {
-        'id': user.key.id(),
-        'uri': user.id_as(ActivityPub),
-        'username': user.handle,
-        'acct': user.handle,
-        'display_name': user.name(),
-        'url': user.web_url(),
-        'avatar': image,
-        'avatar_static': image,
-        'header': '',
-        'header_static': '',
-        'note': obj_as1.get('summary'),
-        'locked': False,
-        'bot': False,
-        'created_at': obj_as1.get('published'),
-        'followers_count': 0,
-        'following_count': 0,
-        'statuses_count': 0,
     }
 
 
