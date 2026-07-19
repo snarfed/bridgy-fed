@@ -75,7 +75,7 @@ def log_request_response(fn):
         body = resp[0] if isinstance(resp, tuple) else resp
         if hasattr(body, 'get_data'):
             body = body.get_data(as_text=True)
-        logger.info(f'<< {resp}')
+        logger.info(f'<< {body}')
         return resp
 
     wrapper.__name__ = fn.__name__
@@ -328,7 +328,6 @@ def oauth_metadata():
         'issuer': domains.host_url(),
         'authorization_endpoint': domains.host_url('/oauth/authorize'),
         'token_endpoint': domains.host_url('/oauth/token'),
-        'registration_endpoint': domains.host_url('/oauth/register'),
         'response_types_supported': ['code'],
         'grant_types_supported': ['authorization_code'],
         'token_endpoint_auth_methods_supported': [
@@ -373,35 +372,8 @@ def create_app():
     }
 
 
-@app.post('/oauth/register')
-@log_request_response
-def oauth_register():
-    data = request.get_json(force=True, silent=True) or {}
-    redirect_uris = data.get('redirect_uris') or []
-    if not redirect_uris:
-        error("'redirect_uris' is required", status=400)
-
-    client_name = data.get('client_name') or ''
-    website = data.get('client_uri') or ''
-    client_id = encode_jwt({
-        'typ': CLIENT_TYP,
-        'client_name': client_name,
-        'website': website,
-        'redirect_uris': redirect_uris,
-    })
-    return {
-        'client_id': client_id,
-        'client_secret': client_secret_for(client_id),
-        'client_id_issued_at': int(time.time()),
-        'client_secret_expires_at': 0,
-        'client_name': client_name,
-        'redirect_uris': redirect_uris,
-    }, 201
-
-
 def _grant_or_deny(grant_user, state):
-    """Common consent-decision logic, shared by every backend's callback and by
-    the session-reuse consent form.
+    """Common prompt decision logic.
 
     Applies the beta gate, then finishes (or denies) the OAuth authorization
     response for the original ``/oauth/authorize`` request captured in ``state``.
@@ -468,156 +440,23 @@ def oauth_authorize():
     # showing the login form again
     for login in pages.get_logins():
         if (user_key := pages.login_to_user_key(login)) and (user := user_key.get()):
-            return render_template('mastodon_oauth_consent.html', client_name=client_name,
-                                   state=state, user=user)
+            return render_template('mastodon_oauth_consent.html',
+                                   client_name=client_name, state=state, user=user)
 
-    return render_template('mastodon_oauth_login.html', client_name=client_name, state=state)
+    return render_template('mastodon_oauth_login.html',
+                           client_name=client_name, state=state)
 
 
 @app.post('/oauth/authorize')
 @log_request_response
 def oauth_authorize_consent():
-    """Handles the consent form from the session-reuse path in :func:`oauth_authorize`."""
+    """Shows the authorization consent prompt."""
     state = request.form.get('state') or ''
     grant_user = None
     if not request.form.get('deny') and (key := request.form.get('user_key')):
         grant_user = Key(urlsafe=key).get()
 
     return _grant_or_deny(grant_user, state)
-
-
-class ProxyIndieAuthStart(FlashErrors, indieauth.Start):
-    ON_ERROR_REDIRECT_TO = '/'
-
-
-class ProxyIndieAuthCallback(FlashErrors, indieauth.Callback):
-    ON_ERROR_REDIRECT_TO = '/'
-
-    def finish(self, auth_entity, state=None):
-        return _finish_proxy_login(auth_entity, state)
-
-
-app.add_url_rule(
-    '/oauth/authorize/indieauth/start',
-    view_func=ProxyIndieAuthStart.as_view(
-        'proxy_indieauth_start', '/oauth/authorize/indieauth/finish'),
-    methods=['POST'])
-app.add_url_rule(
-    '/oauth/authorize/indieauth/finish',
-    view_func=ProxyIndieAuthCallback.as_view(
-        'proxy_indieauth_finish', '/oauth/authorize'))
-
-
-def _bluesky_proxy_client_metadata():
-    return {
-        **oauth_dropins.bluesky.CLIENT_METADATA_TEMPLATE,
-        'client_id': domains.host_url('/oauth/authorize/bluesky/client-metadata.json'),
-        'client_name': 'Bridgy Fed (Mastodon API)',
-        'client_uri': domains.host_url(),
-        'redirect_uris': [domains.host_url('/oauth/authorize/bluesky/finish')],
-    }
-
-
-@app.get('/oauth/authorize/bluesky/client-metadata.json')
-def bluesky_proxy_client_metadata():
-    return _bluesky_proxy_client_metadata()
-
-
-class ProxyBlueskyStart(FlashErrors, oauth_dropins.bluesky.OAuthStart):
-    ON_ERROR_REDIRECT_TO = '/'
-
-    @property
-    def CLIENT_METADATA(self):
-        return _bluesky_proxy_client_metadata()
-
-
-class ProxyBlueskyCallback(FlashErrors, oauth_dropins.bluesky.OAuthCallback):
-    ON_ERROR_REDIRECT_TO = '/'
-
-    @property
-    def CLIENT_METADATA(self):
-        return _bluesky_proxy_client_metadata()
-
-    def finish(self, auth_entity, state=None):
-        return _finish_proxy_login(auth_entity, state)
-
-
-app.add_url_rule(
-    '/oauth/authorize/bluesky/start',
-    view_func=ProxyBlueskyStart.as_view(
-        'proxy_bluesky_start', '/oauth/authorize/bluesky/finish'),
-    methods=['POST'])
-app.add_url_rule(
-    '/oauth/authorize/bluesky/finish',
-    view_func=ProxyBlueskyCallback.as_view(
-        'proxy_bluesky_finish', '/oauth/authorize'))
-
-
-class ProxyMastodonStart(FlashErrors, oauth_dropins.mastodon.Start):
-    ON_ERROR_REDIRECT_TO = '/'
-
-    # distinct app_name/app_url so this registers its own MastodonApp entity,
-    # separate from activitypub.MastodonStart's. that one's app was registered
-    # with a different redirect_uris list (just /oauth/mastodon/finish), and
-    # Mastodon servers reject an authorize request whose redirect_uri wasn't in
-    # the app's original registration. EXPIRE_APPS_BEFORE is defensive, in case
-    # we iterate on this and need to force re-registration.
-    EXPIRE_APPS_BEFORE = datetime(2026, 7, 17)
-
-    def app_name(self):
-        return 'Bridgy Fed (Mastodon API)'
-
-    def app_url(self):
-        return 'https://fed.brid.gy/oauth-proxy'
-
-
-class ProxyMastodonCallback(FlashErrors, oauth_dropins.mastodon.Callback):
-    ON_ERROR_REDIRECT_TO = '/'
-
-    def finish(self, auth_entity, state=None):
-        return _finish_proxy_login(auth_entity, state)
-
-
-app.add_url_rule(
-    '/oauth/authorize/mastodon/start',
-    view_func=ProxyMastodonStart.as_view(
-        'proxy_mastodon_start', '/oauth/authorize/mastodon/finish'),
-    methods=['POST'])
-app.add_url_rule(
-    '/oauth/authorize/mastodon/finish',
-    view_func=ProxyMastodonCallback.as_view(
-        'proxy_mastodon_finish', '/oauth/authorize'))
-
-
-class ProxyPixelfedStart(FlashErrors, oauth_dropins.pixelfed.Start):
-    ON_ERROR_REDIRECT_TO = '/'
-
-    # see ProxyMastodonStart for why these are distinct from activitypub.PixelfedStart
-    EXPIRE_APPS_BEFORE = datetime(2026, 7, 17)
-
-    def app_name(self):
-        return 'Bridgy Fed (Mastodon API)'
-
-    def app_url(self):
-        return 'https://fed.brid.gy/oauth-proxy'
-
-
-class ProxyPixelfedCallback(FlashErrors, oauth_dropins.pixelfed.Callback):
-    ON_ERROR_REDIRECT_TO = '/'
-
-    def finish(self, auth_entity, state=None):
-        return _finish_proxy_login(auth_entity, state)
-
-
-app.add_url_rule(
-    '/oauth/authorize/pixelfed/start',
-    view_func=ProxyPixelfedStart.as_view(
-        'proxy_pixelfed_start', '/oauth/authorize/pixelfed/finish'),
-    methods=['POST'])
-app.add_url_rule(
-    '/oauth/authorize/pixelfed/finish',
-    view_func=ProxyPixelfedCallback.as_view(
-        'proxy_pixelfed_finish', '/oauth/authorize'))
 
 
 @app.post('/oauth/token')
@@ -677,3 +516,78 @@ def verify_credentials():
         'following_count': 0,
         'statuses_count': 0,
     }
+
+
+#
+# IndieAuth
+#
+
+class ProxyIndieAuthStart(FlashErrors, indieauth.Start):
+    ON_ERROR_REDIRECT_TO = '/'
+
+
+class ProxyIndieAuthCallback(FlashErrors, indieauth.Callback):
+    ON_ERROR_REDIRECT_TO = '/'
+
+    def finish(self, auth_entity, state=None):
+        return _finish_proxy_login(auth_entity, state)
+
+
+app.add_url_rule(
+    '/oauth/authorize/indieauth/start',
+    view_func=ProxyIndieAuthStart.as_view(
+        'proxy_indieauth_start', '/oauth/authorize/indieauth/finish'),
+    methods=['POST'])
+app.add_url_rule(
+    '/oauth/authorize/indieauth/finish',
+    view_func=ProxyIndieAuthCallback.as_view(
+        'proxy_indieauth_finish', '/oauth/authorize'))
+
+
+#
+# Bluesky
+#
+
+def _bluesky_proxy_client_metadata():
+    return {
+        **oauth_dropins.bluesky.CLIENT_METADATA_TEMPLATE,
+        'client_id': domains.host_url('/oauth/authorize/bluesky/client-metadata.json'),
+        'client_name': 'Bridgy Fed (Mastodon API)',
+        'client_uri': domains.host_url(),
+        'redirect_uris': [domains.host_url('/oauth/authorize/bluesky/finish')],
+    }
+
+
+@app.get('/oauth/authorize/bluesky/client-metadata.json')
+def bluesky_proxy_client_metadata():
+    return _bluesky_proxy_client_metadata()
+
+
+class ProxyBlueskyStart(FlashErrors, oauth_dropins.bluesky.OAuthStart):
+    ON_ERROR_REDIRECT_TO = '/'
+
+    @property
+    def CLIENT_METADATA(self):
+        return _bluesky_proxy_client_metadata()
+
+
+class ProxyBlueskyCallback(FlashErrors, oauth_dropins.bluesky.OAuthCallback):
+    ON_ERROR_REDIRECT_TO = '/'
+
+    @property
+    def CLIENT_METADATA(self):
+        return _bluesky_proxy_client_metadata()
+
+    def finish(self, auth_entity, state=None):
+        return _finish_proxy_login(auth_entity, state)
+
+
+app.add_url_rule(
+    '/oauth/authorize/bluesky/start',
+    view_func=ProxyBlueskyStart.as_view(
+        'proxy_bluesky_start', '/oauth/authorize/bluesky/finish'),
+    methods=['POST'])
+app.add_url_rule(
+    '/oauth/authorize/bluesky/finish',
+    view_func=ProxyBlueskyCallback.as_view(
+        'proxy_bluesky_finish', '/oauth/authorize'))

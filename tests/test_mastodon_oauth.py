@@ -109,15 +109,6 @@ class MastodonApiTest(TestCase):
         self.assertEqual(['https://app.example/1', 'https://app.example/2'],
                          resp.json['redirect_uris'])
 
-    def test_oauth_register_rfc7591(self):
-        resp = self.client.post('/oauth/register', json={
-            'client_name': 'My App',
-            'redirect_uris': ['https://app.example/callback'],
-        }, base_url=BASE_URL)
-        self.assertEqual(201, resp.status_code, resp.get_data(as_text=True))
-        self.assertTrue(resp.json['client_id'])
-        self.assertTrue(resp.json['client_secret'])
-
     def test_metadata(self):
         resp = self.client.get('/.well-known/oauth-authorization-server',
                                base_url=BASE_URL)
@@ -421,23 +412,13 @@ class MastodonApiTest(TestCase):
         self.assertNotEqual('/oauth/bluesky/client-metadata.json',
                             resp.json['client_id'])
 
-    def test_proxy_mastodon_pixelfed_distinct_app_registration(self):
-        """The proxy Mastodon/Pixelfed flows must register their own app, with
-        their own redirect_uris, separate from activitypub.py's /settings-flow
-        apps -- otherwise a cached app registered without our proxy redirect_uri
-        would get reused and rejected by the remote instance.
-        """
-        self.assertNotEqual(activitypub.MastodonStart('/x').app_url(),
-                            mastodon_oauth.ProxyMastodonStart('/x').app_url())
-        self.assertNotEqual(activitypub.PixelfedStart('/x').app_url(),
-                            mastodon_oauth.ProxyPixelfedStart('/x').app_url())
-
     def test_proxy_start_routes_registered(self):
         # these just need to not 404; full live-flow tests would need mocking
         # remote app registration, which activitypub.py's own non-proxy Mastodon
         # and Pixelfed flows don't have test coverage for either
-        for path in ('/oauth/authorize/bluesky/start',
-                    '/oauth/authorize/mastodon/start',
-                    '/oauth/authorize/pixelfed/start'):
+        for path in (
+                '/oauth/authorize/bluesky/start',
+                '/oauth/authorize/indieauth/start',
+        ):
             resp = self.client.post(path, base_url=BASE_URL)
             self.assertNotEqual(404, resp.status_code, path)
