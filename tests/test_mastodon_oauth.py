@@ -44,8 +44,8 @@ class MastodonApiTest(TestCase):
         params.update(kwargs)
         return urlencode(params)
 
-    @patch.object(util.session, 'get', autospec=True, return_value=requests_response(''))
-    @patch.object(util.session, 'post', autospec=True,
+    @patch.object(util.session, 'get', return_value=requests_response(''))
+    @patch.object(util.session, 'post',
                   return_value=requests_response('me=https://alice.com'))
     def login_raw(self, client_id, mock_post, mock_get, authorize_qs=None):
         """Runs a full IndieAuth login through /oauth/authorize.
@@ -196,8 +196,9 @@ class MastodonApiTest(TestCase):
         parsed_qs = parse_qs(urlparse(resp.headers['Location']).query)
         self.assertEqual('access_denied', parsed_qs['error'][0])
 
-    @patch.object(util.session, 'get', autospec=True, return_value=requests_response(''))
-    @patch.object(util.session, 'post', autospec=True,
+    @patch.object(util.session, 'get',
+                  return_value=requests_response(''))
+    @patch.object(util.session, 'post',
                   return_value=requests_response('me=https://bob.com'))
     def test_non_beta_user_denied(self, mock_post, mock_get):
         self.make_user('bob.com', cls=Web)
@@ -413,24 +414,20 @@ class MastodonApiTest(TestCase):
                                base_url=BASE_URL)
         self.assertEqual(401, resp.status_code)
 
-    def test_bluesky_proxy_client_metadata(self):
-        resp = self.client.get('/oauth/authorize/bluesky/client-metadata.json',
+    def test_atproto_proxy_client_metadata(self):
+        resp = self.client.get('/oauth/atproto/client-metadata.json',
                                base_url=BASE_URL)
         self.assertEqual(200, resp.status_code)
         self.assertEqual(
-            [f'{BASE_URL.rstrip("/")}/oauth/authorize/bluesky/finish'],
+            [f'{BASE_URL.rstrip("/")}/oauth/authorize/atproto/finish'],
             resp.json['redirect_uris'])
-        # distinct client_id from atproto.py's own /settings-flow client metadata
-        self.assertNotEqual('/oauth/bluesky/client-metadata.json',
+        self.assertNotEqual('/oauth/atproto/client-metadata.json',
                             resp.json['client_id'])
 
     def test_proxy_start_routes_registered(self):
-        # these just need to not 404; full live-flow tests would need mocking
-        # remote app registration, which activitypub.py's own non-proxy Mastodon
-        # and Pixelfed flows don't have test coverage for either
         for path in (
-                '/oauth/authorize/bluesky/start',
+                '/oauth/authorize/atproto/start',
                 '/oauth/authorize/indieauth/start',
         ):
             resp = self.client.post(path, base_url=BASE_URL)
-            self.assertNotEqual(404, resp.status_code, path)
+            self.assertEqual(400, resp.status_code, path)

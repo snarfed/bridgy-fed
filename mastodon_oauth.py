@@ -82,10 +82,6 @@ def log_request_response(fn):
     return wrapper
 
 
-def hash_client_id(client_id):
-    return hashlib.sha256(client_id.encode()).hexdigest()
-
-
 def encode_jwt(val):
     return jwt.encode(val, key=ENCRYPTED_PROPERTY_KEYS_BYTES[0], algorithm=JWT_ALG)
 
@@ -106,6 +102,10 @@ def decode_jwt(val, typ):
     return payload
 
 
+def hash_client_id(client_id):
+    return hashlib.sha256(client_id.encode()).hexdigest()
+
+
 def client_secret_for(client_id):
     return hmac.new(ENCRYPTED_PROPERTY_KEYS_BYTES[0], client_id.encode(),
                     hashlib.sha256).hexdigest()
@@ -114,7 +114,7 @@ def client_secret_for(client_id):
 class Client(ClientMixin):
     """In-memory :class:`authlib.oauth2.rfc6749.ClientMixin`.
 
-    ``client_id`` is self-contained; nothing is stored.
+    ``client_id`` is a self-contained JWT and provides all data.
     """
     def __init__(self, client_id, payload):
         self.client_id = client_id
@@ -150,7 +150,7 @@ class Client(ClientMixin):
 class AuthCode(AuthorizationCodeMixin):
     """In-memory :class:`authlib.oauth2.rfc6749.AuthorizationCodeMixin`.
 
-    Unsigned from a self-contained authorization code; nothing is stored.
+    The authorization code is a self-contained JWT that provides all data.
     """
     def __init__(self, payload):
         self.user_key = Key(urlsafe=payload['user_key'])
@@ -177,7 +177,6 @@ class BFAuthorizationCodeGrant(AuthorizationCodeGrant):
 
             self.request.user = grant_user
             code = self.generate_authorization_code()
-            self.save_authorization_code(code, self.request)
             return 200, render_template('mastodon_oauth_code.html', code=code), []
 
         return super().create_authorization_response(redirect_uri, grant_user)
@@ -225,7 +224,7 @@ class BFAuthorizationCodeGrant(AuthorizationCodeGrant):
 class Token(TokenMixin):
     """In-memory :class:`authlib.oauth2.rfc6749.TokenMixin`.
 
-    The access token itself is self-contained and provides all data.
+    The access token itself is a self-contained JWT and provides all data.
     """
     def __init__(self, payload):
         self.user_key = Key(urlsafe=payload['user_key'])
@@ -511,7 +510,7 @@ def verify_credentials():
 
 
 #
-# IndieAuth
+# IndieAuth backend
 #
 
 class ProxyIndieAuthStart(FlashErrors, indieauth.Start):
@@ -537,49 +536,49 @@ app.add_url_rule(
 
 
 #
-# Bluesky
+# ATProto backend
 #
 
-def _bluesky_proxy_client_metadata():
+def _atproto_proxy_client_metadata():
     return {
         **oauth_dropins.bluesky.CLIENT_METADATA_TEMPLATE,
-        'client_id': domains.host_url('/oauth/authorize/bluesky/client-metadata.json'),
+        'client_id': domains.host_url('/oauth/atproto/client-metadata.json'),
         'client_name': 'Bridgy Fed (Mastodon API)',
         'client_uri': domains.host_url(),
-        'redirect_uris': [domains.host_url('/oauth/authorize/bluesky/finish')],
+        'redirect_uris': [domains.host_url('/oauth/authorize/atproto/finish')],
     }
 
 
-@app.get('/oauth/authorize/bluesky/client-metadata.json')
-def bluesky_proxy_client_metadata():
-    return _bluesky_proxy_client_metadata()
+@app.get('/oauth/atproto/client-metadata.json')
+def atproto_proxy_client_metadata():
+    return _atproto_proxy_client_metadata()
 
 
-class ProxyBlueskyStart(FlashErrors, oauth_dropins.bluesky.OAuthStart):
+class ProxyAtprotoStart(FlashErrors, oauth_dropins.bluesky.OAuthStart):
     ON_ERROR_REDIRECT_TO = '/'
 
     @property
     def CLIENT_METADATA(self):
-        return _bluesky_proxy_client_metadata()
+        return _atproto_proxy_client_metadata()
 
 
-class ProxyBlueskyCallback(FlashErrors, oauth_dropins.bluesky.OAuthCallback):
+class ProxyAtprotoCallback(FlashErrors, oauth_dropins.bluesky.OAuthCallback):
     ON_ERROR_REDIRECT_TO = '/'
 
     @property
     def CLIENT_METADATA(self):
-        return _bluesky_proxy_client_metadata()
+        return _atproto_proxy_client_metadata()
 
     def finish(self, auth_entity, state=None):
         return _finish_proxy_login(auth_entity, state)
 
 
 app.add_url_rule(
-    '/oauth/authorize/bluesky/start',
-    view_func=ProxyBlueskyStart.as_view(
-        'proxy_bluesky_start', '/oauth/authorize/bluesky/finish'),
+    '/oauth/authorize/atproto/start',
+    view_func=ProxyAtprotoStart.as_view(
+        'proxy_atproto_start', '/oauth/authorize/atproto/finish'),
     methods=['POST'])
 app.add_url_rule(
-    '/oauth/authorize/bluesky/finish',
-    view_func=ProxyBlueskyCallback.as_view(
-        'proxy_bluesky_finish', '/oauth/authorize'))
+    '/oauth/authorize/atproto/finish',
+    view_func=ProxyAtprotoCallback.as_view(
+        'proxy_atproto_finish', '/oauth/authorize'))
