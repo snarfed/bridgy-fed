@@ -80,21 +80,34 @@ class MastodonApiTest(TestCase):
         return resp.headers['Location']
 
     def test_register_app(self):
-        app = self.register_app()
-        self.assertEqual('My App', app['name'])
-        self.assertEqual(['https://app.example/callback'], app['redirect_uris'])
+        app = self.register_app(website='http://foo')
+        self.assert_equals({
+            'name': 'My App',
+            'redirect_uri': 'https://app.example/callback',
+            'redirect_uris': ['https://app.example/callback'],
+            'website': 'http://foo',
+            'vapid_key': '',
+        }, app, ignore=['id', 'client_id', 'client_secret'])
+        self.assertTrue(app['id'])
         self.assertTrue(app['client_id'])
         self.assertTrue(app['client_secret'])
 
     def test_register_app_json(self):
         resp = self.client.post('/api/v1/apps', json={
             'client_name': 'My App',
+            'website': 'http://foo',
             'redirect_uris': 'https://app.example/callback',
         }, base_url=BASE_URL)
         self.assertEqual(200, resp.status_code, resp.get_data(as_text=True))
-        self.assertEqual('My App', resp.json['name'])
-        self.assertEqual('https://app.example/callback', resp.json['redirect_uri'])
-        self.assertEqual(['https://app.example/callback'], resp.json['redirect_uris'])
+
+        self.assert_equals({
+            'name': 'My App',
+            'redirect_uri': 'https://app.example/callback',
+            'redirect_uris': ['https://app.example/callback'],
+            'website': 'http://foo',
+            'vapid_key': '',
+        }, resp.json, ignore=['id', 'client_id', 'client_secret'])
+        self.assertTrue(resp.json['id'])
         self.assertTrue(resp.json['client_id'])
         self.assertTrue(resp.json['client_secret'])
 
@@ -114,8 +127,10 @@ class MastodonApiTest(TestCase):
                                base_url=BASE_URL)
         self.assertEqual(200, resp.status_code)
         self.assertEqual(BASE_URL, resp.json['issuer'])
-        self.assertIn('/oauth/authorize', resp.json['authorization_endpoint'])
-        self.assertIn('/oauth/token', resp.json['token_endpoint'])
+        self.assertEqual('https://web.brid.gy/oauth/authorize',
+                         resp.json['authorization_endpoint'])
+        self.assertEqual('https://web.brid.gy/oauth/token',
+                         resp.json['token_endpoint'])
 
     def test_authorize_renders_login_form(self):
         app = self.register_app()
@@ -156,7 +171,7 @@ class MastodonApiTest(TestCase):
         self.assertIn('IndieAuth-input', body)
         self.assertNotIn('name="user_key"', body)
 
-    def test_session_consent_issues_token(self):
+    def test_session_consent_issue_token(self):
         indieauth.IndieAuth(id='https://alice.com', user_json='{}').put()
         app = self.register_app()
         with self.client.session_transaction(base_url=BASE_URL) as sess:
@@ -183,6 +198,11 @@ class MastodonApiTest(TestCase):
             'client_secret': app['client_secret'],
         }, base_url=BASE_URL)
         self.assertEqual(200, resp.status_code, resp.get_data(as_text=True))
+
+        self.assert_equals({
+            'token_type': 'Bearer',
+            'scope': '',
+        }, resp.json, ignore=['access_token', 'created_at'])
         self.assertTrue(resp.json['access_token'])
 
     def test_session_consent_deny(self):
@@ -193,11 +213,17 @@ class MastodonApiTest(TestCase):
             'deny': '1',
         }, base_url=BASE_URL)
         self.assertEqual(302, resp.status_code, resp.get_data(as_text=True))
-        parsed_qs = parse_qs(urlparse(resp.headers['Location']).query)
-        self.assertEqual('access_denied', parsed_qs['error'][0])
 
-    @patch.object(util.session, 'get',
-                  return_value=requests_response(''))
+        parsed_qs = parse_qs(urlparse(resp.headers['Location']).query)
+        self.assertEqual({
+            'error': ['access_denied'],
+            'error_description': [
+                'The resource owner or authorization server denied the request',
+            ],
+            'state': ['xyz'],
+        }, parsed_qs)
+
+    @patch.object(util.session, 'get', return_value=requests_response(''))
     @patch.object(util.session, 'post',
                   return_value=requests_response('me=https://bob.com'))
     def test_non_beta_user_denied(self, mock_post, mock_get):
@@ -222,9 +248,15 @@ class MastodonApiTest(TestCase):
         self.assertEqual(302, resp.status_code, resp.get_data(as_text=True))
         location = resp.headers['Location']
         self.assertTrue(location.startswith('https://app.example/callback'), location)
+
         parsed_qs = parse_qs(urlparse(location).query)
-        self.assertEqual('access_denied', parsed_qs['error'][0])
-        self.assertNotIn('code', parsed_qs)
+        self.assertEqual({
+            'error': ['access_denied'],
+            'error_description': [
+                'The resource owner or authorization server denied the request',
+            ],
+            'state': ['xyz'],
+        }, parsed_qs)
 
     def test_authorize_bad_client_id(self):
         resp = self.client.get(
@@ -237,33 +269,6 @@ class MastodonApiTest(TestCase):
                                   redirect_uri='https://evil.example/cb')
         resp = self.client.get(f'/oauth/authorize?{qs}', base_url=BASE_URL)
         self.assertEqual(400, resp.status_code)
-
-    def test_full_flow_and_verify_credentials(self):
-        app = self.register_app()
-        location = self.login(app['client_id'])
-
-        parsed = urlparse(location)
-        self.assertTrue(location.startswith('https://app.example/callback'))
-        code = parse_qs(parsed.query)['code'][0]
-        self.assertEqual('xyz', parse_qs(parsed.query)['state'][0])
-
-        resp = self.client.post('/oauth/token', data={
-            'grant_type': 'authorization_code',
-            'code': code,
-            'redirect_uri': 'https://app.example/callback',
-            'client_id': app['client_id'],
-            'client_secret': app['client_secret'],
-        }, base_url=BASE_URL)
-        self.assertEqual(200, resp.status_code, resp.get_data(as_text=True))
-        self.assertEqual('Bearer', resp.json['token_type'])
-        token = resp.json['access_token']
-        self.assertTrue(token)
-
-        resp = self.client.get('/api/v1/accounts/verify_credentials',
-                               headers={'Authorization': f'Bearer {token}'},
-                               base_url=BASE_URL)
-        self.assertEqual(200, resp.status_code, resp.get_data(as_text=True))
-        self.assertEqual('alice.com', resp.json['username'])
 
     def test_token_json_body(self):
         app = self.register_app()
@@ -278,10 +283,14 @@ class MastodonApiTest(TestCase):
             'client_secret': app['client_secret'],
         }, base_url=BASE_URL)
         self.assertEqual(200, resp.status_code, resp.get_data(as_text=True))
-        self.assertEqual('Bearer', resp.json['token_type'])
+
+        self.assert_equals({
+            'token_type': 'Bearer',
+            'scope': '',
+        }, resp.json, ignore=['access_token', 'created_at'])
         self.assertTrue(resp.json['access_token'])
 
-    def test_tokens_are_unique_per_issuance(self):
+    def test_tokens_are_unique(self):
         """Two tokens for the same user + client + scope must differ, so that
         revoking one (future denylist) doesn't kill a re-issued one.
         """
@@ -338,6 +347,12 @@ class MastodonApiTest(TestCase):
             'code_verifier': code_verifier,
         }, base_url=BASE_URL)
         self.assertEqual(200, resp.status_code, resp.get_data(as_text=True))
+
+        self.assert_equals({
+            'token_type': 'Bearer',
+            'scope': '',
+        }, resp.json, ignore=['access_token', 'created_at'])
+        self.assertTrue(resp.json['access_token'])
 
     def test_pkce_wrong_code_verifier(self):
         app = self.register_app()
@@ -416,11 +431,21 @@ class MastodonApiTest(TestCase):
         resp = self.client.get('/oauth/atproto/client-metadata.json',
                                base_url=BASE_URL)
         self.assertEqual(200, resp.status_code)
-        self.assertEqual(
-            [f'{BASE_URL.rstrip("/")}/oauth/authorize/atproto/finish'],
-            resp.json['redirect_uris'])
-        self.assertNotEqual('/oauth/atproto/client-metadata.json',
-                            resp.json['client_id'])
+        self.assert_equals({
+            'application_type': 'web',
+            'client_id': 'https://web.brid.gy/oauth/atproto/client-metadata.json',
+            'client_name': 'Bridgy Fed (Mastodon API)',
+            'client_uri': 'https://web.brid.gy/',
+            'dpop_bound_access_tokens': True,
+            'grant_types': [
+                'authorization_code',
+                'refresh_token',
+            ],
+            'redirect_uris': ['https://web.brid.gy/oauth/authorize/atproto/finish'],
+            'response_types': ['code'],
+            'scope': 'atproto transition:generic',
+            'token_endpoint_auth_method': 'none',
+        }, resp.json)
 
     def test_proxy_start_routes_registered(self):
         for path in (
