@@ -152,7 +152,7 @@ def notify_task():
         logger.info(f'notif for {url}')
 
         author_prefix = ''
-        if author_id := as1.get_id(obj_as1, 'author'):
+        if author_id := as1.get_owner(obj_as1):
             author_proto = PROTOCOLS[obj.source_protocol]
             if author := author_proto.get_or_create(author_id, allow_opt_out=True):
                 author_prefix = author.html_link() + ': '
