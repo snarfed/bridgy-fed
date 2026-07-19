@@ -126,9 +126,10 @@ class MastodonApiTest(TestCase):
         self.assertIn('My App', resp.get_data(as_text=True))
         self.assertIn('IndieAuth', resp.get_data(as_text=True))
 
-    def test_authorize_reuses_session_login(self):
+    def test_authorize_shows_existing_logins_and_fresh_login_forms(self):
         """If the browser already has a Bridgy Fed session login, /oauth/authorize
-        should show a consent page instead of the login form.
+        should list it as a chooser option *and* still show the normal login
+        forms, so the user can pick an existing account or log into a new one.
         """
         indieauth.IndieAuth(id='https://alice.com', user_json='{}').put()
         app = self.register_app()
@@ -142,7 +143,18 @@ class MastodonApiTest(TestCase):
         body = resp.get_data(as_text=True)
         self.assertIn('My App', body)
         self.assertIn('alice.com', body)
-        self.assertNotIn('IndieAuth-input', body)
+        self.assertIn('IndieAuth-input', body)
+
+    def test_authorize_no_session_login(self):
+        """No existing session: just the fresh login forms, no chooser."""
+        app = self.register_app()
+        resp = self.client.get(
+            f"/oauth/authorize?{self.authorize_query(app['client_id'])}",
+            base_url=BASE_URL)
+        self.assertEqual(200, resp.status_code)
+        body = resp.get_data(as_text=True)
+        self.assertIn('IndieAuth-input', body)
+        self.assertNotIn('name="user_key"', body)
 
     def test_session_consent_issues_token(self):
         indieauth.IndieAuth(id='https://alice.com', user_json='{}').put()

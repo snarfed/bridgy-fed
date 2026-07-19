@@ -433,18 +433,16 @@ def oauth_authorize():
         logger.info(err)
         return server.handle_error_response(None, err)
 
+    existing_logins = []
+    for login in pages.get_logins():
+        if (user_key := pages.login_to_user_key(login)) and (user := user_key.get()):
+            existing_logins.append(user)
+
     client_name = grant.request.client.client_name
     state = request.query_string.decode()
 
-    # reuse an existing Bridgy Fed session login, if there is one, instead of
-    # showing the login form again
-    for login in pages.get_logins():
-        if (user_key := pages.login_to_user_key(login)) and (user := user_key.get()):
-            return render_template('mastodon_oauth_consent.html',
-                                   client_name=client_name, state=state, user=user)
-
-    return render_template('mastodon_oauth_login.html',
-                           client_name=client_name, state=state)
+    return render_template('mastodon_oauth_login.html', client_name=client_name,
+                           state=state, existing_logins=existing_logins)
 
 
 @app.post('/oauth/authorize')

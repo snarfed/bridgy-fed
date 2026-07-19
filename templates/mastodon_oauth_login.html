@@ -5,6 +5,22 @@
 
 <p class="row big"><strong>{{ client_name }}</strong> wants to connect via Bridgy Fed. Choose an account:</p>
 
+{% if existing_logins %}
+<div class="row big" style="font-size: 14px">
+  {% for user in existing_logins %}
+  <form method="post" action="/oauth/authorize" style="display: inline">
+    <input name="state" type="hidden" value="{{ state }}">
+    <input name="user_key" type="hidden" value="{{ user.key.urlsafe().decode() }}">
+    <input type="submit" class="btn-link" value="{{ user.handle_or_id() }}">
+  </form>
+  {% endfor %}
+</div>
+
+<p class="row big">
+...or log into another account:
+</p>
+{% endif %}
+
 <div class="row big" style="font-size: 14px">
 
   <form method="post" action="/oauth/authorize/bluesky/start">
@@ -48,9 +64,5 @@
     </nobr>
   </form>
 </div>
-
-<p class="row big">
-...or log into another account:
-</p>
 
 {% endblock %}
