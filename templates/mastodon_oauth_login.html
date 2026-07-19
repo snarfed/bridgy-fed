@@ -5,11 +5,6 @@
 
 <p class="row big"><strong>{{ client_name }}</strong> wants to connect to Bridgy Fed. Choose an account:</p>
 
-<style>
-  /* html_link()'s own <a> shouldn't navigate; clicks should always submit the
-     surrounding button */
-  .account-chooser button a { pointer-events: none; }
-</style>
 {% for user in existing_logins %}
 <div class="row big account-chooser">
   <form method="post" action="/oauth/authorize" style="display: inline">
