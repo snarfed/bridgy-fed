@@ -388,12 +388,14 @@ def profile_id(*, id, proto):
             return id
 
 
-def translate_handle(*, from_user, to, short=False):
+def translate_handle(*, from_, to, handle=None, short=False):
     """Translates a user's handle to another protocol.
 
     Args:
-      from_user (models.User): the user whose handle to translate
+      from_ (models.User or protocol.Protocol subclass)
       to (protocol.Protocol)
+      handle (str): required if ``from_`` is a ``Protocol`` subclass. Must be
+        unset if ``from_`` is a ``User``.
       short (bool): whether to return the full handle or a shortened form.
         Default False. Currently only affects ActivityPub; returns just ``@[user]``
         instead of ``@[user]@[domain]``
@@ -410,21 +412,25 @@ def translate_handle(*, from_user, to, short=False):
     if not inspect.isclass(to):
         to = to.__class__
 
-    if not (handle := from_user.handle):
+    from_user = None
+    if isinstance(from_, models.User):
+        from_user = from_
+        assert handle is None
+        # override web users to always use domain instead of custom username
+        handle = (from_user.key.id() if from_user.LABEL == 'web'
+                  else from_user.handle)
+
+    if not handle:
         return None
 
-    # override web users to always use domain instead of custom username
-    if from_user.LABEL == 'web':
-        handle = from_user.key.id()
-
-    if from_user.LABEL == to.LABEL:
+    if from_.LABEL == to.LABEL:
         if to.LABEL == 'activitypub' and short:
             return handle.rsplit('@', maxsplit=1)[0]
         return handle
 
-    if from_user.LABEL != 'ui':
-        if from_user.owns_handle(handle, allow_internal=True) is False:
-            raise ValueError(f'input handle {handle} is not valid for {from_user.LABEL}')
+    if from_.LABEL != 'ui':
+        if from_.owns_handle(handle, allow_internal=True) is False:
+            raise ValueError(f'input handle {handle} is not valid for {from_.LABEL}')
 
     # "flatten" [@]user@domain handles to just domain-like, eg user.domain,
     # and then append @[protocol domain], so we end up with user.domain@proto.brid.gy
@@ -433,13 +439,13 @@ def translate_handle(*, from_user, to, short=False):
         flattened = flattened.replace(from_char, '-')
 
     def flattened_user_at_domain():
-        domain = f'{from_user.ABBREV}{SUPERDOMAIN}'
+        domain = f'{from_.ABBREV}{SUPERDOMAIN}'
         if handle == PRIMARY_DOMAIN or handle in PROTOCOL_DOMAINS:
             domain = flattened
         return f'{flattened}@{domain}'
 
     output = None
-    match from_user.LABEL, to.LABEL:
+    match from_.LABEL, to.LABEL:
         case _, 'activitypub':
             if short:
                 return '@' + flattened
@@ -451,7 +457,7 @@ def translate_handle(*, from_user, to, short=False):
                 return handle
 
             # first check DID doc
-            if did := from_user.get_copy('atproto'):
+            if from_user and (did := from_user.get_copy('atproto')):
                 from atproto import did_to_handle
                 if handle := did_to_handle(did, remote=False):
                     return handle
@@ -472,7 +478,7 @@ def translate_handle(*, from_user, to, short=False):
                 return handle
 
             # first check the copy's profile Object
-            if fid := from_user.get_copy('farcaster'):
+            if from_user and (fid := from_user.get_copy('farcaster')):
                 if profile := models.Object.get_by_id(fid):
                     if username := (profile.as1 or {}).get('username'):
                         return username
@@ -492,7 +498,7 @@ def translate_handle(*, from_user, to, short=False):
         case _, 'fake' | 'other' | 'efake':
             output = f'{to.LABEL}:handle:{handle}'
 
-    assert output, (handle, from_user.LABEL, to.LABEL)
+    assert output, (handle, from_.LABEL, to.LABEL)
     # don't check Web handles because they're sometimes URLs, eg
     # @user@instance => https://instance/@user
     if to.LABEL != 'web' and to.owns_handle(output, allow_internal=True) is False:

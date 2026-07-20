@@ -914,7 +914,7 @@ class User(AddRemoveMixin, StringIdModel, metaclass=ProtocolUserMeta):
         if isinstance(to_proto, str):
             to_proto = PROTOCOLS[to_proto]
 
-        return ids.translate_handle(from_user=self, to=to_proto, short=short)
+        return ids.translate_handle(from_=self, to=to_proto, short=short)
 
     def id_as(self, to_proto):
         """Returns this user's id in a different protocol.

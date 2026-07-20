@@ -397,12 +397,15 @@ class IdsTest(TestCase):
             (Web(id='ap.brid.gy'), ATProto, 'ap.brid.gy'),
             (Web(id='ap.brid.gy'), Nostr, 'ap.brid.gy'),
         ]:
-            with self.subTest(from_=from_user.LABEL, handle=from_user.handle, to=to.LABEL):
-                self.assertEqual(expected, translate_handle(from_user=from_user, to=to))
+            with self.subTest(from_=from_user.LABEL, handle=from_user.handle,
+                              to=to.LABEL):
+                self.assertEqual(expected, translate_handle(from_=from_user, to=to))
+                self.assertEqual(expected, translate_handle(
+                    handle=from_user.handle, from_=from_user.__class__, to=to))
 
         for input in '@_user@instance', '@user~@instance':
             with self.subTest(input=input), self.assertRaises(ValueError):
-                translate_handle(from_user=ActivityPub(
+                translate_handle(from_=ActivityPub(
                     id='https://instance/user', webfinger_addr=input), to=ATProto)
 
         # to ActivityPub, short=True
@@ -419,20 +422,24 @@ class IdsTest(TestCase):
                 'content': json_dumps({'nip05': '_@us.er'})}),
         ):
             self.assertEqual('@us.er', translate_handle(
-                from_user=from_user, to=ActivityPub, short=True))
+                from_=from_user, to=ActivityPub, short=True))
 
     @patch('ids.ATPROTO_HANDLE_DOMAINS', set(('example.com',)))
     def test_translate_handle_atproto_handle_domains(self):
         self.assertEqual('alice.example.com', translate_handle(
-            from_user=Web(id='alice.example.com'), to=ATProto))
-        self.assertEqual('bob.example.com', translate_handle(
-            from_user=ActivityPub(id='https://instance/bob', webfinger_addr='@bob@example.com'),
-            to=ATProto))
-        self.assertEqual('bob.example.com', translate_handle(
-            from_user=self.make_user(id=PUBKEY_URI, cls=Nostr, obj_nostr={
-                'id': hashlib.sha256(b'bob-example-com-1').hexdigest(), 'kind': KIND_PROFILE, 'pubkey': PUBKEY,
-                'content': json_dumps({'nip05': 'bob@example.com'})}),
-            to=ATProto))
+            from_=Web(id='alice.example.com'), to=ATProto))
+
+        bob = ActivityPub(id='https://instance/bob',
+                          webfinger_addr='@bob@example.com')
+        self.assertEqual('bob.example.com', translate_handle(from_=bob, to=ATProto))
+
+        bob = self.make_user(id=PUBKEY_URI, cls=Nostr, obj_nostr={
+                'id': hashlib.sha256(b'bob-example-com-1').hexdigest(),
+                'kind': KIND_PROFILE,
+                'pubkey': PUBKEY,
+                'content': json_dumps({'nip05': 'bob@example.com'}),
+        })
+        self.assertEqual('bob.example.com', translate_handle(from_=bob, to=ATProto))
 
     def test_translate_handle_web_domain_override(self):
         """Web users always translate via their domain, not a custom username."""
@@ -440,8 +447,8 @@ class IdsTest(TestCase):
             id='a', as2={'url': ['acct:baz@user.com']}))
         self.assertEqual('baz', user.handle)
 
-        self.assertEqual('fake:handle:user.com', translate_handle(
-            from_user=user, to=Fake))
+        self.assertEqual('fake:handle:user.com',
+                         translate_handle(from_=user, to=Fake))
 
     def test_translate_handle_atproto_did_doc_override(self):
         """Translating to ATProto prefers the handle in the user's own DID doc."""
@@ -452,8 +459,8 @@ class IdsTest(TestCase):
         user = Fake(id='fake:user',
                     copies=[Target(uri='did:plc:xyz', protocol='atproto')])
 
-        self.assertEqual('custom.example.com', translate_handle(
-            from_user=user, to=ATProto))
+        self.assertEqual('custom.example.com',
+                         translate_handle(from_=user, to=ATProto))
 
     def test_translate_handle_farcaster_profile_override(self):
         """Translating to Farcaster prefers the username in the copy's profile Object."""
@@ -461,7 +468,7 @@ class IdsTest(TestCase):
         user = Fake(id='fake:user',
                     copies=[Target(uri='farcaster://123', protocol='farcaster')])
 
-        self.assertEqual('alice', translate_handle(from_user=user, to=Farcaster))
+        self.assertEqual('alice', translate_handle(from_=user, to=Farcaster))
 
     def test_translate_object_id(self):
         self.store_object(id='http://po.st', copies=[
