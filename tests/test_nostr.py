@@ -29,7 +29,6 @@ from atproto import ATProto
 import common
 from flask_app import app
 import ids
-from ids import translate_handle, translate_object_id, translate_user_id
 import models
 from models import Follower, Object, Target
 import nostr
