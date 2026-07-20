@@ -21,7 +21,7 @@ BASE_URL = 'https://web.brid.gy/'
 
 
 @patch.object(common, 'BETA_USER_IDS', ('alice.com',))
-class MastodonApiTest(TestCase):
+class MastodonOAuthTest(TestCase):
 
     def setUp(self):
         super().setUp()
@@ -402,7 +402,7 @@ class MastodonApiTest(TestCase):
 
         resp = self.client.post('/oauth/token', data={
             'grant_type': 'authorization_code',
-            'code': code[:-1] + ('x' if code[-1] != 'x' else 'y'),
+            'code': code[:-1] + '!',
             'redirect_uri': 'https://app.example/callback',
             'client_id': app['client_id'],
             'client_secret': app['client_secret'],
