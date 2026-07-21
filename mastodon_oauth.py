@@ -31,7 +31,7 @@ from oauth_dropins import indieauth
 import oauth_dropins.bluesky
 import oauth_dropins.mastodon
 import oauth_dropins.pixelfed
-from webutil.models import ENCRYPTED_PROPERTY_KEYS_BYTES
+from webutil import models
 from webutil.flask_util import error, FlashErrors, flash, get_required_param
 from werkzeug.exceptions import HTTPException
 
@@ -81,13 +81,13 @@ def log_request_response(fn):
 
 
 def encode_jwt(val):
-    return jwt.encode(val, key=ENCRYPTED_PROPERTY_KEYS_BYTES[0], algorithm=JWT_ALG)
+    return jwt.encode(val, key=models.ENCRYPTED_PROPERTY_KEYS_BYTES[0], algorithm=JWT_ALG)
 
 
 def decode_jwt(val, typ):
     """Decodes a JWT and checks its ``typ``."""
     try:
-        payload = jwt.decode(val, key=ENCRYPTED_PROPERTY_KEYS_BYTES[0],
+        payload = jwt.decode(val, key=models.ENCRYPTED_PROPERTY_KEYS_BYTES[0],
                              algorithms=[JWT_ALG])
     except jwt.InvalidTokenError as e:
         logger.info(f'decode failed for {val}: {e}')
@@ -105,7 +105,7 @@ def hash_client_id(client_id):
 
 
 def client_secret_for(client_id):
-    return hmac.new(ENCRYPTED_PROPERTY_KEYS_BYTES[0], client_id.encode(),
+    return hmac.new(models.ENCRYPTED_PROPERTY_KEYS_BYTES[0], client_id.encode(),
                     hashlib.sha256).hexdigest()
 
 
