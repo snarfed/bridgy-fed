@@ -27,6 +27,7 @@ from domains import (
     SUPERDOMAIN,
 )
 from flask_app import app
+import ids
 import memcache
 import models
 from protocol import Protocol
@@ -64,38 +65,12 @@ class Webfinger(flask_util.XrdOrJrd):
         if resource in ('', '/', f'acct:{host}', f'acct:@{host}'):
             error('Expected other domain, not *.brid.gy')
 
-        proto = None
-        try:
-            username, server = util.parse_acct_uri(resource)
-            id = server
-            proto = Protocol.for_bridgy_subdomain(id, fed='web')
-            if proto:
-                id = username
-        except ValueError:
-            id = username = server = urlparse(resource).netloc or resource
-
-        if id == PRIMARY_DOMAIN or id in PROTOCOL_DOMAINS:
-            proto = Web
-        elif not proto:
-            proto = Protocol.for_request(fed='web')
-
-        if not proto:
-            error(f"Couldn't determine protocol for f{resource}")
-
-        logger.debug(f'Protocol {proto.LABEL}, user id {id}')
-
-        try:
-            user = models.load_user(id, proto=proto)
-        except RuntimeError as e:
-            error(f'No {proto.LABEL} user found for {id}', status=404)
-
-        if (not user.is_enabled(activitypub.ActivityPub)
-            or (proto == Web and username not in (user.key.id(), user.username()))):
-            error(f'No {proto.LABEL} user found for {id}', status=404)
+        user = load_user(resource)
+        logger.debug(f'User {user.key}')
 
         ap_handle = user.handle_as('activitypub')
         if not ap_handle:
-            error(f'{proto.LABEL} user {id} has no handle', status=404)
+            error(f'user has no handle', status=404)
 
         # backward compatibility for initial Web users whose AP actor ids are on
         # fed.brid.gy, not web.brid.gy
@@ -164,7 +139,7 @@ class Webfinger(flask_util.XrdOrJrd):
                 # https://www.w3.org/TR/activitypub/#sharedInbox
                 'rel': 'sharedInbox',
                 'type': as2.CONTENT_TYPE_LD_PROFILE,
-                'href': subdomain_wrap(proto, '/ap/sharedInbox'),
+                'href': subdomain_wrap(user, '/ap/sharedInbox'),
             },
 
             # remote follow
@@ -213,6 +188,51 @@ def host_meta_xrds():
     return render_template('host-meta.xrds', host_uri=domains.host_url()), {
         'Content-Type': 'application/xrds+xml',
     }
+
+
+def load_user(addr, allow_opt_out=False):
+    """Loads a Bridgy Fed user by its bridged webfinger address.
+
+    Args:
+      addr (str): webfinger address, eg ``alice.com@web.brid.gy``
+      allow_opt_out (bool)
+
+    Returns:
+      models.User
+
+    Raises:
+      werkzeug.HTTPError: if addr is malformed, not on Bridgy Fed, or not
+        bridged to ActivityPub
+    """
+    proto = None
+    try:
+        username, server = util.parse_acct_uri(addr)
+        handle = server
+        if proto := Protocol.for_bridgy_subdomain(handle, fed='web'):
+            handle = username
+    except ValueError:
+        handle = username = server = urlparse(addr).netloc or addr
+
+    if handle == PRIMARY_DOMAIN or handle in PROTOCOL_DOMAINS:
+        proto = Web
+    elif not proto:
+        proto = Protocol.for_request(fed='web')
+
+    if not proto:
+        error(f"Couldn't determine protocol for f{addr}")
+
+    handle = ids.translate_handle(handle=handle, from_=proto, to=proto)
+    try:
+        user = models.load_user(handle, proto=proto, allow_opt_out=allow_opt_out)
+    except RuntimeError as e:
+        logger.info(e)
+        error(f'No {proto.LABEL} user found for {handle}', status=404)
+
+    if (not user.is_enabled(activitypub.ActivityPub)
+            or (proto == Web and username not in (user.key.id(), user.username()))):
+        error(f'No {proto.LABEL} user found for {handle}', status=404)
+
+    return user
 
 
 def fetch(addr):
