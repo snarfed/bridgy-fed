@@ -59,7 +59,8 @@ from domains import (
 )
 import ids
 import memcache
-from models import fetch_objects, Follower, load_user, Object, PROTOCOLS, User
+import models
+from models import fetch_objects, Follower, Object, PROTOCOLS, User
 from protocol import activity_id_memcache_key, DELETE_TASK_DELAY, Protocol
 from ui import UIProtocol
 import webfinger
@@ -1290,7 +1291,7 @@ def postprocess_as2_actor(actor, user):
     return actor
 
 
-def _load_user(handle_or_id, create=False, allow_opt_out=False):
+def load_user(handle_or_id, create=False, allow_opt_out=False):
     if handle_or_id == PRIMARY_DOMAIN or handle_or_id in PROTOCOL_DOMAINS:
         from web import Web
         proto = Web
@@ -1301,8 +1302,8 @@ def _load_user(handle_or_id, create=False, allow_opt_out=False):
         error(f"Couldn't determine protocol", status=404)
 
     try:
-        user = load_user(handle_or_id, proto, create=create,
-                         allow_opt_out=allow_opt_out)
+        user = models.load_user(handle_or_id, proto, create=create,
+                                allow_opt_out=allow_opt_out)
     except (AttributeError, RuntimeError, ValueError) as e:
         error(str(e), status=404)
 
@@ -1329,7 +1330,7 @@ def actor(handle_or_id):
             and request.host not in ('fed.brid.gy', 'web.brid.gy', 'localhost')):
         return '', 404
 
-    user = _load_user(handle_or_id, create=True, allow_opt_out=True)
+    user = load_user(handle_or_id, create=True, allow_opt_out=True)
     proto = user
 
     # allow non-AS2 fetches even for disabled users, just redirect to bsky.app profile
@@ -1556,7 +1557,7 @@ def follower_collection(id, collection):
     if id in PROTOCOL_DOMAINS:
         return '', 404
 
-    user = _load_user(id)
+    user = load_user(id)
 
     if request.method == 'HEAD':
         return '', {'Content-Type': as2.CONTENT_TYPE_LD_PROFILE}
@@ -1612,7 +1613,7 @@ def outbox(id):
 
     TODO: unify page generation with follower_collection()
     """
-    user = _load_user(id)
+    user = load_user(id)
 
     if request.method == 'HEAD':
         return '', {'Content-Type': as2.CONTENT_TYPE_LD_PROFILE}
@@ -1684,7 +1685,7 @@ def featured(id):
     # https://github.com/snarfed/bridgy-fed/issues/1374#issuecomment-2891993190
     return '', 404
 
-    user = _load_user(id)
+    user = load_user(id)
 
     items = []
     if user.obj and user.obj.as1:
