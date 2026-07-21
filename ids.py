@@ -427,6 +427,8 @@ def translate_handle(*, from_, to, handle=None, short=False):
     if from_.LABEL == to.LABEL:
         if to.LABEL == 'activitypub' and short:
             return handle.rsplit('@', maxsplit=1)[0]
+        elif to.LABEL in ('fake', 'other', 'efake'):
+            return handle.replace('-', ':')
         return handle
 
     if from_.LABEL != 'ui':
