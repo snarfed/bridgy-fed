@@ -996,7 +996,10 @@ class PagesTest(TestCase):
         self.assert_multiline_in('because your account doesn&#39;t have a profile picture', body)
 
     @patch.object(util.session, 'get', autospec=True, side_effect=[
-        requests_response(DID_DOC),
+        requests_response({
+            **DID_DOC,
+            'alsoKnownAs': ['at://ab.c'],
+        }),
         requests_response({
             'uri': 'at://did:plc:abc/app.bsky.actor.profile/self',
             'cid': 'bafyreigd',

@@ -1515,7 +1515,7 @@ class ProtocolTest(TestCase):
             '$type': 'app.bsky.actor.profile',
         })
 
-        ATProto.block(alice, 'https://bsky.app/profile/han.dull.brid.gy')
+        ATProto.block(alice, 'https://bsky.app/profile/han.dull.fa.brid.gy')
 
         self.assert_task(
             mock_create_task, 'send', protocol='atproto', first='True',
@@ -1535,7 +1535,7 @@ class ProtocolTest(TestCase):
             '$type': 'app.bsky.actor.profile',
         })
 
-        ATProto.unblock(alice, 'https://bsky.app/profile/han.dull.brid.gy')
+        ATProto.unblock(alice, 'https://bsky.app/profile/han.dull.fa.brid.gy')
 
         id = 'https://alice.com/#bridgy-fed-unblock-2022-01-02T03:04:05+00:00'
         self.assert_task(
@@ -1567,7 +1567,7 @@ class ProtocolTest(TestCase):
         alice = self.make_user(id='fake:alice', cls=Fake, obj_id='fake:alice',
                                enabled_protocols=['atproto'])
 
-        ATProto.block(alice, 'https://bsky.app/profile/han.dull.brid.gy')
+        ATProto.block(alice, 'https://bsky.app/profile/han.dull.fa.brid.gy')
 
         self.assert_task(
             mock_create_task, 'send', protocol='atproto', first='True',
