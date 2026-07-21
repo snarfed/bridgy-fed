@@ -111,6 +111,10 @@ class UserTest(TestCase):
         self.assertEqual('fake:user', user.key.id())
         assert not user.existing
 
+    def test_get_or_create_owns_id_false(self):
+        self.assertIsNone(Fake.get_or_create('nope'))
+        self.assertIsNone(Fake.get_by_id('nope'))
+
     def test_get_or_create_existing_merge_enabled_protocols(self):
         self.user.enabled_protocols = ['fake']
         self.user.put()

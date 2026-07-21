@@ -533,6 +533,10 @@ class User(AddRemoveMixin, StringIdModel, metaclass=ProtocolUserMeta):
         """
         assert cls != User
 
+        if cls.owns_id(id) is False:
+            logger.info(f"{cls.LABEL} doesn't own id {id}")
+            return None
+
         # TODO?
         # id = ids.normalize_user_id(id=id, proto=cls)
 
