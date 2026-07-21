@@ -214,7 +214,7 @@ class MastodonApiTest(TestCase):
             'reblogs_count': 0,
             'replies_count': 0,
             'sensitive': False,
-            'spoiler_text': None,
+            'spoiler_text': '',
             'tags': [],
             'visibility': 'public',
         }, resp.json)
@@ -291,10 +291,12 @@ class MastodonApiTest(TestCase):
         self.assertEqual([], resp.json)
 
     def test_timelines_home(self):
-        Object(id='fake:post', feed=[self.user.key], our_as1={
-            'objectType': 'note',
-            'content': 'in my feed',
-        }).put()
+        Object(id='fake:post', feed=[self.user.key],
+               source_protocol='fake', our_as1={
+                   'objectType': 'note',
+                   'content': 'in my feed',
+                   'author': 'fake:bob',
+               }).put()
         resp = self.get('/api/v1/timelines/home')
         self.assertEqual(200, resp.status_code, resp.get_data(as_text=True))
         self.assertEqual(1, len(resp.json))

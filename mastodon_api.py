@@ -256,8 +256,11 @@ def timelines_home(user):
     objects = Object.query(Object.feed == user.key
                            ).order(-Object.created
                            ).fetch(LIMIT)
-    return [status(obj) for obj in objects
-            if obj.as1 and not obj.deleted and as1.is_public(obj.as1)]
+    statuses = [status(obj) for obj in objects
+                if obj.as1 and not obj.deleted and as1.is_public(obj.as1)]
+    # TODO: formalize
+    return [s for s in statuses if s.get('account') and
+            (not s['reblog'] or s['reblog'].get('account'))]
 
 
 @app.get('/api/v1/timelines/public')
