@@ -136,3 +136,10 @@ indexes:
   - name: feed
   - name: created
     direction: desc
+
+- kind: Object
+  properties:
+  - name: users
+  - name: type
+  - name: created
+    direction: desc

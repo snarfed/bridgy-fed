@@ -171,7 +171,8 @@ class Fake(User, protocol.Protocol):
             return False
 
         return ((id.startswith(f'{cls.LABEL}:')
-                 and not id.startswith(f'{cls.LABEL}:handle:'))
+                 and not id.startswith(f'{cls.LABEL}:handle:')
+                 and '@' not in id)
                 or id in cls.fetchable)
 
     @classmethod
