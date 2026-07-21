@@ -143,3 +143,9 @@ indexes:
   - name: type
   - name: created
     direction: desc
+
+- kind: Object
+  properties:
+  - name: type
+  - name: created
+    direction: desc

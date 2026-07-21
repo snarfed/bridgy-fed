@@ -161,10 +161,11 @@ def accounts_statuses(user, addr):
     # exclude_reblogs, pinned, tagged
     target = webfinger.load_user(addr)
     objects = Object.query(Object.users == target.key,
-                           Object.type.IN(as1.POST_TYPES),
+                           Object.type.IN(as1.POST_TYPES | set(['share'])),
                           ).order(-Object.created
                           ).fetch(LIMIT)
-    return [status(obj) for obj in objects if obj.as1]
+    return [status(obj) for obj in objects
+            if obj.as1 and not obj.deleted and as1.is_public(obj.as1)]
 
 
 @app.get('/api/v1/accounts/<path:addr>/followers')
@@ -249,13 +250,24 @@ def statuses_reblogged_by(user, id):
     return []
 
 
-@app.get('/api/v1/timelines/public')
+@app.get('/api/v1/timelines/home')
 @auth
-def timelines_public(user):
+def timelines_home(user):
     objects = Object.query(Object.feed == user.key
                            ).order(-Object.created
                            ).fetch(LIMIT)
-    return [status(obj) for obj in objects if obj.as1]
+    return [status(obj) for obj in objects
+            if obj.as1 and not obj.deleted and as1.is_public(obj.as1)]
+
+
+@app.get('/api/v1/timelines/public')
+@auth
+def timelines_public(user):
+    objects = Object.query(Object.type.IN(as1.POST_TYPES | set(['share'])),
+                           ).order(-Object.created
+                           ).fetch(LIMIT)
+    return [status(obj) for obj in objects
+            if obj.as1 and not obj.deleted and as1.is_public(obj.as1)]
 
 
 @app.get('/api/v1/timelines/tag/<hashtag>')

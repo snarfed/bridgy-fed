@@ -133,6 +133,25 @@ class MastodonApiTest(TestCase):
         self.assertEqual(1, len(resp.json))
         self.assertEqual('hello world', resp.json[0]['content'])
 
+    def test_accounts_statuses_excludes_deleted_and_non_public(self):
+        Object(id='fake:post', users=[self.user.key], our_as1={
+            'objectType': 'note',
+            'content': 'hello world',
+        }).put()
+        Object(id='fake:deleted', users=[self.user.key], deleted=True, our_as1={
+            'objectType': 'note',
+            'content': 'deleted',
+        }).put()
+        Object(id='fake:private', users=[self.user.key], our_as1={
+            'objectType': 'note',
+            'content': 'private',
+            'to': [{'alias': '@private'}],
+        }).put()
+        resp = self.get('/api/v1/accounts/@fake-handle-alice@fa.brid.gy/statuses')
+        self.assertEqual(200, resp.status_code, resp.get_data(as_text=True))
+        self.assertEqual(1, len(resp.json))
+        self.assertEqual('hello world', resp.json[0]['content'])
+
     def test_accounts_followers(self):
         bob = self.make_user('other:bob', cls=OtherFake)
         Follower.get_or_create(from_=bob, to=self.user)
@@ -195,7 +214,7 @@ class MastodonApiTest(TestCase):
             'reblogs_count': 0,
             'replies_count': 0,
             'sensitive': False,
-            'spoiler_text': '',
+            'spoiler_text': None,
             'tags': [],
             'visibility': 'public',
         }, resp.json)
@@ -248,14 +267,52 @@ class MastodonApiTest(TestCase):
         self.assertEqual([], resp.json)
 
     def test_timelines_public(self):
-        Object(id='fake:post', feed=[self.user.key], our_as1={
+        Object(id='fake:not-followed', our_as1={
             'objectType': 'note',
-            'content': 'in my feed',
+            'content': 'not in my feed',
         }).put()
         resp = self.get('/api/v1/timelines/public')
         self.assertEqual(200, resp.status_code, resp.get_data(as_text=True))
         self.assertEqual(1, len(resp.json))
+        self.assertEqual('not in my feed', resp.json[0]['content'])
+
+    def test_timelines_public_excludes_deleted_and_non_public(self):
+        Object(id='fake:deleted', deleted=True, our_as1={
+            'objectType': 'note',
+            'content': 'deleted',
+        }).put()
+        Object(id='fake:private', our_as1={
+            'objectType': 'note',
+            'content': 'private',
+            'to': [{'alias': '@private'}],
+        }).put()
+        resp = self.get('/api/v1/timelines/public')
+        self.assertEqual(200, resp.status_code, resp.get_data(as_text=True))
+        self.assertEqual([], resp.json)
+
+    def test_timelines_home(self):
+        Object(id='fake:post', feed=[self.user.key], our_as1={
+            'objectType': 'note',
+            'content': 'in my feed',
+        }).put()
+        resp = self.get('/api/v1/timelines/home')
+        self.assertEqual(200, resp.status_code, resp.get_data(as_text=True))
+        self.assertEqual(1, len(resp.json))
         self.assertEqual('in my feed', resp.json[0]['content'])
+
+    def test_timelines_home_excludes_deleted_and_non_public(self):
+        Object(id='fake:deleted', feed=[self.user.key], deleted=True, our_as1={
+            'objectType': 'note',
+            'content': 'deleted',
+        }).put()
+        Object(id='fake:private', feed=[self.user.key], our_as1={
+            'objectType': 'note',
+            'content': 'private',
+            'to': [{'alias': '@private'}],
+        }).put()
+        resp = self.get('/api/v1/timelines/home')
+        self.assertEqual(200, resp.status_code, resp.get_data(as_text=True))
+        self.assertEqual([], resp.json)
 
     def test_timelines_tag(self):
         resp = self.get('/api/v1/timelines/tag/foo')
