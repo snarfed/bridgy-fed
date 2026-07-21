@@ -424,6 +424,47 @@ class IdsTest(TestCase):
             self.assertEqual('@us.er', translate_handle(
                 from_=from_user, to=ActivityPub, short=True))
 
+    def test_translate_handle_from_atproto_bridged(self):
+        """Translating a bridged AP webfinger address should unwrap it first."""
+        for handle, to, expected in [
+            ('x.com.web.brid.gy', Web, 'x.com'),
+            ('user.dom.ain.nostr.brid.gy', Nostr, 'user.dom.ain'),
+            ('fake-handle-alice.fa.brid.gy', Fake, 'fake:handle:alice'),
+            # TODO: AP, Farcaster
+        ]:
+            with self.subTest(handle=handle, to=to.LABEL):
+                self.assertEqual(expected, translate_handle(
+                    handle=handle, from_=ATProto, to=to))
+
+    def test_translate_handle_from_activitypub_bridged(self):
+        """Translating a bridged AP webfinger address should unwrap it first."""
+        for handle, to, expected in [
+            ('@x.com@bsky.brid.gy', ATProto, 'x.com'),
+            ('@x.com@web.brid.gy', Web, 'x.com'),
+            ('@x.com@nostr.brid.gy', Nostr, 'x.com'),
+            ('@user.dom.ain@nostr.brid.gy', Nostr, 'user.dom.ain'),
+            ('@fake-handle-alice@fa.brid.gy', Fake, 'fake:handle:alice'),
+            # TODO: Farcaster
+        ]:
+            with self.subTest(handle=handle, to=to.LABEL):
+                self.assertEqual(expected, translate_handle(
+                    handle=handle, from_=ActivityPub, to=to))
+
+    def test_translate_handle_to_fake_reverse(self):
+        """Translating a bridged fake/other/efake handle back should unwrap it."""
+        for from_, handle, expected in [
+            (ActivityPub, '@fake-handle-alice@fa.brid.gy', 'fake:handle:alice'),
+            (ATProto, 'fake-handle-alice.fa.brid.gy', 'fake:handle:alice'),
+            (Nostr, 'fake-handle-alice@fa.brid.gy', 'fake:handle:alice'),
+        ]:
+            with self.subTest(from_=from_.LABEL, handle=handle):
+                self.assertEqual(expected, translate_handle(
+                    handle=handle, from_=from_, to=Fake))
+
+        # not a bridged fake handle; falls back to wrapping it as is
+        self.assertEqual('fake:handle:@user@instance', translate_handle(
+            handle='@user@instance', from_=ActivityPub, to=Fake))
+
     @patch('ids.ATPROTO_HANDLE_DOMAINS', set(('example.com',)))
     def test_translate_handle_atproto_handle_domains(self):
         self.assertEqual('alice.example.com', translate_handle(

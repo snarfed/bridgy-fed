@@ -28,6 +28,7 @@ from domains import (
     unwrap,
 )
 import models
+from models import PROTOCOLS
 
 logger = logging.getLogger(__name__)
 
@@ -432,6 +433,8 @@ def translate_handle(*, from_, to, handle=None, short=False):
         if from_.owns_handle(handle, allow_internal=True) is False:
             raise ValueError(f'input handle {handle} is not valid for {from_.LABEL}')
 
+    bot_user = (handle == PRIMARY_DOMAIN or handle in PROTOCOL_DOMAINS)
+
     # "flatten" [@]user@domain handles to just domain-like, eg user.domain,
     # and then append @[protocol domain], so we end up with user.domain@proto.brid.gy
     flattened = handle.lstrip('@').replace('@', '.')
@@ -440,12 +443,20 @@ def translate_handle(*, from_, to, handle=None, short=False):
 
     def flattened_user_at_domain():
         domain = f'{from_.ABBREV}{SUPERDOMAIN}'
-        if handle == PRIMARY_DOMAIN or handle in PROTOCOL_DOMAINS:
+        if bot_user:
             domain = flattened
         return f'{flattened}@{domain}'
 
     output = None
     match from_.LABEL, to.LABEL:
+        case _, _ if handle.endswith(SUPERDOMAIN) and not bot_user:
+            handle = handle.strip('@').removesuffix(SUPERDOMAIN)
+            username, abbrev = handle.rsplit('@' if '@' in handle else '.', 1)
+            if abbrev in ('fa', 'other', 'efake'):
+                username = username.replace('-', ':')
+            return translate_handle(handle=username, from_=PROTOCOLS[abbrev], to=to,
+                                    short=short)
+
         case _, 'activitypub':
             if short:
                 return '@' + flattened
@@ -453,7 +464,7 @@ def translate_handle(*, from_, to, handle=None, short=False):
             return '@' + flattened_user_at_domain()
 
         case _, 'atproto':
-            if handle == PRIMARY_DOMAIN or handle in PROTOCOL_DOMAINS:
+            if bot_user:
                 return handle
 
             # first check DID doc
@@ -468,13 +479,13 @@ def translate_handle(*, from_, to, handle=None, short=False):
                 output = flattened_user_at_domain().replace('@', '.')
 
         case _, 'nostr':
-            if handle == PRIMARY_DOMAIN or handle in PROTOCOL_DOMAINS:
+            if bot_user:
                 return handle
 
             output = flattened_user_at_domain()
 
         case _, 'farcaster':
-            if handle == PRIMARY_DOMAIN or handle in PROTOCOL_DOMAINS:
+            if bot_user:
                 return handle
 
             # first check the copy's profile Object
