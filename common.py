@@ -12,6 +12,7 @@ from urllib.parse import urljoin, urlparse
 import flask
 from flask import abort, g, has_request_context, make_response, redirect, request
 from flask.views import View
+from google.api_core.exceptions import InvalidArgument
 from google.cloud.error_reporting.util import build_flask_context
 from google.cloud import ndb
 from google.cloud.ndb.key import Key
@@ -239,7 +240,13 @@ def create_task(queue, app_id=GCP_PROJECT_ID, delay=None, app=None, **params):
         task['schedule_time'] = schedule_time
 
     parent = tasks_client.queue_path(app_id, TASKS_LOCATION, queue)
-    task = tasks_client.create_task(parent=parent, task=task)
+    try:
+        task = tasks_client.create_task(parent=parent, task=task)
+    except InvalidArgument as e:
+        if e.message == 'Task size too large':
+            logger.exception('Payload too big')
+            error('Payload too big', 299)
+        raise
 
     msg = f'Added {queue} {task.name.split("/")[-1]} {delay_msg}'
     if not traceparent and not cloud_trace:

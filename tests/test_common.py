@@ -4,11 +4,13 @@ from unittest import skip
 from unittest.mock import Mock, patch
 
 import flask
+from google.api_core.exceptions import InvalidArgument
 from granary import as2
 import jwt
 from webutil.appengine_config import error_reporting_client
 from webutil import models
 from webutil.testutil import NOW
+import werkzeug.exceptions
 
 # import first so that Fake is defined before URL routes are registered
 from .testutil import ExplicitFake, Fake, OtherFake, TestCase
@@ -77,6 +79,16 @@ class CommonTest(TestCase):
         headers = mock_create_task.call_args[1]['task']['app_engine_http_request']['headers']
         self.assertEqual('a1b2', headers['traceparent'])
         self.assertEqual('c3d4', headers['X-Cloud-Trace-Context'])
+
+    @patch('webutil.appengine_config.tasks_client.create_task',
+           side_effect=InvalidArgument('Task size too large'))
+    def test_create_task_payload_too_large(self, mock_create_task):
+        common.RUN_TASKS_INLINE = False
+
+        with self.assertRaises(werkzeug.exceptions.HTTPException) as e:
+            common.create_task('receive')
+
+        self.assertEqual(299, e.exception.code)
 
     @patch('webutil.appengine_config.tasks_client.create_task')
     def test_create_task_rate_limited(self, mock_create_task):
