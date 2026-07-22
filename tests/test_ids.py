@@ -305,7 +305,7 @@ class IdsTest(TestCase):
             id=PUBKEY_URI.removeprefix('nostr:'), proto=Nostr))
         self.assertEqual(NOSTR_ID_0, user.profile_id())
 
-    @patch.object(util.session, 'get', autospec=True)
+    @patch.object(util.session, 'get')
     def test_translate_handle(self, _):
         # ATProto handles come from a DID doc's alsoKnownAs, keyed by DID
         self.store_object(id='did:plc:user', raw={

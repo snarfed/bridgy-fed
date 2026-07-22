@@ -105,7 +105,7 @@ class MediaBlocklistedTest(TestCase):
             with self.subTest(obj_as1=obj_as1):
                 self.assertTrue(media_blocklisted(Object(our_as1=obj_as1), None))
 
-    @patch.object(util.session, 'get', autospec=True, return_value=requests_response('blob contents'))
+    @patch.object(util.session, 'get', return_value=requests_response('blob contents'))
     def test_fetch_blob_fail(self, mock_get):
         Object(id='internal:media-blocklist', raw=[
             'bafkreicqpqncshdd27sgztqgzocd3zhhqnnsv6slvzhs5uz6f57cq6lmtq',

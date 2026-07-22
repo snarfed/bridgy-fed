@@ -2704,7 +2704,7 @@ class ActivityPubUtilsTest(TestCase):
         self.assertEqual('http://inst.com/@user',
                          ActivityPub.handle_to_id('user@inst.com'))
 
-    @patch.object(util.session, 'get', autospec=True)
+    @patch.object(util.session, 'get')
     def test_handle_to_id_fetch(self, mock_get):
         mock_get.return_value = requests_response(test_webfinger.WEBFINGER)
         self.assertEqual('http://localhost/user.com',
@@ -2713,7 +2713,7 @@ class ActivityPubUtilsTest(TestCase):
             mock_get,
             'https://inst.com/.well-known/webfinger?resource=acct:user@inst.com')
 
-    @patch.object(util.session, 'get', autospec=True, return_value=requests_response({}))
+    @patch.object(util.session, 'get', return_value=requests_response({}))
     def test_handle_to_id_not_found(self, mock_get):
         self.assertIsNone(ActivityPub.handle_to_id('@user@inst.com'))
         self.assert_req(
@@ -3235,7 +3235,7 @@ class ActivityPubUtilsTest(TestCase):
             'id': 'https://web.brid.gy/r/https://inst/dm#create',
         }, postprocess_as2(copy.deepcopy(dm)))
 
-    @patch.object(util.session, 'get', autospec=True)
+    @patch.object(util.session, 'get')
     def test_signed_get_redirects_manually_with_new_sig_headers(self, mock_get):
         mock_get.side_effect = [
             requests_response(status=302, redirected_url='http://second',
@@ -3248,7 +3248,7 @@ class ActivityPubUtilsTest(TestCase):
         second = mock_get.call_args_list[1][1]
         self.assertNotEqual(first['headers'], second['headers'])
 
-    @patch.object(util.session, 'get', autospec=True)
+    @patch.object(util.session, 'get')
     def test_signed_get_redirects_to_relative_url(self, mock_get):
         mock_get.side_effect = [
             # redirected URL is relative, we have to resolve it
@@ -3269,13 +3269,13 @@ class ActivityPubUtilsTest(TestCase):
             first['auth'].header_signer.sign(first['headers'], method='GET', path='/'),
             second['auth'].header_signer.sign(second['headers'], method='GET', path='/'))
 
-    @patch.object(util.session, 'get', autospec=True, return_value=requests_response(
+    @patch.object(util.session, 'get', return_value=requests_response(
         status=302, redirected_url='abc: 123', allow_redirects=False))
     def test_signed_get_redirect_invalid_url(self, mock_get):
         with self.assertRaises(BadRequest):
             activitypub.signed_get('https://tinyurl.com/c42ztkn7')
 
-    @patch.object(util.session, 'get', autospec=True)
+    @patch.object(util.session, 'get')
     def test_signed_get_too_many_redirects(self, mock_get):
         mock_get.return_value = requests_response(
             status=302, redirected_url='http://second', allow_redirects=False)
@@ -3283,7 +3283,7 @@ class ActivityPubUtilsTest(TestCase):
         with self.assertRaises(requests.TooManyRedirects):
             activitypub.signed_get('https://first')
 
-    @patch.object(util.session, 'post', autospec=True, return_value=requests_response(status=200))
+    @patch.object(util.session, 'post', return_value=requests_response(status=200))
     def test_signed_post_from_user_is_activitypub_use_instance_actor(self, mock_post):
         activitypub.signed_post('https://url', from_user=ActivityPub(id='http://fed'))
 
@@ -3293,7 +3293,7 @@ class ActivityPubUtilsTest(TestCase):
         rsa_key = kwargs['auth'].header_signer._rsa._key
         self.assertEqual(instance_actor().private_pem(), rsa_key.exportKey())
 
-    @patch.object(util.session, 'post', autospec=True)
+    @patch.object(util.session, 'post')
     def test_signed_post_ignores_redirect(self, mock_post):
         mock_post.side_effect = [
             requests_response(status=302, redirected_url='http://second',
@@ -3304,7 +3304,7 @@ class ActivityPubUtilsTest(TestCase):
         mock_post.assert_called_once()
         self.assertEqual(302, resp.status_code)
 
-    @patch.object(util.session, 'get', autospec=True, return_value=AS2)
+    @patch.object(util.session, 'get', return_value=AS2)
     def test_fetch_direct(self, mock_get):
         obj = Object(id='http://orig')
         self.assertTrue(ActivityPub.fetch(obj))
@@ -3314,7 +3314,7 @@ class ActivityPubUtilsTest(TestCase):
             self.as2_req('http://orig'),
         ))
 
-    @patch.object(util.session, 'get', autospec=True)
+    @patch.object(util.session, 'get')
     def test_fetch_direct_list(self, mock_get):
         mock_get.return_value = self.as2_resp([AS2_OBJ])
         obj = Object(id='http://orig')
@@ -3325,7 +3325,7 @@ class ActivityPubUtilsTest(TestCase):
             self.as2_req('http://orig'),
         ))
 
-    @patch.object(util.session, 'get', autospec=True)
+    @patch.object(util.session, 'get')
     def test_fetch_direct_ld_content_type(self, mock_get):
         mock_get.return_value = requests_response(AS2_OBJ, headers={
             'Content-Type': 'application/ld+json; profile="https://www.w3.org/ns/activitystreams"',
@@ -3338,7 +3338,7 @@ class ActivityPubUtilsTest(TestCase):
             self.as2_req('http://orig'),
         ))
 
-    @patch.object(util.session, 'get', autospec=True)
+    @patch.object(util.session, 'get')
     def test_fetch_via_html(self, mock_get):
         mock_get.side_effect = [HTML_WITH_AS2, AS2]
         obj = Object(id='http://orig')
@@ -3350,7 +3350,7 @@ class ActivityPubUtilsTest(TestCase):
             self.as2_req('http://as2', headers=as2.CONNEG_HEADERS),
         ))
 
-    @patch.object(util.session, 'get', autospec=True)
+    @patch.object(util.session, 'get')
     def test_fetch_returns_different_id_on_same_domain(self, mock_get):
         mock_get.return_value = self.as2_resp({'id': 'http://orig/456'})
 
@@ -3363,7 +3363,7 @@ class ActivityPubUtilsTest(TestCase):
             self.as2_req('http://orig/123'),
         ))
 
-    @patch.object(util.session, 'get', autospec=True)
+    @patch.object(util.session, 'get')
     def test_fetch_returns_different_id_on_different_domain(self, mock_get):
         mock_get.return_value = self.as2_resp({'id': 'http://new/123'})
 
@@ -3376,7 +3376,7 @@ class ActivityPubUtilsTest(TestCase):
             self.as2_req('http://orig/123'),
         ))
 
-    @patch.object(util.session, 'get', autospec=True)
+    @patch.object(util.session, 'get')
     def test_fetch_only_html(self, mock_get):
         mock_get.return_value = HTML
 
@@ -3384,7 +3384,7 @@ class ActivityPubUtilsTest(TestCase):
         self.assertFalse(ActivityPub.fetch(obj))
         self.assertIsNone(obj.as1)
 
-    @patch.object(util.session, 'get', autospec=True)
+    @patch.object(util.session, 'get')
     def test_fetch_not_acceptable(self, mock_get):
         mock_get.return_value = NOT_ACCEPTABLE
 
@@ -3392,13 +3392,13 @@ class ActivityPubUtilsTest(TestCase):
         self.assertFalse(ActivityPub.fetch(obj))
         self.assertIsNone(obj.as1)
 
-    @patch.object(util.session, 'get', autospec=True)
+    @patch.object(util.session, 'get')
     def test_fetch_ssl_error(self, mock_get):
         mock_get.side_effect = requests.exceptions.SSLError
         with self.assertRaises(BadGateway):
             ActivityPub.fetch(Object(id='http://orig'))
 
-    @patch.object(util.session, 'get', autospec=True)
+    @patch.object(util.session, 'get')
     def test_fetch_no_content(self, mock_get):
         mock_get.return_value = self.as2_resp('')
 
@@ -3407,7 +3407,7 @@ class ActivityPubUtilsTest(TestCase):
 
         mock_get.assert_has_calls([self.as2_req('http://the/id')])
 
-    @patch.object(util.session, 'get', autospec=True)
+    @patch.object(util.session, 'get')
     def test_fetch_not_json(self, mock_get):
         mock_get.return_value = self.as2_resp('XYZ not JSON')
 
@@ -3426,7 +3426,7 @@ class ActivityPubUtilsTest(TestCase):
         self.assertFalse(ActivityPub.fetch(obj))
         self.assertIsNone(obj.as1)
 
-    @patch.object(util.session, 'get', autospec=True)
+    @patch.object(util.session, 'get')
     def test_fetch_multiply_valued_type(self, mock_get):
         # BandWagon sends this, eg https://bandwagon.fm/683df9a103137839d85d1579
         # https://console.cloud.google.com/errors/detail/COLtjYq7gMveSA?project=bridgy-federated
@@ -3440,7 +3440,7 @@ class ActivityPubUtilsTest(TestCase):
         self.assertTrue(ActivityPub.fetch(obj))
         self.assertEqual(event_article, obj.as2)
 
-    @patch.object(util.session, 'get', autospec=True)
+    @patch.object(util.session, 'get')
     def test_fetch_hydrate_actor_featured(self, mock_get):
         actor = {
             **ACTOR,
@@ -3458,7 +3458,7 @@ class ActivityPubUtilsTest(TestCase):
             self.as2_req('http://feat/ured', headers=as2.CONNEG_HEADERS),
         ))
 
-    @patch.object(util.session, 'get', autospec=True)
+    @patch.object(util.session, 'get')
     def test_fetch_actor_featured_already_hydrated(self, mock_get):
         actor = {
             **ACTOR,
@@ -3507,7 +3507,7 @@ class ActivityPubUtilsTest(TestCase):
     def test_convert_actor_as2(self):
         self.assert_equals(ACTOR, ActivityPub.convert(Object(as2=ACTOR)))
 
-    @patch.object(util.session, 'get', autospec=True)
+    @patch.object(util.session, 'get')
     def test_convert_actor_as1_from_web_user(self, mock_get):
         mock_get.return_value = test_web.ACTOR_HTML_RESP
 
@@ -3634,7 +3634,7 @@ class ActivityPubUtilsTest(TestCase):
             'cc': ['bob.com'],
         })))
 
-    @patch.object(util.session, 'get', autospec=True)
+    @patch.object(util.session, 'get')
     def test_convert_quote_post(self, mock_get):
         mock_get.return_value = requests_response(test_atproto.DID_DOC)
 
@@ -3666,7 +3666,7 @@ class ActivityPubUtilsTest(TestCase):
             }],
         }, ActivityPub.convert(obj), ignore=['contentMap', 'to'])
 
-    @patch.object(util.session, 'get', autospec=True, return_value=requests_response())
+    @patch.object(util.session, 'get', return_value=requests_response())
     def test_convert_bluesky_external_embed_to_link_in_content(self, _):
         # https://github.com/snarfed/bridgy-fed/issues/1637
         self.assert_equals({
@@ -3869,7 +3869,7 @@ class ActivityPubUtilsTest(TestCase):
         user.obj.as2['url'] = ['http://my/url']
         self.assertEqual('http://my/url', user.web_url())
 
-    @patch.object(util.session, 'get', autospec=True, side_effect=[
+    @patch.object(util.session, 'get', side_effect=[
         TestCase.as2_resp({
             'type': 'Person',
             'id': 'http://foo.com/user',
@@ -3889,7 +3889,7 @@ class ActivityPubUtilsTest(TestCase):
             self.req('https://bar.com/.well-known/webfinger?resource=acct:ms-alice@bar.com'),
         ))
 
-    @patch.object(util.session, 'get', autospec=True, return_value= TestCase.as2_resp({
+    @patch.object(util.session, 'get', return_value= TestCase.as2_resp({
         'type': 'Person',
         'id': 'http://foo.com/user',
     }))
@@ -3903,7 +3903,7 @@ class ActivityPubUtilsTest(TestCase):
             self.as2_req('http://foo.com/user'),
         ))
 
-    @patch.object(util.session, 'get', autospec=True, side_effect=[
+    @patch.object(util.session, 'get', side_effect=[
         TestCase.as2_resp({
             'type': 'Person',
             'id': 'http://foo.com/user',
@@ -3921,7 +3921,7 @@ class ActivityPubUtilsTest(TestCase):
             self.req('https://foo.com/.well-known/webfinger?resource=acct:alice@foo.com'),
         ))
 
-    @patch.object(util.session, 'get', autospec=True, side_effect=[
+    @patch.object(util.session, 'get', side_effect=[
         TestCase.as2_resp({
             'type': 'Person',
             'id': 'http://foo.com/user',
@@ -3944,7 +3944,7 @@ class ActivityPubUtilsTest(TestCase):
             self.req('https://bar.com/.well-known/webfinger?resource=acct:ms-alice@bar.com'),
         ))
 
-    @patch.object(util.session, 'get', autospec=True, side_effect=[
+    @patch.object(util.session, 'get', side_effect=[
         TestCase.as2_resp({
             'type': 'Person',
             'id': 'http://foo.com/user',
@@ -3967,7 +3967,7 @@ class ActivityPubUtilsTest(TestCase):
             self.as2_req('https://foo.com/'),
         ))
 
-    @patch.object(util.session, 'get', autospec=True, side_effect=[
+    @patch.object(util.session, 'get', side_effect=[
         TestCase.as2_resp({
             'type': 'Person',
             'id': 'http://foo.com/user',
@@ -3986,7 +3986,7 @@ class ActivityPubUtilsTest(TestCase):
         self.assertIsNone(user.verified_domain)
         self.assertIsNone(user.key.get().verified_domain)
 
-    @patch.object(util.session, 'get', autospec=True, side_effect=[
+    @patch.object(util.session, 'get', side_effect=[
         TestCase.as2_resp({
             'type': 'Person',
             'id': 'http://foo.com/user',
@@ -4047,7 +4047,7 @@ class ActivityPubUtilsTest(TestCase):
         obj.as2['actor']['url'] = [obj.as2['actor'].pop('id')]
         self.assertEqual('http://mas.to/inbox', ActivityPub.target_for(obj))
 
-    @patch.object(util.session, 'get', autospec=True)
+    @patch.object(util.session, 'get')
     def test_target_for_object_fetch(self, mock_get):
         mock_get.return_value = self.as2_resp(ACTOR)
 
@@ -4058,7 +4058,7 @@ class ActivityPubUtilsTest(TestCase):
         self.assertEqual('http://mas.to/inbox', ActivityPub.target_for(obj))
         mock_get.assert_has_calls([self.as2_req('http://the/author')])
 
-    @patch.object(util.session, 'get', autospec=True)
+    @patch.object(util.session, 'get')
     def test_target_for_author_is_object_id(self, mock_get):
         mock_get.return_value = HTML
 
@@ -4114,21 +4114,21 @@ class ActivityPubUtilsTest(TestCase):
         _, kwargs = mock_urlopen.call_args
         self.assertEqual(1, len([k for k in kwargs['headers'] if k.lower() == 'host']))
 
-    @patch.object(util.session, 'post', autospec=True)
+    @patch.object(util.session, 'post')
     def test_send_blocklisted(self, mock_post):
         self.assertFalse(ActivityPub.send(Object(as2=NOTE),
                                           'https://fed.brid.gy/ap/sharedInbox',
                                           from_user=self.user))
         mock_post.assert_not_called()
 
-    @patch.object(util.session, 'post', autospec=True)
+    @patch.object(util.session, 'post')
     def test_send_no_from_user(self, mock_post):
         self.assertFalse(ActivityPub.send(Object(as2=NOTE),
                                           ACTOR['inbox'],
                                           from_user=None))
         mock_post.assert_not_called()
 
-    @patch.object(util.session, 'post', autospec=True, return_value=requests_response())
+    @patch.object(util.session, 'post', return_value=requests_response())
     def test_send_convert_ids(self, mock_post):
         like = Object(our_as1={
             'id': 'fake:like',
@@ -4151,7 +4151,7 @@ class ActivityPubUtilsTest(TestCase):
             'to': [as2.PUBLIC_AUDIENCE],
         }, json_loads(kwargs['data']))
 
-    @patch.object(util.session, 'post', autospec=True, return_value=requests_response())
+    @patch.object(util.session, 'post', return_value=requests_response())
     def test_send_dm(self, mock_post):
         bot = self.make_user('web.brid.gy', cls=Web)
         user = self.make_user(ACTOR['id'], cls=ActivityPub, obj_as2=ACTOR)
@@ -4178,7 +4178,7 @@ class ActivityPubUtilsTest(TestCase):
             }],
         }, ignore=['@context', 'to'])
 
-    @patch.object(util.session, 'post', autospec=True)
+    @patch.object(util.session, 'post')
     def test_send_delete_user_translates_actor_to_enabled_protocol(self, mock_post):
         alice = self.make_user('fake:alice', cls=Fake, obj_id='fake:profile:alice')
 
