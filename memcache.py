@@ -227,18 +227,26 @@ def evict_raw(key):
     return memcache.delete(key)
 
 
-def remote_evict(entity_key):
-    """Send a request to production Bridgy Fed to evict an entity from memcache.
+def remote_evict(entity_key=None, raw=None):
+    """Send a request to production Bridgy Fed to evict a key from memcache.
 
     Args:
       entity_key (google.cloud.ndb.Key)
+      raw (str)
 
     Returns:
       requests.Response:
     """
+    if entity_key:
+        data = {'key': entity_key.urlsafe()}
+    elif raw:
+        data = {'raw': raw}
+    else:
+        raise ValueError('either entity_key or raw are required')
+
     return util.requests_post(f'https://{PRIMARY_DOMAIN}/admin/memcache/evict',
                               headers={'Authorization': config.SECRET_KEY},
-                              data={'key': entity_key.urlsafe()})
+                              data=data)
 
 
 def task_eta(queue, user_id, protocol=None):

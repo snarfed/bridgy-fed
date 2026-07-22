@@ -236,14 +236,23 @@ class MemcacheTest(TestCase):
         self.assertIsNone(get_original_user_key('other:a'))
         self.assertIsNone(get_original_user_key('other:b'))
 
-    @patch.object(util.session, 'post', autospec=True, return_value=requests_response())
+    @patch.object(util.session, 'post', return_value=requests_response())
     def test_remote_evict(self, mock_post):
         key = Fake(id='fake:foo').key
-        memcache.remote_evict(key)
+        memcache.remote_evict(entity_key=key)
         mock_post.assert_has_calls([self.req(
             'https://fed.brid.gy/admin/memcache/evict',
             headers={'Authorization': config.SECRET_KEY},
             data={'key': key.urlsafe()},
+        )])
+
+    @patch.object(util.session, 'post', return_value=requests_response())
+    def test_remote_evict_raw(self, mock_post):
+        memcache.remote_evict(raw='foo')
+        mock_post.assert_has_calls([self.req(
+            'https://fed.brid.gy/admin/memcache/evict',
+            headers={'Authorization': config.SECRET_KEY},
+            data={'raw': 'foo'},
         )])
 
     def test_evict_raw(self):
