@@ -2092,7 +2092,10 @@ Hi! You <a href="{inner_obj_as1.get('url') or inner_obj_id}">recently {verb}</a>
             # add to followers' feeds, if any
             if not internal and obj.type in ('post', 'update', 'share'):
                 if write_obj.type not in as1.ACTOR_TYPES:
-                    write_obj.feed = [u.key for u in users if u.USES_OBJECT_FEED]
+                    write_obj.feed = [
+                        u.key for u in users
+                        if u.USES_OBJECT_FEED or u.key.id() in common.BETA_USER_IDS
+                    ]
                     if write_obj.feed:
                         write_obj.dirty = True
 
