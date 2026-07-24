@@ -2,10 +2,12 @@
 from datetime import timezone
 import functools
 import logging
+import os
 
 from authlib.integrations.flask_oauth2.resource_protector import current_token
 from flask import request
-from granary import as1
+from google.cloud import ndb
+from granary import as1, bluesky
 from granary.mastodon import from_as1
 from webutil import util
 from webutil.flask_util import get_required_param, error
@@ -13,6 +15,7 @@ from werkzeug.exceptions import BadGateway, HTTPException
 
 import activitypub
 from activitypub import ActivityPub
+from arroba import datastore_storage
 from flask_app import app
 import ids
 from mastodon_oauth import require_oauth
@@ -27,6 +30,13 @@ LIMIT = 20
 
 # how many ancestors to include in a status's context
 MAX_ANCESTORS = 20
+
+# https://docs.joinmastodon.org/entities/Notification/#type
+AS1_TO_NOTIFICATION_TYPE = {
+    'like': 'favourite',
+    'share': 'reblog',
+    'follow': 'follow',
+}
 
 
 def auth(fn):
@@ -76,11 +86,219 @@ def status(obj):
     return status
 
 
+def notification(obj):
+    """Converts a :class:`models.Object` to a Mastodon ``Notification``."""
+    type = AS1_TO_NOTIFICATION_TYPE.get(obj.as1.get('verb'), 'mention')
+
+    notif = {
+        'id': obj.key.id(),
+        'type': type,
+        'created_at': (obj.as1.get('published')
+                       or obj.created.replace(tzinfo=timezone.utc).isoformat()),
+    }
+
+    if obj.users and (actor := obj.users[0].get()):
+        notif['account'] = account(actor)
+
+    if type == 'mention':
+        notif['status'] = status(obj)
+    elif type in ('favourite', 'reblog'):
+        target_id = as1.get_id(obj.as1, 'object')
+        if target_id and (target := Object.get_by_id(target_id)) and target.as1:
+            notif['status'] = status(target)
+
+    return notif
+
+
 def load_object(id):
     obj = Object.get_by_id(id)
     if not obj or not obj.as1:
         error('Status not found', status=404)
     return obj
+
+
+#
+# API endpoints
+#
+
+@app.get('/health')
+def health():
+    return {'status': 'UP'}
+
+
+@app.get('/api/v2/instance')
+def instance():
+    return {
+        'domain': 'brid.gy',
+        'title': 'Bridgy Fed',
+        'version': os.getenv('GAE_VERSION'),
+        'source_url': 'https://github.com/snarfed/bridgy-fed',
+        'description': 'Bridging the new social internet',
+        'usage': {
+            'users': {
+                # TODO (from activitypub.nodeinfo)
+                # 'active_month': None,
+            }
+        },
+        'thumbnail': {
+            'url': 'https://fed.brid.gy/static/bridgy_logo_with_alpha.png',
+            'description': 'Hand-painted sketch of a bridge with just a few brush strokes',
+            # 'blurhash': 'UeKUpFxuo~R%0nW;WCnhF6RjaJt757oJodS$',
+            # 'versions': {
+            #     '@1x': 'https://files.mastodon.social/site_uploads/files/000/000/001/@1x/57c12f441d083cde.png',
+            #     '@2x': 'https://files.mastodon.social/site_uploads/files/000/000/001/@2x/57c12f441d083cde.png'
+            # }
+        },
+        'icon': [{
+            'src': 'https://fed.brid.gy/static/favicon.ico',
+            'size': '32x32',
+        }, {
+            'src': 'https://brid.gy/static/bridgy_logo_with_alpha_128.png',
+            'size': '128x128',
+        }, {
+            'src': 'https://fed.brid.gy/static/bridgy_logo_with_alpha.png',
+            'size': '1200x600',
+        }, {
+            'src': 'https://fed.brid.gy/static/bridgy_logo_with_alpha_square_1024.png',
+            'size': '1024x1024',
+        }],
+        'languages': ['en'],
+        'configuration': {
+            'urls': {
+                'streaming': None,
+                'status': None,
+                'about': 'https://fed.brid.gy/docs',
+                'privacy_policy': 'https://fed.brid.gy/docs#privacy',
+                'terms_of_service': 'https://fed.brid.gy/docs#terms',
+            },
+            # 'vapid': {
+            #     'public_key': '...'
+            # },
+            'accounts': {
+                'max_featured_tags': 0,
+                'max_pinned_statuses': 1,
+            },
+            # 'statuses': {
+            #     'max_characters': 500,
+            #     'max_media_attachments': 4,
+            #     'characters_reserved_per_url': 23
+            # },
+            'media_attachments': {
+                # 'description_limit': ,
+                # 'image_matrix_limit': ,
+                'image_size_limit': bluesky.MAX_MEDIA_SIZE_BYTES,
+                'supported_mime_types': [
+                    'image/jpeg',
+                    'image/png',
+                    'image/gif',
+                    'image/webp',
+                    'image/avif',
+                    'video/mp4',
+                ],
+                # 'video_frame_rate_limit': None,
+                # 'video_matrix_limit': None,
+                'video_size_limit': datastore_storage.BLOB_MAX_BYTES,
+            },
+            'limited_federation': False,
+        },
+        'registrations': {
+            'enabled': True,
+            'approval_required': False,
+            'reason_required': False,
+            'message': None,
+            # 'min_age': 16,
+            'url': None,
+        },
+        'api_versions': {'mastodon': 6},
+        'rules': [{
+            'id': '1',
+            'text': 'You agree not to deliberately attack, breach, or otherwise harm the service. If you manage to access private keys or other sensitive data, you agree to report the vulnerability and not use or disclose that data.',
+            'hint': '',
+        }],
+        'contact': {
+            'email': 'feedback@brid.gy',
+            'account': {
+                'id': '@anewsocial@mastodon.social',
+                'username': '@anewsocial@mastodon.social',
+                'acct': '@anewsocial@mastodon.social',
+                'display_name': 'A New Social',
+                'locked': False,
+                'bot': False,
+                'discoverable': True,
+                'indexable': False,
+                'group': False,
+                'created_at': '2024-06-28T00:00:00.000Z',
+                'note': '<p>Social media should be centered around people, not platforms. Let&#39;s build bridges, not walls. That&#39;s why we&#39;re building Bridgy Fed and Bounce.</p><p>Learn more: <a href="https://anew.social" target="_blank" rel="nofollow noopener" translate="no"><span class="invisible">https://</span><span class="">anew.social</span><span class="invisible"></span></a></p>',
+                'url': 'https://mastodon.social/@anewsocial',
+                'uri': 'https://mastodon.social/users/anewsocial',
+                'avatar': 'https://files.mastodon.social/accounts/avatars/112/696/499/069/491/559/original/fbe51fe98b509adf.png',
+                'avatar_static': 'https://files.mastodon.social/accounts/avatars/112/696/499/069/491/559/original/fbe51fe98b509adf.png',
+                'avatar_description': '',
+                'header': 'https://files.mastodon.social/accounts/headers/112/696/499/069/491/559/original/2834aa5dde24424e.png',
+                'header_static': 'https://files.mastodon.social/accounts/headers/112/696/499/069/491/559/original/2834aa5dde24424e.png',
+                'header_description': '',
+                # 'followers_count': 1552,
+                # 'following_count': 9,
+                # 'statuses_count': 176,
+                'last_status_at': '2026-07-06',
+                'hide_collections': None,
+                'show_media': True,
+                'show_media_replies': True,
+                'show_featured': True,
+                'noindex': False,
+                'emojis': [],
+                'roles': [],
+                'fields': [{
+                    'name': 'A New Social',
+                    'value': '<a href="https://www.anew.social" target="_blank" rel="nofollow noopener me" translate="no"><span class="invisible">https://www.</span><span class="">anew.social</span><span class="invisible"></span></a>',
+                    'verified_at': None,
+                },{
+                    'name': 'Blog',
+                    'value': '<a href="https://blog.anew.social" target="_blank" rel="nofollow noopener me" translate="no"><span class="invisible">https://</span><span class="">blog.anew.social</span><span class="invisible"></span></a>',
+                    "verified_at": None,
+                }],
+            },
+        },
+    }
+
+@app.get('/api/v1/instance/extended_description')
+def instance_extended_description():
+    return {
+        'updated_at': util.now().isoformat(),
+        'content': '<p>Bridges other networks to the fediverse. See <a href="https://fed.brid.gy/docs">the docs</a> for more.</p>',
+    }
+
+
+@app.get('/api/v1/instance/privacy_policy')
+def instance_privacy_policy():
+    return {
+        'updated_at': util.now().isoformat(),
+        'content': '<p>See <a href="/docs#privacy">our privacy policy</a>.</p>',
+    }
+
+
+@app.get('/api/v1/instance/terms_of_service')
+def instance_terms_of_service():
+    return {
+        'effective_date': '2025-08-23',
+        'effective': True,
+        # copied from templates/docs.html
+        'content': """\
+<p>Bridgy Fed is both a service and an <a href='https://github.com/snarfed/bridgy-fed'>open source project</a>. The open source code is placed into the public domain, via the <a href='https://creativecommons.org/publicdomain/zero/1.0/'>CC0</a> license, and may be used by anyone for any purpose. The rest of these terms apply to the service.
+
+<p>The Bridgy Fed service, served on *.brid.gy, is freely available to individuals and organizations to use for their own accounts.
+
+<p>If you have a free, non-commercial product or hosting platform, you're welcome to integrate the Bridgy Fed service into it directly. Please <a href='mailto:letsbuild@anew.social'>let us know</a>, we'd love to hear about your project!
+
+<p>If you'd like to integrate the Bridgy Fed service into a commercial or paid product or service, that's great too! <a href='mailto:letsbuild@anew.social'>Please contact us</a>, we can help. We'll probably also ask for, and expect, a reasonable <a href='https://www.patreon.com/c/ANewSocial'>donation</a>.
+
+<p>You agree not to deliberately attack, breach, or otherwise harm the service. If you manage to access private keys or other sensitive data, you agree to <a href='#vulnerability'>report the vulnerability</a> and not use or disclose that data.
+</p>
+<p>Otherwise, you may use the service for any purpose you see fit. However, we may terminate or block your access for any reason, or no reason at all. (We've never done this, and we expect we never will. Just playing it safe.)
+</p>
+<p>Do you an administer an instance or other service that Bridgy Fed interacts with? If you have any concerns or questions, feel free to <a href='https://github.com/snarfed/bridgy-fed/issues'>file an issue</a>!</p>
+""",
+    }
 
 
 @app.get('/api/v1/accounts/verify_credentials')
@@ -189,6 +407,13 @@ def blocks(user):
     return []
 
 
+@app.get('/api/v1/domain_blocks')
+@auth
+def domain_blocks_get(user):
+    blocklists = ndb.get_multi(user.blocks)
+    return [domain for list in blocklists for domain in list.domain_blocklist]
+
+
 @app.get('/api/v1/favourites')
 @auth
 def favourites(user):
@@ -277,6 +502,35 @@ def timelines_public(user):
 @auth
 def timelines_tag(user, hashtag):
     return []
+
+
+@app.get('/api/v1/notifications')
+@auth
+def notifications_list(user):
+    # TODO: unbridged notifs
+    objects = Object.query(Object.notify == user.key
+                           ).order(-Object.updated
+                           ).fetch(LIMIT)
+    return [notification(obj) for obj in objects
+            if obj.as1 and not obj.deleted and as1.is_public(obj.as1)]
+
+
+@app.get('/api/v1/notifications/<path:id>')
+@auth
+def notifications_get(user, id):
+    obj = Object.get_by_id(id)
+    if not (obj and obj.as1 and not obj.deleted and as1.is_public(obj.as1)
+            and user.key in obj.notify):
+        error('Notification not found', status=404)
+
+    return notification(obj)
+
+
+@app.get('/api/v1/notifications/unread_count')
+@auth
+def notifications_unread_count(user):
+    # we don't currently track read vs unread
+    return {'count': 0}
 
 
 @app.get('/api/v2/search')

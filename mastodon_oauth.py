@@ -458,27 +458,6 @@ def oauth_token():
     return server.create_token_response()
 
 
-@app.get('/api/v2/instance')
-@app.get('/api/v2/instance/')
-@log_request_response
-def instance_v2():
-    return {
-        'domain': request.host,
-        'title': 'Bridgy Fed',
-        'version': os.getenv('GAE_VERSION'),
-        'source_url': 'https://fed.brid.gy/',
-        'description': 'Bridges other networks to the fediverse',
-        'thumbnail': {},
-        'languages': ['en'],
-        'configuration': {},
-        'registrations': {'enabled': False, 'approval_required': False},
-        'contact': {
-            'email': 'feedback@brid.gy',
-        },
-        'rules': [],
-    }
-
-
 #
 # IndieAuth backend
 #

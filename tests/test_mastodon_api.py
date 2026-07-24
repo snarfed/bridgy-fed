@@ -33,6 +33,35 @@ class MastodonApiTest(TestCase):
         auth_header = {'Authorization': f'Bearer {self.token()}'}
         return self.client.get(path, headers=auth_header, **kwargs)
 
+    def test_health(self):
+        resp = self.client.get('/health')
+        self.assertEqual(200, resp.status_code)
+        self.assertEqual({'status': 'UP'}, resp.json)
+
+    def test_instance(self):
+        resp = self.client.get('/api/v2/instance')
+        self.assertEqual(200, resp.status_code, resp.get_data(as_text=True))
+        self.assertIn('domain', resp.json)
+        self.assertIn('title', resp.json)
+        self.assertIn('version', resp.json)
+
+    def test_instance_extended_description(self):
+        resp = self.client.get('/api/v1/instance/extended_description')
+        self.assertEqual(200, resp.status_code, resp.get_data(as_text=True))
+        self.assertIn('content', resp.json)
+        self.assertIn('updated_at', resp.json)
+
+    def test_instance_privacy_policy(self):
+        resp = self.client.get('/api/v1/instance/privacy_policy')
+        self.assertEqual(200, resp.status_code, resp.get_data(as_text=True))
+        self.assertIn('content', resp.json)
+        self.assertIn('updated_at', resp.json)
+
+    def test_instance_terms_of_service(self):
+        resp = self.client.get('/api/v1/instance/terms_of_service')
+        self.assertEqual(200, resp.status_code)
+        self.assertIn('content', resp.json)
+
     def test_verify_credentials(self):
         self.user.obj.our_as1['published'] = '2026-07-20T01:02:03Z'
         resp = self.get('/api/v1/accounts/verify_credentials')
@@ -112,13 +141,13 @@ class MastodonApiTest(TestCase):
         self.assertTrue(resp.json[0]['following'])
         self.assertFalse(resp.json[0]['followed_by'])
 
-    def test_accounts_get(self):
+    def test_accounts(self):
         resp = self.get('/api/v1/accounts/@fake-handle-alice@fa.brid.gy')
         self.assertEqual(200, resp.status_code, resp.get_data(as_text=True))
         self.assertEqual('@fake-handle-alice@fa.brid.gy', resp.json['id'])
         self.assertEqual('https://fa.brid.gy/ap/fake:alice', resp.json['uri'])
 
-    def test_accounts_get_not_found(self):
+    def test_accounts_not_found(self):
         resp = self.get('/api/v1/accounts/nope:nope')
         self.assertEqual(404, resp.status_code)
 
@@ -158,7 +187,7 @@ class MastodonApiTest(TestCase):
         resp = self.get('/api/v1/accounts/@fake-handle-alice@fa.brid.gy/followers')
         self.assertEqual(200, resp.status_code, resp.get_data(as_text=True))
         self.assertEqual(1, len(resp.json))
-        self.assertEqual(bob.handle_as(ActivityPub), resp.json[0]['id'])
+        self.assertEqual('@other-handle-bob@other.brid.gy', resp.json[0]['id'])
 
     def test_accounts_following(self):
         bob = self.make_user('other:bob', cls=OtherFake)
@@ -166,7 +195,7 @@ class MastodonApiTest(TestCase):
         resp = self.get('/api/v1/accounts/@fake-handle-alice@fa.brid.gy/following')
         self.assertEqual(200, resp.status_code, resp.get_data(as_text=True))
         self.assertEqual(1, len(resp.json))
-        self.assertEqual(bob.handle_as(ActivityPub), resp.json[0]['id'])
+        self.assertEqual('@other-handle-bob@other.brid.gy', resp.json[0]['id'])
 
     def test_blocks(self):
         resp = self.get('/api/v1/blocks')
@@ -189,7 +218,7 @@ class MastodonApiTest(TestCase):
         self.assertEqual(1, len(resp.json))
         self.assertEqual('liked post', resp.json[0]['content'])
 
-    def test_statuses_get(self):
+    def test_statuses(self):
         Object(id='fake:post', users=[self.user.key], source_protocol='fake',
                our_as1={
                    'objectType': 'note',
@@ -219,7 +248,7 @@ class MastodonApiTest(TestCase):
             'visibility': 'public',
         }, resp.json)
 
-    def test_statuses_get_not_found(self):
+    def test_statuses_not_found(self):
         resp = self.get('/api/v1/statuses/nope')
         self.assertEqual(404, resp.status_code)
 
@@ -340,6 +369,118 @@ class MastodonApiTest(TestCase):
         self.assertEqual(200, resp.status_code, resp.get_data(as_text=True))
         self.assertEqual({'accounts': [], 'statuses': [], 'hashtags': []}, resp.json)
 
+    def test_domain_blocks_empty(self):
+        resp = self.get('/api/v1/domain_blocks')
+        self.assertEqual(200, resp.status_code, resp.get_data(as_text=True))
+        self.assertEqual([], resp.json)
+
+    def test_domain_blocks_with_blocklists(self):
+        list1 = Object(id='fake:blocklist1', raw=['foo.com', 'bar.org']).put()
+        list2 = Object(id='fake:blocklist2', raw=['baz.net']).put()
+        self.user.blocks = [list1, list2]
+        self.user.put()
+
+        resp = self.get('/api/v1/domain_blocks')
+        self.assertEqual(200, resp.status_code, resp.get_data(as_text=True))
+        self.assertEqual(['foo.com', 'bar.org', 'baz.net'], resp.json)
+
+    def test_notifications_favourite(self):
+        bob = self.make_user('other:bob', cls=OtherFake,
+                             enabled_protocols=['activitypub'])
+        Object(id='fake:post', users=[self.user.key], our_as1={
+            'objectType': 'note',
+            'content': 'my post',
+        }).put()
+        Object(id='fake:like', users=[bob.key], notify=[self.user.key], our_as1={
+            'objectType': 'activity',
+            'verb': 'like',
+            'object': 'fake:post',
+            'published': '2026-07-20T01:02:03Z',
+        }).put()
+
+        resp = self.get('/api/v1/notifications')
+        self.assertEqual(200, resp.status_code, resp.get_data(as_text=True))
+        self.assertEqual(1, len(resp.json))
+        notif = resp.json[0]
+        self.assertEqual('fake:like', notif['id'])
+        self.assertEqual('favourite', notif['type'])
+        self.assertEqual('2026-07-20T01:02:03Z', notif['created_at'])
+        self.assertEqual('@other-handle-bob@other.brid.gy', notif['account']['id'])
+        self.assertEqual('my post', notif['status']['content'])
+
+    def test_notifications_reblog(self):
+        bob = self.make_user('other:bob', cls=OtherFake,
+                             enabled_protocols=['activitypub'])
+        Object(id='fake:post', users=[self.user.key], our_as1={
+            'objectType': 'note',
+            'content': 'my post',
+        }).put()
+        Object(id='fake:share', users=[bob.key], notify=[self.user.key], our_as1={
+            'objectType': 'activity',
+            'verb': 'share',
+            'object': 'fake:post',
+        }).put()
+
+        resp = self.get('/api/v1/notifications')
+        self.assertEqual(200, resp.status_code, resp.get_data(as_text=True))
+        self.assertEqual(1, len(resp.json))
+        self.assertEqual('reblog', resp.json[0]['type'])
+        self.assertEqual('my post', resp.json[0]['status']['content'])
+
+    def test_notifications_follow(self):
+        bob = self.make_user('other:bob', cls=OtherFake,
+                             enabled_protocols=['activitypub'])
+        Object(id='fake:follow', users=[bob.key], notify=[self.user.key], our_as1={
+            'objectType': 'activity',
+            'verb': 'follow',
+            'object': 'fake:alice',
+        }).put()
+
+        resp = self.get('/api/v1/notifications')
+        self.assertEqual(200, resp.status_code, resp.get_data(as_text=True))
+        self.assertEqual(1, len(resp.json))
+        self.assertEqual('follow', resp.json[0]['type'])
+        self.assertNotIn('status', resp.json[0])
+        self.assertEqual('@other-handle-bob@other.brid.gy',
+                         resp.json[0]['account']['id'])
+
+    def test_notifications_mention(self):
+        bob = self.make_user('other:bob', cls=OtherFake,
+                             enabled_protocols=['activitypub'])
+        Object(id='fake:reply', users=[bob.key], notify=[self.user.key], our_as1={
+            'objectType': 'note',
+            'content': '@alice hi',
+            'inReplyTo': 'fake:post',
+        }).put()
+
+        resp = self.get('/api/v1/notifications')
+        self.assertEqual(200, resp.status_code, resp.get_data(as_text=True))
+        self.assertEqual(1, len(resp.json))
+        self.assertEqual('mention', resp.json[0]['type'])
+        self.assertEqual('@alice hi', resp.json[0]['status']['content'])
+
+    def test_notifications(self):
+        bob = self.make_user('other:bob', cls=OtherFake,
+                             enabled_protocols=['activitypub'])
+        Object(id='fake:follow', users=[bob.key], notify=[self.user.key], our_as1={
+            'objectType': 'activity',
+            'verb': 'follow',
+            'object': 'fake:alice',
+        }).put()
+
+        resp = self.get('/api/v1/notifications/fake:follow')
+        self.assertEqual(200, resp.status_code, resp.get_data(as_text=True))
+        self.assertEqual('follow', resp.json['type'])
+
+    def test_notifications_not_found(self):
+        resp = self.get('/api/v1/notifications/nope')
+        self.assertEqual(404, resp.status_code)
+
+    def test_notifications_unread_count(self):
+        resp = self.get('/api/v1/notifications/unread_count')
+        self.assertEqual(200, resp.status_code, resp.get_data(as_text=True))
+        self.assertEqual({'count': 0}, resp.json)
+
     def test_stub_endpoints_require_auth(self):
         for path in (
             '/api/v1/accounts/lookup',
@@ -349,7 +490,11 @@ class MastodonApiTest(TestCase):
             '/api/v1/accounts/@fake-handle-alice@fa.brid.gy/followers',
             '/api/v1/accounts/@fake-handle-alice@fa.brid.gy/following',
             '/api/v1/blocks',
+            '/api/v1/domain_blocks',
             '/api/v1/favourites',
+            '/api/v1/notifications',
+            '/api/v1/notifications/123',
+            '/api/v1/notifications/unread_count',
             '/api/v1/statuses/123',
             '/api/v1/statuses/123/context',
             '/api/v1/statuses/123/favourited_by',
