@@ -218,7 +218,25 @@ class MastodonApiTest(TestCase):
         self.assertEqual(1, len(resp.json))
         self.assertEqual('liked post', resp.json[0]['content'])
 
-    def test_statuses(self):
+    def test_statuses_multiple(self):
+        Object(id='fake:post1', our_as1={
+            'objectType': 'note',
+            'content': 'one',
+        }).put()
+        Object(id='fake:post2', our_as1={
+            'objectType': 'note',
+            'content': 'two',
+        }).put()
+        Object(id='fake:deleted', deleted=True, our_as1={
+            'objectType': 'note',
+            'content': 'deleted',
+        }).put()
+
+        resp = self.get('/api/v1/statuses?id[]=fake:post1&id[]=fake:post2&id[]=fake:deleted&id[]=fake:nope')
+        self.assertEqual(200, resp.status_code, resp.get_data(as_text=True))
+        self.assertEqual(['one', 'two'], [s['content'] for s in resp.json])
+
+    def test_statuses_single(self):
         Object(id='fake:post', users=[self.user.key], source_protocol='fake',
                our_as1={
                    'objectType': 'note',
@@ -248,7 +266,7 @@ class MastodonApiTest(TestCase):
             'visibility': 'public',
         }, resp.json)
 
-    def test_statuses_not_found(self):
+    def test_statuses_single_not_found(self):
         resp = self.get('/api/v1/statuses/nope')
         self.assertEqual(404, resp.status_code)
 
@@ -495,6 +513,7 @@ class MastodonApiTest(TestCase):
             '/api/v1/notifications',
             '/api/v1/notifications/123',
             '/api/v1/notifications/unread_count',
+            '/api/v1/statuses',
             '/api/v1/statuses/123',
             '/api/v1/statuses/123/context',
             '/api/v1/statuses/123/favourited_by',

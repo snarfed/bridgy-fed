@@ -433,9 +433,18 @@ def favourites(user):
     return statuses
 
 
+@app.get('/api/v1/statuses')
+@auth
+def statuses_multiple(user):
+    ids = request.args.getlist('id[]') + request.args.getlist('id')
+    objs = ndb.get_multi(Object(id=id).key for id in ids)
+    return [status(obj) for obj in objs
+            if obj and obj.as1 and not obj.deleted]
+
+
 @app.get('/api/v1/statuses/<path:id>')
 @auth
-def statuses_get(user, id):
+def statuses_single(user, id):
     return status(load_object(id))
 
 
