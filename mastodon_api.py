@@ -421,16 +421,9 @@ def favourites(user):
                          Object.type == 'like',
                         ).order(-Object.created
                         ).fetch(LIMIT)
-
-    statuses = []
-    for like in likes:
-        target_id = as1.get_id(like.as1, 'object')
-        # TODO: parallelize
-        # TODO: convert target_id to native protocol?
-        if target_id and (target := Object.get_by_id(target_id)) and target.as1:
-            statuses.append(status(target))
-
-    return statuses
+    ids = [as1.get_id(like.as1, 'object') for like in likes]
+    objs = ndb.get_multi(Object(id=id).key for id in ids if id)
+    return [status(obj) for obj in objs if obj and obj.as1]
 
 
 @app.get('/api/v1/statuses')
@@ -439,7 +432,7 @@ def statuses_multiple(user):
     ids = request.args.getlist('id[]') + request.args.getlist('id')
     objs = ndb.get_multi(Object(id=id).key for id in ids)
     return [status(obj) for obj in objs
-            if obj and obj.as1 and not obj.deleted]
+            if obj and obj.as1 and not obj.deleted and as1.is_public(obj.as1)]
 
 
 @app.get('/api/v1/statuses/<path:id>')
