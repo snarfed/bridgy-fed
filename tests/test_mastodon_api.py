@@ -439,7 +439,7 @@ class MastodonApiTest(TestCase):
                 'acct': '@foo@mas.to',
                 'uri': 'https://mas.to/users/foo',
                 'username': '@foo@mas.to',
-                'display_name': 'Mrs. Foo',
+                'display_name': 'Mrs. ☕ Foo',
             }],
             'hashtags': [],
             'statuses': [],
