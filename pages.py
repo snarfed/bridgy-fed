@@ -14,6 +14,7 @@ from google.cloud import ndb
 from google.cloud.ndb import tasklets
 from google.cloud.ndb.key import Key
 from google.cloud.ndb.query import OR
+from google.protobuf.message import DecodeError
 from google.cloud.ndb.model import get_multi, Model
 from granary import as1, as2, atom, microformats2, rss
 import jwt
@@ -164,7 +165,11 @@ def require_login(fn):
     """
     @wraps(fn)
     def wrapper(*args, **kwargs):
-        key = Key(urlsafe=get_required_param('key'))
+        try:
+            key = Key(urlsafe=get_required_param('key'))
+        except (DecodeError, ValueError):
+            flash(f'Login failed, please try again')
+            raise Found(location='/login')
         if key not in [login_to_user_key(l) for l in get_logins()]:
             logger.warning(f'not logged in for {key}')
             raise Found(location='/login')
@@ -324,8 +329,13 @@ def logout():
 @disable_if_read_only
 def settings():
     """User settings page. Requires logged in session."""
-    auth_entity = request.args.get('auth_entity')
-    logged_in_as = Key(urlsafe=auth_entity) if auth_entity else None
+    logged_in_as = None
+
+    if auth_entity := request.args.get('auth_entity'):
+        try:
+            logged_in_as = Key(urlsafe=auth_entity)
+        except (DecodeError, ValueError):
+            flash(f'Login failed, please try again')
 
     def site_logo(login):
         return f'/oauth_dropins_static/{login.site_name().lower()}_icon.png'

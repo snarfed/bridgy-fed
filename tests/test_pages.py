@@ -1018,6 +1018,13 @@ class PagesTest(TestCase):
             'cid': 'bafyreigd',
         }, user.obj.bsky)
 
+    def test_settings_bad_auth_entity(self):
+        self.make_logged_in_mastodon_user()
+
+        resp = self.client.get(f'/settings?auth_entity=nope')
+        self.assertEqual(200, resp.status_code)
+        self.assertEqual(['Login failed, please try again'], get_flashed_messages())
+
     def test_settings_read_only(self):
         self.make_logged_in_mastodon_user(enabled_protocols=['fake'])
         appengine_info.READ_ONLY = True
@@ -1093,6 +1100,14 @@ class PagesTest(TestCase):
         self.assertEqual('/login', resp.headers['Location'])
         self.assertEqual([], user.key.get().enabled_protocols)
         self.assertEqual([], ExplicitFake.created_for)
+
+    def test_enable_bad_key(self):
+        self.make_logged_in_mastodon_user()
+
+        resp = self.client.post('/settings/enable', data={'key': 'nope'})
+        self.assertEqual(302, resp.status_code)
+        self.assertEqual('/login', resp.headers['Location'])
+        self.assertEqual(['Login failed, please try again'], get_flashed_messages())
 
     def test_disable(self):
         user, auth = self.make_logged_in_bluesky_user(enabled_protocols=['efake'])
