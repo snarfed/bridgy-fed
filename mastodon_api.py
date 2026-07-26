@@ -59,12 +59,18 @@ def account(user):
     obj_as1 = user.obj.as1 if user.obj and user.obj.as1 else {}
 
     account = from_as1(obj_as1)
-    addr = user.handle_as(ActivityPub)
+    username = obj_as1.get('preferredUsername')
+    acct = None
+    if addr := user.handle_as(ActivityPub):
+        acct = addr.removeprefix('@')
+        if not username:
+            username = acct.split('@')[0]
+
     account.update({
         'id': addr,
         'uri': user.id_as(ActivityPub),
-        'username': user.handle,
-        'acct': addr,
+        'username': username,
+        'acct': acct,
         'display_name': user.name(),
         'created_at': (obj_as1.get('published')
                        or user.created.replace(tzinfo=timezone.utc).isoformat()),

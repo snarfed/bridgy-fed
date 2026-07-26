@@ -32,6 +32,7 @@ class MastodonApiTest(TestCase):
                                        'objectType': 'person',
                                        'displayName': 'Alice',
                                        'summary': 'hi im alice',
+                                       'preferredUsername': 'alice',
                                    })
 
     def token(self):
@@ -82,12 +83,12 @@ class MastodonApiTest(TestCase):
         self.assertEqual(200, resp.status_code, resp.get_data(as_text=True))
         self.assert_equals({
             'id': '@fake-handle-alice@fa.brid.gy',
-            'acct': '@fake-handle-alice@fa.brid.gy',
+            'acct': 'fake-handle-alice@fa.brid.gy',
             'uri': 'https://fa.brid.gy/ap/fake:alice',
             'url': '',
             'created_at': '2026-07-20T01:02:03Z',
             'display_name': 'Alice',
-            'username': 'fake:handle:alice',
+            'username': 'alice',
             'note': 'hi im alice',
             'avatar': None,
             'avatar_static': None,
@@ -393,9 +394,9 @@ class MastodonApiTest(TestCase):
                 'accounts': [
                     {
                         'id': '@fake-handle-alice@fa.brid.gy',
-                        'acct': '@fake-handle-alice@fa.brid.gy',
+                        'acct': 'fake-handle-alice@fa.brid.gy',
                         'uri': 'https://fa.brid.gy/ap/fake:alice',
-                        'username': 'fake:handle:alice',
+                        'username': 'alice',
                         'url': '',
                         'display_name': 'Alice',
                         'note': 'hi im alice',
@@ -424,7 +425,7 @@ class MastodonApiTest(TestCase):
         self.assertEqual(200, resp.status_code, resp.get_data(as_text=True))
         self.assert_equals({
             'accounts': [{
-                'acct': '@user.com@web.brid.gy',
+                'acct': 'user.com@web.brid.gy',
                 'display_name': 'user.com',
                 'id': '@user.com@web.brid.gy',
                 'uri': 'http://localhost/user.com',
@@ -440,7 +441,7 @@ class MastodonApiTest(TestCase):
         self.assertEqual(200, resp.status_code, resp.get_data(as_text=True))
         self.assert_equals({
             'accounts': [{
-                'acct': '@user.com@web.brid.gy',
+                'acct': 'user.com@web.brid.gy',
                 'display_name': 'user.com',
                 'id': '@user.com@web.brid.gy',
                 'uri': 'http://localhost/user.com',
@@ -458,9 +459,9 @@ class MastodonApiTest(TestCase):
         self.assert_equals({
             'accounts': [{
                 'id': '@foo@mas.to',
-                'acct': '@foo@mas.to',
+                'acct': 'foo@mas.to',
                 'uri': 'https://mas.to/users/foo',
-                'username': '@foo@mas.to',
+                'username': 'foo',
                 'display_name': 'Mrs. ☕ Foo',
             }],
             'hashtags': [],
@@ -482,9 +483,9 @@ class MastodonApiTest(TestCase):
         self.assert_equals({
             'accounts': [{
                 'id': '@foo@mas.to',
-                'acct': '@foo@mas.to',
+                'acct': 'foo@mas.to',
                 'uri': 'https://mas.to/users/foo',
-                'username': '@foo@mas.to',
+                'username': 'foo',
                 'display_name': 'Mrs. ☕ Foo',
             }],
             'hashtags': [],
