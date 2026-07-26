@@ -544,12 +544,19 @@ def search(user):
     user = None
     if request.args.get('type') == 'accounts':
         try:
-            user = activitypub.load_user(q, create=resolve)
+            user = webfinger.load_user(q, allow_opt_out=True)
         except HTTPException as e:
             logger.info(e)
             try:
-                user = webfinger.load_user(q)
-            except HTTPException as e:
+                username, server = util.parse_acct_uri(q)
+                if username == server:
+                    q = username
+            except ValueError:
+                pass
+            try:
+                user = models.load_user(q, proto=ActivityPub, create=resolve,
+                                        allow_opt_out=True)
+            except (AttributeError, RuntimeError, ValueError) as e:
                 logger.info(e)
 
     return {

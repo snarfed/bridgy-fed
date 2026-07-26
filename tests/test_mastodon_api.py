@@ -1,12 +1,25 @@
 """Unit tests for mastodon_api.py."""
+from unittest.mock import patch
+
 from webutil import util
+from webutil.testutil import requests_response
 
 import mastodon_api, mastodon_oauth
 from models import Follower, Object
 from web import Web
 
 from activitypub import ActivityPub
+from .test_activitypub import ACTOR
 from .testutil import Fake, OtherFake, TestCase
+
+WEBFINGER = requests_response({
+    'subject': 'acct:foo@mas.to',
+    'links': [{
+        'rel': 'self',
+        'type': 'application/activity+json',
+        'href': 'https://mas.to/users/foo',
+    }],
+}, content_type='application/jrd+json')
 
 
 class MastodonApiTest(TestCase):
@@ -29,9 +42,10 @@ class MastodonApiTest(TestCase):
             'scope': '',
         })
 
-    def get(self, path, **kwargs):
+    def get(self, path, base_url=None, **kwargs):
         auth_header = {'Authorization': f'Bearer {self.token()}'}
-        return self.client.get(path, headers=auth_header, **kwargs)
+        return self.client.get(path, base_url=base_url, headers=auth_header,
+                               **kwargs)
 
     def test_health(self):
         resp = self.client.get('/health')
@@ -381,6 +395,82 @@ class MastodonApiTest(TestCase):
         resp = self.get('/api/v2/search?type=accounts&q=@nope@fa.brid.gy')
         self.assertEqual(200, resp.status_code, resp.get_data(as_text=True))
         self.assertEqual([], resp.json['accounts'])
+
+    def test_search_accounts_web_bare_domain(self):
+        self.make_user('user.com', cls=Web, enabled_protocols=['activitypub'])
+        resp = self.get('/api/v2/search?type=accounts&q=user.com')
+        self.assertEqual(200, resp.status_code, resp.get_data(as_text=True))
+        self.assert_equals({
+            'accounts': [{
+                'acct': '@user.com@web.brid.gy',
+                'display_name': 'user.com',
+                'id': '@user.com@web.brid.gy',
+                'uri': 'http://localhost/user.com',
+                'username': 'user.com',
+            }],
+            'hashtags': [],
+            'statuses': [],
+        }, resp.json, ignore=['created_at'])
+
+    def test_search_accounts_web_acct_addr(self):
+        self.make_user('user.com', cls=Web, enabled_protocols=['activitypub'])
+        resp = self.get('/api/v2/search?type=accounts&q=@user.com@user.com')
+        self.assertEqual(200, resp.status_code, resp.get_data(as_text=True))
+        self.assert_equals({
+            'accounts': [{
+                'acct': '@user.com@web.brid.gy',
+                'display_name': 'user.com',
+                'id': '@user.com@web.brid.gy',
+                'uri': 'http://localhost/user.com',
+                'username': 'user.com',
+            }],
+            'hashtags': [],
+            'statuses': [],
+        }, resp.json, ignore=['created_at'])
+
+    def test_search_accounts_fediverse(self):
+        self.make_user('https://mas.to/users/foo', cls=ActivityPub,
+                       enabled_protocols=[], obj_as2=ACTOR)
+        resp = self.get('/api/v2/search?type=accounts&q=@foo@mas.to')
+        self.assertEqual(200, resp.status_code, resp.get_data(as_text=True))
+        self.assert_equals({
+            'accounts': [{
+                'id': '@foo@mas.to',
+                'acct': '@foo@mas.to',
+                'uri': 'https://mas.to/users/foo',
+                'username': '@foo@mas.to',
+                'display_name': 'Mrs. Foo',
+            }],
+            'hashtags': [],
+            'statuses': [],
+        }, resp.json, ignore=[
+            'avatar', 'avatar_static', 'bot', 'created_at', 'followers_count',
+            'following_count', 'header', 'header_static', 'locked', 'note',
+            'statuses_count', 'url'])
+
+    @patch.object(util.session, 'get', side_effect=[
+        WEBFINGER,
+        TestCase.as2_resp(ACTOR),
+        WEBFINGER,
+        WEBFINGER,
+    ])
+    def test_search_accounts_fediverse_resolve(self, _):
+        resp = self.get('/api/v2/search?type=accounts&resolve=true&q=@foo@mas.to')
+        self.assertEqual(200, resp.status_code, resp.get_data(as_text=True))
+        self.assert_equals({
+            'accounts': [{
+                'id': '@foo@mas.to',
+                'acct': '@foo@mas.to',
+                'uri': 'https://mas.to/users/foo',
+                'username': '@foo@mas.to',
+                'display_name': 'Mrs. ☕ Foo',
+            }],
+            'hashtags': [],
+            'statuses': [],
+        }, resp.json, ignore=[
+            'avatar', 'avatar_static', 'bot', 'created_at', 'followers_count',
+            'following_count', 'header', 'header_static', 'locked', 'note',
+            'statuses_count', 'url'])
 
     def test_search_unsupported_type(self):
         resp = self.get('/api/v2/search?type=statuses&q=hello')
