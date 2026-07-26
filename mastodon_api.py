@@ -542,7 +542,8 @@ def search(user):
     resolve = request.args.get('resolve', '').lower() == 'true'
 
     user = None
-    if request.args.get('type') == 'accounts':
+    type = request.args.get('type')
+    if not type or type == 'accounts':
         try:
             user = webfinger.load_user(q, allow_opt_out=True)
         except HTTPException as e:

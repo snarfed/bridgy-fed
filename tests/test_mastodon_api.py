@@ -383,18 +383,40 @@ class MastodonApiTest(TestCase):
         self.assertEqual([], resp.json)
 
     def test_search_accounts(self):
-        resp = self.get('/api/v2/search?type=accounts&q=@fake-handle-alice@fa.brid.gy')
-        self.assertEqual(200, resp.status_code, resp.get_data(as_text=True))
-        self.assertEqual(1, len(resp.json['accounts']))
-        self.assertEqual('@fake-handle-alice@fa.brid.gy',
-                         resp.json['accounts'][0]['id'])
-        self.assertEqual([], resp.json['statuses'])
-        self.assertEqual([], resp.json['hashtags'])
+        for url in (
+                '/api/v2/search?type=accounts&q=@fake-handle-alice@fa.brid.gy',
+                '/api/v2/search?q=@fake-handle-alice@fa.brid.gy',
+        ):
+            resp = self.get(url)
+            self.assertEqual(200, resp.status_code, resp.get_data(as_text=True))
+            self.assert_equals({
+                'accounts': [
+                    {
+                        'id': '@fake-handle-alice@fa.brid.gy',
+                        'acct': '@fake-handle-alice@fa.brid.gy',
+                        'uri': 'https://fa.brid.gy/ap/fake:alice',
+                        'username': 'fake:handle:alice',
+                        'url': '',
+                        'display_name': 'Alice',
+                        'note': 'hi im alice',
+                        'statuses_count': 0,
+                    }
+                ],
+                'hashtags': [],
+                'statuses': [],
+            }, resp.json, ignore=[
+                'avatar', 'avatar_static', 'bot', 'created_at', 'followers_count',
+                'following_count', 'header', 'header_static', 'locked',
+                'statuses_count', 'url'])
 
     def test_search_accounts_not_found(self):
         resp = self.get('/api/v2/search?type=accounts&q=@nope@fa.brid.gy')
         self.assertEqual(200, resp.status_code, resp.get_data(as_text=True))
-        self.assertEqual([], resp.json['accounts'])
+        self.assertEqual({
+            'accounts': [],
+            'hashtags': [],
+            'statuses': []
+        }, resp.json)
 
     def test_search_accounts_web_bare_domain(self):
         self.make_user('user.com', cls=Web, enabled_protocols=['activitypub'])
