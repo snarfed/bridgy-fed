@@ -129,6 +129,7 @@ jobs:
             echo $ENCRYPTED_PROPERTY_KEY > encrypted_property_key
             echo $FLASK_SECRET_KEY > flask_secret_key
             echo $REPO_TOKEN > repo_token
+            echo $GETREPO_TOKEN > getrepo_token
             echo $THREADS_APP_ID > threads_app_id
             echo $THREADS_APP_SECRET > threads_app_secret
             echo $IFRAMELY_API_KEY_MD5 > iframely_api_key_md5
