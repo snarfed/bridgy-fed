@@ -387,7 +387,9 @@ class MastodonApiTest(TestCase):
         for url in (
                 '/api/v2/search?type=accounts&q=@fake-handle-alice@fa.brid.gy',
                 '/api/v2/search?q=@fake-handle-alice@fa.brid.gy',
+                '/api/v2/search?q=fake-handle-alice@fa.brid.gy',
         ):
+          with self.subTest(url=url):
             resp = self.get(url)
             self.assertEqual(200, resp.status_code, resp.get_data(as_text=True))
             self.assert_equals({
@@ -454,22 +456,26 @@ class MastodonApiTest(TestCase):
     def test_search_accounts_fediverse(self):
         self.make_user('https://mas.to/users/foo', cls=ActivityPub,
                        enabled_protocols=[], obj_as2=ACTOR)
-        resp = self.get('/api/v2/search?type=accounts&q=@foo@mas.to')
-        self.assertEqual(200, resp.status_code, resp.get_data(as_text=True))
-        self.assert_equals({
-            'accounts': [{
-                'id': '@foo@mas.to',
-                'acct': 'foo@mas.to',
-                'uri': 'https://mas.to/users/foo',
-                'username': 'foo',
-                'display_name': 'Mrs. ☕ Foo',
-            }],
-            'hashtags': [],
-            'statuses': [],
-        }, resp.json, ignore=[
-            'avatar', 'avatar_static', 'bot', 'created_at', 'followers_count',
-            'following_count', 'header', 'header_static', 'locked', 'note',
-            'statuses_count', 'url'])
+
+        # for q in '@foo@mas.to', 'foo@mas.to':
+        for q in 'foo@mas.to',:
+          with self.subTest(q=q):
+            resp = self.get(f'/api/v2/search?type=accounts&q={q}')
+            self.assertEqual(200, resp.status_code, resp.get_data(as_text=True))
+            self.assert_equals({
+                'accounts': [{
+                    'id': '@foo@mas.to',
+                    'acct': 'foo@mas.to',
+                    'uri': 'https://mas.to/users/foo',
+                    'username': 'foo',
+                    'display_name': 'Mrs. ☕ Foo',
+                }],
+                'hashtags': [],
+                'statuses': [],
+            }, resp.json, ignore=[
+                'avatar', 'avatar_static', 'bot', 'created_at', 'followers_count',
+                'following_count', 'header', 'header_static', 'locked', 'note',
+                'statuses_count', 'url'])
 
     @patch.object(util.session, 'get', side_effect=[
         WEBFINGER,
