@@ -116,6 +116,24 @@ def notification(obj):
     return notif
 
 
+def load_user(handle, resolve=False):
+    try:
+        return webfinger.load_user(handle, allow_opt_out=True)
+    except HTTPException as e:
+        logger.info(e)
+        try:
+            username, server = util.parse_acct_uri(handle)
+            if username == server:
+                handle = username
+        except ValueError:
+            pass
+        try:
+            return models.load_user(handle, proto=ActivityPub, create=resolve,
+                                    allow_opt_out=True)
+        except (AttributeError, RuntimeError, ValueError) as e:
+            logger.info(e)
+
+
 def load_object(id):
     obj = Object.get_by_id(id)
     if not obj or not obj.as1:
@@ -316,14 +334,10 @@ def verify_credentials(user):
 @app.get('/api/v1/accounts/lookup')
 @auth
 def accounts_lookup(user):
-    acct = get_required_param('acct')
-    if '@' not in acct:
-        error('Status not found', status=404)
+    if user := load_user(get_required_param('acct')):
+        return account(user)
 
-    if not acct.startswith('@'):
-        acct = '@' + acct
-
-    return account(webfinger.load_user(acct))
+    error('Not found', status=404)
 
 
 @app.get('/api/v1/accounts/relationships')
@@ -334,15 +348,8 @@ def accounts_relationships(user):
     for addr in (request.args.getlist('id[]') + request.args.getlist('id')):
         # TODO: parallelize
         # TODO: unify with search
-        try:
-            target = activitypub.load_user(addr, create=False)
-        except HTTPException as e:
-            logger.info(e)
-            try:
-                target = webfinger.load_user(addr)
-            except HTTPException as e:
-                logger.info(e)
-                continue
+        if not (target := load_user(addr)):
+            continue
 
         following = bool(Follower.query(Follower.from_ == user.key,
                                         Follower.to == target.key,
@@ -375,7 +382,10 @@ def accounts_relationships(user):
 @app.get('/api/v1/accounts/<path:addr>')
 @auth
 def accounts_get(user, addr):
-    return account(webfinger.load_user(addr))
+    if user := load_user(addr):
+        return account(user)
+
+    error('Not found', status=404)
 
 
 @app.get('/api/v1/accounts/<path:addr>/statuses')
@@ -383,7 +393,7 @@ def accounts_get(user, addr):
 def accounts_statuses(user, addr):
     # TODO: max_id, since_id, min_id, limit, only_media, exclude_replies,
     # exclude_reblogs, pinned, tagged
-    target = webfinger.load_user(addr)
+    target = load_user(addr)
     objects = Object.query(Object.users == target.key,
                            Object.type.IN(as1.POST_TYPES | set(['share'])),
                           ).order(-Object.created
@@ -395,14 +405,14 @@ def accounts_statuses(user, addr):
 @app.get('/api/v1/accounts/<path:addr>/followers')
 @auth
 def accounts_followers(user, addr):
-    followers, _, _ = Follower.fetch_page('followers', webfinger.load_user(addr))
+    followers, _, _ = Follower.fetch_page('followers', load_user(addr))
     return [account(f.user) for f in followers]
 
 
 @app.get('/api/v1/accounts/<path:addr>/following')
 @auth
 def accounts_following(user, addr):
-    following, _, _ = Follower.fetch_page('following', webfinger.load_user(addr))
+    following, _, _ = Follower.fetch_page('following', load_user(addr))
     return [account(f.user) for f in following]
 
 
@@ -544,30 +554,17 @@ def notifications_unread_count(user):
 @app.get('/api/v2/search')
 @auth
 def search(user):
-    q = get_required_param('q')
-    resolve = request.args.get('resolve', '').lower() == 'true'
-
-    user = None
-    type = request.args.get('type')
-    if not type or type == 'accounts':
-        try:
-            user = webfinger.load_user(q, allow_opt_out=True)
-        except HTTPException as e:
-            logger.info(e)
-            try:
-                username, server = util.parse_acct_uri(q)
-                if username == server:
-                    q = username
-            except ValueError:
-                pass
-            try:
-                user = models.load_user(q, proto=ActivityPub, create=resolve,
-                                        allow_opt_out=True)
-            except (AttributeError, RuntimeError, ValueError) as e:
-                logger.info(e)
-
-    return {
-        'accounts': [account(user)] if user else [],
+    resp = {
+        'accounts': [],
         'statuses': [],
         'hashtags': [],
     }
+
+    q = get_required_param('q')
+    resolve = request.args.get('resolve', '').lower() == 'true'
+    type = request.args.get('type')
+    if not type or type == 'accounts':
+        if user := load_user(q, resolve=True):
+            resp['accounts'] = [account(user)]
+
+    return resp

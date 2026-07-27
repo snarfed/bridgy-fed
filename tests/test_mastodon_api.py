@@ -112,10 +112,23 @@ class MastodonApiTest(TestCase):
         self.assertEqual(401, resp.status_code)
 
     def test_accounts_lookup(self):
-        resp = self.get('/api/v1/accounts/lookup?acct=fake-handle-alice@fa.brid.gy')
-        self.assertEqual(200, resp.status_code, resp.get_data(as_text=True))
-        self.assertEqual('@fake-handle-alice@fa.brid.gy', resp.json['id'])
-        self.assertEqual('hi im alice', resp.json['note'])
+        for acct in 'fake-handle-alice@fa.brid.gy', '@fake-handle-alice@fa.brid.gy':
+            with self.subTest(acct=acct):
+                resp = self.get(f'/api/v1/accounts/lookup?acct={acct}')
+                self.assertEqual(200, resp.status_code, resp.get_data(as_text=True))
+                self.assertEqual('@fake-handle-alice@fa.brid.gy', resp.json['id'])
+                self.assertEqual('hi im alice', resp.json['note'])
+
+    def test_accounts_lookup_fediverse(self):
+        self.make_user('https://mas.to/users/foo', cls=ActivityPub,
+                       enabled_protocols=[], obj_as2=ACTOR)
+
+        for acct in 'foo@mas.to', '@foo@mas.to':
+            with self.subTest(acct=acct):
+                resp = self.get(f'/api/v1/accounts/lookup?acct={acct}')
+                self.assertEqual(200, resp.status_code, resp.get_data(as_text=True))
+                self.assertEqual('@foo@mas.to', resp.json['id'])
+                self.assertEqual('https://mas.to/users/foo', resp.json['uri'])
 
     def test_accounts_lookup_not_found(self):
         resp = self.get('/api/v1/accounts/lookup?acct=nope@fa.brid.gy')
@@ -457,8 +470,7 @@ class MastodonApiTest(TestCase):
         self.make_user('https://mas.to/users/foo', cls=ActivityPub,
                        enabled_protocols=[], obj_as2=ACTOR)
 
-        # for q in '@foo@mas.to', 'foo@mas.to':
-        for q in 'foo@mas.to',:
+        for q in '@foo@mas.to', 'foo@mas.to':
           with self.subTest(q=q):
             resp = self.get(f'/api/v2/search?type=accounts&q={q}')
             self.assertEqual(200, resp.status_code, resp.get_data(as_text=True))
