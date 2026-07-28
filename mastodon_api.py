@@ -49,6 +49,7 @@ def auth(fn):
     def wrapper(*args, **kwargs):
         if not (user := current_token.get_user()):
             error('Account not found', status=401)
+        logger.info(f'Logged in as {user.key.id()} for {request.url}')
         return fn(*args, user=user, **kwargs)
 
     return wrapper
@@ -58,13 +59,17 @@ def account(user):
     """Converts a :class:`models.User` to a Mastodon ``Account``."""
     obj_as1 = user.obj.as1 if user.obj and user.obj.as1 else {}
 
-    account = from_as1(obj_as1)
-    username = obj_as1.get('preferredUsername')
-    acct = None
-    if addr := user.handle_as(ActivityPub):
-        acct = addr.removeprefix('@')
-        if not username:
-            username = acct.split('@')[0]
+    try:
+        account = from_as1(obj_as1)
+        username = obj_as1.get('preferredUsername')
+        acct = None
+        if addr := user.handle_as(ActivityPub):
+            acct = addr.removeprefix('@')
+            if not username:
+                username = acct.split('@')[0]
+    except:
+        logger.info(user.key.id(), obj_as1)
+        raise
 
     account.update({
         'id': addr,
@@ -80,7 +85,11 @@ def account(user):
 
 def status(obj):
     """Converts a :class:`models.Object` to a Mastodon ``Status``."""
-    status = from_as1(obj.as1)
+    try:
+        status = from_as1(obj.as1)
+    except:
+        logger.info(obj.key.id(), obj.as1)
+        raise
 
     if from_proto := PROTOCOLS.get(obj.source_protocol):
         status['uri'] = ids.translate_object_id(
