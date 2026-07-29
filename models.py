@@ -2508,7 +2508,7 @@ def hydrate(activity, fields=('author', 'actor', 'object')):
 
     for field in fields:
         val = as1.get_object(activity, field)
-        if val and val.keys() <= set(['id']):
+        if val and val.keys() == set(['id']):
             # TODO: extract a Protocol class method out of User.profile_id,
             # then use that here instead. the catch is that we'd need to
             # determine Protocol for every id, which is expensive.

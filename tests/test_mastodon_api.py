@@ -294,6 +294,24 @@ class MastodonApiTest(TestCase):
             'visibility': 'public',
         }, resp.json)
 
+    def test_statuses_reblog(self):
+        bob = self.make_user('other:bob', cls=OtherFake,
+                             enabled_protocols=['activitypub'])
+        Object(id='fake:post', users=[bob.key], our_as1={
+            'objectType': 'note',
+            'content': 'original',
+        }).put()
+        Object(id='fake:share', our_as1={
+            'objectType': 'activity',
+            'verb': 'share',
+            'object': 'fake:post',
+        }).put()
+
+        resp = self.get('/api/v1/statuses/fake:share')
+        self.assertEqual(200, resp.status_code, resp.get_data(as_text=True))
+        self.assertEqual('original', resp.json['reblog']['content'])
+        self.assertEqual(mastodon_api.account(bob), resp.json['reblog']['account'])
+
     def test_statuses_single_not_found(self):
         resp = self.get('/api/v1/statuses/nope')
         self.assertEqual(404, resp.status_code)

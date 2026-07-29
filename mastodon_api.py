@@ -98,6 +98,11 @@ def status(obj):
     if obj.users and (author := obj.users[0].get()):
         status['account'] = account(author)
 
+    if status.get('reblog'):
+        target_id = as1.get_id(obj.as1, 'object')
+        if target_id and (target := Object.get_by_id(target_id)) and target.as1:
+            status['reblog'] = status(target)
+
     return status
 
 
