@@ -22,7 +22,7 @@ dnspython==2.8.0
 domain2idna==1.12.4
 execnet==2.1.2
 feedgen==1.0.0
-feedparser==6.0.12
+feedparser==6.0.13
 filelock==3.32.0
 fixtures==4.3.2
 flask==3.1.3
