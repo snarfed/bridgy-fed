@@ -88,7 +88,13 @@ def status(obj):
 
     Returns None if ``obj``'s AS1 ``objectType``/``verb`` is unsupported.
     """
-    if not (result := from_as1(obj.as1)):
+    try:
+        result = from_as1(obj.as1)
+    except:
+        logger.info(obj.key.id(), obj.as1)
+        raise
+
+    if not result:
         return None
 
     if from_proto := PROTOCOLS.get(obj.source_protocol):
