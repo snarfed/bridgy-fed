@@ -108,7 +108,8 @@ def to_status(obj):
     # TODO: unify with to_notification
     # TODO: parallelize/optimize
     owner = (obj.users[0].get() if obj.users
-             else models.load_user(owner) if (owner := as1.get_owner(obj.as1))
+             else models.load_user(owner, create=True, allow_opt_out=True)
+               if (owner := as1.get_owner(obj.as1))
              else None)
     if owner:
         status['account'] = to_account(owner)
@@ -137,7 +138,8 @@ def to_notification(obj):
     # TODO: unify with to_notification
     # TODO: parallelize/optimize
     owner = (obj.users[0].get() if obj.users
-             else models.load_user(owner) if (owner := as1.get_owner(obj.as1))
+             else models.load_user(owner, create=True, allow_opt_out=True)
+               if (owner := as1.get_owner(obj.as1))
              else None)
     if owner:
         notif['account'] = to_account(owner)
