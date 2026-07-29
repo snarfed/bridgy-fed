@@ -277,7 +277,7 @@ class MastodonApiTest(TestCase):
             'id': 'fake:post',
             'uri': 'https://fa.brid.gy/convert/ap/fake:post',
             'url': '',
-            'account': mastodon_api.account(self.user),
+            'account': mastodon_api.to_account(self.user),
             'content': 'hello',
             'created_at': None,
             'emojis': [],
@@ -310,7 +310,7 @@ class MastodonApiTest(TestCase):
         resp = self.get('/api/v1/statuses/fake:share')
         self.assertEqual(200, resp.status_code, resp.get_data(as_text=True))
         self.assertEqual('original', resp.json['reblog']['content'])
-        self.assertEqual(mastodon_api.account(bob), resp.json['reblog']['account'])
+        self.assertEqual(mastodon_api.to_account(bob), resp.json['reblog']['account'])
 
     def test_statuses_single_not_found(self):
         resp = self.get('/api/v1/statuses/nope')

@@ -55,21 +55,25 @@ def auth(fn):
     return wrapper
 
 
-def account(user):
-    """Converts a :class:`models.User` to a Mastodon ``Account``."""
+def to_account(user):
+    """Converts a :class:`models.User` to a Mastodon ``Account``.
+
+    Returns ``None`` if user can't be converted.
+    """
     obj_as1 = user.obj.as1 if user.obj and user.obj.as1 else {}
 
     try:
-        account = from_as1(obj_as1)
-        username = obj_as1.get('preferredUsername')
-        acct = None
-        if addr := user.handle_as(ActivityPub):
-            acct = addr.removeprefix('@')
-            if not username:
-                username = acct.split('@')[0]
+        account = from_as1(obj_as1) or {}
     except:
         logger.info(user.key.id(), obj_as1)
         raise
+
+    username = obj_as1.get('preferredUsername')
+    acct = None
+    if addr := user.handle_as(ActivityPub):
+        acct = addr.removeprefix('@')
+        if not username:
+            username = acct.split('@')[0]
 
     account.update({
         'id': addr,
@@ -83,33 +87,35 @@ def account(user):
     return account
 
 
-def status(obj):
+def to_status(obj):
     """Converts a :class:`models.Object` to a Mastodon ``Status``.
 
     Returns None if ``obj``'s AS1 ``objectType``/``verb`` is unsupported.
     """
     try:
-        result = from_as1(obj.as1)
+        status = from_as1(obj.as1)
     except:
         logger.info(obj.key.id(), obj.as1)
         raise
 
-    if not result:
+    if not status:
         return None
 
     if from_proto := PROTOCOLS.get(obj.source_protocol):
-        result['uri'] = ids.translate_object_id(
+        status['uri'] = ids.translate_object_id(
             id=obj.key.id(), from_=from_proto, to=ActivityPub)
 
     if obj.users and (author := obj.users[0].get()):
-        result['account'] = account(author)
+        status['account'] = to_account(author)
 
-    if result.get('reblog'):
+    if status.get('reblog') is not None:
         target_id = as1.get_id(obj.as1, 'object')
         if target_id and (target := Object.get_by_id(target_id)) and target.as1:
-            result['reblog'] = status(target)
+            status['reblog'] = to_status(target) or None
+        else:
+            status['reblog'] = None
 
-    return result
+    return status
 
 
 def notification(obj):
@@ -124,14 +130,14 @@ def notification(obj):
     }
 
     if obj.users and (actor := obj.users[0].get()):
-        notif['account'] = account(actor)
+        notif['account'] = to_account(actor)
 
     if type == 'mention':
-        notif['status'] = status(obj)
+        notif['status'] = to_status(obj)
     elif type in ('favourite', 'reblog'):
         target_id = as1.get_id(obj.as1, 'object')
         if target_id and (target := Object.get_by_id(target_id)) and target.as1:
-            notif['status'] = status(target)
+            notif['status'] = to_status(target)
 
     return notif
 
@@ -348,14 +354,14 @@ def instance_terms_of_service():
 @app.get('/api/v1/accounts/verify_credentials')
 @auth
 def verify_credentials(user):
-    return account(user)
+    return to_account(user)
 
 
 @app.get('/api/v1/accounts/lookup')
 @auth
 def accounts_lookup(user):
     if user := load_user(get_required_param('acct')):
-        return account(user)
+        return to_account(user)
 
     error('Not found', status=404)
 
@@ -403,7 +409,7 @@ def accounts_relationships(user):
 @auth
 def accounts_get(user, addr):
     if user := load_user(addr):
-        return account(user)
+        return to_account(user)
 
     error('Not found', status=404)
 
@@ -420,21 +426,21 @@ def accounts_statuses(user, addr):
                           ).fetch(LIMIT)
     return [s for obj in objects
             if obj.as1 and not obj.deleted and as1.is_public(obj.as1)
-            and (s := status(obj))]
+            and (s := to_status(obj))]
 
 
 @app.get('/api/v1/accounts/<path:addr>/followers')
 @auth
 def accounts_followers(user, addr):
     followers, _, _ = Follower.fetch_page('followers', load_user(addr))
-    return [account(f.user) for f in followers]
+    return [to_account(f.user) for f in followers]
 
 
 @app.get('/api/v1/accounts/<path:addr>/following')
 @auth
 def accounts_following(user, addr):
     following, _, _ = Follower.fetch_page('following', load_user(addr))
-    return [account(f.user) for f in following]
+    return [to_account(f.user) for f in following]
 
 
 @app.get('/api/v1/blocks')
@@ -460,7 +466,7 @@ def favourites(user):
                         ).fetch(LIMIT)
     ids = [as1.get_id(like.as1, 'object') for like in likes]
     objs = ndb.get_multi(Object(id=id).key for id in ids if id)
-    return [s for obj in objs if obj and obj.as1 and (s := status(obj))]
+    return [s for obj in objs if obj and obj.as1 and (s := to_status(obj))]
 
 
 @app.get('/api/v1/statuses')
@@ -470,16 +476,16 @@ def statuses_multiple(user):
     objs = ndb.get_multi(Object(id=id).key for id in ids)
     return [s for obj in objs
             if obj and obj.as1 and not obj.deleted and as1.is_public(obj.as1)
-            and (s := status(obj))]
+            and (s := to_status(obj))]
 
 
 @app.get('/api/v1/statuses/<path:id>')
 @auth
 def statuses_single(user, id):
     obj = load_object(id)
-    if not (result := status(obj)):
+    if not (status := to_status(obj)):
         error('Status not found', status=404)
-    return result
+    return status
 
 
 @app.get('/api/v1/statuses/<path:id>/context')
@@ -491,7 +497,7 @@ def statuses_context(user, id):
     parent_id = as1.get_object(obj.as1, 'inReplyTo').get('id')
     while (parent_id and len(ancestors) < MAX_ANCESTORS
            and (parent := Object.get_by_id(parent_id)) and parent.as1):
-        if parent_status := status(parent):
+        if parent_status := to_status(parent):
             ancestors.insert(0, parent_status)
         # TODO: convert to native protocol?
         parent_id = as1.get_id(parent.as1, 'inReplyTo')
@@ -527,7 +533,7 @@ def timelines_home(user):
                            ).fetch(LIMIT)
     statuses = [s for obj in objects
                 if obj.as1 and not obj.deleted and as1.is_public(obj.as1)
-                and (s := status(obj))]
+                and (s := to_status(obj))]
     # TODO: formalize
     return [s for s in statuses if s.get('account') and
             (not s['reblog'] or s['reblog'].get('account'))]
@@ -541,7 +547,7 @@ def timelines_public(user):
                            ).fetch(LIMIT)
     return [s for obj in objects
             if obj.as1 and not obj.deleted and as1.is_public(obj.as1)
-            and (s := status(obj))]
+            and (s := to_status(obj))]
 
 
 @app.get('/api/v1/timelines/tag/<hashtag>')
@@ -593,6 +599,6 @@ def search(user):
     type = request.args.get('type')
     if not type or type == 'accounts':
         if user := load_user(q, resolve=True):
-            resp['accounts'] = [account(user)]
+            resp['accounts'] = [to_account(user)]
 
     return resp
