@@ -105,8 +105,13 @@ def to_status(obj):
         status['uri'] = ids.translate_object_id(
             id=obj.key.id(), from_=from_proto, to=ActivityPub)
 
-    if obj.users and (author := obj.users[0].get()):
-        status['account'] = to_account(author)
+    # TODO: unify with to_notification
+    # TODO: parallelize/optimize
+    owner = (obj.users[0].get() if obj.users
+             else models.load_user(owner) if (owner := as1.get_owner(obj.as1))
+             else None)
+    if owner:
+        status['account'] = to_account(owner)
 
     if status.get('reblog') is not None:
         target_id = as1.get_id(obj.as1, 'object')
@@ -118,7 +123,7 @@ def to_status(obj):
     return status
 
 
-def notification(obj):
+def to_notification(obj):
     """Converts a :class:`models.Object` to a Mastodon ``Notification``."""
     type = AS1_TO_NOTIFICATION_TYPE.get(obj.as1.get('verb'), 'mention')
 
@@ -129,8 +134,13 @@ def notification(obj):
                        or obj.created.replace(tzinfo=timezone.utc).isoformat()),
     }
 
-    if obj.users and (actor := obj.users[0].get()):
-        notif['account'] = to_account(actor)
+    # TODO: unify with to_notification
+    # TODO: parallelize/optimize
+    owner = (obj.users[0].get() if obj.users
+             else models.load_user(owner) if (owner := as1.get_owner(obj.as1))
+             else None)
+    if owner:
+        notif['account'] = to_account(owner)
 
     if type == 'mention':
         notif['status'] = to_status(obj)
@@ -563,7 +573,7 @@ def notifications_list(user):
     objects = Object.query(Object.notify == user.key
                            ).order(-Object.updated
                            ).fetch(LIMIT)
-    return [notification(obj) for obj in objects
+    return [to_notification(obj) for obj in objects
             if obj.as1 and not obj.deleted and as1.is_public(obj.as1)]
 
 
@@ -575,7 +585,7 @@ def notifications_get(user, id):
             and user.key in obj.notify):
         error('Notification not found', status=404)
 
-    return notification(obj)
+    return to_notification(obj)
 
 
 @app.get('/api/v1/notifications/unread_count')

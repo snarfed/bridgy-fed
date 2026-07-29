@@ -384,6 +384,7 @@ class MastodonApiTest(TestCase):
         self.assertEqual([], resp.json)
 
     def test_timelines_home(self):
+        self.make_user('fake:bob', cls=Fake, enabled_protocols=['activitypub'])
         Object(id='fake:post', feed=[self.user.key],
                source_protocol='fake', our_as1={
                    'objectType': 'note',
@@ -394,6 +395,24 @@ class MastodonApiTest(TestCase):
         self.assertEqual(200, resp.status_code, resp.get_data(as_text=True))
         self.assertEqual(1, len(resp.json))
         self.assertEqual('in my feed', resp.json[0]['content'])
+
+    def test_to_status_owner_from_author_no_users(self):
+        self.make_user('fake:bob', cls=Fake, enabled_protocols=['activitypub'])
+        obj = Object(id='fake:post', source_protocol='fake', our_as1={
+            'objectType': 'note',
+            'content': 'hi',
+            'author': 'fake:bob',
+        })
+        status = mastodon_api.to_status(obj)
+        self.assertEqual('@fake-handle-bob@fa.brid.gy', status['account']['id'])
+
+    def test_to_status_no_owner_no_users(self):
+        obj = Object(id='fake:post', source_protocol='fake', our_as1={
+            'objectType': 'note',
+            'content': 'hi',
+        })
+        status = mastodon_api.to_status(obj)
+        self.assertIsNone(status['account'])
 
     def test_timelines_home_excludes_deleted_and_non_public(self):
         Object(id='fake:deleted', feed=[self.user.key], deleted=True, our_as1={
@@ -635,6 +654,28 @@ class MastodonApiTest(TestCase):
         self.assertEqual(1, len(resp.json))
         self.assertEqual('mention', resp.json[0]['type'])
         self.assertEqual('@alice hi', resp.json[0]['status']['content'])
+
+    def test_to_notification_owner_from_actor_no_users(self):
+        bob = self.make_user('fake:bob', cls=Fake, enabled_protocols=['activitypub'])
+        obj = Object(id='fake:follow', notify=[self.user.key], our_as1={
+            'objectType': 'activity',
+            'verb': 'follow',
+            'actor': 'fake:bob',
+            'object': 'fake:alice',
+        })
+        obj.put()
+        notif = mastodon_api.to_notification(obj)
+        self.assertEqual('@fake-handle-bob@fa.brid.gy', notif['account']['id'])
+
+    def test_to_notification_no_owner_no_users(self):
+        obj = Object(id='fake:follow', notify=[self.user.key], our_as1={
+            'objectType': 'activity',
+            'verb': 'follow',
+            'object': 'fake:alice',
+        })
+        obj.put()
+        notif = mastodon_api.to_notification(obj)
+        self.assertNotIn('account', notif)
 
     def test_notifications(self):
         bob = self.make_user('other:bob', cls=OtherFake,
