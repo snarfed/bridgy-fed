@@ -1978,7 +1978,7 @@ class Protocol:
                                 else ('mentioned', 'mentions'))
                             dms.maybe_send(from_=target_proto, to_user=from_user,
                                            type='replied_to_bridged_user', text=f"""\
-Hi! You <a href="{inner_obj_as1.get('url') or inner_obj_id}">recently {verb}</a> {target_author.html_link()}, who's bridged here from {target_proto.PHRASE}. If you want them to see your {noun}, you can bridge your account into {target_proto.PHRASE} by following this account. <a href="https://fed.brid.gy/docs">See the docs</a> for more information.""")
+Hi! You <a href="{inner_obj_as1.get('url') or inner_obj_id}">recently {verb}</a> {target_author.html_link()}, who's bridged here from {target_proto.PHRASE}. To make sure they see your {noun}, you can bridge your account into {target_proto.PHRASE} by following this account. <a href="https://fed.brid.gy/docs">See the docs</a> for more information.""")
 
                 continue
 
