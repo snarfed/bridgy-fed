@@ -3,14 +3,15 @@ import json
 import logging
 from pathlib import Path
 import sys
+from urllib.parse import urljoin
 
 import arroba.server
 from arroba import xrpc_repo, xrpc_server, xrpc_sync
-from flask import Blueprint, Flask, g
+from flask import Blueprint, Flask, g, request
 from werkzeug.middleware.proxy_fix import ProxyFix
 from google.api_core.exceptions import PermissionDenied
-from lexrpc.server import Server
 import lexrpc.flask_server
+from lexrpc.server import Redirect, Server
 import oauth_dropins
 from webutil import (
     appengine_info,
@@ -99,7 +100,19 @@ for nsid in (
     'com.atproto.server.getSession',
     'com.atproto.server.listAppPasswords',
     'com.atproto.server.refreshSession',
+    'com.atproto.sync.getRepo',
 ):
     del arroba.server.server._methods[nsid]
+
+
+@arroba.server.server.method('com.atproto.sync.getRepo')
+def get_repo(input, **kwargs):
+    if request.headers.get('Authorization'):
+        return xrpc_sync.get_repo(input, **kwargs)
+
+    raise Redirect(
+        urljoin('https://bridgy-hubble.microcosm.blue/', request.full_path),
+        status=302)
+
 
 lexrpc.flask_server.init_flask(arroba.server.server, app)
