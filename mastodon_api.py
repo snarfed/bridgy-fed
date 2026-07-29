@@ -84,12 +84,12 @@ def account(user):
 
 
 def status(obj):
-    """Converts a :class:`models.Object` to a Mastodon ``Status``."""
-    try:
-        result = from_as1(obj.as1)
-    except:
-        logger.info(obj.key.id(), obj.as1)
-        raise
+    """Converts a :class:`models.Object` to a Mastodon ``Status``.
+
+    Returns None if ``obj``'s AS1 ``objectType``/``verb`` is unsupported.
+    """
+    if not (result := from_as1(obj.as1)):
+        return None
 
     if from_proto := PROTOCOLS.get(obj.source_protocol):
         result['uri'] = ids.translate_object_id(
@@ -412,8 +412,9 @@ def accounts_statuses(user, addr):
                            Object.type.IN(as1.POST_TYPES | set(['share'])),
                           ).order(-Object.created
                           ).fetch(LIMIT)
-    return [status(obj) for obj in objects
-            if obj.as1 and not obj.deleted and as1.is_public(obj.as1)]
+    return [s for obj in objects
+            if obj.as1 and not obj.deleted and as1.is_public(obj.as1)
+            and (s := status(obj))]
 
 
 @app.get('/api/v1/accounts/<path:addr>/followers')
@@ -453,7 +454,7 @@ def favourites(user):
                         ).fetch(LIMIT)
     ids = [as1.get_id(like.as1, 'object') for like in likes]
     objs = ndb.get_multi(Object(id=id).key for id in ids if id)
-    return [status(obj) for obj in objs if obj and obj.as1]
+    return [s for obj in objs if obj and obj.as1 and (s := status(obj))]
 
 
 @app.get('/api/v1/statuses')
@@ -461,14 +462,18 @@ def favourites(user):
 def statuses_multiple(user):
     ids = request.args.getlist('id[]') + request.args.getlist('id')
     objs = ndb.get_multi(Object(id=id).key for id in ids)
-    return [status(obj) for obj in objs
-            if obj and obj.as1 and not obj.deleted and as1.is_public(obj.as1)]
+    return [s for obj in objs
+            if obj and obj.as1 and not obj.deleted and as1.is_public(obj.as1)
+            and (s := status(obj))]
 
 
 @app.get('/api/v1/statuses/<path:id>')
 @auth
 def statuses_single(user, id):
-    return status(load_object(id))
+    obj = load_object(id)
+    if not (result := status(obj)):
+        error('Status not found', status=404)
+    return result
 
 
 @app.get('/api/v1/statuses/<path:id>/context')
@@ -480,7 +485,8 @@ def statuses_context(user, id):
     parent_id = as1.get_object(obj.as1, 'inReplyTo').get('id')
     while (parent_id and len(ancestors) < MAX_ANCESTORS
            and (parent := Object.get_by_id(parent_id)) and parent.as1):
-        ancestors.insert(0, status(parent))
+        if parent_status := status(parent):
+            ancestors.insert(0, parent_status)
         # TODO: convert to native protocol?
         parent_id = as1.get_id(parent.as1, 'inReplyTo')
 
@@ -513,8 +519,9 @@ def timelines_home(user):
     objects = Object.query(Object.feed == user.key
                            ).order(-Object.created
                            ).fetch(LIMIT)
-    statuses = [status(obj) for obj in objects
-                if obj.as1 and not obj.deleted and as1.is_public(obj.as1)]
+    statuses = [s for obj in objects
+                if obj.as1 and not obj.deleted and as1.is_public(obj.as1)
+                and (s := status(obj))]
     # TODO: formalize
     return [s for s in statuses if s.get('account') and
             (not s['reblog'] or s['reblog'].get('account'))]
@@ -526,8 +533,9 @@ def timelines_public(user):
     objects = Object.query(Object.type.IN(as1.POST_TYPES | set(['share'])),
                            ).order(-Object.created
                            ).fetch(LIMIT)
-    return [status(obj) for obj in objects
-            if obj.as1 and not obj.deleted and as1.is_public(obj.as1)]
+    return [s for obj in objects
+            if obj.as1 and not obj.deleted and as1.is_public(obj.as1)
+            and (s := status(obj))]
 
 
 @app.get('/api/v1/timelines/tag/<hashtag>')

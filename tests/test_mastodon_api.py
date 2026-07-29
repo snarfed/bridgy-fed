@@ -409,6 +409,16 @@ class MastodonApiTest(TestCase):
         self.assertEqual(200, resp.status_code, resp.get_data(as_text=True))
         self.assertEqual([], resp.json)
 
+    def test_timelines_home_excludes_unsupported_type(self):
+        Object(id='fake:page', feed=[self.user.key], our_as1={
+            'objectType': 'page',
+            'content': 'a page',
+            'author': 'fake:bob',
+        }).put()
+        resp = self.get('/api/v1/timelines/home')
+        self.assertEqual(200, resp.status_code, resp.get_data(as_text=True))
+        self.assertEqual([], resp.json)
+
     def test_timelines_tag(self):
         resp = self.get('/api/v1/timelines/tag/foo')
         self.assertEqual(200, resp.status_code, resp.get_data(as_text=True))
