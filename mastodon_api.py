@@ -86,24 +86,24 @@ def account(user):
 def status(obj):
     """Converts a :class:`models.Object` to a Mastodon ``Status``."""
     try:
-        status = from_as1(obj.as1)
+        result = from_as1(obj.as1)
     except:
         logger.info(obj.key.id(), obj.as1)
         raise
 
     if from_proto := PROTOCOLS.get(obj.source_protocol):
-        status['uri'] = ids.translate_object_id(
+        result['uri'] = ids.translate_object_id(
             id=obj.key.id(), from_=from_proto, to=ActivityPub)
 
     if obj.users and (author := obj.users[0].get()):
-        status['account'] = account(author)
+        result['account'] = account(author)
 
-    if status.get('reblog'):
+    if result.get('reblog'):
         target_id = as1.get_id(obj.as1, 'object')
         if target_id and (target := Object.get_by_id(target_id)) and target.as1:
-            status['reblog'] = status(target)
+            result['reblog'] = status(target)
 
-    return status
+    return result
 
 
 def notification(obj):

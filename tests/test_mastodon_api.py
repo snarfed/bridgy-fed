@@ -297,15 +297,15 @@ class MastodonApiTest(TestCase):
     def test_statuses_reblog(self):
         bob = self.make_user('other:bob', cls=OtherFake,
                              enabled_protocols=['activitypub'])
-        Object(id='fake:post', users=[bob.key], our_as1={
+        self.store_object(id='fake:post', users=[bob.key], our_as1={
             'objectType': 'note',
             'content': 'original',
-        }).put()
-        Object(id='fake:share', our_as1={
+        })
+        self.store_object(id='fake:share', our_as1={
             'objectType': 'activity',
             'verb': 'share',
             'object': 'fake:post',
-        }).put()
+        })
 
         resp = self.get('/api/v1/statuses/fake:share')
         self.assertEqual(200, resp.status_code, resp.get_data(as_text=True))
