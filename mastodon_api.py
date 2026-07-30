@@ -439,25 +439,28 @@ def accounts_lookup(user):
 def accounts_relationships(user):
     relationships = []
 
-    for addr in (request.args.getlist('id[]') + request.args.getlist('id')):
-        # TODO: parallelize
-        # TODO: unify with search
-        if not (target := load_user(addr)):
-            continue
+    others = []
+    for addr in request.args.getlist('id[]') + request.args.getlist('id'):
+        if other := load_user(addr):
+            others.append(other)
 
-        following = bool(Follower.query(Follower.from_ == user.key,
-                                        Follower.to == target.key,
-                                        Follower.status == 'active'
-                                        ).get(keys_only=True))
-        followed_by = bool(Follower.query(Follower.from_ == target.key,
-                                          Follower.to == user.key,
-                                          Follower.status == 'active'
-                                          ).get(keys_only=True))
+    followings = [Follower.query(Follower.from_ == user.key,
+                                 Follower.to == other.key,
+                                 Follower.status == 'active'
+                                 ).get_async(keys_only=True)
+                  for other in others]
+    followed_bys = [Follower.query(Follower.from_ == other.key,
+                                   Follower.to == user.key,
+                                   Follower.status == 'active'
+                                   ).get_async(keys_only=True)
+                    for other in others]
+
+    for other, following, followed_by in zip(others, followings, followed_bys):
         relationships.append({
-            'id': target.handle_as(ActivityPub),
-            'following': following,
-            'showing_reblogs': following,
-            'followed_by': followed_by,
+            'id': other.handle_as(ActivityPub),
+            'following': bool(following.get_result()),
+            'followed_by': bool(followed_by.get_result()),
+            'showing_reblogs': False,
             # TODO
             'blocking': False,
             'blocked_by': False,
