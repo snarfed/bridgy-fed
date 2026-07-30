@@ -1564,14 +1564,17 @@ class Object(AddRemoveMixin, StringIdModel):
 
         elif self.farcaster:
             msgs = [Message.FromString(b) for b in self.farcaster]
+            client = PROTOCOLS['farcaster'].client()
             # a single USER_DATA_ADD message is still profile data, not a cast
             # or other object, so it needs the MessagesResponse wrapper too
             if (len(msgs) > 1
                 or granary.farcaster.deserialize(msgs[0]).type
                     == MESSAGE_TYPE_USER_DATA_ADD):
-                obj = granary.farcaster.to_as1(MessagesResponse(messages=msgs))
+                obj = granary.farcaster.to_as1(MessagesResponse(messages=msgs),
+                                               client=client)
             else:
-                obj = granary.farcaster.to_as1(msgs[0])
+                # client fetches @-mentioned users' usernames
+                obj = granary.farcaster.to_as1(msgs[0], client=client)
 
         else:
             return None

@@ -17,6 +17,7 @@ from google.cloud.ndb import tasklets
 from google.cloud.tasks_v2.types import Task
 from google.protobuf import text_format
 from granary.bluesky import NO_UNAUTHENTICATED_LABEL
+from granary.generated.farcaster.request_response_pb2 import MessagesResponse
 from granary.tests.test_farcaster import message, user_data_message
 from granary.tests.test_bluesky import ACTOR_AS, ACTOR_PROFILE_BSKY
 import granary.nostr
@@ -32,6 +33,7 @@ from .testutil import ExplicitFake, Fake, OtherFake, TestCase
 from activitypub import ActivityPub
 from atproto import ATProto
 import common
+import farcaster
 from farcaster import Farcaster
 from flask_app import app
 import memcache
@@ -1502,6 +1504,38 @@ cast_add_body {
             'content_is_html': False,
             'published': '2022-01-02T03:04:05+00:00',
             'url': f'https://farcaster.xyz/~/conversations/0x{msg.hash.hex()}',
+        }, obj.as1)
+
+    @patch('granary.farcaster.rpc_pb2_grpc.HubServiceStub')
+    def test_as1_from_farcaster_cast_with_mention(self, mock_stub):
+        farcaster._client = None
+        mock_stub.return_value.GetUserDataByFid.return_value = MessagesResponse(
+            messages=[user_data_message(456, 'USER_DATA_TYPE_USERNAME', 'alice')])
+
+        msg = message("""
+type: MESSAGE_TYPE_CAST_ADD
+cast_add_body {
+  text: "hi !"
+  mentions: 456
+  mentions_positions: 3
+}
+""")
+        obj = Object(id=f'farcaster://123/0x{msg.hash.hex()}',
+                     farcaster=[msg.SerializeToString()])
+        self.assert_equals({
+            'objectType': 'note',
+            'id': f'farcaster://123/0x{msg.hash.hex()}',
+            'author': 'farcaster://123',
+            'content': 'hi @alice!',
+            'content_is_html': False,
+            'published': '2022-01-02T03:04:05+00:00',
+            'url': f'https://farcaster.xyz/~/conversations/0x{msg.hash.hex()}',
+            'tags': [{
+                'objectType': 'mention',
+                'url': 'farcaster://456',
+                'startIndex': 3,
+                'length': 6,
+            }],
         }, obj.as1)
 
     def test_as1_from_farcaster_user_data(self):

@@ -39,22 +39,6 @@ SNAPCHAIN_PORT = int(os.getenv('SNAPCHAIN_PORT', granary.farcaster.DEFAULT_SNAPC
 _client = None
 
 
-def client():
-    """Returns the cached :class:`granary.farcaster.Farcaster` client.
-
-    Lazily constructs it on first use. gRPC channels (connections) are heavyweight,
-    and designed for reuse, and the generated client stub is thread-safe, so we reuse
-    it.
-
-    https://grpc.github.io/grpc/python/grpc.html#grpc.Channel
-    """
-    global _client
-    if _client is None:
-        _client = granary.farcaster.Farcaster(
-            host=SNAPCHAIN_HOST, port=SNAPCHAIN_PORT, log_requests_responses=True)
-    return _client
-
-
 class Farcaster(User, Protocol):
     """Farcaster class.
 
@@ -78,6 +62,22 @@ class Farcaster(User, Protocol):
     )
     SUPPORTS_DMS = False
     HTML_PROFILES = False
+
+    @classmethod
+    def client(cls):
+        """Returns the cached :class:`granary.farcaster.Farcaster` client.
+
+        Lazily constructs it on first use. gRPC channels (connections) are
+        heavyweight, and designed for reuse, and the generated client stub is
+        thread-safe, so we reuse it.
+
+        https://grpc.github.io/grpc/python/grpc.html#grpc.Channel
+        """
+        global _client
+        if _client is None:
+            _client = granary.farcaster.Farcaster(
+                host=SNAPCHAIN_HOST, port=SNAPCHAIN_PORT, log_requests_responses=True)
+        return _client
 
     @ndb.ComputedProperty
     def handle(self):
@@ -111,7 +111,7 @@ class Farcaster(User, Protocol):
         if cls.owns_handle(handle) is False:
             return None
 
-        if fid := client().get_fid(handle):
+        if fid := cls.client().get_fid(handle):
             return granary.farcaster.uri(fid)
 
     @property
@@ -185,11 +185,11 @@ class Farcaster(User, Protocol):
 
         try:
             if hash_hex:
-                msg = client().hub.GetCast(
+                msg = cls.client().hub.GetCast(
                     CastId(fid=fid, hash=bytes.fromhex(hash_hex)))
                 obj.farcaster = [msg.SerializeToString()]
             else:
-                resp = client().hub.GetUserDataByFid(FidRequest(fid=fid))
+                resp = cls.client().hub.GetUserDataByFid(FidRequest(fid=fid))
                 if not resp.messages:
                     return False
                 obj.farcaster = [m.SerializeToString() for m in resp.messages]
@@ -272,7 +272,7 @@ class Farcaster(User, Protocol):
                 hash_and_sign(msg, from_user.farcaster_key())
 
         try:
-            resp = client().hub.SubmitBulkMessages(
+            resp = to_cls.client().hub.SubmitBulkMessages(
                 SubmitBulkMessagesRequest(messages=msgs))
         except grpc.RpcError as e:
             logger.warning(f'hub SubmitBulkMessages failed: {e}')

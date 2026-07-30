@@ -4036,6 +4036,10 @@ cast_add_body {
   mentions_positions: 9
 }
 """, fid=123)
+        self.mock_fc_stub.return_value.GetUserDataByFid.side_effect = \
+            lambda req: MessagesResponse(messages=[
+                user_data_message(req.fid, 'USER_DATA_TYPE_USERNAME',
+                                  {456: 'alice', 789: 'charlie'}[req.fid])])
         self.mock_fc_stub.return_value.Subscribe.return_value = [
             self.fc_merge_event(post_msg),
         ]
@@ -4051,15 +4055,15 @@ cast_add_body {
                 'type': 'Note',
                 'id': f'https://fc.brid.gy/convert/ap/{post_id}',
                 'attributedTo': 'https://fc.brid.gy/ap/farcaster:123',
-                'content': '<p>Hi  and !</p>',
+                'content': '<p>Hi <a class="mention h-card" href="https://inst/alice">@alice@inst</a> and !<a class="mention h-card" href="https://bsky.brid.gy/ap/did:plc:charlie">@charl.ie@bsky.brid.gy</a></p>',
                 'tag': [{
                     'type': 'Mention',
                     'href': 'https://inst/alice',
-                    'startIndex': 3,
+                    'name': '@alice@inst',
                 }, {
                     'type': 'Mention',
                     'href': 'https://bsky.brid.gy/ap/did:plc:charlie',
-                    'startIndex': 9,
+                    'name': '@charl.ie@bsky.brid.gy',
                 }],
                 'published': '2022-01-02T03:04:05+00:00',
                 'url': f'http://localhost/r/https://farcaster.xyz/~/conversations/0x{post_msg.hash.hex()}',
