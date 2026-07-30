@@ -632,11 +632,18 @@ def search(user):
         'hashtags': [],
     }
 
-    q = get_required_param('q')
+    q = get_required_param('q').strip()
     resolve = request.args.get('resolve', '').lower() == 'true'
     type = request.args.get('type')
+
     if not type or type == 'accounts':
         if user := load_user(q, resolve=True):
-            resp['accounts'] = [to_account(user)]
+            if acct := to_account(user):
+                resp['accounts'] = [acct]
+
+    if not type or type == 'statuses':
+        if obj := Object.get_by_id(q):
+            if status := to_status(obj):
+                resp['statuses'] = [status]
 
     return resp

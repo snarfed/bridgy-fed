@@ -5,6 +5,7 @@ from webutil import util
 from webutil.testutil import requests_response
 
 import mastodon_api, mastodon_oauth
+from mastodon_api import to_account, to_status, to_notification
 from models import Follower, Object
 from web import Web
 
@@ -308,7 +309,7 @@ class MastodonApiTest(TestCase):
             'id': 'fake:post',
             'uri': 'https://fa.brid.gy/convert/ap/fake:post',
             'url': '',
-            'account': mastodon_api.to_account(self.user),
+            'account': to_account(self.user),
             'content': 'hello',
             'created_at': None,
             'emojis': [],
@@ -342,7 +343,7 @@ class MastodonApiTest(TestCase):
         resp = self.get('/api/v1/statuses/fake:share')
         self.assertEqual(200, resp.status_code, resp.get_data(as_text=True))
         self.assertEqual('original', resp.json['reblog']['content'])
-        self.assertEqual(mastodon_api.to_account(bob), resp.json['reblog']['account'])
+        self.assertEqual(to_account(bob), resp.json['reblog']['account'])
 
     def test_statuses_single_not_found(self):
         resp = self.get('/api/v1/statuses/nope')
@@ -438,7 +439,7 @@ class MastodonApiTest(TestCase):
             'content': 'hi',
             'author': 'fake:bob',
         })
-        status = mastodon_api.to_status(obj)
+        status = to_status(obj)
         self.assertEqual('@fake-handle-bob@fa.brid.gy', status['account']['id'])
 
     def test_to_status_no_owner_no_users(self):
@@ -446,7 +447,7 @@ class MastodonApiTest(TestCase):
             'objectType': 'note',
             'content': 'hi',
         })
-        status = mastodon_api.to_status(obj)
+        status = to_status(obj)
         self.assertIsNone(status)
 
     @patch.object(util.session, 'get', return_value=requests_response(status=404))
@@ -457,7 +458,7 @@ class MastodonApiTest(TestCase):
             'author': 'https://in.st/@user',
         })
         # shouldn't raise, even though the author can't be resolved to a protocol
-        status = mastodon_api.to_status(obj)
+        status = to_status(obj)
         self.assertEqual('hi', status['content'])
 
     def test_timelines_home_excludes_deleted_and_non_public(self):
@@ -606,6 +607,29 @@ class MastodonApiTest(TestCase):
             'following_count', 'header', 'header_static', 'locked', 'note',
             'statuses_count', 'url'])
 
+    def test_search_status(self):
+        obj = self.store_object(id='fake:post', our_as1={
+            'objectType': 'note',
+            'actor': 'fake:alice',
+            'content': 'foo',
+        })
+        resp = self.get('/api/v2/search?type=statuses&q=fake:post')
+        self.assertEqual(200, resp.status_code, resp.get_data(as_text=True))
+        self.assert_equals({
+            'accounts': [],
+            'hashtags': [],
+            'statuses': [to_status(obj)],
+        }, resp.json, ignore=['created_at'])
+
+    def test_search_status_not_found(self):
+        resp = self.get('/api/v2/search?type=statuses&q=fake:post')
+        self.assertEqual(200, resp.status_code, resp.get_data(as_text=True))
+        self.assertEqual({
+            'accounts': [],
+            'hashtags': [],
+            'statuses': []
+        }, resp.json)
+
     def test_search_unsupported_type(self):
         resp = self.get('/api/v2/search?type=statuses&q=hello')
         self.assertEqual(200, resp.status_code, resp.get_data(as_text=True))
@@ -711,7 +735,7 @@ class MastodonApiTest(TestCase):
         })
         obj.put()
 
-        notif = mastodon_api.to_notification(obj)
+        notif = to_notification(obj)
         self.assertEqual('@fake-handle-bob@fa.brid.gy', notif['account']['id'])
 
     def test_to_notification_no_owner_no_users(self):
@@ -721,7 +745,7 @@ class MastodonApiTest(TestCase):
             'object': 'fake:alice',
         })
         obj.put()
-        self.assertIsNone(mastodon_api.to_notification(obj))
+        self.assertIsNone(to_notification(obj))
 
     def test_notifications(self):
         bob = self.make_user('other:bob', cls=OtherFake,
