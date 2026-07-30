@@ -259,11 +259,13 @@ class MastodonApiTest(TestCase):
     def test_favourites(self):
         Object(id='fake:liked', our_as1={
             'objectType': 'note',
+            'author': 'fake:alice',
             'content': 'liked post',
         }).put()
         Object(id='fake:like', users=[self.user.key], our_as1={
             'objectType': 'activity',
             'verb': 'like',
+            'actor': 'fake:alice',
             'object': 'fake:liked',
         }).put()
 
@@ -275,14 +277,17 @@ class MastodonApiTest(TestCase):
     def test_statuses_multiple(self):
         Object(id='fake:post1', our_as1={
             'objectType': 'note',
+            'author': 'fake:alice',
             'content': 'one',
         }).put()
         Object(id='fake:post2', our_as1={
             'objectType': 'note',
+            'author': 'fake:alice',
             'content': 'two',
         }).put()
         Object(id='fake:deleted', deleted=True, our_as1={
             'objectType': 'note',
+            'author': 'fake:alice',
             'content': 'deleted',
         }).put()
 
@@ -330,6 +335,7 @@ class MastodonApiTest(TestCase):
         self.store_object(id='fake:share', our_as1={
             'objectType': 'activity',
             'verb': 'share',
+            'author': 'fake:alice',
             'object': 'fake:post',
         })
 
@@ -345,10 +351,12 @@ class MastodonApiTest(TestCase):
     def test_statuses_context(self):
         Object(id='fake:root', our_as1={
             'objectType': 'note',
+            'author': 'fake:alice',
             'content': 'root',
         }).put()
         Object(id='fake:reply', our_as1={
             'objectType': 'note',
+            'author': 'fake:alice',
             'content': 'reply',
             'inReplyTo': 'fake:root',
         }).put()
@@ -388,6 +396,7 @@ class MastodonApiTest(TestCase):
     def test_timelines_public(self):
         Object(id='fake:not-followed', our_as1={
             'objectType': 'note',
+            'author': 'fake:alice',
             'content': 'not in my feed',
         }).put()
         resp = self.get('/api/v1/timelines/public')
@@ -438,7 +447,18 @@ class MastodonApiTest(TestCase):
             'content': 'hi',
         })
         status = mastodon_api.to_status(obj)
-        self.assertIsNone(status['account'])
+        self.assertIsNone(status)
+
+    @patch.object(util.session, 'get', return_value=requests_response(status=404))
+    def test_to_status_owner_unresolvable_handle(self, _):
+        obj = Object(id='fake:post', source_protocol='fake', our_as1={
+            'objectType': 'note',
+            'content': 'hi',
+            'author': 'https://in.st/@user',
+        })
+        # shouldn't raise, even though the author can't be resolved to a protocol
+        status = mastodon_api.to_status(obj)
+        self.assertEqual('hi', status['content'])
 
     def test_timelines_home_excludes_deleted_and_non_public(self):
         Object(id='fake:deleted', feed=[self.user.key], deleted=True, our_as1={
@@ -455,11 +475,11 @@ class MastodonApiTest(TestCase):
         self.assertEqual([], resp.json)
 
     def test_timelines_home_excludes_unsupported_type(self):
-        Object(id='fake:page', feed=[self.user.key], our_as1={
+        self.store_object(id='fake:page', feed=[self.user.key], our_as1={
             'objectType': 'page',
             'content': 'a page',
             'author': 'fake:bob',
-        }).put()
+        })
         resp = self.get('/api/v1/timelines/home')
         self.assertEqual(200, resp.status_code, resp.get_data(as_text=True))
         self.assertEqual([], resp.json)
@@ -690,6 +710,7 @@ class MastodonApiTest(TestCase):
             'object': 'fake:alice',
         })
         obj.put()
+
         notif = mastodon_api.to_notification(obj)
         self.assertEqual('@fake-handle-bob@fa.brid.gy', notif['account']['id'])
 
@@ -700,8 +721,7 @@ class MastodonApiTest(TestCase):
             'object': 'fake:alice',
         })
         obj.put()
-        notif = mastodon_api.to_notification(obj)
-        self.assertNotIn('account', notif)
+        self.assertIsNone(mastodon_api.to_notification(obj))
 
     def test_notifications(self):
         bob = self.make_user('other:bob', cls=OtherFake,

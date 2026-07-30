@@ -90,7 +90,8 @@ def to_account(user):
 def to_status(obj):
     """Converts a :class:`models.Object` to a Mastodon ``Status``.
 
-    Returns None if ``obj``'s AS1 ``objectType``/``verb`` is unsupported.
+    Returns None if ``obj`` can't be converted, eg its AS1 ``objectType``/``verb``
+    isn't supported, or its account can't be fetched or converted.
     """
     try:
         status = from_as1(obj.as1)
@@ -105,14 +106,12 @@ def to_status(obj):
         status['uri'] = ids.translate_object_id(
             id=obj.key.id(), from_=from_proto, to=ActivityPub)
 
-    # TODO: unify with to_notification
     # TODO: parallelize/optimize
-    owner = (obj.users[0].get() if obj.users
-             else models.load_user(owner, create=True, allow_opt_out=True)
-               if (owner := as1.get_owner(obj.as1))
-             else None)
-    if owner:
+    if owner := load_owner(obj):
         status['account'] = to_account(owner)
+
+    if not status['account']:
+        return None
 
     if status.get('reblog') is not None:
         target_id = as1.get_id(obj.as1, 'object')
@@ -125,7 +124,11 @@ def to_status(obj):
 
 
 def to_notification(obj):
-    """Converts a :class:`models.Object` to a Mastodon ``Notification``."""
+    """Converts a :class:`models.Object` to a Mastodon ``Notification``.
+
+    Returns None if ``obj`` can't be converted, eg its account can't be fetched or
+    converted.
+    """
     type = AS1_TO_NOTIFICATION_TYPE.get(obj.as1.get('verb'), 'mention')
 
     notif = {
@@ -133,23 +136,26 @@ def to_notification(obj):
         'type': type,
         'created_at': (obj.as1.get('published')
                        or obj.created.replace(tzinfo=timezone.utc).isoformat()),
+        'account': None,  # populated below
     }
 
-    # TODO: unify with to_notification
     # TODO: parallelize/optimize
-    owner = (obj.users[0].get() if obj.users
-             else models.load_user(owner, create=True, allow_opt_out=True)
-               if (owner := as1.get_owner(obj.as1))
-             else None)
-    if owner:
-        notif['account'] = to_account(owner)
 
-    if type == 'mention':
+    if type in ('mention', 'quote'):
         notif['status'] = to_status(obj)
-    elif type in ('favourite', 'reblog'):
+        if notif['status']:
+            notif['account'] = notif['status']['account']
+
+    elif type in ('favourite', 'follow', 'reblog'):
         target_id = as1.get_id(obj.as1, 'object')
         if target_id and (target := Object.get_by_id(target_id)) and target.as1:
             notif['status'] = to_status(target)
+
+        if owner := load_owner(obj):
+            notif['account'] = to_account(owner)
+
+    if not notif['account']:
+        return None
 
     return notif
 
@@ -177,6 +183,24 @@ def load_object(id):
     if not obj or not obj.as1:
         error('Status not found', status=404)
     return obj
+
+
+def load_owner(obj):
+    """Loads the :class:`models.User` that owns ``obj``, if any.
+
+    Returns None if ``obj`` has no owner, or if the owner can't be loaded, eg
+    if their handle can't be resolved to a protocol.
+    """
+    if obj.users:
+        return obj.users[0].get()
+
+    if owner_id := as1.get_owner(obj.as1):
+        try:
+            return models.load_user(owner_id, create=True, allow_opt_out=True)
+        except RuntimeError:
+            logger.info(f"Couldn't load owner {owner_id}", exc_info=True)
+
+    return None
 
 
 #
@@ -478,7 +502,7 @@ def favourites(user):
                         ).fetch(LIMIT)
     ids = [as1.get_id(like.as1, 'object') for like in likes]
     objs = ndb.get_multi(Object(id=id).key for id in ids if id)
-    return [s for obj in objs if obj and obj.as1 and (s := to_status(obj))]
+    return [status for obj in objs if obj and obj.as1 and (status := to_status(obj))]
 
 
 @app.get('/api/v1/statuses')
@@ -487,7 +511,7 @@ def statuses_multiple(user):
     ids = request.args.getlist('id[]') + request.args.getlist('id')
     objs = ndb.get_multi(Object(id=id).key for id in ids)
     return [s for obj in objs
-            if obj and obj.as1 and not obj.deleted and as1.is_public(obj.as1)
+                  if obj and obj.as1 and not obj.deleted and as1.is_public(obj.as1)
             and (s := to_status(obj))]
 
 
@@ -543,12 +567,12 @@ def timelines_home(user):
     objects = Object.query(Object.feed == user.key
                            ).order(-Object.created
                            ).fetch(LIMIT)
-    statuses = [s for obj in objects
-                if obj.as1 and not obj.deleted and as1.is_public(obj.as1)
-                and (s := to_status(obj))]
+    statuses = [to_status(obj) for obj in objects
+                if obj.as1 and not obj.deleted and as1.is_public(obj.as1)]
     # TODO: formalize
-    return [s for s in statuses if s.get('account') and
-            (not s['reblog'] or s['reblog'].get('account'))]
+    return [s for s in statuses
+            if s and s.get('account')
+            and (not s['reblog'] or s['reblog'].get('account'))]
 
 
 @app.get('/api/v1/timelines/public')
@@ -557,9 +581,9 @@ def timelines_public(user):
     objects = Object.query(Object.type.IN(as1.POST_TYPES | set(['share'])),
                            ).order(-Object.created
                            ).fetch(LIMIT)
-    return [s for obj in objects
+    return [status for obj in objects
             if obj.as1 and not obj.deleted and as1.is_public(obj.as1)
-            and (s := to_status(obj))]
+            and (status := to_status(obj))]
 
 
 @app.get('/api/v1/timelines/tag/<hashtag>')
@@ -575,19 +599,21 @@ def notifications_list(user):
     objects = Object.query(Object.notify == user.key
                            ).order(-Object.updated
                            ).fetch(LIMIT)
-    return [to_notification(obj) for obj in objects
-            if obj.as1 and not obj.deleted and as1.is_public(obj.as1)]
+    return [notif for obj in objects
+            if obj.as1 and not obj.deleted and as1.is_public(obj.as1)
+            and (notif := to_notification(obj))]
 
 
 @app.get('/api/v1/notifications/<path:id>')
 @auth
 def notifications_get(user, id):
     obj = Object.get_by_id(id)
-    if not (obj and obj.as1 and not obj.deleted and as1.is_public(obj.as1)
+    if (obj and obj.as1 and not obj.deleted and as1.is_public(obj.as1)
             and user.key in obj.notify):
-        error('Notification not found', status=404)
+        if notif := to_notification(obj):
+            return notif
 
-    return to_notification(obj)
+    error('Notification not found', status=404)
 
 
 @app.get('/api/v1/notifications/unread_count')
