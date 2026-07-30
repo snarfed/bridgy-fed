@@ -78,7 +78,7 @@ def to_account(user):
             username = acct.split('@')[0]
 
     account.update({
-        'id': addr,
+        'id': user.key.id(),
         'uri': user.id_as(ActivityPub),
         'username': username,
         'acct': acct,
@@ -178,6 +178,20 @@ def load_user(handle, resolve=False):
                                     allow_opt_out=True)
         except (AttributeError, RuntimeError, ValueError) as e:
             logger.info(e)
+
+
+def load_account_id(id):
+    """Loads a :class:`models.User` by their native id.
+
+    This is the id we return in ``Account``s, from :func:`to_account`.
+
+    Returns None if the id's protocol can't be determined, or if they're not in
+    the datastore.
+    """
+    try:
+        return models.load_user(id, allow_opt_out=True)
+    except (RuntimeError, ValueError) as e:
+        logger.info(e)
 
 
 def load_object(id):
@@ -440,8 +454,8 @@ def accounts_relationships(user):
     relationships = []
 
     others = []
-    for addr in request.args.getlist('id[]') + request.args.getlist('id'):
-        if other := load_user(addr):
+    for id in request.args.getlist('id[]') + request.args.getlist('id'):
+        if other := load_account_id(id):
             others.append(other)
 
     followings = [Follower.query(Follower.from_ == user.key,
@@ -457,7 +471,7 @@ def accounts_relationships(user):
 
     for other, following, followed_by in zip(others, followings, followed_bys):
         relationships.append({
-            'id': other.handle_as(ActivityPub),
+            'id': other.key.id(),
             'following': bool(following.get_result()),
             'followed_by': bool(followed_by.get_result()),
             'showing_reblogs': False,
@@ -483,20 +497,21 @@ def follow_requests(user):
     return []
 
 
-@app.get('/api/v1/accounts/<path:addr>')
+@app.get('/api/v1/accounts/<path:id>')
 @auth
-def accounts_get(user, addr):
-    if user := load_user(addr):
+def accounts_get(user, id):
+    if user := load_account_id(id):
         return to_account(user)
 
     error('Not found', status=404)
 
 
-@app.get('/api/v1/accounts/<path:addr>/statuses')
+@app.get('/api/v1/accounts/<path:id>/statuses')
 @auth
-def accounts_statuses(user, addr):
+def accounts_statuses(user, id):
     # TODO: tagged
-    user = load_user(addr)
+    if not (user := load_account_id(id)):
+        error('Not found', status=404)
 
     if request.args.get('pinned', '').strip().lower() == 'true':
         objects = []
@@ -532,37 +547,43 @@ def accounts_statuses(user, addr):
             and not (bool_param('only_media') and not s.get('media_attachments'))]
 
 
-@app.get('/api/v1/accounts/<path:addr>/followers')
+@app.get('/api/v1/accounts/<path:id>/followers')
 @auth
-def accounts_followers(user, addr):
-    followers, _, _ = Follower.fetch_page('followers', load_user(addr))
+def accounts_followers(user, id):
+    if not (other := load_account_id(id)):
+        error('Not found', status=404)
+
+    followers, _, _ = Follower.fetch_page('followers', other)
     return [to_account(f.user) for f in followers]
 
 
-@app.get('/api/v1/accounts/<path:addr>/following')
+@app.get('/api/v1/accounts/<path:id>/following')
 @auth
-def accounts_following(user, addr):
-    following, _, _ = Follower.fetch_page('following', load_user(addr))
+def accounts_following(user, id):
+    if not (other := load_account_id(id)):
+        error('Not found', status=404)
+
+    following, _, _ = Follower.fetch_page('following', other)
     return [to_account(f.user) for f in following]
 
 
-@app.get('/api/v1/accounts/<path:addr>/featured_tags')
+@app.get('/api/v1/accounts/<path:id>/featured_tags')
 @auth
-def accounts_featured_tags(user, addr):
+def accounts_featured_tags(user, id):
     # TODO
     return []
 
 
-@app.get('/api/v1/accounts/<path:addr>/lists')
+@app.get('/api/v1/accounts/<path:id>/lists')
 @auth
-def accounts_lists(user, addr):
+def accounts_lists(user, id):
     # TODO
     return []
 
 
-@app.get('/api/v1/accounts/<path:addr>/endorsements')
+@app.get('/api/v1/accounts/<path:id>/endorsements')
 @auth
-def accounts_endorsements(user, addr):
+def accounts_endorsements(user, id):
     # TODO
     return []
 
