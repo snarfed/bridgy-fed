@@ -16,7 +16,7 @@ from werkzeug.exceptions import BadGateway, HTTPException
 import activitypub
 from activitypub import ActivityPub
 from arroba import datastore_storage
-from domains import PRIMARY_DOMAIN
+from domains import DOMAINS
 from flask_app import app
 import ids
 from mastodon_oauth import require_oauth
@@ -785,7 +785,8 @@ def search(user):
     if not type or type == 'statuses':
         # Phanpy does an odd thing to load individual statuses: it searches
         # for them with the format '[domain]/s/[id]'. no clue why yet
-        q = q.removeprefix(f'{PRIMARY_DOMAIN}/s/')
+        for domain in DOMAINS:
+            q = q.removeprefix(f'{domain}/s/')
         if obj := Object.get_by_id(q):
             if status := to_status(obj):
                 resp['statuses'] = [status]
