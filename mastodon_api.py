@@ -26,8 +26,9 @@ import webfinger
 
 logger = logging.getLogger(__name__)
 
-# how many results to return for list endpoints; we don't support paging yet
-LIMIT = 20
+# limits for list endpoints
+DEFAULT_LIMIT = 20
+MAX_LIMIT = 40
 
 # how many ancestors to include in a status's context
 MAX_ANCESTORS = 20
@@ -203,6 +204,22 @@ def load_owner(obj):
 
     return None
 
+
+def limit():
+    """Returns the limit query param, if it's between 1 and ``MAX_LIMIT``.
+
+    ...otherwise returns ``DEFAULT_LIMIT``.
+
+    Returns:
+      int:
+    """
+    if limit := request.args.get('limit'):
+        try:
+            return min(max(int(limit), 1), MAX_LIMIT)
+        except (ValueError, TypeError):
+            pass
+
+    return DEFAULT_LIMIT
 
 #
 # API endpoints
@@ -467,7 +484,7 @@ def accounts_statuses(user, addr):
         objects = Object.query(Object.users == user.key,
                                Object.type.IN(as1.POST_TYPES | set(['share'])),
                               ).order(-Object.created
-                              ).fetch(LIMIT)
+                              ).fetch(limit())
 
     return [s for obj in objects
             if obj and obj.as1 and not obj.deleted and as1.is_public(obj.as1)
@@ -508,7 +525,7 @@ def favourites(user):
     likes = Object.query(Object.users == user.key,
                          Object.type == 'like',
                         ).order(-Object.created
-                        ).fetch(LIMIT)
+                        ).fetch(limit())
     ids = [as1.get_id(like.as1, 'object') for like in likes]
     objs = ndb.get_multi(Object(id=id).key for id in ids if id)
     return [status for obj in objs if obj and obj.as1 and (status := to_status(obj))]
@@ -575,7 +592,7 @@ def statuses_reblogged_by(user, id):
 def timelines_home(user):
     objects = Object.query(Object.feed == user.key
                            ).order(-Object.created
-                           ).fetch(LIMIT)
+                           ).fetch(limit())
     statuses = [to_status(obj) for obj in objects
                 if obj.as1 and not obj.deleted and as1.is_public(obj.as1)]
     # TODO: formalize
@@ -589,7 +606,7 @@ def timelines_home(user):
 def timelines_public(user):
     objects = Object.query(Object.type.IN(as1.POST_TYPES | set(['share'])),
                            ).order(-Object.created
-                           ).fetch(LIMIT)
+                           ).fetch(limit())
     return [status for obj in objects
             if obj.as1 and not obj.deleted and as1.is_public(obj.as1)
             and (status := to_status(obj))]
@@ -607,7 +624,7 @@ def notifications_list(user):
     # TODO: unbridged notifs
     objects = Object.query(Object.notify == user.key
                            ).order(-Object.updated
-                           ).fetch(LIMIT)
+                           ).fetch(limit())
     return [notif for obj in objects
             if obj.as1 and not obj.deleted and as1.is_public(obj.as1)
             and (notif := to_notification(obj))]
