@@ -217,6 +217,34 @@ class MastodonApiTest(TestCase):
         self.assertEqual('Bob', resp.json[0]['reblog']['account']['display_name'])
         self.assertIsNotNone(Fake.get_by_id('fake:bob'))
 
+    def test_accounts_statuses_pinned(self):
+        Object(id='fake:post', users=[self.user.key], our_as1={
+            'objectType': 'note',
+            'content': 'hello world',
+            'published': '2022-01-02T03:04:05',
+        }).put()
+        Object(id='fake:not-pinned', users=[self.user.key], our_as1={
+            'objectType': 'note',
+            'content': 'not pinned',
+            'published': '2022-01-02T03:04:05',
+        }).put()
+
+        self.user.obj.our_as1['featured'] = {
+            'totalItems': 1,
+            'items': ['fake:post'],
+        }
+        self.user.obj.put()
+
+        resp = self.get('/api/v1/accounts/@fake-handle-alice@fa.brid.gy/statuses?pinned=true')
+        self.assertEqual(200, resp.status_code, resp.get_data(as_text=True))
+        self.assertEqual(1, len(resp.json))
+        self.assertEqual('hello world', resp.json[0]['content'])
+
+    def test_accounts_statuses_pinned_none(self):
+        resp = self.get('/api/v1/accounts/@fake-handle-alice@fa.brid.gy/statuses?pinned=true')
+        self.assertEqual(200, resp.status_code, resp.get_data(as_text=True))
+        self.assertEqual([], resp.json)
+
     def test_accounts_statuses_excludes_deleted_and_non_public(self):
         Object(id='fake:post', users=[self.user.key], our_as1={
             'objectType': 'note',

@@ -455,14 +455,22 @@ def accounts_get(user, addr):
 @auth
 def accounts_statuses(user, addr):
     # TODO: max_id, since_id, min_id, limit, only_media, exclude_replies,
-    # exclude_reblogs, pinned, tagged
-    target = load_user(addr)
-    objects = Object.query(Object.users == target.key,
-                           Object.type.IN(as1.POST_TYPES | set(['share'])),
-                          ).order(-Object.created
-                          ).fetch(LIMIT)
+    # exclude_reblogs, tagged
+    user = load_user(addr)
+
+    if request.args.get('pinned', '').strip().lower() == 'true':
+        objects = []
+        if user.obj and user.obj.as1:
+            featured = as1.get_ids(as1.get_object(user.obj.as1, 'featured'), 'items')
+            objects = ndb.get_multi(Object(id=id).key for id in featured)
+    else:
+        objects = Object.query(Object.users == user.key,
+                               Object.type.IN(as1.POST_TYPES | set(['share'])),
+                              ).order(-Object.created
+                              ).fetch(LIMIT)
+
     return [s for obj in objects
-            if obj.as1 and not obj.deleted and as1.is_public(obj.as1)
+            if obj and obj.as1 and not obj.deleted and as1.is_public(obj.as1)
             and (s := to_status(obj))]
 
 
