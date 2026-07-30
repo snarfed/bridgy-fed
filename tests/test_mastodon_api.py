@@ -613,13 +613,19 @@ class MastodonApiTest(TestCase):
             'actor': 'fake:alice',
             'content': 'foo',
         })
-        resp = self.get('/api/v2/search?type=statuses&q=fake:post')
-        self.assertEqual(200, resp.status_code, resp.get_data(as_text=True))
-        self.assert_equals({
-            'accounts': [],
-            'hashtags': [],
-            'statuses': [to_status(obj)],
-        }, resp.json, ignore=['created_at'])
+
+        for q in ('fake:post',
+                  # Phanpy search format: [domain]/s/[id]
+                  'fed.brid.gy/s/fake:post',
+                  ):
+            with self.subTest(q=q):
+                resp = self.get(f'/api/v2/search?type=statuses&q={q}')
+                self.assertEqual(200, resp.status_code, resp.get_data(as_text=True))
+                self.assert_equals({
+                    'accounts': [],
+                    'hashtags': [],
+                    'statuses': [to_status(obj)],
+                }, resp.json, ignore=['created_at'])
 
     def test_search_status_not_found(self):
         resp = self.get('/api/v2/search?type=statuses&q=fake:post')
