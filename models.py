@@ -1720,6 +1720,10 @@ class Object(AddRemoveMixin, StringIdModel):
                 error(f"authed user {authed_as} ({user_id} {profile_id}) isn't object owner {owners}",
                       status=403)
 
+        # TODO
+        # if obj and obj.deleted:
+        #     return None
+
         return obj
 
     @classmethod
