@@ -472,7 +472,7 @@ def accounts_get(user, addr):
 @app.get('/api/v1/accounts/<path:addr>/statuses')
 @auth
 def accounts_statuses(user, addr):
-    # TODO: only_media, tagged
+    # TODO: tagged
     user = load_user(addr)
 
     if request.args.get('pinned', '').strip().lower() == 'true':
@@ -503,9 +503,10 @@ def accounts_statuses(user, addr):
 
     return [s for obj in objects
             if obj and obj.as1 and not obj.deleted and as1.is_public(obj.as1)
+            and (s := to_status(obj))
             and not (bool_param('exclude_replies') and obj.type == 'comment')
             and not (bool_param('exclude_reblogs') and obj.type == 'share')
-            and (s := to_status(obj))]
+            and not (bool_param('only_media') and not s.get('media_attachments'))]
 
 
 @app.get('/api/v1/accounts/<path:addr>/followers')

@@ -325,6 +325,31 @@ class MastodonApiTest(TestCase):
         self.assertEqual(1, len(resp.json))
         self.assertEqual('my own post', resp.json[0]['content'])
 
+    def test_accounts_statuses_only_media(self):
+        Object(id='fake:post', users=[self.user.key], our_as1={
+            'objectType': 'note',
+            'content': 'hello world',
+            'published': '2022-01-02T03:04:05',
+        }).put()
+        Object(id='fake:media-post', users=[self.user.key], our_as1={
+            'objectType': 'note',
+            'content': 'a photo',
+            'published': '2022-01-02T03:04:05',
+            'attachments': [{
+                'objectType': 'image',
+                'image': {'url': 'http://foo.com/image.jpg'},
+            }],
+        }).put()
+
+        resp = self.get('/api/v1/accounts/@fake-handle-alice@fa.brid.gy/statuses')
+        self.assertEqual(200, resp.status_code, resp.get_data(as_text=True))
+        self.assertEqual(2, len(resp.json))
+
+        resp = self.get('/api/v1/accounts/@fake-handle-alice@fa.brid.gy/statuses?only_media=true')
+        self.assertEqual(200, resp.status_code, resp.get_data(as_text=True))
+        self.assertEqual(1, len(resp.json))
+        self.assertEqual('a photo', resp.json[0]['content'])
+
     def test_accounts_statuses_excludes_deleted_and_non_public(self):
         Object(id='fake:post', users=[self.user.key], our_as1={
             'objectType': 'note',
