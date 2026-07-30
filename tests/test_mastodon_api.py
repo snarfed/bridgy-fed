@@ -112,6 +112,17 @@ class MastodonApiTest(TestCase):
                                headers={'Authorization': f'Bearer {bad_token}'})
         self.assertEqual(401, resp.status_code)
 
+    def test_preferences(self):
+        resp = self.get('/api/v1/preferences')
+        self.assertEqual(200, resp.status_code, resp.get_data(as_text=True))
+        self.assertEqual({
+            'posting:default:visibility': 'public',
+            'posting:default:sensitive': False,
+            'posting:default:language': None,
+            'reading:expand:media': 'default',
+            'reading:expand:spoilers': False,
+        }, resp.json)
+
     def test_accounts_lookup(self):
         for acct in 'fake-handle-alice@fa.brid.gy', '@fake-handle-alice@fa.brid.gy':
             with self.subTest(acct=acct):
@@ -169,6 +180,11 @@ class MastodonApiTest(TestCase):
         self.assertEqual(200, resp.status_code, resp.get_data(as_text=True))
         self.assertTrue(resp.json[0]['following'])
         self.assertFalse(resp.json[0]['followed_by'])
+
+    def test_follow_requests(self):
+        resp = self.get('/api/v1/follow_requests')
+        self.assertEqual(200, resp.status_code, resp.get_data(as_text=True))
+        self.assertEqual([], resp.json)
 
     def test_accounts(self):
         resp = self.get('/api/v1/accounts/@fake-handle-alice@fa.brid.gy')
@@ -385,8 +401,43 @@ class MastodonApiTest(TestCase):
         self.assertEqual(1, len(resp.json))
         self.assertEqual('@other-handle-bob@other.brid.gy', resp.json[0]['id'])
 
+    def test_accounts_featured_tags(self):
+        resp = self.get('/api/v1/accounts/@fake-handle-alice@fa.brid.gy/featured_tags')
+        self.assertEqual(200, resp.status_code, resp.get_data(as_text=True))
+        self.assertEqual([], resp.json)
+
+    def test_accounts_lists(self):
+        resp = self.get('/api/v1/accounts/@fake-handle-alice@fa.brid.gy/lists')
+        self.assertEqual(200, resp.status_code, resp.get_data(as_text=True))
+        self.assertEqual([], resp.json)
+
+    def test_accounts_endorsements(self):
+        resp = self.get('/api/v1/accounts/@fake-handle-alice@fa.brid.gy/endorsements')
+        self.assertEqual(200, resp.status_code, resp.get_data(as_text=True))
+        self.assertEqual([], resp.json)
+
+    def test_accounts_familiar_followers(self):
+        bob = self.make_user('other:bob', cls=OtherFake,
+                             enabled_protocols=['activitypub'])
+        resp = self.get('/api/v1/accounts/familiar_followers?id[]=@other-handle-bob@other.brid.gy&id[]=456')
+        self.assertEqual(200, resp.status_code, resp.get_data(as_text=True))
+        self.assertEqual([
+            {'id': '@other-handle-bob@other.brid.gy', 'accounts': []},
+            {'id': '456', 'accounts': []},
+        ], resp.json)
+
+    def test_followed_tags(self):
+        resp = self.get('/api/v1/followed_tags')
+        self.assertEqual(200, resp.status_code, resp.get_data(as_text=True))
+        self.assertEqual([], resp.json)
+
     def test_blocks(self):
         resp = self.get('/api/v1/blocks')
+        self.assertEqual(200, resp.status_code, resp.get_data(as_text=True))
+        self.assertEqual([], resp.json)
+
+    def test_bookmarks(self):
+        resp = self.get('/api/v1/bookmarks')
         self.assertEqual(200, resp.status_code, resp.get_data(as_text=True))
         self.assertEqual([], resp.json)
 
@@ -789,6 +840,29 @@ class MastodonApiTest(TestCase):
         self.assertEqual(200, resp.status_code, resp.get_data(as_text=True))
         self.assertEqual(['foo.com', 'bar.org', 'baz.net'], resp.json)
 
+    def test_conversations(self):
+        resp = self.get('/api/v1/conversations')
+        self.assertEqual(200, resp.status_code, resp.get_data(as_text=True))
+        self.assertEqual([], resp.json)
+
+    def test_lists(self):
+        resp = self.get('/api/v1/lists')
+        self.assertEqual(200, resp.status_code, resp.get_data(as_text=True))
+        self.assertEqual([], resp.json)
+
+    def test_lists_get_not_found(self):
+        resp = self.get('/api/v1/lists/123')
+        self.assertEqual(404, resp.status_code)
+
+    def test_lists_accounts_not_found(self):
+        resp = self.get('/api/v1/lists/123/accounts')
+        self.assertEqual(404, resp.status_code)
+
+    def test_markers(self):
+        resp = self.get('/api/v1/markers')
+        self.assertEqual(200, resp.status_code, resp.get_data(as_text=True))
+        self.assertEqual({}, resp.json)
+
     def test_notifications_favourite(self):
         bob = self.make_user('other:bob', cls=OtherFake,
                              enabled_protocols=['activitypub'])
@@ -910,15 +984,28 @@ class MastodonApiTest(TestCase):
 
     def test_stub_endpoints_require_auth(self):
         for path in (
+            '/api/v1/preferences',
             '/api/v1/accounts/lookup',
             '/api/v1/accounts/relationships',
             '/api/v1/accounts/@fake-handle-alice@fa.brid.gy',
             '/api/v1/accounts/@fake-handle-alice@fa.brid.gy/statuses',
             '/api/v1/accounts/@fake-handle-alice@fa.brid.gy/followers',
             '/api/v1/accounts/@fake-handle-alice@fa.brid.gy/following',
+            '/api/v1/accounts/@fake-handle-alice@fa.brid.gy/featured_tags',
+            '/api/v1/accounts/@fake-handle-alice@fa.brid.gy/lists',
+            '/api/v1/accounts/@fake-handle-alice@fa.brid.gy/endorsements',
+            '/api/v1/accounts/familiar_followers',
+            '/api/v1/follow_requests',
+            '/api/v1/followed_tags',
             '/api/v1/blocks',
+            '/api/v1/bookmarks',
+            '/api/v1/conversations',
             '/api/v1/domain_blocks',
             '/api/v1/favourites',
+            '/api/v1/lists',
+            '/api/v1/lists/123',
+            '/api/v1/lists/123/accounts',
+            '/api/v1/markers',
             '/api/v1/notifications',
             '/api/v1/notifications/123',
             '/api/v1/notifications/unread_count',

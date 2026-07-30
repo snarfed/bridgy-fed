@@ -412,6 +412,19 @@ def verify_credentials(user):
     return to_account(user)
 
 
+@app.get('/api/v1/preferences')
+@auth
+def preferences(user):
+    # TODO
+    return {
+        'posting:default:visibility': 'public',
+        'posting:default:sensitive': False,
+        'posting:default:language': None,
+        'reading:expand:media': 'default',
+        'reading:expand:spoilers': False,
+    }
+
+
 @app.get('/api/v1/accounts/lookup')
 @auth
 def accounts_lookup(user):
@@ -458,6 +471,13 @@ def accounts_relationships(user):
         })
 
     return relationships
+
+
+@app.get('/api/v1/follow_requests')
+@auth
+def follow_requests(user):
+    # TODO
+    return []
 
 
 @app.get('/api/v1/accounts/<path:addr>')
@@ -523,9 +543,52 @@ def accounts_following(user, addr):
     return [to_account(f.user) for f in following]
 
 
+@app.get('/api/v1/accounts/<path:addr>/featured_tags')
+@auth
+def accounts_featured_tags(user, addr):
+    # TODO
+    return []
+
+
+@app.get('/api/v1/accounts/<path:addr>/lists')
+@auth
+def accounts_lists(user, addr):
+    # TODO
+    return []
+
+
+@app.get('/api/v1/accounts/<path:addr>/endorsements')
+@auth
+def accounts_endorsements(user, addr):
+    # TODO
+    return []
+
+
+@app.get('/api/v1/accounts/familiar_followers')
+@auth
+def accounts_familiar_followers(user):
+    # TODO
+    ids = request.args.getlist('id[]') + request.args.getlist('id')
+    return [{'id': id, 'accounts': []} for id in ids]
+
+
+@app.get('/api/v1/followed_tags')
+@auth
+def followed_tags(user):
+    # TODO
+    return []
+
+
 @app.get('/api/v1/blocks')
 @auth
 def blocks(user):
+    # TODO
+    return []
+
+
+@app.get('/api/v1/bookmarks')
+@auth
+def bookmarks(user):
     # TODO
     return []
 
@@ -634,6 +697,41 @@ def timelines_public(user):
 @auth
 def timelines_tag(user, hashtag):
     return []
+
+
+@app.get('/api/v1/conversations')
+@auth
+def conversations(user):
+    # TODO
+    return []
+
+
+@app.get('/api/v1/lists')
+@auth
+def lists(user):
+    # TODO
+    return []
+
+
+@app.get('/api/v1/lists/<path:id>')
+@auth
+def lists_get(user, id):
+    # TODO
+    error('List not found', status=404)
+
+
+@app.get('/api/v1/lists/<path:id>/accounts')
+@auth
+def lists_accounts(user, id):
+    # TODO
+    error('List not found', status=404)
+
+
+@app.get('/api/v1/markers')
+@auth
+def markers(user):
+    # TODO
+    return {}
 
 
 @app.get('/api/v1/notifications')
