@@ -10,7 +10,7 @@ from google.cloud import ndb
 from granary import as1, bluesky
 from granary.mastodon import from_as1
 from webutil import util
-from webutil.flask_util import get_required_param, error
+from webutil.flask_util import bool_param, get_required_param, error
 from werkzeug.exceptions import BadGateway, HTTPException
 
 import activitypub
@@ -472,7 +472,7 @@ def accounts_get(user, addr):
 @app.get('/api/v1/accounts/<path:addr>/statuses')
 @auth
 def accounts_statuses(user, addr):
-    # TODO: only_media, exclude_replies, exclude_reblogs, tagged
+    # TODO: only_media, tagged
     user = load_user(addr)
 
     if request.args.get('pinned', '').strip().lower() == 'true':
@@ -480,6 +480,7 @@ def accounts_statuses(user, addr):
         if user.obj and user.obj.as1:
             featured = as1.get_ids(as1.get_object(user.obj.as1, 'featured'), 'items')
             objects = ndb.get_multi(Object(id=id).key for id in featured)
+
     else:
         query = Object.query(Object.users == user.key,
                              Object.type.IN(as1.POST_TYPES | set(['share'])))
@@ -502,6 +503,8 @@ def accounts_statuses(user, addr):
 
     return [s for obj in objects
             if obj and obj.as1 and not obj.deleted and as1.is_public(obj.as1)
+            and not (bool_param('exclude_replies') and obj.type == 'comment')
+            and not (bool_param('exclude_reblogs') and obj.type == 'share')
             and (s := to_status(obj))]
 
 
@@ -673,11 +676,10 @@ def search(user):
     }
 
     q = get_required_param('q').strip()
-    resolve = request.args.get('resolve', '').lower() == 'true'
     type = request.args.get('type')
 
     if not type or type == 'accounts':
-        if user := load_user(q, resolve=True):
+        if user := load_user(q, resolve=bool_param('resolve')):
             if acct := to_account(user):
                 resp['accounts'] = [acct]
 

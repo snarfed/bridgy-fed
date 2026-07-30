@@ -275,6 +275,56 @@ class MastodonApiTest(TestCase):
         self.assertEqual(200, resp.status_code, resp.get_data(as_text=True))
         self.assertEqual(1, len(resp.json))
 
+    def test_accounts_statuses_exclude_replies(self):
+        Object(id='fake:post', users=[self.user.key], our_as1={
+            'objectType': 'note',
+            'content': 'hello world',
+            'published': '2022-01-02T03:04:05',
+        }).put()
+        Object(id='fake:reply', users=[self.user.key], our_as1={
+            'objectType': 'comment',
+            'content': 'a reply',
+            'inReplyTo': 'fake:post',
+            'published': '2022-01-02T03:04:05',
+        }).put()
+
+        resp = self.get('/api/v1/accounts/@fake-handle-alice@fa.brid.gy/statuses')
+        self.assertEqual(200, resp.status_code, resp.get_data(as_text=True))
+        self.assertEqual(2, len(resp.json))
+
+        resp = self.get('/api/v1/accounts/@fake-handle-alice@fa.brid.gy/statuses?exclude_replies=true')
+        self.assertEqual(200, resp.status_code, resp.get_data(as_text=True))
+        self.assertEqual(1, len(resp.json))
+        self.assertEqual('hello world', resp.json[0]['content'])
+
+    def test_accounts_statuses_exclude_reblogs(self):
+        Object(id='fake:post', our_as1={
+            'objectType': 'note',
+            'content': 'hello world',
+            'published': '2022-01-02T03:04:05',
+        }).put()
+        Object(id='fake:share', users=[self.user.key], our_as1={
+            'objectType': 'activity',
+            'verb': 'share',
+            'actor': 'fake:alice',
+            'object': 'fake:post',
+            'published': '2022-01-02T03:04:05',
+        }).put()
+        Object(id='fake:own-post', users=[self.user.key], our_as1={
+            'objectType': 'note',
+            'content': 'my own post',
+            'published': '2022-01-02T03:04:05',
+        }).put()
+
+        resp = self.get('/api/v1/accounts/@fake-handle-alice@fa.brid.gy/statuses')
+        self.assertEqual(200, resp.status_code, resp.get_data(as_text=True))
+        self.assertEqual(2, len(resp.json))
+
+        resp = self.get('/api/v1/accounts/@fake-handle-alice@fa.brid.gy/statuses?exclude_reblogs=true')
+        self.assertEqual(200, resp.status_code, resp.get_data(as_text=True))
+        self.assertEqual(1, len(resp.json))
+        self.assertEqual('my own post', resp.json[0]['content'])
+
     def test_accounts_statuses_excludes_deleted_and_non_public(self):
         Object(id='fake:post', users=[self.user.key], our_as1={
             'objectType': 'note',
