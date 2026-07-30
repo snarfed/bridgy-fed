@@ -245,6 +245,36 @@ class MastodonApiTest(TestCase):
         self.assertEqual(200, resp.status_code, resp.get_data(as_text=True))
         self.assertEqual([], resp.json)
 
+    def test_accounts_statuses_max_since_min_id(self):
+        for i in range(1, 4):
+            Object(id=f'fake:post{i}', users=[self.user.key], our_as1={
+                'objectType': 'note',
+                'content': f'post {i}',
+                'published': '2022-01-02T03:04:05',
+            }).put()
+
+        resp = self.get('/api/v1/accounts/@fake-handle-alice@fa.brid.gy/statuses?max_id=fake:post3')
+        self.assertEqual(200, resp.status_code, resp.get_data(as_text=True))
+        self.assertEqual(['post 2', 'post 1'], [s['content'] for s in resp.json])
+
+        resp = self.get('/api/v1/accounts/@fake-handle-alice@fa.brid.gy/statuses?since_id=fake:post1')
+        self.assertEqual(200, resp.status_code, resp.get_data(as_text=True))
+        self.assertEqual(['post 3', 'post 2'], [s['content'] for s in resp.json])
+
+        resp = self.get('/api/v1/accounts/@fake-handle-alice@fa.brid.gy/statuses?min_id=fake:post1&limit=1')
+        self.assertEqual(200, resp.status_code, resp.get_data(as_text=True))
+        self.assertEqual(['post 2'], [s['content'] for s in resp.json])
+
+    def test_accounts_statuses_max_id_not_found(self):
+        Object(id='fake:post', users=[self.user.key], our_as1={
+            'objectType': 'note',
+            'content': 'hello world',
+            'published': '2022-01-02T03:04:05',
+        }).put()
+        resp = self.get('/api/v1/accounts/@fake-handle-alice@fa.brid.gy/statuses?max_id=fake:nope')
+        self.assertEqual(200, resp.status_code, resp.get_data(as_text=True))
+        self.assertEqual(1, len(resp.json))
+
     def test_accounts_statuses_excludes_deleted_and_non_public(self):
         Object(id='fake:post', users=[self.user.key], our_as1={
             'objectType': 'note',

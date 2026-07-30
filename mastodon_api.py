@@ -221,6 +221,7 @@ def limit():
 
     return DEFAULT_LIMIT
 
+
 #
 # API endpoints
 #
@@ -471,8 +472,7 @@ def accounts_get(user, addr):
 @app.get('/api/v1/accounts/<path:addr>/statuses')
 @auth
 def accounts_statuses(user, addr):
-    # TODO: max_id, since_id, min_id, limit, only_media, exclude_replies,
-    # exclude_reblogs, tagged
+    # TODO: only_media, exclude_replies, exclude_reblogs, tagged
     user = load_user(addr)
 
     if request.args.get('pinned', '').strip().lower() == 'true':
@@ -481,10 +481,24 @@ def accounts_statuses(user, addr):
             featured = as1.get_ids(as1.get_object(user.obj.as1, 'featured'), 'items')
             objects = ndb.get_multi(Object(id=id).key for id in featured)
     else:
-        objects = Object.query(Object.users == user.key,
-                               Object.type.IN(as1.POST_TYPES | set(['share'])),
-                              ).order(-Object.created
-                              ).fetch(limit())
+        query = Object.query(Object.users == user.key,
+                             Object.type.IN(as1.POST_TYPES | set(['share'])))
+
+        def obj_created(param):
+            if id := request.args.get(param):
+                if obj := Object.get_by_id(id):
+                    return obj.created
+
+        order = -Object.created
+        if max := obj_created('max_id'):
+            query = query.filter(Object.created < max)
+        if since := obj_created('since_id'):
+            query = query.filter(Object.created > since)
+        if min := obj_created('min_id'):
+            query = query.filter(Object.created > min)
+            order = Object.created
+
+        objects = query.order(order).fetch(limit())
 
     return [s for obj in objects
             if obj and obj.as1 and not obj.deleted and as1.is_public(obj.as1)
