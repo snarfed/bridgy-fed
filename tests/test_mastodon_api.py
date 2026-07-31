@@ -83,7 +83,7 @@ class MastodonApiTest(TestCase):
         resp = self.get('/api/v1/accounts/verify_credentials')
         self.assertEqual(200, resp.status_code, resp.get_data(as_text=True))
         self.assert_equals({
-            'id': 'fake:alice',
+            'id': 'fake%3Aalice',
             'acct': 'fake-handle-alice@fa.brid.gy',
             'uri': 'https://fa.brid.gy/ap/fake:alice',
             'url': '',
@@ -128,7 +128,7 @@ class MastodonApiTest(TestCase):
             with self.subTest(acct=acct):
                 resp = self.get(f'/api/v1/accounts/lookup?acct={acct}')
                 self.assertEqual(200, resp.status_code, resp.get_data(as_text=True))
-                self.assertEqual('fake:alice', resp.json['id'])
+                self.assertEqual('fake%3Aalice', resp.json['id'])
                 self.assertEqual('hi im alice', resp.json['note'])
 
     def test_accounts_lookup_fediverse(self):
@@ -139,7 +139,7 @@ class MastodonApiTest(TestCase):
             with self.subTest(acct=acct):
                 resp = self.get(f'/api/v1/accounts/lookup?acct={acct}')
                 self.assertEqual(200, resp.status_code, resp.get_data(as_text=True))
-                self.assertEqual('https://mas.to/users/foo', resp.json['id'])
+                self.assertEqual('https%3A//mas.to/users/foo', resp.json['id'])
                 self.assertEqual('https://mas.to/users/foo', resp.json['uri'])
 
     def test_accounts_lookup_not_found(self):
@@ -152,7 +152,7 @@ class MastodonApiTest(TestCase):
         resp = self.get('/api/v1/accounts/relationships?id[]=other:bob')
         self.assertEqual(200, resp.status_code, resp.get_data(as_text=True))
         self.assertEqual([{
-            'id': 'other:bob',
+            'id': 'other%3Abob',
             'following': False,
             'showing_reblogs': False,
             'notifying': False,
@@ -189,7 +189,7 @@ class MastodonApiTest(TestCase):
     def test_accounts(self):
         resp = self.get('/api/v1/accounts/fake:alice')
         self.assertEqual(200, resp.status_code, resp.get_data(as_text=True))
-        self.assertEqual('fake:alice', resp.json['id'])
+        self.assertEqual('fake%3Aalice', resp.json['id'])
         self.assertEqual('https://fa.brid.gy/ap/fake:alice', resp.json['uri'])
 
     def test_accounts_activitypub_actor_id(self):
@@ -197,7 +197,7 @@ class MastodonApiTest(TestCase):
                        enabled_protocols=[], obj_as2=ACTOR)
         resp = self.get('/api/v1/accounts/https://mas.to/users/foo')
         self.assertEqual(200, resp.status_code, resp.get_data(as_text=True))
-        self.assertEqual('https://mas.to/users/foo', resp.json['id'])
+        self.assertEqual('https%3A//mas.to/users/foo', resp.json['id'])
         self.assertEqual('foo@mas.to', resp.json['acct'])
 
     def test_accounts_web_domain(self):
@@ -431,7 +431,7 @@ class MastodonApiTest(TestCase):
         resp = self.get('/api/v1/accounts/fake:alice/followers')
         self.assertEqual(200, resp.status_code, resp.get_data(as_text=True))
         self.assertEqual(1, len(resp.json))
-        self.assertEqual('other:bob', resp.json[0]['id'])
+        self.assertEqual('other%3Abob', resp.json[0]['id'])
 
     def test_accounts_following(self):
         bob = self.make_user('other:bob', cls=OtherFake)
@@ -439,7 +439,7 @@ class MastodonApiTest(TestCase):
         resp = self.get('/api/v1/accounts/fake:alice/following')
         self.assertEqual(200, resp.status_code, resp.get_data(as_text=True))
         self.assertEqual(1, len(resp.json))
-        self.assertEqual('other:bob', resp.json[0]['id'])
+        self.assertEqual('other%3Abob', resp.json[0]['id'])
 
     def test_accounts_statuses_account_not_found(self):
         resp = self.get('/api/v1/accounts/fake:nope/statuses')
@@ -542,7 +542,7 @@ class MastodonApiTest(TestCase):
         self.assertEqual(200, resp.status_code, resp.get_data(as_text=True))
 
         self.assert_equals({
-            'id': 'fake:post',
+            'id': 'fake%3Apost',
             'uri': 'https://fa.brid.gy/convert/ap/fake:post',
             'url': '',
             'account': to_account(self.user),
@@ -723,7 +723,7 @@ class MastodonApiTest(TestCase):
             'author': 'fake:bob',
         })
         status = to_status(obj)
-        self.assertEqual('fake:bob', status['account']['id'])
+        self.assertEqual('fake%3Abob', status['account']['id'])
 
     def test_to_status_no_owner_no_users(self):
         obj = Object(id='fake:post', source_protocol='fake', our_as1={
@@ -785,7 +785,7 @@ class MastodonApiTest(TestCase):
             self.assert_equals({
                 'accounts': [
                     {
-                        'id': 'fake:alice',
+                        'id': 'fake%3Aalice',
                         'acct': 'fake-handle-alice@fa.brid.gy',
                         'uri': 'https://fa.brid.gy/ap/fake:alice',
                         'username': 'alice',
@@ -853,7 +853,7 @@ class MastodonApiTest(TestCase):
             self.assertEqual(200, resp.status_code, resp.get_data(as_text=True))
             self.assert_equals({
                 'accounts': [{
-                    'id': 'https://mas.to/users/foo',
+                    'id': 'https%3A//mas.to/users/foo',
                     'acct': 'foo@mas.to',
                     'uri': 'https://mas.to/users/foo',
                     'username': 'foo',
@@ -877,7 +877,7 @@ class MastodonApiTest(TestCase):
         self.assertEqual(200, resp.status_code, resp.get_data(as_text=True))
         self.assert_equals({
             'accounts': [{
-                'id': 'https://mas.to/users/foo',
+                'id': 'https%3A//mas.to/users/foo',
                 'acct': 'foo@mas.to',
                 'uri': 'https://mas.to/users/foo',
                 'username': 'foo',
@@ -980,10 +980,10 @@ class MastodonApiTest(TestCase):
         self.assertEqual(200, resp.status_code, resp.get_data(as_text=True))
         self.assertEqual(1, len(resp.json))
         notif = resp.json[0]
-        self.assertEqual('fake:like', notif['id'])
+        self.assertEqual('fake%3Alike', notif['id'])
         self.assertEqual('favourite', notif['type'])
         self.assertEqual('2026-07-20T01:02:03Z', notif['created_at'])
-        self.assertEqual('other:bob', notif['account']['id'])
+        self.assertEqual('other%3Abob', notif['account']['id'])
         self.assertEqual('my post', notif['status']['content'])
 
     def test_notifications_reblog(self):
@@ -1019,7 +1019,7 @@ class MastodonApiTest(TestCase):
         self.assertEqual(1, len(resp.json))
         self.assertEqual('follow', resp.json[0]['type'])
         self.assertEqual(None, resp.json[0]['status'])
-        self.assertEqual('other:bob',
+        self.assertEqual('other%3Abob',
                          resp.json[0]['account']['id'])
 
     def test_notifications_mention(self):
@@ -1048,7 +1048,7 @@ class MastodonApiTest(TestCase):
         obj.put()
 
         notif = to_notification(obj)
-        self.assertEqual('fake:bob', notif['account']['id'])
+        self.assertEqual('fake%3Abob', notif['account']['id'])
 
     def test_to_notification_no_owner_no_users(self):
         obj = Object(id='fake:follow', notify=[self.user.key], our_as1={
@@ -1081,7 +1081,7 @@ class MastodonApiTest(TestCase):
         self.assertEqual(200, resp.status_code, resp.get_data(as_text=True))
         self.assertEqual({'count': 0}, resp.json)
 
-    def test_stub_endpoints_require_auth(self):
+    def test_endpoints_require_auth(self):
         for path in (
             '/api/v1/preferences',
             '/api/v1/accounts/lookup',

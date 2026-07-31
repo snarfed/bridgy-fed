@@ -3,6 +3,7 @@ from datetime import timezone
 import functools
 import logging
 import os
+from urllib.parse import quote
 
 from authlib.integrations.flask_oauth2.resource_protector import current_token
 from flask import request
@@ -83,7 +84,7 @@ def to_account(user):
             username = acct.split('@')[0]
 
     account.update({
-        'id': user.key.id(),
+        'id': quote(user.key.id()),
         'uri': user.id_as(ActivityPub),
         'username': username,
         'acct': acct,
@@ -147,7 +148,7 @@ def to_notification(obj):
     type = AS1_TO_NOTIFICATION_TYPE.get(obj.as1.get('verb'), 'mention')
 
     notif = {
-        'id': obj.key.id(),
+        'id': quote(obj.key.id()),
         'type': type,
         'created_at': (obj.as1.get('published')
                        or obj.created.replace(tzinfo=timezone.utc).isoformat()),
@@ -543,7 +544,7 @@ def accounts_relationships(user):
 
     for other, following, followed_by in zip(others, followings, followed_bys):
         relationships.append({
-            'id': other.key.id(),
+            'id': quote(other.key.id()),
             'following': bool(following.get_result()),
             'followed_by': bool(followed_by.get_result()),
             'showing_reblogs': False,
