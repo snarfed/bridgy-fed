@@ -2521,6 +2521,19 @@ def hydrate(activity, fields=('author', 'actor', 'object')):
             # determine Protocol for every id, which is expensive.
             #
             # same TODO is in models.fetch_objects
+            #
+            # once we split owns_id/for_id into user and object variants (#2281),
+            # this should be easier; user ids should be deterministic and
+            # entirely in memory!
+            #
+            # TODO: bug: only ATProto is handled here, so ids in user id form
+            # whose profile object id differs - eg Web bare domains, user.com vs
+            # https://user.com/ - don't hydrate. fix by finding the protocol
+            # that definitively owns the id, ie owns_id is True (in memory, and
+            # unambiguous for exactly these ids; ambiguous http(s) ids are
+            # ActivityPub, where profile_id is identity), then using
+            # ids.profile_id. skip Nostr, whose profile_id does a datastore get,
+            # which would break batching here.
             id = val['id']
             if id.startswith('did:'):
                 id = f'at://{id}/app.bsky.actor.profile/self'
