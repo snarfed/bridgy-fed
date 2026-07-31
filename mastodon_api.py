@@ -130,12 +130,7 @@ def to_status(obj):
         return None
 
     if status.get('reblog') is not None:
-        if hasattr(obj, 'target'):
-            target = obj.target
-        else:
-            target_id = as1.get_id(obj.as1, 'object')
-            target = Object.get_by_id(target_id) if target_id else None
-        status['reblog'] = to_status(target) if target and target.as1 else None
+        status['reblog'] = target_to_status(obj)
 
     return status
 
@@ -165,13 +160,7 @@ def to_notification(obj):
             notif['account'] = notif['status']['account']
 
     elif type in ('favourite', 'follow', 'reblog'):
-        if hasattr(obj, 'target'):
-            target = obj.target
-        else:
-            target_id = as1.get_id(obj.as1, 'object')
-            target = Object.get_by_id(target_id) if target_id else None
-        if target and target.as1:
-            notif['status'] = to_status(target)
+        notif['status'] = target_to_status(obj)
 
         owner = obj.owner if hasattr(obj, 'owner') else load_owner(obj)
         if owner:
@@ -263,6 +252,22 @@ def load_object(id):
     if not obj or not obj.as1:
         error('Status not found', status=404)
     return obj
+
+
+def target_to_status(obj):
+    """Converts ``obj``'s object to a status.
+
+    Uses the ``target`` stashed by :func:`prefetch_statuses`, if it's run on
+    ``obj``, instead of loading it.
+
+    Returns None if ``obj`` has no ``object``, or if it's not in the datastore.
+    """
+    if not (target := getattr(obj, 'target', None)):
+        if id := as1.get_id(obj.as1, 'object'):
+            target = Object.get_by_id(id)
+
+    if target and target.as1:
+        return to_status(target)
 
 
 def load_owner(obj):

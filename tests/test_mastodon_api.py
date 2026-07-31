@@ -1018,7 +1018,7 @@ class MastodonApiTest(TestCase):
         self.assertEqual(200, resp.status_code, resp.get_data(as_text=True))
         self.assertEqual(1, len(resp.json))
         self.assertEqual('follow', resp.json[0]['type'])
-        self.assertNotIn('status', resp.json[0])
+        self.assertEqual(None, resp.json[0]['status'])
         self.assertEqual('other:bob',
                          resp.json[0]['account']['id'])
 
