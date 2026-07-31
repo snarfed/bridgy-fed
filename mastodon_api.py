@@ -22,6 +22,7 @@ import ids
 from mastodon_oauth import require_oauth
 import models
 from models import Follower, Object, PROTOCOLS
+from protocol import Protocol
 import webfinger
 
 logger = logging.getLogger(__name__)
@@ -39,6 +40,10 @@ AS1_TO_NOTIFICATION_TYPE = {
     'share': 'reblog',
     'follow': 'follow',
 }
+
+
+def non_none(seq):
+    return [elem for elem in seq if elem is not None]
 
 
 def auth(fn):
@@ -92,6 +97,11 @@ def to_account(user):
 def to_status(obj):
     """Converts a :class:`models.Object` to a Mastodon ``Status``.
 
+    If :func:`prefetch_statuses` has run on ``obj``, uses the ``owner`` and
+    ``target`` it stashed on it, so that converting a whole page of objects
+    doesn't need a datastore round trip per object. Otherwise loads ``obj``'s
+    owner and reblog target, if any, individually.
+
     Returns None if ``obj`` can't be converted, eg its AS1 ``objectType``/``verb``
     isn't supported, or its account can't be fetched or converted.
     """
@@ -108,25 +118,33 @@ def to_status(obj):
         status['uri'] = ids.translate_object_id(
             id=obj.key.id(), from_=from_proto, to=ActivityPub)
 
-    # TODO: parallelize/optimize
-    if owner := load_owner(obj):
+    if hasattr(obj, 'owner'):
+        # unlike load_owner, a prefetched owner is never None just because a
+        # user hasn't been created yet; treat that as fully unresolved, instead
+        # of falling back to whatever placeholder account from_as1 built
+        status['account'] = to_account(obj.owner) if obj.owner else None
+    elif owner := load_owner(obj):
         status['account'] = to_account(owner)
 
     if not status['account']:
         return None
 
     if status.get('reblog') is not None:
-        target_id = as1.get_id(obj.as1, 'object')
-        if target_id and (target := Object.get_by_id(target_id)) and target.as1:
-            status['reblog'] = to_status(target) or None
+        if hasattr(obj, 'target'):
+            target = obj.target
         else:
-            status['reblog'] = None
+            target_id = as1.get_id(obj.as1, 'object')
+            target = Object.get_by_id(target_id) if target_id else None
+        status['reblog'] = to_status(target) if target and target.as1 else None
 
     return status
 
 
 def to_notification(obj):
     """Converts a :class:`models.Object` to a Mastodon ``Notification``.
+
+    Uses the ``owner`` and ``target`` stashed by :func:`prefetch_statuses`, if
+    it's run on ``obj``; see :func:`to_status`.
 
     Returns None if ``obj`` can't be converted, eg its account can't be fetched or
     converted.
@@ -141,25 +159,71 @@ def to_notification(obj):
         'account': None,  # populated below
     }
 
-    # TODO: parallelize/optimize
-
     if type in ('mention', 'quote'):
         notif['status'] = to_status(obj)
         if notif['status']:
             notif['account'] = notif['status']['account']
 
     elif type in ('favourite', 'follow', 'reblog'):
-        target_id = as1.get_id(obj.as1, 'object')
-        if target_id and (target := Object.get_by_id(target_id)) and target.as1:
+        if hasattr(obj, 'target'):
+            target = obj.target
+        else:
+            target_id = as1.get_id(obj.as1, 'object')
+            target = Object.get_by_id(target_id) if target_id else None
+        if target and target.as1:
             notif['status'] = to_status(target)
 
-        if owner := load_owner(obj):
+        owner = obj.owner if hasattr(obj, 'owner') else load_owner(obj)
+        if owner:
             notif['account'] = to_account(owner)
 
     if not notif['account']:
         return None
 
     return notif
+
+
+def prefetch_statuses(objs):
+    """Prefetches the owners and reblog/favourite/follow targets of ``objects``.
+
+    Batches the datastore gets for the whole list of objects into a small,
+    fixed number of round trips, instead of :func:`to_status` and
+    :func:`to_notification` each doing their own gets one object at a time.
+
+    Stashes what it loads on each object in attributes: ``owner`` is its owning
+    :class:`models.User`, or None; ``target`` is the :class:`models.Object`
+    referenced by its AS1 ``object`` field, or None.
+
+    Args:
+      objs (sequence of :class:`models.Object`)
+    """
+    for obj in objs:
+        # owner user
+        if obj.users:
+            obj.owner = obj.users[0].get_async()
+        elif ((owner := as1.get_owner(obj.as1))
+              and (proto := Protocol.for_id(owner, remote=False))
+              and (id := ids.normalize_user_id(id=owner, proto=proto))):
+            obj.owner = proto.get_by_id_async(id)
+        else:
+            obj.owner = None
+
+        # target object
+        if target := as1.get_id(obj.as1, 'object'):
+            obj.target = Object.get_by_id_async(target)
+        else:
+            obj.target = None
+
+    for obj in objs:
+        if obj.owner:
+            obj.owner = obj.owner.get_result()
+        if obj.target:
+            obj.target = obj.target.get_result()
+
+    redirects = [(obj, obj.owner.use_instead.get_async()) for obj in objs
+                 if obj.owner and obj.owner.use_instead]
+    for obj, future in redirects:
+        obj.owner = future.get_result()
 
 
 def load_user(handle, resolve=False):
@@ -212,7 +276,7 @@ def load_owner(obj):
 
     if owner_id := as1.get_owner(obj.as1):
         try:
-            return models.load_user(owner_id, create=True, allow_opt_out=True)
+            return models.load_user(owner_id, create=False, allow_opt_out=True)
         except RuntimeError:
             logger.info(f"Couldn't load owner {owner_id}", exc_info=True)
 
@@ -539,12 +603,14 @@ def accounts_statuses(user, id):
 
         objects = query.order(order).fetch(limit())
 
-    return [s for obj in objects
-            if obj and obj.as1 and not obj.deleted and as1.is_public(obj.as1)
-            and (s := to_status(obj))
-            and not (bool_param('exclude_replies') and obj.type == 'comment')
-            and not (bool_param('exclude_reblogs') and obj.type == 'share')
-            and not (bool_param('only_media') and not s.get('media_attachments'))]
+    objects = [obj for obj in objects
+               if obj and obj.as1 and not obj.deleted and as1.is_public(obj.as1)
+               and not (bool_param('exclude_replies') and obj.type == 'comment')
+               and not (bool_param('exclude_reblogs') and obj.type == 'share')]
+    prefetch_statuses(objects)
+    statuses = [to_status(obj) for obj in objects]
+    return [s for s in statuses
+            if not (bool_param('only_media') and not s.get('media_attachments'))]
 
 
 @app.get('/api/v1/accounts/<path:id>/followers')
@@ -632,18 +698,21 @@ def favourites(user):
                         ).order(-Object.created
                         ).fetch(limit())
     ids = [as1.get_id(like.as1, 'object') for like in likes]
-    objs = ndb.get_multi(Object(id=id).key for id in ids if id)
-    return [status for obj in objs if obj and obj.as1 and (status := to_status(obj))]
+    objs = [obj for obj in ndb.get_multi(Object(id=id).key for id in ids if id)
+            if obj and obj.as1]
+    prefetch_statuses(objs)
+    return non_none([to_status(obj) for obj in objs])
 
 
 @app.get('/api/v1/statuses')
 @auth
 def statuses_multiple(user):
     ids = request.args.getlist('id[]') + request.args.getlist('id')
-    objs = ndb.get_multi(Object(id=id).key for id in ids)
+    objs = [obj for obj in ndb.get_multi(Object(id=id).key for id in ids)
+            if obj and obj.as1 and not obj.deleted and as1.is_public(obj.as1)]
+    prefetch_statuses(objs)
     return [s for obj in objs
-                  if obj and obj.as1 and not obj.deleted and as1.is_public(obj.as1)
-            and (s := to_status(obj))]
+            if (s := to_status(obj))]
 
 
 @app.get('/api/v1/statuses/<path:id>')
@@ -695,26 +764,26 @@ def statuses_reblogged_by(user, id):
 @app.get('/api/v1/timelines/home')
 @auth
 def timelines_home(user):
-    objects = Object.query(Object.feed == user.key
-                           ).order(-Object.created
-                           ).fetch(limit())
-    statuses = [to_status(obj) for obj in objects
-                if obj.as1 and not obj.deleted and as1.is_public(obj.as1)]
+    objects = [obj for obj in Object.query(Object.feed == user.key
+                                           ).order(-Object.created
+                                           ).fetch(limit())
+              if obj.as1 and not obj.deleted and as1.is_public(obj.as1)]
+    prefetch_statuses(objects)
+    statuses = non_none([to_status(obj) for obj in objects])
     # TODO: formalize
     return [s for s in statuses
-            if s and s.get('account')
-            and (not s['reblog'] or s['reblog'].get('account'))]
+            if s.get('account') and (not s['reblog'] or s['reblog'].get('account'))]
 
 
 @app.get('/api/v1/timelines/public')
 @auth
 def timelines_public(user):
-    objects = Object.query(Object.type.IN(as1.POST_TYPES | set(['share'])),
-                           ).order(-Object.created
-                           ).fetch(limit())
-    return [status for obj in objects
-            if obj.as1 and not obj.deleted and as1.is_public(obj.as1)
-            and (status := to_status(obj))]
+    objects = [obj for obj in Object.query(Object.type.IN(as1.POST_TYPES | set(['share'])),
+                                           ).order(-Object.created
+                                           ).fetch(limit())
+              if obj.as1 and not obj.deleted and as1.is_public(obj.as1)]
+    prefetch_statuses(objects)
+    return non_none([to_status(obj) for obj in objects])
 
 
 @app.get('/api/v1/timelines/tag/<hashtag>')
@@ -762,12 +831,12 @@ def markers(user):
 @auth
 def notifications_list(user):
     # TODO: unbridged notifs
-    objects = Object.query(Object.notify == user.key
-                           ).order(-Object.updated
-                           ).fetch(limit())
-    return [notif for obj in objects
-            if obj.as1 and not obj.deleted and as1.is_public(obj.as1)
-            and (notif := to_notification(obj))]
+    objects = [obj for obj in Object.query(Object.notify == user.key
+                                           ).order(-Object.updated
+                                           ).fetch(limit())
+              if obj.as1 and not obj.deleted and as1.is_public(obj.as1)]
+    prefetch_statuses(objects)
+    return non_none([to_notification(obj) for obj in objects])
 
 
 @app.get('/api/v1/notifications/<path:id>')

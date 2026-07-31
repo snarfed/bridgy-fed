@@ -223,11 +223,10 @@ class MastodonApiTest(TestCase):
         self.assertEqual('hello world', resp.json[0]['content'])
 
     def test_accounts_statuses_loads_reblog_author(self):
-        Fake.fetchable['fake:profile:bob'] = {
+        self.make_user('fake:bob', cls=Fake, obj_as1={
             'objectType': 'person',
-            'id': 'fake:profile:bob',
             'displayName': 'Bob',
-        }
+        })
         Object(id='fake:post', our_as1={
             'objectType': 'note',
             'author': 'fake:bob',
@@ -246,7 +245,33 @@ class MastodonApiTest(TestCase):
         self.assertEqual(200, resp.status_code, resp.get_data(as_text=True))
         self.assertEqual(1, len(resp.json))
         self.assertEqual('Bob', resp.json[0]['reblog']['account']['display_name'])
-        self.assertIsNotNone(Fake.get_by_id('fake:bob'))
+
+    def test_accounts_statuses_drops_unresolvable_reblog(self):
+        Fake.fetchable['fake:profile:bob'] = {
+            'objectType': 'person',
+            'id': 'fake:profile:bob',
+            'displayName': 'Bob',
+        }
+        post = self.store_object(id='fake:post', our_as1={
+            'objectType': 'note',
+            'author': 'fake:bob',
+            'content': 'hello world',
+            'published': '2022-01-02T03:04:05',
+        })
+        self.store_object(id='fake:share', users=[self.user.key], our_as1={
+            'objectType': 'activity',
+            'verb': 'share',
+            'actor': 'fake:alice',
+            'object': 'fake:post',
+            'published': '2022-01-02T03:04:05',
+        })
+
+        resp = self.get('/api/v1/accounts/fake:alice/statuses')
+        self.assertEqual(200, resp.status_code, resp.get_data(as_text=True))
+        self.assertEqual(1, len(resp.json))
+        # bob isn't in the datastore yet, and we don't load externally
+        # outside of search/lookup, so the repost should be dropped
+        self.assertEqual(to_status(post), resp.json[0]['reblog'])
 
     def test_accounts_statuses_pinned(self):
         Object(id='fake:post', users=[self.user.key], our_as1={
@@ -615,6 +640,53 @@ class MastodonApiTest(TestCase):
         self.assertEqual(200, resp.status_code, resp.get_data(as_text=True))
         self.assertEqual(1, len(resp.json))
         self.assertEqual('not in my feed', resp.json[0]['content'])
+
+    def test_timelines_public_multiple_owners(self):
+        for name in ('bob', 'carol', 'dave'):
+            self.make_user(f'fake:{name}', cls=Fake, obj_as1={
+                'objectType': 'person',
+                'displayName': name.capitalize(),
+            })
+            Object(id=f'fake:{name}-post', our_as1={
+                'objectType': 'note',
+                'author': f'fake:{name}',
+                'content': f'hi from {name}',
+                'published': '2022-01-02T03:04:05',
+            }).put()
+
+        Object(id='fake:alice-post', our_as1={
+            'objectType': 'note',
+            'author': 'fake:alice',
+            'content': 'unrelated standalone post',
+            'published': '2022-01-02T03:04:05',
+        }).put()
+
+        resp = self.get('/api/v1/timelines/public')
+        self.assertEqual(200, resp.status_code, resp.get_data(as_text=True))
+        by_content = {}
+        self.assertEqual({
+            'hi from bob': 'Bob',
+            'hi from carol': 'Carol',
+            'hi from dave': 'Dave',
+            'unrelated standalone post': 'Alice',
+        }, {s['content']: s['account']['display_name'] for s in resp.json})
+
+    def test_timelines_public_web_owner_by_home_page_url(self):
+        self.make_user('user.com', cls=Web, enabled_protocols=['activitypub'],
+                       obj_as1={'objectType': 'person', 'displayName': 'Dubya'})
+        Object(id='http://user.com/post', source_protocol='web', our_as1={
+            'objectType': 'note',
+            'author': 'https://user.com/',
+            'content': 'hi',
+            'published': '2022-01-02T03:04:05',
+        }).put()
+
+        # the author id is the user's home page URL, but their key id is their
+        # bare domain, so loading them requires normalizing first
+        resp = self.get('/api/v1/timelines/public')
+        self.assertEqual(200, resp.status_code, resp.get_data(as_text=True))
+        self.assertEqual(1, len(resp.json))
+        self.assertEqual('Dubya', resp.json[0]['account']['display_name'])
 
     def test_timelines_public_excludes_deleted_and_non_public(self):
         Object(id='fake:deleted', deleted=True, our_as1={
