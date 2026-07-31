@@ -3288,12 +3288,22 @@ class WebUtilTest(TestCase):
         with self.assertRaises(BadGateway):
             Web.fetch(Object(id='https://foo'), gateway=True)
 
-    def test_fetch_blocklisted(self, mock_get, __):
-        self.assertFalse(Web.fetch(Object(id='https://x.com/foo')))
+    def test_fetch_bridgy_fed_domain(self, mock_get, __):
+        self.assertFalse(Web.fetch(Object(id='https://fed.brid.gy/foo')))
         mock_get.assert_not_called()
 
-        self.assertFalse(Web.fetch(Object(id='https://bsky.app/foo')))
+        self.assertFalse(Web.fetch(Object(id='https://ap.brid.gy/foo')))
         mock_get.assert_not_called()
+
+    def test_fetch_internal(self, mock_get, __):
+        mock_get.return_value = NOTE
+
+        obj = Object(id='https://bsky.brid.gy/internal/snarfed.org/post')
+        self.assertTrue(Web.fetch(obj, internal=True))
+        self.assert_equals({
+            **NOTE_MF2,
+            'url': 'https://user.com/post',
+        }, obj.mf2)
 
     def test_fetch_run_authorship(self, mock_get, __):
         mock_get.side_effect = [

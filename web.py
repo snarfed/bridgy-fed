@@ -81,11 +81,6 @@ HOST_META_CONTENT_TYPES = {
     'application/jrd+json',
 }
 
-# in addition to domains.DOMAIN_BLOCKLIST
-FETCH_BLOCKLIST = (
-    'bsky.app',
-)
-
 
 def is_valid_domain(domain, allow_internal=True):
     """Returns True if this is a valid domain we can use, False otherwise.
@@ -558,7 +553,7 @@ class Web(User, Protocol):
         return super().load(id, **kwargs)
 
     @classmethod
-    def fetch(cls, obj, gateway=False, check_backlink=False,
+    def fetch(cls, obj, gateway=False, check_backlink=False, internal=False,
               authorship_fetch_mf2=True, metaformats=None, csv=False, **kwargs):
         """Fetches a URL over HTTP and extracts its microformats2.
 
@@ -578,6 +573,7 @@ class Web(User, Protocol):
           authorship_fetch_mf2 (bool): optional, when running the authorship
             algorithm, fetch author URL if necessary
           csv (bool): if True, fetch CSV instead of microformatted HTML
+          internal (bool): whether to allow internal domains like bsky.brid.gy
           kwargs: ignored
         """
         url = obj.key.id()
@@ -587,10 +583,6 @@ class Web(User, Protocol):
 
         if not util.is_web(url) or not util.is_url(url):
             logger.info(f'{url} is not a URL')
-            return False
-
-        if (cls.is_blocklisted(url, allow_internal=True)
-                or util.domain_or_parent_in(url, FETCH_BLOCKLIST)):
             return False
 
         if csv:
@@ -605,6 +597,9 @@ class Web(User, Protocol):
                     obj.as2 = json_loads(profile)
                     return True
                 return False
+
+        if not internal and util.domain_or_parent_in(url, DOMAINS):
+            return False
 
         require_backlink = (domains.host_url().rstrip('/')
                             if check_backlink and not is_homepage
@@ -1062,7 +1057,7 @@ def webmention_task():
 
     # fetch source page
     try:
-        obj = Web.load(source, remote=True,  # ...to force fetch
+        obj = Web.load(source, internal=internal, remote=True,  # ...to force fetch
                        check_backlink=not appengine_info.LOCAL_SERVER)
     except BadRequest as e:
         error(str(e.description), status=304)
