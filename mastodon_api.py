@@ -214,6 +214,9 @@ def prefetch_statuses(objs):
     for obj, future in redirects:
         obj.owner = future.get_result()
 
+    if targets := non_none(obj.target for obj in objs):
+        prefetch_statuses(targets)
+
 
 def load_user(handle, resolve=False):
     try:
