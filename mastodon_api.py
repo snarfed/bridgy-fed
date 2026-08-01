@@ -131,6 +131,8 @@ def to_status(obj):
         return None
 
     if status.get('reblog') is not None:
+        # TODO: if there's a repost loop, ie two share objects whose object fields
+        # point to each other, this will recurse (loop) forever
         status['reblog'] = target_to_status(obj)
 
     return status
@@ -749,6 +751,10 @@ def statuses_context(user, id):
 
     ancestors = []
     parent_id = as1.get_object(obj.as1, 'inReplyTo').get('id')
+
+    # TODO: if there's an inReplyTo loop, ie two objects with inReplyTos that
+    # point to each other, and to_status below fails and returns None on them, this
+    # will loop forever
     while (parent_id and len(ancestors) < MAX_ANCESTORS
            and (parent := Object.get_by_id(parent_id)) and parent.as1):
         if parent_status := to_status(parent):
