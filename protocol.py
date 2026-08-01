@@ -1448,8 +1448,11 @@ class Protocol:
                         **inner_obj.as1,
                     }
                 }
-            elif obj.type in ('post', 'update'):
-                error(f"Need object {inner_obj_id} but couldn't fetch, giving up")
+
+        # creates and updates need their inner object, whether we fetched it above
+        # or already had it
+        if obj.type in ('post', 'update') and not (crud_obj and crud_obj.as1):
+            error(f"Need object {inner_obj_id} but couldn't fetch, giving up")
 
         if obj.type == 'follow':
             if proto := Protocol.for_bridgy_subdomain(inner_obj_id):

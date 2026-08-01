@@ -1739,6 +1739,22 @@ class ProtocolReceiveTest(TestCase):
 
         self.assertEqual([], OtherFake.sent)
 
+    def test_create_post_bare_object_id_not_ours(self):
+        """Create whose object is a bare id we don't own, so we can't fetch it."""
+        self.make_followers()
+
+        create_as1 = {
+            'id': 'fake:create',
+            'objectType': 'activity',
+            'verb': 'post',
+            'actor': 'fake:user',
+            'object': 'nope:post',
+        }
+        _, code = Fake.receive_as1(create_as1)
+        self.assertEqual(299, code)
+
+        self.assertEqual([], OtherFake.sent)
+
     def test_create_post_fetch_object(self):
         self.make_followers()
 
