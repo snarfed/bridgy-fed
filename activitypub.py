@@ -1256,10 +1256,10 @@ def postprocess_as2_actor(actor, user):
     for att in util.get_list(actor, 'attachment'):
         if att.get('type') == 'PropertyValue':
             val = att.get('value', '')
-            link = util.parse_html(val).find('a')
-            if url and link and url.rstrip('/') in [val.rstrip('/'),
-                                                    link.get('href').rstrip('/')]:
-                att['name'] = 'Web site'
+            if ((link := util.parse_html(val).find('a'))
+                    and (href := link.get('href'))):
+                if url and url.rstrip('/') in [val.rstrip('/'), href.rstrip('/')]:
+                    att['name'] = 'Web site'
 
     # required by pixelfed
     #

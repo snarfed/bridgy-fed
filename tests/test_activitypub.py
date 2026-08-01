@@ -3061,6 +3061,18 @@ class ActivityPubUtilsTest(TestCase):
             'value': '<a rel="me" href="https://two"><span class="invisible">https://</span>two</a>',
         }], got['attachment'])
 
+    def test_postprocess_as2_actor_property_value_link_no_href(self):
+        got = postprocess_as2_actor({
+            'type': 'Person',
+            'attachment': [{
+                'type': 'PropertyValue',
+                'name': 'foo',
+                'value': '<a>no href here</a>',
+            }],
+        }, user=self.user)
+
+        self.assertEqual('foo', got['attachment'][0]['name'])
+
     def test_postprocess_as2_actor_strips_acct_url(self):
         self.assert_equals('http://localhost/r/http://user.com/',
                            postprocess_as2_actor({
