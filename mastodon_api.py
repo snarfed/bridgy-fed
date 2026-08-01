@@ -84,7 +84,7 @@ def to_account(user):
             username = acct.split('@')[0]
 
     account.update({
-        'id': quote(user.key.id()),
+        'id': quote(user.key.id(), safe=''),
         'uri': user.id_as(ActivityPub),
         'username': username,
         'acct': acct,
@@ -148,7 +148,7 @@ def to_notification(obj):
     type = AS1_TO_NOTIFICATION_TYPE.get(obj.as1.get('verb'), 'mention')
 
     notif = {
-        'id': quote(obj.key.id()),
+        'id': quote(obj.key.id(), safe=''),
         'type': type,
         'created_at': (obj.as1.get('published')
                        or obj.created.replace(tzinfo=timezone.utc).isoformat()),
@@ -552,7 +552,7 @@ def accounts_relationships(user):
 
     for other, following, followed_by in zip(others, followings, followed_bys):
         relationships.append({
-            'id': quote(other.key.id()),
+            'id': quote(other.key.id(), safe=''),
             'following': bool(following.get_result()),
             'followed_by': bool(followed_by.get_result()),
             'showing_reblogs': False,

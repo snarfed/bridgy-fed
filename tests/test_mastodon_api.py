@@ -139,7 +139,7 @@ class MastodonApiTest(TestCase):
             with self.subTest(acct=acct):
                 resp = self.get(f'/api/v1/accounts/lookup?acct={acct}')
                 self.assertEqual(200, resp.status_code, resp.get_data(as_text=True))
-                self.assertEqual('https%3A//mas.to/users/foo', resp.json['id'])
+                self.assertEqual('https%3A%2F%2Fmas.to%2Fusers%2Ffoo', resp.json['id'])
                 self.assertEqual('https://mas.to/users/foo', resp.json['uri'])
 
     def test_accounts_lookup_not_found(self):
@@ -209,7 +209,7 @@ class MastodonApiTest(TestCase):
                        enabled_protocols=[], obj_as2=ACTOR)
         resp = self.get('/api/v1/accounts/https://mas.to/users/foo')
         self.assertEqual(200, resp.status_code, resp.get_data(as_text=True))
-        self.assertEqual('https%3A//mas.to/users/foo', resp.json['id'])
+        self.assertEqual('https%3A%2F%2Fmas.to%2Fusers%2Ffoo', resp.json['id'])
         self.assertEqual('foo@mas.to', resp.json['acct'])
 
     def test_accounts_web_domain(self):
@@ -886,7 +886,7 @@ class MastodonApiTest(TestCase):
             self.assertEqual(200, resp.status_code, resp.get_data(as_text=True))
             self.assert_equals({
                 'accounts': [{
-                    'id': 'https%3A//mas.to/users/foo',
+                    'id': 'https%3A%2F%2Fmas.to%2Fusers%2Ffoo',
                     'acct': 'foo@mas.to',
                     'uri': 'https://mas.to/users/foo',
                     'username': 'foo',
@@ -910,7 +910,7 @@ class MastodonApiTest(TestCase):
         self.assertEqual(200, resp.status_code, resp.get_data(as_text=True))
         self.assert_equals({
             'accounts': [{
-                'id': 'https%3A//mas.to/users/foo',
+                'id': 'https%3A%2F%2Fmas.to%2Fusers%2Ffoo',
                 'acct': 'foo@mas.to',
                 'uri': 'https://mas.to/users/foo',
                 'username': 'foo',
