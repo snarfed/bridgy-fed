@@ -911,12 +911,13 @@ def poll_feed(user, feed_url, rel_type):
             logger.warning('No id or URL!')
             continue
 
+        if id == user.feed_last_item:
+            logger.info(f'Already seen {id}, skipping rest of feed')
+            break
+
         if i == 0:
             logger.info(f'Setting feed_last_item to {id}')
             user.feed_last_item = id
-        elif id == user.feed_last_item:
-            logger.info(f'Already seen {id}, skipping rest of feed')
-            break
 
         if Web.owns_id(id) is False:
             logger.warning(f'Skipping bad id {id}')

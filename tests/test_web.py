@@ -2392,7 +2392,7 @@ class WebTest(TestCase):
                          last_polled=NOW.isoformat(), eta_seconds=expected_eta)
 
     @patch('webutil.appengine_config.tasks_client.create_task')
-    def test_poll_feed_blocklisted_entry_url(self, mock_create_task, mock_get, _):
+    def test_poll_feed_first_item_already_seen(self, mock_create_task, mock_get, _):
         common.RUN_TASKS_INLINE = False
         self.user.obj.mf2 = ACTOR_MF2_REL_FEED_URL
         self.user.obj.put()
@@ -2406,17 +2406,21 @@ class WebTest(TestCase):
   <content>I hereby ☕ post</content>
 </entry>
 """
-        mock_get.side_effect = [
-            requests_response(feed, headers={'Content-Type': atom.CONTENT_TYPE}),
-            # fetch post to look for image
-            WEBMENTION_NO_REL_LINK,
-        ]
+        mock_get.return_value = requests_response(
+            feed, headers={'Content-Type': atom.CONTENT_TYPE})
+
         got = self.post('/queue/poll-feed', data={'domain': 'user.com'})
         self.assertEqual(200, got.status_code)
 
         user = self.user.key.get()
         self.assertEqual(NOW, user.last_polled_feed)
         self.assertEqual('https://user.com/post', user.feed_last_item)
+
+        # only the feed itself should have been fetched, not the post, since
+        # it was already seen last poll
+        mock_get.assert_called_once()
+        # only the poll-feed reschedule task, no receive task
+        self.assertEqual(1, mock_create_task.call_count)
 
     @patch('webutil.appengine_config.tasks_client.create_task')
     def test_poll_feed_last_webmention_in_noop(self, mock_create_task, mock_get, _):
