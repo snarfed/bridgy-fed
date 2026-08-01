@@ -404,6 +404,12 @@ class UserTest(TestCase):
                     'https://user', '://y.za'):
             self.assertFalse(self.user.is_web_url(url), url)
 
+    def test_is_web_url_ignore_www(self):
+        user = ActivityPub(id='https://mas.to/users/foo')
+        self.assertFalse(user.is_web_url('https://www.mas.to/users/foo'))
+        self.assertTrue(user.is_web_url('https://www.mas.to/users/foo',
+                                        ignore_www=True))
+
     def test_name(self):
         self.assertEqual('y.za', self.user.name())
 

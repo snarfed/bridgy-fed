@@ -1114,13 +1114,15 @@ class User(AddRemoveMixin, StringIdModel, metaclass=ProtocolUserMeta):
             return False
 
         url = url.strip().rstrip('/')
-        url = re.sub(r'^(https?://)www\.', r'\1', url)
+        this = self.web_url().rstrip('/')
+        if ignore_www:
+            url = re.sub(r'^(https?://)www\.', r'\1', url)
+            this = re.sub(r'^(https?://)www\.', r'\1', this)
+
         parsed_url = urlparse(url)
         if parsed_url.scheme not in ('http', 'https', ''):
             return False
 
-        this = self.web_url().rstrip('/')
-        this = re.sub(r'^(https?://)www\.', r'\1', this)
         parsed_this = urlparse(this)
 
         return (url == this or url == parsed_this.netloc or
