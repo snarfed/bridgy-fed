@@ -313,6 +313,39 @@ class MastodonApiTest(TestCase):
         self.assertEqual(200, resp.status_code, resp.get_data(as_text=True))
         self.assertEqual([], resp.json)
 
+    def test_accounts_statuses_pinned_unconvertible(self):
+        Object(id='fake:nope', our_as1={
+            'objectType': 'note',
+            'content': 'orphan',
+        }).put()
+
+        self.user.obj.our_as1['featured'] = {
+            'totalItems': 1,
+            'items': ['fake:nope'],
+        }
+        self.user.obj.put()
+
+        resp = self.get('/api/v1/accounts/fake:alice/statuses?pinned=true')
+        self.assertEqual(200, resp.status_code, resp.get_data(as_text=True))
+        self.assertEqual([], resp.json)
+
+    def test_accounts_statuses_pinned_unconvertible_only_media(self):
+        Object(id='fake:nope', our_as1={
+            'objectType': 'note',
+            'content': 'orphan',
+        }).put()
+
+        self.user.obj.our_as1['featured'] = {
+            'totalItems': 1,
+            'items': ['fake:nope'],
+        }
+        self.user.obj.put()
+
+        resp = self.get(
+            '/api/v1/accounts/fake:alice/statuses?pinned=true&only_media=true')
+        self.assertEqual(200, resp.status_code, resp.get_data(as_text=True))
+        self.assertEqual([], resp.json)
+
     def test_accounts_statuses_max_since_min_id(self):
         for i in range(1, 4):
             Object(id=f'fake:post{i}', users=[self.user.key], our_as1={

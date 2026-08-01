@@ -625,7 +625,7 @@ def accounts_statuses(user, id):
                and not (bool_param('exclude_replies') and obj.type == 'comment')
                and not (bool_param('exclude_reblogs') and obj.type == 'share')]
     prefetch_statuses(objects)
-    statuses = [to_status(obj) for obj in objects]
+    statuses = non_none(to_status(obj) for obj in objects)
     return [s for s in statuses
             if not (bool_param('only_media') and not s.get('media_attachments'))]
 
