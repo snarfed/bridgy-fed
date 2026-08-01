@@ -13,6 +13,7 @@ from granary import atom, microformats2, rss
 from oauth_dropins.bluesky import BlueskyAuth
 from oauth_dropins.indieauth import IndieAuth
 from oauth_dropins.mastodon import MastodonAuth
+from oauth_dropins.threads import ThreadsAuth
 from oauth_dropins.views import LOGINS_SESSION_KEY
 from webutil import appengine_info
 from webutil import util
@@ -37,6 +38,7 @@ from activitypub import ActivityPub
 from atproto import ATProto
 import common
 import config
+from flask_app import app
 import memcache
 from models import Object, Follower, Target
 from pages import login_to_user_key
@@ -148,6 +150,15 @@ class PagesTest(TestCase):
                   user_json='{"me": "https://alice.com"}').put()
         login = IndieAuth.get_by_id('https://alice.com')
         self.assertEqual(Web(id='alice.com').key, login_to_user_key(login))
+
+    @patch.object(util.session, 'get', return_value=requests_response(status=404))
+    def test_login_to_user_key_threads_not_found(self, mock_get):
+        login = ThreadsAuth(token_json='{}', user_json='{"username": "alice"}')
+        with app.test_request_context('/'):
+            self.assertIsNone(login_to_user_key(login))
+            self.assertEqual(
+                [('message', 'You need to <a href="https://help.instagram.com/169559812696339">turn on fediverse sharing</a> first.')],
+                session['_flashes'])
 
     def test_user(self):
         got = self.client.get('/web/user.com', base_url='https://fed.brid.gy/')

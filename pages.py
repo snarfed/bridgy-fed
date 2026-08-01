@@ -262,7 +262,7 @@ def login_to_user_key(login):
             if user := ActivityPub.query(ActivityPub.handle == handle).get():
                 return user.key
             if not (actor_id := webfinger.fetch_actor_url(handle)):
-                for msg in get_flashed_messages:
+                for msg in get_flashed_messages():
                     if 'HTTP 404' in msg:
                         flash('You need to <a href="https://help.instagram.com/169559812696339">turn on fediverse sharing</a> first.', escape=False)
                 return None
