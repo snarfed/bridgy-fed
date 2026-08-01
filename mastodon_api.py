@@ -3,7 +3,7 @@ from datetime import timezone
 import functools
 import logging
 import os
-from urllib.parse import quote
+from urllib.parse import quote, unquote
 
 from authlib.integrations.flask_oauth2.resource_protector import current_token
 from flask import request
@@ -246,13 +246,13 @@ def load_account_id(id):
     the datastore.
     """
     try:
-        return models.load_user(id, allow_opt_out=True)
+        return models.load_user(unquote(id), allow_opt_out=True)
     except (RuntimeError, ValueError) as e:
         logger.info(e)
 
 
 def load_object(id):
-    obj = Object.get_by_id(id)
+    obj = Object.get_by_id(unquote(id))
     if not obj or not obj.as1:
         error('Status not found', status=404)
     return obj
@@ -606,7 +606,7 @@ def accounts_statuses(user, id):
 
         def obj_created(param):
             if id := request.args.get(param):
-                if obj := Object.get_by_id(id):
+                if obj := Object.get_by_id(unquote(id)):
                     return obj.created
 
         order = -Object.created
@@ -724,7 +724,8 @@ def favourites(user):
 @app.get('/api/v1/statuses', provide_automatic_options=False)
 @auth
 def statuses_multiple(user):
-    ids = request.args.getlist('id[]') + request.args.getlist('id')
+    ids = [unquote(id) for id in
+           request.args.getlist('id[]') + request.args.getlist('id')]
     objs = [obj for obj in ndb.get_multi(Object(id=id).key for id in ids)
             if obj and obj.as1 and not obj.deleted and as1.is_public(obj.as1)]
     prefetch_statuses(objs)
@@ -884,7 +885,7 @@ def search(user):
         'hashtags': [],
     }
 
-    q = get_required_param('q').strip()
+    q = unquote(get_required_param('q').strip())
     type = request.args.get('type')
 
     if not type or type == 'accounts':

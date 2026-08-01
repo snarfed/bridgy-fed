@@ -167,6 +167,13 @@ class MastodonApiTest(TestCase):
             'note': '',
         }], resp.json)
 
+    def test_accounts_relationships_double_encoded_id(self):
+        bob = self.make_user('other:bob', cls=OtherFake,
+                             enabled_protocols=['activitypub'])
+        resp = self.get('/api/v1/accounts/relationships?id[]=other%253Abob')
+        self.assertEqual(200, resp.status_code, resp.get_data(as_text=True))
+        self.assertEqual('other%3Abob', resp.json[0]['id'])
+
     def test_accounts_relationships_unknown_id(self):
         resp = self.get('/api/v1/accounts/relationships?id[]=fake:nope')
         self.assertEqual(200, resp.status_code, resp.get_data(as_text=True))
@@ -191,6 +198,11 @@ class MastodonApiTest(TestCase):
         self.assertEqual(200, resp.status_code, resp.get_data(as_text=True))
         self.assertEqual('fake%3Aalice', resp.json['id'])
         self.assertEqual('https://fa.brid.gy/ap/fake:alice', resp.json['uri'])
+
+    def test_accounts_double_encoded_id(self):
+        resp = self.get('/api/v1/accounts/fake%253Aalice')
+        self.assertEqual(200, resp.status_code, resp.get_data(as_text=True))
+        self.assertEqual('fake%3Aalice', resp.json['id'])
 
     def test_accounts_activitypub_actor_id(self):
         self.make_user('https://mas.to/users/foo', cls=ActivityPub,
@@ -532,6 +544,17 @@ class MastodonApiTest(TestCase):
         self.assertEqual(200, resp.status_code, resp.get_data(as_text=True))
         self.assertEqual(['one', 'two'], [s['content'] for s in resp.json])
 
+    def test_statuses_multiple_double_encoded_id(self):
+        Object(id='fake:post1', our_as1={
+            'objectType': 'note',
+            'author': 'fake:alice',
+            'content': 'one',
+        }).put()
+
+        resp = self.get('/api/v1/statuses?id[]=fake%253Apost1')
+        self.assertEqual(200, resp.status_code, resp.get_data(as_text=True))
+        self.assertEqual(['one'], [s['content'] for s in resp.json])
+
     def test_statuses_single(self):
         Object(id='fake:post', users=[self.user.key], source_protocol='fake',
                our_as1={
@@ -584,6 +607,16 @@ class MastodonApiTest(TestCase):
     def test_statuses_single_not_found(self):
         resp = self.get('/api/v1/statuses/nope')
         self.assertEqual(404, resp.status_code)
+
+    def test_statuses_single_double_encoded_id(self):
+        Object(id='fake:post', users=[self.user.key], source_protocol='fake',
+               our_as1={
+                   'objectType': 'note',
+                   'content': 'hello',
+               }).put()
+        resp = self.get('/api/v1/statuses/fake%253Apost')
+        self.assertEqual(200, resp.status_code, resp.get_data(as_text=True))
+        self.assertEqual('hello', resp.json['content'])
 
     def test_statuses_context(self):
         Object(id='fake:root', our_as1={
@@ -897,9 +930,11 @@ class MastodonApiTest(TestCase):
             'content': 'foo',
         })
 
-        for q in ('fake:post',
+        for q in ('fake%3Apost',
+                  'fake%253Apost',
                   # Phanpy search format: [domain]/s/[id]
-                  'fed.brid.gy/s/fake:post',
+                  'fed.brid.gy/s/fake%3Apost',
+                  'fed.brid.gy/s/fake%253Apost',
                   ):
             with self.subTest(q=q):
                 resp = self.get(f'/api/v2/search?type=statuses&q={q}')
