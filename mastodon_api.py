@@ -860,7 +860,7 @@ def notifications_list(user):
 @app.get('/api/v1/notifications/<path:id>', provide_automatic_options=False)
 @auth
 def notifications_get(user, id):
-    obj = Object.get_by_id(id)
+    obj = Object.get_by_id(unquote(id))
     if (obj and obj.as1 and not obj.deleted and as1.is_public(obj.as1)
             and user.key in obj.notify):
         if notif := to_notification(obj):

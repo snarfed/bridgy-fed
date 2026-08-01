@@ -1140,6 +1140,21 @@ class MastodonApiTest(TestCase):
         self.assertEqual(200, resp.status_code, resp.get_data(as_text=True))
         self.assertEqual('follow', resp.json['type'])
 
+    def test_notifications_get_quoted_id(self):
+        bob = self.make_user('other:bob', cls=OtherFake,
+                             enabled_protocols=['activitypub'])
+        Object(id='fake:follow', users=[bob.key], notify=[self.user.key], our_as1={
+            'objectType': 'activity',
+            'verb': 'follow',
+            'object': 'fake:alice',
+        }).put()
+
+        # clients percent-encode the id the list endpoint returns (fake%3Afollow)
+        # before putting it in the URL path, so it arrives double-encoded
+        resp = self.get('/api/v1/notifications/fake%253Afollow')
+        self.assertEqual(200, resp.status_code, resp.get_data(as_text=True))
+        self.assertEqual('follow', resp.json['type'])
+
     def test_notifications_not_found(self):
         resp = self.get('/api/v1/notifications/nope')
         self.assertEqual(404, resp.status_code)
