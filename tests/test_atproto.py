@@ -2490,6 +2490,14 @@ Sed tortor neque, aliquet quis posuere aliquam, imperdiet sitamet […]
 
         self.assertEqual("First, you'll need to bridge your account into Bluesky by following this account.", str(e.exception))
 
+    def test_set_username_deactivated_repo(self):
+        user = self.make_user_and_repo(enabled_protocols=['atproto'])
+        repo = self.storage.load_repo('did:plc:user')
+        self.storage.deactivate_repo(repo)
+
+        with self.assertRaises(RuntimeError):
+            ATProto.set_username(user, 'new.org')
+
     def test_set_username_not_domain(self):
         user = self.make_user_and_repo(enabled_protocols=['atproto'])
 

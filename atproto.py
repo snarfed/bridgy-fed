@@ -695,8 +695,7 @@ class ATProto(User, Protocol):
         repo = arroba.server.storage.load_repo(copy_did)
         assert repo
         if repo.status:
-            logger.info(f'{repo.did} is {repo.status}, giving up')
-            return False
+            raise RuntimeError(f"Couldn't set username, your bridged Bluesky account is {repo.status}.")
         elif username == repo.handle:
             logger.info(f'repo {repo.did} already has handle {username}, setting anyway')
 
