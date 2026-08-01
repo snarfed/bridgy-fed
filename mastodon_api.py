@@ -3,13 +3,13 @@ from datetime import timezone
 import functools
 import logging
 import os
-from urllib.parse import quote, unquote
+from urllib.parse import unquote
 
 from authlib.integrations.flask_oauth2.resource_protector import current_token
 from flask import request
 from google.cloud import ndb
 from granary import as1, bluesky
-from granary.mastodon import from_as1
+from granary.mastodon import decode_id, encode_id, from_as1
 from webutil import util
 from webutil.flask_util import bool_param, get_required_param, error, MODERN_HEADERS
 from werkzeug.exceptions import BadGateway, HTTPException
@@ -84,7 +84,7 @@ def to_account(user):
             username = acct.split('@')[0]
 
     account.update({
-        'id': quote(user.key.id(), safe=''),
+        'id': encode_id(user.key.id()),
         'uri': user.id_as(ActivityPub),
         'username': username,
         'acct': acct,
@@ -150,7 +150,7 @@ def to_notification(obj):
     type = AS1_TO_NOTIFICATION_TYPE.get(obj.as1.get('verb'), 'mention')
 
     notif = {
-        'id': quote(obj.key.id(), safe=''),
+        'id': encode_id(obj.key.id()),
         'type': type,
         'created_at': (obj.as1.get('published')
                        or obj.created.replace(tzinfo=timezone.utc).isoformat()),
@@ -248,13 +248,13 @@ def load_account_id(id):
     the datastore.
     """
     try:
-        return models.load_user(unquote(id), allow_opt_out=True)
+        return models.load_user(decode_id(id), allow_opt_out=True)
     except (RuntimeError, ValueError) as e:
         logger.info(e)
 
 
 def load_object(id):
-    obj = Object.get_by_id(unquote(id))
+    obj = Object.get_by_id(decode_id(id))
     if not obj or not obj.as1:
         error('Status not found', status=404)
     return obj
@@ -554,7 +554,7 @@ def accounts_relationships(user):
 
     for other, following, followed_by in zip(others, followings, followed_bys):
         relationships.append({
-            'id': quote(other.key.id(), safe=''),
+            'id': encode_id(other.key.id()),
             'following': bool(following.get_result()),
             'followed_by': bool(followed_by.get_result()),
             'showing_reblogs': False,
@@ -608,7 +608,7 @@ def accounts_statuses(user, id):
 
         def obj_created(param):
             if id := request.args.get(param):
-                if obj := Object.get_by_id(unquote(id)):
+                if obj := Object.get_by_id(decode_id(id)):
                     return obj.created
 
         order = -Object.created
@@ -726,7 +726,7 @@ def favourites(user):
 @app.get('/api/v1/statuses', provide_automatic_options=False)
 @auth
 def statuses_multiple(user):
-    ids = [unquote(id) for id in
+    ids = [decode_id(id) for id in
            request.args.getlist('id[]') + request.args.getlist('id')]
     objs = [obj for obj in ndb.get_multi(Object(id=id).key for id in ids)
             if obj and obj.as1 and not obj.deleted and as1.is_public(obj.as1)]
@@ -866,7 +866,7 @@ def notifications_list(user):
 @app.get('/api/v1/notifications/<path:id>', provide_automatic_options=False)
 @auth
 def notifications_get(user, id):
-    obj = Object.get_by_id(unquote(id))
+    obj = Object.get_by_id(decode_id(id))
     if (obj and obj.as1 and not obj.deleted and as1.is_public(obj.as1)
             and user.key in obj.notify):
         if notif := to_notification(obj):
@@ -904,7 +904,7 @@ def search(user):
         # for them with the format '[domain]/s/[id]'. no clue why yet
         for domain in DOMAINS:
             q = q.removeprefix(f'{domain}/s/')
-        if obj := Object.get_by_id(q):
+        if obj := Object.get_by_id(decode_id(q)):
             if status := to_status(obj):
                 resp['statuses'] = [status]
 
