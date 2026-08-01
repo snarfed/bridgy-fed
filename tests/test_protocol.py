@@ -2933,6 +2933,35 @@ class ProtocolReceiveTest(TestCase):
         # not a self reply, shouldn't deliver to follower frank
         self.assertEqual([('other:post:target', create_as1)], OtherFake.sent)
 
+    def test_create_reply_already_created(self):
+        """If a reply already has a copy on the target protocol, don't recreate it."""
+        eve = self.make_user('other:eve', cls=OtherFake, obj_id='other:eve')
+
+        OtherFake.fetchable['other:post'] = {
+            'objectType': 'note',
+            'author': 'other:eve',
+        }
+        reply_as1 = {
+            'id': 'fake:reply',
+            'objectType': 'note',
+            'inReplyTo': 'other:post',
+            'author': 'fake:user',
+            'content': 'foo',
+        }
+        self.store_object(id='fake:reply', our_as1=reply_as1, source_protocol='fake',
+                          copies=[Target(uri='other:reply', protocol='other')])
+
+        create_as1 = {
+            'id': 'fake:create',
+            'objectType': 'activity',
+            'verb': 'post',
+            'actor': 'fake:user',
+            'object': reply_as1,
+        }
+        self.assertEqual(('No targets, nothing to do ¯\\_(ツ)_/¯', 204),
+                         Fake.receive_as1(create_as1))
+        self.assertEqual([], OtherFake.sent)
+
     def test_create_reply_bare_object(self):
         eve = self.make_user('other:eve', cls=OtherFake, obj_id='other:eve')
 
