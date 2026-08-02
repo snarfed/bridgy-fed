@@ -3228,6 +3228,37 @@ class WebUtilTest(TestCase):
         self.assertIs(True, Web.owns_id('https://ap.brid.gy/foo'))
         self.assertIs(True, Web.owns_id('https://ap.brid.gy/internal/foo'))
 
+    def test_owns_user_id(self, *_):
+        self.assertIs(True, Web.owns_user_id('user.com'))
+
+        # Web user ids are bare domains; even a home page URL is someone else's
+        # (presumably ActivityPub's), since it's a URL, not a domain
+        for id in (
+            'http://foo.com',
+            'https://bar.com/',
+            'https://bar.com/baz',
+            'at://did:plc:foo/bar/123',
+            'e45fab982',
+            'foo.bad',
+            'foo.json',
+            'alice.com@bsky.brid.gy',
+            'localhost',
+            'https://twitter.com/',
+            'https://ap.brid.gy/foo',
+        ):
+            with self.subTest(id=id):
+                self.assertIs(False, Web.owns_user_id(id))
+
+    def test_owns_object_id(self, *_):
+        self.assertIsNone(Web.owns_object_id('http://foo.com'))
+        self.assertIsNone(Web.owns_object_id('https://bar.com/'))
+        self.assertIsNone(Web.owns_object_id('https://bar.com/baz'))
+
+        for id in ('user.com', 'at://did:plc:foo/bar/123', 'e45fab982', 'foo.bad',
+                   'foo.json', 'localhost', 'https://twitter.com/'):
+            with self.subTest(id=id):
+                self.assertIs(False, Web.owns_object_id(id))
+
     def test_owns_handle(self, *_):
         self.assertIsNone(Web.owns_handle('foo.com'))
         self.assertIsNone(Web.owns_handle('foo.bar.com'))

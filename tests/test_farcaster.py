@@ -54,6 +54,24 @@ class FarcasterTest(TestCase):
         self.assertFalse(Farcaster.owns_id('789'))
         self.assertFalse(Farcaster.owns_id('http://foo/bar'))
 
+    def test_owns_user_id(self, _):
+        self.assertTrue(Farcaster.owns_user_id('farcaster://123'))
+        self.assertFalse(Farcaster.owns_user_id('farcaster:123'))
+        self.assertFalse(Farcaster.owns_user_id('farcaster://@bob'))
+        self.assertFalse(Farcaster.owns_user_id('farcaster://123/0x456'))
+        self.assertFalse(Farcaster.owns_user_id(''))
+        self.assertFalse(Farcaster.owns_user_id('789'))
+        self.assertFalse(Farcaster.owns_user_id('http://foo/bar'))
+
+    def test_owns_object_id(self, _):
+        self.assertTrue(Farcaster.owns_object_id('farcaster://123/0x456'))
+        self.assertFalse(Farcaster.owns_object_id('farcaster://@bob/0x456'))
+        self.assertFalse(Farcaster.owns_object_id('farcaster://123'))
+        self.assertFalse(Farcaster.owns_object_id('farcaster:123'))
+        self.assertFalse(Farcaster.owns_object_id(''))
+        self.assertFalse(Farcaster.owns_object_id('789'))
+        self.assertFalse(Farcaster.owns_object_id('http://foo/bar'))
+
     def test_owns_handle(self, _):
         self.assertTrue(Farcaster.owns_handle('bob.eth'))
         self.assertIsNone(Farcaster.owns_handle('alice'))

@@ -96,6 +96,17 @@ class Farcaster(User, Protocol):
                             or re.fullmatch(r'farcaster:[0-9]+', id)))
 
     @classmethod
+    def owns_user_id(cls, id):
+        """``farcaster://[fid]``, without a hash."""
+        return bool(id and re.fullmatch(r'farcaster://[0-9]+', id))
+
+    @classmethod
+    def owns_object_id(cls, id):
+        """``farcaster://[fid]/0x[hash]``, ie casts."""
+        return bool(id and (match := FARCASTER_URI_RE.fullmatch(id))
+                    and match['hash'] and not match['username'])
+
+    @classmethod
     def owns_handle(cls, handle, allow_internal=False):
         if not handle:
             return False

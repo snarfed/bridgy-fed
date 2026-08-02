@@ -176,6 +176,16 @@ class Fake(User, protocol.Protocol):
                 or id in cls.fetchable)
 
     @classmethod
+    def owns_user_id(cls, id):
+        """Fake user and object ids are indistinguishable."""
+        return cls.owns_id(id)
+
+    @classmethod
+    def owns_object_id(cls, id):
+        """Fake user and object ids are indistinguishable."""
+        return cls.owns_id(id)
+
+    @classmethod
     def owns_handle(cls, handle, allow_internal=False):
         return handle.startswith(f'{cls.LABEL}:handle:')
 

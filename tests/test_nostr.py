@@ -39,6 +39,7 @@ from web import Web
 from granary.tests.test_nostr import (
     FakeConnection,
     ID,
+    NEVENT,
     NOTE_AS1,
     NOTE_NOSTR,
     NOW_TS,
@@ -195,6 +196,26 @@ class NostrTest(TestCase):
                    'https://foo.com/bar', 'at://did:abc/x.y.z/123'):
             with self.subTest(id=id):
                 self.assertEqual(False, Nostr.owns_id(id))
+
+    def test_owns_user_id(self):
+        for id in (PUBKEY_URI, ID_URI):
+            with self.subTest(id=id):
+                self.assertIs(True, Nostr.owns_user_id(id))
+
+        for id in ('abc', 'did:abc', 'foo.com', PUBKEY, ID, NPUB, NPUB_URI,
+                   NEVENT, 'nostr:' + NEVENT, NSEC_URI):
+            with self.subTest(id=id):
+                self.assertIs(False, Nostr.owns_user_id(id))
+
+    def test_owns_object_id(self):
+        for id in (PUBKEY_URI, ID_URI):
+            with self.subTest(id=id):
+                self.assertIs(True, Nostr.owns_object_id(id))
+
+        for id in ('abc', 'did:abc', 'foo.com', PUBKEY, ID, NPUB, NPUB_URI,
+                   NEVENT, 'nostr:' + NEVENT, NSEC_URI):
+            with self.subTest(id=id):
+                self.assertIs(False, Nostr.owns_object_id(id))
 
     def test_owns_handle(self):
         for handle in ('user@domain', 'user@domain.com', 'user.com@domain.com',

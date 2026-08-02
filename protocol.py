@@ -225,8 +225,60 @@ class Protocol:
 
         Returns False if the id's domain is in :const:`domains.DOMAIN_BLOCKLIST`.
 
+        Callers that already know whether they have a user id or an object id
+        should use :meth:`owns_user_id` or :meth:`owns_object_id` instead, which
+        can often answer definitively where this can't.
+
         Args:
           id (str): user id or object id
+
+        Returns:
+          bool or None:
+        """
+        return False
+
+    @classmethod
+    def owns_user_id(cls, id):
+        """Returns whether this protocol owns this user id.
+
+        To be implemented by subclasses.
+
+        Assumes that ``id`` is a native user id in our eyes, ie what we'd use
+        as the user's key id.
+
+        We currently expect that user ids are disjoint across all supported
+        protocols. Any ``id`` input string here should return True for
+        either a single protocol, at most, or none. Notably, all http[s] URL user
+        ids are currently owned by :class:`activitypub.ActivityPub`.
+        :class:`web.Web` user ids are domains, not URLs.
+
+        Note that this method differs from :meth:`Protocol.owns_object_id` in
+        that it only returns True or False, while :meth:`Protocol.owns_object_id`
+        can also return None to indicate "maybe."
+
+        Args:
+          id (str)
+
+        Returns:
+          bool:
+        """
+        return False
+
+    @classmethod
+    def owns_object_id(cls, id):
+        """Returns whether this protocol owns this object id, or None if unclear.
+
+        To be implemented by subclasses.
+
+        Assumes that ``id`` is a native object id in our eyes, ie the
+        :class:`Object` key id.
+
+        Unlike user ids, object ids overlap across protocols. Notably, http[s]
+        URLs may be either :class:`web.Web` or :class:`activitypub.ActivityPub`;
+        we generally can't distinguish based solely on the id itself.
+
+        Args:
+          id (str)
 
         Returns:
           bool or None:

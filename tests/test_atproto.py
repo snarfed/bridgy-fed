@@ -254,6 +254,47 @@ class ATProtoTest(TestCase):
         self.assertTrue(ATProto.owns_id(
             'https://bsky.app/profile/snarfed.org/post/3k62u4ht77f2z'))
 
+    def test_owns_user_id(self):
+        self.assertTrue(ATProto.owns_user_id('did:plc:user'))
+        self.assertTrue(ATProto.owns_user_id('did:web:bar.com'))
+
+        # ATProto user ids are DIDs; even a repo-only at:// URI or a bsky.app
+        # profile URL is someone else's, since it's not a DID
+        for id in (
+            '',
+            'did:plc:user/rss',
+            'at://did:plc:user',
+            'at://did:plc:user/app.bsky.feed.post/123',
+            'https://bsky.app/profile/snarfed.org',
+            'https://bsky.app/profile/snarfed.org/post/3k62u4ht77f2z',
+            'https://bsky.app/hashtag/foo',
+            'http://foo',
+            'e45fab982',
+        ):
+            with self.subTest(id=id):
+                self.assertFalse(ATProto.owns_user_id(id))
+
+    def test_owns_object_id(self):
+        self.assertTrue(ATProto.owns_object_id(
+            'at://did:plc:user/app.bsky.feed.post/123'))
+        self.assertTrue(ATProto.owns_object_id(
+            'at://did:web:user.com/app.bsky.feed.post/123'))
+
+        for id in (
+            '',
+            'did:plc:user',
+            'did:web:bar.com',
+            'at://did:plc:user',
+            'https://bsky.app/profile/snarfed.org',
+            'https://bsky.app/profile/snarfed.org/post/3k62u4ht77f2z',
+            'https://bsky.app/hashtag/foo',
+            'http://foo',
+            'e45fab982',
+            'did:plc:user/rss',
+        ):
+            with self.subTest(id=id):
+                self.assertFalse(ATProto.owns_object_id(id))
+
     def test_owns_handle(self):
         self.assertIsNone(ATProto.owns_handle('foo.com'))
         self.assertIsNone(ATProto.owns_handle('foo.bar.com'))

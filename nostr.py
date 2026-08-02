@@ -241,6 +241,21 @@ class Nostr(User, Protocol):
         return False
 
     @classmethod
+    def owns_user_id(cls, id):
+        """``nostr:[hex]`` only. Never bech32; that's a handle, not an id.
+
+        Hex ids are used for both pubkeys and event ids, so this and
+        :meth:`owns_object_id` both claim the same ids.
+        """
+        return bool(id and id.startswith('nostr:')
+                    and ID_RE.fullmatch(id.removeprefix('nostr:')))
+
+    @classmethod
+    def owns_object_id(cls, id):
+        """``nostr:[hex]`` only. See :meth:`owns_user_id`."""
+        return cls.owns_user_id(id)
+
+    @classmethod
     def owns_handle(cls, handle, allow_internal=False):
         if not handle:
             return False

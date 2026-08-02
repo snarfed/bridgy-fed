@@ -57,6 +57,7 @@ DOMAINS = (PRIMARY_DOMAIN,) + PROTOCOL_DOMAINS + OTHER_DOMAINS + LOCAL_DOMAINS
 # TODO: unify with manual_opt_out
 # TODO: unify with Bridgy's
 DOMAIN_BLOCKLIST = (
+    'bsky.app',
     'bsky.social',
     'facebook.com',
     'fb.com',
