@@ -4,17 +4,31 @@ import time
 from unittest.mock import patch
 from urllib.parse import parse_qs, urlencode, urlparse
 
+from granary.bluesky import Bluesky
 import jwt
 from oauth_dropins import indieauth
+import oauth_dropins.bluesky
+from oauth_dropins.bluesky import BlueskyAuth
+from requests_oauth2client import (
+    DPoPKey,
+    DPoPToken,
+    OAuth2AccessTokenAuth,
+    OAuth2Client,
+    TokenSerializer,
+)
 from webutil import util
 import webutil.models
 from webutil.testutil import requests_response
+from webutil.util import json_dumps
 
 from . import testutil
 import activitypub
+from atproto import ATProto
 import common
+from flask_app import app
 import mastodon_oauth
 from web import Web
+from .test_atproto import DID_DOC
 from .testutil import TestCase
 
 BASE_URL = 'https://web.brid.gy/'
@@ -454,3 +468,56 @@ class MastodonOAuthTest(TestCase):
         ):
             resp = self.client.post(path, base_url=BASE_URL)
             self.assertEqual(400, resp.status_code, path)
+
+    def test_granary_source(self):
+        self.store_object(id='did:plc:user', raw=DID_DOC)
+        user = self.make_user('did:plc:user', cls=ATProto)
+        BlueskyAuth(id='did:plc:user', pds_url='https://some.pds/',
+                    user_json=json_dumps({'did': 'did:plc:user',
+                                          'handle': 'han.dull'}),
+                    session={'accessJwt': 'towkin', 'refreshJwt': 'reefresh'}).put()
+
+        token = mastodon_oauth.Token({'user_key': user.key.urlsafe().decode()})
+        source = token.granary_source()
+        self.assertIsInstance(source, Bluesky)
+        self.assertEqual('did:plc:user', source.did)
+        self.assertEqual('han.dull', source.handle)
+        self.assertEqual('https://some.pds/', source._client.address)
+
+    @patch('oauth_dropins.bluesky.oauth_client_for_pds',
+           return_value=OAuth2Client(token_endpoint='https://un/used',
+                                     client_id='unused', client_secret='unused'))
+    def test_granary_source_oauth(self, mock_oauth_client_for_pds):
+        self.store_object(id='did:plc:user', raw=DID_DOC)
+        user = self.make_user('did:plc:user', cls=ATProto)
+        BlueskyAuth(id='did:plc:user', pds_url='https://some.pds/',
+                    user_json=json_dumps({'did': 'did:plc:user',
+                                          'handle': 'han.dull'}),
+                    dpop_token=TokenSerializer().dumps(
+                        DPoPToken(access_token='towkin',
+                                  _dpop_key=DPoPKey.generate()))).put()
+
+        token = mastodon_oauth.Token({'user_key': user.key.urlsafe().decode()})
+        with app.test_request_context('/', base_url=BASE_URL):
+            source = token.granary_source()
+
+        self.assertEqual('did:plc:user', source.did)
+        self.assertIsInstance(source._client.requests_kwargs['auth'],
+                              OAuth2AccessTokenAuth)
+        mock_oauth_client_for_pds.assert_called_once_with({
+            **oauth_dropins.bluesky.CLIENT_METADATA_TEMPLATE,
+            'client_id': 'https://web.brid.gy/oauth/atproto/client-metadata.json',
+            'client_name': 'Bridgy Fed (Mastodon API)',
+            'client_uri': 'https://web.brid.gy/',
+            'redirect_uris': ['https://web.brid.gy/oauth/authorize/atproto/finish'],
+        }, 'https://some.pds/')
+
+    def test_granary_source_no_auth_entity(self):
+        self.store_object(id='did:plc:user', raw=DID_DOC)
+        user = self.make_user('did:plc:user', cls=ATProto)
+        token = mastodon_oauth.Token({'user_key': user.key.urlsafe().decode()})
+        self.assertIsNone(token.granary_source())
+
+    def test_granary_source_non_atproto_user(self):
+        token = mastodon_oauth.Token({'user_key': self.user.key.urlsafe().decode()})
+        self.assertIsNone(token.granary_source())

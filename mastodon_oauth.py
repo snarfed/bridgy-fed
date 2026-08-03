@@ -26,9 +26,11 @@ from authlib.oauth2.rfc8414 import AuthorizationServerMetadata
 from flask import redirect, Response, request
 from google.cloud import ndb
 from google.cloud.ndb.key import Key
+from granary.bluesky import Bluesky
 import jwt
 from oauth_dropins import indieauth
 import oauth_dropins.bluesky
+from oauth_dropins.bluesky import BlueskyAuth
 import oauth_dropins.mastodon
 import oauth_dropins.pixelfed
 from webutil import models
@@ -246,6 +248,28 @@ class Token(TokenMixin):
 
     def get_user(self):
         return self.user_key.get()
+
+    def granary_source(self):
+        """Returns a :class:`granary.source.Source` for this token's user.
+
+        Uses the user's own credentials from their oauth-dropins auth entity.
+
+        TODO: our bearer tokens never expire, but the underlying login can be
+        revoked or expire. Distinguish that from "never logged in" and return 401.
+
+        Returns:
+          granary.source.Source or None:
+        """
+        if self.user_key.kind() != 'ATProto':
+            logger.info(f"{self.user_key} doesn't support writes yet")
+            return None
+
+        if not (auth := BlueskyAuth.get_by_id(self.user_key.id())):
+            logger.info(f'No BlueskyAuth for {self.user_key}')
+            return None
+
+        return Bluesky.from_auth(
+            auth, client_metadata=_atproto_proxy_client_metadata())
 
     def get_client(self):
         return None
