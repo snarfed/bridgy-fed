@@ -458,27 +458,16 @@ class Web(User, Protocol):
         return False
 
     @classmethod
-    def owns_user_id(cls, id):
-        """Web user ids are bare domains, never URLs, not even home pages.
+    def id_type(cls, id):
+        """Bare domains are users, other URLs are web pages.
 
-        A home page URL, eg ``https://user.com/``, is a valid *id* for a Web
-        user, but it's not a valid *user id*: the canonical form is the bare
-        domain, ``user.com``. Any http(s) URL here, home page or not, is
-        someone else's, eg :class:`activitypub.ActivityPub`'s.
-
-        Callers must normalize with :func:`ids.normalize_user_id` before
-        calling this.
+        A home page URL is unclear: it identifies the user, but it's also that
+        user's profile object id.
         """
-        return is_valid_domain(id, allow_internal=True)
-
-    @classmethod
-    def owns_object_id(cls, id):
-        """Returns None on URLs, False otherwise.
-
-        Web pages and ActivityPub objects are both http(s) URLs, so we can't tell
-        them apart.
-        """
-        return not cls.owns_user_id(id) and cls.owns_id(id)
+        if is_valid_domain(id, allow_internal=True):
+            return ids.IdType.USER
+        elif cls.owns_id(id) is not False and not util.is_homepage(id):
+            return ids.IdType.OBJECT
 
     @classmethod
     def owns_handle(cls, handle, allow_internal=False):

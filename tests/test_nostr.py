@@ -197,25 +197,20 @@ class NostrTest(TestCase):
             with self.subTest(id=id):
                 self.assertEqual(False, Nostr.owns_id(id))
 
-    def test_owns_user_id(self):
-        for id in (PUBKEY_URI, ID_URI):
+    def test_id_type(self):
+        for id in (NPUB, NPUB_URI):
             with self.subTest(id=id):
-                self.assertIs(True, Nostr.owns_user_id(id))
+                self.assertEqual(ids.IdType.USER, Nostr.id_type(id))
 
-        for id in ('abc', 'did:abc', 'foo.com', PUBKEY, ID, NPUB, NPUB_URI,
-                   NEVENT, 'nostr:' + NEVENT, NSEC_URI):
+        for id in (NEVENT, 'nostr:' + NEVENT):
             with self.subTest(id=id):
-                self.assertIs(False, Nostr.owns_user_id(id))
+                self.assertEqual(ids.IdType.OBJECT, Nostr.id_type(id))
 
-    def test_owns_object_id(self):
-        for id in (PUBKEY_URI, ID_URI):
+        # hex ids are used for both pubkeys and event ids, so they're unclear
+        for id in ('', 'abc', 'did:abc', 'foo.com', PUBKEY, PUBKEY_URI, ID,
+                   ID_URI, NSEC_URI):
             with self.subTest(id=id):
-                self.assertIs(True, Nostr.owns_object_id(id))
-
-        for id in ('abc', 'did:abc', 'foo.com', PUBKEY, ID, NPUB, NPUB_URI,
-                   NEVENT, 'nostr:' + NEVENT, NSEC_URI):
-            with self.subTest(id=id):
-                self.assertIs(False, Nostr.owns_object_id(id))
+                self.assertIsNone(Nostr.id_type(id))
 
     def test_owns_handle(self):
         for handle in ('user@domain', 'user@domain.com', 'user.com@domain.com',

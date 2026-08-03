@@ -25,6 +25,7 @@ from granary.tests.test_farcaster import message, user_data_message
 
 import farcaster
 from farcaster import Farcaster
+import ids
 from models import Object, Target
 
 from .testutil import TestCase
@@ -54,23 +55,18 @@ class FarcasterTest(TestCase):
         self.assertFalse(Farcaster.owns_id('789'))
         self.assertFalse(Farcaster.owns_id('http://foo/bar'))
 
-    def test_owns_user_id(self, _):
-        self.assertTrue(Farcaster.owns_user_id('farcaster://123'))
-        self.assertFalse(Farcaster.owns_user_id('farcaster:123'))
-        self.assertFalse(Farcaster.owns_user_id('farcaster://@bob'))
-        self.assertFalse(Farcaster.owns_user_id('farcaster://123/0x456'))
-        self.assertFalse(Farcaster.owns_user_id(''))
-        self.assertFalse(Farcaster.owns_user_id('789'))
-        self.assertFalse(Farcaster.owns_user_id('http://foo/bar'))
+    def test_id_type(self, _):
+        for id in ('farcaster://123', 'farcaster:123', 'farcaster://@bob'):
+            with self.subTest(id=id):
+                self.assertEqual(ids.IdType.USER, Farcaster.id_type(id))
 
-    def test_owns_object_id(self, _):
-        self.assertTrue(Farcaster.owns_object_id('farcaster://123/0x456'))
-        self.assertFalse(Farcaster.owns_object_id('farcaster://@bob/0x456'))
-        self.assertFalse(Farcaster.owns_object_id('farcaster://123'))
-        self.assertFalse(Farcaster.owns_object_id('farcaster:123'))
-        self.assertFalse(Farcaster.owns_object_id(''))
-        self.assertFalse(Farcaster.owns_object_id('789'))
-        self.assertFalse(Farcaster.owns_object_id('http://foo/bar'))
+        for id in ('farcaster://123/0x456', 'farcaster://@bob/0x456'):
+            with self.subTest(id=id):
+                self.assertEqual(ids.IdType.OBJECT, Farcaster.id_type(id))
+
+        for id in ('', '789', 'http://foo/bar'):
+            with self.subTest(id=id):
+                self.assertIsNone(Farcaster.id_type(id))
 
     def test_owns_handle(self, _):
         self.assertTrue(Farcaster.owns_handle('bob.eth'))

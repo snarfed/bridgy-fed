@@ -28,6 +28,7 @@ from granary.generated.farcaster.request_response_pb2 import (
 import grpc
 from webutil import util
 
+import ids
 from models import Target, User
 from protocol import Protocol, STORE_AS1_TYPES
 
@@ -96,15 +97,16 @@ class Farcaster(User, Protocol):
                             or re.fullmatch(r'farcaster:[0-9]+', id)))
 
     @classmethod
-    def owns_user_id(cls, id):
-        """``farcaster://[fid]``, without a hash."""
-        return bool(id and re.fullmatch(r'farcaster://[0-9]+', id))
-
-    @classmethod
-    def owns_object_id(cls, id):
-        """``farcaster://[fid]/0x[hash]``, ie casts."""
-        return bool(id and (match := FARCASTER_URI_RE.fullmatch(id))
-                    and match['hash'] and not match['username'])
+    def id_type(cls, id):
+        """``farcaster://[fid or @username]``, plus a ``/0x[hash]`` for casts."""
+        if not id:
+            return None
+        elif re.fullmatch(r'farcaster:[0-9]+', id):
+            return ids.IdType.USER
+        elif id.startswith('farcaster://'):
+            match = FARCASTER_URI_RE.fullmatch(id)
+            return (ids.IdType.OBJECT if not match or match['hash']
+                    else ids.IdType.USER)
 
     @classmethod
     def owns_handle(cls, handle, allow_internal=False):

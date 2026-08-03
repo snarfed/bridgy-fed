@@ -302,22 +302,6 @@ class ActivityPub(User, Protocol):
         return False
 
     @classmethod
-    def owns_user_id(cls, id):
-        """Returns True on any (non-blocklisted) http(s) URL, home page or not.
-
-        :class:`web.Web` user ids are bare domains, never URLs, so any http(s)
-        URL user id, including a home page like https://bw3.dev/ , is ours. (Web
-        pages themselves are still URLs, home page included; it's specifically
-        Web *user ids* that are always bare domains.)
-        """
-        return cls.owns_id(id) is not False
-
-    @classmethod
-    def owns_object_id(cls, id):
-        """AP objects and :class:`web.Web` pages are both http(s) URLs."""
-        return cls.owns_id(id)
-
-    @classmethod
     def owns_handle(cls, handle, allow_internal=False):
         """Returns True if handle is a WebFinger ``@-@`` handle, False otherwise.
 

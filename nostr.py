@@ -57,6 +57,11 @@ import web
 
 logger = logging.getLogger(__name__)
 
+# NIP-19 bech32 prefixes, by whether they identify a user or an event. nsec and
+# nrelay are neither, so they're in neither.
+USER_BECH32_PREFIXES = ('npub', 'nprofile')
+OBJECT_BECH32_PREFIXES = ('naddr', 'nevent', 'note')
+
 
 class NostrRelay(StringIdModel):
     """The last ``created_at`` we've seen from a given relay.
@@ -241,19 +246,20 @@ class Nostr(User, Protocol):
         return False
 
     @classmethod
-    def owns_user_id(cls, id):
-        """``nostr:[hex]`` only. Never bech32; that's a handle, not an id.
+    def id_type(cls, id):
+        """Only bech32 ids say which kind they are.
 
-        Hex ids are used for both pubkeys and event ids, so this and
-        :meth:`owns_object_id` both claim the same ids.
+        Hex ids, ie our key ids, are used for both pubkeys and events, so
+        they're unclear.
         """
-        return bool(id and id.startswith('nostr:')
-                    and ID_RE.fullmatch(id.removeprefix('nostr:')))
+        if not id:
+            return None
 
-    @classmethod
-    def owns_object_id(cls, id):
-        """``nostr:[hex]`` only. See :meth:`owns_user_id`."""
-        return cls.owns_user_id(id)
+        bare = id.removeprefix('nostr:')
+        if bare.startswith(USER_BECH32_PREFIXES):
+            return ids.IdType.USER
+        elif bare.startswith(OBJECT_BECH32_PREFIXES):
+            return ids.IdType.OBJECT
 
     @classmethod
     def owns_handle(cls, handle, allow_internal=False):

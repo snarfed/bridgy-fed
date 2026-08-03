@@ -26,16 +26,6 @@ class UIProtocol(models.User, protocol.Protocol):
 
         return False
 
-    @classmethod
-    def owns_user_id(cls, id):
-        """Only ``ui:`` ids. A web URL user id belongs to some other protocol."""
-        return id.startswith('ui:')
-
-    @classmethod
-    def owns_object_id(cls, id):
-        """Web URLs may be objects we created in the UI, so defer to :meth:`owns_id`."""
-        return cls.owns_id(id)
-
     @ndb.ComputedProperty
     def handle(self):
         return None

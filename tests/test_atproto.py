@@ -49,6 +49,7 @@ from atproto import (
 import common
 import config
 import hub
+import ids
 from models import Follower, Object, PROTOCOLS, Target
 import protocol
 from .testutil import ATPROTO_KEY, ExplicitFake, Fake, OtherFake, TestCase
@@ -254,46 +255,30 @@ class ATProtoTest(TestCase):
         self.assertTrue(ATProto.owns_id(
             'https://bsky.app/profile/snarfed.org/post/3k62u4ht77f2z'))
 
-    def test_owns_user_id(self):
-        self.assertTrue(ATProto.owns_user_id('did:plc:user'))
-        self.assertTrue(ATProto.owns_user_id('did:web:bar.com'))
-
-        # ATProto user ids are DIDs; even a repo-only at:// URI or a bsky.app
-        # profile URL is someone else's, since it's not a DID
+    def test_id_type(self):
+        # DIDs, repo-only at:// URIs, and bsky.app profile URLs identify users
         for id in (
-            '',
-            'did:plc:user/rss',
-            'at://did:plc:user',
-            'at://did:plc:user/app.bsky.feed.post/123',
-            'https://bsky.app/profile/snarfed.org',
-            'https://bsky.app/profile/snarfed.org/post/3k62u4ht77f2z',
-            'https://bsky.app/hashtag/foo',
-            'http://foo',
-            'e45fab982',
-        ):
-            with self.subTest(id=id):
-                self.assertFalse(ATProto.owns_user_id(id))
-
-    def test_owns_object_id(self):
-        self.assertTrue(ATProto.owns_object_id(
-            'at://did:plc:user/app.bsky.feed.post/123'))
-        self.assertTrue(ATProto.owns_object_id(
-            'at://did:web:user.com/app.bsky.feed.post/123'))
-
-        for id in (
-            '',
             'did:plc:user',
             'did:web:bar.com',
             'at://did:plc:user',
             'https://bsky.app/profile/snarfed.org',
-            'https://bsky.app/profile/snarfed.org/post/3k62u4ht77f2z',
-            'https://bsky.app/hashtag/foo',
-            'http://foo',
-            'e45fab982',
-            'did:plc:user/rss',
         ):
             with self.subTest(id=id):
-                self.assertFalse(ATProto.owns_object_id(id))
+                self.assertEqual(ids.IdType.USER, ATProto.id_type(id))
+
+        for id in (
+            'at://did:plc:user/app.bsky.feed.post/123',
+            'at://did:web:user.com/app.bsky.feed.post/123',
+            'at://did:plc:user/app.bsky.actor.profile/self',
+            'https://bsky.app/profile/snarfed.org/post/3k62u4ht77f2z',
+        ):
+            with self.subTest(id=id):
+                self.assertEqual(ids.IdType.OBJECT, ATProto.id_type(id))
+
+        for id in ('', 'did:plc:user/rss', 'http://foo', 'e45fab982',
+                   'https://bsky.app/hashtag/foo', 'https://bsky.app/search?bar'):
+            with self.subTest(id=id):
+                self.assertIsNone(ATProto.id_type(id))
 
     def test_owns_handle(self):
         self.assertIsNone(ATProto.owns_handle('foo.com'))

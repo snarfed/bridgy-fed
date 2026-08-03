@@ -413,22 +413,14 @@ class ATProto(User, Protocol):
                 or id.startswith('https://bsky.app/'))
 
     @classmethod
-    def owns_user_id(cls, id):
-        """DIDs only.
-
-        Callers must normalize with :func:`ids.normalize_user_id` first, so
-        that repo-only ``at://`` URIs and ``bsky.app`` profile URLs become DIDs
-        before they get here.
-        """
-        return bool(DID_RE.fullmatch(id))
-
-    @classmethod
-    def owns_object_id(cls, id):
-        """``at://`` URIs with a collection, and non-profile ``bsky.app`` URLs."""
-        if match := AT_URI_RE.match(id):
-            return bool(match['collection'] and match['rkey'])
-
-        return False
+    def id_type(cls, id):
+        """DIDs, repo-only ``at://`` URIs, and ``bsky.app`` profile URLs are users."""
+        if DID_RE.fullmatch(id):
+            return ids.IdType.USER
+        elif match := AT_URI_RE.match(id):
+            return ids.IdType.OBJECT if match['collection'] else ids.IdType.USER
+        elif match := bluesky.BSKY_APP_URL_RE.fullmatch(id):
+            return ids.IdType.OBJECT if match['type'] else ids.IdType.USER
 
     @classmethod
     def owns_handle(cls, handle, allow_internal=False):

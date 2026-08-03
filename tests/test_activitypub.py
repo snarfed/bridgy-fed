@@ -2682,47 +2682,20 @@ class ActivityPubUtilsTest(TestCase):
             with self.subTest(id=id):
                 self.assertFalse(ActivityPub.owns_id(id))
 
-    def test_owns_user_id(self):
+    def test_id_type(self):
+        # AP actor ids and object ids are both http(s) URLs, indistinguishable
         for id in (
+            'http://foo',
             'http://inst.com/',
             'https://inst.com/users/alice',
             'https://bar/baz',
-        ):
-            with self.subTest(id=id):
-                self.assertIs(True, ActivityPub.owns_user_id(id))
-
-        for id in (
             '',
-            'xy',
-            'x y',
-            'https:///',
             'at://did:plc:foo/bar/123',
             'e45fab982',
             'https://twitter.com/foo',
-            'https://fed.brid.gy/foo',
-            'https://ap.brid.gy/foo',
-            'https://bsky.app/profile/alice.bsky.social',
         ):
             with self.subTest(id=id):
-                self.assertIs(False, ActivityPub.owns_user_id(id))
-
-    def test_owns_object_id(self):
-        self.assertIsNone(ActivityPub.owns_object_id('http://foo'))
-        self.assertIsNone(ActivityPub.owns_object_id('https://bar/baz'))
-
-        for id in (
-            '',
-            'xy',
-            'x y',
-            'https:///',
-            'at://did:plc:foo/bar/123',
-            'e45fab982',
-            'https://twitter.com/foo',
-            'https://fed.brid.gy/foo',
-            'https://ap.brid.gy/foo',
-        ):
-            with self.subTest(id=id):
-                self.assertFalse(ActivityPub.owns_object_id(id))
+                self.assertIsNone(ActivityPub.id_type(id))
 
     def test_owns_handle(self):
         for addr in ('user@instance', 'user@instance.com', 'user.com@instance.com',

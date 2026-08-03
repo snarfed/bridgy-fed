@@ -115,22 +115,12 @@ class ProtocolTest(TestCase):
                 with app.test_request_context('/foo', base_url=url):
                     self.assertEqual(expected, Protocol.for_request(fed=Fake))
 
-    def test_ui_owns_user_id(self):
-        self.assertIs(True, UIProtocol.owns_user_id('ui:foo'))
-
-        # a web URL user id belongs to some other protocol
-        for id in ('http://ui.org/obj', 'https://foo.com/', 'user.com',
-                   'e45fab982', ''):
-            with self.subTest(id=id):
-                self.assertIs(False, UIProtocol.owns_user_id(id))
-
-    def test_ui_owns_object_id(self):
-        self.assertIs(True, UIProtocol.owns_object_id('ui:foo'))
-        self.assertIsNone(UIProtocol.owns_object_id('http://ui.org/obj'))
-
-        for id in ('user.com', 'e45fab982', ''):
-            with self.subTest(id=id):
-                self.assertIs(False, UIProtocol.owns_object_id(id))
+    def test_id_type_default(self):
+        # neither ui: nor fake: ids distinguish users from objects
+        for proto in UIProtocol, Fake:
+            for id in (f'{proto.LABEL}:foo', 'http://ui.org/obj', 'user.com', ''):
+                with self.subTest(proto=proto.LABEL, id=id):
+                    self.assertIsNone(proto.id_type(id))
 
     def test_for_id(self):
         for id, expected in [

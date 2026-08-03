@@ -2,6 +2,7 @@
 
 https://fed.brid.gy/docs#translate
 """
+from enum import auto, Enum
 import inspect
 import logging
 import re
@@ -28,7 +29,6 @@ from domains import (
     unwrap,
 )
 import models
-from models import PROTOCOLS
 
 logger = logging.getLogger(__name__)
 
@@ -77,6 +77,15 @@ WWW_DOMAINS = frozenset((
     'rako.space',
     'jvt.me',
 ))
+
+
+class IdType(Enum):
+    """Whether an id identifies a user or an object.
+
+    Returned by :meth:`protocol.Protocol.id_type`.
+    """
+    USER = auto()
+    OBJECT = auto()
 
 
 def validate(id, from_, to):
@@ -457,8 +466,8 @@ def translate_handle(*, from_, to, handle=None, short=False):
             username, abbrev = handle.rsplit('@' if '@' in handle else '.', 1)
             if abbrev in ('fa', 'other', 'efake'):
                 username = username.replace('-', ':')
-            return translate_handle(handle=username, from_=PROTOCOLS[abbrev], to=to,
-                                    short=short)
+            return translate_handle(handle=username, from_=models.PROTOCOLS[abbrev],
+                                    to=to, short=short)
 
         case _, 'activitypub':
             if short:
