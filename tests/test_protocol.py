@@ -779,6 +779,35 @@ class ProtocolTest(TestCase):
             'object': 'efake:bob',
         }))
 
+    def test_translate_ids_block_object_is_user(self):
+        self.assert_equals({
+            'objectType': 'activity',
+            'verb': 'block',
+            'actor': 'other:u:fake:alice',
+            'object': 'other:u:did:plc:123',
+        }, OtherFake.translate_ids({
+            'objectType': 'activity',
+            'verb': 'block',
+            'actor': 'fake:alice',
+            'object': 'did:plc:123',
+        }))
+
+    def test_translate_ids_block_object_is_list(self):
+        # a block's object may be a blocklist instead of a user
+        # https://github.com/snarfed/bridgy-fed/issues/2281
+        list_uri = 'at://did:plc:123/app.bsky.graph.list/abc'
+        self.assert_equals({
+            'objectType': 'activity',
+            'verb': 'block',
+            'actor': 'other:u:fake:alice',
+            'object': f'other:o:bsky:{list_uri}',
+        }, OtherFake.translate_ids({
+            'objectType': 'activity',
+            'verb': 'block',
+            'actor': 'fake:alice',
+            'object': list_uri,
+        }))
+
     def test_translate_ids_attachments_mention_tags(self):
         self.assert_equals({
             'objectType': 'note',

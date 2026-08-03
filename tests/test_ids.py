@@ -606,6 +606,30 @@ class IdsTest(TestCase):
                                           to=ActivityPub)
                 self.assertEqual('https://web.brid.gy/r/http://on-web.com/post', got)
 
+    def test_translate_id(self):
+        for id, from_, expected in [
+                # id_type says user
+                ('did:plc:123', ATProto, 'fake:u:did:plc:123'),
+                ('farcaster://456', Farcaster, 'fake:u:farcaster://456'),
+                ('user.com', Web, 'fake:u:user.com'),
+                # id_type says object
+                ('at://did:plc:123/app.bsky.feed.post/abc', ATProto,
+                 'fake:o:bsky:at://did:plc:123/app.bsky.feed.post/abc'),
+                ('farcaster://456/0xabc', Farcaster,
+                 'fake:o:fc:farcaster://456/0xabc'),
+                ('https://user.com/post', Web, 'fake:o:web:https://user.com/post'),
+                # id_type can't tell, so we fall back to the default, ie user
+                ('https://inst/alice', ActivityPub, 'fake:u:https://inst/alice'),
+        ]:
+            with self.subTest(id=id, from_=from_.LABEL):
+                self.assertEqual(expected, ids.translate_id(
+                    id=id, from_=from_, to=Fake))
+
+    def test_translate_id_default_object(self):
+        self.assertEqual('fake:o:ap:https://inst/alice', ids.translate_id(
+            id='https://inst/alice', from_=ActivityPub, to=Fake,
+            default=ids.IdType.OBJECT))
+
     def test_handle_as_domain(self):
         for handle, expected in [
             (None, None),

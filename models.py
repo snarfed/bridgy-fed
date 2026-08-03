@@ -2125,10 +2125,15 @@ class Object(AddRemoveMixin, StringIdModel):
                     obj[field] = obj[field][0]
 
         outer_obj['object'] = []
+        outer_type = as1.object_type(outer_obj)
         for inner_obj in inner_objs:
-            translate_fn = ids.translate_object_id
-            if as1.object_type(outer_obj) in as1.VERBS_WITH_ACTOR_OBJECT:
+            if outer_type == 'block':
+                # a block's object may be a user or an object, eg a blocklist
+                translate_fn = ids.translate_id
+            elif outer_type in as1.VERBS_WITH_ACTOR_OBJECT:
                 translate_fn = ids.translate_user_id
+            else:
+                translate_fn = ids.translate_object_id
             got = replace(inner_obj, translate_fn)
             if isinstance(got, dict) and util.trim_nulls(got).keys() == {'id'}:
                 got = got['id']

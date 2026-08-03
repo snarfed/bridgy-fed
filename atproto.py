@@ -877,9 +877,7 @@ class ATProto(User, Protocol):
             if not (blockee_proto := Protocol.for_id(blockee)):
                 logger.error(f"can't determine protocol for {blockee}")
                 return False
-            blockee = (
-                ids.translate_user_id(id=blockee, from_=blockee_proto, to=to_cls)
-                or ids.translate_object_id(id=blockee, from_=blockee_proto, to=to_cls))
+            blockee = ids.translate_id(id=blockee, from_=blockee_proto, to=to_cls)
             if not blockee:
                 logger.error('no object.object for undo block')
                 return False

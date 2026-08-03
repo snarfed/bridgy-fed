@@ -1075,16 +1075,25 @@ class Protocol:
                   else ids.translate_object_id)
 
         for o in inner_objs:
-            is_actor = (as1.object_type(o) in as1.ACTOR_TYPES
-                        or as1.get_owner(outer_obj) == o.get('id')
-                        or type in ('follow', 'stop-following', 'block'))
-            translate(o, 'id', (ids.translate_user_id if is_actor
-                                else ids.translate_object_id))
-            # TODO: need to handle both user and object ids here
-            # https://github.com/snarfed/bridgy-fed/issues/2281
-            obj_is_actor = o.get('verb') in as1.VERBS_WITH_ACTOR_OBJECT
-            translate(o, 'object', (ids.translate_user_id if obj_is_actor
-                                    else ids.translate_object_id))
+            if (as1.object_type(o) in as1.ACTOR_TYPES
+                    or as1.get_owner(outer_obj) == o.get('id')
+                    or type in ('follow', 'stop-following')):
+                fn = ids.translate_user_id
+            elif type == 'block':
+                # a block's object may be a user or an object, eg a blocklist
+                fn = ids.translate_id
+            else:
+                fn = ids.translate_object_id
+            translate(o, 'id', fn)
+
+            verb = o.get('verb')
+            if verb == 'block':
+                fn = ids.translate_id
+            elif verb in as1.VERBS_WITH_ACTOR_OBJECT:
+                fn = ids.translate_user_id
+            else:
+                fn = ids.translate_object_id
+            translate(o, 'object', fn)
 
         for o in [outer_obj] + inner_objs:
             translate(o, 'inReplyTo', ids.translate_object_id)

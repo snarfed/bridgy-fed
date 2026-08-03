@@ -602,6 +602,32 @@ def translate_object_id(*, id, from_, to):
     assert False, (id, from_.LABEL, to.LABEL)
 
 
+def translate_id(*, id, from_, to, default=IdType.USER):
+    """Translates an id from one protocol to another, user id or object id.
+
+    Use this when you don't know which kind of id you have, eg the ``object`` of
+    a ``block``, which may be either a user or a blocklist. Asks
+    :meth:`protocol.Protocol.id_type` which kind ``id`` is, then hands off to
+    :func:`translate_user_id` or :func:`translate_object_id`.
+
+    https://github.com/snarfed/bridgy-fed/issues/2281
+
+    Args:
+      id (str)
+      from_ (protocol.Protocol)
+      to (protocol.Protocol)
+      default (IdType): which kind to assume if ``from_`` can't tell from ``id``
+        itself, eg all :class:`activitypub.ActivityPub` ids are http(s) URLs
+
+    Returns:
+      str: the corresponding id in ``to``
+    """
+    if (from_.id_type(id) or default) is IdType.OBJECT:
+        return translate_object_id(id=id, from_=from_, to=to)
+
+    return translate_user_id(id=id, from_=from_, to=to)
+
+
 def handle_as_domain(handle):
     """Converts a handle to domain-like format.
 
