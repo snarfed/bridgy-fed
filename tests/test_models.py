@@ -1035,6 +1035,23 @@ class UserTest(TestCase):
         with self.assertRaises(RuntimeError):
             models.load_user('https://y.za/not/homepage')
 
+    def test_load_user_object_id(self):
+        # an object id isn't a user id, even though owns_id says it's ours, so
+        # we shouldn't try to create a user for it
+        # https://github.com/snarfed/bridgy-fed/issues/2281
+        for create in False, True:
+            with self.subTest(create=create):
+                with self.assertRaises(RuntimeError):
+                    models.load_user('at://did:plc:abc/app.bsky.feed.post/123',
+                                     create=create)
+
+    def test_load_user_atproto_profile_id(self):
+        # ...but a profile object id normalizes to its user id
+        self.store_object(id='did:plc:user', raw=DID_DOC)
+        user = self.make_user('did:plc:user', cls=ATProto)
+        self.assertEqual(user, models.load_user(
+            'at://did:plc:user/app.bsky.actor.profile/self'))
+
 
 class ObjectTest(TestCase):
 
@@ -1734,6 +1751,24 @@ cast_add_body { text: "hi" }
             'actor': 'other:alice',
             'object': 'other:bob',
         }, obj.our_as1)
+
+    def test_resolve_ids_copies_block_of_object(self):
+        # a block's object may be a user or an object, eg a blocklist. the id
+        # format tells us which. https://github.com/snarfed/bridgy-fed/issues/2281
+        list_uri = 'at://did:plc:abc/app.bsky.graph.list/123'
+        block = {
+            'id': 'at://did:plc:abc/app.bsky.graph.listblock/456',
+            'objectType': 'activity',
+            'verb': 'block',
+            'actor': 'did:plc:abc',
+            'object': list_uri,
+        }
+        obj = Object(id=block['id'], our_as1=block, source_protocol='atproto')
+
+        self.store_object(id='fake:list', source_protocol='fake',
+                          copies=[Target(uri=list_uri, protocol='atproto')])
+        obj.resolve_ids()
+        self.assert_equals({**block, 'object': 'fake:list'}, obj.our_as1)
 
     def test_resolve_ids_copies_reply(self):
         reply = {

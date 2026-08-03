@@ -2043,11 +2043,14 @@ class Object(AddRemoveMixin, StringIdModel):
 
         # actually replace ids
         #
-        # object field could be either object (eg repost) or actor (eg follow)
-        # TODO: handle better
-        # https://github.com/snarfed/bridgy-fed/issues/2281
-        outer_obj['object'] = replace(inner_obj, get_original_object_key)
-        if not replaced:
+        # the object field could be either an object (eg repost) or a user (eg
+        # follow). ask the id itself which it is, and if it can't say, try both.
+        inner_id = inner_obj.get('id')
+        inner_type = self_proto.id_type(inner_id) if inner_id else None
+        outer_obj['object'] = replace(
+            inner_obj, (get_original_user_key if inner_type is ids.IdType.USER
+                        else get_original_object_key))
+        if not replaced and inner_type is None:
             outer_obj['object'] = replace(inner_obj, get_original_user_key)
 
         for obj in outer_obj, inner_obj:
@@ -2529,9 +2532,9 @@ def hydrate(activity, fields=('author', 'actor', 'object')):
             #
             # same TODO is in models.fetch_objects
             #
-            # once we split owns_id/for_id into user and object variants (#2281),
-            # this should be easier; user ids should be deterministic and
-            # entirely in memory!
+            # note that Protocol.id_type (#2281) doesn't help here: it says
+            # whether an id is a user or an object, but only once you already
+            # know which protocol owns it, which is the expensive part.
             #
             # TODO: bug: only ATProto is handled here, so ids in user id form
             # whose profile object id differs - eg Web bare domains, user.com vs
@@ -2672,14 +2675,16 @@ def load_user(handle_or_id, proto=None, create=False, allow_opt_out=False,
             if not util.is_homepage(handle_or_id):
                 raise RuntimeError(f"{handle_or_id} isn't a web domain or homepage URL")
 
-        # TODO: handle user vs object ids here. this incorrectly assumes that it's
-        # a user id. https://github.com/snarfed/bridgy-fed/issues/2281
+        # normalizing turns profile object ids into their user ids, eg an
+        # at://.../app.bsky.actor.profile/self URI into its DID. if it's still an
+        # object id afterward, it's not a user at all, so don't create one for it.
         id = ids.normalize_user_id(id=handle_or_id, proto=proto)
-        user = (proto.get_or_create(id, allow_opt_out=allow_opt_out, raise_=raise_)
-                if create else proto.get_by_id(id, allow_opt_out=allow_opt_out))
-        if not user:
-            raise RuntimeError(f"Couldn't load {handle_or_id} on {proto.PHRASE}")
-        return user
+        if proto.id_type(id) is not ids.IdType.OBJECT:
+            user = (proto.get_or_create(id, allow_opt_out=allow_opt_out, raise_=raise_)
+                    if create else proto.get_by_id(id, allow_opt_out=allow_opt_out))
+            if not user:
+                raise RuntimeError(f"Couldn't load {handle_or_id} on {proto.PHRASE}")
+            return user
 
     logger.debug(f"doesn't look like a {proto.LABEL} user ID, trying as a handle")
 
