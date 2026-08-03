@@ -745,31 +745,53 @@ def statuses_single(user, id):
     return status
 
 
-@app.post('/api/v1/statuses/<path:id>/favourite', provide_automatic_options=False)
+@app.post('/api/v1/statuses/<path:id>/<any(favourite,reblog):verb>',
+          provide_automatic_options=False)
 @auth
-def statuses_favourite(user, id):
+def statuses_favourite_or_reblog(user, id, verb):
     obj = load_object(id)
 
     if not (source := current_token.granary_source()):
-        error(f"Favouriting isn't supported for {user.LABEL} accounts right now",
-              status=501)
+        error(f"{verb} isn't supported for {user.LABEL} accounts yet", status=501)
 
-    if not (at_uri := obj.get_copy(user)):
-        # TODO
-        error(f"This status isn't bridged to {user.LABEL}, so it can't be favourited",
-              status=422)
+    if not (native_id := obj.get_copy(user)):
+        # TODO: support anyway?
+        error(f"Status {obj.key} isn't bridged to {user.LABEL}", status=422)
 
     result = source.create({
         'objectType': 'activity',
-        'verb': 'like',
+        'verb': 'like' if verb == 'favourite' else 'share',
         'actor': user.key.id(),
         'object': obj.id_as(user),
     })
     if not result.content:
-        error(result.error_plain or "Couldn't favourite this status", status=502)
+        error(result.error_plain or f"Couldn't {verb} this status", status=502)
 
     status = to_status(obj) or {}
-    status['favourited'] = True
+    status['favourited' if verb == 'favourite' else 'reblogged'] = True
+    return status
+
+
+@app.post('/api/v1/statuses/<path:id>/<any(unfavourite,unreblog):verb>',
+          provide_automatic_options=False)
+@auth
+def statuses_unfavourite_or_unreblog(user, id, verb):
+    orig_obj = load_object(id)
+
+    if not (source := current_token.granary_source()):
+        error(f"{verb} isn't supported for {user.LABEL} accounts yet", status=501)
+
+    # TODO: optimize
+    #
+    # TODO: if the like/repost hasn't been bridged back from the PDS to our datastore
+    # yet, we won't find it here. look it up on the PDS directly as a fallback
+    type = 'like' if verb == 'unfavourite' else 'share'
+    for obj in Object.query(Object.users == user.key, Object.type == type):
+        if as1.get_id(obj.as1, 'object') == orig_obj.key.id() and not obj.deleted:
+            source.delete(obj.key.id())
+
+    status = to_status(orig_obj) or {}
+    status['favourited' if verb == 'unfavourite' else 'reblogged'] = False
     return status
 
 

@@ -637,7 +637,7 @@ class MastodonApiTest(TestCase):
             'visibility': 'public',
         }, resp.json)
 
-    def test_statuses_reblog(self):
+    def test_statuses_repost(self):
         bob = self.make_user('other:bob', cls=OtherFake,
                              enabled_protocols=['activitypub'])
         self.store_object(id='fake:post', users=[bob.key], our_as1={
@@ -758,6 +758,134 @@ class MastodonApiTest(TestCase):
 
         resp = self.post('/api/v1/statuses/fake~3Apost/favourite')
         self.assertEqual(501, resp.status_code)
+
+    # deleteRecord
+    @patch.object(util.session, 'post', return_value=requests_response({}))
+    def test_statuses_unfavourite(self, mock_post):
+        user = self.make_atproto_user()
+        self.store_object(
+            id='fake:post', users=[self.user.key], source_protocol='fake',
+            our_as1={'objectType': 'note', 'content': 'hello'})
+        Object(id='at://did:plc:user/app.bsky.feed.like/456',
+              source_protocol='atproto', users=[user.key],
+              our_as1={
+                  'objectType': 'activity',
+                  'verb': 'like',
+                  'actor': 'did:plc:user',
+                  'object': 'fake:post',
+              }).put()
+
+        resp = self.post('/api/v1/statuses/fake~3Apost/unfavourite', user=user)
+        self.assertEqual(200, resp.status_code, resp.get_data(as_text=True))
+        self.assertEqual('hello', resp.json['content'])
+        self.assertFalse(resp.json['favourited'])
+
+        self.assertEqual('https://some.pds/xrpc/com.atproto.repo.deleteRecord',
+                         mock_post.call_args.args[0])
+        self.assert_equals({
+            'repo': 'did:plc:user',
+            'collection': 'app.bsky.feed.like',
+            'rkey': '456',
+        }, mock_post.call_args.kwargs['json'])
+
+    def test_statuses_unfavourite_not_favourited(self):
+        user = self.make_atproto_user()
+        self.store_object(
+            id='fake:post', users=[self.user.key], source_protocol='fake',
+            our_as1={'objectType': 'note', 'content': 'hello'})
+
+        resp = self.post('/api/v1/statuses/fake~3Apost/unfavourite', user=user)
+        self.assertEqual(200, resp.status_code, resp.get_data(as_text=True))
+        self.assertFalse(resp.json['favourited'])
+
+    def test_statuses_unfavourite_not_found(self):
+        user = self.make_atproto_user()
+        resp = self.post('/api/v1/statuses/nope/unfavourite', user=user)
+        self.assertEqual(404, resp.status_code)
+
+    def test_statuses_unfavourite_non_atproto_user(self):
+        self.store_object(
+            id='fake:post', source_protocol='fake',
+            our_as1={'objectType': 'note', 'content': 'hello'})
+
+        resp = self.post('/api/v1/statuses/fake~3Apost/unfavourite')
+        self.assertEqual(501, resp.status_code)
+
+    # createRecord
+    @patch.object(util.session, 'post', return_value=requests_response({
+        'uri': 'at://did:plc:user/app.bsky.feed.repost/456',
+        'cid': 'bafyreibrepostsyddddddddddddddddddddddddddddddddddddddddd',
+    }))
+    # getRecord
+    @patch.object(util.session, 'get', return_value=requests_response({
+        'uri': 'at://did:plc:bob/app.bsky.feed.post/123',
+        'cid': 'bafyreibobsyddddddddddddddddddddddddddddddddddddddddddddd',
+        'value': {},
+    }))
+    def test_statuses_reblog(self, _, mock_post):
+        user = self.make_atproto_user()
+        self.make_user('did:plc:bob', cls=ATProto)
+
+        self.store_object(
+            id='fake:post',
+            source_protocol='fake',
+            copies=[Target(uri='at://did:plc:bob/app.bsky.feed.post/123',
+                           protocol='atproto')],
+            our_as1={
+                'objectType': 'note',
+                'actor': 'did:plc:bob',
+                'content': 'hello',
+            },
+        )
+
+        resp = self.post('/api/v1/statuses/fake~3Apost/reblog', user=user)
+        self.assertEqual(200, resp.status_code, resp.get_data(as_text=True))
+        self.assertEqual('hello', resp.json['content'])
+        self.assertTrue(resp.json['reblogged'])
+
+        self.assertEqual('https://some.pds/xrpc/com.atproto.repo.createRecord',
+                         mock_post.call_args.args[0])
+        self.assert_equals({
+            'repo': 'did:plc:user',
+            'collection': 'app.bsky.feed.repost',
+            'record': {
+                '$type': 'app.bsky.feed.repost',
+                'subject': {
+                    'uri': 'at://did:plc:bob/app.bsky.feed.post/123',
+                    'cid': 'bafyreibobsyddddddddddddddddddddddddddddddddddddddddddddd',
+                },
+                'createdAt': '2022-01-02T03:04:05.000Z',
+            },
+        }, mock_post.call_args.kwargs['json'])
+
+    # deleteRecord
+    @patch.object(util.session, 'post', return_value=requests_response({}))
+    def test_statuses_unreblog(self, mock_post):
+        user = self.make_atproto_user()
+        self.store_object(
+            id='fake:post', users=[self.user.key], source_protocol='fake',
+            our_as1={'objectType': 'note', 'content': 'hello'})
+        Object(id='at://did:plc:user/app.bsky.feed.repost/456',
+              source_protocol='atproto', users=[user.key],
+              our_as1={
+                  'objectType': 'activity',
+                  'verb': 'share',
+                  'actor': 'did:plc:user',
+                  'object': 'fake:post',
+              }).put()
+
+        resp = self.post('/api/v1/statuses/fake~3Apost/unreblog', user=user)
+        self.assertEqual(200, resp.status_code, resp.get_data(as_text=True))
+        self.assertEqual('hello', resp.json['content'])
+        self.assertFalse(resp.json['reblogged'])
+
+        self.assertEqual('https://some.pds/xrpc/com.atproto.repo.deleteRecord',
+                         mock_post.call_args.args[0])
+        self.assert_equals({
+            'repo': 'did:plc:user',
+            'collection': 'app.bsky.feed.repost',
+            'rkey': '456',
+        }, mock_post.call_args.kwargs['json'])
 
     def test_statuses_context(self):
         Object(id='fake:root', our_as1={
