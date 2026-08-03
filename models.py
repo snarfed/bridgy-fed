@@ -1791,6 +1791,22 @@ class Object(AddRemoveMixin, StringIdModel):
             obj.put()
         return obj
 
+    def id_as(self, to_proto):
+        """Returns this object's id in a different protocol.
+
+        Args:
+          to_proto (str or Protocol)
+
+        Returns:
+          str
+        """
+        if isinstance(to_proto, str):
+            to_proto = PROTOCOLS[to_proto]
+
+        from_ = PROTOCOLS[self.source_protocol]
+        assert from_
+        return ids.translate_object_id(id=self.key.id(), from_=from_, to=to_proto)
+
     @staticmethod
     def from_request():
         """Creates and returns an :class:`Object` from form-encoded JSON parameters.
