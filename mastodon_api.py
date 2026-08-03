@@ -12,11 +12,12 @@ from granary import as1, bluesky
 from granary.mastodon import decode_id, encode_id, from_as1
 from webutil import util
 from webutil.flask_util import bool_param, get_required_param, error, MODERN_HEADERS
-from werkzeug.exceptions import BadGateway, HTTPException
+from werkzeug.exceptions import HTTPException
 
 import activitypub
 from activitypub import ActivityPub
 from arroba import datastore_storage
+from atproto import ATProto
 from domains import DOMAINS
 from flask_app import app
 import ids
@@ -741,6 +742,34 @@ def statuses_single(user, id):
     obj = load_object(id)
     if not (status := to_status(obj)):
         error('Status not found', status=404)
+    return status
+
+
+@app.post('/api/v1/statuses/<path:id>/favourite', provide_automatic_options=False)
+@auth
+def statuses_favourite(user, id):
+    obj = load_object(id)
+
+    if not (source := current_token.granary_source()):
+        error(f"Favouriting isn't supported for {user.LABEL} accounts right now",
+              status=501)
+
+    if not (at_uri := obj.get_copy(user)):
+        # TODO
+        error(f"This status isn't bridged to {user.LABEL}, so it can't be favourited",
+              status=422)
+
+    result = source.create({
+        'objectType': 'activity',
+        'verb': 'like',
+        'actor': user.key.id(),
+        'object': obj.id_as(user),
+    })
+    if not result.content:
+        error(result.error_plain or "Couldn't favourite this status", status=502)
+
+    status = to_status(obj) or {}
+    status['favourited'] = True
     return status
 
 

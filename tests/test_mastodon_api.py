@@ -1,16 +1,20 @@
 """Unit tests for mastodon_api.py."""
 from unittest.mock import patch
 
+from oauth_dropins.bluesky import BlueskyAuth
 from webutil import util
 from webutil.testutil import requests_response
+from webutil.util import json_dumps
 
+from atproto import ATProto
 import mastodon_api, mastodon_oauth
 from mastodon_api import to_account, to_status, to_notification
-from models import Follower, Object
+from models import Follower, Object, Target
 from web import Web
 
 from activitypub import ActivityPub
 from .test_activitypub import ACTOR
+from .test_atproto import DID_DOC
 from .testutil import Fake, OtherFake, TestCase
 
 WEBFINGER = requests_response({
@@ -36,10 +40,10 @@ class MastodonApiTest(TestCase):
                                        'preferredUsername': 'alice',
                                    })
 
-    def token(self):
+    def token(self, user=None):
         return mastodon_oauth.encode_jwt({
             'typ': mastodon_oauth.TOKEN_TYP,
-            'user_key': self.user.key.urlsafe().decode(),
+            'user_key': (user or self.user).key.urlsafe().decode(),
             'client_id_hash': 'test',
             'scope': '',
         })
@@ -48,6 +52,21 @@ class MastodonApiTest(TestCase):
         auth_header = {'Authorization': f'Bearer {self.token()}'}
         return self.client.get(path, base_url=base_url, headers=auth_header,
                                **kwargs)
+
+    def post(self, path, user=None, base_url=None, **kwargs):
+        auth_header = {'Authorization': f'Bearer {self.token(user)}'}
+        return self.client.post(path, base_url=base_url, headers=auth_header,
+                                **kwargs)
+
+    def make_atproto_user(self):
+        """Makes an ATProto user with a :class:`BlueskyAuth` for their own PDS."""
+        BlueskyAuth(id='did:plc:user', pds_url='https://some.pds/',
+                    user_json=json_dumps({'did': 'did:plc:user', 'handle': 'ha.nd'}),
+                    session={'accessJwt': 'towkin', 'refreshJwt': 'reefresh'},
+                    ).put()
+        self.store_object(id='did:plc:user', raw=DID_DOC)
+        return self.make_user('did:plc:user', cls=ATProto,
+                              enabled_protocols=['activitypub'])
 
     def test_health(self):
         resp = self.client.get('/health')
@@ -663,6 +682,82 @@ class MastodonApiTest(TestCase):
         self.assertEqual(200, resp.status_code, resp.get_data(as_text=True))
         self.assertEqual('https~3A~2F~2Fsnarfed.org~2Fa_b', resp.json['id'])
         self.assertEqual('hello', resp.json['content'])
+
+    # createRecord
+    @patch.object(util.session, 'post', return_value=requests_response({
+        'uri': 'at://did:plc:user/app.bsky.feed.like/456',
+        'cid': 'bafyreiblikesyddddddddddddddddddddddddddddddddddddddddddd',
+    }))
+    # getRecord
+    @patch.object(util.session, 'get', return_value=requests_response({
+        'uri': 'at://did:plc:bob/app.bsky.feed.post/123',
+        'cid': 'bafyreibobsyddddddddddddddddddddddddddddddddddddddddddddd',
+        'value': {},
+    }))
+    def test_statuses_favourite(self, _, mock_post):
+        user = self.make_atproto_user()
+        self.make_user('did:plc:bob', cls=ATProto)
+
+        self.store_object(
+            id='fake:post',
+            source_protocol='fake',
+            copies=[Target(uri='at://did:plc:bob/app.bsky.feed.post/123',
+                           protocol='atproto')],
+            our_as1={
+                'objectType': 'note',
+                'actor': 'did:plc:bob',
+                'content': 'hello',
+            },
+        )
+
+        resp = self.post('/api/v1/statuses/fake~3Apost/favourite', user=user)
+        self.assertEqual(200, resp.status_code, resp.get_data(as_text=True))
+        self.assertEqual('hello', resp.json['content'])
+        self.assertTrue(resp.json['favourited'])
+
+        self.assertEqual('https://some.pds/xrpc/com.atproto.repo.createRecord',
+                         mock_post.call_args.args[0])
+        self.assert_equals({
+            'repo': 'did:plc:user',
+            'collection': 'app.bsky.feed.like',
+            'record': {
+                '$type': 'app.bsky.feed.like',
+                'subject': {
+                    'uri': 'at://did:plc:bob/app.bsky.feed.post/123',
+                    'cid': 'bafyreibobsyddddddddddddddddddddddddddddddddddddddddddddd',
+                },
+                'createdAt': '2022-01-02T03:04:05.000Z',
+            },
+        }, mock_post.call_args.kwargs['json'])
+
+    def test_statuses_favourite_not_bridged_to_bluesky(self):
+        user = self.make_atproto_user()
+        Object(id='fake:post', users=[self.user.key], source_protocol='fake',
+               our_as1={
+                   'objectType': 'note',
+                   'content': 'hello',
+               }).put()
+
+        resp = self.post('/api/v1/statuses/fake~3Apost/favourite', user=user)
+        self.assertEqual(422, resp.status_code)
+
+    def test_statuses_favourite_not_found(self):
+        user = self.make_atproto_user()
+        resp = self.post('/api/v1/statuses/nope/favourite', user=user)
+        self.assertEqual(404, resp.status_code)
+
+    def test_statuses_favourite_non_atproto_user(self):
+        self.store_object(
+            id='fake:post',
+            # users=[self.user.key],
+            # source_protocol='fake',
+            copies=[Target(uri='at://did:plc:bob/app.bsky.feed.post/123',
+                           protocol='atproto')],
+            our_as1={'objectType': 'note', 'content': 'hello'},
+        )
+
+        resp = self.post('/api/v1/statuses/fake~3Apost/favourite')
+        self.assertEqual(501, resp.status_code)
 
     def test_statuses_context(self):
         Object(id='fake:root', our_as1={
