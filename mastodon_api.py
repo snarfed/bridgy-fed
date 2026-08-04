@@ -639,20 +639,14 @@ def accounts_block_or_unblock(user, source, id, verb):
         if not (other_id := other.get_copy(user)):
             error(f"Account {other.key} isn't bridged to {user.LABEL}", status=422)
 
-        # TODO
-        # granary.bluesky.Source.create doesn't support blocks, so build and write
-        # the record ourselves
-        record = bluesky.from_as1({
+        result = source.create({
             'objectType': 'activity',
             'verb': 'block',
             'actor': user.key.id(),
             'object': other_id,
         })
-        source.client.com.atproto.repo.createRecord({
-            'repo': user.key.id(),
-            'collection': record['$type'],
-            'record': record,
-        })
+        if not result.content:
+            error(result.error_plain or "Couldn't block this account", status=502)
 
     else:
         # TODO: if the block hasn't been bridged back from the PDS to our
