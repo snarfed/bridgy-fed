@@ -5,6 +5,7 @@ from unittest.mock import patch
 from urllib.parse import parse_qs, urlencode, urlparse
 
 from granary.bluesky import Bluesky
+from granary.micropub import Micropub
 import jwt
 from oauth_dropins import indieauth
 import oauth_dropins.bluesky
@@ -487,7 +488,7 @@ class MastodonOAuthTest(TestCase):
     @patch('oauth_dropins.bluesky.oauth_client_for_pds',
            return_value=OAuth2Client(token_endpoint='https://un/used',
                                      client_id='unused', client_secret='unused'))
-    def test_granary_source_oauth(self, mock_oauth_client_for_pds):
+    def test_granary_source_bluesky(self, mock_oauth_client_for_pds):
         self.store_object(id='did:plc:user', raw=DID_DOC)
         user = self.make_user('did:plc:user', cls=ATProto)
         BlueskyAuth(id='did:plc:user', pds_url='https://some.pds/',
@@ -521,3 +522,17 @@ class MastodonOAuthTest(TestCase):
     def test_granary_source_non_atproto_user(self):
         token = mastodon_oauth.Token({'user_key': self.user.key.urlsafe().decode()})
         self.assertIsNone(token.granary_source())
+
+    @patch.object(util, 'requests_get',
+                  return_value=requests_response(
+                      '', url='https://alice.com/',
+                      headers={'Link': '<https://alice.com/mp>; rel="micropub"'}))
+    def test_granary_source_web(self, mock_get):
+        indieauth.IndieAuth(id='https://alice.com', user_json='{}',
+                            access_token_str='towkin').put()
+
+        token = mastodon_oauth.Token({'user_key': self.user.key.urlsafe().decode()})
+        source = token.granary_source()
+        self.assertIsInstance(source, Micropub)
+        self.assertEqual('https://alice.com/mp', source.endpoint)
+        self.assertEqual('towkin', source.access_token)

@@ -27,6 +27,7 @@ from flask import redirect, Response, request
 from google.cloud import ndb
 from google.cloud.ndb.key import Key
 from granary.bluesky import Bluesky
+from granary.micropub import Micropub
 import jwt
 from oauth_dropins import indieauth
 import oauth_dropins.bluesky
@@ -37,11 +38,13 @@ from webutil import models
 from webutil.flask_util import error, FlashErrors, flash, get_required_param
 from werkzeug.exceptions import HTTPException
 
+from atproto import ATProto
 import common
 from common import render_template
 import domains
 from flask_app import app
 import pages
+from web import Web
 
 logger = logging.getLogger(__name__)
 
@@ -260,16 +263,18 @@ class Token(TokenMixin):
         Returns:
           granary.source.Source or None:
         """
-        if self.user_key.kind() != 'ATProto':
-            logger.info(f"{self.user_key} doesn't support writes yet")
-            return None
+        if self.user_key.kind() == ATProto._get_kind():
+            if auth := BlueskyAuth.get_by_id(self.user_key.id()):
+                return Bluesky.from_auth(
+                    auth, client_metadata=_atproto_proxy_client_metadata())
 
-        if not (auth := BlueskyAuth.get_by_id(self.user_key.id())):
-            logger.info(f'No BlueskyAuth for {self.user_key}')
-            return None
+        elif self.user_key.kind() == Web._get_kind():
+            url = f'https://{self.user_key.id()}'
+            if auth := (indieauth.IndieAuth.get_by_id(url)
+                        or indieauth.IndieAuth.get_by_id(url + '/')):
+                return Micropub.from_auth(auth)
 
-        return Bluesky.from_auth(
-            auth, client_metadata=_atproto_proxy_client_metadata())
+        logger.info(f"No auth for {self.user_key}, or it doesn't support writes yet")
 
     def get_client(self):
         return None
