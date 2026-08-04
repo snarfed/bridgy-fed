@@ -48,20 +48,33 @@ def non_none(seq):
     return [elem for elem in seq if elem is not None]
 
 
-def auth(fn):
+def auth(granary_source=False):
     """Requires a valid bearer token, resolves it to a :class:`models.User`.
 
     Passes the resolved user to the wrapped view function as a ``user`` kwarg.
-    """
-    @require_oauth()
-    @functools.wraps(fn)
-    def wrapper(*args, **kwargs):
-        if not (user := current_token.get_user()):
-            error('Account not found', status=401)
-        logger.info(f'Logged in as {user.key.id()} for {request.url}')
-        return fn(*args, user=user, **kwargs)
 
-    return wrapper
+    Args:
+      * granary_source (bool): if true, generates a :class:`granary.source.Source`
+        for the user and passes it as the ``source`` kwarg.
+    """
+    def decorator(fn):
+        @require_oauth()
+        @functools.wraps(fn)
+        def wrapper(*args, **kwargs):
+            if not (user := current_token.get_user()):
+                error('Account not found', status=401)
+            logger.info(f'Logged in as {user.key.id()} for {request.url}')
+
+            if granary_source:
+                if not (source := current_token.granary_source()):
+                    error(f"{user.LABEL} accounts not supported yet", status=501)
+                kwargs['source'] = source
+
+            return fn(*args, user=user, **kwargs)
+
+        return wrapper
+
+    return decorator
 
 
 def to_account(user):
@@ -505,13 +518,13 @@ def instance_terms_of_service():
 
 
 @app.get('/api/v1/accounts/verify_credentials', provide_automatic_options=False)
-@auth
+@auth()
 def verify_credentials(user):
     return to_account(user)
 
 
 @app.get('/api/v1/preferences', provide_automatic_options=False)
-@auth
+@auth()
 def preferences(user):
     # TODO
     return {
@@ -524,7 +537,7 @@ def preferences(user):
 
 
 @app.get('/api/v1/accounts/lookup', provide_automatic_options=False)
-@auth
+@auth()
 def accounts_lookup(user):
     if user := load_user(get_required_param('acct')):
         return to_account(user)
@@ -533,7 +546,7 @@ def accounts_lookup(user):
 
 
 @app.get('/api/v1/accounts/relationships', provide_automatic_options=False)
-@auth
+@auth()
 def accounts_relationships(user):
     relationships = []
 
@@ -575,14 +588,14 @@ def accounts_relationships(user):
 
 
 @app.get('/api/v1/follow_requests', provide_automatic_options=False)
-@auth
+@auth()
 def follow_requests(user):
     # TODO
     return []
 
 
 @app.get('/api/v1/accounts/<path:id>', provide_automatic_options=False)
-@auth
+@auth()
 def accounts_get(user, id):
     if user := load_account_id(id):
         return to_account(user)
@@ -591,7 +604,7 @@ def accounts_get(user, id):
 
 
 @app.get('/api/v1/accounts/<path:id>/statuses', provide_automatic_options=False)
-@auth
+@auth()
 def accounts_statuses(user, id):
     # TODO: tagged
     if not (user := load_account_id(id)):
@@ -634,7 +647,7 @@ def accounts_statuses(user, id):
 
 
 @app.get('/api/v1/accounts/<path:id>/followers', provide_automatic_options=False)
-@auth
+@auth()
 def accounts_followers(user, id):
     if not (other := load_account_id(id)):
         error('Not found', status=404)
@@ -644,7 +657,7 @@ def accounts_followers(user, id):
 
 
 @app.get('/api/v1/accounts/<path:id>/following', provide_automatic_options=False)
-@auth
+@auth()
 def accounts_following(user, id):
     if not (other := load_account_id(id)):
         error('Not found', status=404)
@@ -654,28 +667,28 @@ def accounts_following(user, id):
 
 
 @app.get('/api/v1/accounts/<path:id>/featured_tags', provide_automatic_options=False)
-@auth
+@auth()
 def accounts_featured_tags(user, id):
     # TODO
     return []
 
 
 @app.get('/api/v1/accounts/<path:id>/lists', provide_automatic_options=False)
-@auth
+@auth()
 def accounts_lists(user, id):
     # TODO
     return []
 
 
 @app.get('/api/v1/accounts/<path:id>/endorsements', provide_automatic_options=False)
-@auth
+@auth()
 def accounts_endorsements(user, id):
     # TODO
     return []
 
 
 @app.get('/api/v1/accounts/familiar_followers', provide_automatic_options=False)
-@auth
+@auth()
 def accounts_familiar_followers(user):
     # TODO
     ids = request.args.getlist('id[]') + request.args.getlist('id')
@@ -683,35 +696,35 @@ def accounts_familiar_followers(user):
 
 
 @app.get('/api/v1/followed_tags', provide_automatic_options=False)
-@auth
+@auth()
 def followed_tags(user):
     # TODO
     return []
 
 
 @app.get('/api/v1/blocks', provide_automatic_options=False)
-@auth
+@auth()
 def blocks(user):
     # TODO
     return []
 
 
 @app.get('/api/v1/bookmarks', provide_automatic_options=False)
-@auth
+@auth()
 def bookmarks(user):
     # TODO
     return []
 
 
 @app.get('/api/v1/domain_blocks', provide_automatic_options=False)
-@auth
+@auth()
 def domain_blocks_get(user):
     blocklists = ndb.get_multi(user.blocks)
     return [domain for list in blocklists for domain in list.domain_blocklist]
 
 
 @app.get('/api/v1/favourites', provide_automatic_options=False)
-@auth
+@auth()
 def favourites(user):
     likes = Object.query(Object.users == user.key,
                          Object.type == 'like',
@@ -725,7 +738,7 @@ def favourites(user):
 
 
 @app.get('/api/v1/statuses', provide_automatic_options=False)
-@auth
+@auth()
 def statuses_multiple(user):
     ids = [decode_id(id) for id in
            request.args.getlist('id[]') + request.args.getlist('id')]
@@ -737,7 +750,7 @@ def statuses_multiple(user):
 
 
 @app.get('/api/v1/statuses/<path:id>', provide_automatic_options=False)
-@auth
+@auth()
 def statuses_single(user, id):
     obj = load_object(id)
     if not (status := to_status(obj)):
@@ -747,12 +760,9 @@ def statuses_single(user, id):
 
 @app.post('/api/v1/statuses/<path:id>/<any(favourite,reblog):verb>',
           provide_automatic_options=False)
-@auth
-def statuses_favourite_or_reblog(user, id, verb):
+@auth(granary_source=True)
+def statuses_favourite_or_reblog(user, source, id, verb):
     obj = load_object(id)
-
-    if not (source := current_token.granary_source()):
-        error(f"{verb} isn't supported for {user.LABEL} accounts yet", status=501)
 
     if not (native_id := obj.get_copy(user)):
         # TODO: support anyway?
@@ -774,12 +784,9 @@ def statuses_favourite_or_reblog(user, id, verb):
 
 @app.post('/api/v1/statuses/<path:id>/<any(unfavourite,unreblog):verb>',
           provide_automatic_options=False)
-@auth
-def statuses_unfavourite_or_unreblog(user, id, verb):
+@auth(granary_source=True)
+def statuses_unfavourite_or_unreblog(user, source, id, verb):
     orig_obj = load_object(id)
-
-    if not (source := current_token.granary_source()):
-        error(f"{verb} isn't supported for {user.LABEL} accounts yet", status=501)
 
     # TODO: optimize
     #
@@ -796,7 +803,7 @@ def statuses_unfavourite_or_unreblog(user, id, verb):
 
 
 @app.get('/api/v1/statuses/<path:id>/context', provide_automatic_options=False)
-@auth
+@auth()
 def statuses_context(user, id):
     obj = load_object(id)
 
@@ -821,7 +828,7 @@ def statuses_context(user, id):
 
 
 @app.get('/api/v1/statuses/<path:id>/favourited_by', provide_automatic_options=False)
-@auth
+@auth()
 def statuses_favourited_by(user, id):
     load_object(id)
     # likes aren't indexed by target, so we can't look them up efficiently
@@ -829,7 +836,7 @@ def statuses_favourited_by(user, id):
 
 
 @app.get('/api/v1/statuses/<path:id>/reblogged_by', provide_automatic_options=False)
-@auth
+@auth()
 def statuses_reblogged_by(user, id):
     load_object(id)
     # reposts aren't indexed by target, so we can't look them up efficiently
@@ -837,7 +844,7 @@ def statuses_reblogged_by(user, id):
 
 
 @app.get('/api/v1/timelines/home', provide_automatic_options=False)
-@auth
+@auth()
 def timelines_home(user):
     objects = [obj for obj in Object.query(Object.feed == user.key
                                            ).order(-Object.created
@@ -851,7 +858,7 @@ def timelines_home(user):
 
 
 @app.get('/api/v1/timelines/public', provide_automatic_options=False)
-@auth
+@auth()
 def timelines_public(user):
     objects = [obj for obj in Object.query(Object.type.IN(as1.POST_TYPES | set(['share'])),
                                            ).order(-Object.created
@@ -862,48 +869,48 @@ def timelines_public(user):
 
 
 @app.get('/api/v1/timelines/tag/<hashtag>', provide_automatic_options=False)
-@auth
+@auth()
 def timelines_tag(user, hashtag):
     return []
 
 
 @app.get('/api/v1/conversations', provide_automatic_options=False)
-@auth
+@auth()
 def conversations(user):
     # TODO
     return []
 
 
 @app.get('/api/v1/lists', provide_automatic_options=False)
-@auth
+@auth()
 def lists(user):
     # TODO
     return []
 
 
 @app.get('/api/v1/lists/<path:id>', provide_automatic_options=False)
-@auth
+@auth()
 def lists_get(user, id):
     # TODO
     error('List not found', status=404)
 
 
 @app.get('/api/v1/lists/<path:id>/accounts', provide_automatic_options=False)
-@auth
+@auth()
 def lists_accounts(user, id):
     # TODO
     error('List not found', status=404)
 
 
 @app.get('/api/v1/markers', provide_automatic_options=False)
-@auth
+@auth()
 def markers(user):
     # TODO
     return {}
 
 
 @app.get('/api/v1/notifications', provide_automatic_options=False)
-@auth
+@auth()
 def notifications_list(user):
     # TODO: unbridged notifs
     objects = [obj for obj in Object.query(Object.notify == user.key
@@ -915,7 +922,7 @@ def notifications_list(user):
 
 
 @app.get('/api/v1/notifications/<path:id>', provide_automatic_options=False)
-@auth
+@auth()
 def notifications_get(user, id):
     obj = Object.get_by_id(decode_id(id))
     if (obj and obj.as1 and not obj.deleted and as1.is_public(obj.as1)
@@ -927,14 +934,14 @@ def notifications_get(user, id):
 
 
 @app.get('/api/v1/notifications/unread_count', provide_automatic_options=False)
-@auth
+@auth()
 def notifications_unread_count(user):
     # we don't currently track read vs unread
     return {'count': 0}
 
 
 @app.get('/api/v2/search', provide_automatic_options=False)
-@auth
+@auth()
 def search(user):
     resp = {
         'accounts': [],
