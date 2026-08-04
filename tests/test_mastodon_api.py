@@ -14,7 +14,7 @@ from web import Web
 
 from activitypub import ActivityPub
 from .test_activitypub import ACTOR
-from .test_atproto import DID_DOC
+from . import test_atproto
 from .testutil import Fake, OtherFake, TestCase
 
 WEBFINGER = requests_response({
@@ -26,6 +26,10 @@ WEBFINGER = requests_response({
     }],
 }, content_type='application/jrd+json')
 
+DID_DOC = {
+    **test_atproto.DID_DOC,
+    'alsoKnownAs': ['at://han.dull'],
+}
 
 class MastodonApiTest(TestCase):
 
@@ -48,15 +52,21 @@ class MastodonApiTest(TestCase):
             'scope': '',
         })
 
-    def get(self, path, base_url=None, **kwargs):
-        auth_header = {'Authorization': f'Bearer {self.token()}'}
-        return self.client.get(path, base_url=base_url, headers=auth_header,
-                               **kwargs)
-
-    def post(self, path, user=None, base_url=None, **kwargs):
+    def request(self, path, method=None, user=None, **kwargs):
         auth_header = {'Authorization': f'Bearer {self.token(user)}'}
-        return self.client.post(path, base_url=base_url, headers=auth_header,
-                                **kwargs)
+        return self.client.open(path, headers=auth_header, method=method, **kwargs)
+
+    def get(self, path, **kwargs):
+        return self.request(path, method='GET', **kwargs)
+
+    def post(self, path, **kwargs):
+        return self.request(path, method='POST', **kwargs)
+
+    def put(self, path, **kwargs):
+        return self.request(path, method='PUT', **kwargs)
+
+    def delete(self, path, **kwargs):
+        return self.request(path, method='DELETE', **kwargs)
 
     def make_atproto_user(self):
         """Makes an ATProto user with a :class:`BlueskyAuth` for their own PDS."""
@@ -206,6 +216,183 @@ class MastodonApiTest(TestCase):
         self.assertEqual(200, resp.status_code, resp.get_data(as_text=True))
         self.assertTrue(resp.json[0]['following'])
         self.assertFalse(resp.json[0]['followed_by'])
+
+    # createRecord
+    @patch.object(util.session, 'post', return_value=requests_response({
+        'uri': 'at://did:plc:user/app.bsky.graph.follow/456',
+        'cid': 'bafyreifollowsyddddddddddddddddddddddddddddddddddddddddd',
+    }))
+    def test_accounts_follow(self, mock_post):
+        user = self.make_atproto_user()
+        self.make_user('fake:bob', cls=Fake,
+                       copies=[Target(uri='did:plc:bob', protocol='atproto')])
+
+        resp = self.post("/api/v1/accounts/fake~3Abob/follow", user=user)
+        self.assertEqual(200, resp.status_code, resp.get_data(as_text=True))
+        self.assertTrue(resp.json['following'])
+
+        self.assertEqual('https://some.pds/xrpc/com.atproto.repo.createRecord',
+                         mock_post.call_args.args[0])
+        self.assert_equals({
+            'repo': 'did:plc:user',
+            'collection': 'app.bsky.graph.follow',
+            'record': {
+                '$type': 'app.bsky.graph.follow',
+                'subject': 'did:plc:bob',
+                'createdAt': '2022-01-02T03:04:05.000Z',
+            },
+        }, mock_post.call_args.kwargs['json'])
+
+    def test_accounts_follow_not_bridged(self):
+        user = self.make_atproto_user()
+        bob = self.make_user('fake:bob', cls=Fake)
+
+        resp = self.post("/api/v1/accounts/fake~3Abob/follow", user=user)
+        self.assertEqual(422, resp.status_code)
+
+    def test_accounts_follow_not_found(self):
+        user = self.make_atproto_user()
+        resp = self.post('/api/v1/accounts/nope/follow', user=user)
+        self.assertEqual(404, resp.status_code)
+
+    def test_accounts_follow_non_atproto_user(self):
+        self.make_user('fake:bob', cls=Fake,
+                       copies=[Target(uri='did:plc:bob', protocol='atproto')])
+        resp = self.post("/api/v1/accounts/fake~3Abob/follow")
+        self.assertEqual(501, resp.status_code)
+
+    # deleteRecord
+    @patch.object(util.session, 'post', return_value=requests_response({}))
+    def test_accounts_unfollow(self, mock_post):
+        user = self.make_atproto_user()
+        bob = self.make_user('fake:bob', cls=Fake,
+                             copies=[Target(uri='did:plc:bob', protocol='atproto')])
+        follow_obj = Object(id='at://did:plc:user/app.bsky.graph.follow/456',
+                            source_protocol='atproto', users=[user.key],
+                            our_as1={
+                                'objectType': 'activity',
+                                'verb': 'follow',
+                                'actor': 'did:plc:user',
+                                'object': 'fake:bob',
+                            })
+        follow_obj.put()
+        Follower.get_or_create(from_=user, to=bob, follow=follow_obj.key)
+
+        resp = self.post("/api/v1/accounts/fake~3Abob/unfollow", user=user)
+        self.assertEqual(200, resp.status_code, resp.get_data(as_text=True))
+        self.assertFalse(resp.json['following'])
+
+        self.assertEqual('https://some.pds/xrpc/com.atproto.repo.deleteRecord',
+                         mock_post.call_args.args[0])
+        self.assert_equals({
+            'repo': 'did:plc:user',
+            'collection': 'app.bsky.graph.follow',
+            'rkey': '456',
+        }, mock_post.call_args.kwargs['json'])
+
+    def test_accounts_unfollow_not_following(self):
+        user = self.make_atproto_user()
+        self.make_user('fake:bob', cls=Fake,
+                       copies=[Target(uri='did:plc:bob', protocol='atproto')])
+
+        resp = self.post("/api/v1/accounts/fake~3Abob/unfollow", user=user)
+        self.assertEqual(200, resp.status_code, resp.get_data(as_text=True))
+        self.assertFalse(resp.json['following'])
+
+    def test_accounts_unfollow_non_atproto_user(self):
+        self.make_user('fake:bob', cls=Fake,
+                       copies=[Target(uri='did:plc:bob', protocol='atproto')])
+
+        resp = self.post("/api/v1/accounts/fake~3Abob/unfollow")
+        self.assertEqual(501, resp.status_code)
+
+    # createRecord
+    @patch.object(util.session, 'post', return_value=requests_response({
+        'uri': 'at://did:plc:user/app.bsky.graph.block/456',
+        'cid': 'bafyreiblocksyddddddddddddddddddddddddddddddddddddddddd',
+    }))
+    def test_accounts_block(self, mock_post):
+        user = self.make_atproto_user()
+        self.make_user('fake:bob', cls=Fake,
+                       copies=[Target(uri='did:plc:bob', protocol='atproto')])
+
+        resp = self.post("/api/v1/accounts/fake~3Abob/block", user=user)
+        self.assertEqual(200, resp.status_code, resp.get_data(as_text=True))
+        self.assertTrue(resp.json['blocking'])
+
+        self.assertEqual('https://some.pds/xrpc/com.atproto.repo.createRecord',
+                         mock_post.call_args.args[0])
+        self.assert_equals({
+            'repo': 'did:plc:user',
+            'collection': 'app.bsky.graph.block',
+            'record': {
+                '$type': 'app.bsky.graph.block',
+                'subject': 'did:plc:bob',
+                'createdAt': '2022-01-02T03:04:05.000Z',
+            },
+        }, mock_post.call_args.kwargs['json'])
+
+    def test_accounts_block_not_bridged(self):
+        user = self.make_atproto_user()
+        self.make_user('fake:bob', cls=Fake)
+
+        resp = self.post("/api/v1/accounts/fake~3Abob/block", user=user)
+        self.assertEqual(422, resp.status_code)
+
+    def test_accounts_block_not_found(self):
+        user = self.make_atproto_user()
+        resp = self.post('/api/v1/accounts/nope/block', user=user)
+        self.assertEqual(404, resp.status_code)
+
+    def test_accounts_block_non_atproto_user(self):
+        self.make_user('fake:bob', cls=Fake,
+                       copies=[Target(uri='did:plc:bob', protocol='atproto')])
+
+        resp = self.post("/api/v1/accounts/fake~3Abob/block")
+        self.assertEqual(501, resp.status_code)
+
+    # deleteRecord
+    @patch.object(util.session, 'post', return_value=requests_response({}))
+    def test_accounts_unblock(self, mock_post):
+        user = self.make_atproto_user()
+        self.make_user('fake:bob', cls=Fake,
+                       copies=[Target(uri='did:plc:bob', protocol='atproto')])
+        Object(id='at://did:plc:user/app.bsky.graph.block/456',
+              source_protocol='atproto', users=[user.key],
+              our_as1={
+                  'objectType': 'activity',
+                  'verb': 'block',
+                  'actor': 'did:plc:user',
+                  'object': 'fake:bob',
+              }).put()
+
+        resp = self.post("/api/v1/accounts/fake~3Abob/unblock", user=user)
+        self.assertEqual(200, resp.status_code, resp.get_data(as_text=True))
+        self.assertFalse(resp.json['blocking'])
+
+        self.assertEqual('https://some.pds/xrpc/com.atproto.repo.deleteRecord',
+                         mock_post.call_args.args[0])
+        self.assert_equals({
+            'repo': 'did:plc:user',
+            'collection': 'app.bsky.graph.block',
+            'rkey': '456',
+        }, mock_post.call_args.kwargs['json'])
+
+    def test_accounts_unblock_not_blocking(self):
+        user = self.make_atproto_user()
+        self.make_user('fake:bob', cls=Fake,
+                       copies=[Target(uri='did:plc:bob', protocol='atproto')])
+
+        resp = self.post("/api/v1/accounts/fake~3Abob/unblock", user=user)
+        self.assertEqual(200, resp.status_code, resp.get_data(as_text=True))
+        self.assertFalse(resp.json['blocking'])
+
+    def test_accounts_unblock_non_atproto_user(self):
+        self.make_user('fake:bob', cls=Fake,
+                       copies=[Target(uri='did:plc:bob', protocol='atproto')])
+
+        resp = self.post("/api/v1/accounts/fake~3Abob/unblock")
+        self.assertEqual(501, resp.status_code)
 
     def test_follow_requests(self):
         resp = self.get('/api/v1/follow_requests')
@@ -696,7 +883,8 @@ class MastodonApiTest(TestCase):
     }))
     def test_statuses_favourite(self, _, mock_post):
         user = self.make_atproto_user()
-        self.make_user('did:plc:bob', cls=ATProto)
+        self.make_user('fake:bob', cls=Fake,
+                       copies=[Target(uri='did:plc:bob', protocol='atproto')])
 
         self.store_object(
             id='fake:post',
@@ -824,7 +1012,8 @@ class MastodonApiTest(TestCase):
     }))
     def test_statuses_reblog(self, _, mock_post):
         user = self.make_atproto_user()
-        self.make_user('did:plc:bob', cls=ATProto)
+        self.make_user('fake:bob', cls=Fake,
+                       copies=[Target(uri='did:plc:bob', protocol='atproto')])
 
         self.store_object(
             id='fake:post',
@@ -886,6 +1075,196 @@ class MastodonApiTest(TestCase):
             'collection': 'app.bsky.feed.repost',
             'rkey': '456',
         }, mock_post.call_args.kwargs['json'])
+
+    # createRecord
+    @patch.object(util.session, 'post', return_value=requests_response({
+        'uri': 'at://did:plc:user/app.bsky.feed.post/456',
+        'cid': 'bafyreipostsyddddddddddddddddddddddddddddddddddddddddddd',
+    }))
+    def test_statuses_create(self, mock_post):
+        user = self.make_atproto_user()
+        # a plain, non-bridged handle, so to_account(user) doesn't try to route it
+        # back through ActivityPub's fa.brid.gy subdomain
+        self.store_object(id='did:plc:user', raw=DID_DOC)
+
+        resp = self.post('/api/v1/statuses', user=user, data={'status': 'hello world'})
+        self.assertEqual(200, resp.status_code, resp.get_data(as_text=True))
+        self.assertEqual('hello world', resp.json['content'])
+        self.assertEqual(to_account(user), resp.json['account'])
+
+        self.assertEqual('https://some.pds/xrpc/com.atproto.repo.createRecord',
+                         mock_post.call_args.args[0])
+        self.assert_equals({
+            'repo': 'did:plc:user',
+            'collection': 'app.bsky.feed.post',
+            'record': {
+                '$type': 'app.bsky.feed.post',
+                'text': 'hello world',
+                'createdAt': '2022-01-02T03:04:05.000Z',
+            },
+        }, mock_post.call_args.kwargs['json'])
+
+    # createRecord
+    @patch.object(util.session, 'post', return_value=requests_response({
+        'uri': 'at://did:plc:user/app.bsky.feed.post/456',
+        'cid': 'bafyreipostsyddddddddddddddddddddddddddddddddddddddddddd',
+    }))
+    # getRecord
+    @patch.object(util.session, 'get', return_value=requests_response({
+        'uri': 'at://did:plc:bob/app.bsky.feed.post/123',
+        'cid': 'bafyreibobsyddddddddddddddddddddddddddddddddddddddddddddd',
+        'value': {},
+    }))
+    def test_statuses_create_reply(self, _, mock_post):
+        user = self.make_atproto_user()
+        self.store_object(id='did:plc:user', raw={
+            **DID_DOC,
+            'alsoKnownAs': ['at://han.dull'],
+        })
+        self.make_user('fake:bob', cls=Fake,
+                       copies=[Target(uri='did:plc:bob', protocol='atproto')])
+
+        self.store_object(
+            id='fake:post',
+            source_protocol='fake',
+            copies=[Target(uri='at://did:plc:bob/app.bsky.feed.post/123',
+                           protocol='atproto')],
+            our_as1={'objectType': 'note', 'actor': 'did:plc:bob', 'content': 'orig'})
+
+        resp = self.post('/api/v1/statuses', user=user,
+                         data={'status': 'a reply', 'in_reply_to_id': 'fake~3Apost'})
+        self.assertEqual(200, resp.status_code, resp.get_data(as_text=True))
+        self.assertEqual('a reply', resp.json['content'])
+        self.assertEqual('fake~3Apost', resp.json['in_reply_to_id'])
+
+        self.assert_equals({
+            'repo': 'did:plc:user',
+            'collection': 'app.bsky.feed.post',
+            'record': {
+                '$type': 'app.bsky.feed.post',
+                'text': 'a reply',
+                'createdAt': '2022-01-02T03:04:05.000Z',
+                'reply': {
+                    '$type': 'app.bsky.feed.post#replyRef',
+                    'root': {
+                        'uri': 'at://did:plc:bob/app.bsky.feed.post/123',
+                        'cid': 'bafyreibobsyddddddddddddddddddddddddddddddddddddddddddddd',
+                    },
+                    'parent': {
+                        'uri': 'at://did:plc:bob/app.bsky.feed.post/123',
+                        'cid': 'bafyreibobsyddddddddddddddddddddddddddddddddddddddddddddd',
+                    },
+                },
+            },
+        }, mock_post.call_args.kwargs['json'])
+
+    def test_statuses_create_missing_status(self):
+        user = self.make_atproto_user()
+        resp = self.post('/api/v1/statuses', user=user, data={})
+        self.assertEqual(400, resp.status_code)
+
+    def test_statuses_create_reply_not_bridged(self):
+        user = self.make_atproto_user()
+        self.store_object(id='fake:post', users=[self.user.key], source_protocol='fake',
+                          our_as1={'objectType': 'note', 'content': 'orig'})
+
+        resp = self.post('/api/v1/statuses', user=user,
+                         data={'status': 'a reply', 'in_reply_to_id': 'fake~3Apost'})
+        self.assertEqual(422, resp.status_code)
+
+    def test_statuses_create_non_atproto_user(self):
+        resp = self.post('/api/v1/statuses', data={'status': 'hi'})
+        self.assertEqual(501, resp.status_code)
+
+    # putRecord
+    @patch.object(util.session, 'post', return_value=requests_response({
+        'uri': 'at://did:plc:user/app.bsky.feed.post/456',
+        'cid': 'bafyreipostsyddddddddddddddddddddddddddddddddddddddddddd',
+    }))
+    def test_statuses_update(self, mock_post):
+        user = self.make_atproto_user()
+        self.store_object(id='did:plc:user', raw=DID_DOC)
+        self.store_object(
+            id='at://did:plc:user/app.bsky.feed.post/456',
+            source_protocol='atproto', users=[user.key],
+            our_as1={
+                'objectType': 'note',
+                'content': 'hello',
+                'actor': 'did:plc:user',
+                'published': '2022-01-02T03:04:05.000Z',
+            })
+
+        resp = self.put(
+            "/api/v1/statuses/at~3A~2F~2Fdid:plc:user~2Fapp.bsky.feed.post~2F456",
+            user=user, data={'status': 'updated'})
+        self.assertEqual(200, resp.status_code, resp.get_data(as_text=True))
+        self.assertEqual('updated', resp.json['content'])
+
+        self.assertEqual('https://some.pds/xrpc/com.atproto.repo.putRecord',
+                         mock_post.call_args.args[0])
+        self.assert_equals({
+            'repo': 'did:plc:user',
+            'collection': 'app.bsky.feed.post',
+            'rkey': '456',
+            'record': {
+                '$type': 'app.bsky.feed.post',
+                'text': 'updated',
+                'createdAt': '2022-01-02T03:04:05.000Z',
+            },
+        }, mock_post.call_args.kwargs['json'])
+
+    def test_statuses_update_missing_status(self):
+        user = self.make_atproto_user()
+        self.store_object(
+            id='at://did:plc:user/app.bsky.feed.post/456',
+            source_protocol='atproto', users=[user.key],
+            our_as1={'objectType': 'note', 'content': 'hello'})
+
+        resp = self.put(
+            "/api/v1/statuses/at~3A~2F~2Fdid:plc:user~2Fapp.bsky.feed.post~2F456",
+            user=user, data={})
+        self.assertEqual(400, resp.status_code)
+
+    def test_statuses_update_non_atproto_user(self):
+        self.store_object(id='fake:post', users=[self.user.key], source_protocol='fake',
+                          our_as1={'objectType': 'note', 'content': 'hello'})
+        resp = self.put('/api/v1/statuses/fake~3Apost', data={'status': 'updated'})
+        self.assertEqual(501, resp.status_code)
+
+    # deleteRecord
+    @patch.object(util.session, 'post', return_value=requests_response({}))
+    def test_statuses_delete(self, mock_post):
+        user = self.make_atproto_user()
+        self.store_object(id='did:plc:user', raw=DID_DOC)
+        self.store_object(
+            id='at://did:plc:user/app.bsky.feed.post/456',
+            source_protocol='atproto', users=[user.key],
+            our_as1={'objectType': 'note', 'content': 'hello', 'actor': 'did:plc:user'})
+
+        resp = self.delete(
+            "/api/v1/statuses/at~3A~2F~2Fdid:plc:user~2Fapp.bsky.feed.post~2F456",
+            user=user)
+        self.assertEqual(200, resp.status_code, resp.get_data(as_text=True))
+        self.assertEqual('hello', resp.json['content'])
+
+        self.assertEqual('https://some.pds/xrpc/com.atproto.repo.deleteRecord',
+                         mock_post.call_args.args[0])
+        self.assert_equals({
+            'repo': 'did:plc:user',
+            'collection': 'app.bsky.feed.post',
+            'rkey': '456',
+        }, mock_post.call_args.kwargs['json'])
+
+    def test_statuses_delete_not_found(self):
+        user = self.make_atproto_user()
+        resp = self.delete('/api/v1/statuses/nope', user=user)
+        self.assertEqual(404, resp.status_code)
+
+    def test_statuses_delete_non_atproto_user(self):
+        self.store_object(id='fake:post', users=[self.user.key], source_protocol='fake',
+                          our_as1={'objectType': 'note', 'content': 'hello'})
+        resp = self.delete('/api/v1/statuses/fake~3Apost')
+        self.assertEqual(501, resp.status_code)
 
     def test_statuses_context(self):
         Object(id='fake:root', our_as1={

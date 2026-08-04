@@ -5,6 +5,7 @@ import logging
 import os
 from urllib.parse import unquote
 
+from arroba.util import parse_at_uri
 from authlib.integrations.flask_oauth2.resource_protector import current_token
 from flask import request
 from google.cloud import ndb
@@ -152,6 +153,22 @@ def to_status(obj):
     return status
 
 
+def target_to_status(obj):
+    """Converts ``obj``'s object to a status.
+
+    Uses the ``target`` stashed by :func:`prefetch_statuses`, if it's run on
+    ``obj``, instead of loading it.
+
+    Returns None if ``obj`` has no ``object``, or if it's not in the datastore.
+    """
+    if not (target := getattr(obj, 'target', None)):
+        if id := as1.get_id(obj.as1, 'object'):
+            target = Object.get_by_id(id)
+
+    if target and target.as1:
+        return to_status(target)
+
+
 def to_notification(obj):
     """Converts a :class:`models.Object` to a Mastodon ``Notification``.
 
@@ -187,6 +204,25 @@ def to_notification(obj):
         return None
 
     return notif
+
+
+def to_relationship(user, **values):
+    return {
+        'id': encode_id(user.key.id()),
+        'following': False,
+        'followed_by': False,
+        'showing_reblogs': False,
+        'blocking': False,
+        'blocked_by': False,
+        'domain_blocking': False,
+        'endorsed': False,
+        'muting': False,
+        'muting_notifications': False,
+        'notifying': False,
+        'requested': False,
+        'note': '',
+        **values,
+    }
 
 
 def prefetch_statuses(objs):
@@ -272,22 +308,6 @@ def load_object(id):
     if not obj or not obj.as1:
         error('Status not found', status=404)
     return obj
-
-
-def target_to_status(obj):
-    """Converts ``obj``'s object to a status.
-
-    Uses the ``target`` stashed by :func:`prefetch_statuses`, if it's run on
-    ``obj``, instead of loading it.
-
-    Returns None if ``obj`` has no ``object``, or if it's not in the datastore.
-    """
-    if not (target := getattr(obj, 'target', None)):
-        if id := as1.get_id(obj.as1, 'object'):
-            target = Object.get_by_id(id)
-
-    if target and target.as1:
-        return to_status(target)
 
 
 def load_owner(obj):
@@ -567,24 +587,82 @@ def accounts_relationships(user):
                     for other in others]
 
     for other, following, followed_by in zip(others, followings, followed_bys):
-        relationships.append({
-            'id': encode_id(other.key.id()),
-            'following': bool(following.get_result()),
-            'followed_by': bool(followed_by.get_result()),
-            'showing_reblogs': False,
-            # TODO
-            'blocking': False,
-            'blocked_by': False,
-            'domain_blocking': False,
-            'endorsed': False,
-            'muting': False,
-            'muting_notifications': False,
-            'notifying': False,
-            'requested': False,
-            'note': '',
-        })
+        relationships.append(to_relationship(
+            other,
+            following=bool(following.get_result()),
+            followed_by=bool(followed_by.get_result())))
 
     return relationships
+
+
+@app.post('/api/v1/accounts/<path:id>/<any(follow,unfollow):verb>',
+          provide_automatic_options=False)
+@auth(granary_source=True)
+def accounts_follow_or_unfollow(user, source, id, verb):
+    if not (other := load_account_id(id)):
+        error('Account not found', status=404)
+
+    if verb == 'follow':
+        if not other.get_copy(user):
+            error(f"Account {other.key} isn't bridged to {user.LABEL}", status=422)
+
+        result = source.create({
+            'objectType': 'activity',
+            'verb': 'follow',
+            'actor': user.key.id(),
+            'object': other.id_as(user),
+        })
+        if not result.content:
+            error(result.error_plain or "Couldn't follow this account", status=502)
+
+    else:
+        # TODO: if the follow hasn't been bridged back from the PDS to our
+        # datastore yet, we won't find it here. look it up on the PDS directly as
+        # a fallback
+        follower = Follower.query(Follower.from_ == user.key,
+                                  Follower.to == other.key,
+                                  Follower.status == 'active').get()
+        if follower and follower.follow:
+            source.delete(follower.follow.id())
+
+    return to_relationship(other, following=(verb == 'follow'))
+
+
+@app.post('/api/v1/accounts/<path:id>/<any(block,unblock):verb>',
+          provide_automatic_options=False)
+@auth(granary_source=True)
+def accounts_block_or_unblock(user, source, id, verb):
+    if not (other := load_account_id(id)):
+        error('Account not found', status=404)
+
+    if verb == 'block':
+        if not (other_id := other.get_copy(user)):
+            error(f"Account {other.key} isn't bridged to {user.LABEL}", status=422)
+
+        # TODO
+        # granary.bluesky.Source.create doesn't support blocks, so build and write
+        # the record ourselves
+        record = bluesky.from_as1({
+            'objectType': 'activity',
+            'verb': 'block',
+            'actor': user.key.id(),
+            'object': other_id,
+        })
+        source.client.com.atproto.repo.createRecord({
+            'repo': user.key.id(),
+            'collection': record['$type'],
+            'record': record,
+        })
+
+    else:
+        # TODO: if the block hasn't been bridged back from the PDS to our
+        # datastore yet, we won't find it here. look it up on the PDS directly as
+        # a fallback
+        for obj in Object.query(Object.users == user.key, Object.type == 'block'):
+            if as1.get_id(obj.as1, 'object') == other.key.id() and not obj.deleted:
+                source.delete(obj.key.id())
+
+    return to_relationship(other, blocking=verb == 'block')
 
 
 @app.get('/api/v1/follow_requests', provide_automatic_options=False)
@@ -756,6 +834,84 @@ def statuses_single(user, id):
     if not (status := to_status(obj)):
         error('Status not found', status=404)
     return status
+
+
+@app.post('/api/v1/statuses', provide_automatic_options=False)
+@auth(granary_source=True)
+def statuses_create(user, source):
+    if not (text := get_required_param('status')):
+        error('Missing required parameter: status')
+
+    # make AS1 note object
+    # TODO: media_ids, poll, sensitive, spoiler_text, visibility, language
+    reply_obj = None
+    if in_reply_to_id := request.values.get('in_reply_to_id'):
+        reply_obj = load_object(in_reply_to_id)
+        if not reply_obj.get_copy(user):
+            error(f"Status {reply_obj.key} isn't bridged to {user.LABEL}", status=422)
+
+    note = {
+        'objectType': 'note',
+        'author': user.key.id(),
+        'content': text,
+    }
+    if reply_obj:
+        note['inReplyTo'] = reply_obj.id_as(user)
+
+    # create!
+    result = source.create(note)
+    if not result.content:
+        error(result.error_plain or "Couldn't create this status", status=502)
+
+    # construct response status
+    id = result.content['id']
+    note['id'] = id
+    if reply_obj:
+        note['inReplyTo'] = reply_obj.key.id()
+
+    obj = Object(id=id, source_protocol=user.LABEL, users=[user.key], our_as1=note)
+    obj.owner = user
+    return to_status(obj)
+
+
+@app.put('/api/v1/statuses/<path:id>', provide_automatic_options=False)
+@auth(granary_source=True)
+def statuses_update(user, source, id):
+    if not (text := get_required_param('status')):
+        error('Missing required parameter: status')
+
+    obj = load_object(id)
+
+    # TODO: media_ids, poll, sensitive, spoiler_text
+    at_uri = obj.id_as(user)
+    did, collection, rkey = parse_at_uri(at_uri)
+
+    # TODO: add update support to granary.bluesky.Bluesky (to create?), then
+    # make this generic
+    record = bluesky.from_as1({
+        'objectType': 'note',
+        'author': user.key.id(),
+        'content': text,
+        'inReplyTo': as1.get_id(obj.as1, 'inReplyTo'),
+        'published': obj.as1.get('published'),
+    }, client=source)
+    source.client.com.atproto.repo.putRecord({
+        'repo': did,
+        'collection': collection,
+        'rkey': rkey,
+        'record': record,
+    })
+
+    obj.our_as1 = {**obj.as1, 'content': text}
+    return to_status(obj)
+
+
+@app.delete('/api/v1/statuses/<path:id>', provide_automatic_options=False)
+@auth(granary_source=True)
+def statuses_delete(user, source, id):
+    obj = load_object(id)
+    source.delete(obj.id_as(user))
+    return to_status(obj)
 
 
 @app.post('/api/v1/statuses/<path:id>/<any(favourite,reblog):verb>',
