@@ -595,68 +595,60 @@ def accounts_relationships(user):
     return relationships
 
 
-@app.post('/api/v1/accounts/<path:id>/<any(follow,unfollow):verb>',
+@app.post('/api/v1/accounts/<path:id>/<any(follow,block):verb>',
           provide_automatic_options=False)
 @auth(granary_source=True)
-def accounts_follow_or_unfollow(user, source, id, verb):
+def accounts_follow_or_block(user, source, id, verb):
     if not (other := load_account_id(id)):
         error('Account not found', status=404)
 
-    if verb == 'follow':
-        if not other.get_copy(user):
-            error(f"Account {other.key} isn't bridged to {user.LABEL}", status=422)
+    if not (other_id := other.get_copy(user)):
+        error(f"Account {other.key} isn't bridged to {user.LABEL}", status=422)
 
-        result = source.create({
-            'objectType': 'activity',
-            'verb': 'follow',
-            'actor': user.key.id(),
-            'object': other.id_as(user),
-        })
-        if not result.content:
-            error(result.error_plain or "Couldn't follow this account", status=502)
+    result = source.create({
+        'objectType': 'activity',
+        'verb': verb,
+        'actor': user.key.id(),
+        'object': other_id,
+    })
+    if not result.content:
+        error(result.error_plain or f"Couldn't {verb} this account", status=502)
 
-    else:
-        # TODO: if the follow hasn't been bridged back from the PDS to our
-        # datastore yet, we won't find it here. look it up on the PDS directly as
-        # a fallback
-        follower = Follower.query(Follower.from_ == user.key,
-                                  Follower.to == other.key,
-                                  Follower.status == 'active').get()
-        if follower and follower.follow:
-            source.delete(follower.follow.id())
-
-    return to_relationship(other, following=(verb == 'follow'))
+    return to_relationship(other, **{f'{verb}ing': True})
 
 
-@app.post('/api/v1/accounts/<path:id>/<any(block,unblock):verb>',
-          provide_automatic_options=False)
+@app.post('/api/v1/accounts/<path:id>/unfollow', provide_automatic_options=False)
 @auth(granary_source=True)
-def accounts_block_or_unblock(user, source, id, verb):
+def accounts_unfollow(user, source, id):
     if not (other := load_account_id(id)):
         error('Account not found', status=404)
 
-    if verb == 'block':
-        if not (other_id := other.get_copy(user)):
-            error(f"Account {other.key} isn't bridged to {user.LABEL}", status=422)
+    # TODO: if the follow hasn't been bridged back from the PDS to our
+    # datastore yet, we won't find it here. look it up on the PDS directly as
+    # a fallback
+    follower = Follower.query(Follower.from_ == user.key,
+                              Follower.to == other.key,
+                              Follower.status == 'active').get()
+    if follower and follower.follow:
+        source.delete(follower.follow.id())
 
-        result = source.create({
-            'objectType': 'activity',
-            'verb': 'block',
-            'actor': user.key.id(),
-            'object': other_id,
-        })
-        if not result.content:
-            error(result.error_plain or "Couldn't block this account", status=502)
+    return to_relationship(other, following=False)
 
-    else:
-        # TODO: if the block hasn't been bridged back from the PDS to our
-        # datastore yet, we won't find it here. look it up on the PDS directly as
-        # a fallback
-        for obj in Object.query(Object.users == user.key, Object.type == 'block'):
-            if as1.get_id(obj.as1, 'object') == other.key.id() and not obj.deleted:
-                source.delete(obj.key.id())
 
-    return to_relationship(other, blocking=verb == 'block')
+@app.post('/api/v1/accounts/<path:id>/unblock', provide_automatic_options=False)
+@auth(granary_source=True)
+def accounts_unblock(user, source, id):
+    if not (other := load_account_id(id)):
+        error('Account not found', status=404)
+
+    # TODO: if the block hasn't been bridged back from the PDS to our
+    # datastore yet, we won't find it here. look it up on the PDS directly as
+    # a fallback
+    for obj in Object.query(Object.users == user.key, Object.type == 'block'):
+        if as1.get_id(obj.as1, 'object') == other.key.id() and not obj.deleted:
+            source.delete(obj.key.id())
+
+    return to_relationship(other, blocking=False)
 
 
 @app.get('/api/v1/follow_requests', provide_automatic_options=False)
