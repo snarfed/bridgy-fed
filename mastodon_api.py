@@ -5,7 +5,6 @@ import logging
 import os
 from urllib.parse import unquote
 
-from arroba.util import parse_at_uri
 from authlib.integrations.flask_oauth2.resource_protector import current_token
 from flask import request
 from google.cloud import ndb
@@ -869,24 +868,17 @@ def statuses_update(user, source, id):
     obj = load_object(id)
 
     # TODO: media_ids, poll, sensitive, spoiler_text
-    at_uri = obj.id_as(user)
-    did, collection, rkey = parse_at_uri(at_uri)
-
-    # TODO: add update support to granary.bluesky.Bluesky (to create?), then
-    # make this generic
-    record = bluesky.from_as1({
+    note = {
         'objectType': 'note',
+        'id': obj.id_as(user),
         'author': user.key.id(),
         'content': text,
         'inReplyTo': as1.get_id(obj.as1, 'inReplyTo'),
         'published': obj.as1.get('published'),
-    }, client=source)
-    source.client.com.atproto.repo.putRecord({
-        'repo': did,
-        'collection': collection,
-        'rkey': rkey,
-        'record': record,
-    })
+    }
+    result = source.update(note)
+    if not result.content:
+        error(result.error_plain or "Couldn't update this status", status=502)
 
     obj.our_as1 = {**obj.as1, 'content': text}
     return to_status(obj)
