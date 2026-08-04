@@ -27,7 +27,7 @@ app = [
     # third-party
     'authlib>=1.0.0',
     'cachetools>=5.0.0',
-    'cryptography>=41.0.0',
+    'cryptography>=50.0.0',
     'domain2idna>=1.12',
     'flask>=3.0.0',
     'google-api-python-client>=2.198.0',
