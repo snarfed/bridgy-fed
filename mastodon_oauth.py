@@ -38,6 +38,7 @@ from webutil import models
 from webutil.flask_util import error, FlashErrors, flash, get_required_param
 from werkzeug.exceptions import HTTPException
 
+import atproto
 from atproto import ATProto
 import common
 from common import render_template
@@ -264,10 +265,10 @@ class Token(TokenMixin):
           granary.source.Source or None:
         """
         if self.user_key.kind() == ATProto._get_kind():
-            client_metadata = _atproto_proxy_client_metadata()
+            client_metadata = atproto.oauth_client_metadata()
             auth = BlueskyAuth.get_by_id(self.user_key.id())
-            # the user may have logged into other OAuth clients, eg Bridgy Fed's
-            # own login, whose tokens we can't use
+            # the user may have logged into a different OAuth client, eg local
+            # development, whose token we can't use
             if auth and (auth.get_dpop_token(client_metadata['client_id'])
                          or auth.password or auth.session):
                 return Bluesky.from_auth(auth, client_metadata=client_metadata)
@@ -521,27 +522,12 @@ app.add_url_rule(
 # ATProto backend
 #
 
-def _atproto_proxy_client_metadata():
-    return {
-        **oauth_dropins.bluesky.CLIENT_METADATA_TEMPLATE,
-        'client_id': domains.host_url('/oauth/atproto/client-metadata.json'),
-        'client_name': 'Bridgy Fed (Mastodon API)',
-        'client_uri': domains.host_url(),
-        'redirect_uris': [domains.host_url('/oauth/authorize/atproto/finish')],
-    }
-
-
-@app.get('/oauth/atproto/client-metadata.json')
-def atproto_proxy_client_metadata():
-    return _atproto_proxy_client_metadata()
-
-
 class ProxyAtprotoStart(FlashErrors, oauth_dropins.bluesky.OAuthStart):
     ON_ERROR_REDIRECT_TO = '/'
 
     @property
     def CLIENT_METADATA(self):
-        return _atproto_proxy_client_metadata()
+        return atproto.oauth_client_metadata()
 
 
 class ProxyAtprotoCallback(FlashErrors, oauth_dropins.bluesky.OAuthCallback):
@@ -549,7 +535,7 @@ class ProxyAtprotoCallback(FlashErrors, oauth_dropins.bluesky.OAuthCallback):
 
     @property
     def CLIENT_METADATA(self):
-        return _atproto_proxy_client_metadata()
+        return atproto.oauth_client_metadata()
 
     def finish(self, auth_entity, state=None):
         return _finish_proxy_login(auth_entity, state)

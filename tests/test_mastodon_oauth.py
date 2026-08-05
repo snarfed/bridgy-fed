@@ -442,26 +442,6 @@ class MastodonOAuthTest(TestCase):
         }, base_url=BASE_URL)
         self.assertEqual(400, resp.status_code)
 
-    def test_atproto_proxy_client_metadata(self):
-        resp = self.client.get('/oauth/atproto/client-metadata.json',
-                               base_url=BASE_URL)
-        self.assertEqual(200, resp.status_code)
-        self.assert_equals({
-            'application_type': 'web',
-            'client_id': 'https://web.brid.gy/oauth/atproto/client-metadata.json',
-            'client_name': 'Bridgy Fed (Mastodon API)',
-            'client_uri': 'https://web.brid.gy/',
-            'dpop_bound_access_tokens': True,
-            'grant_types': [
-                'authorization_code',
-                'refresh_token',
-            ],
-            'redirect_uris': ['https://web.brid.gy/oauth/authorize/atproto/finish'],
-            'response_types': ['code'],
-            'scope': 'atproto transition:generic',
-            'token_endpoint_auth_method': 'none',
-        }, resp.json)
-
     def test_proxy_start_routes_registered(self):
         for path in (
                 '/oauth/authorize/atproto/start',
@@ -507,10 +487,13 @@ class MastodonOAuthTest(TestCase):
                               OAuth2AccessTokenAuth)
         mock_oauth_client_for_pds.assert_called_once_with({
             **oauth_dropins.bluesky.CLIENT_METADATA_TEMPLATE,
-            'client_id': 'https://web.brid.gy/oauth/atproto/client-metadata.json',
-            'client_name': 'Bridgy Fed (Mastodon API)',
+            'client_id': 'https://web.brid.gy/oauth/bluesky/client-metadata.json',
+            'client_name': 'Bridgy Fed',
             'client_uri': 'https://web.brid.gy/',
-            'redirect_uris': ['https://web.brid.gy/oauth/authorize/atproto/finish'],
+            'redirect_uris': [
+                'https://web.brid.gy/oauth/bluesky/finish',
+                'https://web.brid.gy/oauth/authorize/atproto/finish',
+            ],
         }, 'https://some.pds/')
 
     @patch('oauth_dropins.bluesky.oauth_client_for_pds',
@@ -527,7 +510,7 @@ class MastodonOAuthTest(TestCase):
                                   token=TokenSerializer().dumps(
                                       DPoPToken(access_token='local',
                                                 _dpop_key=DPoPKey.generate()))),
-                        DpopToken(client_id='https://web.brid.gy/oauth/atproto/client-metadata.json',
+                        DpopToken(client_id='https://web.brid.gy/oauth/bluesky/client-metadata.json',
                                   token=TokenSerializer().dumps(
                                       DPoPToken(access_token='ours',
                                                 _dpop_key=DPoPKey.generate()))),

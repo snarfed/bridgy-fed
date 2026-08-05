@@ -151,12 +151,18 @@ def init(sequences_cls):
 
 
 def oauth_client_metadata():
+    """Bridgy Fed's ATProto OAuth client, used by web login and mastodon_oauth."""
     return {
         **oauth_dropins.bluesky.CLIENT_METADATA_TEMPLATE,
         'client_id': domains.host_url('/oauth/bluesky/client-metadata.json'),
         'client_name': 'Bridgy Fed',
         'client_uri': domains.host_url(),
-        'redirect_uris': [domains.host_url('/oauth/bluesky/finish')],
+        'redirect_uris': [
+            # web UI login on fed.brid.gy
+            domains.host_url('/oauth/bluesky/finish'),
+            # mastodon API OAuth
+            domains.host_url('/oauth/authorize/atproto/finish'),
+        ],
     }
 
 

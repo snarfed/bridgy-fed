@@ -4879,7 +4879,10 @@ Sed tortor neque, aliquet quis posuere aliquam, imperdiet sitamet […]
             'client_uri': 'https://fed.brid.gy/',
             'dpop_bound_access_tokens': True,
             'grant_types': ['authorization_code', 'refresh_token'],
-            'redirect_uris': ['https://fed.brid.gy/oauth/bluesky/finish'],
+            'redirect_uris': [
+                'https://fed.brid.gy/oauth/bluesky/finish',
+                'https://fed.brid.gy/oauth/authorize/atproto/finish',
+            ],
             'response_types': ['code'],
             'scope': 'atproto transition:generic',
             'token_endpoint_auth_method': 'none',
