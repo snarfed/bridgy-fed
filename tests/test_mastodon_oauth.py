@@ -9,7 +9,7 @@ from granary.micropub import Micropub
 import jwt
 from oauth_dropins import indieauth
 import oauth_dropins.bluesky
-from oauth_dropins.bluesky import BlueskyAuth
+from oauth_dropins.bluesky import BlueskyAuth, DpopToken
 from requests_oauth2client import (
     DPoPKey,
     DPoPToken,
@@ -512,6 +512,49 @@ class MastodonOAuthTest(TestCase):
             'client_uri': 'https://web.brid.gy/',
             'redirect_uris': ['https://web.brid.gy/oauth/authorize/atproto/finish'],
         }, 'https://some.pds/')
+
+    @patch('oauth_dropins.bluesky.oauth_client_for_pds',
+           return_value=OAuth2Client(token_endpoint='https://un/used',
+                                     client_id='unused', client_secret='unused'))
+    def test_granary_source_bluesky_dpop_tokens(self, _):
+        self.store_object(id='did:plc:user', raw=DID_DOC)
+        user = self.make_user('did:plc:user', cls=ATProto)
+        BlueskyAuth(id='did:plc:user', pds_url='https://some.pds/',
+                    user_json=json_dumps({'did': 'did:plc:user',
+                                          'handle': 'han.dull'}),
+                    dpop_tokens=[
+                        DpopToken(client_id='http://localhost/client-metadata.json',
+                                  token=TokenSerializer().dumps(
+                                      DPoPToken(access_token='local',
+                                                _dpop_key=DPoPKey.generate()))),
+                        DpopToken(client_id='https://web.brid.gy/oauth/atproto/client-metadata.json',
+                                  token=TokenSerializer().dumps(
+                                      DPoPToken(access_token='ours',
+                                                _dpop_key=DPoPKey.generate()))),
+                    ]).put()
+
+        token = mastodon_oauth.Token({'user_key': user.key.urlsafe().decode()})
+        with app.test_request_context('/', base_url=BASE_URL):
+            source = token.granary_source()
+
+        self.assertEqual('ours',
+                         source._client.requests_kwargs['auth'].token.access_token)
+
+    def test_granary_source_bluesky_dpop_token_only_other_client(self):
+        self.store_object(id='did:plc:user', raw=DID_DOC)
+        user = self.make_user('did:plc:user', cls=ATProto)
+        BlueskyAuth(id='did:plc:user', pds_url='https://some.pds/',
+                    user_json=json_dumps({'did': 'did:plc:user',
+                                          'handle': 'han.dull'}),
+                    dpop_tokens=[DpopToken(
+                        client_id='http://localhost/client-metadata.json',
+                        token=TokenSerializer().dumps(
+                            DPoPToken(access_token='local',
+                                      _dpop_key=DPoPKey.generate())))]).put()
+
+        token = mastodon_oauth.Token({'user_key': user.key.urlsafe().decode()})
+        with app.test_request_context('/', base_url=BASE_URL):
+            self.assertIsNone(token.granary_source())
 
     def test_granary_source_no_auth_entity(self):
         self.store_object(id='did:plc:user', raw=DID_DOC)

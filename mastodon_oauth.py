@@ -264,9 +264,13 @@ class Token(TokenMixin):
           granary.source.Source or None:
         """
         if self.user_key.kind() == ATProto._get_kind():
-            if auth := BlueskyAuth.get_by_id(self.user_key.id()):
-                return Bluesky.from_auth(
-                    auth, client_metadata=_atproto_proxy_client_metadata())
+            client_metadata = _atproto_proxy_client_metadata()
+            auth = BlueskyAuth.get_by_id(self.user_key.id())
+            # the user may have logged into other OAuth clients, eg Bridgy Fed's
+            # own login, whose tokens we can't use
+            if auth and (auth.get_dpop_token(client_metadata['client_id'])
+                         or auth.password or auth.session):
+                return Bluesky.from_auth(auth, client_metadata=client_metadata)
 
         elif self.user_key.kind() == Web._get_kind():
             url = f'https://{self.user_key.id()}'
