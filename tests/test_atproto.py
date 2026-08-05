@@ -48,6 +48,7 @@ from atproto import (
 )
 import common
 import config
+from flask_app import app
 import hub
 import ids
 from models import Follower, Object, PROTOCOLS, Target
@@ -4862,14 +4863,28 @@ Sed tortor neque, aliquet quis posuere aliquam, imperdiet sitamet […]
         resp = self.get('/.well-known/oauth-protected-resource')
         self.assertEqual(404, resp.status_code)
 
-    def test_bluesky_oauth_client_metadata(self):
-        self._test_bluesky_oauth_client_metadata()
+    def test_oauth_client_metadata(self):
+        self._test_oauth_client_metadata()
 
-    def test_bluesky_oauth_client_metadata_forged_host(self):
-        self._test_bluesky_oauth_client_metadata(headers={'Host': 'evil.example'})
+    def test_oauth_client_metadata_forged_host(self):
+        self._test_oauth_client_metadata(headers={'Host': 'evil.example'})
+
+    def test_oauth_client_metadata_pinned_to_primary_domain(self):
+        """Always uses PRIMARY_DOMAIN, even on other prod subdomains, so that
+        there's a single ATProto OAuth client id and tokens work everywhere,
+        eg for callers like mastodon_oauth's proxy login that don't canonicalize
+        their route to PRIMARY_DOMAIN.
+        """
+        self.request_context.pop()
+        self.request_context = app.test_request_context(
+            base_url='https://bsky.brid.gy')
+        self.request_context.push()
+
+        self._test_oauth_client_metadata()
 
     @patch('domains.DEBUG', False)
-    def _test_bluesky_oauth_client_metadata(self, **kwargs):
+    @patch('domains.LOCAL_SERVER', False)
+    def _test_oauth_client_metadata(self, **kwargs):
         resp = self.get('/oauth/bluesky/client-metadata.json', **kwargs)
         self.assertEqual(200, resp.status_code)
         self.assert_equals({

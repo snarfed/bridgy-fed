@@ -151,17 +151,28 @@ def init(sequences_cls):
 
 
 def oauth_client_metadata():
-    """Bridgy Fed's ATProto OAuth client, used by web login and mastodon_oauth."""
+    """Bridgy Fed's ATProto OAuth client, used by web login and mastodon_oauth.
+
+    Always pinned to PRIMARY_DOMAIN in prod, regardless of which
+    subdomain the request came in on, so that we always use the same client id
+    fed.brid.gy. (Required because ATProto OAuth DPoP tokens are bound to their
+    client id.)
+
+    Local dev uses the request's own host instead.
+    """
     return {
         **oauth_dropins.bluesky.CLIENT_METADATA_TEMPLATE,
-        'client_id': domains.host_url('/oauth/bluesky/client-metadata.json'),
+        'client_id': domains.host_url('/oauth/bluesky/client-metadata.json',
+                                      primary_domain_only=True),
         'client_name': 'Bridgy Fed',
-        'client_uri': domains.host_url(),
+        'client_uri': domains.host_url(primary_domain_only=True),
         'redirect_uris': [
             # web UI login on fed.brid.gy
-            domains.host_url('/oauth/bluesky/finish'),
+            domains.host_url('/oauth/bluesky/finish',
+                             primary_domain_only=True),
             # mastodon API OAuth
-            domains.host_url('/oauth/authorize/atproto/finish'),
+            domains.host_url('/oauth/authorize/atproto/finish',
+                             primary_domain_only=True),
         ],
     }
 

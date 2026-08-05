@@ -10,6 +10,7 @@ from flask import request
 from google.cloud import ndb
 from granary import as1, bluesky
 from granary.mastodon import decode_id, encode_id, from_as1
+from webutil.appengine_info import DEBUG, LOCAL_SERVER
 from webutil import util
 from webutil.flask_util import bool_param, get_required_param, error, MODERN_HEADERS
 from werkzeug.exceptions import HTTPException
@@ -18,7 +19,8 @@ import activitypub
 from activitypub import ActivityPub
 from arroba import datastore_storage
 from atproto import ATProto
-from domains import DOMAINS
+import domains
+from domains import DOMAINS, PRIMARY_DOMAIN
 from flask_app import app
 import ids
 from mastodon_oauth import require_oauth
@@ -347,6 +349,23 @@ def limit():
 #
 # API endpoints
 #
+
+@app.before_request
+def require_primary_domain():
+    """Only serves the Mastodon API on PRIMARY_DOMAIN.
+
+    Serving this API on multiple brid.gy subdomains would mean multiple ATProto OAuth
+    client ids, and ATProto OAuth DPoP tokens are bound to their client id, and
+    oauth-dropins doesn't support multiple client ids in the same project.
+
+    /api/v1/instance is excluded since it's in activitypub.py.
+    """
+    if (not (DEBUG or LOCAL_SERVER)
+            and request.path.startswith('/api/')
+            and request.path != '/api/v1/instance'
+            and request.host != PRIMARY_DOMAIN):
+        return f"Bridgy Fed's Mastodon API is only served on https://{PRIMARY_DOMAIN}/", 404
+
 
 @app.route('/api/<path:_>', methods=['OPTIONS'])
 def cors_preflight_options(_):

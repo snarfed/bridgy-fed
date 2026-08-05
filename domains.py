@@ -233,10 +233,10 @@ def unwrap(val, field=None):
     return val
 
 
-def host_url(path_query=None):
+def host_url(path_query=None, primary_domain_only=False):
     if DEBUG or LOCAL_SERVER:
         base = request.host_url
-    elif request.host.endswith(SUPERDOMAIN):
+    elif request.host.endswith(SUPERDOMAIN) and not primary_domain_only:
         base = request.host_url
     else:
         base = f'https://{PRIMARY_DOMAIN}/'

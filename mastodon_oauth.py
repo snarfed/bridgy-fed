@@ -267,7 +267,7 @@ class Token(TokenMixin):
         if self.user_key.kind() == ATProto._get_kind():
             if auth := BlueskyAuth.get_by_id(self.user_key.id()):
                 return Bluesky.from_auth(
-                    auth, client_metadata=_atproto_proxy_client_metadata())
+                    auth, client_metadata=atproto.oauth_client_metadata())
 
         elif self.user_key.kind() == Web._get_kind():
             url = f'https://{self.user_key.id()}'

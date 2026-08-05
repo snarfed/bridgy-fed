@@ -90,6 +90,18 @@ class MastodonApiTest(TestCase):
         self.assertIn('title', resp.json)
         self.assertIn('version', resp.json)
 
+    @patch('mastodon_api.DEBUG', False)
+    @patch('mastodon_api.LOCAL_SERVER', False)
+    def test_api_404s_on_non_primary_domain(self):
+        resp = self.client.get('/api/v2/instance', base_url='https://bsky.brid.gy')
+        self.assertEqual(404, resp.status_code)
+
+    @patch('mastodon_api.DEBUG', False)
+    @patch('mastodon_api.LOCAL_SERVER', False)
+    def test_api_served_on_primary_domain(self):
+        resp = self.client.get('/api/v2/instance', base_url='https://fed.brid.gy')
+        self.assertEqual(200, resp.status_code, resp.get_data(as_text=True))
+
     def test_instance_extended_description(self):
         resp = self.client.get('/api/v1/instance/extended_description')
         self.assertEqual(200, resp.status_code, resp.get_data(as_text=True))
