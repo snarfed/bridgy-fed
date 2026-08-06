@@ -281,7 +281,7 @@ def reset_protocol_properties():
     """Recreates various protocol properties to include choices from ``PROTOCOLS``."""
     abbrevs = f'({"|".join(PROTOCOLS.keys())}|fed)'
     domains.SUBDOMAIN_BASE_URL_RE = re.compile(
-        rf'^https?://({abbrevs}\.brid\.gy|localhost(:8080)?)/(convert/|r/)?({abbrevs}/)?(?P<path>.+)')
+        rf'^https?://({abbrevs}\.brid\.gy|localhost(:8080)?)/(?P<redirect>convert/|r/)?(?P<abbrev>{abbrevs}/)?(?P<path>.+)')
     ids.COPIES_PROTOCOLS = tuple(label for label, proto in PROTOCOLS.items()
                                  if proto and proto.HAS_COPIES)
 

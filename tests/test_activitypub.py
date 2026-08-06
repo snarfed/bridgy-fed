@@ -160,7 +160,7 @@ NOTE_OBJECT = {
     'cc': [
         'https://mas.to/author/followers',
         'https://masto.foo/@other',
-        'http://localhost/target',  # redirect-wrapped
+        'http://localhost/r/https://tar.get/',  # redirect-wrapped
     ],
 }
 NOTE = {
@@ -1075,7 +1075,7 @@ class ActivityPubTest(TestCase):
             'cc': [
                 {'id': 'https://mas.to/author/followers'},
                 {'id': 'https://masto.foo/@other'},
-                {'id': 'target'},
+                {'id': 'https://tar.get/'},
             ],
         }
         self.assert_object(

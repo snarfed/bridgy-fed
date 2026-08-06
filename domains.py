@@ -228,6 +228,10 @@ def unwrap(val, field=None):
             elif fc := re.fullmatch(r'farcaster:([0-9]+)', unwrapped):
                 # external farcaster:FID form back to internal farcaster://FID
                 return f'farcaster://{fc.group(1)}'
+            elif (not match.group('redirect') and not match.group('abbrev')
+                  and not DOMAIN_RE.fullmatch(unwrapped)):
+                # not actually wrapped, eg https://fed.brid.gy/docs
+                return val
             return unwrapped
 
     return val
