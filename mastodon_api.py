@@ -432,11 +432,11 @@ def instance():
                 'max_featured_tags': 0,
                 'max_pinned_statuses': 1,
             },
-            # 'statuses': {
-            #     'max_characters': 500,
-            #     'max_media_attachments': 4,
-            #     'characters_reserved_per_url': 23
-            # },
+            'statuses': {
+                'max_characters': 500,
+                'max_media_attachments': 8,
+                'characters_reserved_per_url': 23,
+            },
             'media_attachments': {
                 # 'description_limit': ,
                 # 'image_matrix_limit': ,
@@ -452,6 +452,15 @@ def instance():
                 # 'video_frame_rate_limit': None,
                 # 'video_matrix_limit': None,
                 'video_size_limit': datastore_storage.BLOB_MAX_BYTES,
+            },
+            'polls': {
+                'max_options': 0,
+                'max_characters_per_option': 0,
+                'min_expiration': 0,
+                'max_expiration': 0,
+            },
+            'translation': {
+                'enabled': False,
             },
             'limited_federation': False,
         },
