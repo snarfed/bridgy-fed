@@ -852,13 +852,14 @@ def statuses_single(user, id):
 @app.post('/api/v1/statuses', provide_automatic_options=False)
 @auth(granary_source=True)
 def statuses_create(user, source):
-    if not (text := get_required_param('status')):
+    params = request.get_json(silent=True) or request.values
+    if not (text := params.get('status')):
         error('Missing required parameter: status')
 
     # make AS1 note object
     # TODO: media_ids, poll, sensitive, spoiler_text, visibility, language
     reply_obj = None
-    if in_reply_to_id := request.values.get('in_reply_to_id'):
+    if in_reply_to_id := params.get('in_reply_to_id'):
         reply_obj = load_object(in_reply_to_id)
         if not reply_obj.get_copy(user):
             error(f"Status {reply_obj.key} isn't bridged to {user.LABEL}", status=422)

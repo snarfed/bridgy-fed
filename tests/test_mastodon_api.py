@@ -1121,6 +1121,32 @@ class MastodonApiTest(TestCase):
         'uri': 'at://did:plc:user/app.bsky.feed.post/456',
         'cid': 'bafyreipostsyddddddddddddddddddddddddddddddddddddddddddd',
     }))
+    def test_statuses_create_json(self, mock_post):
+        user = self.make_atproto_user()
+        self.store_object(id='did:plc:user', raw=DID_DOC)
+
+        resp = self.post('/api/v1/statuses', user=user, json={'status': 'hello world'})
+        self.assertEqual(200, resp.status_code, resp.get_data(as_text=True))
+        self.assertEqual('hello world', resp.json['content'])
+        self.assertEqual(to_account(user), resp.json['account'])
+
+        self.assertEqual('https://some.pds/xrpc/com.atproto.repo.createRecord',
+                         mock_post.call_args.args[0])
+        self.assert_equals({
+            'repo': 'did:plc:user',
+            'collection': 'app.bsky.feed.post',
+            'record': {
+                '$type': 'app.bsky.feed.post',
+                'text': 'hello world',
+                'createdAt': '2022-01-02T03:04:05.000Z',
+            },
+        }, mock_post.call_args.kwargs['json'])
+
+    # createRecord
+    @patch.object(util.session, 'post', return_value=requests_response({
+        'uri': 'at://did:plc:user/app.bsky.feed.post/456',
+        'cid': 'bafyreipostsyddddddddddddddddddddddddddddddddddddddddddd',
+    }))
     # getRecord
     @patch.object(util.session, 'get', return_value=requests_response({
         'uri': 'at://did:plc:bob/app.bsky.feed.post/123',
@@ -1143,32 +1169,33 @@ class MastodonApiTest(TestCase):
                            protocol='atproto')],
             our_as1={'objectType': 'note', 'actor': 'did:plc:bob', 'content': 'orig'})
 
-        resp = self.post('/api/v1/statuses', user=user,
-                         data={'status': 'a reply', 'in_reply_to_id': 'fake~3Apost'})
-        self.assertEqual(200, resp.status_code, resp.get_data(as_text=True))
-        self.assertEqual('a reply', resp.json['content'])
-        self.assertEqual('fake~3Apost', resp.json['in_reply_to_id'])
+        params = {'status': 'a reply', 'in_reply_to_id': 'fake~3Apost'}
+        for kwargs in ({'data': params}, {'json': params}):
+            resp = self.post('/api/v1/statuses', user=user, **kwargs)
+            self.assertEqual(200, resp.status_code, resp.get_data(as_text=True))
+            self.assertEqual('a reply', resp.json['content'])
+            self.assertEqual('fake~3Apost', resp.json['in_reply_to_id'])
 
-        self.assert_equals({
-            'repo': 'did:plc:user',
-            'collection': 'app.bsky.feed.post',
-            'record': {
-                '$type': 'app.bsky.feed.post',
-                'text': 'a reply',
-                'createdAt': '2022-01-02T03:04:05.000Z',
-                'reply': {
-                    '$type': 'app.bsky.feed.post#replyRef',
-                    'root': {
-                        'uri': 'at://did:plc:bob/app.bsky.feed.post/123',
-                        'cid': 'bafyreibobsyddddddddddddddddddddddddddddddddddddddddddddd',
-                    },
-                    'parent': {
-                        'uri': 'at://did:plc:bob/app.bsky.feed.post/123',
-                        'cid': 'bafyreibobsyddddddddddddddddddddddddddddddddddddddddddddd',
+            self.assert_equals({
+                'repo': 'did:plc:user',
+                'collection': 'app.bsky.feed.post',
+                'record': {
+                    '$type': 'app.bsky.feed.post',
+                    'text': 'a reply',
+                    'createdAt': '2022-01-02T03:04:05.000Z',
+                    'reply': {
+                        '$type': 'app.bsky.feed.post#replyRef',
+                        'root': {
+                            'uri': 'at://did:plc:bob/app.bsky.feed.post/123',
+                            'cid': 'bafyreibobsyddddddddddddddddddddddddddddddddddddddddddddd',
+                        },
+                        'parent': {
+                            'uri': 'at://did:plc:bob/app.bsky.feed.post/123',
+                            'cid': 'bafyreibobsyddddddddddddddddddddddddddddddddddddddddddddd',
+                        },
                     },
                 },
-            },
-        }, mock_post.call_args.kwargs['json'])
+            }, mock_post.call_args.kwargs['json'])
 
     def test_statuses_create_missing_status(self):
         user = self.make_atproto_user()
