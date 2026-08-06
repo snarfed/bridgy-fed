@@ -1698,12 +1698,18 @@ class Protocol:
             for label in from_user.enabled_protocols:
                 proto = PROTOCOLS[label]
                 if copy_id := from_user.get_copy(proto):
+                    logger.info(f'Transferring {label} copy id {copy_id} to {target_id}')
                     from_user.remove_copies_on(proto)
                     to_user.add('copies', Target(uri=copy_id, protocol=label))
 
             to_user.put()
             from_user.enabled_protocols = []
             from_user.put()
+
+        # follow the new account from the protocol bots that need to
+        for proto in set(p for p in PROTOCOLS.values() if p):
+            if to_user.is_enabled(proto) and not isinstance(to_user, proto):
+                proto.bot_maybe_follow_back(to_user)
 
         # query for all active followers of the source account
         followers = Follower.query(

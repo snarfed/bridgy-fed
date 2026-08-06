@@ -3577,8 +3577,16 @@ class ProtocolReceiveTest(TestCase):
         self.assertEqual(alice.key, carol_follower.key.get().to)
         self.assertEqual(alice.key, dave_follower.key.get().to)
 
+        # new_alice isn't bridged into any other protocols, so no bot should
+        # have followed it back
+        self.assertEqual([], Fake.sent)
+        self.assertEqual([], OtherFake.sent)
+        self.assertEqual([], ExplicitFake.sent)
+
     def test_move_bridged_user(self):
         """Transfers the copy account, enables the target, disables the source."""
+        self.make_user('efake.brid.gy', cls=Web)
+        self.make_user('other.brid.gy', cls=Web)
         alice = self.make_user('other:alice', cls=OtherFake, obj_id='other:alice',
                                enabled_protocols=['efake'],
                                copies=[Target(protocol='efake', uri='efake:alice')])
@@ -3609,6 +3617,27 @@ class ProtocolReceiveTest(TestCase):
         # old account should be disabled on efake with no copies
         alice = alice.key.get()
         self.assertEqual([], alice.enabled_protocols)
+
+        # new_alice is bridged into OtherFake (Fake's default) and ExplicitFake
+        # (transferred from alice), so both of those protocols' bots should
+        # have followed it back, but not Fake's own bot, since that's
+        # new_alice's native protocol
+        self.assertCountEqual([
+            ('fake:new-alice:target', {
+                'objectType': 'activity',
+                'verb': 'follow',
+                'id': 'https://other.brid.gy/#follow-back-fake:new-alice-2022-01-02T03:04:05+00:00',
+                'actor': 'other.brid.gy',
+                'object': 'fake:new-alice',
+            }),
+            ('fake:new-alice:target', {
+                'objectType': 'activity',
+                'verb': 'follow',
+                'id': 'https://efake.brid.gy/#follow-back-fake:new-alice-2022-01-02T03:04:05+00:00',
+                'actor': 'efake.brid.gy',
+                'object': 'fake:new-alice',
+            }),
+        ], Fake.sent)
         self.assertEqual([], alice.copies)
 
     @patch.object(Fake, 'REQUIRES_OLD_ACCOUNT', True)
@@ -3618,6 +3647,8 @@ class ProtocolReceiveTest(TestCase):
         eg the dest account is too new. The move should still enable it, by
         opting it in (manual_opt_out=False) to override its status.
         """
+        self.make_user('efake.brid.gy', cls=Web)
+        self.make_user('other.brid.gy', cls=Web)
         alice = self.make_user('other:alice', cls=OtherFake, obj_id='other:alice',
                                enabled_protocols=['efake'],
                                copies=[Target(protocol='efake', uri='efake:alice')])

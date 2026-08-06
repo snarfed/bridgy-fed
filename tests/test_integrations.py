@@ -1682,6 +1682,10 @@ class IntegrationTests(TestCase):
         ATProto follower bob.com , did:plc:bob
         Web follower bob.com
         """
+        self.make_web_user('bsky.brid.gy')
+        self.make_web_user('web.brid.gy')
+        self.make_web_user('fa.brid.gy')
+        self.make_web_user('other.brid.gy')
         alice = self.make_ap_user('https://inst/alice', 'did:plc:alice')
         new_alice = self.make_ap_user('https://inst2/new-alice')
 
@@ -1715,6 +1719,10 @@ class IntegrationTests(TestCase):
         AP @alice@inst, https://inst/alice (bridged to ATProto did:plc:alice)
         AP @new-alice@inst2, https://inst2/new-alice (not bridged)
         """
+        self.make_web_user('bsky.brid.gy')
+        self.make_web_user('web.brid.gy')
+        self.make_web_user('fa.brid.gy')
+        self.make_web_user('other.brid.gy')
         alice = self.make_ap_user('https://inst/alice', 'did:plc:alice')
         self.assertEqual([Target(uri='did:plc:alice', protocol='atproto')],
                          alice.copies)
