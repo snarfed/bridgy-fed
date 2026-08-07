@@ -2478,6 +2478,74 @@ Sed tortor neque, aliquet quis posuere aliquam, imperdiet sitamet […]
 
         mock_create_task.assert_called()  # atproto-commit
 
+    @patch.object(ATProto, 'set_dns')
+    @patch.object(tasks_client, 'create_task', return_value=Task(name='my task'))
+    @patch.object(util.session, 'get', side_effect=[
+        # fetch PLC operation log
+        requests_response([{
+            'cid': 'orig',
+            'operation': {'alsoKnownAs': ['at://ol.d', 'http://ol.d']},
+        }]),
+        # fetch updated DID doc
+        requests_response({
+            **DID_DOC,
+            'alsoKnownAs': ['at://fake-handle-user.fa.brid.gy'],
+        }),
+    ])
+    @patch.object(util.session, 'post', return_value=requests_response('OK'))  # update DID on PLC
+    def test_set_username_own_default_domain(self, mock_post, mock_get,
+                                             mock_create_task, mock_set_dns):
+        """The user's own default *.brid.gy handle sets DNS instead of resolving."""
+        user = self.make_user_and_repo(enabled_protocols=['atproto'])
+        ATProto.set_username(user, 'fake-handle-user.fa.brid.gy')
+
+        mock_set_dns.assert_called_once_with(handle='fake-handle-user.fa.brid.gy',
+                                             did='did:plc:user')
+
+        mock_post.call_args.kwargs['json'].pop('sig')
+        did_key = encode_did_key(ATPROTO_KEY.public_key())
+        mock_post.assert_called_with('https://plc.local/did:plc:user', json={
+            'type': 'plc_operation',
+            'rotationKeys': [did_key],
+            'verificationMethods': {'atproto': did_key},
+            'alsoKnownAs': ['at://fake-handle-user.fa.brid.gy', 'http://ol.d'],
+            'services': {
+                'atproto_pds': {
+                    'type': 'AtprotoPersonalDataServer',
+                    'endpoint': 'https://pds.local',
+                },
+            },
+            'prev': 'orig',
+            'did': 'did:plc:user',
+        }, timeout=15, stream=True, headers=ANY)
+
+        self.assertEqual('fake-handle-user.fa.brid.gy', user.handle_as(ATProto))
+        repo = self.storage.load_repo('did:plc:user')
+        self.assertEqual('fake-handle-user.fa.brid.gy', repo.handle)
+
+        mock_create_task.assert_called()  # atproto-commit
+
+    @patch.object(ATProto, 'set_dns')
+    # resolve handle, DNS method, not found
+    @patch('dns.resolver.resolve', side_effect=NXDOMAIN())
+    # resolve handle, HTTPS method, not found
+    @patch.object(util.session, 'get', return_value=requests_response(status=404))
+    def test_set_username_someone_elses_brid_gy_domain(self, _, __, mock_set_dns):
+        """Can't claim a *.brid.gy handle that isn't our own default one."""
+        user = self.make_user_and_repo(enabled_protocols=['atproto'])
+
+        for username in ('bsky.brid.gy', 'alice.inst.ap.brid.gy',
+                         'other-handle-user.fa.brid.gy'):
+            with self.assertRaises(RuntimeError) as e:
+                ATProto.set_username(user, username)
+            self.assertIn("You'll need to connect that domain", str(e.exception))
+
+        mock_set_dns.assert_not_called()
+
+        self.assertEqual('han.dull.fa.brid.gy', user.handle_as(ATProto))
+        repo = self.storage.load_repo('did:plc:user')
+        self.assertEqual('han.dull.fa.brid.gy', repo.handle)
+
     # resolve handle, DNS method, not found
     @patch('dns.resolver.resolve', side_effect=NXDOMAIN())
     # resolve handle, HTTPS method, not found

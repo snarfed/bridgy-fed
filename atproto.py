@@ -726,10 +726,18 @@ class ATProto(User, Protocol):
         elif username == repo.handle:
             logger.info(f'repo {repo.did} already has handle {username}, setting anyway')
 
-        # resolve_handle checks that username is a valid domain
-        resolved = did.resolve_handle(username, get_fn=util.requests_get)
-        if resolved != copy_did:
-            raise RuntimeError(f"""<p>You'll need to connect that domain to your bridged Bluesky account, either <a href="https://bsky.social/about/blog/4-28-2023-domain-handle-tutorial">with DNS</a> <a href="https://atproto.com/specs/handle#handle-resolution">or HTTP</a>. Your DID is: <code>{copy_did}</code><p>Once you're done, <a href="https://bsky-debug.app/handle?handle={username}">check your work here</a>, then try again.""")
+        default = ids.translate_handle(from_=user.__class__, to=to_cls,
+                                       handle=user.handle)
+        # endswith(SUPERDOMAIN) is also needed since some non-*.brid.gy defaults,
+        # eg on ATPROTO_HANDLE_DOMAINS, need real handle resolution, not our DNS
+        if username.endswith(SUPERDOMAIN) and username == default:
+            # user's own default Bridgy-Fed-provided domain handle on *.brid.gy
+            to_cls.set_dns(handle=username, did=copy_did)
+        else:
+            # resolve_handle checks that username is a valid domain
+            resolved = did.resolve_handle(username, get_fn=util.requests_get)
+            if resolved != copy_did:
+                raise RuntimeError(f"""<p>You'll need to connect that domain to your bridged Bluesky account, either <a href="https://bsky.social/about/blog/4-28-2023-domain-handle-tutorial">with DNS</a> <a href="https://atproto.com/specs/handle#handle-resolution">or HTTP</a>. Your DID is: <code>{copy_did}</code><p>Once you're done, <a href="https://bsky-debug.app/handle?handle={username}">check your work here</a>, then try again.""")
 
         logger.info(f'Setting ATProto handle for {user.key.id()} to {username}')
         repo.callback = repo_callback
