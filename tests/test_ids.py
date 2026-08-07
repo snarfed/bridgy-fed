@@ -486,7 +486,8 @@ class IdsTest(TestCase):
         """Web users always translate via their domain, not a custom username."""
         user = Web(id='user.com', obj=Object(
             id='a', as2={'url': ['acct:baz@user.com']}))
-        self.assertEqual('baz', user.handle)
+        self.assertEqual('baz', user.username())
+        self.assertEqual('user.com', user.handle)
 
         self.assertEqual('fake:handle:user.com',
                          translate_handle(from_=user, to=Fake))

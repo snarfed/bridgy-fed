@@ -427,9 +427,7 @@ def translate_handle(*, from_, to, handle=None, short=False):
     if isinstance(from_, models.User):
         from_user = from_
         assert handle is None
-        # override web users to always use domain instead of custom username
-        handle = (from_user.key.id() if from_user.LABEL == 'web'
-                  else from_user.handle)
+        handle = from_user.handle
 
     if not handle:
         return None

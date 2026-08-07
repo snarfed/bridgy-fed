@@ -3200,6 +3200,14 @@ class WebUtilTest(TestCase):
     def test_handle(self, *_):
         self.assertEqual('user.com', self.user.handle)
 
+    def test_handle_ignores_custom_username(self, *_):
+        self.user.obj = Object(id='a', as2={
+            'type': 'Person',
+            'url': ['acct:alice@user.com'],
+        })
+        self.assertEqual('alice', self.user.username())
+        self.assertEqual('user.com', self.user.handle)
+
     def test_handle_as_domain(self, *_):
         self.assertEqual('user.com', self.user.handle_as_domain)
 

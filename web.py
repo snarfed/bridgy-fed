@@ -227,12 +227,11 @@ class Web(User, Protocol):
 
     @ndb.ComputedProperty
     def handle(self):
-        """Returns this user's chosen username or domain, eg ``user.com``."""
-        # prettify if domain, noop if username
-        username = self.username()
-        if username != self.key.id():
-            return domain_from_link(username, minimize=False)
-        return username
+        """Returns this user's domain, eg ``user.com``.
+
+        Ignores any custom username; use :meth:`username` for that.
+        """
+        return self.key.id()
 
     @ndb.ComputedProperty
     def verified_domain(self):
