@@ -1706,10 +1706,26 @@ class Protocol:
             from_user.enabled_protocols = []
             from_user.put()
 
-        # follow the new account from the protocol bots that need to
         for proto in set(p for p in PROTOCOLS.values() if p):
             if to_user.is_enabled(proto) and not isinstance(to_user, proto):
+                # follow the new account from the protocol bots that need to
                 proto.bot_maybe_follow_back(to_user)
+
+                # update its bridged handle, but only if it's still the default
+                # handle we generated for the old account, ie not custom
+                old_default = ids.translate_handle(
+                    from_=from_user.__class__, to=proto, handle=from_user.handle)
+                new_default = ids.translate_handle(
+                    from_=to_user.__class__, to=proto, handle=to_user.handle)
+                if (old_default and new_default
+                        and to_user.handle_as(proto) == old_default):
+                    try:
+                        proto.set_username(to_user, new_default)
+                    except NotImplementedError:
+                        pass
+                    except Exception as e:
+                        util.interpret_http_exception(e)
+                        logger.warning(f"Couldn't update {to_user.key.id()}'s bridged {proto.LABEL} handle to {new_default}", exc_info=True)
 
         # query for all active followers of the source account
         followers = Follower.query(

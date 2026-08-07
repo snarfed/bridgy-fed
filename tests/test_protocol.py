@@ -3677,6 +3677,77 @@ class ProtocolReceiveTest(TestCase):
                          new_alice.copies)
         self.assertTrue(new_alice.is_enabled(ExplicitFake))
 
+    def test_move_updates_default_bridged_handle(self):
+        """Move updates a bridged handle that's still the old account's default."""
+        self.make_user('other.brid.gy', cls=Web)
+        alice = self.make_user('other:alice', cls=OtherFake, obj_id='other:alice')
+        new_alice = self.make_user('fake:new-alice', cls=Fake)
+
+        with patch.object(Fake, 'handle_as', return_value=alice.handle):
+            _, code = OtherFake.receive_as1({
+                'objectType': 'activity',
+                'verb': 'move',
+                'id': 'other:move',
+                'actor': 'other:alice',
+                'object': 'other:alice',
+                'target': 'fake:new-alice',
+            })
+        self.assertEqual(204, code)
+
+        self.assertEqual({'fake:new-alice': f'other:handle:{new_alice.handle}'},
+                         OtherFake.usernames)
+
+    def test_move_keeps_custom_bridged_handle(self):
+        """Move doesn't touch a bridged handle that's been customized."""
+        self.make_user('other.brid.gy', cls=Web)
+        alice = self.make_user('other:alice', cls=OtherFake, obj_id='other:alice')
+        new_alice = self.make_user('fake:new-alice', cls=Fake)
+
+        with patch.object(Fake, 'handle_as', return_value='custom.example'):
+            _, code = OtherFake.receive_as1({
+                'objectType': 'activity',
+                'verb': 'move',
+                'id': 'other:move',
+                'actor': 'other:alice',
+                'object': 'other:alice',
+                'target': 'fake:new-alice',
+            })
+        self.assertEqual(204, code)
+
+        self.assertEqual({}, OtherFake.usernames)
+
+    def test_move_bridged_handle_set_username_not_implemented(self):
+        """Move still succeeds if a protocol doesn't support custom usernames."""
+        self.make_user('efake.brid.gy', cls=Web)
+        self.make_user('other.brid.gy', cls=Web)
+        alice = self.make_user('other:alice', cls=OtherFake, obj_id='other:alice',
+                               enabled_protocols=['efake'],
+                               copies=[Target(protocol='efake', uri='efake:alice')])
+        new_alice = self.make_user('fake:new-alice', cls=Fake)
+
+        def handle_as(to_proto, short=False):
+            return {OtherFake: alice.handle,
+                   ExplicitFake: f'efake:handle:{alice.handle}',
+                  }[to_proto]
+
+        with patch.object(Fake, 'handle_as', side_effect=handle_as):
+            _, code = OtherFake.receive_as1({
+                'objectType': 'activity',
+                'verb': 'move',
+                'id': 'other:move',
+                'actor': 'other:alice',
+                'object': 'other:alice',
+                'target': 'fake:new-alice',
+            })
+        self.assertEqual(204, code)
+
+        # ExplicitFake doesn't implement set_username; should be attempted,
+        # raise NotImplementedError, and get silently skipped, while
+        # OtherFake's still gets updated
+        self.assertEqual({}, ExplicitFake.usernames)
+        self.assertEqual({'fake:new-alice': f'other:handle:{new_alice.handle}'},
+                         OtherFake.usernames)
+
     def test_move_no_target(self):
         """Test Move activity without target fails."""
         alice = self.make_user('fake:alice', cls=Fake, obj_id='fake:alice')
