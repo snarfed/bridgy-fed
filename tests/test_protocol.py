@@ -3492,6 +3492,48 @@ class ProtocolReceiveTest(TestCase):
         self.assertIsNone(Object.get_by_id('fake:delete'))
         self.assertEqual([], Fake.sent)
 
+    def test_delete_opted_out_user_non_actor_object_no_followers(self):
+        self.make_followers()
+        self.user.obj.our_as1 = {'id': 'fake:user', 'summary': '#nobridge'}
+        self.user.obj.put()
+
+        self.store_object(id='fake:post', source_protocol='fake',
+                          copies=[Target(protocol='other', uri='other:post')],
+                          our_as1={
+                              'objectType': 'note',
+                              'id': 'fake:post',
+                              'author': 'fake:user',
+                          })
+
+        _, code = Fake.receive_as1({
+            'objectType': 'activity',
+            'verb': 'delete',
+            'id': 'fake:delete',
+            'actor': 'fake:user',
+            'object': 'fake:post',
+        }, authed_as='fake:user')
+        self.assertEqual(204, code)
+
+        self.assertTrue(Object.get_by_id('fake:post').deleted)
+        self.assertEqual([], OtherFake.sent)
+
+    def test_delete_opted_out_user_actor_object_delivers_to_followers(self):
+        self.make_followers()
+        self.user.obj.our_as1 = {'id': 'fake:user', 'summary': '#nobridge'}
+        self.user.obj.put()
+
+        _, code = Fake.receive_as1({
+            'objectType': 'activity',
+            'verb': 'delete',
+            'id': 'fake:delete',
+            'actor': 'fake:user',
+            'object': 'fake:user',
+        }, authed_as='fake:user')
+        self.assertEqual(202, code)
+
+        self.assertEqual(['other:alice:target', 'other:bob:target'],
+                         [target for target, _ in OtherFake.sent])
+
     def test_delete_not_authed_as_object_owner(self):
         self.make_followers()
 
@@ -5710,6 +5752,52 @@ class ProtocolReceiveTest(TestCase):
 
         _, kwargs = mock_send.call_args
         self.assertEqual('other:alice', kwargs['from_user'].key.id())
+
+    @patch.object(Fake, 'send', return_value=True)
+    def test_send_task_delete_actor_opted_out_user(self, mock_send):
+        self.user.manual_opt_out = True
+        self.user.put()
+
+        self.store_object(id='fake:delete', our_as1={
+            'id': 'fake:delete',
+            'objectType': 'activity',
+            'verb': 'delete',
+            'actor': 'fake:user',
+            'object': 'fake:user',
+        })
+        resp = self.post('/queue/send', data={
+            'protocol': 'fake',
+            'obj_id': 'fake:delete',
+            'url': 'fake:target',
+            'user': self.user.key.urlsafe(),
+        })
+        self.assertEqual(200, resp.status_code)
+
+        _, kwargs = mock_send.call_args
+        self.assertEqual('fake:user', kwargs['from_user'].key.id())
+
+    @patch.object(Fake, 'send', return_value=True)
+    def test_send_task_delete_non_actor_opted_out_user(self, mock_send):
+        self.user.manual_opt_out = True
+        self.user.put()
+
+        self.store_object(id='fake:delete', our_as1={
+            'id': 'fake:delete',
+            'objectType': 'activity',
+            'verb': 'delete',
+            'actor': 'fake:user',
+            'object': 'fake:post',
+        })
+        resp = self.post('/queue/send', data={
+            'protocol': 'fake',
+            'obj_id': 'fake:delete',
+            'url': 'fake:target',
+            'user': self.user.key.urlsafe(),
+        })
+        self.assertEqual(200, resp.status_code)
+
+        _, kwargs = mock_send.call_args
+        self.assertIsNone(kwargs['from_user'])
 
     @patch('webutil.appengine_config.tasks_client.create_task')
     @patch.object(Fake, 'send', side_effect=MemcacheUnexpectedCloseError())

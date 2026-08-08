@@ -1908,7 +1908,8 @@ class Protocol:
         orig_obj = None
         targets = {}  # maps Target (with *normalized* uri) to Object or None
         owner = as1.get_owner(obj.as1)
-        allow_opt_out = (obj.type == 'delete')
+        # allow opted out users deleting their own actor/profile
+        allow_opt_out = (obj.type == 'delete' and from_user.is_profile(obj))
         inner_obj_as1 = as1.get_object(obj.as1)
         inner_obj_id = inner_obj_as1.get('id')
         in_reply_tos = as1.get_ids(inner_obj_as1, 'inReplyTo')
@@ -2591,14 +2592,17 @@ def send_task():
     assert obj and obj.key and obj.key.id()
 
     PROTOCOLS[protocol].check_supported(obj, 'send')
-    allow_opt_out = (obj.type == 'delete')
 
     user = None
     if user_key := form.get('user'):
         key = ndb.Key(urlsafe=user_key)
         # use get_by_id so that we follow use_instead
-        user = PROTOCOLS_BY_KIND[key.kind()].get_by_id(
-            key.id(), allow_opt_out=allow_opt_out)
+        user = PROTOCOLS_BY_KIND[key.kind()].get_by_id(key.id(), allow_opt_out=True)
+        if (user and user.status
+                # allow opted out users deleting their own actor/profile
+                and not (obj.type == 'delete' and user.is_profile(obj))):
+            logger.info(f'{user.key} is {user.status}')
+            user = None
 
     # send
     delay = ''
