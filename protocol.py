@@ -1639,7 +1639,11 @@ class Protocol:
             return
 
         from web import Web
-        bot = Web.get_by_id(bot_cls.bot_user_id())
+        bot_id = bot_cls.bot_user_id()
+        if not (bot := Web.get_by_id(bot_id)):
+            logger.info(f"Can't follow {user.key.id()} from bot user {bot_id}, doesn't exist")
+            return
+
         now = util.now().isoformat()
         logger.info(f'Following {user.key.id()} back from bot user {bot.key.id()}')
 

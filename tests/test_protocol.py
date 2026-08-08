@@ -3640,6 +3640,21 @@ class ProtocolReceiveTest(TestCase):
         ], Fake.sent)
         self.assertEqual([], alice.copies)
 
+    def test_move_bot_user_doesnt_exist(self):
+        """Bridged into a protocol with no bot user, eg Web. Shouldn't crash."""
+        alice = self.make_user('other:alice', cls=OtherFake, obj_id='other:alice')
+        new_alice = self.make_user('fake:new-alice', cls=Fake)
+
+        _, code = OtherFake.receive_as1({
+            'objectType': 'activity',
+            'verb': 'move',
+            'id': 'other:move',
+            'actor': 'other:alice',
+            'object': 'other:alice',
+            'target': 'fake:new-alice',
+        })
+        self.assertEqual(204, code)
+
     @patch.object(Fake, 'REQUIRES_OLD_ACCOUNT', True)
     def test_move_bridged_user_dest_not_yet_eligible(self):
         """Move to an existing dest account that isn't otherwise eligible to bridge.
