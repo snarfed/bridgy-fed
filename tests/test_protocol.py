@@ -5837,7 +5837,7 @@ class ProtocolReceiveTest(TestCase):
 
         bob.enable_protocol(ExplicitFake)
 
-        self.assert_sent(ExplicitFake, alice, '?', '<p>Hi! <a class="h-card u-author mention" rel="me" href="web:efake:other:bob" title="other:handle:bob &middot; efake:handle:other:handle:bob"><span style="unicode-bidi: isolate">other:handle:bob</span> &middot; efake:handle:other:handle:bob</a>, who you asked to bridge, has bridged their account into efake-phrase. You can follow them now if you want.')
+        self.assert_sent(OtherFake, alice, '?', '<p>Hi! <a class="h-card u-author mention" rel="me" href="web:efake:other:bob" title="other:handle:bob &middot; efake:handle:other:handle:bob"><span style="unicode-bidi: isolate">other:handle:bob</span> &middot; efake:handle:other:handle:bob</a>, who you asked to bridge, has bridged their account into efake-phrase. You can follow them now if you want.')
         self.assertEqual('inactive', follower.key.get().status)
 
     def test_enable_protocol_dms_dormant_followers_bounce(self):
@@ -5850,7 +5850,7 @@ class ProtocolReceiveTest(TestCase):
                                           reason='bounce')
 
         bob.enable_protocol(ExplicitFake)
-        self.assert_sent(ExplicitFake, alice, '?', '<p>Hi! <a class="h-card u-author mention" rel="me" href="web:efake:other:bob" title="other:handle:bob &middot; efake:handle:other:handle:bob"><span style="unicode-bidi: isolate">other:handle:bob</span> &middot; efake:handle:other:handle:bob</a>, who you originally followed before you Bounced, has bridged their account into efake-phrase. You can follow them now if you want.')
+        self.assert_sent(OtherFake, alice, '?', '<p>Hi! <a class="h-card u-author mention" rel="me" href="web:efake:other:bob" title="other:handle:bob &middot; efake:handle:other:handle:bob"><span style="unicode-bidi: isolate">other:handle:bob</span> &middot; efake:handle:other:handle:bob</a>, who you originally followed before you Bounced, has bridged their account into efake-phrase. You can follow them now if you want.')
         self.assertEqual('inactive', follower.key.get().status)
 
     def test_enable_protocol_skips_dormant_followers_on_other_protocol(self):

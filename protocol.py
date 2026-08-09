@@ -2139,14 +2139,14 @@ Hi! You <a href="{inner_obj_as1.get('url') or inner_obj_id}">recently {verb}</a>
                     if not Protocol.for_bridgy_subdomain(f.from_.id()):
                         followers.append(f)
 
-            logger.debug(f'  loaded {len(followers)} followers')
+            logger.info(f'  loaded {len(followers)} followers')
 
             user_keys = [f.from_ for f in followers]
             users = [u for u in ndb.get_multi(user_keys) if u]
-            logger.debug(f'  loaded {len(users)} users')
+            logger.info(f'  loaded {len(users)} users')
 
             User.load_multi(users)
-            logger.debug(f'  loaded user objects')
+            logger.info(f'  loaded user objects')
 
             if (not followers and
                 (util.domain_or_parent_in(from_user.key.id(), LIMITED_DOMAINS)
@@ -2169,7 +2169,7 @@ Hi! You <a href="{inner_obj_as1.get('url') or inner_obj_id}">recently {verb}</a>
                           if obj.type == 'share' else None)
             for user in users:
                 if user.is_blocking(from_user):
-                    logger.debug(f'  {user.key.id()} blocks {from_user.key.id()}')
+                    logger.info(f'  {user.key.id()} blocks {from_user.key.id()}')
                     continue
 
                 # TODO: should we pass remote=False through here to Protocol.load?
@@ -2180,7 +2180,7 @@ Hi! You <a href="{inner_obj_as1.get('url') or inner_obj_id}">recently {verb}</a>
                 target = util.normalize_url(target, trailing_slash=False)
                 targets[Target(protocol=user.LABEL, uri=target)] = target_obj
 
-            logger.debug(f'  collected {len(targets)} targets')
+            logger.info(f'  collected {len(targets)} targets')
 
         # deliver to enabled HAS_COPIES protocols proactively
         if obj.type in ('post', 'update', 'delete', 'share'):
@@ -2663,7 +2663,7 @@ def user_enabled_task():
 
     for follower, from_user in zip(followers, from_users):
         if from_user and not from_user.status:
-            logger.info('Updating and DMing Follower from {from_user.key.id()}')
+            logger.info(f'Updating and DMing Follower from {from_user.key.id()}')
             follower.status = 'inactive'
             follower.put()
 
@@ -2671,7 +2671,7 @@ def user_enabled_task():
                 'bounce': ', who you originally followed before you Bounced,',
                 'requested': ', who you asked to bridge,',
             }.get(follower.reason, '')
-            dms.maybe_send(from_=proto, to_user=from_user, text=f'<p>Hi! {user.html_link(proto=proto, proto_fallback=True)}{relationship} has bridged their account into {proto.PHRASE}. You can follow them now if you want.')
+            dms.maybe_send(from_=user.__class__, to_user=from_user, text=f'<p>Hi! {user.html_link(proto=proto, proto_fallback=True)}{relationship} has bridged their account into {proto.PHRASE}. You can follow them now if you want.')
 
     return '', 200
 
