@@ -1455,12 +1455,16 @@ class Protocol:
         if (actor and actor.keys() == set(['id'])
                 and not is_user and obj.type not in ('delete', 'undo')):
             logger.debug('Fetching actor so we have name, profile photo, etc')
-            actor_obj = from_user_cls.load(
-                ids.profile_id(id=actor['id'], proto=from_cls), raise_=False)
-            if actor_obj and actor_obj.as1:
+            if not from_user.obj and from_user.existing:
+                # (if from_user is new, get_or_create just tried to load their
+                # profile, so don't retry)
+                from_user.reload_profile()
+
+            if from_user.obj and from_user.obj.as1:
                 obj.our_as1 = {
-                    **obj.as1, 'actor': {
-                        **actor_obj.as1,
+                    **obj.as1,
+                    'actor': {
+                        **from_user.obj.as1,
                         # override profile id with actor id
                         # https://github.com/snarfed/bridgy-fed/issues/1720
                         'id': actor['id'],

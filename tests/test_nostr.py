@@ -12,6 +12,7 @@ from granary.nostr import (
     KIND_DELETE,
     KIND_NOTE,
     KIND_PROFILE,
+    KIND_REACTION,
     KIND_RELAYS,
     KIND_REPOST,
     id_and_sign,
@@ -1136,6 +1137,47 @@ class NostrTest(TestCase):
         alice = alice.key.get()
         self.assertIsNone(alice.valid_nip05)
         self.assertIsNone(alice.handle_pay_level_domain)
+
+    @patch('secrets.token_urlsafe', return_value='towkin')
+    def test_receive_reloads_actor_profile_not_stored(self, _):
+        user = self.make_user(PUBKEY_URI_2, cls=Nostr)
+        profile = id_and_sign({
+            'kind': KIND_PROFILE,
+            'pubkey': PUBKEY_2,
+            'content': json_dumps({'name': 'Bob'}),
+        }, privkey=NSEC_URI_2)
+        FakeConnection.to_receive = [
+            ['EVENT', 'towkin', profile],
+            ['EOSE', 'towkin'],
+        ]
+
+        like = id_and_sign({
+            'kind': KIND_REACTION,
+            'pubkey': PUBKEY_2,
+            'content': '+',
+            'tags': [['e', ID], ['p', PUBKEY]],
+        }, privkey=NSEC_URI_2)
+        obj = Object(id='nostr:' + like['id'], nostr=like, source_protocol='nostr')
+
+        with app.test_request_context('/'):
+            self.assertEqual(204, Nostr.receive(obj, authed_as=PUBKEY_URI_2)[1])
+
+        self.assertEqual([
+            ['REQ', 'towkin', {
+                'authors': [PUBKEY_2],
+                'kinds': [KIND_PROFILE, KIND_RELAYS],
+                'limit': 20,
+            }],
+            ['CLOSE', 'towkin'],
+        ], FakeConnection.sent[:2])
+        self.assertEqual(profile, user.key.get().obj_key.get().nostr)
+        self.assertEqual({
+            'id': PUBKEY_URI_2,
+            'objectType': 'person',
+            'displayName': 'Bob',
+            'urls': ['https://njump.me/nprofile1qqsgg39lu60dv6ktxdjvdvkgxw88gn36f2mwtaz2tf68cmk9459w06gqkjzvr'],
+            'published': '2022-01-02T03:04:05+00:00',
+        }, obj.as1['actor'])
 
     def test_check_supported(self):
         Nostr.check_supported(Object(our_as1={
