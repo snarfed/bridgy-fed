@@ -1,6 +1,7 @@
 """Base protocol class and common code."""
 import copy
 from datetime import datetime, timedelta, timezone
+import itertools
 import logging
 import os
 import re
@@ -57,6 +58,12 @@ from models import (
     User,
 )
 import notifications
+
+# how many followers to load users and profile objects for at a time. keep this a
+# multiple of 1000, ndb's max keys per datastore lookup, so that each chunk still
+# fans out into parallel lookups.
+# https://github.com/snarfed/bridgy-fed/issues/2154
+TARGETS_CHUNK_SIZE = 5000
 
 OBJECT_REFRESH_AGE = timedelta(days=30)
 DELETE_TASK_DELAY = timedelta(minutes=1)
@@ -960,6 +967,9 @@ class Protocol:
         * If obj is an ``activitypub`` actor, returns its inbox.
         * If obj is an ``activitypub`` object, returns it's author's or actor's
           inbox.
+
+        TODO: materialize this onto a new ``User.target`` computed property? could
+        drastically speed up :meth:`targets` and lower its memory footprint.
 
         Args:
           obj (models.Object):
@@ -2125,64 +2135,72 @@ Hi! You <a href="{inner_obj_as1.get('url') or inner_obj_id}">recently {verb}</a>
             p for p in to_protocols
             if not (p.HAS_COPIES and p.DEFAULT_TARGET)
             and not (p.USES_OBJECT_FEED and p.LABEL not in from_user.has_object_feed_followers_on)]
-        followers = []
+        num_followers = 0
         is_undo_block = obj.type == 'undo' and inner_obj_as1.get('verb') == 'block'
         if (obj.type in ('post', 'update', 'delete', 'move', 'share', 'undo')
                 and (not is_reply or is_self_reply) and not is_undo_block
                 and to_followers_protos):
             logger.info(f'Delivering to followers of {user_key.id()} on {[p.LABEL for p in to_followers_protos]}')
+
+            target_obj = (original_objs.get(inner_obj_id)
+                          if obj.type == 'share' else None)
+            add_to_feed = (not internal and obj.type in ('post', 'update', 'share')
+                           and write_obj.type not in as1.ACTOR_TYPES)
+            feed = []
+
             # query each protocol individually
             for proto in to_followers_protos:
                 kind = proto._get_kind()
-                for f in Follower.query(
-                        Follower.to == user_key,
-                        Follower.status == 'active',
-                        Follower.from_ >= ndb.Key(kind, '\x00'),
-                        Follower.from_ < ndb.Key(kind + '\x00', '\x00')):
+                query = Follower.query(
+                    Follower.to == user_key,
+                    Follower.status == 'active',
+                    Follower.from_ >= ndb.Key(kind, '\x00'),
+                    Follower.from_ < ndb.Key(kind + '\x00', '\x00'))
+
+                # load and collect targets in chunks so that we never hold all of
+                # the followers' users and profile objects in memory at once.
+                # accounts with tens of thousands of followers otherwise use >1GB
+                # and can OOM.
+                # https://github.com/snarfed/bridgy-fed/issues/2154
+                for followers in itertools.batched(query, TARGETS_CHUNK_SIZE):
                     # skip protocol bot users
-                    if not Protocol.for_bridgy_subdomain(f.from_.id()):
-                        followers.append(f)
+                    keys = [f.from_ for f in followers
+                            if not Protocol.for_bridgy_subdomain(f.from_.id())]
+                    num_followers += len(keys)
 
-            logger.info(f'  loaded {len(followers)} followers')
+                    users = [u for u in ndb.get_multi(keys) if u]
+                    User.load_multi(users)
+                    logger.info(f'  loaded {num_followers} followers, {len(targets)} targets so far')
 
-            user_keys = [f.from_ for f in followers]
-            users = [u for u in ndb.get_multi(user_keys) if u]
-            logger.info(f'  loaded {len(users)} users')
+                    # add to followers' feeds, if any
+                    if add_to_feed:
+                        feed.extend(u.key for u in users
+                                    if u.USES_OBJECT_FEED
+                                    or u.key.id() in common.BETA_USER_IDS)
 
-            User.load_multi(users)
-            logger.info(f'  loaded user objects')
+                    for user in users:
+                        if user.is_blocking(from_user):
+                            logger.info(f'  {user.key.id()} blocks {from_user.key.id()}')
+                            continue
 
-            if (not followers and
-                (util.domain_or_parent_in(from_user.key.id(), LIMITED_DOMAINS)
-                 or util.domain_or_parent_in(obj.key.id(), LIMITED_DOMAINS))):
+                        # TODO: should we pass remote=False through here to Protocol.load?
+                        target = user.target_for(user.obj, shared=True) if user.obj else None
+                        if not target:
+                            continue
+
+                        target = util.normalize_url(target, trailing_slash=False)
+                        targets[Target(protocol=user.LABEL, uri=target)] = target_obj
+
+            if (num_followers == 0
+                and (util.domain_or_parent_in(from_user.key.id(), LIMITED_DOMAINS)
+                     or util.domain_or_parent_in(obj.key.id(), LIMITED_DOMAINS))):
                 logger.info(f'skipping, {from_user.key.id()} is on a limited domain and has no followers')
                 return {}
 
-            # add to followers' feeds, if any
-            if not internal and obj.type in ('post', 'update', 'share'):
-                if write_obj.type not in as1.ACTOR_TYPES:
-                    write_obj.feed = [
-                        u.key for u in users
-                        if u.USES_OBJECT_FEED or u.key.id() in common.BETA_USER_IDS
-                    ]
-                    if write_obj.feed:
-                        write_obj.dirty = True
-
-            # collect targets for followers
-            target_obj = (original_objs.get(inner_obj_id)
-                          if obj.type == 'share' else None)
-            for user in users:
-                if user.is_blocking(from_user):
-                    logger.info(f'  {user.key.id()} blocks {from_user.key.id()}')
-                    continue
-
-                # TODO: should we pass remote=False through here to Protocol.load?
-                target = user.target_for(user.obj, shared=True) if user.obj else None
-                if not target:
-                    continue
-
-                target = util.normalize_url(target, trailing_slash=False)
-                targets[Target(protocol=user.LABEL, uri=target)] = target_obj
+            if add_to_feed:
+                write_obj.feed = feed
+                if feed:
+                    write_obj.dirty = True
 
             logger.info(f'  collected {len(targets)} targets')
 

@@ -2470,6 +2470,32 @@ class ProtocolReceiveTest(TestCase):
             Target(protocol='other', uri='other://b.ob:target'),
         ], list(Fake.targets(create, from_user=alice, crud_obj=note)))
 
+    @patch('protocol.TARGETS_CHUNK_SIZE', 2)
+    def test_targets_followers_multiple_chunks(self):
+        # five followers, so they're loaded in chunks of 2, 2, and 1
+        alice = self.make_user('fake://ali.ce', cls=Fake, obj_id='fake://ali.ce')
+        for i in range(5):
+            Follower.get_or_create(to=alice, from_=self.make_user(
+                f'other://follower{i}', cls=OtherFake,
+                obj_id=f'other://follower{i}'))
+
+        note = Object(id='fake:note', our_as1={
+            'id': 'fake:post',
+            'objectType': 'note',
+            'author': 'fake://ali.ce',
+        })
+        create = Object(id='fake:create', our_as1={
+            'id': 'fake:create',
+            'objectType': 'activity',
+            'verb': 'post',
+            'actor': 'fake://ali.ce',
+            'object': note.our_as1,
+        })
+        self.assertEqual(
+            [Target(protocol='other', uri=f'other://follower{i}:target')
+             for i in range(5)],
+            list(Fake.targets(create, from_user=alice, crud_obj=note)))
+
     def test_targets_skips_uses_object_feed_proto_without_followers(self):
         # ExplicitFake has USES_OBJECT_FEED True
         self.user.enabled_protocols = ['efake']
