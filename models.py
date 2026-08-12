@@ -658,7 +658,12 @@ class User(AddRemoveMixin, StringIdModel, metaclass=ProtocolUserMeta):
         Args:
           users (sequence of User)
         """
-        objs = ndb.get_multi(u.obj_key for u in users if u.obj_key)
+        keys = [u.obj_key for u in users if u.obj_key]
+        # disable cache on over 100 users because ndb writes each missed entity back
+        # to memcache with a separate blocking CAS call, so with tens of thousands of
+        # users, that alone takes minutes.
+        # https://github.com/snarfed/bridgy-fed/issues/2154
+        objs = ndb.get_multi(keys, use_global_cache=(len(keys) > 100))
         keys_to_objs = {o.key: o for o in objs if o}
 
         for u in users:
