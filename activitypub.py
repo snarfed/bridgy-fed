@@ -338,6 +338,17 @@ class ActivityPub(User, Protocol):
     @classmethod
     def target_for(cls, obj, shared=False):
         """Returns ``obj``'s or its author's/actor's inbox, if available."""
+        # use as2 first if we have it. converting to AS1 isn't cheap, it can add
+        # up to minutes in inbox delivery for accounts with many followers:
+        # https://github.com/snarfed/bridgy-fed/issues/2154
+        if (obj.as2 and not obj.our_as1 and not obj.extra_as1
+                and util.get_first(obj.as2, 'type') in as2.ACTOR_TYPES):
+            if shared:
+                if inbox := as1.get_object(obj.as2, 'endpoints').get('sharedInbox'):
+                    return unwrap(inbox)
+            inbox = obj.as2.get('publicInbox') or obj.as2.get('inbox')
+            return unwrap(inbox) if inbox else None
+
         # Object.as1 is expensive and not memoized, so only read it once
         if not (obj_as1 := obj.as1):
             return None
