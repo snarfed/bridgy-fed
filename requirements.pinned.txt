@@ -95,7 +95,7 @@ requests-file==3.0.1
 requests-hardened==1.3.0
 requests-oauth2client==1.8.0
 requests-oauthlib==2.0.0
-setuptools==83.0.0
+setuptools==84.0.0
 sgmllib3k==1.0.0
 simple-websocket==1.1.0
 six==1.17.0
