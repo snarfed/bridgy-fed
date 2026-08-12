@@ -7,12 +7,12 @@ from urllib.parse import unquote
 
 from authlib.integrations.flask_oauth2.resource_protector import current_token
 from flask import request
-from google.cloud import ndb
 from granary import as1, bluesky
 from granary.mastodon import decode_id, encode_id, from_as1
 from webutil.appengine_info import DEBUG, LOCAL_SERVER
 from webutil import util
 from webutil.flask_util import bool_param, get_required_param, error, MODERN_HEADERS
+from webutil.models import get_multi
 from werkzeug.exceptions import HTTPException
 
 import activitypub
@@ -705,7 +705,7 @@ def accounts_statuses(user, id):
         objects = []
         if user.obj and user.obj.as1:
             featured = as1.get_ids(as1.get_object(user.obj.as1, 'featured'), 'items')
-            objects = ndb.get_multi(Object(id=id).key for id in featured)
+            objects = get_multi(Object(id=id).key for id in featured)
 
     else:
         query = Object.query(Object.users == user.key,
@@ -810,7 +810,7 @@ def bookmarks(user):
 @app.get('/api/v1/domain_blocks', provide_automatic_options=False)
 @auth()
 def domain_blocks_get(user):
-    blocklists = ndb.get_multi(user.blocks)
+    blocklists = get_multi(user.blocks)
     return [domain for list in blocklists for domain in list.domain_blocklist]
 
 
@@ -822,7 +822,7 @@ def favourites(user):
                         ).order(-Object.created
                         ).fetch(limit())
     ids = [as1.get_id(like.as1, 'object') for like in likes]
-    objs = [obj for obj in ndb.get_multi(Object(id=id).key for id in ids if id)
+    objs = [obj for obj in get_multi(Object(id=id).key for id in ids if id)
             if obj and obj.as1]
     prefetch_statuses(objs)
     return non_none([to_status(obj) for obj in objs])
@@ -833,7 +833,7 @@ def favourites(user):
 def statuses_multiple(user):
     ids = [decode_id(id) for id in
            request.args.getlist('id[]') + request.args.getlist('id')]
-    objs = [obj for obj in ndb.get_multi(Object(id=id).key for id in ids)
+    objs = [obj for obj in get_multi(Object(id=id).key for id in ids)
             if obj and obj.as1 and not obj.deleted and as1.is_public(obj.as1)]
     prefetch_statuses(objs)
     return [s for obj in objs

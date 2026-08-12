@@ -4,10 +4,10 @@ import logging
 from urllib.parse import urljoin
 
 from flask import request
-from google.cloud import ndb
 from granary import as1, source
 from webutil import appengine_info, util
 from webutil.flask_util import cloud_tasks_only
+from webutil.models import get_multi
 
 import common
 from domains import PRIMARY_DOMAIN
@@ -136,7 +136,7 @@ def notify_task():
         logger.info(f"User {user_id} isn't enabled")
         return '', 204
 
-    objs = ndb.get_multi(Object(id=id).key for id in notifs)
+    objs = get_multi(Object(id=id).key for id in notifs)
 
     message = f"<p>Hi! Here are your recent interactions from people who aren't bridged into {user.PHRASE}. Click the <em>respond</em> links to reply, like, repost, or block them.\n<ul>\n"
 

@@ -15,7 +15,7 @@ from google.cloud.ndb import tasklets
 from google.cloud.ndb.key import Key
 from google.cloud.ndb.query import OR
 from google.protobuf.message import DecodeError
-from google.cloud.ndb.model import get_multi, Model
+from google.cloud.ndb.model import Model
 from granary import as1, as2, atom, microformats2, rss
 import jwt
 import lexrpc
@@ -23,6 +23,7 @@ import oauth_dropins
 from oauth_dropins.bluesky import BlueskyAuth
 import requests
 from webutil import flask_util, logs, util
+from webutil.models import get_multi
 from webutil.util import json_dumps
 from webutil.flask_util import (
     canonicalize_request_domain,
@@ -359,7 +360,7 @@ def settings():
             user.logo = site_logo(login)
             user.domain_blocklists = []
 
-            for obj in ndb.get_multi(user.blocks[:PAGE_SIZE]):
+            for obj in get_multi(user.blocks[:PAGE_SIZE]):
                 if getattr(obj, 'is_csv', None):
                     url = obj.key.id()
                     user.domain_blocklists.append(

@@ -45,6 +45,7 @@ from webutil.appengine_info import DEBUG
 from webutil.flask_util import error
 from webutil.models import (
     EncryptedProperty,
+    get_multi,
     JsonProperty,
     stored_value,
     StringIdModel,
@@ -658,12 +659,7 @@ class User(AddRemoveMixin, StringIdModel, metaclass=ProtocolUserMeta):
         Args:
           users (sequence of User)
         """
-        keys = [u.obj_key for u in users if u.obj_key]
-        # disable cache on over 100 users because ndb writes each missed entity back
-        # to memcache with a separate blocking CAS call, so with tens of thousands of
-        # users, that alone takes minutes.
-        # https://github.com/snarfed/bridgy-fed/issues/2154
-        objs = ndb.get_multi(keys, use_global_cache=(len(keys) > 100))
+        objs = get_multi(u.obj_key for u in users if u.obj_key)
         keys_to_objs = {o.key: o for o in objs if o}
 
         for u in users:
@@ -1353,7 +1349,7 @@ class User(AddRemoveMixin, StringIdModel, metaclass=ProtocolUserMeta):
                                   or DOMAIN_RE.fullmatch(user_or_id)):
             return False
 
-        blocklists = ndb.get_multi(key for key in self.blocks
+        blocklists = get_multi(key for key in self.blocks
                                    if key.kind() == 'Object')
         for list in blocklists:
             if list.domain_blocklist_matches(user_or_id):
@@ -2369,7 +2365,7 @@ class Follower(ndb.Model):
         )
 
         followers, before, after = fetch_page(query, Follower, by=Follower.updated)
-        users = ndb.get_multi(f.from_ if collection == 'followers' else f.to
+        users = get_multi(f.from_ if collection == 'followers' else f.to
                               for f in followers)
         User.load_multi(u for u in users if u)
 

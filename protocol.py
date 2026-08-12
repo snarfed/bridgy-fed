@@ -23,7 +23,7 @@ from requests import RequestException
 from websockets.exceptions import InvalidStatus
 from webutil.appengine_info import DEBUG, LOCAL_SERVER
 from webutil.flask_util import cloud_tasks_only
-from webutil.models import MAX_ENTITY_SIZE
+from webutil.models import get_multi, MAX_ENTITY_SIZE
 from webutil import util
 from webutil.util import json_dumps, json_loads
 import werkzeug.exceptions
@@ -2146,7 +2146,7 @@ Hi! You <a href="{inner_obj_as1.get('url') or inner_obj_id}">recently {verb}</a>
             logger.info(f'  loaded {len(followers)} followers')
 
             user_keys = [f.from_ for f in followers]
-            users = [u for u in ndb.get_multi(user_keys) if u]
+            users = [u for u in get_multi(user_keys) if u]
             logger.info(f'  loaded {len(users)} users')
 
             User.load_multi(users)
@@ -2662,7 +2662,7 @@ def user_enabled_task():
 
     followers = Follower.query(Follower.to == user.key,
                                Follower.status == 'dormant').fetch()
-    from_users = ndb.get_multi(
+    from_users = get_multi(
         f.from_ for f in followers if f.from_.kind() == proto._get_kind())
 
     for follower, from_user in zip(followers, from_users):

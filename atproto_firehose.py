@@ -27,6 +27,7 @@ from multiformats import CID
 from webutil import util
 from webutil.appengine_config import ndb_client
 from webutil.appengine_info import DEBUG
+from webutil.models import get_multi
 from webutil.util import json_dumps, json_loads
 
 from atproto import ATProto, DatastoreClient
@@ -113,7 +114,7 @@ def _load_dids():
 
             if not protocol_bot_dids:
                 bot_keys = [Web(id=domain).key for domain in PROTOCOL_DOMAINS]
-                for bot in ndb.get_multi(bot_keys):
+                for bot in get_multi(bot_keys):
                     if bot:
                         if did := bot.get_copy(ATProto):
                             logger.info(f'Loaded protocol bot user {bot.key.id()} {did}')
