@@ -338,15 +338,17 @@ class ActivityPub(User, Protocol):
     @classmethod
     def target_for(cls, obj, shared=False):
         """Returns ``obj``'s or its author's/actor's inbox, if available."""
-        if not obj.as1:
+        # Object.as1 is expensive and not memoized, so only read it once
+        if not (obj_as1 := obj.as1):
             return None
 
-        if obj.type not in as1.ACTOR_TYPES:
+        type = as1.object_type(obj_as1)
+        if type not in as1.ACTOR_TYPES:
             for field in 'actor', 'author', 'attributedTo':
-                inner_obj = as1.get_object(obj.as1, field)
+                inner_obj = as1.get_object(obj_as1, field)
                 inner_id = inner_obj.get('id') or as1.get_url(inner_obj)
                 if (not inner_id
-                        or inner_id == obj.as1.get('id')
+                        or inner_id == obj_as1.get('id')
                         or (obj.key and inner_id == obj.key.id())):
                     continue
 
@@ -357,9 +359,9 @@ class ActivityPub(User, Protocol):
                         logger.info(f'Target for {obj.key} via {inner_id} is {target}')
                         return target
 
-            logger.info(f'{obj.key} type {obj.type} is not an actor and has no author or actor with inbox')
+            logger.info(f'{obj.key} type {type} is not an actor and has no author or actor with inbox')
 
-        actor = obj.as1
+        actor = obj_as1
         if shared:
             if endpoints := actor.get('endpoints'):
                 if shared_inbox := endpoints.get('sharedInbox'):

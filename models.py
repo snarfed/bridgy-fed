@@ -1510,6 +1510,13 @@ class Object(AddRemoveMixin, StringIdModel):
 
     @property
     def as1(self):
+        """This object's AS1, converted from whichever protocol data we have.
+
+        *WARNING*: this is expensive! And not cached.
+
+        Returns:
+          dict: AS1 object, or None if we have no data to convert
+        """
         from protocol import Protocol
 
         def use_urls_as_ids(obj):
@@ -1595,8 +1602,8 @@ class Object(AddRemoveMixin, StringIdModel):
 
     @ndb.ComputedProperty
     def type(self):  # AS1 objectType, or verb if it's an activity
-        if self.as1:
-            return as1.object_type(self.as1)
+        if self_as1 := self.as1:
+            return as1.object_type(self_as1)
 
     def _expire(self):
         """Automatically delete most Objects after a while using a TTL policy.
