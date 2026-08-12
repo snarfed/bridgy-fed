@@ -463,7 +463,7 @@ def oauth_authorize():
         logger.info(err)
         return server.handle_error_response(None, err)
 
-    logins = models.get_multi(pages.login_to_user_key(l) for l in pages.get_logins())
+    logins = ndb.get_multi(pages.login_to_user_key(l) for l in pages.get_logins())
     client_name = grant.request.client.client_name
     state = request.query_string.decode()
 
