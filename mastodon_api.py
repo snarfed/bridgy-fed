@@ -39,6 +39,12 @@ MAX_LIMIT = 40
 # how many ancestors to include in a status's context
 MAX_ANCESTORS = 20
 
+# how many descendants to include in a status's context, and how many levels of
+# replies to walk down to find them
+# https://docs.joinmastodon.org/methods/statuses/#context
+MAX_DESCENDANTS = 40
+MAX_DESCENDANT_DEPTH = 20
+
 # https://docs.joinmastodon.org/entities/Notification/#type
 AS1_TO_NOTIFICATION_TYPE = {
     'like': 'favourite',
@@ -1000,10 +1006,31 @@ def statuses_context(user, id):
         # TODO: convert to native protocol?
         parent_id = as1.get_id(parent.as1, 'inReplyTo')
 
+    # walk down the reply tree breadth first
+    #
+    # TODO: filter to objects owned by users who are either fediverse native or
+    # bridged there
+    #
+    # TODO: consider adding an Object.in_reply_to_root computed property. then
+    # this would all collapse to a single query on that
+    descendants = []
+    frontier = [obj.key]
+    for _ in range(MAX_DESCENDANT_DEPTH):
+        replies = Object.query(Object.in_reply_to.IN(frontier)
+                               ).fetch(MAX_DESCENDANTS - len(descendants))
+        frontier = []
+        for reply in replies:
+            if (reply.as1 and not reply.deleted and as1.is_public(reply.as1)
+                    and (status := to_status(reply))):
+                descendants.append(status)
+                frontier.append(reply.key)
+
+        if not frontier or len(descendants) >= MAX_DESCENDANTS:
+            break
+
     return {
         'ancestors': ancestors,
-        # descendants aren't indexed, so we can't look them up efficiently
-        'descendants': [],
+        'descendants': descendants,
     }
 
 

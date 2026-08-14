@@ -10,7 +10,13 @@ from webutil.util import json_dumps
 from atproto import ATProto
 import mastodon_api, mastodon_oauth
 from granary.mastodon import encode_id
-from mastodon_api import to_account, to_status, to_notification
+from mastodon_api import (
+    MAX_DESCENDANT_DEPTH,
+    MAX_DESCENDANTS,
+    to_account,
+    to_notification,
+    to_status,
+)
 from models import Follower, Object, Target
 from web import Web
 
@@ -1342,11 +1348,93 @@ class MastodonApiTest(TestCase):
             'inReplyTo': 'fake:root',
         }).put()
 
+        Object(id='fake:child', our_as1={
+            'objectType': 'note',
+            'author': 'fake:alice',
+            'content': 'child',
+            'inReplyTo': 'fake:reply',
+        }).put()
+        Object(id='fake:grandchild', our_as1={
+            'objectType': 'note',
+            'author': 'fake:alice',
+            'content': 'grandchild',
+            'inReplyTo': 'fake:child',
+        }).put()
+        # not part of this thread
+        Object(id='fake:other', our_as1={
+            'objectType': 'note',
+            'author': 'fake:alice',
+            'content': 'other',
+            'inReplyTo': 'fake:root',
+        }).put()
+
         resp = self.get('/api/v1/statuses/fake:reply/context')
         self.assertEqual(200, resp.status_code, resp.get_data(as_text=True))
         self.assertEqual(1, len(resp.json['ancestors']))
         self.assertEqual('root', resp.json['ancestors'][0]['content'])
+        self.assertEqual(['child', 'grandchild'],
+                         [d['content'] for d in resp.json['descendants']])
+
+    def test_statuses_context_descendants_deleted_and_non_public(self):
+        Object(id='fake:root', our_as1={
+            'objectType': 'note',
+            'author': 'fake:alice',
+            'content': 'root',
+        }).put()
+        Object(id='fake:deleted', deleted=True, our_as1={
+            'objectType': 'note',
+            'author': 'fake:alice',
+            'content': 'deleted',
+            'inReplyTo': 'fake:root',
+        }).put()
+        Object(id='fake:private', our_as1={
+            'objectType': 'note',
+            'author': 'fake:alice',
+            'content': 'private',
+            'inReplyTo': 'fake:root',
+            'to': [{'objectType': 'group', 'alias': '@private'}],
+        }).put()
+
+        resp = self.get('/api/v1/statuses/fake:root/context')
+        self.assertEqual(200, resp.status_code, resp.get_data(as_text=True))
         self.assertEqual([], resp.json['descendants'])
+
+    def test_statuses_context_descendants_max_depth(self):
+        Object(id='fake:0', our_as1={
+            'objectType': 'note',
+            'author': 'fake:alice',
+            'content': '0',
+        }).put()
+        for i in range(1, MAX_DESCENDANT_DEPTH + 3):
+            Object(id=f'fake:{i}', our_as1={
+                'objectType': 'note',
+                'author': 'fake:alice',
+                'content': str(i),
+                'inReplyTo': f'fake:{i - 1}',
+            }).put()
+
+        resp = self.get('/api/v1/statuses/fake:0/context')
+        self.assertEqual(200, resp.status_code, resp.get_data(as_text=True))
+        self.assertEqual([str(i) for i in range(1, MAX_DESCENDANT_DEPTH + 1)],
+                         [d['content'] for d in resp.json['descendants']])
+
+    def test_statuses_context_descendants_max_total(self):
+        Object(id='fake:root', our_as1={
+            'objectType': 'note',
+            'author': 'fake:alice',
+            'content': 'root',
+        }).put()
+        for i in range(MAX_DESCENDANTS + 5):
+            Object(id=f'fake:{i}', our_as1={
+                'objectType': 'note',
+                'author': 'fake:alice',
+                'content': str(i),
+                'inReplyTo': 'fake:root',
+            }).put()
+
+        resp = self.get('/api/v1/statuses/fake:root/context')
+        self.assertEqual(200, resp.status_code, resp.get_data(as_text=True))
+        self.assertEqual(MAX_DESCENDANTS, len(resp.json['descendants']))
 
     def test_statuses_context_not_found(self):
         resp = self.get('/api/v1/statuses/nope/context')
