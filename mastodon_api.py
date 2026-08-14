@@ -1,5 +1,5 @@
 """Serves the Mastodon API, backed by Bridgy Fed users and objects."""
-from datetime import timezone
+from datetime import timedelta, timezone
 import functools
 import logging
 import os
@@ -24,6 +24,7 @@ from domains import DOMAINS, PRIMARY_DOMAIN
 from flask_app import app
 import ids
 from mastodon_oauth import require_oauth
+import memcache
 import models
 from models import Follower, Object, PROTOCOLS
 from protocol import Protocol
@@ -1024,6 +1025,7 @@ def statuses_reblogged_by(user, id):
 
 @app.get('/api/v1/timelines/home', provide_automatic_options=False)
 @auth()
+@memcache.memoize(key=lambda user: user.key.id(), expire=timedelta(seconds=10))
 def timelines_home(user):
     # user keys
     followees = [f.to for f in Follower.query(Follower.from_ == user.key,
@@ -1058,6 +1060,7 @@ def timelines_home(user):
 
 
 @app.get('/api/v1/timelines/public', provide_automatic_options=False)
+@memcache.memoize(key=lambda: request.query_string, expire=timedelta(seconds=10))
 @auth()
 def timelines_public(user):
     objects = [obj for obj in Object.query(Object.type.IN(as1.POST_TYPES | set(['share'])),
@@ -1141,6 +1144,7 @@ def notifications_unread_count(user):
 
 
 @app.get('/api/v2/search', provide_automatic_options=False)
+@memcache.memoize(key=lambda: request.query_string, expire=timedelta(seconds=10))
 @auth()
 def search(user):
     resp = {

@@ -15,6 +15,7 @@ from models import Follower, Object, Target
 from web import Web
 
 from activitypub import ActivityPub
+from memcache import pickle_memcache
 from .test_activitypub import ACTOR
 from . import test_atproto
 from .testutil import Fake, OtherFake, TestCase
@@ -1472,6 +1473,7 @@ class MastodonApiTest(TestCase):
             'hi from other:bob',
         ], [s['content'] for s in resp.json])
 
+        pickle_memcache.clear()
         resp = self.get('/api/v1/timelines/home?limit=2')
         self.assertEqual(200, resp.status_code, resp.get_data(as_text=True))
         self.assertEqual([
