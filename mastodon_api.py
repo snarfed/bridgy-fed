@@ -1038,7 +1038,7 @@ def timelines_home(user):
     # limit() objects per followee just to throw most of them away.
     num = limit()
     queries = [paginate(Object.query(Object.users == followee,
-                                     Object.type.IN(('note', 'article'))))
+                                     Object.type.IN(('note', 'article', 'share'))))
                for followee in followees]
     futures = [query.fetch_async(num, projection=[Object.created])
                for query in queries]
@@ -1063,10 +1063,9 @@ def timelines_home(user):
 @memcache.memoize(key=lambda: request.query_string, expire=timedelta(seconds=10))
 @auth()
 def timelines_public(user):
-    objects = [obj for obj in Object.query(Object.type.IN(as1.POST_TYPES | set(['share'])),
-                                           ).order(-Object.created
-                                           ).fetch(limit())
-              if obj.as1 and not obj.deleted and as1.is_public(obj.as1)]
+    query = paginate(Object.query(Object.type.IN(('note', 'article', 'share'))))
+    objects = [obj for obj in query.fetch(limit())
+               if obj.as1 and not obj.deleted and as1.is_public(obj.as1)]
     prefetch_statuses(objects)
     return non_none([to_status(obj) for obj in objects])
 
