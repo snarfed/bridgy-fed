@@ -1,4 +1,5 @@
 """Unit tests for mastodon_api.py."""
+from datetime import datetime
 from unittest.mock import patch
 
 from oauth_dropins.bluesky import BlueskyAuth
@@ -8,6 +9,7 @@ from webutil.util import json_dumps
 
 from atproto import ATProto
 import mastodon_api, mastodon_oauth
+from granary.mastodon import encode_id
 from mastodon_api import to_account, to_status, to_notification
 from models import Follower, Object, Target
 from web import Web
@@ -77,6 +79,23 @@ class MastodonApiTest(TestCase):
         self.store_object(id='did:plc:user', raw=DID_DOC)
         return self.make_user('did:plc:user', cls=ATProto,
                               enabled_protocols=['activitypub'])
+
+    def make_followee(self, id, **kwargs):
+        followee = self.make_user(id, cls=OtherFake, obj_as1={
+            'objectType': 'person',
+            'displayName': id.capitalize(),
+        })
+        Follower.get_or_create(from_=self.user, to=followee, **kwargs)
+        return followee
+
+    def store_post(self, followee, content, **kwargs):
+        return self.store_object(
+            id=f'other:{content}', users=[followee.key], source_protocol='other',
+            our_as1={
+                'objectType': 'note',
+                'author': followee.key.id(),
+                'content': content,
+            }, **kwargs)
 
     def test_health(self):
         resp = self.client.get('/health')
@@ -1427,17 +1446,70 @@ class MastodonApiTest(TestCase):
         self.assertEqual([], resp.json)
 
     def test_timelines_home(self):
-        self.make_user('fake:bob', cls=Fake, enabled_protocols=['activitypub'])
-        Object(id='fake:post', feed=[self.user.key],
-               source_protocol='fake', our_as1={
-                   'objectType': 'note',
-                   'content': 'in my feed',
-                   'author': 'fake:bob',
-               }).put()
+        bob = self.make_followee('other:bob')
+        eve = self.make_user('other:eve', cls=OtherFake)
+        dormant = self.make_followee('other:dave', status='inactive')
+
+        self.store_post(bob, 'in my feed')
+        self.store_post(eve, 'not followed')
+        self.store_post(dormant, 'not active')
+
         resp = self.get('/api/v1/timelines/home')
         self.assertEqual(200, resp.status_code, resp.get_data(as_text=True))
-        self.assertEqual(1, len(resp.json))
-        self.assertEqual('in my feed', resp.json[0]['content'])
+        self.assertEqual(['in my feed'], [s['content'] for s in resp.json])
+
+    def test_timelines_home_merges_followees_in_created_order(self):
+        for i, id in enumerate(('other:bob', 'other:carol', 'other:dave')):
+            followee = self.make_followee(id)
+            self.store_post(followee, f'hi from {id}',
+                            created=datetime(2024, 1, 1 + i))
+
+        resp = self.get('/api/v1/timelines/home')
+        self.assertEqual(200, resp.status_code, resp.get_data(as_text=True))
+        self.assertEqual([
+            'hi from other:dave',
+            'hi from other:carol',
+            'hi from other:bob',
+        ], [s['content'] for s in resp.json])
+
+        resp = self.get('/api/v1/timelines/home?limit=2')
+        self.assertEqual(200, resp.status_code, resp.get_data(as_text=True))
+        self.assertEqual([
+            'hi from other:dave',
+            'hi from other:carol',
+        ], [s['content'] for s in resp.json])
+
+    def test_timelines_home_no_followees(self):
+        eve = self.make_user('other:eve', cls=OtherFake)
+        self.store_post(eve, 'not followed')
+
+        resp = self.get('/api/v1/timelines/home')
+        self.assertEqual(200, resp.status_code, resp.get_data(as_text=True))
+        self.assertEqual([], resp.json)
+
+    def test_timelines_home_min_id_returns_oldest_after_it(self):
+        bob = self.make_followee('other:bob')
+        carol = self.make_followee('other:carol')
+        anchor = self.store_post(bob, 'anchor', created=datetime(2024, 1, 1))
+        self.store_post(bob, 'bob-2', created=datetime(2024, 1, 2))
+        self.store_post(bob, 'bob-3', created=datetime(2024, 1, 3))
+        self.store_post(carol, 'carol-10', created=datetime(2024, 1, 10))
+        self.store_post(carol, 'carol-11', created=datetime(2024, 1, 11))
+
+        # the two oldest posts newer than the anchor, but returned newest first
+        resp = self.get(
+            f'/api/v1/timelines/home?limit=2&min_id={encode_id(anchor.key.id())}')
+        self.assertEqual(200, resp.status_code, resp.get_data(as_text=True))
+        self.assertEqual(['bob-3', 'bob-2'], [s['content'] for s in resp.json])
+
+    def test_timelines_home_max_id(self):
+        bob = self.make_followee('other:bob')
+        older = self.store_post(bob, 'older', created=datetime(2024, 1, 1))
+        newer = self.store_post(bob, 'newer', created=datetime(2024, 1, 2))
+
+        resp = self.get(f'/api/v1/timelines/home?max_id={encode_id(newer.key.id())}')
+        self.assertEqual(200, resp.status_code, resp.get_data(as_text=True))
+        self.assertEqual(['older'], [s['content'] for s in resp.json])
 
     def test_to_status_owner_from_author_no_users(self):
         self.make_user('fake:bob', cls=Fake, enabled_protocols=['activitypub'])
@@ -1491,24 +1563,26 @@ class MastodonApiTest(TestCase):
         self.assertEqual('hi', status['content'])
 
     def test_timelines_home_excludes_deleted_and_non_public(self):
-        Object(id='fake:deleted', feed=[self.user.key], deleted=True, our_as1={
+        bob = self.make_followee('other:bob')
+        self.store_object(id='other:deleted', users=[bob.key], deleted=True, our_as1={
             'objectType': 'note',
             'content': 'deleted',
-        }).put()
-        Object(id='fake:private', feed=[self.user.key], our_as1={
+        })
+        self.store_object(id='other:private', users=[bob.key], our_as1={
             'objectType': 'note',
             'content': 'private',
             'to': [{'alias': '@private'}],
-        }).put()
+        })
         resp = self.get('/api/v1/timelines/home')
         self.assertEqual(200, resp.status_code, resp.get_data(as_text=True))
         self.assertEqual([], resp.json)
 
     def test_timelines_home_excludes_unsupported_type(self):
-        self.store_object(id='fake:page', feed=[self.user.key], our_as1={
+        bob = self.make_followee('other:bob')
+        self.store_object(id='other:page', users=[bob.key], our_as1={
             'objectType': 'page',
             'content': 'a page',
-            'author': 'fake:bob',
+            'author': 'other:bob',
         })
         resp = self.get('/api/v1/timelines/home')
         self.assertEqual(200, resp.status_code, resp.get_data(as_text=True))

@@ -349,6 +349,33 @@ def limit():
     return DEFAULT_LIMIT
 
 
+def paginate(query):
+    """Applies the ``max_id``, ``since_id``, and ``min_id`` query params.
+
+    Args:
+      query (google.cloud.ndb.Query): on :class:`models.Object`
+
+    Returns:
+      google.cloud.ndb.Query: the query, ordered by ``Object.created``, descending
+      except for ``min_id``, which returns the oldest posts newer than it
+    """
+    def obj_created(param):
+        if id := request.args.get(param):
+            if obj := Object.get_by_id(decode_id(id)):
+                return obj.created
+
+    order = -Object.created
+    if max := obj_created('max_id'):
+        query = query.filter(Object.created < max)
+    if since := obj_created('since_id'):
+        query = query.filter(Object.created > since)
+    if min := obj_created('min_id'):
+        query = query.filter(Object.created > min)
+        order = Object.created
+
+    return query.order(order)
+
+
 #
 # API endpoints
 #
@@ -711,24 +738,10 @@ def accounts_statuses(user, id):
             objects = ndb.get_multi(Object(id=id).key for id in featured)
 
     else:
-        query = Object.query(Object.users == user.key,
-                             Object.type.IN(as1.POST_TYPES | set(['share'])))
-
-        def obj_created(param):
-            if id := request.args.get(param):
-                if obj := Object.get_by_id(decode_id(id)):
-                    return obj.created
-
-        order = -Object.created
-        if max := obj_created('max_id'):
-            query = query.filter(Object.created < max)
-        if since := obj_created('since_id'):
-            query = query.filter(Object.created > since)
-        if min := obj_created('min_id'):
-            query = query.filter(Object.created > min)
-            order = Object.created
-
-        objects = query.order(order).fetch(limit())
+        query = paginate(Object.query(
+            Object.users == user.key,
+            Object.type.IN(as1.POST_TYPES | set(['share']))))
+        objects = query.fetch(limit())
 
     objects = [obj for obj in objects
                if obj and obj.as1 and not obj.deleted and as1.is_public(obj.as1)
@@ -1012,15 +1025,36 @@ def statuses_reblogged_by(user, id):
 @app.get('/api/v1/timelines/home', provide_automatic_options=False)
 @auth()
 def timelines_home(user):
-    objects = [obj for obj in Object.query(Object.feed == user.key
-                                           ).order(-Object.created
-                                           ).fetch(limit())
-              if obj.as1 and not obj.deleted and as1.is_public(obj.as1)]
+    # user keys
+    followees = [f.to for f in Follower.query(Follower.from_ == user.key,
+                                              Follower.status == 'active')]
+    if not followees:
+        return []
+
+    # query each followee separately, since datastore can't do a disjunction this
+    # big, then merge. we only project created here so that we don't load all
+    # limit() objects per followee just to throw most of them away.
+    num = limit()
+    queries = [paginate(Object.query(Object.users == followee,
+                                     Object.type.IN(as1.POST_TYPES | set(['share']))))
+               for followee in followees]
+    futures = [query.fetch_async(num, projection=[Object.created])
+               for query in queries]
+
+    # min_id makes paginate sort ascending, to pick the oldest posts newer than
+    # it, so sort the same way here, then reverse, since we return newest first
+    descending = queries[0].order_by[0].reverse
+    merged = sorted((obj for future in futures for obj in future.get_result()),
+                    key=lambda obj: obj.created, reverse=descending)
+    # dict.fromkeys so that we can de-dupe by key
+    keys = list(dict.fromkeys(obj.key for obj in merged))[:num]
+    if not descending:
+        keys.reverse()
+
+    objects = [obj for obj in ndb.get_multi(keys)
+               if obj and obj.as1 and not obj.deleted and as1.is_public(obj.as1)]
     prefetch_statuses(objects)
-    statuses = non_none([to_status(obj) for obj in objects])
-    # TODO: formalize
-    return [s for s in statuses
-            if s.get('account') and (not s['reblog'] or s['reblog'].get('account'))]
+    return non_none([to_status(obj) for obj in objects])
 
 
 @app.get('/api/v1/timelines/public', provide_automatic_options=False)
