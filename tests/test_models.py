@@ -1294,6 +1294,22 @@ class ObjectTest(TestCase):
     def test_computed_properties_without_as1(self):
         Object(id='a').put()
 
+    def test_in_reply_to(self):
+        self.assertEqual([], Object(id='a').in_reply_to)
+        self.assertEqual([], Object(id='a', our_as1={'objectType': 'note'}
+                                    ).in_reply_to)
+
+        self.assertEqual([ndb.Key(Object, 'fake:post')], Object(id='a', our_as1={
+            'objectType': 'note',
+            'inReplyTo': 'fake:post',
+        }).in_reply_to)
+
+        self.assertEqual([ndb.Key(Object, 'fake:a'), ndb.Key(Object, 'fake:b')],
+                         Object(id='a', our_as1={
+                             'objectType': 'note',
+                             'inReplyTo': ['fake:b', {'id': 'fake:a'}],
+                         }).in_reply_to)
+
     def test_expire(self):
         obj = Object(id='a', our_as1={'objectType': 'activity', 'verb': 'update'})
         self.assertEqual(NOW + OBJECT_EARLY_EXPIRE_AGE, obj.expire)

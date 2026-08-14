@@ -696,15 +696,17 @@ class TestCase(unittest.TestCase, testutil.Asserts):
         if type is not None:
             self.assertEqual(type, got.type)
 
+        if in_reply_to := props.pop('in_reply_to', None):
+            self.assertEqual(in_reply_to, got.in_reply_to)
+
         if expected_as1 := props.pop('as1', None):
             self.assert_equals(expected_as1, got.as1)
 
         if got.mf2:
             got.mf2.pop('url', None)
 
-        self.assert_entities_equal(Object(id=id, **props), got,
-                                   ignore=['as1', 'created', 'expire',
-                                           'type', 'updated'] + ignore)
+        ignore += ['as1', 'created', 'expire', 'in_reply_to', 'type', 'updated']
+        self.assert_entities_equal(Object(id=id, **props), got, ignore=ignore)
         return got
 
     def assert_user(self, cls, id, ignore=(), **props):

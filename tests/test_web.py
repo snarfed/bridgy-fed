@@ -830,6 +830,8 @@ class WebTest(TestCase):
                            source_protocol='web',
                            type='comment',
                            users=[self.user.key],
+                           in_reply_to=[Object(id='bad:nope/id').key,
+                                        Object(id='https://user.com/reply').key],
                            deleted=False,
                            ignore=['mf2', 'our_as1'])
 

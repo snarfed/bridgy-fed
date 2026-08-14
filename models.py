@@ -1609,6 +1609,23 @@ class Object(AddRemoveMixin, StringIdModel):
         if self_as1 := self.as1:
             return as1.object_type(self_as1)
 
+    def _in_reply_to(self):
+        """Keys of the :class:`Object`\\s this object is in reply to.
+
+        They may or may not exist in the datastore. Their ids should already be
+        resolved to their original protocol and normalized; :meth:`resolve_ids`
+        and :meth:`normalize_ids` do that, in place, before we're put.
+
+        Only this object's own ``inReplyTo``, not any inner object's, eg a share
+        of a reply isn't itself a reply.
+        """
+        if not (self_as1 := self.as1):
+            return []
+
+        return [ndb.Key(Object, id) for id in as1.get_ids(self.as1, 'inReplyTo')]
+
+    in_reply_to = ndb.ComputedProperty(_in_reply_to, repeated=True)
+
     def _expire(self):
         """Automatically delete most Objects after a while using a TTL policy.
 
