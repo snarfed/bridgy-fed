@@ -482,7 +482,7 @@ class MastodonApiTest(TestCase):
             'id': 'fake:profile:bob',
             'displayName': 'Bob',
         }
-        post = self.store_object(id='fake:post', our_as1={
+        self.store_object(id='fake:post', our_as1={
             'objectType': 'note',
             'author': 'fake:bob',
             'content': 'hello world',
@@ -498,10 +498,9 @@ class MastodonApiTest(TestCase):
 
         resp = self.get('/api/v1/accounts/fake:alice/statuses')
         self.assertEqual(200, resp.status_code, resp.get_data(as_text=True))
-        self.assertEqual(1, len(resp.json))
-        # bob isn't in the datastore yet, and we don't load externally
-        # outside of search/lookup, so the repost should be dropped
-        self.assertEqual(to_status(post), resp.json[0]['reblog'])
+        # bob isn't in the datastore yet, and we don't load externally outside of
+        # search/lookup, so the repost is unrenderable and should be dropped
+        self.assertEqual([], resp.json)
 
     def test_accounts_statuses_pinned(self):
         Object(id='fake:post', users=[self.user.key], our_as1={
@@ -617,8 +616,13 @@ class MastodonApiTest(TestCase):
         self.assertEqual('hello world', resp.json[0]['content'])
 
     def test_accounts_statuses_exclude_reblogs(self):
+        self.make_user('fake:bob', cls=Fake, obj_as1={
+            'objectType': 'person',
+            'displayName': 'Bob',
+        })
         Object(id='fake:post', our_as1={
             'objectType': 'note',
+            'author': 'fake:bob',
             'content': 'hello world',
             'published': '2022-01-02T03:04:05',
         }).put()
@@ -1452,6 +1456,28 @@ class MastodonApiTest(TestCase):
         })
         status = to_status(obj)
         self.assertIsNone(status)
+
+    def test_to_status_share_target_not_stored(self):
+        obj = Object(id='fake:share', source_protocol='fake', our_as1={
+            'objectType': 'activity',
+            'verb': 'share',
+            'actor': 'fake:alice',
+            'object': 'fake:not-stored',
+        })
+        self.assertIsNone(to_status(obj))
+
+    def test_to_status_share_target_owner_unresolvable(self):
+        self.store_object(id='fake:post', our_as1={
+            'objectType': 'note',
+            'content': 'hi',
+        })
+        obj = Object(id='fake:share', source_protocol='fake', our_as1={
+            'objectType': 'activity',
+            'verb': 'share',
+            'actor': 'fake:alice',
+            'object': 'fake:post',
+        })
+        self.assertIsNone(to_status(obj))
 
     @patch.object(util.session, 'get', return_value=requests_response(status=404))
     def test_to_status_owner_unresolvable_handle(self, _):

@@ -150,6 +150,9 @@ def to_status(obj):
         # TODO: if there's a repost loop, ie two share objects whose object fields
         # point to each other, this will recurse (loop) forever
         status['reblog'] = target_to_status(obj)
+        if not status['reblog']:
+            # reposts aren't renderable without their original post
+            return None
 
     return status
 
