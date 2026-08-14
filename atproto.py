@@ -814,7 +814,8 @@ class ATProto(User, Protocol):
                 return False
 
         elif type == 'stop-following':
-            assert from_user
+            if not from_user:
+                return False
             to_id = as1.get_object(obj.as1).get('id')
             assert to_id
             to_key = Protocol.key_for(to_id, allow_opt_out=True)

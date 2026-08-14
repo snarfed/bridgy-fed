@@ -3880,6 +3880,16 @@ Sed tortor neque, aliquet quis posuere aliquam, imperdiet sitamet […]
         self.assertIsNone(repo.get_record('app.bsky.graph.follow', '123'))
         mock_create_task.assert_called()  # atproto-commit
 
+    def test_send_unfollow_no_from_user(self):
+        obj = Object(id='fake:unfollow', source_protocol='fake', our_as1={
+            'objectType': 'activity',
+            'verb': 'stop-following',
+            'id': 'fake:unfollow',
+            'actor': 'fake:user',
+            'object': 'did:plc:bob',
+        })
+        self.assertFalse(ATProto.send(obj, 'https://bsky.brid.gy'))
+
     @patch.object(tasks_client, 'create_task', return_value=Task(name='my task'))
     def test_send_undo_block_without_id_deletes_all_blocks(self, mock_create_task):
         """Undo of block without id deletes all block records for that subject."""
