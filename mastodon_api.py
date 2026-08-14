@@ -1036,7 +1036,7 @@ def timelines_home(user):
     # limit() objects per followee just to throw most of them away.
     num = limit()
     queries = [paginate(Object.query(Object.users == followee,
-                                     Object.type.IN(as1.POST_TYPES | set(['share']))))
+                                     Object.type.IN(('note', 'article'))))
                for followee in followees]
     futures = [query.fetch_async(num, projection=[Object.created])
                for query in queries]
