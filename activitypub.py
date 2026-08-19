@@ -658,6 +658,7 @@ class ActivityPub(User, Protocol):
         # https://github.com/snarfed/bridgy-fed/issues/543
         if (obj.source_protocol not in (None, 'activitypub')
                 and obj.type not in as1.CRUD_VERBS and obj.key and obj.key.id()
+                and not UIProtocol.owns_id(obj.key.id())
                 and not cls.is_blocklisted(obj.key.id())):
             canonical = {
                 'type': 'Link',

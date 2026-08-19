@@ -222,6 +222,29 @@ class ConvertTest(testutil.TestCase):
         }, json_loads(resp.get_data()))
         self.assertEqual(f'<{ap_id}>; rel="self"', resp.headers['Link'])
 
+    def test_ui_to_activitypub(self):
+        user = self.make_user('fake:alice', cls=Fake,
+                              enabled_protocols=['activitypub'])
+        self.store_object(id='ui:reply-fake:alice-fake:post', source_protocol='ui',
+                          users=[user.key], our_as1={
+                              'objectType': 'comment',
+                              'author': 'fake:alice',
+                              'content': 'hello',
+                          })
+
+        resp = self.client.get('/convert/ap/ui:reply-fake:alice-fake:post',
+                               base_url='https://fa.brid.gy/')
+        self.assertEqual(200, resp.status_code)
+        self.assertEqual(ActivityPub.CONTENT_TYPE, resp.content_type)
+        self.assert_equals({
+            'type': 'Note',
+            'id': 'https://fa.brid.gy/convert/ap/ui:reply-fake:alice-fake:post',
+            'attributedTo': 'https://fa.brid.gy/ap/fake:alice',
+            'content': '<p>hello</p>',
+            'contentMap': {'en': '<p>hello</p>'},
+            'to': ['https://www.w3.org/ns/activitystreams#Public'],
+        }, json_loads(resp.get_data()))
+
     def test_activitypub_to_web_object(self):
         url = 'https://user.com/bar?baz=baj&biff'
         Object(id=url, our_as1=COMMENT).put()
