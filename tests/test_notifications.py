@@ -203,6 +203,32 @@ class NotificationsTest(TestCase):
                       Fake.sent[0][1]['object']['content'])
 
     @patch('webutil.appengine_config.tasks_client.create_task')
+    def test_notify_task_ui_object(self, _):
+        common.RUN_TASKS_INLINE = False
+        self.make_user(id='efake.brid.gy', cls=Web)
+        user = self.make_user(id='fake:user', cls=Fake, enabled_protocols=['efake'],
+                              obj_as1={'x': 'y'})
+        alice = self.make_user(id='efake:alice', cls=ExplicitFake,
+                               obj_as1={'id': 'efake:alice'})
+
+        add_notification(user, self.store_object(
+            id='ui:reply-efake:alice-fake:post', source_protocol='ui',
+            users=[alice.key], our_as1={
+                'url': 'http://notif/a',
+                'content': 'foo bar',
+                'author': 'efake:alice',
+            }))
+
+        common.RUN_TASKS_INLINE = True
+        resp = self.post('/queue/notify', data={
+            'user_id': 'fake:user',
+            'protocol': 'fake',
+        })
+        self.assertEqual(200, resp.status_code)
+        self.assertIn('efake:handle:alice</a>: <a href="http://notif/a">foo bar</a>',
+                      Fake.sent[0][1]['object']['content'])
+
+    @patch('webutil.appengine_config.tasks_client.create_task')
     def test_notify_task_obj_doesnt_exist(self, _):
         common.RUN_TASKS_INLINE = False
         self.make_user(id='efake.brid.gy', cls=Web)
