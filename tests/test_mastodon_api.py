@@ -866,6 +866,21 @@ class MastodonApiTest(TestCase):
             'visibility': 'public',
         }, resp.json)
 
+    def test_statuses_single_ui(self):
+        Object(id='ui:reply-fake:user-fake:post', users=[self.user.key],
+               source_protocol='ui', our_as1={
+                   'objectType': 'comment',
+                   'author': 'fake:user',
+                   'content': 'hello',
+               }).put()
+        resp = self.get('/api/v1/statuses/ui%7E3Areply-fake%7E3Auser-fake%7E3Apost')
+        self.assertEqual(200, resp.status_code, resp.get_data(as_text=True))
+
+        # the author's subdomain, not fed.brid.gy, so it matches their actor id
+        self.assertEqual(
+            'https://fa.brid.gy/convert/ap/ui:reply-fake:user-fake:post',
+            resp.json['uri'])
+
     def test_statuses_repost(self):
         bob = self.make_user('other:bob', cls=OtherFake,
                              enabled_protocols=['activitypub'])

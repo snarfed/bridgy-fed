@@ -138,7 +138,7 @@ def to_status(obj):
     if not status:
         return None
 
-    if from_proto := PROTOCOLS.get(obj.source_protocol):
+    if from_proto := obj.owner_protocol():
         status['uri'] = ids.translate_object_id(
             id=obj.key.id(), from_=from_proto, to=ActivityPub)
 
