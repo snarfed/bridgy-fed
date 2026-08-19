@@ -1,6 +1,6 @@
 """Integration tests."""
 import copy
-from datetime import datetime
+from datetime import datetime, timezone
 from unittest import skip
 from unittest.mock import ANY, patch
 
@@ -3868,7 +3868,8 @@ class IntegrationTests(TestCase):
         """
         alice = self.make_ap_user('https://inst.com/alice', did='did:plc:alice',
                                   enabled_protocols=['atproto'])
-        self.make_atproto_user('did:plc:bob', handle='bob.com')
+        self.make_atproto_user('did:plc:bob', handle='bob.com',
+                               enabled_protocols=[])
 
         self.store_object(
             id='at://did:plc:bob/app.bsky.feed.post/123',
@@ -3906,6 +3907,71 @@ class IntegrationTests(TestCase):
                 },
             },
         }, record, ignore=['bridgyOriginalText', 'bridgyOriginalUrl', 'createdAt'])
+
+    @patch('webutil.util.now', return_value=datetime.now(timezone.utc))
+    @patch.object(util.session, 'post')
+    def test_atproto_reply_to_respond_reply_notifies(self, mock_post, mock_now):
+        """Unbridged ATProto user replies to a reply an AP user made in our web UI.
+
+        ActivityPub user alice@inst.com (did:plc:alice), bridged to ATProto
+        ATProto user did:plc:bob, not bridged
+        Bob's post is at://did:plc:bob/app.bsky.feed.post/123
+
+        https://github.com/snarfed/bridgy-fed/issues/2481
+        """
+        self.make_web_user('bsky.brid.gy')
+        alice = self.make_ap_user('https://inst.com/alice', did='did:plc:alice',
+                                  enabled_protocols=['atproto'])
+        self.make_atproto_user('did:plc:bob', handle='bob.com',
+                               enabled_protocols=[])
+
+        self.store_object(
+            id='at://did:plc:bob/app.bsky.feed.post/123',
+            source_protocol='atproto',
+            bsky={
+                **POST_BSKY,
+                'uri': 'at://did:plc:bob/app.bsky.feed.post/123',
+                'cid': 'bafyreie5cvv4h5typfvqef2wf7nwytgdaaimzbk2cl7pza7lkxmjbmhmk4',
+            })
+
+        # alice replies via respond/reply endpoint
+        resp = self.client.post('/ap/@alice@inst.com/respond/reply', data={
+            'obj_id': 'at://did:plc:bob/app.bsky.feed.post/123',
+            'content': 'ok then',
+            'token': common.make_jwt(user=alice, scope='respond',
+                                     obj_id='at://did:plc:bob/app.bsky.feed.post/123'),
+        })
+        self.assertEqual(200, resp.status_code)
+
+        repo = self.storage.load_repo('did:plc:alice')
+        rkey = list(repo.get_contents()['app.bsky.feed.post'].keys())[0]
+
+        # bob replies to alice's reply
+        self.firehose(repo='did:plc:bob', action='create', seq=456,
+                      path='app.bsky.feed.post/456', record={
+                          '$type': 'app.bsky.feed.post',
+                          'text': 'and you',
+                          'createdAt': mock_now.return_value.isoformat(),
+                          'reply': {
+                              '$type': 'app.bsky.feed.post#replyRef',
+                              'parent': {
+                                  'uri': f'at://did:plc:alice/app.bsky.feed.post/{rkey}',
+                                  'cid': A_CID.encode(),
+                              },
+                              'root': {
+                                  'uri': f'at://did:plc:alice/app.bsky.feed.post/{rkey}',
+                                  'cid': A_CID.encode(),
+                              },
+                          },
+                      })
+
+        # alice gets a DM notification about bob's reply
+        self.assertEqual(1, len(mock_post.call_args_list), mock_post.call_args_list)
+        args, kwargs = mock_post.call_args_list[0]
+        self.assertEqual('https://inst.com/alice/inbox', args[0])
+        self.assertIn(
+            '<a href="https://bsky.app/profile/did:plc:bob/post/456">and you</a>',
+            json_loads(kwargs['data'])['object']['content'])
 
     @patch('webutil.util.now', return_value=datetime.now())
     @patch.object(util.session, 'post')
