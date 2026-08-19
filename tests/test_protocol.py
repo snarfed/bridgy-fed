@@ -384,6 +384,15 @@ class ProtocolTest(TestCase):
         self.assertTrue(loaded.changed)
         self.assertFalse(loaded.new)
 
+    def test_load_remote_true_fetch_fails_keeps_our_as1(self):
+        # only internal objects keep their data in our_as1, so they're the ones
+        # that lose it if we clear it and then the fetch fails
+        obj = self.store_object(id='fake:foo', our_as1={'x': 'y'})
+
+        self.assertIsNone(Fake.load('fake:foo', remote=True))
+        self.assertEqual(['fake:foo'], Fake.fetched)
+        self.assertEqual({'id': 'fake:foo', 'x': 'y'}, obj.as1)
+
     def test_load_remote_false(self):
         self.assertIsNone(Fake.load('fake:nope', remote=False))
         self.assertEqual([], Fake.fetched)

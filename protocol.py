@@ -2294,7 +2294,7 @@ Hi! You <a href="{inner_obj_as1.get('url') or inner_obj_id}">recently {verb}</a>
         if not raw:
             id = ids.normalize_object_id(id=id, proto=cls)
 
-        obj = orig_as1 = None
+        obj = orig_as1 = orig_our_as1 = None
         if local:
             if obj := Object.get_by_id(id):
                 if csv and not obj.is_csv:
@@ -2314,6 +2314,7 @@ Hi! You <a href="{inner_obj_as1.get('url') or inner_obj_id}">recently {verb}</a>
 
         if obj:
             orig_as1 = obj.as1
+            orig_our_as1 = obj.our_as1
             obj.our_as1 = None
             obj.new = False
         else:
@@ -2334,6 +2335,7 @@ Hi! You <a href="{inner_obj_as1.get('url') or inner_obj_id}">recently {verb}</a>
             return None
 
         if not fetched:
+            obj.our_as1 = orig_our_as1
             return None
         elif csv and not obj.is_csv:
             return None
