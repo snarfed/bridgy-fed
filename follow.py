@@ -136,14 +136,11 @@ class FollowCallback(indieauth.Callback):
             'object': followee_id,
         }
         followee_user = ActivityPub.get_or_create(followee_id, obj=followee)
-        follow_obj = Object(id=follow_id, our_as1=follow_as1, source_protocol='ui')
+        follow_obj = Object(id=follow_id, users=[user.key], our_as1=follow_as1,
+                            source_protocol='ui')
 
         resp = Web.receive(follow_obj, authed_as=domain, internal=True)
         logger.info(f'Web.receive returned {resp}')
-
-        follow_obj = follow_obj.key.get()
-        follow_obj.source_protocol = 'ui'
-        follow_obj.put()
 
         url = as1.get_url(followee.as1) or followee_id
         link = common.pretty_link(url, text=addr)

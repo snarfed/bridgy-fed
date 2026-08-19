@@ -1918,6 +1918,8 @@ class Protocol:
           dict: maps :class:`models.Target` to original (in response to)
           :class:`models.Object`
         """
+        from ui import UIProtocol
+
         logger.debug('Finding recipients and their targets')
 
         # we should only have crud_obj iff this is a create or update
@@ -2047,7 +2049,7 @@ class Protocol:
                 logger.info(f"Couldn't load {target_obj_id}")
                 continue
 
-            if target_proto.LABEL == 'ui':
+            if target_proto == UIProtocol:
                 if orig_proto := orig_obj.owner_protocol():
                     # objects we created in our own UI are owned by a user on another
                     # protocol https://github.com/snarfed/bridgy-fed/issues/2481
