@@ -2198,15 +2198,18 @@ class Object(AddRemoveMixin, StringIdModel):
 
         Returns:
           Protocol subclass: :attr:`source_protocol` *unless* it's None or
-            :class:`UIProtocol`, in which case infers and returns ``author``'s or
-            ``actor``'s protocol instead.
+            :class:`UIProtocol`, in which case returns the protocol of the first
+            :attr:`users` key, or if there are none, infers and returns
+            ``author``'s or ``actor``'s protocol instead.
         """
         from protocol import Protocol
 
-        if self.source_protocol in (None, 'ui'):
-            return Protocol.for_id(as1.get_owner(self.as1))
+        if self.source_protocol not in (None, 'ui'):
+            return PROTOCOLS.get(self.source_protocol)
+        elif self.users:
+            return PROTOCOLS_BY_KIND[self.users[0].kind()]
 
-        return PROTOCOLS.get(self.source_protocol)
+        return Protocol.for_id(as1.get_owner(self.as1))
 
     @cached_property
     def domain_blocklist(self):

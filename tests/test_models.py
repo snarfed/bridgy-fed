@@ -2314,6 +2314,19 @@ bar.org
         obj.source_protocol = 'ui'
         self.assertEqual(Fake, obj.owner_protocol())
 
+    def test_owner_protocol_uses_users(self):
+        # author id alone is ambiguous between Web and ActivityPub
+        obj = Object(source_protocol='ui', our_as1={'actor': 'https://inst.com/alice'},
+                     users=[ActivityPub(id='https://inst.com/alice').key])
+        self.assertEqual(ActivityPub, obj.owner_protocol())
+
+        obj.source_protocol = None
+        self.assertEqual(ActivityPub, obj.owner_protocol())
+
+        # source_protocol wins over users
+        obj.source_protocol = 'web'
+        self.assertEqual(Web, obj.owner_protocol())
+
 
 class FollowerTest(TestCase):
 
