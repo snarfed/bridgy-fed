@@ -564,6 +564,10 @@ class IdsTest(TestCase):
             (ATProto, 'https://bsky.app/profile/did:plc:123/post/456',
              ATProto, 'at://did:plc:123/app.bsky.feed.post/456'),
             (ATProto, 'did:plc:x', Nostr, 'did:plc:x'),
+            # ui: ids aren't owned by the author's protocol, but we still
+            # translate them
+            (ATProto, 'ui:my-note',
+             ActivityPub, 'https://bsky.brid.gy/convert/ap/ui:my-note'),
             (Fake, 'fake:post',
              ActivityPub, 'https://fa.brid.gy/convert/ap/fake:post'),
             (Fake, 'fake:post', ATProto, 'at://did:plc:abc/fa/post'),

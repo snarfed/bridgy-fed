@@ -547,9 +547,11 @@ def translate_object_id(*, id, from_, to):
       str: the corresponding id in ``to``
     """
     from protocol import Protocol
+    from ui import UIProtocol
 
     id, from_, to = validate(id, from_, to)
-    if from_.owns_id(id) is False and from_.LABEL != 'ui' and not id.startswith('ui:'):
+    if (from_.owns_id(id) is False
+            and from_ != UIProtocol and not UIProtocol.owns_id(id)):
         return id
 
     # bsky.app profile URL to at:// URI
