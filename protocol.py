@@ -2040,6 +2040,12 @@ class Protocol:
                 logger.info(f"Couldn't load {target_obj_id}")
                 continue
 
+            if target_proto.LABEL == 'ui':
+                if orig_proto := orig_obj.owner_protocol():
+                    # objects we created in our own UI are owned by a user on another
+                    # protocol https://github.com/snarfed/bridgy-fed/issues/2481
+                    target_proto = orig_proto
+
             target_author_key = (target_proto(id=target_id).key if target_is_actor
                                  else target_proto.actor_key(orig_obj))
 

@@ -2018,6 +2018,49 @@ class ProtocolReceiveTest(TestCase):
 <li><a class="h-card u-author mention" rel="me" href="web:efake:eve" title="efake:handle:eve">efake:handle:eve</a>: <a href="http://efake/reply">foo</a> (<a href="https://fed.brid.gy/other/other:handle:user/respond?obj_id=efake:reply&token={token}">respond</a>)
 </ul>""", attachments=ANY)
 
+    def test_reply_to_ui_reply_from_non_bridged_user_gets_dm_prompt_and_notif(self):
+        """https://github.com/snarfed/bridgy-fed/issues/2481"""
+        self.make_user(id='other.brid.gy', cls=Web)
+        self.make_user(id='efake.brid.gy', cls=Web)
+
+        user = self.make_user('other:user', cls=OtherFake,
+                              enabled_protocols=['efake'],
+                              obj_as1={'id': 'other:user'})
+        eve = self.make_user('efake:eve', cls=ExplicitFake,
+                             obj_as1={'id': 'efake:eve'})
+
+        # reply that user wrote in our web UI, ie pages.respond_reply
+        self.store_object(id='ui:reply-other:user-efake:post', source_protocol='ui',
+                          our_as1={
+                              'id': 'ui:reply-other:user-efake:post',
+                              'objectType': 'comment',
+                              'author': 'other:user',
+                              'inReplyTo': 'efake:post',
+                              'content': 'bar',
+                          })
+
+        _, code = ExplicitFake.receive_as1({
+            'id': 'efake:reply',
+            'url': 'http://efake/reply',
+            'objectType': 'note',
+            'author': {
+                'id': 'efake:eve',
+                'username': 'evey',
+            },
+            'inReplyTo': 'ui:reply-other:user-efake:post',
+            'content': 'foo',
+        })
+        self.assertEqual(204, code)
+
+        # check that we sent a prompt to eve and a notif to other:user
+        self.assert_sent(OtherFake, eve, 'replied_to_bridged_user', """Hi! You <a href="http://efake/reply">recently replied to</a> <a class="h-card u-author mention" rel="me" href="web:other:user" title="other:handle:user">other:handle:user</a>, who's bridged here from other-phrase. To make sure they see your replies, you can bridge your account into other-phrase by following this account. <a href="https://fed.brid.gy/docs">See the docs</a> for more information.""")
+        token = common.make_jwt(user=user, scope='respond', obj_id='efake:reply')
+        self.assert_sent(ExplicitFake, user, '?', f"""\
+<p>Hi! Here are your recent interactions from people who aren't bridged into other-phrase. Click the <em>respond</em> links to reply, like, repost, or block them.
+<ul>
+<li><a class="h-card u-author mention" rel="me" href="web:efake:eve" title="efake:handle:eve">efake:handle:eve</a>: <a href="http://efake/reply">foo</a> (<a href="https://fed.brid.gy/other/other:handle:user/respond?obj_id=efake:reply&token={token}">respond</a>)
+</ul>""", attachments=ANY)
+
     @patch.object(ExplicitFake, 'REQUIRES_AVATAR', new=True)
     def test_quote_from_non_bridged_user_isnt_bridged_gets_dm_prompt_and_notif(self):
         self.make_user(id='other.brid.gy', cls=Web)
