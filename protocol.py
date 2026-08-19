@@ -1222,6 +1222,8 @@ class Protocol:
         Raises:
           werkzeug.HTTPException: if the request is invalid
         """
+        from ui import UIProtocol
+
         # check some invariants
         assert from_cls != Protocol
         assert isinstance(obj, Object), obj
@@ -1482,12 +1484,17 @@ class Protocol:
                 }
 
         # fetch object if necessary
+        inner_cls = None
         if (obj.type in ('post', 'update', 'share')
-                and inner_obj_as1.keys() == set(['id'])
-                and from_cls.owns_id(inner_obj_id) is not False):
+                and inner_obj_as1.keys() == set(['id'])):
+            # internal objects' inner objects are on their own protocol, not ui
+            inner_cls = (Protocol.for_id(inner_obj_id) if from_cls == UIProtocol
+                         else from_cls)
+
+        if inner_cls and inner_cls.owns_id(inner_obj_id) is not False:
             logger.debug('Fetching inner object')
-            inner_obj = from_cls.load(inner_obj_id, raise_=False,
-                                      remote=(obj.type in ('post', 'update')))
+            inner_obj = inner_cls.load(inner_obj_id, raise_=False,
+                                       remote=(obj.type in ('post', 'update')))
             if obj.type in ('post', 'update'):
                 crud_obj = inner_obj
             if inner_obj and inner_obj.as1:

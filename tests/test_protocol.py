@@ -2154,6 +2154,30 @@ class ProtocolReceiveTest(TestCase):
         self.assertEqual([], ExplicitFake.sent)
         self.assertEqual([], Fake.sent)
 
+    def test_ui_share_hydrates_inner_object_from_its_own_protocol(self):
+        self.store_object(id='http://inst.com/post', source_protocol='activitypub',
+                          our_as1={
+                              'id': 'http://inst.com/post',
+                              'objectType': 'note',
+                              'author': 'http://inst.com/alice',
+                          })
+
+        id = 'ui:share-fake:user-http://inst.com/post'
+        obj = Object(id=id, source_protocol='ui', our_as1={
+            'id': id,
+            'objectType': 'activity',
+            'verb': 'share',
+            'actor': 'fake:user',
+            'object': 'http://inst.com/post',
+        })
+        UIProtocol.receive(obj, authed_as='fake:user')
+
+        self.assert_equals({
+            'id': 'http://inst.com/post',
+            'objectType': 'note',
+            'author': 'http://inst.com/alice',
+        }, obj.key.get().as1['object'])
+
     def test_repost_of_not_bridged_post_last_retry_skips_unbridged_protocol(self):
         self.user.enabled_protocols = ['other', 'efake']
         self.user.put()

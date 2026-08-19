@@ -20,8 +20,6 @@ Examples of where we currently create these:
   subdomain, eg ``https://bsky.brid.gy/convert/ap/ui:...``, which we serve from
   :func:`convert.convert`.
 """
-from webutil import util
-
 from google.cloud import ndb
 
 import models
@@ -37,12 +35,7 @@ class UIProtocol(models.User, protocol.Protocol):
 
     @classmethod
     def owns_id(self, id):
-        if id.startswith('ui:'):
-            return True
-        elif util.is_web(id) and not self.is_blocklisted(id, allow_internal=True):
-            return None
-
-        return False
+        return id.startswith('ui:')
 
     @ndb.ComputedProperty
     def handle(self):
