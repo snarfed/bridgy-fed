@@ -108,7 +108,7 @@ ujson==5.13.0
 update-checker==1.0.0
 uritemplate==4.2.0
 urllib3==2.7.0
-webencodings==0.5.1
+webencodings==0.6.1
 websocket-client==1.9.0
 websockets==17.0.1
 werkzeug==3.1.8
