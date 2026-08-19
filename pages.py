@@ -1036,7 +1036,8 @@ def respond_reply(user):
     }
 
     common.create_task(queue='receive', id=id, our_as1=our_as1,
-                       source_protocol='ui', authed_as=user.key.id())
+                       source_protocol='ui', authed_as=user.key.id(),
+                       users=[user.key.urlsafe().decode()])
 
     flash('Sending reply...')
     return render('respond.html', user=user, obj=obj,
@@ -1066,7 +1067,8 @@ def respond_like(user):
     }
 
     common.create_task(queue='receive', id=id, our_as1=our_as1,
-                       source_protocol='ui', authed_as=user.key.id())
+                       source_protocol='ui', authed_as=user.key.id(),
+                       users=[user.key.urlsafe().decode()])
 
     flash('Sending like...')
     return render('respond.html', user=user, obj=obj,
@@ -1096,7 +1098,8 @@ def respond_repost(user):
     }
 
     common.create_task(queue='receive', id=id, our_as1=our_as1,
-                       source_protocol='ui', authed_as=user.key.id())
+                       source_protocol='ui', authed_as=user.key.id(),
+                       users=[user.key.urlsafe().decode()])
 
     flash('Sending repost...')
     return render('respond.html', user=user, obj=obj,
@@ -1131,7 +1134,8 @@ def respond_block(user):
     }
 
     common.create_task(queue='receive', id=id, our_as1=our_as1,
-                       source_protocol='ui', authed_as=user.key.id())
+                       source_protocol='ui', authed_as=user.key.id(),
+                       users=[user.key.urlsafe().decode()])
 
     flash('Blocking...')
     return render('respond.html', user=user, obj=obj,

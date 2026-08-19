@@ -1839,6 +1839,10 @@ class Object(AddRemoveMixin, StringIdModel):
     def from_request():
         """Creates and returns an :class:`Object` from form-encoded JSON parameters.
 
+        Note that this reads the `users` param, one or more URL-safe ndb keys of
+        users to populate into :attr:`Object.users`, but :meth:`Object.to_request`
+        *doesn't* populate `users`!
+
         Parameters:
           obj_id (str): id of :class:`models.Object` to handle
           *: If ``obj_id`` is unset, all other parameters are properties for a
@@ -1858,6 +1862,9 @@ class Object(AddRemoveMixin, StringIdModel):
             props['farcaster'] = [text_format.Parse(v, Message()).SerializeToString()
                                   for v in val]
 
+        if val := request.form.getlist('users'):
+            props['users'] = [ndb.Key(urlsafe=v) for v in val]
+
         obj = Object(**props)
         if not obj.key and obj.as1:
             if id := obj.as1.get('id'):
@@ -1866,7 +1873,11 @@ class Object(AddRemoveMixin, StringIdModel):
         return obj
 
     def to_request(self):
-        """Returns a query parameter dict representing this :class:`Object`."""
+        """Returns a query parameter dict representing this :class:`Object`.
+
+        Note that this doesn't populate :attr:`Object.users` into a `users` param,
+        but :meth:`Object.from_request` does read it.
+        """
         form = {}
 
         for json_prop in 'as2', 'bsky', 'mf2', 'nostr', 'our_as1', 'raw':

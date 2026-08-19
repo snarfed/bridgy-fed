@@ -1591,7 +1591,8 @@ class PagesTest(TestCase):
 
         id = f'ui:reply-user.com-fake:post-{util.now().isoformat()}'
         self.assert_task(mock_create_task, 'receive', source_protocol='ui',
-                         authed_as='user.com', id=id, our_as1={
+                         authed_as='user.com', id=id,
+                         users=[self.user.key.urlsafe().decode()], our_as1={
             'objectType': 'comment',
             'id': id,
             'inReplyTo': 'fake:post',
@@ -1675,7 +1676,8 @@ class PagesTest(TestCase):
 
         id = f'ui:like-user.com-fake:post-{util.now().isoformat()}'
         self.assert_task(mock_create_task, 'receive', source_protocol='ui',
-                         authed_as='user.com', id=id, our_as1={
+                         authed_as='user.com', id=id,
+                         users=[self.user.key.urlsafe().decode()], our_as1={
             'objectType': 'activity',
             'verb': 'like',
             'id': id,
@@ -1726,7 +1728,8 @@ class PagesTest(TestCase):
 
         id = f'ui:repost-user.com-fake:post-{util.now().isoformat()}'
         self.assert_task(mock_create_task, 'receive', source_protocol='ui',
-                         authed_as='user.com', id=id, our_as1={
+                         authed_as='user.com', id=id,
+                         users=[self.user.key.urlsafe().decode()], our_as1={
             'objectType': 'activity',
             'verb': 'share',
             'id': id,
@@ -1776,7 +1779,8 @@ class PagesTest(TestCase):
 
         id = f'ui:block-user.com-fake:post-{util.now().isoformat()}'
         self.assert_task(mock_create_task, 'receive', source_protocol='ui',
-                         authed_as='user.com', id=id, our_as1={
+                         authed_as='user.com', id=id,
+                         users=[self.user.key.urlsafe().decode()], our_as1={
             'objectType': 'activity',
             'verb': 'block',
             'id': id,
