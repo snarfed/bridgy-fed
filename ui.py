@@ -20,10 +20,14 @@ Examples of where we currently create these:
   subdomain, eg ``https://bsky.brid.gy/convert/ap/ui:...``, which we serve from
   :func:`convert.convert`.
 """
+import logging
+
 from google.cloud import ndb
 
 import models
 import protocol
+
+logger = logging.getLogger(__name__)
 
 
 class UIProtocol(models.User, protocol.Protocol):
@@ -56,6 +60,14 @@ class UIProtocol(models.User, protocol.Protocol):
     @classmethod
     def fetch(cls, obj, **kwargs):
         return False
+
+    @classmethod
+    def load(cls, id, remote=None, **kwargs):
+        """We're the origin for internal objects, so they're never fetchable."""
+        if remote:
+            logger.info(f'Overriding remote=True to remote=False for UIProtocol.load of{id} because ui: objects are internal only')
+
+        return super().load(id, remote=False, **kwargs)
 
     @classmethod
     def target_for(cls, obj, **kwargs):

@@ -2187,6 +2187,32 @@ class ProtocolReceiveTest(TestCase):
             'author': 'http://inst.com/alice',
         }, obj.key.get().as1['object'])
 
+    def test_ui_post_of_ui_object_hydrates(self):
+        self.store_object(id='ui:reply-fake:user-fake:post', source_protocol='ui',
+                          users=[self.user.key], our_as1={
+                              'id': 'ui:reply-fake:user-fake:post',
+                              'objectType': 'comment',
+                              'author': 'fake:user',
+                              'content': 'hello',
+                          })
+
+        id = 'ui:post-fake:user-1'
+        obj = Object(id=id, source_protocol='ui', users=[self.user.key], our_as1={
+            'id': id,
+            'objectType': 'activity',
+            'verb': 'post',
+            'actor': 'fake:user',
+            'object': 'ui:reply-fake:user-fake:post',
+        })
+        UIProtocol.receive(obj, authed_as='fake:user')
+
+        self.assert_equals({
+            'id': 'ui:reply-fake:user-fake:post',
+            'objectType': 'comment',
+            'author': 'fake:user',
+            'content': 'hello',
+        }, obj.as1['object'])
+
     def test_repost_of_not_bridged_post_last_retry_skips_unbridged_protocol(self):
         self.user.enabled_protocols = ['other', 'efake']
         self.user.put()

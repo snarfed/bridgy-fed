@@ -261,7 +261,7 @@ def normalize_user_id(*, id, proto):
 
         return id
 
-    if proto.owns_id(id) is False and proto.LABEL != 'ui':
+    if proto.owns_id(id) is False:
         return id
 
     if proto.LABEL == 'web':
