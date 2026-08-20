@@ -2209,8 +2209,11 @@ class Object(AddRemoveMixin, StringIdModel):
         if replaced:
             self.our_as1 = util.trim_nulls(outer_obj)
 
-    def owner_protocol(self):
+    def owner_protocol(self, remote=True):
         """Wrapper around :attr:`source_protocol` that handles :class:`UIProtocol`.
+
+        Args:
+          remote (bool): passed through to :meth:`protocol.Protocol.for_id`
 
         Returns:
           Protocol subclass: :attr:`source_protocol` *unless* it's None or
@@ -2226,7 +2229,7 @@ class Object(AddRemoveMixin, StringIdModel):
         elif self.users:
             proto = PROTOCOLS_BY_KIND[self.users[0].kind()]
         else:
-            proto = Protocol.for_id(as1.get_owner(self.as1))
+            proto = Protocol.for_id(as1.get_owner(self.as1), remote=remote)
 
         # internal objects' authors are always on a real protocol
         assert proto != UIProtocol, self.key
