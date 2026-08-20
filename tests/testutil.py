@@ -738,7 +738,6 @@ class TestCase(unittest.TestCase, testutil.Asserts):
                 'body': urlencode(sorted(params), doseq=True).encode(),
                 'headers': {
                     'Content-Type': 'application/x-www-form-urlencoded',
-                    'Authorization': '',
                     'traceparent': '',
                     'X-Cloud-Trace-Context': '',
                 },

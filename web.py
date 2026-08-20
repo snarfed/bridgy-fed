@@ -856,7 +856,12 @@ def webmention_external():
         user.last_webmention_in = util.now()
         user.put()
 
-    return create_task('webmention', **request.form)
+    form = request.form.to_dict()
+    form.pop('internal', None)  # don't let external clients set internal
+    if request.headers.get('Authorization') == app.config['SECRET_KEY']:
+        form['internal'] = 'true'
+
+    return create_task('webmention', **form)
 
 
 def poll_feed(user, feed_url, rel_type):
@@ -1045,11 +1050,10 @@ def poll_feed_task():
 def webmention_task():
     """Handles inbound webmention task.
 
-    Allows source URLs on brid.gy subdomains if the ``Authorization`` header matches
-    the Flask secret key.
-
     Params:
       ``source`` (str): URL
+      ``internal`` (bool): whether this webmention came from us, in which case we
+        allow source URLs on brid.gy subdomains
     """
     common.log_request()
 
@@ -1058,7 +1062,7 @@ def webmention_task():
     domain = domain_from_link(source, minimize=False)
     logger.info(f'webmention from {domain}')
 
-    internal = request.headers.get('Authorization') == app.config['SECRET_KEY']
+    internal = flask_util.bool_param('internal')
     if domain in DOMAINS and not internal:
         error(f'URL not supported: {source}')
 

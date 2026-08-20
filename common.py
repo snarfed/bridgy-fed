@@ -174,11 +174,10 @@ def create_task(queue, app_id=GCP_PROJECT_ID, delay=None, app=None, **params):
     }
 
     try:
-        authorization = request.headers.get('Authorization') or ''
         traceparent = request.headers.get('traceparent') or ''
         cloud_trace = request.headers.get('X-Cloud-Trace-Context') or ''
     except RuntimeError:  # not currently in a request context
-        authorization = traceparent = cloud_trace = ''
+        traceparent = cloud_trace = ''
 
     if RUN_TASKS_INLINE or LOCAL_SERVER:
         logger.info(f'Running task inline: {queue} {params}')
@@ -186,7 +185,6 @@ def create_task(queue, app_id=GCP_PROJECT_ID, delay=None, app=None, **params):
             from router import app
         return app.test_client().post(path, data=params, headers={
               flask_util.CLOUD_TASKS_TASK_HEADER: 'inline',
-              'Authorization': authorization,
         })
 
         # # alternative: run inline in this request context
@@ -224,7 +222,6 @@ def create_task(queue, app_id=GCP_PROJECT_ID, delay=None, app=None, **params):
             'body': body,
             'headers': {
                 'Content-Type': 'application/x-www-form-urlencoded',
-                'Authorization': authorization,
                 # propagate trace id. these two headers use different formats, so
                 # pass each through under its own name instead of crossing them.
                 # https://cloud.google.com/trace/docs/trace-context#http-requests

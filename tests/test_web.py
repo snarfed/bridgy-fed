@@ -26,6 +26,7 @@ from activitypub import ActivityPub
 from atproto import ATProto
 import common
 from common import CONTENT_TYPE_HTML, TASKS_LOCATION
+import config
 import domains
 from flask_app import app
 import ids
@@ -759,6 +760,42 @@ class WebTest(TestCase):
         self.assertEqual(202, got.status_code)
         self.assert_task(mock_create_task, 'webmention', **params)
         self.assertIsNone(self.user.key.get().last_webmention_in)
+
+    @patch('webutil.appengine_config.tasks_client.create_task')
+    def test_make_task_internal(self, mock_create_task, mock_get, mock_post):
+        common.RUN_TASKS_INLINE = False
+        self.make_user('fed.brid.gy', cls=Web)
+
+        params = {'source': 'https://fed.brid.gy/r/https://user.com/foo'}
+        got = self.post('/webmention', data=params,
+                        headers={'Authorization': config.SECRET_KEY})
+
+        self.assertEqual(202, got.status_code)
+        self.assert_task(mock_create_task, 'webmention', internal='true', **params)
+
+    @patch('webutil.appengine_config.tasks_client.create_task')
+    def test_make_task_internal_param_untrusted(self, mock_create_task, mock_get,
+                                                mock_post):
+        """The internal param is ours; requests can't set it themselves."""
+        common.RUN_TASKS_INLINE = False
+
+        got = self.post('/webmention', data={
+            'source': 'https://user.com/post',
+            'internal': 'true',
+        })
+
+        self.assertEqual(202, got.status_code)
+        self.assert_task(mock_create_task, 'webmention',
+                         source='https://user.com/post')
+
+    def test_task_source_on_our_domain_not_internal(self, mock_get, mock_post):
+        self.make_user('fed.brid.gy', cls=Web)
+
+        got = self.post('/queue/webmention', data={
+            'source': 'https://fed.brid.gy/r/https://user.com/foo',
+        })
+        self.assertEqual(400, got.status_code)
+        mock_get.assert_not_called()
 
     def test_no_user(self, mock_get, mock_post):
         orig_count = Object.query().count()

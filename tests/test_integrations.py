@@ -2970,7 +2970,8 @@ class IntegrationTests(TestCase):
 
         resp = self.post('/queue/webmention', data={
             'source': 'https://bsky.brid.gy/internal/snarfed.org/post',
-        }, headers={'Authorization': common.config.SECRET_KEY})
+            'internal': 'true',
+        })
         self.assertEqual(202, resp.status_code)
 
         self.assert_ap_deliveries(mock_post, ['https://inst/alice/inbox'],
