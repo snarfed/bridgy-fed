@@ -874,8 +874,7 @@ def statuses_multiple(user):
     objs = [obj for obj in ndb.get_multi(Object(id=id).key for id in ids)
             if obj and obj.as1 and not obj.deleted and as1.is_public(obj.as1)]
     prefetch_statuses(objs)
-    return [s for obj in objs
-            if (s := to_status(obj))]
+    return [s for obj in objs if (s := to_status(obj))]
 
 
 @app.get('/api/v1/statuses/<path:id>', provide_automatic_options=False)
