@@ -1401,14 +1401,72 @@ class MastodonApiTest(TestCase):
         resp = self.post('/api/v1/statuses', user=user, data={})
         self.assertEqual(400, resp.status_code)
 
-    def test_statuses_create_reply_not_bridged(self):
+    @patch.object(tasks_client, 'create_task', return_value=Task(name='my task'))
+    def test_statuses_create_reply_not_bridged(self, mock_create_task):
+        common.RUN_TASKS_INLINE = False
         user = self.make_atproto_user()
-        self.store_object(id='fake:post', users=[self.user.key], source_protocol='fake',
-                          our_as1={'objectType': 'note', 'content': 'orig'})
+        self.store_object(
+            id='fake:post', users=[self.user.key], source_protocol='fake',
+            our_as1={'objectType': 'note', 'content': 'orig'})
 
         resp = self.post('/api/v1/statuses', user=user,
                          data={'status': 'a reply', 'in_reply_to_id': 'fake~3Apost'})
-        self.assertEqual(422, resp.status_code)
+        self.assertEqual(200, resp.status_code, resp.get_data(as_text=True))
+        self.assertEqual('a reply', resp.json['content'])
+        self.assertEqual('fake~3Apost', resp.json['in_reply_to_id'])
+
+        id = 'ui:comment-atproto-han.dull-2022-01-02T03:04:05+00:00'
+        self.assert_task(mock_create_task, 'receive', source_protocol='ui',
+                         authed_as='did:plc:user', id=id,
+                         users=[user.key.urlsafe().decode()], our_as1={
+            'objectType': 'comment',
+            'id': id,
+            'inReplyTo': 'fake:post',
+            'content': 'a reply',
+            'author': 'did:plc:user',
+        })
+
+    @patch.object(util.session, 'post')
+    def test_statuses_create_reply_unbridged_activitypub_delivers(self, mock_post):
+        user = self.make_atproto_user(obj_bsky=test_atproto.ACTOR_PROFILE_BSKY)
+        self.make_user('https://mas.to/users/bob', cls=ActivityPub, obj_as2={
+            **ACTOR,
+            'id': 'https://mas.to/users/bob',
+            'inbox': 'https://mas.to/users/bob/inbox',
+        })
+        self.store_object(id='https://mas.to/post', source_protocol='activitypub',
+                          our_as1={
+                              'objectType': 'note',
+                              'author': 'https://mas.to/users/bob',
+                          })
+
+        resp = self.post('/api/v1/statuses', user=user, data={
+            'status': 'a reply',
+            'in_reply_to_id': 'https~3A~2F~2Fmas.to~2Fpost',
+        })
+        self.assertEqual(200, resp.status_code, resp.get_data(as_text=True))
+
+        id = 'https://bsky.brid.gy/convert/ap/ui:comment-atproto-han.dull-2022-01-02T03:04:05+00:00'
+        self.assert_ap_deliveries(mock_post, ['https://mas.to/users/bob/inbox'],
+                                  from_user=user, data={
+            'type': 'Create',
+            'id': f'{id}#bridgy-fed-create-2022-01-02T03:04:05+00:00',
+            'actor': 'https://bsky.brid.gy/ap/did:plc:user',
+            'published': '2022-01-02T03:04:05+00:00',
+            'cc': ['https://mas.to/users/bob'],
+            'object': {
+                'type': 'Note',
+                'id': id,
+                'attributedTo': 'https://bsky.brid.gy/ap/did:plc:user',
+                'inReplyTo': 'https://mas.to/post',
+                'content': '<p>a reply</p>',
+                'cc': ['https://mas.to/users/bob'],
+                'tag': [{
+                    'type': 'Mention',
+                    'href': 'https://mas.to/users/bob',
+                }],
+            },
+        }, ignore=['@context', 'to', 'url', 'contentMap'])
 
     def test_statuses_create_non_atproto_user(self):
         resp = self.post('/api/v1/statuses', data={'status': 'hi'})

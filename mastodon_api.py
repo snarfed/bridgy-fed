@@ -899,29 +899,44 @@ def statuses_create(user, source):
     reply_obj = None
     if in_reply_to_id := params.get('in_reply_to_id'):
         reply_obj = load_object(in_reply_to_id)
-        if not reply_obj.get_copy(user):
-            error(f"Status {reply_obj.key} isn't bridged to {user.LABEL}", status=422)
 
     note = {
-        'objectType': 'note',
+        'objectType': 'comment' if in_reply_to_id else 'note',
         'author': user.key.id(),
         'content': text,
     }
-    if reply_obj:
-        note['inReplyTo'] = reply_obj.id_as(user)
 
-    # create!
-    result = source.create(note)
-    if not result.content:
-        error(result.error_plain or "Couldn't create this status", status=502)
+    source_protocol = user.LABEL
+    if reply_obj and not reply_obj.get_copy(user):
+        # the original post isn't bridged to the user's protocol. write the reply
+        # to an Object in the datastore
+        source_protocol = 'ui'
+        id = f'ui:comment-{user.LABEL}-{user.handle}-{util.now().isoformat()}'
+        note.update({
+            'id': id,
+            'inReplyTo': reply_obj.key.id(),
+        })
+        common.create_task(queue='receive', id=id, our_as1=note,
+                           source_protocol='ui', users=[user.key.urlsafe().decode()],
+                           authed_as=user.key.id())
 
-    # construct response status
-    id = result.content['id']
-    note['id'] = id
-    if reply_obj:
-        note['inReplyTo'] = reply_obj.key.id()
+    else:
+        # create the post on the user's protocol, natively
+        if reply_obj:
+            note['inReplyTo'] = reply_obj.id_as(user)
 
-    obj = Object(id=id, source_protocol=user.LABEL, users=[user.key], our_as1=note)
+        result = source.create(note)
+        if not result.content:
+            error(result.error_plain or "Couldn't create this status", status=502)
+
+        # construct response status
+        id = result.content['id']
+        note['id'] = id
+        if reply_obj:
+            note['inReplyTo'] = reply_obj.key.id()
+
+    obj = Object(id=id, source_protocol=source_protocol, users=[user.key],
+                 our_as1=note)
     obj.owner = user
     return to_status(obj)
 
