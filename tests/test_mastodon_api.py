@@ -1706,6 +1706,88 @@ class MastodonApiTest(TestCase):
             },
         }, mock_post.call_args.kwargs['json'])
 
+    @patch.object(tasks_client, 'create_task', return_value=Task(name='my task'))
+    def test_statuses_update_ui(self, mock_create_task):
+        common.RUN_TASKS_INLINE = False
+        user = self.make_atproto_user()
+        self.store_object(id='ui:comment-atproto-han.dull-2022-01-02T03:04:04+00:00',
+                          source_protocol='ui', users=[user.key], our_as1={
+                              'objectType': 'comment',
+                              'author': 'did:plc:user',
+                              'content': 'a reply',
+                              'inReplyTo': 'https://mas.to/post',
+                          })
+
+        resp = self.put(
+            '/api/v1/statuses/ui~3Acomment-atproto-han.dull-2022-01-02T03~3A04~3A04+00~3A00',
+            user=user, data={'status': 'edited'})
+        self.assertEqual(200, resp.status_code, resp.get_data(as_text=True))
+        self.assertEqual('edited', resp.json['content'])
+
+        id = 'ui:update-atproto-han.dull-2022-01-02T03:04:05+00:00'
+        self.assert_task(mock_create_task, 'receive', source_protocol='ui',
+                         authed_as='did:plc:user', id=id,
+                         users=[user.key.urlsafe().decode()], our_as1={
+            'objectType': 'activity',
+            'verb': 'update',
+            'id': id,
+            'actor': 'did:plc:user',
+            'object': {
+                'objectType': 'comment',
+                'id': 'ui:comment-atproto-han.dull-2022-01-02T03:04:04+00:00',
+                'author': 'did:plc:user',
+                'content': 'edited',
+                'inReplyTo': 'https://mas.to/post',
+            },
+        })
+
+    @patch.object(util.session, 'post')
+    def test_statuses_update_ui_delivers(self, mock_post):
+        user = self.make_atproto_user(obj_bsky=test_atproto.ACTOR_PROFILE_BSKY)
+        self.make_user('https://mas.to/users/bob', cls=ActivityPub, obj_as2={
+            **ACTOR,
+            'id': 'https://mas.to/users/bob',
+            'inbox': 'https://mas.to/users/bob/inbox',
+        })
+        self.store_object(id='https://mas.to/post', source_protocol='activitypub',
+                          our_as1={
+                              'objectType': 'note',
+                              'author': 'https://mas.to/users/bob',
+                          })
+        self.store_object(id='ui:comment-atproto-han.dull-2022-01-02T03:04:04+00:00',
+                          source_protocol='ui', users=[user.key], our_as1={
+                              'objectType': 'comment',
+                              'author': 'did:plc:user',
+                              'content': 'a reply',
+                              'inReplyTo': 'https://mas.to/post',
+                          })
+
+        resp = self.put(
+            '/api/v1/statuses/ui~3Acomment-atproto-han.dull-2022-01-02T03~3A04~3A04+00~3A00',
+            user=user, data={'status': 'edited'})
+        self.assertEqual(200, resp.status_code, resp.get_data(as_text=True))
+
+        id = 'https://fed.brid.gy/convert/ap/ui:comment-atproto-han.dull-2022-01-02T03:04:04+00:00'
+        self.assert_ap_deliveries(mock_post, ['https://mas.to/users/bob/inbox'],
+                                  from_user=user, data={
+            'type': 'Update',
+            'id': 'https://fed.brid.gy/convert/ap/ui:update-atproto-han.dull-2022-01-02T03:04:05+00:00',
+            'actor': 'https://bsky.brid.gy/ap/did:plc:user',
+            'object': {
+                'type': 'Note',
+                'id': id,
+                'attributedTo': 'https://bsky.brid.gy/ap/did:plc:user',
+                'inReplyTo': 'https://mas.to/post',
+                'content': '<p>edited</p>',
+                'contentMap': {'en': '<p>edited</p>'},
+                'cc': ['https://mas.to/users/bob'],
+                'tag': [{
+                    'type': 'Mention',
+                    'href': 'https://mas.to/users/bob',
+                }],
+            },
+        }, ignore=['@context', 'to', 'cc', 'url'])
+
     def test_statuses_update_missing_status(self):
         user = self.make_atproto_user()
         self.store_object(

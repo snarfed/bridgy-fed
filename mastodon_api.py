@@ -982,18 +982,33 @@ def statuses_update(user, source, id):
 
     obj = load_object(id)
 
-    # TODO: media_ids, poll, sensitive, spoiler_text
-    note = {
-        'objectType': 'note',
-        'id': obj.id_as(user),
-        'author': user.key.id(),
-        'content': text,
-        'inReplyTo': as1.get_id(obj.as1, 'inReplyTo'),
-        'published': obj.as1.get('published'),
-    }
-    result = source.update(note)
-    if not result.content:
-        error(result.error_plain or "Couldn't update this status", status=502)
+    if UIProtocol.owns_id(obj.key.id()):
+        # we created this status ourselves, in the datastore
+        update_id = f'ui:update-{user.LABEL}-{user.handle}-{util.now().isoformat()}'
+        update_as1 = {
+            'objectType': 'activity',
+            'verb': 'update',
+            'id': update_id,
+            'actor': user.key.id(),
+            'object': {**obj.as1, 'content': text},
+        }
+        common.create_task(queue='receive', id=update_id, source_protocol='ui',
+                           users=[user.key.urlsafe().decode()],
+                           authed_as=user.key.id(), our_as1=update_as1)
+
+    else:
+        # TODO: media_ids, poll, sensitive, spoiler_text
+        note = {
+            'objectType': 'note',
+            'id': obj.id_as(user),
+            'author': user.key.id(),
+            'content': text,
+            'inReplyTo': as1.get_id(obj.as1, 'inReplyTo'),
+            'published': obj.as1.get('published'),
+        }
+        result = source.update(note)
+        if not result.content:
+            error(result.error_plain or "Couldn't update this status", status=502)
 
     obj.our_as1 = {**obj.as1, 'content': text}
     return to_status(obj)
