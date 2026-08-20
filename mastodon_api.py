@@ -322,6 +322,40 @@ def load_object(id):
     return obj
 
 
+def undo(user, source, activity_id, verb, object_id):
+    """Undoes a follow or block, either natively or internally.
+
+    Args:
+      user (models.User)
+      source (granary.source.Source)
+      activity_id (str): id of the activity to undo
+      verb (str): the activity's AS1 verb, eg ``follow``
+      object_id (str): id of the activity's object, eg the followed user
+    """
+    if not UIProtocol.owns_id(activity_id):
+        source.delete(activity_id)
+        return
+
+    # we created this activity ourselves, in the datastore
+    id = f'ui:undo-{user.LABEL}-{user.handle}-{util.now().isoformat()}'
+    undo_as1 = {
+        'objectType': 'activity',
+        'verb': 'undo',
+        'id': id,
+        'actor': user.key.id(),
+        'object': {
+            'objectType': 'activity',
+            'verb': verb,
+            'id': activity_id,
+            'actor': user.key.id(),
+            'object': object_id,
+        },
+    }
+    common.create_task(queue='receive', id=id, source_protocol='ui',
+                       users=[user.key.urlsafe().decode()],
+                       authed_as=user.key.id(), our_as1=undo_as1)
+
+
 def load_owner(obj):
     """Loads the :class:`models.User` that owns ``obj``, if any.
 
@@ -664,7 +698,7 @@ def accounts_relationships(user):
           provide_automatic_options=False)
 @auth(granary_source=True)
 def accounts_follow_or_block(user, source, id, verb):
-    if not (other := load_account_id(id)):
+    if not (target := load_account_id(id)):
         error('Account not found', status=404)
 
     activity_as1 = {
@@ -673,10 +707,10 @@ def accounts_follow_or_block(user, source, id, verb):
         'actor': user.key.id(),
     }
 
-    if other_id := other.get_copy(user):
+    if target_id := target.get_copy(user):
         # the account is bridged to the user's protocol. write the activity
         # there, natively
-        activity_as1['object'] = other_id
+        activity_as1['object'] = target_id
         result = source.create(activity_as1)
         if not result.content:
             error(result.error_plain or f"Couldn't {verb} this account", status=502)
@@ -687,47 +721,47 @@ def accounts_follow_or_block(user, source, id, verb):
         id = f'ui:{verb}-{user.LABEL}-{user.handle}-{util.now().isoformat()}'
         activity_as1.update({
             'id': id,
-            'object': other.key.id(),
+            'object': target.key.id(),
         })
         common.create_task(queue='receive', id=id, our_as1=activity_as1,
                            source_protocol='ui', users=[user.key.urlsafe().decode()],
                            authed_as=user.key.id())
 
-    return to_relationship(other, **{f'{verb}ing': True})
+    return to_relationship(target, **{f'{verb}ing': True})
 
 
 @app.post('/api/v1/accounts/<path:id>/unfollow', provide_automatic_options=False)
 @auth(granary_source=True)
 def accounts_unfollow(user, source, id):
-    if not (other := load_account_id(id)):
+    if not (target := load_account_id(id)):
         error('Account not found', status=404)
 
-    # TODO: if the follow hasn't been bridged back from the PDS to our
-    # datastore yet, we won't find it here. look it up on the PDS directly as
-    # a fallback
+    # TODO: if the follow hasn't been bridged back from the PDS to our datastore yet,
+    # we won't find it here. look it up on the PDS directly as a fallback
     follower = Follower.query(Follower.from_ == user.key,
-                              Follower.to == other.key,
+                              Follower.to == target.key,
                               Follower.status == 'active').get()
     if follower and follower.follow:
-        source.delete(follower.follow.id())
+        undo(user, source, activity_id=follower.follow.id(), verb='follow',
+             object_id=target.key.id())
 
-    return to_relationship(other, following=False)
+    return to_relationship(target, following=False)
 
 
 @app.post('/api/v1/accounts/<path:id>/unblock', provide_automatic_options=False)
 @auth(granary_source=True)
 def accounts_unblock(user, source, id):
-    if not (other := load_account_id(id)):
+    if not (target := load_account_id(id)):
         error('Account not found', status=404)
 
-    # TODO: if the block hasn't been bridged back from the PDS to our
-    # datastore yet, we won't find it here. look it up on the PDS directly as
-    # a fallback
+    # TODO: if the block hasn't been bridged back from the PDS to our datastore yet,
+    # we won't find it here. look it up on the PDS directly as a fallback
     for obj in Object.query(Object.users == user.key, Object.type == 'block'):
-        if as1.get_id(obj.as1, 'object') == other.key.id() and not obj.deleted:
-            source.delete(obj.key.id())
+        if as1.get_id(obj.as1, 'object') == target.key.id() and not obj.deleted:
+            undo(user, source, activity_id=obj.key.id(), verb='block',
+                 object_id=target.key.id())
 
-    return to_relationship(other, blocking=False)
+    return to_relationship(target, blocking=False)
 
 
 @app.get('/api/v1/follow_requests', provide_automatic_options=False)

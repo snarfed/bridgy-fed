@@ -373,6 +373,77 @@ class MastodonApiTest(TestCase):
             'rkey': '456',
         }, mock_post.call_args.kwargs['json'])
 
+    @patch.object(tasks_client, 'create_task', return_value=Task(name='my task'))
+    def test_accounts_unfollow_unbridged(self, mock_create_task):
+        common.RUN_TASKS_INLINE = False
+        user = self.make_atproto_user()
+        bob = self.make_user('fake:bob', cls=Fake)
+        follow_obj = self.store_object(
+            id='ui:follow-atproto-han.dull-2022-01-02T03:04:04+00:00',
+            source_protocol='ui', users=[user.key], our_as1={
+                'objectType': 'activity',
+                'verb': 'follow',
+                'actor': 'did:plc:user',
+                'object': 'fake:bob',
+            })
+        Follower.get_or_create(from_=user, to=bob, follow=follow_obj.key)
+
+        resp = self.post("/api/v1/accounts/fake~3Abob/unfollow", user=user)
+        self.assertEqual(200, resp.status_code, resp.get_data(as_text=True))
+        self.assertFalse(resp.json['following'])
+
+        id = 'ui:undo-atproto-han.dull-2022-01-02T03:04:05+00:00'
+        self.assert_task(mock_create_task, 'receive', source_protocol='ui',
+                         authed_as='did:plc:user', id=id,
+                         users=[user.key.urlsafe().decode()], our_as1={
+            'objectType': 'activity',
+            'verb': 'undo',
+            'id': id,
+            'actor': 'did:plc:user',
+            'object': {
+                'objectType': 'activity',
+                'verb': 'follow',
+                'id': 'ui:follow-atproto-han.dull-2022-01-02T03:04:04+00:00',
+                'actor': 'did:plc:user',
+                'object': 'fake:bob',
+            },
+        })
+
+    @patch.object(util.session, 'post')
+    def test_accounts_unfollow_unbridged_delivers(self, mock_post):
+        user = self.make_atproto_user(obj_bsky=test_atproto.ACTOR_PROFILE_BSKY)
+        bob = self.make_user('https://mas.to/users/bob', cls=ActivityPub, obj_as2={
+            **ACTOR,
+            'id': 'https://mas.to/users/bob',
+            'inbox': 'https://mas.to/users/bob/inbox',
+        })
+        follow_obj = self.store_object(
+            id='ui:follow-atproto-han.dull-2022-01-02T03:04:04+00:00',
+            source_protocol='ui', users=[user.key], our_as1={
+                'objectType': 'activity',
+                'verb': 'follow',
+                'actor': 'did:plc:user',
+                'object': 'https://mas.to/users/bob',
+            })
+        Follower.get_or_create(from_=user, to=bob, follow=follow_obj.key)
+
+        resp = self.post(
+            '/api/v1/accounts/https~3A~2F~2Fmas.to~2Fusers~2Fbob/unfollow', user=user)
+        self.assertEqual(200, resp.status_code, resp.get_data(as_text=True))
+
+        self.assert_ap_deliveries(mock_post, ['https://mas.to/users/bob/inbox'],
+                                  from_user=user, data={
+            'type': 'Undo',
+            'id': 'https://fed.brid.gy/convert/ap/ui:undo-atproto-han.dull-2022-01-02T03:04:05+00:00',
+            'actor': 'https://bsky.brid.gy/ap/did:plc:user',
+            'object': {
+                'type': 'Follow',
+                'id': 'https://fed.brid.gy/convert/ap/ui:follow-atproto-han.dull-2022-01-02T03:04:04+00:00',
+                'actor': 'https://bsky.brid.gy/ap/did:plc:user',
+                'object': 'https://mas.to/users/bob',
+            },
+        }, ignore=['@context', 'to', 'cc', 'url'])
+
     def test_accounts_unfollow_not_following(self):
         user = self.make_atproto_user()
         self.make_user('fake:bob', cls=Fake,
@@ -474,6 +545,40 @@ class MastodonApiTest(TestCase):
             'collection': 'app.bsky.graph.block',
             'rkey': '456',
         }, mock_post.call_args.kwargs['json'])
+
+    @patch.object(tasks_client, 'create_task', return_value=Task(name='my task'))
+    def test_accounts_unblock_unbridged(self, mock_create_task):
+        common.RUN_TASKS_INLINE = False
+        user = self.make_atproto_user()
+        self.make_user('fake:bob', cls=Fake)
+        self.store_object(id='ui:block-atproto-han.dull-2022-01-02T03:04:04+00:00',
+                          source_protocol='ui', users=[user.key], our_as1={
+                              'objectType': 'activity',
+                              'verb': 'block',
+                              'actor': 'did:plc:user',
+                              'object': 'fake:bob',
+                          })
+
+        resp = self.post("/api/v1/accounts/fake~3Abob/unblock", user=user)
+        self.assertEqual(200, resp.status_code, resp.get_data(as_text=True))
+        self.assertFalse(resp.json['blocking'])
+
+        id = 'ui:undo-atproto-han.dull-2022-01-02T03:04:05+00:00'
+        self.assert_task(mock_create_task, 'receive', source_protocol='ui',
+                         authed_as='did:plc:user', id=id,
+                         users=[user.key.urlsafe().decode()], our_as1={
+            'objectType': 'activity',
+            'verb': 'undo',
+            'id': id,
+            'actor': 'did:plc:user',
+            'object': {
+                'objectType': 'activity',
+                'verb': 'block',
+                'id': 'ui:block-atproto-han.dull-2022-01-02T03:04:04+00:00',
+                'actor': 'did:plc:user',
+                'object': 'fake:bob',
+            },
+        })
 
     def test_accounts_unblock_not_blocking(self):
         user = self.make_atproto_user()
@@ -1570,7 +1675,7 @@ class MastodonApiTest(TestCase):
         }, mock_post.call_args.kwargs['json'])
 
     @patch.object(tasks_client, 'create_task', return_value=Task(name='my task'))
-    def test_statuses_delete_ui(self, mock_create_task):
+    def test_statuses_delete_unbridged(self, mock_create_task):
         common.RUN_TASKS_INLINE = False
         user = self.make_atproto_user()
         self.store_object(id='ui:comment-atproto-han.dull-2022-01-02T03:04:04+00:00',
@@ -1599,7 +1704,7 @@ class MastodonApiTest(TestCase):
         })
 
     @patch.object(util.session, 'post')
-    def test_statuses_delete_ui_delivers(self, mock_post):
+    def test_statuses_delete_unbridged_delivers(self, mock_post):
         user = self.make_atproto_user(obj_bsky=test_atproto.ACTOR_PROFILE_BSKY)
         eve = self.make_user('https://mas.to/users/eve', cls=ActivityPub, obj_as2={
             **ACTOR,

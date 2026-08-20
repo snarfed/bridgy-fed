@@ -38,7 +38,7 @@ class UIProtocol(models.User, protocol.Protocol):
     # no ui.brid.gy; make subdomain_wrap falls back to fed.brid.gy
     ABBREV = None
     SUPPORTED_AS1_TYPES = ('comment', 'block', 'delete', 'follow', 'like', 'note',
-                           'post', 'share')
+                           'post', 'share', 'undo')
 
     def _pre_put_hook(self):
         raise NotImplementedError()
