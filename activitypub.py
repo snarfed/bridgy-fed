@@ -1017,20 +1017,23 @@ def postprocess_as2(activity, orig_obj=None, wrap=True):
     type = activity.get('type')
 
     # inReplyTo: singly valued, prefer id over url
-    # TODO: ignore orig_obj, do for all inReplyTo
     orig_id = orig_obj.get('id') if orig_obj else None
     in_reply_to = util.get_list(activity, 'inReplyTo')
     if in_reply_to:
-        if orig_id:  # TODO: and orig_id in in_reply_to ...or get rid of orig_obj
+        if orig_id:  # TODO: and orig_id in in_reply_to
             activity['inReplyTo'] = orig_id
-        elif len(in_reply_to) > 1:
-            # AS2 inReplyTo can be multiply valued, it's not marked Functional:
-            # https://www.w3.org/TR/activitystreaams-vocabulary/#dfn-inreplyto
-            # ...but most fediverse projects don't support that:
-            # https://funfedi.dev/support_tables/generated/in_reply_to/
-            logger.warning(
-                "AS2 doesn't support multiple inReplyTo URLs! "
-                f'Only using the first: {in_reply_to[0]}')
+        else:
+            if len(in_reply_to) > 1:
+                # AS2 inReplyTo can be multiply valued, it's not marked Functional:
+                # https://www.w3.org/TR/activitystreaams-vocabulary/#dfn-inreplyto
+                # ...but many fediverse projects don't support that, and Mastodon,
+                # Misskey, and Mitra drop the activity entirely:
+                # https://github.com/snarfed/bridgy-fed/issues/1257
+                logger.warning(
+                    "AS2 doesn't support multiple inReplyTo URLs! "
+                    f'Only using the first: {in_reply_to[0]}')
+            # singly valued even for one element, since Mastodon raises a
+            # TypeError and drops the activity on any list at all
             activity['inReplyTo'] = in_reply_to[0]
 
         # Mastodon evidently requires a Mention tag for replies to generate a

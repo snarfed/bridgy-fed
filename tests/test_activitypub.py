@@ -2788,6 +2788,16 @@ class ActivityPubUtilsTest(TestCase):
             'inReplyTo': ['foo', 'bar'],
         }))
 
+    def test_postprocess_as2_single_element_in_reply_to_list(self):
+        self.assert_equals({
+            'id': 'http://localhost/r/xyz',
+            'inReplyTo': 'foo',
+            'to': [as2.PUBLIC_AUDIENCE],
+        }, postprocess_as2({
+            'id': 'xyz',
+            'inReplyTo': ['foo'],
+        }))
+
     def test_postprocess_as2_multiple_url(self):
         self.assert_equals({
             'id': 'http://localhost/r/xyz',
