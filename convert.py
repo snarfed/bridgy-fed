@@ -25,6 +25,7 @@ import ids
 import memcache
 from models import PROTOCOLS
 from protocol import Protocol
+from ui import UIProtocol
 from web import Web
 
 logger = logging.getLogger(__name__)
@@ -70,6 +71,10 @@ def convert(to, _, from_=None):
     # parsing bugs? if that happened to this URL, expand it back to ://
     id = re.sub(r'^(https?:/)([^/])', r'\1/\2', id)
 
+    if UIProtocol.owns_id(id):
+        # internal objects are ours, not their author's protocol's
+        from_proto = UIProtocol
+
     logger.debug(f'Converting from {from_proto.LABEL} to {to}: {id}')
 
     # load, and maybe fetch. if it's a post/update, redirect to inner object.
@@ -101,7 +106,10 @@ def convert(to, _, from_=None):
             fetcher = to_proto.authed_user_for_request()
         except RuntimeError as err:
             error(str(err), status=401)
-        if fetcher and (owner := from_proto.get_by_id(owner_id, allow_opt_out=True)):
+
+        if (fetcher
+                and (owner_proto := obj.owner_protocol())
+                and (owner := owner_proto.get_by_id(owner_id, allow_opt_out=True))):
             if owner.is_blocking(fetcher):
                 error('', status=403)
 

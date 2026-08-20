@@ -4006,7 +4006,7 @@ class IntegrationTests(TestCase):
         self.assert_ap_deliveries(mock_post, ['https://inst.com/alice/inbox'],
                                   from_user=bob, data={
             'type': 'Announce',
-            'id': f'https://bsky.brid.gy/convert/ap/ui:repost-did:plc:bob-http://inst.com/post-{mock_now.return_value.isoformat()}',
+            'id': f'https://fed.brid.gy/convert/ap/ui:repost-did:plc:bob-http://inst.com/post-{mock_now.return_value.isoformat()}',
             'actor': 'https://bsky.brid.gy/ap/did:plc:bob',
             'object': 'http://inst.com/post',
         }, ignore=['@context', 'to', 'url'])

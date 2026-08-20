@@ -566,9 +566,9 @@ class IdsTest(TestCase):
              ATProto, 'at://did:plc:123/app.bsky.feed.post/456'),
             (ATProto, 'did:plc:x', Nostr, 'did:plc:x'),
             # ui: ids aren't owned by the author's protocol, but we still
-            # translate them
+            # translate them, always from fed.brid.gy
             (ATProto, 'ui:my-note',
-             ActivityPub, 'https://bsky.brid.gy/convert/ap/ui:my-note'),
+             ActivityPub, 'https://fed.brid.gy/convert/ap/ui:my-note'),
             (Fake, 'fake:post',
              ActivityPub, 'https://fa.brid.gy/convert/ap/fake:post'),
             (Fake, 'fake:post', ATProto, 'at://did:plc:abc/fa/post'),
@@ -599,17 +599,13 @@ class IdsTest(TestCase):
                 self.assertEqual(expected, translate_object_id(
                     id=id, from_=from_, to=to))
 
-    def test_translate_object_id_owner(self):
-        # from_ is the id's own space; owner only picks the subdomain we serve
-        # the translated id from, so that it matches the author's actor id
-        self.assertEqual(
-            'https://fed.brid.gy/convert/ap/ui:my-note',
-            translate_object_id(id='ui:my-note', from_=UIProtocol, to=ActivityPub))
-
-        for owner in ATProto, Web, ActivityPub:
-            with self.subTest(owner=owner.LABEL):
+    def test_translate_object_id_ui_ignores_owner(self):
+        # we always serve ui: ids from fed.brid.gy, whoever their author is, so
+        # that a given id is always the same URL
+        for owner in None, ATProto, Web, ActivityPub:
+            with self.subTest(owner=owner.LABEL if owner else None):
                 self.assertEqual(
-                    f'https://{owner.ABBREV}.brid.gy/convert/ap/ui:my-note',
+                    'https://fed.brid.gy/convert/ap/ui:my-note',
                     translate_object_id(id='ui:my-note', from_=UIProtocol,
                                         to=ActivityPub, owner=owner))
 

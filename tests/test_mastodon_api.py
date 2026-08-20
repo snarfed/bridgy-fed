@@ -323,7 +323,7 @@ class MastodonApiTest(TestCase):
         self.assert_ap_deliveries(mock_post, ['https://mas.to/users/bob/inbox'],
                                   from_user=user, data={
             'type': 'Follow',
-            'id': 'https://bsky.brid.gy/convert/ap/ui:follow-atproto-han.dull-2022-01-02T03:04:05+00:00',
+            'id': 'https://fed.brid.gy/convert/ap/ui:follow-atproto-han.dull-2022-01-02T03:04:05+00:00',
             'actor': 'https://bsky.brid.gy/ap/did:plc:user',
             'object': 'https://mas.to/users/bob',
         }, ignore=['@context', 'to', 'url'])
@@ -937,7 +937,7 @@ class MastodonApiTest(TestCase):
 
         # the author's subdomain, so that it matches their actor id
         self.assertEqual(
-            'https://fa.brid.gy/convert/ap/ui:reply-fake:user-fake:post',
+            'https://fed.brid.gy/convert/ap/ui:reply-fake:user-fake:post',
             resp.json['uri'])
 
     def test_statuses_single_ui_activitypub_author(self):
@@ -955,7 +955,7 @@ class MastodonApiTest(TestCase):
         resp = self.get('/api/v1/statuses/ui%7E3Areply-alice-fake%7E3Apost')
         self.assertEqual(200, resp.status_code, resp.get_data(as_text=True))
 
-        self.assertEqual('https://ap.brid.gy/convert/ap/ui:reply-alice-fake:post',
+        self.assertEqual('https://fed.brid.gy/convert/ap/ui:reply-alice-fake:post',
                          resp.json['uri'])
 
     def test_statuses_repost(self):
@@ -1099,7 +1099,7 @@ class MastodonApiTest(TestCase):
         self.assert_ap_deliveries(mock_post, ['https://mas.to/users/bob/inbox'],
                                   from_user=user, data={
             'type': 'Like',
-            'id': 'https://bsky.brid.gy/convert/ap/ui:like-atproto-han.dull-2022-01-02T03:04:05+00:00',
+            'id': 'https://fed.brid.gy/convert/ap/ui:like-atproto-han.dull-2022-01-02T03:04:05+00:00',
             'actor': 'https://bsky.brid.gy/ap/did:plc:user',
             'object': 'https://mas.to/post',
             'cc': ['https://mas.to/users/bob'],
@@ -1126,7 +1126,7 @@ class MastodonApiTest(TestCase):
         self.assert_ap_deliveries(mock_post, ['https://mas.to/users/bob/inbox'],
                                   from_user=user, data={
             'type': 'Like',
-            'id': 'https://bsky.brid.gy/convert/ap/ui:like-atproto-han.dull-2022-01-02T03:04:05+00:00',
+            'id': 'https://fed.brid.gy/convert/ap/ui:like-atproto-han.dull-2022-01-02T03:04:05+00:00',
             'actor': 'https://bsky.brid.gy/ap/did:plc:user',
             'object': 'https://mas.to/post',
             'cc': ['https://mas.to/users/bob'],
@@ -1464,7 +1464,7 @@ class MastodonApiTest(TestCase):
         })
         self.assertEqual(200, resp.status_code, resp.get_data(as_text=True))
 
-        id = 'https://bsky.brid.gy/convert/ap/ui:comment-atproto-han.dull-2022-01-02T03:04:05+00:00'
+        id = 'https://fed.brid.gy/convert/ap/ui:comment-atproto-han.dull-2022-01-02T03:04:05+00:00'
         self.assert_ap_deliveries(mock_post, ['https://mas.to/users/bob/inbox'],
                                   from_user=user, data={
             'type': 'Create',

@@ -238,7 +238,30 @@ class ConvertTest(testutil.TestCase):
         self.assertEqual(ActivityPub.CONTENT_TYPE, resp.content_type)
         self.assert_equals({
             'type': 'Note',
-            'id': 'https://fa.brid.gy/convert/ap/ui:reply-fake:alice-fake:post',
+            'id': 'https://fed.brid.gy/convert/ap/ui:reply-fake:alice-fake:post',
+            'attributedTo': 'https://fa.brid.gy/ap/fake:alice',
+            'content': '<p>hello</p>',
+            'contentMap': {'en': '<p>hello</p>'},
+            'to': ['https://www.w3.org/ns/activitystreams#Public'],
+        }, json_loads(resp.get_data()))
+
+    def test_ui_to_activitypub_on_fed_subdomain(self):
+        """ui: objects are ours, so we always serve them from fed.brid.gy."""
+        user = self.make_user('fake:alice', cls=Fake,
+                              enabled_protocols=['activitypub'])
+        self.store_object(id='ui:reply-fake:alice-fake:post', source_protocol='ui',
+                          users=[user.key], our_as1={
+                              'objectType': 'comment',
+                              'author': 'fake:alice',
+                              'content': 'hello',
+                          })
+
+        resp = self.client.get('/convert/ap/ui:reply-fake:alice-fake:post',
+                               base_url='https://fed.brid.gy/')
+        self.assertEqual(200, resp.status_code)
+        self.assert_equals({
+            'type': 'Note',
+            'id': 'https://fed.brid.gy/convert/ap/ui:reply-fake:alice-fake:post',
             'attributedTo': 'https://fa.brid.gy/ap/fake:alice',
             'content': '<p>hello</p>',
             'contentMap': {'en': '<p>hello</p>'},

@@ -553,7 +553,11 @@ def translate_object_id(*, id, from_, to, owner=None):
     from ui import UIProtocol
 
     id, from_, to = validate(id, from_, to)
-    if not owner:
+    if UIProtocol.owns_id(id):
+        # internal objects are ours, not their author's, so we always serve them
+        # from fed.brid.gy, whoever their author is
+        owner = UIProtocol
+    elif not owner:
         owner = from_
     if not inspect.isclass(owner):
         owner = owner.__class__
