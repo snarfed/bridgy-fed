@@ -1580,8 +1580,13 @@ class Protocol:
         Args:
           obj (models.Object): follow activity
         """
+        from ui import UIProtocol
+
         logger.debug('Got follow. storing Follow(s), sending accept(s)')
         from_id = from_user.key.id()
+        # for follows we generated ourselves, from_cls is UIProtocol, but here we
+        # want the follower's own protocol
+        from_proto = from_user.__class__
 
         # Prepare followee (to) users' data
         to_as1s = as1.get_objects(obj.as1)
@@ -1599,7 +1604,7 @@ class Protocol:
             to_cls = Protocol.for_id(to_id)
             if not to_cls:
                 error(f"Couldn't determine protocol for {to_id}")
-            elif from_cls == to_cls:
+            elif from_proto == to_cls:
                 logger.info(f'Skipping same-protocol Follower {from_id} => {to_id}')
                 continue
 
@@ -1609,19 +1614,26 @@ class Protocol:
                 continue
 
             to_user = to_cls.get_or_create(id=to_key.id())
-            if not to_user or not to_user.is_enabled(from_cls):
+            if not to_user:
+                error(f'{to_id} not found')
+
+            # we only follow unbridged users when the follower asked us to
+            # explicitly, eg via our Mastodon API
+            bridged = to_user.is_enabled(from_proto)
+            if not bridged and from_cls != UIProtocol:
                 error(f'{to_id} not found')
 
             follower_obj = Follower.get_or_create(to=to_user, from_=from_user,
                                                   follow=obj.key, status='active')
-            if (from_cls.USES_OBJECT_FEED
-                    and from_cls.LABEL not in to_user.has_object_feed_followers_on):
-                to_user.has_object_feed_followers_on.append(from_cls.LABEL)
+            if (from_proto.USES_OBJECT_FEED
+                    and from_proto.LABEL not in to_user.has_object_feed_followers_on):
+                to_user.has_object_feed_followers_on.append(from_proto.LABEL)
                 to_user.put()
 
             obj.add('notify', to_key)
-            from_cls.respond_to_follow('accept', follower=from_user,
-                                       followee=to_user, follow=obj)
+            if bridged:
+                from_cls.respond_to_follow('accept', follower=from_user,
+                                           followee=to_user, follow=obj)
 
     @classmethod
     def respond_to_follow(_, verb, follower, followee, follow):

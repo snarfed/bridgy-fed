@@ -667,17 +667,31 @@ def accounts_follow_or_block(user, source, id, verb):
     if not (other := load_account_id(id)):
         error('Account not found', status=404)
 
-    if not (other_id := other.get_copy(user)):
-        error(f"Account {other.key} isn't bridged to {user.LABEL}", status=422)
-
-    result = source.create({
+    activity_as1 = {
         'objectType': 'activity',
         'verb': verb,
         'actor': user.key.id(),
-        'object': other_id,
-    })
-    if not result.content:
-        error(result.error_plain or f"Couldn't {verb} this account", status=502)
+    }
+
+    if other_id := other.get_copy(user):
+        # the account is bridged to the user's protocol. write the activity
+        # there, natively
+        activity_as1['object'] = other_id
+        result = source.create(activity_as1)
+        if not result.content:
+            error(result.error_plain or f"Couldn't {verb} this account", status=502)
+
+    else:
+        # not bridged to the user's protocol. write the activity to an
+        # Object in the datastore
+        id = f'ui:{verb}-{user.LABEL}-{user.handle}-{util.now().isoformat()}'
+        activity_as1.update({
+            'id': id,
+            'object': other.key.id(),
+        })
+        common.create_task(queue='receive', id=id, our_as1=activity_as1,
+                           source_protocol='ui', users=[user.key.urlsafe().decode()],
+                           authed_as=user.key.id())
 
     return to_relationship(other, **{f'{verb}ing': True})
 

@@ -285,12 +285,53 @@ class MastodonApiTest(TestCase):
             },
         }, mock_post.call_args.kwargs['json'])
 
-    def test_accounts_follow_not_bridged(self):
+    @patch.object(tasks_client, 'create_task', return_value=Task(name='my task'))
+    def test_accounts_follow_not_bridged(self, mock_create_task):
+        common.RUN_TASKS_INLINE = False
         user = self.make_atproto_user()
-        bob = self.make_user('fake:bob', cls=Fake)
+        self.make_user('fake:bob', cls=Fake)
 
         resp = self.post("/api/v1/accounts/fake~3Abob/follow", user=user)
-        self.assertEqual(422, resp.status_code)
+        self.assertEqual(200, resp.status_code, resp.get_data(as_text=True))
+        self.assertTrue(resp.json['following'])
+
+        id = 'ui:follow-atproto-han.dull-2022-01-02T03:04:05+00:00'
+        self.assert_task(mock_create_task, 'receive', source_protocol='ui',
+                         authed_as='did:plc:user', id=id,
+                         users=[user.key.urlsafe().decode()], our_as1={
+            'objectType': 'activity',
+            'verb': 'follow',
+            'id': id,
+            'object': 'fake:bob',
+            'actor': 'did:plc:user',
+        })
+
+    @patch.object(util.session, 'post')
+    def test_accounts_follow_unbridged_activitypub_delivers(self, mock_post):
+        user = self.make_atproto_user(obj_bsky=test_atproto.ACTOR_PROFILE_BSKY)
+        bob = self.make_user('https://mas.to/users/bob', cls=ActivityPub, obj_as2={
+            **ACTOR,
+            'id': 'https://mas.to/users/bob',
+            'inbox': 'https://mas.to/users/bob/inbox',
+        })
+
+        resp = self.post(
+            '/api/v1/accounts/https~3A~2F~2Fmas.to~2Fusers~2Fbob/follow', user=user)
+        self.assertEqual(200, resp.status_code, resp.get_data(as_text=True))
+
+        # the Follow is delivered, and we don't accept it on bob's behalf
+        self.assert_ap_deliveries(mock_post, ['https://mas.to/users/bob/inbox'],
+                                  from_user=user, data={
+            'type': 'Follow',
+            'id': 'https://bsky.brid.gy/convert/ap/ui:follow-atproto-han.dull-2022-01-02T03:04:05+00:00',
+            'actor': 'https://bsky.brid.gy/ap/did:plc:user',
+            'object': 'https://mas.to/users/bob',
+        }, ignore=['@context', 'to', 'url'])
+
+        follower = Follower.query().get()
+        self.assertEqual(user.key, follower.from_)
+        self.assertEqual(bob.key, follower.to)
+        self.assertEqual('active', follower.status)
 
     def test_accounts_follow_not_found(self):
         user = self.make_atproto_user()
@@ -374,12 +415,26 @@ class MastodonApiTest(TestCase):
             },
         }, mock_post.call_args.kwargs['json'])
 
-    def test_accounts_block_not_bridged(self):
+    @patch.object(tasks_client, 'create_task', return_value=Task(name='my task'))
+    def test_accounts_block_not_bridged(self, mock_create_task):
+        common.RUN_TASKS_INLINE = False
         user = self.make_atproto_user()
         self.make_user('fake:bob', cls=Fake)
 
         resp = self.post("/api/v1/accounts/fake~3Abob/block", user=user)
-        self.assertEqual(422, resp.status_code)
+        self.assertEqual(200, resp.status_code, resp.get_data(as_text=True))
+        self.assertTrue(resp.json['blocking'])
+
+        id = 'ui:block-atproto-han.dull-2022-01-02T03:04:05+00:00'
+        self.assert_task(mock_create_task, 'receive', source_protocol='ui',
+                         authed_as='did:plc:user', id=id,
+                         users=[user.key.urlsafe().decode()], our_as1={
+            'objectType': 'activity',
+            'verb': 'block',
+            'id': id,
+            'object': 'fake:bob',
+            'actor': 'did:plc:user',
+        })
 
     def test_accounts_block_not_found(self):
         user = self.make_atproto_user()
