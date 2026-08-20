@@ -1310,6 +1310,80 @@ class MastodonApiTest(TestCase):
             'rkey': '456',
         }, mock_post.call_args.kwargs['json'])
 
+    @patch.object(tasks_client, 'create_task', return_value=Task(name='my task'))
+    def test_statuses_unfavourite_unbridged(self, mock_create_task):
+        common.RUN_TASKS_INLINE = False
+        user = self.make_atproto_user()
+        self.store_object(id='fake:post', users=[self.user.key],
+                          source_protocol='fake',
+                          our_as1={'objectType': 'note', 'content': 'hello'})
+        self.store_object(id='ui:like-atproto-han.dull-2022-01-02T03:04:04+00:00',
+                          source_protocol='ui', users=[user.key], our_as1={
+                              'objectType': 'activity',
+                              'verb': 'like',
+                              'actor': 'did:plc:user',
+                              'object': 'fake:post',
+                          })
+
+        resp = self.post('/api/v1/statuses/fake~3Apost/unfavourite', user=user)
+        self.assertEqual(200, resp.status_code, resp.get_data(as_text=True))
+        self.assertFalse(resp.json['favourited'])
+
+        id = 'ui:undo-atproto-han.dull-2022-01-02T03:04:05+00:00'
+        self.assert_task(mock_create_task, 'receive', source_protocol='ui',
+                         authed_as='did:plc:user', id=id,
+                         users=[user.key.urlsafe().decode()], our_as1={
+            'objectType': 'activity',
+            'verb': 'undo',
+            'id': id,
+            'actor': 'did:plc:user',
+            'object': {
+                'objectType': 'activity',
+                'verb': 'like',
+                'id': 'ui:like-atproto-han.dull-2022-01-02T03:04:04+00:00',
+                'actor': 'did:plc:user',
+                'object': 'fake:post',
+            },
+        })
+
+    @patch.object(util.session, 'post')
+    def test_statuses_unfavourite_unbridged_delivers(self, mock_post):
+        user = self.make_atproto_user(obj_bsky=test_atproto.ACTOR_PROFILE_BSKY)
+        self.make_user('https://mas.to/users/bob', cls=ActivityPub, obj_as2={
+            **ACTOR,
+            'id': 'https://mas.to/users/bob',
+            'inbox': 'https://mas.to/users/bob/inbox',
+        })
+        self.store_object(id='https://mas.to/post', source_protocol='activitypub',
+                          our_as1={
+                              'objectType': 'note',
+                              'author': 'https://mas.to/users/bob',
+                          })
+        self.store_object(id='ui:like-atproto-han.dull-2022-01-02T03:04:04+00:00',
+                          source_protocol='ui', users=[user.key], our_as1={
+                              'objectType': 'activity',
+                              'verb': 'like',
+                              'actor': 'did:plc:user',
+                              'object': 'https://mas.to/post',
+                          })
+
+        resp = self.post(
+            '/api/v1/statuses/https~3A~2F~2Fmas.to~2Fpost/unfavourite', user=user)
+        self.assertEqual(200, resp.status_code, resp.get_data(as_text=True))
+
+        self.assert_ap_deliveries(mock_post, ['https://mas.to/users/bob/inbox'],
+                                  from_user=user, data={
+            'type': 'Undo',
+            'id': 'https://fed.brid.gy/convert/ap/ui:undo-atproto-han.dull-2022-01-02T03:04:05+00:00',
+            'actor': 'https://bsky.brid.gy/ap/did:plc:user',
+            'object': {
+                'type': 'Like',
+                'id': 'https://fed.brid.gy/convert/ap/ui:like-atproto-han.dull-2022-01-02T03:04:04+00:00',
+                'actor': 'https://bsky.brid.gy/ap/did:plc:user',
+                'object': 'https://mas.to/post',
+            },
+        }, ignore=['@context', 'to', 'cc', 'url'])
+
     def test_statuses_unfavourite_not_favourited(self):
         user = self.make_atproto_user()
         self.store_object(

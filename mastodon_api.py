@@ -1074,7 +1074,8 @@ def statuses_unfavourite_or_unreblog(user, source, id, verb):
     type = 'like' if verb == 'unfavourite' else 'share'
     for obj in Object.query(Object.users == user.key, Object.type == type):
         if as1.get_id(obj.as1, 'object') == orig_obj.key.id() and not obj.deleted:
-            source.delete(obj.key.id())
+            undo(user, source, activity_id=obj.key.id(), verb=type,
+                 object_id=orig_obj.key.id())
 
     status = to_status(orig_obj) or {}
     status['favourited' if verb == 'unfavourite' else 'reblogged'] = False
