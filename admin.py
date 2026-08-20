@@ -179,12 +179,16 @@ def admin_object(id):
             if inner := Object.get_by_id(inner_id):
                 return redirect(f'/admin/object/{inner.key.id()}')
 
+    # proto is the id's own protocol, for translating it below. the user who owns
+    # the object may be on a different one, eg for internal objects.
     proto = PROTOCOLS.get(obj.source_protocol)
     user = None
     if obj.users:
         user = obj.users[0].get()
-    elif obj.as1 and proto and (user_id := as1.get_owner(obj.as1)):
-        user = proto.get_by_id(user_id)
+    elif (obj.as1
+          and (owner_proto := obj.owner_protocol())
+          and (user_id := as1.get_owner(obj.as1))):
+        user = owner_proto.get_by_id(user_id)
 
     bridged_ids = {
         to_proto: ids.translate_object_id(id=obj.key.id(), from_=proto, to=to_proto)

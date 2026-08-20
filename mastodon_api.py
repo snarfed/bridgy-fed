@@ -28,7 +28,6 @@ from mastodon_oauth import require_oauth
 import memcache
 import models
 from models import Follower, Object, PROTOCOLS
-from protocol import Protocol
 import webfinger
 
 logger = logging.getLogger(__name__)
@@ -139,7 +138,7 @@ def to_status(obj):
     if not status:
         return None
 
-    if from_proto := obj.owner_protocol():
+    if from_proto := PROTOCOLS.get(obj.source_protocol):
         status['uri'] = ids.translate_object_id(
             id=obj.key.id(), from_=from_proto, to=ActivityPub)
 
@@ -256,7 +255,7 @@ def prefetch_statuses(objs):
         if obj.users:
             obj.owner = obj.users[0].get_async()
         elif ((owner := as1.get_owner(obj.as1))
-              and (proto := Protocol.for_id(owner, remote=False))
+              and (proto := obj.owner_protocol(remote=False))
               and (id := ids.normalize_user_id(id=owner, proto=proto))):
             obj.owner = proto.get_by_id_async(id)
         else:

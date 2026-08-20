@@ -791,7 +791,8 @@ class ATProto(User, Protocol):
                 if not base_id:
                     logger.info(f'{type} object has no id!')
                     return False
-                base_obj = (from_user or PROTOCOLS[obj.source_protocol]).load(base_id, remote=False)
+                base_obj = (PROTOCOLS.get(obj.source_protocol) or from_user).load(
+                    base_id, remote=False)
 
             if type not in ('delete', 'undo'):
                 if not base_obj:  # probably a new repo

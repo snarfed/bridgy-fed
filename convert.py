@@ -129,13 +129,12 @@ def check_bridged_to(obj, to_proto):
         error(f"{obj.key.id()} hasn't been bridged to {to_proto.LABEL}", status=404)
 
     # check that owner has this protocol enabled
-    if owner := as1.get_owner(obj.as1):
-        if from_proto := Protocol.for_id(owner):
-            user = from_proto.get_by_id(owner)
-            if not user:
-                error(f"{from_proto.LABEL} user {owner} not found", status=404)
-            elif not user.is_enabled(to_proto):
-                error(f"{from_proto.LABEL} user {owner} isn't bridged to {to_proto.LABEL}", status=404)
+    if (from_proto := obj.owner_protocol()) and (owner := as1.get_owner(obj.as1)):
+        user = from_proto.get_by_id(owner)
+        if not user:
+            error(f"{from_proto.LABEL} user {owner} not found", status=404)
+        elif not user.is_enabled(to_proto):
+            error(f"{from_proto.LABEL} user {owner} isn't bridged to {to_proto.LABEL}", status=404)
 
 
 @app.get(f'/convert/<from_>/<to>/<path:_>')
