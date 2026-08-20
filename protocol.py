@@ -1073,14 +1073,22 @@ class Protocol:
                         continue
 
                     from_cls = Protocol.for_id(id)
+                    kwargs = {}
+
                     if field == 'id' and from_cls == UIProtocol and owner_proto:
-                        logger.info(f'owner of {id} {owner_id} is {owner_proto.LABEL}, translating id from that protocol')
-                        from_cls = owner_proto
+                        if not UIProtocol.owns_id(id):
+                            # eg follow.py's ids, which are in their author's id
+                            # space even though their source_protocol is ui
+                            from_cls = owner_proto
+                        elif fn is ids.translate_object_id:
+                            # keep UIProtocol as the id's own space, but serve it
+                            # from the author's subdomain, to match their actor id
+                            kwargs['owner'] = owner_proto
 
                     # TODO: what if from_cls is None? relax translate_object_id,
                     # make it a noop if we don't know enough about from/to?
                     if from_cls and from_cls != to_cls:
-                        obj['id'] = fn(id=id, from_=from_cls, to=to_cls)
+                        obj['id'] = fn(id=id, from_=from_cls, to=to_cls, **kwargs)
                     if uri:
                         obj['id'] = to_cls(id=obj['id']).id_uri() if obj['id'] else id
 

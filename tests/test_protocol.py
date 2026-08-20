@@ -1008,6 +1008,22 @@ class ProtocolTest(TestCase):
             'author': 'https://bsky.brid.gy/ap/did:plc:bob',
         }, ActivityPub.translate_ids(note))
 
+    def test_translate_ui_id_author_on_same_protocol(self):
+        # the id can't be translated *from* the author's protocol, since that's
+        # the protocol we're translating to, but we still use their subdomain
+        self.make_user('https://inst.com/alice', cls=ActivityPub,
+                       obj_as1={'id': 'https://inst.com/alice'})
+        note = {
+            'objectType': 'note',
+            'id': 'ui:my-note',
+            'author': 'https://inst.com/alice',
+        }
+        self.assert_equals({
+            'objectType': 'note',
+            'id': 'https://ap.brid.gy/convert/ap/ui:my-note',
+            'author': 'https://inst.com/alice',
+        }, ActivityPub.translate_ids(note))
+
     def test_translate_mention_handles(self):
         self.make_user('fake:alice', cls=Fake)
         self.make_user('other:bob', cls=OtherFake)

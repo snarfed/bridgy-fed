@@ -19,6 +19,7 @@ import ids
 from ids import translate_handle, translate_object_id, translate_user_id
 from models import Object, Target
 from nostr import Nostr
+from ui import UIProtocol
 from .testutil import Fake, TestCase
 from web import Web
 
@@ -597,6 +598,20 @@ class IdsTest(TestCase):
             with self.subTest(id=id, from_=from_.LABEL, to=to.LABEL):
                 self.assertEqual(expected, translate_object_id(
                     id=id, from_=from_, to=to))
+
+    def test_translate_object_id_owner(self):
+        # from_ is the id's own space; owner only picks the subdomain we serve
+        # the translated id from, so that it matches the author's actor id
+        self.assertEqual(
+            'https://fed.brid.gy/convert/ap/ui:my-note',
+            translate_object_id(id='ui:my-note', from_=UIProtocol, to=ActivityPub))
+
+        for owner in ATProto, Web, ActivityPub:
+            with self.subTest(owner=owner.LABEL):
+                self.assertEqual(
+                    f'https://{owner.ABBREV}.brid.gy/convert/ap/ui:my-note',
+                    translate_object_id(id='ui:my-note', from_=UIProtocol,
+                                        to=ActivityPub, owner=owner))
 
     def test_translate_object_id_web_ap_subdomain_fed(self):
         self.make_user('on-fed.com', cls=Web, ap_subdomain='fed')

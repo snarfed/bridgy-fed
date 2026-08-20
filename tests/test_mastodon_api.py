@@ -935,16 +935,15 @@ class MastodonApiTest(TestCase):
         resp = self.get('/api/v1/statuses/ui%7E3Areply-fake%7E3Auser-fake%7E3Apost')
         self.assertEqual(200, resp.status_code, resp.get_data(as_text=True))
 
-        # TODO: this should be the author's subdomain, so that it matches their
-        # actor id, but translate_object_id can't do that yet without dropping
-        # the wrapping entirely when the author is on the protocol we convert to
+        # the author's subdomain, so that it matches their actor id
         self.assertEqual(
-            'https://fed.brid.gy/convert/ap/ui:reply-fake:user-fake:post',
+            'https://fa.brid.gy/convert/ap/ui:reply-fake:user-fake:post',
             resp.json['uri'])
 
     def test_statuses_single_ui_activitypub_author(self):
         # the author's protocol is the same as the protocol we're converting to,
         # so we can't use it as the id's protocol; the id would pass through
+        # untranslated. it's only the subdomain we take from the author.
         alice = self.make_user(id='https://inst.com/alice', cls=ActivityPub,
                                obj_as1={'id': 'https://inst.com/alice'})
         Object(id='ui:reply-alice-fake:post', users=[alice.key],
@@ -956,7 +955,7 @@ class MastodonApiTest(TestCase):
         resp = self.get('/api/v1/statuses/ui%7E3Areply-alice-fake%7E3Apost')
         self.assertEqual(200, resp.status_code, resp.get_data(as_text=True))
 
-        self.assertEqual('https://fed.brid.gy/convert/ap/ui:reply-alice-fake:post',
+        self.assertEqual('https://ap.brid.gy/convert/ap/ui:reply-alice-fake:post',
                          resp.json['uri'])
 
     def test_statuses_repost(self):
