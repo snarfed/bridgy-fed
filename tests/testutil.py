@@ -770,8 +770,20 @@ class TestCase(unittest.TestCase, testutil.Asserts):
                              rsa_key.exportKey())
             calls[args[0]] = json_loads(kwargs['data'])
 
+        def check_no_ui_ids(val):
+            # ui: ids are internal; we should always send subdomain-wrapped URLs
+            if isinstance(val, str):
+                assert not val.startswith('ui:'), f'leaked {val} in {got}'
+            elif isinstance(val, dict):
+                for elem in val.values():
+                    check_no_ui_ids(elem)
+            elif isinstance(val, list):
+                for elem in val:
+                    check_no_ui_ids(elem)
+
         for inbox in inboxes:
             got = calls[inbox]
+            check_no_ui_ids(got)
             as1.get_object(got).pop('publicKey', None)
             self.assert_equals(data, got, inbox, ignore=ignore)
 

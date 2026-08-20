@@ -1,7 +1,7 @@
 """Unit tests for ui.py."""
 from ui import UIProtocol
 
-from .testutil import TestCase
+from .testutil import Fake, TestCase
 
 
 class UIProtocolTest(TestCase):
@@ -13,7 +13,8 @@ class UIProtocolTest(TestCase):
                 self.assertIs(False, UIProtocol.owns_id(id))
 
     def test_load_never_fetches(self):
-        self.store_object(id='ui:reply-foo', source_protocol='ui',
+        user = self.make_user('fake:user', cls=Fake)
+        self.store_object(id='ui:reply-foo', source_protocol='ui', users=[user.key],
                           our_as1={'objectType': 'comment', 'content': 'hi'})
 
         for remote in None, True:

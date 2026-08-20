@@ -157,7 +157,8 @@ class ProtocolTest(TestCase):
         self.assertEqual(Greedy, Protocol.for_id('https://bar/baz'))
 
     def test_for_id_object(self):
-        self.store_object(id='http://ui.org/obj', source_protocol='ui')
+        self.store_object(id='http://ui.org/obj', source_protocol='ui',
+                          users=[self.user.key])
         self.assertEqual(UIProtocol, Protocol.for_id('http://ui.org/obj'))
 
     @patch.object(util.session, 'get', return_value=requests_response())
@@ -411,7 +412,7 @@ class ProtocolTest(TestCase):
 
     def test_load_local_false_existing(self):
         self.store_object(id='fake:foo', our_as1={'content': 'stored'},
-                          source_protocol='ui')
+                          source_protocol='ui', users=[self.user.key])
 
         Fake.fetchable['fake:foo'] = {'foo': 'bar'}
         Fake.load('fake:foo', local=False)
@@ -2040,7 +2041,7 @@ class ProtocolReceiveTest(TestCase):
 
         # reply that user wrote in our web UI, ie pages.respond_reply
         self.store_object(id='ui:reply-other:user-efake:post', source_protocol='ui',
-                          our_as1={
+                          users=[user.key], our_as1={
                               'id': 'ui:reply-other:user-efake:post',
                               'objectType': 'comment',
                               'author': 'other:user',
@@ -2172,7 +2173,7 @@ class ProtocolReceiveTest(TestCase):
                           })
 
         id = 'ui:share-fake:user-http://inst.com/post'
-        obj = Object(id=id, source_protocol='ui', our_as1={
+        obj = Object(id=id, source_protocol='ui', users=[self.user.key], our_as1={
             'id': id,
             'objectType': 'activity',
             'verb': 'share',

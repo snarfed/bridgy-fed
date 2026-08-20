@@ -1668,6 +1668,11 @@ class Object(AddRemoveMixin, StringIdModel):
                    if isinstance(val, dict):
                        val.pop('@context', None)
 
+        # internal objects are authored by a user on another protocol, so we need
+        # their key to know which
+        if self.source_protocol == 'ui':
+            assert self.users, f'internal object {self.key.id()} has no users'
+
         def check_id(id, proto):
             if proto in (None, 'ui'):
                 return
@@ -2214,13 +2219,18 @@ class Object(AddRemoveMixin, StringIdModel):
             ``author``'s or ``actor``'s protocol instead.
         """
         from protocol import Protocol
+        from ui import UIProtocol
 
         if self.source_protocol not in (None, 'ui'):
-            return PROTOCOLS.get(self.source_protocol)
+            proto = PROTOCOLS.get(self.source_protocol)
         elif self.users:
-            return PROTOCOLS_BY_KIND[self.users[0].kind()]
+            proto = PROTOCOLS_BY_KIND[self.users[0].kind()]
+        else:
+            proto = Protocol.for_id(as1.get_owner(self.as1))
 
-        return Protocol.for_id(as1.get_owner(self.as1))
+        # internal objects' authors are always on a real protocol
+        assert proto != UIProtocol, self.key
+        return proto
 
     @cached_property
     def domain_blocklist(self):

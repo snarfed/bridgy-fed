@@ -246,7 +246,8 @@ cast_add_body { text: "hello world" }
         mock_stub.return_value.SubmitBulkMessages.return_value = \
             SubmitBulkMessagesResponse(messages=[BulkMessageResponse(message=resp)])
 
-        obj = Object(id='farcaster://123/0xabcd', source_protocol='ui', our_as1={
+        obj = Object(id='farcaster://123/0xabcd', source_protocol='ui',
+                     users=[self.user.key], our_as1={
             'objectType': 'note',
             'content': 'hello world',
             'author': 'farcaster://123',
@@ -337,7 +338,8 @@ cast_add_body { text: "hello world" }
             'username': 'alice',
         }).put()
 
-        obj = Object(id='farcaster://123', source_protocol='ui', our_as1={
+        obj = Object(id='farcaster://123', source_protocol='ui',
+                     users=[self.user.key], our_as1={
             'objectType': 'person',
             'id': 'farcaster://123',
             'displayName': 'Alice',
