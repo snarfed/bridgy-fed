@@ -2159,7 +2159,7 @@ Hi! You <a href="{inner_obj_as1.get('url') or inner_obj_id}">recently {verb}</a>
         logger.info(f'Direct targets: {[t.uri for t in targets.keys()]}')
 
         # deliver to followers, if appropriate
-        user_key = from_cls.actor_key(obj, allow_opt_out=allow_opt_out)
+        user_key = from_user.actor_key(obj, allow_opt_out=allow_opt_out)
         if not user_key:
             logger.info("Can't tell who this is from! Skipping followers.")
             return targets

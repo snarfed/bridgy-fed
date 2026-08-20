@@ -1774,6 +1774,34 @@ class ProtocolReceiveTest(TestCase):
             ('other:bob:target', create_as1),
         ], OtherFake.sent)
 
+    def test_deliver_ui_object_to_followers(self):
+        """The author's Followers are on their own protocol, not ui."""
+        self.make_followers()
+
+        post_as1 = {
+            'id': 'ui:post-foo',
+            'objectType': 'note',
+            'author': 'fake:user',
+            'content': 'foo',
+        }
+        obj = Object(id='ui:post-foo', source_protocol='ui', users=[self.user.key],
+                     our_as1=post_as1)
+        obj.new = True
+        self.assertEqual(('OK', 202), UIProtocol.receive(obj, authed_as='fake:user'))
+
+        create_as1 = {
+            'id': 'ui:post-foo#bridgy-fed-create-2022-01-02T03:04:05+00:00',
+            'objectType': 'activity',
+            'verb': 'post',
+            'actor': 'fake:user',
+            'published': '2022-01-02T03:04:05+00:00',
+            'object': post_as1,
+        }
+        self.assertEqual([
+            ('other:alice:target', create_as1),
+            ('other:bob:target', create_as1),
+        ], OtherFake.sent)
+
     def test_create_post_object_missing_id(self):
         self.make_followers()
 
