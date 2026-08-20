@@ -541,7 +541,7 @@ class Web(User, Protocol):
             return False
 
         source_id = ids.translate_object_id(
-            id=obj.key.id(), from_=PROTOCOLS[obj.source_protocol], to=Web)
+            id=obj.key.id(), from_=PROTOCOLS.get(obj.source_protocol), to=Web)
         source_url = quote(source_id, safe=':/%+')
         logger.info(f'Sending webmention from {source_url} to {target}')
 

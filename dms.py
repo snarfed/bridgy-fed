@@ -505,7 +505,7 @@ def maybe_send(*, from_, to_user, text, type=None, in_reply_to=None, **kwargs):
         'to': [to_user.key.id()],
         **kwargs,
     }
-    models.Object(id=dm_id, our_as1=dm_as1).put()
+    models.Object(id=dm_id, our_as1=dm_as1, source_protocol=from_.LABEL).put()
 
     create_id = f'{dm_id}-create'
     create_as1 = {

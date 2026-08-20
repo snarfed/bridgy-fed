@@ -179,7 +179,7 @@ def admin_object(id):
             if inner := Object.get_by_id(inner_id):
                 return redirect(f'/admin/object/{inner.key.id()}')
 
-    proto = PROTOCOLS[obj.source_protocol]
+    proto = PROTOCOLS.get(obj.source_protocol)
     user = None
     if obj.users:
         user = obj.users[0].get()
@@ -189,7 +189,7 @@ def admin_object(id):
     bridged_ids = {
         to_proto: ids.translate_object_id(id=obj.key.id(), from_=proto, to=to_proto)
         for to_proto in (ATProto, ActivityPub, Nostr)
-        if to_proto != proto and user and user.is_enabled(to_proto)
+        if proto and to_proto != proto and user and user.is_enabled(to_proto)
     }
 
     return render(
