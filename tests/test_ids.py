@@ -599,15 +599,14 @@ class IdsTest(TestCase):
                 self.assertEqual(expected, translate_object_id(
                     id=id, from_=from_, to=to))
 
-    def test_translate_object_id_ui_ignores_owner(self):
-        # we always serve ui: ids from fed.brid.gy, whoever their author is, so
-        # that a given id is always the same URL
-        for owner in None, ATProto, Web, ActivityPub:
-            with self.subTest(owner=owner.LABEL if owner else None):
+    def test_translate_object_id_ui_always_fed_subdomain(self):
+        # we always serve ui: ids from fed.brid.gy, whatever protocol we're
+        # translating from, so that a given id is always the same URL
+        for from_ in UIProtocol, ATProto, Web, ActivityPub:
+            with self.subTest(from_=from_.LABEL):
                 self.assertEqual(
                     'https://fed.brid.gy/convert/ap/ui:my-note',
-                    translate_object_id(id='ui:my-note', from_=UIProtocol,
-                                        to=ActivityPub, owner=owner))
+                    translate_object_id(id='ui:my-note', from_=from_, to=ActivityPub))
 
     def test_translate_object_id_web_ap_subdomain_fed(self):
         self.make_user('on-fed.com', cls=Web, ap_subdomain='fed')

@@ -140,8 +140,7 @@ def to_status(obj):
 
     if from_proto := PROTOCOLS.get(obj.source_protocol):
         status['uri'] = ids.translate_object_id(
-            id=obj.key.id(), from_=from_proto, to=ActivityPub,
-            owner=obj.owner_protocol())
+            id=obj.key.id(), from_=from_proto, to=ActivityPub)
 
     if hasattr(obj, 'owner'):
         # unlike load_owner, a prefetched owner is never None just because a
