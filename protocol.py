@@ -1981,7 +1981,7 @@ class Protocol:
         orig_post_mentions = {}  # maps mentioned id to original post Object
         for id in in_reply_tos:
             if ((in_reply_to_obj := original_objs.get(id))
-                    and (proto := PROTOCOLS.get(in_reply_to_obj.source_protocol))
+                    and (proto := in_reply_to_obj.owner_protocol())
                     and proto.SEND_REPLIES_TO_ORIG_POSTS_MENTIONS
                     and (mentions := as1.mentions(in_reply_to_obj.as1))):
                 logger.info(f"Adding in-reply-to {id} 's mentions to targets: {mentions}")
