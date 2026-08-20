@@ -28,6 +28,7 @@ from mastodon_oauth import require_oauth
 import memcache
 import models
 from models import Follower, Object, PROTOCOLS
+from ui import UIProtocol
 import webfinger
 
 logger = logging.getLogger(__name__)
@@ -969,7 +970,23 @@ def statuses_update(user, source, id):
 @auth(granary_source=True)
 def statuses_delete(user, source, id):
     obj = load_object(id)
-    source.delete(obj.id_as(user))
+
+    if UIProtocol.owns_id(obj.key.id()):
+        # we created this status ourselves, in the datastore
+        id = f'ui:delete-{user.LABEL}-{user.handle}-{util.now().isoformat()}'
+        common.create_task(queue='receive', id=id, source_protocol='ui',
+                           users=[user.key.urlsafe().decode()],
+                           authed_as=user.key.id(), our_as1={
+                               'objectType': 'activity',
+                               'verb': 'delete',
+                               'id': id,
+                               'object': obj.key.id(),
+                               'actor': user.key.id(),
+                           })
+
+    else:
+        source.delete(obj.id_as(user))
+
     return to_status(obj)
 
 

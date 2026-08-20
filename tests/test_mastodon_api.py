@@ -1569,6 +1569,64 @@ class MastodonApiTest(TestCase):
             'rkey': '456',
         }, mock_post.call_args.kwargs['json'])
 
+    @patch.object(tasks_client, 'create_task', return_value=Task(name='my task'))
+    def test_statuses_delete_ui(self, mock_create_task):
+        common.RUN_TASKS_INLINE = False
+        user = self.make_atproto_user()
+        self.store_object(id='ui:comment-atproto-han.dull-2022-01-02T03:04:04+00:00',
+                          source_protocol='ui', users=[user.key], our_as1={
+                              'objectType': 'comment',
+                              'author': 'did:plc:user',
+                              'content': 'a reply',
+                              'inReplyTo': 'https://mas.to/post',
+                          })
+
+        resp = self.delete(
+            '/api/v1/statuses/ui~3Acomment-atproto-han.dull-2022-01-02T03~3A04~3A04+00~3A00',
+            user=user)
+        self.assertEqual(200, resp.status_code, resp.get_data(as_text=True))
+        self.assertEqual('a reply', resp.json['content'])
+
+        id = 'ui:delete-atproto-han.dull-2022-01-02T03:04:05+00:00'
+        self.assert_task(mock_create_task, 'receive', source_protocol='ui',
+                         authed_as='did:plc:user', id=id,
+                         users=[user.key.urlsafe().decode()], our_as1={
+            'objectType': 'activity',
+            'verb': 'delete',
+            'id': id,
+            'object': 'ui:comment-atproto-han.dull-2022-01-02T03:04:04+00:00',
+            'actor': 'did:plc:user',
+        })
+
+    @patch.object(util.session, 'post')
+    def test_statuses_delete_ui_delivers(self, mock_post):
+        user = self.make_atproto_user(obj_bsky=test_atproto.ACTOR_PROFILE_BSKY)
+        eve = self.make_user('https://mas.to/users/eve', cls=ActivityPub, obj_as2={
+            **ACTOR,
+            'id': 'https://mas.to/users/eve',
+            'inbox': 'https://mas.to/users/eve/inbox',
+        })
+        Follower.get_or_create(to=user, from_=eve)
+        self.store_object(id='ui:comment-atproto-han.dull-2022-01-02T03:04:04+00:00',
+                          source_protocol='ui', users=[user.key], our_as1={
+                              'objectType': 'comment',
+                              'author': 'did:plc:user',
+                              'content': 'a reply',
+                          })
+
+        resp = self.delete(
+            '/api/v1/statuses/ui~3Acomment-atproto-han.dull-2022-01-02T03~3A04~3A04+00~3A00',
+            user=user)
+        self.assertEqual(200, resp.status_code, resp.get_data(as_text=True))
+
+        self.assert_ap_deliveries(mock_post, ['https://mas.to/users/eve/inbox'],
+                                  from_user=user, data={
+            'type': 'Delete',
+            'id': 'https://fed.brid.gy/convert/ap/ui:delete-atproto-han.dull-2022-01-02T03:04:05+00:00',
+            'actor': 'https://bsky.brid.gy/ap/did:plc:user',
+            'object': 'https://fed.brid.gy/convert/ap/ui:comment-atproto-han.dull-2022-01-02T03:04:04+00:00',
+        }, ignore=['@context', 'to', 'cc', 'url'])
+
     def test_statuses_delete_not_found(self):
         user = self.make_atproto_user()
         resp = self.delete('/api/v1/statuses/nope', user=user)
