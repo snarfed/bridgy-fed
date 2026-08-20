@@ -19,6 +19,7 @@ import activitypub
 from activitypub import ActivityPub
 from arroba import datastore_storage
 from atproto import ATProto
+import common
 import domains
 from domains import DOMAINS, PRIMARY_DOMAIN
 from flask_app import app
@@ -950,21 +951,35 @@ def statuses_delete(user, source, id):
 def statuses_favourite_or_reblog(user, source, id, verb):
     obj = load_object(id)
 
-    if not (native_id := obj.get_copy(user)):
-        # TODO: support anyway?
-        error(f"Status {obj.key} isn't bridged to {user.LABEL}", status=422)
-
-    result = source.create({
+    verb = 'like' if verb == 'favourite' else 'share'
+    activity_as1 = {
         'objectType': 'activity',
-        'verb': 'like' if verb == 'favourite' else 'share',
+        'verb': verb,
         'actor': user.key.id(),
-        'object': obj.id_as(user),
-    })
-    if not result.content:
-        error(result.error_plain or f"Couldn't {verb} this status", status=502)
+    }
+
+    if obj.get_copy(user):
+        # original post is bridged to the user's protocol. write the activity
+        # there, natively
+        activity_as1['object'] = obj.id_as(user)
+        result = source.create(activity_as1)
+        if not result.content:
+            error(result.error_plain or f"Couldn't {verb} this status", status=502)
+
+    else:
+        # not bridged to the user's protocol. write the activity to an
+        # Object in the datastore
+        id = f'ui:{verb}-{user.LABEL}-{user.handle}-{util.now().isoformat()}'
+        activity_as1.update({
+            'id': id,
+            'object': obj.key.id(),
+        })
+        common.create_task(queue='receive', id=id, our_as1=activity_as1,
+                           source_protocol='ui', users=[user.key.urlsafe().decode()],
+                           authed_as=user.key.id())
 
     status = to_status(obj) or {}
-    status['favourited' if verb == 'favourite' else 'reblogged'] = True
+    status['favourited' if verb == 'like' else 'reblogged'] = True
     return status
 
 

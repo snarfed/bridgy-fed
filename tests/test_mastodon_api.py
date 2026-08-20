@@ -2,12 +2,16 @@
 from datetime import datetime
 from unittest.mock import patch
 
+from google.cloud.tasks_v2.types import Task
+from granary import as2
 from oauth_dropins.bluesky import BlueskyAuth
 from webutil import util
+from webutil.appengine_config import tasks_client
 from webutil.testutil import requests_response
 from webutil.util import json_dumps
 
 from atproto import ATProto
+import common
 import mastodon_api, mastodon_oauth
 from granary.mastodon import encode_id
 from mastodon_api import (
@@ -77,7 +81,7 @@ class MastodonApiTest(TestCase):
     def delete(self, path, **kwargs):
         return self.request(path, method='DELETE', **kwargs)
 
-    def make_atproto_user(self):
+    def make_atproto_user(self, enabled_protocols=['activitypub'], **kwargs):
         """Makes an ATProto user with a :class:`BlueskyAuth` for their own PDS."""
         BlueskyAuth(id='did:plc:user', pds_url='https://some.pds/',
                     user_json=json_dumps({'did': 'did:plc:user', 'handle': 'ha.nd'}),
@@ -85,7 +89,7 @@ class MastodonApiTest(TestCase):
                     ).put()
         self.store_object(id='did:plc:user', raw=DID_DOC)
         return self.make_user('did:plc:user', cls=ATProto,
-                              enabled_protocols=['activitypub'])
+                              enabled_protocols=enabled_protocols, **kwargs)
 
     def make_followee(self, id, **kwargs):
         followee = self.make_user(id, cls=OtherFake, obj_as1={
@@ -975,7 +979,9 @@ class MastodonApiTest(TestCase):
             },
         }, mock_post.call_args.kwargs['json'])
 
-    def test_statuses_favourite_not_bridged_to_bluesky(self):
+    @patch.object(tasks_client, 'create_task', return_value=Task(name='my task'))
+    def test_statuses_favourite_not_bridged(self, mock_create_task):
+        common.RUN_TASKS_INLINE = False
         user = self.make_atproto_user()
         Object(id='fake:post', users=[self.user.key], source_protocol='fake',
                our_as1={
@@ -984,7 +990,100 @@ class MastodonApiTest(TestCase):
                }).put()
 
         resp = self.post('/api/v1/statuses/fake~3Apost/favourite', user=user)
-        self.assertEqual(422, resp.status_code)
+        self.assertEqual(200, resp.status_code, resp.get_data(as_text=True))
+        self.assertEqual('hello', resp.json['content'])
+        self.assertTrue(resp.json['favourited'])
+
+        id = 'ui:like-atproto-han.dull-2022-01-02T03:04:05+00:00'
+        self.assert_task(mock_create_task, 'receive', source_protocol='ui',
+                         authed_as='did:plc:user', id=id,
+                         users=[user.key.urlsafe().decode()], our_as1={
+            'objectType': 'activity',
+            'verb': 'like',
+            'id': id,
+            'object': 'fake:post',
+            'actor': 'did:plc:user',
+        })
+
+    @patch.object(util.session, 'post')
+    def test_statuses_favourite_unbridged_activitypub_delivers(self, mock_post):
+        user = self.make_atproto_user(obj_bsky=test_atproto.ACTOR_PROFILE_BSKY)
+        self.make_user('https://mas.to/users/bob', cls=ActivityPub, obj_as2={
+            **ACTOR,
+            'id': 'https://mas.to/users/bob',
+            'inbox': 'https://mas.to/users/bob/inbox',
+        })
+        self.store_object(id='https://mas.to/post', source_protocol='activitypub',
+                          our_as1={
+                              'objectType': 'note',
+                              'author': 'https://mas.to/users/bob',
+                          })
+
+        resp = self.post('/api/v1/statuses/https~3A~2F~2Fmas.to~2Fpost/favourite',
+                         user=user)
+        self.assertEqual(200, resp.status_code, resp.get_data(as_text=True))
+
+        self.assert_ap_deliveries(mock_post, ['https://mas.to/users/bob/inbox'],
+                                  from_user=user, data={
+            'type': 'Like',
+            'id': 'https://bsky.brid.gy/convert/ap/ui:like-atproto-han.dull-2022-01-02T03:04:05+00:00',
+            'actor': 'https://bsky.brid.gy/ap/did:plc:user',
+            'object': 'https://mas.to/post',
+            'cc': ['https://mas.to/users/bob'],
+        }, ignore=['@context', 'to', 'url'])
+
+    @patch.object(util.session, 'post')
+    @patch.object(util.session, 'get', return_value=requests_response({
+        **ACTOR,
+        'id': 'https://mas.to/users/bob',
+        'inbox': 'https://mas.to/users/bob/inbox',
+    }, content_type=as2.CONTENT_TYPE))
+    def test_statuses_favourite_activitypub_author_not_stored(self, _, mock_post):
+        user = self.make_atproto_user(obj_bsky=test_atproto.ACTOR_PROFILE_BSKY)
+        self.store_object(id='https://mas.to/post', source_protocol='activitypub',
+                          our_as1={
+                              'objectType': 'note',
+                              'author': 'https://mas.to/users/bob',
+                          })
+
+        resp = self.post('/api/v1/statuses/https~3A~2F~2Fmas.to~2Fpost/favourite',
+                         user=user)
+        self.assertEqual(200, resp.status_code, resp.get_data(as_text=True))
+
+        self.assert_ap_deliveries(mock_post, ['https://mas.to/users/bob/inbox'],
+                                  from_user=user, data={
+            'type': 'Like',
+            'id': 'https://bsky.brid.gy/convert/ap/ui:like-atproto-han.dull-2022-01-02T03:04:05+00:00',
+            'actor': 'https://bsky.brid.gy/ap/did:plc:user',
+            'object': 'https://mas.to/post',
+            'cc': ['https://mas.to/users/bob'],
+        }, ignore=['@context', 'to', 'url'])
+
+    @patch.object(tasks_client, 'create_task', return_value=Task(name='my task'))
+    def test_statuses_reblog_not_bridged(self, mock_create_task):
+        common.RUN_TASKS_INLINE = False
+        user = self.make_atproto_user()
+        Object(id='fake:post', users=[self.user.key], source_protocol='fake',
+               our_as1={
+                   'objectType': 'note',
+                   'content': 'hello',
+               }).put()
+
+        resp = self.post('/api/v1/statuses/fake~3Apost/reblog', user=user)
+        self.assertEqual(200, resp.status_code, resp.get_data(as_text=True))
+        self.assertEqual('hello', resp.json['content'])
+        self.assertTrue(resp.json['reblogged'])
+
+        id = 'ui:share-atproto-han.dull-2022-01-02T03:04:05+00:00'
+        self.assert_task(mock_create_task, 'receive', source_protocol='ui',
+                         authed_as='did:plc:user', id=id,
+                         users=[user.key.urlsafe().decode()], our_as1={
+            'objectType': 'activity',
+            'verb': 'share',
+            'id': id,
+            'object': 'fake:post',
+            'actor': 'did:plc:user',
+        })
 
     def test_statuses_favourite_not_found(self):
         user = self.make_atproto_user()
