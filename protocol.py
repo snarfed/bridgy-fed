@@ -1661,7 +1661,7 @@ class Protocol:
 
         from web import Web
         bot_id = bot_cls.bot_user_id()
-        if not (bot := Web.get_by_id(bot_id)):
+        if not bot_id or not (bot := Web.get_by_id(bot_id)):
             logger.info(f"Can't follow {user.key.id()} from bot user {bot_id}, doesn't exist")
             return
 

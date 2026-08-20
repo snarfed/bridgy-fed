@@ -32,6 +32,8 @@ logger = logging.getLogger(__name__)
 
 class UIProtocol(models.User, protocol.Protocol):
     LABEL = 'ui'
+    # no ui.brid.gy; make subdomain_wrap falls back to fed.brid.gy
+    ABBREV = None
     SUPPORTED_AS1_TYPES = ('comment', 'block', 'like', 'note', 'post', 'share')
 
     def _pre_put_hook(self):
@@ -73,3 +75,6 @@ class UIProtocol(models.User, protocol.Protocol):
     def target_for(cls, obj, **kwargs):
         return None
 
+    @classmethod
+    def bot_user_id(cls):
+        return None

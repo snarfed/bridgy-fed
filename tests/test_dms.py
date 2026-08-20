@@ -19,6 +19,7 @@ import dms
 from dms import maybe_send, receive
 import ids
 from models import DM, Follower, Object, PROTOCOLS, Target
+from ui import UIProtocol
 from web import Web
 
 from .testutil import ExplicitFake, Fake, OtherFake, TestCase
@@ -76,6 +77,12 @@ class DmsTest(TestCase):
     def assert_replied(self, *args, **kwargs):
         kwargs.setdefault('in_reply_to', 'efake:dm')
         self.assert_sent(*args, **kwargs)
+
+    def test_maybe_send_from_protocol_without_bot_user(self):
+        user = self.make_user(id='other:user', cls=OtherFake, obj_as1={'x': 'y'})
+
+        maybe_send(from_=UIProtocol, to_user=user, text='hi hi hi')
+        self.assertEqual([], OtherFake.sent)
 
     def test_maybe_send_from_protocol(self):
         self.make_user(id='fa.brid.gy', cls=Web)

@@ -90,11 +90,10 @@ def bot_user_ids():
     from web import Web
 
     bot_ids = set(PROTOCOL_DOMAINS)
-    protocols = set(p for p in PROTOCOLS.values() if p and p.LABEL != 'ui')
+    protocols = set(p for p in PROTOCOLS.values() if p and p.bot_user_id())
 
     for bot_proto in protocols:
-        subdomain = f'{bot_proto.ABBREV}{SUPERDOMAIN}'
-        if not (bot := Web.get_by_id(subdomain)):
+        if not (bot := Web.get_by_id(bot_proto.bot_user_id())):
             continue
 
         bot_ids.update(copy.uri for copy in bot.copies)

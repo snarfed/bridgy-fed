@@ -475,7 +475,7 @@ def maybe_send(*, from_, to_user, text, type=None, in_reply_to=None, **kwargs):
     if not isinstance(from_, models.User):
         assert issubclass(from_, protocol.Protocol)
         from web import Web
-        if not (from_ := Web.get_by_id(from_.bot_user_id())):
+        if not ((bot_id := from_.bot_user_id()) and (from_ := Web.get_by_id(bot_id))):
             logger.info(f'not sending DM, {from_proto.LABEL} has no bot user')
             return
 
