@@ -241,6 +241,15 @@ class ProtocolTest(TestCase):
         self.assertEqual('user.com', user.handle)
         self.assertEqual((None, None), Protocol.for_handle('user.com'))
 
+    def test_bot_user(self):
+        self.assertIsNone(Fake.bot_user())
+
+        bot = self.make_user(id='fa.brid.gy', cls=Web)
+        self.assertEqual(bot, Fake.bot_user())
+
+        # UIProtocol has no bot user id at all
+        self.assertIsNone(UIProtocol.bot_user())
+
     @patch('dns.resolver.resolve', return_value = dns_answer(
             '_atproto.ha.nl.', '"did=did:plc:123abc"'))
     def test_for_handle_atproto_resolve(self, _):

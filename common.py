@@ -87,13 +87,12 @@ werkzeug.exceptions._aborter.mapping.setdefault(299, ErrorButDoNotRetryTask)
 def bot_user_ids():
     """Returns all copy ids for protocol bot users."""
     from models import PROTOCOLS
-    from web import Web
 
     bot_ids = set(PROTOCOL_DOMAINS)
     protocols = set(p for p in PROTOCOLS.values() if p and p.bot_user_id())
 
     for bot_proto in protocols:
-        if not (bot := Web.get_by_id(bot_proto.bot_user_id())):
+        if not (bot := bot_proto.bot_user()):
             continue
 
         bot_ids.update(copy.uri for copy in bot.copies)

@@ -1739,8 +1739,8 @@ def poll_chat_task():
     proto = PROTOCOLS[get_required_param('proto')]
     logger.info(f'Polling incoming chat messages for {proto.LABEL}')
 
-    from web import Web
-    bot = Web.get_by_id(proto.bot_user_id())
+    bot = proto.bot_user()
+    assert bot, proto.LABEL
     assert bot.atproto_last_chat_log_cursor
     repo = arroba.server.storage.load_repo(bot.get_copy(ATProto))
     client = chat_client(repo=repo, method='chat.bsky.convo.getLog')

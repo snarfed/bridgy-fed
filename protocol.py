@@ -604,6 +604,18 @@ class Protocol:
         return f'{cls.ABBREV}{SUPERDOMAIN}'
 
     @classmethod
+    def bot_user(cls):
+        """Returns the :class:`web.Web` user for this protocol's bot user.
+
+        Returns:
+          web.Web: or None if this protocol has no bot user, or it doesn't exist
+        """
+        from web import Web
+
+        if bot_id := cls.bot_user_id():
+            return Web.get_by_id(bot_id)
+
+    @classmethod
     def create_for(cls, user):
         """Creates or re-activate a copy user in this protocol.
 
@@ -783,8 +795,7 @@ class Protocol:
                or (from_user.web_url() if from_user.profile_id() == actor_id
                    else actor_id))
 
-        from web import Web
-        bot_user = Web.get_by_id(from_user.bot_user_id())
+        bot_user = from_user.bot_user()
 
         if cls.HTML_PROFILES:
             if bot_user and from_user.LABEL not in cls.DEFAULT_ENABLED_PROTOCOLS:
@@ -1518,8 +1529,7 @@ class Protocol:
                 try:
                     from_user.enable_protocol(proto)
                 except ErrorButDoNotRetryTask:
-                    from web import Web
-                    bot = Web.get_by_id(proto.bot_user_id())
+                    bot = proto.bot_user()
                     from_cls.respond_to_follow('reject', follower=from_user,
                                                followee=bot, follow=obj)
                     raise
@@ -1659,10 +1669,8 @@ class Protocol:
         if not user.BOTS_FOLLOW_BACK:
             return
 
-        from web import Web
-        bot_id = bot_cls.bot_user_id()
-        if not bot_id or not (bot := Web.get_by_id(bot_id)):
-            logger.info(f"Can't follow {user.key.id()} from bot user {bot_id}, doesn't exist")
+        if not (bot := bot_cls.bot_user()):
+            logger.info(f"Can't follow {user.key.id()}, {bot_cls.LABEL} has no bot user")
             return
 
         now = util.now().isoformat()
