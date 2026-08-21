@@ -356,8 +356,14 @@ def undo(user, source, activity_id, verb, object_id):
                        authed_as=user.key.id(), our_as1=undo_as1)
 
 
-def load_owner(obj):
+def load_owner(obj, remote=False):
     """Loads the :class:`models.User` that owns ``obj``, if any.
+
+    Args:
+      obj (models.Object)
+      create (bool): whether to fetch the owner's actor over the network and
+        store it as a new :class:`activitypub.ActivityPub` user in the datastore
+        if necessary
 
     Returns None if ``obj`` has no owner, or if the owner can't be loaded, eg
     if their handle can't be resolved to a protocol.
@@ -367,7 +373,7 @@ def load_owner(obj):
 
     if owner_id := as1.get_owner(obj.as1):
         try:
-            return models.load_user(owner_id, create=False, allow_opt_out=True)
+            return models.load_user(owner_id, create=remote, allow_opt_out=True)
         except RuntimeError:
             logger.info(f"Couldn't load owner {owner_id}", exc_info=True)
 
@@ -1289,10 +1295,11 @@ def search(user):
     }
 
     q = unquote(get_required_param('q').strip())
+    resolve = bool_param('resolve')
     type = request.args.get('type')
 
     if not type or type == 'accounts':
-        if user := load_user(q, resolve=bool_param('resolve')):
+        if user := load_user(q, resolve=resolve):
             if acct := to_account(user):
                 resp['accounts'] = [acct]
 
@@ -1301,8 +1308,14 @@ def search(user):
         # for them with the format '[domain]/s/[id]'. no clue why yet
         for domain in DOMAINS:
             q = q.removeprefix(f'{domain}/s/')
+
         if obj := Object.get_by_id(decode_id(q)):
             if status := to_status(obj):
                 resp['statuses'] = [status]
+        elif resolve and ActivityPub.owns_id(q) is not False:
+            if obj := ActivityPub.load(q, remote=True, raise_=False):
+                obj.owner = load_owner(obj, remote=True)
+                if status := to_status(obj):
+                    resp['statuses'] = [status]
 
     return resp

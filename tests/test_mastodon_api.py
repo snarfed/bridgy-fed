@@ -26,7 +26,7 @@ from web import Web
 
 from activitypub import ActivityPub
 from memcache import pickle_memcache
-from .test_activitypub import ACTOR
+from .test_activitypub import ACTOR, NOTE_OBJECT
 from . import test_atproto
 from .testutil import Fake, OtherFake, TestCase
 
@@ -2385,6 +2385,64 @@ class MastodonApiTest(TestCase):
                     'hashtags': [],
                     'statuses': [to_status(obj)],
                 }, resp.json, ignore=['created_at'])
+
+    @patch.object(util.session, 'get', side_effect=[
+        TestCase.as2_resp({
+            **NOTE_OBJECT,
+            'attributedTo': 'https://mas.to/users/foo',
+        }),
+        TestCase.as2_resp(ACTOR),
+        TestCase.as2_resp(ACTOR),
+        WEBFINGER,
+        WEBFINGER,
+    ])
+    def test_search_status_fediverse_resolve(self, _):
+        resp = self.get('/api/v2/search?type=statuses&resolve=true&q=http://mas.to/note/id')
+        self.assertEqual(200, resp.status_code, resp.get_data(as_text=True))
+        self.assert_equals({
+            'accounts': [],
+            'hashtags': [],
+            'statuses': [{
+                'id': 'http~3A~2F~2Fmas.to~2Fnote~2Fid',
+                'uri': 'http://mas.to/note/id',
+                'url': 'http://mas.to/note',
+                'content': '☕ just a normal post',
+                'visibility': 'public',
+                'account': {
+                    'id': 'https~3A~2F~2Fmas.to~2Fusers~2Ffoo',
+                    'acct': 'foo@mas.to',
+                    'uri': 'https://mas.to/users/foo',
+                    'username': 'foo',
+                    'display_name': 'Mrs. ☕ Foo',
+                    'url': '',
+                },
+            }],
+        }, resp.json, ignore=[
+            'avatar', 'avatar_static', 'bot', 'created_at', 'emojis',
+            'favourites_count', 'followers_count', 'following_count', 'header',
+            'header_static', 'in_reply_to_account_id', 'in_reply_to_id', 'locked',
+            'media_attachments', 'mentions', 'note', 'pinned', 'reblog',
+            'reblogs_count', 'replies_count', 'sensitive', 'spoiler_text',
+            'statuses_count', 'tags'])
+
+    def test_search_status_fediverse_no_resolve(self):
+        resp = self.get('/api/v2/search?type=statuses&q=http://mas.to/note/id')
+        self.assertEqual(200, resp.status_code, resp.get_data(as_text=True))
+        self.assertEqual({
+            'accounts': [],
+            'hashtags': [],
+            'statuses': [],
+        }, resp.json)
+
+    @patch.object(util.session, 'get', return_value=requests_response('nope', status=404))
+    def test_search_status_fediverse_resolve_fetch_fails(self, _):
+        resp = self.get('/api/v2/search?type=statuses&resolve=true&q=http://mas.to/note/id')
+        self.assertEqual(200, resp.status_code, resp.get_data(as_text=True))
+        self.assertEqual({
+            'accounts': [],
+            'hashtags': [],
+            'statuses': [],
+        }, resp.json)
 
     def test_search_status_not_found(self):
         resp = self.get('/api/v2/search?type=statuses&q=fake:post')
