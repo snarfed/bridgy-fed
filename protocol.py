@@ -1960,6 +1960,8 @@ class Protocol:
         inner_obj_as1 = as1.get_object(obj.as1)
         inner_obj_id = inner_obj_as1.get('id')
         in_reply_tos = as1.get_ids(inner_obj_as1, 'inReplyTo')
+        if len(in_reply_tos) > 1:
+            logger.warning(f'Multiple inReplyTos! Only the first will be delivered to ActivityPub: {in_reply_tos}')
         quoted_posts = as1.quoted_posts(inner_obj_as1)
         mentioned_urls = as1.mentions(inner_obj_as1)
         is_reply = obj.type == 'comment' or in_reply_tos

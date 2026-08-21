@@ -1018,23 +1018,20 @@ def postprocess_as2(activity, orig_obj=None, wrap=True):
 
     # inReplyTo: singly valued, prefer id over url
     orig_id = orig_obj.get('id') if orig_obj else None
-    in_reply_to = util.get_list(activity, 'inReplyTo')
+    in_reply_to = as1.get_object(activity, 'inReplyTo')
     if in_reply_to:
-        if orig_id:  # TODO: and orig_id in in_reply_to
-            activity['inReplyTo'] = orig_id
-        else:
-            if len(in_reply_to) > 1:
-                # AS2 inReplyTo can be multiply valued, it's not marked Functional:
-                # https://www.w3.org/TR/activitystreaams-vocabulary/#dfn-inreplyto
-                # ...but many fediverse projects don't support that, and Mastodon,
-                # Misskey, and Mitra drop the activity entirely:
-                # https://github.com/snarfed/bridgy-fed/issues/1257
-                logger.warning(
-                    "AS2 doesn't support multiple inReplyTo URLs! "
-                    f'Only using the first: {in_reply_to[0]}')
-            # singly valued even for one element, since Mastodon raises a
-            # TypeError and drops the activity on any list at all
-            activity['inReplyTo'] = in_reply_to[0]
+        # AS2 inReplyTo can be multiply valued, it's not marked Functional:
+        # https://www.w3.org/TR/activitystreaams-vocabulary/#dfn-inreplyto
+        # ...but many fediverse projects don't support that, and Mastodon,
+        # Misskey, and Mitra drop the activity entirely. always singly valued,
+        # even for a single element list, since Mastodon raises a TypeError on
+        # any list at all. https://github.com/snarfed/bridgy-fed/issues/1257
+        #
+        # prefer orig_obj's id: it's the one this delivery is actually for, which
+        # matters when inReplyTo is multiply valued, eg a web post with multiple
+        # u-in-reply-to links. otherwise fall back to the first.
+        activity['inReplyTo'] = (orig_id or in_reply_to.get('id')
+                                 or util.get_first(in_reply_to, 'url'))
 
         # Mastodon evidently requires a Mention tag for replies to generate a
         # notification to the original post's author. also include the original
