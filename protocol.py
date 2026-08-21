@@ -2633,7 +2633,9 @@ def send_task():
       obj_id (str): key id of :class:`models.Object` to send
       orig_obj_id (str): optional, :class:`models.Object` key id of the
         "original object" that this object refers to, eg replies to or reposts
-        or likes
+        or likes. Usually identifies the specific delivery target of this send task.
+        Lots of background on whether/why this is necessary (it is):
+        https://github.com/snarfed/bridgy-fed/issues/1257
       user (url-safe google.cloud.ndb.key.Key): :class:`models.User` (actor)
         this activity is from
       *: If ``obj_id`` is unset, all other parameters are properties for a new
