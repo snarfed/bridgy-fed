@@ -2808,6 +2808,36 @@ class ActivityPubUtilsTest(TestCase):
             'inReplyTo': ['foo'],
         }))
 
+    def test_postprocess_as2_composite_object_to_bare_id(self):
+        self.assert_equals({
+            'id': 'http://localhost/r/xyz',
+            'type': 'Like',
+            'object': 'http://inst/note',
+            'to': [as2.PUBLIC_AUDIENCE],
+        }, postprocess_as2({
+            'id': 'xyz',
+            'type': 'Like',
+            'object': {
+                'id': 'http://inst/note',
+                'type': 'Note',
+            },
+        }))
+
+    def test_postprocess_as2_composite_object_url_to_bare_id(self):
+        self.assert_equals({
+            'id': 'http://localhost/r/xyz',
+            'type': 'Like',
+            'object': 'http://inst/note',
+            'to': [as2.PUBLIC_AUDIENCE],
+        }, postprocess_as2({
+            'id': 'xyz',
+            'type': 'Like',
+            'object': {
+                'url': 'http://inst/note',
+                'type': 'Note',
+            },
+        }))
+
     def test_postprocess_as2_multiple_url(self):
         self.assert_equals({
             'id': 'http://localhost/r/xyz',

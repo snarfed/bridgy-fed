@@ -1056,12 +1056,16 @@ def postprocess_as2(activity, orig_obj=None, wrap=True):
 
     # activity objects (for Like, Announce, etc): prefer id over url
     obj = as1.get_object(activity)
-    id = obj.get('id')
-    if orig_id and type in as2.TYPES_WITH_OBJECT and type != 'Undo':
-        # inline most objects as bare string ids, not composite objects, for interop
-        activity['object'] = orig_id
-    elif not id:
+    if not obj.get('id'):
         obj['id'] = util.get_first(obj, 'url')
+
+    # inline most objects as bare string ids, not composite objects, for interop.
+    # not Accept/Reject/Undo though; their objects are themselves activities, which
+    # the receiving server needs in full to match against its own pending state.
+    # https://github.com/snarfed/bridgy-fed/issues/1257
+    if type in as2.TYPES_WITH_OBJECT and type not in ('Accept', 'Reject', 'Undo'):
+        if object_id := orig_id or obj.get('id'):
+            activity['object'] = object_id
 
     # id is required for most things. default to url if it's not set.
     if not activity.get('id'):
