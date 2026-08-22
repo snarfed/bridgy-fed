@@ -1298,10 +1298,6 @@ def postprocess_as2_actor(actor, user):
         actor['@context'] = util.get_list(actor, '@context')
         add(actor['@context'], SECURITY_CONTEXT)
 
-    # TODO: bring back once we figure out how to get Mastodon to support this and
-    # Pleroma and Akkoma not to DDoS us
-    # https://github.com/snarfed/bridgy-fed/issues/1374#issuecomment-2891993190
-    #
     # featured collection, pinned posts
     if featured := actor.get('featured'):
         featured.setdefault('id', id + '/featured')
@@ -1698,11 +1694,6 @@ def featured(id):
     requests from Pleroma and Akkoma:
     https://github.com/snarfed/bridgy-fed/issues/1374#issuecomment-2891993190
     """
-    # TODO: bring back once we figure out how to get Mastodon to support this and
-    # Pleroma and Akkoma not to DDoS us
-    # https://github.com/snarfed/bridgy-fed/issues/1374#issuecomment-2891993190
-    return '', 404
-
     user = load_user(id)
 
     items = []
