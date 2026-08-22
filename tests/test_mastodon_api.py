@@ -183,6 +183,13 @@ class MastodonApiTest(TestCase):
                                headers={'Authorization': f'Bearer {bad_token}'})
         self.assertEqual(401, resp.status_code)
 
+    def test_user_not_bridged_to_activitypub(self):
+        user = self.make_user('fake:bob', cls=Fake)
+        self.assertFalse(user.is_enabled(ActivityPub))
+
+        resp = self.get('/api/v1/accounts/verify_credentials', user=user)
+        self.assertEqual(403, resp.status_code, resp.get_data(as_text=True))
+
     def test_preferences(self):
         resp = self.get('/api/v1/preferences')
         self.assertEqual(200, resp.status_code, resp.get_data(as_text=True))

@@ -75,6 +75,10 @@ def auth(granary_source=False):
                 error('Account not found', status=401)
             logger.info(f'Logged in as {user.key.id()} for {request.url}')
 
+            if not user.is_enabled(ActivityPub):
+                error(f"{user.handle_or_id()} isn't bridged to the fediverse",
+                      status=403)
+
             if granary_source:
                 if not (source := current_token.granary_source()):
                     error(f"{user.LABEL} accounts not supported yet", status=501)

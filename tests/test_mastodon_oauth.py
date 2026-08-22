@@ -273,6 +273,29 @@ class MastodonOAuthTest(TestCase):
             'state': ['xyz'],
         }, parsed_qs)
 
+    def test_user_not_bridged_to_activitypub_denied(self):
+        self.user.manual_opt_out = True
+        self.user.put()
+        self.assertFalse(self.user.is_enabled(activitypub.ActivityPub))
+
+        app = self.register_app()
+        qs = self.authorize_query(app['client_id'])
+        resp = self.client.post('/oauth/authorize', data={
+            'state': qs,
+            'user_key': self.user.key.urlsafe().decode(),
+        }, base_url=BASE_URL)
+        self.assertEqual(302, resp.status_code, resp.get_data(as_text=True))
+        location = resp.headers['Location']
+        self.assertTrue(location.startswith('https://app.example/callback'), location)
+
+        self.assertEqual({
+            'error': ['access_denied'],
+            'error_description': [
+                'The resource owner or authorization server denied the request',
+            ],
+            'state': ['xyz'],
+        }, parse_qs(urlparse(location).query))
+
     def test_authorize_bad_client_id(self):
         resp = self.client.get(
             f"/oauth/authorize?{self.authorize_query('bogus')}", base_url=BASE_URL)

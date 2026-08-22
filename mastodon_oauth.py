@@ -38,6 +38,7 @@ from webutil import models
 from webutil.flask_util import error, FlashErrors, flash, get_required_param
 from werkzeug.exceptions import HTTPException
 
+from activitypub import ActivityPub
 import atproto
 from atproto import ATProto
 import common
@@ -415,6 +416,10 @@ def _grant_or_deny(grant_user, state):
     """
     if grant_user and grant_user.key.id() not in common.BETA_USER_IDS:
         flash('Mastodon OAuth login is limited to beta testers for now.')
+        grant_user = None
+
+    if grant_user and not grant_user.is_enabled(ActivityPub):
+        flash(f"{grant_user.handle_or_id()} isn't bridged to the fediverse.")
         grant_user = None
 
     params = dict(parse_qsl(state or ''))
