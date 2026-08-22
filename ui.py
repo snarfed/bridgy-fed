@@ -29,6 +29,7 @@ import logging
 
 from google.cloud import ndb
 
+import ids
 import models
 import protocol
 
@@ -48,6 +49,12 @@ class UIProtocol(models.User, protocol.Protocol):
     @classmethod
     def owns_id(self, id):
         return id.startswith('ui:')
+
+    @classmethod
+    def id_type(cls, id):
+        """We never have users, so all of our ids are object ids."""
+        if cls.owns_id(id):
+            return ids.IdType.OBJECT
 
     @ndb.ComputedProperty
     def handle(self):

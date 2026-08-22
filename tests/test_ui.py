@@ -1,4 +1,5 @@
 """Unit tests for ui.py."""
+from ids import IdType
 from ui import UIProtocol
 
 from .testutil import Fake, TestCase
@@ -29,3 +30,11 @@ class UIProtocolTest(TestCase):
     def test_load_local_false_asserts(self):
         with self.assertRaises(AssertionError):
             UIProtocol.load('ui:reply-foo', local=False)
+
+    def test_id_type(self):
+        self.assertEqual(IdType.OBJECT, UIProtocol.id_type('ui:foo'))
+
+        for id in ('fake:foo', 'http://ui.org/obj', 'user.com', ''):
+            with self.subTest(id=id):
+                self.assertIsNone(UIProtocol.id_type(id))
+

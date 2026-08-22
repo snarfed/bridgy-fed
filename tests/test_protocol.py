@@ -35,6 +35,7 @@ from activitypub import ActivityPub
 from app import app
 from atproto import ATProto
 import common
+import ids
 from common import ErrorButDoNotRetryTask
 import filters
 import memcache
@@ -116,11 +117,10 @@ class ProtocolTest(TestCase):
                     self.assertEqual(expected, Protocol.for_request(fed=Fake))
 
     def test_id_type_default(self):
-        # neither ui: nor fake: ids distinguish users from objects
-        for proto in UIProtocol, Fake:
-            for id in (f'{proto.LABEL}:foo', 'http://ui.org/obj', 'user.com', ''):
-                with self.subTest(proto=proto.LABEL, id=id):
-                    self.assertIsNone(proto.id_type(id))
+        # fake: ids don't distinguish users from objects
+        for id in ('fake:foo', 'http://ui.org/obj', 'user.com', ''):
+            with self.subTest(id=id):
+                self.assertIsNone(Fake.id_type(id))
 
     def test_for_id(self):
         for id, expected in [

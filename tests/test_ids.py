@@ -652,6 +652,13 @@ class IdsTest(TestCase):
                 self.assertEqual(expected, ids.translate_id(
                     id=id, from_=from_, to=Fake))
 
+    def test_translate_id_ui(self):
+        # internal objects are always objects, never users
+        alice = self.make_user('fake:alice', cls=Fake)
+        self.store_object(id='ui:reply', source_protocol='ui', users=[alice.key])
+        self.assertEqual('fake:o:fa:ui:reply', ids.translate_id(
+            id='ui:reply', from_=UIProtocol, to=Fake))
+
     def test_translate_id_default_object(self):
         self.assertEqual('fake:o:ap:https://inst/alice', ids.translate_id(
             id='https://inst/alice', from_=ActivityPub, to=Fake,

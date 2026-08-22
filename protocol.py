@@ -263,7 +263,6 @@ class Protocol:
 
         Returns:
           ids.IdType or None:
-
         """
         return None
 
