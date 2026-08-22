@@ -83,6 +83,24 @@ werkzeug.exceptions.default_exceptions.setdefault(299, ErrorButDoNotRetryTask)
 werkzeug.exceptions._aborter.mapping.setdefault(299, ErrorButDoNotRetryTask)
 
 
+
+class classproperty:
+    """@classmethod + @property.
+
+    Python 3.13 disabled combining classmethod with other decorators like
+    property, so we use this now.
+
+    https://docs.python.org/3.13/whatsnew/3.13.html#builtins
+    """
+    def __init__(self, method):
+        self.method = method
+
+    def __get__(self, obj, cls=None):
+        if cls is None:
+            cls = type(obj)
+        return self.method(cls)
+
+
 @functools.cache
 def bot_user_ids():
     """Returns all copy ids for protocol bot users."""

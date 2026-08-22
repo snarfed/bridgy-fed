@@ -32,6 +32,7 @@ from werkzeug.exceptions import BadGateway, BadRequest, HTTPException
 
 import common
 from common import (
+    classproperty,
     ErrorButDoNotRetryTask,
     report_error,
 )
@@ -163,8 +164,7 @@ class Protocol:
     RATE_LIMIT_TYPE = memcache.RateLimitType.LINEAR
     'Whether receive and send task rate limiting increases linearly or exponential.'
 
-    @classmethod
-    @property
+    @classproperty
     def LABEL(cls):
         """str: human-readable lower case name of this protocol, eg ``'activitypub``"""
         return cls.__name__.lower()
