@@ -1211,6 +1211,18 @@ class ObjectTest(TestCase):
         self.assertTrue(obj.activity_changed({}))
         self.assertTrue(obj.activity_changed({'content': 'x'}))
 
+    def test_id_as(self):
+        obj = Object(id='fake:post', source_protocol='fake')
+        self.assertEqual('fake:post', obj.id_as(Fake))
+        self.assertEqual('https://fa.brid.gy/convert/ap/fake:post',
+                         obj.id_as(ActivityPub))
+
+    def test_id_as_passes_owner_protocol_to_translate_object_id(self):
+        alice = self.make_user('fake:alice', cls=Fake)
+        obj = Object(id='ui:reply', source_protocol='ui', users=[alice.key])
+        self.assertEqual('https://fa.brid.gy/convert/ap/ui:reply',
+                         obj.id_as(ActivityPub))
+
     def test_actor_link(self):
         for expected, as2 in (
                 ('', {}),

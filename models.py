@@ -1838,7 +1838,8 @@ class Object(AddRemoveMixin, StringIdModel):
 
         from_ = PROTOCOLS.get(self.source_protocol)
         assert from_, f'{self.key.id()} has no source_protocol'
-        return ids.translate_object_id(id=self.key.id(), from_=from_, to=to_proto)
+        return ids.translate_object_id(id=self.key.id(), from_=from_, to=to_proto,
+                                       owner=self.owner_protocol())
 
     @staticmethod
     def from_request():
