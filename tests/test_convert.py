@@ -238,7 +238,7 @@ class ConvertTest(testutil.TestCase):
         self.assertEqual(ActivityPub.CONTENT_TYPE, resp.content_type)
         self.assert_equals({
             'type': 'Note',
-            'id': 'https://fed.brid.gy/convert/ap/ui:reply-fake:alice-fake:post',
+            'id': 'https://fa.brid.gy/convert/ap/ui:reply-fake:alice-fake:post',
             'attributedTo': 'https://fa.brid.gy/ap/fake:alice',
             'content': '<p>hello</p>',
             'contentMap': {'en': '<p>hello</p>'},
@@ -261,7 +261,7 @@ class ConvertTest(testutil.TestCase):
         self.assertEqual(200, resp.status_code)
         self.assert_equals({
             'type': 'Note',
-            'id': 'https://fed.brid.gy/convert/ap/ui:reply-fake:alice-fake:post',
+            'id': 'https://fa.brid.gy/convert/ap/ui:reply-fake:alice-fake:post',
             'attributedTo': 'https://fa.brid.gy/ap/fake:alice',
             'content': '<p>hello</p>',
             'contentMap': {'en': '<p>hello</p>'},

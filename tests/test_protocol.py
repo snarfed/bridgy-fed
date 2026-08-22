@@ -996,9 +996,9 @@ class ProtocolTest(TestCase):
         obj = {'inReplyTo': ['foo', 'bar']}
         self.assertEqual(obj, Fake.translate_ids(obj))
 
-    def test_translate_ui_id_uses_fed_subdomain(self):
-        # ui: objects are ours, so we serve them from fed.brid.gy, not the
-        # author's subdomain
+    def test_translate_ui_id_uses_authors_subdomain(self):
+        # ui: ids have to be on the same domain as their author's actor id, or
+        # Mastodon rejects Creates for them
         note = {
             'objectType': 'note',
             'id': 'ui:my-note',
@@ -1006,13 +1006,13 @@ class ProtocolTest(TestCase):
         }
         self.assert_equals({
             'objectType': 'note',
-            'id': 'https://fed.brid.gy/convert/ap/ui:my-note',
+            'id': 'https://bsky.brid.gy/convert/ap/ui:my-note',
             'author': 'https://bsky.brid.gy/ap/did:plc:bob',
         }, ActivityPub.translate_ids(note))
 
     def test_translate_ui_id_author_on_same_protocol(self):
         # the id can't be translated *from* the author's protocol, since that's
-        # the protocol we're translating to, but fed.brid.gy doesn't depend on it
+        # the protocol we're translating to, but we still use their subdomain
         self.make_user('https://inst.com/alice', cls=ActivityPub,
                        obj_as1={'id': 'https://inst.com/alice'})
         note = {
@@ -1022,7 +1022,7 @@ class ProtocolTest(TestCase):
         }
         self.assert_equals({
             'objectType': 'note',
-            'id': 'https://fed.brid.gy/convert/ap/ui:my-note',
+            'id': 'https://ap.brid.gy/convert/ap/ui:my-note',
             'author': 'https://inst.com/alice',
         }, ActivityPub.translate_ids(note))
 

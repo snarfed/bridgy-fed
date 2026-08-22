@@ -599,14 +599,26 @@ class IdsTest(TestCase):
                 self.assertEqual(expected, translate_object_id(
                     id=id, from_=from_, to=to))
 
-    def test_translate_object_id_ui_always_fed_subdomain(self):
-        # we always serve ui: ids from fed.brid.gy, whatever protocol we're
-        # translating from, so that a given id is always the same URL
-        for from_ in UIProtocol, ATProto, Web, ActivityPub:
+    def test_translate_object_id_ui_uses_authors_subdomain(self):
+        # ui: ids have to be on the same domain as their author's actor id, or
+        # Mastodon rejects Creates for them:
+        # https://github.com/mastodon/mastodon/blob/main/app/lib/activitypub/activity/create.rb
+        user = self.make_user('did:plc:user', cls=ATProto)
+        self.store_object(id='ui:my-note', source_protocol='ui', users=[user.key],
+                          our_as1={'objectType': 'note', 'author': 'did:plc:user'})
+
+        for from_ in UIProtocol, ATProto:
             with self.subTest(from_=from_.LABEL):
                 self.assertEqual(
-                    'https://fed.brid.gy/convert/ap/ui:my-note',
+                    'https://bsky.brid.gy/convert/ap/ui:my-note',
                     translate_object_id(id='ui:my-note', from_=from_, to=ActivityPub))
+
+    def test_translate_object_id_ui_unknown_author_falls_back_to_fed(self):
+        for from_ in UIProtocol, ATProto:
+            with self.subTest(from_=from_.LABEL):
+                self.assertEqual(
+                    'https://fed.brid.gy/convert/ap/ui:nope',
+                    translate_object_id(id='ui:nope', from_=from_, to=ActivityPub))
 
     def test_translate_object_id_web_ap_subdomain_fed(self):
         self.make_user('on-fed.com', cls=Web, ap_subdomain='fed')

@@ -528,7 +528,7 @@ def translate_handle(*, from_, to, handle=None, short=False):
     return output
 
 
-def translate_object_id(*, id, from_, to):
+def translate_object_id(*, id, from_, to, owner=None):
     """Translates a user handle from one protocol to another.
 
     Allows any ``id`` if ``from_`` is :class:`UIProtocol` or if ``id`` is ``ui:...``.
@@ -542,6 +542,9 @@ def translate_object_id(*, id, from_, to):
       id (str)
       from_ (protocol.Protocol): the native protocol for ``id``
       to (protocol.Protocol): the protocol to convert to
+      owner (protocol.Protocol): optional, the protocol of ``id``'s author. only used
+        as a fallback for ``ui:`` ids that we don't have an :class:`models.Object`
+        for, eg activity wrappers, which we don't store.
 
     Returns:
       str: the corresponding id in ``to``
@@ -551,12 +554,16 @@ def translate_object_id(*, id, from_, to):
 
     id, from_, to = validate(id, from_, to)
 
+    # internal objects have to be on the same domain as their author's actor id, or
+    # Mastodon and other fedi servers reject Creates for them, so we serve them from
+    # the author's subdomain, falling back to fed.brid.gy if we don't know them.
+    wrap_proto = from_
     if UIProtocol.owns_id(id):
-        # internal objects are ours, not their author's protocol's, so we always
-        # serve them from fed.brid.gy, whoever their author is
-        from_ = UIProtocol
+        obj = models.Object.get_by_id(re.sub(r'#bridgy-fed-[^#]*$', '', id))
+        wrap_proto = (obj.owner_protocol() if obj else None) or owner or UIProtocol
 
-    if from_.owns_id(id) is False and from_ != UIProtocol:
+    if (from_.owns_id(id) is False
+            and from_ != UIProtocol and not UIProtocol.owns_id(id)):
         return id
 
     # bsky.app profile URL to at:// URI
@@ -598,11 +605,11 @@ def translate_object_id(*, id, from_, to):
             return urljoin(web_ap_base_domain(util.domain_from_link(id)), f'/r/{id}')
 
         case _, 'activitypub' | 'web':
-            return subdomain_wrap(from_, f'/convert/{to.ABBREV}/{id}')
+            return subdomain_wrap(wrap_proto, f'/convert/{to.ABBREV}/{id}')
 
         # only for unit tests
         case _, 'fake' | 'other' | 'efake':
-            return f'{to.LABEL}:o:{from_.ABBREV}:{id}'
+            return f'{to.LABEL}:o:{wrap_proto.ABBREV}:{id}'
 
     assert False, (id, from_.LABEL, to.LABEL)
 

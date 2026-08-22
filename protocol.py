@@ -1073,18 +1073,22 @@ class Protocol:
                         continue
 
                     from_cls = Protocol.for_id(id)
+                    kwargs = {}
 
-                    if (field == 'id' and from_cls == UIProtocol and owner_proto
-                            and not UIProtocol.owns_id(id)):
-                        # eg follow.py's ids, which are in their author's id
-                        # space even though their source_protocol is ui.
-                        # (ui: ids stay UIProtocol; we serve them from fed.brid.gy)
-                        from_cls = owner_proto
+                    if field == 'id' and from_cls == UIProtocol and owner_proto:
+                        if not UIProtocol.owns_id(id):
+                            # eg follow.py's ids, which are in their author's id
+                            # space even though their source_protocol is ui
+                            from_cls = owner_proto
+                        elif fn is ids.translate_object_id:
+                            # for activity wrappers, which we don't store, the
+                            # activity's actor is the author
+                            kwargs['owner'] = owner_proto
 
                     # TODO: what if from_cls is None? relax translate_object_id,
                     # make it a noop if we don't know enough about from/to?
                     if from_cls and from_cls != to_cls:
-                        obj['id'] = fn(id=id, from_=from_cls, to=to_cls)
+                        obj['id'] = fn(id=id, from_=from_cls, to=to_cls, **kwargs)
                     if uri:
                         obj['id'] = to_cls(id=obj['id']).id_uri() if obj['id'] else id
 

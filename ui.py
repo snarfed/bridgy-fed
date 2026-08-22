@@ -12,16 +12,18 @@ Examples of where we currently create these:
 their author's id space, eg ``https://user.com/#follow-...``, so their
 ``source_protocol`` is their author's protocol.)
 
-* Ids are ``ui:...``, opaque and protocol independent. Nothing should parse them.
-* ``source_protocol`` is ``ui``.
-* ``users`` must be populated with the *author's* key.
-  :meth:`models.Object._pre_put_hook` asserts it.
-* Get the author's protocol via :meth:`models.Object.owner_protocol`, which uses
-  ``users`` if available, then falls back to ``author``/``actor`` ids.
-* :meth:`ids.translate_object_id` etc always wrap these ids on ``fed.brid.gy``, eg
-  ``https://fed.brid.gy/convert/ap/ui:...``, which we serve from
-  :func:`convert.convert`. They're ours, not their author's protocol's, and a given
-  id should always be the same URL, whoever its author is.
+Ids are ``ui:...``, opaque and protocol independent. Nothing should parse them.
+:class:`Object`s' ``source_protocol`` is ``ui``.
+
+:attr:`Object.users` must be populated with the *author's* key. :meth:`models.Object._pre_put_hook` asserts it.
+
+Get the author's protocol via :meth:`models.Object.owner_protocol`, which uses
+``users`` if available, then falls back to ``author``/``actor`` ids.
+
+:meth:`ids.translate_object_id` etc wrap these ids on their *author's* subdomain,
+eg ``https://bsky.brid.gy/convert/ap/ui:...``, which we serve from
+:func:`convert.convert`. This has to match the author's actor id's domain, or
+Mastodon and other fedi servers reject their ``Create`` activities.
 """
 import logging
 
