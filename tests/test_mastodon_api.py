@@ -2527,6 +2527,29 @@ class MastodonApiTest(TestCase):
         self.assertEqual('other~3Abob', notif['account']['id'])
         self.assertEqual('my post', notif['status']['content'])
 
+    def test_notifications_two_favourites_same_post(self):
+        bob = self.make_user('other:bob', cls=OtherFake,
+                             enabled_protocols=['activitypub'])
+        eve = self.make_user('other:eve', cls=OtherFake,
+                             enabled_protocols=['activitypub'])
+        Object(id='fake:post', users=[self.user.key], our_as1={
+            'objectType': 'note',
+            'content': 'my post',
+        }).put()
+        for id, user in (('fake:like-bob', bob), ('fake:like-eve', eve)):
+            Object(id=id, users=[user.key], notify=[self.user.key], our_as1={
+                'objectType': 'activity',
+                'verb': 'like',
+                'object': 'fake:post',
+            }).put()
+
+        resp = self.get('/api/v1/notifications')
+        self.assertEqual(200, resp.status_code, resp.get_data(as_text=True))
+        self.assertEqual(['other~3Aeve', 'other~3Abob'],
+                         [n['account']['id'] for n in resp.json])
+        self.assertEqual(['my post', 'my post'],
+                         [n['status']['content'] for n in resp.json])
+
     def test_notifications_reblog(self):
         bob = self.make_user('other:bob', cls=OtherFake,
                              enabled_protocols=['activitypub'])

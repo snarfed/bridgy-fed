@@ -255,6 +255,9 @@ def prefetch_statuses(objs):
     Args:
       objs (sequence of :class:`models.Object`)
     """
+    # de-dupe
+    objs = list({obj.key: obj for obj in objs}.values())
+
     for obj in objs:
         # owner user
         if obj.users:
