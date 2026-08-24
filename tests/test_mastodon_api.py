@@ -2859,6 +2859,69 @@ class MastodonApiTest(TestCase):
             'status_id': 'fake~3Apost',
         }], resp.json['notification_groups'])
 
+    def test_grouped_notifications_link_header(self):
+        bob = self.make_user('other:bob', cls=OtherFake,
+                             enabled_protocols=['activitypub'])
+        for i in range(1, 4):
+            Object(id=f'fake:post{i}', users=[self.user.key], our_as1={
+                'objectType': 'note',
+                'content': f'post {i}',
+            }).put()
+            Object(id=f'fake:like{i}', users=[bob.key], notify=[self.user.key],
+                   created=datetime(2024, 1, i), our_as1={
+                       'objectType': 'activity',
+                       'verb': 'like',
+                       'object': f'fake:post{i}',
+                   }).put()
+
+        resp = self.get('/api/v2/notifications?limit=2&grouped_types[]=favourite')
+        self.assertEqual(200, resp.status_code, resp.get_data(as_text=True))
+        self.assertEqual(['favourite-fake~3Apost3', 'favourite-fake~3Apost2'],
+                         [g['group_key'] for g in resp.json['notification_groups']])
+
+        base = 'http://localhost/api/v2/notifications?limit=2&grouped_types%5B%5D=favourite'
+        self.assertEqual(
+            f'<{base}&max_id=fake~3Alike2>; rel="next", '
+            f'<{base}&min_id=fake~3Alike3>; rel="prev"',
+            resp.headers['Link'])
+
+    def test_grouped_notifications_link_header_oldest_in_earlier_group(self):
+        bob = self.make_user('other:bob', cls=OtherFake,
+                             enabled_protocols=['activitypub'])
+        for i in (1, 2):
+            Object(id=f'fake:post{i}', users=[self.user.key], our_as1={
+                'objectType': 'note',
+                'content': f'post {i}',
+            }).put()
+
+        # the oldest notification is in the *first* group, not the last one
+        for id, post, day in (('fake:like-new', 'fake:post1', 4),
+                              ('fake:like-mid', 'fake:post2', 3),
+                              ('fake:like-old', 'fake:post1', 1)):
+            Object(id=id, users=[bob.key], notify=[self.user.key],
+                   created=datetime(2024, 1, day), our_as1={
+                       'objectType': 'activity',
+                       'verb': 'like',
+                       'object': post,
+                   }).put()
+
+        resp = self.get('/api/v2/notifications')
+        self.assertEqual(200, resp.status_code, resp.get_data(as_text=True))
+        self.assertEqual(['favourite-fake~3Apost1', 'favourite-fake~3Apost2'],
+                         [g['group_key'] for g in resp.json['notification_groups']])
+
+        base = 'http://localhost/api/v2/notifications'
+        self.assertEqual(
+            f'<{base}?max_id=fake~3Alike-old>; rel="next", '
+            f'<{base}?min_id=fake~3Alike-new>; rel="prev"',
+            resp.headers['Link'])
+
+    def test_grouped_notifications_link_header_empty(self):
+        resp = self.get('/api/v2/notifications')
+        self.assertEqual(200, resp.status_code, resp.get_data(as_text=True))
+        self.assertEqual([], resp.json['notification_groups'])
+        self.assertNotIn('Link', resp.headers)
+
     def test_endpoints_require_auth(self):
         for path in (
             '/api/v1/preferences',

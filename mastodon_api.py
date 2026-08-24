@@ -420,6 +420,8 @@ def limit():
 def paginate(query):
     """Applies the ``max_id``, ``since_id``, and ``min_id`` query params.
 
+    https://docs.joinmastodon.org/api/guidelines/#pagination
+
     Args:
       query (google.cloud.ndb.Query): on :class:`models.Object`
 
@@ -1326,6 +1328,7 @@ def grouped_notifications_list(user):
     groups = {}    # maps type to NotificationGroup
     accounts = {}  # maps encoded id to Account
     statuses = {}  # maps encoded id to Status
+    oldest_notifs = {}  # maps group key to (created, id) of its oldest notification
 
     for obj in objects:
         if not (notif := to_notification(obj)):
@@ -1345,6 +1348,8 @@ def grouped_notifications_list(user):
         accounts.setdefault(account['id'], account)
         if status:
             statuses.setdefault(status['id'], status)
+        # objects are newest first, so the last one for each group is its oldest
+        oldest_notifs[key] = (obj.created, notif['id'])
 
         if not (group := groups.get(key)):
             groups[key] = {
@@ -1377,13 +1382,28 @@ def grouped_notifications_list(user):
     status_ids = dict.fromkeys(group['status_id'] for group in kept
                                if group['status_id'])
 
-    return {
+    resp = {
         'accounts': [accounts[id] for id in account_ids],
         'statuses': [statuses[id] for id in status_ids],
         'notification_groups': kept,
     }
+    if not kept:
+        return resp
+
+    # https://docs.joinmastodon.org/api/guidelines/#pagination
+    # groups are newest first, so the page's newest notification is in its first
+    # group, but its oldest may be in any of them, not just the last
+    newest = kept[0]['page_max_id']
+    oldest = min(oldest_notifs[group['group_key']] for group in kept)[1]
+    params = [(name, val) for name, vals in request.args.lists() for val in vals
+              if name not in ('max_id', 'since_id', 'min_id')]
+
+    next_url = util.add_query_params(request.base_url, params + [('max_id', oldest)])
+    prev_url = util.add_query_params(request.base_url, params + [('min_id', newest)])
+
+    return resp, {'Link': f'<{next_url}>; rel="next", <{prev_url}>; rel="prev"'}
+
     # TODO:
-    # Link header
     # account_id
     # supported_types
 
