@@ -446,6 +446,26 @@ def paginate(query):
     return query.order(order)
 
 
+def paginate_and_fetch(*filters):
+    """Paginates a :meth:`models.Object` query and returns its results, newest first.
+
+    Args:
+      *filters: passed to :meth:`models.Object.query`
+
+    Returns:
+      list of :class:`models.Object`: newest first
+    """
+    query = paginate(Object.query(*filters))
+    objects = query.fetch(limit())
+
+    # min_id makes paginate sort ascending, to pick the oldest objects newer than
+    # it, so flip back to newest first
+    if not query.order_by[0].reverse:
+        objects.reverse()
+
+    return objects
+
+
 #
 # API endpoints
 #
@@ -822,10 +842,8 @@ def accounts_statuses(user, id):
             objects = ndb.get_multi(Object(id=id).key for id in featured)
 
     else:
-        query = paginate(Object.query(
-            Object.users == user.key,
-            Object.type.IN(as1.POST_TYPES | set(['share']))))
-        objects = query.fetch(limit())
+        objects = paginate_and_fetch(Object.users == user.key,
+                                     Object.type.IN(as1.POST_TYPES | set(['share'])))
 
     objects = [obj for obj in objects
                if obj and obj.as1 and not obj.deleted and as1.is_public(obj.as1)
@@ -1227,8 +1245,8 @@ def timelines_home(user):
 @memcache.memoize(key=lambda: request.query_string, expire=timedelta(seconds=10))
 @auth()
 def timelines_public(user):
-    query = paginate(Object.query(Object.type.IN(('note', 'article', 'share'))))
-    objects = [obj for obj in query.fetch(limit())
+    objs = paginate_and_fetch(Object.type.IN(('note', 'article', 'share')))
+    objects = [obj for obj in objs
                if obj.as1 and not obj.deleted and as1.is_public(obj.as1)]
     prefetch_statuses(objects)
     return non_none([to_status(obj) for obj in objects])
@@ -1279,10 +1297,9 @@ def markers(user):
 @auth()
 def notifications_list(user):
     # TODO: unbridged notifs
-    objects = [obj for obj in Object.query(Object.notify == user.key
-                                           ).order(-Object.created
-                                           ).fetch(limit())
-              if obj.as1 and not obj.deleted and as1.is_public(obj.as1)]
+    objs = paginate_and_fetch(Object.notify == user.key)
+    objects = [obj for obj in objs
+               if obj.as1 and not obj.deleted and as1.is_public(obj.as1)]
     prefetch_statuses(objects)
     return non_none([to_notification(obj) for obj in objects])
 

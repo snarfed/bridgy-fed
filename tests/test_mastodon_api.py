@@ -780,6 +780,19 @@ class MastodonApiTest(TestCase):
         self.assertEqual(200, resp.status_code, resp.get_data(as_text=True))
         self.assertEqual(['post 2'], [s['content'] for s in resp.json])
 
+    def test_accounts_statuses_min_id_returns_newest_first(self):
+        for i in range(1, 4):
+            Object(id=f'fake:post{i}', users=[self.user.key], our_as1={
+                'objectType': 'note',
+                'content': f'post {i}',
+                'published': '2022-01-02T03:04:05',
+            }).put()
+
+        # the oldest posts newer than it, but returned newest first
+        resp = self.get('/api/v1/accounts/fake:alice/statuses?min_id=fake:post1')
+        self.assertEqual(200, resp.status_code, resp.get_data(as_text=True))
+        self.assertEqual(['post 3', 'post 2'], [s['content'] for s in resp.json])
+
     def test_accounts_statuses_max_id_not_found(self):
         Object(id='fake:post', users=[self.user.key], our_as1={
             'objectType': 'note',
@@ -2074,6 +2087,19 @@ class MastodonApiTest(TestCase):
             'unrelated standalone post': 'Alice',
         }, {s['content']: s['account']['display_name'] for s in resp.json})
 
+    def test_timelines_public_min_id_returns_newest_first(self):
+        for i in range(1, 4):
+            Object(id=f'fake:post{i}', our_as1={
+                'objectType': 'note',
+                'author': 'fake:alice',
+                'content': f'post {i}',
+            }).put()
+
+        # the oldest posts newer than it, but returned newest first
+        resp = self.get('/api/v1/timelines/public?min_id=fake:post1')
+        self.assertEqual(200, resp.status_code, resp.get_data(as_text=True))
+        self.assertEqual(['post 3', 'post 2'], [s['content'] for s in resp.json])
+
     def test_timelines_public_web_owner_by_home_page_url(self):
         self.make_user('user.com', cls=Web, enabled_protocols=['activitypub'],
                        obj_as1={'objectType': 'person', 'displayName': 'Dubya'})
@@ -2600,6 +2626,37 @@ class MastodonApiTest(TestCase):
         self.assertEqual(1, len(resp.json))
         self.assertEqual('mention', resp.json[0]['type'])
         self.assertEqual('@alice hi', resp.json[0]['status']['content'])
+
+    def test_notifications_max_since_min_id(self):
+        bob = self.make_user('other:bob', cls=OtherFake,
+                             enabled_protocols=['activitypub'])
+        for i in range(1, 4):
+            Object(id=f'fake:post{i}', users=[self.user.key], our_as1={
+                'objectType': 'note',
+                'content': f'post {i}',
+            }).put()
+            Object(id=f'fake:like{i}', users=[bob.key], notify=[self.user.key],
+                   created=datetime(2024, 1, i), our_as1={
+                       'objectType': 'activity',
+                       'verb': 'like',
+                       'object': f'fake:post{i}',
+                   }).put()
+
+        resp = self.get('/api/v1/notifications?max_id=fake~3Alike3')
+        self.assertEqual(200, resp.status_code, resp.get_data(as_text=True))
+        self.assertEqual(['fake~3Alike2', 'fake~3Alike1'],
+                         [n['id'] for n in resp.json])
+
+        resp = self.get('/api/v1/notifications?since_id=fake~3Alike1')
+        self.assertEqual(200, resp.status_code, resp.get_data(as_text=True))
+        self.assertEqual(['fake~3Alike3', 'fake~3Alike2'],
+                         [n['id'] for n in resp.json])
+
+        # the oldest notifications newer than it, but returned newest first
+        resp = self.get('/api/v1/notifications?min_id=fake~3Alike1')
+        self.assertEqual(200, resp.status_code, resp.get_data(as_text=True))
+        self.assertEqual(['fake~3Alike3', 'fake~3Alike2'],
+                         [n['id'] for n in resp.json])
 
     def test_to_notification_owner_from_actor_no_users(self):
         bob = self.make_user('fake:bob', cls=Fake, enabled_protocols=['activitypub'])
