@@ -64,7 +64,7 @@ GROUPED_NOTIF_OBJECT_FETCHES = 100
 GROUPED_NOTIF_TYPES = ('favourite', 'reblog', 'follow')
 
 # how many accounts each notification group includes in sample_account_ids
-GROUPED_NOTIF_SAMPLE_ACCOUNTS = 3
+GROUPED_NOTIF_SAMPLE_ACCOUNTS = 8
 
 
 def non_none(seq):
