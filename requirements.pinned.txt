@@ -103,7 +103,7 @@ soupsieve==2.9.2
 tldextract==5.3.2
 tweepy==4.17.0
 typing-extensions==4.15.0
-typing-validation==1.2.12
+typing-validation==2.2.1
 ujson==5.13.0
 update-checker==1.0.0
 uritemplate==4.2.0
