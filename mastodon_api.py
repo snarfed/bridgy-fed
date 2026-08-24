@@ -1239,7 +1239,8 @@ def statuses_reblogged_by(user, id):
 
 @app.get('/api/v1/timelines/home', provide_automatic_options=False)
 @auth()
-@memcache.memoize(key=lambda user: user.key.id(), expire=timedelta(seconds=10))
+@memcache.memoize(key=lambda user: f'{user.key.id()} {request.full_path}',
+                  expire=timedelta(seconds=10))
 def timelines_home(user):
     # user keys
     followees = [f.to for f in Follower.query(Follower.from_ == user.key,
@@ -1274,8 +1275,8 @@ def timelines_home(user):
 
 
 @app.get('/api/v1/timelines/public', provide_automatic_options=False)
-@memcache.memoize(key=lambda: request.query_string, expire=timedelta(seconds=10))
 @auth()
+@memcache.memoize(key=lambda user: request.full_path, expire=timedelta(seconds=10))
 def timelines_public(user):
     objs = paginate_and_fetch(Object.type.IN(('note', 'article', 'share')))
     objects = [obj for obj in objs
@@ -1357,8 +1358,9 @@ def notifications_unread_count(user):
 
 
 @app.get('/api/v2/notifications', provide_automatic_options=False)
-@memcache.memoize(key=lambda: request.query_string, expire=timedelta(seconds=10))
 @auth()
+@memcache.memoize(key=lambda user: f'{user.key.id()} {request.full_path}',
+                  expire=timedelta(seconds=10))
 def grouped_notifications_list(user):
     """https://docs.joinmastodon.org/methods/grouped_notifications/#get-grouped"""
     # TODO: unbridged notifs
@@ -1448,8 +1450,8 @@ def grouped_notifications_list(user):
 
 
 @app.get('/api/v2/search', provide_automatic_options=False)
-@memcache.memoize(key=lambda: request.query_string, expire=timedelta(seconds=10))
 @auth()
+@memcache.memoize(key=lambda user: request.full_path, expire=timedelta(seconds=10))
 def search(user):
     resp = {
         'accounts': [],

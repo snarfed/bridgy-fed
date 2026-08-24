@@ -2100,6 +2100,27 @@ class MastodonApiTest(TestCase):
         self.assertEqual(200, resp.status_code, resp.get_data(as_text=True))
         self.assertEqual(['post 3', 'post 2'], [s['content'] for s in resp.json])
 
+    def test_timelines_public_cached_without_query_params(self):
+        Object(id='fake:first', our_as1={
+            'objectType': 'note',
+            'author': 'fake:alice',
+            'content': 'first',
+        }).put()
+
+        resp = self.get('/api/v1/timelines/public')
+        self.assertEqual(200, resp.status_code, resp.get_data(as_text=True))
+        self.assertEqual(['first'], [s['content'] for s in resp.json])
+
+        Object(id='fake:second', our_as1={
+            'objectType': 'note',
+            'author': 'fake:alice',
+            'content': 'second',
+        }).put()
+
+        resp = self.get('/api/v1/timelines/public')
+        self.assertEqual(200, resp.status_code, resp.get_data(as_text=True))
+        self.assertEqual(['first'], [s['content'] for s in resp.json])
+
     def test_timelines_public_web_owner_by_home_page_url(self):
         self.make_user('user.com', cls=Web, enabled_protocols=['activitypub'],
                        obj_as1={'objectType': 'person', 'displayName': 'Dubya'})
@@ -2173,6 +2194,21 @@ class MastodonApiTest(TestCase):
         resp = self.get('/api/v1/timelines/home')
         self.assertEqual(200, resp.status_code, resp.get_data(as_text=True))
         self.assertEqual([], resp.json)
+
+    def test_timelines_home_cache_is_per_page(self):
+        bob = self.make_followee('other:bob')
+        self.store_post(bob, 'one', created=datetime(2024, 1, 1))
+        self.store_post(bob, 'two', created=datetime(2024, 1, 2))
+        self.store_post(bob, 'three', created=datetime(2024, 1, 3))
+
+        resp = self.get('/api/v1/timelines/home?limit=2')
+        self.assertEqual(200, resp.status_code, resp.get_data(as_text=True))
+        self.assertEqual(['three', 'two'], [s['content'] for s in resp.json])
+
+        # the cached first page shouldn't be served for a later page
+        resp = self.get('/api/v1/timelines/home?limit=2&max_id=other~3Atwo')
+        self.assertEqual(200, resp.status_code, resp.get_data(as_text=True))
+        self.assertEqual(['one'], [s['content'] for s in resp.json])
 
     def test_timelines_home_min_id_returns_oldest_after_it(self):
         bob = self.make_followee('other:bob')
