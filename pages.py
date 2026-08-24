@@ -786,7 +786,7 @@ def notifications(protocol, id):
     user = load_user(protocol, id)
 
     query = Object.query(Object.notify == user.key)
-    objects, before, after = fetch_objects(query, by=Object.updated, user=user)
+    objects, before, after = fetch_objects(query, by=Object.created, user=user)
 
     format = request.args.get('format')
     if format:

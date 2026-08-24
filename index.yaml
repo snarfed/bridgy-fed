@@ -118,12 +118,12 @@ indexes:
 - kind: Object
   properties:
   - name: notify
-  - name: updated
+  - name: created
 
 - kind: Object
   properties:
   - name: notify
-  - name: updated
+  - name: created
     direction: desc
 
 - kind: Object

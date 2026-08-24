@@ -1278,7 +1278,7 @@ def markers(user):
 def notifications_list(user):
     # TODO: unbridged notifs
     objects = [obj for obj in Object.query(Object.notify == user.key
-                                           ).order(-Object.updated
+                                           ).order(-Object.created
                                            ).fetch(limit())
               if obj.as1 and not obj.deleted and as1.is_public(obj.as1)]
     prefetch_statuses(objects)
@@ -1310,15 +1310,19 @@ def notifications_unread_count(user):
 def grouped_notifications_list(user):
     """https://docs.joinmastodon.org/methods/grouped_notifications/#get-grouped"""
     # TODO: unbridged notifs
-    query = Object.query(Object.notify == user.key
-                         ).order(-Object.updated
-                         ).fetch(GROUPED_NOTIF_OBJECT_FETCHES)
-    objects = [obj for obj in query
+    query = paginate(Object.query(Object.notify == user.key))
+    objects = [obj for obj in query.fetch(GROUPED_NOTIF_OBJECT_FETCHES)
                if obj.as1 and not obj.deleted and as1.is_public(obj.as1)]
+
+    # min_id makes paginate sort ascending, to pick the oldest notifications newer
+    # than it, so flip back to newest first, which the grouping below depends on
+    ascending = not query.order_by[0].reverse
+    if ascending:
+        objects.reverse()
+
     prefetch_statuses(objects)
 
     grouped_types = request.args.getlist('grouped_types[]') or GROUPED_NOTIF_TYPES
-    num = limit()
     groups = {}    # maps type to NotificationGroup
     accounts = {}  # maps encoded id to Account
     statuses = {}  # maps encoded id to Status
@@ -1338,15 +1342,11 @@ def grouped_notifications_list(user):
         else:
             key = type
 
-        group = groups.get(key)
-        if not group and len(groups) >= num:
-            continue
-
         accounts.setdefault(account['id'], account)
         if status:
             statuses.setdefault(status['id'], status)
 
-        if not group:
+        if not (group := groups.get(key)):
             groups[key] = {
                 'group_key': key,
                 'type': type,
@@ -1366,13 +1366,23 @@ def grouped_notifications_list(user):
                 and len(group['sample_account_ids']) < GROUPED_NOTIF_SAMPLE_ACCOUNTS):
             group['sample_account_ids'].append(account['id'])
 
+    # limit counts groups, not notifications. min_id asks for the oldest
+    # notifications newer than it, so keep the oldest groups for it.
+    num = limit()
+    kept = list(groups.values())
+    kept = kept[-num:] if ascending else kept[:num]
+
+    account_ids = dict.fromkeys(id for group in kept
+                                for id in group['sample_account_ids'])
+    status_ids = dict.fromkeys(group['status_id'] for group in kept
+                               if group['status_id'])
+
     return {
-        'accounts': list(accounts.values()),
-        'statuses': list(statuses.values()),
-        'notification_groups': list(groups.values()),
+        'accounts': [accounts[id] for id in account_ids],
+        'statuses': [statuses[id] for id in status_ids],
+        'notification_groups': kept,
     }
     # TODO:
-    # min/max/since_id
     # Link header
     # account_id
     # supported_types
