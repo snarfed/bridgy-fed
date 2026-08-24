@@ -49,7 +49,7 @@ jobs:
       - checkout
 
       - restore_cache:
-          key: venv-7-{{ .Branch }}-{{ checksum "requirements.txt" }}
+          key: venv-8-{{ .Branch }}-{{ checksum "requirements.txt" }}
 
       - install-gcloud
 
@@ -80,7 +80,7 @@ jobs:
             ln -sf `pyenv prefix`/lib/python3.14/site-packages/oauth_dropins/static oauth_dropins_static
 
       - save_cache:
-          key: venv-7-{{ .Branch }}-{{ checksum "requirements.txt" }}
+          key: venv-8-{{ .Branch }}-{{ checksum "requirements.txt" }}
           paths:
             - /home/circleci/.pyenv
             - /home/circleci/sfw
