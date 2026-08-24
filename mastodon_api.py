@@ -466,6 +466,34 @@ def paginate_and_fetch(*filters):
     return objects
 
 
+def link_header(objects):
+    """Returns a ``Link`` response header with ``next`` and ``prev`` page URLs.
+
+    Only uses the newest and oldest objects, by ``created``, which is what
+    :func:`paginate` sorts and filters on. Order doesn't matter.
+    https://docs.joinmastodon.org/api/guidelines/#pagination
+
+    Args:
+      objects (sequence of :class:`models.Object`)
+
+    Returns:
+      dict: response headers, empty if ``objects`` is empty
+    """
+    if not objects:
+        return {}
+
+    newest = max(objects, key=lambda obj: obj.created)
+    oldest = min(objects, key=lambda obj: obj.created)
+    params = [(name, val) for name, vals in request.args.lists() for val in vals
+              if name not in ('max_id', 'since_id', 'min_id')]
+    next_url = util.add_query_params(
+        request.base_url, params + [('max_id', encode_id(oldest.key.id()))])
+    prev_url = util.add_query_params(
+        request.base_url, params + [('min_id', encode_id(newest.key.id()))])
+
+    return {'Link': f'<{next_url}>; rel="next", <{prev_url}>; rel="prev"'}
+
+
 #
 # API endpoints
 #
@@ -835,7 +863,7 @@ def accounts_statuses(user, id):
     if not (user := load_account_id(id)):
         error('Not found', status=404)
 
-    if request.args.get('pinned', '').strip().lower() == 'true':
+    if pinned := bool_param('pinned'):
         objects = []
         if user.obj and user.obj.as1:
             featured = as1.get_ids(as1.get_object(user.obj.as1, 'featured'), 'items')
@@ -850,9 +878,13 @@ def accounts_statuses(user, id):
                and not (bool_param('exclude_replies') and obj.type == 'comment')
                and not (bool_param('exclude_reblogs') and obj.type == 'share')]
     prefetch_statuses(objects)
-    statuses = non_none(to_status(obj) for obj in objects)
-    return [s for s in statuses
-            if not (bool_param('only_media') and not s.get('media_attachments'))]
+
+    only_media = bool_param('only_media')
+    statuses = [s for s in non_none(to_status(obj) for obj in objects)
+                if not (only_media and not s.get('media_attachments'))]
+    # pinned statuses aren't paginated
+    headers = {} if pinned else link_header(objects)
+    return statuses, headers
 
 
 @app.get('/api/v1/accounts/<path:id>/followers', provide_automatic_options=False)
@@ -1238,7 +1270,7 @@ def timelines_home(user):
     objects = [obj for obj in ndb.get_multi(keys)
                if obj and obj.as1 and not obj.deleted and as1.is_public(obj.as1)]
     prefetch_statuses(objects)
-    return non_none([to_status(obj) for obj in objects])
+    return non_none([to_status(obj) for obj in objects]), link_header(objects)
 
 
 @app.get('/api/v1/timelines/public', provide_automatic_options=False)
@@ -1249,7 +1281,7 @@ def timelines_public(user):
     objects = [obj for obj in objs
                if obj.as1 and not obj.deleted and as1.is_public(obj.as1)]
     prefetch_statuses(objects)
-    return non_none([to_status(obj) for obj in objects])
+    return non_none([to_status(obj) for obj in objects]), link_header(objects)
 
 
 @app.get('/api/v1/timelines/tag/<hashtag>', provide_automatic_options=False)
@@ -1301,7 +1333,8 @@ def notifications_list(user):
     objects = [obj for obj in objs
                if obj.as1 and not obj.deleted and as1.is_public(obj.as1)]
     prefetch_statuses(objects)
-    return non_none([to_notification(obj) for obj in objects])
+    return (non_none([to_notification(obj) for obj in objects]),
+            link_header(objects))
 
 
 @app.get('/api/v1/notifications/<path:id>', provide_automatic_options=False)
@@ -1345,7 +1378,7 @@ def grouped_notifications_list(user):
     groups = {}    # maps type to NotificationGroup
     accounts = {}  # maps encoded id to Account
     statuses = {}  # maps encoded id to Status
-    oldest_notifs = {}  # maps group key to (created, id) of its oldest notification
+    group_objs = {}  # maps group key to its notification Objects
 
     for obj in objects:
         if not (notif := to_notification(obj)):
@@ -1366,7 +1399,7 @@ def grouped_notifications_list(user):
         if status:
             statuses.setdefault(status['id'], status)
         # objects are newest first, so the last one for each group is its oldest
-        oldest_notifs[key] = (obj.created, notif['id'])
+        group_objs.setdefault(key, []).append(obj)
 
         if not (group := groups.get(key)):
             groups[key] = {
@@ -1404,21 +1437,10 @@ def grouped_notifications_list(user):
         'statuses': [statuses[id] for id in status_ids],
         'notification_groups': kept,
     }
-    if not kept:
-        return resp
 
-    # https://docs.joinmastodon.org/api/guidelines/#pagination
-    # groups are newest first, so the page's newest notification is in its first
-    # group, but its oldest may be in any of them, not just the last
-    newest = kept[0]['page_max_id']
-    oldest = min(oldest_notifs[group['group_key']] for group in kept)[1]
-    params = [(name, val) for name, vals in request.args.lists() for val in vals
-              if name not in ('max_id', 'since_id', 'min_id')]
-
-    next_url = util.add_query_params(request.base_url, params + [('max_id', oldest)])
-    prev_url = util.add_query_params(request.base_url, params + [('min_id', newest)])
-
-    return resp, {'Link': f'<{next_url}>; rel="next", <{prev_url}>; rel="prev"'}
+    headers = link_header([obj for group in kept
+                           for obj in group_objs[group['group_key']]])
+    return resp, headers
 
     # TODO:
     # account_id
