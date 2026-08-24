@@ -8,7 +8,7 @@ service: hub
 env: flex
 runtime: python
 runtime_config:
-    operating_system: ubuntu22
+    operating_system: ubuntu24
     # keep this in sync with the test job image in .circleci/config.yml!
     runtime_version: "3.14"
 
