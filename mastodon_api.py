@@ -53,6 +53,19 @@ AS1_TO_NOTIFICATION_TYPE = {
     'follow': 'follow',
 }
 
+# how many notifications /api/v2/notifications fetches and then aggregates into
+# groups. the datastore can't group, so we over-fetch and collapse in memory,
+# which means notifications_count under-counts groups bigger than this.
+GROUPED_NOTIF_OBJECT_FETCHES = 100
+
+# notification types that /api/v2/notifications groups by default, ie when the
+# grouped_types[] query param isn't provided
+# https://docs.joinmastodon.org/methods/grouped_notifications/#get-grouped
+GROUPED_NOTIF_TYPES = ('favourite', 'reblog', 'follow')
+
+# how many accounts each notification group includes in sample_account_ids
+GROUPED_NOTIF_SAMPLE_ACCOUNTS = 3
+
 
 def non_none(seq):
     return [elem for elem in seq if elem is not None]
@@ -1289,6 +1302,80 @@ def notifications_get(user, id):
 def notifications_unread_count(user):
     # we don't currently track read vs unread
     return {'count': 0}
+
+
+@app.get('/api/v2/notifications', provide_automatic_options=False)
+@memcache.memoize(key=lambda: request.query_string, expire=timedelta(seconds=10))
+@auth()
+def grouped_notifications_list(user):
+    """https://docs.joinmastodon.org/methods/grouped_notifications/#get-grouped"""
+    # TODO: unbridged notifs
+    query = Object.query(Object.notify == user.key
+                         ).order(-Object.updated
+                         ).fetch(GROUPED_NOTIF_OBJECT_FETCHES)
+    objects = [obj for obj in query
+               if obj.as1 and not obj.deleted and as1.is_public(obj.as1)]
+    prefetch_statuses(objects)
+
+    grouped_types = request.args.getlist('grouped_types[]') or GROUPED_NOTIF_TYPES
+    num = limit()
+    groups = {}    # maps type to NotificationGroup
+    accounts = {}  # maps encoded id to Account
+    statuses = {}  # maps encoded id to Status
+
+    for obj in objects:
+        if not (notif := to_notification(obj)):
+            continue
+
+        type = notif['type']
+        account = notif['account']
+        status = notif.get('status')
+
+        if type not in grouped_types:
+            key = f'ungrouped-{notif["id"]}'
+        elif status:
+            key = f'{type}-{status["id"]}'
+        else:
+            key = type
+
+        group = groups.get(key)
+        if not group and len(groups) >= num:
+            continue
+
+        accounts.setdefault(account['id'], account)
+        if status:
+            statuses.setdefault(status['id'], status)
+
+        if not group:
+            groups[key] = {
+                'group_key': key,
+                'type': type,
+                'notifications_count': 1,
+                'most_recent_notification_id': notif['id'],
+                'page_max_id': notif['id'],
+                'page_min_id': notif['id'],
+                'latest_page_notification_at': notif['created_at'],
+                'sample_account_ids': [account['id']],
+                'status_id': status['id'] if status else None,
+            }
+            continue
+
+        group['notifications_count'] += 1
+        group['page_min_id'] = notif['id']
+        if (account['id'] not in group['sample_account_ids']
+                and len(group['sample_account_ids']) < GROUPED_NOTIF_SAMPLE_ACCOUNTS):
+            group['sample_account_ids'].append(account['id'])
+
+    return {
+        'accounts': list(accounts.values()),
+        'statuses': list(statuses.values()),
+        'notification_groups': list(groups.values()),
+    }
+    # TODO:
+    # min/max/since_id
+    # Link header
+    # account_id
+    # supported_types
 
 
 @app.get('/api/v2/search', provide_automatic_options=False)

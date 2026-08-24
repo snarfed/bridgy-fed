@@ -2660,6 +2660,137 @@ class MastodonApiTest(TestCase):
         self.assertEqual(200, resp.status_code, resp.get_data(as_text=True))
         self.assertEqual({'count': 0}, resp.json)
 
+    def test_grouped_notifications_group_favourites(self):
+        bob = self.make_user('other:bob', cls=OtherFake,
+                             enabled_protocols=['activitypub'])
+        eve = self.make_user('other:eve', cls=OtherFake,
+                             enabled_protocols=['activitypub'])
+        Object(id='fake:post', users=[self.user.key], our_as1={
+            'objectType': 'note',
+            'content': 'my post',
+        }).put()
+        Object(id='fake:like-bob', users=[bob.key], notify=[self.user.key], our_as1={
+            'objectType': 'activity',
+            'verb': 'like',
+            'object': 'fake:post',
+            'published': '2026-07-20T01:02:03Z',
+        }).put()
+        Object(id='fake:like-eve', users=[eve.key], notify=[self.user.key], our_as1={
+            'objectType': 'activity',
+            'verb': 'like',
+            'object': 'fake:post',
+            'published': '2026-07-21T01:02:03Z',
+        }).put()
+
+        resp = self.get('/api/v2/notifications')
+        self.assertEqual(200, resp.status_code, resp.get_data(as_text=True))
+        self.assertEqual([{
+            'group_key': 'favourite-fake~3Apost',
+            'type': 'favourite',
+            'notifications_count': 2,
+            'most_recent_notification_id': 'fake~3Alike-eve',
+            'page_max_id': 'fake~3Alike-eve',
+            'page_min_id': 'fake~3Alike-bob',
+            'latest_page_notification_at': '2026-07-21T01:02:03Z',
+            'sample_account_ids': ['other~3Aeve', 'other~3Abob'],
+            'status_id': 'fake~3Apost',
+        }], resp.json['notification_groups'])
+        self.assertEqual(['other~3Aeve', 'other~3Abob'],
+                         [a['id'] for a in resp.json['accounts']])
+        self.assertEqual(['fake~3Apost'], [s['id'] for s in resp.json['statuses']])
+
+    def test_grouped_notifications_group_follows(self):
+        bob = self.make_user('other:bob', cls=OtherFake,
+                             enabled_protocols=['activitypub'])
+        eve = self.make_user('other:eve', cls=OtherFake,
+                             enabled_protocols=['activitypub'])
+        Object(id='fake:follow-bob', users=[bob.key], notify=[self.user.key],
+               our_as1={
+                   'objectType': 'activity',
+                   'verb': 'follow',
+                   'object': 'fake:alice',
+               }).put()
+        Object(id='fake:follow-eve', users=[eve.key], notify=[self.user.key],
+               our_as1={
+                   'objectType': 'activity',
+                   'verb': 'follow',
+                   'object': 'fake:alice',
+               }).put()
+
+        resp = self.get('/api/v2/notifications')
+        self.assertEqual(200, resp.status_code, resp.get_data(as_text=True))
+        groups = resp.json['notification_groups']
+        self.assertEqual(1, len(groups), groups)
+        self.assertEqual('follow', groups[0]['group_key'])
+        self.assertEqual(2, groups[0]['notifications_count'])
+        self.assertIsNone(groups[0]['status_id'])
+        self.assertEqual(['other~3Aeve', 'other~3Abob'],
+                         groups[0]['sample_account_ids'])
+        self.assertEqual([], resp.json['statuses'])
+
+    def test_grouped_notifications_mentions_not_grouped(self):
+        bob = self.make_user('other:bob', cls=OtherFake,
+                             enabled_protocols=['activitypub'])
+        Object(id='fake:reply-a', users=[bob.key], notify=[self.user.key], our_as1={
+            'objectType': 'note',
+            'content': '@alice hi',
+            'inReplyTo': 'fake:post',
+        }).put()
+        Object(id='fake:reply-b', users=[bob.key], notify=[self.user.key], our_as1={
+            'objectType': 'note',
+            'content': '@alice hi again',
+            'inReplyTo': 'fake:post',
+        }).put()
+
+        resp = self.get('/api/v2/notifications')
+        self.assertEqual(200, resp.status_code, resp.get_data(as_text=True))
+        self.assertEqual(['ungrouped-fake~3Areply-b', 'ungrouped-fake~3Areply-a'],
+                         [g['group_key'] for g in resp.json['notification_groups']])
+        self.assertEqual([1, 1], [g['notifications_count']
+                                  for g in resp.json['notification_groups']])
+        self.assertEqual(['fake~3Areply-b', 'fake~3Areply-a'],
+                         [s['id'] for s in resp.json['statuses']])
+
+    def test_grouped_notifications_grouped_types_param(self):
+        bob = self.make_user('other:bob', cls=OtherFake,
+                             enabled_protocols=['activitypub'])
+        eve = self.make_user('other:eve', cls=OtherFake,
+                             enabled_protocols=['activitypub'])
+        for id, user in (('fake:follow-bob', bob), ('fake:follow-eve', eve)):
+            Object(id=id, users=[user.key], notify=[self.user.key], our_as1={
+                'objectType': 'activity',
+                'verb': 'follow',
+                'object': 'fake:alice',
+            }).put()
+
+        resp = self.get('/api/v2/notifications?grouped_types[]=favourite')
+        self.assertEqual(200, resp.status_code, resp.get_data(as_text=True))
+        self.assertEqual(
+            ['ungrouped-fake~3Afollow-eve', 'ungrouped-fake~3Afollow-bob'],
+            [g['group_key'] for g in resp.json['notification_groups']])
+
+    def test_grouped_notifications_limit_counts_groups(self):
+        bob = self.make_user('other:bob', cls=OtherFake,
+                             enabled_protocols=['activitypub'])
+        for i in range(3):
+            Object(id=f'fake:post-{i}', users=[self.user.key], our_as1={
+                'objectType': 'note',
+                'content': f'my post {i}',
+            }).put()
+            Object(id=f'fake:like-{i}', users=[bob.key], notify=[self.user.key],
+                   our_as1={
+                       'objectType': 'activity',
+                       'verb': 'like',
+                       'object': f'fake:post-{i}',
+                   }).put()
+
+        resp = self.get('/api/v2/notifications?limit=2')
+        self.assertEqual(200, resp.status_code, resp.get_data(as_text=True))
+        self.assertEqual(['favourite-fake~3Apost-2', 'favourite-fake~3Apost-1'],
+                         [g['group_key'] for g in resp.json['notification_groups']])
+        self.assertEqual(['fake~3Apost-2', 'fake~3Apost-1'],
+                         [s['id'] for s in resp.json['statuses']])
+
     def test_endpoints_require_auth(self):
         for path in (
             '/api/v1/preferences',
@@ -2687,6 +2818,7 @@ class MastodonApiTest(TestCase):
             '/api/v1/notifications',
             '/api/v1/notifications/123',
             '/api/v1/notifications/unread_count',
+            '/api/v2/notifications',
             '/api/v1/statuses',
             '/api/v1/statuses/123',
             '/api/v1/statuses/123/context',
