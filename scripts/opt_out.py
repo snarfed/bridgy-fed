@@ -30,7 +30,6 @@ import atproto
 import memcache
 from models import Object, Target
 import protocol
-from web import Web
 
 appengine_config.error_reporting_client.host = 'localhost:9999'
 appengine_config.error_reporting_client.secure = False
@@ -154,8 +153,7 @@ def run():
         delete_ap_targets(from_proto=from_proto, user=user, user_id=user_id)
 
     # give AS1 delete activity to receive
-    delete_base_id = user.web_url() if from_proto is Web else user_id
-    delete_id = f'{delete_base_id}#bridgy-fed-delete-{util.now().isoformat()}'
+    delete_id = f'{user.profile_id()}#bridgy-fed-delete-{util.now().isoformat()}'
     delete_as1 = {
         'objectType': 'activity',
         'verb': 'delete',
@@ -163,7 +161,8 @@ def run():
         'actor': user_id,
         'object': user_id,
     }
-    obj = Object(id=delete_id, source_protocol='ui', our_as1=delete_as1)
+    obj = Object(id=delete_id, source_protocol=from_proto.LABEL,
+                 our_as1=delete_as1, users=[user.key])
 
     if only_proto:
         from_proto.deliver(obj, from_user=user, to_proto=only_proto)
@@ -182,8 +181,7 @@ def delete_ap_targets(*, from_proto=None, user=None, user_id=None):
         user.enabled_protocols.append('activitypub')
         user.put()
 
-    delete_base_id = user.web_url() if from_proto is Web else user_id
-    delete_id = f'{delete_base_id}#bridgy-fed-delete-{util.now().isoformat()}'
+    delete_id = f'{user.profile_id()}#bridgy-fed-delete-{util.now().isoformat()}'
     delete_as1 = {
         'objectType': 'activity',
         'verb': 'delete',
@@ -191,7 +189,8 @@ def delete_ap_targets(*, from_proto=None, user=None, user_id=None):
         'actor': user_id,
         'object': user_id,
     }
-    obj = Object(id=delete_id, source_protocol='ui', our_as1=delete_as1)
+    obj = Object(id=delete_id, source_protocol=from_proto.LABEL,
+                 our_as1=delete_as1, users=[user.key])
     obj.put()
 
     targets = args.extra_targets
