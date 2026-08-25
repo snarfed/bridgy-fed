@@ -66,6 +66,22 @@ GROUPED_NOTIF_TYPES = ('favourite', 'reblog', 'follow')
 # how many accounts each notification group includes in sample_account_ids
 GROUPED_NOTIF_SAMPLE_ACCOUNTS = 8
 
+MEMOIZE_EXPIRATION = timedelta(seconds=15)
+
+
+def cache_global(fn):
+    return memcache.memoize(
+        key=lambda **_: request.full_path,
+        expire=MEMOIZE_EXPIRATION,
+        )(fn)
+
+
+def cache_user(fn):
+    return memcache.memoize(
+        key=lambda user, **_: f'{user.key.id()} {request.full_path}',
+        expire=MEMOIZE_EXPIRATION,
+        )(fn)
+
 
 def non_none(seq):
     return [elem for elem in seq if elem is not None]
@@ -733,6 +749,7 @@ def preferences(user):
 
 @app.get('/api/v1/accounts/lookup', provide_automatic_options=False)
 @auth()
+@cache_global
 def accounts_lookup(user):
     if user := load_user(get_required_param('acct')):
         return to_account(user)
@@ -742,6 +759,7 @@ def accounts_lookup(user):
 
 @app.get('/api/v1/accounts/relationships', provide_automatic_options=False)
 @auth()
+# not cached since clients reread this immediately after following/unfollowing someone
 def accounts_relationships(user):
     relationships = []
 
@@ -849,6 +867,7 @@ def follow_requests(user):
 
 @app.get('/api/v1/accounts/<path:id>', provide_automatic_options=False)
 @auth()
+@cache_global
 def accounts_get(user, id):
     if user := load_account_id(id):
         return to_account(user)
@@ -858,6 +877,7 @@ def accounts_get(user, id):
 
 @app.get('/api/v1/accounts/<path:id>/statuses', provide_automatic_options=False)
 @auth()
+@cache_global
 def accounts_statuses(user, id):
     # TODO: tagged
     if not (user := load_account_id(id)):
@@ -889,6 +909,7 @@ def accounts_statuses(user, id):
 
 @app.get('/api/v1/accounts/<path:id>/followers', provide_automatic_options=False)
 @auth()
+@cache_global
 def accounts_followers(user, id):
     if not (other := load_account_id(id)):
         error('Not found', status=404)
@@ -899,6 +920,7 @@ def accounts_followers(user, id):
 
 @app.get('/api/v1/accounts/<path:id>/following', provide_automatic_options=False)
 @auth()
+@cache_global
 def accounts_following(user, id):
     if not (other := load_account_id(id)):
         error('Not found', status=404)
@@ -959,6 +981,7 @@ def bookmarks(user):
 
 @app.get('/api/v1/domain_blocks', provide_automatic_options=False)
 @auth()
+@cache_user
 def domain_blocks_get(user):
     blocklists = ndb.get_multi(user.blocks)
     return [domain for list in blocklists for domain in list.domain_blocklist]
@@ -966,6 +989,7 @@ def domain_blocks_get(user):
 
 @app.get('/api/v1/favourites', provide_automatic_options=False)
 @auth()
+# not cached since clients reread this immediately after liking a post
 def favourites(user):
     likes = Object.query(Object.users == user.key,
                          Object.type == 'like',
@@ -980,6 +1004,7 @@ def favourites(user):
 
 @app.get('/api/v1/statuses', provide_automatic_options=False)
 @auth()
+@cache_global
 def statuses_multiple(user):
     ids = [decode_id(id) for id in
            request.args.getlist('id[]') + request.args.getlist('id')]
@@ -991,6 +1016,8 @@ def statuses_multiple(user):
 
 @app.get('/api/v1/statuses/<path:id>', provide_automatic_options=False)
 @auth()
+# not cached since clients reread this immediately after reposting
+# (except we don't populate reblogged anyway yet)
 def statuses_single(user, id):
     obj = load_object(id)
     if not (status := to_status(obj)):
@@ -1177,6 +1204,7 @@ def statuses_unfavourite_or_unreblog(user, source, id, verb):
 
 @app.get('/api/v1/statuses/<path:id>/context', provide_automatic_options=False)
 @auth()
+@cache_global
 def statuses_context(user, id):
     obj = load_object(id)
 
@@ -1239,8 +1267,7 @@ def statuses_reblogged_by(user, id):
 
 @app.get('/api/v1/timelines/home', provide_automatic_options=False)
 @auth()
-@memcache.memoize(key=lambda user: f'{user.key.id()} {request.full_path}',
-                  expire=timedelta(seconds=10))
+@cache_user
 def timelines_home(user):
     # user keys
     followees = [f.to for f in Follower.query(Follower.from_ == user.key,
@@ -1276,7 +1303,7 @@ def timelines_home(user):
 
 @app.get('/api/v1/timelines/public', provide_automatic_options=False)
 @auth()
-@memcache.memoize(key=lambda user: request.full_path, expire=timedelta(seconds=10))
+@cache_global
 def timelines_public(user):
     objs = paginate_and_fetch(Object.type.IN(('note', 'article', 'share')))
     objects = [obj for obj in objs
@@ -1328,6 +1355,7 @@ def markers(user):
 
 @app.get('/api/v1/notifications', provide_automatic_options=False)
 @auth()
+@cache_user
 def notifications_list(user):
     # TODO: unbridged notifs
     objs = paginate_and_fetch(Object.notify == user.key)
@@ -1340,6 +1368,7 @@ def notifications_list(user):
 
 @app.get('/api/v1/notifications/<path:id>', provide_automatic_options=False)
 @auth()
+@cache_user
 def notifications_get(user, id):
     obj = Object.get_by_id(decode_id(id))
     if (obj and obj.as1 and not obj.deleted and as1.is_public(obj.as1)
@@ -1352,6 +1381,7 @@ def notifications_get(user, id):
 
 @app.get('/api/v1/notifications/unread_count', provide_automatic_options=False)
 @auth()
+@cache_user
 def notifications_unread_count(user):
     # we don't currently track read vs unread
     return {'count': 0}
@@ -1359,8 +1389,7 @@ def notifications_unread_count(user):
 
 @app.get('/api/v2/notifications', provide_automatic_options=False)
 @auth()
-@memcache.memoize(key=lambda user: f'{user.key.id()} {request.full_path}',
-                  expire=timedelta(seconds=10))
+@cache_user
 def grouped_notifications_list(user):
     """https://docs.joinmastodon.org/methods/grouped_notifications/#get-grouped"""
     # TODO: unbridged notifs
@@ -1451,7 +1480,7 @@ def grouped_notifications_list(user):
 
 @app.get('/api/v2/search', provide_automatic_options=False)
 @auth()
-@memcache.memoize(key=lambda user: request.full_path, expire=timedelta(seconds=10))
+@cache_global
 def search(user):
     resp = {
         'accounts': [],
