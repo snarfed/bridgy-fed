@@ -791,7 +791,10 @@ class ATProto(User, Protocol):
                 if not base_id:
                     logger.info(f'{type} object has no id!')
                     return False
-                base_obj = (PROTOCOLS.get(obj.source_protocol) or from_user).load(
+                # base_id is from_user's own object, so their protocol is its id
+                # space, and knows how to normalize it. obj.source_protocol is the
+                # outer activity's, which may be ui for ones we synthesize.
+                base_obj = (from_user or PROTOCOLS.get(obj.source_protocol)).load(
                     base_id, remote=False)
 
             if type not in ('delete', 'undo'):

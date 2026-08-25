@@ -3509,7 +3509,8 @@ Sed tortor neque, aliquet quis posuere aliquam, imperdiet sitamet […]
                 'content': 'nope',
             },
         })
-        self.assertFalse(ATProto.send(update, 'https://bsky.brid.gy'))
+        self.assertFalse(ATProto.send(update, 'https://bsky.brid.gy',
+                                      from_user=self.user))
 
         # check repo, record
         did = self.user.key.get().get_copy(ATProto)
