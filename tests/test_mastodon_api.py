@@ -2433,6 +2433,27 @@ class MastodonApiTest(TestCase):
             'following_count', 'header', 'header_static', 'locked', 'note',
             'statuses_count', 'url'])
 
+    @patch.object(util.session, 'get', return_value=TestCase.as2_resp(ACTOR))
+    def test_search_accounts_fediverse_resolve_profile_url(self, _):
+        resp = self.get('/api/v2/search?type=accounts&resolve=true&q=https://mas.to/@foo')
+        self.assertEqual(200, resp.status_code, resp.get_data(as_text=True))
+        self.assert_equals({
+            'accounts': [{
+                'id': 'https~3A~2F~2Fmas.to~2Fusers~2Ffoo',
+                'acct': 'foo@mas.to',
+                'uri': 'https://mas.to/users/foo',
+                'username': 'foo',
+                'display_name': 'Mrs. ☕ Foo',
+            }],
+            'hashtags': [],
+            'statuses': [],
+        }, resp.json, ignore=[
+            'avatar', 'avatar_static', 'bot', 'created_at', 'followers_count',
+            'following_count', 'header', 'header_static', 'locked', 'note',
+            'statuses_count', 'url'])
+        self.assertEqual(['https://mas.to/users/foo'],
+                         [u.key.id() for u in ActivityPub.query()])
+
     def test_search_status(self):
         obj = self.store_object(id='fake:post', our_as1={
             'objectType': 'note',

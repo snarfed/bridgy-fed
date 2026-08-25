@@ -2735,6 +2735,36 @@ class ActivityPubUtilsTest(TestCase):
             mock_get,
             'https://inst.com/.well-known/webfinger?resource=acct:user@inst.com')
 
+    @patch.object(util.session, 'get', return_value=TestCase.as2_resp(ACTOR))
+    def test_resolve_user_id(self, mock_get):
+        self.assertEqual('https://mas.to/users/foo',
+                         ActivityPub.resolve_user_id('https://mas.to/@foo'))
+        mock_get.assert_has_calls((self.as2_req('https://mas.to/@foo'),))
+
+    @patch.object(util.session, 'get', return_value=TestCase.as2_resp(ACTOR))
+    def test_resolve_user_id_already_actor_id(self, _):
+        self.assertEqual('https://mas.to/users/foo',
+                         ActivityPub.resolve_user_id('https://mas.to/users/foo'))
+
+    @patch.object(util.session, 'get', return_value=TestCase.as2_resp({
+        **ACTOR,
+        'id': 'https://evil/users/foo',
+    }))
+    def test_resolve_user_id_different_origin(self, _):
+        # we only take the returned id if it's on the same origin
+        self.assertEqual('https://mas.to/@foo',
+                         ActivityPub.resolve_user_id('https://mas.to/@foo'))
+
+    @patch.object(util.session, 'get', return_value=requests_response(status=404))
+    def test_resolve_user_id_fetch_fails(self, _):
+        self.assertEqual('https://mas.to/@foo',
+                         ActivityPub.resolve_user_id('https://mas.to/@foo'))
+
+    def test_resolve_user_id_not_url(self):
+        # doesn't try to fetch
+        self.assertEqual('@foo@mas.to',
+                         ActivityPub.resolve_user_id('@foo@mas.to'))
+
     def test_handle_as_domain(self):
         user = ActivityPub(webfinger_addr='@a@b.c')
         self.assertEqual('a.b.c', user.handle_as_domain)

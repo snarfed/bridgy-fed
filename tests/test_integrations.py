@@ -1533,6 +1533,7 @@ class IntegrationTests(TestCase):
                     },
                 }],
             }),
+            self.as2_resp(new_actor),  # resolve dest actor id
             self.as2_resp(new_actor),  # load dest actor
             self.as2_resp(new_actor),  # check_can_migrate_out reloads dest actor
             BSKY_GET_CONVO_RESP,       # reply DM: getConvoForMembers

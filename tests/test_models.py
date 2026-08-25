@@ -1052,6 +1052,24 @@ class UserTest(TestCase):
         self.assertEqual(user, models.load_user(
             'at://did:plc:user/app.bsky.actor.profile/self'))
 
+    @patch.object(util.session, 'get', return_value=TestCase.as2_resp(ACTOR))
+    def test_load_user_activitypub_resolve_url_to_actor_id(self, _):
+        user = models.load_user('https://mas.to/@foo', proto=ActivityPub,
+                                create=True, resolve=True)
+        self.assertEqual('https://mas.to/users/foo', user.key.id())
+        self.assertEqual(['https://mas.to/users/foo'],
+                         [u.key.id() for u in ActivityPub.query()])
+
+    @patch.object(util.session, 'get', return_value=TestCase.as2_resp(ACTOR))
+    def test_load_user_activitypub_resolve_url_to_existing_user(self, _):
+        user = self.make_user('https://mas.to/users/foo', cls=ActivityPub,
+                              obj_as2=ACTOR)
+        self.assertEqual(user, models.load_user('https://mas.to/@foo',
+                                                proto=ActivityPub, create=True,
+                                                resolve=True))
+        self.assertEqual(['https://mas.to/users/foo'],
+                         [u.key.id() for u in ActivityPub.query()])
+
 
 class ObjectTest(TestCase):
 

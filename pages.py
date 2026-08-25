@@ -566,7 +566,7 @@ def migrate_to_activitypub(user=None):
 
     try:
         to_user = models.load_user(handle, ActivityPub, create=True,
-                                   allow_opt_out=True, raise_=True)
+                                   allow_opt_out=True, raise_=True, resolve=True)
     except (AttributeError, RuntimeError, ValueError) as err:
         flash(str(err))
         return redirect('/settings')

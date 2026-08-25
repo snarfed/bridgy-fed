@@ -316,7 +316,7 @@ def load_user(handle, resolve=False):
             pass
         try:
             return models.load_user(handle, proto=ActivityPub, create=resolve,
-                                    allow_opt_out=True)
+                                    allow_opt_out=True, resolve=True)
         except (AttributeError, RuntimeError, ValueError) as e:
             logger.info(e)
 

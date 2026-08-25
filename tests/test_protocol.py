@@ -122,6 +122,11 @@ class ProtocolTest(TestCase):
             with self.subTest(id=id):
                 self.assertIsNone(Fake.id_type(id))
 
+    def test_resolve_user_id_default_normalizes(self):
+        # protocols that don't override resolve_user_id still normalize
+        self.assertEqual('fake:alice', Fake.resolve_user_id('fake:profile:alice'))
+        self.assertEqual('fake:alice', Fake.resolve_user_id('fake:alice'))
+
     def test_for_id(self):
         for id, expected in [
                 (None, None),

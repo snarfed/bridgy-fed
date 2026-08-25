@@ -313,6 +313,27 @@ class Protocol:
         raise NotImplementedError()
 
     @classmethod
+    def resolve_user_id(cls, id):
+        """Resolves and normalizes a user id to its canonical form.
+
+        For example, resolves an :class:`ActivityPub` profile URL like
+        ``https://mastodon.example/@alice`` to an actor id like
+        ``https://mastodon.example/users/123``.
+
+        May incur network requests, and may store the objects it fetches.
+
+        Subclasses should override this, resolve ``id``, normalize it
+        with :func:`ids.normalize_user_id`, and then return the result.
+
+        Args:
+          id (str)
+
+        Returns:
+          str: the canonical id, or ``id``, normalized, if it can't be resolved
+        """
+        return ids.normalize_user_id(id=id, proto=cls)
+
+    @classmethod
     def authed_user_for_request(cls):
         """Returns the authenticated user id for the current request.
 
@@ -2483,7 +2504,8 @@ Hi! You <a href="{inner_obj_as1.get('url') or inner_obj_id}">recently {verb}</a>
         blockee = None
         try:
             # first, try interpreting as a user handle or id
-            blockee = load_user(arg, proto=cls, create=True, allow_opt_out=True)
+            blockee = load_user(arg, proto=cls, create=True, allow_opt_out=True,
+                                resolve=True)
         except (AssertionError, AttributeError, BadRequest, RuntimeError, ValueError) as err:
             logger.info(err)
 
@@ -2539,7 +2561,8 @@ Hi! You <a href="{inner_obj_as1.get('url') or inner_obj_id}">recently {verb}</a>
         blockee = None
         try:
             # first, try interpreting as a user handle or id
-            blockee = load_user(arg, cls, create=True, allow_opt_out=True)
+            blockee = load_user(arg, cls, create=True, allow_opt_out=True,
+                                resolve=True)
         except (AssertionError, AttributeError, BadRequest, RuntimeError, ValueError) as err:
             logger.info(err)
 

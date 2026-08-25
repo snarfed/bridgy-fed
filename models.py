@@ -2707,7 +2707,7 @@ def fetch_page(query, model_class, by=None, max_age=None):
 
 
 def load_user(handle_or_id, proto=None, create=False, allow_opt_out=False,
-              raise_=False):
+              raise_=False, resolve=False):
     """Loads a user by handle or id.
 
     Args:
@@ -2719,6 +2719,8 @@ def load_user(handle_or_id, proto=None, create=False, allow_opt_out=False,
       raise_ (bool): passed through to :meth:`User.reload_profile`. If False, and
         :meth:`User.reload_profile` returns None when fetching the user's profile,
         this method raises :class:`RuntimeError`
+      resolve (bool): if True, and ``create`` is True, resolves ``handle_or_id`` with
+        :meth:`Protocol.resolve_user_id` first, which may fetch over the network.
 
     Returns:
       User:
@@ -2739,7 +2741,7 @@ def load_user(handle_or_id, proto=None, create=False, allow_opt_out=False,
     if not proto:
         if handle_or_id.startswith('@'):
             return load_user(handle_or_id.removeprefix('@'), create=create,
-                             allow_opt_out=allow_opt_out)
+                             allow_opt_out=allow_opt_out, resolve=resolve)
         raise RuntimeError(f"Couldn't determine network for {handle_or_id}")
 
     if proto.owns_id(handle_or_id) is not False:
@@ -2752,6 +2754,8 @@ def load_user(handle_or_id, proto=None, create=False, allow_opt_out=False,
         # object id afterward, it's not a user at all, so don't create one for it.
         id = ids.normalize_user_id(id=handle_or_id, proto=proto)
         if proto.id_type(id) is not ids.IdType.OBJECT:
+            if create and resolve:
+                id = proto.resolve_user_id(id)
             user = (proto.get_or_create(id, allow_opt_out=allow_opt_out, raise_=raise_)
                     if create else proto.get_by_id(id, allow_opt_out=allow_opt_out))
             if not user:
@@ -2763,7 +2767,8 @@ def load_user(handle_or_id, proto=None, create=False, allow_opt_out=False,
     if proto.owns_handle(handle_or_id) is False:
         if handle_or_id.startswith('@'):
             return load_user(handle_or_id.removeprefix('@'), create=create,
-                             proto=proto, allow_opt_out=allow_opt_out)
+                             proto=proto, allow_opt_out=allow_opt_out,
+                             resolve=resolve)
         raise RuntimeError(f"{handle_or_id} doesn't look like a user id or handle on {proto.PHRASE}")
 
     candidates = (handle_or_id, '@' + handle_or_id)

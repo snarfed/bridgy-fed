@@ -114,7 +114,7 @@ def load_user(handle, proto, from_proto, bridged):
     """
     try:
         to_user = models.load_user(handle, proto, create=True, allow_opt_out=True,
-                                   raise_=True)
+                                   raise_=True, resolve=True)
     except (AttributeError, RuntimeError) as err:
         raise ValueError(str(err))
 
@@ -317,7 +317,7 @@ def migrate_to_activitypub(from_user, to_proto, handle):
 
     try:
         to_user = models.load_user(handle, ActivityPub, create=True,
-                                   allow_opt_out=True, raise_=True)
+                                   allow_opt_out=True, raise_=True, resolve=True)
     except (AttributeError, RuntimeError, ValueError) as err:
         return str(err)
     assert to_user

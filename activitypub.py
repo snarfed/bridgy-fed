@@ -330,6 +330,18 @@ class ActivityPub(User, Protocol):
 
         return webfinger.fetch_actor_url(handle)
 
+    @classmethod
+    def resolve_user_id(cls, id):
+        """Fetches ``id`` and returns its AP actor id.
+
+        Notably, resolves profile URLs like ``https://mastodon.example/@alice``
+        to AP actor ids like ``https://mastodon.example/users/123``.
+        """
+        if obj := cls.load(id, remote=True, raise_=False):
+            id = obj.key.id()
+
+        return ids.normalize_user_id(id=id, proto=cls)
+
     def user_page_path(self, rest=None, **kwargs):
         """Always prefer handle, since id is a full URL."""
         kwargs['prefer_id'] = False
