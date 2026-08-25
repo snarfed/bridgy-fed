@@ -558,9 +558,12 @@ def translate_object_id(*, id, from_, to, owner=None):
     # Mastodon and other fedi servers reject Creates for them, so we serve them from
     # the author's subdomain, falling back to fed.brid.gy if we don't know them.
     wrap_proto = from_
+    wrap_user_id = None
     if UIProtocol.owns_id(id):
         obj = models.Object.get_by_id(re.sub(r'#bridgy-fed-[^#]*$', '', id))
         wrap_proto = (obj.owner_protocol() if obj else None) or owner or UIProtocol
+        if obj and obj.users:
+            wrap_user_id = obj.users[0].id()
 
     if (from_.owns_id(id) is False
             and from_ != UIProtocol and not UIProtocol.owns_id(id)):
@@ -605,7 +608,11 @@ def translate_object_id(*, id, from_, to, owner=None):
             return urljoin(web_ap_base_domain(util.domain_from_link(id)), f'/r/{id}')
 
         case _, 'activitypub' | 'web':
-            return subdomain_wrap(wrap_proto, f'/convert/{to.ABBREV}/{id}')
+            path = f'/convert/{to.ABBREV}/{id}'
+            if wrap_proto.LABEL == 'web' and wrap_user_id:
+                # legacy Web users' actors are on fed.brid.gy, not web.brid.gy
+                return urljoin(web_ap_base_domain(wrap_user_id), path)
+            return subdomain_wrap(wrap_proto, path)
 
         # only for unit tests
         case _, 'fake' | 'other' | 'efake':

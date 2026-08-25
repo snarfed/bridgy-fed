@@ -613,6 +613,25 @@ class IdsTest(TestCase):
                     'https://bsky.brid.gy/convert/ap/ui:my-note',
                     translate_object_id(id='ui:my-note', from_=from_, to=ActivityPub))
 
+    def test_translate_object_id_ui_uses_authors_ap_subdomain(self):
+        # legacy Web users' actors are on fed.brid.gy, not web.brid.gy, so their
+        # internal objects have to be too
+        for sub in 'web', 'fed':
+            domain = f'{sub}alice.com'
+            user = self.make_user(domain, cls=Web, ap_subdomain=sub)
+            id = f'ui:note-{sub}'
+            self.store_object(id=id, source_protocol='ui', users=[user.key],
+                              our_as1={'objectType': 'note', 'author': domain})
+
+            # depends on the author, not on which of our domains we're serving
+            for base_url in 'https://web.brid.gy/', 'https://fed.brid.gy/':
+                with self.subTest(ap_subdomain=sub, base_url=base_url):
+                    with app.test_request_context('/', base_url=base_url):
+                        self.assertEqual(
+                            f'https://{sub}.brid.gy/convert/ap/{id}',
+                            translate_object_id(id=id, from_=UIProtocol,
+                                                to=ActivityPub))
+
     def test_translate_object_id_ui_unknown_author_falls_back_to_fed(self):
         for from_ in UIProtocol, ATProto:
             with self.subTest(from_=from_.LABEL):
