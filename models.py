@@ -2049,16 +2049,14 @@ class Object(AddRemoveMixin, StringIdModel):
         * ATProto bsky.app URLs to their DIDs or `at://` URIs, eg
           ``https://bsky.app/profile/a.com`` => ``did:plc:123``
 
-        ...in these AS1 fields, in place:
+        ...in these AS1 fields, in place, on both this object and its inner
+        ``object``\\ s:
 
         * ``id``
         * ``actor``
         * ``author``
+        * ``inReplyTo``
         * ``object``
-        * ``object.actor``
-        * ``object.author``
-        * ``object.id``
-        * ``object.inReplyTo``
         * ``attachments.[objectType=note].id``
         * ``tags.[objectType=mention].url``
 
@@ -2070,65 +2068,73 @@ class Object(AddRemoveMixin, StringIdModel):
         if not self.as1:
             return
 
+        logger.debug(f'Resolving ids for {self.key.id()}')
+
         # extract ids, strip Bridgy Fed subdomain URLs
         outer_obj = unwrap(self.as1)
-        if outer_obj != self.as1:
-            self.our_as1 = util.trim_nulls(outer_obj)
-
+        inner_objs = as1.get_objects(outer_obj)
+        replaced = outer_obj != self.as1
         self_proto = PROTOCOLS.get(self.source_protocol)
-        if not self_proto:
-            return
 
-        logger.debug(f'Resolving ids for {self.key.id()}')
-        inner_obj = outer_obj['object'] = as1.get_object(outer_obj)
-        replaced = False
+        def original_id(id, kind):
+            """Returns the original id for a copy id, or None if there isn't one."""
+            if not self_proto or not self_proto.HAS_COPIES:
+                return None
 
-        def replace(val, orig_fn):
-            id = val.get('id') if isinstance(val, dict) else val
-            if not id or not self_proto.HAS_COPIES:
-                return id
-
-            orig = orig_fn(id)
-            if not orig:
-                return val
-
-            nonlocal replaced
-            replaced = True
-            logger.debug(f'Resolved copy id {val} to original {orig.id()}')
-
-            if isinstance(val, dict) and util.trim_nulls(val).keys() > {'id'}:
-                val['id'] = orig.id()
-                return val
-            else:
+            if kind is ids.IdType.USER and (orig := get_original_user_key(id)):
+                return orig.id()
+            elif kind is ids.IdType.OBJECT and (orig := get_original_object_key(id)):
                 return orig.id()
 
-        # actually replace ids
-        #
-        # the object field could be either an object (eg repost) or a user (eg
-        # follow). ask the id itself which it is, and if it can't say, try both.
-        inner_id = inner_obj.get('id')
-        inner_type = self_proto.id_type(inner_id) if inner_id else None
-        outer_obj['object'] = replace(
-            inner_obj, (get_original_user_key if inner_type is ids.IdType.USER
-                        else get_original_object_key))
-        if not replaced and inner_type is None:
-            outer_obj['object'] = replace(inner_obj, get_original_user_key)
+        def replace(val, kind):
+            """Replaces ``val``'s id with its original, if it has one.
 
-        for obj in outer_obj, inner_obj:
+            Args:
+              val (str or dict): id or AS1 object
+              kind (ids.IdType or None)
+            """
+            id = val.get('id') if isinstance(val, dict) else val
+            if not id:
+                return val
+
+            # if we can't tell which kind of id this is, try both
+            kinds = [kind] if kind else [ids.IdType.OBJECT, ids.IdType.USER]
+            for k in kinds:
+                if orig := original_id(id, k):
+                    nonlocal replaced
+                    replaced = True
+                    logger.debug(f'Resolved copy id {id} to original {orig}')
+                    if isinstance(val, dict) and util.trim_nulls(val).keys() > {'id'}:
+                        val['id'] = orig
+                        return val
+                    return orig
+
+            return val
+
+        # actually replace ids
+        for obj in [outer_obj] + inner_objs:
             for tag in as1.get_objects(obj, 'tags'):
                 if tag.get('objectType') == 'mention':
-                    tag['url'] = replace(tag.get('url'), get_original_user_key)
+                    tag['url'] = replace(tag.get('url'), ids.IdType.USER)
             for att in as1.get_objects(obj, 'attachments'):
                 if att.get('objectType') == 'note':
-                    att['id'] = replace(att.get('id'), get_original_object_key)
-            for field, fn in (
-                    ('actor', get_original_user_key),
-                    ('author', get_original_user_key),
-                    ('inReplyTo', get_original_object_key),
-                ):
-                obj[field] = [replace(val, fn) for val in util.get_list(obj, field)]
+                    att['id'] = replace(att.get('id'), ids.IdType.OBJECT)
+            for field, kind in (('actor', ids.IdType.USER),
+                                ('author', ids.IdType.USER),
+                                ('inReplyTo', ids.IdType.OBJECT)):
+                obj[field] = [replace(val, kind) for val in util.get_list(obj, field)]
                 if len(obj[field]) == 1:
                     obj[field] = obj[field][0]
+
+        # an object may be either an object (eg repost) or a user (eg follow).
+        # ask the id itself which it is, and if it can't say, try both.
+        objects = []
+        for inner_obj in inner_objs:
+            inner_id = inner_obj.get('id')
+            kind = self_proto.id_type(inner_id) if self_proto and inner_id else None
+            objects.append(replace(inner_obj, kind))
+
+        outer_obj['object'] = objects[0] if len(objects) == 1 else objects
 
         if replaced:
             self.our_as1 = util.trim_nulls(outer_obj)

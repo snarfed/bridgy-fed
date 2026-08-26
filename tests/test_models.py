@@ -1898,6 +1898,74 @@ cast_add_body { text: "hi" }
             'inReplyTo': ['other:a', 'other:b'],
         }, obj.our_as1)
 
+    def test_resolve_ids_multiple_objects(self):
+        share = {
+            'id': 'fake:share',
+            'objectType': 'activity',
+            'verb': 'share',
+            'object': ['fake:a', 'fake:b'],
+        }
+        obj = Object(id='fake:share', our_as1=share, source_protocol='fake')
+
+        # no matching copies
+        obj.resolve_ids()
+        self.assert_equals(share, obj.our_as1)
+
+        models.get_original_user_key.cache_clear()
+        models.get_original_object_key.cache_clear()
+        memcache.pickle_memcache.clear()
+
+        # matching copies
+        self.store_object(id='other:a',
+                          copies=[Target(uri='fake:a', protocol='fa')])
+        self.store_object(id='other:b',
+                          copies=[Target(uri='fake:b', protocol='fake')])
+        obj.resolve_ids()
+        self.assert_equals({
+            **share,
+            'object': ['other:a', 'other:b'],
+        }, obj.our_as1)
+
+    def test_resolve_ids_no_copies_keeps_dict_values(self):
+        # ActivityPub doesn't have copies, so we don't resolve anything, but we
+        # still unwrap subdomain URLs, and we shouldn't flatten dicts to bare ids
+        obj = Object(id='https://mas.to/reply', source_protocol='ap', our_as1={
+            'objectType': 'activity',
+            'verb': 'post',
+            'id': 'https://mas.to/reply',
+            'object': {
+                'id': 'https://ap.brid.gy/fa/fake:reply',
+                'objectType': 'comment',
+                'author': {
+                    'id': 'https://mas.to/users/alice',
+                    'displayName': 'Alice',
+                },
+                'inReplyTo': {
+                    'id': 'https://mas.to/post',
+                    'objectType': 'note',
+                },
+            },
+        })
+
+        obj.resolve_ids()
+        self.assert_equals({
+            'objectType': 'activity',
+            'verb': 'post',
+            'id': 'https://mas.to/reply',
+            'object': {
+                'id': 'fake:reply',
+                'objectType': 'comment',
+                'author': {
+                    'id': 'https://mas.to/users/alice',
+                    'displayName': 'Alice',
+                },
+                'inReplyTo': {
+                    'id': 'https://mas.to/post',
+                    'objectType': 'note',
+                },
+            },
+        }, obj.our_as1)
+
     def test_resolve_ids_subdomain_urls(self):
         obj = Object(id='fake:mention', our_as1={
             'objectType': 'activity',
