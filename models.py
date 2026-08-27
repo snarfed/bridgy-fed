@@ -755,8 +755,14 @@ class User(AddRemoveMixin, StringIdModel, metaclass=ProtocolUserMeta):
 
         if self.REQUIRES_OLD_ACCOUNT:
             if published := self.obj.as1.get('published'):
-                if util.now() - util.parse_iso8601(published) < OLD_ACCOUNT_AGE:
-                    return 'requires-old-account'
+                try:
+                    published_dt = util.parse_iso8601(published)
+                    if not published_dt.tzinfo:
+                        published_dt = published_dt.replace(tzinfo=timezone.utc)
+                    if util.now() - published_dt < OLD_ACCOUNT_AGE:
+                        return 'requires-old-account'
+                except ValueError:  # from parse_iso8601
+                    logger.debug(f"Couldn't parse published {published}")
 
         # https://swicg.github.io/miscellany/#movedTo
         # https://docs.joinmastodon.org/spec/activitypub/#as

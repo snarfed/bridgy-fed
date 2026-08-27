@@ -662,6 +662,13 @@ class UserTest(TestCase):
         user.enabled_protocols = ['efake']
         self.assertEqual('requires-old-account', user.status)
 
+        # no time zone, assume UTC
+        user.obj.our_as1['published'] = too_young.replace(tzinfo=None).isoformat()
+        self.assertEqual('requires-old-account', user.status)
+
+        user.obj.our_as1['published'] = 'not a date'
+        self.assertIsNone(user.status)
+
         user.obj.our_as1['published'] = (too_young - timedelta(minutes=2)).isoformat()
         self.assertIsNone(user.status)
 
