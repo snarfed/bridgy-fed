@@ -143,8 +143,6 @@ class Protocol:
     "bool: whether accounts on this protocol are required to be at least :const:`common.OLD_ACCOUNT_AGE` old. If their profile includes creation date and it's not old enough, their ``User.status`` will be ``blocked``."
     DEFAULT_ENABLED_PROTOCOLS = ()
     'sequence of str: labels of other protocols that are automatically enabled for this protocol to bridge into'
-    DEFAULT_SERVE_USER_PAGES = False
-    "bool: whether to serve user pages for all of this protocol's users on the fed.brid.gy. If ``False``, user pages will only be served for users who have explictly opted in."
     SUPPORTED_AS1_TYPES = ()
     'sequence of str: AS1 objectTypes and verbs that this protocol supports receiving and sending'
     SUPPORTS_DMS = False

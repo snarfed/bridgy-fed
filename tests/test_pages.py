@@ -166,7 +166,7 @@ class PagesTest(TestCase):
         self.assert_equals(200, got.status_code, got.headers)
 
     def test_user_fake(self):
-        self.make_user('fake:foo', cls=Fake)
+        self.make_user('fake:foo', cls=Fake, enabled_protocols=['other'])
         got = self.client.get('/fake/fake:foo')
         self.assert_equals(200, got.status_code)
 
@@ -278,8 +278,7 @@ class PagesTest(TestCase):
 
     def test_user_www_domain_special_case(self):
         """https://github.com/snarfed/bridgy-fed/issues/1244"""
-        www = self.make_user('www.jvt.me', cls=Web)
-
+        www = self.make_user('www.jvt.me', cls=Web, enabled_protocols=['activitypub'])
         got = self.client.get('/web/www.jvt.me')
         self.assert_equals(200, got.status_code)
 
@@ -303,15 +302,20 @@ class PagesTest(TestCase):
         got = self.client.get('/fa/fake:handle:user')
         self.assert_equals(404, got.status_code)
 
-    def test_user_default_serve_false_no_enabled_protocols(self):
+    def test_user_page_no_enabled_protocols(self):
         self.make_user('other:foo', cls=OtherFake)
         got = self.client.get('/other/other:foo')
         self.assert_equals(404, got.status_code)
 
-    def test_user_default_serve_false_enabled_protocols(self):
+    def test_user_page_enabled_protocols(self):
         self.make_user('other:foo', cls=OtherFake, enabled_protocols=['fake'])
         got = self.client.get('/other/other:foo')
         self.assert_equals(200, got.status_code)
+
+    def test_user_page_web_not_bridged(self):
+        self.make_user('new.com', cls=Web, enabled_protocols=[])
+        got = self.client.get('/web/new.com')
+        self.assert_equals(404, got.status_code)
 
     def test_user_use_instead(self):
         self.make_user('bar.com', cls=Web, use_instead=self.user.key)
@@ -446,7 +450,7 @@ class PagesTest(TestCase):
         self.assert_equals(404, got.status_code)
 
     def test_update_profile(self):
-        user = self.make_user('fake:user', cls=Fake)
+        user = self.make_user('fake:user', cls=Fake, enabled_protocols=['other'])
         user.obj.copies = [Target(protocol='other', uri='other:profile:fake:user')]
         user.obj.put()
 
@@ -483,7 +487,7 @@ class PagesTest(TestCase):
 
     @patch.object(Fake, 'fetch', side_effect=ConnectionError('foo'))
     def test_update_profile_load_fails(self, _):
-        self.make_user('fake:user', cls=Fake)
+        self.make_user('fake:user', cls=Fake, enabled_protocols=['other'])
 
         got = self.client.post('/fa/fake:user/update-profile')
         self.assert_equals(302, got.status_code)
@@ -530,8 +534,9 @@ class PagesTest(TestCase):
         ]
         self.user.enabled_protocols = ['other']
         self.user.obj.put()
-        Follower.get_or_create(from_=self.make_user('fake:user', cls=Fake),
-                               to=self.user)
+        Follower.get_or_create(
+            from_=self.make_user('fake:user', cls=Fake, enabled_protocols=['other']),
+            to=self.user)
 
         got = self.client.post('/web/user.com/update-profile')
         self.assert_equals(302, got.status_code)
@@ -563,8 +568,9 @@ class PagesTest(TestCase):
             Target(protocol='fake', uri='fake:profile:web:user.com'),
         ]
         self.user.obj.put()
-        Follower.get_or_create(from_=self.make_user('fake:user', cls=Fake),
-                               to=self.user)
+        Follower.get_or_create(
+            from_=self.make_user('fake:user', cls=Fake, enabled_protocols=['other']),
+            to=self.user)
 
         got = self.client.post('/web/user.com/update-profile')
         self.assert_equals(302, got.status_code)
@@ -594,8 +600,9 @@ class PagesTest(TestCase):
         self.user.obj.copies = [Target(protocol='fake',
                                        uri='fake:profile:web:user.com')]
         self.user.obj.put()
-        Follower.get_or_create(from_=self.make_user('fake:user', cls=Fake),
-                               to=self.user)
+        Follower.get_or_create(
+            from_=self.make_user('fake:user', cls=Fake, enabled_protocols=['other']),
+            to=self.user)
 
         got = self.client.post('/web/user.com/update-profile')
         self.assert_equals(302, got.status_code)
@@ -633,7 +640,7 @@ class PagesTest(TestCase):
         self.assertIn('@me@masto', body)
 
     def test_home_fake(self):
-        self.make_user('fake:foo', cls=Fake)
+        self.make_user('fake:foo', cls=Fake, enabled_protocols=['other'])
         got = self.client.get('/fake/fake:foo/home')
         self.assert_equals(200, got.status_code)
 
@@ -643,7 +650,7 @@ class PagesTest(TestCase):
         self.assert_equals(200, got.status_code)
 
     def test_notifications_fake(self):
-        self.make_user('fake:foo', cls=Fake)
+        self.make_user('fake:foo', cls=Fake, enabled_protocols=['other'])
         got = self.client.get('/fake/fake:foo/notifications')
         self.assert_equals(200, got.status_code)
 
@@ -676,7 +683,7 @@ class PagesTest(TestCase):
                            contents(microformats2.html_to_activities(got.text)))
 
     def test_followers_fake(self):
-        self.make_user('fake:foo', cls=Fake)
+        self.make_user('fake:foo', cls=Fake, enabled_protocols=['other'])
         got = self.client.get('/fake/fake:foo/followers')
         self.assert_equals(200, got.status_code)
 
@@ -747,7 +754,7 @@ class PagesTest(TestCase):
         self.assertNotIn('class="follower', got.get_data(as_text=True))
 
     def test_following_fake(self):
-        self.make_user('fake:foo', cls=Fake)
+        self.make_user('fake:foo', cls=Fake, enabled_protocols=['other'])
         got = self.client.get('/fake/fake:foo/following')
         self.assert_equals(200, got.status_code)
 
@@ -802,7 +809,7 @@ class PagesTest(TestCase):
         self.assert_equals(404, got.status_code)
 
     def test_feed_fake(self):
-        self.make_user('fake:foo', cls=Fake)
+        self.make_user('fake:foo', cls=Fake, enabled_protocols=['other'])
         got = self.client.get('/fake/fake:foo/feed')
         self.assert_equals(200, got.status_code)
 
@@ -895,7 +902,7 @@ class PagesTest(TestCase):
         self.assert_equals('/web/user.com', got.headers['Location'])
 
     def test_find_user_page_fake_id(self):
-        self.make_user('fake:foo', cls=Fake)
+        self.make_user('fake:foo', cls=Fake, enabled_protocols=['other'])
         got = self.client.post('/user-page', data={'id': 'fake:foo'})
         self.assert_equals(302, got.status_code)
         self.assert_equals('/fa/fake:handle:foo', got.headers['Location'])
@@ -907,7 +914,7 @@ class PagesTest(TestCase):
         self.assert_equals('/fa/fake:handle:foo', got.headers['Location'])
 
     def test_find_user_page_unknown_protocol(self):
-        self.make_user('fake:foo', cls=Fake)
+        self.make_user('fake:foo', cls=Fake, enabled_protocols=['other'])
         got = self.client.post('/user-page', data={'id': 'un:kn:own'})
         self.assert_equals(404, got.status_code)
         self.assertEqual(["Couldn't determine network for un:kn:own."],
@@ -1538,7 +1545,7 @@ class PagesTest(TestCase):
         self.assertEqual(400, resp.status_code)
 
     def test_respond_wrong_user(self):
-        self.make_user('fake:alice', cls=Fake)
+        self.make_user('fake:alice', cls=Fake, enabled_protocols=['other'])
         token = common.make_jwt(user=self.user, scope='respond')
         self.store_object(id='other:post')
         resp = self.client.get(
@@ -1625,7 +1632,7 @@ class PagesTest(TestCase):
 
     @patch('webutil.util.now', return_value=datetime.now())
     def test_respond_reply_wrong_user(self, _):
-        self.make_user('fake:bob', cls=Fake)
+        self.make_user('fake:bob', cls=Fake, enabled_protocols=['other'])
         resp = self.client.post('/fake/fake:bob/respond/reply', data={
             'obj_id': 'fake:post',
             'content': 'test reply',
@@ -1695,7 +1702,7 @@ class PagesTest(TestCase):
 
     @patch('webutil.util.now', return_value=datetime.now())
     def test_respond_like_wrong_user(self, _):
-        self.make_user('fake:bob', cls=Fake)
+        self.make_user('fake:bob', cls=Fake, enabled_protocols=['other'])
         resp = self.client.post('/fake/fake:bob/respond/like', data={
             'obj_id': 'fake:post',
             'token': common.make_jwt(user=self.user, scope='respond',
@@ -1747,7 +1754,7 @@ class PagesTest(TestCase):
 
     @patch('webutil.util.now', return_value=datetime.now())
     def test_respond_repost_wrong_user(self, _):
-        self.make_user('fake:bob', cls=Fake)
+        self.make_user('fake:bob', cls=Fake, enabled_protocols=['other'])
         resp = self.client.post('/fake/fake:bob/respond/repost', data={
             'obj_id': 'fake:post',
             'token': common.make_jwt(user=self.user, scope='respond', obj_id='fake:post'),
@@ -1798,7 +1805,7 @@ class PagesTest(TestCase):
 
     @patch('webutil.util.now', return_value=datetime.now())
     def test_respond_block_wrong_user(self, _):
-        self.make_user('fake:bob', cls=Fake)
+        self.make_user('fake:bob', cls=Fake, enabled_protocols=['other'])
         resp = self.client.post('/fake/fake:bob/respond/block', data={
             'obj_id': 'fake:post',
             'token': common.make_jwt(user=self.user, scope='respond', obj_id='fake:post'),

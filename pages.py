@@ -131,7 +131,7 @@ def load_user(proto, id):
     except (AttributeError, RuntimeError, ValueError) as err:
         error(str(err), status=404)
 
-    if user.enabled_protocols or user.DEFAULT_SERVE_USER_PAGES:
+    if user.enabled_protocols:
         assert not user.use_instead
         return user
 

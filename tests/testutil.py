@@ -92,7 +92,6 @@ class Fake(User, protocol.Protocol):
     HAS_COPIES = True
     LOGO_EMOJI = '🤡'
     LOGO_HTML = '<img src="fake-logo">'
-    DEFAULT_SERVE_USER_PAGES = True
     SUPPORTED_AS1_TYPES = frozenset(
         tuple(as1.ACTOR_TYPES)
         + tuple(as1.POST_TYPES)
@@ -264,7 +263,6 @@ class OtherFake(Fake):
     CONTENT_TYPE = 'ot/her'
     LOGO_EMOJI = '⏎'
     DEFAULT_ENABLED_PROTOCOLS = ('fake',)
-    DEFAULT_SERVE_USER_PAGES = False
     RECEIVE_FILTERS = ()
     SUPPORTED_AS1_TYPES = Fake.SUPPORTED_AS1_TYPES - set(('accept', 'flag'))
     SUPPORTS_DMS = True
@@ -296,7 +294,6 @@ class ExplicitFake(Fake):
     CONTENT_TYPE = 'un/known'
     LOGO_EMOJI = '📣'
     DEFAULT_ENABLED_PROTOCOLS = ()
-    DEFAULT_SERVE_USER_PAGES = False
     SUPPORTS_DMS = True
     USES_OBJECT_FEED = True
     RATE_LIMIT_TYPE = RateLimitType.EXPONENTIAL
