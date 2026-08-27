@@ -349,7 +349,13 @@ class ActivityPub(User, Protocol):
 
     @classmethod
     def target_for(cls, obj, shared=False):
-        """Returns ``obj``'s or its author's/actor's inbox, if available."""
+        """Returns ``obj``'s or its author's/actor's inbox, if available.
+
+        TODO: this recurses into the author/actor with no depth limit or visited
+        set. The only cycle guard is the inner id check below, which a cyclic
+        author chain gets past, eg when :meth:`fetch` rewrote an object's key to
+        a different id on the same origin. That blows the stack.
+        """
         # use as2 first if we have it. converting to AS1 isn't cheap, it can add
         # up to minutes in inbox delivery for accounts with many followers:
         # https://github.com/snarfed/bridgy-fed/issues/2154
@@ -913,7 +919,9 @@ class ActivityPub(User, Protocol):
 
 
 def signed_get(url, from_user=None, **kwargs):
-    return signed_request(util.requests_get, url, from_user=from_user, **kwargs)
+    # enable request-local cache of HTTP responses
+    return signed_request(util.requests_get, url, cache=True,
+                          from_user=from_user, **kwargs)
 
 
 def signed_post(url, from_user, **kwargs):

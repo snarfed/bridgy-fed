@@ -3407,6 +3407,15 @@ class ActivityPubUtilsTest(TestCase):
             self.as2_req('http://orig'),
         ))
 
+    @patch.object(util.session, 'get', return_value=AS2)
+    def test_fetch_caches_within_request(self, mock_get):
+        for _ in range(2):
+            obj = Object(id='http://orig')
+            self.assertTrue(ActivityPub.fetch(obj))
+            self.assertEqual(AS2_OBJ, obj.as2)
+
+        mock_get.assert_called_once()
+
     @patch.object(util.session, 'get')
     def test_fetch_direct_list(self, mock_get):
         mock_get.return_value = self.as2_resp([AS2_OBJ])

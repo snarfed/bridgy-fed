@@ -1308,9 +1308,7 @@ class WebTest(TestCase):
 </body>
 </html>
 """, url='https://user.com/repost')
-        # extra TOOT_AS2 fetches because its id is https://mas.to/toot/id which is
-        # different from https://mas.to/toot, the target of the mf2 repost
-        mock_get.side_effect = [repost, ACTOR, TOOT_AS2, TOOT_AS2, TOOT_AS2, ACTOR]
+        mock_get.side_effect = [repost, ACTOR, TOOT_AS2, ACTOR]
         mock_post.return_value = requests_response('abc xyz')
 
         got = self.post('/queue/webmention', data={
@@ -1726,8 +1724,6 @@ class WebTest(TestCase):
                 html, url='https://user.com/follow',
                 content_type=CONTENT_TYPE_HTML),
             ACTOR,
-            ACTOR,
-            biff,
             biff,
         ]
         mock_post.return_value = requests_response('unused')
@@ -1741,8 +1737,6 @@ class WebTest(TestCase):
         mock_get.assert_has_calls((
             self.req('https://user.com/follow'),
             self.as2_req('https://mas.to/mrs-foo'),
-            self.as2_req('https://mas.to/mrs-foo'),
-            self.as2_req('https://mas.to/mr-biff'),
             self.as2_req('https://mas.to/mr-biff'),
         ))
 

@@ -940,13 +940,14 @@ class IntegrationTests(TestCase):
             'image': 'http://pic',
         }))
         mock_get.side_effect = [
+            # twice: once with the AS2 + HTML conneg headers, once AS2 only, so
+            # they're separate request-local HTTP cache entries
             actor,
-            # actor + webfingers
             actor,
+            # webfingers
             requests_response({'subject': 'alice@wf.com'}),
             requests_response({'subject': 'alice@wf.com'}),
-            # actor + webfingers
-            actor,
+            # webfingers
             requests_response({'subject': 'alice@wf.com'}),
             requests_response({'subject': 'alice@wf.com'}),
             requests_response('blob', headers={'Content-Type': 'image/jpeg'}),
@@ -1533,9 +1534,9 @@ class IntegrationTests(TestCase):
                     },
                 }],
             }),
-            self.as2_resp(new_actor),  # resolve dest actor id
-            self.as2_resp(new_actor),  # load dest actor
-            self.as2_resp(new_actor),  # check_can_migrate_out reloads dest actor
+            # resolve dest actor id. the later load and check_can_migrate_out
+            # reload hit the request-local HTTP cache instead of refetching.
+            self.as2_resp(new_actor),
             BSKY_GET_CONVO_RESP,       # reply DM: getConvoForMembers
             requests_response({'cursor': 'cursor-1', 'logs': []}),  # getLog: caught up
         ]
