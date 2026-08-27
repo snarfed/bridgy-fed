@@ -80,7 +80,8 @@ class PagesTest(TestCase):
 
     def setUp(self):
         super().setUp()
-        self.user = self.make_user('user.com', cls=Web, has_redirects=True)
+        self.user = self.make_user('user.com', cls=Web, has_redirects=True,
+                                   enabled_protocols=['activitypub'])
 
     def make_logged_in_mastodon_user(self, **props):
         """

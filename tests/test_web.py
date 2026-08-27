@@ -483,6 +483,7 @@ class WebTest(TestCase):
         obj = Object(id='https://user.com/', mf2=ACTOR_MF2, source_protocol='web')
         obj.put()
         self.user = self.make_user('user.com', cls=Web, has_redirects=True, obj=obj,
+                                   enabled_protocols=['activitypub'],
                                    last_webmention_in=None)
 
         self.mrs_foo = ndb.Key(ActivityPub, 'https://mas.to/mrs-foo')
@@ -1955,7 +1956,7 @@ class WebTest(TestCase):
             'indexable': True,
         }
         self.assert_user(Web, 'user.com', obj_as2=expected_actor_as2,
-                         has_redirects=True)
+                         has_redirects=True, enabled_protocols=['activitypub'])
 
         # homepage object
         actor = {
@@ -2014,7 +2015,8 @@ class WebTest(TestCase):
         self.assert_ap_deliveries(mock_post, ('https://inbox',), update_as2)
 
         # updated Web user
-        self.assert_user(Web, 'user.com', has_redirects=True, obj_as2={
+        self.assert_user(Web, 'user.com', has_redirects=True,
+                         enabled_protocols=['activitypub'], obj_as2={
             '@context': [
                 'https://www.w3.org/ns/activitystreams',
                 as2.DISCOVERABLE_INDEXABLE_CONTEXT,
@@ -3961,7 +3963,8 @@ class IndieAuthTest(TestCase):
 
     def setUp(self):
         super().setUp()
-        self.user = self.make_user('alice.com', cls=Web)
+        self.user = self.make_user('alice.com', cls=Web,
+                                   enabled_protocols=['activitypub'])
 
     @patch.object(util.session, 'get', return_value=requests_response(''))
     def test_start(self, mock_get):

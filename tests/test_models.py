@@ -77,7 +77,8 @@ class UserTest(TestCase):
 
     def setUp(self):
         super().setUp()
-        self.user = self.make_user('y.za', cls=Web)
+        self.user = self.make_user('y.za', cls=Web,
+                                   enabled_protocols=['activitypub'])
 
     def test_get_by_id_opted_out(self):
         self.assert_entities_equal(self.user, Web.get_by_id('y.za'))
@@ -599,6 +600,7 @@ class UserTest(TestCase):
         self.assertEqual('opt-out', user.status)
 
     def test_status_private(self):
+        self.user.enabled_protocols = []
         self.user.obj.our_as1 = {
             'to': [{'objectType': 'group', 'alias': '@unlisted'}],
         }
@@ -717,7 +719,6 @@ class UserTest(TestCase):
     def test_is_enabled_default_enabled_protocols(self):
         web = self.make_user('a.com', cls=Web)
 
-        self.assertTrue(web.is_enabled(ActivityPub))
         self.assertTrue(ActivityPub(id='').is_enabled(Web))
         self.assertTrue(ActivityPub(id='').is_enabled(ActivityPub))
         self.assertTrue(Fake(id='').is_enabled(OtherFake))
@@ -725,6 +726,7 @@ class UserTest(TestCase):
 
         self.assertFalse(ActivityPub(id='').is_enabled(ATProto))
         self.assertFalse(ATProto(id='').is_enabled(ActivityPub))
+        self.assertFalse(web.is_enabled(ActivityPub))
         self.assertFalse(web.is_enabled(ATProto))
         self.assertFalse(ExplicitFake(id='').is_enabled(Fake))
         self.assertFalse(ExplicitFake(id='').is_enabled(OtherFake))
@@ -736,8 +738,8 @@ class UserTest(TestCase):
         self.user.enabled_protocols = ['atproto']
         self.assertTrue(self.user.is_enabled(ATProto, explicit=True))
 
-        assert 'activitypub' in Web.DEFAULT_ENABLED_PROTOCOLS
-        self.assertFalse(self.user.is_enabled(ActivityPub, explicit=True))
+        assert 'other' in Web.DEFAULT_ENABLED_PROTOCOLS
+        self.assertFalse(self.user.is_enabled(OtherFake, explicit=True))
 
     def test_is_enabled_enabled_protocols_overrides_nobot(self):
         user = self.make_user('efake:user', cls=ExplicitFake,
@@ -772,7 +774,8 @@ class UserTest(TestCase):
         self.assertIsNone(user.status)
 
     def test_is_enabled_manual_opt_out(self):
-        user = self.make_user('user.com', cls=Web)
+        user = self.make_user('user.com', cls=Web,
+                              enabled_protocols=['activitypub'])
         self.assertTrue(user.is_enabled(ActivityPub))
 
         user.manual_opt_out = True

@@ -68,7 +68,8 @@ class RemoteFollowTest(TestCase):
 
     def setUp(self):
         super().setUp()
-        self.make_user('user.com', cls=Web, has_redirects=True)
+        self.make_user('user.com', cls=Web, has_redirects=True,
+                       enabled_protocols=['activitypub'])
 
     def test_no_id(self, _):
         got = self.client.post('/remote-follow?address=@foo@ba.r&protocol=web')
@@ -163,7 +164,8 @@ class FollowTest(TestCase):
 
     def setUp(self):
         super().setUp()
-        self.user = self.make_user('alice.com', cls=Web)
+        self.user = self.make_user('alice.com', cls=Web,
+                                   enabled_protocols=['activitypub'])
         self.state = {
             'endpoint': 'http://auth/endpoint',
             'me': 'https://alice.com',
@@ -558,7 +560,8 @@ class UnfollowTest(TestCase):
 
     def setUp(self):
         super().setUp()
-        self.user = self.make_user('alice.com', cls=Web)
+        self.user = self.make_user('alice.com', cls=Web,
+                                   enabled_protocols=['activitypub'])
         self.follower = Follower.get_or_create(
             from_=self.user,
             to=self.make_user('https://ba.r/id', cls=ActivityPub, obj_as2=FOLLOWEE),
@@ -646,7 +649,8 @@ class UnfollowTest(TestCase):
         self.assertEqual('https://alice.com', session['indieauthed-me'])
 
     def test_callback_user_use_instead(self, mock_get, mock_post):
-        user = self.make_user('www.alice.com', cls=Web)
+        user = self.make_user('www.alice.com', cls=Web,
+                              enabled_protocols=['activitypub'])
         self.user.use_instead = user.key
         self.user.put()
 

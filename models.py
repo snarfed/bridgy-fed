@@ -2759,6 +2759,9 @@ def load_user(handle_or_id, proto=None, create=False, allow_opt_out=False,
         # at://.../app.bsky.actor.profile/self URI into its DID. if it's still an
         # object id afterward, it's not a user at all, so don't create one for it.
         id = ids.normalize_user_id(id=handle_or_id, proto=proto)
+        if not id:
+            raise RuntimeError(f"{handle_or_id} isn't a valid {proto.PHRASE} user id")
+
         if proto.id_type(id) is not ids.IdType.OBJECT:
             if create and resolve:
                 id = proto.resolve_user_id(id)

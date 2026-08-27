@@ -40,7 +40,8 @@ class MastodonOAuthTest(TestCase):
 
     def setUp(self):
         super().setUp()
-        self.user = self.make_user('alice.com', cls=Web)
+        self.user = self.make_user('alice.com', cls=Web,
+                                   enabled_protocols=['activitypub'])
 
     def register_app(self, **kwargs):
         kwargs.setdefault('client_name', 'My App')

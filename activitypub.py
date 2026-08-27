@@ -1321,7 +1321,7 @@ def postprocess_as2_actor(actor, user):
     return actor
 
 
-def load_user(handle_or_id, create=False, allow_opt_out=False):
+def load_user(handle_or_id, allow_opt_out=False):
     if handle_or_id == PRIMARY_DOMAIN or handle_or_id in PROTOCOL_DOMAINS:
         from web import Web
         proto = Web
@@ -1332,8 +1332,7 @@ def load_user(handle_or_id, create=False, allow_opt_out=False):
         error(f"Couldn't determine protocol", status=404)
 
     try:
-        user = models.load_user(handle_or_id, proto, create=create,
-                                allow_opt_out=allow_opt_out)
+        user = models.load_user(handle_or_id, proto, allow_opt_out=allow_opt_out)
     except (AttributeError, RuntimeError, ValueError) as e:
         error(str(e), status=404)
 
@@ -1360,7 +1359,7 @@ def actor(handle_or_id):
             and request.host not in ('fed.brid.gy', 'web.brid.gy', 'localhost')):
         return '', 404
 
-    user = load_user(handle_or_id, create=True, allow_opt_out=True)
+    user = load_user(handle_or_id, allow_opt_out=True)
     proto = user
 
     # allow non-AS2 fetches even for disabled users, just redirect to bsky.app profile

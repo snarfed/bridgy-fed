@@ -370,6 +370,7 @@ class ActivityPubTest(TestCase):
         super().setUp()
 
         self.user = self.make_user('user.com', cls=Web, has_redirects=True,
+                                   enabled_protocols=['activitypub'],
                                    obj_as1={**ACTOR_AS1, 'id': 'https://user.com/'})
         self.foo_key = ndb.Key(ActivityPub, 'https://mas.to/users/foo')
         self.masto_actor_key = ndb.Key(ActivityPub, 'https://mas.to/me')
@@ -515,38 +516,22 @@ class ActivityPubTest(TestCase):
         self.assertEqual('https://user.com/', got.headers['Location'])
         self.assertEqual('Accept', got.headers['Vary'])
 
-    def test_actor_new_user_fetch(self, _, mock_get, __):
+    def test_actor_unknown_user_isnt_created(self, _, mock_get, __):
+        """Fetching an actor must not bridge a web site that never opted in."""
         self.make_user(cls=Web, id='fa.brid.gy')
         self.user.obj_key.delete()
         self.user.key.delete()
-        mock_get.side_effect = test_web.web_user_gets('user.com')
-
-        got = self.client.get('/user.com', headers={'Accept': as2.CONTENT_TYPE})
-        self.assertEqual(200, got.status_code)
-        self.assert_equals(add_key({
-            **ACTOR_BASE_FULL,
-            'name': 'Ms. ☕ Baz [Unofficial]',
-            'discoverable': True,
-            'indexable': True,
-        }), got.json, ignore=['@context', 'publicKeyPem', 'summary'])
-
-    def test_actor_new_user_fetch_no_mf2(self, _, mock_get, __):
-        self.user.obj_key.delete()
-        self.user.key.delete()
-
-        mock_get.side_effect = [
-            WEBMENTION_DISCOVERY,
-            requests_response(status=404),
-            WEBMENTION_DISCOVERY,
-        ]
 
         got = self.client.get('/user.com', headers={'Accept': as2.CONTENT_TYPE})
         self.assertEqual(404, got.status_code)
+        self.assertIsNone(Web.get_by_id('user.com'))
+        mock_get.assert_not_called()
 
-    def test_actor_new_user_fetch_fails(self, _, mock_get, ___):
-        mock_get.side_effect = ReadTimeoutError(None, None, None)
+    def test_actor_unknown_user_no_fetch(self, _, mock_get, ___):
         got = self.client.get('/nope.com', headers={'Accept': as2.CONTENT_TYPE})
-        self.assertEqual(504, got.status_code)
+        self.assertEqual(404, got.status_code)
+        self.assertIsNone(Web.get_by_id('nope.com'))
+        mock_get.assert_not_called()
 
     def test_actor_handle_existing_user(self, _, __, ___):
         self.make_user(cls=Web, id='fa.brid.gy')
@@ -562,7 +547,7 @@ class ActivityPubTest(TestCase):
                            ignore=['attachment', 'publicKey'])
 
     @patch.object(Fake, 'DEFAULT_ENABLED_PROTOCOLS', new=['activitypub'])
-    def test_actor_handle_new_user(self, _, __, ___):
+    def test_actor_handle_unknown_user_isnt_created(self, _, __, ___):
         self.make_user(cls=Web, id='fa.brid.gy')
         Fake.fetchable['fake:profile:user'] = as2.to_as1({
             **ACTOR_FAKE,
@@ -570,9 +555,8 @@ class ActivityPubTest(TestCase):
         })
         got = self.client.get('/ap/fake:user', base_url='https://fa.brid.gy/',
                               headers={'Accept': as2.CONTENT_TYPE})
-        self.assertEqual(200, got.status_code)
-        self.assert_equals(ACTOR_FAKE_USER, got.json,
-                           ignore=['attachment', 'publicKey'])
+        self.assertEqual(404, got.status_code)
+        self.assertIsNone(Fake.get_by_id('fake:user'))
 
     def test_actor_activitypub_not_enabled(self, *_):
         obj = self.store_object(id='did:plc:user', raw={'foo': 'baz'})
@@ -707,7 +691,7 @@ class ActivityPubTest(TestCase):
         actor_as2 = json_loads(util.read('fed.brid.gy.as2.json'))
         self.make_user(domains.PRIMARY_DOMAIN, cls=Web, obj_as2=actor_as2,
                        obj_id='https://fed.brid.gy/', ap_subdomain='fed',
-                       has_redirects=True)
+                       has_redirects=True, enabled_protocols=['activitypub'])
 
         activitypub._INSTANCE_ACTOR = None
         got = self.client.get('/fed.brid.gy', base_url='https://fed.brid.gy/',
@@ -1488,7 +1472,8 @@ class ActivityPubTest(TestCase):
             ignore=['created', 'updated'])
 
         self.assert_user(ActivityPub, 'https://mas.to/users/foo', obj_as2=ACTOR)
-        self.assert_user(Web, 'user.com', last_webmention_in=NOW, has_redirects=True)
+        self.assert_user(Web, 'user.com', last_webmention_in=NOW, has_redirects=True,
+                         enabled_protocols=['activitypub'])
 
     def test_inbox_follow_use_instead_strip_www(self, mock_head, mock_get, mock_post):
         self.make_user('www.user.com', cls=Web, use_instead=self.user.key)
@@ -2654,7 +2639,8 @@ class ActivityPubTest(TestCase):
 class ActivityPubUtilsTest(TestCase):
     def setUp(self):
         super().setUp()
-        self.user = self.make_user('user.com', cls=Web, obj_as2=ACTOR)
+        self.user = self.make_user('user.com', cls=Web, obj_as2=ACTOR,
+                                   enabled_protocols=['activitypub'])
 
     def test_put_validates_id(self, *_):
         for bad in (

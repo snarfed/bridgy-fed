@@ -123,7 +123,7 @@ class Web(User, Protocol):
     ''
     CONTENT_TYPE = common.CONTENT_TYPE_HTML
     ''
-    DEFAULT_ENABLED_PROTOCOLS = ('activitypub',)
+    DEFAULT_ENABLED_PROTOCOLS = ()
     ''
     DEFAULT_SERVE_USER_PAGES = True
     ''
@@ -810,7 +810,7 @@ def check_web_site():
         return render_template('enter_web_site.html'), 400
 
     try:
-        user = Web.get_or_create(domain, enabled_protocols=['atproto'],
+        user = Web.get_or_create(domain, enabled_protocols=['activitypub', 'atproto'],
                                  propagate=True, reload=True, verify=True)
     except BaseException as e:
         code, body = util.interpret_http_exception(e)
