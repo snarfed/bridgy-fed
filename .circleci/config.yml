@@ -23,11 +23,11 @@ commands:
       - run:
           name: Install gcloud
           command: |
-            # google-cloud-sdk: https://cloud.google.com/sdk/docs/install#deb
+            # google-cloud-cli: https://cloud.google.com/sdk/docs/install#deb
             echo "deb [signed-by=/usr/share/keyrings/cloud.google.gpg] https://packages.cloud.google.com/apt cloud-sdk main" | sudo tee -a /etc/apt/sources.list.d/google-cloud-sdk.list
             curl https://packages.cloud.google.com/apt/doc/apt-key.gpg | sudo apt-key --keyring /usr/share/keyrings/cloud.google.gpg add -
             sudo apt-get update
-            sudo apt-get install -y apt-transport-https automake ca-certificates gnupg google-cloud-sdk libtool pkg-config
+            sudo apt-get install -y apt-transport-https automake ca-certificates gnupg google-cloud-cli libtool pkg-config
 
   auth-gcloud:
     steps:
@@ -88,7 +88,7 @@ jobs:
             # Docker image's default user is circleci :/
             # https://github.com/cypress-io/circleci-orb/issues/269
             #
-            # - /usr/lib/google-cloud-sdk
+            # - /usr/lib/google-cloud-cli
             # - /usr/lib/jvm/java-11-openjdk-amd64
 
       - run:
