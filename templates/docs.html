@@ -80,7 +80,7 @@
 <li><a href="#format-mismatches">How does this handle formatting differences between networks?</a></li>
 <li><a href="#moderation">What about moderation? How do blocks, mutes, etc work?</a></li>
 <li><a href="#spam-etc">I got suspended or moderated or labeled as spam, NSFW, etc, but I'm not! What do I do?</a></li>
-<li><a href="#opt-out">How do I opt out and remove my site or account?</a></li>
+<li><a href="#opt-out">How do I disable the bridge?</a></li>
 <li><a href="#dms">Why is Bridgy Fed chatting or DMing with me?</a></li>
 <li><a href="#migration">Is account migration supported?</a></li>
 <li><a href="#use-like-normal">Can I log into my bridged account and use it like a normal account?</a></li>
@@ -163,8 +163,8 @@
 <li><a href="#web-how-post">How does Bridgy Fed find my posts?</a></li>
 <li><a href="#web-which-parts">How does it decide which parts of my posts to include?</a></li>
 <li><a href="#web-visible-links">What's up with the visible fed.brid.gy links in my fediverse posts?</a></li>
-<li><a href="#web-reply">How do I reply to a fediverse post?</a></li>
-<li><a href="#web-like">How do I favorite (aka like) or boost (aka repost) a fediverse post?</a></li>
+<li><a href="#web-reply">How do I reply to a post?</a></li>
+<li><a href="#web-like">How do I like or repost a fediverse or Bluesky post?</a></li>
 <li><a href="#web-follow">How do I follow someone?</a></li>
 <li><a href="#web-unfollow">How do I unfollow someone?</a></li>
 <li><a href="#web-image">How do I include an image in a post?</a></li>
@@ -174,12 +174,12 @@
 <li><a href="#web-update">How do I edit an existing post?</a></li>
 <li><a href="#web-delete">How do I delete a post?</a></li>
 <li><a href="#web-fragment">Can I publish just one part of a page?</a></li>
-<li><a href="#web-backfeed">How do fediverse replies, likes, and other interactions show up on my site?</a></li>
-<li><a href="#web-read">How do I read my fediverse timeline/feed?</a></li>
+<li><a href="#web-backfeed">How do replies, likes, and other interactions show up on my site?</a></li>
+<li><a href="#web-read">How do I read my timeline/feed?</a></li>
 <li><a href="#web-notifications">Are there notifications?</a></li>
-<li><a href="#web-discovery">How can people on the fediverse find and follow me?</a></li>
-<li><a href="#web-see-posts">How can I see what my posts look like inside the fediverse?</a></li>
-<li><a href="#web-searchable">Can I make my posts show up when people search for their URLs in the fediverse?</a></li>
+<li><a href="#web-discovery">How can people find and follow me?</a></li>
+<li><a href="#web-see-posts">How can I see what my posts look like?</a></li>
+<li><a href="#web-searchable">Can I make my posts show up when people search for their URLs?</a></li>
 <li><a href="#web-enhanced">Can I verify my web site and use my domain as my handle on other networks?</a></li>
 
 <br>
@@ -318,9 +318,9 @@
 <p>Oh no, sorry! Bridgy Fed generally doesn't do any direct moderation or labeling itself. As described above, we primarily bridge the networks' own moderation activities and labels. If you bridge your account into another network, and you get suspended or moderated or labeled there, your best bet is to contact their support directly, eg the fediverse instance's admins or <a href="mailto:moderation@blueskyweb.xyz">Bluesky moderation</a> (<a href="https://bsky.social/about/support/tos#complaints">background</a>).
 </li>
 
-<li id="opt-out" class="question">How do I opt out and remove my site or account?</li>
+<li id="opt-out" class="question">How do I disable the bridge?</li>
 <li class="answer">
-<p>If you're on the fediverse or Bluesky, and you've opted in but now want to opt out, block the Bridgy Fed bot user for the network you want to opt out of. For example, on the fediverse, block <code>@bsky.brid.gy@bsky.brid.gy</code>. On Bluesky, block <a href="https://bsky.app/profile/ap.brid.gy">@ap.brid.gy</a>.</p>
+<p>If you're on the fediverse or Bluesky, and you've enabled this bridge and now want to disable it, block the Bridgy Fed bot user for the network you want to opt out of. For example, on the fediverse, block <code>@bsky.brid.gy@bsky.brid.gy</code>. On Bluesky, block <a href="https://bsky.app/profile/ap.brid.gy">@ap.brid.gy</a>.</p>
 <p>(However, if you're on a <a href="https://pixelfed.org/">Pixelfed</a> instance, DM the word <code>stop</code> to <code>@bsky.brid.gy@bsky.brid.gy</code> instead. <a href="https://github.com/pixelfed/pixelfed/issues/5678">Pixelfed doesn't yet send the ActivityPub Block activity</a>, so blocking won't work. Hopefully they'll fix that soon!)
 <p>If you're on the web, <a href="mailto:feedback@brid.gy">email us</a> from an address at your web site's domain to show that you own it, or you can put the text <code>#nobridge</code> in the <a href="#web-profile">profile on your home page</a> and then <a href="#update-profile">update your profile</a> on <a href="#user-page">your user page</a>.</p>
 <p>Once you've done this, Bridgy Fed will deactivate your bridged profile in that network, and it will no longer bridge any of your posts or interactions there.</p>
@@ -1257,7 +1257,7 @@ Link: <<span class='value'>at://did:plc:bg5udl25mvzg3rt7l5n2hzet/app.bsky.feed.p
 <li class="answer">
 <p>Yes! On Bluesky and the fediverse, you can enable the bridge for a user by having them <a href="#bluesky-get-started">follow <code>@ap.brid.gy</code></a> <a href="#fediverse-get-started">or <code>@bsky.brid.gy@bsky.brid.gy</code></a>, respectively. Likewise, you can disable the bridge for a user by having them block that account. <a href="#opt-out">Your users will still be able to opt in or out individually</a>, of course.
 <p>If you do this, we strongly recommend and expect that you only do it for new users, not existing users, and that you tell new users loudly during the signup flow that they'll be bridged. If you don't, we reserve the right to disable automatic opt-in from your instance.
-<p>To enable the bridge for a web site, make a form-encoded HTTP POST to <code>https://fed.brid.gy/web-site</code> with the web site's home page URL in the body's <code>url</code> parameter, eg <code>url=example.com</code>. The web site <a href="#web-get-started">must either support microformats2 and webmentions, or serve an RSS or Atom feed discoverable from its home page.</a> To disable, put the text <code>#nobridge</code> in the web site's <a href="#web-profile">profile metadata</a>, then make an HTTP POST to <code>https://fed.brid.gy/web/[domain]/update-profile</code>, where <code>[domain]</code> is the web site's domain, eg <code>snarfed.org</code>.</a>
+<p>To enable the bridge for a web site, make a form-encoded HTTP POST to <code>https://fed.brid.gy/web-site</code> with the web site's home page URL in the body's <code>url</code> parameter, eg <code>url=example.com</code>, and <code>confirm=true</code>. The web site <a href="#web-get-started">must either support microformats2 and webmentions, or serve an RSS or Atom feed discoverable from its home page.</a> To disable, put the text <code>#nobridge</code> in the web site's <a href="#web-profile">profile metadata</a>, then make an HTTP POST to <code>https://fed.brid.gy/web/[domain]/update-profile</code>, where <code>[domain]</code> is the web site's domain, eg <code>snarfed.org</code>.</a>
 </li>
 
 <li id="bluesky-handle-api" class="question">As a server admin, can I give my new users custom Bluesky domain handles automatically?</li>

@@ -279,16 +279,7 @@ def render(template, **vars):
     Args:
       template (str): file name
     """
-    if user := vars.get('user'):
-        vars['bridged_protos'] = [
-            proto for proto in set(PROTOCOLS.values())
-            if proto and not isinstance(user, proto)
-            and proto.LABEL not in ('ui', 'web')
-            and user.is_enabled(proto)]
-
-    vars = {**TEMPLATE_VARS, **vars}
-
-    return render_template(template, logins=get_logins(), **vars)
+    return render_template(template, logins=get_logins(), **TEMPLATE_VARS, **vars)
 
 
 @app.route('/')

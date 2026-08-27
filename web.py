@@ -220,7 +220,8 @@ class Web(User, Protocol):
         if not allow_opt_out and user.status:
             return None
 
-        if not user.existing and not is_bot:
+        # don't poll a new user's feed until they've opted into bridging
+        if not user.existing and not is_bot and user.enabled_protocols:
             create_task(queue='poll-feed', domain=user.key.id())
 
         return user
@@ -809,9 +810,16 @@ def check_web_site():
         flash('Only top-level web sites and domains are supported.')
         return render_template('enter_web_site.html'), 400
 
+    # only actually bridge once the user has confirmed on confirm_web_site.html
+    kwargs = {}
+    if confirm := request.values.get('confirm'):
+        kwargs = {
+            'enabled_protocols': ['activitypub', 'atproto'],
+            'propagate': True,
+        }
     try:
-        user = Web.get_or_create(domain, enabled_protocols=['activitypub', 'atproto'],
-                                 propagate=True, reload=True, verify=True)
+        user = Web.get_or_create(domain, allow_opt_out=True, reload=True,
+                                 verify=True, **kwargs)
     except BaseException as e:
         code, body = util.interpret_http_exception(e)
         if code:
@@ -819,7 +827,7 @@ def check_web_site():
             return render_template('enter_web_site.html')
         raise
 
-    if not user:  # opted out
+    if not user:
         flash(invalid_msg, escape=False)
         return render_template('enter_web_site.html'), 400
 
@@ -828,6 +836,18 @@ def check_web_site():
     if user.redirects_error == OWNS_WEBFINGER:
         flash(f'{url} looks like a fediverse server! Try a normal web site.')
         return render_template('enter_web_site.html'), 400
+
+    if user.status:
+        desc = user.status_description() or user.status
+        flash(f'Sorry, we can\'t bridge {domain}: {desc}. <a href="/docs#web-get-started">More details.</a>', escape=False)
+        return render_template('enter_web_site.html'), 400
+
+    if not confirm:
+        if user.enabled_protocols:
+            flash(f'{domain} is already bridged!')
+            return redirect(user.user_page_path())
+
+        return render_template('confirm_web_site.html', user=user)
 
     create_task(queue='poll-feed', domain=domain)
     return redirect(user.user_page_path())

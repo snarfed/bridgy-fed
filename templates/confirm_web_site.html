@@ -1,0 +1,44 @@
+{% extends "base.html" %}
+
+{% block content %}
+
+{% set feed_url, feed_type = user.feed_url() %}
+
+<div class="row">
+
+</div>
+
+<div class="row">
+<p><span class="big">Do you want to bridge </span>
+  {% include 'user_with_links.html' %}
+  <span class="big">to the <a class="fediverse" href="https://en.wikipedia.org/wiki/fediverse">fediverse</a> and the <a href="https://atmosphereaccount.com/">Atmosphere</a> (aka <a href="https://bsky.social/">Bluesky</a>)?</span>
+</div>
+
+<div class="row">
+<ul style="text-align: left">
+<li>Bridgy Fed will create new accounts for your site in those networks.
+<li>Your profile, including the name and picture above, <a href="/docs#web-profile">will come from your home page</a>.
+
+{% if feed_url %}
+  <li>We found {% if feed_type == 'atom' %}an Atom{% elif feed_type == 'rss' %}an RSS{% else %}a{% endif %} feed at <a href="{{ feed_url }}">{{ feed_url }}</a>. We'll <a href="/docs#web-how-post">check it periodically and bridge new posts from it automatically</a>. You can also switch to <a href="https://webmention.net/">webmentions</a>.
+{% else %}
+  <li><a href="/docs#web-which-parts">Your posts will come from the microformats in your HTML.</a> You'll need to <a href="/docs#web-how-post">send us a webmention</a> for each post you want to bridge. Or, if you add an RSS or Atom feed, then come back here and re-register, <a href="/docs#web-how-post">we'll use that instead</a>.
+{% endif %}
+
+<li>People on the fediverse and the Atmosphere will be able to see, follow, and interact with your site. Bridgy Fed can send those interactions back as <a href="/docs#web-backfeed">webmentions</a> and in a <a href="/docs#web-notifications">notifications feed</a>.
+<li>You can <a href="/docs#web-follow">follow</a> and <a href="/docs#web-like">interact</a> with people in those networks too.
+<li>You can <a href="/docs#opt-out">disable the bridge</a> by emailing us from an <code>@{{ user.key.id() }}</code> address, or by adding <code>#nobridge</code> to the <a href="/docs#web-profile">profile on your home page</a> and then <a href="/docs#update-profile">updating your user page</a>.
+
+</ul>
+</div>
+
+
+<div class="row big">
+<form method="post" action="/web-site">
+  <input type="hidden" name="url" value="{{ user.web_url() }}" />
+  <input type="hidden" name="confirm" value="true" />
+  <input type="submit" class="btn btn-default" value="OK" />
+</form>
+</div>
+
+{% endblock %}

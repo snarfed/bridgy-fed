@@ -4,18 +4,24 @@
     {% set logo = None %}
   {% endif %}
   {{ user.html_link(pictures=True, logo=logo)|safe }}
-  <form method="post" class="update-profile"
-        action="{{ user.user_page_path('update-profile', prefer_id=True) }}">
-    <button id="update-profile-button" type="submit" title="Update profile"
-            class="btn btn-default glyphicon glyphicon-refresh"
-            {% if READ_ONLY %}disabled{% endif %}></button>
-  </form>
+
+  {% if user.enabled_protocols %}
+    <form method="post" class="update-profile"
+          action="{{ user.user_page_path('update-profile', prefer_id=True) }}">
+      <button id="update-profile-button" type="submit" title="Update profile"
+              class="btn btn-default glyphicon glyphicon-refresh"
+              {% if READ_ONLY %}disabled{% endif %}></button>
+    </form>
+  {% endif %}
   </nobr>
 </span>
 
-<br>
+{% if user.enabled_protocols %}
+  <br>
+{% endif %}
 
-{% for proto in bridged_protos %}
+{% for label in user.enabled_protocols %}
+  {% set proto = PROTOCOLS[label] %}
   {% set url = proto.bridged_web_url_for(user) %}
   {% set handle = user.handle_as(proto) or user.handle_or_id() %}
   <nobr title="{{ proto.__name__ }} (bridged): {{ handle }}">

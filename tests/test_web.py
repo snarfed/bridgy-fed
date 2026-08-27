@@ -574,8 +574,22 @@ class WebTest(TestCase):
             requests_response(status=404),  # webfinger
             new,
         ]
-        user = Web.get_or_create('new.com')
+        user = Web.get_or_create('new.com', enabled_protocols=['activitypub'])
         self.assert_task(mock_create_task, 'poll-feed', domain='new.com')
+
+    @patch('webutil.appengine_config.tasks_client.create_task')
+    def test_get_or_create_new_not_bridged_no_poll_feed_task(self, mock_create_task,
+                                                             mock_get, __):
+        common.RUN_TASKS_INLINE = False
+        new = requests_response(ACTOR_HTML, url='https://new.com/')
+        mock_get.side_effect = [
+            new,
+            requests_response(status=404),  # webfinger
+            new,
+        ]
+        user = Web.get_or_create('new.com')
+        self.assertEqual([], user.enabled_protocols)
+        mock_create_task.assert_not_called()
 
     def test_get_or_create_nobridge_opted_out(self, *_):
         self.user.obj.mf2['properties']['summary'] = '#nobridge'
@@ -3071,7 +3085,7 @@ Current vs expected:<pre>- http://this/404s
         self.assertNotIn('user.com', body)
 
     @patch('webutil.appengine_config.tasks_client.create_task')
-    def test_check_web_site(self, mock_create_task, mock_get, _):
+    def test_check_web_site_confirm(self, mock_create_task, mock_get, _):
         common.RUN_TASKS_INLINE = False
 
         redir = 'http://localhost/.well-known/webfinger?resource=acct:user.com@user.com'
@@ -3080,20 +3094,89 @@ Current vs expected:<pre>- http://this/404s
             requests_response(status=302, redirected_url=redir),
             ACTOR_HTML_RESP,
         )
+        self.user.enabled_protocols = []
+        self.user.put()
 
-        got = self.post('/web-site', data={'url': 'https://user.com/'})
+        got = self.post('/web-site', data={'url': 'https://user.com/',
+                                           'confirm': 'true'})
         self.assert_equals(302, got.status_code)
         self.assert_equals('/web/user.com', got.headers['Location'])
 
         user = Web.get_by_id('user.com')
         self.assertEqual('person', user.obj.as1['objectType'])
+        self.assertEqual(['activitypub', 'atproto'], sorted(user.enabled_protocols))
 
         self.assert_task(mock_create_task, 'poll-feed', domain='user.com')
+
+    @patch('webutil.appengine_config.tasks_client.create_task')
+    def test_check_web_site_confirm_feed(self, mock_create_task, mock_get, _):
+        common.RUN_TASKS_INLINE = False
+        mock_get.side_effect = [
+            requests_response(ACTOR_HTML_REL_FEED_URL, url='https://new.com/'),
+            requests_response(status=404),  # webfinger
+        ]
+
+        got = self.post('/web-site', data={'url': 'https://new.com/'})
+        self.assert_equals(200, got.status_code)
+
+        body = got.get_data(as_text=True)
+        self.assertIn('Do you want to bridge', body)
+        self.assertIn('We found', body)
+        self.assertIn('an Atom feed', body)
+
+        # not bridged yet
+        user = Web.get_by_id('new.com', allow_opt_out=True)
+        self.assertEqual([], user.enabled_protocols)
+        self.assertEqual([], user.copies)
+        mock_create_task.assert_not_called()
+
+    @patch('webutil.appengine_config.tasks_client.create_task')
+    def test_check_web_site_confirm_webmention(self, mock_create_task, mock_get, _):
+        common.RUN_TASKS_INLINE = False
+        mock_get.side_effect = web_user_gets('new.com')
+
+        got = self.post('/web-site', data={'url': 'https://new.com/'})
+        self.assert_equals(200, got.status_code)
+
+        body = got.get_data(as_text=True)
+        self.assertIn('Do you want to bridge', body)
+        self.assertIn('Your posts will come from the microformats', body)
+
+        user = Web.get_by_id('new.com', allow_opt_out=True)
+        self.assertEqual([], user.enabled_protocols)
+        self.assertEqual([], user.copies)
+        mock_create_task.assert_not_called()
+
+    def test_check_web_site_already_bridged(self, mock_get, _):
+        mock_get.side_effect = (
+            ACTOR_HTML_RESP,
+            requests_response(status=404),  # webfinger
+            ACTOR_HTML_RESP,
+        )
+
+        got = self.post('/web-site', data={'url': 'https://user.com/'})
+        self.assert_equals(302, got.status_code)
+        self.assert_equals('/web/user.com', got.headers['Location'])
+        self.assertEqual(['user.com is already bridged!'], get_flashed_messages())
+
+    def test_check_web_site_no_feed_or_webmention(self, mock_get, _):
+        mock_get.side_effect = [
+            requests_response(ACTOR_HTML_METAFORMATS, url='https://new.com/'),
+            requests_response(status=404),  # webfinger
+            requests_response(ACTOR_HTML_METAFORMATS, url='https://new.com/'),
+        ]
+
+        got = self.post('/web-site', data={'url': 'https://new.com/'})
+        self.assert_equals(400, got.status_code)
+        self.assertEqual(
+            ["Sorry, we can't bridge new.com: web site doesn't have an RSS or Atom feed or webmention endpoint. <a href=\"/docs#web-get-started\">More details.</a>"],
+            get_flashed_messages())
 
     def test_check_web_site_unicode_domain(self, mock_get, _):
         mock_get.side_effect = web_user_gets('☃.net')
 
-        got = self.post('/web-site', data={'url': 'https://☃.net/'})
+        got = self.post('/web-site', data={'url': 'https://☃.net/',
+                                           'confirm': 'true'})
         self.assert_equals(302, got.status_code)
         self.assert_equals('/web/%E2%98%83.net', got.headers['Location'])
         user = Web.get_by_id('☃.net')
@@ -3108,7 +3191,8 @@ Current vs expected:<pre>- http://this/404s
             requests_response(status=404),  # webfinger
         ]
         mock_get.side_effect = gets
-        got = self.post('/web-site', data={'url': 'https://AbC.oRg/'})
+        got = self.post('/web-site', data={'url': 'https://AbC.oRg/',
+                                           'confirm': 'true'})
         self.assert_equals(302, got.status_code)
         self.assert_equals('/web/abc.org', got.headers['Location'])
         self.assertIsNotNone(Web.get_by_id('abc.org'))
@@ -3160,7 +3244,7 @@ Current vs expected:<pre>- http://this/404s
         got = self.post('/web-site', data={'url': 'user.com'})
         self.assert_equals(400, got.status_code)
         self.assertEqual(
-            ['<a href="http://user.com">user.com</a> is not a <a href="/docs#web-get-started">valid or supported web site</a>'],
+            ['Sorry, we can\'t bridge user.com: account or instance has requested to be opted out. <a href="/docs#web-get-started">More details.</a>'],
             get_flashed_messages())
         self.assertEqual(1, Web.query().count())
 
@@ -3196,7 +3280,8 @@ Current vs expected:<pre>- http://this/404s
             ACTOR_HTML_RESP,
         )
 
-        got = self.post('/web-site', data={'url': 'https://orig.co/'})
+        got = self.post('/web-site', data={'url': 'https://orig.co/',
+                                           'confirm': 'true'})
         self.assert_equals(302, got.status_code, got.headers)
         self.assert_equals('/web/orig.co', got.headers['Location'])
 
@@ -3205,9 +3290,8 @@ Current vs expected:<pre>- http://this/404s
 
         got = self.post('/web-site', data={'url': 'https://orig.co/'})
         self.assert_equals(400, got.status_code, got.headers)
-        msg = get_flashed_messages()[0]
         self.assertEqual(
-            ['<a href="https://orig.co/">orig.co</a> is not a <a href="/docs#web-get-started">valid or supported web site</a>'],
+            ['Sorry, we can\'t bridge orig.co: web site doesn\'t have an RSS or Atom feed or webmention endpoint. <a href="/docs#web-get-started">More details.</a>'],
             get_flashed_messages())
 
 
