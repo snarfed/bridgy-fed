@@ -161,7 +161,6 @@
 <li><a href="#web-get-started">How do I get started?</a></li>
 <li><a href="#web-profile">Where does my profile info come from?</a></li>
 <li><a href="#web-how-post">How does Bridgy Fed find my posts?</a></li>
-<li><a href="#web-interpret">How does it interpret and translate my posts?</a></li>
 <li><a href="#web-which-parts">How does it decide which parts of my posts to include?</a></li>
 <li><a href="#web-visible-links">What's up with the visible fed.brid.gy links in my fediverse posts?</a></li>
 <li><a href="#web-reply">How do I reply to a fediverse post?</a></li>
@@ -892,7 +891,7 @@ RewriteRule ^.well-known/(host-meta|webfinger).* https://fed.brid.gy/$0  [redire
 
 <p>The first time someone follows a web site via Bridgy Fed, it looks for an Atom or RSS feed. If it finds one, it extracts and bridges those posts, then periodically checks for new posts.</p>
 
-<p>Instead of waiting for that periodic poll, you can bridge a new or updated post immediately by including <a href="https://microformats.org/wiki/microformats2">microformats</a> in your HTML and sending Bridgy Fed a <a href="https://webmention.net/">webmention</a>. Include a link to <code><a href="fed.brid.gy">https://fed.brid.gy/</a></code> in your post, and if your web server supports webmentions, it should send one automatically. Alternatively <a href="https://indieweb.org/Webmention#Manual_Webmentions">you can send one manually.</a> (Note that triggering via webmention <em>requires</em> your post HTML to be marked up with <a href="https://microformats.org/wiki/microformats2">microformats</a>.)</p>
+<p>Instead of waiting for that periodic poll, you can bridge a new or updated post immediately by including <a href="https://microformats.org/wiki/microformats2">microformats</a> in your HTML and sending Bridgy Fed a <a href="https://webmention.net/">webmention</a>. Include a link to <code><a href="fed.brid.gy">https://fed.brid.gy/</a></code> in your post, and if your web server supports webmentions, it should send one automatically. Alternatively <a href="https://indieweb.org/Webmention#Manual_Webmentions">you can send one manually.</a> (Note that triggering via webmention requires your post HTML to be marked up with <a href="https://microformats.org/wiki/microformats2">microformats</a>.)</p>
 
 <p>Once you send Bridgy Fed a webmention from your site - any webmention! - it will stop reading posts from your Atom or RSS feed, and expect webmentions instead for all posts in the future. You can use this to prevent automatically bridging all posts, and instead choose proactively which of your posts to bridge.</p>
 
@@ -909,24 +908,15 @@ RewriteRule ^.well-known/(host-meta|webfinger).* https://fed.brid.gy/$0  [redire
 </p>
 </li>
 
-<li id="web-interpret" class="question">How does it interpret and translate my posts?</li>
-<li class="answer">
-<p>If your post has <a href="http://microformats.org/">microformats</a>, which many web servers include automatically, Bridgy Fed uses them to determine whether it's a <a href="https://indieweb.org/note#How_to">note</a>, <a href="https://indieweb.org/article">article</a>, <a href="#web-like">like</a>, <a href="#web-repost">repost</a>, <a href="#web-reply">reply</a>, or <a href="#web-follow">follow</a>. Here's an example of a note:
-
-<pre>&lt;div class="<span class='keyword'>h-entry</span>"&gt;
-  &lt;p class="<span class='keyword'>e-content</span>"&gt;<span class='value'>Two naked tags walk into a bar. The bartender exclaims, "Hey, you can't come in here without microformats, this is a classy joint!"</span>&lt;/p&gt;
-&lt;/div&gt;
-</pre>
-</p>
-</li>
-
 <li id="web-which-parts" class="question">How does it decide which parts of my posts to include?</li>
 <li class="answer">
-<p>If a post has <a href="http://microformats.org/">microformats</a>, Bridgy Fed looks first for the <code><a href="https://microformats.org/wiki/h-entry#Core_Properties">e-content</a></code> class, then the legacy <code><a href="https://microformats.org/wiki/hatom#Entry_Content">entry-content</a></code> class. It also understands and translates microformats2 classes like <code><a href="#web-image">u-photo</a></code>, <code><a href="#web-video">u-video</a></code>, <code><a href="#web-hashtags">p-category</a></code>, and more.</p>
+<p>For RSS and Atom, Bridgy Fed uses those formats' native elements to extract your post's title (if any), URL, author, tags, date and time, etc.
+
+<p>For webmention-based posts, Bridgy fetches your HTML and parses its <a href="http://microformats.org/">microformats</a>, notably the <code><a href="https://microformats.org/wiki/h-entry#Core_Properties">e-content</a></code> and (legacy) <code><a href="https://microformats.org/wiki/hatom#Entry_Content">entry-content</a></code> classes. It also understands and translates other classes like <code><a href="#web-like">u-like-of</a></code>, <code><a href="#web-like">u-repost-of</a></code>, <code><a href="#web-reply">u-in-reply-to</a></code>, <code><a href="#web-follow">u-follow-of</a></code>, <code><a href="#web-image">u-photo</a></code>, <code><a href="#web-video">u-video</a></code>, <code><a href="#web-hashtags">p-category</a></code>, and more.</p>
 
 <p>Otherwise, Bridgy Fed uses <a href="https://developer.twitter.com/en/docs/twitter-for-websites/cards/guides/getting-started">Twitter card</a>, <a href="https://ogp.me/">Open Graph</a>, and related meta tags in your HTML.</p>
 
-<p>Bridgy Fed includes the full <code><a href="https://microformats.org/wiki/h-entry#Core_Properties">e-content</a></code> when possible, and only truncates if necessary. However, not all bridged networks currently <em>show</em> the full contents of all posts.</p>
+<p>Bridgy Fed includes your posts' full content when possible, and only truncates if necessary. However, not all bridged networks currently <em>show</em> the full content of all posts.</p>
 
 <p>For example, text-based posts fall into two broad buckets: short <a href="https://indieweb.org/note">notes</a> for microblogging and longer <a href="https://indieweb.org/article">articles</a> for long-form articles and blog posts. In the IndieWeb, <a href="https://indieweb.org/post-type-discovery#Algorithm">we differentiate based on whether the post has a title</a>: articles generally have titles, notes don't.</p>
 
@@ -947,7 +937,7 @@ RewriteRule ^.well-known/(host-meta|webfinger).* https://fed.brid.gy/$0  [redire
 <li id="web-reply" class="question">How do I reply to a fediverse or Bluesky post?</li>
 <li class="answer">
 <p>
-Put the reply in a new post on your web site, and include a link to the post you're replying to with class <code><a href="http://microformats.org/wiki/rel-in-reply-to">u-in-reply-to</a></code>, as if you were publishing a normal <a href="https://indieweb.org/comment">IndieWeb reply</a>. For example:
+Replies <a href="#web-which-parts">require microformats and must be triggered via webmention</a>. Put the reply in a new post on your web site, and include a link to the post you're replying to with class <code><a href="http://microformats.org/wiki/rel-in-reply-to">u-in-reply-to</a></code>, as if you were publishing a normal <a href="https://indieweb.org/comment">IndieWeb reply</a>. For example:
 
 <pre>&lt;div class="<span class='keyword'>h-entry</span>"&gt;
   &lt;p class="<span class='keyword'>e-content</span>"&gt;<span class='value'>Highly entertaining. Please subscribe me to your newsletter.</span>&lt;/p&gt;
@@ -960,7 +950,7 @@ Put the reply in a new post on your web site, and include a link to the post you
 
 <li id="web-like" class="question">How do I like or repost a fediverse or Bluesky post?</li>
 <li class="answer">
-<p>Liking and reposting are almost exactly the <a href="#web-reply">same as replying</a>. The only difference is that you use <code><a href="https://indieweb.org/like">u-like-of</a></code> for a like or <code><a href="https://indieweb.org/repost">u-repost-of</a></code> for a repost.
+<p>Likes and reposts <a href="#web-which-parts">require microformats and must be triggered via webmention</a>. They're almost exactly the <a href="#web-reply">same as replying</a>. The only difference is that you use <code><a href="https://indieweb.org/like">u-like-of</a></code> for a like or <code><a href="https://indieweb.org/repost">u-repost-of</a></code> for a repost.
 
 <pre>
 &lt;a class="<span class='keyword'>u-like-of</span>" href="<a href='https://indieweb.social/@tchambers/109374703563569354'>https://indieweb.social/@tchambers/109374703563569354</a>"&gt;&lt;/a&gt;
@@ -998,7 +988,7 @@ This method doesn't require IndieAuth, and it can be automated.</p>
 <li id="web-image" class="question">How do I include an image in a post?</li>
 <li class="answer">
 <p>
-Use <code>&lt;img class="<span class='keyword'>u-photo</span>"&gt;</code> for the image in your post. For example:
+If you're using <a href="#web-which-parts">microformats and webmentions</a>, put the <code>&lt;img class="<span class='keyword'>u-photo</span>"&gt;</code> class on the image in your post. For example:
 
 <pre>
 &lt;img class="<span class='keyword'>u-photo</span>" src="<span class='value'>/full_glass.jpg</span>" alt="<span class='value'>a drink</span>" /&gt;
@@ -1010,7 +1000,7 @@ I love scotch. Scotchy scotchy scotch.
 <li id="web-video" class="question">How do I include a video in a post?</li>
 <li class="answer">
 <p>
-Use <code>&lt;video class="<span class='keyword'>u-video</span>"&gt;</code> for the video in your post. For example:
+If you're using <a href="#web-which-parts">microformats and webmentions</a>, put the <code>&lt;video class="<span class='keyword'>u-video</span>"&gt;</code> class on the video in your post. For example:
 
 <pre>
 &lt;video class="<span class='keyword'>u-video</span>" src="<span class='value'>/dancing.mp4</span>"&gt;&lt;/video&gt;
@@ -1021,7 +1011,9 @@ Dancing dancing dancing
 
 <li id="web-hashtags" class="question">How do I use hashtags?</li>
 <li class="answer">
-<p>Use <code><span class='keyword'>p-category</span></code> and link the hashtag to a fully qualified URL. (Any URL you want!) Fediverse sites like Mastodon will generally rewrite the link to point to a search for that hashtag on the local instance. For example:
+<p>For RSS, use the <a href="https://www.rssboard.org/rss-specification#hrelementsOfLtitemgt"><code>&lt;category&gt;</code></a> element.
+<p>For Atom, use the <a href="https://datatracker.ietf.org/doc/html/rfc4287#section-4.2.2"><code>&lt;atom:category&gt;</code></a> element.
+<p>For webmention and microformats2, use <code><span class='keyword'>p-category</span></code> and link the hashtag to a fully qualified URL. (Any URL you want!) Fediverse sites like Mastodon will generally rewrite the link to point to a search for that hashtag on the local instance. For example:
 
 <pre>&lt;div class="<span class='keyword'>h-entry</span>"&gt;
   &lt;p class="<span class='keyword'>e-content</span>"&gt;
@@ -1038,7 +1030,7 @@ Dancing dancing dancing
 
 <li id="web-mention" class="question">How do I @-mention someone?</li>
 <li class="answer">
-<p>Include a link to their profile in your post's content with an <code>@</code> character at the beginning of the link text. For example:
+<p>@-mentions <a href="#web-which-parts">require microformats and must be triggered via webmention</a>. Include a link to the user's profile in your post's content with an <code>@</code> character at the beginning of the link text. For example:
 </p>
 
 <pre>
@@ -1050,13 +1042,13 @@ Hi &lt;a href="<a href='https://mastodon.social/@adactio'>https://mastodon.socia
 
 <li id="web-update" class="question">How do I edit an existing post?</li>
 <li class="answer">
-<p>Edit the post on your web site, then send another webmention to Bridgy Fed for it. Bridgy Fed will refetch the post and updated it everywhere it was originally bridged.
+<p>Edits <a href="#web-which-parts">must be triggered via webmention</a>. Edit the post on your web site, then send a webmention to Bridgy Fed for it. Bridgy Fed will refetch the post and updated it everywhere it was originally bridged.
 </p>
 </li>
 
 <li id="web-delete" class="question">How do I delete a post?</li>
 <li class="answer">
-<p>First, delete the post on your web site, so that HTTP requests for it return 410 Gone or 404 Not Found. Then, send another webmention to Bridgy Fed for it. Bridgy Fed will refetch the post, see that it's gone, and delete it in every network where it was bridged.
+<p>Deletes <a href="#web-which-parts">must be triggered via webmention</a>. First, delete the post on your web site, so that HTTP requests for it return 410 Gone or 404 Not Found. Then, send another webmention to Bridgy Fed for it. Bridgy Fed will refetch the post, see that it's gone, and delete it in every network where it was bridged.
 </p>
 </li>
 
