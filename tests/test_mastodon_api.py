@@ -1,5 +1,6 @@
 """Unit tests for mastodon_api.py."""
 from datetime import datetime
+from unittest import skip
 from unittest.mock import patch
 
 from google.cloud.tasks_v2.types import Task
@@ -1102,6 +1103,87 @@ class MastodonApiTest(TestCase):
         self.assertEqual('original', resp.json['reblog']['content'])
         self.assertEqual(to_account(bob), resp.json['reblog']['account'])
 
+    def test_statuses_quote_post(self):
+        bob = self.make_user('other:bob', cls=OtherFake,
+                             enabled_protocols=['activitypub'])
+        self.store_object(id='fake:quoted', users=[bob.key], our_as1={
+            'objectType': 'note',
+            'content': 'original',
+        })
+        self.store_object(id='fake:post', users=[self.user.key], our_as1={
+            'objectType': 'note',
+            'content': 'hello',
+            'attachments': [{
+                'objectType': 'note',
+                'id': 'fake:quoted',
+            }],
+        })
+
+        resp = self.get('/api/v1/statuses/fake:post')
+        self.assertEqual(200, resp.status_code, resp.get_data(as_text=True))
+        quote = resp.json['quote']
+        self.assertEqual('accepted', quote['state'])
+        self.assertEqual('original', quote['quoted_status']['content'])
+        self.assertEqual(to_account(bob), quote['quoted_status']['account'])
+        self.assertNotIn('quoted_status_id', quote)
+
+    def test_statuses_quote_post_quoted_not_stored(self):
+        self.store_object(id='fake:post', users=[self.user.key], our_as1={
+            'objectType': 'note',
+            'content': 'hello',
+            'attachments': [{
+                'objectType': 'note',
+                'id': 'fake:quoted',
+            }],
+        })
+
+        resp = self.get('/api/v1/statuses/fake:post')
+        self.assertEqual(200, resp.status_code, resp.get_data(as_text=True))
+        self.assertEqual({
+            'state': 'accepted',
+            'quoted_status_id': 'fake~3Aquoted',
+        }, resp.json['quote'])
+
+    @skip("we don't bound quote hydration depth yet, so this recurses forever")
+    def test_statuses_quote_post_cycle(self):
+        for id, quoted in ('fake:a', 'fake:b'), ('fake:b', 'fake:a'):
+            self.store_object(id=id, users=[self.user.key], our_as1={
+                'objectType': 'note',
+                'content': id,
+                'attachments': [{'objectType': 'note', 'id': quoted}],
+            })
+
+        resp = self.get('/api/v1/statuses/fake:a')
+        self.assertEqual(200, resp.status_code, resp.get_data(as_text=True))
+        quoted = resp.json['quote']['quoted_status']
+        self.assertEqual('fake:b', quoted['content'])
+        self.assertEqual({'state': 'accepted', 'quoted_status_id': 'fake~3Aa'},
+                         quoted['quote'])
+
+    def test_statuses_repost_of_quote_post(self):
+        bob = self.make_user('other:bob', cls=OtherFake,
+                             enabled_protocols=['activitypub'])
+        self.store_object(id='fake:quoted', users=[bob.key], our_as1={
+            'objectType': 'note',
+            'content': 'original',
+        })
+        self.store_object(id='fake:post', users=[bob.key], our_as1={
+            'objectType': 'note',
+            'content': 'hello',
+            'attachments': [{'objectType': 'note', 'id': 'fake:quoted'}],
+        })
+        self.store_object(id='fake:share', our_as1={
+            'objectType': 'activity',
+            'verb': 'share',
+            'author': 'fake:alice',
+            'object': 'fake:post',
+        })
+
+        resp = self.get('/api/v1/statuses/fake:share')
+        self.assertEqual(200, resp.status_code, resp.get_data(as_text=True))
+        quote = resp.json['reblog']['quote']
+        self.assertEqual('original', quote['quoted_status']['content'])
+
     def test_statuses_single_not_found(self):
         resp = self.get('/api/v1/statuses/nope')
         self.assertEqual(404, resp.status_code)
@@ -2164,6 +2246,33 @@ class MastodonApiTest(TestCase):
         resp = self.get('/api/v1/timelines/home')
         self.assertEqual(200, resp.status_code, resp.get_data(as_text=True))
         self.assertEqual(['in my feed'], [s['content'] for s in resp.json])
+
+    def test_timelines_home_repost_of_quote_post(self):
+        # exercises prefetch_statuses, unlike the single status endpoint
+        bob = self.make_followee('other:bob')
+        self.store_object(id='other:quoted', users=[bob.key], our_as1={
+            'objectType': 'note',
+            'author': 'other:bob',
+            'content': 'original',
+        })
+        self.store_object(id='other:post', users=[bob.key], our_as1={
+            'objectType': 'note',
+            'author': 'other:bob',
+            'content': 'hello',
+            'attachments': [{'objectType': 'note', 'id': 'other:quoted'}],
+        })
+        self.store_object(id='other:share', users=[bob.key], our_as1={
+            'objectType': 'activity',
+            'verb': 'share',
+            'author': 'other:bob',
+            'object': 'other:post',
+        })
+
+        resp = self.get('/api/v1/timelines/home')
+        self.assertEqual(200, resp.status_code, resp.get_data(as_text=True))
+        [share] = [s for s in resp.json if s['reblog']]
+        self.assertEqual('original',
+                         share['reblog']['quote']['quoted_status']['content'])
 
     def test_timelines_home_merges_followees_in_created_order(self):
         for i, id in enumerate(('other:bob', 'other:carol', 'other:dave')):

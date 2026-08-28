@@ -816,7 +816,8 @@ class User(AddRemoveMixin, StringIdModel, metaclass=ProtocolUserMeta):
         * The user is opted out or blocked.
         * The user is on a domain that's opted out or blocked.
         * The from protocol requires opt in, and the user hasn't opted in.
-        * ``explicit`` is True, and this protocol supports ``to_proto`` by, but the user hasn't explicitly opted into it.
+        * ``explicit`` is True, and this protocol supports ``to_proto`` by, but
+          the user hasn't explicitly opted into it.
 
         Args:
           to_proto (Protocol subclass)

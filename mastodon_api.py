@@ -155,10 +155,10 @@ def to_account(user):
 def to_status(obj):
     """Converts a :class:`models.Object` to a Mastodon ``Status``.
 
-    If :func:`prefetch_statuses` has run on ``obj``, uses the ``owner`` and
-    ``target`` it stashed on it, so that converting a whole page of objects
-    doesn't need a datastore round trip per object. Otherwise loads ``obj``'s
-    owner and reblog target, if any, individually.
+    If :func:`prefetch_statuses` has run on ``obj``, uses the ``owner``,
+    ``target``, and ``quoted`` it stashed on it, so that converting a whole page
+    of objects doesn't need a datastore round trip per object. Otherwise loads
+    ``obj``'s owner, reblog target, and quoted post, if any, individually.
 
     Returns None if ``obj`` can't be converted, eg its AS1 ``objectType``/``verb``
     isn't supported, or its account can't be fetched or converted.
@@ -187,13 +187,28 @@ def to_status(obj):
     if not status['account']:
         return None
 
-    if status.get('reblog') is not None:
-        # TODO: if there's a repost loop, ie two share objects whose object fields
-        # point to each other, this will recurse (loop) forever
+    # TODO: if there's a repost loop, ie two share objects whose object fields
+    # point to each other, this will recurse (loop) forever
+    if status['reblog']:
+        # try to hydrate the original post
         status['reblog'] = target_to_status(obj)
         if not status['reblog']:
             # reposts aren't renderable without their original post
             return None
+
+    # TODO: if there's a quote loop, eg an object that quotes itself, this will
+    # recurse (loop) forever
+    if status['quote']:
+        # try to hydrate the quoted post
+        quoted = (getattr(obj, 'quoted', None)
+                  or Object.get_by_id(as1.quoted_posts(obj.as1)[0]))
+
+        if quoted and quoted.as1:
+            if quoted_status := to_status(quoted):
+                status['quote'] = {
+                    'state': 'accepted',
+                    'quoted_status': quoted_status,
+                }
 
     return status
 
@@ -204,7 +219,9 @@ def target_to_status(obj):
     Uses the ``target`` stashed by :func:`prefetch_statuses`, if it's run on
     ``obj``, instead of loading it.
 
-    Returns None if ``obj`` has no ``object``, or if it's not in the datastore.
+    Returns:
+      dict: Mastodon API Status, or None if ``obj`` has no ``object`` or it's not
+        in the datastore.
     """
     if not (target := getattr(obj, 'target', None)):
         if id := as1.get_id(obj.as1, 'object'):
@@ -279,7 +296,8 @@ def prefetch_statuses(objs):
 
     Stashes what it loads on each object in attributes: ``owner`` is its owning
     :class:`models.User`, or None; ``target`` is the :class:`models.Object`
-    referenced by its AS1 ``object`` field, or None.
+    referenced by its AS1 ``object`` field, or None; ``quoted`` is the
+    :class:`models.Object` it quotes, or None.
 
     Args:
       objs (sequence of :class:`models.Object`)
@@ -299,24 +317,30 @@ def prefetch_statuses(objs):
             obj.owner = None
 
         # target object
+        obj.target = None
         if target := as1.get_id(obj.as1, 'object'):
             obj.target = Object.get_by_id_async(target)
-        else:
-            obj.target = None
+
+        # quoted post
+        obj.quoted = None
+        if quoted := as1.quoted_posts(obj.as1):
+            obj.quoted = Object.get_by_id_async(quoted[0])
 
     for obj in objs:
         if obj.owner:
             obj.owner = obj.owner.get_result()
         if obj.target:
             obj.target = obj.target.get_result()
+        if obj.quoted:
+            obj.quoted = obj.quoted.get_result()
 
     redirects = [(obj, obj.owner.use_instead.get_async()) for obj in objs
                  if obj.owner and obj.owner.use_instead]
     for obj, future in redirects:
         obj.owner = future.get_result()
 
-    if targets := non_none(obj.target for obj in objs):
-        prefetch_statuses(targets)
+    if nested := non_none([o.target for o in objs] + [o.quoted for o in objs]):
+        prefetch_statuses(nested)
 
 
 def load_user(handle, resolve=False):
