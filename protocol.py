@@ -1087,10 +1087,14 @@ class Protocol:
             elem[field] = as1.get_objects(elem, field)
             for obj in elem[field]:
                 if id := obj.get('id'):
-                    if field in ('to', 'cc', 'bcc', 'bto') and as1.is_audience(id):
+                    audience = field in ('to', 'cc', 'bcc', 'bto')
+                    if audience and as1.is_audience(id):
                         continue
 
-                    from_cls = Protocol.for_id(id)
+                    # don't fetch to identify recipients; the ones that need
+                    # translating can all be done locally
+                    from_cls = (Protocol.for_id(id, remote=False) if audience
+                                else Protocol.for_id(id))
                     kwargs = {}
 
                     if field == 'id' and from_cls == UIProtocol and owner_proto:

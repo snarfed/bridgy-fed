@@ -758,6 +758,25 @@ class ProtocolTest(TestCase):
             },
         }))
 
+    @patch.object(util.session, 'get')
+    def test_translate_ids_audience_doesnt_fetch(self, mock_get):
+        # recipients we can't identify locally are remote ids that don't need
+        # translating anyway, so don't fetch them
+        self.assert_equals({
+            'objectType': 'note',
+            'id': 'other:o:fa:fake:post',
+            'author': 'other:u:fake:alice',
+            'to': ['https://mas.to/users/unknown', as2.PUBLIC_AUDIENCE],
+            'cc': ['https://mas.to/users/bystander', 'other:u:fake:bob'],
+        }, OtherFake.translate_ids({
+            'objectType': 'note',
+            'id': 'fake:post',
+            'author': 'fake:alice',
+            'to': ['https://mas.to/users/unknown', as2.PUBLIC_AUDIENCE],
+            'cc': ['https://mas.to/users/bystander', 'fake:bob'],
+        }))
+        mock_get.assert_not_called()
+
     def test_translate_ids_update_profile(self):
         self.assert_equals({
             'objectType': 'activity',
