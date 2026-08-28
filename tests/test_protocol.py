@@ -177,6 +177,14 @@ class ProtocolTest(TestCase):
         self.assertEqual(ActivityPub, Protocol.for_id('http://ap.org/actor'))
         self.assertIn(self.as2_req('http://ap.org/actor'), mock_get.mock_calls)
 
+    def test_for_id_remote_default_shares_cache_key(self):
+        # passing remote's default explicitly should still hit the cache
+        key = Protocol.for_id.cache_key
+        self.assertEqual(key('http://ap.org/actor'),
+                         key('http://ap.org/actor', remote=True))
+        self.assertNotEqual(key('http://ap.org/actor'),
+                            key('http://ap.org/actor', remote=False))
+
     @patch.object(util.session, 'get')
     def test_for_id_activitypub_fetch_fails(self, mock_get):
         mock_get.return_value = requests_response('', status=403)

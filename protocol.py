@@ -9,6 +9,7 @@ from threading import Lock
 from urllib.parse import urljoin, urlparse
 
 from cachetools import cached, LRUCache
+from cachetools.keys import hashkey
 from flask import request
 from google.cloud import ndb
 from google.cloud.ndb import OR
@@ -393,7 +394,8 @@ class Protocol:
         elif remote and util.is_web(id):
             return domain
 
-    @cached(LRUCache(20000), lock=Lock())
+    # normalize so that for_id(id) and for_id(id, remote=True) share a cache key
+    @cached(LRUCache(20000), lock=Lock(), key=lambda id, remote=True: (id, remote))
     @memcache.memoize(key=_for_id_memcache_key, write=lambda id, remote=True: remote,
                       version=3)
     @staticmethod
@@ -1093,8 +1095,7 @@ class Protocol:
 
                     # don't fetch to identify recipients; the ones that need
                     # translating can all be done locally
-                    from_cls = (Protocol.for_id(id, remote=False) if audience
-                                else Protocol.for_id(id))
+                    from_cls = Protocol.for_id(id, remote=not audience)
                     kwargs = {}
 
                     if field == 'id' and from_cls == UIProtocol and owner_proto:
