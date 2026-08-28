@@ -333,6 +333,27 @@ class Protocol:
         return ids.normalize_user_id(id=id, proto=cls)
 
     @classmethod
+    def resolve_object_id(cls, id):
+        """Resolves and normalizes an object id to its canonical form.
+
+        For example, resolves an :class:`ActivityPub` user-facing URL like
+        ``https://mastodon.example/@alice/123`` to an object id like
+        ``https://mastodon.example/users/alice/statuses/123``.
+
+        May incur network requests, and may store the objects it fetches.
+
+        Subclasses should override this, resolve ``id``, normalize it
+        with :func:`ids.normalize_object_id`, and then return the result.
+
+        Args:
+          id (str)
+
+        Returns:
+          str: the canonical id, or ``id``, normalized, if it can't be resolved
+        """
+        return ids.normalize_object_id(id=id, proto=cls)
+
+    @classmethod
     def authed_user_for_request(cls):
         """Returns the authenticated user id for the current request.
 
@@ -1351,7 +1372,7 @@ class Protocol:
 
         # update copy ids to originals
         obj.normalize_ids()
-        obj.resolve_ids()
+        obj.resolve_ids(remote=True)
 
         if (obj.type == 'follow'
                 and Protocol.for_bridgy_subdomain(as1.get_object(obj.as1).get('id'))):

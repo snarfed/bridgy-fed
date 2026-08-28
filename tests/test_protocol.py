@@ -127,6 +127,11 @@ class ProtocolTest(TestCase):
         self.assertEqual('fake:alice', Fake.resolve_user_id('fake:profile:alice'))
         self.assertEqual('fake:alice', Fake.resolve_user_id('fake:alice'))
 
+    def test_resolve_object_id_default_normalizes(self):
+        # protocols that don't override resolve_object_id still normalize
+        self.assertEqual('https://user.com/', Web.resolve_object_id('user.com'))
+        self.assertEqual('fake:post', Fake.resolve_object_id('fake:post'))
+
     def test_for_id(self):
         for id, expected in [
                 (None, None),

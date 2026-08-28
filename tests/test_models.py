@@ -1908,6 +1908,140 @@ cast_add_body { text: "hi" }
             'inReplyTo': ['other:a', 'other:b'],
         }, obj.our_as1)
 
+    @patch.object(util.session, 'get', return_value=TestCase.as2_resp({
+        'type': 'Note',
+        'id': 'https://mas.to/users/foo/statuses/123',
+        'content': 'foo',
+    }))
+    def test_resolve_ids_remote_in_reply_to(self, _):
+        reply = {
+            'id': 'https://user.com/reply',
+            'objectType': 'comment',
+            'inReplyTo': 'https://mas.to/@foo/123',
+        }
+        obj = Object(id='https://user.com/reply', our_as1=reply,
+                     source_protocol='web')
+
+        # remote is False, so we don't fetch
+        obj.resolve_ids()
+        self.assert_equals(reply, obj.our_as1)
+
+        obj.resolve_ids(remote=True)
+        self.assert_equals({
+            **reply,
+            'inReplyTo': 'https://mas.to/users/foo/statuses/123',
+        }, obj.our_as1)
+
+    @patch.object(util.session, 'get', return_value=TestCase.as2_resp({
+        'type': 'Note',
+        'id': 'https://mas.to/users/foo/statuses/123',
+        'content': 'foo',
+    }))
+    def test_resolve_ids_remote_object(self, _):
+        repost = {
+            'id': 'https://user.com/repost',
+            'objectType': 'activity',
+            'verb': 'share',
+            'object': 'https://mas.to/@foo/123',
+        }
+        obj = Object(id='https://user.com/repost', our_as1=repost,
+                     source_protocol='web')
+
+        obj.resolve_ids(remote=True)
+        self.assert_equals({
+            **repost,
+            'object': 'https://mas.to/users/foo/statuses/123',
+        }, obj.our_as1)
+
+    @patch.object(util.session, 'get', return_value=TestCase.as2_resp({
+        'type': 'Note',
+        'id': 'https://mas.to/users/foo/statuses/123',
+        'content': 'foo',
+    }))
+    def test_resolve_ids_remote_quote_post_in_attachments(self, _):
+        quote = {
+            'id': 'https://user.com/quote',
+            'objectType': 'note',
+            'attachments': [{
+                'objectType': 'note',
+                'id': 'https://mas.to/@foo/123',
+            }],
+        }
+        obj = Object(id='https://user.com/quote', our_as1=quote,
+                     source_protocol='web')
+
+        obj.resolve_ids(remote=True)
+        self.assert_equals({
+            **quote,
+            'attachments': [{
+                'objectType': 'note',
+                'id': 'https://mas.to/users/foo/statuses/123',
+            }],
+        }, obj.our_as1)
+
+    @patch.object(util.session, 'get', return_value=TestCase.as2_resp({
+        'type': 'Person',
+        'id': 'https://mas.to/users/foo',
+        'preferredUsername': 'foo',
+    }))
+    def test_resolve_ids_remote_mention(self, _):
+        note = {
+            'id': 'https://user.com/post',
+            'objectType': 'note',
+            'tags': [{
+                'objectType': 'mention',
+                'url': 'https://mas.to/@foo',
+            }],
+        }
+        obj = Object(id='https://user.com/post', our_as1=note,
+                     source_protocol='web')
+
+        obj.resolve_ids(remote=True)
+        self.assert_equals({
+            **note,
+            'tags': [{
+                'objectType': 'mention',
+                'url': 'https://mas.to/users/foo',
+            }],
+        }, obj.our_as1)
+
+    @patch.object(util.session, 'get')
+    def test_resolve_ids_remote_skips_actor_and_author(self, mock_get):
+        # receive authenticates the owner before we run, so leave it alone
+        share = {
+            'id': 'https://user.com/repost',
+            'objectType': 'activity',
+            'verb': 'share',
+            'actor': 'https://mas.to/@foo',
+            'author': 'https://mas.to/@bar',
+        }
+        obj = Object(id='https://user.com/repost', our_as1=share,
+                     source_protocol='web')
+
+        obj.resolve_ids(remote=True)
+        self.assert_equals(share, obj.our_as1)
+        mock_get.assert_not_called()
+
+    @patch.object(util.session, 'get')
+    def test_resolve_ids_remote_skips_crud_object(self, mock_get):
+        # a create's object is our own content, not a reference to someone else's
+        create = {
+            'id': 'https://user.com/post#bridgy-fed-create',
+            'objectType': 'activity',
+            'verb': 'post',
+            'object': {
+                'id': 'https://user.com/post',
+                'objectType': 'note',
+                'content': 'foo',
+            },
+        }
+        obj = Object(id='https://user.com/post#bridgy-fed-create',
+                     our_as1=create, source_protocol='web')
+
+        obj.resolve_ids(remote=True)
+        self.assert_equals(create, obj.our_as1)
+        mock_get.assert_not_called()
+
     def test_resolve_ids_multiple_objects(self):
         share = {
             'id': 'fake:share',

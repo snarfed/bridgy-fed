@@ -342,6 +342,19 @@ class ActivityPub(User, Protocol):
 
         return ids.normalize_user_id(id=id, proto=cls)
 
+    @classmethod
+    def resolve_object_id(cls, id):
+        """Fetches ``id`` and returns its AP object id.
+
+        Notably, resolves user-facing URLs like
+        ``https://mastodon.example/@alice/123`` to AP object ids like
+        ``https://mastodon.example/users/alice/statuses/123``.
+        """
+        if obj := cls.load(id, remote=True, raise_=False):
+            id = obj.key.id()
+
+        return ids.normalize_object_id(id=id, proto=cls)
+
     def user_page_path(self, rest=None, **kwargs):
         """Always prefer handle, since id is a full URL."""
         kwargs['prefer_id'] = False
@@ -1108,7 +1121,11 @@ def postprocess_as2(activity, orig_obj=None, wrap=True):
     # https://chrisbeckstrom.com/2018/12/27/32551/
     # assert activity.get('id') or (isinstance(obj, dict) and obj.get('id'))
 
-    obj_or_activity = obj if obj.keys() > set(['id']) else activity
+    # if we inlined the object as a bare id above, it's no longer part of the
+    # activity, so these fields have to go on the activity itself
+    obj_or_activity = (obj if obj.keys() > set(['id'])
+                       and not isinstance(activity.get('object'), str)
+                       else activity)
 
     # separate out Link attachments; we move them to links in content below,
     # after render_content, since fediverse instances generate their own link

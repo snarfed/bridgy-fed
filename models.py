@@ -2039,7 +2039,7 @@ class Object(AddRemoveMixin, StringIdModel):
 
         return [copy.uri for copy in self.copies if copy.protocol == proto]
 
-    def resolve_ids(self):
+    def resolve_ids(self, remote=False):
         """Replaces "copy" ids, subdomain ids, etc with their originals.
 
         The end result is that all ids are original "source" ids, ie in the
@@ -2055,6 +2055,11 @@ class Object(AddRemoveMixin, StringIdModel):
           ``https://bsky.brid.gy/ap/did:plc:xyz`` => ``did:plc:xyz``
         * ATProto bsky.app URLs to their DIDs or `at://` URIs, eg
           ``https://bsky.app/profile/a.com`` => ``did:plc:123``
+        * if ``remote`` is True, user-facing URLs to the canonical ids of what
+          they point at, with :meth:`protocol.Protocol.resolve_user_id` and
+          :meth:`protocol.Protocol.resolve_object_id`, eg
+          ``https://mas.to/@user/456`` =>
+          ``https://mas.to/users/user/statuses/456``
 
         ...in these AS1 fields, in place, on both this object and its inner
         ``object``\\ s:
@@ -2071,7 +2076,16 @@ class Object(AddRemoveMixin, StringIdModel):
         Much of the same logic is duplicated there!
 
         TODO: unify with :meth:`normalize_ids`, :meth:`Object.normalize_ids`.
+
+        Args:
+          remote (bool): whether to resolve ids over the network. Off by default
+            since we're called from :meth:`protocol.Protocol.load`, which would
+            otherwise recurse up the whole reply chain. Never resolves ``actor``
+            or ``author``; :meth:`protocol.Protocol.receive` has already
+            authenticated those by the time it calls us.
         """
+        from protocol import Protocol
+
         if not self.as1:
             return
 
@@ -2093,53 +2107,96 @@ class Object(AddRemoveMixin, StringIdModel):
             elif kind is ids.IdType.OBJECT and (orig := get_original_object_key(id)):
                 return orig.id()
 
-        def replace(val, kind):
+        def resolved_id(id, kind):
+            """Returns the canonical id for a user-facing URL, or None."""
+            if Object.get_by_id(id):
+                # we already have this id, so it's canonical
+                return None
+
+            if proto := Protocol.for_id(id):
+                fn = (proto.resolve_user_id if kind is ids.IdType.USER
+                      else proto.resolve_object_id)
+                if (resolved := fn(id)) != id:
+                    return resolved
+
+        def replace(val, kind, remote=False):
             """Replaces ``val``'s id with its original, if it has one.
 
             Args:
               val (str or dict): id or AS1 object
               kind (ids.IdType or None)
+              remote (bool): whether to also resolve over the network
             """
             id = val.get('id') if isinstance(val, dict) else val
             if not id:
                 return val
 
-            # if we can't tell which kind of id this is, try both
+            # if we can't tell which kind of id this is, try both. copy lookups
+            # are local, so trying both is cheap; resolving is a network fetch,
+            # so only do that once, for the more likely kind.
             kinds = [kind] if kind else [ids.IdType.OBJECT, ids.IdType.USER]
-            for k in kinds:
-                if orig := original_id(id, k):
-                    nonlocal replaced
-                    replaced = True
-                    logger.debug(f'Resolved copy id {id} to original {orig}')
-                    if isinstance(val, dict) and util.trim_nulls(val).keys() > {'id'}:
-                        val['id'] = orig
-                        return val
-                    return orig
 
-            return val
+            new_id = None
+            for k in kinds:
+                if new_id := original_id(id, k):
+                    break
+            if not new_id and remote:
+                new_id = resolved_id(id, kinds[0])
+
+            if not new_id:
+                return val
+
+            nonlocal replaced
+            replaced = True
+            logger.debug(f'Resolved id {id} to {new_id}')
+
+            if isinstance(val, dict) and util.trim_nulls(val).keys() > {'id'}:
+                val['id'] = new_id
+                return val
+
+            return new_id
 
         # actually replace ids
         for obj in [outer_obj] + inner_objs:
             for tag in as1.get_objects(obj, 'tags'):
                 if tag.get('objectType') == 'mention':
-                    tag['url'] = replace(tag.get('url'), ids.IdType.USER)
+                    tag['url'] = replace(tag.get('url'), ids.IdType.USER,
+                                         remote=remote)
             for att in as1.get_objects(obj, 'attachments'):
                 if att.get('objectType') == 'note':
-                    att['id'] = replace(att.get('id'), ids.IdType.OBJECT)
-            for field, kind in (('actor', ids.IdType.USER),
-                                ('author', ids.IdType.USER),
-                                ('inReplyTo', ids.IdType.OBJECT)):
-                obj[field] = [replace(val, kind) for val in util.get_list(obj, field)]
+                    att['id'] = replace(att.get('id'), ids.IdType.OBJECT,
+                                        remote=remote)
+            # we never resolve actor or author remotely; receive has already
+            # authenticated them by the time it calls us
+            for field, kind, field_remote in (('actor', ids.IdType.USER, False),
+                                              ('author', ids.IdType.USER, False),
+                                              ('inReplyTo', ids.IdType.OBJECT, remote)):
+                obj[field] = [replace(val, kind, remote=field_remote)
+                              for val in util.get_list(obj, field)]
                 if len(obj[field]) == 1:
                     obj[field] = obj[field][0]
 
         # an object may be either an object (eg repost) or a user (eg follow).
-        # ask the id itself which it is, and if it can't say, try both.
+        # ask the id itself which it is, and if it can't say, go by the verb.
+        # a block's object may be either, eg a blocklist, so leave it unknown.
+        #
+        # a create/update/delete's object is our own content, not a reference to
+        # someone else's, so never resolve it remotely.
+        outer_type = as1.object_type(outer_obj)
+        object_remote = remote and outer_type not in as1.CRUD_VERBS
+        if outer_type == 'block':
+            default_kind = None
+        elif outer_type in as1.VERBS_WITH_ACTOR_OBJECT:
+            default_kind = ids.IdType.USER
+        else:
+            default_kind = ids.IdType.OBJECT
+
         objects = []
         for inner_obj in inner_objs:
             inner_id = inner_obj.get('id')
             kind = self_proto.id_type(inner_id) if self_proto and inner_id else None
-            objects.append(replace(inner_obj, kind))
+            objects.append(replace(inner_obj, kind or default_kind,
+                                   remote=object_remote))
 
         outer_obj['object'] = objects[0] if len(objects) == 1 else objects
 

@@ -932,17 +932,19 @@ class ActivityPubTest(TestCase):
 
     def _test_inbox_reply(self, reply, mock_head, mock_get, mock_post):
         mock_head.return_value = requests_response(url='https://user.com/post')
-        mock_get.side_effect = (
-            (list(mock_get.side_effect) if mock_get.side_effect else [
-                # source actor, webfinger
-                self.as2_resp(ACTOR),
-                self.as2_resp(ACTOR),
-                requests_response(status=404),
-            ]) + [
-                requests_response(test_web.NOTE_HTML),
-                requests_response(test_web.NOTE_HTML),
-                WEBMENTION_DISCOVERY,
-            ])
+        actor_resps = list(mock_get.side_effect) if mock_get.side_effect else [
+            # source actor, webfinger
+            self.as2_resp(ACTOR),
+            self.as2_resp(ACTOR),
+            requests_response(status=404),
+        ]
+        # the first response authenticates the delivery; the rest load the actor,
+        # which happens after we resolve inReplyTo
+        mock_get.side_effect = actor_resps[:1] + [
+            # inReplyTo, resolved when we receive: ActivityPub, then Web
+            requests_response(test_web.NOTE_HTML),
+            requests_response(test_web.NOTE_HTML),
+        ] + actor_resps[1:] + [WEBMENTION_DISCOVERY]
         mock_post.return_value = requests_response()
 
         got = self.post('/ap/web/user.com/inbox', json=reply)
@@ -1154,13 +1156,14 @@ class ActivityPubTest(TestCase):
 
     def test_inbox_no_user(self, mock_head, mock_get, mock_post):
         mock_get.side_effect = [
+            # source actor
+            self.as2_resp(LIKE_WITH_ACTOR['actor']),
+            # object, resolved when we receive: protocol inference
+            requests_response(test_web.NOTE_HTML),
+            requests_response(test_web.NOTE_HTML),
             # source actor, webfinger
             self.as2_resp(LIKE_WITH_ACTOR['actor']),
-            self.as2_resp(LIKE_WITH_ACTOR['actor']),
             requests_response(status=404),
-            # protocol inference
-            requests_response(test_web.NOTE_HTML),
-            requests_response(test_web.NOTE_HTML),
             # target post webmention discovery
             HTML,
         ]
@@ -1272,12 +1275,14 @@ class ActivityPubTest(TestCase):
     def test_inbox_like(self, mock_head, mock_get, mock_post):
         mock_head.return_value = requests_response(url='https://user.com/post')
         mock_get.side_effect = [
+            # source actor
+            self.as2_resp(LIKE_WITH_ACTOR['actor']),
+            # object, resolved when we receive
+            requests_response(test_web.NOTE_HTML),
+            requests_response(test_web.NOTE_HTML),
             # source actor, webfinger
             self.as2_resp(LIKE_WITH_ACTOR['actor']),
-            self.as2_resp(LIKE_WITH_ACTOR['actor']),
             requests_response(status=404),
-            requests_response(test_web.NOTE_HTML),
-            requests_response(test_web.NOTE_HTML),
             WEBMENTION_DISCOVERY,
         ]
         mock_post.return_value = requests_response()
@@ -1991,13 +1996,14 @@ class ActivityPubTest(TestCase):
     def test_inbox_webmention_discovery_connection_fails(self, mock_head,
                                                          mock_get, mock_post):
         mock_get.side_effect = [
+            # source actor
+            self.as2_resp(LIKE_WITH_ACTOR['actor']),
+            # object, resolved when we receive: protocol inference
+            requests_response(test_web.NOTE_HTML),
+            requests_response(test_web.NOTE_HTML),
             # source actor, webfinger
             self.as2_resp(LIKE_WITH_ACTOR['actor']),
-            self.as2_resp(LIKE_WITH_ACTOR['actor']),
             requests_response(status=404),
-            # protocol inference
-            requests_response(test_web.NOTE_HTML),
-            requests_response(test_web.NOTE_HTML),
             # target post webmention discovery
             ReadTimeoutError(None, None, None),
         ]
@@ -2007,13 +2013,14 @@ class ActivityPubTest(TestCase):
 
     def test_inbox_no_webmention_endpoint(self, mock_head, mock_get, mock_post):
         mock_get.side_effect = [
+            # source actor
+            self.as2_resp(LIKE_WITH_ACTOR['actor']),
+            # object, resolved when we receive: protocol inference
+            requests_response(test_web.NOTE_HTML),
+            requests_response(test_web.NOTE_HTML),
             # source actor, webfinger
             self.as2_resp(LIKE_WITH_ACTOR['actor']),
-            self.as2_resp(LIKE_WITH_ACTOR['actor']),
             requests_response(status=404),
-            # protocol inference
-            requests_response(test_web.NOTE_HTML),
-            requests_response(test_web.NOTE_HTML),
             # target post webmention discovery
             HTML,
         ]
@@ -2750,6 +2757,26 @@ class ActivityPubUtilsTest(TestCase):
         # doesn't try to fetch
         self.assertEqual('@foo@mas.to',
                          ActivityPub.resolve_user_id('@foo@mas.to'))
+
+    @patch.object(util.session, 'get', return_value=TestCase.as2_resp(NOTE_OBJECT))
+    def test_resolve_object_id(self, mock_get):
+        self.assertEqual('http://mas.to/note/id',
+                         ActivityPub.resolve_object_id('http://mas.to/note'))
+        mock_get.assert_has_calls((self.as2_req('http://mas.to/note'),))
+
+    @patch.object(util.session, 'get', return_value=TestCase.as2_resp({
+        **NOTE_OBJECT,
+        'id': 'http://evil/note/id',
+    }))
+    def test_resolve_object_id_different_origin(self, _):
+        # we only take the returned id if it's on the same origin
+        self.assertEqual('http://mas.to/note',
+                         ActivityPub.resolve_object_id('http://mas.to/note'))
+
+    @patch.object(util.session, 'get', return_value=requests_response(status=404))
+    def test_resolve_object_id_fetch_fails(self, _):
+        self.assertEqual('http://mas.to/note',
+                         ActivityPub.resolve_object_id('http://mas.to/note'))
 
     def test_handle_as_domain(self):
         user = ActivityPub(webfinger_addr='@a@b.c')

@@ -1004,7 +1004,7 @@ class WebTest(TestCase):
         """Like and Announce shouldn't use Update, they should just resend as is."""
         Object(id='https://user.com/repost', mf2={}).put()
 
-        mock_get.side_effect = [REPOST, TOOT_AS2, ACTOR]
+        mock_get.side_effect = [REPOST, TOOT_AS2, ACTOR, ACTOR]
         mock_post.return_value = requests_response('abc xyz')
 
         got = self.post('/queue/webmention', data={
@@ -1111,7 +1111,9 @@ class WebTest(TestCase):
         mock_get.side_effect = [
             requests_response(html, url='https://user.com/repost'),
             TOOT_AS2,
-            ACTOR,
+            ACTOR,  # webmention task
+            ACTOR,  # send task
+            REPOSTED_ACTOR,
             REPOSTED_ACTOR,
         ]
         mock_post.return_value = requests_response('abc xyz')
@@ -1130,7 +1132,7 @@ class WebTest(TestCase):
 
         inboxes = ('https://inbox', 'https://public/inbox',
                    'https://shared/inbox', 'https://mas.to/inbox')
-        self.assert_ap_deliveries(mock_post, inboxes, expected_as2, ignore=['cc'])
+        self.assert_ap_deliveries(mock_post, inboxes, expected_as2)
 
         for args, kwargs in mock_get.call_args_list[1:]:
             with self.subTest(url=args[0]):
@@ -1177,6 +1179,28 @@ class WebTest(TestCase):
         args, kwargs = mock_post.call_args
         self.assertEqual(('https://mas.to/inbox',), args)
         self.assert_equals(AS2_CREATE, json_loads(kwargs['data']))
+
+    def test_create_reply_in_reply_to_user_facing_url(self, mock_get, mock_post):
+        """u-in-reply-to is the original's user-facing URL, not its AS2 id."""
+        mock_get.side_effect = [
+            requests_response(
+                REPLY_HTML.replace('https://mas.to/toot/id', 'https://mas.to/toot'),
+                url='https://user.com/reply'),
+        ] + ACTIVITYPUB_GETS[1:]
+        mock_post.return_value = requests_response('abc xyz')
+
+        got = self.post('/queue/webmention', data={
+            'source': 'https://user.com/reply',
+            'target': 'https://fed.brid.gy/',
+        })
+        self.assertEqual(202, got.status_code)
+
+        reply = Object.get_by_id('https://user.com/reply')
+        self.assert_equals(['http://no.tt/fediverse', 'https://mas.to/toot/id'],
+                           reply.as1['inReplyTo'])
+        self.assert_equals([ndb.Key(Object, 'http://no.tt/fediverse'),
+                            ndb.Key(Object, 'https://mas.to/toot/id')],
+                           reply.in_reply_to)
 
     def test_like_stored_object(self, mock_get, mock_post):
         Object(id='https://mas.to/toot', source_protocol='ap').put()
@@ -1253,7 +1277,7 @@ class WebTest(TestCase):
 </body>
 </html>
 """, url='https://user.com/repost')
-        mock_get.side_effect = [missing_url, TOOT_AS2, ACTOR]
+        mock_get.side_effect = [missing_url, TOOT_AS2, ACTOR, ACTOR]
         mock_post.return_value = requests_response('abc xyz')
 
         got = self.post('/queue/webmention', data={
@@ -1278,7 +1302,7 @@ class WebTest(TestCase):
 </body>
 </html>
 """, url='https://user.com/repost')
-        mock_get.side_effect = [missing_url, TOOT_AS2, ACTOR]
+        mock_get.side_effect = [missing_url, TOOT_AS2, ACTOR, ACTOR]
         mock_post.return_value = requests_response('abc xyz')
 
         got = self.post('/queue/webmention', data={
@@ -1308,7 +1332,7 @@ class WebTest(TestCase):
 </body>
 </html>
 """, url='https://user.com/repost')
-        mock_get.side_effect = [repost, ACTOR, TOOT_AS2, ACTOR]
+        mock_get.side_effect = [repost, ACTOR, TOOT_AS2, ACTOR, ACTOR]
         mock_post.return_value = requests_response('abc xyz')
 
         got = self.post('/queue/webmention', data={

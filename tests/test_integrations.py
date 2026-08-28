@@ -4011,6 +4011,7 @@ class IntegrationTests(TestCase):
             'id': f'https://bsky.brid.gy/convert/ap/ui:repost-did:plc:bob-http://inst.com/post-{mock_now.return_value.isoformat()}',
             'actor': 'https://bsky.brid.gy/ap/did:plc:bob',
             'object': 'http://inst.com/post',
+            'cc': ['https://inst.com/alice'],
         }, ignore=['@context', 'to', 'url'])
 
     @patch.object(util.session, 'post')
@@ -4446,6 +4447,7 @@ reaction_body {{
             'id': f'https://fc.brid.gy/convert/ap/{like_id}',
             'actor': 'https://fc.brid.gy/ap/farcaster:123',
             'object': 'https://inst/post',
+            'cc': ['https://inst/alice'],
             'url': [{'type': 'Link', 'rel': 'canonical', 'href': like_id}],
         }, ignore=['@context', 'to', 'published'])
 
