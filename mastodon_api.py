@@ -1329,9 +1329,17 @@ def timelines_home(user):
 @auth()
 @cache_global
 def timelines_public(user):
+    # we consider objects from other protocols, ie bridged into the fediverse, local
+    local = bool_param('local')
+    remote = bool_param('remote')
+
     objs = paginate_and_fetch(Object.type.IN(('note', 'article', 'share')))
     objects = [obj for obj in objs
-               if obj.as1 and not obj.deleted and as1.is_public(obj.as1)]
+               if obj.as1 and not obj.deleted and as1.is_public(obj.as1)
+               # local is from Bridgy Fed, ie from other networks
+               and not (local and obj.source_protocol == 'activitypub')
+               # remote is not from Bridgy Fed, ie fediverse native
+               and not (remote and obj.source_protocol != 'activitypub')]
     prefetch_statuses(objects)
     return non_none([to_status(obj) for obj in objects]), link_header(objects)
 

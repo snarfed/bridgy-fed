@@ -2234,6 +2234,34 @@ class MastodonApiTest(TestCase):
         self.assertEqual(200, resp.status_code, resp.get_data(as_text=True))
         self.assertEqual([], resp.json)
 
+    def test_timelines_public_local_and_remote(self):
+        self.make_user('https://mas.to/users/bob', cls=ActivityPub, obj_as2={
+            **ACTOR,
+            'id': 'https://mas.to/users/bob',
+        })
+        Object(id='fake:local-post', source_protocol='fake', our_as1={
+            'objectType': 'note',
+            'author': 'fake:alice',
+            'content': 'local',
+        }).put()
+        Object(id='https://mas.to/post', source_protocol='activitypub', our_as1={
+            'objectType': 'note',
+            'author': 'https://mas.to/users/bob',
+            'content': 'remote',
+        }).put()
+
+        for query, expected in (
+                ('', ['remote', 'local']),
+                ('?local=true', ['local']),
+                ('?remote=true', ['remote']),
+                ('?local=true&remote=true', []),
+                ('?local=false&remote=false', ['remote', 'local']),
+        ):
+            with self.subTest(query=query):
+                resp = self.get('/api/v1/timelines/public' + query)
+                self.assertEqual(200, resp.status_code, resp.get_data(as_text=True))
+                self.assertEqual(expected, [s['content'] for s in resp.json])
+
     def test_timelines_home(self):
         bob = self.make_followee('other:bob')
         eve = self.make_user('other:eve', cls=OtherFake)
