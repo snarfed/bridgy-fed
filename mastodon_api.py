@@ -389,6 +389,18 @@ def load_account_id(id):
         logger.info(e)
 
 
+def visible(obj):
+    """Returns True if ``obj`` exists and should be visible in this API.
+
+    Args:
+      obj (models.Object or None)
+
+    Returns:
+      bool:
+    """
+    return bool(obj and obj.as1 and not obj.deleted and as1.is_public(obj.as1))
+
+
 def load_object(id):
     obj = Object.get_by_id(decode_id(id))
     if not obj or not obj.as1:
@@ -932,7 +944,7 @@ def accounts_statuses(user, id):
                                      Object.type.IN(as1.POST_TYPES | set(['share'])))
 
     objects = [obj for obj in objects
-               if obj and obj.as1 and not obj.deleted and as1.is_public(obj.as1)
+               if visible(obj)
                and not (bool_param('exclude_replies') and obj.type == 'comment')
                and not (bool_param('exclude_reblogs') and obj.type == 'share')]
     prefetch_statuses(objects)
@@ -1035,7 +1047,7 @@ def favourites(user):
     objs = [obj for obj in ndb.get_multi(Object(id=id).key for id in ids if id)
             if obj and obj.as1]
     prefetch_statuses(objs)
-    return non_none([to_status(obj) for obj in objs])
+    return to_statuses(objs)
 
 
 @app.get('/api/v1/statuses', provide_automatic_options=False)
@@ -1045,9 +1057,9 @@ def statuses_multiple(user):
     ids = [decode_id(id) for id in
            request.args.getlist('id[]') + request.args.getlist('id')]
     objs = [obj for obj in ndb.get_multi(Object(id=id).key for id in ids)
-            if obj and obj.as1 and not obj.deleted and as1.is_public(obj.as1)]
+            if visible(obj)]
     prefetch_statuses(objs)
-    return [s for obj in objs if (s := to_status(obj))]
+    return to_statuses(objs)
 
 
 @app.get('/api/v1/statuses/<path:id>', provide_automatic_options=False)
@@ -1271,8 +1283,7 @@ def statuses_context(user, id):
                                ).fetch(MAX_DESCENDANTS - len(descendants))
         frontier = []
         for reply in replies:
-            if (reply.as1 and not reply.deleted and as1.is_public(reply.as1)
-                    and (status := to_status(reply))):
+            if visible(reply) and (status := to_status(reply)):
                 descendants.append(status)
                 frontier.append(reply.key)
 
@@ -1331,10 +1342,9 @@ def timelines_home(user):
     if not descending:
         keys.reverse()
 
-    objects = [obj for obj in ndb.get_multi(keys)
-               if obj and obj.as1 and not obj.deleted and as1.is_public(obj.as1)]
+    objects = [obj for obj in ndb.get_multi(keys) if visible(obj)]
     prefetch_statuses(objects)
-    return non_none([to_status(obj) for obj in objects]), link_header(objects)
+    return to_statuses(objects), link_header(objects)
 
 
 @app.get('/api/v1/timelines/public', provide_automatic_options=False)
@@ -1347,7 +1357,7 @@ def timelines_public(user):
 
     objs = paginate_and_fetch(Object.type.IN(('note', 'article', 'share')))
     objects = [obj for obj in objs
-               if obj.as1 and not obj.deleted and as1.is_public(obj.as1)
+               if visible(obj)
                # local is from Bridgy Fed, ie from other networks
                and not (local and obj.source_protocol == 'activitypub')
                # remote is not from Bridgy Fed, ie fediverse native
@@ -1403,8 +1413,7 @@ def markers(user):
 def notifications_list(user):
     # TODO: unbridged notifs
     objs = paginate_and_fetch(Object.notify == user.key)
-    objects = [obj for obj in objs
-               if obj.as1 and not obj.deleted and as1.is_public(obj.as1)]
+    objects = [obj for obj in objs if visible(obj)]
     prefetch_statuses(objects)
     return (non_none([to_notification(obj) for obj in objects]),
             link_header(objects))
@@ -1415,8 +1424,7 @@ def notifications_list(user):
 @cache_user
 def notifications_get(user, id):
     obj = Object.get_by_id(decode_id(id))
-    if (obj and obj.as1 and not obj.deleted and as1.is_public(obj.as1)
-            and user.key in obj.notify):
+    if visible(obj) and user.key in obj.notify:
         if notif := to_notification(obj):
             return notif
 
@@ -1439,7 +1447,7 @@ def grouped_notifications_list(user):
     # TODO: unbridged notifs
     query = paginate(Object.query(Object.notify == user.key))
     objects = [obj for obj in query.fetch(GROUPED_NOTIF_OBJECT_FETCHES)
-               if obj.as1 and not obj.deleted and as1.is_public(obj.as1)]
+               if visible(obj)]
 
     # min_id makes paginate sort ascending, to pick the oldest notifications newer
     # than it, so flip back to newest first, which the grouping below depends on
