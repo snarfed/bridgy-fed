@@ -2262,6 +2262,28 @@ class MastodonApiTest(TestCase):
                 self.assertEqual(200, resp.status_code, resp.get_data(as_text=True))
                 self.assertEqual(expected, [s['content'] for s in resp.json])
 
+    def test_timelines_public_only_media(self):
+        Object(id='fake:post', our_as1={
+            'objectType': 'note',
+            'author': 'fake:alice',
+            'content': 'no media',
+            'published': '2022-01-02T03:04:05',
+        }).put()
+        Object(id='fake:media-post', our_as1={
+            'objectType': 'note',
+            'author': 'fake:alice',
+            'content': 'a photo',
+            'published': '2022-01-02T03:04:05',
+            'attachments': [{
+                'objectType': 'image',
+                'image': {'url': 'http://foo.com/image.jpg'},
+            }],
+        }).put()
+
+        resp = self.get('/api/v1/timelines/public?only_media=true')
+        self.assertEqual(200, resp.status_code, resp.get_data(as_text=True))
+        self.assertEqual(['a photo'], [s['content'] for s in resp.json])
+
     def test_timelines_home(self):
         bob = self.make_followee('other:bob')
         eve = self.make_user('other:eve', cls=OtherFake)

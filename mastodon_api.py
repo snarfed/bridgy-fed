@@ -287,6 +287,20 @@ def to_relationship(user, **values):
     }
 
 
+def to_statuses(objects):
+    """Converts objects to statuses, handling the ``only_media`` query param.
+
+    Args:
+      objects (sequence of :class:`models.Object`)
+
+    Returns:
+      list of dict: Mastodon API statuses
+    """
+    only_media = bool_param('only_media')
+    return [s for s in non_none(to_status(obj) for obj in objects)
+            if not (only_media and not s.get('media_attachments'))]
+
+
 def prefetch_statuses(objs):
     """Prefetches the owners and reblog/favourite/follow targets of ``objects``.
 
@@ -923,9 +937,7 @@ def accounts_statuses(user, id):
                and not (bool_param('exclude_reblogs') and obj.type == 'share')]
     prefetch_statuses(objects)
 
-    only_media = bool_param('only_media')
-    statuses = [s for s in non_none(to_status(obj) for obj in objects)
-                if not (only_media and not s.get('media_attachments'))]
+    statuses = to_statuses(objects)
     # pinned statuses aren't paginated
     headers = {} if pinned else link_header(objects)
     return statuses, headers
@@ -1341,7 +1353,7 @@ def timelines_public(user):
                # remote is not from Bridgy Fed, ie fediverse native
                and not (remote and obj.source_protocol != 'activitypub')]
     prefetch_statuses(objects)
-    return non_none([to_status(obj) for obj in objects]), link_header(objects)
+    return to_statuses(objects), link_header(objects)
 
 
 @app.get('/api/v1/timelines/tag/<hashtag>', provide_automatic_options=False)
