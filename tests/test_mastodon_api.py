@@ -2254,8 +2254,11 @@ class MastodonApiTest(TestCase):
                 ('', ['remote', 'local']),
                 ('?local=true', ['local']),
                 ('?remote=true', ['remote']),
+                ('?local=false', ['remote']),
+                ('?remote=false', ['local']),
+                ('?local=true&remote=false', ['local']),
                 ('?local=true&remote=true', []),
-                ('?local=false&remote=false', ['remote', 'local']),
+                ('?local=false&remote=false', []),
         ):
             with self.subTest(query=query):
                 resp = self.get('/api/v1/timelines/public' + query)

@@ -1351,9 +1351,12 @@ def timelines_home(user):
 @auth()
 @cache_global
 def timelines_public(user):
-    # we consider objects from other protocols, ie bridged into the fediverse, local
-    local = bool_param('local')
-    remote = bool_param('remote')
+    # some clients (eg Phanpy) pass false for these too, eg local=false for
+    # federated timeline
+    local = bool_param('local') or ('remote' in request.args
+                                    and not bool_param('remote'))
+    remote = bool_param('remote') or ('local' in request.args
+                                      and not bool_param('local'))
 
     objs = paginate_and_fetch(Object.type.IN(('note', 'article', 'share')))
     objects = [obj for obj in objs
