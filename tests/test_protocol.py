@@ -673,6 +673,27 @@ class ProtocolTest(TestCase):
             Target(protocol='other', uri='other:eve:target'): note,
         }, Fake.targets(create, from_user=frank, crud_obj=reply))
 
+    def test_targets_in_reply_to_post_empty(self):
+        frank = self.make_user(id='fake:frank', cls=Fake, obj_as1={'foo': 'bar'})
+        Object(id='other:note', source_protocol='other').put()
+
+        reply = Object(id='fake:reply', our_as1={
+            'objectType': 'note',
+            'id': 'fake:reply',
+            'author': 'fake:frank',
+            'content': 'ok',
+            'inReplyTo': 'other:note',
+        })
+        create = Object(our_as1={
+            'objectType': 'activity',
+            'verb': 'post',
+            'object': reply.as1,
+        })
+
+        self.assert_equals({
+            Target(protocol='other', uri='other:note:target'): None,
+        }, Fake.targets(create, from_user=frank, crud_obj=reply))
+
     def test_targets_link_tag_has_no_orig_obj(self):
         # https://github.com/snarfed/bridgy-fed/issues/1237
         Fake.fetchable['fake:linked-post'] = {
