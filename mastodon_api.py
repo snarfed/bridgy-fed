@@ -163,6 +163,9 @@ def to_status(obj):
     Returns None if ``obj`` can't be converted, eg its AS1 ``objectType``/``verb``
     isn't supported, or its account can't be fetched or converted.
     """
+    if as1.object_type(obj.as1) not in as1.POST_TYPES | {'share'}:
+        return None
+
     try:
         status = from_as1(obj.as1)
     except:

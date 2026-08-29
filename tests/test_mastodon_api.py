@@ -2831,6 +2831,26 @@ class MastodonApiTest(TestCase):
         self.assertEqual('other~3Abob',
                          resp.json[0]['account']['id'])
 
+    def test_notifications_follow_followee_object_stored(self):
+        bob = self.make_user('other:bob', cls=OtherFake,
+                             enabled_protocols=['activitypub'])
+        Object(id='fake:alice', our_as1={
+            'objectType': 'person',
+            'displayName': 'Alice',
+        }).put()
+        Object(id='fake:follow', users=[bob.key], notify=[self.user.key], our_as1={
+            'objectType': 'activity',
+            'verb': 'follow',
+            'object': 'fake:alice',
+        }).put()
+
+        resp = self.get('/api/v1/notifications')
+        self.assertEqual(200, resp.status_code, resp.get_data(as_text=True))
+        self.assertEqual(1, len(resp.json))
+        self.assertEqual('follow', resp.json[0]['type'])
+        self.assertEqual(None, resp.json[0]['status'])
+        self.assertEqual('other~3Abob', resp.json[0]['account']['id'])
+
     def test_notifications_mention(self):
         bob = self.make_user('other:bob', cls=OtherFake,
                              enabled_protocols=['activitypub'])
