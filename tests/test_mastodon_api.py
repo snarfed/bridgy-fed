@@ -2254,16 +2254,16 @@ class MastodonApiTest(TestCase):
                 ('', ['remote', 'local']),
                 ('?local=true', ['local']),
                 ('?remote=true', ['remote']),
-                ('?local=false', ['remote']),
-                ('?remote=false', ['local']),
+                ('?local=false', ['local', 'remote']),
+                ('?remote=false', ['local', 'remote']),
                 ('?local=true&remote=false', ['local']),
                 ('?local=true&remote=true', []),
-                ('?local=false&remote=false', []),
+                ('?local=false&remote=false', ['local', 'remote']),
         ):
             with self.subTest(query=query):
                 resp = self.get('/api/v1/timelines/public' + query)
                 self.assertEqual(200, resp.status_code, resp.get_data(as_text=True))
-                self.assertEqual(expected, [s['content'] for s in resp.json])
+                self.assert_equals(expected, [s['content'] for s in resp.json])
 
     def test_timelines_public_only_media(self):
         Object(id='fake:post', our_as1={

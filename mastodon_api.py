@@ -1388,19 +1388,15 @@ def timelines_home(user):
 @auth()
 @cache_global
 def timelines_public(user):
-    # some clients (eg Phanpy) pass false for these too, eg local=false for
-    # federated timeline
-    local = bool_param('local') or ('remote' in request.args
-                                    and not bool_param('remote'))
-    remote = bool_param('remote') or ('local' in request.args
-                                      and not bool_param('local'))
+    local = bool_param('local')
+    remote = bool_param('remote')
 
     objs = paginate_and_fetch(Object.type.IN(('note', 'article', 'share')))
     objects = [obj for obj in objs
                if visible(obj)
-               # local is from Bridgy Fed, ie from other networks
-               and not (local and obj.source_protocol == 'activitypub')
-               # remote is not from Bridgy Fed, ie fediverse native
+               # local means from the user's network
+               and not (local and obj.source_protocol != user.LABEL)
+               # remote means native from the fediverse, ie not from Bridgy Fed
                and not (remote and obj.source_protocol != 'activitypub')]
     prefetch_statuses(objects)
     return to_statuses(objects), link_header(objects)
