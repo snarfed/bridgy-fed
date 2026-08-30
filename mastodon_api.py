@@ -330,10 +330,12 @@ def prefetch_statuses(objs):
     objs = list({obj.key: obj for obj in objs}.values())
 
     for obj in objs:
+        obj_as1 = obj.as1 or {}
+
         # owner user
         if obj.users:
             obj.owner = obj.users[0].get_async()
-        elif ((owner := as1.get_owner(obj.as1))
+        elif ((owner := as1.get_owner(obj_as1))
               and (proto := obj.owner_protocol(remote=False))
               and (id := ids.normalize_user_id(id=owner, proto=proto))):
             obj.owner = proto.get_by_id_async(id)
@@ -342,12 +344,12 @@ def prefetch_statuses(objs):
 
         # target object
         obj.target = None
-        if target := as1.get_id(obj.as1, 'object'):
+        if target := as1.get_id(obj_as1, 'object'):
             obj.target = Object.get_by_id_async(target)
 
         # quoted post
         obj.quoted = None
-        if quoted := as1.quoted_posts(obj.as1):
+        if quoted := as1.quoted_posts(obj_as1):
             obj.quoted = Object.get_by_id_async(quoted[0])
 
     for obj in objs:

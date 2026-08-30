@@ -2327,6 +2327,20 @@ class MastodonApiTest(TestCase):
         self.assertEqual('original',
                          share['reblog']['quote']['quoted_status']['content'])
 
+    def test_timelines_home_repost_of_object_without_data(self):
+        bob = self.make_followee('other:bob')
+        self.store_object(id='other:post')
+        self.store_object(id='other:share', users=[bob.key], our_as1={
+            'objectType': 'activity',
+            'verb': 'share',
+            'author': 'other:bob',
+            'object': 'other:post',
+        })
+
+        resp = self.get('/api/v1/timelines/home')
+        self.assertEqual(200, resp.status_code, resp.get_data(as_text=True))
+        self.assertEqual([], resp.json)
+
     def test_timelines_home_merges_followees_in_created_order(self):
         for i, id in enumerate(('other:bob', 'other:carol', 'other:dave')):
             followee = self.make_followee(id)
