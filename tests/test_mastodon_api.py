@@ -3218,6 +3218,36 @@ class MastodonApiTest(TestCase):
         self.assertEqual([], resp.json['notification_groups'])
         self.assertNotIn('Link', resp.headers)
 
+    def test_api_errors_are_json(self):
+        resp = self.get('/api/v1/nonexistent')
+        self.assertEqual(404, resp.status_code)
+        self.assertEqual('application/json', resp.mimetype)
+        self.assertEqual({
+            'error': 'not_found',
+            'error_description': "Sorry, Bridgy Fed doesn't support this.",
+        }, resp.json)
+
+        resp = self.post('/api/v1/preferences')
+        self.assertEqual(405, resp.status_code)
+        self.assertEqual('application/json', resp.mimetype)
+        self.assertEqual({
+            'error': 'method_not_allowed',
+            'error_description': 'The method is not allowed for the requested URL.',
+        }, resp.json)
+
+        resp = self.get('/api/v1/accounts/fake:nope')
+        self.assertEqual(404, resp.status_code)
+        self.assertEqual('application/json', resp.mimetype)
+        self.assertEqual({
+            'error': 'not_found',
+            'error_description': 'Not found',
+        }, resp.json)
+
+    def test_non_api_errors_are_html(self):
+        resp = self.client.get('/nonexistent')
+        self.assertEqual(404, resp.status_code)
+        self.assertEqual('text/html', resp.mimetype)
+
     def test_endpoints_require_auth(self):
         for path in (
             '/api/v1/preferences',

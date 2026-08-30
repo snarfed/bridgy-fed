@@ -12,8 +12,14 @@ from granary import as1, bluesky
 from granary.mastodon import decode_id, encode_id, from_as1
 from webutil.appengine_info import DEBUG, LOCAL_SERVER
 from webutil import util
-from webutil.flask_util import bool_param, get_required_param, error, MODERN_HEADERS
-from werkzeug.exceptions import HTTPException
+from webutil.flask_util import (
+    bool_param,
+    error,
+    get_required_param,
+    handle_exception,
+    MODERN_HEADERS,
+)
+from werkzeug.exceptions import HTTPException, MethodNotAllowed, NotFound
 
 import activitypub
 from activitypub import ActivityPub
@@ -590,6 +596,30 @@ def cors_preflight_options(_):
         **MODERN_HEADERS,
         'Cache-Control': 'public, max-age=31536000',  # 1y
     }
+
+
+@app.errorhandler(HTTPException)
+def json_error(e):
+    """Renders API errors as JSON instead of HTML.
+
+    Mastodon API clients deserialize every response as JSON, so an HTML error
+    page makes them report an opaque parse error instead of showing ours.
+    https://docs.joinmastodon.org/entities/Error/
+    """
+    if not request.path.startswith('/api/'):
+        return handle_exception(e)
+
+    # cors_preflight_options matches every /api/ path, if this endpoint only has
+    # OPTIONS registered, it's not a real endpoint
+    if isinstance(e, MethodNotAllowed) and e.valid_methods == ['OPTIONS']:
+        e = NotFound("Sorry, Bridgy Fed doesn't support this.")
+
+    headers = {name: val for name, val in e.get_headers()
+               if name.lower() not in ('content-type', 'content-length')}
+    return {
+        'error': e.name.lower().replace(' ', '_'),
+        'error_description': e.description,
+    }, e.code, headers
 
 
 @app.get('/health')
