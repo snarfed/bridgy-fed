@@ -166,10 +166,11 @@ def to_status(obj):
     of objects doesn't need a datastore round trip per object. Otherwise loads
     ``obj``'s owner, reblog target, and quoted post, if any, individually.
 
-    Returns None if ``obj`` can't be converted, eg its AS1 ``objectType``/``verb``
-    isn't supported, or its account can't be fetched or converted.
+    Returns None if ``obj`` can't be converted, eg it has no data, its AS1
+    ``objectType``/``verb`` isn't supported, or its account can't be fetched or
+    converted.
     """
-    if as1.object_type(obj.as1) not in as1.POST_TYPES | {'share'}:
+    if not obj.as1 or as1.object_type(obj.as1) not in as1.POST_TYPES | {'share'}:
         return None
 
     try:

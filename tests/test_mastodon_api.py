@@ -2705,6 +2705,13 @@ class MastodonApiTest(TestCase):
             'statuses': []
         }, resp.json)
 
+    def test_search_status_no_data(self):
+        self.store_object(id='fake:post')
+
+        resp = self.get('/api/v2/search?type=statuses&q=fake~3Apost')
+        self.assertEqual(200, resp.status_code, resp.get_data(as_text=True))
+        self.assertEqual({'accounts': [], 'statuses': [], 'hashtags': []}, resp.json)
+
     def test_search_unsupported_type(self):
         resp = self.get('/api/v2/search?type=statuses&q=hello')
         self.assertEqual(200, resp.status_code, resp.get_data(as_text=True))
