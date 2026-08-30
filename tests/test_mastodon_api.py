@@ -2887,6 +2887,64 @@ class MastodonApiTest(TestCase):
         self.assertEqual('mention', resp.json[0]['type'])
         self.assertEqual('@alice hi', resp.json[0]['status']['content'])
 
+    def test_notifications_types_param(self):
+        bob = self.make_user('other:bob', cls=OtherFake,
+                             enabled_protocols=['activitypub'])
+        Object(id='fake:post', users=[self.user.key], our_as1={
+            'objectType': 'note',
+            'content': 'my post',
+        }).put()
+        Object(id='fake:like', users=[bob.key], notify=[self.user.key], our_as1={
+            'objectType': 'activity',
+            'verb': 'like',
+            'object': 'fake:post',
+        }).put()
+        Object(id='fake:follow', users=[bob.key], notify=[self.user.key], our_as1={
+            'objectType': 'activity',
+            'verb': 'follow',
+            'object': 'fake:alice',
+        }).put()
+        Object(id='fake:reply', users=[bob.key], notify=[self.user.key], our_as1={
+            'objectType': 'note',
+            'content': '@alice hi',
+            'inReplyTo': 'fake:post',
+        }).put()
+
+        resp = self.get('/api/v1/notifications?types[]=mention&types[]=quote')
+        self.assertEqual(200, resp.status_code, resp.get_data(as_text=True))
+        self.assertEqual(['mention'], [n['type'] for n in resp.json])
+
+    def test_notifications_exclude_types_param(self):
+        bob = self.make_user('other:bob', cls=OtherFake,
+                             enabled_protocols=['activitypub'])
+        Object(id='fake:follow', users=[bob.key], notify=[self.user.key], our_as1={
+            'objectType': 'activity',
+            'verb': 'follow',
+            'object': 'fake:alice',
+        }).put()
+        Object(id='fake:reply', users=[bob.key], notify=[self.user.key], our_as1={
+            'objectType': 'note',
+            'content': '@alice hi',
+            'inReplyTo': 'fake:post',
+        }).put()
+
+        resp = self.get('/api/v1/notifications?exclude_types[]=follow')
+        self.assertEqual(200, resp.status_code, resp.get_data(as_text=True))
+        self.assertEqual(['mention'], [n['type'] for n in resp.json])
+
+    def test_notifications_favourite_object_not_stored(self):
+        bob = self.make_user('other:bob', cls=OtherFake,
+                             enabled_protocols=['activitypub'])
+        Object(id='fake:like', users=[bob.key], notify=[self.user.key], our_as1={
+            'objectType': 'activity',
+            'verb': 'like',
+            'object': 'fake:post',
+        }).put()
+
+        resp = self.get('/api/v1/notifications')
+        self.assertEqual(200, resp.status_code, resp.get_data(as_text=True))
+        self.assertEqual([], resp.json)
+
     def test_notifications_max_since_min_id(self):
         bob = self.make_user('other:bob', cls=OtherFake,
                              enabled_protocols=['activitypub'])

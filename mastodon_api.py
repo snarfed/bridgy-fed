@@ -272,7 +272,8 @@ def to_notification(obj):
         if owner:
             notif['account'] = to_account(owner)
 
-    if not notif['account']:
+    if not notif['account'] or (type in ('favourite', 'reblog')
+                                and not notif['status']):
         return None
 
     return notif
@@ -1451,11 +1452,18 @@ def markers(user):
 @cache_user
 def notifications_list(user):
     # TODO: unbridged notifs
+    types = request.args.getlist('types[]')
+    exclude_types = request.args.getlist('exclude_types[]')
+
     objs = paginate_and_fetch(Object.notify == user.key)
     objects = [obj for obj in objs if visible(obj)]
     prefetch_statuses(objects)
-    return (non_none([to_notification(obj) for obj in objects]),
-            link_header(objects))
+
+    notifs = non_none(to_notification(obj) for obj in objects)
+    filtered = [notif for notif in notifs
+                if (not types or notif['type'] in types)
+                and notif['type'] not in exclude_types]
+    return filtered, link_header(objects)
 
 
 @app.get('/api/v1/notifications/<path:id>', provide_automatic_options=False)
