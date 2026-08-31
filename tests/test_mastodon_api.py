@@ -27,7 +27,7 @@ from web import Web
 
 from activitypub import ActivityPub
 from memcache import pickle_memcache
-from .test_activitypub import ACTOR, NOTE_OBJECT
+from .test_activitypub import ACTOR, NOTE, NOTE_OBJECT
 from . import test_atproto
 from .testutil import Fake, OtherFake, TestCase
 
@@ -699,6 +699,93 @@ class MastodonApiTest(TestCase):
         # bob isn't in the datastore yet, and we don't load externally outside of
         # search/lookup, so the repost is unrenderable and should be dropped
         self.assertEqual([], resp.json)
+
+    @patch.object(util.session, 'get', return_value=requests_response({
+        '@context': as2.CONTEXT,
+        'type': 'OrderedCollection',
+        'id': 'https://mas.to/users/foo/outbox',
+        'orderedItems': [NOTE],
+    }, content_type=as2.CONTENT_TYPE))
+    def test_accounts_statuses_fetches_outbox(self, mock_get):
+        self.make_user('https://mas.to/users/foo', cls=ActivityPub,
+                       obj_as2={'outbox': 'https://mas.to/users/foo/outbox'})
+
+        resp = self.get('/api/v1/accounts/https://mas.to/users/foo/statuses')
+        self.assertEqual(200, resp.status_code, resp.json)
+        self.assertEqual(1, len(resp.json))
+        self.assertEqual('☕ just a normal post', resp.json[0]['content'])
+
+        self.assertEqual('https://mas.to/users/foo/outbox', mock_get.call_args[0][0])
+        # we shouldn't store the collection itself, just its items
+        self.assertIsNone(Object.get_by_id('https://mas.to/users/foo/outbox'))
+
+        obj = Object.get_by_id('http://mas.to/note/id')
+        self.assert_equals(NOTE_OBJECT, obj.as2, ignore=['@context'])
+        self.assertEqual('activitypub', obj.source_protocol)
+        self.assertEqual([ActivityPub(id='https://mas.to/users/foo').key], obj.users)
+
+    @patch.object(util.session, 'get', side_effect=[
+        requests_response({
+            '@context': as2.CONTEXT,
+            'type': 'OrderedCollection',
+            'id': 'https://mas.to/users/foo/outbox',
+            'first': 'https://mas.to/users/foo/outbox?page=true',
+        }, content_type=as2.CONTENT_TYPE),
+        requests_response({
+            '@context': as2.CONTEXT,
+            'type': 'OrderedCollectionPage',
+            'id': 'https://mas.to/users/foo/outbox?page=true',
+            'orderedItems': [NOTE],
+        }, content_type=as2.CONTENT_TYPE),
+    ])
+    def test_accounts_statuses_fetches_outbox_first_page(self, mock_get):
+        self.make_user('https://mas.to/users/foo', cls=ActivityPub,
+                       obj_as2={'outbox': 'https://mas.to/users/foo/outbox'})
+
+        resp = self.get('/api/v1/accounts/https://mas.to/users/foo/statuses')
+        self.assertEqual(200, resp.status_code, resp.json)
+        self.assertEqual(1, len(resp.json))
+        self.assertEqual('☕ just a normal post', resp.json[0]['content'])
+        self.assert_equals(NOTE_OBJECT, Object.get_by_id('http://mas.to/note/id').as2,
+                           ignore=['@context'])
+        self.assertIsNone(Object.get_by_id('https://mas.to/users/foo/outbox'))
+        self.assertIsNone(Object.get_by_id('https://mas.to/users/foo/outbox?page=true'))
+
+    @patch.object(util.session, 'get', return_value=requests_response(status=404))
+    def test_accounts_statuses_outbox_fetch_fails(self, _):
+        self.make_user('https://mas.to/users/foo', cls=ActivityPub,
+                       obj_as2={'outbox': 'https://mas.to/users/foo/outbox'})
+
+        resp = self.get('/api/v1/accounts/https://mas.to/users/foo/statuses')
+        self.assertEqual(200, resp.status_code, resp.json)
+        self.assertEqual([], resp.json)
+
+    @patch.object(util.session, 'get')
+    def test_accounts_statuses_doesnt_fetch_outbox_if_stored(self, mock_get):
+        user = self.make_user('https://mas.to/users/foo', cls=ActivityPub,
+                              obj_as2={'outbox': 'https://mas.to/users/foo/outbox'})
+        self.store_object(id='https://mas.to/post', users=[user.key],
+                          source_protocol='activitypub', as2={
+                              **NOTE_OBJECT,
+                              'id': 'https://mas.to/post',
+                              'content': 'stored',
+                          })
+
+        resp = self.get('/api/v1/accounts/https://mas.to/users/foo/statuses')
+        self.assertEqual(200, resp.status_code, resp.json)
+        self.assertEqual(1, len(resp.json))
+        self.assertEqual('stored', resp.json[0]['content'])
+        mock_get.assert_not_called()
+
+    @patch.object(util.session, 'get')
+    def test_accounts_statuses_doesnt_fetch_outbox_when_paginating(self, mock_get):
+        self.make_user('https://mas.to/users/foo', cls=ActivityPub,
+                       obj_as2={'outbox': 'https://mas.to/users/foo/outbox'})
+
+        resp = self.get('/api/v1/accounts/https://mas.to/users/foo/statuses?max_id=xyz')
+        self.assertEqual(200, resp.status_code, resp.json)
+        self.assertEqual([], resp.json)
+        mock_get.assert_not_called()
 
     def test_accounts_statuses_pinned(self):
         Object(id='fake:post', users=[self.user.key], our_as1={

@@ -8,7 +8,7 @@ from urllib.parse import unquote
 from authlib.integrations.flask_oauth2.resource_protector import current_token
 from flask import request
 from google.cloud import ndb
-from granary import as1, bluesky
+from granary import as1, as2, bluesky
 from granary.mastodon import decode_id, encode_id, from_as1
 from webutil.appengine_info import DEBUG, LOCAL_SERVER
 from webutil import util
@@ -59,6 +59,8 @@ AS1_TO_NOTIFICATION_TYPE = {
     'share': 'reblog',
     'follow': 'follow',
 }
+
+STATUS_AS1_TYPES = as1.POST_TYPES | {'share'}
 
 # how many notifications /api/v2/notifications fetches and then aggregates into
 # groups. the datastore can't group, so we over-fetch and collapse in memory,
@@ -176,7 +178,7 @@ def to_status(obj, limit=2):
       limit (int): how many times to recursively call to_status on reposted and
         quoted posts. used to prevent loops.
     """
-    if not obj.as1 or as1.object_type(obj.as1) not in as1.POST_TYPES | {'share'}:
+    if not obj.as1 or as1.object_type(obj.as1) not in STATUS_AS1_TYPES:
         return None
 
     try:
@@ -460,6 +462,35 @@ def load_object(id):
     if not obj or not obj.as1:
         error('Status not found', status=404)
     return obj
+
+
+def fetch_outbox(user):
+    """Fetches, stores, and returns the posts in a user's ActivityPub outbox.
+
+    Args:
+      user (models.User)
+
+    Returns:
+      list of :class:`models.Object`: in outbox order, ie newest first
+    """
+    if not (user.obj and user.obj.as2 and (url := user.obj.as2.get('outbox'))):
+        return []
+
+    logger.info(f'No stored posts for {user.key.id()}, fetching outbox {url}')
+
+    objects = []
+    for item in as2.get_collection_page(url, get_fn=activitypub.signed_get)[:limit()]:
+        if isinstance(item, dict) and item.get('type') in ('Create', 'Update'):
+            item = item.get('object')
+        if not isinstance(item, dict) or not (id := item.get('id')):
+            continue
+
+        obj = Object.get_or_create(id, authed_as=user.key.id(), users=[user.key],
+                                   as2=item, source_protocol=ActivityPub.LABEL)
+        if obj.type in STATUS_AS1_TYPES:
+            objects.append(obj)
+
+    return objects
 
 
 def undo(user, source, activity_id, verb, object_id):
@@ -1023,7 +1054,10 @@ def accounts_statuses(user, id):
 
     else:
         objects = paginate_and_fetch(Object.users == user.key,
-                                     Object.type.IN(as1.POST_TYPES | set(['share'])))
+                                     Object.type.IN(STATUS_AS1_TYPES))
+        if (not objects and 'since_id' not in request.args
+                and 'min_id' not in request.args and 'max_id' not in request.args):
+            objects = fetch_outbox(user)
 
     objects = [obj for obj in objects
                if visible(obj)
