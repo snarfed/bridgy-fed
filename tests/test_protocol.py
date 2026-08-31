@@ -3352,8 +3352,14 @@ class ProtocolReceiveTest(TestCase):
         self.assertEqual(('OK', 202), Fake.receive_as1(reply_as1))
 
         copy = Target(protocol='other', uri='other:o:fa:fake:reply')
-        reply = self.assert_object('fake:reply', our_as1=reply_as1, type='note',
-                                   users=[self.user.key], copies=[copy], deleted=False)
+        reply = self.assert_object(
+            'fake:reply',
+            our_as1=reply_as1, type='note',
+            users=[self.user.key],
+            notify=[eve.key],
+            copies=[copy],
+            deleted=False)
+
         self.assertEqual([('other:post:target', {
             'objectType': 'activity',
             'verb': 'post',

@@ -2132,6 +2132,11 @@ class Protocol:
 
             target_author_key = (target_proto(id=target_id).key if target_is_actor
                                  else target_proto.actor_key(orig_obj))
+            if (target_author_key
+                    and target_author_key != from_user.key
+                    and obj.type not in DONT_NOTIFY_TYPES):
+                if write_obj.add('notify', target_author_key):
+                    write_obj.dirty = True
 
             if not from_user.is_enabled(target_proto):
                 # if author isn't bridged and target user is, DM a prompt and
@@ -2190,11 +2195,7 @@ Hi! You <a href="{inner_obj_as1.get('url') or inner_obj_id}">recently {verb}</a>
                 target_obj = orig_post_mentions[target_id]
             targets[Target(protocol=target_proto.LABEL, uri=target)] = target_obj
 
-            if target_author_key:
-                logger.debug(f'Recipient is {target_author_key}')
-                if obj.type not in DONT_NOTIFY_TYPES:
-                    if write_obj.add('notify', target_author_key):
-                        write_obj.dirty = True
+        # done processing direct targets
 
         if obj.type == 'undo':
             logger.info('Object is an undo; adding targets for inner object')
