@@ -453,7 +453,7 @@ class ActivityPub(User, Protocol):
 
         log_data = request.values.get('first', '').lower() == 'true'
         resp = signed_post(inbox_url, data=activity, from_user=from_user,
-                           log_data=log_data)
+                           gateway=True, log_data=log_data)
         return resp.ok
 
     @classmethod
@@ -613,9 +613,11 @@ class ActivityPub(User, Protocol):
         """
         if util.get_first(obj, 'type') in as2.ACTOR_TYPES:
             if feat := as1.get_object(obj, 'featured'):
-                if set(feat.keys()) == {'id'}:
-                    # fetch collection
-                    _, obj['featured'] = cls._get(feat['id'])
+                obj['featured'] = feat
+                if items := as2.get_collection_page(feat, get_fn=signed_get):
+                    feat['orderedItems'] = items
+                    for field in 'items', 'first':
+                        feat.pop(field, None)
 
     @classmethod
     def _convert(cls, obj, orig_obj=None, from_user=None, **kwargs):
@@ -931,10 +933,11 @@ class ActivityPub(User, Protocol):
         return actor
 
 
-def signed_get(url, from_user=None, **kwargs):
+def signed_get(url, from_user=None, headers=as2.CONNEG_HEADERS, gateway=False,
+               **kwargs):
     # enable request-local cache of HTTP responses
-    return signed_request(util.requests_get, url, cache=True,
-                          from_user=from_user, **kwargs)
+    return signed_request(util.requests_get, url, cache=True, headers=headers,
+                          gateway=gateway, from_user=from_user, **kwargs)
 
 
 def signed_post(url, from_user, **kwargs):
@@ -1001,7 +1004,6 @@ def signed_request(fn, url, data=None, headers=None, from_user=None,
             sign_header='signature', headers=HTTP_SIG_HEADERS)
 
     # make HTTP request
-    kwargs.setdefault('gateway', True)
     resp = fn(url, data=data, auth=auth, headers=headers, allow_redirects=False,
               **kwargs)
 

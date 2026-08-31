@@ -3575,17 +3575,108 @@ class ActivityPubUtilsTest(TestCase):
             **ACTOR,
             'featured': 'http://feat/ured',
         }
-        featured = {'foo': 'bar'}
+        featured = {'items': ['bar']}
         mock_get.side_effect = [self.as2_resp(actor), self.as2_resp(featured)]
 
         obj = Object(id='http://orig')
         self.assertTrue(ActivityPub.fetch(obj))
-        self.assertEqual({**actor, 'featured': {'foo': 'bar'}}, obj.as2)
+        self.assertEqual({
+            **actor,
+            'featured': {
+                'id': 'http://feat/ured',
+                'orderedItems': ['bar'],
+            },
+        }, obj.as2)
 
         mock_get.assert_has_calls((
             self.as2_req('http://orig'),
             self.as2_req('http://feat/ured', headers=as2.CONNEG_HEADERS),
         ))
+
+    @patch.object(util.session, 'get')
+    def test_fetch_hydrate_actor_featured_first_page(self, mock_get):
+        actor = {
+            **ACTOR,
+            'featured': {
+                'type': 'OrderedCollection',
+                'first': 'http://feat/ured?page=1',
+            },
+        }
+        mock_get.side_effect = [
+            self.as2_resp(actor),
+            self.as2_resp({
+                'type': 'OrderedCollectionPage',
+                'orderedItems': ['http://foo'],
+            }),
+        ]
+
+        obj = Object(id='http://orig')
+        self.assertTrue(ActivityPub.fetch(obj))
+        self.assertEqual({
+            **actor,
+            'featured': {
+                'type': 'OrderedCollection',
+                'orderedItems': ['http://foo'],
+            },
+        }, obj.as2)
+
+        mock_get.assert_has_calls((
+            self.as2_req('http://orig'),
+            self.as2_req('http://feat/ured?page=1', headers=as2.CONNEG_HEADERS),
+        ))
+
+    @patch.object(util.session, 'get')
+    def test_fetch_hydrate_actor_featured_id_then_first_page(self, mock_get):
+        actor = {
+            **ACTOR,
+            'featured': 'http://feat/ured',
+        }
+        mock_get.side_effect = [
+            self.as2_resp(actor),
+            self.as2_resp({
+                'type': 'OrderedCollection',
+                'totalItems': 1,
+                'first': 'http://feat/ured?page=1',
+            }),
+            self.as2_resp({
+                'type': 'OrderedCollectionPage',
+                'orderedItems': ['http://foo'],
+            }),
+        ]
+
+        obj = Object(id='http://orig')
+        self.assertTrue(ActivityPub.fetch(obj))
+        self.assertEqual({
+            **actor,
+            'featured': {
+                'id': 'http://feat/ured',
+                'orderedItems': ['http://foo'],
+            },
+        }, obj.as2)
+
+        mock_get.assert_has_calls((
+            self.as2_req('http://orig'),
+            self.as2_req('http://feat/ured', headers=as2.CONNEG_HEADERS),
+            self.as2_req('http://feat/ured?page=1', headers=as2.CONNEG_HEADERS),
+        ))
+
+    @patch.object(util.session, 'get')
+    def test_fetch_hydrate_actor_featured_first_page_fetch_fails(self, mock_get):
+        actor = {
+            **ACTOR,
+            'featured': {
+                'type': 'OrderedCollection',
+                'first': 'http://feat/ured?page=1',
+            },
+        }
+        mock_get.side_effect = [
+            self.as2_resp(actor),
+            requests_response(status=404),
+        ]
+
+        obj = Object(id='http://orig')
+        self.assertTrue(ActivityPub.fetch(obj))
+        self.assertEqual(actor, obj.as2)
 
     @patch.object(util.session, 'get')
     def test_fetch_actor_featured_already_hydrated(self, mock_get):
