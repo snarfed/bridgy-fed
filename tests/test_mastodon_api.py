@@ -1144,6 +1144,73 @@ class MastodonApiTest(TestCase):
             'quoted_status_id': 'fake~3Aquoted',
         }, resp.json['quote'])
 
+    def test_statuses_mention(self):
+        self.make_user('other:bob', cls=OtherFake, enabled_protocols=['activitypub'])
+        self.store_object(id='fake:post', users=[self.user.key], our_as1={
+            'objectType': 'note',
+            'content': 'hi @bob',
+            'tags': [{
+                'objectType': 'mention',
+                'url': 'other:bob',
+                'displayName': '@other:handle:bob',
+            }],
+        })
+
+        resp = self.get('/api/v1/statuses/fake:post')
+        self.assertEqual(200, resp.status_code, resp.get_data(as_text=True))
+        self.assertEqual([{
+            'id': 'other~3Abob',
+            'username': 'other-handle-bob',
+            'acct': 'other-handle-bob@other.brid.gy',
+            'url': 'https://other.brid.gy/ap/other:bob',
+        }], resp.json['mentions'])
+
+    def test_statuses_mention_profile_stored(self):
+        self.make_user('other:eve', cls=OtherFake, enabled_protocols=['activitypub'],
+                       obj_as1={
+                           'objectType': 'person',
+                           'preferredUsername': 'evee',
+                           'url': 'https://other/eve',
+                       })
+        self.store_object(id='fake:post', users=[self.user.key], our_as1={
+            'objectType': 'note',
+            'content': 'hi @eve',
+            'tags': [{
+                'objectType': 'mention',
+                'url': 'other:eve',
+                'displayName': '@other:handle:eve',
+            }],
+        })
+
+        resp = self.get('/api/v1/statuses/fake:post')
+        self.assertEqual(200, resp.status_code, resp.get_data(as_text=True))
+        self.assertEqual([{
+            'id': 'other~3Aeve',
+            'username': 'evee',
+            'acct': 'other-handle-eve@other.brid.gy',
+            'url': 'https://other/eve',
+        }], resp.json['mentions'])
+
+    def test_statuses_mention_user_not_stored(self):
+        self.store_object(id='fake:post', users=[self.user.key], our_as1={
+            'objectType': 'note',
+            'content': 'hi @eve',
+            'tags': [{
+                'objectType': 'mention',
+                'url': 'other:eve',
+                'displayName': '@eve@other.brid.gy',
+            }],
+        })
+
+        resp = self.get('/api/v1/statuses/fake:post')
+        self.assertEqual(200, resp.status_code, resp.get_data(as_text=True))
+        self.assertEqual([{
+            'id': 'other~3Aeve',
+            'username': 'eve',
+            'acct': 'eve@other.brid.gy',
+            'url': 'other:eve',
+        }], resp.json['mentions'])
+
     @skip("we don't bound quote hydration depth yet, so this recurses forever")
     def test_statuses_quote_post_cycle(self):
         for id, quoted in ('fake:a', 'fake:b'), ('fake:b', 'fake:a'):

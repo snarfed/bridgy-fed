@@ -34,6 +34,7 @@ from mastodon_oauth import require_oauth
 import memcache
 import models
 from models import Follower, Object, PROTOCOLS
+import protocol
 from ui import UIProtocol
 import webfinger
 
@@ -196,6 +197,25 @@ def to_status(obj):
 
     if not status['account']:
         return None
+
+    # granary only knows mentions' ids and handles in their own protocol
+    for mention in status['mentions']:
+        if not (id := mention['url']):
+            continue
+
+        user = None
+        if ((proto := protocol.Protocol.for_id(id, remote=False))
+                and (user_id := ids.normalize_user_id(id=id, proto=proto))):
+            user = proto.get_by_id(user_id)
+
+        if not user:
+            mention['id'] = encode_id(id)
+            continue
+
+        # a Mention is a subset of an Account, so keep them consistent
+        account = to_account(user)
+        mention.update({f: account[f] for f in ('id', 'username', 'acct')})
+        mention['url'] = account.get('url') or account['uri']
 
     # TODO: if there's a repost loop, ie two share objects whose object fields
     # point to each other, this will recurse (loop) forever
