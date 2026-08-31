@@ -159,7 +159,7 @@ def to_account(user):
     return account
 
 
-def to_status(obj):
+def to_status(obj, limit=2):
     """Converts a :class:`models.Object` to a Mastodon ``Status``.
 
     If :func:`prefetch_statuses` has run on ``obj``, uses the ``owner``,
@@ -170,6 +170,11 @@ def to_status(obj):
     Returns None if ``obj`` can't be converted, eg it has no data, its AS1
     ``objectType``/``verb`` isn't supported, or its account can't be fetched or
     converted.
+
+    Args:
+      obj (models.Object)
+      limit (int): how many times to recursively call to_status on reposted and
+        quoted posts. used to prevent loops.
     """
     if not obj.as1 or as1.object_type(obj.as1) not in as1.POST_TYPES | {'share'}:
         return None
@@ -223,24 +228,20 @@ def to_status(obj):
             'url': account.get('url') or account['uri'],
         })
 
-    # TODO: if there's a repost loop, ie two share objects whose object fields
-    # point to each other, this will recurse (loop) forever
-    if status['reblog']:
+    if status['reblog'] and limit:
         # try to hydrate the original post
-        status['reblog'] = target_to_status(obj)
+        status['reblog'] = target_to_status(obj, limit=limit-1)
         if not status['reblog']:
             # reposts aren't renderable without their original post
             return None
 
-    # TODO: if there's a quote loop, eg an object that quotes itself, this will
-    # recurse (loop) forever
-    if status['quote']:
+    if status['quote'] and limit:
         # try to hydrate the quoted post
         quoted = (getattr(obj, 'quoted', None)
                   or Object.get_by_id(as1.quoted_posts(obj.as1)[0]))
 
         if quoted and quoted.as1:
-            if quoted_status := to_status(quoted):
+            if quoted_status := to_status(quoted, limit=limit-1):
                 status['quote'] = {
                     'state': 'accepted',
                     'quoted_status': quoted_status,
@@ -249,11 +250,15 @@ def to_status(obj):
     return status
 
 
-def target_to_status(obj):
+def target_to_status(obj, **kwargs):
     """Converts ``obj``'s object to a status.
 
     Uses the ``target`` stashed by :func:`prefetch_statuses`, if it's run on
     ``obj``, instead of loading it.
+
+    Args:
+      obj (models.Object)
+      kwargs: passed through to :func:`to_status`
 
     Returns:
       dict: Mastodon API Status, or None if ``obj`` has no ``object`` or it's not
@@ -264,7 +269,7 @@ def target_to_status(obj):
             target = Object.get_by_id(id)
 
     if target and target.as1:
-        return to_status(target)
+        return to_status(target, **kwargs)
 
 
 def to_notification(obj):
