@@ -198,13 +198,15 @@ def to_status(obj):
     if not status['account']:
         return None
 
-    # granary only knows mentions' ids and handles in their own protocol
+    # convert mention ids and handles to ActivityPub
     for mention in status['mentions']:
         if not (id := mention['url']):
             continue
 
         user = None
-        if ((proto := protocol.Protocol.for_id(id, remote=False))
+        if hasattr(obj, 'mentioned'):
+            user = obj.mentioned.get(id)
+        elif ((proto := protocol.Protocol.for_id(id, remote=False))
                 and (user_id := ids.normalize_user_id(id=id, proto=proto))):
             user = proto.get_by_id(user_id)
 
@@ -214,8 +216,12 @@ def to_status(obj):
 
         # a Mention is a subset of an Account, so keep them consistent
         account = to_account(user)
-        mention.update({f: account[f] for f in ('id', 'username', 'acct')})
-        mention['url'] = account.get('url') or account['uri']
+        mention.update({
+            'id': account['id'],
+            'username': account['username'],
+            'acct': account['acct'],
+            'url': account.get('url') or account['uri'],
+        })
 
     # TODO: if there's a repost loop, ie two share objects whose object fields
     # point to each other, this will recurse (loop) forever
@@ -339,10 +345,11 @@ def prefetch_statuses(objs):
     fixed number of round trips, instead of :func:`to_status` and
     :func:`to_notification` each doing their own gets one object at a time.
 
-    Stashes what it loads on each object in attributes: ``owner`` is its owning
-    :class:`models.User`, or None; ``target`` is the :class:`models.Object`
-    referenced by its AS1 ``object`` field, or None; ``quoted`` is the
-    :class:`models.Object` it quotes, or None.
+    Stashes what it loads on each object in attributes:
+      * ``owner``: its :class:`models.User`
+      * ``target``: the :class:`models.Object` referenced by its AS1 ``object`` field
+      * ``quoted``: the :class:`models.Object` it quotes
+      * ``mentioned``: dict mapping each mention tag's id to its :class:`models.User`
 
     Args:
       objs (sequence of :class:`models.Object`)
@@ -373,6 +380,13 @@ def prefetch_statuses(objs):
         if quoted := as1.quoted_posts(obj_as1):
             obj.quoted = Object.get_by_id_async(quoted[0])
 
+        # mentions
+        obj.mentioned = {}
+        for mention in as1.mentions(obj_as1):
+            if ((proto := protocol.Protocol.for_id(mention, remote=False))
+                    and (user_id := ids.normalize_user_id(id=mention, proto=proto))):
+                obj.mentioned[mention] = proto.get_by_id_async(user_id)
+
     for obj in objs:
         if obj.owner:
             obj.owner = obj.owner.get_result()
@@ -380,6 +394,8 @@ def prefetch_statuses(objs):
             obj.target = obj.target.get_result()
         if obj.quoted:
             obj.quoted = obj.quoted.get_result()
+        obj.mentioned = {id: future.get_result()
+                         for id, future in obj.mentioned.items()}
 
     redirects = [(obj, obj.owner.use_instead.get_async()) for obj in objs
                  if obj.owner and obj.owner.use_instead]
