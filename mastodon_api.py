@@ -650,11 +650,7 @@ def link_header(objects):
     prev_url = util.add_query_params(
         request.base_url, params + [('min_id', encode_id(newest.key.id()))])
 
-    return {
-        'Link': f'<{next_url}>; rel="next", <{prev_url}>; rel="prev"',
-        # https://developer.mozilla.org/en-US/docs/Web/HTTP/Reference/Headers/Access-Control-Expose-Headers
-        'Access-Control-Expose-Headers': 'Link',
-    }
+    return {'Link': f'<{next_url}>; rel="next", <{prev_url}>; rel="prev"'}
 
 
 #

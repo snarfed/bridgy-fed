@@ -3487,7 +3487,8 @@ class MastodonApiTest(TestCase):
             f'<{base}?max_id=fake~3Alike-old>; rel="next", '
             f'<{base}?min_id=fake~3Alike-new>; rel="prev"',
             resp.headers['Link'])
-        self.assertEqual('Link', resp.headers['Access-Control-Expose-Headers'])
+        self.assertEqual('DPoP-Nonce, Link',
+                         resp.headers['Access-Control-Expose-Headers'])
 
     def test_grouped_notifications_link_header_empty(self):
         resp = self.get('/api/v2/notifications')
