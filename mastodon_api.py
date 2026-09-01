@@ -477,9 +477,12 @@ def fetch_outbox(user):
         return []
 
     logger.info(f'No stored posts for {user.key.id()}, fetching outbox {url}')
+    # copy so that we don't hydrate the outbox into the user's stored profile
+    items = as2.maybe_hydrate_collection(dict(user.obj.as2), 'outbox',
+                                         get_fn=activitypub.signed_get)
 
     objects = []
-    for item in as2.get_collection_page(url, get_fn=activitypub.signed_get)[:limit()]:
+    for item in items[:limit()]:
         if isinstance(item, dict) and item.get('type') in ('Create', 'Update'):
             item = item.get('object')
         if not isinstance(item, dict) or not (id := item.get('id')):

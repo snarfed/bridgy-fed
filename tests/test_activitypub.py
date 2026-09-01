@@ -3580,13 +3580,7 @@ class ActivityPubUtilsTest(TestCase):
 
         obj = Object(id='http://orig')
         self.assertTrue(ActivityPub.fetch(obj))
-        self.assertEqual({
-            **actor,
-            'featured': {
-                'id': 'http://feat/ured',
-                'orderedItems': ['bar'],
-            },
-        }, obj.as2)
+        self.assertEqual({**actor, 'featured': featured}, obj.as2)
 
         mock_get.assert_has_calls((
             self.as2_req('http://orig'),
@@ -3616,6 +3610,7 @@ class ActivityPubUtilsTest(TestCase):
             **actor,
             'featured': {
                 'type': 'OrderedCollection',
+                'first': 'http://feat/ured?page=1',
                 'orderedItems': ['http://foo'],
             },
         }, obj.as2)
@@ -3649,7 +3644,9 @@ class ActivityPubUtilsTest(TestCase):
         self.assertEqual({
             **actor,
             'featured': {
-                'id': 'http://feat/ured',
+                'type': 'OrderedCollection',
+                'totalItems': 1,
+                'first': 'http://feat/ured?page=1',
                 'orderedItems': ['http://foo'],
             },
         }, obj.as2)

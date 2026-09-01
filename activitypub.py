@@ -612,12 +612,7 @@ class ActivityPub(User, Protocol):
           obj (dict)
         """
         if util.get_first(obj, 'type') in as2.ACTOR_TYPES:
-            if feat := as1.get_object(obj, 'featured'):
-                obj['featured'] = feat
-                if items := as2.get_collection_page(feat, get_fn=signed_get):
-                    feat['orderedItems'] = items
-                    for field in 'items', 'first':
-                        feat.pop(field, None)
+            as2.maybe_hydrate_collection(obj, 'featured', get_fn=signed_get)
 
     @classmethod
     def _convert(cls, obj, orig_obj=None, from_user=None, **kwargs):
