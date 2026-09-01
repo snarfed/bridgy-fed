@@ -10,6 +10,7 @@ from flask import request
 from google.cloud import ndb
 from granary import as1, as2, bluesky
 from granary.mastodon import decode_id, encode_id, from_as1
+from requests import RequestException
 from webutil.appengine_info import DEBUG, LOCAL_SERVER
 from webutil import util
 from webutil.flask_util import (
@@ -477,9 +478,13 @@ def fetch_outbox(user):
         return []
 
     logger.info(f'No stored posts for {user.key.id()}, fetching outbox {url}')
-    # copy so that we don't hydrate the outbox into the user's stored profile
-    items = as2.maybe_hydrate_collection(dict(user.obj.as2), 'outbox',
-                                         get_fn=activitypub.signed_get)
+    try:
+        # copy so that we don't hydrate the outbox into the user's stored profile
+        items = as2.maybe_hydrate_collection(dict(user.obj.as2), 'outbox',
+                                             get_fn=activitypub.signed_get)
+    except (RequestException, HTTPException) as e:
+        util.interpret_http_exception(e)
+        return []
 
     objects = []
     for item in items[:limit()]:

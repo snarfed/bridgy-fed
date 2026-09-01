@@ -6,6 +6,7 @@ from unittest.mock import patch
 from google.cloud.tasks_v2.types import Task
 from granary import as2
 from oauth_dropins.bluesky import BlueskyAuth
+import requests
 from webutil import util
 from webutil.appengine_config import tasks_client
 from webutil.testutil import requests_response
@@ -759,6 +760,26 @@ class MastodonApiTest(TestCase):
         resp = self.get('/api/v1/accounts/https://mas.to/users/foo/statuses')
         self.assertEqual(200, resp.status_code, resp.json)
         self.assertEqual([], resp.json)
+
+    @patch.object(util.session, 'get',
+                  side_effect=requests.ConnectionError('nope'))
+    def test_accounts_statuses_outbox_connection_error(self, _):
+        self.make_user('https://mas.to/users/foo', cls=ActivityPub,
+                       obj_as2={'outbox': 'https://mas.to/users/foo/outbox'})
+
+        resp = self.get('/api/v1/accounts/https://mas.to/users/foo/statuses')
+        self.assertEqual(200, resp.status_code, resp.json)
+        self.assertEqual([], resp.json)
+
+    @patch.object(util.session, 'get')
+    def test_accounts_statuses_outbox_blocklisted(self, mock_get):
+        self.make_user('https://mas.to/users/foo', cls=ActivityPub,
+                       obj_as2={'outbox': 'https://fed.brid.gy/foo/outbox'})
+
+        resp = self.get('/api/v1/accounts/https://mas.to/users/foo/statuses')
+        self.assertEqual(200, resp.status_code, resp.json)
+        self.assertEqual([], resp.json)
+        mock_get.assert_not_called()
 
     @patch.object(util.session, 'get')
     def test_accounts_statuses_doesnt_fetch_outbox_if_stored(self, mock_get):
