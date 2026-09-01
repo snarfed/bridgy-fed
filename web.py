@@ -620,7 +620,7 @@ class Web(User, Protocol):
 
         try:
             parsed = util.fetch_mf2(url, gateway=gateway, metaformats=metaformats,
-                                    require_backlink=require_backlink)
+                                    require_backlink=require_backlink, cache=True)
         except ValueError as e:
             error(str(e))
 

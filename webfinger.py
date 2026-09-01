@@ -264,7 +264,8 @@ def fetch(addr):
 
     try:
         resp = util.requests_get(
-            f'https://{addr_domain}/.well-known/webfinger?resource={resource}')
+            f'https://{addr_domain}/.well-known/webfinger?resource={resource}',
+            cache=True)
     except RequestException as e:
         flash(f"Couldn't fetch {addr}: {e}")
         return None

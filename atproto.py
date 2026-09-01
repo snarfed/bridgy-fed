@@ -4,6 +4,7 @@ https://atproto.com/
 """
 from collections import defaultdict
 from datetime import timedelta
+from functools import partial
 import itertools
 import logging
 import os
@@ -453,7 +454,8 @@ class ATProto(User, Protocol):
         if resp := DatastoreClient.resolve_handle(handle):
             return resp['did']
 
-        return did.resolve_handle(handle, get_fn=util.requests_get)
+        return did.resolve_handle(
+            handle, get_fn=partial(util.requests_get, cache=True))
 
     def reload_profile(self, **kwargs):
         """Reloads this user's DID doc along with their profile object."""
@@ -1085,7 +1087,8 @@ class ATProto(User, Protocol):
         try:
             # did:plc, did:web
             if id.startswith('did:'):
-                obj.raw = did.resolve(id, get_fn=util.requests_get)
+                obj.raw = did.resolve(
+                    id, get_fn=partial(util.requests_get, cache=True))
                 return True
             # at:// URI. if it has a handle, resolve and replace with DID.
             # examples:
