@@ -47,7 +47,7 @@ app = [
     'requests>=2.22',
     'tldextract>=5.3.2',
     'ujson>=5.7.0',
-    'websockets>=17.0.1',
+    'websockets>=17.1',
     'werkzeug>=3.0.0',
 ]
 tests = [
