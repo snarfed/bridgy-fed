@@ -1,5 +1,4 @@
 """Serves Mastodon OAuth, passes through to other protocols."""
-from datetime import datetime, timedelta
 import hashlib
 import hmac
 import logging
@@ -12,8 +11,6 @@ from authlib.integrations.flask_oauth2.requests import FlaskOAuth2Request
 from authlib.oauth2 import OAuth2Error
 from authlib.oauth2.rfc6749 import (
     AccessDeniedError,
-    AuthorizationCodeGrant,
-    AuthorizationCodeMixin,
     ClientMixin,
     TokenMixin,
 )
@@ -48,9 +45,7 @@ from web import Web
 logger = logging.getLogger(__name__)
 
 CLIENT_TYP = 'mastodon-oauth-client'
-CODE_TYP = 'mastodon-oauth-code'
 TOKEN_TYP = 'mastodon-oauth-token'
-CODE_MAX_AGE = timedelta(seconds=60)
 OOB_REDIRECT_URI = 'urn:ietf:wg:oauth:2.0:oob'
 
 
@@ -95,26 +90,9 @@ class Client(ClientMixin):
         return grant_type == 'authorization_code'
 
 
-class AuthCode(AuthorizationCodeMixin):
-    """In-memory :class:`authlib.oauth2.rfc6749.AuthorizationCodeMixin`.
+class BFAuthorizationCodeGrant(oauth_server.JwtAuthorizationCodeGrant):
+    CODE_TYP = 'mastodon-oauth-code'
 
-    The authorization code is a self-contained JWT that provides all data.
-    """
-    def __init__(self, payload):
-        self.user_key = Key(urlsafe=payload['user_key'])
-        self.redirect_uri = payload['redirect_uri']
-        self.scope = payload.get('scope') or ''
-        self.code_challenge = payload.get('code_challenge')
-        self.code_challenge_method = payload.get('code_challenge_method')
-
-    def get_redirect_uri(self):
-        return self.redirect_uri
-
-    def get_scope(self):
-        return self.scope
-
-
-class BFAuthorizationCodeGrant(AuthorizationCodeGrant):
     def create_authorization_response(self, redirect_uri, grant_user):
         # out of band flow for non-web clients that can't show a webview
         if redirect_uri == OOB_REDIRECT_URI:
@@ -128,45 +106,6 @@ class BFAuthorizationCodeGrant(AuthorizationCodeGrant):
             return 200, render_template('mastodon_oauth_code.html', code=code), []
 
         return super().create_authorization_response(redirect_uri, grant_user)
-
-    def generate_authorization_code(self):
-        return encode_jwt({
-            'typ': CODE_TYP,
-            # real wall-clock time, not util.now(): PyJWT checks 'exp' against real
-            # time regardless of any test-time mocking
-            'exp': int(time.time() + CODE_MAX_AGE.total_seconds()),
-            'user_key': self.request.user.key.urlsafe().decode(),
-            'client_id_hash': hash_client_id(self.request.client.get_client_id()),
-            # same defaulting as authlib itself, in create_authorization_response();
-            # the resolved redirect_uri isn't otherwise available here
-            'redirect_uri': (self.request.payload.redirect_uri
-                             or self.request.client.get_default_redirect_uri()),
-            'scope': self.request.scope,
-            'code_challenge': self.request.payload.data.get('code_challenge'),
-            'code_challenge_method': self.request.payload.data.get('code_challenge_method'),
-        })
-
-    def save_authorization_code(self, code, request):
-        pass
-
-    def query_authorization_code(self, code, client):
-        if not (payload := decode_jwt(code, CODE_TYP)):
-            return None
-
-        client_id_hash = hash_client_id(client.get_client_id())
-        if payload['client_id_hash'] != client_id_hash:
-            logger.info(f"query_authorization_code: client_id_hash mismatch, code was issued to {payload['client_id_hash']}, token request is from {client.get_client_id()} (hash {client_id_hash})")
-            return None
-
-        return AuthCode(payload)
-
-    def delete_authorization_code(self, authorization_code):
-        # TODO: mark spent codes in memcache so they're single-use; right now
-        # they're only good for CODE_MAX_AGE.
-        pass
-
-    def authenticate_user(self, authorization_code):
-        return authorization_code.user_key.get()
 
 
 class Token(TokenMixin):

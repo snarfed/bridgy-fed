@@ -6,14 +6,21 @@ authorization server, but we don't have any credentials of our own for the user,
 so we authenticate them by passing through to whatever auth their original
 account supports, eg IndieAuth for web users.
 """
+from datetime import timedelta
 import hashlib
 import logging
+import time
 from urllib.parse import parse_qsl
 
 from authlib.oauth2 import OAuth2Error
-from authlib.oauth2.rfc6749 import OAuth2Request
+from authlib.oauth2.rfc6749 import (
+    AuthorizationCodeGrant,
+    AuthorizationCodeMixin,
+    OAuth2Request,
+)
 from authlib.oauth2.rfc6749.requests import BasicOAuth2Payload
 from flask import redirect, request
+from google.cloud.ndb.key import Key
 import jwt
 from webutil import models
 from webutil.flask_util import flash
@@ -79,6 +86,76 @@ def decode_jwt(val, typ):
 
 def hash_client_id(client_id):
     return hashlib.sha256(client_id.encode()).hexdigest()
+
+
+class AuthCode(AuthorizationCodeMixin):
+    """In-memory :class:`authlib.oauth2.rfc6749.AuthorizationCodeMixin`.
+
+    The authorization code is a self-contained JWT that provides all data.
+    """
+    def __init__(self, payload):
+        self.user_key = Key(urlsafe=payload['user_key'])
+        self.redirect_uri = payload['redirect_uri']
+        self.scope = payload.get('scope') or ''
+        self.code_challenge = payload.get('code_challenge')
+        self.code_challenge_method = payload.get('code_challenge_method')
+
+    def get_redirect_uri(self):
+        return self.redirect_uri
+
+    def get_scope(self):
+        return self.scope
+
+
+class JwtAuthorizationCodeGrant(AuthorizationCodeGrant):
+    """Authorization code grant whose codes are self-contained JWTs.
+
+    Nothing is stored: the code carries all its own data, signed with our key,
+    and expires on its own. Subclasses set :attr:`CODE_TYP`.
+    """
+    CODE_TYP = None
+    """str: ``typ`` for this server's code JWTs, eg ``mastodon-oauth-code``."""
+    CODE_MAX_AGE = timedelta(seconds=60)
+
+    def generate_authorization_code(self):
+        payload = self.request.payload
+        return encode_jwt({
+            'typ': self.CODE_TYP,
+            # real wall-clock time, not util.now(): PyJWT checks 'exp' against real
+            # time regardless of any test-time mocking
+            'exp': int(time.time() + self.CODE_MAX_AGE.total_seconds()),
+            'user_key': self.request.user.key.urlsafe().decode(),
+            'client_id_hash': hash_client_id(self.request.client.get_client_id()),
+            # same defaulting as authlib itself, in create_authorization_response();
+            # the resolved redirect_uri isn't otherwise available here
+            'redirect_uri': (payload.redirect_uri
+                             or self.request.client.get_default_redirect_uri()),
+            'scope': self.request.scope,
+            'code_challenge': payload.data.get('code_challenge'),
+            'code_challenge_method': payload.data.get('code_challenge_method'),
+        })
+
+    def save_authorization_code(self, code, request):
+        pass
+
+    def query_authorization_code(self, code, client):
+        if not (payload := decode_jwt(code, self.CODE_TYP)):
+            return None
+
+        client_id_hash = hash_client_id(client.get_client_id())
+        if payload['client_id_hash'] != client_id_hash:
+            logger.info(f"query_authorization_code: client_id_hash mismatch, code was issued to {payload['client_id_hash']}, token request is from {client.get_client_id()} (hash {client_id_hash})")
+            return None
+
+        return AuthCode(payload)
+
+    def delete_authorization_code(self, authorization_code):
+        # TODO: mark spent codes in memcache so they're single-use; right now
+        # they're only good for CODE_MAX_AGE.
+        pass
+
+    def authenticate_user(self, authorization_code):
+        return authorization_code.user_key.get()
 
 
 class Proxy:
