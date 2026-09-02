@@ -2,6 +2,17 @@
 
 dispatch:
 
+  # ATProto OAuth
+  #
+  # atproto.brid.gy is our PDS, and also our ATProto OAuth authorization server,
+  # but the authorization server runs in the frontend (default) service, with the
+  # login session and templates, not in hub.
+  - url: "atproto.brid.gy/.well-known/*"
+    service: default
+
+  - url: "atproto.brid.gy/oauth/*"
+    service: default
+
   # hub
   - url: "atproto.brid.gy/*"
     service: hub

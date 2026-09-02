@@ -4942,6 +4942,19 @@ Sed tortor neque, aliquet quis posuere aliquam, imperdiet sitamet […]
         resp = self.get('/.well-known/oauth-protected-resource')
         self.assertEqual(404, resp.status_code)
 
+    def test_oauth_protected_resource(self):
+        """atproto.brid.gy is our PDS, so it serves real metadata there."""
+        resp = self.get('/.well-known/oauth-protected-resource',
+                        base_url='https://atproto.brid.gy/')
+        self.assertEqual(200, resp.status_code)
+        self.assertEqual('application/json', resp.headers['Content-Type'])
+        self.assert_equals({
+            'resource': 'https://atproto.brid.gy',
+            'authorization_servers': ['https://atproto.brid.gy'],
+            'scopes_supported': ['atproto'],
+            'bearer_methods_supported': ['header'],
+        }, resp.json)
+
     def test_oauth_client_metadata(self):
         self._test_oauth_client_metadata()
 

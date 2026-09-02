@@ -9,7 +9,7 @@ from webutil.appengine_info import DEBUG, LOCAL_SERVER
 from flask_app import app
 
 # import all modules to register their Flask handlers
-import activitypub, admin, atproto, convert, farcaster, follow, mastodon_api, mastodon_oauth, nostr, oauth_server, pages, redirect, ui, webfinger, web
+import activitypub, admin, atproto, atproto_oauth, convert, farcaster, follow, mastodon_api, mastodon_oauth, nostr, oauth_server, pages, redirect, ui, webfinger, web
 
 # https://docs.cloud.google.com/profiler/docs/profiling-python
 # import googlecloudprofiler
@@ -31,7 +31,9 @@ def oauth_metadata():
     Here, and not in either OAuth module, because RFC 8414 pins this to one path
     per host, so the two servers have to share the route.
     """
-    return mastodon_oauth.metadata()
+    # atproto.brid.gy is our PDS, so it serves ATProto OAuth
+    return (atproto_oauth.metadata() if atproto.is_pds_host()
+            else mastodon_oauth.metadata())
 
 if DEBUG or LOCAL_SERVER:
     atproto.init(atproto.RemoteSequences)

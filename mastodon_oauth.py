@@ -1,4 +1,7 @@
-"""Serves Mastodon OAuth, passes through to other protocols."""
+"""Serves Mastodon OAuth, passes through to other protocols.
+
+https://github.com/snarfed/bridgy-fed/issues/2492
+"""
 import hashlib
 import hmac
 import logging
@@ -46,6 +49,7 @@ logger = logging.getLogger(__name__)
 
 CLIENT_TYP = 'mastodon-oauth-client'
 TOKEN_TYP = 'mastodon-oauth-token'
+CODE_TYP = 'mastodon-oauth-code'
 OOB_REDIRECT_URI = 'urn:ietf:wg:oauth:2.0:oob'
 
 
@@ -90,8 +94,8 @@ class Client(ClientMixin):
         return grant_type == 'authorization_code'
 
 
-class BFAuthorizationCodeGrant(oauth_server.JwtAuthorizationCodeGrant):
-    CODE_TYP = 'mastodon-oauth-code'
+class AuthorizationCodeGrant(oauth_server.JwtAuthorizationCodeGrant):
+    CODE_TYP = CODE_TYP
 
     def create_authorization_response(self, redirect_uri, grant_user):
         # out of band flow for non-web clients that can't show a webview
@@ -228,7 +232,7 @@ server = JsonAwareAuthorizationServer(
     # noop; our tokens are self-contained, not stored
     save_token=lambda token, request: None)
 server.register_token_generator('default', generate_bearer_token)
-server.register_grant(BFAuthorizationCodeGrant, [CodeChallenge(required=False)])
+server.register_grant(AuthorizationCodeGrant, [CodeChallenge(required=False)])
 
 require_oauth = ResourceProtector()
 require_oauth.register_token_validator(BearerValidator())

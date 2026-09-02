@@ -38,6 +38,7 @@ app = [
     'grpcio>=1.83.0',
     'gunicorn>=26.2.0',
     'humanize>=4.16.0',
+    'joserfc>=1.7.3',
     'libipld>=3.0.0',
     'multiformats>=0.3.1',
     'pycryptodome>=3.0',
@@ -69,6 +70,7 @@ package = false
 # keep these sections in sync with requirements.txt
 [tool.uv.sources]
 arroba =            { editable = true, path = "../arroba" }
+authlib =           { editable = true, path = "../authlib" }
 brevity =           { editable = true, path = "../brevity" }
 carbox =            { editable = true, path = "../carbox" }
 dag-json =          { editable = true, path = "../dag-json" }

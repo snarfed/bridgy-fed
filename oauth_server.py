@@ -99,12 +99,17 @@ class AuthCode(AuthorizationCodeMixin):
         self.scope = payload.get('scope') or ''
         self.code_challenge = payload.get('code_challenge')
         self.code_challenge_method = payload.get('code_challenge_method')
+        self.dpop_jkt = payload.get('dpop_jkt')
 
     def get_redirect_uri(self):
         return self.redirect_uri
 
     def get_scope(self):
         return self.scope
+
+    def get_dpop_jkt(self):
+        """None unless the client bound this code to a DPoP key."""
+        return self.dpop_jkt
 
 
 class JwtAuthorizationCodeGrant(AuthorizationCodeGrant):
@@ -133,6 +138,8 @@ class JwtAuthorizationCodeGrant(AuthorizationCodeGrant):
             'scope': self.request.scope,
             'code_challenge': payload.data.get('code_challenge'),
             'code_challenge_method': payload.data.get('code_challenge_method'),
+            # DPoP key the client bound this code to, if any
+            'dpop_jkt': payload.data.get('dpop_jkt'),
         })
 
     def save_authorization_code(self, code, request):

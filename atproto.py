@@ -1879,10 +1879,37 @@ def site_standard_publication():
 #
 # OAuth
 #
+def is_pds_host():
+    """Returns True if this request is for the host that serves our PDS.
+
+    That's ``atproto.brid.gy`` in prod. On the local dev server it's whatever
+    host we're running on, since :meth:`ATProto.create_for` puts
+    :func:`domains.host_url` in new DID docs when ``DEBUG``. Not ``LOCAL_SERVER``
+    under tests, so that they can exercise both branches with ``base_url``.
+    """
+    return (util.domain_from_link(request.host_url)
+            == util.domain_from_link(ATProto.DEFAULT_TARGET)
+            or (LOCAL_SERVER and request.host in domains.LOCAL_DOMAINS))
+
+
 @app.get('/.well-known/oauth-protected-resource')
 @flask_util.headers(CACHE_CONTROL)
-def no_oauth():
-    return "Sorry, Bridgy Fed doesn't serve OAuth. https://fed.brid.gy/docs#use-like-normal", 404
+def oauth_protected_resource():
+    """https://atproto.com/specs/oauth#authorization-server-metadata
+
+    Only on our PDS, ie atproto.brid.gy, which is what bridged users' DID docs
+    point to. Everywhere else we still don't serve OAuth.
+    """
+    if not is_pds_host():
+        return "Sorry, Bridgy Fed doesn't serve OAuth. https://fed.brid.gy/docs#use-like-normal", 404
+
+    origin = domains.host_url().rstrip('/')
+    return {
+        'resource': origin,
+        'authorization_servers': [origin],
+        'scopes_supported': ['atproto'],
+        'bearer_methods_supported': ['header'],
+    }
 
 
 class BlueskyOAuthStart(FlashErrors, oauth_dropins.bluesky.OAuthStart):
