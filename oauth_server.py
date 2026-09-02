@@ -21,6 +21,7 @@ from authlib.oauth2.rfc6749 import (
 from authlib.oauth2.rfc6749.requests import BasicOAuth2Payload
 from flask import redirect, request
 from google.cloud.ndb.key import Key
+from google.protobuf.message import DecodeError
 import jwt
 from webutil import models
 from webutil.flask_util import flash
@@ -232,6 +233,33 @@ class Proxy:
 
         logger.info(f'<< {resp.get_data(as_text=True)}, Location: {resp.headers.get("Location")}')
         return resp
+
+    @classmethod
+    def consent_response(cls, state):
+        """Handles the authorization prompt's consent POST.
+
+        The user must be logged into the account they're granting, in this
+        browser session. Otherwise anyone could POST someone else's ``user_key``
+        and get an authorization code for their account.
+
+        Args:
+          state (str): the original authorize request's query string
+        """
+        grant_user = None
+
+        if not request.form.get('deny') and (key := request.form.get('user_key')):
+            try:
+                key = Key(urlsafe=key)
+            except (DecodeError, ValueError):
+                logger.warning(f"couldn't decode user_key {key}")
+                key = None
+
+            if key in [pages.login_to_user_key(l) for l in pages.get_logins()]:
+                grant_user = key.get()
+            else:
+                logger.warning(f'not logged in as {key}')
+
+        return cls.grant_or_deny(grant_user, state)
 
     def finish(self, auth_entity, state=None):
         """``finish()`` for every backend's proxy login callback view.

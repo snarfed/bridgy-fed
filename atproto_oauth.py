@@ -521,11 +521,7 @@ def authorize():
 @log_request_response
 def authorize_consent():
     """Handles the authorization consent prompt."""
-    grant_user = None
-    if not request.form.get('deny') and (key := request.form.get('user_key')):
-        grant_user = Key(urlsafe=key).get()
-
-    return Proxy.grant_or_deny(grant_user, get_required_param('state'))
+    return Proxy.consent_response(get_required_param('state'))
 
 
 @app.post(TOKEN_PATH)
