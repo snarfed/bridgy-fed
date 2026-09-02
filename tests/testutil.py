@@ -18,6 +18,7 @@ import arroba.util
 from arroba.util import datetime_to_tid
 from bs4 import MarkupResemblesLocatorWarning
 import cachetools
+from cryptography.hazmat.primitives.asymmetric import ec
 import dag_cbor.random
 from google.cloud import ndb
 from google.protobuf.timestamp_pb2 import Timestamp
@@ -61,6 +62,10 @@ logger = logging.getLogger(__name__)
 logging.getLogger('memcache').setLevel(logging.INFO)
 
 ATPROTO_KEY = arroba.util.new_key(2349823483510)  # deterministic seed
+
+# ATProto OAuth's DPoP proofs and private_key_jwt client assertions are both
+# ES256, ie P-256, not the K-256 that ATPROTO_KEY (and atproto repos) use.
+OAUTH_ES256_KEY = ec.generate_private_key(ec.SECP256R1())
 
 NOTE = {
     **NOTE,

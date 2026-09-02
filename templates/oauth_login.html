@@ -1,13 +1,17 @@
 {% set body_id = 'login' %}
 {% extends "base.html" %}
 
+{# Login prompt for our OAuth servers. Vars:
+   client_name, state, existing_logins, authorize_path, and hide, a list of
+   login button names to leave out, eg ['bluesky', 'blacksky'] #}
+
 {% block content %}
 
 <p class="row big"><strong>{{ client_name }}</strong> wants to connect to Bridgy Fed. Choose an account:</p>
 
 {% for user in existing_logins %}
 <div class="row big account-chooser">
-  <form method="post" action="/oauth/authorize" style="display: inline">
+  <form method="post" action="{{ authorize_path }}" style="display: inline">
     <input name="state" type="hidden" value="{{ state }}">
     <input name="user_key" type="hidden" value="{{ user.key.urlsafe().decode() }}">
     <button type="submit" class="btn-link">{{ user.html_link(pictures=True)|safe }}</button>
@@ -23,7 +27,8 @@
 
 <div class="row big" style="font-size: 14px">
 
-  <form method="post" action="/oauth/authorize/atproto/start">
+{% if 'bluesky' not in hide %}
+  <form method="post" action="{{ authorize_path }}/atproto/start">
     <nobr>
       <div class="row big">
         <img id="Bluesky" onclick="toggleInput(this.id)" type="image" height="90" title="Bluesky" class="login-button shadow"
@@ -35,8 +40,10 @@
       <input name="state" type="hidden" value="{{ state }}">
     </nobr>
   </form>
+{% endif %}
 
-  <form method="post" action="/oauth/authorize/atproto/start">
+{% if 'blacksky' not in hide %}
+  <form method="post" action="{{ authorize_path }}/atproto/start">
     <nobr>
       <div class="row big">
         <img id="Blacksky" onclick="toggleInput(this.id)" type="image" height="90" title="Blacksky" class="login-button shadow"
@@ -48,8 +55,40 @@
       <input name="state" type="hidden" value="{{ state }}">
     </nobr>
   </form>
+{% endif %}
 
-  <form method="post" action="/oauth/authorize/indieauth/start">
+{% if 'mastodon' not in hide %}
+  <form method="post" action="{{ authorize_path }}/mastodon/start">
+    <nobr>
+      <div class="row big">
+        <img id="Mastodon" onclick="toggleInput(this.id)" type="image" height="90" title="Mastodon" class="login-button shadow"
+              src="/static/mastodon_large.png" /><br />
+        <input id="Mastodon-input" name="instance" type="url" class="fade-in-element login-input" placeholder="Mastodon instance" scheme="https" required>
+        <input id="Mastodon-submit" type="image" title="Mastodon" class="submit-button fade-in-element shadow"
+              src="/static/material-arrow-icon.svg" />
+      </div>
+      <input name="state" type="hidden" value="{{ state }}">
+    </nobr>
+  </form>
+{% endif %}
+
+{% if 'pixelfed' not in hide %}
+  <form method="post" action="{{ authorize_path }}/pixelfed/start">
+    <nobr>
+      <div class="row big">
+        <img id="Pixelfed" onclick="toggleInput(this.id)" type="image" height="90" title="Pixelfed" class="login-button shadow"
+              src="/static/pixelfed_large.png" /><br />
+        <input id="Pixelfed-input" name="instance" type="url" class="fade-in-element login-input" placeholder="Pixelfed instance" scheme="https" required>
+        <input id="Pixelfed-submit" type="image" title="Pixelfed" class="submit-button fade-in-element shadow"
+              src="/static/material-arrow-icon.svg" />
+      </div>
+      <input name="state" type="hidden" value="{{ state }}">
+    </nobr>
+  </form>
+{% endif %}
+
+{% if 'indieauth' not in hide %}
+  <form method="post" action="{{ authorize_path }}/indieauth/start">
     <nobr>
       <div class="row big">
         <div id="IndieAuth" onclick="toggleInput(this.id)" title="IndieAuth" class="login-button shadow login-button-logotype">
@@ -63,6 +102,8 @@
       <input name="state" type="hidden" value="{{ state }}">
     </nobr>
   </form>
+{% endif %}
+
 </div>
 
 {% endblock %}

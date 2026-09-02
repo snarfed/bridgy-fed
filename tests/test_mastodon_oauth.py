@@ -28,6 +28,7 @@ from atproto import ATProto
 import common
 from flask_app import app
 import mastodon_oauth
+import oauth_server
 from web import Web
 from .test_atproto import DID_DOC
 from .testutil import TestCase
@@ -363,7 +364,7 @@ class MastodonOAuthTest(TestCase):
         match = re.search(r'id="code" readonly value="([^"]+)"', body)
         self.assertTrue(match, body)
 
-        payload = jwt.decode(match.group(1), algorithms=[mastodon_oauth.JWT_ALG],
+        payload = jwt.decode(match.group(1), algorithms=[oauth_server.JWT_ALG],
                              key=webutil.models.ENCRYPTED_PROPERTY_KEYS_BYTES[0])
         self.assertIsNotNone(payload)
         self.assertEqual(mastodon_oauth.OOB_REDIRECT_URI, payload['redirect_uri'])
@@ -419,10 +420,10 @@ class MastodonOAuthTest(TestCase):
 
         # decode, force exp into the past, re-encode with the real key, since we
         # can't easily wait 60s in a test
-        payload = jwt.decode(code, algorithms=[mastodon_oauth.JWT_ALG],
+        payload = jwt.decode(code, algorithms=[oauth_server.JWT_ALG],
                              key=webutil.models.ENCRYPTED_PROPERTY_KEYS_BYTES[0])
         payload['exp'] = int(time.time()) - 1
-        expired_code = jwt.encode(payload, algorithm=mastodon_oauth.JWT_ALG,
+        expired_code = jwt.encode(payload, algorithm=oauth_server.JWT_ALG,
                                   key=webutil.models.ENCRYPTED_PROPERTY_KEYS_BYTES[0])
 
         resp = self.client.post('/oauth/token', data={

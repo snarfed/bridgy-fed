@@ -9,7 +9,7 @@ from webutil.appengine_info import DEBUG, LOCAL_SERVER
 from flask_app import app
 
 # import all modules to register their Flask handlers
-import activitypub, admin, atproto, convert, farcaster, follow, mastodon_api, mastodon_oauth, nostr, pages, redirect, ui, webfinger, web
+import activitypub, admin, atproto, convert, farcaster, follow, mastodon_api, mastodon_oauth, nostr, oauth_server, pages, redirect, ui, webfinger, web
 
 # https://docs.cloud.google.com/profiler/docs/profiling-python
 # import googlecloudprofiler
@@ -20,6 +20,18 @@ import activitypub, admin, atproto, convert, farcaster, follow, mastodon_api, ma
 
 import models
 models.reset_protocol_properties()
+
+
+@app.get('/.well-known/oauth-authorization-server')
+@app.get('/.well-known/oauth-authorization-server/')
+@oauth_server.log_request_response
+def oauth_metadata():
+    """Serves whichever OAuth authorization server this host runs.
+
+    Here, and not in either OAuth module, because RFC 8414 pins this to one path
+    per host, so the two servers have to share the route.
+    """
+    return mastodon_oauth.metadata()
 
 if DEBUG or LOCAL_SERVER:
     atproto.init(atproto.RemoteSequences)

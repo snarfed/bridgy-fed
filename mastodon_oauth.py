@@ -6,7 +6,6 @@ import logging
 import os
 import secrets
 import time
-from urllib.parse import parse_qsl
 
 from authlib.integrations.flask_oauth2 import AuthorizationServer, ResourceProtector
 from authlib.integrations.flask_oauth2.requests import FlaskOAuth2Request
@@ -16,99 +15,43 @@ from authlib.oauth2.rfc6749 import (
     AuthorizationCodeGrant,
     AuthorizationCodeMixin,
     ClientMixin,
-    OAuth2Request,
     TokenMixin,
 )
 from authlib.oauth2.rfc6749.requests import BasicOAuth2Payload
 from authlib.oauth2.rfc6750 import BearerTokenValidator
 from authlib.oauth2.rfc7636 import CodeChallenge, create_s256_code_challenge
 from authlib.oauth2.rfc8414 import AuthorizationServerMetadata
-from flask import redirect, Response, request
+from flask import Response, request
 from google.cloud import ndb
 from google.cloud.ndb.key import Key
 from granary.bluesky import Bluesky
 from granary.micropub import Micropub
-import jwt
 from oauth_dropins import indieauth
 import oauth_dropins.bluesky
 from oauth_dropins.bluesky import BlueskyAuth
 import oauth_dropins.mastodon
 import oauth_dropins.pixelfed
 from webutil import models
-from webutil.flask_util import error, FlashErrors, flash, get_required_param
-from werkzeug.exceptions import HTTPException
+from webutil.flask_util import error, FlashErrors, get_required_param
 
 from activitypub import ActivityPub
 import atproto
 from atproto import ATProto
-import common
 from common import render_template
 import domains
 from flask_app import app
+from oauth_server import decode_jwt, encode_jwt, hash_client_id, log_request_response
+import oauth_server
 import pages
 from web import Web
 
 logger = logging.getLogger(__name__)
 
-JWT_ALG = 'HS256'
 CLIENT_TYP = 'mastodon-oauth-client'
 CODE_TYP = 'mastodon-oauth-code'
 TOKEN_TYP = 'mastodon-oauth-token'
 CODE_MAX_AGE = timedelta(seconds=60)
 OOB_REDIRECT_URI = 'urn:ietf:wg:oauth:2.0:oob'
-
-
-def log_request_response(fn):
-    """Logs the full request and response for this view."""
-    def wrapper(*args, **kwargs):
-        logger.info(f'>> {request.method} {request.url}')
-        if auth := request.headers.get('Authorization'):
-            logger.info(f'>> Authorization: {auth}')
-        if body := request.get_data(as_text=True):
-            logger.info(f'>> body: {body}')
-        elif request.form:
-            logger.info(f'>> form: {dict(request.form)}')
-
-        try:
-            resp = fn(*args, **kwargs)
-        except HTTPException as e:
-            # authlib's own HTTPException subclass carries the real error body in
-            # .body instead of .description
-            body = getattr(e, 'body', None) or e.description
-            logger.info(f'<< {e.code}: {body}')
-            raise
-
-        if not isinstance(resp, str):
-            logger.info(f'<< {resp}')
-
-        return resp
-
-    wrapper.__name__ = fn.__name__
-    return wrapper
-
-
-def encode_jwt(val):
-    return jwt.encode(val, key=models.ENCRYPTED_PROPERTY_KEYS_BYTES[0], algorithm=JWT_ALG)
-
-
-def decode_jwt(val, typ):
-    """Decodes a JWT and checks its ``typ``."""
-    try:
-        payload = jwt.decode(val, key=models.ENCRYPTED_PROPERTY_KEYS_BYTES[0],
-                             algorithms=[JWT_ALG])
-    except jwt.InvalidTokenError as e:
-        logger.info(f'decode failed for {val}: {e}')
-        return None
-
-    if payload.get('typ') != typ:
-        logger.info(f"expected type {typ} but got {payload['typ']} in {val}")
-        return None
-
-    return payload
-
-
-def hash_client_id(client_id):
-    return hashlib.sha256(client_id.encode()).hexdigest()
 
 
 def client_secret_for(client_id):
@@ -352,10 +295,18 @@ require_oauth = ResourceProtector()
 require_oauth.register_token_validator(BearerValidator())
 
 
-@app.get('/.well-known/oauth-authorization-server')
-@app.get('/.well-known/oauth-authorization-server/')
-@log_request_response
-def oauth_metadata():
+class Proxy(oauth_server.Proxy):
+    SERVER = server
+    AUTHORIZE_PATH = '/oauth/authorize'
+    PROTO = ActivityPub
+
+
+def metadata():
+    """Returns our authorization server metadata document.
+
+    The ``/.well-known/oauth-authorization-server`` route that serves this is in
+    :mod:`app`, since :mod:`atproto_oauth` serves its own on our PDS host.
+    """
     metadata = AuthorizationServerMetadata({
         'issuer': domains.host_url(),
         'authorization_endpoint': domains.host_url('/oauth/authorize'),
@@ -404,60 +355,6 @@ def create_app():
     }
 
 
-def _grant_or_deny(grant_user, state):
-    """Common prompt decision logic.
-
-    Applies the beta gate, then finishes (or denies) the OAuth authorization
-    response for the original ``/oauth/authorize`` request captured in ``state``.
-
-    Args:
-      grant_user (models.User): the resolved Bridgy Fed user, or None to deny
-      state (str): the original ``/oauth/authorize`` query string
-    """
-    if grant_user and grant_user.key.id() not in common.BETA_USER_IDS:
-        flash('Mastodon OAuth login is limited to beta testers for now.')
-        grant_user = None
-
-    if grant_user and not grant_user.is_enabled(ActivityPub):
-        flash(f"{grant_user.handle_or_id()} isn't bridged to the fediverse.")
-        grant_user = None
-
-    params = dict(parse_qsl(state or ''))
-    req = OAuth2Request('GET', domains.host_url('/oauth/authorize'))
-    req.payload = BasicOAuth2Payload(params)
-
-    try:
-        grant = server.get_authorization_grant(req)
-        resp = server.create_authorization_response(
-            request=req, grant_user=grant_user, grant=grant)
-    except OAuth2Error as err:
-        logger.info(err)
-        resp = server.handle_error_response(None, err)
-
-    logger.info(f'<< {resp.get_data(as_text=True)}, Location: {resp.headers.get("Location")}')
-    return resp
-
-
-def _finish_proxy_login(auth_entity, state):
-    """Common ``finish()`` logic for every backend's proxy login callback.
-
-    Resolves the oauth-dropins auth entity to a Bridgy Fed user via
-    :func:`pages.login_to_user_key`, then hands off to :func:`_grant_or_deny`.
-    """
-    logger.info(f'auth_entity: {auth_entity}, state: {state}')
-
-    if not auth_entity:
-        flash("OK, you're not logged in.")
-        return redirect('/')
-
-    if (not (user_key := pages.login_to_user_key(auth_entity))
-            or not (grant_user := user_key.get())):
-        flash("That account isn't set up on Bridgy Fed yet.")
-        return redirect('/')
-
-    return _grant_or_deny(grant_user, state)
-
-
 @app.get('/oauth/authorize')
 @app.get('/oauth/authorize/')
 @log_request_response
@@ -472,8 +369,11 @@ def oauth_authorize():
     client_name = grant.request.client.client_name
     state = request.query_string.decode()
 
-    return render_template('mastodon_oauth_login.html', client_name=client_name,
-                           state=state, existing_logins=logins)
+    return render_template(
+        'oauth_login.html', client_name=client_name, state=state,
+        existing_logins=logins, authorize_path=Proxy.AUTHORIZE_PATH,
+        # you can't log in with a fediverse account to use a fediverse account
+        hide=['mastodon', 'pixelfed'])
 
 
 @app.post('/oauth/authorize')
@@ -484,7 +384,7 @@ def oauth_authorize_consent():
     if not request.form.get('deny') and (key := request.form.get('user_key')):
         grant_user = Key(urlsafe=key).get()
 
-    return _grant_or_deny(grant_user, get_required_param('state'))
+    return Proxy.grant_or_deny(grant_user, get_required_param('state'))
 
 
 @app.post('/oauth/token')
@@ -501,11 +401,8 @@ class ProxyIndieAuthStart(FlashErrors, indieauth.Start):
     ON_ERROR_REDIRECT_TO = '/'
 
 
-class ProxyIndieAuthCallback(FlashErrors, indieauth.Callback):
-    ON_ERROR_REDIRECT_TO = '/'
-
-    def finish(self, auth_entity, state=None):
-        return _finish_proxy_login(auth_entity, state)
+class ProxyIndieAuthCallback(Proxy, FlashErrors, indieauth.Callback):
+    pass
 
 
 app.add_url_rule(
@@ -531,15 +428,10 @@ class ProxyAtprotoStart(FlashErrors, oauth_dropins.bluesky.OAuthStart):
         return atproto.oauth_client_metadata()
 
 
-class ProxyAtprotoCallback(FlashErrors, oauth_dropins.bluesky.OAuthCallback):
-    ON_ERROR_REDIRECT_TO = '/'
-
+class ProxyAtprotoCallback(Proxy, FlashErrors, oauth_dropins.bluesky.OAuthCallback):
     @property
     def CLIENT_METADATA(self):
         return atproto.oauth_client_metadata()
-
-    def finish(self, auth_entity, state=None):
-        return _finish_proxy_login(auth_entity, state)
 
 
 app.add_url_rule(
