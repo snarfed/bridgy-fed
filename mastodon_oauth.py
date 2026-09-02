@@ -116,6 +116,9 @@ class Token(TokenMixin):
         self.jti = payload.get('jti')
         self.user_key = Key(urlsafe=payload['user_key'])
         self.scope = payload.get('scope') or ''
+        # .get: tokens issued before we started including it don't have it, and
+        # they never expire
+        self.client_id_hash = payload.get('client_id_hash')
 
     def get_scope(self):
         return self.scope
@@ -159,11 +162,9 @@ class Token(TokenMixin):
 
         logger.info(f"No auth for {self.user_key}, or it doesn't support writes yet")
 
-    def get_client(self):
-        return None
-
     def check_client(self, client):
-        return True
+        """Only the client this token was issued to may revoke it."""
+        return self.client_id_hash == hash_client_id(client.get_client_id())
 
 
 class BearerValidator(BearerTokenValidator):

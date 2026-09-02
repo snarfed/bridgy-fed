@@ -252,6 +252,23 @@ class MastodonOAuthTest(TestCase):
         }, resp.json, ignore=['access_token', 'created_at'])
         self.assertTrue(resp.json['access_token'])
 
+    def test_token_check_client(self):
+        """Only the client a token was issued to may revoke it."""
+        payload = {
+            'user_key': self.user.key.urlsafe().decode(),
+            'client_id_hash': oauth_server.hash_client_id('my-client'),
+        }
+        self.assertTrue(mastodon_oauth.Token(payload).check_client(
+            mastodon_oauth.Client('my-client', {'redirect_uris': []})))
+        self.assertFalse(mastodon_oauth.Token(payload).check_client(
+            mastodon_oauth.Client('other-client', {'redirect_uris': []})))
+
+    def test_token_check_client_legacy_token_without_client_id_hash(self):
+        """Tokens issued before we added client_id_hash fail closed."""
+        token = mastodon_oauth.Token({'user_key': self.user.key.urlsafe().decode()})
+        self.assertFalse(token.check_client(
+            mastodon_oauth.Client('my-client', {'redirect_uris': []})))
+
     def test_tokens_are_unique(self):
         """Two tokens for the same user + client + scope must differ, so that
         revoking one (future denylist) doesn't kill a re-issued one.
