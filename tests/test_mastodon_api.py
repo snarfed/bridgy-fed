@@ -5,7 +5,18 @@ from unittest.mock import patch
 
 from google.cloud.tasks_v2.types import Task
 from granary import as2
+from granary.bluesky import Bluesky
+from granary.micropub import Micropub
+from oauth_dropins import indieauth
+import oauth_dropins.bluesky
 from oauth_dropins.bluesky import BlueskyAuth
+from requests_oauth2client import (
+    DPoPKey,
+    DPoPToken,
+    OAuth2AccessTokenAuth,
+    OAuth2Client,
+    TokenSerializer,
+)
 import requests
 from webutil import util
 from webutil.appengine_config import tasks_client
@@ -14,6 +25,7 @@ from webutil.util import json_dumps
 
 from atproto import ATProto
 import common
+from flask_app import app
 import mastodon_api, mastodon_oauth
 from granary.mastodon import encode_id
 from mastodon_api import (
@@ -3565,3 +3577,69 @@ class MastodonApiTest(TestCase):
         ):
             resp = self.client.get(path)
             self.assertEqual(401, resp.status_code, path)
+
+    def test_granary_source_for(self):
+        self.store_object(id='did:plc:user', raw=DID_DOC)
+        user = self.make_user('did:plc:user', cls=ATProto)
+        BlueskyAuth(id='did:plc:user', pds_url='https://some.pds/',
+                    user_json=json_dumps({'did': 'did:plc:user',
+                                          'handle': 'han.dull'}),
+                    session={'accessJwt': 'towkin', 'refreshJwt': 'reefresh'}).put()
+
+        source = mastodon_api.granary_source_for(user.key)
+        self.assertIsInstance(source, Bluesky)
+        self.assertEqual('did:plc:user', source.did)
+        self.assertEqual('han.dull', source.handle)
+        self.assertEqual('https://some.pds/', source._client.address)
+
+    @patch('oauth_dropins.bluesky.oauth_client_for_pds',
+           return_value=OAuth2Client(token_endpoint='https://un/used',
+                                     client_id='unused', client_secret='unused'))
+    def test_granary_source_for_bluesky_dpop(self, mock_oauth_client_for_pds):
+        self.store_object(id='did:plc:user', raw=DID_DOC)
+        user = self.make_user('did:plc:user', cls=ATProto)
+        BlueskyAuth(id='did:plc:user', pds_url='https://some.pds/',
+                    user_json=json_dumps({'did': 'did:plc:user',
+                                          'handle': 'han.dull'}),
+                    dpop_token=TokenSerializer().dumps(
+                        DPoPToken(access_token='towkin',
+                                  _dpop_key=DPoPKey.generate()))).put()
+
+        with app.test_request_context('/', base_url='https://web.brid.gy/'):
+            source = mastodon_api.granary_source_for(user.key)
+
+        self.assertEqual('did:plc:user', source.did)
+        self.assertIsInstance(source._client.requests_kwargs['auth'],
+                              OAuth2AccessTokenAuth)
+        mock_oauth_client_for_pds.assert_called_once_with({
+            **oauth_dropins.bluesky.CLIENT_METADATA_TEMPLATE,
+            'client_id': 'https://web.brid.gy/oauth/bluesky/client-metadata.json',
+            'client_name': 'Bridgy Fed',
+            'client_uri': 'https://web.brid.gy/',
+            'redirect_uris': [
+                'https://web.brid.gy/oauth/bluesky/finish',
+                'https://web.brid.gy/oauth/authorize/atproto/finish',
+            ],
+        }, 'https://some.pds/')
+
+    def test_granary_source_for_no_auth_entity(self):
+        self.store_object(id='did:plc:user', raw=DID_DOC)
+        user = self.make_user('did:plc:user', cls=ATProto)
+        self.assertIsNone(mastodon_api.granary_source_for(user.key))
+
+    def test_granary_source_for_unsupported_protocol(self):
+        self.assertIsNone(mastodon_api.granary_source_for(self.user.key))
+
+    @patch.object(util, 'requests_get',
+                  return_value=requests_response(
+                      '', url='https://alice.com/',
+                      headers={'Link': '<https://alice.com/mp>; rel="micropub"'}))
+    def test_granary_source_for_web(self, mock_get):
+        user = self.make_user('alice.com', cls=Web)
+        indieauth.IndieAuth(id='https://alice.com', user_json='{}',
+                            access_token_str='towkin').put()
+
+        source = mastodon_api.granary_source_for(user.key)
+        self.assertIsInstance(source, Micropub)
+        self.assertEqual('https://alice.com/mp', source.endpoint)
+        self.assertEqual('towkin', source.access_token)
