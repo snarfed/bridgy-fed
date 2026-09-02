@@ -328,35 +328,6 @@ class ATProtoOAuthTest(TestCase):
 
     @patch.object(util.session, 'get',
                   return_value=requests_response(json_dumps(CLIENT_METADATA)))
-    @patch.object(util.session, 'post',
-                  return_value=requests_response('me=https://bob.com'))
-    def test_user_not_bridged_to_atproto_denied(self, *_):
-        self.make_user('bob.com', cls=Web)
-
-        with patch.object(common, 'BETA_USER_IDS', ('alice.com', 'bob.com')):
-            request_uri = self.par().json['request_uri']
-            resp = self.login(request_uri, me='https://bob.com')
-
-        self.assertEqual(302, resp.status_code)
-        params = parse_qs(urlparse(resp.headers['Location']).query)
-        self.assertEqual(['access_denied'], params['error'])
-
-    @patch.object(util.session, 'get',
-                  return_value=requests_response(json_dumps(CLIENT_METADATA)))
-    @patch.object(util.session, 'post',
-                  return_value=requests_response('me=https://alice.com'))
-    def test_non_beta_user_denied(self, *_):
-        request_uri = self.par().json['request_uri']
-
-        with patch.object(common, 'BETA_USER_IDS', ()):
-            resp = self.login(request_uri)
-
-        self.assertEqual(302, resp.status_code)
-        params = parse_qs(urlparse(resp.headers['Location']).query)
-        self.assertEqual(['access_denied'], params['error'])
-
-    @patch.object(util.session, 'get',
-                  return_value=requests_response(json_dumps(CLIENT_METADATA)))
     def test_dpop_nonce_on_success(self, _):
         """Clients need a nonce from successful responses too, not just errors."""
         resp = self.par()

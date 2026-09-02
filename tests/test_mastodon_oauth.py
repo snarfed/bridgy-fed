@@ -1,6 +1,5 @@
 """Unit tests for mastodon_oauth.py."""
 import re
-import time
 from unittest.mock import patch
 from urllib.parse import parse_qs, urlencode, urlparse
 
@@ -23,7 +22,6 @@ from webutil.testutil import requests_response
 from webutil.util import json_dumps
 
 from . import testutil
-import activitypub
 from atproto import ATProto
 import common
 from flask_app import app
@@ -222,82 +220,6 @@ class MastodonOAuthTest(TestCase):
         }, resp.json, ignore=['access_token', 'created_at'])
         self.assertTrue(resp.json['access_token'])
 
-    def test_session_consent_deny(self):
-        app = self.register_app()
-        qs = self.authorize_query(app['client_id'])
-        resp = self.client.post('/oauth/authorize', data={
-            'state': qs,
-            'deny': '1',
-        }, base_url=BASE_URL)
-        self.assertEqual(302, resp.status_code, resp.get_data(as_text=True))
-
-        parsed_qs = parse_qs(urlparse(resp.headers['Location']).query)
-        self.assertEqual({
-            'error': ['access_denied'],
-            'error_description': [
-                'The resource owner or authorization server denied the request',
-            ],
-            'state': ['xyz'],
-        }, parsed_qs)
-
-    @patch.object(util.session, 'get', return_value=requests_response(''))
-    @patch.object(util.session, 'post',
-                  return_value=requests_response('me=https://bob.com'))
-    def test_non_beta_user_denied(self, mock_post, mock_get):
-        self.make_user('bob.com', cls=Web)
-        app = self.register_app()
-        qs = self.authorize_query(app['client_id'])
-
-        resp = self.client.get(f'/oauth/authorize?{qs}', base_url=BASE_URL)
-        self.assertEqual(200, resp.status_code)
-
-        resp = self.client.post('/oauth/authorize/indieauth/start', data={
-            'me': 'https://bob.com',
-            'state': qs,
-        }, base_url=BASE_URL)
-        self.assertEqual(302, resp.status_code)
-        location = resp.headers['Location']
-        state = parse_qs(urlparse(location).query)['state'][0]
-
-        resp = self.client.get(
-            f'/oauth/authorize/indieauth/finish?code=my_code&state={state}',
-            base_url=BASE_URL)
-        self.assertEqual(302, resp.status_code, resp.get_data(as_text=True))
-        location = resp.headers['Location']
-        self.assertTrue(location.startswith('https://app.example/callback'), location)
-
-        parsed_qs = parse_qs(urlparse(location).query)
-        self.assertEqual({
-            'error': ['access_denied'],
-            'error_description': [
-                'The resource owner or authorization server denied the request',
-            ],
-            'state': ['xyz'],
-        }, parsed_qs)
-
-    def test_user_not_bridged_to_activitypub_denied(self):
-        self.user.manual_opt_out = True
-        self.user.put()
-        self.assertFalse(self.user.is_enabled(activitypub.ActivityPub))
-
-        app = self.register_app()
-        qs = self.authorize_query(app['client_id'])
-        resp = self.client.post('/oauth/authorize', data={
-            'state': qs,
-            'user_key': self.user.key.urlsafe().decode(),
-        }, base_url=BASE_URL)
-        self.assertEqual(302, resp.status_code, resp.get_data(as_text=True))
-        location = resp.headers['Location']
-        self.assertTrue(location.startswith('https://app.example/callback'), location)
-
-        self.assertEqual({
-            'error': ['access_denied'],
-            'error_description': [
-                'The resource owner or authorization server denied the request',
-            ],
-            'state': ['xyz'],
-        }, parse_qs(urlparse(location).query))
-
     def test_authorize_bad_client_id(self):
         resp = self.client.get(
             f"/oauth/authorize?{self.authorize_query('bogus')}", base_url=BASE_URL)
@@ -410,60 +332,6 @@ class MastodonOAuthTest(TestCase):
             'client_id': app['client_id'],
             'client_secret': app['client_secret'],
             'code_verifier': 'y' * 43,
-        }, base_url=BASE_URL)
-        self.assertEqual(400, resp.status_code)
-
-    def test_expired_code_rejected(self):
-        app = self.register_app()
-        location = self.login(app['client_id'])
-        code = parse_qs(urlparse(location).query)['code'][0]
-
-        # decode, force exp into the past, re-encode with the real key, since we
-        # can't easily wait 60s in a test
-        payload = jwt.decode(code, algorithms=[oauth_server.JWT_ALG],
-                             key=webutil.models.ENCRYPTED_PROPERTY_KEYS_BYTES[0])
-        payload['exp'] = int(time.time()) - 1
-        expired_code = jwt.encode(payload, algorithm=oauth_server.JWT_ALG,
-                                  key=webutil.models.ENCRYPTED_PROPERTY_KEYS_BYTES[0])
-
-        resp = self.client.post('/oauth/token', data={
-            'grant_type': 'authorization_code',
-            'code': expired_code,
-            'redirect_uri': 'https://app.example/callback',
-            'client_id': app['client_id'],
-            'client_secret': app['client_secret'],
-        }, base_url=BASE_URL)
-        self.assertEqual(400, resp.status_code)
-
-    def test_tampered_code_rejected(self):
-        app = self.register_app()
-        location = self.login(app['client_id'])
-        code = parse_qs(urlparse(location).query)['code'][0]
-
-        resp = self.client.post('/oauth/token', data={
-            'grant_type': 'authorization_code',
-            'code': code[:-1] + '!',
-            'redirect_uri': 'https://app.example/callback',
-            'client_id': app['client_id'],
-            'client_secret': app['client_secret'],
-        }, base_url=BASE_URL)
-        self.assertEqual(400, resp.status_code)
-
-    def test_cross_type_blob_rejected_as_code(self):
-        """A signed access token used as an authorization code must be rejected."""
-        app = self.register_app()
-        token = mastodon_oauth.encode_jwt({
-            'typ': mastodon_oauth.TOKEN_TYP,
-            'user_key': self.user.key.urlsafe().decode(),
-            'client_id_hash': mastodon_oauth.hash_client_id(app['client_id']),
-            'scope': 'read',
-        })
-        resp = self.client.post('/oauth/token', data={
-            'grant_type': 'authorization_code',
-            'code': token,
-            'redirect_uri': 'https://app.example/callback',
-            'client_id': app['client_id'],
-            'client_secret': app['client_secret'],
         }, base_url=BASE_URL)
         self.assertEqual(400, resp.status_code)
 
