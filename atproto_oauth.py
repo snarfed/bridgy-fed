@@ -77,6 +77,12 @@ TOKEN_ENDPOINT_AUTH_METHODS = ['none', 'private_key_jwt']
 # up in the browser's URL bar, so keep them out of it
 CLIENT_AUTH_PARAMS = ('client_assertion', 'client_assertion_type', 'client_secret')
 
+# ATProto's localhost dev client exception. Ports aren't matched, since the
+# client picks one at runtime.
+# https://atproto.com/specs/oauth#localhost-client-development
+LOCALHOST_REDIRECT_URIS = ['http://127.0.0.1/', 'http://[::1]/']
+LOOPBACK_HOSTS = ('127.0.0.1', '::1', 'localhost')
+
 # ATProto requires server-provided DPoP nonces, rotated at least every 5 min
 DPOP_NONCE_MAX_AGE = timedelta(minutes=3)
 
@@ -123,6 +129,19 @@ def fetch_client_json(url, **kwargs):
     return resp.json()
 
 
+def without_port(url):
+    """Returns ``url``'s scheme, host, and path, dropping its port."""
+    parsed = urllib.parse.urlparse(url)
+    return parsed.scheme, parsed.hostname, parsed.path
+
+
+class LocalhostClient(cimd.ClientIdMetadataDocumentClient):
+    """A localhost dev client, whose redirect URIs are matched without ports."""
+    def check_redirect_uri(self, redirect_uri):
+        return without_port(redirect_uri) in [without_port(uri)
+                                              for uri in self.redirect_uris]
+
+
 class ClientIdMetadataDocument(cimd.ClientIdMetadataDocument):
     """Resolves clients by fetching the document at their ``client_id`` URL.
 
@@ -140,19 +159,24 @@ class ClientIdMetadataDocument(cimd.ClientIdMetadataDocument):
             return None
 
     def resolve_client_id_metadata_document(self, client_id):
-        """Adds ATProto's localhost development clients, for the dev server.
-
-        Their metadata is in the ``client_id``'s query string instead of a
-        document to fetch, so authlib's client ID metadata document support
-        doesn't cover them.
-        https://atproto.com/specs/oauth#localhost-client-development
-        """
-        if not DEBUG or not client_id.startswith('http://localhost'):
+        parsed = urllib.parse.urlparse(client_id.rstrip('/'))
+        if not (parsed.scheme == 'http'
+                and parsed.hostname == 'localhost'
+                and not parsed.port
+                and not parsed.path):
             return super().resolve_client_id_metadata_document(client_id)
 
-        params = urllib.parse.parse_qs(urllib.parse.urlparse(client_id).query)
-        redirect_uris = params.get('redirect_uri') or ['http://127.0.0.1/']
-        claims = cimd.ClientMetadataClaims({
+        # localhost client
+        # https://atproto.com/specs/oauth#localhost-client-development
+        params = urllib.parse.parse_qs(parsed.query)
+        redirect_uris = params.get('redirect_uri') or LOCALHOST_REDIRECT_URIS
+        for uri in redirect_uris:
+            scheme, host, _ = without_port(uri)
+            if not (scheme == 'http' and host in LOOPBACK_HOSTS):
+                logger.warning(f'{client_id} has non-loopback redirect_uri {uri}')
+                return None
+
+        return LocalhostClient(cimd.ClientMetadataClaims({
             'client_id': client_id,
             'client_name': 'Localhost dev client',
             'redirect_uris': redirect_uris,
@@ -160,8 +184,9 @@ class ClientIdMetadataDocument(cimd.ClientIdMetadataDocument):
             'response_types': ['code'],
             'grant_types': ['authorization_code', 'refresh_token'],
             'token_endpoint_auth_method': 'none',
-        }, {}, params={'client_id': client_id})
-        return cimd.ClientIdMetadataDocumentClient(claims)
+            'application_type': 'native',
+            'dpop_bound_access_tokens': True,
+        }, {}, params={'client_id': client_id}))
 
 
 class DPoP(rfc9449.DPoP):
@@ -442,6 +467,9 @@ server.register_endpoint(par_endpoint)
 server.register_grant(AuthorizationCodeGrant, [CodeChallenge(required=True)])
 server.register_grant(RefreshTokenGrant)
 server.register_extension(PushedAuthorizationRequest())
+# allow_loopback is whether to fetch client metadata documents from loopback
+# addresses, ie SSRF against ourselves. Unrelated to localhost dev clients, which
+# LocalhostClient handles without fetching anything.
 server.register_extension(ClientIdMetadataDocument(allow_loopback=DEBUG))
 server.register_extension(DPoP(proof_validator))
 server.register_extension(IssuerParameter())

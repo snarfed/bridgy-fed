@@ -341,30 +341,59 @@ class ATProtoOAuthTest(TestCase):
 
         https://atproto.com/specs/oauth#localhost-client-development
         """
-        client_id = ('http://localhost?' + urlencode({
-            'redirect_uri': 'http://127.0.0.1:8080/callback',
+        client_id = 'http://localhost?' + urlencode({
+            'redirect_uri': 'http://127.0.0.1/callback',
             'scope': 'atproto',
-        }))
-
-        with patch.object(atproto_oauth, 'DEBUG', True):
-            resp = self.par(client_id=client_id,
-                            redirect_uri='http://127.0.0.1:8080/callback')
-
+        })
+        # ports aren't matched, so the client can listen on any of them
+        resp = self.par(client_id=client_id,
+                        redirect_uri='http://127.0.0.1:8080/callback')
         self.assertEqual(201, resp.status_code, resp.get_data(as_text=True))
 
     @patch.object(util.session, 'get',
                   side_effect=AssertionError('should not fetch anything'))
-    def test_localhost_client_rejected_in_prod(self, _):
-        client_id = ('http://localhost?' + urlencode({
-            'redirect_uri': 'http://127.0.0.1:8080/callback',
-            'scope': 'atproto',
-        }))
-        with patch.object(atproto_oauth, 'DEBUG', False):
-            resp = self.par(client_id=client_id,
-                            redirect_uri='http://127.0.0.1:8080/callback')
+    def test_localhost_client_default_redirect_uris(self, _):
+        resp = self.par(client_id='http://localhost',
+                        redirect_uri='http://[::1]:1234/')
+        self.assertEqual(201, resp.status_code, resp.get_data(as_text=True))
 
+    @patch.object(util.session, 'get',
+                  side_effect=AssertionError('should not fetch anything'))
+    def test_localhost_client_id_lookalike_host_rejected(self, _):
+        """http://localhost.evil.com must not get a localhost dev client."""
+        client_id = 'http://localhost.evil.com?' + urlencode({
+            'redirect_uri': 'https://evil.example/steal'})
+        resp = self.par(client_id=client_id,
+                        redirect_uri='https://evil.example/steal')
         self.assertEqual(400, resp.status_code, resp.get_data(as_text=True))
-        self.assertEqual('invalid_client', resp.json['error'])
+
+    @patch.object(util.session, 'get',
+                  side_effect=AssertionError('should not fetch anything'))
+    def test_localhost_client_id_with_port_rejected(self, _):
+        client_id = 'http://localhost:8080?' + urlencode({
+            'redirect_uri': 'http://127.0.0.1/callback'})
+        resp = self.par(client_id=client_id,
+                        redirect_uri='http://127.0.0.1/callback')
+        self.assertEqual(400, resp.status_code, resp.get_data(as_text=True))
+
+    @patch.object(util.session, 'get',
+                  side_effect=AssertionError('should not fetch anything'))
+    def test_localhost_client_id_with_path_rejected(self, _):
+        client_id = 'http://localhost/app?' + urlencode({
+            'redirect_uri': 'http://127.0.0.1/callback'})
+        resp = self.par(client_id=client_id,
+                        redirect_uri='http://127.0.0.1/callback')
+        self.assertEqual(400, resp.status_code, resp.get_data(as_text=True))
+
+    @patch.object(util.session, 'get',
+                  side_effect=AssertionError('should not fetch anything'))
+    def test_localhost_client_non_loopback_redirect_uri_rejected(self, _):
+        """Otherwise anyone could exfiltrate authorization codes."""
+        client_id = 'http://localhost?' + urlencode({
+            'redirect_uri': 'https://evil.example/steal'})
+        resp = self.par(client_id=client_id,
+                        redirect_uri='https://evil.example/steal')
+        self.assertEqual(400, resp.status_code, resp.get_data(as_text=True))
 
     #
     # confidential clients, https://atproto.com/specs/oauth#confidential-clients
