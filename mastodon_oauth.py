@@ -5,13 +5,11 @@ https://github.com/snarfed/bridgy-fed/issues/2492
 import hashlib
 import hmac
 import logging
-import os
 import secrets
 import time
 
 from authlib.integrations.flask_oauth2 import AuthorizationServer, ResourceProtector
 from authlib.integrations.flask_oauth2.requests import FlaskOAuth2Request
-from authlib.oauth2 import OAuth2Error
 from authlib.oauth2.rfc6749 import (
     AccessDeniedError,
     ClientMixin,
@@ -21,8 +19,7 @@ from authlib.oauth2.rfc6749.requests import BasicOAuth2Payload
 from authlib.oauth2.rfc6750 import BearerTokenValidator
 from authlib.oauth2.rfc7636 import CodeChallenge, create_s256_code_challenge
 from authlib.oauth2.rfc8414 import AuthorizationServerMetadata
-from flask import Response, request
-from google.cloud import ndb
+from flask import request
 from google.cloud.ndb.key import Key
 from granary.bluesky import Bluesky
 from granary.micropub import Micropub
@@ -42,7 +39,6 @@ import domains
 from flask_app import app
 from oauth_server import decode_jwt, encode_jwt, hash_client_id, log_request_response
 import oauth_server
-import pages
 from web import Web
 
 logger = logging.getLogger(__name__)
@@ -65,8 +61,7 @@ class Client(ClientMixin):
     """
     def __init__(self, client_id, payload):
         self.client_id = client_id
-        self.client_name = payload['client_name']
-        self.website = payload.get('website')
+        self.client_metadata = payload
         self.redirect_uris = payload['redirect_uris']
 
     def get_client_id(self):
@@ -242,6 +237,8 @@ class Proxy(oauth_server.Proxy):
     SERVER = server
     AUTHORIZE_PATH = '/oauth/authorize'
     PROTO = ActivityPub
+    # you can't log in with a fediverse account to use a fediverse account
+    HIDE_LOGINS = ('mastodon', 'pixelfed')
 
 
 def metadata():
@@ -302,21 +299,7 @@ def create_app():
 @app.get('/oauth/authorize/')
 @log_request_response
 def oauth_authorize():
-    try:
-        grant = server.get_consent_grant()
-    except OAuth2Error as err:
-        logger.info(err)
-        return server.handle_error_response(None, err)
-
-    logins = ndb.get_multi(pages.login_to_user_key(l) for l in pages.get_logins())
-    client_name = grant.request.client.client_name
-    state = request.query_string.decode()
-
-    return render_template(
-        'oauth_login.html', client_name=client_name, state=state,
-        existing_logins=logins, authorize_path=Proxy.AUTHORIZE_PATH,
-        # you can't log in with a fediverse account to use a fediverse account
-        hide=['mastodon', 'pixelfed'])
+    return Proxy.authorize_response()
 
 
 @app.post('/oauth/authorize')

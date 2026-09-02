@@ -20,6 +20,7 @@ from authlib.oauth2.rfc6749 import (
 )
 from authlib.oauth2.rfc6749.requests import BasicOAuth2Payload
 from flask import redirect, request
+from google.cloud import ndb
 from google.cloud.ndb.key import Key
 from google.protobuf.message import DecodeError
 import jwt
@@ -179,6 +180,8 @@ class Proxy:
     """str: this server's authorization endpoint, eg ``/oauth/authorize``."""
     PROTO = None
     """protocol.Protocol: users must be bridged into this to log in here."""
+    HIDE_LOGINS = ()
+    """sequence of str: login buttons to hide, eg ``('bluesky', 'blacksky')``."""
 
     # for oauth_dropins' FlashErrors
     ON_ERROR_REDIRECT_TO = '/'
@@ -233,6 +236,30 @@ class Proxy:
 
         logger.info(f'<< {resp.get_data(as_text=True)}, Location: {resp.headers.get("Location")}')
         return resp
+
+    @classmethod
+    def authorize_response(cls):
+        """Renders the authorization prompt's login page."""
+        try:
+            grant = cls.SERVER.get_consent_grant()
+        except OAuth2Error as err:
+            logger.info(err)
+            return cls.SERVER.handle_error_response(None, err)
+
+        # only offer accounts that check_user will actually accept
+        logins = [l for l in ndb.get_multi(pages.login_to_user_key(l)
+                                           for l in pages.get_logins())
+                  if l and l.is_enabled(cls.PROTO)]
+
+        client = grant.client
+        return common.render_template(
+            'oauth_login.html',
+            client_name=(client.client_metadata.get('client_name')
+                         or client.get_client_id()),
+            state=request.query_string.decode(),
+            existing_logins=logins,
+            authorize_path=cls.AUTHORIZE_PATH,
+            hide=cls.HIDE_LOGINS)
 
     @classmethod
     def consent_response(cls, state):

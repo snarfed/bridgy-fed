@@ -20,7 +20,7 @@ import time
 import urllib.parse
 
 from authlib.integrations.flask_oauth2 import AuthorizationServer
-from authlib.oauth2 import cimd, OAuth2Error, rfc7523, rfc9126, rfc9207, rfc9449
+from authlib.oauth2 import cimd, rfc7523, rfc9126, rfc9207, rfc9449
 from authlib.oauth2.rfc6749 import (
     InvalidClientError,
     InvalidRequestError,
@@ -30,7 +30,6 @@ from authlib.oauth2.rfc6749.grants import RefreshTokenGrant as BaseRefreshTokenG
 from authlib.oauth2.rfc7636 import CodeChallenge
 from authlib.oauth2.rfc8414 import AuthorizationServerMetadata
 from flask import request
-from google.cloud import ndb
 from google.cloud.ndb.key import Key
 from joserfc.jwk import KeySet
 from oauth_dropins import indieauth
@@ -42,13 +41,11 @@ from webutil.appengine_info import DEBUG
 from webutil.flask_util import FlashErrors, flash, get_required_param
 
 from atproto import ATProto
-from common import render_template
 import domains
 from flask_app import app
 import memcache
 import oauth_server
 from oauth_server import decode_jwt, encode_jwt, hash_client_id, log_request_response
-import pages
 
 logger = logging.getLogger(__name__)
 
@@ -455,6 +452,8 @@ class Proxy(oauth_server.Proxy):
     SERVER = server
     AUTHORIZE_PATH = AUTHORIZE_PATH
     PROTO = ATProto
+    # you can't log in with an ATProto account to use an ATProto account
+    HIDE_LOGINS = ('bluesky', 'blacksky')
 
     @classmethod
     def check_user(cls, user, params):
@@ -497,24 +496,7 @@ def par():
 @app.get(AUTHORIZE_PATH)
 @log_request_response
 def authorize():
-    try:
-        grant = server.get_consent_grant()
-    except OAuth2Error as err:
-        logger.info(err)
-        return server.handle_error_response(None, err)
-
-    # only offer accounts that check_user will actually accept
-    logins = [l for l in ndb.get_multi(pages.login_to_user_key(l)
-                                       for l in pages.get_logins())
-              if l and l.is_enabled(ATProto)]
-
-    return render_template(
-        'oauth_login.html',
-        client_name=grant.client.client_metadata.get('client_name') or grant.client.get_client_id(),
-        state=request.query_string.decode(), existing_logins=logins,
-        authorize_path=AUTHORIZE_PATH,
-        # you can't log in with an ATProto account to use an ATProto account
-        hide=['bluesky', 'blacksky'])
+    return Proxy.authorize_response()
 
 
 @app.post(AUTHORIZE_PATH)
