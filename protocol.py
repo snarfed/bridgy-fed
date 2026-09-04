@@ -758,6 +758,18 @@ class Protocol:
         if (from_user and from_user.is_profile(obj)
                 and PROTOCOLS.get(obj.source_protocol) != cls
                 and Protocol.for_bridgy_subdomain(id) not in DOMAINS):
+            if obj.our_as1 is orig_our_as1:
+                obj.our_as1 = copy.deepcopy(obj.as1)
+            actor = as1.get_object(obj.our_as1) if is_crud else obj.our_as1
+
+            # render profile bio to HTML. MUST be before add_source_links,
+            # which appends HTML to summary.
+            # https://github.com/snarfed/bridgy-fed/issues/2675
+            if (cls.HTML_PROFILES
+                   and actor.get('summary')
+                   and not as1.is_html(actor, 'summary')):
+                actor['summary'] = source.whitespace_to_html(actor['summary'])
+
             # TODO: more systematic way to get this that covers all protocols,
             # eg Nostr NIP-05
             web_opted_in = (from_user.LABEL == 'web' and
@@ -774,9 +786,6 @@ class Protocol:
                 # web is currently opt out, so add [Unofficial] to their display name
                 # to be explicit that they may not have enabled this themselves
                 if from_user.LABEL == 'web':
-                    if obj.our_as1 is orig_our_as1:
-                        obj.our_as1 = copy.deepcopy(obj.as1)
-                    actor = as1.get_object(obj.our_as1) if is_crud else obj.our_as1
                     if ((name := actor.get('displayName'))
                             and not name.endswith(' [Unofficial]')):
                         actor['displayName'] = f'{name} [Unofficial]'
@@ -818,7 +827,9 @@ class Protocol:
         assert obj and obj.as1
         assert from_user
 
-        obj.our_as1 = copy.deepcopy(obj.as1)
+        if obj.as1 is not obj.our_as1:
+            obj.our_as1 = copy.deepcopy(obj.as1)
+
         actor = (as1.get_object(obj.as1) if obj.type in as1.CRUD_VERBS
                  else obj.as1)
         actor.setdefault('objectType', 'person')

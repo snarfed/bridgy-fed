@@ -13,7 +13,7 @@ from unittest.mock import MagicMock
 from flask import abort, g, redirect, request
 from google.cloud import ndb
 from google.cloud.ndb.query import FilterNode, OR, Query
-from granary import as1, as2, source
+from granary import as1, as2
 from httpsig import HeaderVerifier
 from httpsig.requests_auth import HTTPSignatureAuth
 from httpsig.utils import parse_signature_header
@@ -1261,11 +1261,6 @@ def postprocess_as2_actor(actor, user):
 
     assert isinstance(actor, dict)
     assert user
-
-    # render summary, ie profile bio, to HTML
-    # https://github.com/snarfed/bridgy-fed/issues/2675
-    if actor.get('summary') and not as1.is_html(actor, 'summary'):
-        actor['summary'] = source.whitespace_to_html(actor['summary'])
 
     # remove acct: urls, set default url
     urls = [u for u in as2.get_urls(actor) if not u.startswith('acct:')]

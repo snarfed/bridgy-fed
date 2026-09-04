@@ -3130,13 +3130,6 @@ class ActivityPubUtilsTest(TestCase):
         }), user=self.user)
         self.assertFalse(got['manuallyApprovesFollowers'])
 
-    def test_postprocess_as2_actor_renders_summary(self):
-        got = postprocess_as2_actor({
-            'type': 'Person',
-            'summary': 'foo\n  bar & baz',
-        }, user=self.user)
-        self.assertEqual('foo<br />&nbsp;&nbsp;bar &amp; baz', got['summary'])
-
     def test_postprocess_as2_actor_url_attachments(self):
         got = postprocess_as2_actor(as2.from_as1({
             'objectType': 'person',

@@ -1325,6 +1325,23 @@ class ProtocolTest(TestCase):
                 'summary': 'something about me',
             }), from_user=alice))
 
+    def test_convert_adds_source_links_renders_summary_whitespace(self):
+        self.make_user(cls=Web, id='fa.brid.gy',
+                       copies=[Target(protocol='other', uri='other:bot')])
+        alice = Fake(id='fake:alice')
+        self.assertEqual({
+            'objectType': 'person',
+            'id': 'other:u:fake:alice',
+            'url': 'http://unused',
+            'summary': 'foo bar<br />&nbsp;&nbsp;baz &amp; biff<br><br>🌉 <a href="https://fed.brid.gy/fa/fake:handle:alice">bridged</a> from 🤡 <a href="web:fake:alice">fake:handle:alice</a> by <a href="https://fed.brid.gy/">Bridgy Fed</a>',
+        }, OtherFake.convert(Object(
+            id='fake:profile:alice', source_protocol='fake', our_as1={
+                'objectType': 'person',
+                'id': 'fake:alice',
+                'url': 'http://unused',
+                'summary': 'foo bar\n  baz & biff',
+            }), from_user=alice))
+
     def test_convert_object_isnt_from_user_no_source_links(self):
         bob = Fake(id='fake:bob')
         self.assertEqual({
@@ -1401,6 +1418,18 @@ class ProtocolTest(TestCase):
             'objectType': 'person',
             'id': 'user.com',
             'displayName': 'Alice',
+        }), from_user=user))
+
+    def test_convert_web_actor_has_redirects_renders_summary(self):
+        user = self.make_user('user.com', cls=Web, has_redirects=True)
+        self.assertEqual({
+            'objectType': 'person',
+            'id': 'other:u:user.com',
+            'summary': 'foo bar<br />&nbsp;&nbsp;baz &amp; biff',
+        }, OtherFake.convert(Object(id='user.com', source_protocol='web', our_as1={
+            'objectType': 'person',
+            'id': 'user.com',
+            'summary': 'foo bar\n  baz & biff',
         }), from_user=user))
 
     def test_convert_object_adds_source_links_to_create_update(self):
