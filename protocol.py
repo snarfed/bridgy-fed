@@ -1224,7 +1224,7 @@ class Protocol:
 
         content = obj.get('content')
         tags = obj.get('tags')
-        if not content or not tags or as1.is_content_html(obj):
+        if not content or not tags or as1.is_html(obj, 'content'):
             return util.trim_nulls(obj)
 
         indexed = [tag for tag in tags if tag.get('startIndex') and tag.get('length')]
