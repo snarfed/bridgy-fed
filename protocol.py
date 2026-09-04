@@ -2467,15 +2467,21 @@ Hi! You <a href="{inner_obj_as1.get('url') or inner_obj_id}">recently {verb}</a>
                 and inner_type not in cls.SUPPORTED_AS1_TYPES)):
             error(f"Bridgy Fed for {cls.LABEL} doesn't support {obj.type} {inner_type} yet", status=204)
 
-        # don't allow posts with blank content and no image/video/audio
+        # don't allow posts with blank content and no image/video/audio/link
         crud_obj = (as1.get_object(obj.as1) if obj.type in ('post', 'update')
                     else obj.as1)
+        links = [att for att in as1.get_objects(crud_obj, 'attachments')
+                 if att.get('objectType') == 'link']
         if (crud_obj.get('objectType') in as1.POST_TYPES
                 and not util.get_url(crud_obj, key='image')
-                and not any(util.get_urls(crud_obj, 'attachments', inner_key='stream'))
+                and not util.get_urls(crud_obj, 'attachments', inner_key='stream')
+                # link attachments get moved into content, eg in
+                # activitypub.postprocess_as2
+                # https://github.com/snarfed/bridgy-fed/issues/2658
+                and not any(util.get_url(l) for l in links)
                 # TODO: handle articles with displayName but not content
                 and not source.html_to_text(crud_obj.get('content')).strip()):
-            error('Blank content and no image or video or audio', status=204)
+            error('Blank content and no image or video or audio or link', status=204)
 
         # receiving DMs is only allowed to protocol bot accounts
         if direction == 'receive':

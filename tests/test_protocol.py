@@ -1515,8 +1515,29 @@ class ProtocolTest(TestCase):
                  'object': {'objectType': 'note'}},
                 {'objectType': 'activity', 'verb': 'update',
                  'object': {'objectType': 'note'}},
+                # link attachment with no url
+                {'objectType': 'note',
+                 'attachments': [{'objectType': 'link', 'displayName': 'foo'}]},
         ):
             with self.subTest(obj=obj), self.assertRaises(NoContent):
+                Fake.check_supported(Object(our_as1=obj), 'receive')
+
+        # blank content but link attachment
+        # https://github.com/snarfed/bridgy-fed/issues/2658
+        for obj in ({
+                'objectType': 'note',
+                'attachments': [{'objectType': 'link', 'url': 'http://a/link'}],
+        }, {
+            'objectType': 'activity', 'verb': 'post',
+            'object': {
+                'objectType': 'note',
+                'attachments': [{
+                    'objectType': 'link',
+                    'url': 'http://a/link',
+                }],
+            },
+        }):
+            with self.subTest(obj=obj):
                 Fake.check_supported(Object(our_as1=obj), 'receive')
 
         # from and to a copy id of a protocol bot user
