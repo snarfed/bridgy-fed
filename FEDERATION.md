@@ -2,7 +2,7 @@
 
 [Bridgy Fed](https://fed.brid.gy/) is a bridge across decentralized social network protocols. It tries to translate between protocols fully bidirectionally, as completely and with as high fidelity as possible. It uses [granary](https://granary.io/) to translate between different protocols' data formats.
 
-Bridgy Fed currently supports the [IndieWeb](https://indieweb.org/), the [Fediverse](https://en.wikipedia.org/wiki/Fediverse), and [Bluesky](https://bsky.social/). [Nostr](https://nostr.com/) and [Farcaster](https://www.farcaster.xyz/) are on the roadmap for the future.
+Bridgy Fed currently supports the [IndieWeb](https://indieweb.org/), the [Fediverse](https://en.wikipedia.org/wiki/Fediverse), and the [Atmosphere](https://atmosphereaccount.com/) ([Bluesky](https://bsky.social/)). [Nostr](https://nostr.org/) and [Farcaster](https://www.farcaster.xyz/) are on the roadmap for the future.
 
 This document describes, at a high level, how Bridgy Fed supports and translates between the different protocols it suports. It's based on [FEP-67ff](https://codeberg.org/silverpill/feps/src/branch/main/67ff/fep-67ff.md).
 
@@ -21,6 +21,8 @@ Bridgy Fed's documentation describes much of its details. Here are some relevant
 
 ## Supported federation protocols and standards
 
+### Generally available
+
 * [IndieWeb](https://indieweb.org/)
   * [microformats2](https://microformats.org/wiki/microformats2)
   * [Webmention](https://webmention.net/)
@@ -30,8 +32,16 @@ Bridgy Fed's documentation describes much of its details. Here are some relevant
   * [WebFinger](https://webfinger.net/)
   * [HTTP Signatures](https://swicg.github.io/activitypub-http-signature/)
   * [NodeInfo](https://nodeinfo.diaspora.software/)
-* [Bluesky](https://bsky.social/)
+* [Atmosphere](https://atmosphereaccount.com/) ([Bluesky](https://bsky.social/))
   * [AT Protocol](https://atproto.com/)
+
+### In testing
+
+* [Nostr](https://nostr.org/)
+  * [NIPs](https://github.com/nostr-protocol/nips)
+* [Farcaster](https://docs.farcaster.xyz/learn)
+  * [Protocol](https://github.com/farcasterxyz/protocol/blob/main/docs/SPECIFICATION.md)
+  * [Snapchain](https://snapchain.farcaster.xyz/)
 
 
 ## IndieWeb
@@ -68,8 +78,26 @@ Planned:
 * [FEP-7628: Move actor](https://codeberg.org/fediverse/fep/src/branch/main/fep/7628/fep-7628.md) [GitHub](https://github.com/snarfed/bridgy-fed/issues/330)
 
 
-## Bluesky / AT Protocol
+## AT Protocol (Bluesky)
 
 Bridgy Fed's support for [Bluesky](https://bsky.social/) is based on [arroba](https://arroba.readthedocs.io/), a fully independent implementation of the [AT Protocol](https://atproto.com/), and [lexrpc](https://lexrpc.readthedocs.io/), a related independent implementation of [XRPC](https://atproto.com/specs/xrpc) and [Lexicon](https://atproto.com/guides/lexicon).
 
 Bridgy Fed is a federated AT protocol [PDS](https://atproto.com/guides/overview#federation), ie user data server. It translates data to/from the [`bsky.app` lexicon](https://atproto.com/guides/overview#interoperation) (data model) and serves it to the main [`bsky.network` relay](https://docs.bsky.app/docs/advanced-guides/federation-architecture), which sends it onward to the main AppView and from there to user-facing clients like [bsky.app](https://bsky.app/).
+
+
+## Nostr
+
+Bridgy Fed has full support for [Nostr](https://nostr.org/) at a beta level, but we haven't opened it to the public yet. [Here's our tracking issue.](https://github.com/snarfed/bridgy-fed/issues/2215)
+
+Bridgy Fed acts as a Nostr client, not a relay. It publishes its own events to the [nos.lol](https://nos.lol/) relay, and connects to other relays as needed to interact with native Nostr users, using long-lived websocket connections. Users' private keys are fully custodial. [Over 20 NIPs are supported.](https://github.com/snarfed/granary/blob/main/granary/nostr.py)
+
+Nostr users are required to have valid NIP-05 domain handles. We limit pay-level domains to three bridged Nostr users each.
+
+
+## Farcaster
+
+Bridgy Fed has full support for [Farcaster](https://docs.farcaster.xyz/learn) at a beta level, but we haven't opened it to the public yet. [Here's our tracking issue.](https://github.com/snarfed/bridgy-fed/issues/447)
+
+Bridgy Fed acts as a Farcaster client, not a hub or validator. Right now, it's hard-coded to Neynar's validator, `crackle.farcaster.xyz`. It uses [Snapchain's gRPC API](https://snapchain.farcaster.xyz/reference/grpcapi/grpcapi), including [streaming event subscriptions](https://snapchain.farcaster.xyz/reference/grpcapi/events).
+
+We haven't yet implemented [creating FIDs for new users on chain](https://github.com/snarfed/bridgy-fed/issues/2605). Hopefully eventually!
