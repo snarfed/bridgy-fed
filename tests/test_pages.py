@@ -1303,7 +1303,7 @@ class PagesTest(TestCase):
         self.assertEqual(302, resp.status_code)
         self.assertEqual('/settings', resp.headers['Location'])
         self.assertEqual(
-            ["https://bsky.app/xyz/456 doesn't look like a user or list on Bluesky, or we couldn't fetch it"],
+            ["https://bsky.app/xyz/456 doesn't look like a user or list on the Atmosphere (Bluesky), or we couldn't fetch it"],
             get_flashed_messages())
 
     def test_toggle_notifs(self):
@@ -1488,7 +1488,7 @@ class PagesTest(TestCase):
         self.assertEqual(302, resp.status_code)
         self.assertEqual('/settings', resp.headers['Location'])
         self.assertEqual(
-            "OK, we've migrated your bridged Bluesky account to aly.ce on new.pds.com.",
+            "OK, we've migrated your bridged Atmosphere (Bluesky) account to aly.ce on new.pds.com.",
             get_flashed_messages()[0])
 
         mock_create.assert_called_once_with(

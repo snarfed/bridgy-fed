@@ -360,7 +360,7 @@ class ATProto(User, Protocol):
     """
     ABBREV = 'bsky'
     ''
-    PHRASE = 'Bluesky'
+    PHRASE = 'the Atmosphere (Bluesky)'
     ''
     LOGO_EMOJI = '🦋'
     ''
@@ -716,7 +716,7 @@ class ATProto(User, Protocol):
     @classmethod
     def set_username(to_cls, user, username):
         if not user.is_enabled(ATProto):
-            raise ValueError("First, you'll need to bridge your account into Bluesky by following this account.")
+            raise ValueError("First, you'll need to bridge your account into the Atmosphere (Bluesky) by following this account.")
         copy_did = user.get_copy(ATProto)
 
         username = username.removeprefix('@')
@@ -724,7 +724,7 @@ class ATProto(User, Protocol):
         repo = arroba.server.storage.load_repo(copy_did)
         assert repo
         if repo.status:
-            raise RuntimeError(f"Couldn't set username, your bridged Bluesky account is {repo.status}.")
+            raise RuntimeError(f"Couldn't set username, your bridged Atmosphere (Bluesky) account is {repo.status}.")
         elif username == repo.handle:
             logger.info(f'repo {repo.did} already has handle {username}, setting anyway')
 
@@ -739,7 +739,7 @@ class ATProto(User, Protocol):
             # resolve_handle checks that username is a valid domain
             resolved = did.resolve_handle(username, get_fn=util.requests_get)
             if resolved != copy_did:
-                raise RuntimeError(f"""<p>You'll need to connect that domain to your bridged Bluesky account, either <a href="https://bsky.social/about/blog/4-28-2023-domain-handle-tutorial">with DNS</a> <a href="https://atproto.com/specs/handle#handle-resolution">or HTTP</a>. Your DID is: <code>{copy_did}</code><p>Once you're done, <a href="https://bsky-debug.app/handle?handle={username}">check your work here</a>, then try again.""")
+                raise RuntimeError(f"""<p>You'll need to connect that domain to your bridged Atmosphere (Bluesky) account, either <a href="https://bsky.social/about/blog/4-28-2023-domain-handle-tutorial">with DNS</a> <a href="https://atproto.com/specs/handle#handle-resolution">or HTTP</a>. Your DID is: <code>{copy_did}</code><p>Once you're done, <a href="https://bsky-debug.app/handle?handle={username}">check your work here</a>, then try again.""")
 
         logger.info(f'Setting ATProto handle for {user.key.id()} to {username}')
         repo.callback = repo_callback

@@ -856,12 +856,12 @@ class IntegrationTests(TestCase):
         self.assertNotEqual(respond_uri.removeprefix(expected_prefix), '')
         self.assert_equals({
             '$type': 'chat.bsky.convo.defs#messageInput',
-            'text': "Hi! Here are your recent interactions from people who aren't bridged into Bluesky. Click the _respond_ links to reply, like, repost, or block them.\n\n  * My Name · @alice@inst: I hereby reply (respond)\n\n\n\nTo disable these messages, reply with the text 'mute'.",
+            'text': "Hi! Here are your recent interactions from people who aren't bridged into the Atmosphere (Bluesky). Click the _respond_ links to reply, like, repost, or block them.\n\n  * My Name · @alice@inst: I hereby reply (respond)\n\n\n\nTo disable these messages, reply with the text 'mute'.",
             'createdAt': '2022-01-02T03:04:05.000Z',
             'facets': [
                 {
                     '$type': 'app.bsky.richtext.facet',
-                    'index': {'byteStart': 153, 'byteEnd': 175},
+                    'index': {'byteStart': 170, 'byteEnd': 192},
                     'features': [{
                         '$type': 'app.bsky.richtext.facet#link',
                         'uri': 'https://inst/bob',
@@ -869,7 +869,7 @@ class IntegrationTests(TestCase):
                 },
                 {
                     '$type': 'app.bsky.richtext.facet',
-                    'index': {'byteStart': 177, 'byteEnd': 191},
+                    'index': {'byteStart': 194, 'byteEnd': 208},
                     'features': [{
                         '$type': 'app.bsky.richtext.facet#link',
                         'uri': 'http://inst/reply',
@@ -877,7 +877,7 @@ class IntegrationTests(TestCase):
                 },
                 {
                     '$type': 'app.bsky.richtext.facet',
-                    'index': {'byteStart': 193, 'byteEnd': 200},
+                    'index': {'byteStart': 210, 'byteEnd': 217},
                     'features': [{
                         '$type': 'app.bsky.richtext.facet#link',
                         # 'uri': ..., # checked above
@@ -887,7 +887,7 @@ class IntegrationTests(TestCase):
         }, message, ignore=['bridgyOriginalText', 'bridgyOriginalUrl'])
 
         self.assertEqual(('https://inst/bob/inbox',), mock_post.call_args_list[1][0])
-        self.assertEqual("""<p>Hi! You <a href="http://inst/reply">recently replied to</a> <a class="h-card u-author mention" rel="me" href="https://bsky.app/profile/alice.com" title="Alice &middot; alice.com"><span style="unicode-bidi: isolate">Alice</span> &middot; alice.com</a>, who's bridged here from Bluesky. To make sure they see your replies, you can bridge your account into Bluesky by following this account. <a href="https://fed.brid.gy/docs">See the docs</a> for more information.</p>""",
+        self.assertEqual("""<p>Hi! You <a href="http://inst/reply">recently replied to</a> <a class="h-card u-author mention" rel="me" href="https://bsky.app/profile/alice.com" title="Alice &middot; alice.com"><span style="unicode-bidi: isolate">Alice</span> &middot; alice.com</a>, who's bridged here from the Atmosphere (Bluesky). To make sure they see your replies, you can bridge your account into the Atmosphere (Bluesky) by following this account. <a href="https://fed.brid.gy/docs">See the docs</a> for more information.</p>""",
             json_loads(mock_post.call_args_list[1][1]['data'])['object']['content'])
 
     @patch.object(util.session, 'post')
@@ -987,7 +987,7 @@ class IntegrationTests(TestCase):
         args, kwargs = mock_post.call_args_list[1]
         self.assert_equals(('http://inst/inbox',), args)
         message = """\
-<p>Welcome to Bridgy Fed! Your account will soon be bridged to Bluesky at <a class="h-card u-author mention" rel="me" href="https://bsky.app/profile/alice.wf.com.ap.brid.gy" title="alice.wf.com.ap.brid.gy">alice.wf.com.ap.brid.gy</a>. <a href="https://fed.brid.gy/docs">See the docs</a> and <a href="https://fed.brid.gy/ap/@alice@wf.com">your user page</a> for more information. To disable this and delete your bridged profile, block this account.</p>"""
+<p>Welcome to Bridgy Fed! Your account will soon be bridged to the Atmosphere (Bluesky) at <a class="h-card u-author mention" rel="me" href="https://bsky.app/profile/alice.wf.com.ap.brid.gy" title="alice.wf.com.ap.brid.gy">alice.wf.com.ap.brid.gy</a>. <a href="https://fed.brid.gy/docs">See the docs</a> and <a href="https://fed.brid.gy/ap/@alice@wf.com">your user page</a> for more information. To disable this and delete your bridged profile, block this account.</p>"""
         self.assert_equals({
             'type': 'Create',
             'id': 'https://bsky.brid.gy/#bridgy-fed-dm-welcome-https://inst/alice-2022-01-02T03:04:05+00:00-create',
@@ -1320,7 +1320,7 @@ class IntegrationTests(TestCase):
         }}, repo.get_contents())
 
         # check reply DM was sent
-        message = """<p>OK, you're now blocking <a href="https://bsky.app/profile/did:plc:bob/lists/abc">My stuff</a> on Bluesky.</p>"""
+        message = """<p>OK, you're now blocking <a href="https://bsky.app/profile/did:plc:bob/lists/abc">My stuff</a> on the Atmosphere (Bluesky).</p>"""
         self.assert_ap_deliveries(mock_post, ['https://inst/alice/inbox'],
                                   from_user=bsky_bot, data={
             'type': 'Create',
@@ -1483,7 +1483,7 @@ class IntegrationTests(TestCase):
         reply = mock_post.call_args_list[-1]
         self.assertEqual(('https://inst/alice/inbox',), reply.args)
         self.assertEqual(
-            "<p>OK, we've migrated your bridged Bluesky account to <code>myhandle.new.pds.com</code> on new.pds.com.</p>",
+            "<p>OK, we've migrated your bridged Atmosphere (Bluesky) account to <code>myhandle.new.pds.com</code> on new.pds.com.</p>",
             json_loads(reply.kwargs['data'])['object']['content'])
 
     @patch.object(util.session, 'post')
@@ -3119,7 +3119,7 @@ class IntegrationTests(TestCase):
             'kind': KIND_PROFILE,
             'pubkey': bsky_bot.hex_pubkey(),
             'content': json_dumps({
-                'name': 'Bluesky',
+                'name': 'Bluesky    ',
                 'nip05': '_@bsky.brid.gy',
             }),
             'created_at': NOW_SECONDS,

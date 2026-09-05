@@ -620,7 +620,7 @@ class DmsTest(TestCase):
         alice = self.make_user(id='http://in.st/alice', cls=ActivityPub)
                              # obj_as1={'inbox': 'http://in.st/alice/inbox'})
         self.assertEqual("""\
-<p>Hi! I'm a friendly bot that can help you bridge your account into Bluesky. Here are some commands I respond to:</p>
+<p>Hi! I'm a friendly bot that can help you bridge your account into the Atmosphere (Bluesky). Here are some commands I respond to:</p>
 <ul>
 <li><em>start</em>: enable bridging for your account
 <li><em>start</em>: enable bridging for your account
@@ -629,7 +629,7 @@ class DmsTest(TestCase):
 <li><em>stop</em>: disable bridging for your account
 <li><em>notify</em>: enable notifications when someone who's not bridged replies to you, quotes you, or @-mentions you
 <li><em>mute</em>: disable notifications
-<li><em>did</em>: get your bridged Bluesky account's <a href="https://atproto.com/guides/identity#identifiers">DID</a>
+<li><em>did</em>: get your bridged Atmosphere account's <a href="https://atproto.com/guides/identity#identifiers">DID</a>
 <li><em>username [domain]</em>: set a custom domain username (handle)
 <li><em>username [domain]</em>: set a custom domain username (handle)
 <li><em>block [handle or ID or list URL]...</em>: block one or more users who aren't bridged here, and/or lists, on {to_proto.PHRASE}

@@ -2583,7 +2583,7 @@ Sed tortor neque, aliquet quis posuere aliquam, imperdiet sitamet […]
         with self.assertRaises(ValueError) as e:
             ATProto.set_username(user, 'new.org')
 
-        self.assertEqual("First, you'll need to bridge your account into Bluesky by following this account.", str(e.exception))
+        self.assertEqual("First, you'll need to bridge your account into the Atmosphere (Bluesky) by following this account.", str(e.exception))
 
     def test_set_username_deactivated_repo(self):
         user = self.make_user_and_repo(enabled_protocols=['atproto'])
@@ -2599,7 +2599,7 @@ Sed tortor neque, aliquet quis posuere aliquam, imperdiet sitamet […]
         with self.assertRaises(ValueError) as e:
             ATProto.set_username(user, 'bad nope')
 
-        self.assertEqual("bad nope isn't a valid Bluesky handle", str(e.exception))
+        self.assertEqual("bad nope isn't a valid ATProto (Bluesky) handle", str(e.exception))
 
         self.assertEqual('han.dull.fa.brid.gy', user.handle_as(ATProto))
         repo = self.storage.load_repo('did:plc:user')
@@ -2611,7 +2611,7 @@ Sed tortor neque, aliquet quis posuere aliquam, imperdiet sitamet […]
         with self.assertRaises(ValueError) as e:
             ATProto.set_username(user, 'x_y.com')
 
-        self.assertEqual("x_y.com isn't a valid Bluesky handle", str(e.exception))
+        self.assertEqual("x_y.com isn't a valid ATProto (Bluesky) handle", str(e.exception))
 
         self.assertEqual('han.dull.fa.brid.gy', user.handle_as(ATProto))
         repo = self.storage.load_repo('did:plc:user')

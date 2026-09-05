@@ -12,21 +12,21 @@
     "https://fed.brid.gy/"
   ],
   "preferredUsername": "bsky.brid.gy",
-  "summary": "<p><a href='https://fed.brid.gy/'>Bridgy Fed</a> bot user for <a href='https://bsky.social/'>Bluesky</a>. To bridge your account to Bluesky, follow this account. <a href='https://fed.brid.gy/docs'>More info here.</a><p>After you follow this account, it will follow you back. Accept its follow to make sure your posts get sent to the bridge.<p>To ask a Bluesky user to bridge their account, DM their handle (eg snarfed.bsky.social) to this account.</p>",
-  "name": "Bridgy Fed for Bluesky",
+  "summary": "<p><a href='https://fed.brid.gy/'>Bridgy Fed</a> bot user for the <a href='https://atmosphereaccount.com/'>Atmosphere</a> (<a href='https://bsky.social/'>Bluesky</a>). To bridge your account to the Atmosphere, follow this account. <a href='https://fed.brid.gy/docs'>More info here.</a><p>After you follow this account, it will follow you back. Accept its follow to make sure your posts get sent to the bridge.<p>To ask an Atmosphere user to bridge their account, DM their handle (eg snarfed.bsky.social) to this account.</p>",
+  "name": "Bridgy Fed for the Atmosphere (Bluesky)",
   "image": [
     {
       "type": "Image",
       "url": "https://fed.brid.gy/static/bridgy_fed_banner.png"
     },
     {
-      "name": "Bridgy Fed for Bluesky",
+      "name": "Bridgy Fed for the Atmosphere (Bluesky)",
       "type": "Image",
       "url": "https://fed.brid.gy/static/bridgy_logo_square.jpg"
     }
   ],
   "icon": {
-    "name": "Bridgy Fed for Bluesky",
+    "name": "Bridgy Fed for the Atmosphere (Bluesky)",
     "type": "Image",
     "url": "https://fed.brid.gy/static/bridgy_logo_square.jpg"
   },

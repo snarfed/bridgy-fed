@@ -250,7 +250,7 @@ def mute(from_user, to_proto):
 
 
 @command(['did'], to_proto='atproto', from_user_bridged=True,
-         help_text="<em>did</em>: get your bridged Bluesky account's <a href=\"https://atproto.com/guides/identity#identifiers\">DID</a>")
+         help_text="<em>did</em>: get your bridged Atmosphere account's <a href=\"https://atproto.com/guides/identity#identifiers\">DID</a>")
 def did(from_user, to_proto):
     return f'Your DID is <code>{from_user.get_copy(models.PROTOCOLS["atproto"])}</code>'
 
@@ -407,7 +407,7 @@ def migrate_to_atproto(from_user, to_proto, pds, email, handle, password,
     common.create_task(queue='migrate-out', user=from_user.key.urlsafe(),
                        auth=auth.key.urlsafe(), protocol=ATProto.LABEL)
 
-    return f"OK, we've migrated your bridged Bluesky account to <code>{resp['handle']}</code> on {pds_domain}."
+    return f"OK, we've migrated your bridged Atmosphere (Bluesky) account to <code>{resp['handle']}</code> on {pds_domain}."
 
 
 @command(None, from_user_bridged=True, to_user_bridged='eligible',
