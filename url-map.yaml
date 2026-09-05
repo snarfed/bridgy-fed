@@ -1,0 +1,27 @@
+# ALB forwarding rules
+#
+# https://docs.cloud.google.com/load-balancing/docs/url-map-concepts
+# https://docs.cloud.google.com/load-balancing/docs/url-map
+# https://docs.cloud.google.com/load-balancing/docs/https/setting-up-global-traffic-mgmt
+#
+# deploy with:
+#
+# gcloud compute url-maps import bridgy-fed --source=url-map.yaml --global
+
+name: bridgy-fed
+defaultService: projects/bridgy-federated/global/backendServices/frontend
+
+hostRules:
+- hosts:
+  - 'atproto.brid.gy'
+  pathMatcher: atproto-paths
+
+pathMatchers:
+- name: atproto-paths
+  defaultService: projects/bridgy-federated/global/backendServices/frontend
+  pathRules:
+  - paths:
+    - /admin/hub
+    - /queue/atproto-commit
+    - /xrpc/com.atproto.sync.subscribeRepos
+    service: projects/bridgy-federated/global/backendServices/hub

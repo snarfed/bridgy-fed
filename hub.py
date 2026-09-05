@@ -53,12 +53,6 @@ BSKY_TEAM_HOSTS = (
     'zip.zayo.com',  # maybe? https://github.com/bluesky-social/atproto/discussions/3036#discussioncomment-11399854
 )
 
-# WARNING: when this is higher than 1, we start seeing ndb context exceptions,
-# "ContextError: No current context," in _handle, even though it has an ndb context
-# from handler. No clue why. They happen more often as the number of threads
-# increases. Are ndb clients/contexts not thread safe?!
-# https://github.com/snarfed/bridgy-fed/issues/1315
-# https://console.cloud.google.com/errors/detail/CJrBqKnRzPfNRA;time=PT1H;refresh=true;locations=global?project=bridgy-federated
 ATPROTO_HANDLE_THREADS = 10
 
 logger = logging.getLogger(__name__)
@@ -122,18 +116,6 @@ def health_check():
     https://cloud.google.com/appengine/docs/flexible/reference/app-yaml?tab=python#updated_health_checks
     """
     return 'OK'
-
-
-# ATProto XRPC server. Serve subscribeRepos directly, redirect everything else to
-# Cloud Run.
-#
-# xrpc_redirect must be registered before init_flask so that it takes priority over
-# xrpc-endpoint for GET requests in Werkzeug's URL routing.
-@app.get('/xrpc/<method>')
-@flask_util.headers(lexrpc.flask_server.RESPONSE_HEADERS)
-@flask_util.canonicalize_request_domain(['atproto.brid.gy'], 'bsky.brid.gy')
-def xrpc_redirect(method):
-    assert False, 'should never happen'
 
 
 arroba.server.server._methods = {

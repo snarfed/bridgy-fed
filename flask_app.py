@@ -40,6 +40,7 @@ app.after_request(flask_util.default_modern_headers)
 # the App Engine firewall before this service moved to Cloud Run.
 #
 # TODO: move to datastore with webutil.models.Reloader?
+# TODO: move to GCP ALB
 BLOCKED_CIDRS = (
     # '2a03:2880::/32',     # Meta/Facebook
     # '57.141.0.0/16',      # Meta/Facebook
