@@ -18,12 +18,6 @@ import common
 from models import Target
 from web import Web
 
-BASE_URL = 'https://atproto.brid.gy/'
-PAR_PATH = '/oauth/atproto/par'
-PAR_URL = 'https://atproto.brid.gy/oauth/atproto/par'
-AUTHORIZE_PATH = '/oauth/atproto/authorize'
-TOKEN_PATH = '/oauth/atproto/token'
-TOKEN_URL = 'https://atproto.brid.gy/oauth/atproto/token'
 DID = 'did:plc:alice'
 CLIENT_ID = 'https://app.example/client-metadata.json'
 REDIRECT_URI = 'https://app.example/callback'
@@ -40,7 +34,6 @@ CLIENT_METADATA = {
 }
 # confidential client, which authenticates with a private_key_jwt assertion
 CONFIDENTIAL_CLIENT_ID = 'https://conf.example/client-metadata.json'
-CONFIDENTIAL_KID = 'key-1'
 CONFIDENTIAL_METADATA = {
     **CLIENT_METADATA,
     'client_id': CONFIDENTIAL_CLIENT_ID,
@@ -50,7 +43,7 @@ CONFIDENTIAL_METADATA = {
     'jwks': {
         'keys': [{
             **ECKey.import_key(OAUTH_ES256_KEY).as_dict(private=False),
-            'kid': CONFIDENTIAL_KID,
+            'kid': 'kee',
             'use': 'sig',
             'alg': 'ES256',
         }],
@@ -98,9 +91,17 @@ class ATProtoOAuthTest(TestCase):
 
     def par_raw(self, nonce=None, dpop=True, key=OAUTH_ES256_KEY, **params):
         """Makes a single pushed authorization request, no nonce retry."""
-        headers = ({'DPoP': dpop_proof('POST', PAR_URL, nonce=nonce, key=key)}
-                   if dpop else {})
-        return self.client.post(PAR_PATH, base_url=BASE_URL, headers=headers, data={
+        headers = {}
+        if dpop:
+            headers = {
+                'DPoP': dpop_proof(
+                    'POST', 'https://atproto.brid.gy/oauth/atproto/par',
+                    nonce=nonce, key=key),
+            }
+
+        return self.client.post('/oauth/atproto/par',
+                                base_url='https://atproto.brid.gy/',
+                                headers=headers, data={
             'response_type': 'code',
             'client_id': CLIENT_ID,
             'redirect_uri': REDIRECT_URI,
@@ -125,7 +126,7 @@ class ATProtoOAuthTest(TestCase):
 
     def test_metadata(self):
         resp = self.client.get('/.well-known/oauth-authorization-server',
-                               base_url=BASE_URL)
+                               base_url='https://atproto.brid.gy/')
         self.assertEqual(200, resp.status_code, resp.get_data(as_text=True))
         self.assert_equals({
             'issuer': 'https://atproto.brid.gy',
@@ -200,27 +201,38 @@ class ATProtoOAuthTest(TestCase):
     def login(self, request_uri, me='https://alice.com'):
         """Runs a full IndieAuth login, returns the finish response."""
         qs = urlencode({'client_id': CLIENT_ID, 'request_uri': request_uri})
-        resp = self.client.get(f'{AUTHORIZE_PATH}?{qs}', base_url=BASE_URL)
+        resp = self.client.get(f'/oauth/atproto/authorize?{qs}',
+                               base_url='https://atproto.brid.gy/')
+        self.assertEqual(302, resp.status_code, resp.get_data(as_text=True))
+        self.assertEqual(f'https://fed.brid.gy/oauth/atproto/authorize?{qs}',
+                         resp.headers['Location'])
+
+        resp = self.client.get(f'/oauth/atproto/authorize?{qs}',
+                               base_url='https://fed.brid.gy/')
         self.assertEqual(200, resp.status_code, resp.get_data(as_text=True))
 
-        resp = self.client.post(f'{AUTHORIZE_PATH}/indieauth/start',
-                                base_url=BASE_URL, data={'me': me, 'state': qs})
+        resp = self.client.post(f'/oauth/atproto/authorize/indieauth/start',
+                                base_url='https://fed.brid.gy/',
+                                data={'me': me, 'state': qs})
         self.assertEqual(302, resp.status_code, resp.get_data(as_text=True))
 
         state = parse_qs(urlparse(resp.headers['Location']).query)['state'][0]
         return self.client.get(
-            f'{AUTHORIZE_PATH}/indieauth/finish?code=my_code&state={state}',
-            base_url=BASE_URL)
+            f'/oauth/atproto/authorize/indieauth/finish?code=my_code&state={state}',
+            base_url='https://fed.brid.gy/')
 
     def token_raw(self, nonce=None, key=OAUTH_ES256_KEY, **params):
-        return self.client.post(TOKEN_PATH, base_url=BASE_URL, headers={
-            'DPoP': dpop_proof('POST', TOKEN_URL, nonce=nonce, key=key),
-        }, data={
+        proof = dpop_proof('POST', 'https://atproto.brid.gy/oauth/atproto/token',
+                           nonce=nonce, key=key)
+        return self.client.post('/oauth/atproto/token',
+                                base_url='https://atproto.brid.gy/', data={
             'grant_type': 'authorization_code',
             'client_id': CLIENT_ID,
             'redirect_uri': REDIRECT_URI,
             'code_verifier': CODE_VERIFIER,
             **params,
+        }, headers={
+            'DPoP': proof,
         })
 
     def token(self, **kwargs):
@@ -274,18 +286,19 @@ class ATProtoOAuthTest(TestCase):
     @patch.object(util.session, 'get',
                   return_value=requests_response(json_dumps(CLIENT_METADATA)))
     def test_dpop_proof_replay_rejected(self, _):
-        nonce = self.par_raw().headers['DPoP-Nonce']
-        proof = dpop_proof('POST', PAR_URL, nonce=nonce)
+        proof = dpop_proof('POST', 'https://atproto.brid.gy/oauth/atproto/par',
+                           nonce=self.par_raw().headers['DPoP-Nonce'])
 
-        post = lambda: self.client.post(PAR_PATH, base_url=BASE_URL,
-                                        headers={'DPoP': proof}, data={
+        post = lambda: self.client.post('/oauth/atproto/par',
+                                        base_url='https://atproto.brid.gy/',
+                                        data={
             'response_type': 'code',
             'client_id': CLIENT_ID,
             'redirect_uri': REDIRECT_URI,
             'scope': 'atproto',
             'code_challenge': create_s256_code_challenge(CODE_VERIFIER),
             'code_challenge_method': 'S256',
-        })
+        }, headers={'DPoP': proof})
 
         self.assertEqual(201, post().status_code)
 
@@ -293,11 +306,24 @@ class ATProtoOAuthTest(TestCase):
         self.assertEqual(400, resp.status_code)
         self.assertEqual('invalid_dpop_proof', resp.json['error'])
 
+    def test_authorize_redirects_to_primary_domain(self):
+        """The login leg runs on fed.brid.gy, where the user's logins live.
+
+        No client metadata fetch is mocked here, so this also checks that we
+        redirect before doing any OAuth work.
+        """
+        qs = urlencode({'client_id': CLIENT_ID, 'request_uri': 'urn:foo'})
+        resp = self.client.get(f'/oauth/atproto/authorize?{qs}',
+                               base_url='https://atproto.brid.gy/')
+        self.assertEqual(302, resp.status_code, resp.get_data(as_text=True))
+        self.assertEqual(f'https://fed.brid.gy/oauth/atproto/authorize?{qs}',
+                         resp.headers['Location'])
+
     @patch.object(util.session, 'get',
                   return_value=requests_response(json_dumps(CLIENT_METADATA)))
     def test_authorize_requires_par(self, _):
         """ATProto clients must always go through PAR."""
-        resp = self.client.get(f'{AUTHORIZE_PATH}?' + urlencode({
+        resp = self.client.get(f'/oauth/atproto/authorize?' + urlencode({
             'response_type': 'code',
             'client_id': CLIENT_ID,
             'redirect_uri': REDIRECT_URI,
@@ -305,7 +331,7 @@ class ATProtoOAuthTest(TestCase):
             'state': 'xyz',
             'code_challenge': create_s256_code_challenge(CODE_VERIFIER),
             'code_challenge_method': 'S256',
-        }), base_url=BASE_URL)
+        }), base_url='https://fed.brid.gy/')
         self.assertEqual(400, resp.status_code, resp.get_data(as_text=True))
         self.assertEqual('invalid_request', resp.json['error'])
 
@@ -316,7 +342,8 @@ class ATProtoOAuthTest(TestCase):
             'client_id': CLIENT_ID,
             'request_uri': self.par().json['request_uri'],
         })
-        resp = self.client.get(f'{AUTHORIZE_PATH}?{qs}', base_url=BASE_URL)
+        resp = self.client.get(f'/oauth/atproto/authorize?{qs}',
+                               base_url='https://fed.brid.gy/')
         self.assertEqual(200, resp.status_code)
 
         body = resp.get_data(as_text=True)
@@ -404,7 +431,7 @@ class ATProtoOAuthTest(TestCase):
         now = int(time.time())
         return joserfc_jwt.encode({
             'alg': 'ES256',
-            'kid': CONFIDENTIAL_KID,
+            'kid': 'kee',
         }, {
             'iss': CONFIDENTIAL_CLIENT_ID,
             'sub': CONFIDENTIAL_CLIENT_ID,
@@ -429,16 +456,17 @@ class ATProtoOAuthTest(TestCase):
 
         qs = urlencode({'client_id': CONFIDENTIAL_CLIENT_ID,
                         'request_uri': request_uri})
-        resp = self.client.get(f'{AUTHORIZE_PATH}?{qs}', base_url=BASE_URL)
+        resp = self.client.get(f'/oauth/atproto/authorize?{qs}',
+                               base_url='https://fed.brid.gy/')
         self.assertEqual(200, resp.status_code, resp.get_data(as_text=True))
 
-        resp = self.client.post(f'{AUTHORIZE_PATH}/indieauth/start',
-                                base_url=BASE_URL,
+        resp = self.client.post(f'/oauth/atproto/authorize/indieauth/start',
+                                base_url='https://fed.brid.gy/',
                                 data={'me': 'https://alice.com', 'state': qs})
         state = parse_qs(urlparse(resp.headers['Location']).query)['state'][0]
         resp = self.client.get(
-            f'{AUTHORIZE_PATH}/indieauth/finish?code=my_code&state={state}',
-            base_url=BASE_URL)
+            f'/oauth/atproto/authorize/indieauth/finish?code=my_code&state={state}',
+            base_url='https://fed.brid.gy/')
         code = parse_qs(urlparse(resp.headers['Location']).query)['code'][0]
 
         resp = self.token(

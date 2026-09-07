@@ -29,7 +29,7 @@ from authlib.oauth2.rfc6749 import (
 from authlib.oauth2.rfc6749.grants import RefreshTokenGrant as BaseRefreshTokenGrant
 from authlib.oauth2.rfc7636 import CodeChallenge
 from authlib.oauth2.rfc8414 import AuthorizationServerMetadata
-from flask import request
+from flask import redirect, request
 from google.cloud.ndb.key import Key
 from joserfc.jwk import KeySet
 from oauth_dropins import indieauth
@@ -37,7 +37,7 @@ import oauth_dropins.mastodon
 import oauth_dropins.pixelfed
 import requests
 from webutil import models, util
-from webutil.appengine_info import DEBUG
+from webutil.appengine_info import DEBUG, LOCAL_SERVER
 from webutil.flask_util import FlashErrors, flash, get_required_param
 
 from atproto import ATProto
@@ -88,6 +88,20 @@ DPOP_NONCE_MAX_AGE = timedelta(minutes=3)
 
 # how long a client's metadata document and JWKS are cached for
 CLIENT_METADATA_CACHE_EXPIRE = timedelta(hours=1)
+
+
+def host_url(path=''):
+    """Returns an absolute URL on our PDS's host, ie our OAuth issuer's origin.
+
+    Not :func:`domains.host_url`, which is based on the request's host. The login
+    leg of :func:`authorize` runs on :const:`domains.PRIMARY_DOMAIN`, so anything
+    that has to name the issuer needs our PDS's host regardless of where it's
+    served from.
+    """
+    base = (request.host_url
+            if LOCAL_SERVER and request.host in domains.LOCAL_DOMAINS
+            else ATProto.DEFAULT_TARGET)
+    return urllib.parse.urljoin(base.rstrip('/'), path)
 
 
 class MemcacheDPoPReplayCache(rfc9449.validator.DPoPReplayCache):
@@ -378,7 +392,7 @@ class JWTClientAuth(rfc7523.JWTBearerClientAssertion):
     CLIENT_AUTH_METHOD = 'private_key_jwt'
 
     def get_audiences(self):
-        return [domains.host_url().rstrip('/'), domains.host_url(TOKEN_PATH)]
+        return [host_url(), host_url(TOKEN_PATH)]
 
     def validate_jti(self, claims, jti):
         # TODO: track spent jtis in memcache to make assertions single use.
@@ -407,7 +421,7 @@ class JWTClientAuth(rfc7523.JWTBearerClientAssertion):
 class IssuerParameter(rfc9207.IssuerParameter):
     """Adds ``iss`` to authorization responses, which ATProto requires."""
     def get_issuer(self):
-        return domains.host_url().rstrip('/')
+        return host_url()
 
 
 def metadata():
@@ -420,10 +434,10 @@ def metadata():
     """
     md = AuthorizationServerMetadata({
         # the issuer must be a bare origin, no trailing slash
-        'issuer': domains.host_url().rstrip('/'),
-        'authorization_endpoint': domains.host_url(AUTHORIZE_PATH),
-        'token_endpoint': domains.host_url(TOKEN_PATH),
-        'pushed_authorization_request_endpoint': domains.host_url(PAR_PATH),
+        'issuer': host_url().rstrip('/'),
+        'authorization_endpoint': host_url(AUTHORIZE_PATH),
+        'token_endpoint': host_url(TOKEN_PATH),
+        'pushed_authorization_request_endpoint': host_url(PAR_PATH),
         'require_pushed_authorization_requests': True,
         'response_types_supported': ['code'],
         'grant_types_supported': ['authorization_code', 'refresh_token'],
@@ -524,6 +538,12 @@ def par():
 @app.get(AUTHORIZE_PATH)
 @log_request_response
 def authorize():
+    # the backend login runs on fed.brid.gy, since that's where our OAuth clients'
+    # redirect URIs are. also helps that users' login cookies are there too.
+    if request.host not in domains.LOCAL_DOMAINS + (domains.PRIMARY_DOMAIN,):
+        return redirect(urllib.parse.urljoin(f'https://{domains.PRIMARY_DOMAIN}',
+                                             request.full_path.rstrip('?')))
+
     return Proxy.authorize_response()
 
 
