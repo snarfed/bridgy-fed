@@ -170,6 +170,16 @@ class ATProtoOAuthTest(TestCase):
 
     @patch.object(util.session, 'get',
                   return_value=requests_response(json_dumps(CLIENT_METADATA)))
+    def test_authorize_unknown_request_uri(self, _):
+        qs = urlencode({'client_id': CLIENT_ID,
+                        'request_uri': 'urn:ietf:params:oauth:request_uri:nope'})
+        resp = self.client.get(f'/oauth/atproto/authorize?{qs}',
+                               base_url='https://fed.brid.gy/')
+        self.assertEqual(400, resp.status_code, resp.get_data(as_text=True))
+        self.assertEqual('invalid_request_uri', resp.json['error'])
+
+    @patch.object(util.session, 'get',
+                  return_value=requests_response(json_dumps(CLIENT_METADATA)))
     def test_par_requires_dpop_nonce(self, _):
         """Server-provided DPoP nonces are mandatory in ATProto."""
         resp = self.par_raw()

@@ -1893,6 +1893,7 @@ def is_pds_host():
 
 
 @app.get('/.well-known/oauth-protected-resource')
+@app.get('/.well-known/oauth-protected-resource/')
 @flask_util.headers(CACHE_CONTROL)
 def oauth_protected_resource():
     """https://atproto.com/specs/oauth#authorization-server-metadata

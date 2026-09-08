@@ -56,14 +56,13 @@ PAR_PATH = '/oauth/atproto/par'
 # https://atproto.com/specs/oauth#authorization-scopes
 SCOPE = 'atproto'
 
-PAR_TYP = 'atproto-oauth-par'
 TOKEN_TYP = 'atproto-oauth-token'
 REFRESH_TYP = 'atproto-oauth-refresh'
 CODE_TYP = 'atproto-oauth-code'
 
-# RFC 9126 suggests 60s, but our request_uri is a self-contained JWT that we
-# decode again at the end of the user's login, after they've authenticated with
-# their native network, so it has to outlive that whole round trip.
+# RFC 9126 suggests 60s, but we look the pushed request up again at the end of
+# the user's login, after they've authenticated with their native network, so it
+# has to outlive that whole round trip.
 PAR_MAX_AGE = timedelta(minutes=10)
 # ATProto wants under 30m, and 5m if we can't revoke individual access tokens
 TOKEN_MAX_AGE = timedelta(minutes=15)
@@ -73,8 +72,7 @@ REFRESH_MAX_AGE = timedelta(days=14)
 TOKEN_ENDPOINT_AUTH_METHODS = ['none', 'private_key_jwt']
 
 # RFC 9126 requires client authentication at the PAR endpoint, but these aren't
-# part of the authorization request, and the request_uri we build from it ends
-# up in the browser's URL bar, so keep them out of it
+# part of the authorization request, so don't store them with it
 CLIENT_AUTH_PARAMS = ('client_assertion', 'client_assertion_type', 'client_secret')
 
 # ATProto's localhost dev client exception. Ports aren't matched, since the
@@ -210,9 +208,10 @@ class DPoP(rfc9449.DPoP):
 
 
 class PushedAuthorizationEndpoint(rfc9126.PushedAuthorizationEndpoint):
-    """Returns the pushed request in the ``request_uri`` itself, as a JWT.
+    """Stores pushed requests in memcache, keyed by super()'s ``request_uri``.
 
-    The JWT is self-contained and provides all data.
+    Not self-contained in the ``request_uri`` itself: that grows with the pushed
+    params, and clients cap the PAR response, eg atcute rejects anything over 1KB.
     """
     REQUEST_URI_EXPIRES_IN = int(PAR_MAX_AGE.total_seconds())
 
@@ -223,19 +222,16 @@ class PushedAuthorizationEndpoint(rfc9126.PushedAuthorizationEndpoint):
         # request parameter, so it wins over any the client sent.
         dpop_jkt = proof_validator.validate_proof(request)
 
-        # super() validates the request, then hands the random request_uri it
-        # generated to our no-op save_request_payload; replace it with the JWT
-        # that actually carries the pushed params.
+        # here and not in save_request_payload, which doesn't get the proof's
+        # jkt, and can't validate it again since that would trip our own replay
+        # cache. self.dpop_jkt wouldn't work either; we're a shared instance.
         status, body, headers = super().create_endpoint_response(request)
         params = {k: v for k, v in request.payload.data.items()
                   if k not in CLIENT_AUTH_PARAMS}
-        body['request_uri'] = f'{self.REQUEST_URI_PREFIX}:' + encode_jwt({
-            'typ': PAR_TYP,
-            # real wall-clock time; PyJWT checks 'exp' against it regardless of
-            # any test-time mocking
-            'exp': int(time.time() + self.REQUEST_URI_EXPIRES_IN),
-            'params': {**params, 'dpop_jkt': dpop_jkt},
-        })
+        params['dpop_jkt'] = dpop_jkt
+
+        memcache.pickle_memcache.set(memcache.key(body['request_uri']),
+                                     params, expire=self.REQUEST_URI_EXPIRES_IN)
         return status, body, headers
 
     def save_request_payload(self, payload, request_uri, expires_at):
@@ -243,17 +239,12 @@ class PushedAuthorizationEndpoint(rfc9126.PushedAuthorizationEndpoint):
 
 
 class PushedAuthorizationRequest(rfc9126.PushedAuthorizationRequest):
-    """Require PAR, and read the pushed request back out of its JWT."""
+    """Require PAR, and read the pushed request back out of memcache."""
     def get_request_payload(self, request_uri):
-        prefix = f'{PushedAuthorizationEndpoint.REQUEST_URI_PREFIX}:'
-        if not request_uri.startswith(prefix):
-            return None
-
-        # TODO: request_uris are single use per RFC 9126. Mark spent ones in
-        # memcache, like the authorization codes in mastodon_oauth; right now
-        # they're only good for PAR_MAX_AGE.
-        if payload := decode_jwt(request_uri.removeprefix(prefix), PAR_TYP):
-            return payload['params']
+        # TODO: request_uris are single use per RFC 9126, but we look this up
+        # again after the user's login round trip, so we can't just delete it
+        # here. it does expire at least.
+        return memcache.pickle_memcache.get(memcache.key(request_uri))
 
     def handle_request_uri_data(self, request_uri_data, server, request):
         if request.payload.client_id != request_uri_data.get('client_id'):
