@@ -47,7 +47,7 @@ app = [
     'pytz>=2026.3.post1',
     'requests>=2.22',
     'tldextract>=5.3.2',
-    'ujson>=5.7.0',
+    'ujson>=6.0.0',
     'websockets>=17.1',
     'werkzeug>=3.0.0',
 ]
