@@ -716,10 +716,18 @@ class ActivityPub(User, Protocol):
             raise ValueError(f'No profile object for {user.key.id()}')
 
         logger.info(f"Adding {from_user_id} to {user.key.id()} 's alsoKnownAs")
-        if not user.obj.extra_as1:
-            user.obj.extra_as1 = {}
-        util.add(user.obj.extra_as1.setdefault('alsoKnownAs', []), from_user_id)
-        user.obj.put()
+
+        @ndb.transactional()
+        def add_alias():
+            profile = user.obj_key.get()
+            if not profile.extra_as1:
+                profile.extra_as1 = {}
+            util.add(profile.extra_as1.setdefault('alsoKnownAs', []), from_user_id)
+            profile.put()
+            return profile
+
+        user.obj = add_alias()
+        memcache.evict(user.obj_key)
 
     @classmethod
     def migrate_out(cls, user, to_user_id):
