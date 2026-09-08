@@ -1,4 +1,8 @@
-"""Flask application for frontend ("default") service."""
+"""Flask application for frontend.
+
+app.py has the full app with all modules imported. This is separate so that
+we can import it in those modules without causing a circular import.
+"""
 import json
 import logging
 from pathlib import Path
@@ -10,7 +14,6 @@ from arroba import xrpc_repo, xrpc_server, xrpc_sync
 from flask import Blueprint, Flask, g, request
 from werkzeug.middleware.proxy_fix import ProxyFix
 from google.api_core.exceptions import PermissionDenied
-import lexrpc.flask_server
 from lexrpc.server import Redirect, Server
 import oauth_dropins
 from webutil import (
@@ -89,22 +92,9 @@ app.wsgi_app = flask_util.ndb_context_middleware(
 # https://werkzeug.palletsprojects.com/en/stable/middleware/proxy_fix/
 app.wsgi_app = ProxyFix(app.wsgi_app, x_proto=1, x_for=1)
 
-# deregister XRPC methods we don't support
-for nsid in (
-    'com.atproto.repo.applyWrites',
-    'com.atproto.repo.createRecord',
-    'com.atproto.repo.deleteRecord',
-    'com.atproto.repo.putRecord',
-    'com.atproto.repo.uploadBlob',
-    'com.atproto.server.createSession',
-    'com.atproto.server.getAccountInviteCodes',
-    'com.atproto.server.getSession',
-    'com.atproto.server.listAppPasswords',
-    'com.atproto.server.refreshSession',
-    'com.atproto.sync.getRepo',
-):
-    del arroba.server.server._methods[nsid]
-
+# redirect getRepo to Hubble since it's too expensive for us to serve
+# https://github.com/snarfed/arroba/issues/93
+del arroba.server.server._methods['com.atproto.sync.getRepo']
 
 @arroba.server.server.method('com.atproto.sync.getRepo')
 def get_repo(input, **kwargs):
@@ -114,6 +104,3 @@ def get_repo(input, **kwargs):
     raise Redirect(
         urljoin('https://bridgy-hubble.microcosm.blue/', request.full_path),
         status=302)
-
-
-lexrpc.flask_server.init_flask(arroba.server.server, app)

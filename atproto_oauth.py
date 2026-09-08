@@ -19,7 +19,7 @@ import secrets
 import time
 import urllib.parse
 
-from authlib.integrations.flask_oauth2 import AuthorizationServer
+from authlib.integrations.flask_oauth2 import AuthorizationServer, ResourceProtector
 from authlib.oauth2 import cimd, rfc7523, rfc9126, rfc9207, rfc9449
 from authlib.oauth2.rfc6749 import (
     InvalidClientError,
@@ -267,9 +267,11 @@ class PushedAuthorizationRequest(rfc9126.PushedAuthorizationRequest):
             {'require_pushed_authorization_requests': True})
 
 
-class RefreshToken(rfc9449.TokenMixin, TokenMixin):
-    """In-memory refresh token; the token itself is a self-contained JWT."""
+class Token(rfc9449.TokenMixin, TokenMixin):
+    """In-memory access or refresh token; the token itself is a JWT."""
     def __init__(self, payload):
+        # only access tokens have sub, ie the user's DID
+        self.did = payload.get('sub')
         self.user_key = Key(urlsafe=payload['user_key'])
         self.scope = payload.get('scope') or ''
         self.dpop_jkt = (payload.get('cnf') or {}).get('jkt')
@@ -291,7 +293,7 @@ class RefreshToken(rfc9449.TokenMixin, TokenMixin):
         return self.dpop_jkt
 
     def check_client(self, client):
-        """Only the client this token was issued to can refresh it."""
+        """Only the client this token was issued to can use it."""
         return self.client_id_hash == hash_client_id(client.get_client_id())
 
 
@@ -373,7 +375,7 @@ class RefreshTokenGrant(BaseRefreshTokenGrant):
 
     def authenticate_refresh_token(self, refresh_token):
         if payload := decode_jwt(refresh_token, REFRESH_TYP):
-            return RefreshToken(payload)
+            return Token(payload)
 
     def authenticate_user(self, credential):
         return credential.user_key.get()
@@ -488,6 +490,31 @@ server.register_extension(ClientIdMetadataDocument(allow_loopback=DEBUG))
 server.register_extension(DPoP(proof_validator))
 server.register_extension(IssuerParameter())
 server.register_client_auth_method(JWTClientAuth.CLIENT_AUTH_METHOD, JWTClientAuth())
+
+
+class DPoPValidator(rfc9449.DPoPTokenValidator):
+    """Validates DPoP bound access tokens on XRPC requests."""
+    def authenticate_token(self, token_string):
+        if payload := decode_jwt(token_string, TOKEN_TYP):
+            return Token(payload)
+
+
+require_oauth = ResourceProtector()
+require_oauth.register_token_validator(DPoPValidator(proof_validator=proof_validator))
+
+
+def auth():
+    """Returns the DID of the user who authenticated this request, or None.
+
+    Used with :func:`arroba.xrpc_proxy.handler`. Errors here are OAuth's shape, not
+    XRPC's, since that's what carries ``WWW-Authenticate`` and the ``DPoP-Nonce``
+    that clients need in order to retry.
+    """
+    if not request.headers.get('Authorization'):
+        return None
+
+    with require_oauth.acquire(SCOPE) as token:
+        return token.did
 
 
 class Proxy(oauth_server.Proxy):

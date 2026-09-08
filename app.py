@@ -3,7 +3,12 @@
 Import all modules that define views in the app so that their URL routes get
 registered.
 """
+import os
+
+from arroba import xrpc_proxy
 from arroba.datastore_storage import MemcacheSequences
+import arroba.server
+import lexrpc.flask_server
 from webutil.appengine_info import DEBUG, LOCAL_SERVER
 
 from flask_app import app
@@ -43,6 +48,15 @@ else:
 # only serve subscribeRepos on atproto.brid.gy (hub), not on fed.brid.gy, so
 # that relays don't think they're two separate PDSes.
 #
-# must be before flask_app import!
-import arroba.server
+# must be before init_flask below!
 del arroba.server.server._methods['com.atproto.sync.subscribeRepos']
+
+# methods we don't implement get service proxied to whichever service the client
+# asks for in atproto-proxy, or to the appview.
+# https://atproto.com/specs/xrpc#service-proxying
+service_proxy = xrpc_proxy.handler(
+    atproto_oauth.auth,
+    default_service=f'did:web:{os.environ["APPVIEW_HOST"]}#bsky_appview')
+
+# initialize XRPC server
+lexrpc.flask_server.init_flask(arroba.server.server, app, fallback=service_proxy)

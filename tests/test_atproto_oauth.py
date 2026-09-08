@@ -5,6 +5,7 @@ from unittest.mock import patch
 from urllib.parse import parse_qs, urlencode, urlparse
 
 from authlib.oauth2.rfc7636 import create_s256_code_challenge
+from authlib.oauth2.rfc9449.validator import hash_access_token
 from cryptography.hazmat.primitives.asymmetric import ec
 from joserfc import jwt as joserfc_jwt
 from joserfc.jwk import ECKey
@@ -15,10 +16,12 @@ from webutil.util import json_dumps
 from .testutil import OAUTH_ES256_KEY, TestCase
 import atproto_oauth
 import common
+from flask_app import app
 from models import Target
 from web import Web
 
 DID = 'did:plc:alice'
+# a method we don't implement ourselves, so it gets service proxied
 CLIENT_ID = 'https://app.example/client-metadata.json'
 REDIRECT_URI = 'https://app.example/callback'
 CLIENT_METADATA = {
@@ -540,3 +543,81 @@ class ATProtoOAuthTest(TestCase):
         self.assertEqual(DID, resp.json['sub'])
         self.assertEqual('DPoP', resp.json['token_type'])
         self.assertNotEqual(refresh_token, resp.json['refresh_token'])
+
+    #
+    # resource server: authenticating service proxied XRPC requests
+    #
+    def access_token(self):
+        """Runs the full authorization code flow, returns an access token."""
+        resp = self.login(self.par().json['request_uri'])
+        code = parse_qs(urlparse(resp.headers['Location']).query)['code'][0]
+        return self.token(code=code).json['access_token']
+
+    def proxy(self, token, nonce=None, key=OAUTH_ES256_KEY):
+        """Makes a service proxied XRPC request with a DPoP bound access token."""
+        proof = dpop_proof('GET',
+                           'https://atproto.brid.gy/xrpc/app.bsky.feed.getTimeline',
+                           nonce=nonce, key=key, ath=hash_access_token(token))
+        return self.client.get(
+            '/xrpc/app.bsky.feed.getTimeline',
+            base_url='https://atproto.brid.gy/',
+            headers={
+                'Authorization': f'DPoP {token}',
+                'DPoP': proof,
+                'atproto-proxy': 'did:web:api.bsky.local#bsky_appview',
+            })
+
+    @patch.object(util.session, 'get',
+                  return_value=requests_response(json_dumps(CLIENT_METADATA)))
+    @patch.object(util.session, 'post',
+                  return_value=requests_response('me=https://alice.com'))
+    def test_auth(self, *_):
+        token = self.access_token()
+        proof = dpop_proof(
+            'GET', 'https://atproto.brid.gy/xrpc/app.bsky.feed.getTimeline',
+            nonce=atproto_oauth.proof_validator.nonce_generator.next(),
+            ath=hash_access_token(token))
+
+        with app.test_request_context('/xrpc/app.bsky.feed.getTimeline',
+                                      base_url='https://atproto.brid.gy/',
+                                      headers={
+                                          'Authorization': f'DPoP {token}',
+                                          'DPoP': proof,
+                                      }):
+            self.assertEqual(DID, atproto_oauth.auth())
+
+    def test_auth_unauthenticated(self):
+        with app.test_request_context(f'/xrpc/app.bsky.feed.getTimeline',
+                                      base_url='https://atproto.brid.gy/'):
+            self.assertIsNone(atproto_oauth.auth())
+
+    def test_service_proxy_unauthenticated(self):
+        """Methods we don't implement get proxied, but only for logged in users."""
+        resp = self.client.get(
+            '/xrpc/app.bsky.feed.getTimeline',
+            base_url='https://atproto.brid.gy/',
+            headers={'atproto-proxy': 'did:web:api.bsky.local#bsky_appview'})
+        self.assertEqual(401, resp.status_code, resp.get_data(as_text=True))
+        self.assertEqual('AuthMissing', resp.json['error'])
+
+    def test_service_proxy_bad_token(self):
+        resp = self.proxy('not-a-jwt',
+                          nonce=atproto_oauth.proof_validator.nonce_generator.next())
+        self.assertEqual(401, resp.status_code, resp.get_data(as_text=True))
+        self.assertEqual('invalid_token', resp.json['error'])
+
+    @patch.object(util.session, 'get',
+                  return_value=requests_response(json_dumps(CLIENT_METADATA)))
+    @patch.object(util.session, 'post',
+                  return_value=requests_response('me=https://alice.com'))
+    def test_service_proxy_requires_dpop_nonce(self, *_):
+        """Resource requests need a server-provided nonce, same as the AS's.
+
+        Unlike the token endpoint's 400 and JSON body, a protected resource
+        reports this as a WWW-Authenticate challenge with an empty body.
+        https://datatracker.ietf.org/doc/html/rfc9449#section-7.2
+        """
+        resp = self.proxy(self.access_token())
+        self.assertEqual(401, resp.status_code, resp.get_data(as_text=True))
+        self.assertIn('error="use_dpop_nonce"', resp.headers['WWW-Authenticate'])
+        self.assertTrue(resp.headers['DPoP-Nonce'])
