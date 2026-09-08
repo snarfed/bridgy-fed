@@ -40,6 +40,24 @@ def oauth_metadata():
     return (atproto_oauth.metadata() if atproto.is_pds_host()
             else mastodon_oauth.metadata())
 
+
+@app.get('/oauth/authorize')
+@app.get('/oauth/authorize/')
+@oauth_server.log_request_response
+def oauth_authorize():
+    """Serves whichever OAuth authorization endpoint this host runs.
+
+    Shared here for the same reason as :func:`oauth_metadata`. This is Mastodon's
+    authorization endpoint, and the reference PDS's; some ATProto clients ignore
+    our ``authorization_endpoint`` and hardcode this path, so serve them here too.
+
+    Only GET. The ATProto branch redirects to its own path on
+    :const:`domains.PRIMARY_DOMAIN`, so its consent POST never lands here.
+    """
+    return (atproto_oauth.authorize() if atproto.is_pds_host()
+            else mastodon_oauth.authorize())
+
+
 if DEBUG or LOCAL_SERVER:
     atproto.init(atproto.RemoteSequences)
 else:

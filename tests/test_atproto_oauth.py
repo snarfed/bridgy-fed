@@ -322,6 +322,19 @@ class ATProtoOAuthTest(TestCase):
         self.assertEqual(f'https://fed.brid.gy/oauth/atproto/authorize?{qs}',
                          resp.headers['Location'])
 
+    def test_authorize_reference_pds_path_on_pds_host(self):
+        """Some clients ignore authorization_endpoint and hardcode /oauth/authorize.
+
+        That's Mastodon's endpoint everywhere else, so it's only ours on our PDS
+        host, and it still redirects to our own path on fed.brid.gy.
+        """
+        qs = urlencode({'client_id': CLIENT_ID, 'request_uri': 'urn:foo'})
+        resp = self.client.get(f'/oauth/authorize?{qs}',
+                               base_url='https://atproto.brid.gy/')
+        self.assertEqual(302, resp.status_code, resp.get_data(as_text=True))
+        self.assertEqual(f'https://fed.brid.gy/oauth/atproto/authorize?{qs}',
+                         resp.headers['Location'])
+
     @patch.object(util.session, 'get',
                   return_value=requests_response(json_dumps(CLIENT_METADATA)))
     def test_authorize_requires_par(self, _):

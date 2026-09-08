@@ -568,8 +568,9 @@ def authorize():
     # the backend login runs on fed.brid.gy, since that's where our OAuth clients'
     # redirect URIs are. also helps that users' login cookies are there too.
     if request.host not in domains.LOCAL_DOMAINS + (domains.PRIMARY_DOMAIN,):
-        return redirect(urllib.parse.urljoin(f'https://{domains.PRIMARY_DOMAIN}',
-                                             request.full_path.rstrip('?')))
+        # AUTHORIZE_PATH, not request.path; we're also served at /oauth/authorize
+        # on our PDS host, and that path is Mastodon's on PRIMARY_DOMAIN
+        return redirect(f'https://{domains.PRIMARY_DOMAIN}{AUTHORIZE_PATH}?{request.query_string.decode()}')
 
     return Proxy.authorize_response()
 

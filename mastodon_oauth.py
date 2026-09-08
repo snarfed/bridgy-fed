@@ -267,10 +267,12 @@ def create_app():
     }
 
 
-@app.get('/oauth/authorize')
-@app.get('/oauth/authorize/')
-@log_request_response
-def oauth_authorize():
+def authorize():
+    """Serves the login form.
+
+    The ``GET /oauth/authorize`` route that serves this is in :mod:`app`, since
+    :mod:`atproto_oauth` serves that path on our PDS host.
+    """
     return Proxy.authorize_response()
 
 
