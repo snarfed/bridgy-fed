@@ -743,3 +743,23 @@ class ATProtoOAuthTest(TestCase):
         resp = self.token(**kwargs)
         self.assertEqual(400, resp.status_code, resp.get_data(as_text=True))
         self.assertEqual('invalid_grant', resp.json['error'])
+
+    @patch.object(util.session, 'get',
+                  return_value=requests_response(json_dumps(CONFIDENTIAL_METADATA)))
+    def test_client_assertion_single_use(self, _):
+        """RFC 7523 section 3: an assertion's jti may only be used once.
+
+        The first call here also exercises DPoP's nonce handshake, which resends
+        the same assertion, so this checks that that retry isn't rejected.
+        """
+        kwargs = {
+            'client_id': CONFIDENTIAL_CLIENT_ID,
+            'client_assertion_type': 'urn:ietf:params:oauth:client-assertion-type:jwt-bearer',
+            'client_assertion': self.client_assertion(),
+        }
+        resp = self.par(**kwargs)
+        self.assertEqual(201, resp.status_code, resp.get_data(as_text=True))
+
+        resp = self.par(**kwargs)
+        self.assertEqual('invalid_client', resp.json.get('error'),
+                         resp.get_data(as_text=True))

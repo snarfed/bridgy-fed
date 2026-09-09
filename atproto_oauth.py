@@ -29,7 +29,7 @@ from authlib.oauth2.rfc6749 import (
 from authlib.oauth2.rfc6749.grants import RefreshTokenGrant as BaseRefreshTokenGrant
 from authlib.oauth2.rfc7636 import CodeChallenge
 from authlib.oauth2.rfc8414 import AuthorizationServerMetadata
-from flask import redirect, request
+from flask import g, redirect, request
 from google.cloud.ndb.key import Key
 from joserfc.jwk import KeySet
 from oauth_dropins import indieauth
@@ -404,11 +404,17 @@ class JWTClientAuth(rfc7523.JWTBearerClientAssertion):
         return [host_url(), host_url(TOKEN_PATH)]
 
     def validate_jti(self, claims, jti):
-        # TODO: RFC 7523 section 3 wants these single use, but client auth runs
-        # on the nonce-less first half of DPoP's nonce handshake too, so marking
-        # a jti used would reject the client's own retry. They're only good for
-        # their (short) exp for now.
-        return True
+        """RFC 7523 section 3: an assertion's jti may only be used once.
+
+        Only checks here; :func:`mark_client_assertion_used` marks it used once
+        the request succeeds, since client auth also runs on the nonce-less first
+        half of DPoP's nonce handshake, and marking it used here would reject the
+        client's own retry.
+        """
+        # namespaced by client, since they generate jtis
+        cred = f'{claims["sub"]}-{jti}'
+        g.client_assertion = (cred, claims['exp'])
+        return not oauth_server.used(cred)
 
     def resolve_client_public_key(self, client, headers=None):
         """Returns the keys from the client's metadata document."""
@@ -571,6 +577,20 @@ class Proxy(oauth_server.Proxy):
                 return None
 
         return user
+
+
+@app.after_request
+def mark_client_assertion_used(resp):
+    """Marks this request's ``private_key_jwt`` assertion used, if it succeeded.
+
+    Here and not in :meth:`JWTClientAuth.validate_jti` since DPoP lets clients
+    retry token requests with the same JWT if the server requires a nonce.
+    (See RFC 9449 section 8.)
+    """
+    if resp.status_code < 400 and (cred_exp := g.get('client_assertion')):
+        oauth_server.mark_used(*cred_exp)
+
+    return resp
 
 
 @app.after_request
