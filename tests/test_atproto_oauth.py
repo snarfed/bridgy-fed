@@ -150,6 +150,24 @@ class ATProtoOAuthTest(TestCase):
             'client_id_metadata_document_supported': True,
         }, resp.json)
 
+    def test_oauth_protected_resource(self):
+        """atproto.brid.gy is our PDS, so it serves real metadata there."""
+        resp = self.client.get('/.well-known/oauth-protected-resource',
+                               base_url='https://atproto.brid.gy/')
+        self.assertEqual(200, resp.status_code)
+        self.assertEqual('application/json', resp.headers['Content-Type'])
+        self.assert_equals({
+            'resource': 'https://atproto.brid.gy',
+            'authorization_servers': ['https://atproto.brid.gy'],
+            'scopes_supported': ['atproto'],
+            'bearer_methods_supported': ['header'],
+        }, resp.json)
+
+    def test_oauth_protected_resource_other_host(self):
+        resp = self.client.get('/.well-known/oauth-protected-resource',
+                               base_url='https://web.brid.gy/')
+        self.assertEqual(404, resp.status_code)
+
     def test_metadata_other_host_is_still_mastodon(self):
         """Only our PDS host serves the ATProto authorization server."""
         resp = self.client.get('/.well-known/oauth-authorization-server',

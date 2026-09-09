@@ -36,11 +36,13 @@ from oauth_dropins import indieauth
 import oauth_dropins.mastodon
 import oauth_dropins.pixelfed
 import requests
-from webutil import models, util
+from webutil import flask_util, models, util
 from webutil.appengine_info import DEBUG, LOCAL_SERVER
 from webutil.flask_util import FlashErrors, flash, get_required_param
 
+import atproto
 from atproto import ATProto
+from common import CACHE_CONTROL
 import domains
 from flask_app import app
 import memcache
@@ -415,6 +417,29 @@ class IssuerParameter(rfc9207.IssuerParameter):
     """Adds ``iss`` to authorization responses, which ATProto requires."""
     def get_issuer(self):
         return host_url()
+
+
+@app.get('/.well-known/oauth-protected-resource')
+@app.get('/.well-known/oauth-protected-resource/')
+@flask_util.headers(CACHE_CONTROL)
+def oauth_protected_resource():
+    """Serves our resource server metadata document.
+
+    https://atproto.com/specs/oauth#authorization-server-metadata
+
+    Only on our PDS, ie atproto.brid.gy, which is what bridged users' DID docs
+    point to. Everywhere else we still don't serve OAuth.
+    """
+    if not atproto.is_pds_host():
+        return "Sorry, Bridgy Fed doesn't serve OAuth. https://fed.brid.gy/docs#use-like-normal", 404
+
+    origin = host_url().rstrip('/')
+    return {
+        'resource': origin,
+        'authorization_servers': [origin],
+        'scopes_supported': [SCOPE],
+        'bearer_methods_supported': ['header'],
+    }
 
 
 def metadata():

@@ -1892,27 +1892,6 @@ def is_pds_host():
             or (LOCAL_SERVER and request.host in domains.LOCAL_DOMAINS))
 
 
-@app.get('/.well-known/oauth-protected-resource')
-@app.get('/.well-known/oauth-protected-resource/')
-@flask_util.headers(CACHE_CONTROL)
-def oauth_protected_resource():
-    """https://atproto.com/specs/oauth#authorization-server-metadata
-
-    Only on our PDS, ie atproto.brid.gy, which is what bridged users' DID docs
-    point to. Everywhere else we still don't serve OAuth.
-    """
-    if not is_pds_host():
-        return "Sorry, Bridgy Fed doesn't serve OAuth. https://fed.brid.gy/docs#use-like-normal", 404
-
-    origin = domains.host_url().rstrip('/')
-    return {
-        'resource': origin,
-        'authorization_servers': [origin],
-        'scopes_supported': ['atproto'],
-        'bearer_methods_supported': ['header'],
-    }
-
-
 class BlueskyOAuthStart(FlashErrors, oauth_dropins.bluesky.OAuthStart):
     @property
     def CLIENT_METADATA(self):
