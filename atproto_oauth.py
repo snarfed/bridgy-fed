@@ -106,15 +106,13 @@ def host_url(path=''):
 
 
 class MemcacheDPoPReplayCache(rfc9449.validator.DPoPReplayCache):
-    """Rejects replayed DPoP proofs, shared across all our workers.
+    """Checks memcache for used DPoP proofs.
 
-    authlib's default is in memory, so a proof replayed against a different
-    worker wouldn't be detected.
+    Returns:
+      bool: True if this is the first time we've seen this proof, False otherwise
     """
     def check_and_add(self, jti, expires_at):
-        expire = max(int(expires_at - time.time()), 1)
-        return bool(memcache.memcache.add(memcache.key(f'dpop-jti-{jti}'), 1,
-                                          expire=expire))
+        return oauth_server.mark_used(jti, expires_at)
 
 
 @memcache.memoize(expire=CLIENT_METADATA_CACHE_EXPIRE)
