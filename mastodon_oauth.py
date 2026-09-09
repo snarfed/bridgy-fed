@@ -283,9 +283,12 @@ def oauth_authorize_consent():
     return Proxy.consent_response(get_required_param('state'))
 
 
-@app.post('/oauth/token')
-@log_request_response
-def oauth_token():
+def token():
+    """Exchanges an authorization code or refresh token for an access token.
+
+    The ``POST /oauth/token`` route that serves this is in :mod:`app`, since
+    :mod:`atproto_oauth` serves that path on our PDS host.
+    """
     return server.create_token_response()
 
 

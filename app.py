@@ -8,6 +8,7 @@ import os
 from arroba import xrpc_proxy
 from arroba.datastore_storage import MemcacheSequences
 import arroba.server
+from flask import abort
 import lexrpc.flask_server
 from webutil.appengine_info import DEBUG, LOCAL_SERVER
 
@@ -56,6 +57,35 @@ def oauth_authorize():
     """
     return (atproto_oauth.authorize() if atproto.is_pds_host()
             else mastodon_oauth.authorize())
+
+
+@app.post('/oauth/token')
+@app.post('/oauth/token/')
+@oauth_server.log_request_response
+def oauth_token():
+    """Serves whichever OAuth token endpoint this host runs.
+
+    Shared here for the same reason as :func:`oauth_authorize`, and hardcoded by
+    the same clients. No redirect: both servers' token endpoints already run on
+    the host the client asked for, and moving hosts would break DPoP's ``htu``.
+    """
+    return (atproto_oauth.token() if atproto.is_pds_host()
+            else mastodon_oauth.token())
+
+
+@app.post('/oauth/par')
+@app.post('/oauth/par/')
+@oauth_server.log_request_response
+def oauth_par():
+    """Alternate path for ATProto PAR requests.
+
+    Unlike the others above, Mastodon OAuth has no PAR endpoint, so this is only for
+    atproto.brid.gy.
+    """
+    if not atproto.is_pds_host():
+        abort(404)
+
+    return atproto_oauth.par()
 
 
 if DEBUG or LOCAL_SERVER:

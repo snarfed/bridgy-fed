@@ -92,18 +92,18 @@ class ATProtoOAuthTest(TestCase):
             'alice.com', cls=Web, enabled_protocols=['atproto'],
             copies=[Target(protocol='atproto', uri=DID)])
 
-    def par_raw(self, nonce=None, dpop=True, key=OAUTH_ES256_KEY, **params):
+    def par_raw(self, nonce=None, dpop=True, key=OAUTH_ES256_KEY,
+                path='/oauth/atproto/par', **params):
         """Makes a single pushed authorization request, no nonce retry."""
         headers = {}
         if dpop:
             headers = {
                 'DPoP': dpop_proof(
-                    'POST', 'https://atproto.brid.gy/oauth/atproto/par',
+                    'POST', f'https://atproto.brid.gy{path}',
                     nonce=nonce, key=key),
             }
 
-        return self.client.post('/oauth/atproto/par',
-                                base_url='https://atproto.brid.gy/',
+        return self.client.post(path, base_url='https://atproto.brid.gy/',
                                 headers=headers, data={
             'response_type': 'code',
             'client_id': CLIENT_ID,
@@ -167,6 +167,29 @@ class ATProtoOAuthTest(TestCase):
         self.assertTrue(resp.json['request_uri'].startswith(
             'urn:ietf:params:oauth:request_uri:'), resp.json)
         self.assertEqual(600, resp.json['expires_in'])
+
+    @patch.object(util.session, 'get',
+                  return_value=requests_response(json_dumps(CLIENT_METADATA)))
+    @patch.object(util.session, 'post',
+                  return_value=requests_response('me=https://alice.com'))
+    def test_reference_pds_paths(self, *_):
+        """Some clients ignore our metadata and hardcode the reference PDS's paths.
+
+        The authorize leg is covered by
+        :meth:`test_authorize_reference_pds_path_on_pds_host`.
+        """
+        request_uri = self.par(path='/oauth/par').json['request_uri']
+        resp = self.login(request_uri)
+        code = parse_qs(urlparse(resp.headers['Location']).query)['code'][0]
+
+        resp = self.token(code=code, path='/oauth/token')
+        self.assertEqual(200, resp.status_code, resp.get_data(as_text=True))
+        self.assertEqual(DID, resp.json['sub'])
+
+    def test_par_reference_path_on_atproto_brid_gy(self):
+        """Mastodon OAuth has no PAR endpoint, so this path is ours alone."""
+        resp = self.client.post('/oauth/par', base_url='https://web.brid.gy/')
+        self.assertEqual(404, resp.status_code)
 
     @patch.object(util.session, 'get',
                   return_value=requests_response(json_dumps(CLIENT_METADATA)))
@@ -234,11 +257,11 @@ class ATProtoOAuthTest(TestCase):
             f'/oauth/atproto/authorize/indieauth/finish?code=my_code&state={state}',
             base_url='https://fed.brid.gy/')
 
-    def token_raw(self, nonce=None, key=OAUTH_ES256_KEY, **params):
-        proof = dpop_proof('POST', 'https://atproto.brid.gy/oauth/atproto/token',
+    def token_raw(self, nonce=None, key=OAUTH_ES256_KEY,
+                  path='/oauth/atproto/token', **params):
+        proof = dpop_proof('POST', f'https://atproto.brid.gy{path}',
                            nonce=nonce, key=key)
-        return self.client.post('/oauth/atproto/token',
-                                base_url='https://atproto.brid.gy/', data={
+        return self.client.post(path, base_url='https://atproto.brid.gy/', data={
             'grant_type': 'authorization_code',
             'client_id': CLIENT_ID,
             'redirect_uri': REDIRECT_URI,
