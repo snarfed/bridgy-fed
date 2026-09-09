@@ -19,7 +19,7 @@ import secrets
 import time
 import urllib.parse
 
-from authlib.integrations.flask_oauth2 import AuthorizationServer, ResourceProtector
+from authlib.integrations.flask_oauth2 import ResourceProtector
 from authlib.oauth2 import cimd, rfc7523, rfc9126, rfc9207, rfc9449
 from authlib.oauth2.rfc6749 import (
     InvalidClientError,
@@ -460,7 +460,7 @@ proof_validator = rfc9449.DPoPProofValidator(
         max_age=int(DPOP_NONCE_MAX_AGE.total_seconds())),
     replay_cache=MemcacheDPoPReplayCache())
 
-server = AuthorizationServer(
+server = oauth_server.JsonAwareAuthorizationServer(
     app,
     # every ATProto client is a client ID metadata document client, which the
     # ClientIdMetadataDocument extension resolves by wrapping this

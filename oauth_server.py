@@ -12,6 +12,8 @@ import logging
 import time
 from urllib.parse import parse_qsl
 
+from authlib.integrations.flask_oauth2 import AuthorizationServer
+from authlib.integrations.flask_oauth2.requests import FlaskOAuth2Request
 from authlib.oauth2 import OAuth2Error
 from authlib.oauth2.rfc6749 import (
     AuthorizationCodeGrant,
@@ -88,6 +90,32 @@ def decode_jwt(val, typ):
 
 def hash_client_id(client_id):
     return hashlib.sha256(client_id.encode()).hexdigest()
+
+
+class JsonAwareOAuth2Request(FlaskOAuth2Request):
+    """Like :class:`FlaskOAuth2Request`, but also reads JSON bodies.
+
+    Technically this shouldn't be necessary. OAuth 2 (RFC 6749 section 4.1.3) and PAR
+    (RFC 9126 section 2) both say request bodies *have* to be form-encoded, but
+    Mastodon and the Bluesky reference PDS evidently accept JSON too, so lots of
+    clients do that instead.
+    """
+    def __init__(self, flask_request):
+        super().__init__(flask_request)
+        if flask_request.is_json and (data := flask_request.get_json(silent=True)):
+            self._json_data = data
+            self.payload = BasicOAuth2Payload(data)
+
+    @property
+    def form(self):
+        if hasattr(self, '_json_data'):
+            return self._json_data
+        return super().form
+
+
+class JsonAwareAuthorizationServer(AuthorizationServer):
+    def create_oauth2_request(self, _):
+        return JsonAwareOAuth2Request(request)
 
 
 class AuthCode(AuthorizationCodeMixin):

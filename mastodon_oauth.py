@@ -8,14 +8,12 @@ import logging
 import secrets
 import time
 
-from authlib.integrations.flask_oauth2 import AuthorizationServer, ResourceProtector
-from authlib.integrations.flask_oauth2.requests import FlaskOAuth2Request
+from authlib.integrations.flask_oauth2 import ResourceProtector
 from authlib.oauth2.rfc6749 import (
     AccessDeniedError,
     ClientMixin,
     TokenMixin,
 )
-from authlib.oauth2.rfc6749.requests import BasicOAuth2Payload
 from authlib.oauth2.rfc6750 import BearerTokenValidator
 from authlib.oauth2.rfc7636 import CodeChallenge, create_s256_code_challenge
 from authlib.oauth2.rfc8414 import AuthorizationServerMetadata
@@ -169,32 +167,7 @@ def generate_bearer_token(grant_type, client, user=None, scope=None,
     }
 
 
-class JsonAwareOAuth2Request(FlaskOAuth2Request):
-    """Like :class:`FlaskOAuth2Request`, but also reads JSON bodies.
-
-    Technically this shouldn't be necessary, at least for the token endpoint. OAuth 2
-    (RFC 6749 section 4.1.3) says its request body *has* to be form-encoded. However,
-    Mastodon accepts JSON too, and evidently lots of clients do that instead. :/
-    """
-    def __init__(self, flask_request):
-        super().__init__(flask_request)
-        if flask_request.is_json and (data := flask_request.get_json(silent=True)):
-            self._json_data = data
-            self.payload = BasicOAuth2Payload(data)
-
-    @property
-    def form(self):
-        if hasattr(self, '_json_data'):
-            return self._json_data
-        return super().form
-
-
-class JsonAwareAuthorizationServer(AuthorizationServer):
-    def create_oauth2_request(self, _):
-        return JsonAwareOAuth2Request(request)
-
-
-server = JsonAwareAuthorizationServer(
+server = oauth_server.JsonAwareAuthorizationServer(
     app, query_client=query_client,
     # noop; our tokens are self-contained, not stored
     save_token=lambda token, request: None)

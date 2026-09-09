@@ -93,7 +93,7 @@ class ATProtoOAuthTest(TestCase):
             copies=[Target(protocol='atproto', uri=DID)])
 
     def par_raw(self, nonce=None, dpop=True, key=OAUTH_ES256_KEY,
-                path='/oauth/atproto/par', **params):
+                path='/oauth/atproto/par', json=False, **params):
         """Makes a single pushed authorization request, no nonce retry."""
         headers = {}
         if dpop:
@@ -103,8 +103,7 @@ class ATProtoOAuthTest(TestCase):
                     nonce=nonce, key=key),
             }
 
-        return self.client.post(path, base_url='https://atproto.brid.gy/',
-                                headers=headers, data={
+        body = {
             'response_type': 'code',
             'client_id': CLIENT_ID,
             'redirect_uri': REDIRECT_URI,
@@ -113,7 +112,10 @@ class ATProtoOAuthTest(TestCase):
             'code_challenge': create_s256_code_challenge(CODE_VERIFIER),
             'code_challenge_method': 'S256',
             **params,
-        })
+        }
+        return self.client.post(path, base_url='https://atproto.brid.gy/',
+                                headers=headers,
+                                **({'json': body} if json else {'data': body}))
 
     def par(self, **kwargs):
         """Makes a pushed authorization request, retrying with the DPoP nonce.
@@ -167,6 +169,18 @@ class ATProtoOAuthTest(TestCase):
         self.assertTrue(resp.json['request_uri'].startswith(
             'urn:ietf:params:oauth:request_uri:'), resp.json)
         self.assertEqual(600, resp.json['expires_in'])
+
+    @patch.object(util.session, 'get',
+                  return_value=requests_response(json_dumps(CLIENT_METADATA)))
+    def test_par_json_body(self, _):
+        """RFC 9126 requires form encoding, but some clients post JSON anyway.
+
+        eg @atcute/oauth-browser-client, which pdsls uses. The Mastodon API
+        genuinely uses JSON, so we already accept it there.
+        """
+        resp = self.par(json=True)
+        self.assertEqual(201, resp.status_code, resp.get_data(as_text=True))
+        self.assertTrue(resp.json['request_uri'])
 
     @patch.object(util.session, 'get',
                   return_value=requests_response(json_dumps(CLIENT_METADATA)))
