@@ -398,6 +398,20 @@ class JWTClientAuth(rfc7523.JWTBearerClientAssertion):
     def get_audiences(self):
         return [host_url(), host_url(TOKEN_PATH)]
 
+    def verify_claims(self, claims):
+        """Allow a missing ``exp``, bounding the assertion with ``iat`` instead.
+
+        RFC 7523 section 3 requires ``exp``, but some clients omit it, eg Graze,
+        due to using an out of date version of AIP. We check `iat`'s age instead,
+        and prevent replay via `jti` like usual.
+        """
+        if 'exp' not in claims:
+            if not isinstance(iat := claims.get('iat'), (int, float)):
+                raise InvalidClientError(description="Missing claim: 'exp' or 'iat'")
+            claims['exp'] = int(iat + TOKEN_MAX_AGE.total_seconds())
+
+        super().verify_claims(claims)
+
     def validate_jti(self, claims, jti):
         """RFC 7523 section 3: an assertion's jti may only be used once.
 

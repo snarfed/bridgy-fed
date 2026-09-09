@@ -514,21 +514,25 @@ class ATProtoOAuthTest(TestCase):
     #
     # confidential clients, https://atproto.com/specs/oauth#confidential-clients
     #
-    def client_assertion(self, key=OAUTH_ES256_KEY):
-        """Mints a private_key_jwt client assertion, like a confidential client."""
+    def client_assertion(self, key=OAUTH_ES256_KEY, **claims):
+        """Mints a private_key_jwt client assertion, like a confidential client.
+
+        Keyword args override claims; pass None to omit one.
+        """
         key = ECKey.import_key(key)
         now = int(time.time())
-        return joserfc_jwt.encode({
-            'alg': 'ES256',
-            'kid': 'kee',
-        }, {
+        claims = {
             'iss': CONFIDENTIAL_CLIENT_ID,
             'sub': CONFIDENTIAL_CLIENT_ID,
             'aud': 'https://atproto.brid.gy',
             'jti': secrets.token_urlsafe(16),
             'iat': now,
             'exp': now + 60,
-        }, key)
+            **claims,
+        }
+        return joserfc_jwt.encode(
+            {'alg': 'ES256', 'kid': 'kee'},
+            {k: v for k, v in claims.items() if v is not None}, key)
 
     @patch.object(util.session, 'get',
                   return_value=requests_response(json_dumps(CONFIDENTIAL_METADATA)))
@@ -564,6 +568,47 @@ class ATProtoOAuthTest(TestCase):
             client_assertion=self.client_assertion())
         self.assertEqual(200, resp.status_code, resp.get_data(as_text=True))
         self.assertEqual(DID, resp.json['sub'])
+
+    @patch.object(util.session, 'get',
+                  return_value=requests_response(json_dumps(CONFIDENTIAL_METADATA)))
+    def test_client_assertion_no_exp(self, _):
+        """RFC 7523 requires exp, but AIP omits it. A fresh iat bounds it instead.
+
+        Replay is still rejected, since that's jti's job, not exp's.
+        """
+        kwargs = {
+            'client_id': CONFIDENTIAL_CLIENT_ID,
+            'client_assertion_type': 'urn:ietf:params:oauth:client-assertion-type:jwt-bearer',
+            'client_assertion': self.client_assertion(exp=None),
+        }
+        resp = self.par(**kwargs)
+        self.assertEqual(201, resp.status_code, resp.get_data(as_text=True))
+
+        resp = self.par(**kwargs)
+        self.assertEqual('invalid_client', resp.json.get('error'),
+                         resp.get_data(as_text=True))
+
+    @patch.object(util.session, 'get',
+                  return_value=requests_response(json_dumps(CONFIDENTIAL_METADATA)))
+    def test_client_assertion_no_exp_stale_iat(self, _):
+        resp = self.par(
+            client_id=CONFIDENTIAL_CLIENT_ID,
+            client_assertion_type='urn:ietf:params:oauth:client-assertion-type:jwt-bearer',
+            client_assertion=self.client_assertion(
+                exp=None, iat=int(time.time()) - 60 * 60))
+        self.assertEqual(400, resp.status_code, resp.get_data(as_text=True))
+        self.assertEqual('invalid_client', resp.json['error'])
+
+    @patch.object(util.session, 'get',
+                  return_value=requests_response(json_dumps(CONFIDENTIAL_METADATA)))
+    def test_client_assertion_no_exp_or_iat(self, _):
+        """Without either, we have nothing to bound the assertion's lifetime with."""
+        resp = self.par(
+            client_id=CONFIDENTIAL_CLIENT_ID,
+            client_assertion_type='urn:ietf:params:oauth:client-assertion-type:jwt-bearer',
+            client_assertion=self.client_assertion(exp=None, iat=None))
+        self.assertEqual(400, resp.status_code, resp.get_data(as_text=True))
+        self.assertEqual('invalid_client', resp.json['error'])
 
     @patch.object(util.session, 'get', side_effect=[
         requests_response(json_dumps(CONFIDENTIAL_JWKS_URI_METADATA)),
