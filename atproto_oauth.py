@@ -267,6 +267,8 @@ class Token(rfc9449.TokenMixin, TokenMixin):
     def __init__(self, payload):
         # only access tokens have sub, ie the user's DID
         self.did = payload.get('sub')
+        self.jti = payload['jti']
+        self.exp = payload['exp']
         self.user_key = Key(urlsafe=payload['user_key'])
         self.scope = payload.get('scope') or ''
         self.dpop_jkt = (payload.get('cnf') or {}).get('jkt')
@@ -369,16 +371,26 @@ class RefreshTokenGrant(BaseRefreshTokenGrant):
         return generate_token(self.request, user, scope, include_refresh_token)
 
     def authenticate_refresh_token(self, refresh_token):
-        if payload := decode_jwt(refresh_token, REFRESH_TYP):
-            return Token(payload)
+        if not (payload := decode_jwt(refresh_token, REFRESH_TYP)):
+            return None
+
+        if oauth_server.used(payload['jti']):
+            logger.warning('refresh token was already used!')
+            return None
+
+        return Token(payload)
 
     def authenticate_user(self, credential):
         return credential.user_key.get()
 
     def revoke_old_credential(self, credential):
-        # TODO: ATProto refresh tokens are single use. Mark spent jtis in
-        # memcache; right now the old one stays valid for REFRESH_MAX_AGE.
-        pass
+        """ATProto refresh tokens are single use.
+
+        Here and not in :meth:`authenticate_refresh_token` because marking it used
+        there would burn it code before the client's retry could use it. (Same
+        in :meth:`JwtAuthorizationCodeGrant.delete_authorization_code`.)
+        """
+        oauth_server.mark_used(credential.jti, credential.exp)
 
 
 class JWTClientAuth(rfc7523.JWTBearerClientAssertion):
@@ -392,8 +404,10 @@ class JWTClientAuth(rfc7523.JWTBearerClientAssertion):
         return [host_url(), host_url(TOKEN_PATH)]
 
     def validate_jti(self, claims, jti):
-        # TODO: track spent jtis in memcache to make assertions single use.
-        # They're only good for their (short) exp for now.
+        # TODO: RFC 7523 section 3 wants these single use, but client auth runs
+        # on the nonce-less first half of DPoP's nonce handshake too, so marking
+        # a jti used would reject the client's own retry. They're only good for
+        # their (short) exp for now.
         return True
 
     def resolve_client_public_key(self, client, headers=None):

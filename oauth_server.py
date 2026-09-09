@@ -9,6 +9,7 @@ account supports, eg IndieAuth for web users.
 from datetime import timedelta
 import hashlib
 import logging
+import secrets
 import time
 from urllib.parse import parse_qsl
 
@@ -32,6 +33,7 @@ from werkzeug.exceptions import HTTPException
 
 import common
 import domains
+import memcache
 import pages
 
 logger = logging.getLogger(__name__)
@@ -92,6 +94,37 @@ def hash_client_id(client_id):
     return hashlib.sha256(client_id.encode()).hexdigest()
 
 
+def _cred_memcache_key(cred):
+    return memcache.key('oauth-used-' + hashlib.sha256(cred.encode()).hexdigest())
+
+
+def mark_used(cred, expires_at):
+    """Marks a single use credential as used, and reports whether it already was.
+
+    Args:
+      cred (str): identifies this credential, eg its ``jti``
+      expires_at (int): epoch seconds when the credential expires
+
+    Returns:
+      bool: False if it was already used
+    """
+    expire = max(int(expires_at - time.time()), 1)
+    return bool(memcache.memcache.add(_cred_memcache_key(cred), 'used',
+                                      expire=expire))
+
+
+def used(cred):
+    """Returns whether a single use credential has already been used.
+
+    Only for credentials that can't be used at the point they're checked. See
+    :func:`mark_used`, which is atomic and should be preferred.
+
+    Returns:
+      bool:
+    """
+    return bool(memcache.memcache.get(_cred_memcache_key(cred)))
+
+
 class JsonAwareOAuth2Request(FlaskOAuth2Request):
     """Like :class:`FlaskOAuth2Request`, but also reads JSON bodies.
 
@@ -130,6 +163,7 @@ class AuthCode(AuthorizationCodeMixin):
         self.code_challenge = payload.get('code_challenge')
         self.code_challenge_method = payload.get('code_challenge_method')
         self.dpop_jkt = payload.get('dpop_jkt')
+        self.exp = payload['exp']
 
     def get_redirect_uri(self):
         return self.redirect_uri
@@ -159,6 +193,10 @@ class JwtAuthorizationCodeGrant(AuthorizationCodeGrant):
             # real wall-clock time, not util.now(): PyJWT checks 'exp' against real
             # time regardless of any test-time mocking
             'exp': int(time.time() + self.CODE_MAX_AGE.total_seconds()),
+            # without this, two codes for the same user, client, scope, and second
+            # would be identical, and the second would look like a replay of the
+            # first. also the entropy RFC 6749 section 10.5 asks for.
+            'jti': secrets.token_urlsafe(16),
             'user_key': self.request.user.key.urlsafe().decode(),
             'client_id_hash': hash_client_id(self.request.client.get_client_id()),
             # same defaulting as authlib itself, in create_authorization_response();
@@ -184,12 +222,19 @@ class JwtAuthorizationCodeGrant(AuthorizationCodeGrant):
             logger.info(f"query_authorization_code: client_id_hash mismatch, code was issued to {payload['client_id_hash']}, token request is from {client.get_client_id()} (hash {client_id_hash})")
             return None
 
+        if used(code):
+            logger.warning('code was already used!')
+            return None
+
         return AuthCode(payload)
 
     def delete_authorization_code(self, authorization_code):
-        # TODO: mark spent codes in memcache so they're single-use; right now
-        # they're only good for CODE_MAX_AGE.
-        pass
+        """RFC 6749 section 4.1.2: codes are single use.
+
+        Here and not in :meth:`query_authorization_code` because marking it used
+        there would burn it code before the client's retry could use it.
+        """
+        mark_used(self.request.payload.data['code'], authorization_code.exp)
 
     def authenticate_user(self, authorization_code):
         return authorization_code.user_key.get()

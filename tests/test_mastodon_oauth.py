@@ -259,11 +259,12 @@ class MastodonOAuthTest(TestCase):
         revoking one (future denylist) doesn't kill a re-issued one.
         """
         app = self.register_app()
-        location = self.login(app['client_id'])
-        code = parse_qs(urlparse(location).query)['code'][0]
 
         tokens = []
         for i in range(2):
+            # fresh login each time, since codes are single use
+            location = self.login(app['client_id'])
+            code = parse_qs(urlparse(location).query)['code'][0]
             resp = self.client.post('/oauth/token', data={
                 'grant_type': 'authorization_code',
                 'code': code,

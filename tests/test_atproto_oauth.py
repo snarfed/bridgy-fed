@@ -707,3 +707,39 @@ class ATProtoOAuthTest(TestCase):
         self.assertEqual(401, resp.status_code, resp.get_data(as_text=True))
         self.assertIn('error="use_dpop_nonce"', resp.headers['WWW-Authenticate'])
         self.assertTrue(resp.headers['DPoP-Nonce'])
+
+    #
+    # replay prevention
+    #
+    @patch.object(util.session, 'get',
+                  return_value=requests_response(json_dumps(CLIENT_METADATA)))
+    @patch.object(util.session, 'post',
+                  return_value=requests_response('me=https://alice.com'))
+    def test_authorization_code_single_use(self, *_):
+        resp = self.login(self.par().json['request_uri'])
+        code = parse_qs(urlparse(resp.headers['Location']).query)['code'][0]
+
+        resp = self.token(code=code)
+        self.assertEqual(200, resp.status_code, resp.get_data(as_text=True))
+
+        resp = self.token(code=code)
+        self.assertEqual(400, resp.status_code, resp.get_data(as_text=True))
+        self.assertEqual('invalid_grant', resp.json['error'])
+
+    @patch.object(util.session, 'get',
+                  return_value=requests_response(json_dumps(CLIENT_METADATA)))
+    @patch.object(util.session, 'post',
+                  return_value=requests_response('me=https://alice.com'))
+    def test_refresh_token_single_use(self, *_):
+        resp = self.login(self.par().json['request_uri'])
+        code = parse_qs(urlparse(resp.headers['Location']).query)['code'][0]
+        refresh_token = self.token(code=code).json['refresh_token']
+
+        kwargs = {'grant_type': 'refresh_token', 'code': None,
+                  'refresh_token': refresh_token, 'scope': 'atproto'}
+        resp = self.token(**kwargs)
+        self.assertEqual(200, resp.status_code, resp.get_data(as_text=True))
+
+        resp = self.token(**kwargs)
+        self.assertEqual(400, resp.status_code, resp.get_data(as_text=True))
+        self.assertEqual('invalid_grant', resp.json['error'])
