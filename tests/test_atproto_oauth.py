@@ -763,3 +763,32 @@ class ATProtoOAuthTest(TestCase):
         resp = self.par(**kwargs)
         self.assertEqual('invalid_client', resp.json.get('error'),
                          resp.get_data(as_text=True))
+
+    #
+    # com.atproto.server.getSession
+    #
+    @patch.object(util.session, 'get',
+                  return_value=requests_response(json_dumps(CLIENT_METADATA)))
+    @patch.object(util.session, 'post',
+                  return_value=requests_response('me=https://alice.com'))
+    def test_get_session(self, *_):
+        token = self.access_token()
+        url = 'https://atproto.brid.gy/xrpc/com.atproto.server.getSession'
+        resp = self.client.get('/xrpc/com.atproto.server.getSession',
+                               base_url='https://atproto.brid.gy/', headers={
+            'Authorization': f'DPoP {token}',
+            'DPoP': dpop_proof(
+                'GET', url, ath=hash_access_token(token),
+                nonce=atproto_oauth.proof_validator.nonce_generator.next()),
+        })
+        self.assertEqual(200, resp.status_code, resp.get_data(as_text=True))
+        self.assert_equals({
+            'did': DID,
+            'handle': 'alice.com.web.brid.gy',
+            'active': True,
+        }, resp.json)
+
+    def test_get_session_unauthenticated(self):
+        resp = self.client.get('/xrpc/com.atproto.server.getSession',
+                               base_url='https://atproto.brid.gy/')
+        self.assertEqual(401, resp.status_code, resp.get_data(as_text=True))

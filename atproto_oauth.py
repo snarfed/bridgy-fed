@@ -19,6 +19,7 @@ import secrets
 import time
 import urllib.parse
 
+import arroba.server
 from authlib.integrations.flask_oauth2 import ResourceProtector
 from authlib.oauth2 import cimd, rfc7523, rfc9126, rfc9207, rfc9449
 from authlib.oauth2.rfc6749 import (
@@ -545,6 +546,20 @@ def auth():
 
     with require_oauth.acquire('atproto') as token:
         return token.did
+
+
+@arroba.server.server.method('com.atproto.server.getSession')
+def get_session(input):
+    """Handler for ``com.atproto.server.getSession``, backed by OAuth.
+
+    No ``email`` or ``emailConfirmed``; we don't have email addresses.
+    """
+    with require_oauth.acquire('atproto') as token:
+        return {
+            'did': token.did,
+            'handle': token.user_key.get().handle_as(ATProto),
+            'active': True,
+        }
 
 
 class Proxy(oauth_server.Proxy):

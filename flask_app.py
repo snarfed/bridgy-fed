@@ -92,9 +92,17 @@ app.wsgi_app = flask_util.ndb_context_middleware(
 # https://werkzeug.palletsprojects.com/en/stable/middleware/proxy_fix/
 app.wsgi_app = ProxyFix(app.wsgi_app, x_proto=1, x_for=1)
 
-# redirect getRepo to Hubble since it's too expensive for us to serve
-# https://github.com/snarfed/arroba/issues/93
-del arroba.server.server._methods['com.atproto.sync.getRepo']
+for nsid in (
+    # we don't support password login. atproto_oauth implements getSession on OAuth.
+    'com.atproto.server.createSession',
+    'com.atproto.server.getSession',
+    'com.atproto.server.refreshSession',
+    # we redirect getRepo to Hubble, below, since it's too expensive for us to serve
+    # https://github.com/snarfed/arroba/issues/93
+    'com.atproto.sync.getRepo',
+):
+    del arroba.server.server._methods[nsid]
+
 
 @arroba.server.server.method('com.atproto.sync.getRepo')
 def get_repo(input, **kwargs):
