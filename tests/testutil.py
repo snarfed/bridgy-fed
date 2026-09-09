@@ -14,6 +14,7 @@ import warnings
 
 from arroba import did
 from arroba.datastore_storage import MemcacheSequences
+import arroba.server
 import arroba.util
 from arroba.util import datetime_to_tid
 from bs4 import MarkupResemblesLocatorWarning
@@ -314,6 +315,7 @@ class ExplicitFake(Fake):
 models.reset_protocol_properties()
 
 import app
+
 import activitypub
 from activitypub import ActivityPub, CONNEG_HEADERS_AS2_HTML
 import atproto
@@ -327,6 +329,9 @@ from memcache import (
 import farcaster
 from farcaster import Farcaster
 from flask_app import app
+
+XRPC_METHODS = dict(arroba.server.server._methods)
+
 
 # stub out the Farcaster snapchain gRPC client so tests don't hit the network
 class _FakeFarcasterHub:
@@ -370,6 +375,10 @@ class TestCase(unittest.TestCase, testutil.Asserts):
         appengine_info.READ_ONLY = False
         common.RUN_TASKS_INLINE = True
         app.testing = True
+
+        # hub edits arroba.server.server._methods wholesale when it's imported, eg by
+        # test_atproto, so reset it here
+        arroba.server.server._methods = dict(XRPC_METHODS)
 
         memcache.clear()
         pickle_memcache.clear()
