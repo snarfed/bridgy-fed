@@ -106,13 +106,9 @@ def host_url(path=''):
 
 
 class MemcacheDPoPReplayCache(rfc9449.validator.DPoPReplayCache):
-    """Checks memcache for used DPoP proofs.
-
-    Returns:
-      bool: True if this is the first time we've seen this proof, False otherwise
-    """
+    """Checks memcache for used DPoP proofs."""
     def check_and_add(self, jti, expires_at):
-        return oauth_server.mark_used(jti, expires_at)
+        return oauth_server.mark_used('dpop-jti', jti, expires_at)
 
 
 @memcache.memoize(expire=CLIENT_METADATA_CACHE_EXPIRE)
@@ -372,7 +368,7 @@ class RefreshTokenGrant(BaseRefreshTokenGrant):
         if not (payload := decode_jwt(refresh_token, REFRESH_TYP)):
             return None
 
-        if oauth_server.used(payload['jti']):
+        if oauth_server.used(REFRESH_TYP, payload['jti']):
             logger.warning('refresh token was already used!')
             return None
 
@@ -388,7 +384,7 @@ class RefreshTokenGrant(BaseRefreshTokenGrant):
         there would burn it code before the client's retry could use it. (Same
         in :meth:`JwtAuthorizationCodeGrant.delete_authorization_code`.)
         """
-        oauth_server.mark_used(credential.jti, credential.exp)
+        oauth_server.mark_used(REFRESH_TYP, credential.jti, credential.exp)
 
 
 class JWTClientAuth(rfc7523.JWTBearerClientAssertion):
@@ -409,10 +405,8 @@ class JWTClientAuth(rfc7523.JWTBearerClientAssertion):
         half of DPoP's nonce handshake, and marking it used here would reject the
         client's own retry.
         """
-        # namespaced by client, since they generate jtis
-        cred = f'{claims["sub"]}-{jti}'
-        g.client_assertion = (cred, claims['exp'])
-        return not oauth_server.used(cred)
+        g.client_assertion = (claims, jti)
+        return not oauth_server.used(claims['sub'], jti)
 
     def resolve_client_public_key(self, client, headers=None):
         """Returns the keys from the client's metadata document."""
@@ -585,8 +579,9 @@ def mark_client_assertion_used(resp):
     retry token requests with the same JWT if the server requires a nonce.
     (See RFC 9449 section 8.)
     """
-    if resp.status_code < 400 and (cred_exp := g.get('client_assertion')):
-        oauth_server.mark_used(*cred_exp)
+    if resp.status_code < 400 and (claims_jti := g.get('client_assertion')):
+        claims, jti = claims_jti
+        oauth_server.mark_used(claims['sub'], jti, claims['exp'])
 
     return resp
 

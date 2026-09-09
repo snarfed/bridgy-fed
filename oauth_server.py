@@ -94,35 +94,41 @@ def hash_client_id(client_id):
     return hashlib.sha256(client_id.encode()).hexdigest()
 
 
-def _cred_memcache_key(cred):
-    return memcache.key('oauth-used-' + hashlib.sha256(cred.encode()).hexdigest())
+def _cred_memcache_key(kind, value):
+    return memcache.key(f'oauth-used-{kind}-'
+                        + hashlib.sha256(value.encode()).hexdigest())
 
 
-def mark_used(cred, expires_at):
+def mark_used(kind, value, expires_at):
     """Marks a single use credential as used, and reports whether it already was.
 
     Args:
-      cred (str): identifies this credential, eg its ``jti``
+      kind (str): credential type or namespace (eg client id)
+      value (str): credential value
       expires_at (int): epoch seconds when the credential expires
 
     Returns:
       bool: False if it was already used
     """
     expire = max(int(expires_at - time.time()), 1)
-    return bool(memcache.memcache.add(_cred_memcache_key(cred), 'used',
+    return bool(memcache.memcache.add(_cred_memcache_key(kind, value), 'used',
                                       expire=expire))
 
 
-def used(cred):
+def used(kind, value):
     """Returns whether a single use credential has already been used.
 
     Only for credentials that can't be used at the point they're checked. See
     :func:`mark_used`, which is atomic and should be preferred.
 
+    Args:
+      kind (str): type of credential
+      value (str): credential value
+
     Returns:
       bool:
     """
-    return bool(memcache.memcache.get(_cred_memcache_key(cred)))
+    return bool(memcache.memcache.get(_cred_memcache_key(kind, value)))
 
 
 class JsonAwareOAuth2Request(FlaskOAuth2Request):
@@ -222,7 +228,7 @@ class JwtAuthorizationCodeGrant(AuthorizationCodeGrant):
             logger.info(f"query_authorization_code: client_id_hash mismatch, code was issued to {payload['client_id_hash']}, token request is from {client.get_client_id()} (hash {client_id_hash})")
             return None
 
-        if used(code):
+        if used(self.CODE_TYP, code):
             logger.warning('code was already used!')
             return None
 
@@ -234,7 +240,8 @@ class JwtAuthorizationCodeGrant(AuthorizationCodeGrant):
         Here and not in :meth:`query_authorization_code` because marking it used
         there would burn it code before the client's retry could use it.
         """
-        mark_used(self.request.payload.data['code'], authorization_code.exp)
+        mark_used(self.CODE_TYP, self.request.payload.data['code'],
+                  authorization_code.exp)
 
     def authenticate_user(self, authorization_code):
         return authorization_code.user_key.get()
