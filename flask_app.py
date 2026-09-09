@@ -10,7 +10,7 @@ import sys
 from urllib.parse import urljoin
 
 import arroba.server
-from arroba import xrpc_identity, xrpc_repo, xrpc_server, xrpc_sync
+from arroba import xrpc_identity, xrpc_actor, xrpc_repo, xrpc_server, xrpc_sync
 from flask import Blueprint, Flask, g, request
 from werkzeug.middleware.proxy_fix import ProxyFix
 from google.api_core.exceptions import PermissionDenied
