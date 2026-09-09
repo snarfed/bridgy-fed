@@ -56,7 +56,8 @@ TOKEN_PATH = '/oauth/atproto/token'
 PAR_PATH = '/oauth/atproto/par'
 
 # https://atproto.com/specs/oauth#authorization-scopes
-SCOPE = 'atproto'
+# all scopes we advertise
+SCOPES = ['atproto', 'transition:generic']
 
 TOKEN_TYP = 'atproto-oauth-token'
 REFRESH_TYP = 'atproto-oauth-refresh'
@@ -194,7 +195,8 @@ class ClientIdMetadataDocument(cimd.ClientIdMetadataDocument):
             'client_id': client_id,
             'client_name': 'Localhost dev client',
             'redirect_uris': redirect_uris,
-            'scope': (params.get('scope') or [SCOPE])[0],
+            # multiple scopes, space-separated
+            'scope': ' '.join(params.get('scope') or SCOPES),
             'response_types': ['code'],
             'grant_types': ['authorization_code', 'refresh_token'],
             'token_endpoint_auth_method': 'none',
@@ -437,7 +439,7 @@ def oauth_protected_resource():
     return {
         'resource': origin,
         'authorization_servers': [origin],
-        'scopes_supported': [SCOPE],
+        'scopes_supported': SCOPES,
         'bearer_methods_supported': ['header'],
     }
 
@@ -465,7 +467,7 @@ def metadata():
         'token_endpoint_auth_methods_supported': TOKEN_ENDPOINT_AUTH_METHODS,
         'token_endpoint_auth_signing_alg_values_supported': ['ES256'],
         'dpop_signing_alg_values_supported': ['ES256'],
-        'scopes_supported': [SCOPE],
+        'scopes_supported': SCOPES,
         'authorization_response_iss_parameter_supported': True,
         'client_id_metadata_document_supported': True,
     })
@@ -529,7 +531,7 @@ def auth():
     if not request.headers.get('Authorization'):
         return None
 
-    with require_oauth.acquire(SCOPE) as token:
+    with require_oauth.acquire('atproto') as token:
         return token.did
 
 

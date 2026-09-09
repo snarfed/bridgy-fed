@@ -145,7 +145,7 @@ class ATProtoOAuthTest(TestCase):
             'token_endpoint_auth_methods_supported': ['none', 'private_key_jwt'],
             'token_endpoint_auth_signing_alg_values_supported': ['ES256'],
             'dpop_signing_alg_values_supported': ['ES256'],
-            'scopes_supported': ['atproto'],
+            'scopes_supported': ['atproto', 'transition:generic'],
             'authorization_response_iss_parameter_supported': True,
             'client_id_metadata_document_supported': True,
         }, resp.json)
@@ -159,7 +159,7 @@ class ATProtoOAuthTest(TestCase):
         self.assert_equals({
             'resource': 'https://atproto.brid.gy',
             'authorization_servers': ['https://atproto.brid.gy'],
-            'scopes_supported': ['atproto'],
+            'scopes_supported': ['atproto', 'transition:generic'],
             'bearer_methods_supported': ['header'],
         }, resp.json)
 
@@ -167,6 +167,14 @@ class ATProtoOAuthTest(TestCase):
         resp = self.client.get('/.well-known/oauth-protected-resource',
                                base_url='https://web.brid.gy/')
         self.assertEqual(404, resp.status_code)
+
+    def test_localhost_client_scope(self):
+        """The localhost dev client gets all our scopes unless it asks for some."""
+        resolve = atproto_oauth.ClientIdMetadataDocument(
+            allow_loopback=True).resolve_client_id_metadata_document
+        self.assertEqual('atproto transition:generic',
+                         resolve('http://localhost').scope)
+        self.assertEqual('atproto', resolve('http://localhost?scope=atproto').scope)
 
     def test_metadata_other_host_is_still_mastodon(self):
         """Only our PDS host serves the ATProto authorization server."""
