@@ -487,6 +487,8 @@ def metadata():
         'pushed_authorization_request_endpoint': host_url(PAR_PATH),
         'require_pushed_authorization_requests': True,
         'response_types_supported': ['code'],
+        # no 'form_post'; authlib supports it, but no ATProto client uses it
+        'response_modes_supported': ['query', 'fragment'],
         'grant_types_supported': ['authorization_code', 'refresh_token'],
         # no 'plain'; ATProto requires S256
         'code_challenge_methods_supported': ['S256'],

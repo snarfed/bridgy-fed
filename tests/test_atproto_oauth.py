@@ -140,6 +140,7 @@ class ATProtoOAuthTest(TestCase):
             'pushed_authorization_request_endpoint': 'https://atproto.brid.gy/oauth/atproto/par',
             'require_pushed_authorization_requests': True,
             'response_types_supported': ['code'],
+            'response_modes_supported': ['query', 'fragment'],
             'grant_types_supported': ['authorization_code', 'refresh_token'],
             'code_challenge_methods_supported': ['S256'],
             'token_endpoint_auth_methods_supported': ['none', 'private_key_jwt'],
@@ -296,6 +297,23 @@ class ATProtoOAuthTest(TestCase):
         return self.client.get(
             f'/oauth/atproto/authorize/indieauth/finish?code=my_code&state={state}',
             base_url='https://fed.brid.gy/')
+
+    @patch.object(util.session, 'get',
+                  return_value=requests_response(json_dumps(CLIENT_METADATA)))
+    @patch.object(util.session, 'post',
+                  return_value=requests_response('me=https://alice.com'))
+    def test_response_mode_fragment(self, *_):
+        """We advertise fragment in response_modes_supported, so it must work."""
+        request_uri = self.par(response_mode='fragment').json['request_uri']
+        resp = self.login(request_uri)
+        self.assertEqual(302, resp.status_code, resp.get_data(as_text=True))
+
+        location = urlparse(resp.headers['Location'])
+        self.assertEqual('', location.query)
+        params = parse_qs(location.fragment)
+        self.assertEqual(['code', 'iss', 'state'], sorted(params.keys()))
+        self.assertEqual(['xyz'], params['state'])
+        self.assertEqual(['https://atproto.brid.gy'], params['iss'])
 
     def token_raw(self, nonce=None, key=OAUTH_ES256_KEY,
                   path='/oauth/atproto/token', **params):
