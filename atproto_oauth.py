@@ -412,6 +412,12 @@ class JWTClientAuth(rfc7523.JWTBearerClientAssertion):
 
         super().verify_claims(claims)
 
+        # TODO? if claims has cnf.jkt, check against the DPoP proof's key thumbprint.
+        # https://github.com/bluesky-social/proposals/tree/main/0010-client-assertion-backend
+        # says we MUST, but isn't authoritative, and https://atproto.com/specs/oauth
+        # doesn't mention cnf at all, and we haven't seen cnf from a client in the
+        # wild yet.
+
     def validate_jti(self, claims, jti):
         """RFC 7523 section 3: an assertion's jti may only be used once.
 
