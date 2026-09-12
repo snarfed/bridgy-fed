@@ -100,11 +100,9 @@ else:
 del arroba.server.server._methods['com.atproto.sync.subscribeRepos']
 
 # methods we don't implement get service proxied to whichever service the client
-# asks for in atproto-proxy, or to the appview.
+# asks for in the atproto-proxy request header
 # https://atproto.com/specs/xrpc#service-proxying
-service_proxy = xrpc_proxy.handler(
-    atproto_oauth.auth,
-    default_service=f'did:web:{os.environ["APPVIEW_HOST"]}#bsky_appview')
+service_proxy = xrpc_proxy.handler(atproto_oauth.auth)
 
 # initialize XRPC server
 lexrpc.flask_server.init_flask(arroba.server.server, app, fallback=service_proxy)
