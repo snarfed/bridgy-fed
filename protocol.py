@@ -1197,7 +1197,7 @@ class Protocol:
                 translate(feat, 'orderedItems', ids.translate_object_id)
                 translate(feat, 'items', ids.translate_object_id)
 
-        outer_obj = util.trim_nulls(outer_obj)
+        outer_obj = as1.trim_nulls(outer_obj)
 
         if objs := util.get_list(outer_obj ,'object'):
             outer_obj['object'] = [o['id'] if o.keys() == {'id'} else o for o in objs]
@@ -1236,7 +1236,7 @@ class Protocol:
         content = obj.get('content')
         tags = obj.get('tags')
         if not content or not tags or as1.is_html(obj, 'content'):
-            return util.trim_nulls(obj)
+            return as1.trim_nulls(obj)
 
         indexed = [tag for tag in tags if tag.get('startIndex') and tag.get('length')]
 
@@ -1273,7 +1273,7 @@ class Protocol:
 
         obj['tags'] = tags
         as2.set_content(obj, content)  # sets content *and* contentMap; obj is still AS1 here
-        return util.trim_nulls(obj)
+        return as1.trim_nulls(obj)
 
     @classmethod
     def receive(from_cls, obj, authed_as=None, internal=False, received_at=None):

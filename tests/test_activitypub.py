@@ -3068,6 +3068,31 @@ class ActivityPubUtilsTest(TestCase):
             }],
         }), ignore=['to'])
 
+    def test_postprocess_as2_link_attachments_to_content_keeps_lang(self):
+        expected = '<p><a href="http://a/link">check it out</a></p>'
+        self.assert_equals({
+            'type': 'Note',
+            'content': expected,
+            'contentMap': {'da': expected},
+        }, postprocess_as2({
+            'type': 'Note',
+            'contentMap': {'da': ''},
+            'attachment': [{
+                'type': 'Link',
+                'href': 'http://a/link',
+                'name': 'check it out',
+            }],
+        }), ignore=['to'])
+
+    def test_postprocess_as2_keeps_empty_contentMap(self):
+        self.assert_equals({
+            'type': 'Note',
+            'contentMap': {'da': ''},
+        }, postprocess_as2({
+            'type': 'Note',
+            'contentMap': {'da': ''},
+        }), ignore=['to'])
+
     def test_postprocess_as2_links_indexed_tags_with_link_attachment(self):
         # indexed facets must still be linked even when a Link attachment is
         # appended to content. regression: appending the link first made
@@ -3904,6 +3929,30 @@ class ActivityPubUtilsTest(TestCase):
                 },
             },
         })), ignore=['@context', 'contentMap', 'to'])
+
+    @patch.object(util.session, 'get', return_value=requests_response())
+    def test_convert_bluesky_external_embed_no_text_keeps_lang(self, _):
+        content = '<p><a href="http://a.li/nc">a linc</a></p>'
+        self.assert_equals({
+            'type': 'Note',
+            'id': 'https://bsky.brid.gy/convert/ap/at://did:plc:bob/app.bsky.feed.post/456',
+            'url': 'http://localhost/r/https://bsky.app/profile/did:plc:bob/post/456',
+            'attributedTo': 'https://bsky.brid.gy/ap/did:plc:bob',
+            'content': content,
+            'contentMap': {'da': content},
+        }, ActivityPub.convert(Object(id='at://did:plc:bob/app.bsky.feed.post/456', bsky={
+            '$type': 'app.bsky.feed.post',
+            'text': '',
+            'langs': ['da'],
+            'embed': {
+                '$type': 'app.bsky.embed.external',
+                'external': {
+                    'description': 'baz biff',
+                    'title': 'a linc',
+                    'uri': 'http://a.li/nc',
+                },
+            },
+        })), ignore=['@context', 'to'])
 
     def test_convert_mention_non_bridged_id_uses_profile_url(self):
         self.store_object(id='did:plc:5zspv27pk4iqtrl2ql2nykjh', raw={'foo': 'bar'})

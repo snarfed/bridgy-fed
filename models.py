@@ -2201,7 +2201,7 @@ class Object(AddRemoveMixin, StringIdModel):
         outer_obj['object'] = objects[0] if len(objects) == 1 else objects
 
         if replaced:
-            self.our_as1 = util.trim_nulls(outer_obj)
+            self.our_as1 = as1.trim_nulls(outer_obj)
 
     def normalize_ids(self):
         """Normalizes ids to their protocol's canonical representation, if any.
@@ -2278,7 +2278,7 @@ class Object(AddRemoveMixin, StringIdModel):
             outer_obj['object'] = outer_obj['object'][0]
 
         if replaced:
-            self.our_as1 = util.trim_nulls(outer_obj)
+            self.our_as1 = as1.trim_nulls(outer_obj)
 
     def owner_protocol(self, remote=True):
         """Wrapper around :attr:`source_protocol` that handles :class:`UIProtocol`.

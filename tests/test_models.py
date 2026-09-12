@@ -1880,6 +1880,33 @@ cast_add_body { text: "hi" }
             },
         }, obj.our_as1)
 
+    def test_resolve_ids_keeps_empty_contentMap(self):
+        self.store_object(id='other:post',
+                          copies=[Target(uri='fake:post', protocol='fake')])
+
+        obj = Object(id='fake:reply', source_protocol='fake', our_as1={
+            'objectType': 'activity',
+            'verb': 'post',
+            'object': {
+                'id': 'fake:reply',
+                'objectType': 'note',
+                'inReplyTo': 'fake:post',
+                'contentMap': {'da': ''},
+            },
+        })
+        obj.resolve_ids()
+        self.assert_equals({
+            'objectType': 'activity',
+            'verb': 'post',
+            'id': 'fake:reply',
+            'object': {
+                'id': 'fake:reply',
+                'objectType': 'note',
+                'inReplyTo': 'other:post',
+                'contentMap': {'da': ''},
+            },
+        }, obj.our_as1)
+
     def test_resolve_ids_multiple_in_reply_to(self):
         note = {
             'id': 'fake:note',
@@ -2255,6 +2282,28 @@ cast_add_body { text: "hi" }
                 'id': 'https://user.com/',
                 'objectType': 'person',
                 'displayName': 'Alice',
+            },
+        }, obj.our_as1)
+
+    def test_normalize_ids_keeps_empty_contentMap(self):
+        obj = Object(id='fake:note', our_as1={
+            'objectType': 'activity',
+            'verb': 'post',
+            'object': {
+                'id': 'https://bsky.app/profile/did:plc:user/post/456',
+                'objectType': 'note',
+                'contentMap': {'da': ''},
+            },
+        })
+        obj.normalize_ids()
+        self.assert_equals({
+            'objectType': 'activity',
+            'verb': 'post',
+            'id': 'fake:note',
+            'object': {
+                'id': 'at://did:plc:user/app.bsky.feed.post/456',
+                'objectType': 'note',
+                'contentMap': {'da': ''},
             },
         }, obj.our_as1)
 

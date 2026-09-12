@@ -1249,7 +1249,7 @@ def postprocess_as2(activity, orig_obj=None, wrap=True):
             as2.set_content(obj_or_activity, f'<p>{content}</p>')
 
     activity.pop('content_is_html', None)
-    return util.trim_nulls(activity)
+    return as1.trim_nulls(activity)
 
 
 def postprocess_as2_actor(actor, user):
