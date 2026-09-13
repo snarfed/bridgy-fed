@@ -89,6 +89,89 @@ cd ~/src/bridgy-fed && curl -v -H "Authorization: `cat flask_secret_key`" \
 (Ideally we'd like to be able to do this from [blog.anew.social](https://blog.anew.social/) too! [They don't support microformats in the default theme](https://indieweb.org/Ghost#Rejected_microformats2_markup_in_default_theme), though, so we'd need to switch to a microformats-enabled theme first. 😕)
 
 
+Load balancer
+---
+One part of our production architecture on GCP is a [Global Application Load Balancer](https://docs.cloud.google.com/load-balancing/docs/load-balancing-overview#application-lb). This lets us do layer 7 (ie HTTP) routing, by URL path, across both App Engine and Cloud Run.
+
+The URL routing is in [`url-map.yaml`](https://github.com/snarfed/bridgy-fed/blob/main/url-map.yaml). Here's how set up the load balancer:
+
+```sh
+# Create ALB on https://console.cloud.google.com/net-services/loadbalancing/list/loadBalancers?project=bridgy-federated
+
+
+# Create serverless NEGs
+# https://console.cloud.google.com/compute/networkendpointgroups/list?project=bridgy-federated
+
+gcloud compute network-endpoint-groups create hub --region=us-central1 --network-endpoint-type=SERVERLESS --app-engine-service=hub
+
+gcloud compute network-endpoint-groups create frontend --region=us-central1 --network-endpoint-type=SERVERLESS --cloud-run-service=frontend
+
+
+# Create backend services, attach NEGs
+#
+# note that serverless NEGs don't support most backend services' options/flags,
+# they need to be left to their defaults.
+#
+# specifically, they'll say their IP address selection policy is IPv4 only
+# (the default), but it doesn't matter, serverless NEGs don't actually use that.
+
+gcloud compute backend-services create hub --global --load-balancing-scheme=EXTERNAL_MANAGED
+gcloud compute backend-services add-backend hub --global --network-endpoint-group=hub --network-endpoint-group-region=us-central1
+
+gcloud compute backend-services create frontend --global --load-balancing-scheme=EXTERNAL_MANAGED
+gcloud compute backend-services add-backend frontend --global --network-endpoint-group=frontend --network-endpoint-group-region=us-central1
+
+
+# Validate and import url-map.yaml
+
+gcloud compute url-maps validate --source=url-map.yaml
+
+gcloud compute url-maps import bridgy-fed --source=url-map.yaml --global
+
+
+# Reserve IPs, create SSL cert
+# https://console.cloud.google.com/networking/addresses/list?project=bridgy-federated
+
+gcloud compute addresses create load-balancer --ip-version=IPV4 --global
+gcloud compute addresses create lb-ipv6-address --ip-version=IPV6 --global
+
+# https://console.cloud.google.com/networking/addresses/list?project=bridgy-federated
+136.68.247.97
+2600:1901:0:584a::
+
+# now add DNS for foo.brid.gy with a single A record pointing to 136.68.247.97
+
+gcloud compute ssl-certificates create managed-ssl-cert --domains=foo.brid.gy,... --global
+
+gcloud compute ssl-certificates describe managed-ssl-cert
+
+# https://console.cloud.google.com/security/ccm/list/lbCertificates?project=bridgy-federated
+
+# for a real prod domain like atproto.brid.gy, I made a cert with DNS Authorization instead. doable in the web console and with gcloud.
+# https://docs.cloud.google.com/certificate-manager/docs/dns-authorizations
+
+
+# Create target HTTP[S] proxies, forwarding rules
+
+gcloud compute target-https-proxies create bridgy-fed --ssl-certificates=managed-ssl-cert --url-map=bridgy-fed --global
+
+gcloud compute target-http-proxies create bridgy-fed-http --url-map=bridgy-fed --global
+
+gcloud compute forwarding-rules create bridgy-fed --load-balancing-scheme=EXTERNAL_MANAGED --address=load-balancer --target-https-proxy=bridgy-fed --ports=443 --global
+
+gcloud compute forwarding-rules create bridgy-fed-ipv6 --load-balancing-scheme=EXTERNAL_MANAGED --address=lb-ipv6-address --target-https-proxy=bridgy-fed --ports=443 --global
+
+gcloud compute forwarding-rules create bridgy-fed-http --load-balancing-scheme=EXTERNAL_MANAGED --address=load-balancer --target-http-proxy=bridgy-fed-http --ports=80 --global
+
+gcloud compute forwarding-rules create bridgy-fed-http-ipv6 --load-balancing-scheme=EXTERNAL_MANAGED --address=lb-ipv6-address --target-http-proxy=bridgy-fed-http --ports=80 --global
+
+
+# view!
+
+https://console.cloud.google.com/net-services/loadbalancing/details/httpAdvanced/bridgy-fed?project=bridgy-federated
+```
+
+
 GCP Artifact Registry cleanup policies
 ---
 `[artifact-registry-cleanup-policy.json](https://github.com/snarfed/bridgy-fed/blob/main/artifact-registry-cleanup-policy.json)` is an [Artifact Registry cleanup policy](https://docs.cloud.google.com/artifact-registry/docs/repositories/cleanup-policy) that automatically deletes old Docker images built by Cloud Build in our repos. [Background.](https://github.com/snarfed/bridgy-fed/issues/2473)
