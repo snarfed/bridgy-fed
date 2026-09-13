@@ -219,13 +219,15 @@ class ATProtoOAuthTest(TestCase):
         The authorize leg is covered by
         :meth:`test_authorize_reference_pds_path_on_pds_host`.
         """
-        request_uri = self.par(path='/oauth/par').json['request_uri']
-        resp = self.login(request_uri)
+        resp = self.par(path='/oauth/par')
+        self.assertTrue(resp.headers['DPoP-Nonce'])
+        resp = self.login(resp.json['request_uri'])
         code = parse_qs(urlparse(resp.headers['Location']).query)['code'][0]
 
         resp = self.token(code=code, path='/oauth/token')
         self.assertEqual(200, resp.status_code, resp.get_data(as_text=True))
         self.assertEqual(DID, resp.json['sub'])
+        self.assertTrue(resp.headers['DPoP-Nonce'])
 
     def test_par_reference_path_on_atproto_brid_gy(self):
         """Mastodon OAuth has no PAR endpoint, so this path is ours alone."""
@@ -253,10 +255,42 @@ class ATProtoOAuthTest(TestCase):
 
     @patch.object(util.session, 'get',
                   return_value=requests_response(json_dumps(CLIENT_METADATA)))
-    def test_par_requires_dpop(self, _):
+    @patch.object(util.session, 'post',
+                  return_value=requests_response('me=https://alice.com'))
+    def test_par_without_dpop(self, *_):
+        """RFC 9449 makes DPoP optional at PAR, and some clients skip it, eg OpenVibe.
+
+        The code is bound to the key from the token request instead.
+        """
         resp = self.par(dpop=False)
+        self.assertEqual(201, resp.status_code, resp.get_data(as_text=True))
+        self.assertTrue(resp.headers['DPoP-Nonce'])
+
+        resp = self.login(resp.json['request_uri'])
+        code = parse_qs(urlparse(resp.headers['Location']).query)['code'][0]
+
+        resp = self.token(code=code)
+        self.assertEqual(200, resp.status_code, resp.get_data(as_text=True))
+        self.assertEqual(DID, resp.json['sub'])
+
+    @patch.object(util.session, 'get',
+                  return_value=requests_response(json_dumps(CLIENT_METADATA)))
+    @patch.object(util.session, 'post',
+                  return_value=requests_response('me=https://alice.com'))
+    def test_par_without_dpop_binds_dpop_jkt_param(self, *_):
+        """Without a proof, the dpop_jkt param binds the code instead.
+
+        https://datatracker.ietf.org/doc/html/rfc9449#section-10
+        """
+        jkt = ECKey.import_key(OAUTH_ES256_KEY).thumbprint()
+        request_uri = self.par(dpop=False, dpop_jkt=jkt).json['request_uri']
+        resp = self.login(request_uri)
+        code = parse_qs(urlparse(resp.headers['Location']).query)['code'][0]
+
+        other_key = ec.generate_private_key(ec.SECP256R1())
+        resp = self.token(code=code, key=other_key)
         self.assertEqual(400, resp.status_code)
-        self.assertEqual('invalid_dpop_proof', resp.json['error'])
+        self.assertEqual('invalid_grant', resp.json['error'])
 
     @patch.object(util.session, 'get', side_effect=[
         requests_response('', status=503),

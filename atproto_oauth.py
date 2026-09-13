@@ -215,11 +215,15 @@ class PushedAuthorizationEndpoint(rfc9126.PushedAuthorizationEndpoint):
     REQUEST_URI_EXPIRES_IN = int(PAR_MAX_AGE.total_seconds())
 
     def create_endpoint_response(self, request):
-        # ATProto requires a DPoP proof here, not just at the token endpoint,
-        # and authlib's DPoP extension only hooks the token endpoint's grants.
-        # Binding the code to this key is stronger than the optional dpop_jkt
-        # request parameter, so it wins over any the client sent.
-        dpop_jkt = proof_validator.validate_proof(request)
+        # ATProto says clients must send a DPoP proof here:
+        # https://atproto.com/specs/oauth#demonstrating-proof-of-possession-d-po-p
+        # ...but the reference PDS doesn't check for it, and some clients don't
+        # send one, so we don't require it either. We bind to the DPoP proof's key
+        # if provided, otherwise authlib's DPoP binds the code at the token endpoint
+        # instead.
+        dpop_jkt = (proof_validator.validate_proof(request)
+                    if 'DPoP' in request.headers
+                    else request.payload.data.get('dpop_jkt'))
 
         # here and not in save_request_payload, which doesn't get the proof's
         # jkt, and can't validate it again since that would trip our own replay
@@ -631,7 +635,10 @@ def add_dpop_nonce(resp):
     clients also need one from successful responses, so that their next request
     doesn't have to be rejected first.
     """
-    if request.path in (PAR_PATH, TOKEN_PATH):
+    # some clients hardcode the reference PDS's paths; see app.py
+    path = request.path.rstrip('/')
+    if (path in (PAR_PATH, TOKEN_PATH)
+            or (path in ('/oauth/par', '/oauth/token') and atproto.is_pds_host())):
         resp.headers.setdefault('DPoP-Nonce', proof_validator.nonce_generator.next())
 
     return resp
