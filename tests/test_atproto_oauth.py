@@ -1,9 +1,12 @@
 """Unit tests for atproto_oauth.py."""
+import os
 import secrets
 import time
 from unittest.mock import patch
 from urllib.parse import parse_qs, urlencode, urlparse
 
+from arroba.repo import Repo
+import arroba.server
 from authlib.oauth2.rfc7636 import create_s256_code_challenge
 from authlib.oauth2.rfc9449.validator import hash_access_token
 from cryptography.hazmat.primitives.asymmetric import ec
@@ -12,8 +15,9 @@ from joserfc.jwk import ECKey
 from webutil import util
 from webutil.testutil import requests_response
 from webutil.util import json_dumps
+from werkzeug.exceptions import HTTPException
 
-from .testutil import OAUTH_ES256_KEY, TestCase
+from .testutil import ATPROTO_KEY, OAUTH_ES256_KEY, TestCase
 import atproto_oauth
 import common
 from flask_app import app
@@ -30,7 +34,7 @@ CLIENT_METADATA = {
     'redirect_uris': [REDIRECT_URI],
     'response_types': ['code'],
     'grant_types': ['authorization_code', 'refresh_token'],
-    'scope': 'atproto',
+    'scope': 'atproto transition:generic',
     'token_endpoint_auth_method': 'none',
     'application_type': 'web',
     'dpop_bound_access_tokens': True,
@@ -730,9 +734,9 @@ class ATProtoOAuthTest(TestCase):
     #
     # resource server: authenticating service proxied XRPC requests
     #
-    def access_token(self):
+    def access_token(self, scope='atproto transition:generic'):
         """Runs the full authorization code flow, returns an access token."""
-        resp = self.login(self.par().json['request_uri'])
+        resp = self.login(self.par(scope=scope).json['request_uri'])
         code = parse_qs(urlparse(resp.headers['Location']).query)['code'][0]
         return self.token(code=code).json['access_token']
 
@@ -772,7 +776,10 @@ class ATProtoOAuthTest(TestCase):
     def test_auth_unauthenticated(self):
         with app.test_request_context(f'/xrpc/app.bsky.feed.getTimeline',
                                       base_url='https://atproto.brid.gy/'):
-            self.assertIsNone(atproto_oauth.auth())
+            with self.assertRaises(HTTPException) as e:
+                atproto_oauth.auth()
+
+            self.assertEqual(401, e.exception.code)
 
     def test_service_proxy_unauthenticated(self):
         """Methods we don't implement get proxied, but only for logged in users."""
@@ -781,13 +788,24 @@ class ATProtoOAuthTest(TestCase):
             base_url='https://atproto.brid.gy/',
             headers={'atproto-proxy': 'did:web:api.bsky.local#bsky_appview'})
         self.assertEqual(401, resp.status_code, resp.get_data(as_text=True))
-        self.assertEqual('AuthMissing', resp.json['error'])
+        self.assertEqual('missing_authorization', resp.json['error'])
 
     def test_service_proxy_bad_token(self):
         resp = self.proxy('not-a-jwt',
                           nonce=atproto_oauth.proof_validator.nonce_generator.next())
         self.assertEqual(401, resp.status_code, resp.get_data(as_text=True))
         self.assertEqual('invalid_token', resp.json['error'])
+
+    @patch.object(util.session, 'get',
+                  return_value=requests_response(json_dumps(CLIENT_METADATA)))
+    @patch.object(util.session, 'post',
+                  return_value=requests_response('me=https://alice.com'))
+    def test_service_proxy_insufficient_scope(self, *_):
+        """Proxying needs transition:generic, not just atproto."""
+        resp = self.proxy(self.access_token(scope='atproto'),
+                          nonce=atproto_oauth.proof_validator.nonce_generator.next())
+        self.assertEqual(403, resp.status_code, resp.get_data(as_text=True))
+        self.assertEqual('insufficient_scope', resp.json['error'])
 
     @patch.object(util.session, 'get',
                   return_value=requests_response(json_dumps(CLIENT_METADATA)))
@@ -804,6 +822,99 @@ class ATProtoOAuthTest(TestCase):
         self.assertEqual(401, resp.status_code, resp.get_data(as_text=True))
         self.assertIn('error="use_dpop_nonce"', resp.headers['WWW-Authenticate'])
         self.assertTrue(resp.headers['DPoP-Nonce'])
+
+    #
+    # resource server: repo writes
+    #
+    def create_like(self, headers=None, repo=DID, token=None):
+        """Makes a createRecord XRPC request for a like.
+
+        If token is set, authenticates with it and a DPoP proof.
+        """
+        url = 'https://atproto.brid.gy/xrpc/com.atproto.repo.createRecord'
+        if token:
+            headers = {
+                'Authorization': f'DPoP {token}',
+                'DPoP': dpop_proof(
+                    'POST', url, ath=hash_access_token(token),
+                    nonce=atproto_oauth.proof_validator.nonce_generator.next()),
+            }
+
+        return self.client.post(url, headers=headers, json={
+            'repo': repo,
+            'collection': 'app.bsky.feed.like',
+            'record': {
+                '$type': 'app.bsky.feed.like',
+                'subject': {
+                    'uri': 'at://did:plc:bob/app.bsky.feed.post/123',
+                    'cid': 'bafyreibwxoxuto2bj2lsspzs6dl4kw6cyu3goswuxi5qbhpc2xlqvnnjg4',
+                },
+                'createdAt': '2022-01-02T03:04:05.000Z',
+            },
+        })
+
+    def assert_likes(self, count, did=DID):
+        repo = arroba.server.storage.load_repo(did)
+        self.assertEqual(count, len(repo.get_contents().get('app.bsky.feed.like', {})))
+
+    @patch.object(util.session, 'get',
+                  return_value=requests_response(json_dumps(CLIENT_METADATA)))
+    @patch.object(util.session, 'post',
+                  return_value=requests_response('me=https://alice.com'))
+    def test_create_record(self, *_):
+        Repo.create(arroba.server.storage, DID, handle='alice.com.web.brid.gy',
+                    signing_key=ATPROTO_KEY, rotation_key=ATPROTO_KEY)
+
+        resp = self.create_like(token=self.access_token())
+        self.assertEqual(200, resp.status_code, resp.get_data(as_text=True))
+        self.assert_likes(1)
+
+    @patch.object(util.session, 'get',
+                  return_value=requests_response(json_dumps(CLIENT_METADATA)))
+    @patch.object(util.session, 'post',
+                  return_value=requests_response('me=https://alice.com'))
+    def test_create_record_insufficient_scope(self, *_):
+        """Writes need transition:generic, not just atproto."""
+        Repo.create(arroba.server.storage, DID, handle='alice.com.web.brid.gy',
+                    signing_key=ATPROTO_KEY, rotation_key=ATPROTO_KEY)
+
+        resp = self.create_like(token=self.access_token(scope='atproto'))
+        self.assertEqual(403, resp.status_code, resp.get_data(as_text=True))
+        self.assertEqual('insufficient_scope', resp.json['error'])
+        self.assert_likes(0)
+
+    @patch.object(util.session, 'get',
+                  return_value=requests_response(json_dumps(CLIENT_METADATA)))
+    @patch.object(util.session, 'post',
+                  return_value=requests_response('me=https://alice.com'))
+    def test_create_record_other_repo(self, *_):
+        """A user's token can only write to their own repo."""
+        Repo.create(arroba.server.storage, 'did:plc:bob',
+                    signing_key=ATPROTO_KEY, rotation_key=ATPROTO_KEY,
+                    handle='bob.com.web.brid.gy')
+
+        resp = self.create_like(repo='did:plc:bob', token=self.access_token())
+        self.assertEqual(400, resp.status_code, resp.get_data(as_text=True))
+        self.assertEqual('AuthRequired', resp.json['error'])
+        self.assert_likes(0, did='did:plc:bob')
+
+    def test_create_record_unauthenticated(self):
+        Repo.create(arroba.server.storage, DID, handle='alice.com.web.brid.gy',
+                    signing_key=ATPROTO_KEY, rotation_key=ATPROTO_KEY)
+
+        resp = self.create_like()
+        self.assertEqual(401, resp.status_code, resp.get_data(as_text=True))
+        self.assert_likes(0)
+
+    @patch.dict(os.environ, {'REPO_TOKEN': 'towkin'})
+    def test_create_record_repo_token(self):
+        """Arroba's global $REPO_TOKEN isn't supported."""
+        Repo.create(arroba.server.storage, DID, handle='alice.com.web.brid.gy',
+                    signing_key=ATPROTO_KEY, rotation_key=ATPROTO_KEY)
+
+        resp = self.create_like(headers={'Authorization': 'Bearer towkin'})
+        self.assertEqual(401, resp.status_code, resp.get_data(as_text=True))
+        self.assert_likes(0)
 
     #
     # replay prevention
@@ -869,7 +980,8 @@ class ATProtoOAuthTest(TestCase):
     @patch.object(util.session, 'post',
                   return_value=requests_response('me=https://alice.com'))
     def test_get_session(self, *_):
-        token = self.access_token()
+        """getSession only needs the atproto scope."""
+        token = self.access_token(scope='atproto')
         url = 'https://atproto.brid.gy/xrpc/com.atproto.server.getSession'
         resp = self.client.get('/xrpc/com.atproto.server.getSession',
                                base_url='https://atproto.brid.gy/', headers={

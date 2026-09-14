@@ -9,7 +9,7 @@ Returns the account's DID in ``sub``.
 ATProto uses a bleeding edge (as of 2026) OAuth profile: CIMD, PAR, DPoP, etc:
 https://atproto.com/specs/oauth
 
-TODO: read/write scopes, eg ``transition:generic``
+TODO: fine-grained permission scopes: https://atproto.com/specs/permission
 
 https://github.com/snarfed/bridgy-fed/issues/1785
 """
@@ -561,16 +561,20 @@ require_oauth.register_token_validator(DPoPValidator(proof_validator=proof_valid
 
 
 def auth():
-    """Returns the DID of the user who authenticated this request, or None.
+    """Authenticates a request via OAuth. Used as :func:`arroba.server.auth`.
 
-    Used with :func:`arroba.xrpc_proxy.handler`. Errors here are OAuth's shape, not
-    XRPC's, since that's what carries ``WWW-Authenticate`` and the ``DPoP-Nonce``
-    that clients need in order to retry.
+    Requires the ``transition:generic`` scope, since this covers repo writes and
+    service proxied requests.
+
+    Errors are raised as werkzeug ``HTTPException``\\s with OAuth error bodies and
+    headers, eg ``WWW-Authenticate`` and ``DPoP-Nonce``, not XRPC errors, since
+    clients need those headers to retry.
+
+    Returns:
+      str: DID of the user who authenticated
     """
-    if not request.headers.get('Authorization'):
-        return None
-
-    with require_oauth.acquire('atproto') as token:
+    # one string, not a list, so that the token needs both scopes, not either
+    with require_oauth.acquire('atproto transition:generic') as token:
         return token.did
 
 

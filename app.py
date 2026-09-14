@@ -99,10 +99,12 @@ else:
 # must be before init_flask below!
 del arroba.server.server._methods['com.atproto.sync.subscribeRepos']
 
+# authenticate XRPC requests, both proxied and ones we implement, eg repo writes
+arroba.server.auth = atproto_oauth.auth
+
+# initialize XRPC server
+#
 # methods we don't implement get service proxied to whichever service the client
 # asks for in the atproto-proxy request header
 # https://atproto.com/specs/xrpc#service-proxying
-service_proxy = xrpc_proxy.handler(atproto_oauth.auth)
-
-# initialize XRPC server
-lexrpc.flask_server.init_flask(arroba.server.server, app, fallback=service_proxy)
+lexrpc.flask_server.init_flask(arroba.server.server, app, fallback=xrpc_proxy.handler)
