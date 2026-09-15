@@ -53,7 +53,7 @@ def convert(to, _, from_=None):
             error(f'No protocol found for {from_}', status=404)
         logger.info(f'Overriding any domain protocol with {from_}')
     else:
-        from_proto = Protocol.for_request(fed=Protocol)
+        from_proto = Protocol.for_request(fed=Web)
     if not from_proto:
         error(f'Unknown protocol {request.host.removesuffix(SUPERDOMAIN)}', status=404)
 
