@@ -184,7 +184,7 @@ class CommonTest(TestCase):
     def test_verify_jwt_invalid_signature(self, _):
         user = Fake(id='fake:user')
         token = common.make_jwt(user=user, scope='foo')
-        invalid_token = token[:-10] + 'x' * 10
+        invalid_token = token[:-10] + 'x' * 9 + token[-1]
 
         with self.assertRaises(jwt.InvalidSignatureError):
             common.verify_jwt(invalid_token, user_id='fake:user', scope='foo')
