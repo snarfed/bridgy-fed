@@ -9,9 +9,9 @@ from arroba.repo import Repo
 import arroba.server
 from authlib.oauth2.rfc7636 import create_s256_code_challenge
 from authlib.oauth2.rfc9449.validator import hash_access_token
-from cryptography.hazmat.primitives.asymmetric import ec
+from cryptography.hazmat.primitives.asymmetric import ec, rsa
 from joserfc import jwt as joserfc_jwt
-from joserfc.jwk import ECKey
+from joserfc.jwk import ECKey, RSAKey
 from webutil import util
 from webutil.testutil import requests_response
 from webutil.util import json_dumps
@@ -65,16 +65,20 @@ CONFIDENTIAL_JWKS_URI_METADATA.pop('jwks')
 # PKCE, https://datatracker.ietf.org/doc/html/rfc7636
 CODE_VERIFIER = 'abcdefghijklmnopqrstuvwxyz012345678901234567890'
 
+# for clients that sign their DPoP proofs with RS256 instead of ES256
+OAUTH_RS256_KEY = rsa.generate_private_key(public_exponent=65537, key_size=2048)
 
 
-def dpop_proof(method, url, nonce=None, key=OAUTH_ES256_KEY, **claims):
+
+def dpop_proof(method, url, nonce=None, key=OAUTH_ES256_KEY, alg='ES256', **claims):
     """Mints a DPoP proof JWT, like a real client would.
 
     https://datatracker.ietf.org/doc/html/rfc9449#section-4.2
     """
-    key = ECKey.import_key(key)
+    key = (RSAKey if alg.startswith('RS') else ECKey).import_key(key)
+    # algorithms, since joserfc won't sign with an alg it doesn't recommend
     return joserfc_jwt.encode({
-        'alg': 'ES256',
+        'alg': alg,
         'typ': 'dpop+jwt',
         'jwk': key.as_dict(private=False),
     }, {
@@ -84,7 +88,7 @@ def dpop_proof(method, url, nonce=None, key=OAUTH_ES256_KEY, **claims):
         'iat': int(time.time()),
         **({'nonce': nonce} if nonce else {}),
         **claims,
-    }, key)
+    }, key, algorithms=[alg])
 
 
 @patch.object(common, 'BETA_USER_IDS', ('alice.com',))
@@ -96,7 +100,7 @@ class ATProtoOAuthTest(TestCase):
             'alice.com', cls=Web, enabled_protocols=['atproto'],
             copies=[Target(protocol='atproto', uri=DID)])
 
-    def par_raw(self, nonce=None, dpop=True, key=OAUTH_ES256_KEY,
+    def par_raw(self, nonce=None, dpop=True, key=OAUTH_ES256_KEY, alg='ES256',
                 path='/oauth/atproto/par', json=False, **params):
         """Makes a single pushed authorization request, no nonce retry."""
         headers = {}
@@ -104,7 +108,7 @@ class ATProtoOAuthTest(TestCase):
             headers = {
                 'DPoP': dpop_proof(
                     'POST', f'https://atproto.brid.gy{path}',
-                    nonce=nonce, key=key),
+                    nonce=nonce, key=key, alg=alg),
             }
 
         body = {
@@ -149,7 +153,7 @@ class ATProtoOAuthTest(TestCase):
             'code_challenge_methods_supported': ['S256'],
             'token_endpoint_auth_methods_supported': ['none', 'private_key_jwt'],
             'token_endpoint_auth_signing_alg_values_supported': ['ES256'],
-            'dpop_signing_alg_values_supported': ['ES256'],
+            'dpop_signing_alg_values_supported': ['ES256', 'RS256'],
             'scopes_supported': ['atproto', 'transition:generic'],
             'authorization_response_iss_parameter_supported': True,
             'client_id_metadata_document_supported': True,
@@ -281,6 +285,35 @@ class ATProtoOAuthTest(TestCase):
                   return_value=requests_response(json_dumps(CLIENT_METADATA)))
     @patch.object(util.session, 'post',
                   return_value=requests_response('me=https://alice.com'))
+    def test_dpop_proof_rs256(self, *_):
+        """ATProto requires ES256 and allows other algs we advertise, eg RS256.
+
+        A proof carries its whole public key in its JOSE header, so an RSA key
+        makes that header much bigger than an EC one. Frontpage signs with RS256.
+        """
+        resp = self.par(key=OAUTH_RS256_KEY, alg='RS256')
+        self.assertEqual(201, resp.status_code, resp.get_data(as_text=True))
+
+        resp = self.login(resp.json['request_uri'])
+        code = parse_qs(urlparse(resp.headers['Location']).query)['code'][0]
+
+        resp = self.token(code=code, key=OAUTH_RS256_KEY, alg='RS256')
+        self.assertEqual(200, resp.status_code, resp.get_data(as_text=True))
+        self.assertEqual(DID, resp.json['sub'])
+
+    @patch.object(util.session, 'get',
+                  return_value=requests_response(json_dumps(CLIENT_METADATA)))
+    def test_dpop_proof_unsupported_alg(self, _):
+        """The error should name the alg, not say the proof is malformed."""
+        resp = self.par(key=OAUTH_RS256_KEY, alg='RS384')
+        self.assertEqual(400, resp.status_code)
+        self.assertEqual('invalid_dpop_proof', resp.json['error'])
+        self.assertIn('alg', resp.json['error_description'])
+
+    @patch.object(util.session, 'get',
+                  return_value=requests_response(json_dumps(CLIENT_METADATA)))
+    @patch.object(util.session, 'post',
+                  return_value=requests_response('me=https://alice.com'))
     def test_par_without_dpop_binds_dpop_jkt_param(self, *_):
         """Without a proof, the dpop_jkt param binds the code instead.
 
@@ -353,10 +386,10 @@ class ATProtoOAuthTest(TestCase):
         self.assertEqual(['xyz'], params['state'])
         self.assertEqual(['https://atproto.brid.gy'], params['iss'])
 
-    def token_raw(self, nonce=None, key=OAUTH_ES256_KEY,
+    def token_raw(self, nonce=None, key=OAUTH_ES256_KEY, alg='ES256',
                   path='/oauth/atproto/token', **params):
         proof = dpop_proof('POST', f'https://atproto.brid.gy{path}',
-                           nonce=nonce, key=key)
+                           nonce=nonce, key=key, alg=alg)
         return self.client.post(path, base_url='https://atproto.brid.gy/', data={
             'grant_type': 'authorization_code',
             'client_id': CLIENT_ID,

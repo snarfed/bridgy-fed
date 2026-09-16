@@ -88,6 +88,10 @@ LOOPBACK_HOSTS = ('127.0.0.1', '::1', 'localhost')
 # ATProto requires server-provided DPoP nonces, rotated at least every 5 min
 DPOP_NONCE_MAX_AGE = timedelta(minutes=3)
 
+# ATProto requires ES256 and allows more, as long as we advertise them. RS256 is
+# here because some clients sign their proofs with it, eg Frontpage.
+DPOP_ALGS = ['ES256', 'RS256']
+
 # how long a client's metadata document and JWKS are cached for
 CLIENT_METADATA_CACHE_EXPIRE = timedelta(hours=1)
 
@@ -505,7 +509,7 @@ def metadata():
         # must match what the grants actually accept
         'token_endpoint_auth_methods_supported': TOKEN_ENDPOINT_AUTH_METHODS,
         'token_endpoint_auth_signing_alg_values_supported': ['ES256'],
-        'dpop_signing_alg_values_supported': ['ES256'],
+        'dpop_signing_alg_values_supported': DPOP_ALGS,
         'scopes_supported': SCOPES,
         'authorization_response_iss_parameter_supported': True,
         'client_id_metadata_document_supported': True,
@@ -520,7 +524,7 @@ def metadata():
 
 
 proof_validator = rfc9449.DPoPProofValidator(
-    algs=['ES256'],
+    algs=DPOP_ALGS,
     nonce_generator=rfc9449.HMACDPoPNonceGenerator(
         models.ENCRYPTED_PROPERTY_KEYS_BYTES[0],
         max_age=int(DPOP_NONCE_MAX_AGE.total_seconds())),
