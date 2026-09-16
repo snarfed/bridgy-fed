@@ -85,11 +85,19 @@
 
 <hr>
 
-{% for field in 'as2', 'bsky', 'fc', 'mf2', 'nostr', 'our_as1', 'raw', 'as1' %}
+{% for field in 'as2', 'bsky', 'farcaster', 'mf2', 'nostr', 'our_as1', 'raw', 'as1' %}
   {% set val = getattr(obj, field) %}
   {% if val %}
     <h3>{{ field }}</h3>
-    <pre>{{ val | tojson(indent=2) }}</pre>
+    <pre>
+      {% if field == 'farcaster' %}
+        {% for msg in val %}
+          {{ text_format.MessageToString(Message.FromString(msg), use_short_repeated_primitives=True) }}
+        {% endfor %}
+      {% else %}
+        {{ val | tojson(indent=2) }}
+      {% endif %}
+    </pre>
   {% endif %}
 {% endfor %}
 
