@@ -4,6 +4,10 @@
 # https://docs.cloud.google.com/load-balancing/docs/url-map
 # https://docs.cloud.google.com/load-balancing/docs/https/setting-up-global-traffic-mgmt
 #
+# validate and run tests with:
+#
+# gcloud compute url-maps validate --source=url-map.yaml
+#
 # deploy with:
 #
 # gcloud compute url-maps import bridgy-fed --source=url-map.yaml --global
@@ -11,10 +15,15 @@
 name: bridgy-fed
 defaultService: projects/bridgy-federated/global/backendServices/frontend
 
+
 hostRules:
 - hosts:
   - 'atproto.brid.gy'
   pathMatcher: atproto-paths
+- hosts:
+  - 'fed.brid.gy'
+  pathMatcher: admin-paths
+
 
 pathMatchers:
 - name: atproto-paths
@@ -25,6 +34,42 @@ pathMatchers:
     - /queue/atproto-commit
     - /xrpc/com.atproto.sync.subscribeRepos
     service: projects/bridgy-federated/global/backendServices/hub
+
+- name: admin-paths
+  defaultService: projects/bridgy-federated/global/backendServices/frontend
+  pathRules:
   - paths:
     - /admin/*
+    service: projects/bridgy-federated/global/backendServices/frontend-admin
+
+
+tests:
+  - host: fed.brid.gy
+    service: projects/bridgy-federated/global/backendServices/frontend
+  - host: fed.brid.gy
+    path: /web/foo.example
+    service: projects/bridgy-federated/global/backendServices/frontend
+
+  - host: atproto.brid.gy
+    service: projects/bridgy-federated/global/backendServices/frontend
+  - host: bsky.brid.gy
+    service: projects/bridgy-federated/global/backendServices/frontend
+  - host: atproto.brid.gy
+    path: /web/foo.example
+    service: projects/bridgy-federated/global/backendServices/frontend
+  - host: bsky.brid.gy
+    path: /admin/
+    service: projects/bridgy-federated/global/backendServices/frontend
+
+  - host: atproto.brid.gy
+    path: /admin/hub
+    service: projects/bridgy-federated/global/backendServices/hub
+  - host: atproto.brid.gy
+    path: /xrpc/com.atproto.sync.subscribeRepos
+    service: projects/bridgy-federated/global/backendServices/hub
+  - host: fed.brid.gy
+    path: /admin/
+    service: projects/bridgy-federated/global/backendServices/frontend-admin
+  - host: fed.brid.gy
+    path: /admin/user
     service: projects/bridgy-federated/global/backendServices/frontend-admin
