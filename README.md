@@ -91,13 +91,14 @@ cd ~/src/bridgy-fed && curl -v -H "Authorization: `cat flask_secret_key`" \
 
 Load balancer
 ---
-One part of our production architecture on GCP is a [Global Application Load Balancer](https://docs.cloud.google.com/load-balancing/docs/load-balancing-overview#application-lb). This lets us do layer 7 (ie HTTP) routing, by URL path, across both App Engine and Cloud Run.
+One part of our production architecture on GCP is a [Global Application Load Balancer](https://docs.cloud.google.com/load-balancing/docs/load-balancing-overview#application-lb). This lets us do layer 7 (ie HTTP) routing, by URL path, across both App Engine and Cloud Run, and also lets us put `/admin/*` URL paths behind [IAP](https://docs.cloud.google.com/iap/docs/concepts-overview).
+
+The IAP policy for which accounts are allowed to access `/admin/*` paths is in IAM, but separate from other principals/roles on the project. It's only `roles/iap.httpsResourceAccessor`, which is currently only granted to `domain:anew.social`.
 
 The URL routing is in [`url-map.yaml`](https://github.com/snarfed/bridgy-fed/blob/main/url-map.yaml). Here's how set up the load balancer:
 
 ```sh
 # Create ALB on https://console.cloud.google.com/net-services/loadbalancing/list/loadBalancers?project=bridgy-federated
-
 
 # Create serverless NEGs
 # https://console.cloud.google.com/compute/networkendpointgroups/list?project=bridgy-federated
@@ -120,6 +121,15 @@ gcloud compute backend-services add-backend hub --global --network-endpoint-grou
 
 gcloud compute backend-services create frontend --global --load-balancing-scheme=EXTERNAL_MANAGED
 gcloud compute backend-services add-backend frontend --global --network-endpoint-group=frontend --network-endpoint-group-region=us-central1
+
+# this one will go behind IAP
+gcloud compute backend-services create frontend-admin --global --load-balancing-scheme=EXTERNAL_MANAGED
+gcloud compute backend-services add-backend frontend-admin --global --network-endpoint-group=frontend --network-endpoint-group-region=us-central1
+
+# toggle IAP on for frontend-admin in
+# https://console.cloud.google.com/security/iap?project=bridgy-federated
+# use web console instead of gcloud since the web console handles the OAuth
+# client id and secret automatically
 
 
 # Validate and import url-map.yaml

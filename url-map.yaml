@@ -25,3 +25,6 @@ pathMatchers:
     - /queue/atproto-commit
     - /xrpc/com.atproto.sync.subscribeRepos
     service: projects/bridgy-federated/global/backendServices/hub
+  - paths:
+    - /admin/*
+    service: projects/bridgy-federated/global/backendServices/frontend-admin
