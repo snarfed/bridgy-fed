@@ -45,8 +45,9 @@ def log_request_response(fn):
     """Logs the full request and response for this view."""
     def wrapper(*args, **kwargs):
         logger.info(f'>> {request.method} {request.url}')
-        if auth := request.headers.get('Authorization'):
-            logger.info(f'>> Authorization: {auth}')
+        for header in 'Authorization', 'DPoP':
+            if val := request.headers.get(header):
+                logger.info(f'>> {header}: {val}')
         if body := request.get_data(as_text=True):
             logger.info(f'>> body: {body}')
         elif request.form:
@@ -63,6 +64,9 @@ def log_request_response(fn):
 
         if not isinstance(resp, str):
             logger.info(f'<< {resp}')
+            # errors are the interesting ones, and a Response's repr is just its size
+            if getattr(resp, 'status_code', 200) >= 400:
+                logger.info(f'<< body: {resp.get_data(as_text=True)}')
 
         return resp
 
