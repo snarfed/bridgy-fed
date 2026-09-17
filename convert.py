@@ -5,7 +5,6 @@ URL pattern is ``/convert/SOURCE/DEST``, where ``SOURCE`` and ``DEST`` are the
 """
 from datetime import timedelta
 import logging
-import re
 from urllib.parse import quote, unquote
 
 from flask import redirect, request
@@ -14,7 +13,7 @@ from webutil import flask_util, util
 from webutil.flask_util import error
 
 from activitypub import ActivityPub
-from common import CACHE_CONTROL
+from common import CACHE_CONTROL, COLLAPSED_SCHEME_RE
 from domains import (
     LOCAL_DOMAINS,
     subdomain_wrap,
@@ -29,11 +28,6 @@ from ui import UIProtocol
 from web import Web
 
 logger = logging.getLogger(__name__)
-
-# the GCP load balancer collapses :// down to :/ in URL paths, so we expand it
-# back, both for the id itself and for URIs embedded in its query params
-COLLAPSED_SCHEME_RE = re.compile(r'(?:^|(?<=[?&=]))([a-z][a-z0-9+.-]*:/)(?=[^/])',
-                                 re.IGNORECASE)
 
 
 @app.get(f'/convert/<any({",".join(PROTOCOLS)}):to>/<path:_>')

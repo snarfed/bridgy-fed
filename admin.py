@@ -9,6 +9,7 @@ from google.cloud.ndb import Key
 import arroba.server
 import common
 from common import (
+    COLLAPSED_SCHEME_RE,
     secret_key_auth,
 )
 from flask import redirect, request
@@ -172,6 +173,8 @@ def admin_object_lookup():
 
 # @app.get('/admin/object/<path:id>')
 def admin_object(id):
+    id = COLLAPSED_SCHEME_RE.sub(r'\1/', id)
+
     if not (obj := Object.get_by_id(id)):
         flash('object not found')
         return redirect('/admin/')

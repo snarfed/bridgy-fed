@@ -317,6 +317,17 @@ class AdminTest(TestCase):
         self.assertIn('Alice', body)
 
     @skip
+    def test_object_collapsed_scheme(self):
+        """The GCP load balancer collapses // down to / in URL paths."""
+        self.store_object(id='at://did:plc:user/app.bsky.feed.post/123',
+                          source_protocol='atproto',
+                          our_as1={'objectType': 'note', 'content': 'hi'})
+        resp = self.client.get('/admin/object/at:/did:plc:user/app.bsky.feed.post/123')
+        self.assertEqual(200, resp.status_code)
+        self.assertIn('at://did:plc:user/app.bsky.feed.post/123',
+                      resp.get_data(as_text=True))
+
+    @skip
     def test_object_not_found(self):
         resp = self.client.get('/admin/object/nonexistent')
         self.assertEqual(302, resp.status_code)
