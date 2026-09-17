@@ -37,7 +37,8 @@ COLLAPSED_SCHEME_RE = re.compile(r'(?:^|(?<=[?&=]))([a-z][a-z0-9+.-]*:/)(?=[^/])
 
 
 @app.get(f'/convert/<any({",".join(PROTOCOLS)}):to>/<path:_>')
-@memcache.memoize(expire=timedelta(hours=1))
+@memcache.memoize(expire=timedelta(hours=1),
+                  key=lambda *args, **kwargs: (args, kwargs, request.url))
 @flask_util.headers(CACHE_CONTROL)
 def convert(to, _, from_=None):
     """Converts data from one protocol to another and serves it.
