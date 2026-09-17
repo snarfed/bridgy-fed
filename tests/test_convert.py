@@ -16,11 +16,12 @@ from . import testutil
 from .testutil import ExplicitFake, Fake, OtherFake
 
 from activitypub import ActivityPub
+from atproto import ATProto
 from common import CONTENT_TYPE_HTML
 from web import Web
 
 from . import test_activitypub
-from .test_atproto import METAFORMATS_HTML
+from .test_atproto import DID_DOC, METAFORMATS_HTML
 from .test_web import ACTOR_HTML
 
 COMMENT_AS2 = {
@@ -432,6 +433,21 @@ A ☕ reply
                                base_url='https://web.brid.gy/')
         self.assertEqual(200, resp.status_code)
         self.assert_equals(COMMENT_AS2, resp.json, ignore=['to'])
+
+    def test_atproto_to_activitypub_collapsed_scheme(self):
+        """The GCP load balancer collapses // down to / in URL paths."""
+        self.store_object(id='did:plc:user', raw=DID_DOC)
+        self.make_user('did:plc:user', cls=ATProto,
+                       enabled_protocols=['activitypub'])
+        self.store_object(id='at://did:plc:user/app.bsky.feed.post/123',
+                          source_protocol='atproto', our_as1={'content': 'hello'})
+
+        resp = self.client.get('/convert/ap/at:/did:plc:user/app.bsky.feed.post/123',
+                               base_url='https://bsky.brid.gy/')
+        self.assertEqual(200, resp.status_code)
+        self.assertEqual(
+            '<https://bsky.brid.gy/convert/ap/at://did:plc:user/app.bsky.feed.post/123>; rel="self"',
+            resp.headers['Link'])
 
     @patch.object(util.session, 'get', return_value=requests_response(HTML_NO_ID))
     def test_web_to_activitypub_object(self, mock_get):

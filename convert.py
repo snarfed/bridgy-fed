@@ -30,6 +30,11 @@ from web import Web
 
 logger = logging.getLogger(__name__)
 
+# the GCP load balancer collapses :// down to :/ in URL paths, so we expand it
+# back, both for the id itself and for URIs embedded in its query params
+COLLAPSED_SCHEME_RE = re.compile(r'(?:^|(?<=[?&=]))([a-z][a-z0-9+.-]*:/)(?=[^/])',
+                                 re.IGNORECASE)
+
 
 @app.get(f'/convert/<any({",".join(PROTOCOLS)}):to>/<path:_>')
 @memcache.memoize(expire=timedelta(hours=1))
@@ -67,9 +72,7 @@ def convert(to, _, from_=None):
     path_prefix = f'convert/{to}/'
     id = unquote(request.url.removeprefix(request.root_url).removeprefix(path_prefix))
 
-    # our redirects evidently collapse :// down to :/ , maybe to prevent URL
-    # parsing bugs? if that happened to this URL, expand it back to ://
-    id = re.sub(r'^(https?:/)([^/])', r'\1/\2', id)
+    id = COLLAPSED_SCHEME_RE.sub(r'\1/', id)
 
     if UIProtocol.owns_id(id):
         # internal objects are ours, not their author's protocol's
