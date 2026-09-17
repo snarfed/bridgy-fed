@@ -31,7 +31,7 @@ from web import Web
 logger = logging.getLogger(__name__)
 
 
-@app.get(f'/convert/<to>/<path:_>')
+@app.get(f'/convert/<any({",".join(PROTOCOLS)}):to>/<path:_>')
 @memcache.memoize(expire=timedelta(hours=1))
 @flask_util.headers(CACHE_CONTROL)
 def convert(to, _, from_=None):
@@ -145,7 +145,7 @@ def check_bridged_to(obj, to_proto):
             error(f"{from_proto.LABEL} user {owner} isn't bridged to {to_proto.LABEL}", status=404)
 
 
-@app.get(f'/convert/<from_>/<to>/<path:_>')
+@app.get(f'/convert/<any({",".join(PROTOCOLS)}):from_>/<any({",".join(PROTOCOLS)}):to>/<path:_>')
 def convert_source_path_redirect(from_, to, _):
     """Old route that included source protocol in path instead of subdomain.
 

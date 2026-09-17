@@ -421,6 +421,19 @@ A ☕ reply
         #                  resp.headers['Location'])
 
     @patch.object(util.session, 'get', return_value=requests_response(HTML_NO_ID))
+    def test_web_to_activitypub_collapsed_scheme(self, mock_get):
+        """The GCP load balancer collapses // down to / in URL paths."""
+        self.make_user('user.com', cls=Web)
+
+        Object(id='https://user.com/bar?baz=baj&biff',
+               mf2=parse_mf2(HTML_NO_ID)['items'][0]).put()
+
+        resp = self.client.get('/convert/ap/https:/user.com/bar?baz=baj&biff',
+                               base_url='https://web.brid.gy/')
+        self.assertEqual(200, resp.status_code)
+        self.assert_equals(COMMENT_AS2, resp.json, ignore=['to'])
+
+    @patch.object(util.session, 'get', return_value=requests_response(HTML_NO_ID))
     def test_web_to_activitypub_object(self, mock_get):
         self.make_user('user.com', cls=Web)
 
