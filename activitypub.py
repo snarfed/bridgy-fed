@@ -791,7 +791,7 @@ class ActivityPub(User, Protocol):
 
         # check that the destination actor has an alias to the bridged actor
         if not (to_actor := cls.load(to_user_id, remote=True)):
-            raise ValueError("Couldn't fetch {to_user_id}")
+            raise ValueError(f"Couldn't fetch {to_user_id}")
 
         aka = util.get_list(to_actor.as2, 'alsoKnownAs')
         user_ap_id = user.id_as(cls)

@@ -152,7 +152,7 @@ def convert_source_path_redirect(from_, to, _):
     DEPRECATED! Only kept to support old webmention source URLs.
     """
     if Protocol.for_request() not in (None, 'web'):  # no per-protocol subdomains
-        error(f'Try again on fed.brid.gy', status=404)
+        error('Try again on fed.brid.gy', status=404)
 
     # in prod, eg gunicorn, the path somehow gets URL-decoded before we see
     # it, so we need to re-encode.
