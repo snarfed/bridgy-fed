@@ -606,13 +606,22 @@ class ActivityPub(User, Protocol):
         """Hydrates compacted values in ``obj``, in place.
 
         Very minimal and incomplete! Right now only handles the ``featured``
-        collection in actors.
+        collection (pinned posts) in actors.
 
         Args:
-          obj (dict)
+          obj (dict): AS2 object
         """
-        if util.get_first(obj, 'type') in as2.ACTOR_TYPES:
-            as2.maybe_hydrate_collection(obj, 'featured', get_fn=signed_get)
+        if util.get_first(obj, 'type') not in as2.ACTOR_TYPES:
+            return
+
+        as2.maybe_hydrate_collection(obj, 'featured', get_fn=signed_get)
+
+        # reduce pinned posts to just their ids. including the posts themselves can
+        # push the actor over MAX_ENTITY_SIZE
+        if isinstance(featured := obj.get('featured'), dict):
+            for field in 'items', 'orderedItems':
+                if items := as1.get_objects(featured, field):
+                    featured[field] = [item['id'] for item in items if item.get('id')]
 
     @classmethod
     def _convert(cls, obj, orig_obj=None, from_user=None, **kwargs):

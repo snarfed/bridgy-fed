@@ -3613,6 +3613,33 @@ class ActivityPubUtilsTest(TestCase):
         ))
 
     @patch.object(util.session, 'get')
+    def test_fetch_hydrate_actor_featured_strips_inlined_items(self, mock_get):
+        actor = {
+            **ACTOR,
+            'featured': 'http://feat/ured',
+        }
+        mock_get.side_effect = [
+            self.as2_resp(actor),
+            self.as2_resp({
+                'type': 'OrderedCollection',
+                'orderedItems': [
+                    {'id': 'http://foo', 'type': 'Note', 'content': 'foo'},
+                    {'id': 'http://bar', 'type': 'Note', 'content': 'bar'},
+                ],
+            }),
+        ]
+
+        obj = Object(id='http://orig')
+        self.assertTrue(ActivityPub.fetch(obj))
+        self.assertEqual({
+            **actor,
+            'featured': {
+                'type': 'OrderedCollection',
+                'orderedItems': ['http://foo', 'http://bar'],
+            },
+        }, obj.as2)
+
+    @patch.object(util.session, 'get')
     def test_fetch_hydrate_actor_featured_first_page(self, mock_get):
         actor = {
             **ACTOR,
