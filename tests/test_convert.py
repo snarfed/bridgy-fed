@@ -449,6 +449,47 @@ A ☕ reply
             '<https://bsky.brid.gy/convert/ap/at://did:plc:user/app.bsky.feed.post/123>; rel="self"',
             resp.headers['Link'])
 
+    def _store_collapsed_scheme_post(self):
+        """Sets up a signing AP actor and a bridged ATProto post."""
+        actor = test_activitypub.add_key(copy.deepcopy(test_activitypub.ACTOR))
+        self.make_user(actor['id'], cls=ActivityPub, obj_as2=actor)
+
+        self.store_object(id='did:plc:user', raw=DID_DOC)
+        self.make_user('did:plc:user', cls=ATProto,
+                       enabled_protocols=['activitypub'])
+        self.store_object(id='at://did:plc:user/app.bsky.feed.post/123',
+                          source_protocol='atproto',
+                          our_as1={
+                              'objectType': 'note',
+                              'author': 'did:plc:user',
+                              'content': 'hello',
+                          })
+        return actor
+
+    def test_atproto_to_activitypub_collapsed_scheme_signed(self):
+        """The client signed the original URL; the load balancer collapsed it."""
+        actor = self._store_collapsed_scheme_post()
+
+        path = '/convert/ap/at://did:plc:user/app.bsky.feed.post/123'
+        headers = test_activitypub.sign(path=path, body='', method='GET',
+                                        host='bsky.brid.gy', key_id=actor['id'])
+
+        resp = self.client.get(path.replace('at://', 'at:/'), headers=headers,
+                               base_url='https://bsky.brid.gy/')
+        self.assertEqual(200, resp.status_code)
+
+    def test_atproto_to_activitypub_collapsed_scheme_signed_collapsed(self):
+        """The client collapsed the URL itself, before signing it."""
+        actor = self._store_collapsed_scheme_post()
+
+        path = '/convert/ap/at:/did:plc:user/app.bsky.feed.post/123'
+        headers = test_activitypub.sign(path=path, body='', method='GET',
+                                        host='bsky.brid.gy', key_id=actor['id'])
+
+        resp = self.client.get(path, headers=headers,
+                               base_url='https://bsky.brid.gy/')
+        self.assertEqual(200, resp.status_code)
+
     @patch.object(util.session, 'get', return_value=requests_response(HTML_NO_ID))
     def test_web_to_activitypub_object(self, mock_get):
         self.make_user('user.com', cls=Web)

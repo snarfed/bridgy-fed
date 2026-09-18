@@ -40,6 +40,7 @@ import common
 from common import (
     CACHE_CONTROL,
     CACHE_CONTROL_VARY_ACCEPT,
+    COLLAPSED_SCHEME_RE,
     CONTENT_TYPE_HTML,
     create_task,
     error,
@@ -891,21 +892,29 @@ class ActivityPub(User, Protocol):
         # can't use request.full_path because it includes a trailing ? even if
         # it wasn't in the request. https://github.com/pallets/flask/issues/2867
         path_query = request.url.removeprefix(request.host_url.rstrip('/'))
-        logger.log(log_level, f'Verifying signature for {path_query} with key {sig_fields["keyid"]}')
-        try:
-            verified = HeaderVerifier(headers, key,
-                                      required_headers=required_headers,
-                                      method=request.method, path=path_query,
-                                      sign_header='signature').verify()
-        except BaseException as e:
-            raise RuntimeError(f'sig verification failed: {e}')
 
-        if verified:
-            logger.log(log_level, 'sig ok')
-        else:
-            raise RuntimeError('sig failed')
+        # the load balancer may have collapsed :// down to :/ after the client
+        # signed, so try the expanded path too. clients that collapsed it
+        # themselves before signing still verify against the path as received.
+        paths = [path_query]
+        if (expanded := COLLAPSED_SCHEME_RE.sub(r'\1/', path_query)) != path_query:
+            paths.append(expanded)
 
-        return key_actor.key.id()
+        for path in paths:
+            logger.log(log_level, f'Verifying signature for {path} with key {sig_fields["keyid"]}')
+            try:
+                verified = HeaderVerifier(headers, key,
+                                          required_headers=required_headers,
+                                          method=request.method, path=path,
+                                          sign_header='signature').verify()
+            except BaseException as e:
+                raise RuntimeError(f'sig verification failed: {e}')
+
+            if verified:
+                logger.log(log_level, 'sig ok')
+                return key_actor.key.id()
+
+        raise RuntimeError('sig failed')
 
     @classmethod
     def _load_key(cls, key_id, follow_owner=True):

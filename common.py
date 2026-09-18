@@ -53,10 +53,9 @@ CACHE_CONTROL_VARY_ACCEPT = {**CACHE_CONTROL, 'Vary': 'Accept'}
 USER_AGENT = 'Bridgy Fed (https://fed.brid.gy/)'
 util.set_user_agent(USER_AGENT)
 
-# the GCP load balancer collapses :// down to :/ in URL paths, so we expand it
-# back, both for an id itself and for URIs embedded in its query params
-COLLAPSED_SCHEME_RE = re.compile(r'(?:^|(?<=[?&=]))([a-z][a-z0-9+.-]*:/)(?=[^/])',
-                                 re.IGNORECASE)
+# the GCP load balancer collapses :// down to :/ anywhere in a URL path, so we
+# expand it back, for ids, for URIs embedded in query params, and for full paths
+COLLAPSED_SCHEME_RE = re.compile(r'([a-z][a-z0-9+.-]*:/)(?=[^/])', re.IGNORECASE)
 
 # https://cloud.google.com/appengine/docs/locations
 TASKS_LOCATION = 'us-central1'
