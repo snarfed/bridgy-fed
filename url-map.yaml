@@ -39,6 +39,10 @@ pathMatchers:
   defaultService: projects/bridgy-federated/global/backendServices/frontend
   pathRules:
   - paths:
+    - /admin/memcache/*
+    - /admin/sequences/*
+    service: projects/bridgy-federated/global/backendServices/frontend
+  - paths:
     - /admin/*
     service: projects/bridgy-federated/global/backendServices/frontend-admin
 
@@ -60,6 +64,12 @@ tests:
   - host: bsky.brid.gy
     path: /admin/
     service: projects/bridgy-federated/global/backendServices/frontend
+  - host: fed.brid.gy
+    path: /admin/memcache/evict
+    service: projects/bridgy-federated/global/backendServices/frontend
+  - host: fed.brid.gy
+    path: /admin/sequences/alloc
+    service: projects/bridgy-federated/global/backendServices/frontend
 
   - host: atproto.brid.gy
     path: /admin/hub
@@ -67,6 +77,7 @@ tests:
   - host: atproto.brid.gy
     path: /xrpc/com.atproto.sync.subscribeRepos
     service: projects/bridgy-federated/global/backendServices/hub
+
   - host: fed.brid.gy
     path: /admin/
     service: projects/bridgy-federated/global/backendServices/frontend-admin
