@@ -564,8 +564,8 @@ require_oauth = ResourceProtector()
 require_oauth.register_token_validator(DPoPValidator(proof_validator=proof_validator))
 
 
-def auth():
-    """Authenticates a request via OAuth. Used as :func:`arroba.server.auth`.
+def arroba_authenticate():
+    """Authenticates a request via OAuth. Used as :func:`arroba.server.authenticate`.
 
     Requires the ``transition:generic`` scope, since this covers repo writes and
     service proxied requests.
@@ -575,11 +575,11 @@ def auth():
     clients need those headers to retry.
 
     Returns:
-      str: DID of the user who authenticated
+      (str authenticated DID, list of str scopes) tuple:
     """
     # one string, not a list, so that the token needs both scopes, not either
     with require_oauth.acquire('atproto transition:generic') as token:
-        return token.did
+        return token.did, token.scope.split()
 
 
 @arroba.server.server.method('com.atproto.server.getSession')

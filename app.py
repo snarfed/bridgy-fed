@@ -100,7 +100,7 @@ else:
 del arroba.server.server._methods['com.atproto.sync.subscribeRepos']
 
 # authenticate XRPC requests, both proxied and ones we implement, eg repo writes
-arroba.server.auth = atproto_oauth.auth
+arroba.server.authenticate = atproto_oauth.arroba_authenticate
 
 # initialize XRPC server
 #

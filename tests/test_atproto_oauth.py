@@ -804,13 +804,14 @@ class ATProtoOAuthTest(TestCase):
                                           'Authorization': f'DPoP {token}',
                                           'DPoP': proof,
                                       }):
-            self.assertEqual(DID, atproto_oauth.auth())
+            self.assertEqual((DID, ['atproto', 'transition:generic']),
+                             atproto_oauth.arroba_authenticate())
 
     def test_auth_unauthenticated(self):
         with app.test_request_context(f'/xrpc/app.bsky.feed.getTimeline',
                                       base_url='https://atproto.brid.gy/'):
             with self.assertRaises(HTTPException) as e:
-                atproto_oauth.auth()
+                atproto_oauth.arroba_authenticate()
 
             self.assertEqual(401, e.exception.code)
 
