@@ -39,6 +39,11 @@ CLIENT_METADATA = {
     'application_type': 'web',
     'dpop_bound_access_tokens': True,
 }
+# client that asks for granular permission scopes
+GRANULAR_METADATA = {
+    **CLIENT_METADATA,
+    'scope': 'atproto repo:app.bsky.feed.like identity:handle',
+}
 # confidential client, which authenticates with a private_key_jwt assertion
 CONFIDENTIAL_CLIENT_ID = 'https://conf.example/client-metadata.json'
 CONFIDENTIAL_METADATA = {
@@ -184,6 +189,20 @@ class ATProtoOAuthTest(TestCase):
         self.assertEqual('atproto transition:generic',
                          resolve('http://localhost').scope)
         self.assertEqual('atproto', resolve('http://localhost?scope=atproto').scope)
+
+    @patch.object(util.session, 'get',
+                  return_value=requests_response(json_dumps(CLIENT_METADATA)))
+    def test_par_scope_missing_atproto(self, _):
+        resp = self.par(scope='transition:generic')
+        self.assertEqual(400, resp.status_code, resp.get_data(as_text=True))
+        self.assertEqual('invalid_scope', resp.json['error'])
+
+    @patch.object(util.session, 'get',
+                  return_value=requests_response(json_dumps(GRANULAR_METADATA)))
+    def test_par_scope_unsupported_dropped(self, _):
+        """Scopes we don't support don't fail the request, they're just dropped."""
+        resp = self.par(scope='atproto identity:handle')
+        self.assertEqual(201, resp.status_code, resp.get_data(as_text=True))
 
     def test_metadata_other_host_is_still_mastodon(self):
         """Only our PDS host serves the ATProto authorization server."""
@@ -764,6 +783,22 @@ class ATProtoOAuthTest(TestCase):
         self.assertEqual('DPoP', resp.json['token_type'])
         self.assertNotEqual(refresh_token, resp.json['refresh_token'])
 
+    @patch.object(util.session, 'get',
+                  return_value=requests_response(json_dumps(GRANULAR_METADATA)))
+    @patch.object(util.session, 'post',
+                  return_value=requests_response('me=https://alice.com'))
+    def test_token_drops_unsupported_scopes(self, *_):
+        """We grant what we support, and tell the client what it got."""
+        request_uri = self.par(
+            scope='atproto repo:app.bsky.feed.like identity:handle',
+        ).json['request_uri']
+        resp = self.login(request_uri)
+        code = parse_qs(urlparse(resp.headers['Location']).query)['code'][0]
+
+        resp = self.token(code=code)
+        self.assertEqual(200, resp.status_code, resp.get_data(as_text=True))
+        self.assertEqual('atproto repo:app.bsky.feed.like', resp.json['scope'])
+
     #
     # resource server: authenticating service proxied XRPC requests
     #
@@ -834,17 +869,6 @@ class ATProtoOAuthTest(TestCase):
                   return_value=requests_response(json_dumps(CLIENT_METADATA)))
     @patch.object(util.session, 'post',
                   return_value=requests_response('me=https://alice.com'))
-    def test_service_proxy_insufficient_scope(self, *_):
-        """Proxying needs transition:generic, not just atproto."""
-        resp = self.proxy(self.access_token(scope='atproto'),
-                          nonce=atproto_oauth.proof_validator.nonce_generator.next())
-        self.assertEqual(403, resp.status_code, resp.get_data(as_text=True))
-        self.assertEqual('insufficient_scope', resp.json['error'])
-
-    @patch.object(util.session, 'get',
-                  return_value=requests_response(json_dumps(CLIENT_METADATA)))
-    @patch.object(util.session, 'post',
-                  return_value=requests_response('me=https://alice.com'))
     def test_service_proxy_requires_dpop_nonce(self, *_):
         """Resource requests need a server-provided nonce, same as the AS's.
 
@@ -908,11 +932,40 @@ class ATProtoOAuthTest(TestCase):
     @patch.object(util.session, 'post',
                   return_value=requests_response('me=https://alice.com'))
     def test_create_record_insufficient_scope(self, *_):
-        """Writes need transition:generic, not just atproto."""
+        """Writes need a repo scope, not just atproto."""
         Repo.create(arroba.server.storage, DID, handle='alice.com.web.brid.gy',
                     signing_key=ATPROTO_KEY, rotation_key=ATPROTO_KEY)
 
         resp = self.create_like(token=self.access_token(scope='atproto'))
+        self.assertEqual(403, resp.status_code, resp.get_data(as_text=True))
+        self.assertEqual('insufficient_scope', resp.json['error'])
+        self.assert_likes(0)
+
+    @patch.object(util.session, 'get',
+                  return_value=requests_response(json_dumps(GRANULAR_METADATA)))
+    @patch.object(util.session, 'post',
+                  return_value=requests_response('me=https://alice.com'))
+    def test_create_record_repo_scope(self, *_):
+        Repo.create(arroba.server.storage, DID, handle='alice.com.web.brid.gy',
+                    signing_key=ATPROTO_KEY, rotation_key=ATPROTO_KEY)
+
+        token = self.access_token(scope='atproto repo:app.bsky.feed.like')
+        resp = self.create_like(token=token)
+        self.assertEqual(200, resp.status_code, resp.get_data(as_text=True))
+        self.assert_likes(1)
+
+    @patch.object(util.session, 'get',
+                  return_value=requests_response(json_dumps(GRANULAR_METADATA)))
+    @patch.object(util.session, 'post',
+                  return_value=requests_response('me=https://alice.com'))
+    def test_create_record_other_collection_scope(self, *_):
+        """A repo scope for one collection doesn't allow writing another."""
+        Repo.create(arroba.server.storage, DID, handle='alice.com.web.brid.gy',
+                    signing_key=ATPROTO_KEY, rotation_key=ATPROTO_KEY)
+
+        token = self.access_token(
+            scope='atproto repo:app.bsky.feed.like?action=delete')
+        resp = self.create_like(token=token)
         self.assertEqual(403, resp.status_code, resp.get_data(as_text=True))
         self.assertEqual('insufficient_scope', resp.json['error'])
         self.assert_likes(0)

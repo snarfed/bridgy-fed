@@ -9,7 +9,10 @@ Returns the account's DID in ``sub``.
 ATProto uses a bleeding edge (as of 2026) OAuth profile: CIMD, PAR, DPoP, etc:
 https://atproto.com/specs/oauth
 
-TODO: fine-grained permission scopes: https://atproto.com/specs/permission
+We support the ``repo`` permission scopes, along with ``atproto`` and
+``transition:generic``. TODO: the ``rpc``, ``blob``, ``account``, and
+``identity`` scopes, and ``include:`` permission sets.
+https://atproto.com/specs/permission
 
 https://github.com/snarfed/bridgy-fed/issues/1785
 """
@@ -20,11 +23,13 @@ import time
 import urllib.parse
 
 import arroba.server
+from arroba import permissions
 from authlib.integrations.flask_oauth2 import ResourceProtector
 from authlib.oauth2 import cimd, rfc7523, rfc9126, rfc9207, rfc9449
 from authlib.oauth2.rfc6749 import (
     InvalidClientError,
     InvalidRequestError,
+    InvalidScopeError,
     TokenMixin,
 )
 from authlib.oauth2.rfc6749.grants import RefreshTokenGrant as BaseRefreshTokenGrant
@@ -57,7 +62,9 @@ TOKEN_PATH = '/oauth/atproto/token'
 PAR_PATH = '/oauth/atproto/par'
 
 # https://atproto.com/specs/oauth#authorization-scopes
-# all scopes we advertise
+# all scopes we advertise. granular permission scopes are unbounded, so we can't
+# enumerate them here; we validate them with arroba.permissions instead.
+# https://atproto.com/specs/permission
 SCOPES = ['atproto', 'transition:generic']
 
 TOKEN_TYP = 'atproto-oauth-token'
@@ -225,6 +232,10 @@ class PushedAuthorizationEndpoint(rfc9126.PushedAuthorizationEndpoint):
         # send one, so we don't require it either. We bind to the DPoP proof's key
         # if provided, otherwise authlib's DPoP binds the code at the token endpoint
         # instead.
+        # check scopes here too, so that clients find out before sending the
+        # user through their whole login
+        supported_scopes(request.payload.scope)
+
         dpop_jkt = (proof_validator.validate_proof(request)
                     if 'DPoP' in request.headers
                     else request.payload.data.get('dpop_jkt'))
@@ -356,9 +367,43 @@ def generate_token(oauth_request, user, scope, include_refresh_token=True):
     return resp
 
 
+def supported_scopes(scope):
+    """Returns the scopes we'll grant out of the ones a client requested.
+
+    Scopes we don't support are dropped, eg ``identity:handle``. The ``atproto``
+    scope is required.
+
+    https://atproto.com/specs/oauth#authorization-scopes
+
+    Args:
+      scope (str): space-separated scopes
+
+    Returns:
+      str: space-separated scopes
+
+    Raises:
+      InvalidScopeError: if the request doesn't include the ``atproto`` scope
+    """
+    scopes = permissions.supported((scope or '').split())
+    if 'atproto' not in scopes:
+        raise InvalidScopeError(description='Missing atproto scope')
+
+    return ' '.join(scopes)
+
+
 class AuthorizationCodeGrant(oauth_server.JwtAuthorizationCodeGrant):
     CODE_TYP = CODE_TYP
     TOKEN_ENDPOINT_AUTH_METHODS = TOKEN_ENDPOINT_AUTH_METHODS
+
+    def validate_authorization_request(self):
+        """Drops scopes we don't support from the request.
+
+        authlib has already narrowed the requested scopes to the ones the
+        client's metadata document declares.
+        """
+        redirect_uri = super().validate_authorization_request()
+        self.request.scope = supported_scopes(self.request.scope)
+        return redirect_uri
 
     def generate_token(self, user=None, scope=None, grant_type=None,
                        expires_in=None, include_refresh_token=True):
@@ -567,8 +612,8 @@ require_oauth.register_token_validator(DPoPValidator(proof_validator=proof_valid
 def arroba_authenticate():
     """Authenticates a request via OAuth. Used as :func:`arroba.server.authenticate`.
 
-    Requires the ``transition:generic`` scope, since this covers repo writes and
-    service proxied requests.
+    Requires the ``atproto`` scope. Callers in :mod:`arroba` check the rest of
+    the token's scopes against what they're doing, eg repo writes.
 
     Errors are raised as werkzeug ``HTTPException``\\s with OAuth error bodies and
     headers, eg ``WWW-Authenticate`` and ``DPoP-Nonce``, not XRPC errors, since
@@ -577,8 +622,7 @@ def arroba_authenticate():
     Returns:
       (str authenticated DID, list of str scopes) tuple:
     """
-    # one string, not a list, so that the token needs both scopes, not either
-    with require_oauth.acquire('atproto transition:generic') as token:
+    with require_oauth.acquire('atproto') as token:
         return token.did, token.scope.split()
 
 
