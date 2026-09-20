@@ -13,6 +13,10 @@ atproto
 -------
 .. automodule:: atproto
 
+atproto_oauth
+-------------
+.. automodule:: atproto_oauth
+
 atproto_firehose
 ----------------
 .. automodule:: atproto_firehose
@@ -29,6 +33,18 @@ dms
 ------
 .. automodule:: dms
 
+filters
+-------
+.. automodule:: filters
+
+farcaster
+---------
+.. automodule:: farcaster
+
+farcaster_hub
+---------
+.. automodule:: farcaster_hub
+
 follow
 ------
 .. automodule:: follow
@@ -41,6 +57,14 @@ memcache
 --------
 .. automodule:: memcache
 
+mastodon_api
+------------
+.. automodule:: mastodon_api
+
+mastodon_oauth
+-------------
+.. automodule:: mastodon_oauth
+
 models
 ------
 .. automodule:: models
@@ -52,6 +76,10 @@ nostr
 notifications
 -------------
 .. automodule:: notifications
+
+oauth_server
+------------
+.. automodule:: oauth_server
 
 pages
 -----
