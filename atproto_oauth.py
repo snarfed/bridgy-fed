@@ -648,6 +648,10 @@ class Proxy(oauth_server.Proxy):
     HIDE_LOGINS = ('bluesky', 'blacksky')
 
     @classmethod
+    def describe_scopes(cls, scope):
+        return [permissions.describe(s) for s in supported_scopes(scope).split()]
+
+    @classmethod
     def check_user(cls, user, params):
         if not (user := super().check_user(user, params)):
             return None

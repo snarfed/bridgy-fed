@@ -2,12 +2,24 @@
 {% extends "base.html" %}
 
 {# Login prompt for our OAuth servers. Vars:
-   client_name, state, existing_logins, authorize_path, and hide, a list of
+   client_name, state, existing_logins, authorize_path, permissions, a list of
+   English descriptions of the scopes the client asked for, and hide, a list of
    login button names to leave out, eg ['bluesky', 'blacksky'] #}
 
 {% block content %}
 
-<p class="row big"><strong>{{ client_name }}</strong> wants to connect to Bridgy Fed. Choose an account:</p>
+<p class="row big"><strong>{{ client_name }}</strong> wants to connect to Bridgy Fed.</p>
+
+{% if permissions %}
+<p class="row big">It will be able to:</p>
+<ul class="row">
+  {% for permission in permissions %}
+    <li>{{ permission }}</li>
+  {% endfor %}
+</ul>
+{% endif %}
+
+<p class="row big">Choose an account:</p>
 
 {% for user in existing_logins %}
 <div class="row big account-chooser">

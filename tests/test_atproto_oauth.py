@@ -551,6 +551,23 @@ class ATProtoOAuthTest(TestCase):
         self.assertNotIn('Bluesky-input', body)
 
     @patch.object(util.session, 'get',
+                  return_value=requests_response(json_dumps(GRANULAR_METADATA)))
+    def test_authorize_shows_permissions(self, _):
+        request_uri = self.par(
+            scope='atproto repo:app.bsky.feed.like identity:handle',
+        ).json['request_uri']
+        qs = urlencode({'client_id': CLIENT_ID, 'request_uri': request_uri})
+        resp = self.client.get(f'/oauth/atproto/authorize?{qs}',
+                               base_url='https://fed.brid.gy/')
+        self.assertEqual(200, resp.status_code)
+
+        body = resp.get_data(as_text=True)
+        self.assertIn('Know which account is yours', body)
+        self.assertIn('Create, update, and delete app.bsky.feed.like records', body)
+        # we don't grant this one, so don't show it
+        self.assertNotIn('handle', body)
+
+    @patch.object(util.session, 'get',
                   return_value=requests_response(json_dumps(CLIENT_METADATA)))
     def test_dpop_nonce_on_success(self, _):
         """Clients need a nonce from successful responses too, not just errors."""

@@ -322,6 +322,20 @@ class Proxy:
         return resp
 
     @classmethod
+    def describe_scopes(cls, scope):
+        """Describes requested scopes in English, to show the user.
+
+        Args:
+          scope (str): space-separated scopes
+
+        Returns:
+          list of str: Short phrases that explain each scope, eg "Know which account
+          is yours" and "Create, update, and delete foo.bar records". Capitalized,
+          without trailing periods. Empty if this server doesn't describe its scopes.
+        """
+        return []
+
+    @classmethod
     def authorize_response(cls):
         """Renders the authorization prompt's login page."""
         try:
@@ -341,6 +355,7 @@ class Proxy:
             client_name=(client.client_metadata.get('client_name')
                          or client.get_client_id()),
             state=request.query_string.decode(),
+            permissions=cls.describe_scopes(grant.request.scope),
             existing_logins=logins,
             authorize_path=cls.AUTHORIZE_PATH,
             hide=cls.HIDE_LOGINS)
