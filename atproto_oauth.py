@@ -9,9 +9,8 @@ Returns the account's DID in ``sub``.
 ATProto uses a bleeding edge (as of 2026) OAuth profile: CIMD, PAR, DPoP, etc:
 https://atproto.com/specs/oauth
 
-We support the ``repo`` permission scopes, along with ``atproto`` and
-``transition:generic``. TODO: the ``rpc``, ``blob``, ``account``, and
-``identity`` scopes, and ``include:`` permission sets.
+We support the ``repo`` and ``rpc`` permission scopes, along with ``atproto``
+and ``transition:generic``.
 https://atproto.com/specs/permission
 
 https://github.com/snarfed/bridgy-fed/issues/1785
@@ -649,7 +648,8 @@ class Proxy(oauth_server.Proxy):
 
     @classmethod
     def describe_scopes(cls, scope):
-        return [permissions.describe(s) for s in supported_scopes(scope).split()]
+        return [description for s in supported_scopes(scope).split()
+                for description in permissions.describe(s)]
 
     @classmethod
     def check_user(cls, user, params):

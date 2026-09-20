@@ -12,11 +12,9 @@
 
 {% if permissions %}
 <p class="row big">It will be able to:</p>
-<ul class="row">
-  {% for permission in permissions %}
-    <li>{{ permission }}</li>
-  {% endfor %}
-</ul>
+{% for permission in permissions %}
+  {{ permission }}<br>
+{% endfor %}
 {% endif %}
 
 <p class="row big">Choose an account:</p>

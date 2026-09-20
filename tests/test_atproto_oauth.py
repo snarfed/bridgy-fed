@@ -42,7 +42,7 @@ CLIENT_METADATA = {
 # client that asks for granular permission scopes
 GRANULAR_METADATA = {
     **CLIENT_METADATA,
-    'scope': 'atproto repo:app.bsky.feed.like identity:handle',
+    'scope': f'atproto repo:app.bsky.feed.like identity:handle rpc:app.bsky.feed.getTimeline?aud=did:web:ho.st%23svc',
 }
 # confidential client, which authenticates with a private_key_jwt assertion
 CONFIDENTIAL_CLIENT_ID = 'https://conf.example/client-metadata.json'
@@ -550,11 +550,20 @@ class ATProtoOAuthTest(TestCase):
         # you can't log in with an ATProto account to get an ATProto account
         self.assertNotIn('Bluesky-input', body)
 
+    def test_describe_scopes(self):
+        self.assertEqual([
+            'Know which account is yours',
+            'Create, update, and delete app.bsky.feed.like records',
+            'Make app.bsky.feed.getTimeline requests to ho.st as you',
+        ], atproto_oauth.Proxy.describe_scopes(
+            'atproto repo:app.bsky.feed.like identity:handle '
+            'rpc:app.bsky.feed.getTimeline?aud=did:web:ho.st%23svc'))
+
     @patch.object(util.session, 'get',
                   return_value=requests_response(json_dumps(GRANULAR_METADATA)))
     def test_authorize_shows_permissions(self, _):
         request_uri = self.par(
-            scope='atproto repo:app.bsky.feed.like identity:handle',
+            scope='atproto repo:app.bsky.feed.like identity:handle rpc:app.bsky.feed.getTimeline?aud=did:web:ho.st%23svc',
         ).json['request_uri']
         qs = urlencode({'client_id': CLIENT_ID, 'request_uri': request_uri})
         resp = self.client.get(f'/oauth/atproto/authorize?{qs}',
@@ -564,6 +573,7 @@ class ATProtoOAuthTest(TestCase):
         body = resp.get_data(as_text=True)
         self.assertIn('Know which account is yours', body)
         self.assertIn('Create, update, and delete app.bsky.feed.like records', body)
+        self.assertIn('Make app.bsky.feed.getTimeline requests to ho.st as you', body)
         # we don't grant this one, so don't show it
         self.assertNotIn('handle', body)
 
@@ -836,7 +846,7 @@ class ATProtoOAuthTest(TestCase):
             headers={
                 'Authorization': f'DPoP {token}',
                 'DPoP': proof,
-                'atproto-proxy': 'did:web:api.bsky.local#bsky_appview',
+                'atproto-proxy': 'did:web:ho.st#svc',
             })
 
     @patch.object(util.session, 'get',
@@ -872,7 +882,7 @@ class ATProtoOAuthTest(TestCase):
         resp = self.client.get(
             '/xrpc/app.bsky.feed.getTimeline',
             base_url='https://atproto.brid.gy/',
-            headers={'atproto-proxy': 'did:web:api.bsky.local#bsky_appview'})
+            headers={'atproto-proxy': 'did:web:ho.st#svc'})
         self.assertEqual(401, resp.status_code, resp.get_data(as_text=True))
         self.assertEqual('missing_authorization', resp.json['error'])
 
@@ -897,6 +907,22 @@ class ATProtoOAuthTest(TestCase):
         self.assertEqual(401, resp.status_code, resp.get_data(as_text=True))
         self.assertIn('error="use_dpop_nonce"', resp.headers['WWW-Authenticate'])
         self.assertTrue(resp.headers['DPoP-Nonce'])
+
+    @patch.object(util.session, 'get',
+                  return_value=requests_response(json_dumps(GRANULAR_METADATA)))
+    @patch.object(util.session, 'post',
+                  return_value=requests_response('me=https://alice.com'))
+    def test_service_proxy_insufficient_scope(self, *_):
+        """Proxying needs an rpc scope for the method and service."""
+        for scope in ('atproto', 'atproto repo:app.bsky.feed.like'):
+            with self.subTest(scope=scope):
+                token = self.access_token(scope=scope)
+                resp = self.proxy(
+                    token, nonce=atproto_oauth.proof_validator.nonce_generator.next())
+                self.assertEqual(403, resp.status_code, resp.get_data(as_text=True))
+                self.assertEqual('insufficient_scope', resp.json['error'])
+                self.assertIn('Missing scope rpc:app.bsky.feed.getTimeline?aud=did:web:ho.st%23svc',
+                              resp.headers['WWW-Authenticate'])
 
     #
     # resource server: repo writes
