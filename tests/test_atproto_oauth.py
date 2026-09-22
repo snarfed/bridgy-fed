@@ -30,6 +30,7 @@ CLIENT_ID = 'https://app.example/client-metadata.json'
 REDIRECT_URI = 'https://app.example/callback'
 CLIENT_METADATA = {
     'client_id': CLIENT_ID,
+    'client_uri': 'https://app.example/home',
     'client_name': 'My App',
     'redirect_uris': [REDIRECT_URI],
     'response_types': ['code'],
@@ -544,11 +545,36 @@ class ATProtoOAuthTest(TestCase):
         self.assertEqual(200, resp.status_code)
 
         body = resp.get_data(as_text=True)
-        self.assertIn('My App', body)
+        self.assert_multiline_in("""\
+<a href="https://app.example/home">
+My App
+</a>""", body, body)
+        self.assertNotIn(CLIENT_ID, body)
         self.assertIn('Mastodon-input', body)
         self.assertIn('IndieAuth-input', body)
         # you can't log in with an ATProto account to get an ATProto account
         self.assertNotIn('Bluesky-input', body)
+
+    @patch.object(util.session, 'get', return_value=requests_response(json_dumps({
+        **{k: v for k, v in CLIENT_METADATA.items() if k != 'client_name'},
+        'client_uri': 'javascript://app.example/%0Aalert(1)',
+    })))
+    def test_authorize_login_form_no_client_name_or_web_client_uri(self, _):
+        qs = urlencode({
+            'client_id': CLIENT_ID,
+            'request_uri': self.par().json['request_uri'],
+        })
+        resp = self.client.get(f'/oauth/atproto/authorize?{qs}',
+                               base_url='https://fed.brid.gy/')
+        self.assertEqual(200, resp.status_code)
+
+        body = resp.get_data(as_text=True)
+        self.assert_multiline_in("""\
+<a href="https://app.example/">
+app.example
+</a>""", body, body)
+        self.assertNotIn(CLIENT_ID, body)
+        self.assertNotIn('javascript:', body)
 
     def test_describe_scopes(self):
         self.assertEqual([

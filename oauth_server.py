@@ -11,7 +11,7 @@ import hashlib
 import logging
 import secrets
 import time
-from urllib.parse import parse_qsl
+from urllib.parse import parse_qsl, urljoin
 
 from authlib.integrations.flask_oauth2 import AuthorizationServer
 from authlib.integrations.flask_oauth2.requests import FlaskOAuth2Request
@@ -27,7 +27,7 @@ from google.cloud import ndb
 from google.cloud.ndb.key import Key
 from google.protobuf.message import DecodeError
 import jwt
-from webutil import models
+from webutil import models, util
 from webutil.flask_util import flash
 from werkzeug.exceptions import HTTPException
 
@@ -350,10 +350,19 @@ class Proxy:
                   if l and l.is_enabled(cls.PROTO)]
 
         client = grant.client
+        client_id = client.get_client_id()
+        client_uri = client.client_metadata.get('client_uri')
+        if not util.is_web(client_uri):
+            client_uri = urljoin(client_id, '/') if util.is_web(client_id) else None
+
+        client_name = (client.client_metadata.get('client_name')
+                       or util.domain_from_link(client_uri)
+                       or client_id)
+
         return common.render_template(
             'oauth_login.html',
-            client_name=(client.client_metadata.get('client_name')
-                         or client.get_client_id()),
+            client_name=client_name,
+            client_url=client_uri,
             state=request.query_string.decode(),
             permissions=cls.describe_scopes(grant.request.scope),
             existing_logins=logins,

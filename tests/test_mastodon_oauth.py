@@ -133,13 +133,30 @@ class MastodonOAuthTest(TestCase):
                          resp.json['token_endpoint'])
 
     def test_authorize_renders_login_form(self):
-        app = self.register_app()
+        app = self.register_app(website='https://app.example/home')
         resp = self.client.get(
             f"/oauth/authorize?{self.authorize_query(app['client_id'])}",
             base_url=BASE_URL)
         self.assertEqual(200, resp.status_code)
-        self.assertIn('My App', resp.get_data(as_text=True))
-        self.assertIn('IndieAuth', resp.get_data(as_text=True))
+        body = resp.get_data(as_text=True)
+        self.assert_multiline_in("""
+<a href="https://app.example/home">
+My App
+</a>""", body)
+        self.assertIn('IndieAuth', body)
+
+    def test_authorize_login_form_no_web_website(self):
+        app = self.register_app(website='javascript://app.example/%0Aalert(1)')
+        resp = self.client.get(
+            f"/oauth/authorize?{self.authorize_query(app['client_id'])}",
+            base_url=BASE_URL)
+        self.assertEqual(200, resp.status_code)
+        body = resp.get_data(as_text=True)
+        self.assert_multiline_in("""\
+<strong>
+My App
+</strong>""", body, body)
+        self.assertNotIn('javascript:', body)
 
     def test_authorize_shows_existing_logins_and_fresh_login_forms(self):
         """If the browser already has a Bridgy Fed session login, /oauth/authorize

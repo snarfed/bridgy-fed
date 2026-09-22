@@ -1,14 +1,24 @@
 {% set body_id = 'login' %}
 {% extends "base.html" %}
 
-{# Login prompt for our OAuth servers. Vars:
-   client_name, state, existing_logins, authorize_path, permissions, a list of
-   English descriptions of the scopes the client asked for, and hide, a list of
-   login button names to leave out, eg ['bluesky', 'blacksky'] #}
+{#
+Login prompt for our OAuth servers. Vars:
+   authorize_path (str)
+   client_name (str)
+   client_url (str, optional)
+   existing_logins (sequence of User)
+   state (str)
+   permissions (sequence of str; English descriptions of the client's requested scopes
+   hide (sequence of str): login button names to leave out, eg 'bluesky'
+#}
 
 {% block content %}
 
-<p class="row big"><strong>{{ client_name }}</strong> wants to connect to Bridgy Fed.</p>
+<p class="row big"><strong>
+  {% if client_url %}<a href="{{ client_url }}">{% endif %}
+    {{ client_name }}
+  {% if client_url %}</a>{% endif %}
+</strong> wants to connect to Bridgy Fed.</p>
 
 {% if permissions %}
 <p class="row big">It will be able to:</p>

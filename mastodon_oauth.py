@@ -54,7 +54,7 @@ class Client(ClientMixin):
     """
     def __init__(self, client_id, payload):
         self.client_id = client_id
-        self.client_metadata = payload
+        self.client_metadata = {**payload, 'client_uri': payload.get('website')}
         self.redirect_uris = payload['redirect_uris']
 
     def get_client_id(self):
