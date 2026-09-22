@@ -309,14 +309,14 @@ class IntegrationTests(TestCase):
             msg.ClearField('signature_scheme')
         self.assertEqual(list(expected), list(actual.messages))
 
-    def firehose(self, limit=1, **op):
+    def firehose(self, limit=1, **event):
         setup_firehose()
-        FakeWebsocketClient.setup_receive(atproto_firehose.Op(**op))
+        FakeWebsocketClient.setup_receive(atproto_firehose.Event(**event))
         atproto_firehose.load_dids()
         atproto_firehose.subscribe()
         if limit:
             atproto_firehose.handle(limit=limit)
-        assert atproto_firehose.commits.empty()
+        assert atproto_firehose.events.empty()
 
     @patch.object(util.session, 'post')
     def test_atproto_post_to_activitypub(self, mock_post):

@@ -10,7 +10,7 @@ import itertools
 import logging
 import os
 from queue import Queue
-from threading import Event, Lock, Thread, Timer
+from threading import Lock, Thread, Timer
 import threading
 import time
 
@@ -51,17 +51,28 @@ RECONNECT_DELAY = timedelta(seconds=30)
 STORE_CURSOR_FREQ = timedelta(seconds=10)
 LOG_OUTLIER_THRESHOLD = timedelta(minutes=5)
 
-# a commit operation. similar to arroba.repo.Write. record is None for deletes.
-Op = namedtuple('Op', ['action', 'repo', 'path', 'seq', 'record', 'time'],
-                # last four fields are optional
-                defaults=[None, None, None, None])
+Event = namedtuple('Event', ['action', 'repo', 'path', 'seq', 'record', 'time'],
+                   # last four fields are optional
+                   defaults=[None, None, None, None])
+"""A firehose event, either a commit operation or an #account or #identity event.
 
-# contains Ops
+Attributes:
+  action (str): ``account``, ``identity``, ``create``, ``update``, or ``delete``
+  repo (str): DID of the repo this event is for
+  path (str): record path, ``[collection]/[rkey]``, for commit operations. None
+    for ``account`` and ``identity``
+  seq (int): firehose sequence number
+  record (dict): JSON record object for ``create`` and ``update``, None otherwise
+    (including deletes)
+  time (str): event's ISO 8601 timestamp, from the firehose payload
+"""
+
+# contains Events
 #
 # maxsize is important here! if we hit this limit, subscribe will block when it
-# tries to add more commits until handle consumes some. this keeps subscribe
+# tries to add more events until handle consumes some. this keeps subscribe
 # from getting too far ahead of handle and using too much memory in this queue.
-commits = Queue(maxsize=1000)
+events = Queue(maxsize=1000)
 
 # global so that subscribe can reuse it across calls
 cursor = None
@@ -72,7 +83,7 @@ atproto_loaded_at = datetime(1900, 1, 1)
 bridged_dids = set()  # accounts elsewhere that are bridged into ATProto
 bridged_loaded_at = datetime(1900, 1, 1)
 protocol_bot_dids = set()
-dids_initialized = Event()
+dids_initialized = threading.Event()
 
 
 def load_dids():
@@ -121,7 +132,7 @@ def _load_dids():
 
             dids_initialized.set()
             total = len(atproto_dids) + len(bridged_dids)
-            logger.info(f'DIDs: {total} ATProto {len(atproto_dids)} (+{len(new_atproto)}), AtpRepo {len(bridged_dids)} (+{len(new_bridged)}); commits {commits.qsize()}')
+            logger.info(f'DIDs: {total} ATProto {len(atproto_dids)} (+{len(new_atproto)}), AtpRepo {len(bridged_dids)} (+{len(new_bridged)}); events {events.qsize()}')
 
         except BaseException:
             # eg google.cloud.ndb.exceptions.ContextError when we lose the ndb context
@@ -225,7 +236,7 @@ def subscribe():
             if repo in atproto_dids or repo in bridged_dids:
                 t = t.removeprefix('#')
                 logger.info(f'Got {t} {repo}')
-                commits.put(Op(action=t, repo=repo, seq=seq, time=cur_timestamp))
+                events.put(Event(action=t, repo=repo, seq=seq, time=cur_timestamp))
             continue
 
         blocks = {}  # maps base32 str CID to dict block
@@ -242,18 +253,19 @@ def subscribe():
 
         # detect records from bridged ATProto users that we should handle
         for p_op in payload.get('ops', []):
-            op = Op(repo=payload['repo'], action=p_op.get('action'),
-                    path=p_op.get('path'), seq=payload['seq'], time=payload['time'])
-            if not op.action or not op.path:
+            event = Event(repo=payload['repo'], action=p_op.get('action'),
+                          path=p_op.get('path'), seq=payload['seq'],
+                          time=payload['time'])
+            if not event.action or not event.path:
                 logger.info(
-                    f'bad payload! seq {op.seq} action {op.action} path {op.path}!')
+                    f'bad payload! seq {event.seq} action {event.action} path {event.path}!')
                 continue
 
-            if op.repo in atproto_dids and op.action == 'delete':
+            if event.repo in atproto_dids and event.action == 'delete':
                 # TODO: also detect deletes of records that *reference* our bridged
                 # users, eg a delete of a follow or like or repost of them.
                 # not easy because we need to getRecord the record to check
-                commits.put(op)
+                events.put(event)
                 continue
 
             cid = p_op.get('cid')
@@ -264,17 +276,17 @@ def subscribe():
                 continue
             elif not isinstance(block, dict):
                 # https://github.com/snarfed/bridgy-fed/issues/1938
-                logger.info(f"Skipping odd record we couldn't understand (#1938): {op} {p_op} {repr(block)}")
+                logger.info(f"Skipping odd record we couldn't understand (#1938): {event} {p_op} {repr(block)}")
                 continue
 
-            op = op._replace(record=block)
-            type = op.record.get('$type')
+            event = event._replace(record=block)
+            type = event.record.get('$type')
             if not type:
-                logger.warning(f'commit record missing $type! {op.action} {op.repo} {op.path} {cid}')
-                logger.warning(dag_json.encode(op.record).decode())
+                logger.warning(f'commit record missing $type! {event.action} {event.repo} {event.path} {cid}')
+                logger.warning(dag_json.encode(event.record).decode())
                 continue
             elif (type not in ATProto.SUPPORTED_RECORD_TYPES
-                  and not (op.repo in BETA_USER_IDS
+                  and not (event.repo in BETA_USER_IDS
                            and type in ATProto.SUPPORTED_RECORD_TYPES_BETA_USERS)
                   and type not in ATProto.STORE_RECORD_TYPES):
                 continue
@@ -298,56 +310,56 @@ def subscribe():
 
                 return did and (did in bridged_dids or native and did in atproto_dids)
 
-            if op.repo in atproto_dids:
+            if event.repo in atproto_dids:
                 # from a bridged Bluesky user
                 if type == 'app.bsky.actor.profile':
-                    commits.put(op)
+                    events.put(event)
 
                 elif type == 'app.bsky.feed.repost':
-                    if is_ours(op.record['subject'], native=True):
-                        commits.put(op)
+                    if is_ours(event.record['subject'], native=True):
+                        events.put(event)
 
                 elif type == 'app.bsky.feed.like':
-                    if is_ours(op.record['subject'], native=False):
-                        commits.put(op)
+                    if is_ours(event.record['subject'], native=False):
+                        events.put(event)
 
                 elif type in ('app.bsky.graph.block', 'app.bsky.graph.follow'):
-                    if is_ours(op.record['subject'], native=False):
-                        commits.put(op)
+                    if is_ours(event.record['subject'], native=False):
+                        events.put(event)
 
                 elif type == 'app.bsky.feed.post':
-                    reply = op.record.get('reply')
+                    reply = event.record.get('reply')
                     if not reply or is_ours(reply['parent'], native=True):
-                        commits.put(op)
+                        events.put(event)
 
                 # other lexicon that we support (checked earlier). go ahead and try
                 # to bridge it.
                 else:
-                    commits.put(op)
+                    events.put(event)
 
-            elif op.repo not in bridged_dids:
+            elif event.repo not in bridged_dids:
                 # from an unbridged Bluesky user. only follows of protocol bots and
                 # replies/quotes/mentions of bridged users, so that we can DM them a
                 # notification
                 if type == 'app.bsky.graph.follow':
-                    if op.record['subject'] in protocol_bot_dids:
-                        commits.put(op)
+                    if event.record['subject'] in protocol_bot_dids:
+                        events.put(event)
 
                 elif type == 'app.bsky.feed.post':
                     subjects = []
-                    if reply := op.record.get('reply'):
+                    if reply := event.record.get('reply'):
                         subjects.append(reply.get('parent'))
-                    if embed := op.record.get('embed'):
+                    if embed := event.record.get('embed'):
                         if embed.get('$type') == 'app.bsky.embed.record':
                             subjects.append(embed['record'])
-                    for facet in op.record.get('facets', []):
+                    for facet in event.record.get('facets', []):
                         for feat in facet.get('features', []):
                             if feat.get('$type') == 'app.bsky.richtext.facet#mention':
                                 subjects.append(feat.get('did'))
 
                     for subject in subjects:
                         if is_ours(subject, native=False):
-                            commits.put(op)
+                            events.put(event)
                             break
 
 
@@ -368,24 +380,24 @@ def handler():
                 # https://console.cloud.google.com/errors/detail/CIvwj_7MmsfOWw;time=P1D;locations=global?project=bridgy-federated
 
 
-def _handle_commit_op(op):
+def _handle_commit_op(event):
     """
     Args:
-      op (Op)
+      event (Event)
     """
-    at_uri = f'at://{op.repo}/{op.path}'
-    type, _ = op.path.strip('/').split('/', maxsplit=1)
+    at_uri = f'at://{event.repo}/{event.path}'
+    type, _ = event.path.strip('/').split('/', maxsplit=1)
 
-    record = _encode_bytes_cids(op.record)
+    record = _encode_bytes_cids(event.record)
 
-    if type in ATProto.STORE_RECORD_TYPES and op.action in ('create', 'update'):
+    if type in ATProto.STORE_RECORD_TYPES and event.action in ('create', 'update'):
         # TODO: handle deletes
-        logger.info(f'Just storing {op.seq} {op.action} {op.repo} {op.path}')
+        logger.info(f'Just storing {event.seq} {event.action} {event.repo} {event.path}')
         assert type not in ATProto.SUPPORTED_RECORD_TYPES, (type, record)
-        Object.get_or_create(at_uri, bsky=record, authed_as=op.repo,
+        Object.get_or_create(at_uri, bsky=record, authed_as=event.repo,
                              source_protocol=ATProto.LABEL)
         if type == 'community.lexicon.payments.webMonetization':
-            _handle_webMonetization(op)
+            _handle_webMonetization(event)
         return
 
     if type not in ATProto.SUPPORTED_RECORD_TYPES:
@@ -393,20 +405,20 @@ def _handle_commit_op(op):
         return
 
     # store object, enqueue receive task
-    if op.action in ('create', 'update'):
+    if event.action in ('create', 'update'):
         record_kwarg = {'bsky': record}
         obj_id = at_uri
 
         try:
             _validator.validate(type, 'record', record)
         except ValidationError as e:
-            report_error(f'skipping invalid {type} record on firehose: {e}; {op}')
+            report_error(f'skipping invalid {type} record on firehose: {e}; {event}')
             return
 
         if type == 'site.standard.document':
-            _handle_standard_site_document(op)
+            _handle_standard_site_document(event)
 
-    elif op.action == 'delete':
+    elif event.action == 'delete':
         verb = (
             'delete' if type in ('app.bsky.actor.profile', 'app.bsky.feed.post')
             else 'stop-following' if type == 'app.bsky.graph.follow'
@@ -417,7 +429,7 @@ def _handle_commit_op(op):
                 'objectType': 'activity',
                 'verb': verb,
                 'id': obj_id,
-                'actor': op.repo,
+                'actor': event.repo,
                 'object': at_uri,
             },
         }
@@ -430,14 +442,14 @@ def _handle_commit_op(op):
                 return
 
     else:
-        logger.error(f'Unknown action {op.action} for {op.repo} {op.path}')
+        logger.error(f'Unknown action {event.action} for {event.repo} {event.path}')
         return
 
-    logger.info(f'Got {op.seq} {op.action} {op.repo} {op.path}')
-    delay = DELETE_TASK_DELAY if op.action == 'delete' else None
+    logger.info(f'Got {event.seq} {event.action} {event.repo} {event.path}')
+    delay = DELETE_TASK_DELAY if event.action == 'delete' else None
     try:
         create_task(queue='receive', id=obj_id, source_protocol=ATProto.LABEL,
-                    authed_as=op.repo, received_at=op.time, delay=delay,
+                    authed_as=event.repo, received_at=event.time, delay=delay,
                     **record_kwarg)
         # when running locally, comment out above and uncomment this
         # logger.info(f'enqueuing receive task for {at_uri}')
@@ -453,34 +465,36 @@ def handle(limit=None):
       limit: integer (optional): only used in tests
     """
     seen = 0
-    while op := commits.get():
-        match op.action:
+    while event := events.get():
+        match event.action:
             case 'account':
                 # reload DID doc
-                ATProto.load(op.repo, raw=True, remote=True)
+                ATProto.load(event.repo, raw=True, remote=True)
 
             case 'identity':
                 # reload DID doc, update user's computed handle property, send actor
                 # update to followers
-                ATProto.load(op.repo, raw=True, remote=True)
-                if user := ATProto.get_by_id(op.repo):
+                ATProto.load(event.repo, raw=True, remote=True)
+                if user := ATProto.get_by_id(event.repo):
                     user.put()
                     if user.obj and user.obj.as1:
-                        identity_op = Op(repo=op.repo, action='update',
-                                         record=user.obj.bsky,
-                                         path='app.bsky.actor.profile/self',
-                                         seq=op.seq, time=op.time)
+                        update = Event(repo=event.repo,
+                                       action='update',
+                                       record=user.obj.bsky,
+                                       path='app.bsky.actor.profile/self',
+                                       seq=event.seq,
+                                       time=event.time)
                         try:
-                            _handle_commit_op(identity_op)
+                            _handle_commit_op(update)
                         except BaseException:
-                            logger.error(f'Error handling op: {identity_op}')
+                            logger.error(f'Error handling event: {update}')
                             raise
 
             case _:
                 try:
-                    _handle_commit_op(op)
+                    _handle_commit_op(event)
                 except BaseException:
-                    logger.error(f'Error handling op: {op}')
+                    logger.error(f'Error handling event: {event}')
                     raise
 
         seen += 1
@@ -490,7 +504,7 @@ def handle(limit=None):
     assert False, "handle thread shouldn't reach here!"
 
 
-def _handle_standard_site_document(op):
+def _handle_standard_site_document(event):
     """Enqueues a delete task for the bskyPostRef post if we've already bridged it.
 
     This is for the case when we see a document's post record first, and then later
@@ -501,9 +515,9 @@ def _handle_standard_site_document(op):
     https://github.com/snarfed/bridgy-fed/issues/2324
 
     Args:
-      op (Op)
+      event (Event)
     """
-    if not (post_uri := op.record.get('bskyPostRef', {}).get('uri')):
+    if not (post_uri := event.record.get('bskyPostRef', {}).get('uri')):
         return
 
     # if the post already exists in the datastore, and isn't linked to a document,
@@ -520,12 +534,12 @@ def _handle_standard_site_document(op):
                 'objectType': 'activity',
                 'verb': 'delete',
                 'id': delete_id,
-                'actor': op.repo,
+                'actor': event.repo,
                 'object': post_uri,
             }
             create_task(queue='receive', id=delete_id, source_protocol=ATProto.LABEL,
-                        our_as1=delete_post_as1, authed_as=op.repo,
-                        received_at=op.time, delay=DELETE_TASK_DELAY)
+                        our_as1=delete_post_as1, authed_as=event.repo,
+                        received_at=event.time, delay=DELETE_TASK_DELAY)
 
     # link the bsky post to this doc
     @ndb.transactional()
@@ -534,7 +548,7 @@ def _handle_standard_site_document(op):
             logger.warning(f'bskyPostRef {post_uri} not found!')
             return
 
-        doc_uri = f'at://{op.repo}/{op.path}'
+        doc_uri = f'at://{event.repo}/{event.path}'
         logger.warning(f'Adding doc copy {doc_uri} to bskyPostRef {post_uri}')
         post.add('copies', Target(protocol='atproto', uri=doc_uri))
         post.put()
@@ -543,16 +557,16 @@ def _handle_standard_site_document(op):
 
 
 @ndb.transactional()
-def _handle_webMonetization(op):
+def _handle_webMonetization(event):
     """
     Args:
-      op (Op)
+      event (Event)
     """
-    profile_uri = at_uri(op.repo, 'app.bsky.actor.profile', 'self')
+    profile_uri = at_uri(event.repo, 'app.bsky.actor.profile', 'self')
     profile = Object.get_or_insert(profile_uri)
     if not profile.extra_as1:
         profile.extra_as1 = {}
-    profile.extra_as1.update({'monetization': op.record['address']})
+    profile.extra_as1.update({'monetization': event.record['address']})
     profile.put()
 
 
