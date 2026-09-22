@@ -1,8 +1,13 @@
-# ALB forwarding rules
+# ALB URL Map.
 #
 # https://docs.cloud.google.com/load-balancing/docs/url-map-concepts
 # https://docs.cloud.google.com/load-balancing/docs/url-map
 # https://docs.cloud.google.com/load-balancing/docs/https/setting-up-global-traffic-mgmt
+#
+# Also see dispatch.yaml, the dispatch routing rules for the App Engine services in
+# this project. That only really applies to internal requests, eg Cloud Tasks and
+# Scheduler. For external requests that come through the load balancer, this URL Map
+# overrides dispatch.yaml.
 #
 # validate and run tests with:
 #
