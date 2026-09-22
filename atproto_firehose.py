@@ -123,11 +123,6 @@ def _load_dids():
             total = len(atproto_dids) + len(bridged_dids)
             logger.info(f'DIDs: {total} ATProto {len(atproto_dids)} (+{len(new_atproto)}), AtpRepo {len(bridged_dids)} (+{len(new_bridged)}); commits {commits.qsize()}')
 
-            # TODO: remove
-            # temporary, debugging https://github.com/snarfed/bridgy-fed/issues/2327
-            import gc, threading, tracemalloc, resource
-            logger.info(f'  threads {threading.active_count()} rss {resource.getrusage(resource.RUSAGE_SELF).ru_maxrss} gc gen0={gc.get_count()[0]} gen1={gc.get_count()[1]} gen2={gc.get_count()[2]}')
-
         except BaseException:
             # eg google.cloud.ndb.exceptions.ContextError when we lose the ndb context
             # https://console.cloud.google.com/errors/detail/CLO6nJnRtKXRyQE?project=bridgy-federated
