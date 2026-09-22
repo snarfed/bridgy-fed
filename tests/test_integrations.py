@@ -1226,6 +1226,60 @@ class IntegrationTests(TestCase):
                 'to': ['https://www.w3.org/ns/activitystreams#Public'],
             }, json_loads(kwargs['data']))
 
+    @patch.object(util.session, 'post')
+    @patch.object(util.session, 'get', return_value=requests_response(DID_DOC))
+    def test_atproto_account_deleted_deletes_bridged_actors(self, mock_get, mock_post):
+        """Bluesky account is deleted: delete its bridged actors, disable protocols.
+
+        ATProto user alice.com, did:plc:alice (Farcaster fid 123)
+        ActivityPub follower http://x/bob
+        Farcaster follower eve (fid 456)
+        Nostr follower bob@nos.tr (NPUB_URI)
+        """
+        alice = self.make_atproto_user(
+            'did:plc:alice', enabled_protocols=['activitypub', 'nostr'])
+        self.make_farcaster_copy(alice, 123)
+
+        Follower.get_or_create(to=alice, from_=self.make_ap_user('http://x/bob'))
+        Follower.get_or_create(to=alice, from_=self.make_farcaster_user(456, 'eve'))
+        Follower.get_or_create(to=alice, from_=self.make_nostr_user())
+
+        Repo.create(self.storage, 'did:unused', signing_key=ATPROTO_KEY)
+
+        setup_firehose()
+        FakeWebsocketClient.to_receive = [({
+            'op': 1,
+            't': '#account',
+        }, {
+            'seq': 123,
+            'did': 'did:plc:alice',
+            'time': NOW.isoformat(),
+            'active': False,
+            'status': 'deleted',
+        })]
+        atproto_firehose.load_dids()
+        atproto_firehose.subscribe()
+        atproto_firehose.handle(limit=1)
+
+        # ActivityPub
+        self.assertEqual([('http://x/bob/inbox',)],
+                         [args for args, _ in mock_post.call_args_list])
+        self.assert_equals({
+            '@context': 'https://www.w3.org/ns/activitystreams',
+            'type': 'Delete',
+            'id': 'https://bsky.brid.gy/convert/ap/at://did:plc:alice#delete-123',
+            'actor': 'https://bsky.brid.gy/ap/did:plc:alice',
+            'object': 'https://bsky.brid.gy/ap/did:plc:alice',
+            'to': ['https://www.w3.org/ns/activitystreams#Public'],
+        }, json_loads(mock_post.call_args[1]['data']))
+
+        # TODO: check Farcaster and Nostr once they support deleting actors
+
+        alice = alice.key.get()
+        self.assertEqual([], alice.enabled_protocols)
+        self.assertEqual(['inactive'] * 3,
+                         [f.status for f in Follower.query().fetch()])
+
     @patch.object(util.session, 'get', side_effect=[
         # alice profile picture
         requests_response('blob', headers={'Content-Type': 'image/jpeg'}),

@@ -1619,7 +1619,7 @@ class Protocol:
         # do this *after* delivering because delivery finds targets based on
         # stored Followers
         if is_user and obj.type == 'delete':
-            for proto in from_user.enabled_protocols:
+            for proto in list(from_user.enabled_protocols):
                 from_user.disable_protocol(PROTOCOLS[proto])
 
             logger.info(f'Deactivating Followers from or to {from_user.key.id()}')

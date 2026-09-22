@@ -490,7 +490,36 @@ class ATProtoFirehoseSubscribeTest(ATProtoTestCase):
                 self.subscribe()
 
                 self.assertEqual(
-                    (type.removeprefix('#'), 'did:plc:user', None, 789, None, time),
+                    (type.removeprefix('#'), 'did:plc:user', None, 789, None, time,
+                     None),
+                    events.get())
+                self.assertTrue(events.empty())
+
+    def test_account_event_status(self):
+        time = NOW.isoformat()
+
+        for payload, status in (
+                ({'active': False, 'status': 'deleted'}, 'deleted'),
+                ({'active': False, 'status': 'takendown'}, 'takendown'),
+                ({'active': False}, None),
+                ({'active': True}, None),
+        ):
+            with self.subTest(payload=payload):
+                FakeWebsocketClient.to_receive = [({
+                    'op': 1,
+                    't': '#account',
+                }, {
+                    'seq': 789,
+                    'did': 'did:plc:user',
+                    'time': time,
+                    **payload,
+                })]
+
+                self.subscribe()
+
+                self.assertEqual(
+                    Event(action='account', repo='did:plc:user', seq=789, time=time,
+                          status=status),
                     events.get())
                 self.assertTrue(events.empty())
 
@@ -816,6 +845,47 @@ class ATProtoFirehoseHandleTest(ATProtoTestCase):
         events.put(Event(repo='did:plc:user', action='account', seq=789))
         handle(limit=1)
         self.assertEqual('stuff', Object.get_by_id('did:plc:user').raw['new'])
+        mock_create_task.assert_not_called()
+
+    @patch.object(util.session, 'get', return_value=requests_response(DID_DOC))
+    def test_account_inactive_deletes_user(self, mock_get, mock_create_task):
+        for status in 'deactivated', 'deleted', 'takendown':
+            with self.subTest(status=status):
+                mock_create_task.reset_mock()
+                memcache.clear()
+                events.put(Event(repo='did:plc:user', action='account', seq=789,
+                                 time='1900-02-04', status=status))
+                handle(limit=1)
+
+                delete = {
+                    'objectType': 'activity',
+                    'verb': 'delete',
+                    'id': 'at://did:plc:user#delete-789',
+                    'actor': 'did:plc:user',
+                    'object': 'did:plc:user',
+                }
+                eta = util.to_utc_timestamp(NOW) + DELETE_TASK_DELAY.total_seconds()
+                self.assert_task(mock_create_task, 'receive',
+                                 id='at://did:plc:user#delete-789',
+                                 our_as1=delete, source_protocol='atproto',
+                                 authed_as='did:plc:user', eta_seconds=eta)
+
+    @patch.object(util.session, 'get', return_value=requests_response(DID_DOC))
+    def test_account_inactive_other_status_doesnt_delete_user(
+            self, mock_get, mock_create_task):
+        for status in None, 'suspended', 'desynchronized', 'throttled':
+            with self.subTest(status=status):
+                events.put(Event(repo='did:plc:user', action='account', seq=789,
+                                 time='1900-02-04', status=status))
+                handle(limit=1)
+                mock_create_task.assert_not_called()
+
+    @patch.object(util.session, 'get', return_value=requests_response(DID_DOC))
+    def test_account_deleted_not_atproto_user(self, mock_get, mock_create_task):
+        # eg a user bridged into ATProto; the account event is from our own PDS
+        events.put(Event(repo='did:plc:alice', action='account', seq=789,
+                         time='1900-02-04', status='deleted'))
+        handle(limit=1)
         mock_create_task.assert_not_called()
 
     @patch.object(util.session, 'get', side_effect=[

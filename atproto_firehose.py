@@ -51,9 +51,21 @@ RECONNECT_DELAY = timedelta(seconds=30)
 STORE_CURSOR_FREQ = timedelta(seconds=10)
 LOG_OUTLIER_THRESHOLD = timedelta(minutes=5)
 
-Event = namedtuple('Event', ['action', 'repo', 'path', 'seq', 'record', 'time'],
-                   # last four fields are optional
-                   defaults=[None, None, None, None])
+# #account statuses that make us delete a native ATProto user's bridged actors.
+# https://atproto.com/guides/account-lifecycle
+# https://www.pfrazee.com/leaflets/3lz4sgu7iec2k
+#
+# deleted and deactivated come from the user themselves. takendown can come from
+# their PDS or the relay. #account events aren't signed, so we can't tell which,
+# but we trust the relay, and if it takes an account down for network abuse, we
+# want to stop bridging it too. suspended is temporary, and desynchronized and
+# throttled are operational states from the relay, so we ignore those.
+DELETE_ACCOUNT_STATUSES = ('deactivated', 'deleted', 'takendown')
+
+Event = namedtuple('Event',
+                   ['action', 'repo', 'path', 'seq', 'record', 'time', 'status'],
+                   # last five fields are optional
+                   defaults=[None, None, None, None, None])
 """A firehose event, either a commit operation or an #account or #identity event.
 
 Attributes:
@@ -65,6 +77,8 @@ Attributes:
   record (dict): JSON record object for ``create`` and ``update``, None otherwise
     (including deletes)
   time (str): event's ISO 8601 timestamp, from the firehose payload
+  status (str): for ``account``, the account's status if it's inactive, eg
+    ``deactivated`` or ``takendown``. None otherwise
 """
 
 # contains Events
@@ -235,8 +249,12 @@ def subscribe():
         if t in ('#account', '#identity'):
             if repo in atproto_dids or repo in bridged_dids:
                 t = t.removeprefix('#')
-                logger.info(f'Got {t} {repo}')
-                events.put(Event(action=t, repo=repo, seq=seq, time=cur_timestamp))
+                status = payload.get('status')
+                logger.info(f'Got {t} {repo} {status or ""}')
+                if payload.get('active') is False and not status:
+                    logger.warning(f'{repo} is inactive but has no status')
+                events.put(Event(action=t, repo=repo, seq=seq, time=cur_timestamp,
+                                 status=status))
             continue
 
         blocks = {}  # maps base32 str CID to dict block
@@ -468,6 +486,21 @@ def handle(limit=None):
     while event := events.get():
         match event.action:
             case 'account':
+                if (event.status in DELETE_ACCOUNT_STATUSES
+                        and ATProto.get_by_id(event.repo)):
+                    # delete before reloading the DID doc in case that fails
+                    logger.info(f'{event.repo} is {event.status}, deleting bridged actors')
+                    delete_id = f'at://{event.repo}#delete-{event.seq}'
+                    create_task(queue='receive', id=delete_id,
+                                source_protocol=ATProto.LABEL, our_as1={
+                                    'objectType': 'activity',
+                                    'verb': 'delete',
+                                    'id': delete_id,
+                                    'actor': event.repo,
+                                    'object': event.repo,
+                                }, authed_as=event.repo, received_at=event.time,
+                                delay=DELETE_TASK_DELAY)
+
                 # reload DID doc
                 ATProto.load(event.repo, raw=True, remote=True)
 
