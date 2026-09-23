@@ -5658,6 +5658,62 @@ class ProtocolReceiveTest(TestCase):
         self.assertEqual(note, obj.our_as1)
         self.assertIsNone(Object.get_by_id('fake:post#bridgy-fed-create-2022-01-02T03:04:05+00:00'))
 
+    def test_receive_task_handler_changed(self):
+        # https://github.com/snarfed/bridgy-fed/issues/2686
+        self.make_followers()
+
+        post_as1 = {
+            'id': 'fake:post',
+            'objectType': 'note',
+            'author': 'fake:user',
+            'content': 'first',
+        }
+        self.store_object(id='fake:post', our_as1=post_as1, source_protocol='fake',
+                          copies=[Target(uri='other:post', protocol='other')])
+        memcache.memcache.set(protocol.activity_id_memcache_key('fake:post'), 'done')
+
+        post_as1['content'] = 'second'
+        resp = self.post('/queue/receive', data={
+            'our_as1': json_dumps(post_as1),
+            'source_protocol': 'fake',
+            'authed_as': 'fake:user',
+            'changed': 'True',
+        })
+        self.assertEqual(202, resp.status_code)
+
+        update = {
+            'objectType': 'activity',
+            'verb': 'update',
+            'id': 'fake:post#bridgy-fed-update-2022-01-02T03:04:05+00:00',
+            'actor': 'fake:user',
+            'object': {
+                **post_as1,
+                'updated': '2022-01-02T03:04:05+00:00',
+            },
+        }
+        self.assert_equals([
+            ('other:alice:target', update),
+            ('other:bob:target', update),
+        ], OtherFake.sent)
+
+    def test_receive_task_handler_not_new(self):
+        self.make_followers()
+
+        post_as1 = {
+            'id': 'fake:post',
+            'objectType': 'note',
+            'author': 'fake:user',
+            'content': 'foo',
+        }
+        resp = self.post('/queue/receive', data={
+            'our_as1': json_dumps(post_as1),
+            'source_protocol': 'fake',
+            'authed_as': 'fake:user',
+            'new': 'False',
+        })
+        self.assertEqual(204, resp.status_code)
+        self.assertEqual([], OtherFake.sent)
+
     @patch.object(Fake, 'receive', side_effect=requests.ConnectionError('foo'))
     def test_receive_task_handler_connection_error(self, _):
         orig_count = Object.query().count()

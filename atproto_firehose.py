@@ -422,7 +422,7 @@ def _handle_commit_op(event):
         logger.debug(f'Skipping unsupported type {type}: {at_uri}')
         return
 
-    # store object, enqueue receive task
+    # enqueue receive task
     if event.action in ('create', 'update'):
         record_kwarg = {'bsky': record}
         obj_id = at_uri
@@ -468,6 +468,7 @@ def _handle_commit_op(event):
     try:
         create_task(queue='receive', id=obj_id, source_protocol=ATProto.LABEL,
                     authed_as=event.repo, received_at=event.time, delay=delay,
+                    changed=True if event.action == 'update' else None,
                     **record_kwarg)
         # when running locally, comment out above and uncomment this
         # logger.info(f'enqueuing receive task for {at_uri}')

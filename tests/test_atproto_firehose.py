@@ -730,6 +730,20 @@ class ATProtoFirehoseHandleTest(ATProtoTestCase):
                          bsky=reply, source_protocol='atproto',
                          authed_as='did:plc:user', received_at='1900-02-04')
 
+    def test_update_profile(self, mock_create_task):
+        # https://github.com/snarfed/bridgy-fed/issues/2686
+        events.put(Event(repo='did:plc:user', action='update', seq=789,
+                         path='app.bsky.actor.profile/self',
+                         record=ACTOR_PROFILE_BSKY, time='1900-02-04'))
+
+        handle(limit=1)
+
+        self.assert_task(mock_create_task, 'receive',
+                         id='at://did:plc:user/app.bsky.actor.profile/self',
+                         bsky=ACTOR_PROFILE_BSKY, source_protocol='atproto',
+                         authed_as='did:plc:user', received_at='1900-02-04',
+                         changed=True)
+
     def test_create_post_with_image_blob_bytes_cid_from_libipld_v2(
             self, mock_create_task):
         # https://github.com/snarfed/bridgy-fed/issues/1316
@@ -899,7 +913,8 @@ class ATProtoFirehoseHandleTest(ATProtoTestCase):
 
         self.assert_task(mock_create_task, 'receive', bsky=ACTOR_PROFILE_BSKY,
                          id='at://did:plc:user/app.bsky.actor.profile/self',
-                         source_protocol='atproto', authed_as='did:plc:user')
+                         source_protocol='atproto', authed_as='did:plc:user',
+                         changed=True)
 
     def test_unsupported_type(self, mock_create_task):
         orig_objs = Object.query().count()

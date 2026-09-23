@@ -24,7 +24,7 @@ from pymemcache.exceptions import (
 from requests import RequestException
 from websockets.exceptions import InvalidStatus
 from webutil.appengine_info import DEBUG, LOCAL_SERVER
-from webutil.flask_util import cloud_tasks_only
+from webutil.flask_util import bool_param, cloud_tasks_only
 from webutil.models import MAX_ENTITY_SIZE
 from webutil import util
 from webutil.util import json_dumps, json_loads
@@ -1857,7 +1857,7 @@ class Protocol:
             ndb.put_multi(updated_followers)
 
     @classmethod
-    def handle_bare_object(cls, obj, *, authed_as, from_user):
+    def handle_bare_object(from_cls, obj, *, authed_as, from_user):
         """If obj is a bare object, wraps it in a create or update activity.
 
         Checks if we've seen it before.
@@ -1874,7 +1874,7 @@ class Protocol:
         if not is_actor and obj.type not in ('note', 'article', 'comment'):
             return obj
 
-        obj_actor = ids.normalize_user_id(id=as1.get_owner(obj.as1), proto=cls)
+        obj_actor = ids.normalize_user_id(id=as1.get_owner(obj.as1), proto=from_cls)
         now = util.now().isoformat()
 
         # this is a raw post; wrap it in a create or update activity
@@ -2656,6 +2656,10 @@ def receive_task():
       obj_id (str): key id of :class:`models.Object` to handle
       received_at (str, ISO 8601 timestamp): when we first saw (received)
         this activity
+      new (str, ``True`` or ``False``): optional, populated into
+        :attr:`models.Object.new`. Defaults to ``True``.
+      changed (str, ``True`` or ``False``): optional, populated into
+        :attr:`models.Object.changed`. Defaults to ``None``.
       *: If ``obj_id`` is unset, all other parameters are properties for a new
         :class:`models.Object` to handle
 
@@ -2674,7 +2678,12 @@ def receive_task():
     obj = Object.from_request()
     assert obj
     assert obj.source_protocol
+
     obj.new = True
+    if 'new' in request.values:
+        obj.new = bool_param('new')
+    if 'changed' in request.values:
+        obj.changed = bool_param('changed')
 
     if received_at := form.pop('received_at', None):
         received_at = datetime.fromisoformat(received_at)
