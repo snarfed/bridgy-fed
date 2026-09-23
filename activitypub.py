@@ -1830,14 +1830,13 @@ def nodeinfo():
         'version': '2.1',
         'software': {
             'name': 'bridgy-fed',
-            'version': os.getenv('GAE_VERSION'),
+            'version': os.getenv('K_REVISION'),
             'repository': 'https://github.com/snarfed/bridgy-fed',
             'homepage': 'https://fed.brid.gy/',
         },
         'protocols': [
             'activitypub',
             'atprotocol',
-            'nostr',
             'webmention',
         ],
         'services': {
