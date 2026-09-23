@@ -992,6 +992,18 @@ def respond(user):
 
     obj_as1 = copy.deepcopy(obj.as1)
     as1.convert_html_content_to_text(obj_as1)
+
+    # hydrate author
+    # (overlaps with models.hydrate some, but it's not a good fit to reuse here)
+    author = as1.get_object(obj_as1, 'author')
+    if author.keys() == {'id'} and (proto := PROTOCOLS.get(obj.source_protocol)):
+        profile_id = ids.profile_id(id=author['id'], proto=proto)
+        if profile := proto.load(profile_id, raise_=False):
+            obj_as1['author'] = author = copy.deepcopy(profile.as1)
+
+    if not author.get('displayName') and author.get('username'):
+        author['displayName'] = author.pop('username')
+
     return render('respond.html', user=user, obj=obj,
                   obj_html=microformats2.object_to_html(obj_as1),
                   token=get_required_param('token'))

@@ -42,8 +42,7 @@ HTML = """\
 <body class="">
 <article class="h-entry">
   <span class="p-uid">tag:fake.com:123456</span>
-  <time class="dt-published" datetime="2012-12-05T00:58:26+00:00">2012-12-05T00:58:26+00:00</time>
-  <a class="u-url" href="https://fake.com/123456">fake.com/123456</a>
+  <a class="u-url" href="https://fake.com/123456"><time class="dt-published" datetime="2012-12-05T00:58:26+00:00">2012-12-05T00:58:26+00:00</time></a>
   <div class="e-content p-name">
   A ☕ reply
   </div>
@@ -62,13 +61,12 @@ AUTHOR_HTML = """\
 <body class="">
 <article class="h-entry">
   <span class="p-uid">tag:fake.com:123456</span>
-  <time class="dt-published" datetime="2012-12-05T00:58:26+00:00">2012-12-05T00:58:26+00:00</time>
+  <a class="u-url" href="https://fake.com/123456"><time class="dt-published" datetime="2012-12-05T00:58:26+00:00">2012-12-05T00:58:26+00:00</time></a>
   <span class="p-author h-card">
     <data class="p-uid" value="tag:fake.com:444"></data>
     <a class="p-name u-url" href="https://plus.google.com/bob">Bob</a>
     <img class="u-photo" src="https://bob/picture" alt="" />
   </span>
-  <a class="u-url" href="https://fake.com/123456">fake.com/123456</a>
   <div class="e-content p-name">
   A ☕ reply
   </div>
@@ -338,7 +336,8 @@ class ConvertTest(testutil.TestCase):
         self.assertEqual(200, resp.status_code)
         expected = HTML.replace(
             '\n<meta http-equiv="refresh" content="0;url=https://fake.com/123456">', ''
-            ).replace('<a class="u-url" href="https://fake.com/123456">fake.com/123456</a>', '')
+            ).replace('<a class="u-url" href="https://fake.com/123456">', ''
+            ).replace('</time></a>', '</time>')
         self.assert_multiline_equals(expected, resp.get_data(as_text=True),
                                      ignore_blanks=True)
 

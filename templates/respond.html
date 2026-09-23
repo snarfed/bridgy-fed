@@ -15,6 +15,10 @@ key is the MD5 hash of our API key
 <div class="row iframely-row">
   <div class="iframely-embed col-lg-6 col-lg-offset-3 col-md-8 col-md-offset-2 col-sm-12">
     <div class="iframely-responsive">
+      {% set obj_proto = PROTOCOLS[obj.source_protocol] %}
+      <span class="logo post-logo" title="{{ obj_proto.PHRASE.removeprefix('the ') }}">
+        {{ (obj_proto.LOGO_HTML or obj_proto.LOGO_EMOJI)|safe }}
+      </span>
       {{ obj_html|safe }}
       <a data-iframely-url href="{{ obj.as1['url'] }}"></a>
     </div>
@@ -58,6 +62,12 @@ key is the MD5 hash of our API key
 </form>
 
 </div>
+
+<script>
+var time = document.querySelector('.iframely-responsive time[datetime]');
+time.textContent = new Date(time.getAttribute('datetime')).toLocaleString(
+    undefined, {dateStyle: 'medium', timeStyle: 'short'});
+</script>
 
 <script async src="https://iframely.net/embed.js?key={{ IFRAMELY_API_KEY_MD5 }}&theme=light"></script>
 

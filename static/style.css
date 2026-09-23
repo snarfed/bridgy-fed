@@ -681,25 +681,114 @@ a.active-tab + a {
   margin-top: 1em;
 }
 
-.iframely-responsive > .h-entry > * {
-  display: block;
-  margin-top: 1em;
+.iframely-responsive > .h-entry {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: .75em 1em;
+  margin: 1em 0;
+  padding: 1em;
+  border: 1px solid #dddddd;
+  border-radius: 12px;
+  background-color: white;
+  text-align: left;
 }
 
-.iframely-responsive .p-uid {
+.iframely-responsive:has(> .post-logo) {
+  position: relative;
+}
+
+/* bottom right corner of the .h-entry card, inside its 1em padding. its
+   vertical margin collapses through .iframely-responsive */
+.iframely-responsive > .post-logo {
+  position: absolute;
+  bottom: 1em;
+  right: 1em;
+}
+
+.iframely-responsive > .post-logo,
+.iframely-responsive > .post-logo img {
+  height: 1.5em;
+  margin: 0;
+}
+
+.iframely-responsive .p-uid,
+.iframely-responsive .u-in-reply-to:empty,
+.iframely-responsive .u-url:empty {
   display: none;
 }
 
-.iframely-responsive > .h-entry > .dt-published::before {
-  content: 'At: ';
+.iframely-responsive > .h-entry > .p-author {
+  order: 1;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  column-gap: .5em;
+  width: 100%;
+  position: relative;
 }
 
-.iframely-responsive > .h-entry > .p-author::before {
-  content: 'From: ';
+.iframely-responsive > .h-entry > .p-author:has(.u-photo) {
+  padding-left: calc(48px + .75em);
+  min-height: 48px;
 }
 
-.iframely-responsive > .h-entry > .u-url::before {
-  content: 'Link: ';
+.iframely-responsive > .h-entry > .p-author .u-photo {
+  position: absolute;
+  left: 0;
+  top: 0;
+  width: 48px;
+  height: 48px;
+  border-radius: 50%;
+  object-fit: cover;
+}
+
+.iframely-responsive > .h-entry > .p-author .p-name {
+  font-weight: bold;
+}
+
+.iframely-responsive > .h-entry > .p-author .p-nickname {
+  color: #777777;
+}
+
+.iframely-responsive > .h-entry > .p-author .p-nickname::before {
+  content: '@';
+}
+
+.iframely-responsive > .h-entry > .e-content {
+  order: 2;
+  width: 100%;
+  overflow-wrap: anywhere;
+}
+
+/* granary wraps multi-line plain text in an inline white-space: pre div */
+.iframely-responsive > .h-entry > .e-content > div {
+  white-space: pre-wrap !important;
+}
+
+.iframely-responsive > .h-entry > img,
+.iframely-responsive > .h-entry > video {
+  order: 3;
+  max-width: 100%;
+  max-height: 400px;
+  border-radius: 8px;
+}
+
+/* title, for posts that have one, eg articles */
+.iframely-responsive > .h-entry > .p-name:not(.e-content) {
+  order: 2;
+  width: 100%;
+  font-weight: bold;
+}
+
+/* granary links published time to the post if it has a URL */
+.iframely-responsive > .h-entry > .dt-published,
+.iframely-responsive > .h-entry > a:has(> .dt-published) {
+  order: 4;
+  font-size: .85em;
+  color: #777777;
+  /* leave room for .post-logo */
+  margin-right: 2em;
 }
 
 input[type="text"], input[type="url"] {

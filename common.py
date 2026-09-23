@@ -5,6 +5,7 @@ import logging
 import os
 from pathlib import Path
 import re
+import string
 import threading
 import urllib.parse
 from urllib.parse import urljoin, urlparse
@@ -417,6 +418,7 @@ def render_template(template, **kwargs):
         READ_ONLY=READ_ONLY,
         request=request,
         set=set,
+        string=string,
         util=util,
         **kwargs)
 

@@ -1525,7 +1525,7 @@ class PagesTest(TestCase):
     @patch.dict('pages.TEMPLATE_VARS', IFRAMELY_API_KEY_MD5='iframelee-key')
     @patch('webutil.util.now', return_value=datetime.now())
     def test_respond(self, _):
-        self.store_object(id='other:post', our_as1={'url': 'https://other/post'})
+        self.store_object(id='other:post', source_protocol='other', our_as1={'url': 'https://other/post'})
         token = common.make_jwt(user=self.user, scope='respond', obj_id='other:post')
 
         resp = self.client.get(
@@ -1538,6 +1538,64 @@ class PagesTest(TestCase):
         self.assertIn(token, html)
         self.assertIn('https://iframely.net/embed.js?key=iframelee-key&theme=light',
                       html)
+
+    @patch('webutil.util.now', return_value=datetime.now())
+    def test_respond_loads_author(self, _):
+        Fake.fetchable = {'fake:profile:alice': {
+            'objectType': 'person',
+            'displayName': 'Alice',
+            'url': 'https://alice.com/',
+            'image': 'https://alice.com/pic.jpg',
+        }}
+        self.store_object(id='fake:post', source_protocol='fake', our_as1={
+            'objectType': 'note',
+            'author': 'fake:alice',
+            'content': 'hi there',
+        })
+        token = common.make_jwt(user=self.user, scope='respond', obj_id='fake:post')
+
+        resp = self.client.get(
+            f'/web/user.com/respond?obj_id=fake:post&token={token}')
+        self.assertEqual(200, resp.status_code)
+        self.assertEqual(['fake:profile:alice'], Fake.fetched)
+
+        html = resp.get_data(as_text=True)
+        self.assert_multiline_in("""\
+<span class="logo post-logo" title="fake-phrase">
+<img src="fake-logo">
+</span>
+""", html, ignore_blanks=True)
+        self.assert_multiline_in("""\
+<span class="p-author h-card">
+<data class="p-uid" value="fake:profile:alice"></data>
+<a class="p-name u-url" href="https://alice.com/">Alice</a>
+<img class="u-photo" src="https://alice.com/pic.jpg" alt="" />
+</span>
+""", html, ignore_blanks=True)
+
+    @patch('webutil.util.now', return_value=datetime.now())
+    def test_respond_author_no_display_name_uses_handle(self, _):
+        self.store_object(id='fake:post', source_protocol='fake', our_as1={
+            'objectType': 'note',
+            'author': {
+                'objectType': 'person',
+                'id': 'fake:profile:alice',
+                'username': 'alice.com',
+                'url': 'https://alice.com/',
+            },
+            'content': 'hi there',
+        })
+        token = common.make_jwt(user=self.user, scope='respond', obj_id='fake:post')
+
+        resp = self.client.get(
+            f'/web/user.com/respond?obj_id=fake:post&token={token}')
+        self.assertEqual(200, resp.status_code)
+        self.assert_multiline_in("""\
+<span class="p-author h-card">
+<data class="p-uid" value="fake:profile:alice"></data>
+<a class="p-name u-url" href="https://alice.com/">alice.com</a>
+</span>
+""", resp.get_data(as_text=True), ignore_blanks=True)
 
     def test_respond_missing_token(self):
         self.store_object(id='other:post')
@@ -1586,7 +1644,7 @@ class PagesTest(TestCase):
     def test_respond_reply(self, mock_create_task, _):
         common.RUN_TASKS_INLINE = False
 
-        self.store_object(id='fake:post')
+        self.store_object(id='fake:post', source_protocol='fake')
 
         resp = self.client.post('/web/user.com/respond/reply', data={
             'obj_id': 'fake:post',
@@ -1672,7 +1730,7 @@ class PagesTest(TestCase):
     def test_respond_like(self, mock_create_task, _):
         common.RUN_TASKS_INLINE = False
 
-        self.store_object(id='fake:post')
+        self.store_object(id='fake:post', source_protocol='fake')
 
         resp = self.client.post('/web/user.com/respond/like', data={
             'obj_id': 'fake:post',
@@ -1724,7 +1782,7 @@ class PagesTest(TestCase):
     def test_respond_repost(self, mock_create_task, _):
         common.RUN_TASKS_INLINE = False
 
-        self.store_object(id='fake:post')
+        self.store_object(id='fake:post', source_protocol='fake')
 
         resp = self.client.post('/web/user.com/respond/repost', data={
             'obj_id': 'fake:post',
@@ -1775,7 +1833,7 @@ class PagesTest(TestCase):
     def test_respond_block(self, mock_create_task, _):
         common.RUN_TASKS_INLINE = False
 
-        self.store_object(id='fake:post', our_as1={'author': 'fake:alice'})
+        self.store_object(id='fake:post', source_protocol='fake', our_as1={'author': 'fake:alice'})
 
         resp = self.client.post('/web/user.com/respond/block', data={
             'obj_id': 'fake:post',
