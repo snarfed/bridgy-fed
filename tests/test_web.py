@@ -2769,8 +2769,8 @@ class WebTest(TestCase):
         empty = requests_response('')
         mock_get.side_effect = [empty, empty]
         self._test_verify(False, False, None, """\
-<pre>https://user.com/.well-known/webfinger?resource=acct:user.com@user.com
-  returned HTTP 200</pre>""")
+https://user.com/.well-known/webfinger?resource=acct:user.com@user.com
+  returned HTTP 200""")
 
     def test_verify_redirect_strips_query_params(self, mock_get, _):
         half_redir = requests_response(
@@ -2782,8 +2782,9 @@ class WebTest(TestCase):
             no_hcard,
         ]
         self._test_verify(False, False, None, """\
-Current vs expected:<pre>- http://localhost/.well-known/webfinger
-+ https://fed.brid.gy/.well-known/webfinger?resource=acct:user.com@user.com</pre>""")
+Current vs expected:
+- http://localhost/.well-known/webfinger
++ https://fed.brid.gy/.well-known/webfinger?resource=acct:user.com@user.com""")
 
     def test_verify_multiple_redirects(self, mock_get, _):
         two_redirs = requests_response(
@@ -2800,8 +2801,9 @@ Current vs expected:<pre>- http://localhost/.well-known/webfinger
         no_hcard = requests_response('<html><body></body></html>')
         mock_get.side_effect = [redir_404, redir_404, no_hcard]
         self._test_verify(False, False, None, """\
-Current vs expected:<pre>- http://this/404s
-+ https://fed.brid.gy/.well-known/webfinger?resource=acct:user.com@user.com</pre>""")
+Current vs expected:
+- http://this/404s
++ https://fed.brid.gy/.well-known/webfinger?resource=acct:user.com@user.com""")
 
     def test_verify_redirect_404_right_destination(self, mock_get, _):
         redir_404 = requests_response(status=404, redirected_url='http://localhost/.well-known/webfinger?resource=acct:user.com@user.com')

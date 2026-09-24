@@ -385,12 +385,12 @@ class Web(User, Protocol):
                         self.redirects_error = OWNS_WEBFINGER
                     else:
                         diff = '\n'.join(difflib.Differ().compare([got], [expected[0]]))
-                        self.redirects_error = f'Current vs expected:<pre>{diff}</pre>'
+                        self.redirects_error = f'Current vs expected:\n{diff}'
             else:
                 lines = [url, f'  returned HTTP {resp.status_code}']
                 if resp.url and resp.url != url:
                     lines[1:1] = ['  redirected to:', resp.url]
-                self.redirects_error = '<pre>' + '\n'.join(lines) + '</pre>'
+                self.redirects_error = '\n'.join(lines)
         except RequestException:
             pass
 

@@ -444,6 +444,17 @@ class PagesTest(TestCase):
         self.assert_equals(200, got.status_code)
         self.assertIn('...and more', got.get_data(as_text=True))
 
+    def test_user_redirects_error_escaped(self):
+        self.user.has_redirects = False
+        self.user.redirects_error = 'Current vs expected:\n- http://this/<script>alert(1)</script>'
+        self.user.put()
+
+        got = self.client.get('/web/user.com')
+        self.assert_equals(200, got.status_code)
+        self.assert_multiline_in("""\
+<pre style="white-space: pre-wrap">Current vs expected:
+- http://this/&lt;script&gt;alert(1)&lt;/script&gt;</pre>""", got.get_data(as_text=True))
+
     def test_user_protocol_bot_user(self):
         bot = self.make_user(id='fa.brid.gy', cls=Web)
         got = self.client.get('/web/fa.brid.gy')

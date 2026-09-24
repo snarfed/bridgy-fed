@@ -22,7 +22,7 @@
   {% if user.redirects_error %}
   <details>
     <summary class="btn btn-default">See results</summary>
-    <span class="small">{{ user.redirects_error|safe }}</span>
+    <pre style="white-space: pre-wrap">{{ user.redirects_error }}</pre>
   </details>
   {% endif %}
 </form>
