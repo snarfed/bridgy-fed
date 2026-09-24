@@ -4162,6 +4162,9 @@ class ActivityPubUtilsTest(TestCase):
         user.obj.as2['url'] = ['http://my/url']
         self.assertEqual('http://my/url', user.web_url())
 
+        user.obj.as2['url'] = 'javascript:alert(1)'
+        self.assertEqual('http://foo/person', user.web_url())
+
     @patch.object(util.session, 'get', side_effect=[
         TestCase.as2_resp({
             'type': 'Person',

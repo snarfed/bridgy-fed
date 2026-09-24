@@ -74,7 +74,7 @@ class PagesTest(TestCase):
     EXPECTED = contents([COMMENT, MENTION, NOTE])
     EXPECTED_SNIPPETS = [
         'Dr. Eve replied a comment',
-        'tag:fake.com:44... posted a mention',
+        'tag:fake.com:444 posted a mention',
         '🌐 user.com posted my note',
     ]
 

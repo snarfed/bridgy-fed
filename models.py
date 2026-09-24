@@ -1291,7 +1291,7 @@ class User(AddRemoveMixin, StringIdModel, metaclass=ProtocolUserMeta):
                 logo_html = f'<img class="logo" title="{proto.__name__}" src="{logo}" /> '
             else:
                 logo_html = f'<span class="logo" title="{proto.__name__}">{proto.LOGO_HTML or proto.LOGO_EMOJI}</span> '
-            if pic := self.profile_picture():
+            if (pic := self.profile_picture()) and util.is_web(pic):
                 img = f'<img src="{html.escape(pic)}" class="profile"> '
 
         if handle:
@@ -1964,12 +1964,16 @@ class Object(AddRemoveMixin, StringIdModel):
         if not actor:
             return ''
         elif set(actor.keys()) == {'id'}:
+            if not util.is_web(actor['id']):
+                return html.escape(actor['id'], quote=False)
             return common.pretty_link(actor['id'], attrs=attrs, user=user)
 
         url = as1.get_url(actor)
+        if not util.is_web(url):
+            url = ''
         name = actor.get('displayName') or actor.get('username') or ''
         img_url = util.get_url(actor, 'image')
-        if not image or not img_url:
+        if not image or not util.is_web(img_url):
             return common.pretty_link(url, text=name, attrs=attrs, user=user)
 
         logo = ''
@@ -1978,9 +1982,9 @@ class Object(AddRemoveMixin, StringIdModel):
 
         return f"""\
         {logo}
-        <a class="h-card u-author" href="{url}" title="{name}">
-          <img class="profile" src="{img_url}" {'width="32"' if sized else ''}/>
-          <span style="unicode-bidi: isolate">{util.ellipsize(name, chars=40)}</span>
+        <a class="h-card u-author" href="{html.escape(url)}" title="{html.escape(name)}">
+          <img class="profile" src="{html.escape(img_url)}" {'width="32"' if sized else ''}/>
+          <span style="unicode-bidi: isolate">{html.escape(util.ellipsize(name, chars=40), quote=False)}</span>
         </a>"""
 
     def get_copy(self, proto):

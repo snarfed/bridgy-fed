@@ -402,6 +402,14 @@ class UserTest(TestCase):
             '<span class="logo" title="Fake"><img src="fake-logo"></span> <a class="h-card u-author mention" rel="me" href="web:fake:&quot;&gt;&lt;b&gt;x" title="&lt;script&gt;alert(1)&lt;/script&gt; &middot; fake:handle:&quot;&gt;&lt;b&gt;x"><img src="http://pic/&quot;onerror=&quot;alert(1)" class="profile"> <span style="unicode-bidi: isolate">&lt;script&gt;alert(1)&lt;/script&gt;</span> &middot; fake:handle:"&gt;&lt;b&gt;x</a>',
             user.html_link(pictures=True))
 
+    def test_html_link_non_web_picture(self):
+        user = self.make_user('fake:x', cls=Fake, obj_as1={
+            'image': 'javascript:alert(1)',
+        })
+        self.assert_multiline_equals(
+            '<span class="logo" title="Fake"><img src="fake-logo"></span> <a class="h-card u-author mention" rel="me" href="web:fake:x" title="fake:handle:x">fake:handle:x</a>',
+            user.html_link(pictures=True))
+
     def test_html_link_proto_not_enabled(self):
         with self.assertRaises(AssertionError):
             self.user.html_link(proto=ExplicitFake)
@@ -1319,14 +1327,42 @@ class ObjectTest(TestCase):
         obj = Object(id='x', our_as1={
             'actor': {
                 'displayName': 'Alice',
-                'image': 'foo.jpg',
+                'image': 'http://foo.jpg',
             },
         })
         self.assert_multiline_equals("""\
 <a class="h-card u-author" href="" title="Alice">
-  <img class="profile" src="foo.jpg" width="32"/>
+  <img class="profile" src="http://foo.jpg" width="32"/>
   <span style="unicode-bidi: isolate">Alice</span>
 </a>""", obj.actor_link(sized=True), ignore_blanks=True)
+
+    def test_actor_link_escapes(self):
+        obj = Object(id='x', our_as1={
+            'actor': {
+                'displayName': '<script>alert(1)</script>',
+                'url': 'http://foo/"onmouseover="alert(1)',
+                'image': 'http://pic/"onerror="alert(1)',
+            },
+        })
+        self.assert_multiline_in("""\
+<a class="h-card u-author" href="http://foo/&quot;onmouseover=&quot;alert(1)" title="&lt;script&gt;alert(1)&lt;/script&gt;">
+  <img class="profile" src="http://pic/&quot;onerror=&quot;alert(1)" />
+  <span style="unicode-bidi: isolate">&lt;script&gt;alert(1)&lt;/script&gt;</span>
+</a>""", obj.actor_link(), ignore_blanks=True)
+
+    def test_actor_link_non_web_urls(self):
+        obj = Object(id='x', our_as1={
+            'actor': {
+                'displayName': 'Alice',
+                'url': 'javascript:alert(1)',
+                'image': 'javascript:alert(2)',
+            },
+        })
+        self.assert_multiline_equals(
+            '<a class="h-card u-author" href="">Alice</a>', obj.actor_link())
+
+        obj = Object(id='x', our_as1={'actor': {'id': 'javascript:alert(1)'}})
+        self.assertEqual('javascript:alert(1)', obj.actor_link())
 
     def test_actor_link_composite_url(self):
         obj = Object(id='x', source_protocol='activitypub', our_as1={

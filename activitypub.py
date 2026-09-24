@@ -206,7 +206,7 @@ class ActivityPub(User, Protocol):
         """Returns this user's web URL aka web_url, eg ``https://foo.com/``."""
         if self.obj and self.obj.as1:
             url = as1.get_url(self.obj.as1)
-            if url:
+            if util.is_web(url):
                 return url
 
         return self.key.id()
