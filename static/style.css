@@ -1137,16 +1137,57 @@ input:checked + .slider:before {
   margin-top: 35px;
 }
 
-.submit-button {
-  position: absolute;
-}
-
+/* login buttons: <details> with the logo as <summary>, input and submit inside */
 .login-button {
   cursor: pointer;
+  list-style: none;
+  width: fit-content;
+  margin: 0 auto 5px;
+  border:gray 1px solid;
+  border-radius:30px;
+  padding:15px;
+  transition: transform 0.5s ease-in-out;
+  position: relative;
+}
+
+.login-button::-webkit-details-marker {
+  display: none;
+}
+
+details[open] > .login-button {
+  transform: translateY(-20px);
+  margin-top:20px;
+}
+
+.login-input {
+  width: 135px;
+  height: 50px;
+  border-radius: 90px;
+  margin-right:10px;
+}
+
+.submit-button {
+  position: absolute;
+  border:gray 1px solid;
+  border-radius:30px;
+  width: 45px;
+  height: 45px;
+}
+
+.fade-in-element {
+  transition: all 0.3s ease-in-out;
+  margin-top:20px;
+}
+
+@starting-style {
+  .fade-in-element {
+    opacity: 0;
+    transform: translateY(-10px);
+  }
 }
 
 .login-button-logotype {
-  display: inline-flex;
+  display: flex;
   flex-direction: row;
   align-items: center;
   user-select: none;
@@ -1172,85 +1213,4 @@ input:checked + .slider:before {
 .account-chooser button a {
   /* the user's link shouldn't navigate; clicks should always submit the form */
   pointer-events: none;
-}
-
-
-@media (scripting: none) {
-  .login-button {
-    margin-top:20px;
-  }
-
-  .login-input {
-    width: 135px;
-    height: 50px;
-    border-radius: 90px;
-    margin-right:10px;
-  }
-
-  .submit-button {
-    border:gray 1px solid;
-    border-radius:30px;
-    width: 45px;
-    height: 45px;
-  }
-
-  .fade-in-element {
-    opacity: 1;
-    transform: translateY(0px);
-    margin-top:20px;
-  }
-}
-
-@media (scripting: enabled) {
-  /* sliding OAuth login buttons and inputs */
-  .login-button {
-    margin-right:10px;
-    margin-bottom:-20px;
-    border:gray 1px solid;
-    border-radius:30px;
-    padding:15px;
-    transition: transform 0.5s ease-in-out;
-    position: relative;
-  }
-
-  .login-button.slide-up {
-    transform: translateY(-20px);
-    margin-top:20px;
-  }
-
-  .login-input {
-    width: 0px;
-    height: 0px;
-  }
-
-  .login-input.visible {
-    width: 135px;
-    height: 50px;
-    border-radius: 90px;
-    margin-right:10px;
-  }
-
-  .submit-button {
-    border:gray 1px solid;
-    border-radius:30px;
-    width: 0px;
-    height: 0px;
-  }
-
-  .submit-button.visible {
-    width: 45px;
-    height: 45px;
-  }
-
-  .fade-in-element {
-    transition: all 0.3s ease-in-out;
-    opacity: 0;
-    transform: translateY(-10px);
-  }
-
-  .fade-in-element.visible {
-    opacity: 1;
-    transform: translateY(0px);
-    margin-top:20px;
-  }
 }

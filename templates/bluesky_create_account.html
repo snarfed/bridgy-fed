@@ -13,8 +13,7 @@
 </div>
 
 <div class="row">
-  <form action="/settings/migrate-to-atproto/create-account" method="post"
-        onsubmit="return window.confirm('Migrating out is irreversible. Are you sure?')">
+  <form action="/settings/migrate-to-atproto/create-account" method="post">
     <input type="hidden" name="key" value="{{ user.key.urlsafe().decode() }}" />
     <input type="hidden" name="pds" value="{{ pds }}" />
 
@@ -33,6 +32,7 @@
       <p><input type="text" name="phone_verification_code" required
                 placeholder="phone verification code" />
     {% endif %}
+    <p><label><input type="checkbox" required /> I understand that migrating out is irreversible</label>
     <p><input type="submit" class="btn btn-default" value="Migrate" />
   </form>
 </div>

@@ -175,7 +175,7 @@ My App
         body = resp.get_data(as_text=True)
         self.assertIn('My App', body)
         self.assertIn('alice.com', body)
-        self.assertIn('IndieAuth-input', body)
+        self.assertIn('placeholder="Your web site"', body)
 
     def test_authorize_no_session_login(self):
         """No existing session: just the fresh login forms, no chooser."""
@@ -185,7 +185,7 @@ My App
             base_url=BASE_URL)
         self.assertEqual(200, resp.status_code)
         body = resp.get_data(as_text=True)
-        self.assertIn('IndieAuth-input', body)
+        self.assertIn('placeholder="Your web site"', body)
         self.assertNotIn('name="user_key"', body)
 
     def test_session_consent_issue_token(self):
@@ -303,8 +303,9 @@ My App
         self.assertNotIn('Location', resp.headers)
 
         body = resp.get_data(as_text=True)
-        match = re.search(r'id="code" readonly value="([^"]+)"', body)
+        match = re.search(r'<code id="code" style="word-break: break-all">([^<]+)</code>', body)
         self.assertTrue(match, body)
+        self.assertIn(f'data-copy="{match.group(1)}"', body)
 
         payload = jwt.decode(match.group(1), algorithms=[oauth_server.JWT_ALG],
                              key=webutil.models.ENCRYPTED_PROPERTY_KEYS_BYTES[0])

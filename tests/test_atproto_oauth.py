@@ -550,10 +550,10 @@ class ATProtoOAuthTest(TestCase):
 My App
 </a>""", body, body)
         self.assertNotIn(CLIENT_ID, body)
-        self.assertIn('Mastodon-input', body)
-        self.assertIn('IndieAuth-input', body)
+        self.assertIn('placeholder="Mastodon instance"', body)
+        self.assertIn('placeholder="Your web site"', body)
         # you can't log in with an ATProto account to get an ATProto account
-        self.assertNotIn('Bluesky-input', body)
+        self.assertNotIn('placeholder="Bluesky handle"', body)
 
     @patch.object(util.session, 'get', return_value=requests_response(json_dumps({
         **{k: v for k, v in CLIENT_METADATA.items() if k != 'client_name'},

@@ -54,14 +54,14 @@ $(document).ready(function() {
     {% endif %}
 
     {% if user.is_enabled(ActivityPub) and not isinstance(user, ActivityPub) %}
-      <form method="post" action="/settings/migrate-to-activitypub" class="settings-item"
-            onsubmit="return window.confirm('Migrating out is irreversible. Are you sure?')">
+      <form method="post" action="/settings/migrate-to-activitypub" class="settings-item">
         <input name="key" type="hidden" value="{{ key }}" />
         <label for="{{ key }}-migrate-ap">
           <a href="/docs#migration">Migrate fediverse account</a> to:
         </label>
         <input id="{{ key }}-migrate-ap" type="text" name="handle"
                placeholder="@you@instance.com" required />
+        <label><input type="checkbox" required /> I understand that migrating out is irreversible</label>
         <input type="submit" value="Go" class="btn btn-default" />
       </form>
     {% endif %}

@@ -981,6 +981,8 @@ class PagesTest(TestCase):
 
         self.assertIn('action="/settings/migrate-to-activitypub"', body)
         self.assertIn('action="/settings/migrate-to-atproto"', body)
+        self.assertIn('<label><input type="checkbox" required /> I understand that migrating out is irreversible</label>', body)
+        self.assertIn('data-copy="@ab.c@bsky.brid.gy"', body)
 
     def test_settings_private_status(self):
         # the enable switch should be enabled even if the user is status=private
@@ -1053,6 +1055,17 @@ class PagesTest(TestCase):
         body = resp.get_data(as_text=True)
         self.assertIn('planned maintenance', body)
         self.assertNotIn('action="/settings/disable"', body)
+
+    def test_login(self):
+        resp = self.client.get('/login')
+        self.assertEqual(200, resp.status_code)
+        self.assert_multiline_in("""\
+<details name="login" class="row big">
+<summary class="login-button shadow" title="Atmosphere (Bluesky)">
+<img src="/static/bluesky_logotype.png" height="60" />
+</summary>
+<input name="handle" type="text" class="fade-in-element login-input" placeholder="Bluesky handle" required>
+""", resp.get_data(as_text=True))
 
     def test_login_read_only(self):
         appengine_info.READ_ONLY = True
@@ -1405,6 +1418,7 @@ class PagesTest(TestCase):
         self.assertIn('action="/settings/migrate-to-atproto/create-account"', body)
         self.assertIn('value="https://new.pds.com"', body)
         self.assertIn('name="handle_domain" value=".pds.com"', body)
+        self.assertIn('<label><input type="checkbox" required /> I understand that migrating out is irreversible</label>', body)
 
     def test_migrate_to_atproto_main_pds(self):
         user, _ = self.make_logged_in_mastodon_user(enabled_protocols=['atproto'])

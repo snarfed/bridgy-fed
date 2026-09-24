@@ -30,14 +30,14 @@
     <span style="unicode-bidi: isolate">{{ util.ellipsize(handle, chars=40) }}</span>
    {% if url %} </a> {% endif %}
   <button class="btn btn-default btn-copy glyphicon glyphicon-duplicate"
-          onclick="copy('{{ handle }}')"
+          data-copy="{{ handle }}"
           title="Copy {{ handle }} to clipboard"></button>
   {% if proto.HAS_COPIES %}
     {% set id = user.npub() if proto == Nostr
                 else user.get_copy(proto).removeprefix('farcaster://') if proto == Farcaster
                 else user.get_copy(proto) %}
     <button class="btn btn-default btn-copy glyphicon glyphicon-tag"
-            onclick="copy('{{ id }}')"
+            data-copy="{{ id }}"
             title="Copy {{ id }} to clipboard"></button>
   {% endif %}
   {% if not loop.last %}
