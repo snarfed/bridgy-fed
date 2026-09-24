@@ -83,7 +83,7 @@ pycryptodome==3.23.0
 pygments==2.21.0
 pyjwt==2.14.0
 pymediainfo==7.0.1
-pyparsing==3.3.2
+pyparsing==3.3.3
 pytest==9.1.1
 pytest-xdist==3.8.0
 python-dateutil==2.9.0.post0
