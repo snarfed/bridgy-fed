@@ -80,6 +80,9 @@ document.addEventListener('click', (event) => {
   const elem = event.target.closest('[data-copy]');
   if (elem) {
     navigator.clipboard.writeText(elem.dataset.copy)
-    document.getElementById('messages').innerHTML = `<div class="message shadow">Copied <em>${elem.dataset.copy}</em> to the clipboard.</div>`
+    const messages = document.getElementById('messages')
+    // render copied string with textContent to preserve HTML escaping
+    messages.innerHTML = '<div class="message shadow">Copied <em></em> to the clipboard.</div>'
+    messages.querySelector('em').textContent = elem.dataset.copy
   }
 });
