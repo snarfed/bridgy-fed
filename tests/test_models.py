@@ -393,6 +393,15 @@ class UserTest(TestCase):
             '<a class="h-card u-author mention" rel="me" href="http://localhost/y.za" title="Mrs. ☕ Foo &middot; @y.za@web.brid.gy"><span style="unicode-bidi: isolate">Mrs. ☕ Foo</span> &middot; @y.za@web.brid.gy</a>',
             self.user.html_link(proto=ActivityPub, proto_fallback=True, handle=True))
 
+    def test_html_link_escapes(self):
+        user = self.make_user('fake:"><b>x', cls=Fake, obj_as1={
+            'displayName': '<script>alert(1)</script>',
+            'image': 'http://pic/"onerror="alert(1)',
+        })
+        self.assert_multiline_equals(
+            '<span class="logo" title="Fake"><img src="fake-logo"></span> <a class="h-card u-author mention" rel="me" href="web:fake:&quot;&gt;&lt;b&gt;x" title="&lt;script&gt;alert(1)&lt;/script&gt; &middot; fake:handle:&quot;&gt;&lt;b&gt;x"><img src="http://pic/&quot;onerror=&quot;alert(1)" class="profile"> <span style="unicode-bidi: isolate">&lt;script&gt;alert(1)&lt;/script&gt;</span> &middot; fake:handle:"&gt;&lt;b&gt;x</a>',
+            user.html_link(pictures=True))
+
     def test_html_link_proto_not_enabled(self):
         with self.assertRaises(AssertionError):
             self.user.html_link(proto=ExplicitFake)

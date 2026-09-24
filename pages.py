@@ -820,25 +820,24 @@ def find_user_page():
 @disable_if_read_only
 def update_profile(protocol, id):
     user = load_user(protocol, id)
-    link = f'<a href="{user.web_url()}">{user.handle_or_id()}</a>'
 
     try:
         user.reload_profile(raise_=True)
     except (RuntimeError, requests.RequestException,
             werkzeug.exceptions.HTTPException) as e:
         _, msg = util.interpret_http_exception(e)
-        flash(f"Couldn't update profile for {link}: {msg}", escape=False)
+        flash(f"Couldn't update profile: {msg}")
         return redirect(user.user_page_path())
 
     if not user.obj:
-        flash(f"Couldn't update profile for {link}", escape=False)
+        flash(f"Couldn't update profile")
         return redirect(user.user_page_path())
 
     # enqueue an update, not the bare profile object, so that it gets
     # a unique id and doesn't get de-duped
     update = user.handle_bare_object(user.obj, authed_as=user.key.id(), from_user=user)
     common.create_task(queue='receive', authed_as=user.key.id(), **update.to_request())
-    flash(f'Updating profile from {link}...', escape=False)
+    flash(f'Updating profile...', escape=False)
 
     if user.LABEL == 'web':
         if user.status:

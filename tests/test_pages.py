@@ -466,9 +466,7 @@ class PagesTest(TestCase):
         got = self.client.post('/fa/fake:user/update-profile')
         self.assert_equals(302, got.status_code)
         self.assert_equals('/fa/fake:handle:user', got.headers['Location'])
-        self.assertEqual(
-            ['Updating profile from <a href="web:fake:user">fake:handle:user</a>...'],
-            get_flashed_messages())
+        self.assertEqual(['Updating profile...'], get_flashed_messages())
 
         self.assertEqual(['fake:profile:user'], Fake.fetched)
 
@@ -492,9 +490,16 @@ class PagesTest(TestCase):
         got = self.client.post('/fa/fake:user/update-profile')
         self.assert_equals(302, got.status_code)
         self.assert_equals('/fa/fake:handle:user', got.headers['Location'])
-        self.assertEqual(
-            ['Couldn\'t update profile for <a href="web:fake:user">fake:handle:user</a>: foo'],
-            get_flashed_messages())
+        self.assertEqual(['Couldn\'t update profile: foo'], get_flashed_messages())
+
+    @patch.object(Fake, 'fetch', side_effect=ConnectionError('<script>alert(1)'))
+    def test_update_profile_load_fails_escapes_html(self, _):
+        self.make_user('fake:"><b>x', cls=Fake, enabled_protocols=['other'])
+
+        got = self.client.post('/fa/fake:%22%3E%3Cb%3Ex/update-profile')
+        self.assert_equals(302, got.status_code)
+        self.assertEqual(['Couldn\'t update profile: &lt;script&gt;alert(1)'],
+                         get_flashed_messages())
 
     @patch.object(tasks_client, 'create_task', return_value=Task(name='my task'))
     def test_update_profile_receive_task(self, mock_create_task):
@@ -977,7 +982,7 @@ class PagesTest(TestCase):
         body = resp.get_data(as_text=True)
 
         self.assert_multiline_in('<a href="/ap/@a@b.c">Bridging: </a>', body)
-        self.assert_multiline_in('<a class="h-card u-author mention" rel="me" href="https://bsky.app/profile/ab.c" title="ab.c"><img src="https://some.pds/xrpc/com.atproto.sync.getBlob?did=did:plc:abc&cid=bafyk123" class="profile"> ab.c</a>', body)
+        self.assert_multiline_in('<a class="h-card u-author mention" rel="me" href="https://bsky.app/profile/ab.c" title="ab.c"><img src="https://some.pds/xrpc/com.atproto.sync.getBlob?did=did:plc:abc&amp;cid=bafyk123" class="profile"> ab.c</a>', body)
 
         self.assertIn('action="/settings/migrate-to-activitypub"', body)
         self.assertIn('action="/settings/migrate-to-atproto"', body)

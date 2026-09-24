@@ -10,6 +10,7 @@ import re
 from threading import Lock
 from urllib.parse import quote, urlparse
 import csv
+import html
 import io
 
 from arroba.util import parse_at_uri
@@ -1291,7 +1292,7 @@ class User(AddRemoveMixin, StringIdModel, metaclass=ProtocolUserMeta):
             else:
                 logo_html = f'<span class="logo" title="{proto.__name__}">{proto.LOGO_HTML or proto.LOGO_EMOJI}</span> '
             if pic := self.profile_picture():
-                img = f'<img src="{pic}" class="profile"> '
+                img = f'<img src="{html.escape(pic)}" class="profile"> '
 
         if handle:
             full_handle = self.handle_as(proto) or ''
@@ -1305,11 +1306,11 @@ class User(AddRemoveMixin, StringIdModel, metaclass=ProtocolUserMeta):
             dot = ' &middot; '
 
         if url:
-            a_open = f'<a class="h-card u-author mention" rel="me" href="{url}" title="{name_str}{dot}{full_handle}">'
+            a_open = f'<a class="h-card u-author mention" rel="me" href="{html.escape(url)}" title="{html.escape(name_str)}{dot}{html.escape(full_handle)}">'
             a_close = '</a>'
 
-        name_html = f'<span style="unicode-bidi: isolate">{ellipsize(name_str, chars=40)}</span>' if name_str else ''
-        return f'{logo_html}{a_open}{img}{name_html}{dot}{handle_str}{a_close}'
+        name_html = f'<span style="unicode-bidi: isolate">{html.escape(ellipsize(name_str, chars=40), quote=False)}</span>' if name_str else ''
+        return f'{logo_html}{a_open}{img}{name_html}{dot}{html.escape(handle_str, quote=False)}{a_close}'
 
     def profile_picture(self):
         """Returns the user's profile picture image URL, if available, or None."""
