@@ -2188,7 +2188,7 @@ class ProtocolReceiveTest(TestCase):
         self.assert_sent(ExplicitFake, user, '?', f"""\
 <p>Hi! Here are your recent interactions from people who aren't bridged into other-phrase. Click the <em>respond</em> links to reply, like, repost, or block them.
 <ul>
-<li><a class="h-card u-author mention" rel="me" href="web:efake:eve" title="efake:handle:eve">efake:handle:eve</a>: <a href="http://efake/reply">foo</a> (<a href="https://fed.brid.gy/other/other:handle:user/respond?obj_id=efake:reply&token={token}">respond</a>)
+<li><a class="h-card u-author mention" rel="me" href="web:efake:eve" title="efake:handle:eve">efake:handle:eve</a>: <a href="http://efake/reply">foo</a> (<a href="https://fed.brid.gy/other/other:handle:user/respond?obj_id=efake:reply&amp;token={token}">respond</a>)
 </ul>""", attachments=ANY)
 
     def test_reply_to_ui_reply_from_non_bridged_user_gets_dm_prompt_and_notif(self):
@@ -2231,7 +2231,7 @@ class ProtocolReceiveTest(TestCase):
         self.assert_sent(ExplicitFake, user, '?', f"""\
 <p>Hi! Here are your recent interactions from people who aren't bridged into other-phrase. Click the <em>respond</em> links to reply, like, repost, or block them.
 <ul>
-<li><a class="h-card u-author mention" rel="me" href="web:efake:eve" title="efake:handle:eve">efake:handle:eve</a>: <a href="http://efake/reply">foo</a> (<a href="https://fed.brid.gy/other/other:handle:user/respond?obj_id=efake:reply&token={token}">respond</a>)
+<li><a class="h-card u-author mention" rel="me" href="web:efake:eve" title="efake:handle:eve">efake:handle:eve</a>: <a href="http://efake/reply">foo</a> (<a href="https://fed.brid.gy/other/other:handle:user/respond?obj_id=efake:reply&amp;token={token}">respond</a>)
 </ul>""", attachments=ANY)
 
     @patch.object(ExplicitFake, 'REQUIRES_AVATAR', new=True)
@@ -2269,7 +2269,7 @@ class ProtocolReceiveTest(TestCase):
         self.assert_sent(ExplicitFake, user, '?', f"""\
 <p>Hi! Here are your recent interactions from people who aren't bridged into other-phrase. Click the <em>respond</em> links to reply, like, repost, or block them.
 <ul>
-<li><a class="h-card u-author mention" rel="me" href="web:efake:eve" title="efake:handle:eve">efake:handle:eve</a>: <a href="http://efake/quote">weird flex but ok</a> (<a href="https://fed.brid.gy/other/other:handle:user/respond?obj_id=efake:quote&token={token}">respond</a>)
+<li><a class="h-card u-author mention" rel="me" href="web:efake:eve" title="efake:handle:eve">efake:handle:eve</a>: <a href="http://efake/quote">weird flex but ok</a> (<a href="https://fed.brid.gy/other/other:handle:user/respond?obj_id=efake:quote&amp;token={token}">respond</a>)
 </ul>""", attachments=ANY)
 
     def test_mention_non_bridged_user_isnt_bridged_gets_dm_prompt_and_notif(self):
@@ -2300,7 +2300,7 @@ class ProtocolReceiveTest(TestCase):
         self.assert_sent(ExplicitFake, user, '?', f"""\
 <p>Hi! Here are your recent interactions from people who aren't bridged into other-phrase. Click the <em>respond</em> links to reply, like, repost, or block them.
 <ul>
-<li><a class="h-card u-author mention" rel="me" href="web:efake:eve" title="efake:handle:eve">efake:handle:eve</a>: <a href="http://efake/mention">weird flex but ok</a> (<a href="https://fed.brid.gy/other/other:handle:user/respond?obj_id=efake:mention&token={token}">respond</a>)
+<li><a class="h-card u-author mention" rel="me" href="web:efake:eve" title="efake:handle:eve">efake:handle:eve</a>: <a href="http://efake/mention">weird flex but ok</a> (<a href="https://fed.brid.gy/other/other:handle:user/respond?obj_id=efake:mention&amp;token={token}">respond</a>)
 </ul>""", attachments=ANY)
 
     @patch.object(ATProto, 'send', return_value=True)

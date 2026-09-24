@@ -119,8 +119,8 @@ class NotificationsTest(TestCase):
         self.assert_sent(ExplicitFake, user, '?', f"""\
 <p>Hi! Here are your recent interactions from people who aren't bridged into fake-phrase. Click the <em>respond</em> links to reply, like, repost, or block them.
 <ul>
-<li><a class="h-card u-author mention" rel="me" href="web:efake:alice" title="Ms Alice &middot; efake:handle:alice"><span style="unicode-bidi: isolate">Ms Alice</span> &middot; efake:handle:alice</a>: <a href="http://notif/a">foo bar</a> (<a href="https://fed.brid.gy/fa/fake:handle:user/respond?obj_id=efake:a&token={token_a}">respond</a>)
-<li><a href="http://notif/b">notif/b</a> (<a href="https://fed.brid.gy/fa/fake:handle:user/respond?obj_id=http://notif/b&token={token_b}">respond</a>)
+<li><a class="h-card u-author mention" rel="me" href="web:efake:alice" title="Ms Alice &middot; efake:handle:alice"><span style="unicode-bidi: isolate">Ms Alice</span> &middot; efake:handle:alice</a>: <a href="http://notif/a">foo bar</a> (<a href="https://fed.brid.gy/fa/fake:handle:user/respond?obj_id=efake:a&amp;token={token_a}">respond</a>)
+<li><a href="http://notif/b">notif/b</a> (<a href="https://fed.brid.gy/fa/fake:handle:user/respond?obj_id=http://notif/b&amp;token={token_b}">respond</a>)
 </ul>
 <p>To disable these messages, reply with the text 'mute'.""",
             attachments=[{
