@@ -983,6 +983,8 @@ class PagesTest(TestCase):
         self.assertIn('action="/settings/migrate-to-atproto"', body)
         self.assertIn('<label><input type="checkbox" required /> I understand that migrating out is irreversible</label>', body)
         self.assertIn('data-copy="@ab.c@bsky.brid.gy"', body)
+        self.assertIn('data-confirm="Are you sure you want to disable bridging?', body)
+        self.assertIn('<summary class="panel-heading">Domain blocklists</summary>', body)
 
     def test_settings_private_status(self):
         # the enable switch should be enabled even if the user is status=private
@@ -997,7 +999,16 @@ class PagesTest(TestCase):
         self.assert_multiline_in('Not bridging', body)
         self.assert_multiline_in('because your account is set as private', body)
         self.assert_multiline_in(
-            f'<input id="{user.key.urlsafe().decode()}-switch" type="checkbox" onClick="bridgingSwitch(event)" >', body)
+            f'<input id="{user.key.urlsafe().decode()}-switch" type="checkbox" class="bridging-switch" >', body)
+
+    def test_templates_have_no_inline_js(self):
+        # inline event handlers, inline <script>s, and javascript: URLs would all
+        # need 'unsafe-inline' in our Content-Security-Policy
+        for name in app.jinja_env.list_templates(extensions=['html']):
+            source, _, _ = app.jinja_env.loader.get_source(app.jinja_env, name)
+            with self.subTest(name):
+                self.assertNotRegex(
+                    source, r'(?i)\son[a-z]+=|<script(?![^>]*\ssrc=)[^>]*>|javascript:')
 
     @patch.object(util.session, 'get')
     def test_settings_on_login_create_new_user(self, mock_get):

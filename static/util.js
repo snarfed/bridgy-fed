@@ -44,12 +44,25 @@ document.addEventListener('toggle', (event) => {
   }
 }, true);
 
-// Used on setting page to change an account's bridging state.
-function bridgingSwitch(event) {
-  const checkbox = event.currentTarget;
-  disableCheckbox(checkbox);
-  event.currentTarget.closest('form').submit()
-}
+// Submits a settings page switch's form when it's toggled. If the form has
+// data-confirm, asks first, and flips the switch back if the user cancels.
+document.addEventListener('change', (event) => {
+  const checkbox = event.target;
+  if (!checkbox.matches('.switch input')) {
+    return;
+  }
+
+  const form = checkbox.closest('form');
+  if (form.dataset.confirm && !window.confirm(form.dataset.confirm)) {
+    checkbox.checked = !checkbox.checked;
+    return;
+  }
+
+  if (checkbox.classList.contains('bridging-switch')) {
+    disableCheckbox(checkbox);
+  }
+  form.submit();
+});
 
 // Temporarily disable the bridging switch to avoid double submission
 function disableCheckbox(checkbox) {

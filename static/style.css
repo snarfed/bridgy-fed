@@ -627,6 +627,12 @@ a.active-tab + a {
   text-decoration: none;
 }
 
+/* bootstrap sets summary to display: block, which hides the ▸/▾ marker */
+.blocklist-buttons summary {
+  display: list-item;
+  cursor: pointer;
+}
+
 .disable-button {
   border-color: red;
   color: red;
