@@ -292,25 +292,6 @@ form.settings-item, #block-row, #blocklist-buttons input[type="submit"] {
   border: 2px solid #c94786;
 }
 
-#front-instructions {
-  min-height: 4em;
-}
-
-.instruction {
-  display: none;
-  margin: 1em;
-  margin-left: 2em;
-  margin-right: 2em;
-  margin-top: 0;
-  margin-bottom: 0;
-}
-
-#front-instruction-placeholder {
-  display: block;
-  font-style: italic;
-  opacity: 70%;
-}
-
 #front-logo-bottom {
   padding-bottom: 0;
   margin-bottom: -1em;
