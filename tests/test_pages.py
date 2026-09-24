@@ -1395,6 +1395,23 @@ class PagesTest(TestCase):
         self.assertIn('action="/settings/migrate-to-activitypub"', body)
         self.assertIn(user.handle_as(ActivityPub), body)
 
+    @patch.object(util.session, 'get')
+    def test_migrate_to_activitypub_needs_alias_escapes_handle(self, mock_get):
+        user, _ = self.make_logged_in_bluesky_user(enabled_protocols=['activitypub'])
+        mock_get.return_value = self.as2_resp({
+            'type': 'Person',
+            'id': 'http://in.st/carol',
+            'preferredUsername': '<script>alert(1)</script>',
+        })
+
+        resp = self.client.post('/settings/migrate-to-activitypub', data={
+            'key': user.key.urlsafe().decode(),
+            'handle': 'http://in.st/carol',
+        })
+        self.assertEqual(200, resp.status_code)
+        self.assertIn('In the account settings for <code>@&lt;script&gt;alert(1)&lt;/script&gt;@in.st</code>',
+                      resp.get_data(as_text=True))
+
     def test_migrate_to_activitypub_not_logged_in(self):
         resp = self.client.post('/settings/migrate-to-activitypub', data={
             'key': ATProto(id='did:plc:nope').key.urlsafe().decode(),
