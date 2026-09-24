@@ -213,6 +213,7 @@ def admin_object(id):
     return render(
         'admin_object.html',
         obj=obj,
+        obj_html=pages.render_embed(obj),
         user=user,
         bridged_ids=bridged_ids,
         Message=Message,

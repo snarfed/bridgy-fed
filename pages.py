@@ -79,7 +79,6 @@ import webfinger
 
 logger = logging.getLogger(__name__)
 
-IFRAMELY_API_KEY_MD5 = util.read('iframely_api_key_md5')
 
 TEMPLATE_VARS = {
     'ActivityPub': ActivityPub,
@@ -90,7 +89,6 @@ TEMPLATE_VARS = {
     'getattr': getattr,
     'hasattr': hasattr,
     'ids': ids,
-    'IFRAMELY_API_KEY_MD5': IFRAMELY_API_KEY_MD5,
     'logs': logs,
     'Nostr': Nostr,
     'PROTOCOLS': PROTOCOLS,
@@ -977,18 +975,19 @@ def serve_feed(*, objects, format, user, title, as_snippets=False, quiet=False):
         return body, {'Content-Type': rss.CONTENT_TYPE}
 
 
-@app.get(f'/<any({",".join(PROTOCOLS)}):protocol>/<user_id>/respond')
-@canonicalize_request_domain(PROTOCOL_DOMAINS, PRIMARY_DOMAIN)
-@require_token('respond', ['obj_id'])
-def respond(user):
-    """Lets a user reply to, like, or repost an unbridged post.
+def render_embed(obj):
+    """Renders an object as HTML to embed in a page.
 
-    Query params:
-      obj_id (str): Object id
-      token (str): JWT token for user authentication
+    Loads the object's author if necessary.
+
+    Args:
+      obj (models.Object)
+
+    Returns:
+      str: HTML
     """
-    if not (obj := Object.get_by_id(get_required_param('obj_id'))):
-        error('Object not found', status=404)
+    if not obj.as1:
+        return ''
 
     obj_as1 = copy.deepcopy(obj.as1)
     as1.convert_html_content_to_text(obj_as1)
@@ -1004,8 +1003,23 @@ def respond(user):
     if not author.get('displayName') and author.get('username'):
         author['displayName'] = author.pop('username')
 
-    return render('respond.html', user=user, obj=obj,
-                  obj_html=microformats2.object_to_html(obj_as1),
+    return microformats2.object_to_html(obj_as1)
+
+
+@app.get(f'/<any({",".join(PROTOCOLS)}):protocol>/<user_id>/respond')
+@canonicalize_request_domain(PROTOCOL_DOMAINS, PRIMARY_DOMAIN)
+@require_token('respond', ['obj_id'])
+def respond(user):
+    """Lets a user reply to, like, or repost an unbridged post.
+
+    Query params:
+      obj_id (str): Object id
+      token (str): JWT token for user authentication
+    """
+    if not (obj := Object.get_by_id(get_required_param('obj_id'))):
+        error('Object not found', status=404)
+
+    return render('respond.html', user=user, obj=obj, obj_html=render_embed(obj),
                   token=get_required_param('token'))
 
 

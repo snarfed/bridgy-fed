@@ -9,14 +9,15 @@
   <a href="/admin/">← Admin</a>
 </div>
 
-<div class="row iframely-row">
-  <div class="iframely-embed col-lg-6 col-md-8 col-xs-12">
-    <div class="iframely-responsive">
-      {# {{ obj_html|safe }} #}
-      <a data-iframely-url href="{{ obj.as1['url'] }}"></a>
+{% if obj_html %}
+<div class="row">
+  <div class="col-lg-6 col-md-8 col-xs-12">
+    <div class="post-embed">
+      {{ obj_html|safe }}
     </div>
   </div>
 </div>
+{% endif %}
 
 <hr>
 
@@ -100,7 +101,5 @@
     </pre>
   {% endif %}
 {% endfor %}
-
-<script async src="https://iframely.net/embed.js?key={{ IFRAMELY_API_KEY_MD5 }}&theme=light"></script>
 
 {% endblock %}

@@ -31,6 +31,12 @@ window.onload = function () {
   }
 
   localStorage.setItem('disabledCheckboxes', JSON.stringify(disabledCheckboxes));
+
+  // Localizes embedded posts' published times
+  for (const time of document.querySelectorAll('.post-embed time.dt-published[datetime]')) {
+    time.textContent = new Date(time.getAttribute('datetime')).toLocaleString(
+      undefined, {dateStyle: 'medium', timeStyle: 'short'});
+  }
 }
 
 // Handles login buttons and input fields on the settings page.
@@ -38,7 +44,7 @@ function toggleInput(button_id) {
   var button = document.getElementById(button_id);
   var input = document.getElementById(button_id + "-input");
   var submit = document.getElementById(button_id + "-submit");
-  
+
   if (openedId && openedId != button_id) {
     document.getElementById(openedId).classList.remove("slide-up");
 

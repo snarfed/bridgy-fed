@@ -278,6 +278,15 @@ class AdminTest(TestCase):
         body = resp.get_data(as_text=True)
         self.assertIn('fake:obj', body)
         self.assertIn('note', body)
+        self.assert_multiline_in("""\
+<div class="post-embed">
+<article class="h-entry">
+""", body, ignore_blanks=True)
+        self.assert_multiline_in("""\
+<div class="e-content p-name">
+hi
+</div>
+""", body, ignore_blanks=True)
 
     def test_object_farcaster(self):
         msgs = [
