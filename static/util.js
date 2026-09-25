@@ -2,7 +2,7 @@
 var disabledCheckboxes = getDisabledCheckboxes();
 
  // Clear the auth_entity query param on /settings.
-window.onload = function () {
+window.addEventListener('load', () => {
   url = new URL(window.document.documentURI)
   if (url.pathname == '/settings' && url.searchParams.has('auth_entity')) {
     window.history.replaceState(null, '', '/settings')
@@ -34,7 +34,7 @@ window.onload = function () {
     time.textContent = new Date(time.getAttribute('datetime')).toLocaleString(
       undefined, {dateStyle: 'medium', timeStyle: 'short'});
   }
-}
+});
 
 // Focuses a login button's input when its <details> opens. toggle doesn't
 // bubble, so this listens in the capture phase.
