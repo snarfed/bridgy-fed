@@ -8,6 +8,10 @@ from .testutil import TestCase
 
 
 class FlaskAppTest(TestCase):
+    def test_csp_report(self):
+        resp = self.client.post('/csp-report', data='{}')
+        self.assertEqual(204, resp.status_code)
+
     def test_get_repo_redirect(self):
         with self.assertRaises(Redirect) as err, \
              flask_app.app.test_request_context('/xrpc/getRepo?did=foo'):

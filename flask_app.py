@@ -35,6 +35,7 @@ app.json.compact = False
 app.config.from_pyfile(app_dir / 'config.py')
 app.url_map.converters['regex'] = flask_util.RegexConverter
 app.after_request(flask_util.default_modern_headers)
+app.post(flask_util.CSP_REPORT_PATH)(flask_util.csp_report)
 
 # quick and dirty WAF, so that we don't incur the complexity and cost of using
 # a GCP LB and Cloud Armor
