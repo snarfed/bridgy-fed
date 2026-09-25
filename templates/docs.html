@@ -135,7 +135,7 @@
 <li><a href="#bluesky-get-started">How do I get started?</a></li>
 <li><a href="#bluesky-follow-fediverse">How do I find a bridged fediverse account?</a></li>
 <li><a href="#bluesky-follow-web">How do I find a bridged web site?</a></li>
-<li><a href="#bluesky-reply-controls">Can I use Bluesky's reply controls?</a></li>
+<li><a href="#bluesky-reply-controls">Can I use reply controls?</a></li>
 <li><a href="#bluesky-pbc-moderation">Is Bridgy Fed subject to Bluesky PBC's moderation? If Bluesky bans someone, and they move to a different PDS, can they still use Bridgy Fed?</a></li>
 
 <br>
@@ -523,9 +523,9 @@
 </li>
 
 
-<li id="fediverse-follow-bluesky" class="question">How do I find a bridged Bluesky account?</li>
+<li id="fediverse-follow-bluesky" class="question">How do I find a bridged Atmosphere (Bluesky) account?</li>
 <li class="answer">
-<p>If a Bluesky account has enabled the bridge, it will appear in the fediverse as <code>@[handle]@bsky.brid.gy</code>. For example, <a href="https://bsky.app/profile/snarfed.bsky.social">@snarfed.bsky.social</a> on Bluesky is bridged into the fediverse as <code>@snarfed.bsky.social@bsky.brid.gy</code>.</p>
+<p>If an Atmosphere account has enabled the bridge, it will appear in the fediverse as <code>@[handle]@bsky.brid.gy</code>. For example, <a href="https://bsky.app/profile/snarfed.bsky.social">@snarfed.bsky.social</a> in the Atmosphere is bridged into the fediverse as <code>@snarfed.bsky.social@bsky.brid.gy</code>.</p>
 </li>
 
 
@@ -556,7 +556,7 @@
 
 <li id="fediverse-what" class="question">Which stuff of mine from the fediverse will get bridged?</li>
 <li class="answer">
-<p>Once you've enabled the bridge, anything that's fully public and interacts with Bluesky users. This includes your posts, replies, likes, and reposts <em>if</em> the original post was bridged. Posts on Bluesky are limited to 300 characters, so longer posts from the fediverse are truncated and ellipsized. Hashtags, links, link previews, images, videos, and even alt text are also included.</p>
+<p>Once you've enabled the bridge, anything that's fully public and interacts with bridged users. This includes your posts, replies, likes, and reposts <em>if</em> the original post was bridged. Some other networks have different limits, eg posts on the Atmosphere are limited to 300 characters, so longer posts from the fediverse are truncated and ellipsized. Hashtags, links, link previews, images, videos, and even alt text are also included, if possible.</p>
 </li>
 
 
@@ -565,29 +565,29 @@
 <p>Thanks for asking! Beyond <a href="#">what Bridgy Fed is and what it does</a>, here's some useful info for fediverse instance admins.</p>
 
 <ul>
-<li>Bridgy Fed is opt in. When a fediverse user <a href="#fediverse-get-started">enables it</a> for a given network, eg Bluesky, it bridges their profile and posts and other interactions into that network giong forward. It doesn't bridge anything for users who haven't enabled it yet.
-<li>This means that fediverse users don't exist in Bluesky, and can't be followed or found in search there, unless they've enabled the bridge.
-<li>Users enable the bridge to Bluesky by following the <code>@bsky.brid.gy@bsky.brid.gy</code> user, and disable it by blocking that user. When they disable it, their profile and posts are all removed from Bluesky.
-<li>Atmosphere (Bluesky) users can also bridge themselves into the fediverse. Unbridged fediverse users may follow them and interact with them, but those follows and interactions aren't bridged back into Bluesky.
-<li>Only fully public posts are bridged into Bluesky. Unlisted aka quiet public, followers-only, and private mentions aka DMs are never bridged.
+<li>Bridgy Fed is opt in. When a fediverse user <a href="#fediverse-get-started">enables it</a> for a given network, eg the Atmosphere (Bluesky), it bridges their profile and posts and other interactions into that network giong forward. It doesn't bridge anything for users who haven't enabled it yet.
+<li>This means that fediverse users don't exist in other networks like the Atmosphere, and can't be followed or found in search there, unless they've enabled the bridge.
+<li>Users enable the bridge by following the Bridgy Fed bot user for a given network, eg <code>@bsky.brid.gy@bsky.brid.gy</code>. They can disable it by blocking that user. When they disable, their profile and posts are all removed from the bridged network.
+<li>Users on other networks can also bridge themselves into the fediverse. Unbridged fediverse users may follow them and interact with them, but those follows and interactions aren't bridged back.
+<li>Only fully public posts are bridged. Unlisted aka quiet public, followers-only, and private mentions aka DMs are never bridged.
 <li>Replies, reposts, and quote posts are only bridged if the original post being replied to, reposted, or quote posted was also bridged.
-<li>Blocks are bridged too. If a fediverse user blocks a bridged Bluesky user, it works just like blocking a normal fediverse user. Bridgy Fed also converts it to a Bluesky block on that end.
-<li>Reports aka <code>Flag</code>s are similarly bridged. If a fediverse user reports a bridged Bluesky user or post, Bridgy Fed sends it to Bluesky's moderation service as a report. The Bluesky team is then able to act on that user or post just like normal.
-<li>In general, bridged Bluesky users in the fediverse work just like normal fediverse users. All admin-level and user-level tools apply to them like you'd expect.
+<li>Blocks are bridged too. If a fediverse user blocks a bridged user, it works just like blocking a normal fediverse user. Bridgy Fed also converts it to a block on the bridged user's network.
+<li>Reports aka <code>Flag</code>s are similarly bridged. For example, if a fediverse user reports a bridged Atmosphere user or post, Bridgy Fed sends it to Bluesky PBC's moderation service as a report. The Bluesky team is then able to act on that user or post just like normal.
+<li>In general, bridged users in the fediverse work just like normal fediverse users. All admin-level and user-level tools apply to them like you'd expect.
 <li>If a user enables the bridge and it doesn't work for them, <a href="#troubleshooting">point them to our troubleshooting docs</a>.
 <li><a href="https://docs.joinmastodon.org/admin/moderation/#limit-server">Limiting</a> aka silencing <code>brid.gy</code> or its subdomains works, but will make it more difficult for your users to enable the bridge. We also hear that limiting Bridgy Fed can result in <a href="https://www.loomio.com/d/W6tL5cvp/the-bluesky-bridge/104">confusing visibility and behavior that appears buggy</a>. We don't fully understand the details here yet, or whether we can do much about it.
-<li>If you want, you can set your instance up to <a href="#enable-api">automatically enable the bridge for new users</a>, and even <a href="#bluesky-handle-api">automatically give them custom domain handles on Bluesky</a>.
+<li>If you want, you can set your instance up to <a href="#enable-api">automatically enable the bridge for new users</a>, and even <a href="#bluesky-handle-api">automatically give them custom domain handles in the Atmosphere</a>.
 </ul>
 
 <p>Here are some details on our federation, ActivityPub, and Webfinger support.</p>
 
 <ul>
-<li>Each bridged network has its users on a different <code>brid.gy</code> subdomain, eg <code>bsky.brid.gy</code> for Bluesky and <code>web.brid.gy</code> for web sites. You can block specific networks by blocking their subdomain, but you'll still need to allow <code>fed.brid.gy</code> and <code>brid.gy</code> for the bridge to work at all.
+<li>Each bridged network has its users on a different <code>brid.gy</code> subdomain, eg <code>bsky.brid.gy</code> for the Atmosphere and <code>web.brid.gy</code> for web sites. You can block specific networks by blocking their subdomain, but you'll still need to allow <code>fed.brid.gy</code> and <code>brid.gy</code> for the bridge to work at all.
 <li>Bridgy Fed's instance actor for signing GETs (ie authorize fetch) is <code>https://fed.brid.gy/fed.brid.gy</code> aka <code>@fed.brid.gy@fed.brid.gy</code>.
 <li>Some web sites bridged into the fediverse will have Webfinger addresses on their own domains, eg <code>@snarfed.org@snarfed.org</code>. Webfinger requests to those domains redirect to <code>fed.brid.gy</code> and are served there.
 <li>Bridged ActivityPub actors are <code>type: Person</code>. Bot actors like <code>@bsky.brid.gy@bsky.brid.gy</code> and <code>@fed.brid.gy@fed.brid.gy</code> are <code>type: Service</code>.
-<li>When a fediverse user opts into the bridge, their profile and posts will be indexed and searchable in Bluesky's search even if they have the <code>discoverable</code> or <code>indexable</code> flags set to <code>false</code>. Bluesky doesn't currently have a way to opt individual users out of search.
-<li>Likewise, Bluesky users are automatically included in Bluesky's search index. There's no way for individual users to opt out. So, when a Bluesky user bridges to the fediverse, we carry over that implicit consent and set their <code>discoverable</code> and <code>indexable</code> flags to <code>true</code>.
+<li>When a fediverse user opts into the bridge, their profile and posts will be indexed and searchable in Atmosphere apps' search even if they have the <code>discoverable</code> or <code>indexable</code> flags set to <code>false</code>. <a href="https://github.com/bluesky-social/proposals/blob/main/0008-user-intents/README.md">AT Protocol has an early proposal to let users opt out of search</a>, but it's not rolled out yet.
+<li>Likewise, Atmosphere users are automatically included in a number of search indexes, including Bluesky (bsky.app)'s. There's no way for individual users to opt out. So, when an Atmosphere user bridges to the fediverse, we carry over that implicit consent and set their <code>discoverable</code> and <code>indexable</code> flags to <code>true</code>.
 </ul>
 </li>
 
@@ -603,7 +603,7 @@
 
 <ul>
 <li>Add a link to your web site to the account you've bridged to the fediverse. (If you bridged your web site itself, skip this.)
-<li><em>If you're coming from Bluesky:</em> add a <a href="https://indieweb.org/rel-me"><code>rel=me</code> link</a> (it can be invisible) to your web site's home page that points to <code>https://bsky.brid.gy/ap/[DID]</code>, where <code>[DID]</code> is <a href="https://internect.info/">your Bluesky account's DID</a>. For example:.
+<li><em>If you're coming from the Atmosphere (Bluesky):</em> add a <a href="https://indieweb.org/rel-me"><code>rel=me</code> link</a> (it can be invisible) to your web site's home page that points to <code>https://bsky.brid.gy/ap/[DID]</code>, where <code>[DID]</code> is <a href="https://internect.info/">your Atmosphere account's DID</a>. For example:.
 <pre>
 &lt;a rel="<span class='keyword'>me</span>" href="<span class='value'>https://bsky.brid.gy/ap/did:plc:fdme4gb7mu7zrie7peay7tst</span>" /&gt;
 </pre>
@@ -676,7 +676,7 @@ RewriteRule ^.well-known/(host-meta|webfinger).* https://fed.brid.gy/$0  [redire
 </li>
 
 <li id="to-fediverse-indexable" class="question">Will I show up in fediverse search engines and indexes?</li>
-<li>If you're coming from a network with built in search that users can't opt out of, like Bluesky, or that allows indexing by default, like the web - <a href="https://www.robotstxt.org/">robots.txt</a> notwithstanding - then yes. People on those networks already implicitly consented to indexing when they created their accounts, so we carry that consent over to the fediverse by setting their <code>discoverable</code> and <code>indexable</code> flags to <code>true</code>.
+<li>If you're coming from a network with built in search that users can't opt out of, like the Atmosphere (Bluesky), or that allows indexing by default, like the web - <a href="https://www.robotstxt.org/">robots.txt</a> notwithstanding - then yes. People on those networks already implicitly consented to indexing when they created their accounts, so we carry that consent over to the fediverse by setting their <code>discoverable</code> and <code>indexable</code> flags to <code>true</code>.
 
 <li id="fediverse-delete" class="question">I disabled my bridged profile, or deleted a post, but it's still visible in the fediverse!</li>
 <li class="answer">
@@ -699,39 +699,39 @@ RewriteRule ^.well-known/(host-meta|webfinger).* https://fed.brid.gy/$0  [redire
 <li>IndieWeb sites generally represent a single person. They're often domains, but when they're subdomains, eg on <a href="https://wordpress.com/">wordpress.com</a> or <a href="https://blogspot.com">blogspot.com</a>, those are often shared hosting platforms that don't define clear communities or moderation boundaries either.</li>
 <!-- <li>Nostr users don't live on specific servers at all. They publish to <a href="https://nostr.com/relays">relays</a>, usually multiple at a time, and may change those relays often. Relays are primarily network infrastructure.</li> -->
 </ul>
-<p>Another difficulty is that accounts on Bluesky have long-lived, server-independent ids. If we used a Bluesky user's PDS domain in their fediverse handle, that handle would change every time they migrated to a new PDS, and they'd lose all of their followers and followings, even though their Bluesky account ID itself hadn't changed.</p>
+<p>Another difficulty is that accounts on the Atmosphere have long-lived, server-independent ids. If we used an Atmosphere user's PDS domain in their fediverse handle, that handle would change every time they migrated to a new PDS, and they'd lose all of their followers and followings, even though their Atmosphere account ID itself hadn't changed.</p>
 </li>
 
 
 <br>
 
-<h3 id="from-bluesky">From Bluesky</h3>
+<h3 id="from-bluesky">From the Atmosphere (Bluesky)</h3>
 
 <li id="bluesky-get-started" class="question">How do I get started?</li>
 <li class="answer">
-<p>To bridge your Bluesky account into the fediverse and interact with people there, <a href="/login">log in here</a>, then click the <em>Enable</em> button. Alternatively, you can bridge your account by following <a href="https://bsky.app/profile/ap.brid.gy">@ap.brid.gy</a> on Bluesky. You can unfollow it afterward if you want, you'll still stay bridged. (<a href="#opt-out">Here's how to disable.</a>)</p>
-<p>After a few minutes, your Bluesky account will appear in the fediverse as <code>@[handle]@bsky.brid.gy</code>. For example, <a href="https://bsky.app/profile/snarfed.bsky.social">@snarfed.bsky.social</a> on Bluesky is bridged into the fediverse as <code>@snarfed.bsky.social@bsky.brid.gy</code>.</p>
+<p>To bridge your Atmosphere account into the fediverse and interact with people there, <a href="/login">log in here</a>, then click the <em>Enable</em> button. Alternatively, you can bridge your account by following <a href="https://bsky.app/profile/ap.brid.gy">@ap.brid.gy</a> on the Atmosphere. You can unfollow it afterward if you want, you'll still stay bridged. (<a href="#opt-out">Here's how to disable.</a>)</p>
+<p>After a few minutes, your Atmosphere account will appear in the fediverse as <code>@[handle]@bsky.brid.gy</code>. For example, <a href="https://bsky.app/profile/snarfed.bsky.social">@snarfed.bsky.social</a> on the Atmosphere is bridged into the fediverse as <code>@snarfed.bsky.social@bsky.brid.gy</code>.</p>
 <p>Alternatively, <a href="#bluesky-follow">you can find and follow bridged fediverse accounts</a> without bridging your own account, but they won't see your posts or interactions.<p>
 </li>
 
 
 <li id="bluesky-follow-fediverse" class="question">How do I find a bridged fediverse account?</li>
 <li class="answer">
-<p><a href="https://bsky.app/search">Search in Bluesky</a> for their fediverse address (eg <code>@snarfed@indieweb.social</code>) or profile URL (eg <code><a href="https://indieweb.social/@snarfed">https://indieweb.social/@snarfed</a></code>), and then click the <em>People</em> tab. If they've enabled the bridge, they'll show up there.
+<p><a href="https://bsky.app/search">Search in your Atmosphere client</a> for their fediverse address (eg <code>@snarfed@indieweb.social</code>) or profile URL (eg <code><a href="https://indieweb.social/@snarfed">https://indieweb.social/@snarfed</a></code>), and then click the <em>People</em> tab. If they've enabled the bridge, they'll show up there.
 
-<p>Bridged fediverse accounts will appear in Bluesky as <code>@[user].[instance].ap.brid.gy</code>. For example, <a href="https://indieweb.social/@snarfed">@snarfed@indieweb.social</a> is bridged into Bluesky as <a href="https://bsky.app/profile/snarfed.indieweb.social.ap.brid.gy">@snarfed.indieweb.social.ap.brid.gy</a>.</p>
+<p>Bridged fediverse accounts will appear in the Atmosphere (Bluesky) as <code>@[user].[instance].ap.brid.gy</code>. For example, <a href="https://indieweb.social/@snarfed">@snarfed@indieweb.social</a> is bridged into the Atmosphere as <a href="https://bsky.app/profile/snarfed.indieweb.social.ap.brid.gy">@snarfed.indieweb.social.ap.brid.gy</a>.</p>
 </li>
 
 
 <li id="bluesky-follow-web" class="question">How do I find a bridged web site?</li>
 <li class="answer">
-<p>To follow a web site, first <a href="/web-site">enter it here</a> to make sure it's set up, then wait a minute, then <a href="https://bsky.app/search">search for it in Bluesky</a> as <code>[domain].web.brid.gy</code>. For example, <a href="https://nature.com/">nature.com</a> is bridged into Bluesky as <a href="https://bsky.app/profile/nature.com.web.brid.gy">nature.com.web.brid.gy</a>.</p>
+<p>To follow a web site, first <a href="/web-site">enter it here</a> to make sure it's set up, then wait a minute, then <a href="https://bsky.app/search">search for it in the Atmosphere</a> as <code>[domain].web.brid.gy</code>. For example, <a href="https://nature.com/">nature.com</a> is bridged as <a href="https://bsky.app/profile/nature.com.web.brid.gy">nature.com.web.brid.gy</a>.</p>
 </li>
 
 
-<li id="bluesky-reply-controls" class="question">Can I use Bluesky's reply controls?</li>
+<li id="bluesky-reply-controls" class="question">Can I use reply controls?</li>
 <li class="answer">
-<p>Yes! Bluesky's <a href="https://bsky.app/profile/safety.bsky.app/post/3khhw67cxqg22">reply controls</a> apply to accounts bridged from the web and the fediverse as well as to native Bluesky accounts. Those platforms don't have reply controls, so if you bridge your Bluesky account and post with reply controls, people on the fediverse and the web will still be able to reply, but those replies won't show up in Bluesky.</p>
+<p>Yes! Bluesky's <a href="https://bsky.app/profile/safety.bsky.app/post/3khhw67cxqg22">reply controls</a> apply to accounts bridged from the web and the fediverse as well as to native Atmosphere accounts. Those platforms don't have reply controls, so if you bridge your Atmosphere account and post with reply controls, people on the fediverse and the web will still be able to reply, but those replies won't show up in the Atmosphere.</p>
 </li>
 
 <li id="bluesky-pbc-moderation" class="question">Is Bridgy Fed subject to Bluesky PBC's moderation? If Bluesky bans someone, and they move to a different PDS, can they still use Bridgy Fed?</li>
@@ -743,11 +743,11 @@ RewriteRule ^.well-known/(host-meta|webfinger).* https://fed.brid.gy/$0  [redire
 
 <br>
 
-<h3 id="to-bluesky">To Bluesky</h3>
+<h3 id="to-bluesky">To the Atmosphere (Bluesky)</h3>
 
-<li id="bluesky-what-to" class="question">Which stuff of mine can get bridged into Bluesky?</li>
+<li id="bluesky-what-to" class="question">Which stuff of mine can get bridged into the Atmosphere (Bluesky)?</li>
 <li class="answer">
-<p>Bluesky is just one of <a href="https://blueskydirectory.com/">many apps</a> on the <a href="https://atproto.com/">AT Protocol</a> network. Bridgy Fed currently supports these apps and compatible clients:
+<p>Bridgy Fed currently bridges to these Atmosphere apps and lexicons:
 <ul>
 <li><a href="https://bsky.app/">Bluesky</a> (bsky.app) profiles, follows, posts, images, videos, hashtags, @-mentions, and <a href="https://docs.joinmastodon.org/user/posting/#cw">content warnings</a>. Also replies, likes, and reposts <em>if</em> the original post was already bridged.</p>
 <li><a href="https://standard.site/">standard.site</a> publications and documents, usable in apps like <a href="https://leaflet.pub/">Leaflet</a>, <a href="https://pckt.blog/">Pckt</a>, <a href="https://offprint.app/">Offprint</a>, <a href="https://blento.app/">Blento</a>, etc.
@@ -755,36 +755,36 @@ RewriteRule ^.well-known/(host-meta|webfinger).* https://fed.brid.gy/$0  [redire
 </ul>
 </li>
 
-<li id="bluesky-what-not-to" class="question">Which stuff can't get bridged into Bluesky?</li>
+<li id="bluesky-what-not-to" class="question">Which stuff can't get bridged into the Atmosphere?</li>
 <li class="answer">
 <p><a href="https://github.com/bluesky-social/atproto/discussions/1310">Polls</a>, <a href="https://github.com/snarfed/bridgy-fed/issues/947">edits/updates</a>, or (most) GIFs.</p>
 </li>
 
-<li id="bluesky-report" class="question">What happens when I report a bridged Bluesky user?</li>
+<li id="bluesky-report" class="question">What happens when I report a bridged Atmosphere user?</li>
 <li class="answer">
-<p>Bridgy Fed sends your report to the Bluesky team's <a href="official moderation service">official moderation service</a>, which handles it, and takes action if necessary, just like with native Bluesky accounts.</p>
+<p>Bridgy Fed sends your report to the Bluesky team's <a href="official moderation service">official moderation service</a>, which handles it, and takes action if necessary, just like with native Atmosphere accounts.</p>
 <p>Also see Bridgy Fed's <a href="#moderation-policy">moderation policy</a> and <a href="#moderation">functionality</a>.</p>
 </li>
 
-<li id="bluesky-edits" class="question">I edited a post, but it didn't get edited in Bluesky!</li>
+<li id="bluesky-edits" class="question">I edited a post, but it didn't get edited in the Atmosphere!</li>
 <li class="answer">
-<p>Bluesky doesn't support editing posts right now. Bridgy Fed currently sends edits via the underlying <a href="https://atproto.com/">AT Protocol</a>, which does currently support them, but the Bluesky app itself doesn't. Hopefully eventually!</p>
+<p>Bluesky (bsky.app) doesn't support editing posts right now. Bridgy Fed currently sends edits via the underlying <a href="https://atproto.com/">AT Protocol</a>, which does currently support them, but the Bluesky app itself doesn't. Hopefully eventually!</p>
 </li>
 
-<li id="bluesky-enhanced" class="question">Can I use my own domain as my Bluesky handle?</li>
+<li id="bluesky-enhanced" class="question">Can I use my own domain as my Atmosphere handle?</li>
 <li class="answer">
 <p>Yes! Just follow these three steps:</p>
 <ol>
-<li>Get your bridged account's <a href="https://atproto.com/guides/identity#identifiers">DID</a>. You can DM the text <code>did</code> to the Bluesky Bridgy Fed bot account (eg <code>@bsky.brid.gy@bsky.brid.gy</code>), or go to your <a href="#user-page">user page</a> and click the <button class="btn btn-default glyphicon glyphicon-tag"></button> next to to your bridged Bluesky account link.
-<li>Connect your domain to your bridged Bluesky account. You can do this <a href="https://bsky.social/about/blog/4-28-2023-domain-handle-tutorial#:~:text=navigate%20back%20to%20your%20domain%20registrar">with DNS</a> (just steps 5 and 6) or <a href="https://atproto.com/specs/handle#:~:text=HTTPS%20well-known%20method">with HTTPS</a>. Once you're done, <a href="https://bsky-debug.app/handle">check your work here</a>.
-<li>If you're on the fediverse, <a href="/login">log in here</a> and enter your domain in the <em>Set Bluesky handle</em> form. Or, if your account isn't supported for login, send a DM to <code>@bsky.brid.gy@bsky.brid.gy</code> with the text <code>username [domain]</code> (eg <code>username my.site.com</code>). If you're bridging a website, click the <button class="btn btn-default glyphicon glyphicon-refresh"></button> button on your <a href="#user-page">user page</a>.
+<li>Get your bridged account's <a href="https://atproto.com/guides/identity#identifiers">DID</a>. You can DM the text <code>did</code> to the Atmosphere Bridgy Fed bot account (eg <code>@bsky.brid.gy@bsky.brid.gy</code>), or go to your <a href="#user-page">user page</a> and click the <button class="btn btn-default glyphicon glyphicon-tag"></button> next to to your bridged Atmosphere account link.
+<li>Connect your domain to your bridged Atmosphere account. You can do this <a href="https://bsky.social/about/blog/4-28-2023-domain-handle-tutorial#:~:text=navigate%20back%20to%20your%20domain%20registrar">with DNS</a> (just steps 5 and 6) or <a href="https://atproto.com/specs/handle#:~:text=HTTPS%20well-known%20method">with HTTPS</a>. Once you're done, <a href="https://bsky-debug.app/handle">check your work here</a>.
+<li>If you're on the fediverse, <a href="/login">log in here</a> and enter your domain in the <em>Set Atmosphere (Bluesky) handle</em> form. Or, if your account isn't supported for login, send a DM to <code>@bsky.brid.gy@bsky.brid.gy</code> with the text <code>username [domain]</code> (eg <code>username my.site.com</code>). If you're bridging a website, click the <button class="btn btn-default glyphicon glyphicon-refresh"></button> button on your <a href="#user-page">user page</a>.
 </ol>
 <p>If you want to undo this later and change back to your original default handle, you can do it the same way. For example, if you're <code>@user@instance.com</code> on the fediverse, DM <code>username user.instance.com.ap.brid.gy</code>, or enter <code>user.instance.com.ap.brid.gy</code> into the form on the <a href="/settings">settings page</a>.
 </li>
 
 <li id="standard-site-well-known" class="question">Can I verify my web site or domain with <a href="https://standard.site/">standard.site</a>?</li>
 <li class="answer">
-<p><a href="https://standard.site/">standard.site</a> has a mechanism for web sites to <a href="https://standard.site/#verification">verify themselves</a>. If you bridge a web site to Bluesky, you can do this verification by redirecting the <code>/.well-known/site.standard.publication</code> path on your web site to <code>https://fed.brid.gy/.well-known/site.standard.publication?protocol=[protocol]&domain=[domain]</code>. Replace <code>[domain]</code> with your web site's domain and <code>[protocol]</code> with <code>web</code> if you're bridging a web site, <code>ap</code> if you're bridging a fediverse account.
+<p><a href="https://standard.site/">standard.site</a> has a mechanism for web sites to <a href="https://standard.site/#verification">verify themselves</a>. If you bridge a web site to the Atmosphere, you can do this verification by redirecting the <code>/.well-known/site.standard.publication</code> path on your web site to <code>https://fed.brid.gy/.well-known/site.standard.publication?protocol=[protocol]&domain=[domain]</code>. Replace <code>[domain]</code> with your web site's domain and <code>[protocol]</code> with <code>web</code> if you're bridging a web site, <code>ap</code> if you're bridging a fediverse account.
 <p>For example, if your web site is <code>https://example.com/</code>, and you're bridging a fediverse account, you'd redirect <code>https://example.com/.well-known/site.standard.publication</code> to <code>https://fed.brid.gy/.well-known/site.standard.publication?protocol=ap&domain=example.com</code>.
 <p>This is similar to <a href="#fediverse-enhanced">redirecting a web site's WebFinger to Bridgy Fed</a>. More details and examples there.
 <p>If you're on the fediverse, your account also needs to be the web site's root actor. Specifically, your ActivityPub actor needs your site's home page in its <code>url</code> field, eg <code>"url": "https://example.com/"</code>, and when Bridgy Fed fetches your site's home page as ActivityPub, eg with the <code>Accept: application/activity+json</code> header, it should return that same actor. (This is just an example; Bridgy Fed's actual <code>Accept</code> header is more complicated.)
@@ -794,7 +794,7 @@ RewriteRule ^.well-known/(host-meta|webfinger).* https://fed.brid.gy/$0  [redire
 <li id="standard-site-link-rel" class="question">Can I link my bridged web pages or articles to their <a href="https://standard.site/">standard.site</a> documents?</li>
 <li class="answer">
 <p>Yes! Beyond <a href="#standard-site-well-known">verifying web sites</a>, standard.site also has a mechanism to <a href="https://standard.site/#verification">link individual web pages to their standard.site documents</a>. You can do this by including a <code>&lt;link&gt;</code> element in your web page's HTML that points to its bridged <code>at://</code> URI.
-<p>First, to get a bridged web page's <code>at://</code> URI, <a href="#identify-bridged-to-post">construct a Bridgy Fed URL to convert it to Bluesky</a>. For example, for an ActivityPub <code>Article</code> with id <code>http://instan.ce/article</code>, the Bridgy Fed Bluesky URL would be <code>https://ap.brid.gy/convert/bsky/http://instan.ce/article</code>.
+<p>First, to get a bridged web page's <code>at://</code> URI, <a href="#identify-bridged-to-post">construct a Bridgy Fed URL to convert it to the Atmosphere</a>. For example, for an ActivityPub <code>Article</code> with id <code>http://instan.ce/article</code>, the Bridgy Fed Atmosphere (Bluesky) URL would be <code>https://ap.brid.gy/convert/bsky/http://instan.ce/article</code>.
 <p>Then, fetch that URL and look at the response's <code>Link</code> header. It will be the bridged <code>at://</code> URI of the <code>site.standard.document</code> record, eg <code>at://did:plc:abc123/site.standard.document/xyz</code>. <a href="https://standard.site/#verification">Add that URI to your web page's HTML in a <code>&lt;link&gt;</code> element like this</a>:
 <pre>
 &lt;link rel="<span class='keyword'>site.standard.document</span>" href="<span class='value'>at://did:plc:abc123/site.standard.document/xyz</span>" /&gt;
@@ -803,7 +803,7 @@ RewriteRule ^.well-known/(host-meta|webfinger).* https://fed.brid.gy/$0  [redire
 
 <li id="bluesky-fields" class="question">How can I see the full text or original URL for a bridged post?</li>
 <li class="answer">
-<p>If a post bridged into Bluesky is truncated, it will include an embed with a link to the original post. You can also find the original post link indirectly by opening the author's profile and following the link in their bio to their original account.
+<p>If a post bridged into the Atmosphere is truncated, it will include an embed with a link to the original post. You can also find the original post link indirectly by opening the author's profile and following the link in their bio to their original account.
 <p>For developers, Bridgy Fed includes the full text and URL for bridged posts and profiles inside their AT Protocol records. Bridged <code>app.bsky.actor.profile</code> records have <code>bridgyOriginalDescription</code> and <code>bridgyOriginalUrl</code> fields, and bridged <code>app.bsky.feed.post</code> records have <code>bridgyOriginalText</code> and <code>bridgyOriginalUrl</code> fields. Here's an example:
 <pre>
 {
@@ -821,14 +821,14 @@ RewriteRule ^.well-known/(host-meta|webfinger).* https://fed.brid.gy/$0  [redire
 <p><a href="https://bsky.social/about/blog/09-11-2024-video">Bluesky currently limits videos to 60 seconds, 100MB, and .mp4, .mpeg, .webm, or .mov.</a> If you're seeing a "Video not found. Retry" error, the original video may not satisfy those requirements.</p>
 </li>
 
-<li id="bluesky-image-cdn" class="question">My images or videos are blank in Bluesky!</li>
+<li id="bluesky-image-cdn" class="question">My images or videos are blank in the Atmosphere!</li>
 <li class="answer">
 <p>This usually means that the server hosting your images is blocking or otherwise not serving them to Bluesky's CDN. To confirm this, open an affected post in <a href="https://bsky.app/">bsky.app</a>, then open one of the blank images in a new browser tab. (Right click, Open image in new tab, or something similar.) If it shows the error <code>Source image is unreachable</code> instead of the image, your server is blocking Bluesky's CDN. <a href="https://github.com/snarfed/bridgy-fed/issues/1804">GoToSocial is one known example</a>; <a href="https://bsky.app/profile/isafashion.dev/post/3lgxsllqsv22n">here's a workaround</a>. Otherwise, check your Cloudflare, CDN, server or host settings, they might be configured overly aggressively to block bots. <a href="https://github.com/bluesky-social/atproto/discussions/3451">More background.</a>
 </li>
 
-<li id="bluesky-image-corrupt" class="question">My images are broken or corrupted in Bluesky!</li>
+<li id="bluesky-image-corrupt" class="question">My images are broken or corrupted in the Atmosphere!</li>
 <li class="answer">
-<p>The Bluesky CDN has an <a href="https://github.com/bluesky-social/atproto/discussions/2845#discussioncomment-14532036">undocumented limit of 10MB for images</a>. If you post images larger than that, they may look broken or corrupted in Bluesky. We bridge them anyway, which isn't ideal, but so far we've chosen to do that instead of silently dropping these posts. <a href="https://github.com/snarfed/bridgy-fed/issues/2107#issuecomment-3342267865">We're open to feedback!</a>
+<p>The Bluesky CDN has an <a href="https://github.com/bluesky-social/atproto/discussions/2845#discussioncomment-14532036">undocumented limit of 10MB for images</a>. If you post images larger than that, they may look broken or corrupted in the Atmosphere. We bridge them anyway, which isn't ideal, but so far we've chosen to do that instead of silently dropping these posts. <a href="https://github.com/snarfed/bridgy-fed/issues/2107#issuecomment-3342267865">We're open to feedback!</a>
 </li>
 
 
@@ -873,7 +873,7 @@ RewriteRule ^.well-known/(host-meta|webfinger).* https://fed.brid.gy/$0  [redire
 </pre>
 </p>
 
-<p>Your Bluesky handle will be <code>yourdomain.com.web.brid.gy</code>.</p>
+<p>Your Atmosphere (Bluesky) handle will be <code>yourdomain.com.web.brid.gy</code>.</p>
 
 <p>By default, your fediverse address will be <code>@yourdomain.com@yourdomain.com</code>. Many services (eg Mastodon) default to only showing the username, so this generally shows up as just <code>@yourdomain.com</code> in posts, and the full address appears on hover.</p>
 
@@ -934,7 +934,7 @@ RewriteRule ^.well-known/(host-meta|webfinger).* https://fed.brid.gy/$0  [redire
 </p>
 </li>
 
-<li id="web-reply" class="question">How do I reply to a fediverse or Bluesky post?</li>
+<li id="web-reply" class="question">How do I reply to a fediverse or Atmosphere (Bluesky) post?</li>
 <li class="answer">
 <p>
 Replies <a href="#web-which-parts">require microformats and must be triggered via webmention</a>. Put the reply in a new post on your web site, and include a link to the post you're replying to with class <code><a href="http://microformats.org/wiki/rel-in-reply-to">u-in-reply-to</a></code>, as if you were publishing a normal <a href="https://indieweb.org/comment">IndieWeb reply</a>. For example:
@@ -948,7 +948,7 @@ Replies <a href="#web-which-parts">require microformats and must be triggered vi
 </p>
 </li>
 
-<li id="web-like" class="question">How do I like or repost a fediverse or Bluesky post?</li>
+<li id="web-like" class="question">How do I like or repost a fediverse or Atmosphere post?</li>
 <li class="answer">
 <p>Likes and reposts <a href="#web-which-parts">require microformats and must be triggered via webmention</a>. They're almost exactly the <a href="#web-reply">same as replying</a>. The only difference is that you use <code><a href="https://indieweb.org/like">u-like-of</a></code> for a like or <code><a href="https://indieweb.org/repost">u-repost-of</a></code> for a repost.
 
@@ -1084,7 +1084,7 @@ To receive likes, reposts, replies, @-mentions, and follows from other networks,
 
 <li id="web-discovery" class="question">How can people find and follow me?</li>
 <li class="answer">
-<p>They can search for your web site! Often you can enter your domain, eg <code>yourdomain.com</code>, in any fediverse or Bluesky search box. If that doesn't work, try your full address, either <code>@yourdomain.com@yourdomain.com</code> or <code>@yourdomain.com@web.brid.gy</code> in the fediverse and <code>yourdomain.com.web.brid.gy</code> in Bluesky.</p>
+<p>They can search for your web site! Often you can enter your domain, eg <code>yourdomain.com</code>, in any fediverse or Atmosphere search box. If that doesn't work, try your full address, either <code>@yourdomain.com@yourdomain.com</code> or <code>@yourdomain.com@web.brid.gy</code> in the fediverse and <code>yourdomain.com.web.brid.gy</code> in the Atmosphere.</p>
 
 <p><a href="#user-page">Your user page</a> has a <em>Followers</em> link that shows you all of your followers. It has a "remote follow" form where people can enter their fediverse address and follow you directly.
 </p>
@@ -1092,7 +1092,7 @@ To receive likes, reposts, replies, @-mentions, and follows from other networks,
 
 <li id="web-see-posts" class="question">How can I see what my posts look like on other networks?</li>
 <li class="answer">
-<p>On Bluesky, <a href="#Your+Bluesky+handle">just check out your bridged profile</a>!
+  <p>On the Atmosphere, <a href="#Your+Atmosphere+(Bluesky)+handle">just check out your bridged profile</a>!
 <p>In the fediverse, it <a href="fediverse-servers">varies by server</a>. For Mastodon, <a href="#currently+following_you">open your list of followers in Bridgy Fed</a> and click on one to open their profile. Then, inside that Mastodon instance, <a href="discovery">search for your site's address</a>, click on it in the search results, and you'll see your fediverse profile and all of your posts that were delivered to that instance. This may not be all of them, depending on how long and when people on that instance have been following you.</p>
 
 <p>This general process should often work in other fediverse servers too.</p>
@@ -1143,7 +1143,7 @@ The exact metadata for account and post links varies by network. Read on for det
 </li>
 
 <li id="identify-bridged-account" class="question">How can I tell if an account is bridged from another network?</li>
-<p>For an ActivityPub actor, check its <a href="https://www.w3.org/ns/activitystreams#did-core"><code>alsoKnownAs</code> field</a>. If it's bridged from elsewhere, that field will have its native id as a URI. For example, an account bridged from  Bluesky will have an <a href="https://atproto.com/specs/at-uri-scheme"><code>at:// URI</code></a> with its <a href="https://atproto.com/specs/did">DID</a>:
+<p>For an ActivityPub actor, check its <a href="https://www.w3.org/ns/activitystreams#did-core"><code>alsoKnownAs</code> field</a>. If it's bridged from elsewhere, that field will have its native id as a URI. For example, an account bridged from the Atmosphere (Bluesky) will have an <a href="https://atproto.com/specs/at-uri-scheme"><code>at:// URI</code></a> with its <a href="https://atproto.com/specs/did">DID</a>:
 <pre>
 {
   "id": "https://bsky.brid.gy/ap/did:plc:3ljmtyyjqcjee2kpewgsifvb",
@@ -1157,7 +1157,7 @@ The exact metadata for account and post links varies by network. Read on for det
   "<span class='keyword'>alsoKnownAs</span>": ["<span class='value'>https://snarfed.org/</span>"],
   ...
 </pre>
-<p>Bluesky is similar. If a Bluesky user is bridged from elsewhere, its native id will be in <code>alsoKnownAs</code> in the user's <a href="https://atproto.com/specs/did#did-documents">DID document</a>, eg:
+<p>The Atmosphere is similar. If an Atmosphere user is bridged from elsewhere, its native id will be in <code>alsoKnownAs</code> in the user's <a href="https://atproto.com/specs/did#did-documents">DID document</a>, eg:
 <pre>
 {
   "id": "did:plc:bg5udl25mvzg3rt7l5n2hzet",
@@ -1177,7 +1177,7 @@ The exact metadata for account and post links varies by network. Read on for det
 <ul>
 <li><code>https://fed.brid.gy/web/snarfed.org</code> for a web site
 <li><code>https://fed.brid.gy/ap/@snarfed@indieweb.social</code> for a fediverse account
-<li><code>https://fed.brid.gy/bsky/snarfed.bsky.social</code> or <code>https://fed.brid.gy/bsky/did:plc:3ljmtyyjqcjee2kpewgsifvb</code> for a Bluesky account
+<li><code>https://fed.brid.gy/bsky/snarfed.bsky.social</code> or <code>https://fed.brid.gy/bsky/did:plc:3ljmtyyjqcjee2kpewgsifvb</code> for an Atmosphere (Bluesky) account
 </ul>
 <br>
 <p>If fetching that URL returns HTTP 200, the account is bridged. If it returns HTTP 404, it's not.
@@ -1185,7 +1185,7 @@ The exact metadata for account and post links varies by network. Read on for det
 
 <li id="identify-bridged-from-post" class="question">How can I tell if a post was bridged from another network?</li>
 <li class="answer">
-<p>On the fediverse, look for a <a href="https://codeberg.org/fediverse/fep/src/branch/main/fep/fffd/fep-fffd.md">FEP-fffd proxy link</a> in the object's <code>url</code> field, ie an element with <code>rel=canonical</code> or <code>rel=alternate</code>. For example, <a href="https://browser.pub/https://bsky.brid.gy/convert/ap/at://did:plc:3ljmtyyjqcjee2kpewgsifvb/app.bsky.feed.post/3lvcb3tswns26">this reply</a> was bridged from Bluesky:
+<p>On the fediverse, look for a <a href="https://codeberg.org/fediverse/fep/src/branch/main/fep/fffd/fep-fffd.md">FEP-fffd proxy link</a> in the object's <code>url</code> field, ie an element with <code>rel=canonical</code> or <code>rel=alternate</code>. For example, <a href="https://browser.pub/https://bsky.brid.gy/convert/ap/at://did:plc:3ljmtyyjqcjee2kpewgsifvb/app.bsky.feed.post/3lvcb3tswns26">this reply</a> was bridged from the Atmosphere (Bluesky):
 <pre>
 {
   "type": "Note",
@@ -1201,9 +1201,9 @@ The exact metadata for account and post links varies by network. Read on for det
   ...
 </pre>
 <p>On the web, check if the post's microformats2 <code>uid</code> is on a <code>brid.gy</code> subdomain. If so, its original native id will be the last part of the path, after <code>/convert/[protocol]/</code>.
-<p>For example, <code>https://bsky.brid.gy/convert/ap/at://did:plc:3ljmtyyjqcjee2kpewgsifvb/app.bsky.feed.post/3lhputf77w22j</code> is the Bridgy Fed ActivityPub id for a Bluesky post bridged into the fediverse. Its original Bluesky URI is <code>at://did:plc:3ljmtyyjqcjee2kpewgsifvb/app.bsky.feed.post/3lhputf77w22j</code>.
+<p>For example, <code>https://bsky.brid.gy/convert/ap/at://did:plc:3ljmtyyjqcjee2kpewgsifvb/app.bsky.feed.post/3lhputf77w22j</code> is the Bridgy Fed ActivityPub id for an Atmosphere post bridged into the fediverse. Its original Atmosphere URI is <code>at://did:plc:3ljmtyyjqcjee2kpewgsifvb/app.bsky.feed.post/3lhputf77w22j</code>.
 <p>You can also use <a href="https://swicg.github.io/activitypub-html-discovery/#html-to-activitypub"><code>rel=alternate</code> and <code>rel=canonical</code></a> to discover other versions of a post in the fediverse and elsewhere.
-<p>Bluesky doesn't have a standard way to do this yet. For now, Bridgy Fed uses the <code>bridgyOriginalUrl</code> field in the Bluesky post record; it will have the post's id in its native protocol. For example, <a href="https://bsky.app/profile/fedi.test.snarfed.org/post/3lmwsp3tpdlt2">this post</a> was bridged from the fediverse:
+<p>The Atmosphere doesn't have a standard way to do this yet. For now, Bridgy Fed uses the <code>bridgyOriginalUrl</code> field in the Atmosphere post record; it will have the post's id in its native protocol. For example, <a href="https://bsky.app/profile/fedi.test.snarfed.org/post/3lmwsp3tpdlt2">this post</a> was bridged from the fediverse:
 <pre>
 {
   "$type": "app.bsky.feed.post",
@@ -1234,13 +1234,13 @@ https://<span class="keyword">[FROM]</span>.brid.gy/convert/<span class="keyword
 <tr><td>Farcaster (future)</td> <td><code>fc</code></td></tr>
 </table>
 
-<p>For example, <a href="https://indieweb.social/@snarfed/116024251702608666">this fediverse post</a>'s ActivityPub id is <code>https://indieweb.social/users/snarfed/statuses/116024251702608666</code>. To see if Bridgy Fed bridged it to Bluesky, fetch this URL:
+<p>For example, <a href="https://indieweb.social/@snarfed/116024251702608666">this fediverse post</a>'s ActivityPub id is <code>https://indieweb.social/users/snarfed/statuses/116024251702608666</code>. To see if Bridgy Fed bridged it to ATProto, fetch this URL:
 
 <pre>
 https://<span class="value">ap</span>.brid.gy/convert/<span class="value">bsky</span>/<span class="value">https://indieweb.social/users/snarfed/statuses/116024251702608666</span>
 </pre>
 
-<p>If it was bridged, the response will be HTTP 200 with the converted object in the destination network's format, and the id of the bridged object in the <a href="https://developer.mozilla.org/en-US/docs/Web/HTTP/Reference/Headers/Link"><code>Link</code> HTTP header</a>. In this example, the response body is the Bluesky <code>app.bsky.feed.post</code> record, and the <code>Link</code> header contains its <a href="https://atproto.com/specs/at-uri-scheme"><code>at://</code> URI</a>, eg:
+<p>If it was bridged, the response will be HTTP 200 with the converted object in the destination network's format, and the id of the bridged object in the <a href="https://developer.mozilla.org/en-US/docs/Web/HTTP/Reference/Headers/Link"><code>Link</code> HTTP header</a>. In this example, the response body is the ATProto <code>app.bsky.feed.post</code> record, and the <code>Link</code> header contains its <a href="https://atproto.com/specs/at-uri-scheme"><code>at://</code> URI</a>, eg:
 
 <pre>
 Link: <<span class='value'>at://did:plc:bg5udl25mvzg3rt7l5n2hzet/app.bsky.feed.post/3me75t7irum22</span>>; rel="self"
@@ -1249,37 +1249,37 @@ Link: <<span class='value'>at://did:plc:bg5udl25mvzg3rt7l5n2hzet/app.bsky.feed.p
 
 <li id="metadata" class="question">Can I get additional metadata about a bridged account or post?</li>
 <li class="answer">
-<p>On Bluesky, look for the <code>bridgyOriginalUrl</code> field described above, which links to the original native post. There's also a <code>bridgyOriginalText</code> field, which contains the original post's full text, before truncation.
-<p>For posts bridged to the fediverse or the web, we translate everything to standard <a href="https://www.w3.org/TR/activitystreams-core/">ActivityStreams 2</a> fields and <a href="https://microformats.org/wiki/microformats2">microformats2</a> properties, respectively, so we don't need custom fields like for Bluesky.
+<p>On ATProto, look for the <code>bridgyOriginalUrl</code> field described above, which links to the original native post. There's also a <code>bridgyOriginalText</code> field, which contains the original post's full text, before truncation.
+<p>For posts bridged to the fediverse or the web, we translate everything to standard <a href="https://www.w3.org/TR/activitystreams-core/">ActivityStreams 2</a> fields and <a href="https://microformats.org/wiki/microformats2">microformats2</a> properties, respectively, so we don't need custom fields like for ATProto.
 </li>
 
 <li id="enable-api" class="question">As a server admin, can I automatically enable the bridge for new users?</li>
 <li class="answer">
-<p>Yes! On Bluesky and the fediverse, you can enable the bridge for a user by having them <a href="#bluesky-get-started">follow <code>@ap.brid.gy</code></a> <a href="#fediverse-get-started">or <code>@bsky.brid.gy@bsky.brid.gy</code></a>, respectively. Likewise, you can disable the bridge for a user by having them block that account. <a href="#opt-out">Your users will still be able to opt in or out individually</a>, of course.
+<p>Yes! On the Atmosphere and the fediverse, you can enable the bridge for a user by having them <a href="#bluesky-get-started">follow <code>@ap.brid.gy</code></a> <a href="#fediverse-get-started">or <code>@bsky.brid.gy@bsky.brid.gy</code></a>, respectively. Likewise, you can disable the bridge for a user by having them block that account. <a href="#opt-out">Your users will still be able to opt in or out individually</a>, of course.
 <p>If you do this, we strongly recommend and expect that you only do it for new users, not existing users, and that you tell new users loudly during the signup flow that they'll be bridged. If you don't, we reserve the right to disable automatic opt-in from your instance.
 <p>To enable the bridge for a web site, make a form-encoded HTTP POST to <code>https://fed.brid.gy/web-site</code> with the web site's home page URL in the body's <code>url</code> parameter, eg <code>url=example.com</code>, and <code>confirm=true</code>. The web site <a href="#web-get-started">must either support microformats2 and webmentions, or serve an RSS or Atom feed discoverable from its home page.</a> To disable, put the text <code>#nobridge</code> in the web site's <a href="#web-profile">profile metadata</a>, then make an HTTP POST to <code>https://fed.brid.gy/web/[domain]/update-profile</code>, where <code>[domain]</code> is the web site's domain, eg <code>snarfed.org</code>.</a>
 </li>
 
-<li id="bluesky-handle-api" class="question">As a server admin, can I give my new users custom Bluesky domain handles automatically?</li>
+<li id="bluesky-handle-api" class="question">As a server admin, can I give my new users custom Atmosphere (Bluesky) domain handles automatically?</li>
 <li class="answer">
-<p>Yes! For Bluesky custom domain handles, you need to redirect the URL path <code>/.well-known/atproto-did</code> to Bridgy Fed from every subdomain that you want to use as a handle. You also need to include two query parameters: <code>protocol</code>, which is <code>ap</code> for fediverse accounts or <code>web</code> for web sites, and <code>id</code>, which is the ActivityPub actor id or WebFinger address for fediverse accounts, or the domain for web sites.
-<p>Say you run a fediverse instance at <code>instance.com</code>, and your users' actor ids follow the pattern <code>https://instance.com/users/alice</code>, and you want to give each of your users a subdomain as their Bluesky handle, eg <code>alice.instance.com</code> for <code>@alice@instance.com</code>. You'd redirect <code>https://alice.instance.com/.well-known/atproto-did</code> to <code>https://fed.brid.gy/.well-known/atproto-did?protocol=ap&id=https://instance.com/users/alice</code>, and so on for each of your users.
+<p>Yes! For Atmosphere custom domain handles, you need to redirect the URL path <code>/.well-known/atproto-did</code> to Bridgy Fed from every subdomain that you want to use as a handle. You also need to include two query parameters: <code>protocol</code>, which is <code>ap</code> for fediverse accounts or <code>web</code> for web sites, and <code>id</code>, which is the ActivityPub actor id or WebFinger address for fediverse accounts, or the domain for web sites.
+<p>Say you run a fediverse instance at <code>instance.com</code>, and your users' actor ids follow the pattern <code>https://instance.com/users/alice</code>, and you want to give each of your users a subdomain as their Atmosphere handle, eg <code>alice.instance.com</code> for <code>@alice@instance.com</code>. You'd redirect <code>https://alice.instance.com/.well-known/atproto-did</code> to <code>https://fed.brid.gy/.well-known/atproto-did?protocol=ap&id=https://instance.com/users/alice</code>, and so on for each of your users.
 <p>Likewise, if you run a web hosting service at <code>example.com</code>, with subdomains for each of your users, you'd redirect <code>https://bob.example.com/.well-known/atproto-did</code> to <code>https://fed.brid.gy/.well-known/atproto-did?protocol=web&id=bob.example.com</code>, and so on.
 <p>This can often be done with a bit of web server config alone, without needing to change your instance's or service's code. You'll probably also use a wildcard DNS record and SSL certificate instead of provisioning individual DNS records and certificates per subdomain.
 <p>After you've set up the redirect, <a href="mailto:feedback@brid.gy">email us</a> or <a href="https://github.com/snarfed/bridgy-fed/issues/1305">ping us on GitHub</a> and we'll turn on automatic handles for your instance.
-<p>Note that this only applies going forward, ie it won't retroactively change your existing users' Bluesky handles. They can change their handles <a href="#bluesky-enhanced">by logging in or sending a DM, like usual</a>. They don't need to do steps 1 or 2, ie set up DNS or HTTPS, just step 3 to trigger the handle change.
+<p>Note that this only applies going forward, ie it won't retroactively change your existing users' Atmosphere handles. They can change their handles <a href="#bluesky-enhanced">by logging in or sending a DM, like usual</a>. They don't need to do steps 1 or 2, ie set up DNS or HTTPS, just step 3 to trigger the handle change.
 </li>
 
 <li id="fediverse-address-api" class="question">Can I give my users custom fediverse addresses automatically?</li>
 <li class="answer">
-<p>Yes! If you run a web hosting service, the process is similar to Bluesky custom handles. <a href="#fediverse-enhanced">Set up the webfinger redirects</a> for a web site first, before <a href="#enable-api">bridging it</a>, and Bridgy Fed will detect them and automatically use its domain as its fediverse address instead of <code>web.brid.gy</code>.
-<p>We don't currently have a way to automatically set a custom fediverse address for bridged Bluesky accounts. If you'd like that, <a href="https://github.com/snarfed/bridgy-fed/issues">feel free to file a feature request</a>!
+<p>Yes! If you run a web hosting service, the process is similar to Atmosphere (Bluesky) custom handles. <a href="#fediverse-enhanced">Set up the webfinger redirects</a> for a web site first, before <a href="#enable-api">bridging it</a>, and Bridgy Fed will detect them and automatically use its domain as its fediverse address instead of <code>web.brid.gy</code>.
+<p>We don't currently have a way to automatically set a custom fediverse address for bridged Atmosphere accounts. If you'd like that, <a href="https://github.com/snarfed/bridgy-fed/issues">feel free to file a feature request</a>!
 </li>
 
 <li id="notif-dm-attachments" class="question">As a client developer, can I show my user notifications, including from unbridged users?</li>
 <li class="answer">
 <p>Yes! In general, when <em>bridged</em> users from other networks reply to or mention your users, they'll get normal notifications, automatically.
-<p>When <em>unbridged</em> users from other networks reply to or mention your users, <a href="#notifs">we send a DM with details and a link for them to respond</a>. This DM comes from the Bridgy Fed bot user for that network, eg from <code>ap.brid.gy</code> for the fediverse, <code>bsky.brid.gy</code> for Bluesky, etc.
+<p>When <em>unbridged</em> users from other networks reply to or mention your users, <a href="#notifs">we send a DM with details and a link for them to respond</a>. This DM comes from the Bridgy Fed bot user for that network, eg from <code>ap.brid.gy</code> for the fediverse, <code>bsky.brid.gy</code> for the Atmosphere (Bluesky), etc.
 <p>You can intercept and parse these DMs to convert them to native-looking notifications. You can also let your users reply, like, repost, or block the user.
 <p>On the fediverse, the DM activity's <code>Note</code> will include an <code>attachment</code> for each interaction. Its <code>url</code> field will be the user-facing URL for the interaction on its native network. It will also contain these Bridgy Fed custom fields in the <code>bf:</code> namespace (<code>https://fed.brid.gy/ns#</code>):
 <ul>
@@ -1351,7 +1351,7 @@ Link: <<span class='value'>at://did:plc:bg5udl25mvzg3rt7l5n2hzet/app.bsky.feed.p
 <p><a href="https://snarfed.org/2024-01-19_moderate-people-not-code">Content moderation for decentralized social networks, and for bridges, is complicated.</a> Bridgy Fed itself doesn't have an exhaustive content moderation policy. Instead, we try to follow these principles:</p>
 <ul>
 <li>
-<p><strong>Our primary goal is to <a href="#moderation">empower each network's existing moderation ecosystem</a>.</strong> Most decentralized social networks have existing, often mature mechanisms for content moderation. The fediverse has <a href="https://docs.joinmastodon.org/user/moderating/#block">blocks</a> and <a href="https://docs.joinmastodon.org/admin/moderation/#server-wide-moderation">defederation</a> and <a href="https://about.iftas.org/">IFTAS</a>, the IndieWeb has <a href="https://indieweb.org/Vouch">Vouch</a> and <a href="https://akismet.com/">Akismet</a>, Bluesky has <a href="https://bsky.social/about/blog/4-13-2023-moderation">labeling</a>, even Nostr has <a href="https://github.com/nostr-protocol/nips/blob/master/28.md">mutes</a> and <a href="https://github.com/nostr-protocol/nips/blob/master/51.md#standard-lists">shared mutelists</a> and <a href="https://github.com/nostr-protocol/nips/blob/master/72.md">moderated groups</a>.</p>
+<p><strong>Our primary goal is to <a href="#moderation">empower each network's existing moderation ecosystem</a>.</strong> Most decentralized social networks have existing, often mature mechanisms for content moderation. The fediverse has <a href="https://docs.joinmastodon.org/user/moderating/#block">blocks</a> and <a href="https://docs.joinmastodon.org/admin/moderation/#server-wide-moderation">defederation</a> and <a href="https://about.iftas.org/">IFTAS</a>, the IndieWeb has <a href="https://indieweb.org/Vouch">Vouch</a> and <a href="https://akismet.com/">Akismet</a>, the Atmosphere (Bluesky) has <a href="https://bsky.social/about/blog/4-13-2023-moderation">labeling</a>, even Nostr has <a href="https://github.com/nostr-protocol/nips/blob/master/28.md">mutes</a> and <a href="https://github.com/nostr-protocol/nips/blob/master/51.md#standard-lists">shared mutelists</a> and <a href="https://github.com/nostr-protocol/nips/blob/master/72.md">moderated groups</a>.</p>
 <p>We try to ensure that those mechanisms all work with bridged accounts just as well as with native accounts, up to and including defederation. We're always ready to <a href="#fediverse-admins">hear admins' concerns and try to help</a>! But if an instance determines that they need to block a Bridgy Fed network (domain) entirely, that's their prerogative, and we support them.</p>
 </li>
 <li>
@@ -2097,7 +2097,7 @@ Link: <<span class='value'>at://did:plc:bg5udl25mvzg3rt7l5n2hzet/app.bsky.feed.p
 <li class="answer">
 <p>A bridge does more than just translate protocols and formats. It processes activities (events) based on domain-specific logic and semantics. The domain Bridgy Fed currently handles is public social microblogging, the kind popularized by Twitter. There are many other related social domains, with fuzzy boundaries and lots of overlap, eg forums (Reddit), questions and answers (StackOverflow), project trackers (GitHub), and many more, but here we're currently focused on microblogging.</p>
 
-<p>Even within that domain, behavior logic varies. Twitter follows are one way, but Facebook friends are bidirectional. Your Bluesky timeline (skyline) includes your followings' replies, but your fediverse timeline generally doesn't. LinkedIn...honestly I have no clue how LinkedIn works, but I'm sure it has its own logic, workfluencers and all.</p>
+<p>Even within that domain, behavior logic varies. Twitter follows are one way, but Facebook friends are bidirectional. Your Atmosphere (Bluesky) timeline (skyline) includes your followings' replies, but your fediverse timeline generally doesn't. LinkedIn...honestly I have no clue how LinkedIn works, but I'm sure it has its own logic, workfluencers and all.</p>
 
 <p>Here's what Bridgy Fed's activity router does. I've tried to make it follow "least common denominator" logic, ie do the most common and least surprising thing, and I've explicitly tried not to innovate or invent anything new here. It's a bridge, not a product, after all.</p>
 
