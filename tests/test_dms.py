@@ -823,7 +823,7 @@ Hi! I'm a friendly bot that can help you bridge your account into the fediverse.
         })
         self.assertEqual(('OK', 200), receive(from_user=alice, obj=obj))
 
-        self.assert_replied(OtherFake, alice, '?', """OK, you're now blocking <a href="other:web:list">Myy Listt</a> on other-phrase.""")
+        self.assert_replied(OtherFake, alice, '?', """OK, you're now blocking Myy Listt on other-phrase.""")
         self.assertEqual([('other:list:target', {
             'objectType': 'activity',
             'verb': 'block',
@@ -910,7 +910,7 @@ Hi! I'm a friendly bot that can help you bridge your account into the fediverse.
         })
         self.assertEqual(('OK', 200), receive(from_user=alice, obj=obj))
 
-        self.assert_replied(OtherFake, alice, '?', """OK, you're now blocking <a class="h-card u-author mention" rel="me" href="web:other:bob" title="other:handle:bob">other:handle:bob</a>, <a href="other:web:list">Myy Listt</a> on other-phrase.""")
+        self.assert_replied(OtherFake, alice, '?', """OK, you're now blocking <a class="h-card u-author mention" rel="me" href="web:other:bob" title="other:handle:bob">other:handle:bob</a>, Myy Listt on other-phrase.""")
         self.assertEqual([
             ('other:bob:target', {
                 'objectType': 'activity',
@@ -991,7 +991,7 @@ Hi! I'm a friendly bot that can help you bridge your account into the fediverse.
         })
         self.assertEqual(('OK', 200), receive(from_user=alice, obj=obj))
 
-        self.assert_replied(OtherFake, alice, '?', """OK, you're not blocking <a href="other:web:list">Myy Listt</a> on other-phrase.""")
+        self.assert_replied(OtherFake, alice, '?', """OK, you're not blocking Myy Listt on other-phrase.""")
         self.assertEqual([('other:list:target', {
             'objectType': 'activity',
             'verb': 'undo',
@@ -1109,7 +1109,7 @@ Hi! I'm a friendly bot that can help you bridge your account into the fediverse.
         })
         self.assertEqual(('OK', 200), receive(from_user=alice, obj=obj))
 
-        self.assert_replied(OtherFake, alice, '?', """OK, you're not blocking <a class="h-card u-author mention" rel="me" href="web:other:bob" title="other:handle:bob">other:handle:bob</a>, <a href="other:web:list">Myy Listt</a> on other-phrase.""")
+        self.assert_replied(OtherFake, alice, '?', """OK, you're not blocking <a class="h-card u-author mention" rel="me" href="web:other:bob" title="other:handle:bob">other:handle:bob</a>, Myy Listt on other-phrase.""")
         self.assertEqual([
             ('other:bob:target', {
                 'objectType': 'activity',

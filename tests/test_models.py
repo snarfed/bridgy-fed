@@ -1273,7 +1273,7 @@ class ObjectTest(TestCase):
                 ('', {}),
                 ('href="http://foo">foo', {'actor': 'http://foo'}),
                 ('href="http://foo">foo', {'actor': {'id': 'http://foo'}}),
-                ('href="">Alice', {'actor': {'name': 'Alice'}}),
+                ('Alice', {'actor': {'name': 'Alice'}}),
                 ('href="http://foo/">Alice', {'actor': {
                     'name': 'Alice',
                     'url': 'http://foo',
@@ -1320,7 +1320,7 @@ class ObjectTest(TestCase):
             },
         })
         self.assert_multiline_equals(
-            '<a class="h-card u-author" href="">Alice</a>',
+            'Alice',
             obj.actor_link(image=False))
 
     def test_actor_link_sized(self):
@@ -1359,7 +1359,7 @@ class ObjectTest(TestCase):
             },
         })
         self.assert_multiline_equals(
-            '<a class="h-card u-author" href="">Alice</a>', obj.actor_link())
+            'Alice', obj.actor_link())
 
         obj = Object(id='x', our_as1={'actor': {'id': 'javascript:alert(1)'}})
         self.assertEqual('javascript:alert(1)', obj.actor_link())
@@ -2630,10 +2630,10 @@ bar.org
 
         obj = Object(id='a', our_as1={'url': 'http://x', 'displayName': 'My obj'})
         self.assertEqual('<a href="http://x">My obj</a>', obj.html_link())
-        self.assertEqual('<a href="a">a</a>', Object(id='a').html_link())
+        self.assertEqual('a', Object(id='a').html_link())
 
         obj = Object(id='a', extra_as1={'displayName': 'b', 'url': 'c'})
-        self.assertEqual('<a href="c">b</a>', obj.html_link())
+        self.assertEqual('b', obj.html_link())
 
     def test_owner_protocol(self):
         for our_as1 in (

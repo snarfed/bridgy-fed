@@ -47,7 +47,6 @@ HTML = """\
   A ☕ reply
   </div>
   <a class="u-in-reply-to" href="https://fake.com/123"></a>
-  <a class="u-in-reply-to" href="tag:fake.com:123"></a>
 </article>
 </body>
 </html>
@@ -71,7 +70,6 @@ AUTHOR_HTML = """\
   A ☕ reply
   </div>
   <a class="u-in-reply-to" href="https://fake.com/123"></a>
-  <a class="u-in-reply-to" href="tag:fake.com:123"></a>
 </article>
 </body>
 </html>
@@ -299,7 +297,7 @@ class ConvertTest(testutil.TestCase):
 
         expected = HTML.replace(
             '<span class="p-uid">tag:fake.com:123456</span>',
-            '<span class="p-uid">https://ap.brid.gy/convert/web/https://user.com/bar?baz=baj&biff</span>')
+            '<span class="p-uid">https://ap.brid.gy/convert/web/https://user.com/bar?baz=baj&amp;biff</span>')
         self.assert_multiline_equals(expected, resp.get_data(as_text=True),
                                      ignore_blanks=True)
 

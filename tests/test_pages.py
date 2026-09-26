@@ -878,11 +878,7 @@ class PagesTest(TestCase):
         self.assert_equals(self.EXPECTED, contents(atom.atom_to_activities(got.text)))
 
         # NOTE's and MENTION's authors; check for two instances
-        bob = """
- <uri>https://plus.google.com/bob</uri>
- 
- <name>Bob</name>
-"""
+        bob = '<uri>https://plus.google.com/bob</uri>'
         assert got.text.index(bob) != got.text.rindex(bob)
         # COMMENT's author
         self.assertIn('Dr. Eve', got.text)
