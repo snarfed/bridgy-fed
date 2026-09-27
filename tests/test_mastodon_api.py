@@ -1844,6 +1844,131 @@ class MastodonApiTest(TestCase):
             },
         }, mock_post.call_args.kwargs['json'])
 
+    @patch.object(util.session, 'post', side_effect=[
+        # uploadBlob
+        requests_response({
+            'blob': {
+                '$type': 'blob',
+                'ref': {'$link': BLOB_CID},
+                'mimeType': 'image/png',
+                'size': 3,
+            },
+        }),
+        # createRecord
+        requests_response({
+            'uri': 'at://did:plc:user/app.bsky.feed.post/456',
+            'cid': 'bafyreipostsyddddddddddddddddddddddddddddddddddddddddddd',
+        }),
+    ])
+    def test_statuses_create_with_media(self, mock_post):
+        user = self.make_atproto_user()
+
+        resp = self.post('/api/v2/media', user=user, data={
+            'file': (BytesIO(b'foo'), 'foo.png', 'image/png'),
+            'description': 'my alt',
+        })
+        self.assertEqual(200, resp.status_code, resp.json)
+
+        resp = self.post('/api/v1/statuses', user=user, data={
+            'status': 'hello world',
+            'media_ids[]': [BLOB_CID],
+        })
+        self.assertEqual(200, resp.status_code, resp.json)
+        self.assertEqual([{
+            'id': BLOB_URL,
+            'type': 'image',
+            'url': BLOB_URL,
+            'preview_url': BLOB_URL,
+            'description': 'my alt',
+        }], resp.json['media_attachments'])
+
+        self.assertEqual(2, mock_post.call_count)
+        self.assertEqual('https://some.pds/xrpc/com.atproto.repo.createRecord',
+                         mock_post.call_args.args[0])
+        self.assert_equals({
+            'repo': 'did:plc:user',
+            'collection': 'app.bsky.feed.post',
+            'record': {
+                '$type': 'app.bsky.feed.post',
+                'text': 'hello world',
+                'createdAt': '2022-01-02T03:04:05.000Z',
+                'embed': {
+                    '$type': 'app.bsky.embed.images',
+                    'images': [{
+                        '$type': 'app.bsky.embed.images#image',
+                        'image': {
+                            '$type': 'blob',
+                            'ref': {'$link': BLOB_CID},
+                            'mimeType': 'image/png',
+                            'size': 3,
+                        },
+                        'alt': 'my alt',
+                    }],
+                },
+            },
+        }, mock_post.call_args.kwargs['json'])
+
+    @patch.object(util.session, 'post', side_effect=[
+        # uploadBlob
+        requests_response({
+            'blob': {
+                '$type': 'blob',
+                'ref': {'$link': BLOB_CID},
+                'mimeType': 'video/mp4',
+                'size': 3,
+            },
+        }),
+        # createRecord
+        requests_response({
+            'uri': 'at://did:plc:user/app.bsky.feed.post/456',
+            'cid': 'bafyreipostsyddddddddddddddddddddddddddddddddddddddddddd',
+        }),
+    ])
+    def test_statuses_create_with_video_no_text_json(self, mock_post):
+        user = self.make_atproto_user()
+
+        resp = self.post('/api/v2/media', user=user, data={
+            'file': (BytesIO(b'foo'), 'foo.mp4', 'video/mp4'),
+        })
+        self.assertEqual(200, resp.status_code, resp.json)
+
+        resp = self.post('/api/v1/statuses', user=user,
+                         json={'media_ids': [BLOB_CID]})
+        self.assertEqual(200, resp.status_code, resp.json)
+
+        self.assertEqual('https://some.pds/xrpc/com.atproto.repo.createRecord',
+                         mock_post.call_args.args[0])
+        self.assert_equals({
+            'repo': 'did:plc:user',
+            'collection': 'app.bsky.feed.post',
+            'record': {
+                '$type': 'app.bsky.feed.post',
+                'text': '',
+                'createdAt': '2022-01-02T03:04:05.000Z',
+                'embed': {
+                    '$type': 'app.bsky.embed.video',
+                    'video': {
+                        '$type': 'blob',
+                        'ref': {'$link': BLOB_CID},
+                        'mimeType': 'video/mp4',
+                        'size': 3,
+                    },
+                    'alt': '',
+                },
+            },
+        }, mock_post.call_args.kwargs['json'])
+
+    @patch.object(util.session, 'post')
+    def test_statuses_create_media_not_found(self, mock_post):
+        user = self.make_atproto_user()
+
+        resp = self.post('/api/v1/statuses', user=user, data={
+            'status': 'hello world',
+            'media_ids[]': [BLOB_CID],
+        })
+        self.assertEqual(422, resp.status_code, resp.json)
+        mock_post.assert_not_called()
+
     # createRecord
     @patch.object(util.session, 'post', return_value=requests_response({
         'uri': 'at://did:plc:user/app.bsky.feed.post/456',
@@ -3592,6 +3717,21 @@ class MastodonApiTest(TestCase):
         self.assertEqual('image/png',
                          mock_post.call_args.kwargs['headers']['Content-Type'])
 
+        id = f'ui:atproto-blob-did:plc:user-{BLOB_CID}'
+        self.assert_object(id, source_protocol='ui', users=[user.key], our_as1={
+                               'objectType': 'image',
+                               'id': id,
+                               'url': BLOB_URL,
+                               'mimeType': 'image/png',
+                               'size': 3,
+                               'displayName': 'my alt',
+                               'to': [{'objectType': 'group', 'alias': '@private'}],
+                           })
+
+        got = self.get(f'/api/v1/media/{BLOB_CID}', user=user)
+        self.assertEqual(200, got.status_code, got.json)
+        self.assertEqual(resp.json, got.json)
+
     @patch.object(util.session, 'post', return_value=requests_response({
         'blob': {
             '$type': 'blob',
@@ -3669,52 +3809,89 @@ class MastodonApiTest(TestCase):
         })
         self.assertEqual(501, resp.status_code, resp.json)
 
-    def test_media_get(self):
+    def test_media_get_not_found(self):
         user = self.make_atproto_user()
         resp = self.get(f'/api/v1/media/{BLOB_CID}', user=user)
-        self.assertEqual(200, resp.status_code, resp.json)
-        self.assertEqual({
-            'id': BLOB_CID,
-            'type': 'unknown',
-            'url': BLOB_URL,
-            'preview_url': None,
-            'remote_url': None,
-            'meta': {},
-            'description': None,
-            'blurhash': None,
-        }, resp.json)
+        self.assertEqual(404, resp.status_code, resp.json)
 
     def test_media_get_bad_id(self):
         user = self.make_atproto_user()
         resp = self.get('/api/v1/media/nope', user=user)
         self.assertEqual(404, resp.status_code, resp.json)
 
-    def test_media_update(self):
+    def test_media_update_not_found(self):
         user = self.make_atproto_user()
         resp = self.put(f'/api/v1/media/{BLOB_CID}', user=user,
                         data={'description': 'my alt'})
+        self.assertEqual(404, resp.status_code, resp.json)
+
+    @patch.object(util.session, 'post', return_value=requests_response({
+        'blob': {
+            '$type': 'blob',
+            'ref': {'$link': BLOB_CID},
+            'mimeType': 'image/png',
+            'size': 3,
+        },
+    }))
+    def test_media_create_then_update(self, mock_post):
+        user = self.make_atproto_user()
+        resp = self.post('/api/v2/media', user=user, data={
+            'file': (BytesIO(b'foo'), 'foo.png', 'image/png'),
+            'description': 'old alt',
+        })
         self.assertEqual(200, resp.status_code, resp.json)
-        self.assertEqual({
+
+        resp = self.put(f'/api/v1/media/{BLOB_CID}', user=user,
+                        json={'description': 'new alt'})
+        self.assertEqual(200, resp.status_code, resp.json)
+
+        expected = {
             'id': BLOB_CID,
-            'type': 'unknown',
+            'type': 'image',
             'url': BLOB_URL,
-            'preview_url': None,
+            'preview_url': BLOB_URL,
             'remote_url': None,
             'meta': {},
-            'description': 'my alt',
+            'description': 'new alt',
             'blurhash': None,
-        }, resp.json)
+        }
+        self.assertEqual(expected, resp.json)
+
+        resp = self.get(f'/api/v1/media/{BLOB_CID}', user=user)
+        self.assertEqual(expected, resp.json)
 
     def test_media_update_bad_id(self):
         user = self.make_atproto_user()
         resp = self.put('/api/v1/media/nope', user=user, data={'description': 'x'})
         self.assertEqual(404, resp.status_code, resp.json)
 
-    def test_media_delete(self):
+    @patch.object(util.session, 'post', return_value=requests_response({
+        'blob': {
+            '$type': 'blob',
+            'ref': {'$link': BLOB_CID},
+            'mimeType': 'image/png',
+            'size': 3,
+        },
+    }))
+    def test_media_delete(self, mock_post):
         user = self.make_atproto_user()
+        resp = self.post('/api/v2/media', user=user, data={
+            'file': (BytesIO(b'foo'), 'foo.png', 'image/png'),
+        })
+        self.assertEqual(200, resp.status_code, resp.json)
+
         resp = self.delete(f'/api/v1/media/{BLOB_CID}', user=user)
         self.assertEqual(200, resp.status_code, resp.json)
         self.assertEqual({}, resp.json)
+        self.assertTrue(Object.get_by_id(f'ui:atproto-blob-did:plc:user-{BLOB_CID}').deleted)
+
+        resp = self.get(f'/api/v1/media/{BLOB_CID}', user=user)
+        self.assertEqual(404, resp.status_code, resp.json)
+
+    def test_media_delete_not_found(self):
+        user = self.make_atproto_user()
+        resp = self.delete(f'/api/v1/media/{BLOB_CID}', user=user)
+        self.assertEqual(404, resp.status_code, resp.json)
 
     def test_media_delete_bad_id(self):
         user = self.make_atproto_user()

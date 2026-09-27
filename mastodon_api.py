@@ -379,36 +379,30 @@ def to_relationship(user, **values):
     }
 
 
-def to_media_attachment(user, blob, description=None):
-    """Converts an ATProto blob to a Mastodon ``MediaAttachment``.
+def to_media_attachment(obj):
+    """Converts an uploaded media AS1 object to a Mastodon ``MediaAttachment``.
 
     https://docs.joinmastodon.org/entities/MediaAttachment/
 
     Args:
-      user (atproto.ATProto): the user who owns the blob
-      blob (dict): https://atproto.com/specs/data-model#blob-type . May only
-        have ``ref``, without ``mimeType`` or ``size``.
-      description (str)
+      obj (dict): AS1 image or video object from :func:`load_media`
 
     Returns:
       dict:
     """
-    type = blob.get('mimeType', '').split('/')[0]
+    type = obj.get('objectType')
     if type not in ('image', 'video', 'audio'):
         type = 'unknown'
 
-    did = user.key.id()
-    did_doc = ATProto.load(did, raw=True)
-    url = bluesky.blob_to_url(blob=blob, repo_did=did, pds=ATProto.pds_for(did_doc))
-
+    url = util.get_url(obj, 'stream') or util.get_url(obj)
     return {
-        'id': bluesky.blob_cid(blob),
+        'id': obj['id'],
         'type': type,
         'url': url,
         'preview_url': url if type == 'image' else None,
         'remote_url': None,
         'meta': {},
-        'description': description,
+        'description': obj.get('displayName'),
         'blurhash': None,
     }
 
@@ -638,6 +632,37 @@ def load_owner(obj, remote=False):
             logger.info(f"Couldn't load owner {owner_id}", exc_info=True)
 
     return None
+
+
+def media_object_id(user, cid):
+    return f'ui:atproto-blob-{user.key.id()}-{cid}'
+
+
+def load_media(user, id):
+    """Loads uploaded media's internal :class:`models.Object`.
+
+    ATProto blobs have no metadata of their own, and the PDS doesn't serve them
+    until a record references them, so we store it ourselves when the media is
+    uploaded. The Object's ``our_as1`` is an AS1 image or video object with the
+    blob CID in ``id``, a private audience in ``to``, and ``mimeType`` and
+    ``size`` on the object itself for images, in ``stream`` for videos. ATProto blob refs need the right mimeType
+    and size, which we only get from uploadBlob.
+
+    Returns:
+      models.Object or None: if ``id`` isn't a CID, or the media doesn't exist
+      or is deleted
+    """
+    if not isinstance(user, ATProto):
+        error(f"{user.LABEL} accounts not supported yet", status=501)
+
+    try:
+        CID.decode(id)
+    except (KeyError, ValueError):
+        return None
+
+    obj = Object.get_by_id(media_object_id(user, id))
+    if obj and not obj.deleted:
+        return obj
 
 
 def limit():
@@ -1270,12 +1295,18 @@ def statuses_single(user, id):
 @app.post('/api/v1/statuses', provide_automatic_options=False)
 @auth(granary_source=True)
 def statuses_create(user, source):
+    """
+    https://docs.joinmastodon.org/methods/statuses/#create
+    """
     params = request.get_json(silent=True) or request.values
-    if not (text := params.get('status')):
+    media_ids = (params.get('media_ids') or [] if request.is_json
+                 else params.getlist('media_ids[]'))
+    text = params.get('status') or ''
+    if not text and not media_ids:
         error('Missing required parameter: status')
 
     # make AS1 note object
-    # TODO: media_ids, poll, sensitive, spoiler_text, visibility, language
+    # TODO: poll, sensitive, spoiler_text, visibility, language
     reply_obj = None
     if in_reply_to_id := params.get('in_reply_to_id'):
         reply_obj = load_object(in_reply_to_id)
@@ -1286,10 +1317,32 @@ def statuses_create(user, source):
         'content': text,
     }
 
+    blobs = {}
+    for media_id in media_ids:
+        if not (media_obj := load_media(user, media_id)):
+            error(f'Media {media_id} not found', status=422)
+
+        media_as1 = media_obj.our_as1
+        file_as1 = as1.get_object(media_as1, 'stream') or media_as1
+        blobs[file_as1['url']] = {
+            '$type': 'blob',
+            'ref': {'$link': media_id},
+            'mimeType': file_as1['mimeType'],
+            'size': file_as1['size'],
+        }
+        media_as1 = {k: v for k, v in media_as1.items() if k not in ('id', 'to')}
+        if media_as1['objectType'] == 'image':
+            note.setdefault('image', []).append(media_as1)
+        else:
+            note.setdefault('attachments', []).append(media_as1)
+
     source_protocol = user.LABEL
     if reply_obj and not reply_obj.get_copy(user):
         # the original post isn't bridged to the user's protocol. write the reply
         # to an Object in the datastore
+        if media_ids:
+            error("Media in replies to posts that aren't bridged isn't supported yet",
+                  status=501)
         source_protocol = 'ui'
         id = f'ui:comment-{user.LABEL}-{user.handle}-{util.now().isoformat()}'
         note.update({
@@ -1305,7 +1358,8 @@ def statuses_create(user, source):
         if reply_obj:
             note['inReplyTo'] = reply_obj.id_as(user)
 
-        result = source.create(note)
+        # only Bluesky supports blobs, and load_media only allows ATProto users
+        result = source.create(note, blobs=blobs) if blobs else source.create(note)
         if not result.content:
             error(result.error_plain or "Couldn't create this status", status=502)
 
@@ -1506,26 +1560,6 @@ def statuses_reblogged_by(user, id):
     return []
 
 
-def load_media(user, id):
-    """Checks that ``user`` is on ATProto and ``id`` is a blob CID.
-
-    ATProto blobs have no metadata of their own, and the PDS doesn't serve them
-    until a record references them, so all we have is the CID.
-
-    Returns:
-      dict: blob with only ``ref``
-    """
-    if not isinstance(user, ATProto):
-        error(f"{user.LABEL} accounts not supported yet", status=501)
-
-    try:
-        CID.decode(id)
-    except (KeyError, ValueError):
-        error('Media not found', status=404)
-
-    return {'ref': {'$link': id}}
-
-
 @app.post('/api/v1/media', provide_automatic_options=False)
 @app.post('/api/v2/media', provide_automatic_options=False)
 @auth(granary_source=True)
@@ -1534,10 +1568,7 @@ def media_create(user, source):
 
     https://docs.joinmastodon.org/methods/media/#v2
 
-    TODO: temporarily store mime type, size, dimensions, description, etc in
-    memcache, keyed by CID, for GET, PUT, and creating statuses with media_ids.
-    ATProto blob refs need the right mimeType and size, and the PDS garbage
-    collects blobs if a record doesn't reference them soon.
+    TODO: store dimensions too, for aspect ratios
     """
     if not isinstance(user, ATProto):
         error(f'{user.LABEL} accounts not supported yet', status=501)
@@ -1549,6 +1580,9 @@ def media_create(user, source):
 
     limit = (bluesky.MAX_MEDIA_SIZE_BYTES if file.mimetype.startswith('image/')
              else datastore_storage.BLOB_MAX_BYTES)
+    # we can't stream the upload through to the PDS because lexrpc and
+    # requests_oauth2client both retry requests, eg for token refreshes and DPoP
+    # nonces, and they resend the body, so it has to be replayable
     data = file.read(limit + 1)
     if len(data) > limit:
         error(f'File is over the {limit} byte limit', status=422)
@@ -1560,34 +1594,74 @@ def media_create(user, source):
         util.interpret_http_exception(e)
         error(f"Couldn't upload media: {e}", status=502)
 
-    return to_media_attachment(user, resp['blob'],
-                               description=request.form.get('description'))
+    blob = resp['blob']
+    cid = bluesky.blob_cid(blob)
+    did_doc = ATProto.load(user.key.id(), raw=True)
+    file_as1 = {
+        'url': bluesky.blob_to_url(blob=blob, repo_did=user.key.id(),
+                                   pds=ATProto.pds_for(did_doc)),
+        'mimeType': blob['mimeType'],
+        'size': blob['size'],
+    }
+
+    id = media_object_id(user, cid)
+    media_as1 = {
+        'id': id,
+        'displayName': request.form.get('description'),
+        # hide from eg profile pages in the web UI
+        'to': [{'objectType': 'group', 'alias': '@private'}],
+    }
+    if file.mimetype.startswith('image/'):
+        media_as1.update({'objectType': 'image', **file_as1})
+    else:
+        media_as1.update({'objectType': 'video', 'stream': file_as1})
+
+    Object(id=id, source_protocol='ui', users=[user.key], our_as1=media_as1).put()
+    return {**to_media_attachment(media_as1), 'id': cid}
 
 
 @app.get('/api/v1/media/<id>', provide_automatic_options=False)
 @auth()
 def media_get(user, id):
     """
+    https://docs.joinmastodon.org/methods/media/#update
+
     Doesn't actually make a ``getBlob`` call because PDSes don't serve blobs
     until they're referenced by a record.
     """
-    return to_media_attachment(user, load_media(user, id))
+    if not (obj := load_media(user, id)):
+        error('Media not found', status=404)
+
+    return {**to_media_attachment(obj.our_as1), 'id': id}
 
 
 @app.put('/api/v1/media/<id>', provide_automatic_options=False)
 @auth()
 def media_update(user, id):
-    # TODO: the description is dropped until statuses support media_ids
+    """
+    https://docs.joinmastodon.org/methods/media/#update
+    """
+    if not (obj := load_media(user, id)):
+        error('Media not found', status=404)
+
     params = request.get_json(silent=True) or request.values
-    return to_media_attachment(user, load_media(user, id),
-                               description=params.get('description'))
+    obj.our_as1['displayName'] = params.get('description')
+    obj.put()
+    return {**to_media_attachment(obj.our_as1), 'id': id}
 
 
 @app.delete('/api/v1/media/<id>', provide_automatic_options=False)
 @auth()
 def media_delete(user, id):
+    """
+    https://docs.joinmastodon.org/methods/media/#delete
+    """
+    if not (obj := load_media(user, id)):
+        error('Media not found', status=404)
+
     # ATProto can't delete blobs. the PDS garbage collects unreferenced ones.
-    load_media(user, id)
+    obj.deleted = True
+    obj.put()
     return {}
 
 
