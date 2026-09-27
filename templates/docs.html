@@ -136,6 +136,7 @@
 <li><a href="#bluesky-follow-fediverse">How do I find a bridged fediverse account?</a></li>
 <li><a href="#bluesky-follow-web">How do I find a bridged web site?</a></li>
 <li><a href="#bluesky-reply-controls">Can I use reply controls?</a></li>
+<li><a href="#bluesky-handle-change">What happens if I change my handle?</a></li>
 <li><a href="#bluesky-pbc-moderation">Is Bridgy Fed subject to Bluesky PBC's moderation? If Bluesky bans someone, and they move to a different PDS, can they still use Bridgy Fed?</a></li>
 
 <br>
@@ -732,6 +733,11 @@ RewriteRule ^.well-known/(host-meta|webfinger).* https://fed.brid.gy/$0  [redire
 <li id="bluesky-reply-controls" class="question">Can I use reply controls?</li>
 <li class="answer">
 <p>Yes! Bluesky's <a href="https://bsky.app/profile/safety.bsky.app/post/3khhw67cxqg22">reply controls</a> apply to accounts bridged from the web and the fediverse as well as to native Atmosphere accounts. Those platforms don't have reply controls, so if you bridge your Atmosphere account and post with reply controls, people on the fediverse and the web will still be able to reply, but those replies won't show up in the Atmosphere.</p>
+</li>
+
+<li id="bluesky-handle-change" class="question">What happens if I change my handle?</li>
+<li class="answer">
+<p>Bridgy Fed fully supports Atmosphere handle changes. If you change your handle, your bridged profiles in other networks will be updated to match. For example, if you're bridged to the fediverse, and you change your Atmosphere handle from <code>alice.org</code> to <code>bob.net</code>, your fediverse handle (Webfinger address) will change from <code>@alice.org@bsky.brid.gy</code> to <code>@bob.net@bsky.brid.gy</code>. The bridged account(s) themselves (eg your ActivityPub actor id) stays the same; only your bridged handle(s) change.
 </li>
 
 <li id="bluesky-pbc-moderation" class="question">Is Bridgy Fed subject to Bluesky PBC's moderation? If Bluesky bans someone, and they move to a different PDS, can they still use Bridgy Fed?</li>
