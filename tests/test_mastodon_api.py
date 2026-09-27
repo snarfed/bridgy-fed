@@ -18,6 +18,7 @@ from requests_oauth2client import (
     OAuth2Client,
     TokenSerializer,
 )
+from requests_oauth2client.exceptions import InvalidGrant
 import requests
 from webutil import util
 from webutil.appengine_config import tasks_client
@@ -1595,6 +1596,22 @@ class MastodonApiTest(TestCase):
 
         resp = self.post('/api/v1/statuses/fake~3Apost/favourite')
         self.assertEqual(501, resp.status_code)
+
+    @patch.object(util.session, 'get', side_effect=InvalidGrant(
+        response=None, client=None, error='invalid_grant',
+        description='Token was not issued to this client'))
+    def test_statuses_favourite_bluesky_invalid_grant(self, _):
+        user = self.make_atproto_user()
+        self.store_object(
+            id='fake:post',
+            source_protocol='fake',
+            copies=[Target(uri='at://did:plc:bob/app.bsky.feed.post/123',
+                           protocol='atproto')],
+            our_as1={'objectType': 'note', 'content': 'hello'},
+        )
+
+        resp = self.post('/api/v1/statuses/fake~3Apost/favourite', user=user)
+        self.assertEqual(401, resp.status_code)
 
     # deleteRecord
     @patch.object(util.session, 'post', return_value=requests_response({}))

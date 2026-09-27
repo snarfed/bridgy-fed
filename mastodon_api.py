@@ -15,6 +15,7 @@ from granary.mastodon import decode_id, encode_id, from_as1
 from granary.micropub import Micropub
 from multiformats import CID
 from requests import RequestException
+from requests_oauth2client.exceptions import InvalidGrant
 from webutil.appengine_info import DEBUG, LOCAL_SERVER
 from webutil import util
 from webutil.flask_util import (
@@ -166,7 +167,10 @@ def auth(granary_source=False):
                     error(f"{user.LABEL} accounts not supported yet", status=501)
                 kwargs['source'] = source
 
-            return fn(*args, user=user, **kwargs)
+            try:
+                return fn(*args, user=user, **kwargs)
+            except InvalidGrant as e:
+                error(f'{user.LABEL} login expired or revoked: {e}', status=401)
 
         return wrapper
 
