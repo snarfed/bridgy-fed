@@ -242,6 +242,31 @@ class ConvertTest(testutil.TestCase):
             'to': ['https://www.w3.org/ns/activitystreams#Public'],
         }, json_loads(resp.get_data()))
 
+    def test_ui_to_activitypub_not_public(self):
+        user = self.make_user('fake:alice', cls=Fake,
+                              enabled_protocols=['activitypub'])
+        self.store_object(id='ui:media-fake:alice-123', source_protocol='ui',
+                          users=[user.key], our_as1={
+                              'objectType': 'image',
+                              'url': 'http://pic',
+                              'to': [{'objectType': 'group', 'alias': '@private'}],
+                          })
+
+        resp = self.client.get('/convert/ap/ui:media-fake:alice-123',
+                               base_url='https://fa.brid.gy/')
+        self.assertEqual(404, resp.status_code)
+
+    def test_activitypub_to_web_dm(self):
+        Object(id='http://foo', our_as1={
+            'objectType': 'note',
+            'content': 'hi',
+            'to': ['http://bob'],
+        }).put()
+
+        resp = self.client.get('/convert/web/http://foo',
+                               base_url='https://ap.brid.gy/')
+        self.assertEqual(404, resp.status_code)
+
     def test_ui_to_activitypub_on_fed_subdomain(self):
         """ui: objects are ours, so we always serve them from fed.brid.gy."""
         user = self.make_user('fake:alice', cls=Fake,

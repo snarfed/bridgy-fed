@@ -130,6 +130,11 @@ def check_bridged_to(obj, to_proto):
     if obj.deleted or obj.type == 'delete':
         error('Deleted', status=410)
 
+    # we only bridge fully public data. don't serve eg DMs or anything else internal
+    # or non-public
+    if as1.is_public(obj.as1) is False:
+        error('Not found', status=404)
+
     # don't serve for a given protocol if we haven't bridged it there
     if to_proto.HAS_COPIES and not obj.get_copy(to_proto):
         error(f"{obj.key.id()} hasn't been bridged to {to_proto.LABEL}", status=404)
