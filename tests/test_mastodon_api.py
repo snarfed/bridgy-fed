@@ -1,5 +1,6 @@
 """Unit tests for mastodon_api.py."""
 from datetime import datetime
+from io import BytesIO
 from unittest import skip
 from unittest.mock import patch
 
@@ -57,6 +58,9 @@ DID_DOC = {
     **test_atproto.DID_DOC,
     'alsoKnownAs': ['at://han.dull'],
 }
+
+BLOB_CID = 'bafkreienspp4shecijw6syyhcabwei4bquias7zx6hlldbr5ckz55r2evq'
+BLOB_URL = f'https://some.pds/xrpc/com.atproto.sync.getBlob?did=did:plc:user&cid={BLOB_CID}'
 
 class MastodonApiTest(TestCase):
 
@@ -3537,6 +3541,179 @@ class MastodonApiTest(TestCase):
         resp = self.client.get('/nonexistent')
         self.assertEqual(404, resp.status_code)
         self.assertEqual('text/html', resp.mimetype)
+
+    @patch.object(util.session, 'post', return_value=requests_response({
+        'blob': {
+            '$type': 'blob',
+            'ref': {'$link': BLOB_CID},
+            'mimeType': 'image/png',
+            'size': 3,
+        },
+    }))
+    def test_media_create(self, mock_post):
+        user = self.make_atproto_user()
+
+        resp = self.post('/api/v2/media', user=user, data={
+            'file': (BytesIO(b'foo'), 'foo.png', 'image/png'),
+            'description': 'my alt',
+        })
+        self.assertEqual(200, resp.status_code, resp.json)
+        self.assertEqual({
+            'id': BLOB_CID,
+            'type': 'image',
+            'url': BLOB_URL,
+            'preview_url': BLOB_URL,
+            'remote_url': None,
+            'meta': {},
+            'description': 'my alt',
+            'blurhash': None,
+        }, resp.json)
+
+        self.assertEqual('https://some.pds/xrpc/com.atproto.repo.uploadBlob',
+                         mock_post.call_args.args[0])
+        self.assertEqual(b'foo', mock_post.call_args.kwargs['data'])
+        self.assertEqual('image/png',
+                         mock_post.call_args.kwargs['headers']['Content-Type'])
+
+    @patch.object(util.session, 'post', return_value=requests_response({
+        'blob': {
+            '$type': 'blob',
+            'ref': {'$link': BLOB_CID},
+            'mimeType': 'video/mp4',
+            'size': 3,
+        },
+    }))
+    def test_media_create_v1_video(self, mock_post):
+        user = self.make_atproto_user()
+
+        resp = self.post('/api/v1/media', user=user, data={
+            'file': (BytesIO(b'foo'), 'foo.mp4', 'video/mp4'),
+        })
+        self.assertEqual(200, resp.status_code, resp.json)
+        self.assertEqual({
+            'id': BLOB_CID,
+            'type': 'video',
+            'url': BLOB_URL,
+            'preview_url': None,
+            'remote_url': None,
+            'meta': {},
+            'description': None,
+            'blurhash': None,
+        }, resp.json)
+
+    @patch.object(util.session, 'post')
+    def test_media_create_missing_file(self, mock_post):
+        user = self.make_atproto_user()
+        resp = self.post('/api/v2/media', user=user, data={'description': 'x'})
+        self.assertEqual(422, resp.status_code, resp.json)
+        mock_post.assert_not_called()
+
+    @patch.object(util.session, 'post')
+    def test_media_create_unsupported_type(self, mock_post):
+        user = self.make_atproto_user()
+        resp = self.post('/api/v2/media', user=user, data={
+            'file': (BytesIO(b'foo'), 'foo.txt', 'text/plain'),
+        })
+        self.assertEqual(422, resp.status_code, resp.json)
+        mock_post.assert_not_called()
+
+    @patch('granary.bluesky.MAX_MEDIA_SIZE_BYTES', 2)
+    @patch.object(util.session, 'post')
+    def test_media_create_too_big(self, mock_post):
+        user = self.make_atproto_user()
+        resp = self.post('/api/v2/media', user=user, data={
+            'file': (BytesIO(b'foo'), 'foo.png', 'image/png'),
+        })
+        self.assertEqual(422, resp.status_code, resp.json)
+        mock_post.assert_not_called()
+
+    @patch.object(util.session, 'post', return_value=requests_response({
+        'error': 'InvalidRequest',
+        'message': 'nope',
+    }, status=400))
+    def test_media_create_pds_error(self, mock_post):
+        user = self.make_atproto_user()
+        resp = self.post('/api/v2/media', user=user, data={
+            'file': (BytesIO(b'foo'), 'foo.png', 'image/png'),
+        })
+        self.assertEqual(502, resp.status_code, resp.json)
+
+    @patch.object(util, 'requests_get', return_value=requests_response(
+        '', url='https://alice.com/',
+        headers={'Link': '<https://alice.com/mp>; rel="micropub"'},
+    ))
+    def test_media_create_web_user(self, mock_get):
+        user = self.make_user('alice.com', cls=Web, enabled_protocols=['activitypub'])
+        indieauth.IndieAuth(id='https://alice.com', user_json='{}',
+                            access_token_str='towkin').put()
+
+        resp = self.post('/api/v2/media', user=user, data={
+            'file': (BytesIO(b'foo'), 'foo.png', 'image/png'),
+        })
+        self.assertEqual(501, resp.status_code, resp.json)
+
+    def test_media_get(self):
+        user = self.make_atproto_user()
+        resp = self.get(f'/api/v1/media/{BLOB_CID}', user=user)
+        self.assertEqual(200, resp.status_code, resp.json)
+        self.assertEqual({
+            'id': BLOB_CID,
+            'type': 'unknown',
+            'url': BLOB_URL,
+            'preview_url': None,
+            'remote_url': None,
+            'meta': {},
+            'description': None,
+            'blurhash': None,
+        }, resp.json)
+
+    def test_media_get_bad_id(self):
+        user = self.make_atproto_user()
+        resp = self.get('/api/v1/media/nope', user=user)
+        self.assertEqual(404, resp.status_code, resp.json)
+
+    def test_media_update(self):
+        user = self.make_atproto_user()
+        resp = self.put(f'/api/v1/media/{BLOB_CID}', user=user,
+                        data={'description': 'my alt'})
+        self.assertEqual(200, resp.status_code, resp.json)
+        self.assertEqual({
+            'id': BLOB_CID,
+            'type': 'unknown',
+            'url': BLOB_URL,
+            'preview_url': None,
+            'remote_url': None,
+            'meta': {},
+            'description': 'my alt',
+            'blurhash': None,
+        }, resp.json)
+
+    def test_media_update_bad_id(self):
+        user = self.make_atproto_user()
+        resp = self.put('/api/v1/media/nope', user=user, data={'description': 'x'})
+        self.assertEqual(404, resp.status_code, resp.json)
+
+    def test_media_delete(self):
+        user = self.make_atproto_user()
+        resp = self.delete(f'/api/v1/media/{BLOB_CID}', user=user)
+        self.assertEqual(200, resp.status_code, resp.json)
+        self.assertEqual({}, resp.json)
+
+    def test_media_delete_bad_id(self):
+        user = self.make_atproto_user()
+        resp = self.delete('/api/v1/media/nope', user=user)
+        self.assertEqual(404, resp.status_code, resp.json)
+
+    def test_media_endpoints_require_auth(self):
+        for method, path in (
+            ('POST', '/api/v2/media'),
+            ('POST', '/api/v1/media'),
+            ('GET', f'/api/v1/media/{BLOB_CID}'),
+            ('PUT', f'/api/v1/media/{BLOB_CID}'),
+            ('DELETE', f'/api/v1/media/{BLOB_CID}'),
+        ):
+            resp = self.client.open(path, method=method)
+            self.assertEqual(401, resp.status_code, path)
 
     def test_endpoints_require_auth(self):
         for path in (

@@ -13,6 +13,7 @@ from google.cloud import ndb
 from granary import as1, as2, bluesky
 from granary.mastodon import decode_id, encode_id, from_as1
 from granary.micropub import Micropub
+from multiformats import CID
 from requests import RequestException
 from webutil.appengine_info import DEBUG, LOCAL_SERVER
 from webutil import util
@@ -66,6 +67,16 @@ AS1_TO_NOTIFICATION_TYPE = {
 }
 
 STATUS_AS1_TYPES = as1.POST_TYPES | {'share'}
+
+# https://docs.joinmastodon.org/entities/Instance/#supported_mime_types
+SUPPORTED_MEDIA_TYPES = (
+    'image/jpeg',
+    'image/png',
+    'image/gif',
+    'image/webp',
+    'image/avif',
+    'video/mp4',
+)
 
 # how many notifications /api/v2/notifications fetches and then aggregates into
 # groups. the datastore can't group, so we over-fetch and collapse in memory,
@@ -361,6 +372,40 @@ def to_relationship(user, **values):
         'requested': False,
         'note': '',
         **values,
+    }
+
+
+def to_media_attachment(user, blob, description=None):
+    """Converts an ATProto blob to a Mastodon ``MediaAttachment``.
+
+    https://docs.joinmastodon.org/entities/MediaAttachment/
+
+    Args:
+      user (atproto.ATProto): the user who owns the blob
+      blob (dict): https://atproto.com/specs/data-model#blob-type . May only
+        have ``ref``, without ``mimeType`` or ``size``.
+      description (str)
+
+    Returns:
+      dict:
+    """
+    type = blob.get('mimeType', '').split('/')[0]
+    if type not in ('image', 'video', 'audio'):
+        type = 'unknown'
+
+    did = user.key.id()
+    did_doc = ATProto.load(did, raw=True)
+    url = bluesky.blob_to_url(blob=blob, repo_did=did, pds=ATProto.pds_for(did_doc))
+
+    return {
+        'id': bluesky.blob_cid(blob),
+        'type': type,
+        'url': url,
+        'preview_url': url if type == 'image' else None,
+        'remote_url': None,
+        'meta': {},
+        'description': description,
+        'blurhash': None,
     }
 
 
@@ -804,14 +849,7 @@ def instance():
                 # 'description_limit': ,
                 # 'image_matrix_limit': ,
                 'image_size_limit': bluesky.MAX_MEDIA_SIZE_BYTES,
-                'supported_mime_types': [
-                    'image/jpeg',
-                    'image/png',
-                    'image/gif',
-                    'image/webp',
-                    'image/avif',
-                    'video/mp4',
-                ],
+                'supported_mime_types': list(SUPPORTED_MEDIA_TYPES),
                 # 'video_frame_rate_limit': None,
                 # 'video_matrix_limit': None,
                 'video_size_limit': datastore_storage.BLOB_MAX_BYTES,
@@ -1462,6 +1500,91 @@ def statuses_reblogged_by(user, id):
     load_object(id)
     # reposts aren't indexed by target, so we can't look them up efficiently
     return []
+
+
+def load_media(user, id):
+    """Checks that ``user`` is on ATProto and ``id`` is a blob CID.
+
+    ATProto blobs have no metadata of their own, and the PDS doesn't serve them
+    until a record references them, so all we have is the CID.
+
+    Returns:
+      dict: blob with only ``ref``
+    """
+    if not isinstance(user, ATProto):
+        error(f"{user.LABEL} accounts not supported yet", status=501)
+
+    try:
+        CID.decode(id)
+    except (KeyError, ValueError):
+        error('Media not found', status=404)
+
+    return {'ref': {'$link': id}}
+
+
+@app.post('/api/v1/media', provide_automatic_options=False)
+@app.post('/api/v2/media', provide_automatic_options=False)
+@auth(granary_source=True)
+def media_create(user, source):
+    """Uploads a blob to the user's PDS.
+
+    https://docs.joinmastodon.org/methods/media/#v2
+
+    TODO: temporarily store mime type, size, dimensions, description, etc in
+    memcache, keyed by CID, for GET, PUT, and creating statuses with media_ids.
+    ATProto blob refs need the right mimeType and size, and the PDS garbage
+    collects blobs if a record doesn't reference them soon.
+    """
+    if not isinstance(user, ATProto):
+        error(f'{user.LABEL} accounts not supported yet', status=501)
+
+    if not (file := request.files.get('file')):
+        error('Missing required parameter: file', status=422)
+    elif file.mimetype not in SUPPORTED_MEDIA_TYPES:
+        error(f'Unsupported media type {file.mimetype}', status=422)
+
+    limit = (bluesky.MAX_MEDIA_SIZE_BYTES if file.mimetype.startswith('image/')
+             else datastore_storage.BLOB_MAX_BYTES)
+    data = file.read(limit + 1)
+    if len(data) > limit:
+        error(f'File is over the {limit} byte limit', status=422)
+
+    try:
+        resp = source.client.com.atproto.repo.uploadBlob(
+            input=data, headers={'Content-Type': file.mimetype})
+    except RequestException as e:
+        util.interpret_http_exception(e)
+        error(f"Couldn't upload media: {e}", status=502)
+
+    return to_media_attachment(user, resp['blob'],
+                               description=request.form.get('description'))
+
+
+@app.get('/api/v1/media/<id>', provide_automatic_options=False)
+@auth()
+def media_get(user, id):
+    """
+    Doesn't actually make a ``getBlob`` call because PDSes don't serve blobs
+    until they're referenced by a record.
+    """
+    return to_media_attachment(user, load_media(user, id))
+
+
+@app.put('/api/v1/media/<id>', provide_automatic_options=False)
+@auth()
+def media_update(user, id):
+    # TODO: the description is dropped until statuses support media_ids
+    params = request.get_json(silent=True) or request.values
+    return to_media_attachment(user, load_media(user, id),
+                               description=params.get('description'))
+
+
+@app.delete('/api/v1/media/<id>', provide_automatic_options=False)
+@auth()
+def media_delete(user, id):
+    # ATProto can't delete blobs. the PDS garbage collects unreferenced ones.
+    load_media(user, id)
+    return {}
 
 
 @app.get('/api/v1/timelines/home', provide_automatic_options=False)
