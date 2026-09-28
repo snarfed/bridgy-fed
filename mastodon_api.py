@@ -13,7 +13,6 @@ from google.cloud import ndb
 from granary import as1, as2, bluesky
 from granary.mastodon import decode_id, encode_id, from_as1
 from granary.micropub import Micropub
-from multiformats import CID
 from requests import RequestException
 from requests_oauth2client.exceptions import InvalidGrant
 from webutil.appengine_info import DEBUG, LOCAL_SERVER
@@ -379,16 +378,17 @@ def to_relationship(user, **values):
     }
 
 
-def to_media_attachment(obj):
+def to_media_attachment(obj, media_id):
     """Converts an uploaded media AS1 object to a Mastodon ``MediaAttachment``.
 
     https://docs.joinmastodon.org/entities/MediaAttachment/
 
     Args:
       obj (dict): AS1 image or video object from :func:`load_media`
+      media_id (str): ``id`` to populate in the returned ``MediaAttachment``
 
     Returns:
-      dict:
+      dict: ``MediaAttachment``
     """
     type = obj.get('objectType')
     if type not in ('image', 'video', 'audio'):
@@ -396,7 +396,7 @@ def to_media_attachment(obj):
 
     url = util.get_url(obj, 'stream') or util.get_url(obj)
     return {
-        'id': obj['id'],
+        'id': media_id,
         'type': type,
         'url': url,
         'preview_url': url if type == 'image' else None,
@@ -634,33 +634,35 @@ def load_owner(obj, remote=False):
     return None
 
 
-def media_object_id(user, cid):
-    return f'ui:atproto-blob-{user.key.id()}-{cid}'
+def media_object_id(user, media_id):
+    """Returns the :class:`models.Object` key id for uploaded media.
+
+    Args:
+      user (models.User)
+      media_id (str): the media's id in the user's protocol, eg blob CID for
+        ATProto, media endpoint URL for Micropub
+    """
+    return f'ui:media-{user.key.id()}-{media_id}'
 
 
 def load_media(user, id):
     """Loads uploaded media's internal :class:`models.Object`.
 
-    ATProto blobs have no metadata of their own, and the PDS doesn't serve them
-    until a record references them, so we store it ourselves when the media is
-    uploaded. The Object's ``our_as1`` is an AS1 image or video object with the
-    blob CID in ``id``, a private audience in ``to``, and ``mimeType`` and
-    ``size`` on the object itself for images, in ``stream`` for videos. ATProto blob refs need the right mimeType
-    and size, which we only get from uploadBlob.
+    Uploaded media often has no metadata of its own, eg ATProto blobs, and may not be
+    served until a post references it, eg ATProto PDSes, so we store the metadata
+    ourselves when the media is uploaded. ``our_as1`` is an AS1 image or video object
+    with a private audience in ``to``, and ``mimeType`` and ``size`` on the object
+    itself for images, in ``stream`` for videos.
+
+    Args:
+      user (models.User)
+      id (str): Mastodon API media id, ie :func:`encode_id` of the media's id in
+        the user's protocol
 
     Returns:
-      models.Object or None: if ``id`` isn't a CID, or the media doesn't exist
-      or is deleted
+      models.Object or None: if the media doesn't exist or is deleted
     """
-    if not isinstance(user, ATProto):
-        error(f"{user.LABEL} accounts not supported yet", status=501)
-
-    try:
-        CID.decode(id)
-    except (KeyError, ValueError):
-        return None
-
-    obj = Object.get_by_id(media_object_id(user, id))
+    obj = Object.get_by_id(media_object_id(user, decode_id(id)))
     if obj and not obj.deleted:
         return obj
 
@@ -1323,13 +1325,14 @@ def statuses_create(user, source):
             error(f'Media {media_id} not found', status=422)
 
         media_as1 = media_obj.our_as1
-        file_as1 = as1.get_object(media_as1, 'stream') or media_as1
-        blobs[file_as1['url']] = {
-            '$type': 'blob',
-            'ref': {'$link': media_id},
-            'mimeType': file_as1['mimeType'],
-            'size': file_as1['size'],
-        }
+        if isinstance(user, ATProto):
+            file_as1 = as1.get_object(media_as1, 'stream') or media_as1
+            blobs[file_as1['url']] = {
+                '$type': 'blob',
+                'ref': {'$link': decode_id(media_id)},
+                'mimeType': file_as1['mimeType'],
+                'size': file_as1['size'],
+            }
         media_as1 = {k: v for k, v in media_as1.items() if k not in ('id', 'to')}
         if media_as1['objectType'] == 'image':
             note.setdefault('image', []).append(media_as1)
@@ -1358,7 +1361,7 @@ def statuses_create(user, source):
         if reply_obj:
             note['inReplyTo'] = reply_obj.id_as(user)
 
-        # only Bluesky supports blobs, and load_media only allows ATProto users
+        # only Bluesky supports blobs
         result = source.create(note, blobs=blobs) if blobs else source.create(note)
         if not result.content:
             error(result.error_plain or "Couldn't create this status", status=502)
@@ -1564,11 +1567,15 @@ def statuses_reblogged_by(user, id):
 @app.post('/api/v2/media', provide_automatic_options=False)
 @auth(granary_source=True)
 def media_create(user, source):
-    """Uploads a blob to the user's PDS.
+    """Uploads media to the user's native account, eg a blob to their PDS.
 
     https://docs.joinmastodon.org/methods/media/#v2
 
-    TODO: store dimensions too, for aspect ratios
+    TODO:
+    * store dimensions too, for aspect ratios
+    * generalize to other protocols, eg Micropub media endpoints for web, via
+      granary's :meth:`granary.source.Source.upload_media` instead of calling
+      ``uploadBlob`` directly
     """
     if not isinstance(user, ATProto):
         error(f'{user.LABEL} accounts not supported yet', status=501)
@@ -1617,22 +1624,23 @@ def media_create(user, source):
         media_as1.update({'objectType': 'video', 'stream': file_as1})
 
     Object(id=id, source_protocol='ui', users=[user.key], our_as1=media_as1).put()
-    return {**to_media_attachment(media_as1), 'id': cid}
+    return to_media_attachment(media_as1, cid)
 
 
 @app.get('/api/v1/media/<id>', provide_automatic_options=False)
 @auth()
 def media_get(user, id):
     """
-    https://docs.joinmastodon.org/methods/media/#update
+    https://docs.joinmastodon.org/methods/media/#get
 
-    Doesn't actually make a ``getBlob`` call because PDSes don't serve blobs
-    until they're referenced by a record.
+    Only uses our stored metadata. Doesn't fetch the media itself, eg with
+    ``getBlob``, since eg PDSes don't serve blobs until they're referenced by a
+    record.
     """
     if not (obj := load_media(user, id)):
         error('Media not found', status=404)
 
-    return {**to_media_attachment(obj.our_as1), 'id': id}
+    return to_media_attachment(obj.our_as1, id)
 
 
 @app.put('/api/v1/media/<id>', provide_automatic_options=False)
@@ -1647,7 +1655,7 @@ def media_update(user, id):
     params = request.get_json(silent=True) or request.values
     obj.our_as1['displayName'] = params.get('description')
     obj.put()
-    return {**to_media_attachment(obj.our_as1), 'id': id}
+    return to_media_attachment(obj.our_as1, id)
 
 
 @app.delete('/api/v1/media/<id>', provide_automatic_options=False)
@@ -1659,7 +1667,7 @@ def media_delete(user, id):
     if not (obj := load_media(user, id)):
         error('Media not found', status=404)
 
-    # ATProto can't delete blobs. the PDS garbage collects unreferenced ones.
+    # neither ATProto nor Micropub support deleting media, so just mark it deleted
     obj.deleted = True
     obj.put()
     return {}

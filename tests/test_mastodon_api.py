@@ -3717,7 +3717,7 @@ class MastodonApiTest(TestCase):
         self.assertEqual('image/png',
                          mock_post.call_args.kwargs['headers']['Content-Type'])
 
-        id = f'ui:atproto-blob-did:plc:user-{BLOB_CID}'
+        id = f'ui:media-did:plc:user-{BLOB_CID}'
         self.assert_object(id, source_protocol='ui', users=[user.key], our_as1={
                                'objectType': 'image',
                                'id': id,
@@ -3814,6 +3814,40 @@ class MastodonApiTest(TestCase):
         resp = self.get(f'/api/v1/media/{BLOB_CID}', user=user)
         self.assertEqual(404, resp.status_code, resp.json)
 
+    def test_media_get_update_delete_url_id(self):
+        user = self.make_user('alice.com', cls=Web, enabled_protocols=['activitypub'])
+        id = 'ui:media-alice.com-https://alice.com/pic.jpg'
+        self.store_object(id=id, source_protocol='ui', users=[user.key], our_as1={
+            'objectType': 'image',
+            'id': id,
+            'url': 'https://alice.com/pic.jpg',
+            'displayName': 'my alt',
+            'to': [{'objectType': 'group', 'alias': '@private'}],
+        })
+
+        path = f'/api/v1/media/{encode_id("https://alice.com/pic.jpg")}'
+        expected = {
+            'id': encode_id('https://alice.com/pic.jpg'),
+            'type': 'image',
+            'url': 'https://alice.com/pic.jpg',
+            'preview_url': 'https://alice.com/pic.jpg',
+            'remote_url': None,
+            'meta': {},
+            'description': 'my alt',
+            'blurhash': None,
+        }
+        resp = self.get(path, user=user)
+        self.assertEqual(200, resp.status_code, resp.json)
+        self.assertEqual(expected, resp.json)
+
+        resp = self.put(path, user=user, json={'description': 'new alt'})
+        self.assertEqual(200, resp.status_code, resp.json)
+        self.assertEqual({**expected, 'description': 'new alt'}, resp.json)
+
+        resp = self.delete(path, user=user)
+        self.assertEqual(200, resp.status_code, resp.json)
+        self.assertTrue(Object.get_by_id(id).deleted)
+
     def test_media_get_bad_id(self):
         user = self.make_atproto_user()
         resp = self.get('/api/v1/media/nope', user=user)
@@ -3883,7 +3917,7 @@ class MastodonApiTest(TestCase):
         resp = self.delete(f'/api/v1/media/{BLOB_CID}', user=user)
         self.assertEqual(200, resp.status_code, resp.json)
         self.assertEqual({}, resp.json)
-        self.assertTrue(Object.get_by_id(f'ui:atproto-blob-did:plc:user-{BLOB_CID}').deleted)
+        self.assertTrue(Object.get_by_id(f'ui:media-did:plc:user-{BLOB_CID}').deleted)
 
         resp = self.get(f'/api/v1/media/{BLOB_CID}', user=user)
         self.assertEqual(404, resp.status_code, resp.json)
