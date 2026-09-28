@@ -1865,8 +1865,9 @@ class MastodonApiTest(TestCase):
     def test_statuses_create_with_media(self, mock_post):
         user = self.make_atproto_user()
 
+        image = Path(__file__).with_name('activitypub_logo.png').read_bytes()
         resp = self.post('/api/v2/media', user=user, data={
-            'file': (BytesIO(b'foo'), 'foo.png', 'image/png'),
+            'file': (BytesIO(image), 'foo.png', 'image/png'),
             'description': 'my alt',
         })
         self.assertEqual(200, resp.status_code, resp.json)
@@ -1882,6 +1883,14 @@ class MastodonApiTest(TestCase):
             'url': BLOB_URL,
             'preview_url': BLOB_URL,
             'description': 'my alt',
+            'meta': {
+                'original': {
+                    'width': 260,
+                    'height': 164,
+                    'size': '260x164',
+                    'aspect': 260 / 164,
+                },
+            },
         }], resp.json['media_attachments'])
 
         self.assertEqual(2, mock_post.call_count)
@@ -1905,6 +1914,7 @@ class MastodonApiTest(TestCase):
                             'size': 3,
                         },
                         'alt': 'my alt',
+                        'aspectRatio': {'width': 260, 'height': 164},
                     }],
                 },
             },
@@ -1926,7 +1936,9 @@ class MastodonApiTest(TestCase):
             'cid': 'bafyreipostsyddddddddddddddddddddddddddddddddddddddddddd',
         }),
     ])
-    def test_statuses_create_with_video_no_text_json(self, mock_post):
+    @patch.object(MediaInfo, 'parse', return_value=MagicMock(
+        video_tracks=[MagicMock(width=1280, height=720, duration='4740.5')]))
+    def test_statuses_create_with_video_no_text_json(self, _, mock_post):
         user = self.make_atproto_user()
 
         resp = self.post('/api/v2/media', user=user, data={
@@ -1956,6 +1968,7 @@ class MastodonApiTest(TestCase):
                         'size': 3,
                     },
                     'alt': '',
+                    'aspectRatio': {'width': 1280, 'height': 720},
                 },
             },
         }, mock_post.call_args.kwargs['json'])
