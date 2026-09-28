@@ -1,14 +1,16 @@
 """Unit tests for mastodon_api.py."""
 from datetime import datetime
 from io import BytesIO
+from pathlib import Path
 from unittest import skip
-from unittest.mock import patch
+from unittest.mock import MagicMock, patch
 
 from google.cloud.tasks_v2.types import Task
 from granary import as2
 from granary.bluesky import Bluesky
 from granary.micropub import Micropub
 from oauth_dropins import indieauth
+from pymediainfo import MediaInfo
 import oauth_dropins.bluesky
 from oauth_dropins.bluesky import BlueskyAuth
 from requests_oauth2client import (
@@ -3695,8 +3697,9 @@ class MastodonApiTest(TestCase):
     def test_media_create(self, mock_post):
         user = self.make_atproto_user()
 
+        image = Path(__file__).with_name('activitypub_logo.png').read_bytes()
         resp = self.post('/api/v2/media', user=user, data={
-            'file': (BytesIO(b'foo'), 'foo.png', 'image/png'),
+            'file': (BytesIO(image), 'foo.png', 'image/png'),
             'description': 'my alt',
         })
         self.assertEqual(200, resp.status_code, resp.json)
@@ -3706,14 +3709,21 @@ class MastodonApiTest(TestCase):
             'url': BLOB_URL,
             'preview_url': BLOB_URL,
             'remote_url': None,
-            'meta': {},
+            'meta': {
+                'original': {
+                    'width': 260,
+                    'height': 164,
+                    'size': '260x164',
+                    'aspect': 260 / 164,
+                },
+            },
             'description': 'my alt',
             'blurhash': None,
         }, resp.json)
 
         self.assertEqual('https://some.pds/xrpc/com.atproto.repo.uploadBlob',
                          mock_post.call_args.args[0])
-        self.assertEqual(b'foo', mock_post.call_args.kwargs['data'])
+        self.assertEqual(image, mock_post.call_args.kwargs['data'])
         self.assertEqual('image/png',
                          mock_post.call_args.kwargs['headers']['Content-Type'])
 
@@ -3724,6 +3734,8 @@ class MastodonApiTest(TestCase):
                                'url': BLOB_URL,
                                'mimeType': 'image/png',
                                'size': 3,
+                               'width': 260,
+                               'height': 164,
                                'displayName': 'my alt',
                                'to': [{'objectType': 'group', 'alias': '@private'}],
                            })
@@ -3740,7 +3752,9 @@ class MastodonApiTest(TestCase):
             'size': 3,
         },
     }))
-    def test_media_create_v1_video(self, mock_post):
+    @patch.object(MediaInfo, 'parse', return_value=MagicMock(
+        video_tracks=[MagicMock(width=1280, height=720, duration='4740.5')]))
+    def test_media_create_v1_video(self, _, __):
         user = self.make_atproto_user()
 
         resp = self.post('/api/v1/media', user=user, data={
@@ -3753,10 +3767,37 @@ class MastodonApiTest(TestCase):
             'url': BLOB_URL,
             'preview_url': None,
             'remote_url': None,
-            'meta': {},
+            'meta': {
+                'width': 1280,
+                'height': 720,
+                'size': '1280x720',
+                'aspect': 1280 / 720,
+                'duration': 4.74,
+                'original': {
+                    'width': 1280,
+                    'height': 720,
+                    'duration': 4.74,
+                },
+            },
             'description': None,
             'blurhash': None,
         }, resp.json)
+
+        id = f'ui:media-did:plc:user-{BLOB_CID}'
+        self.assert_object(id, source_protocol='ui', users=[user.key], our_as1={
+                               'objectType': 'video',
+                               'id': id,
+                               'stream': {
+                                   'url': BLOB_URL,
+                                   'mimeType': 'video/mp4',
+                                   'size': 3,
+                                   'width': 1280,
+                                   'height': 720,
+                                   'duration': 4.74,
+                               },
+                               'displayName': None,
+                               'to': [{'objectType': 'group', 'alias': '@private'}],
+                           })
 
     @patch.object(util.session, 'post')
     def test_media_create_missing_file(self, mock_post):

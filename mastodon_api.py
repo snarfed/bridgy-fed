@@ -29,6 +29,7 @@ from werkzeug.exceptions import HTTPException, MethodNotAllowed, NotFound
 import activitypub
 from activitypub import ActivityPub
 from arroba import datastore_storage
+import arroba.util
 import atproto
 from atproto import ATProto
 import common
@@ -395,13 +396,41 @@ def to_media_attachment(obj, media_id):
         type = 'unknown'
 
     url = util.get_url(obj, 'stream') or util.get_url(obj)
+
+    # matches Mastodon's layout: images have everything in original, video and
+    # audio have most fields top level and only raw values in original
+    # https://docs.joinmastodon.org/entities/MediaAttachment/
+    meta = {}
+    original = {}
+    obj_as1 = util.get_first(obj, 'stream') or obj
+    width = obj_as1.get('width')
+    height = obj_as1.get('height')
+    if width and height:
+        dims = {
+            'width': width,
+            'height': height,
+            'size': f'{width}x{height}',
+            'aspect': width / height,
+        }
+        if type == 'image':
+            original = dims
+        else:
+            meta.update(dims)
+            original = {'width': width, 'height': height}
+
+    if duration := obj_as1.get('duration'):
+        meta['duration'] = original['duration'] = duration
+
+    if original:
+        meta['original'] = original
+
     return {
         'id': media_id,
         'type': type,
         'url': url,
         'preview_url': url if type == 'image' else None,
         'remote_url': None,
-        'meta': {},
+        'meta': meta,
         'description': obj.get('displayName'),
         'blurhash': None,
     }
@@ -836,11 +865,6 @@ def instance():
         'thumbnail': {
             'url': 'https://fed.brid.gy/static/bridgy_logo_with_alpha.png',
             'description': 'Hand-painted sketch of a bridge with just a few brush strokes',
-            # 'blurhash': 'UeKUpFxuo~R%0nW;WCnhF6RjaJt757oJodS$',
-            # 'versions': {
-            #     '@1x': 'https://files.mastodon.social/site_uploads/files/000/000/001/@1x/57c12f441d083cde.png',
-            #     '@2x': 'https://files.mastodon.social/site_uploads/files/000/000/001/@2x/57c12f441d083cde.png'
-            # }
         },
         'icon': [{
             'src': 'https://fed.brid.gy/static/favicon.ico',
@@ -864,9 +888,6 @@ def instance():
                 'privacy_policy': 'https://fed.brid.gy/docs#privacy',
                 'terms_of_service': 'https://fed.brid.gy/docs#terms',
             },
-            # 'vapid': {
-            #     'public_key': '...'
-            # },
             'accounts': {
                 'max_featured_tags': 0,
                 'max_pinned_statuses': 1,
@@ -877,12 +898,8 @@ def instance():
                 'characters_reserved_per_url': 23,
             },
             'media_attachments': {
-                # 'description_limit': ,
-                # 'image_matrix_limit': ,
                 'image_size_limit': bluesky.MAX_MEDIA_SIZE_BYTES,
                 'supported_mime_types': list(SUPPORTED_MEDIA_TYPES),
-                # 'video_frame_rate_limit': None,
-                # 'video_matrix_limit': None,
                 'video_size_limit': datastore_storage.BLOB_MAX_BYTES,
             },
             'polls': {
@@ -932,9 +949,6 @@ def instance():
                 'header': 'https://files.mastodon.social/accounts/headers/112/696/499/069/491/559/original/2834aa5dde24424e.png',
                 'header_static': 'https://files.mastodon.social/accounts/headers/112/696/499/069/491/559/original/2834aa5dde24424e.png',
                 'header_description': '',
-                # 'followers_count': 1552,
-                # 'following_count': 9,
-                # 'statuses_count': 176,
                 'last_status_at': '2026-07-06',
                 'hide_collections': None,
                 'show_media': True,
@@ -1326,12 +1340,12 @@ def statuses_create(user, source):
 
         media_as1 = media_obj.our_as1
         if isinstance(user, ATProto):
-            file_as1 = as1.get_object(media_as1, 'stream') or media_as1
-            blobs[file_as1['url']] = {
+            obj_as1 = as1.get_object(media_as1, 'stream') or media_as1
+            blobs[obj_as1['url']] = {
                 '$type': 'blob',
                 'ref': {'$link': decode_id(media_id)},
-                'mimeType': file_as1['mimeType'],
-                'size': file_as1['size'],
+                'mimeType': obj_as1['mimeType'],
+                'size': obj_as1['size'],
             }
         media_as1 = {k: v for k, v in media_as1.items() if k not in ('id', 'to')}
         if media_as1['objectType'] == 'image':
@@ -1572,7 +1586,6 @@ def media_create(user, source):
     https://docs.joinmastodon.org/methods/media/#v2
 
     TODO:
-    * store dimensions too, for aspect ratios
     * generalize to other protocols, eg Micropub media endpoints for web, via
       granary's :meth:`granary.source.Source.upload_media` instead of calling
       ``uploadBlob`` directly
@@ -1604,12 +1617,19 @@ def media_create(user, source):
     blob = resp['blob']
     cid = bluesky.blob_cid(blob)
     did_doc = ATProto.load(user.key.id(), raw=True)
-    file_as1 = {
+    obj_as1 = {
         'url': bluesky.blob_to_url(blob=blob, repo_did=user.key.id(),
                                    pds=ATProto.pds_for(did_doc)),
         'mimeType': blob['mimeType'],
         'size': blob['size'],
     }
+    if track := arroba.util.media_metadata(data):
+        obj_as1.update(util.trim_nulls({
+            'width': track.width,
+            'height': track.height,
+            # pymediainfo returns duration in ms; Mastodon's MediaAttachment is s
+            'duration': track.duration / 1000 if track.duration else None,
+        }))
 
     id = media_object_id(user, cid)
     media_as1 = {
@@ -1619,9 +1639,9 @@ def media_create(user, source):
         'to': [{'objectType': 'group', 'alias': '@private'}],
     }
     if file.mimetype.startswith('image/'):
-        media_as1.update({'objectType': 'image', **file_as1})
+        media_as1.update({'objectType': 'image', **obj_as1})
     else:
-        media_as1.update({'objectType': 'video', 'stream': file_as1})
+        media_as1.update({'objectType': 'video', 'stream': obj_as1})
 
     Object(id=id, source_protocol='ui', users=[user.key], our_as1=media_as1).put()
     return to_media_attachment(media_as1, cid)
