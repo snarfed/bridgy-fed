@@ -71,12 +71,34 @@ STATUS_AS1_TYPES = as1.POST_TYPES | {'share'}
 
 # https://docs.joinmastodon.org/entities/Instance/#supported_mime_types
 SUPPORTED_MEDIA_TYPES = (
+    'audio/3gpp',
+    'audio/aac',
+    'audio/flac',
+    'audio/m4a',
+    'audio/mp3',
+    'audio/mp4',
+    'audio/mpeg',
+    'audio/ogg',
+    'audio/vnd.wave',
+    'audio/vorbis',
+    'audio/wav',
+    'audio/wave',
+    'audio/webm',
+    'audio/x-m4a',
+    'audio/x-pn-wave',
+    'audio/x-wav',
+    'image/avif',
+    'image/gif',
+    'image/heic',
+    'image/heif',
     'image/jpeg',
     'image/png',
-    'image/gif',
     'image/webp',
-    'image/avif',
     'video/mp4',
+    'video/ogg',
+    'video/quicktime',
+    'video/webm',
+    'video/x-ms-asf',
 )
 
 # how many notifications /api/v2/notifications fetches and then aggregates into
