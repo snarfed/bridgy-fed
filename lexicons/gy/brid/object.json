@@ -1,0 +1,25 @@
+{
+  "lexicon": 1,
+  "id": "gy.brid.object",
+  "defs": {
+    "main": {
+      "type": "record",
+      "description": "Generic object container. May contain ActivityStreams 2, microformats2, Nostr record, Farcaster message, etc.",
+      "key": "tid",
+      "record": {
+        "type": "object",
+        "required": ["mimeType", "object"],
+        "properties": {
+          "mimeType": {
+            "type": "string",
+            "description": "MIME type of this object, eg application/activity+json or application/protobuf+json."
+          },
+          "object": {
+            "type": "unknown",
+            "description": "The object. May be anything that matches the MIME type and conforms to the ATProto data model, eg no floats."
+          }
+        }
+      }
+    }
+  }
+}
