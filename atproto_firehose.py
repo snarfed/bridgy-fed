@@ -427,6 +427,9 @@ def _handle_commit_op(event):
         record_kwarg = {'bsky': record}
         obj_id = at_uri
 
+        # validate schema. don't try to handle invalid records...and also, we
+        # deliberately create invalid records in eg mastodon_api, for interactions
+        # with unbridged posts/accounts, so this keeps us from trying to bridge them
         try:
             _validator.validate(type, 'record', record)
         except ValidationError as e:

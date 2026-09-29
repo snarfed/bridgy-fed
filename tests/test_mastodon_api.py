@@ -2070,8 +2070,13 @@ class MastodonApiTest(TestCase):
         resp = self.post('/api/v1/statuses', user=user, data={})
         self.assertEqual(400, resp.status_code)
 
+    # createRecord
+    @patch.object(util.session, 'post', return_value=requests_response({
+        'uri': 'at://did:plc:user/app.bsky.feed.post/456',
+        'cid': 'bafyreipostsyddddddddddddddddddddddddddddddddddddddddddd',
+    }))
     @patch.object(tasks_client, 'create_task', return_value=Task(name='my task'))
-    def test_statuses_create_reply_not_bridged(self, mock_create_task):
+    def test_statuses_create_reply_not_bridged(self, mock_create_task, mock_post):
         common.RUN_TASKS_INLINE = False
         user = self.make_atproto_user()
         self.store_object(
@@ -2084,8 +2089,25 @@ class MastodonApiTest(TestCase):
         self.assertEqual('a reply', resp.json['content'])
         self.assertEqual('fake~3Apost', resp.json['in_reply_to_id'])
 
-        id = 'ui:comment-atproto-han.dull-2022-01-02T03:04:05+00:00'
-        self.assert_task(mock_create_task, 'receive', source_protocol='ui',
+        ref = {'uri': 'fake:post'}
+        self.assert_equals({
+            'repo': 'did:plc:user',
+            'collection': 'app.bsky.feed.post',
+            'validate': False,
+            'record': {
+                '$type': 'app.bsky.feed.post',
+                'text': 'a reply',
+                'createdAt': '2022-01-02T03:04:05.000Z',
+                'reply': {
+                    '$type': 'app.bsky.feed.post#replyRef',
+                    'root': ref,
+                    'parent': ref,
+                },
+            },
+        }, mock_post.call_args.kwargs['json'])
+
+        id = 'at://did:plc:user/app.bsky.feed.post/456'
+        self.assert_task(mock_create_task, 'receive', source_protocol='atproto',
                          authed_as='did:plc:user', id=id,
                          users=[user.key.urlsafe().decode()], our_as1={
             'objectType': 'comment',
@@ -2095,7 +2117,101 @@ class MastodonApiTest(TestCase):
             'author': 'did:plc:user',
         })
 
-    @patch.object(util.session, 'post')
+    @patch.object(util, 'requests_get', return_value=requests_response(
+        '', url='https://alice.com/',
+        headers={'Link': '<https://alice.com/mp>; rel="micropub"'},
+    ))
+    # Micropub create
+    @patch.object(util.session, 'post', return_value=requests_response(
+        '', status=201, headers={'Location': 'https://alice.com/reply'}))
+    @patch.object(tasks_client, 'create_task', return_value=Task(name='my task'))
+    def test_statuses_create_reply_web_user_not_bridged(self, mock_create_task,
+                                                        mock_post, _):
+        common.RUN_TASKS_INLINE = False
+        user = self.make_user('alice.com', cls=Web, enabled_protocols=['activitypub'])
+        indieauth.IndieAuth(id='https://alice.com', user_json='{}',
+                            access_token_str='towkin').put()
+        self.make_user('https://mas.to/users/bob', cls=ActivityPub,
+                       manual_opt_out=True)
+        self.store_object(id='https://mas.to/post', source_protocol='activitypub',
+                          our_as1={
+                              'objectType': 'note',
+                              'content': 'orig',
+                              'author': 'https://mas.to/users/bob',
+                          })
+
+        resp = self.post('/api/v1/statuses', user=user, data={
+            'status': 'a reply',
+            'in_reply_to_id': 'https~3A~2F~2Fmas.to~2Fpost',
+        })
+        self.assertEqual(200, resp.status_code, resp.json)
+        self.assertEqual('a reply', resp.json['content'])
+
+        self.assertEqual('https://alice.com/mp', mock_post.call_args.args[0])
+        self.assertEqual({
+            'type': ['h-entry'],
+            'properties': {
+                'content': ['a reply'],
+                'in-reply-to': ['https://mas.to/post'],
+            },
+        }, mock_post.call_args.kwargs['json'])
+
+        self.assert_task(mock_create_task, 'receive', source_protocol='web',
+                         authed_as='alice.com', id='https://alice.com/reply',
+                         users=[user.key.urlsafe().decode()], our_as1={
+            'objectType': 'comment',
+            'id': 'https://alice.com/reply',
+            'inReplyTo': 'https://mas.to/post',
+            'content': 'a reply',
+            'author': 'alice.com',
+        })
+
+    @patch.object(util, 'requests_get', return_value=requests_response(
+        '', url='https://alice.com/',
+        headers={'Link': '<https://alice.com/mp>; rel="micropub"'},
+    ))
+    # Micropub create
+    @patch.object(util.session, 'post', return_value=requests_response(
+        '', status=201, headers={'Location': 'https://alice.com/reply'}))
+    @patch.object(tasks_client, 'create_task', return_value=Task(name='my task'))
+    def test_statuses_create_reply_web_user_bridged(self, mock_create_task,
+                                                    mock_post, _):
+        common.RUN_TASKS_INLINE = False
+        user = self.make_user('alice.com', cls=Web, enabled_protocols=['activitypub'])
+        indieauth.IndieAuth(id='https://alice.com', user_json='{}',
+                            access_token_str='towkin').put()
+        self.make_user('https://mas.to/users/bob', cls=ActivityPub)
+        self.store_object(id='https://mas.to/post', source_protocol='activitypub',
+                          our_as1={
+                              'objectType': 'note',
+                              'content': 'orig',
+                              'author': 'https://mas.to/users/bob',
+                          })
+
+        resp = self.post('/api/v1/statuses', user=user, data={
+            'status': 'a reply',
+            'in_reply_to_id': 'https~3A~2F~2Fmas.to~2Fpost',
+        })
+        self.assertEqual(200, resp.status_code, resp.json)
+
+        self.assertEqual({
+            'type': ['h-entry'],
+            'properties': {
+                'content': ['a reply'],
+                'in-reply-to': ['https://ap.brid.gy/convert/web/https://mas.to/post'],
+            },
+        }, mock_post.call_args.kwargs['json'])
+        mock_create_task.assert_not_called()
+
+    @patch.object(util.session, 'post', side_effect=[
+        # createRecord
+        requests_response({
+            'uri': 'at://did:plc:user/app.bsky.feed.post/456',
+            'cid': 'bafyreipostsyddddddddddddddddddddddddddddddddddddddddddd',
+        }),
+        # AP delivery
+        requests_response(),
+    ])
     def test_statuses_create_reply_unbridged_activitypub_delivers(self, mock_post):
         user = self.make_atproto_user(obj_bsky=test_atproto.ACTOR_PROFILE_BSKY)
         self.make_user('https://mas.to/users/bob', cls=ActivityPub, obj_as2={
@@ -2115,7 +2231,14 @@ class MastodonApiTest(TestCase):
         })
         self.assertEqual(200, resp.status_code, resp.json)
 
-        id = 'https://bsky.brid.gy/convert/ap/ui:comment-atproto-han.dull-2022-01-02T03:04:05+00:00'
+        create_record = mock_post.call_args_list[0]
+        self.assertEqual('https://some.pds/xrpc/com.atproto.repo.createRecord',
+                         create_record.args[0])
+        self.assertEqual({'uri': 'https://mas.to/post'},
+                         create_record.kwargs['json']['record']['reply']['parent'])
+        mock_post.call_args_list = mock_post.call_args_list[1:]
+
+        id = 'https://bsky.brid.gy/convert/ap/at://did:plc:user/app.bsky.feed.post/456'
         self.assert_ap_deliveries(mock_post, ['https://mas.to/users/bob/inbox'],
                                   from_user=user, data={
             'type': 'Create',

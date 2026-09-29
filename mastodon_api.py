@@ -1345,16 +1345,29 @@ def statuses_create(user, source):
 
     # make AS1 note object
     # TODO: poll, sensitive, spoiler_text, visibility, language
-    reply_obj = None
+    orig_obj = None
+    unbridged_reply = False
     if in_reply_to_id := params.get('in_reply_to_id'):
-        reply_obj = load_object(in_reply_to_id)
+        orig_obj = load_object(in_reply_to_id)
+        if user.HAS_COPIES:
+            unbridged_reply = not orig_obj.get_copy(user)
+        else:
+            owner_proto = orig_obj.owner_protocol()
+            owner_id = as1.get_owner(orig_obj.as1)
+            owner = owner_proto and owner_id and owner_proto.get_by_id(owner_id)
+            unbridged_reply = not (owner and owner.is_enabled(user))
 
     note = {
         'objectType': 'comment' if in_reply_to_id else 'note',
         'author': user.key.id(),
         'content': text,
     }
+    if orig_obj:
+        # unbridged replies use the original post's native id
+        note['inReplyTo'] = (orig_obj.key.id() if unbridged_reply
+                             else orig_obj.id_as(user))
 
+    # generate images/attachments for media
     blobs = {}
     for media_id in media_ids:
         if not (media_obj := load_media(user, media_id)):
@@ -1375,41 +1388,27 @@ def statuses_create(user, source):
         else:
             note.setdefault('attachments', []).append(media_as1)
 
-    source_protocol = user.LABEL
-    if reply_obj and not reply_obj.get_copy(user):
-        # the original post isn't bridged to the user's protocol. write the reply
-        # to an Object in the datastore
-        if media_ids:
-            error("Media in replies to posts that aren't bridged isn't supported yet",
-                  status=501)
-        source_protocol = 'ui'
-        id = f'ui:comment-{user.LABEL}-{user.handle}-{util.now().isoformat()}'
-        note.update({
-            'id': id,
-            'inReplyTo': reply_obj.key.id(),
-        })
+    # create the post on the user's protocol, natively. if it's a reply to a post
+    # that isn't bridged there, the reply will be invalid there, eg its inReplyTo
+    # will be a non-Bluesky URL
+    result = source.create(note, validate=not unbridged_reply, blobs=blobs)
+    if not result.content:
+        error(result.error_plain or "Couldn't create this status", status=502)
+
+    id = result.content['id']
+    note['id'] = id
+    if orig_obj:
+        note['inReplyTo'] = orig_obj.key.id()
+
+    if unbridged_reply:
+        # we won't see this reply natively, eg in the firehose, so deliver it
+        # ourselves
         common.create_task(queue='receive', id=id, our_as1=note,
-                           source_protocol='ui', users=[user.key.urlsafe().decode()],
+                           source_protocol=user.LABEL,
+                           users=[user.key.urlsafe().decode()],
                            authed_as=user.key.id())
 
-    else:
-        # create the post on the user's protocol, natively
-        if reply_obj:
-            note['inReplyTo'] = reply_obj.id_as(user)
-
-        # only Bluesky supports blobs
-        result = source.create(note, blobs=blobs) if blobs else source.create(note)
-        if not result.content:
-            error(result.error_plain or "Couldn't create this status", status=502)
-
-        # construct response status
-        id = result.content['id']
-        note['id'] = id
-        if reply_obj:
-            note['inReplyTo'] = reply_obj.key.id()
-
-    obj = Object(id=id, source_protocol=source_protocol, users=[user.key],
-                 our_as1=note)
+    obj = Object(id=id, source_protocol=user.LABEL, users=[user.key], our_as1=note)
     obj.owner = user
     return to_status(obj)
 
