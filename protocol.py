@@ -1643,8 +1643,6 @@ class Protocol:
         Args:
           obj (models.Object): follow activity
         """
-        from ui import UIProtocol
-
         logger.debug('Got follow. storing Follow(s), sending accept(s)')
         from_id = from_user.key.id()
         # for follows we generated ourselves, from_cls is UIProtocol, but here we
@@ -1680,12 +1678,6 @@ class Protocol:
             if not to_user:
                 error(f'{to_id} not found')
 
-            # we only follow unbridged users when the follower asked us to
-            # explicitly, eg via our Mastodon API
-            bridged = to_user.is_enabled(from_proto)
-            if not bridged and from_cls != UIProtocol:
-                error(f'{to_id} not found')
-
             follower_obj = Follower.get_or_create(to=to_user, from_=from_user,
                                                   follow=obj.key, status='active')
             if (from_proto.USES_OBJECT_FEED
@@ -1694,7 +1686,7 @@ class Protocol:
                 to_user.put()
 
             obj.add('notify', to_key)
-            if bridged:
+            if to_user.is_enabled(from_proto):
                 from_cls.respond_to_follow('accept', follower=from_user,
                                            followee=to_user, follow=obj)
 
