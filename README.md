@@ -181,6 +181,22 @@ gcloud compute forwarding-rules create bridgy-fed-http-ipv6 --load-balancing-sch
 https://console.cloud.google.com/net-services/loadbalancing/details/httpAdvanced/bridgy-fed?project=bridgy-federated
 ```
 
+To move a subdomain onto the load balancer:
+
+```sh
+gcloud dns --project=brid-gy record-sets delete --zone brid-gy x.brid.gy --type A
+gcloud dns --project=brid-gy record-sets delete --zone brid-gy x.brid.gy --type AAAA
+gcloud dns --project=brid-gy record-sets create x.brid.gy. --type=CNAME --zone=brid-gy --rrdatas=ghs.googlehosted.com. --ttl=10800
+```
+
+...and to move it back to Cloud Run ([check first that CR has a domain mapping for it!](https://console.cloud.google.com/run/detail/us-central1/frontend/networking?project=bridgy-federated)):
+
+```sh
+gcloud dns --project=brid-gy record-sets delete --zone=brid-gy x.brid.gy. --type=CNAME
+gcloud dns --project=brid-gy record-sets create --zone brid-gy x.brid.gy --type A --rdatas 136.68.247.97
+gcloud dns --project=brid-gy record-sets create --zone brid-gy x.brid.gy --type AAAA --rdatas 2600:1901:0:584a::
+```
+
 
 GCP Artifact Registry cleanup policies
 ---
