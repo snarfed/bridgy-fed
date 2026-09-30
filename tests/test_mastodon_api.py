@@ -2274,10 +2274,7 @@ class MastodonApiTest(TestCase):
     }))
     def test_statuses_create_reply(self, _, mock_post):
         user = self.make_atproto_user()
-        self.store_object(id='did:plc:user', raw={
-            **DID_DOC,
-            'alsoKnownAs': ['at://han.dull'],
-        })
+        self.store_object(id='did:plc:user', raw=DID_DOC)
         self.make_user('fake:bob', cls=Fake, enabled_protocols=['atproto'],
                        copies=[Target(uri='did:plc:bob', protocol='atproto')])
 

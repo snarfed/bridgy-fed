@@ -15,7 +15,7 @@ from webutil.appengine_info import DEBUG, LOCAL_SERVER
 from flask_app import app
 
 # import all modules to register their Flask handlers
-import activitypub, admin, atproto, atproto_oauth, convert, farcaster, follow, mastodon_api, mastodon_oauth, nostr, oauth_server, pages, redirect, ui, webfinger, web
+import activitypub, admin, atproto, atproto_oauth, atproto_xrpc, convert, farcaster, follow, mastodon_api, mastodon_oauth, nostr, oauth_server, pages, redirect, ui, webfinger, web
 
 # https://docs.cloud.google.com/profiler/docs/profiling-python
 # import googlecloudprofiler
