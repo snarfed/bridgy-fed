@@ -1,7 +1,7 @@
 """ActivityPub protocol implementation."""
 from base64 import b64encode
 import copy
-from datetime import timedelta
+from datetime import datetime, timedelta
 from hashlib import sha256
 import itertools
 import logging
@@ -110,6 +110,20 @@ OLD_ACCOUNT_EXEMPT_DOMAINS = (
 #   actor and attributedTo, and don't include an LD Sig. a.gup.pe is now shut down.
 #   https://github.com/snarfed/bridgy-fed/issues/566#issuecomment-2130714037
 NO_AUTH_DOMAINS = ()
+
+# all of our Mastodon and Pixelfed OAuth callbacks, for both web UI login and
+# atproto_oauth pass-through login. every flow's client app shares these, since
+# oauth-dropins looks up apps by instance and app_url, which is the same for all.
+OAUTH_REDIRECT_PATHS = (
+    # web UI login; routes at the bottom of this file
+    '/oauth/mastodon/finish',
+    '/oauth/pixelfed/finish',
+    # pass-through for ATProto OAuth; routes in atproto_oauth.py
+    '/oauth/atproto/authorize/mastodon/finish',
+    '/oauth/atproto/authorize/pixelfed/finish',
+)
+# last time OAUTH_REDIRECT_PATHS changed
+OAUTH_EXPIRE_APPS_BEFORE = datetime(2026, 9, 30)
 
 FEDI_URL_RE = re.compile(r'https://(?P<domain>[^/]+)/(@|users/)(?P<handle>[^/@]+)(@[^/@]+)?(?P<post_id>/(?:statuses/)?[0-9]+)?')
 
@@ -1930,21 +1944,27 @@ def as2_request_type():
 # OAuth
 #
 class MastodonStart(FlashErrors, oauth_dropins.mastodon.Start):
-  def app_name(self):
-      return 'Bridgy Fed'
+    REDIRECT_PATHS = OAUTH_REDIRECT_PATHS
+    EXPIRE_APPS_BEFORE = OAUTH_EXPIRE_APPS_BEFORE
 
-  def app_url(self):
-      return 'https://fed.brid.gy/'
+    def app_name(self):
+        return 'Bridgy Fed'
+
+    def app_url(self):
+        return 'https://fed.brid.gy/'
 
 class MastodonCallback(FlashErrors, oauth_dropins.mastodon.Callback):
     pass
 
 class PixelfedStart(FlashErrors, oauth_dropins.pixelfed.Start):
-  def app_name(self):
-      return 'Bridgy Fed'
+    REDIRECT_PATHS = OAUTH_REDIRECT_PATHS
+    EXPIRE_APPS_BEFORE = OAUTH_EXPIRE_APPS_BEFORE
 
-  def app_url(self):
-      return 'https://fed.brid.gy/'
+    def app_name(self):
+        return 'Bridgy Fed'
+
+    def app_url(self):
+        return 'https://fed.brid.gy/'
 
 class PixelfedCallback(FlashErrors, oauth_dropins.pixelfed.Callback):
     pass

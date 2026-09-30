@@ -45,6 +45,7 @@ from webutil import flask_util, models, util
 from webutil.appengine_info import DEBUG, LOCAL_SERVER
 from webutil.flask_util import FlashErrors, flash, get_required_param
 
+import activitypub
 import atproto
 from atproto import ATProto
 from common import CACHE_CONTROL
@@ -745,28 +746,21 @@ class ProxyIndieAuthCallback(Proxy, FlashErrors, indieauth.Callback):
     pass
 
 
-class ProxyMastodonStart(FlashErrors, oauth_dropins.mastodon.Start):
+class ProxyMastodonStart(activitypub.MastodonStart):
     ON_ERROR_REDIRECT_TO = '/'
-
-    def app_name(self):
-        return 'Bridgy Fed'
-
-    def app_url(self):
-        return 'https://fed.brid.gy/'
+    DEFAULT_SCOPE = oauth_dropins.mastodon.Start.SCOPE_SEPARATOR.join(
+        oauth_dropins.mastodon.ALL_SCOPES)
 
 
 class ProxyMastodonCallback(Proxy, FlashErrors, oauth_dropins.mastodon.Callback):
     pass
 
 
-class ProxyPixelfedStart(FlashErrors, oauth_dropins.pixelfed.Start):
+class ProxyPixelfedStart(activitypub.PixelfedStart):
     ON_ERROR_REDIRECT_TO = '/'
-
-    def app_name(self):
-        return 'Bridgy Fed'
-
-    def app_url(self):
-        return 'https://fed.brid.gy/'
+    # as of 9/2026, Pixelfed doesn't support Mastodon's granular scopes, only
+    # the older coarse ones. not in any of their docs; determined from their code
+    DEFAULT_SCOPE = 'read write follow'
 
 
 class ProxyPixelfedCallback(Proxy, FlashErrors, oauth_dropins.pixelfed.Callback):
