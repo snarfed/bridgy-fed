@@ -8,11 +8,15 @@ from unittest.mock import patch
 from urllib.parse import parse_qs, urlencode, urlparse
 
 from granary.bluesky import Bluesky
+from granary.mastodon import Mastodon
 from granary.micropub import Micropub
+from granary.pixelfed import Pixelfed
 import jwt
 from oauth_dropins import indieauth
 import oauth_dropins.bluesky
 from oauth_dropins.bluesky import BlueskyAuth
+from oauth_dropins.mastodon import MastodonApp, MastodonAuth
+from oauth_dropins.pixelfed import PixelfedApp, PixelfedAuth
 from requests_oauth2client import (
     DPoPKey,
     DPoPToken,
@@ -26,6 +30,7 @@ from webutil.testutil import requests_response
 from webutil.util import json_dumps
 
 import activitypub
+from activitypub import ActivityPub
 from atproto import ATProto
 import common
 from flask_app import app
@@ -232,3 +237,50 @@ class GranarySourceForTest(TestCase):
         self.assertIsInstance(source, Micropub)
         self.assertEqual('https://alice.com/mp', source.endpoint)
         self.assertEqual('towkin', source.access_token)
+
+    def test_mastodon(self):
+        user = self.make_user('https://mas.to/users/alice', cls=ActivityPub,
+                              webfinger_addr='@alice@mas.to')
+        MastodonAuth(id='@alice@mas.to', access_token_str='towkin',
+                     app=MastodonApp(instance='https://mas.to/', data='{}').put(),
+                     user_json=json_dumps({
+                         'id': '123',
+                         'uri': 'https://mas.to/users/alice',
+                     })).put()
+
+        source = oauth_server.granary_source_for(user.key)
+        self.assertIsInstance(source, Mastodon)
+        self.assertNotIsInstance(source, Pixelfed)
+        self.assertEqual('https://mas.to/', source.instance)
+        self.assertEqual('towkin', source.access_token)
+        self.assertEqual('123', source.user_id)
+
+    def test_pixelfed(self):
+        user = self.make_user('https://pix.fed/users/alice', cls=ActivityPub,
+                              webfinger_addr='@alice@pix.fed')
+        PixelfedAuth(id='@alice@pix.fed', access_token_str='towkin',
+                     app=PixelfedApp(instance='https://pix.fed/', data='{}').put(),
+                     user_json=json_dumps({'id': '123', 'acct': 'alice'})).put()
+
+        source = oauth_server.granary_source_for(user.key)
+        self.assertIsInstance(source, Pixelfed)
+        self.assertEqual('https://pix.fed/', source.instance)
+        self.assertEqual('towkin', source.access_token)
+        self.assertEqual('123', source.user_id)
+
+    def test_mastodon_auth_for_different_actor(self):
+        user = self.make_user('https://mas.to/users/alice', cls=ActivityPub,
+                              webfinger_addr='@alice@mas.to')
+        MastodonAuth(id='@alice@mas.to', access_token_str='towkin',
+                     app=MastodonApp(instance='https://mas.to/', data='{}').put(),
+                     user_json=json_dumps({
+                         'id': '123',
+                         'uri': 'https://mas.to/users/eve',
+                     })).put()
+
+        self.assertIsNone(oauth_server.granary_source_for(user.key))
+
+    def test_activitypub_no_auth_entity(self):
+        user = self.make_user('https://mas.to/users/alice', cls=ActivityPub,
+                              webfinger_addr='@alice@mas.to')
+        self.assertIsNone(oauth_server.granary_source_for(user.key))

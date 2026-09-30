@@ -27,14 +27,19 @@ from google.cloud import ndb
 from google.cloud.ndb.key import Key
 from google.protobuf.message import DecodeError
 from granary import bluesky
+from granary.mastodon import Mastodon
 from granary.micropub import Micropub
+from granary.pixelfed import Pixelfed
 import jwt
 from oauth_dropins import indieauth
 from oauth_dropins.bluesky import BlueskyAuth
+from oauth_dropins.mastodon import MastodonAuth
+from oauth_dropins.pixelfed import PixelfedAuth
 from webutil import models, util
 from webutil.flask_util import flash
 from werkzeug.exceptions import HTTPException
 
+from activitypub import ActivityPub
 import atproto
 from atproto import ATProto
 import common
@@ -129,6 +134,15 @@ def granary_source_for(user_key):
         if auth := (indieauth.IndieAuth.get_by_id(url)
                     or indieauth.IndieAuth.get_by_id(url + '/')):
             return Micropub.from_auth(auth)
+
+    elif user_key.kind() == ActivityPub._get_kind():
+        if user := user_key.get():
+            for auth_cls, source_cls in ((MastodonAuth, Mastodon),
+                                         (PixelfedAuth, Pixelfed)):
+                auth = auth_cls.get_by_id(user.handle)
+                if auth and pages.login_to_user_key(auth) == user_key:
+                    return source_cls(auth.instance(), auth.access_token_str,
+                                      user_id=auth.user_id())
 
     logger.info(f"No auth for {user_key}, or it doesn't support writes yet")
 
