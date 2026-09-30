@@ -23,8 +23,11 @@ from .testutil import ATPROTO_KEY, OAUTH_ES256_KEY, TestCase
 from web import Web
 
 DID = 'did:plc:alice'
-CID = 'bafkreibme22gw2h7y2h7tg2fhqotaqjucnbc24deqo72b6mkl2egezxhvy'
+# Mastodon re-encodes uploaded media, so it serves different bytes than we upload
+MEDIA_CONTENT = b'processed'
+CID = 'bafkreicydeh7vp4ydkrzk33e475wym3ldaphcrmvbi37jttnoynid5oqqm'
 MEDIA_URL = 'https://mas.to/media/foo.png'
+MEDIA_RESPONSE = requests_response(MEDIA_CONTENT, content_type='image/png')
 UPLOAD_BLOB_URL = 'https://atproto.brid.gy/xrpc/com.atproto.repo.uploadBlob'
 MEDIA_ATTACHMENT = {
     'id': '456',
@@ -69,9 +72,10 @@ class ATProtoXrpcTest(TestCase):
                 nonce=atproto_oauth.proof_validator.nonce_generator.next()),
         })
 
+    @patch.object(util.session, 'get', return_value=MEDIA_RESPONSE)
     @patch.object(util.session, 'post',
                   return_value=requests_response(MEDIA_ATTACHMENT))
-    def test_upload_blob(self, mock_post):
+    def test_upload_blob(self, mock_post, _):
         resp = self.upload_blob()
         self.assertEqual(200, resp.status_code, resp.get_data(as_text=True))
         self.assertEqual({
@@ -79,7 +83,7 @@ class ATProtoXrpcTest(TestCase):
                 '$type': 'blob',
                 'ref': {'$link': CID},
                 'mimeType': 'image/png',
-                'size': 3,
+                'size': 9,
             },
         }, resp.json)
 
@@ -91,17 +95,18 @@ class ATProtoXrpcTest(TestCase):
         blob = AtpRemoteBlob.get_by_id(MEDIA_URL)
         self.assertEqual(MEDIA_URL, blob.url)
         self.assertEqual(CID, blob.cid)
-        self.assertEqual(3, blob.size)
+        self.assertEqual(9, blob.size)
         self.assertEqual('image/png', blob.mime_type)
         self.assertEqual([AtpRepo(id=DID).key], blob.repos)
         self.assertEqual(NOW, blob.last_fetched)
         self.assertIsNone(blob.status)
 
+    @patch.object(util.session, 'get', return_value=MEDIA_RESPONSE)
     @patch.object(util.session, 'post', return_value=requests_response({
         **MEDIA_ATTACHMENT,
         'url': 'https://pix.fed/storage/foo.png',
     }))
-    def test_upload_blob_pixelfed(self, mock_post):
+    def test_upload_blob_pixelfed(self, mock_post, _):
         user = self.make_user(
             'https://pix.fed/users/alice', cls=ActivityPub,
             webfinger_addr='@alice@pix.fed', enabled_protocols=['atproto'],
@@ -118,9 +123,10 @@ class ATProtoXrpcTest(TestCase):
         blob = AtpRemoteBlob.get_by_id('https://pix.fed/storage/foo.png')
         self.assertEqual(CID, blob.cid)
 
+    @patch.object(util.session, 'get', return_value=MEDIA_RESPONSE)
     @patch.object(util.session, 'post',
                   return_value=requests_response(MEDIA_ATTACHMENT))
-    def test_upload_blob_then_get_blob(self, _):
+    def test_upload_blob_then_get_blob(self, *_):
         resp = self.upload_blob()
         self.assertEqual(200, resp.status_code, resp.get_data(as_text=True))
 
@@ -130,9 +136,10 @@ class ATProtoXrpcTest(TestCase):
         self.assertEqual(301, resp.status_code, resp.get_data(as_text=True))
         self.assertEqual(MEDIA_URL, resp.headers['Location'])
 
+    @patch.object(util.session, 'get', return_value=MEDIA_RESPONSE)
     @patch.object(util.session, 'post',
                   return_value=requests_response(MEDIA_ATTACHMENT))
-    def test_upload_blob_then_list_blobs(self, _):
+    def test_upload_blob_then_list_blobs(self, *_):
         Repo.create(arroba.server.storage, DID, handle='alice.mas.to.ap.brid.gy',
                     signing_key=ATPROTO_KEY, rotation_key=ATPROTO_KEY)
 
@@ -160,6 +167,15 @@ class ATProtoXrpcTest(TestCase):
         resp = self.upload_blob()
         self.assertEqual(502, resp.status_code, resp.get_data(as_text=True))
         self.assertEqual(0, AtpRemoteBlob.query().count())
+
+    @patch.object(util.session, 'get',
+                  return_value=requests_response('', status=404))
+    @patch.object(util.session, 'post',
+                  return_value=requests_response(MEDIA_ATTACHMENT))
+    def test_upload_blob_fetch_native_media_error(self, *_):
+        resp = self.upload_blob()
+        self.assertEqual(502, resp.status_code, resp.get_data(as_text=True))
+        self.assertEqual('UpstreamFailure', resp.json['error'])
 
     @patch.object(util, 'requests_get', return_value=requests_response(
         '', url='https://alice.com/',

@@ -54,6 +54,15 @@ def upload_blob(input):
         raise XrpcError(f"Couldn't upload media: {body or e}",
                         name='UpstreamFailure', status=502)
 
-    blob = AtpRemoteBlob.get_or_create(url=url, repo=AtpRepo(id=did),
-                                       content=input, mime_type=mime_type)
+    # re-fetch the media instead of using input because Mastodon and Pixelfed
+    # re-encode uploaded media, eg to strip metadata, and getBlob redirects to
+    # their copy. its bytes have to match the blob's CID, otherwise the Bluesky
+    # AppView's image proxy won't serve it.
+    try:
+        blob = AtpRemoteBlob.get_or_create(url=url, repo=AtpRepo(id=did),
+                                           get_fn=util.requests_get)
+    except RequestException as e:
+        raise XrpcError(f"Couldn't fetch uploaded media: {e}",
+                        name='UpstreamFailure', status=502)
+
     return {'blob': blob.as_object()}
