@@ -6,13 +6,10 @@ import os
 from urllib.parse import unquote
 
 from authlib.integrations.flask_oauth2.resource_protector import current_token
-from oauth_dropins import indieauth
-from oauth_dropins.bluesky import BlueskyAuth
 from flask import request
 from google.cloud import ndb
 from granary import as1, as2, bluesky
 from granary.mastodon import decode_id, encode_id, from_as1
-from granary.micropub import Micropub
 from requests import RequestException
 from requests_oauth2client.exceptions import InvalidGrant
 from webutil.appengine_info import DEBUG, LOCAL_SERVER
@@ -30,7 +27,6 @@ import activitypub
 from activitypub import ActivityPub
 from arroba import datastore_storage
 import arroba.util
-import atproto
 from atproto import ATProto
 import common
 from domains import DOMAINS, PRIMARY_DOMAIN
@@ -40,10 +36,10 @@ from mastodon_oauth import require_oauth
 import memcache
 import models
 from models import Follower, Object, PROTOCOLS
+import oauth_server
 import protocol
 from ui import UIProtocol
 import webfinger
-from web import Web
 
 logger = logging.getLogger(__name__)
 
@@ -135,34 +131,6 @@ def non_none(seq):
     return [elem for elem in seq if elem is not None]
 
 
-def granary_source_for(user_key):
-    """Returns a :class:`granary.source.Source` for a user.
-
-    Uses the user's own credentials from their oauth-dropins auth entity.
-
-    TODO: our bearer tokens never expire, but the underlying login can be
-    revoked or expire. Distinguish that from "never logged in" and return 401.
-
-    Args:
-      user_key (google.cloud.ndb.key.Key)
-
-    Returns:
-      granary.source.Source or None:
-    """
-    if user_key.kind() == ATProto._get_kind():
-        if auth := BlueskyAuth.get_by_id(user_key.id()):
-            return bluesky.Bluesky.from_auth(
-                auth, client_metadata=atproto.oauth_client_metadata())
-
-    elif user_key.kind() == Web._get_kind():
-        url = f'https://{user_key.id()}'
-        if auth := (indieauth.IndieAuth.get_by_id(url)
-                    or indieauth.IndieAuth.get_by_id(url + '/')):
-            return Micropub.from_auth(auth)
-
-    logger.info(f"No auth for {user_key}, or it doesn't support writes yet")
-
-
 def auth(granary_source=False):
     """Requires a valid bearer token, resolves it to a :class:`models.User`.
 
@@ -185,7 +153,7 @@ def auth(granary_source=False):
                       status=403)
 
             if granary_source:
-                if not (source := granary_source_for(user.key)):
+                if not (source := oauth_server.granary_source_for(user.key)):
                     error(f"{user.LABEL} accounts not supported yet", status=501)
                 kwargs['source'] = source
 
