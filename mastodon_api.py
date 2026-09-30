@@ -627,8 +627,72 @@ def fetch_outbox(user):
     return objects
 
 
+def enqueue_receive(user, id, our_as1, **kwargs):
+    """Enqueues a task to receive and deliver an object or activity by ``user``.
+
+    Args:
+      user (models.User)
+      id (str): either native in ``user``'s protocol or ``ui:``
+      our_as1 (dict): AS1 object or activity
+      kwargs: passed through to the task
+    """
+    source_protocol = UIProtocol.LABEL if UIProtocol.owns_id(id) else user.LABEL
+    common.create_task(queue='receive', id=id, our_as1=our_as1,
+                       source_protocol=source_protocol,
+                       users=[user.key.urlsafe().decode()],
+                       authed_as=user.key.id(), **kwargs)
+
+
+def bridged_id(user, target):
+    """Returns ``target``'s id in ``user``'s protocol, if it's bridged there.
+
+    Args:
+      user (models.User)
+      target (models.Object or models.User)
+
+    Returns:
+      str or None
+    """
+    owner = target if isinstance(target, models.User) else load_owner(target)
+    if owner and owner.is_enabled(user):
+        return target.get_copy(user) if user.HAS_COPIES else target.id_as(user)
+
+
+def create_native(user, source, obj_as1, **kwargs):
+    """Creates an object or activity in ``user``'s protocol.
+
+    Also enqueues a receive task to bridge it with its native id, which dedupes
+    with the native bridging path, eg the firehose. If ``source`` can't create
+    it, eg a block via Micropub, we create it internally only, with a ``ui:`` id.
+
+    Args:
+      user (models.User)
+      source (granary.source.Source)
+      obj_as1 (dict): AS1 object or activity. ``id`` is set to the new id.
+      kwargs: passed through to :meth:`granary.source.Source.create`
+
+    Returns:
+      str: the new object's id
+    """
+    try:
+        result = source.create(obj_as1, **kwargs)
+        if not result.content:
+            error(result.error_plain or "Couldn't create this", status=502)
+        id = result.content['id']
+    except NotImplementedError:
+        verb = obj_as1.get('verb') or obj_as1.get('objectType')
+        id = f'ui:{verb}-{user.LABEL}-{user.handle}-{util.now().isoformat()}'
+
+    obj_as1['id'] = id
+    enqueue_receive(user, id, obj_as1)
+    return id
+
+
 def undo(user, source, activity_id, verb, object_id):
-    """Undoes a follow or block, either natively or internally.
+    """Undoes a follow, block, like, or repost, both native and internally.
+
+    Always delivers the undo ourselves, even if the native delete will also be
+    bridged, eg via the firehose. Duplicate undos are harmless.
 
     Args:
       user (models.User)
@@ -639,11 +703,9 @@ def undo(user, source, activity_id, verb, object_id):
     """
     if not UIProtocol.owns_id(activity_id):
         source.delete(activity_id)
-        return
 
-    # we created this activity ourselves, in the datastore
-    id = f'ui:undo-{user.LABEL}-{user.handle}-{util.now().isoformat()}'
-    undo_as1 = {
+    id = f'{activity_id}#undo'
+    enqueue_receive(user, id, our_as1={
         'objectType': 'activity',
         'verb': 'undo',
         'id': id,
@@ -655,10 +717,7 @@ def undo(user, source, activity_id, verb, object_id):
             'actor': user.key.id(),
             'object': object_id,
         },
-    }
-    common.create_task(queue='receive', id=id, source_protocol='ui',
-                       users=[user.key.urlsafe().decode()],
-                       authed_as=user.key.id(), our_as1=undo_as1)
+    })
 
 
 def load_owner(obj, remote=False):
@@ -1099,32 +1158,13 @@ def accounts_follow_or_block(user, source, id, verb):
     if not (target := load_account_id(id)):
         error('Account not found', status=404)
 
-    activity_as1 = {
+    target_id = bridged_id(user, target)
+    create_native(user, source, {
         'objectType': 'activity',
         'verb': verb,
         'actor': user.key.id(),
-    }
-
-    if target_id := target.get_copy(user):
-        # the account is bridged to the user's protocol. write the activity
-        # there, natively
-        activity_as1['object'] = target_id
-        result = source.create(activity_as1)
-        if not result.content:
-            error(result.error_plain or f"Couldn't {verb} this account", status=502)
-
-    else:
-        # not bridged to the user's protocol. write the activity to an
-        # Object in the datastore
-        id = f'ui:{verb}-{user.LABEL}-{user.handle}-{util.now().isoformat()}'
-        activity_as1.update({
-            'id': id,
-            'object': target.key.id(),
-        })
-        common.create_task(queue='receive', id=id, our_as1=activity_as1,
-                           source_protocol='ui', users=[user.key.urlsafe().decode()],
-                           authed_as=user.key.id())
-
+        'object': target_id or target.key.id(),
+    }, validate=bool(target_id))
     return to_relationship(target, **{f'{verb}ing': True})
 
 
@@ -1345,29 +1385,23 @@ def statuses_create(user, source):
 
     # make AS1 note object
     # TODO: poll, sensitive, spoiler_text, visibility, language
-    orig_obj = None
-    unbridged_reply = False
-    if in_reply_to_id := params.get('in_reply_to_id'):
-        orig_obj = load_object(in_reply_to_id)
-        if user.HAS_COPIES:
-            unbridged_reply = not orig_obj.get_copy(user)
-        else:
-            owner_proto = orig_obj.owner_protocol()
-            owner_id = as1.get_owner(orig_obj.as1)
-            owner = owner_proto and owner_id and owner_proto.get_by_id(owner_id)
-            unbridged_reply = not (owner and owner.is_enabled(user))
-
     note = {
-        'objectType': 'comment' if in_reply_to_id else 'note',
+        'objectType': 'note',
         'author': user.key.id(),
         'content': text,
     }
-    if orig_obj:
-        # unbridged replies use the original post's native id
-        note['inReplyTo'] = (orig_obj.key.id() if unbridged_reply
-                             else orig_obj.id_as(user))
 
-    # generate images/attachments for media
+    validate = True
+    if in_reply_to_id := params.get('in_reply_to_id'):
+        orig_obj = load_object(in_reply_to_id)
+        target_id = bridged_id(user, orig_obj)
+        validate = bool(target_id)
+        note.update({
+            'objectType': 'comment',
+            'inReplyTo': target_id or orig_obj.key.id(),
+        })
+
+    # inject AS1 images/attachments for media_ids
     blobs = {}
     for media_id in media_ids:
         if not (media_obj := load_media(user, media_id)):
@@ -1388,27 +1422,10 @@ def statuses_create(user, source):
         else:
             note.setdefault('attachments', []).append(media_as1)
 
-    # create the post on the user's protocol, natively. if it's a reply to a post
-    # that isn't bridged there, the reply will be invalid there, eg its inReplyTo
-    # will be a non-Bluesky URL
-    result = source.create(note, validate=not unbridged_reply, blobs=blobs)
-    if not result.content:
-        error(result.error_plain or "Couldn't create this status", status=502)
-
-    id = result.content['id']
-    note['id'] = id
-    if orig_obj:
-        note['inReplyTo'] = orig_obj.key.id()
-
-    if unbridged_reply:
-        # we won't see this reply natively, eg in the firehose, so deliver it
-        # ourselves
-        common.create_task(queue='receive', id=id, our_as1=note,
-                           source_protocol=user.LABEL,
-                           users=[user.key.urlsafe().decode()],
-                           authed_as=user.key.id())
+    id = create_native(user, source, note, validate=validate, blobs=blobs)
 
     obj = Object(id=id, source_protocol=user.LABEL, users=[user.key], our_as1=note)
+    obj.resolve_ids()
     obj.owner = user
     return to_status(obj)
 
@@ -1421,35 +1438,25 @@ def statuses_update(user, source, id):
 
     obj = load_object(id)
 
-    if UIProtocol.owns_id(obj.key.id()):
-        # we created this status ourselves, in the datastore
-        update_id = f'ui:update-{user.LABEL}-{user.handle}-{util.now().isoformat()}'
-        update_as1 = {
-            'objectType': 'activity',
-            'verb': 'update',
-            'id': update_id,
-            'actor': user.key.id(),
-            'object': {**obj.as1, 'content': text},
-        }
-        common.create_task(queue='receive', id=update_id, source_protocol='ui',
-                           users=[user.key.urlsafe().decode()],
-                           authed_as=user.key.id(), our_as1=update_as1)
-
-    else:
+    if not UIProtocol.owns_id(obj.key.id()):
         # TODO: media_ids, poll, sensitive, spoiler_text
+        in_reply_to = as1.get_id(obj.as1, 'inReplyTo')
         note = {
             'objectType': 'note',
             'id': obj.id_as(user),
             'author': user.key.id(),
             'content': text,
-            'inReplyTo': as1.get_id(obj.as1, 'inReplyTo'),
+            'inReplyTo': in_reply_to,
             'published': obj.as1.get('published'),
         }
-        result = source.update(note)
+        # replies to objects outside user's protocol are invalid there
+        validate = not in_reply_to or user.owns_id(in_reply_to) is not False
+        result = source.update(note, validate=validate)
         if not result.content:
             error(result.error_plain or "Couldn't update this status", status=502)
 
     obj.our_as1 = {**obj.as1, 'content': text}
+    enqueue_receive(user, obj.key.id(), obj.our_as1, changed=True)
     return to_status(obj)
 
 
@@ -1458,21 +1465,17 @@ def statuses_update(user, source, id):
 def statuses_delete(user, source, id):
     obj = load_object(id)
 
-    if UIProtocol.owns_id(obj.key.id()):
-        # we created this status ourselves, in the datastore
-        id = f'ui:delete-{user.LABEL}-{user.handle}-{util.now().isoformat()}'
-        common.create_task(queue='receive', id=id, source_protocol='ui',
-                           users=[user.key.urlsafe().decode()],
-                           authed_as=user.key.id(), our_as1={
-                               'objectType': 'activity',
-                               'verb': 'delete',
-                               'id': id,
-                               'object': obj.key.id(),
-                               'actor': user.key.id(),
-                           })
-
-    else:
+    if not UIProtocol.owns_id(obj.key.id()):
         source.delete(obj.id_as(user))
+
+    id = f'{obj.key.id()}#delete'
+    enqueue_receive(user, id, our_as1={
+        'objectType': 'activity',
+        'verb': 'delete',
+        'id': id,
+        'object': obj.key.id(),
+        'actor': user.key.id(),
+    })
 
     return to_status(obj)
 
@@ -1484,31 +1487,13 @@ def statuses_favourite_or_reblog(user, source, id, verb):
     obj = load_object(id)
 
     verb = 'like' if verb == 'favourite' else 'share'
-    activity_as1 = {
+    target_id = bridged_id(user, obj)
+    create_native(user, source, {
         'objectType': 'activity',
         'verb': verb,
         'actor': user.key.id(),
-    }
-
-    if obj.get_copy(user):
-        # original post is bridged to the user's protocol. write the activity
-        # there, natively
-        activity_as1['object'] = obj.id_as(user)
-        result = source.create(activity_as1)
-        if not result.content:
-            error(result.error_plain or f"Couldn't {verb} this status", status=502)
-
-    else:
-        # not bridged to the user's protocol. write the activity to an
-        # Object in the datastore
-        id = f'ui:{verb}-{user.LABEL}-{user.handle}-{util.now().isoformat()}'
-        activity_as1.update({
-            'id': id,
-            'object': obj.key.id(),
-        })
-        common.create_task(queue='receive', id=id, our_as1=activity_as1,
-                           source_protocol='ui', users=[user.key.urlsafe().decode()],
-                           authed_as=user.key.id())
+        'object': target_id or obj.key.id(),
+    }, validate=bool(target_id))
 
     status = to_status(obj) or {}
     status['favourited' if verb == 'like' else 'reblogged'] = True

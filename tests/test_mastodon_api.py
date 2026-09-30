@@ -294,8 +294,8 @@ class MastodonApiTest(TestCase):
     }))
     def test_accounts_follow(self, mock_post):
         user = self.make_atproto_user()
-        self.make_user('fake:bob', cls=Fake,
-                       copies=[Target(uri='did:plc:bob', protocol='atproto')])
+        bob = self.make_user('fake:bob', cls=Fake, enabled_protocols=['atproto'],
+                             copies=[Target(uri='did:plc:bob', protocol='atproto')])
 
         resp = self.post("/api/v1/accounts/fake~3Abob/follow", user=user)
         self.assertEqual(200, resp.status_code, resp.json)
@@ -313,8 +313,18 @@ class MastodonApiTest(TestCase):
             },
         }, mock_post.call_args.kwargs['json'])
 
+        # the receive task resolves did:plc:bob back to fake:bob
+        follower = Follower.query().get()
+        self.assertEqual(user.key, follower.from_)
+        self.assertEqual(bob.key, follower.to)
+
+    # createRecord
+    @patch.object(util.session, 'post', return_value=requests_response({
+        'uri': 'at://did:plc:user/app.bsky.graph.follow/456',
+        'cid': 'bafyreifollowsyddddddddddddddddddddddddddddddddddddddddd',
+    }))
     @patch.object(tasks_client, 'create_task', return_value=Task(name='my task'))
-    def test_accounts_follow_not_bridged(self, mock_create_task):
+    def test_accounts_follow_not_bridged(self, mock_create_task, mock_post):
         common.RUN_TASKS_INLINE = False
         user = self.make_atproto_user()
         self.make_user('fake:bob', cls=Fake)
@@ -323,8 +333,19 @@ class MastodonApiTest(TestCase):
         self.assertEqual(200, resp.status_code, resp.json)
         self.assertTrue(resp.json['following'])
 
-        id = 'ui:follow-atproto-han.dull-2022-01-02T03:04:05+00:00'
-        self.assert_task(mock_create_task, 'receive', source_protocol='ui',
+        self.assert_equals({
+            'repo': 'did:plc:user',
+            'collection': 'app.bsky.graph.follow',
+            'validate': False,
+            'record': {
+                '$type': 'app.bsky.graph.follow',
+                'subject': 'fake:bob',
+                'createdAt': '2022-01-02T03:04:05.000Z',
+            },
+        }, mock_post.call_args.kwargs['json'])
+
+        id = 'at://did:plc:user/app.bsky.graph.follow/456'
+        self.assert_task(mock_create_task, 'receive', source_protocol='atproto',
                          authed_as='did:plc:user', id=id,
                          users=[user.key.urlsafe().decode()], our_as1={
             'objectType': 'activity',
@@ -334,8 +355,16 @@ class MastodonApiTest(TestCase):
             'actor': 'did:plc:user',
         })
 
-    @patch.object(util.session, 'post')
-    def test_accounts_follow_unbridged_activitypub_delivers(self, mock_post):
+    @patch.object(util.session, 'post', side_effect=[
+        # createRecord
+        requests_response({
+            'uri': 'at://did:plc:user/app.bsky.graph.follow/456',
+            'cid': 'bafyreifollowsyddddddddddddddddddddddddddddddddddddddddd',
+        }),
+        # AP delivery
+        requests_response(''),
+    ])
+    def test_accounts_follow_not_bridged_delivers(self, mock_post):
         user = self.make_atproto_user(obj_bsky=test_atproto.ACTOR_PROFILE_BSKY)
         bob = self.make_user('https://mas.to/users/bob', cls=ActivityPub, obj_as2={
             **ACTOR,
@@ -347,19 +376,90 @@ class MastodonApiTest(TestCase):
             '/api/v1/accounts/https~3A~2F~2Fmas.to~2Fusers~2Fbob/follow', user=user)
         self.assertEqual(200, resp.status_code, resp.json)
 
-        # the Follow is delivered, and we don't accept it on bob's behalf
+        create_record = mock_post.call_args_list.pop(0)
+        self.assertEqual('https://some.pds/xrpc/com.atproto.repo.createRecord',
+                         create_record.args[0])
+
         self.assert_ap_deliveries(mock_post, ['https://mas.to/users/bob/inbox'],
                                   from_user=user, data={
             'type': 'Follow',
-            'id': 'https://bsky.brid.gy/convert/ap/ui:follow-atproto-han.dull-2022-01-02T03:04:05+00:00',
+            'id': 'https://bsky.brid.gy/convert/ap/at://did:plc:user/app.bsky.graph.follow/456',
             'actor': 'https://bsky.brid.gy/ap/did:plc:user',
             'object': 'https://mas.to/users/bob',
-        }, ignore=['@context', 'to', 'url'])
+        }, ignore=['@context', 'to', 'cc', 'url'])
 
         follower = Follower.query().get()
         self.assertEqual(user.key, follower.from_)
         self.assertEqual(bob.key, follower.to)
         self.assertEqual('active', follower.status)
+
+    @patch.object(util, 'requests_get', return_value=requests_response(
+        '', url='https://alice.com/',
+        headers={'Link': '<https://alice.com/mp>; rel="micropub"'},
+    ))
+    # Micropub create of u-follow-of
+    @patch.object(util.session, 'post', return_value=requests_response(
+        '', status=201, headers={'Location': 'https://alice.com/follow'}))
+    @patch.object(tasks_client, 'create_task', return_value=Task(name='my task'))
+    def test_accounts_follow_web_user(self, mock_create_task, mock_post, _):
+        common.RUN_TASKS_INLINE = False
+        user = self.make_user('alice.com', cls=Web, enabled_protocols=['activitypub'])
+        indieauth.IndieAuth(id='https://alice.com', user_json='{}',
+                            access_token_str='towkin').put()
+        self.make_user('https://mas.to/users/bob', cls=ActivityPub)
+
+        resp = self.post(
+            '/api/v1/accounts/https~3A~2F~2Fmas.to~2Fusers~2Fbob/follow', user=user)
+        self.assertEqual(200, resp.status_code, resp.json)
+
+        # Micropub create of u-follow-of
+        self.assertEqual('https://alice.com/mp', mock_post.call_args.args[0])
+        self.assertEqual({
+            'type': ['h-entry'],
+            'properties': {'follow-of': ['https://mas.to/users/bob']},
+        }, mock_post.call_args.kwargs['json'])
+
+        id = 'https://alice.com/follow'
+        self.assert_task(mock_create_task, 'receive', source_protocol='web',
+                         authed_as='alice.com', id=id,
+                         users=[user.key.urlsafe().decode()], our_as1={
+            'objectType': 'activity',
+            'verb': 'follow',
+            'id': id,
+            'object': 'https://mas.to/users/bob',
+            'actor': 'alice.com',
+        })
+
+    @patch.object(util, 'requests_get', return_value=requests_response(
+        '', url='https://alice.com/',
+        headers={'Link': '<https://alice.com/mp>; rel="micropub"'},
+    ))
+    @patch.object(util.session, 'post')
+    @patch.object(tasks_client, 'create_task', return_value=Task(name='my task'))
+    def test_accounts_block_web_user(self, mock_create_task, mock_post, _):
+        common.RUN_TASKS_INLINE = False
+        user = self.make_user('alice.com', cls=Web, enabled_protocols=['activitypub'])
+        indieauth.IndieAuth(id='https://alice.com', user_json='{}',
+                            access_token_str='towkin').put()
+        self.make_user('https://mas.to/users/bob', cls=ActivityPub)
+
+        resp = self.post(
+            '/api/v1/accounts/https~3A~2F~2Fmas.to~2Fusers~2Fbob/block', user=user)
+        self.assertEqual(200, resp.status_code, resp.json)
+
+        # Micropub doesn't support blocks
+        mock_post.assert_not_called()
+
+        id = 'ui:block-web-alice.com-2022-01-02T03:04:05+00:00'
+        self.assert_task(mock_create_task, 'receive', source_protocol='ui',
+                         authed_as='alice.com', id=id,
+                         users=[user.key.urlsafe().decode()], our_as1={
+            'objectType': 'activity',
+            'verb': 'block',
+            'id': id,
+            'object': 'https://mas.to/users/bob',
+            'actor': 'alice.com',
+        })
 
     def test_accounts_follow_not_found(self):
         user = self.make_atproto_user()
@@ -420,7 +520,7 @@ class MastodonApiTest(TestCase):
         self.assertEqual(200, resp.status_code, resp.json)
         self.assertFalse(resp.json['following'])
 
-        id = 'ui:undo-atproto-han.dull-2022-01-02T03:04:05+00:00'
+        id = 'ui:follow-atproto-han.dull-2022-01-02T03:04:04+00:00#undo'
         self.assert_task(mock_create_task, 'receive', source_protocol='ui',
                          authed_as='did:plc:user', id=id,
                          users=[user.key.urlsafe().decode()], our_as1={
@@ -432,6 +532,51 @@ class MastodonApiTest(TestCase):
                 'objectType': 'activity',
                 'verb': 'follow',
                 'id': 'ui:follow-atproto-han.dull-2022-01-02T03:04:04+00:00',
+                'actor': 'did:plc:user',
+                'object': 'fake:bob',
+            },
+        })
+
+    # deleteRecord
+    @patch.object(util.session, 'post', return_value=requests_response({}))
+    @patch.object(tasks_client, 'create_task', return_value=Task(name='my task'))
+    def test_accounts_unfollow_unbridged_native(self, mock_create_task, mock_post):
+        common.RUN_TASKS_INLINE = False
+        user = self.make_atproto_user()
+        bob = self.make_user('fake:bob', cls=Fake)
+        follow_obj = self.store_object(
+            id='at://did:plc:user/app.bsky.graph.follow/456',
+            source_protocol='atproto', users=[user.key], our_as1={
+                'objectType': 'activity',
+                'verb': 'follow',
+                'actor': 'did:plc:user',
+                'object': 'fake:bob',
+            })
+        Follower.get_or_create(from_=user, to=bob, follow=follow_obj.key)
+
+        resp = self.post("/api/v1/accounts/fake~3Abob/unfollow", user=user)
+        self.assertEqual(200, resp.status_code, resp.json)
+
+        self.assertEqual('https://some.pds/xrpc/com.atproto.repo.deleteRecord',
+                         mock_post.call_args.args[0])
+        self.assert_equals({
+            'repo': 'did:plc:user',
+            'collection': 'app.bsky.graph.follow',
+            'rkey': '456',
+        }, mock_post.call_args.kwargs['json'])
+
+        id = 'at://did:plc:user/app.bsky.graph.follow/456#undo'
+        self.assert_task(mock_create_task, 'receive', source_protocol='atproto',
+                         authed_as='did:plc:user', id=id,
+                         users=[user.key.urlsafe().decode()], our_as1={
+            'objectType': 'activity',
+            'verb': 'undo',
+            'id': id,
+            'actor': 'did:plc:user',
+            'object': {
+                'objectType': 'activity',
+                'verb': 'follow',
+                'id': 'at://did:plc:user/app.bsky.graph.follow/456',
                 'actor': 'did:plc:user',
                 'object': 'fake:bob',
             },
@@ -462,7 +607,7 @@ class MastodonApiTest(TestCase):
         self.assert_ap_deliveries(mock_post, ['https://mas.to/users/bob/inbox'],
                                   from_user=user, data={
             'type': 'Undo',
-            'id': 'https://bsky.brid.gy/convert/ap/ui:undo-atproto-han.dull-2022-01-02T03:04:05+00:00',
+            'id': 'https://bsky.brid.gy/convert/ap/ui:follow-atproto-han.dull-2022-01-02T03:04:04+00:00#undo',
             'actor': 'https://bsky.brid.gy/ap/did:plc:user',
             'object': {
                 'type': 'Follow',
@@ -495,7 +640,7 @@ class MastodonApiTest(TestCase):
     }))
     def test_accounts_block(self, mock_post):
         user = self.make_atproto_user()
-        self.make_user('fake:bob', cls=Fake,
+        self.make_user('fake:bob', cls=Fake, enabled_protocols=['atproto'],
                        copies=[Target(uri='did:plc:bob', protocol='atproto')])
 
         resp = self.post("/api/v1/accounts/fake~3Abob/block", user=user)
@@ -514,8 +659,13 @@ class MastodonApiTest(TestCase):
             },
         }, mock_post.call_args.kwargs['json'])
 
+    # createRecord
+    @patch.object(util.session, 'post', return_value=requests_response({
+        'uri': 'at://did:plc:user/app.bsky.graph.block/456',
+        'cid': 'bafyreiblocksyddddddddddddddddddddddddddddddddddddddddd',
+    }))
     @patch.object(tasks_client, 'create_task', return_value=Task(name='my task'))
-    def test_accounts_block_not_bridged(self, mock_create_task):
+    def test_accounts_block_not_bridged(self, mock_create_task, mock_post):
         common.RUN_TASKS_INLINE = False
         user = self.make_atproto_user()
         self.make_user('fake:bob', cls=Fake)
@@ -524,8 +674,19 @@ class MastodonApiTest(TestCase):
         self.assertEqual(200, resp.status_code, resp.json)
         self.assertTrue(resp.json['blocking'])
 
-        id = 'ui:block-atproto-han.dull-2022-01-02T03:04:05+00:00'
-        self.assert_task(mock_create_task, 'receive', source_protocol='ui',
+        self.assert_equals({
+            'repo': 'did:plc:user',
+            'collection': 'app.bsky.graph.block',
+            'validate': False,
+            'record': {
+                '$type': 'app.bsky.graph.block',
+                'subject': 'fake:bob',
+                'createdAt': '2022-01-02T03:04:05.000Z',
+            },
+        }, mock_post.call_args.kwargs['json'])
+
+        id = 'at://did:plc:user/app.bsky.graph.block/456'
+        self.assert_task(mock_create_task, 'receive', source_protocol='atproto',
                          authed_as='did:plc:user', id=id,
                          users=[user.key.urlsafe().decode()], our_as1={
             'objectType': 'activity',
@@ -591,7 +752,7 @@ class MastodonApiTest(TestCase):
         self.assertEqual(200, resp.status_code, resp.json)
         self.assertFalse(resp.json['blocking'])
 
-        id = 'ui:undo-atproto-han.dull-2022-01-02T03:04:05+00:00'
+        id = 'ui:block-atproto-han.dull-2022-01-02T03:04:04+00:00#undo'
         self.assert_task(mock_create_task, 'receive', source_protocol='ui',
                          authed_as='did:plc:user', id=id,
                          users=[user.key.urlsafe().decode()], our_as1={
@@ -1440,7 +1601,7 @@ class MastodonApiTest(TestCase):
     }))
     def test_statuses_favourite(self, _, mock_post):
         user = self.make_atproto_user()
-        self.make_user('fake:bob', cls=Fake,
+        self.make_user('fake:bob', cls=Fake, enabled_protocols=['atproto'],
                        copies=[Target(uri='did:plc:bob', protocol='atproto')])
 
         self.store_object(
@@ -1450,7 +1611,7 @@ class MastodonApiTest(TestCase):
                            protocol='atproto')],
             our_as1={
                 'objectType': 'note',
-                'actor': 'did:plc:bob',
+                'actor': 'fake:bob',
                 'content': 'hello',
             },
         )
@@ -1475,8 +1636,13 @@ class MastodonApiTest(TestCase):
             },
         }, mock_post.call_args.kwargs['json'])
 
+    # createRecord
+    @patch.object(util.session, 'post', return_value=requests_response({
+        'uri': 'at://did:plc:user/app.bsky.feed.like/456',
+        'cid': 'bafyreilikesyddddddddddddddddddddddddddddddddddddddddddd',
+    }))
     @patch.object(tasks_client, 'create_task', return_value=Task(name='my task'))
-    def test_statuses_favourite_not_bridged(self, mock_create_task):
+    def test_statuses_favourite_not_bridged(self, mock_create_task, mock_post):
         common.RUN_TASKS_INLINE = False
         user = self.make_atproto_user()
         Object(id='fake:post', users=[self.user.key], source_protocol='fake',
@@ -1490,8 +1656,19 @@ class MastodonApiTest(TestCase):
         self.assertEqual('hello', resp.json['content'])
         self.assertTrue(resp.json['favourited'])
 
-        id = 'ui:like-atproto-han.dull-2022-01-02T03:04:05+00:00'
-        self.assert_task(mock_create_task, 'receive', source_protocol='ui',
+        self.assert_equals({
+            'repo': 'did:plc:user',
+            'collection': 'app.bsky.feed.like',
+            'validate': False,
+            'record': {
+                '$type': 'app.bsky.feed.like',
+                'subject': {'uri': 'fake:post'},
+                'createdAt': '2022-01-02T03:04:05.000Z',
+            },
+        }, mock_post.call_args.kwargs['json'])
+
+        id = 'at://did:plc:user/app.bsky.feed.like/456'
+        self.assert_task(mock_create_task, 'receive', source_protocol='atproto',
                          authed_as='did:plc:user', id=id,
                          users=[user.key.urlsafe().decode()], our_as1={
             'objectType': 'activity',
@@ -1501,8 +1678,16 @@ class MastodonApiTest(TestCase):
             'actor': 'did:plc:user',
         })
 
-    @patch.object(util.session, 'post')
-    def test_statuses_favourite_unbridged_activitypub_delivers(self, mock_post):
+    @patch.object(util.session, 'post', side_effect=[
+        # createRecord
+        requests_response({
+            'uri': 'at://did:plc:user/app.bsky.feed.like/456',
+            'cid': 'bafyreilikesyddddddddddddddddddddddddddddddddddddddddddd',
+        }),
+        # AP delivery
+        requests_response(''),
+    ])
+    def test_statuses_favourite_not_bridged_delivers(self, mock_post):
         user = self.make_atproto_user(obj_bsky=test_atproto.ACTOR_PROFILE_BSKY)
         self.make_user('https://mas.to/users/bob', cls=ActivityPub, obj_as2={
             **ACTOR,
@@ -1515,48 +1700,66 @@ class MastodonApiTest(TestCase):
                               'author': 'https://mas.to/users/bob',
                           })
 
-        resp = self.post('/api/v1/statuses/https~3A~2F~2Fmas.to~2Fpost/favourite',
-                         user=user)
+        resp = self.post(
+            '/api/v1/statuses/https~3A~2F~2Fmas.to~2Fpost/favourite', user=user)
         self.assertEqual(200, resp.status_code, resp.json)
+
+        create_record = mock_post.call_args_list.pop(0)
+        self.assertEqual('https://some.pds/xrpc/com.atproto.repo.createRecord',
+                         create_record.args[0])
 
         self.assert_ap_deliveries(mock_post, ['https://mas.to/users/bob/inbox'],
                                   from_user=user, data={
             'type': 'Like',
-            'id': 'https://bsky.brid.gy/convert/ap/ui:like-atproto-han.dull-2022-01-02T03:04:05+00:00',
+            'id': 'https://bsky.brid.gy/convert/ap/at://did:plc:user/app.bsky.feed.like/456',
             'actor': 'https://bsky.brid.gy/ap/did:plc:user',
             'object': 'https://mas.to/post',
-            'cc': ['https://mas.to/users/bob'],
-        }, ignore=['@context', 'to', 'url'])
+        }, ignore=['@context', 'to', 'cc', 'url'])
 
-    @patch.object(util.session, 'post')
-    @patch.object(util.session, 'get', return_value=requests_response({
-        **ACTOR,
-        'id': 'https://mas.to/users/bob',
-        'inbox': 'https://mas.to/users/bob/inbox',
-    }, content_type=as2.CONTENT_TYPE))
-    def test_statuses_favourite_activitypub_author_not_stored(self, _, mock_post):
-        user = self.make_atproto_user(obj_bsky=test_atproto.ACTOR_PROFILE_BSKY)
-        self.store_object(id='https://mas.to/post', source_protocol='activitypub',
-                          our_as1={
-                              'objectType': 'note',
-                              'author': 'https://mas.to/users/bob',
-                          })
-
-        resp = self.post('/api/v1/statuses/https~3A~2F~2Fmas.to~2Fpost/favourite',
-                         user=user)
-        self.assertEqual(200, resp.status_code, resp.json)
-
-        self.assert_ap_deliveries(mock_post, ['https://mas.to/users/bob/inbox'],
-                                  from_user=user, data={
-            'type': 'Like',
-            'id': 'https://bsky.brid.gy/convert/ap/ui:like-atproto-han.dull-2022-01-02T03:04:05+00:00',
-            'actor': 'https://bsky.brid.gy/ap/did:plc:user',
-            'object': 'https://mas.to/post',
-            'cc': ['https://mas.to/users/bob'],
-        }, ignore=['@context', 'to', 'url'])
-
+    @patch.object(util, 'requests_get', return_value=requests_response(
+        '', url='https://alice.com/',
+        headers={'Link': '<https://alice.com/mp>; rel="micropub"'},
+    ))
+    # Micropub create
+    @patch.object(util.session, 'post', return_value=requests_response(
+        '', status=201, headers={'Location': 'https://alice.com/like'}))
     @patch.object(tasks_client, 'create_task', return_value=Task(name='my task'))
-    def test_statuses_reblog_not_bridged(self, mock_create_task):
+    def test_statuses_favourite_web_user_not_bridged(self, mock_create_task,
+                                                     mock_post, _):
+        common.RUN_TASKS_INLINE = False
+        user = self.make_user('alice.com', cls=Web, enabled_protocols=['activitypub'])
+        indieauth.IndieAuth(id='https://alice.com', user_json='{}',
+                            access_token_str='towkin').put()
+        self.store_object(id='https://mas.to/post', source_protocol='activitypub',
+                          our_as1={'objectType': 'note', 'content': 'hello'})
+
+        resp = self.post('/api/v1/statuses/https~3A~2F~2Fmas.to~2Fpost/favourite',
+                         user=user)
+        self.assertEqual(200, resp.status_code, resp.json)
+
+        self.assertEqual('https://alice.com/mp', mock_post.call_args.args[0])
+        self.assertEqual({
+            'type': ['h-entry'],
+            'properties': {'like-of': ['https://mas.to/post']},
+        }, mock_post.call_args.kwargs['json'])
+
+        self.assert_task(mock_create_task, 'receive', source_protocol='web',
+                         authed_as='alice.com', id='https://alice.com/like',
+                         users=[user.key.urlsafe().decode()], our_as1={
+            'objectType': 'activity',
+            'verb': 'like',
+            'id': 'https://alice.com/like',
+            'object': 'https://mas.to/post',
+            'actor': 'alice.com',
+        })
+
+    # createRecord
+    @patch.object(util.session, 'post', return_value=requests_response({
+        'uri': 'at://did:plc:user/app.bsky.feed.repost/456',
+        'cid': 'bafyreirepostsyddddddddddddddddddddddddddddddddddddddddd',
+    }))
+    @patch.object(tasks_client, 'create_task', return_value=Task(name='my task'))
+    def test_statuses_reblog_not_bridged(self, mock_create_task, mock_post):
         common.RUN_TASKS_INLINE = False
         user = self.make_atproto_user()
         Object(id='fake:post', users=[self.user.key], source_protocol='fake',
@@ -1570,8 +1773,19 @@ class MastodonApiTest(TestCase):
         self.assertEqual('hello', resp.json['content'])
         self.assertTrue(resp.json['reblogged'])
 
-        id = 'ui:share-atproto-han.dull-2022-01-02T03:04:05+00:00'
-        self.assert_task(mock_create_task, 'receive', source_protocol='ui',
+        self.assert_equals({
+            'repo': 'did:plc:user',
+            'collection': 'app.bsky.feed.repost',
+            'validate': False,
+            'record': {
+                '$type': 'app.bsky.feed.repost',
+                'subject': {'uri': 'fake:post'},
+                'createdAt': '2022-01-02T03:04:05.000Z',
+            },
+        }, mock_post.call_args.kwargs['json'])
+
+        id = 'at://did:plc:user/app.bsky.feed.repost/456'
+        self.assert_task(mock_create_task, 'receive', source_protocol='atproto',
                          authed_as='did:plc:user', id=id,
                          users=[user.key.urlsafe().decode()], our_as1={
             'objectType': 'activity',
@@ -1604,12 +1818,13 @@ class MastodonApiTest(TestCase):
         description='Token was not issued to this client'))
     def test_statuses_favourite_bluesky_invalid_grant(self, _):
         user = self.make_atproto_user()
+        self.make_user('fake:bob', cls=Fake, enabled_protocols=['atproto'])
         self.store_object(
             id='fake:post',
             source_protocol='fake',
             copies=[Target(uri='at://did:plc:bob/app.bsky.feed.post/123',
                            protocol='atproto')],
-            our_as1={'objectType': 'note', 'content': 'hello'},
+            our_as1={'objectType': 'note', 'author': 'fake:bob', 'content': 'hello'},
         )
 
         resp = self.post('/api/v1/statuses/fake~3Apost/favourite', user=user)
@@ -1663,7 +1878,7 @@ class MastodonApiTest(TestCase):
         self.assertEqual(200, resp.status_code, resp.json)
         self.assertFalse(resp.json['favourited'])
 
-        id = 'ui:undo-atproto-han.dull-2022-01-02T03:04:05+00:00'
+        id = 'ui:like-atproto-han.dull-2022-01-02T03:04:04+00:00#undo'
         self.assert_task(mock_create_task, 'receive', source_protocol='ui',
                          authed_as='did:plc:user', id=id,
                          users=[user.key.urlsafe().decode()], our_as1={
@@ -1708,7 +1923,7 @@ class MastodonApiTest(TestCase):
         self.assert_ap_deliveries(mock_post, ['https://mas.to/users/bob/inbox'],
                                   from_user=user, data={
             'type': 'Undo',
-            'id': 'https://bsky.brid.gy/convert/ap/ui:undo-atproto-han.dull-2022-01-02T03:04:05+00:00',
+            'id': 'https://bsky.brid.gy/convert/ap/ui:like-atproto-han.dull-2022-01-02T03:04:04+00:00#undo',
             'actor': 'https://bsky.brid.gy/ap/did:plc:user',
             'object': {
                 'type': 'Like',
@@ -1717,6 +1932,51 @@ class MastodonApiTest(TestCase):
                 'object': 'https://mas.to/post',
             },
         }, ignore=['@context', 'to', 'cc', 'url'])
+
+    # deleteRecord
+    @patch.object(util.session, 'post', return_value=requests_response({}))
+    @patch.object(tasks_client, 'create_task', return_value=Task(name='my task'))
+    def test_statuses_unfavourite_unbridged_native(self, mock_create_task, mock_post):
+        common.RUN_TASKS_INLINE = False
+        user = self.make_atproto_user()
+        self.store_object(id='https://mas.to/post', source_protocol='activitypub',
+                          our_as1={'objectType': 'note', 'content': 'hello'})
+        self.store_object(id='at://did:plc:user/app.bsky.feed.like/456',
+                          source_protocol='atproto', users=[user.key], our_as1={
+                              'objectType': 'activity',
+                              'verb': 'like',
+                              'actor': 'did:plc:user',
+                              'object': 'https://mas.to/post',
+                          })
+
+        resp = self.post(
+            '/api/v1/statuses/https~3A~2F~2Fmas.to~2Fpost/unfavourite', user=user)
+        self.assertEqual(200, resp.status_code, resp.json)
+
+        self.assertEqual('https://some.pds/xrpc/com.atproto.repo.deleteRecord',
+                         mock_post.call_args.args[0])
+        self.assert_equals({
+            'repo': 'did:plc:user',
+            'collection': 'app.bsky.feed.like',
+            'rkey': '456',
+        }, mock_post.call_args.kwargs['json'])
+
+        id = 'at://did:plc:user/app.bsky.feed.like/456#undo'
+        self.assert_task(mock_create_task, 'receive', source_protocol='atproto',
+                         authed_as='did:plc:user', id=id,
+                         users=[user.key.urlsafe().decode()], our_as1={
+            'objectType': 'activity',
+            'verb': 'undo',
+            'id': id,
+            'actor': 'did:plc:user',
+            'object': {
+                'objectType': 'activity',
+                'verb': 'like',
+                'id': 'at://did:plc:user/app.bsky.feed.like/456',
+                'actor': 'did:plc:user',
+                'object': 'https://mas.to/post',
+            },
+        })
 
     def test_statuses_unfavourite_not_favourited(self):
         user = self.make_atproto_user()
@@ -1754,7 +2014,7 @@ class MastodonApiTest(TestCase):
     }))
     def test_statuses_reblog(self, _, mock_post):
         user = self.make_atproto_user()
-        self.make_user('fake:bob', cls=Fake,
+        self.make_user('fake:bob', cls=Fake, enabled_protocols=['atproto'],
                        copies=[Target(uri='did:plc:bob', protocol='atproto')])
 
         self.store_object(
@@ -1764,7 +2024,7 @@ class MastodonApiTest(TestCase):
                            protocol='atproto')],
             our_as1={
                 'objectType': 'note',
-                'actor': 'did:plc:bob',
+                'actor': 'fake:bob',
                 'content': 'hello',
             },
         )
@@ -2027,7 +2287,7 @@ class MastodonApiTest(TestCase):
             **DID_DOC,
             'alsoKnownAs': ['at://han.dull'],
         })
-        self.make_user('fake:bob', cls=Fake,
+        self.make_user('fake:bob', cls=Fake, enabled_protocols=['atproto'],
                        copies=[Target(uri='did:plc:bob', protocol='atproto')])
 
         self.store_object(
@@ -2035,7 +2295,7 @@ class MastodonApiTest(TestCase):
             source_protocol='fake',
             copies=[Target(uri='at://did:plc:bob/app.bsky.feed.post/123',
                            protocol='atproto')],
-            our_as1={'objectType': 'note', 'actor': 'did:plc:bob', 'content': 'orig'})
+            our_as1={'objectType': 'note', 'actor': 'fake:bob', 'content': 'orig'})
 
         params = {'status': 'a reply', 'in_reply_to_id': 'fake~3Apost'}
         for kwargs in ({'data': params}, {'json': params}):
@@ -2116,6 +2376,110 @@ class MastodonApiTest(TestCase):
             'content': 'a reply',
             'author': 'did:plc:user',
         })
+
+    # createRecord
+    @patch.object(util.session, 'post', return_value=requests_response({
+        'uri': 'at://did:plc:user/app.bsky.feed.post/456',
+        'cid': 'bafyreipostsyddddddddddddddddddddddddddddddddddddddddddd',
+    }))
+    @patch.object(tasks_client, 'create_task', return_value=Task(name='my task'))
+    def test_statuses_create_reply_owner_bridged_post_not_bridged(
+            self, mock_create_task, mock_post):
+        common.RUN_TASKS_INLINE = False
+        user = self.make_atproto_user()
+        self.make_user('https://mas.to/users/bob', cls=ActivityPub,
+                       enabled_protocols=['atproto'])
+        # eg from before bob opted in, so it has no ATProto copy
+        self.store_object(id='https://mas.to/post', source_protocol='activitypub',
+                          our_as1={
+                              'objectType': 'note',
+                              'content': 'orig',
+                              'author': 'https://mas.to/users/bob',
+                          })
+
+        resp = self.post('/api/v1/statuses', user=user, data={
+            'status': 'a reply',
+            'in_reply_to_id': 'https~3A~2F~2Fmas.to~2Fpost',
+        })
+        self.assertEqual(200, resp.status_code, resp.json)
+
+        ref = {'uri': 'https://mas.to/post'}
+        self.assert_equals({
+            'repo': 'did:plc:user',
+            'collection': 'app.bsky.feed.post',
+            'validate': False,
+            'record': {
+                '$type': 'app.bsky.feed.post',
+                'text': 'a reply',
+                'createdAt': '2022-01-02T03:04:05.000Z',
+                'reply': {
+                    '$type': 'app.bsky.feed.post#replyRef',
+                    'root': ref,
+                    'parent': ref,
+                },
+            },
+        }, mock_post.call_args.kwargs['json'])
+
+        id = 'at://did:plc:user/app.bsky.feed.post/456'
+        self.assert_task(mock_create_task, 'receive', source_protocol='atproto',
+                         authed_as='did:plc:user', id=id,
+                         users=[user.key.urlsafe().decode()], our_as1={
+            'objectType': 'comment',
+            'id': id,
+            'inReplyTo': 'https://mas.to/post',
+            'content': 'a reply',
+            'author': 'did:plc:user',
+        })
+
+    @patch.object(util.session, 'post', side_effect=[
+        # createRecord
+        requests_response({
+            'uri': 'at://did:plc:user/app.bsky.feed.post/456',
+            'cid': 'bafyreipostsyddddddddddddddddddddddddddddddddddddddddddd',
+        }),
+        # AP delivery
+        requests_response(''),
+    ])
+    def test_statuses_create_reply_not_bridged_delivers(self, mock_post):
+        user = self.make_atproto_user(obj_bsky=test_atproto.ACTOR_PROFILE_BSKY)
+        self.make_user('https://mas.to/users/bob', cls=ActivityPub, obj_as2={
+            **ACTOR,
+            'id': 'https://mas.to/users/bob',
+            'inbox': 'https://mas.to/users/bob/inbox',
+        })
+        self.store_object(id='https://mas.to/post', source_protocol='activitypub',
+                          our_as1={
+                              'objectType': 'note',
+                              'author': 'https://mas.to/users/bob',
+                          })
+
+        resp = self.post('/api/v1/statuses', user=user, data={
+            'status': 'a reply',
+            'in_reply_to_id': 'https~3A~2F~2Fmas.to~2Fpost',
+        })
+        self.assertEqual(200, resp.status_code, resp.json)
+
+        create_record = mock_post.call_args_list.pop(0)
+        self.assertEqual('https://some.pds/xrpc/com.atproto.repo.createRecord',
+                         create_record.args[0])
+
+        id = 'https://bsky.brid.gy/convert/ap/at://did:plc:user/app.bsky.feed.post/456'
+        self.assert_ap_deliveries(mock_post, ['https://mas.to/users/bob/inbox'],
+                                  from_user=user, data={
+            'type': 'Create',
+            'id': f'{id}#bridgy-fed-create-2022-01-02T03:04:05+00:00',
+            'actor': 'https://bsky.brid.gy/ap/did:plc:user',
+            'published': '2022-01-02T03:04:05+00:00',
+            'object': {
+                'type': 'Note',
+                'id': id,
+                'attributedTo': 'https://bsky.brid.gy/ap/did:plc:user',
+                'content': '<p>a reply</p>',
+                'contentMap': {'en': '<p>a reply</p>'},
+                'inReplyTo': 'https://mas.to/post',
+                'tag': [{'type': 'Mention', 'href': 'https://mas.to/users/bob'}],
+            },
+        }, ignore=['@context', 'to', 'cc', 'url'])
 
     @patch.object(util, 'requests_get', return_value=requests_response(
         '', url='https://alice.com/',
@@ -2201,64 +2565,16 @@ class MastodonApiTest(TestCase):
                 'in-reply-to': ['https://ap.brid.gy/convert/web/https://mas.to/post'],
             },
         }, mock_post.call_args.kwargs['json'])
-        mock_create_task.assert_not_called()
 
-    @patch.object(util.session, 'post', side_effect=[
-        # createRecord
-        requests_response({
-            'uri': 'at://did:plc:user/app.bsky.feed.post/456',
-            'cid': 'bafyreipostsyddddddddddddddddddddddddddddddddddddddddddd',
-        }),
-        # AP delivery
-        requests_response(),
-    ])
-    def test_statuses_create_reply_unbridged_activitypub_delivers(self, mock_post):
-        user = self.make_atproto_user(obj_bsky=test_atproto.ACTOR_PROFILE_BSKY)
-        self.make_user('https://mas.to/users/bob', cls=ActivityPub, obj_as2={
-            **ACTOR,
-            'id': 'https://mas.to/users/bob',
-            'inbox': 'https://mas.to/users/bob/inbox',
+        self.assert_task(mock_create_task, 'receive', source_protocol='web',
+                         authed_as='alice.com', id='https://alice.com/reply',
+                         users=[user.key.urlsafe().decode()], our_as1={
+            'objectType': 'comment',
+            'id': 'https://alice.com/reply',
+            'inReplyTo': 'https://ap.brid.gy/convert/web/https://mas.to/post',
+            'content': 'a reply',
+            'author': 'alice.com',
         })
-        self.store_object(id='https://mas.to/post', source_protocol='activitypub',
-                          our_as1={
-                              'objectType': 'note',
-                              'author': 'https://mas.to/users/bob',
-                          })
-
-        resp = self.post('/api/v1/statuses', user=user, data={
-            'status': 'a reply',
-            'in_reply_to_id': 'https~3A~2F~2Fmas.to~2Fpost',
-        })
-        self.assertEqual(200, resp.status_code, resp.json)
-
-        create_record = mock_post.call_args_list[0]
-        self.assertEqual('https://some.pds/xrpc/com.atproto.repo.createRecord',
-                         create_record.args[0])
-        self.assertEqual({'uri': 'https://mas.to/post'},
-                         create_record.kwargs['json']['record']['reply']['parent'])
-        mock_post.call_args_list = mock_post.call_args_list[1:]
-
-        id = 'https://bsky.brid.gy/convert/ap/at://did:plc:user/app.bsky.feed.post/456'
-        self.assert_ap_deliveries(mock_post, ['https://mas.to/users/bob/inbox'],
-                                  from_user=user, data={
-            'type': 'Create',
-            'id': f'{id}#bridgy-fed-create-2022-01-02T03:04:05+00:00',
-            'actor': 'https://bsky.brid.gy/ap/did:plc:user',
-            'published': '2022-01-02T03:04:05+00:00',
-            'cc': ['https://mas.to/users/bob'],
-            'object': {
-                'type': 'Note',
-                'id': id,
-                'attributedTo': 'https://bsky.brid.gy/ap/did:plc:user',
-                'inReplyTo': 'https://mas.to/post',
-                'content': '<p>a reply</p>',
-                'cc': ['https://mas.to/users/bob'],
-                'tag': [{
-                    'type': 'Mention',
-                    'href': 'https://mas.to/users/bob',
-                }],
-            },
-        }, ignore=['@context', 'to', 'url', 'contentMap'])
 
     def test_statuses_create_non_atproto_user(self):
         resp = self.post('/api/v1/statuses', data={'status': 'hi'})
@@ -2319,21 +2635,15 @@ class MastodonApiTest(TestCase):
         self.assertEqual(200, resp.status_code, resp.json)
         self.assertEqual('edited', resp.json['content'])
 
-        id = 'ui:update-atproto-han.dull-2022-01-02T03:04:05+00:00'
+        id = 'ui:comment-atproto-han.dull-2022-01-02T03:04:04+00:00'
         self.assert_task(mock_create_task, 'receive', source_protocol='ui',
-                         authed_as='did:plc:user', id=id,
+                         authed_as='did:plc:user', id=id, changed=True,
                          users=[user.key.urlsafe().decode()], our_as1={
-            'objectType': 'activity',
-            'verb': 'update',
+            'objectType': 'comment',
             'id': id,
-            'actor': 'did:plc:user',
-            'object': {
-                'objectType': 'comment',
-                'id': 'ui:comment-atproto-han.dull-2022-01-02T03:04:04+00:00',
-                'author': 'did:plc:user',
-                'content': 'edited',
-                'inReplyTo': 'https://mas.to/post',
-            },
+            'author': 'did:plc:user',
+            'content': 'edited',
+            'inReplyTo': 'https://mas.to/post',
         })
 
     @patch.object(util.session, 'post')
@@ -2366,7 +2676,7 @@ class MastodonApiTest(TestCase):
         self.assert_ap_deliveries(mock_post, ['https://mas.to/users/bob/inbox'],
                                   from_user=user, data={
             'type': 'Update',
-            'id': 'https://bsky.brid.gy/convert/ap/ui:update-atproto-han.dull-2022-01-02T03:04:05+00:00',
+            'id': f'{id}#bridgy-fed-update-2022-01-02T03:04:05+00:00',
             'actor': 'https://bsky.brid.gy/ap/did:plc:user',
             'object': {
                 'type': 'Note',
@@ -2375,6 +2685,7 @@ class MastodonApiTest(TestCase):
                 'inReplyTo': 'https://mas.to/post',
                 'content': '<p>edited</p>',
                 'contentMap': {'en': '<p>edited</p>'},
+                'updated': '2022-01-02T03:04:05+00:00',
                 'cc': ['https://mas.to/users/bob'],
                 'tag': [{
                     'type': 'Mention',
@@ -2382,6 +2693,59 @@ class MastodonApiTest(TestCase):
                 }],
             },
         }, ignore=['@context', 'to', 'cc', 'url'])
+
+    # putRecord
+    @patch.object(util.session, 'post', return_value=requests_response({
+        'uri': 'at://did:plc:user/app.bsky.feed.post/456',
+        'cid': 'bafyreipostsyddddddddddddddddddddddddddddddddddddddddddd',
+    }))
+    @patch.object(tasks_client, 'create_task', return_value=Task(name='my task'))
+    def test_statuses_update_unbridged_reply(self, mock_create_task, mock_post):
+        common.RUN_TASKS_INLINE = False
+        user = self.make_atproto_user()
+        self.store_object(id='did:plc:user', raw=DID_DOC)
+        reply = {
+            'objectType': 'comment',
+            'id': 'at://did:plc:user/app.bsky.feed.post/456',
+            'author': 'did:plc:user',
+            'content': 'a reply',
+            'inReplyTo': 'https://mas.to/post',
+        }
+        self.store_object(id='at://did:plc:user/app.bsky.feed.post/456',
+                          source_protocol='atproto', users=[user.key],
+                          our_as1=reply)
+
+        resp = self.put(
+            '/api/v1/statuses/at~3A~2F~2Fdid:plc:user~2Fapp.bsky.feed.post~2F456',
+            user=user, data={'status': 'edited'})
+        self.assertEqual(200, resp.status_code, resp.json)
+        self.assertEqual('edited', resp.json['content'])
+
+        ref = {'uri': 'https://mas.to/post'}
+        self.assertEqual('https://some.pds/xrpc/com.atproto.repo.putRecord',
+                         mock_post.call_args.args[0])
+        self.assert_equals({
+            'repo': 'did:plc:user',
+            'collection': 'app.bsky.feed.post',
+            'rkey': '456',
+            'validate': False,
+            'record': {
+                '$type': 'app.bsky.feed.post',
+                'text': 'edited',
+                'createdAt': '2022-01-02T03:04:05.000Z',
+                'reply': {
+                    '$type': 'app.bsky.feed.post#replyRef',
+                    'root': ref,
+                    'parent': ref,
+                },
+            },
+        }, mock_post.call_args.kwargs['json'])
+
+        self.assert_task(mock_create_task, 'receive', source_protocol='atproto',
+                         authed_as='did:plc:user', changed=True,
+                         id='at://did:plc:user/app.bsky.feed.post/456',
+                         users=[user.key.urlsafe().decode()],
+                         our_as1={**reply, 'content': 'edited'})
 
     def test_statuses_update_missing_status(self):
         user = self.make_atproto_user()
@@ -2443,7 +2807,7 @@ class MastodonApiTest(TestCase):
         self.assertEqual(200, resp.status_code, resp.json)
         self.assertEqual('a reply', resp.json['content'])
 
-        id = 'ui:delete-atproto-han.dull-2022-01-02T03:04:05+00:00'
+        id = 'ui:comment-atproto-han.dull-2022-01-02T03:04:04+00:00#delete'
         self.assert_task(mock_create_task, 'receive', source_protocol='ui',
                          authed_as='did:plc:user', id=id,
                          users=[user.key.urlsafe().decode()], our_as1={
@@ -2451,6 +2815,40 @@ class MastodonApiTest(TestCase):
             'verb': 'delete',
             'id': id,
             'object': 'ui:comment-atproto-han.dull-2022-01-02T03:04:04+00:00',
+            'actor': 'did:plc:user',
+        })
+
+    # deleteRecord
+    @patch.object(util.session, 'post', return_value=requests_response({}))
+    @patch.object(tasks_client, 'create_task', return_value=Task(name='my task'))
+    def test_statuses_delete_unbridged_reply(self, mock_create_task, mock_post):
+        common.RUN_TASKS_INLINE = False
+        user = self.make_atproto_user()
+        self.store_object(id='did:plc:user', raw=DID_DOC)
+        self.store_object(id='at://did:plc:user/app.bsky.feed.post/456',
+                          source_protocol='atproto', users=[user.key], our_as1={
+                              'objectType': 'comment',
+                              'author': 'did:plc:user',
+                              'content': 'a reply',
+                              'inReplyTo': 'https://mas.to/post',
+                          })
+
+        resp = self.delete(
+            '/api/v1/statuses/at~3A~2F~2Fdid:plc:user~2Fapp.bsky.feed.post~2F456',
+            user=user)
+        self.assertEqual(200, resp.status_code, resp.json)
+
+        self.assertEqual('https://some.pds/xrpc/com.atproto.repo.deleteRecord',
+                         mock_post.call_args.args[0])
+
+        id = 'at://did:plc:user/app.bsky.feed.post/456#delete'
+        self.assert_task(mock_create_task, 'receive', source_protocol='atproto',
+                         authed_as='did:plc:user', id=id,
+                         users=[user.key.urlsafe().decode()], our_as1={
+            'objectType': 'activity',
+            'verb': 'delete',
+            'id': id,
+            'object': 'at://did:plc:user/app.bsky.feed.post/456',
             'actor': 'did:plc:user',
         })
 
@@ -2478,7 +2876,7 @@ class MastodonApiTest(TestCase):
         self.assert_ap_deliveries(mock_post, ['https://mas.to/users/eve/inbox'],
                                   from_user=user, data={
             'type': 'Delete',
-            'id': 'https://bsky.brid.gy/convert/ap/ui:delete-atproto-han.dull-2022-01-02T03:04:05+00:00',
+            'id': 'https://bsky.brid.gy/convert/ap/ui:comment-atproto-han.dull-2022-01-02T03:04:04+00:00#delete',
             'actor': 'https://bsky.brid.gy/ap/did:plc:user',
             'object': 'https://bsky.brid.gy/convert/ap/ui:comment-atproto-han.dull-2022-01-02T03:04:04+00:00',
         }, ignore=['@context', 'to', 'cc', 'url'])
