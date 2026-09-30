@@ -625,7 +625,7 @@ def arroba_authenticate():
         return token.did, token.scope.split()
 
 
-@arroba.server.server.method('com.atproto.server.getSession')
+@arroba.server.server.method('com.atproto.server.getSession', override=True)
 def get_session(input):
     """Handler for ``com.atproto.server.getSession``, backed by OAuth.
 
