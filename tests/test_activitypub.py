@@ -2249,6 +2249,30 @@ class ActivityPubTest(TestCase):
             'items': [ACTOR],
         }, resp.json)
 
+    @patch('models.PAGE_SIZE', 2)
+    def test_followers_collection_page_after_memoized_first_page(self, *_):
+        self.store_followers()
+        resp = self.client.get('/user.com/followers')
+        self.assertEqual(200, resp.status_code)
+
+        before = (datetime.now(UTC) + timedelta(seconds=1)
+                  ).replace(tzinfo=None).isoformat()
+        next = Follower.query(Follower.from_ == ActivityPub(id='http://baz').key,
+                              Follower.to == self.user.key,
+                              ).get().updated.isoformat()
+
+        resp = self.client.get(f'/user.com/followers?before={before}')
+        self.assertEqual(200, resp.status_code)
+        self.assert_equals({
+            '@context': as2.CONTEXT,
+            'id': f'http://localhost/user.com/followers?before={before}',
+            'type': 'CollectionPage',
+            'partOf': 'http://localhost/user.com/followers',
+            'next': f'http://localhost/user.com/followers?before={next}',
+            'prev': f'http://localhost/user.com/followers?after={before}',
+            'items': [ACTOR],
+        }, resp.json)
+
     def test_followers_collection_page_protocol_bot_user(self, *_):
         self.user = self.make_user('bsky.brid.gy', cls=Web, ap_subdomain='bsky')
         self.store_followers()

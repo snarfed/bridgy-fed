@@ -1625,7 +1625,7 @@ def inbox(protocol=None, id=None):
 @app.route(f'/<regex("{DOMAIN_RE.pattern}"):id>/<any(followers,following):collection>',
            methods=['GET', 'HEAD'])
 @memcache.memoize(expire=timedelta(hours=1),
-                  key=lambda **kwargs: (request.method, kwargs))
+                  key=lambda **kwargs: (request.method, request.url))
 @flask_util.headers(CACHE_CONTROL)
 def follower_collection(id, collection):
     """ActivityPub Followers and Following collections.
@@ -1635,10 +1635,6 @@ def follower_collection(id, collection):
     * https://www.w3.org/TR/activitystreams-core/#paging
 
     TODO: unify page generation with outbox()
-
-    TODO: the memoize key doesn't include the query params, so we serve the
-    cached first page for ``?before=...`` and ``?after=...`` requests. Switch it
-    to ``request.url`` like :func:`outbox`.
     """
     if (request.path.startswith('/ap/')
             and request.host in (PRIMARY_DOMAIN,) + LOCAL_DOMAINS):
@@ -1760,14 +1756,11 @@ def featured(id):
     We inline the featured collection in users' actors, but Mastodon (and
     Pleroma/Akkoma?) require it to be fetchable separately too. :(
 
-    Also, it's critical that the collection items here are expanded objects!
-    Originally they were compacted string ids, but that triggered a massive flood of
-    requests from Pleroma and Akkoma:
+    Serving this triggered a massive flood of requests from Pleroma and Akkoma,
+    both when the collection items were compacted string ids and when they were
+    expanded objects. The apparent cause was the ``at://`` URI in our actors'
+    ``alsoKnownAs``, which failed Pleroma's actor validation until 2.10.0:
     https://github.com/snarfed/bridgy-fed/issues/1374#issuecomment-2891993190
-
-    TODO: fix the paragraph above. Expanded items triggered the flood too. The
-    cause was the ``at://`` URI in our actors' ``alsoKnownAs``, which failed
-    Pleroma's actor validation until 2.10.0:
     https://git.pleroma.social/pleroma/pleroma/issues/3336
     """
     # TODO: bring back once we figure out how to get Mastodon to support this and
