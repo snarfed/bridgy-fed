@@ -6,13 +6,14 @@ from arroba.datastore_storage import AtpRemoteBlob, AtpRepo
 from arroba.repo import Repo
 import arroba.server
 from authlib.oauth2.rfc9449.validator import hash_access_token
+import dag_json
 from joserfc.jwk import ECKey
 from oauth_dropins import indieauth
 from oauth_dropins.mastodon import MastodonApp, MastodonAuth
 from oauth_dropins.pixelfed import PixelfedApp, PixelfedAuth
 from webutil import util
 from webutil.testutil import NOW, requests_response
-from webutil.util import json_dumps
+from webutil.util import json_dumps, json_loads
 
 from activitypub import ActivityPub
 import atproto_oauth
@@ -23,18 +24,26 @@ from .testutil import ATPROTO_KEY, OAUTH_ES256_KEY, TestCase
 from web import Web
 
 DID = 'did:plc:alice'
+
 # Mastodon re-encodes uploaded media, so it serves different bytes than we upload
-MEDIA_CONTENT = b'processed'
 CID = 'bafkreicydeh7vp4ydkrzk33e475wym3ldaphcrmvbi37jttnoynid5oqqm'
+MEDIA_RESPONSE = requests_response(b'processed', content_type='image/png')
 MEDIA_URL = 'https://mas.to/media/foo.png'
-MEDIA_RESPONSE = requests_response(MEDIA_CONTENT, content_type='image/png')
-UPLOAD_BLOB_URL = 'https://atproto.brid.gy/xrpc/com.atproto.repo.uploadBlob'
 MEDIA_ATTACHMENT = {
     'id': '456',
     'type': 'image',
     'url': MEDIA_URL,
     'preview_url': MEDIA_URL,
 }
+
+POST_URI = 'at://did:plc:bob/app.bsky.feed.post/123'
+POST_URL = 'https://bsky.app/profile/did:plc:bob/post/123'
+STRONG_REF = {
+    'uri': POST_URI,
+    'cid': 'bafyreie5737gdxlw5i64vzichcalba3z2v5n6icifvx5xytvske7mr3hpm',
+}
+NOW_STR = NOW.isoformat().replace('+00:00', 'Z')
+STATUS = {'id': '789', 'url': 'https://mas.to/@alice/789'}
 
 
 class ATProtoXrpcTest(TestCase):
@@ -51,9 +60,11 @@ class ATProtoXrpcTest(TestCase):
                          'id': '123',
                          'uri': 'https://mas.to/users/alice',
                      })).put()
+        Repo.create(arroba.server.storage, DID, handle='alice.mas.to.ap.brid.gy',
+                    signing_key=ATPROTO_KEY, rotation_key=ATPROTO_KEY)
 
-    def upload_blob(self, data=b'foo', mime_type='image/png', user=None):
-        """Makes an uploadBlob XRPC request, authenticated with a DPoP token."""
+    def auth_headers(self, url, user=None):
+        """Returns DPoP auth headers for an XRPC POST request."""
         token = oauth_server.encode_jwt({
             'typ': atproto_oauth.TOKEN_TYP,
             'exp': int(time.time()) + 60,
@@ -64,13 +75,32 @@ class ATProtoXrpcTest(TestCase):
             'cnf': {'jkt': ECKey.import_key(OAUTH_ES256_KEY).thumbprint()},
             'client_id_hash': 'test',
         })
-        return self.client.post(UPLOAD_BLOB_URL, data=data, headers={
-            'Content-Type': mime_type,
+        return {
             'Authorization': f'DPoP {token}',
             'DPoP': dpop_proof(
-                'POST', UPLOAD_BLOB_URL, ath=hash_access_token(token),
+                'POST', url, ath=hash_access_token(token),
                 nonce=atproto_oauth.proof_validator.nonce_generator.next()),
-        })
+        }
+
+    def upload_blob(self, data=b'foo', mime_type='image/png', user=None):
+        """Makes an uploadBlob XRPC request, authenticated with a DPoP token."""
+        url = 'https://atproto.brid.gy/xrpc/com.atproto.repo.uploadBlob'
+        headers = {
+            'Content-Type': mime_type,
+            **self.auth_headers(url, user=user),
+        }
+        return self.client.post(url, data=data, headers=headers)
+
+    def create_record(self, record, user=None):
+        """Makes a createRecord XRPC request, authenticated with a DPoP token."""
+        url = 'https://atproto.brid.gy/xrpc/com.atproto.repo.createRecord'
+        headers = self.auth_headers(url, user=user)
+        return self.client.post(url, json={
+            'repo': DID,
+            'collection': record['$type'],
+            'rkey': 'abc',
+            'record': record,
+        }, headers=headers)
 
     @patch.object(util.session, 'get', return_value=MEDIA_RESPONSE)
     @patch.object(util.session, 'post',
@@ -98,6 +128,7 @@ class ATProtoXrpcTest(TestCase):
         self.assertEqual(9, blob.size)
         self.assertEqual('image/png', blob.mime_type)
         self.assertEqual([AtpRepo(id=DID).key], blob.repos)
+        self.assertEqual('456', blob.remote_id)
         self.assertEqual(NOW, blob.last_fetched)
         self.assertIsNone(blob.status)
 
@@ -140,9 +171,6 @@ class ATProtoXrpcTest(TestCase):
     @patch.object(util.session, 'post',
                   return_value=requests_response(MEDIA_ATTACHMENT))
     def test_upload_blob_then_list_blobs(self, *_):
-        Repo.create(arroba.server.storage, DID, handle='alice.mas.to.ap.brid.gy',
-                    signing_key=ATPROTO_KEY, rotation_key=ATPROTO_KEY)
-
         resp = self.upload_blob()
         self.assertEqual(200, resp.status_code, resp.get_data(as_text=True))
 
@@ -201,7 +229,150 @@ class ATProtoXrpcTest(TestCase):
 
     @patch.object(util.session, 'post')
     def test_upload_blob_unauthenticated(self, mock_post):
-        resp = self.client.post(UPLOAD_BLOB_URL, data=b'foo',
+        resp = self.client.post('/xrpc/com.atproto.repo.uploadBlob', data=b'foo',
                                 headers={'Content-Type': 'image/png'})
         self.assertEqual(401, resp.status_code, resp.get_data(as_text=True))
+        mock_post.assert_not_called()
+
+    def assert_create_record(self, mock_post, record, text, media_ids=None):
+        """Creates a record, checks it and its self-DM status."""
+        resp = self.create_record(record)
+        self.assertEqual(200, resp.status_code, resp.get_data(as_text=True))
+
+        collection = record['$type']
+        uri = f'at://{DID}/{collection}/abc'
+        self.assertEqual(uri, resp.json['uri'])
+        repo = arroba.server.storage.load_repo(DID)
+        stored = repo.get_record(collection, 'abc')
+        self.assertEqual(record, json_loads(dag_json.encode(stored, dialect='atproto')))
+
+        self.assertEqual('https://mas.to/api/v1/statuses',
+                         mock_post.call_args.args[0])
+        kwargs = mock_post.call_args.kwargs
+        self.assertEqual('Bearer towkin', kwargs['headers']['Authorization'])
+        expected = {
+            'status': f'{text}\n\n{uri}',
+            'visibility': 'direct',
+        }
+        if media_ids:
+            expected['media_ids'] = media_ids
+        self.assertEqual(expected, kwargs['json'])
+
+    @patch.object(util.session, 'post', return_value=requests_response(STATUS))
+    def test_create_record_post(self, mock_post):
+        self.assert_create_record(mock_post, {
+            '$type': 'app.bsky.feed.post',
+            'text': 'hello world',
+            'createdAt': NOW_STR,
+        }, 'hello world')
+
+    @patch.object(util.session, 'post', return_value=requests_response(STATUS))
+    def test_create_record_reply(self, mock_post):
+        self.assert_create_record(mock_post, {
+            '$type': 'app.bsky.feed.post',
+            'text': 'a reply',
+            'createdAt': NOW_STR,
+            'reply': {'root': STRONG_REF, 'parent': STRONG_REF},
+        }, f'replied to {POST_URL} : a reply')
+
+    @patch.object(util.session, 'post', return_value=requests_response(STATUS))
+    def test_create_record_quote(self, mock_post):
+        self.assert_create_record(mock_post, {
+            '$type': 'app.bsky.feed.post',
+            'text': 'a quote',
+            'createdAt': NOW_STR,
+            'embed': {'$type': 'app.bsky.embed.record', 'record': STRONG_REF},
+        }, f'quoted {POST_URL} : a quote')
+
+    @patch.object(util.session, 'post', return_value=requests_response(STATUS))
+    def test_create_record_like(self, mock_post):
+        self.assert_create_record(mock_post, {
+            '$type': 'app.bsky.feed.like',
+            'subject': STRONG_REF,
+            'createdAt': NOW_STR,
+        }, f'liked {POST_URI}')
+
+    @patch.object(util.session, 'post', return_value=requests_response(STATUS))
+    def test_create_record_repost(self, mock_post):
+        self.assert_create_record(mock_post, {
+            '$type': 'app.bsky.feed.repost',
+            'subject': STRONG_REF,
+            'createdAt': NOW_STR,
+        }, f'reposted {POST_URI}')
+
+    @patch.object(util.session, 'post', return_value=requests_response(STATUS))
+    def test_create_record_follow(self, mock_post):
+        self.assert_create_record(mock_post, {
+            '$type': 'app.bsky.graph.follow',
+            'subject': 'did:plc:bob',
+            'createdAt': NOW_STR,
+        }, 'followed did:plc:bob')
+
+    @patch.object(util.session, 'post', return_value=requests_response(STATUS))
+    def test_create_record_block(self, mock_post):
+        self.assert_create_record(mock_post, {
+            '$type': 'app.bsky.graph.block',
+            'subject': 'did:plc:bob',
+            'createdAt': NOW_STR,
+        }, 'blocked did:plc:bob')
+
+    @patch.object(util.session, 'post', return_value=requests_response(STATUS))
+    def test_create_record_unknown_collection(self, mock_post):
+        self.assert_create_record(mock_post, {
+            '$type': 'app.bsky.feed.threadgate',
+            'post': POST_URI,
+            'createdAt': NOW_STR,
+        }, 'app.bsky.feed.threadgate')
+
+    @patch.object(util.session, 'get', return_value=MEDIA_RESPONSE)
+    @patch.object(util.session, 'post', side_effect=[
+        requests_response(MEDIA_ATTACHMENT),
+        requests_response(STATUS),
+    ])
+    def test_create_record_image(self, mock_post, _):
+        resp = self.upload_blob()
+        self.assertEqual(200, resp.status_code, resp.get_data(as_text=True))
+
+        self.assert_create_record(mock_post, {
+            '$type': 'app.bsky.feed.post',
+            'text': 'look',
+            'createdAt': NOW_STR,
+            'embed': {
+                '$type': 'app.bsky.embed.images',
+                'images': [{'alt': '', 'image': resp.json['blob']}],
+            },
+        }, 'look', media_ids=['456'])
+
+    @patch.object(util.session, 'post',
+                  return_value=requests_response('oops', status=500))
+    def test_create_record_native_error(self, mock_post):
+        record = {
+            '$type': 'app.bsky.feed.post',
+            'text': 'hello world',
+            'createdAt': NOW_STR,
+        }
+        resp = self.create_record(record)
+        self.assertEqual(200, resp.status_code, resp.get_data(as_text=True))
+        repo = arroba.server.storage.load_repo(DID)
+        self.assertEqual(record, repo.get_record('app.bsky.feed.post', 'abc'))
+        mock_post.assert_called_once()
+
+    @patch.object(util.session, 'get')
+    @patch.object(util.session, 'post')
+    def test_create_record_web_user(self, mock_post, mock_get):
+        user = self.make_user('alice.com', cls=Web, enabled_protocols=['atproto'],
+                              copies=[Target(protocol='atproto', uri=DID)])
+        indieauth.IndieAuth(id='https://alice.com', user_json='{}',
+                            access_token_str='towkin').put()
+
+        record = {
+            '$type': 'app.bsky.feed.post',
+            'text': 'hello world',
+            'createdAt': NOW_STR,
+        }
+        resp = self.create_record(record, user=user)
+        self.assertEqual(200, resp.status_code, resp.get_data(as_text=True))
+        repo = arroba.server.storage.load_repo(DID)
+        self.assertEqual(record, repo.get_record('app.bsky.feed.post', 'abc'))
+        mock_get.assert_not_called()
         mock_post.assert_not_called()
