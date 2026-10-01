@@ -94,18 +94,11 @@ def convert(to, _, from_=None):
     # raises HTTPException if we shouldn't serve this object
     filter_for_proto([obj], to_proto=to_proto, raise_=True)
 
-    # check that this object's owner isn't blocking the authed user, if any
-    if owner_id := as1.get_owner(obj.as1):
-        try:
-            fetcher = to_proto.authed_user_for_request()
-        except RuntimeError as err:
-            error(str(err), status=401)
-
-        if (fetcher
-                and (owner_proto := obj.owner_protocol())
-                and (owner := owner_proto.get_by_id(owner_id, allow_opt_out=True))):
-            if owner.is_blocking(fetcher):
-                error('', status=403)
+    # check HTTP Signature, if any
+    try:
+        to_proto.authed_user_for_request()
+    except RuntimeError as err:
+        error(str(err), status=401)
 
     # convert and serve
     to_id = ids.translate_object_id(id=id, from_=from_proto, to=to_proto)

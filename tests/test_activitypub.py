@@ -465,19 +465,6 @@ class ActivityPubTest(TestCase):
         self.assert_equals(ACTOR_FULL, got.json,
                            ignore=['@context', 'attachment', 'publicKey'])
 
-    def test_actor_blocklisted_signer(self, *_):
-        self.make_user(ACTOR['id'], cls=ActivityPub, obj_as2=ACTOR)
-        self.assertEqual('mas.to', util.domain_from_link(ACTOR['id']))
-
-        blocklist = Object(id='https://list', csv='domain\nmas.to').put()
-        self.user.blocks = [blocklist]
-        self.user.put()
-
-        headers = sign(path='/user.com', body='', key_id=ACTOR['id'], method='GET')
-        headers['Accept'] = as2.CONTENT_TYPE
-        got = self.client.get('/user.com', headers=headers)
-        self.assertEqual(403, got.status_code)
-
     def test_actor_bad_signature(self, *_):
         self.make_user(ACTOR['id'], cls=ActivityPub, obj_as2=ACTOR)
 
@@ -2560,17 +2547,6 @@ class ActivityPubTest(TestCase):
                 }],
             },
         }, resp.json)
-
-    def test_outbox_blocklisted_signer(self, *_):
-        self.make_user(ACTOR['id'], cls=ActivityPub, obj_as2=ACTOR)
-        blocklist = Object(id='https://list', csv='domain\nmas.to').put()
-        self.user.blocks = [blocklist]
-        self.user.put()
-
-        headers = sign(path='/user.com/outbox', body='', key_id=ACTOR['id'],
-                       method='GET')
-        resp = self.client.get('/user.com/outbox', headers=headers)
-        self.assertEqual(403, resp.status_code)
 
     # TODO once we serve more than just the first page
     # https://github.com/snarfed/bridgy-fed/issues/1248

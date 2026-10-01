@@ -1432,16 +1432,9 @@ def actor(handle_or_id):
         return redirect(user.web_url(), code=302)
 
     if user.key.id() not in PROTOCOL_DOMAINS + (PRIMARY_DOMAIN,):
-        # *optionally* check HTTP signature. if the request is signed by a user or
-        # domain that this object's owner is blocking, reject the fetch.
+        # check HTTP signature
         try:
-            beta_user = user.key.id() in common.BETA_USER_IDS
-            signer = ActivityPub.authed_user_for_request(
-                log_level=logging.INFO if beta_user else logging.DEBUG)
-            if signer and user.is_blocking(signer):
-                # TODO: this gets memoized, so we serve it to everyone, blocked
-                # or not, for the next hour! raise it with error() instead.
-                return '', 403
+            ActivityPub.authed_user_for_request()
         except RuntimeError as err:
             error(str(err), status=401)
 
@@ -1719,21 +1712,14 @@ def outbox(id):
     if request.method == 'HEAD':
         return '', {'Content-Type': as2.CONTENT_TYPE_LD_PROFILE}
 
-    # *optionally* check HTTP signature. if the request is signed by a user or
-    # domain that this user is blocking, reject the fetch.
-    #
-    # TODO: this only runs on memcache misses! if this response is already
-    # memoized, we serve it to blocked signers too. same in actor() and
-    # convert.convert().
+    # check HTTP signature
     if user.key.id() not in PROTOCOL_DOMAINS + (PRIMARY_DOMAIN,):
         try:
             signer = ActivityPub.authed_user_for_request()
         except RuntimeError as err:
             error(str(err), status=401)
 
-        if signer and user.is_blocking(signer):
-            error('', status=403)
-
+    # fetch and filter objects
     query = Object.query(Object.users == user.key,
                          Object.type.IN(OUTBOX_AS1_TYPES)
                          ).order(-Object.created)

@@ -9,7 +9,7 @@ from granary.tests.test_as1 import ACTOR, COMMENT, DELETE_OF_ID, UPDATE
 from models import Object, Target
 from webutil import util
 from webutil.testutil import requests_response
-from webutil.util import domain_from_link, json_loads, parse_mf2
+from webutil.util import json_loads, parse_mf2
 
 # import first so that Fake is defined before URL routes are registered
 from . import testutil
@@ -646,23 +646,6 @@ A ☕ reply
         resp = self.client.get('/convert/https:/user.com/post',
                                base_url='https://fed.brid.gy/')
         self.assertEqual(404, resp.status_code)
-
-    def test_fake_to_activitypub_blocklisted_signer(self):
-        actor = test_activitypub.add_key(copy.deepcopy(test_activitypub.ACTOR))
-        self.make_user(actor['id'], cls=ActivityPub, obj_as2=actor)
-        self.assertEqual('mas.to', domain_from_link(actor['id']))
-
-        blocklist = Object(id='http://list', csv='domain\nmas.to').put()
-        self.make_user('fake:user', cls=Fake, enabled_protocols=['activitypub'],
-                       blocks=[blocklist])
-
-        Object(id='fake:note', our_as1={'author': 'fake:user'}).put()
-
-        path = '/convert/ap/fake:note'
-        headers = test_activitypub.sign(path=path, body='', method='GET',
-                                        host='fa.brid.gy', key_id=actor['id'])
-        resp = self.client.get(path, headers=headers)
-        self.assertEqual(403, resp.status_code)
 
     @patch.object(util.session, 'get')
     def test_fake_to_activitypub_signed(self, mock_get):
