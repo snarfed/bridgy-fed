@@ -685,6 +685,7 @@ def undo(user, source, activity_id, verb, object_id):
             'actor': user.key.id(),
             'object': object_id,
         },
+        'published': util.now().isoformat(),
     })
 
 
@@ -1132,6 +1133,7 @@ def accounts_follow_or_block(user, source, id, verb):
         'verb': verb,
         'actor': user.key.id(),
         'object': target_id or target.key.id(),
+        'published': util.now().isoformat(),
     }, validate=bool(target_id))
     return to_relationship(target, **{f'{verb}ing': True})
 
@@ -1357,6 +1359,7 @@ def statuses_create(user, source):
         'objectType': 'note',
         'author': user.key.id(),
         'content': text,
+        'published': util.now().isoformat(),
     }
 
     validate = True
@@ -1416,6 +1419,7 @@ def statuses_update(user, source, id):
             'content': text,
             'inReplyTo': in_reply_to,
             'published': obj.as1.get('published'),
+            'updated': util.now().isoformat(),
         }
         # replies to objects outside user's protocol are invalid there
         validate = not in_reply_to or user.owns_id(in_reply_to) is not False
@@ -1461,6 +1465,7 @@ def statuses_favourite_or_reblog(user, source, id, verb):
         'verb': verb,
         'actor': user.key.id(),
         'object': target_id or obj.key.id(),
+        'published': util.now().isoformat(),
     }, validate=bool(target_id))
 
     status = to_status(obj) or {}

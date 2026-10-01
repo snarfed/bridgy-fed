@@ -344,6 +344,7 @@ class MastodonApiTest(TestCase):
             'id': id,
             'object': 'fake:bob',
             'actor': 'did:plc:user',
+            'published': '2022-01-02T03:04:05+00:00',
         })
 
     @patch.object(util.session, 'post', side_effect=[
@@ -377,6 +378,7 @@ class MastodonApiTest(TestCase):
             'id': 'https://bsky.brid.gy/convert/ap/at://did:plc:user/app.bsky.graph.follow/456',
             'actor': 'https://bsky.brid.gy/ap/did:plc:user',
             'object': 'https://mas.to/users/bob',
+            'published': '2022-01-02T03:04:05+00:00',
         }, ignore=['@context', 'to', 'cc', 'url'])
 
         follower = Follower.query().get()
@@ -407,7 +409,10 @@ class MastodonApiTest(TestCase):
         self.assertEqual('https://alice.com/mp', mock_post.call_args.args[0])
         self.assertEqual({
             'type': ['h-entry'],
-            'properties': {'follow-of': ['https://mas.to/users/bob']},
+            'properties': {
+                'follow-of': ['https://mas.to/users/bob'],
+                'published': ['2022-01-02T03:04:05+00:00'],
+            },
         }, mock_post.call_args.kwargs['json'])
 
         id = 'https://alice.com/follow'
@@ -419,6 +424,7 @@ class MastodonApiTest(TestCase):
             'id': id,
             'object': 'https://mas.to/users/bob',
             'actor': 'alice.com',
+            'published': '2022-01-02T03:04:05+00:00',
         })
 
     @patch.object(util, 'requests_get', return_value=requests_response(
@@ -450,6 +456,7 @@ class MastodonApiTest(TestCase):
             'id': id,
             'object': 'https://mas.to/users/bob',
             'actor': 'alice.com',
+            'published': '2022-01-02T03:04:05+00:00',
         })
 
     def test_accounts_follow_not_found(self):
@@ -526,6 +533,7 @@ class MastodonApiTest(TestCase):
                 'actor': 'did:plc:user',
                 'object': 'fake:bob',
             },
+            'published': '2022-01-02T03:04:05+00:00',
         })
 
     # deleteRecord
@@ -571,6 +579,7 @@ class MastodonApiTest(TestCase):
                 'actor': 'did:plc:user',
                 'object': 'fake:bob',
             },
+            'published': '2022-01-02T03:04:05+00:00',
         })
 
     @patch.object(util.session, 'post')
@@ -606,6 +615,7 @@ class MastodonApiTest(TestCase):
                 'actor': 'https://bsky.brid.gy/ap/did:plc:user',
                 'object': 'https://mas.to/users/bob',
             },
+            'published': '2022-01-02T03:04:05+00:00',
         }, ignore=['@context', 'to', 'cc', 'url'])
 
     def test_accounts_unfollow_not_following(self):
@@ -685,6 +695,7 @@ class MastodonApiTest(TestCase):
             'id': id,
             'object': 'fake:bob',
             'actor': 'did:plc:user',
+            'published': '2022-01-02T03:04:05+00:00',
         })
 
     def test_accounts_block_not_found(self):
@@ -758,6 +769,7 @@ class MastodonApiTest(TestCase):
                 'actor': 'did:plc:user',
                 'object': 'fake:bob',
             },
+            'published': '2022-01-02T03:04:05+00:00',
         })
 
     def test_accounts_unblock_not_blocking(self):
@@ -1667,6 +1679,7 @@ class MastodonApiTest(TestCase):
             'id': id,
             'object': 'fake:post',
             'actor': 'did:plc:user',
+            'published': '2022-01-02T03:04:05+00:00',
         })
 
     @patch.object(util.session, 'post', side_effect=[
@@ -1705,6 +1718,7 @@ class MastodonApiTest(TestCase):
             'id': 'https://bsky.brid.gy/convert/ap/at://did:plc:user/app.bsky.feed.like/456',
             'actor': 'https://bsky.brid.gy/ap/did:plc:user',
             'object': 'https://mas.to/post',
+            'published': '2022-01-02T03:04:05+00:00',
         }, ignore=['@context', 'to', 'cc', 'url'])
 
     @patch.object(util, 'requests_get', return_value=requests_response(
@@ -1731,7 +1745,10 @@ class MastodonApiTest(TestCase):
         self.assertEqual('https://alice.com/mp', mock_post.call_args.args[0])
         self.assertEqual({
             'type': ['h-entry'],
-            'properties': {'like-of': ['https://mas.to/post']},
+            'properties': {
+                'like-of': ['https://mas.to/post'],
+                'published': ['2022-01-02T03:04:05+00:00'],
+            },
         }, mock_post.call_args.kwargs['json'])
 
         self.assert_task(mock_create_task, 'receive', source_protocol='web',
@@ -1742,6 +1759,7 @@ class MastodonApiTest(TestCase):
             'id': 'https://alice.com/like',
             'object': 'https://mas.to/post',
             'actor': 'alice.com',
+            'published': '2022-01-02T03:04:05+00:00',
         })
 
     # createRecord
@@ -1784,6 +1802,7 @@ class MastodonApiTest(TestCase):
             'id': id,
             'object': 'fake:post',
             'actor': 'did:plc:user',
+            'published': '2022-01-02T03:04:05+00:00',
         })
 
     def test_statuses_favourite_not_found(self):
@@ -1884,6 +1903,7 @@ class MastodonApiTest(TestCase):
                 'actor': 'did:plc:user',
                 'object': 'fake:post',
             },
+            'published': '2022-01-02T03:04:05+00:00',
         })
 
     @patch.object(util.session, 'post')
@@ -1922,6 +1942,7 @@ class MastodonApiTest(TestCase):
                 'actor': 'https://bsky.brid.gy/ap/did:plc:user',
                 'object': 'https://mas.to/post',
             },
+            'published': '2022-01-02T03:04:05+00:00',
         }, ignore=['@context', 'to', 'cc', 'url'])
 
     # deleteRecord
@@ -1967,6 +1988,7 @@ class MastodonApiTest(TestCase):
                 'actor': 'did:plc:user',
                 'object': 'https://mas.to/post',
             },
+            'published': '2022-01-02T03:04:05+00:00',
         })
 
     def test_statuses_unfavourite_not_favourited(self):
@@ -2363,6 +2385,7 @@ class MastodonApiTest(TestCase):
             'inReplyTo': 'fake:post',
             'content': 'a reply',
             'author': 'did:plc:user',
+            'published': '2022-01-02T03:04:05+00:00',
         })
 
     # createRecord
@@ -2417,6 +2440,7 @@ class MastodonApiTest(TestCase):
             'inReplyTo': 'https://mas.to/post',
             'content': 'a reply',
             'author': 'did:plc:user',
+            'published': '2022-01-02T03:04:05+00:00',
         })
 
     @patch.object(util.session, 'post', side_effect=[
@@ -2466,6 +2490,7 @@ class MastodonApiTest(TestCase):
                 'contentMap': {'en': '<p>a reply</p>'},
                 'inReplyTo': 'https://mas.to/post',
                 'tag': [{'type': 'Mention', 'href': 'https://mas.to/users/bob'}],
+                'published': '2022-01-02T03:04:05+00:00',
             },
         }, ignore=['@context', 'to', 'cc', 'url'])
 
@@ -2505,6 +2530,7 @@ class MastodonApiTest(TestCase):
             'properties': {
                 'content': ['a reply'],
                 'in-reply-to': ['https://mas.to/post'],
+                'published': ['2022-01-02T03:04:05+00:00'],
             },
         }, mock_post.call_args.kwargs['json'])
 
@@ -2516,6 +2542,7 @@ class MastodonApiTest(TestCase):
             'inReplyTo': 'https://mas.to/post',
             'content': 'a reply',
             'author': 'alice.com',
+            'published': '2022-01-02T03:04:05+00:00',
         })
 
     @patch.object(util, 'requests_get', return_value=requests_response(
@@ -2551,6 +2578,7 @@ class MastodonApiTest(TestCase):
             'properties': {
                 'content': ['a reply'],
                 'in-reply-to': ['https://ap.brid.gy/convert/web/https://mas.to/post'],
+                'published': ['2022-01-02T03:04:05+00:00'],
             },
         }, mock_post.call_args.kwargs['json'])
 
@@ -2562,6 +2590,7 @@ class MastodonApiTest(TestCase):
             'inReplyTo': 'https://ap.brid.gy/convert/web/https://mas.to/post',
             'content': 'a reply',
             'author': 'alice.com',
+            'published': '2022-01-02T03:04:05+00:00',
         })
 
     def test_statuses_create_non_atproto_user(self):
