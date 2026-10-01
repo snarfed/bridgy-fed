@@ -91,16 +91,20 @@ class ATProtoXrpcTest(TestCase):
         }
         return self.client.post(url, data=data, headers=headers)
 
+    def xrpc_post(self, nsid, input, user=None):
+        """Makes an XRPC procedure request, authenticated with a DPoP token."""
+        url = f'https://atproto.brid.gy/xrpc/{nsid}'
+        return self.client.post(url, json=input,
+                                headers=self.auth_headers(url, user=user))
+
     def create_record(self, record, user=None):
         """Makes a createRecord XRPC request, authenticated with a DPoP token."""
-        url = 'https://atproto.brid.gy/xrpc/com.atproto.repo.createRecord'
-        headers = self.auth_headers(url, user=user)
-        return self.client.post(url, json={
+        return self.xrpc_post('com.atproto.repo.createRecord', {
             'repo': DID,
             'collection': record['$type'],
             'rkey': 'abc',
             'record': record,
-        }, headers=headers)
+        }, user=user)
 
     @patch.object(util.session, 'get', return_value=MEDIA_RESPONSE)
     @patch.object(util.session, 'post',
@@ -376,3 +380,118 @@ class ATProtoXrpcTest(TestCase):
         self.assertEqual(record, repo.get_record('app.bsky.feed.post', 'abc'))
         mock_get.assert_not_called()
         mock_post.assert_not_called()
+
+    @patch.object(util.session, 'post', return_value=requests_response(STATUS))
+    def test_put_record_new(self, mock_post):
+        record = {
+            '$type': 'app.bsky.feed.post',
+            'text': 'hello world',
+            'createdAt': NOW_STR,
+        }
+        resp = self.xrpc_post('com.atproto.repo.putRecord', {
+            'repo': DID,
+            'collection': 'app.bsky.feed.post',
+            'rkey': 'abc',
+            'record': record,
+        })
+        self.assertEqual(200, resp.status_code, resp.get_data(as_text=True))
+
+        uri = f'at://{DID}/app.bsky.feed.post/abc'
+        self.assertEqual(uri, resp.json['uri'])
+        repo = arroba.server.storage.load_repo(DID)
+        self.assertEqual(record, repo.get_record('app.bsky.feed.post', 'abc'))
+
+        self.assertEqual('https://mas.to/api/v1/statuses',
+                         mock_post.call_args.args[0])
+        self.assertEqual({
+            'status': f'hello world\n\n{uri}',
+            'visibility': 'direct',
+        }, mock_post.call_args.kwargs['json'])
+
+    @patch.object(util.session, 'post', return_value=requests_response(STATUS))
+    def test_put_record_update(self, mock_post):
+        resp = self.create_record({
+            '$type': 'app.bsky.feed.post',
+            'text': 'hello world',
+            'createdAt': NOW_STR,
+        })
+        self.assertEqual(200, resp.status_code, resp.get_data(as_text=True))
+
+        record = {
+            '$type': 'app.bsky.feed.post',
+            'text': 'hello again',
+            'createdAt': NOW_STR,
+        }
+        resp = self.xrpc_post('com.atproto.repo.putRecord', {
+            'repo': DID,
+            'collection': 'app.bsky.feed.post',
+            'rkey': 'abc',
+            'record': record,
+        })
+        self.assertEqual(200, resp.status_code, resp.get_data(as_text=True))
+        repo = arroba.server.storage.load_repo(DID)
+        self.assertEqual(record, repo.get_record('app.bsky.feed.post', 'abc'))
+
+        uri = f'at://{DID}/app.bsky.feed.post/abc'
+        self.assertEqual([{
+            'status': f'hello world\n\n{uri}',
+            'visibility': 'direct',
+        }, {
+            'status': f'hello again\n\n{uri}',
+            'visibility': 'direct',
+        }], [call.kwargs['json'] for call in mock_post.call_args_list])
+
+    @patch.object(util.session, 'post', return_value=requests_response(STATUS))
+    def test_apply_writes(self, mock_post):
+        resp = self.create_record({
+            '$type': 'app.bsky.feed.post',
+            'text': 'hello world',
+            'createdAt': NOW_STR,
+        })
+        self.assertEqual(200, resp.status_code, resp.get_data(as_text=True))
+
+        post = {
+            '$type': 'app.bsky.feed.post',
+            'text': 'another post',
+            'createdAt': NOW_STR,
+        }
+        like = {
+            '$type': 'app.bsky.feed.like',
+            'subject': STRONG_REF,
+            'createdAt': NOW_STR,
+        }
+        resp = self.xrpc_post('com.atproto.repo.applyWrites', {
+            'repo': DID,
+            'writes': [{
+                '$type': 'com.atproto.repo.applyWrites#create',
+                'collection': 'app.bsky.feed.post',
+                'rkey': 'def',
+                'value': post,
+            }, {
+                '$type': 'com.atproto.repo.applyWrites#create',
+                'collection': 'app.bsky.feed.like',
+                'rkey': 'ghi',
+                'value': like,
+            }, {
+                '$type': 'com.atproto.repo.applyWrites#delete',
+                'collection': 'app.bsky.feed.post',
+                'rkey': 'abc',
+            }],
+        })
+        self.assertEqual(200, resp.status_code, resp.get_data(as_text=True))
+
+        repo = arroba.server.storage.load_repo(DID)
+        self.assertEqual(post, repo.get_record('app.bsky.feed.post', 'def'))
+        self.assertEqual(like, repo.get_record('app.bsky.feed.like', 'ghi'))
+        self.assertIsNone(repo.get_record('app.bsky.feed.post', 'abc'))
+
+        self.assertEqual([{
+            'status': f'hello world\n\nat://{DID}/app.bsky.feed.post/abc',
+            'visibility': 'direct',
+        }, {
+            'status': f'another post\n\nat://{DID}/app.bsky.feed.post/def',
+            'visibility': 'direct',
+        }, {
+            'status': f'liked {POST_URI}\n\nat://{DID}/app.bsky.feed.like/ghi',
+            'visibility': 'direct',
+        }], [call.kwargs['json'] for call in mock_post.call_args_list])
