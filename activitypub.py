@@ -641,7 +641,7 @@ class ActivityPub(User, Protocol):
                     featured[field] = [item['id'] for item in items if item.get('id')]
 
     @classmethod
-    def _convert(cls, obj, orig_obj=None, from_user=None, **kwargs):
+    def _convert(cls, obj, orig_obj=None, from_user=None, remote=True, **kwargs):
         """Convert a :class:`models.Object` to AS2.
 
         Args:
@@ -650,6 +650,7 @@ class ActivityPub(User, Protocol):
             ``inReplyTo`` or ``Like``/``Announce``/etc object, if any. Passed
             through to :func:`postprocess_as2`.
           from_user (models.User): user (actor) this activity/object is from
+          remote (bool): passed through to :meth:`Protocol.translate_ids`
           kwargs: unused
 
         Returns:
@@ -658,11 +659,6 @@ class ActivityPub(User, Protocol):
         if not obj or not obj.as1:
             return {}
 
-        # TODO: uncomment
-        # from_proto = PROTOCOLS.get(obj.source_protocol)
-        # if from_proto and not from_user.is_enabled(cls):
-        #     error(f'{cls.LABEL} <=> {from_proto.LABEL} not enabled')
-
         if obj.as2:
             return {
                 # add back @context since we strip it when we store Objects
@@ -670,7 +666,7 @@ class ActivityPub(User, Protocol):
                 **obj.as2,
             }
 
-        translated = cls.translate_ids(obj.as1)
+        translated = cls.translate_ids(obj.as1, remote=remote)
 
         # compact actors to just string id for compatibility, since many other
         # AP implementations choke on objects.
@@ -1731,7 +1727,7 @@ def outbox(id):
                 'actor': user.key.id(),
                 'object': obj.as1,
             })
-        items.append(ActivityPub.convert(obj, from_user=user))
+        items.append(ActivityPub.convert(obj, from_user=user, remote=False))
 
     return {
         '@context': as2.CONTEXT,

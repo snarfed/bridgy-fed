@@ -2572,6 +2572,58 @@ class ActivityPubTest(TestCase):
             },
         }, resp.json)
 
+    def test_outbox_doesnt_fetch(self, _, mock_get, __):
+        user = self.make_user('fake:foo', cls=Fake,
+                              enabled_protocols=['activitypub'])
+        self.store_object(id='fake:reply', users=[user.key], source_protocol='fake',
+                          our_as1={
+                              'objectType': 'comment',
+                              'author': 'fake:foo',
+                              'content': 'hello',
+                              'inReplyTo': 'https://inst/post',
+                              'tags': [{
+                                  'objectType': 'mention',
+                                  'url': 'https://inst/bob',
+                              }],
+                              'attachments': [{
+                                  'objectType': 'link',
+                                  'url': 'https://example.com/article',
+                              }],
+                          })
+
+        resp = self.client.get(f'/ap/fake:foo/outbox',
+                               base_url='https://fa.brid.gy')
+        self.assertEqual(200, resp.status_code)
+        self.assert_equals({
+            '@context': as2.CONTEXT,
+            'id': 'https://fa.brid.gy/ap/fake:foo/outbox',
+            'summary': "fake:foo's outbox",
+            'type': 'OrderedCollection',
+            'first': {
+                'type': 'OrderedCollectionPage',
+                'partOf': 'https://fa.brid.gy/ap/fake:foo/outbox',
+                'orderedItems': [{
+                    'type': 'Create',
+                    'id': 'https://fa.brid.gy/convert/ap/fake:reply#bridgy-fed-create',
+                    'actor': 'https://fa.brid.gy/ap/fake:foo',
+                    'object': {
+                        'type': 'Note',
+                        'id': 'https://fa.brid.gy/convert/ap/fake:reply',
+                        'attributedTo': 'https://fa.brid.gy/ap/fake:foo',
+                        'inReplyTo': 'https://inst/post',
+                        'content': '<p>hello<br><br><a href="https://example.com/article">example.com/article</a></p>',
+                        'contentMap': {'en': '<p>hello<br><br><a href="https://example.com/article">example.com/article</a></p>'},
+                        'tag': [{'type': 'Mention', 'href': 'https://inst/bob'}],
+                        'to': [as2.PUBLIC_AUDIENCE],
+                        'cc': ['https://inst/bob'],
+                    },
+                    'to': [as2.PUBLIC_AUDIENCE],
+                    'cc': ['https://inst/bob'],
+                }],
+            },
+        }, resp.json)
+        mock_get.assert_not_called()
+
     # TODO once we serve more than just the first page
     # https://github.com/snarfed/bridgy-fed/issues/1248
     @skip

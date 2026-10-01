@@ -1064,7 +1064,7 @@ class Protocol:
         return util.domain_or_parent_in(url, blocklist)
 
     @classmethod
-    def translate_ids(to_cls, obj):
+    def translate_ids(to_cls, obj, remote=True):
         """Translates all ids in an AS1 object to a specific protocol.
 
         Infers source protocol for each id value separately.
@@ -1101,6 +1101,7 @@ class Protocol:
         Args:
           to_proto (Protocol subclass)
           obj (dict): AS1 object or activity (not :class:`models.Object`!)
+          remote (bool): passed through to :meth:`Protocol.for_id`
 
         Returns:
           dict: translated AS1 version of ``obj``
@@ -1116,7 +1117,7 @@ class Protocol:
 
         def translate(elem, field, fn, uri=False):
             owner_id = as1.get_owner(elem)
-            owner_proto = Protocol.for_id(owner_id)
+            owner_proto = Protocol.for_id(owner_id, remote=remote)
 
             elem[field] = as1.get_objects(elem, field)
             for obj in elem[field]:
@@ -1127,7 +1128,7 @@ class Protocol:
 
                     # don't fetch to identify recipients; the ones that need
                     # translating can all be done locally
-                    from_cls = Protocol.for_id(id, remote=not audience)
+                    from_cls = Protocol.for_id(id, remote=remote and not audience)
                     kwargs = {}
 
                     if field == 'id' and from_cls == UIProtocol and owner_proto:
@@ -1189,8 +1190,9 @@ class Protocol:
             for att in as1.get_objects(o, 'attachments'):
                 translate(att, 'id', ids.translate_object_id)
                 url = att.get('url')
-                if url and not att.get('id'):
-                    if from_cls := Protocol.for_id(url):
+                # links are eg link previews, they're never bridged objects
+                if url and not att.get('id') and att.get('objectType') != 'link':
+                    if from_cls := Protocol.for_id(url, remote=remote):
                         att['id'] = ids.translate_object_id(from_=from_cls, to=to_cls,
                                                             id=url)
             if feat := as1.get_object(o, 'featured'):

@@ -909,6 +909,39 @@ class ProtocolTest(TestCase):
             ],
         }))
 
+    @patch.object(util.session, 'get')
+    def test_translate_ids_link_attachment_doesnt_fetch(self, mock_get):
+        note = {
+            'objectType': 'note',
+            'id': 'other:o:fa:fake:post',
+            'attachments': [{
+                'objectType': 'link',
+                'url': 'https://example.com/article',
+                'displayName': 'An article',
+            }],
+        }
+        self.assert_equals(note, OtherFake.translate_ids({**note, 'id': 'fake:post'}))
+        mock_get.assert_not_called()
+
+    @patch.object(util.session, 'get')
+    def test_translate_ids_remote_false(self, mock_get):
+        self.assert_equals({
+            'objectType': 'note',
+            'id': 'other:o:fa:fake:reply',
+            'author': 'other:u:fake:alice',
+            'inReplyTo': 'https://mas.to/post',
+            'attachments': [{'objectType': 'note', 'url': 'https://mas.to/quoted'}],
+            'tags': [{'objectType': 'mention', 'url': 'uri:https://mas.to/bob'}],
+        }, OtherFake.translate_ids({
+            'objectType': 'note',
+            'id': 'fake:reply',
+            'author': 'fake:alice',
+            'inReplyTo': 'https://mas.to/post',
+            'attachments': [{'objectType': 'note', 'url': 'https://mas.to/quoted'}],
+            'tags': [{'objectType': 'mention', 'url': 'https://mas.to/bob'}],
+        }, remote=False))
+        mock_get.assert_not_called()
+
     def test_translate_ids_attachment_url_blocklisted(self):
         self.assert_equals({
             'objectType': 'note',
