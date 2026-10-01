@@ -22,7 +22,7 @@ from domains import (
 from flask_app import app
 import ids
 import memcache
-from models import PROTOCOLS
+from models import filter_for_proto, PROTOCOLS
 from protocol import Protocol
 from ui import UIProtocol
 from web import Web
@@ -83,20 +83,16 @@ def convert(to, _, from_=None):
         error(f'Stored object for {id} has no data', status=404)
 
     type = as1.object_type(obj.as1)
-    if type in as1.CRUD_VERBS or type == 'share':
+    if type in as1.CRUD_VERBS:
         if obj_id := as1.get_object(obj.as1).get('id'):
             if obj_obj := from_proto.load(obj_id, remote=False):
-                if type == 'share':
-                    # TODO: should this be Source.base_object? That's broad
-                    # though, includes inReplyTo
-                    check_bridged_to(obj_obj, to_proto=to_proto)
-                elif (type in as1.CRUD_VERBS
-                      and obj_obj.as1
-                      and obj_obj.as1.keys() - set(['id', 'url', 'objectType'])):
+                if (obj_obj.as1
+                        and obj_obj.as1.keys() - set(['id', 'url', 'objectType'])):
                     logger.info(f'{type} activity, redirecting to Object {obj_id}')
                     return redirect(f'/{path_prefix}{obj_id}', code=301)
 
-    check_bridged_to(obj, to_proto=to_proto)
+    # raises HTTPException if we shouldn't serve this object
+    filter_for_proto([obj], to_proto=to_proto, raise_=True)
 
     # check that this object's owner isn't blocking the authed user, if any
     if owner_id := as1.get_owner(obj.as1):
@@ -117,35 +113,6 @@ def convert(to, _, from_=None):
         'Content-Type': to_proto.CONTENT_TYPE,
         'Link': f'<{to_id}>; rel="self"'
     }
-
-
-def check_bridged_to(obj, to_proto):
-    """If ``object`` or its owner isn't bridged to ``to_proto``, raises :class:`werkzeug.exceptions.HTTPException`.
-
-    Args:
-      obj (models.Object)
-      to_proto (subclass of protocol.Protocol)
-    """
-    # don't serve deletes or deleted objects
-    if obj.deleted or obj.type == 'delete':
-        error('Deleted', status=410)
-
-    # we only bridge fully public data. don't serve eg DMs or anything else internal
-    # or non-public
-    if as1.is_public(obj.as1) is False:
-        error('Not found', status=404)
-
-    # don't serve for a given protocol if we haven't bridged it there
-    if to_proto.HAS_COPIES and not obj.get_copy(to_proto):
-        error(f"{obj.key.id()} hasn't been bridged to {to_proto.LABEL}", status=404)
-
-    # check that owner has this protocol enabled
-    if (from_proto := obj.owner_protocol()) and (owner := as1.get_owner(obj.as1)):
-        user = from_proto.get_by_id(owner)
-        if not user:
-            error(f"{from_proto.LABEL} user {owner} not found", status=404)
-        elif not user.is_enabled(to_proto):
-            error(f"{from_proto.LABEL} user {owner} isn't bridged to {to_proto.LABEL}", status=404)
 
 
 @app.get(f'/convert/<any({",".join(PROTOCOLS)}):from_>/<any({",".join(PROTOCOLS)}):to>/<path:_>')

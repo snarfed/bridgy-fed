@@ -199,6 +199,62 @@ class ConvertTest(testutil.TestCase):
                                base_url='https://fa.brid.gy/')
         self.assertEqual(404, resp.status_code)
 
+    @patch.object(Fake, 'HAS_COPIES', new=False)
+    def test_efake_to_other_reply_original_author_not_enabled(self):
+        """https://github.com/snarfed/bridgy-fed/issues/1248"""
+        self.make_user('efake:user', cls=ExplicitFake,
+                       enabled_protocols=['other'])
+        self.make_user('efake:orig-user', cls=ExplicitFake,
+                       enabled_protocols=[])
+
+        self.store_object(id='efake:post', our_as1={'author': 'efake:orig-user'})
+        self.store_object(id='efake:reply', our_as1={
+            'objectType': 'comment',
+            'inReplyTo': 'efake:post',
+            'author': 'efake:user',
+        })
+
+        resp = self.client.get(f'/convert/other/efake:reply',
+                               base_url='https://efake.brid.gy/')
+        self.assertEqual(404, resp.status_code)
+
+    def test_fake_to_activitypub_reply_to_activitypub_unlisted(self):
+        self.make_user('fake:alice', cls=Fake, enabled_protocols=['activitypub'])
+        self.store_object(id='http://inst/post', source_protocol='activitypub',
+                          our_as1={
+                              'objectType': 'note',
+                              'author': 'http://inst/bob',
+                              'to': [{'objectType': 'group', 'alias': '@unlisted'}],
+                          })
+        self.store_object(id='fake:reply', our_as1={
+            'objectType': 'comment',
+            'inReplyTo': 'http://inst/post',
+            'author': 'fake:alice',
+        })
+
+        resp = self.client.get('/convert/ap/fake:reply',
+                               base_url='https://fa.brid.gy/')
+        self.assertEqual(200, resp.status_code)
+        self.assert_equals({
+            'type': 'Note',
+            'id': 'https://fa.brid.gy/convert/ap/fake:reply',
+            'attributedTo': 'https://fa.brid.gy/ap/fake:alice',
+            'inReplyTo': 'http://inst/post',
+            'to': ['https://www.w3.org/ns/activitystreams#Public'],
+        }, json_loads(resp.get_data()), ignore=['@context'])
+
+    def test_fake_to_activitypub_unlisted(self):
+        self.make_user('fake:alice', cls=Fake, enabled_protocols=['activitypub'])
+        self.store_object(id='fake:post', our_as1={
+            'objectType': 'note',
+            'author': 'fake:alice',
+            'to': [{'objectType': 'group', 'alias': '@unlisted'}],
+        })
+
+        resp = self.client.get('/convert/ap/fake:post',
+                               base_url='https://fa.brid.gy/')
+        self.assertEqual(404, resp.status_code)
+
     def test_fake_to_activitypub(self):
         self.make_user('fake:alice', cls=Fake, enabled_protocols=['activitypub'])
         self.store_object(id='fake:post', our_as1={

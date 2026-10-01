@@ -61,7 +61,7 @@ from domains import (
 import ids
 import memcache
 import models
-from models import fetch_objects, Follower, Object, PROTOCOLS, User
+from models import filter_for_proto, Follower, Object, PROTOCOLS, User
 from protocol import activity_id_memcache_key, DELETE_TASK_DELAY, Protocol
 from ui import UIProtocol
 import webfinger
@@ -126,6 +126,8 @@ OAUTH_REDIRECT_PATHS = (
 OAUTH_EXPIRE_APPS_BEFORE = datetime(2026, 9, 30)
 
 FEDI_URL_RE = re.compile(r'https://(?P<domain>[^/]+)/(@|users/)(?P<handle>[^/@]+)(@[^/@]+)?(?P<post_id>/(?:statuses/)?[0-9]+)?')
+
+OUTBOX_AS1_TYPES = ('article', 'comment', 'note', 'share')
 
 # dict mapping string keyId to HTTPSignatureAuth. global cache for signing
 # outbound HTTP requests.
@@ -1437,6 +1439,8 @@ def actor(handle_or_id):
             signer = ActivityPub.authed_user_for_request(
                 log_level=logging.INFO if beta_user else logging.DEBUG)
             if signer and user.is_blocking(signer):
+                # TODO: this gets memoized, so we serve it to everyone, blocked
+                # or not, for the next hour! raise it with error() instead.
                 return '', 403
         except RuntimeError as err:
             error(str(err), status=401)
@@ -1638,6 +1642,10 @@ def follower_collection(id, collection):
     * https://www.w3.org/TR/activitystreams-core/#paging
 
     TODO: unify page generation with outbox()
+
+    TODO: the memoize key doesn't include the query params, so we serve the
+    cached first page for ``?before=...`` and ``?after=...`` requests. Switch it
+    to ``request.url`` like :func:`outbox`.
     """
     if (request.path.startswith('/ap/')
             and request.host in (PRIMARY_DOMAIN,) + LOCAL_DOMAINS):
@@ -1697,10 +1705,12 @@ def follower_collection(id, collection):
 # backward compatibility
 @app.route(f'/<regex("{DOMAIN_RE.pattern}"):id>/outbox', methods=['GET', 'HEAD'])
 @memcache.memoize(expire=timedelta(hours=1),
-                  key=lambda **kwargs: (request.method, kwargs))
+                  key=lambda **kwargs: (request.method, request.url))
 @flask_util.headers(CACHE_CONTROL)
 def outbox(id):
-    """Serves a user's AP outbox.
+    """Serves the first page of a user's AP outbox: their most recent bridged posts, replies, and reposts.
+
+    We don't serve any more pages than that yet.
 
     TODO: unify page generation with follower_collection()
     """
@@ -1709,51 +1719,49 @@ def outbox(id):
     if request.method == 'HEAD':
         return '', {'Content-Type': as2.CONTENT_TYPE_LD_PROFILE}
 
-    # TODO: bring this back once we filter it by author status, etc
-    # query = Object.query(Object.users == user.key)
-    # objects, new_before, new_after = fetch_objects(query, by=Object.updated,
-    #                                                user=user)
+    # *optionally* check HTTP signature. if the request is signed by a user or
+    # domain that this user is blocking, reject the fetch.
+    #
+    # TODO: this only runs on memcache misses! if this response is already
+    # memoized, we serve it to blocked signers too. same in actor() and
+    # convert.convert().
+    if user.key.id() not in PROTOCOL_DOMAINS + (PRIMARY_DOMAIN,):
+        try:
+            signer = ActivityPub.authed_user_for_request()
+        except RuntimeError as err:
+            error(str(err), status=401)
 
-    # page = {
-    #     'type': 'CollectionPage',
-    #     'partOf': request.base_url,
-    #     'items': util.trim_nulls([ActivityPub.convert(obj, from_user=user)
-    #                               for obj in objects]),
-    # }
-    # if new_before:
-    #     page['next'] = f'{request.base_url}?before={new_before}'
-    # if new_after:
-    #     page['prev'] = f'{request.base_url}?after={new_after}'
+        if signer and user.is_blocking(signer):
+            error('', status=403)
 
-    # if 'before' in request.args or 'after' in request.args:
-    #     page.update({
-    #         '@context': 'https://www.w3.org/ns/activitystreams',
-    #         'id': request.url,
-    #     })
-    #     logger.debug(f'Returning {json_dumps(page, indent=2)}')
-    #     return page, {'Content-Type': as2.CONTENT_TYPE_LD_PROFILE}
+    query = Object.query(Object.users == user.key,
+                         Object.type.IN(OUTBOX_AS1_TYPES)
+                         ).order(-Object.created)
+    items = []
+    for obj in filter_for_proto(query.fetch(models.PAGE_SIZE), to_proto=ActivityPub):
+        # outbox contains activities, not bare objects
+        # https://www.w3.org/TR/activitypub/#outbox
+        if obj.type != 'share':
+            obj = Object(our_as1={
+                'objectType': 'activity',
+                'verb': 'post',
+                'id': f'{obj.key.id()}#bridgy-fed-create',
+                'actor': user.key.id(),
+                'object': obj.as1,
+            })
+        items.append(ActivityPub.convert(obj, from_user=user))
 
-    ret = {
-        '@context': 'https://www.w3.org/ns/activitystreams',
-        'id': request.url,
+    return {
+        '@context': as2.CONTEXT,
+        'id': request.base_url,
         'type': 'OrderedCollection',
         'summary': f"{id}'s outbox",
-        'totalItems': 0,
-        # 'first': page,
         'first': {
-            'type': 'CollectionPage',
+            'type': 'OrderedCollectionPage',
             'partOf': request.base_url,
-            'items': [],
+            'orderedItems': util.trim_nulls(items),
         },
-    }
-
-    # # count total if it's small, <= 1k. we should eventually precompute this
-    # # so that we can always return it cheaply.
-    # count = query.count(limit=1001)
-    # if count != 1001:
-    #     ret['totalItems'] = count
-
-    return ret, {'Content-Type': as2.CONTENT_TYPE_LD_PROFILE}
+    }, {'Content-Type': as2.CONTENT_TYPE_LD_PROFILE}
 
 
 # protocol in subdomain
@@ -1770,6 +1778,11 @@ def featured(id):
     Originally they were compacted string ids, but that triggered a massive flood of
     requests from Pleroma and Akkoma:
     https://github.com/snarfed/bridgy-fed/issues/1374#issuecomment-2891993190
+
+    TODO: fix the paragraph above. Expanded items triggered the flood too. The
+    cause was the ``at://`` URI in our actors' ``alsoKnownAs``, which failed
+    Pleroma's actor validation until 2.10.0:
+    https://git.pleroma.social/pleroma/pleroma/issues/3336
     """
     # TODO: bring back once we figure out how to get Mastodon to support this and
     # Pleroma and Akkoma not to DDoS us

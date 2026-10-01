@@ -51,6 +51,7 @@ from webutil.models import (
     StringIdModel,
 )
 from webutil.util import ellipsize, json_dumps, json_loads
+from werkzeug.exceptions import HTTPException
 
 import common
 from common import (
@@ -2700,6 +2701,79 @@ def hydrate(activity, fields=('author', 'actor', 'object')):
             futures.append(future)
 
     return futures
+
+
+def filter_for_proto(objs, to_proto, raise_=False):
+    """Filters out objects that shouldn't be visible in a given protocol.
+
+    An object may be visible if it's public, not deleted, its owner has ``to_proto``
+    enabled, and if ``to_proto`` uses copies, it has a copy.
+
+    Also, reposts and replies are only visible in a given protocol if the original
+    post they're reposting or replying to is also visible there.
+
+    Args:
+      objs (sequence of Object)
+      to_proto (Protocol subclass)
+      raise_ (bool): if True, raise on the first object that isn't bridged
+        instead of filtering it out
+
+    Returns:
+      list of Object: the elements of ``objs`` that are bridged to ``to_proto``
+
+    Raises:
+      werkzeug.exceptions.HTTPException: if ``raise_`` is True and one of ``objs``
+        isn't bridged
+    """
+    # load original objects for reposts, replies
+    target_keys = [[ndb.Key(Object, id) for id in as1.get_ids(obj.as1, 'object')]
+                   if obj.type == 'share' else obj.in_reply_to
+                   for obj in objs]
+    keys = list(set(itertools.chain(*target_keys)))
+    # maps target Object key to Object
+    targets = {t.key: t for t in ndb.get_multi(keys) if t and t.as1}
+
+    # load owners
+    owner_keys = {}  # maps Object key to owner User key
+    for obj in itertools.chain(objs, targets.values()):
+        if ((owner := as1.get_owner(obj.as1))
+                and (proto := obj.owner_protocol(remote=False))):
+            owner_keys[obj.key] = proto(id=owner).key
+
+    keys = list(set(owner_keys.values()))
+    # maps owner User key to User
+    owners = dict(zip(keys, ndb.get_multi(keys)))
+    for key, owner in list(owners.items()):
+        if owner and owner.use_instead:
+            owners[key] = owner.use_instead.get()
+
+    # filter!
+    visible = []
+    for obj, keys in zip(objs, target_keys):
+        try:
+            for o in [obj] + [targets[key] for key in keys if key in targets]:
+                id = o.key.id()
+                if o is not obj and o.owner_protocol(remote=False) == to_proto:
+                    continue
+                elif o.deleted or o.type == 'delete':
+                    error('Deleted', status=410)
+                elif not as1.is_public(o.as1, unlisted=False):
+                    # we only bridge fully public data, not eg DMs or anything
+                    # else internal or non-public
+                    error('Not found', status=404)
+                elif to_proto.HAS_COPIES and not o.get_copy(to_proto):
+                    error(f"{id} hasn't been bridged to {to_proto.LABEL}", status=404)
+                elif owner_key := owner_keys.get(o.key):
+                    owner = owners.get(owner_key)
+                    if not owner or owner.status or not owner.is_enabled(to_proto):
+                        error(f"{id} owner {owner_key.id()} not found or isn't bridged to {to_proto.LABEL}", status=404)
+        except HTTPException:
+            if raise_:
+                raise
+        else:
+            visible.append(obj)
+
+    return visible
 
 
 def fetch_page(query, model_class, by=None, max_age=None):

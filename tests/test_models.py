@@ -1,5 +1,6 @@
 """Unit tests for models.py."""
 from datetime import timedelta
+import itertools
 from unittest.mock import patch
 
 from arroba.datastore_storage import AtpRemoteBlob, AtpRepo
@@ -25,7 +26,7 @@ from granary.nostr import KIND_NOTE, KIND_PROFILE
 from webutil.appengine_config import tasks_client
 from webutil.testutil import NOW, requests_response
 from webutil import util
-from werkzeug.exceptions import BadRequest, Forbidden
+from werkzeug.exceptions import BadRequest, Forbidden, Gone, NotFound
 
 # import first so that Fake is defined before URL routes are registered
 from .testutil import ExplicitFake, Fake, OtherFake, TestCase
@@ -2748,3 +2749,121 @@ class ModelsTest(TestCase):
         self.assertLessEqual(len(encoded), 1500)
         # must decode cleanly
         encoded.decode('utf-8')
+
+    def store_bridged_to_objects(self):
+        self.make_user('efake:alice', cls=ExplicitFake,
+                       enabled_protocols=['activitypub'])
+        self.make_user('efake:bob', cls=ExplicitFake,
+                       enabled_protocols=['activitypub'])
+        self.make_user('efake:eve', cls=ExplicitFake)
+        self.make_user('efake:old', cls=ExplicitFake,
+                       use_instead=ExplicitFake(id='efake:alice').key)
+        self.make_user('efake:out', cls=ExplicitFake, manual_opt_out=True,
+                       enabled_protocols=['activitypub'])
+
+        self.bridged_to_object('efake:bob-post', objectType='note',
+                               author='efake:bob')
+        self.bridged_to_object('efake:bob-deleted', objectType='note',
+                               author='efake:bob', deleted=True)
+        self.bridged_to_object('efake:eve-post', objectType='note',
+                               author='efake:eve')
+
+        self.store_object(id='https://inst/unlisted', source_protocol='activitypub',
+                          our_as1={
+                              'objectType': 'note',
+                              'author': 'https://inst/carol',
+                              'to': [{'objectType': 'group', 'alias': '@unlisted'}],
+                          })
+
+    def bridged_to_object(self, id, deleted=False, **our_as1):
+        return self.store_object(id=id, source_protocol='efake', deleted=deleted,
+                                 our_as1={'author': 'efake:alice', **our_as1})
+
+    def test_filter_for_proto(self):
+        self.store_bridged_to_objects()
+
+        bridged = [
+            self.bridged_to_object('efake:note', objectType='note'),
+            self.bridged_to_object('efake:reply-bob', objectType='comment',
+                                   inReplyTo='efake:bob-post'),
+            self.bridged_to_object('efake:reply-native', objectType='comment',
+                                   inReplyTo='https://inst/unlisted'),
+            self.bridged_to_object('efake:reply-missing', objectType='comment',
+                                   inReplyTo='efake:missing'),
+            self.bridged_to_object('efake:share-bob', objectType='activity',
+                                   verb='share', object='efake:bob-post'),
+            self.bridged_to_object('efake:old-note', objectType='note',
+                                   author='efake:old'),
+        ]
+        not_bridged = [
+            self.bridged_to_object('efake:deleted', objectType='note', deleted=True),
+            self.bridged_to_object('efake:private', objectType='note',
+                                   to=[{'objectType': 'group', 'alias': '@private'}]),
+            self.bridged_to_object('efake:unlisted', objectType='note',
+                                   to=[{'objectType': 'group', 'alias': '@unlisted'}]),
+            self.bridged_to_object('efake:dm', objectType='note', to=['efake:bob']),
+            self.bridged_to_object('efake:eve-note', objectType='note',
+                                   author='efake:eve'),
+            self.bridged_to_object('efake:out-note', objectType='note',
+                                   author='efake:out'),
+            self.bridged_to_object('efake:nobody-note', objectType='note',
+                                   author='efake:nobody'),
+            self.bridged_to_object('efake:reply-eve', objectType='comment',
+                                   inReplyTo='efake:eve-post'),
+            self.bridged_to_object('efake:reply-deleted', objectType='comment',
+                                   inReplyTo='efake:bob-deleted'),
+            self.bridged_to_object('efake:share-eve', objectType='activity',
+                                   verb='share', object='efake:eve-post'),
+        ]
+
+        # interleave so that we check that order is preserved
+        objs = [obj for pair in itertools.zip_longest(not_bridged, bridged)
+                for obj in pair if obj]
+        self.assertEqual([obj.key for obj in bridged],
+                         [obj.key for obj in models.filter_for_proto(
+                             objs, to_proto=ActivityPub)])
+
+    def test_filter_for_proto_empty(self):
+        self.assertEqual([], models.filter_for_proto([], to_proto=ActivityPub))
+
+    def test_filter_for_proto_has_copies(self):
+        self.make_user('efake:alice', cls=ExplicitFake, enabled_protocols=['other'])
+        objs = [
+            self.bridged_to_object('efake:copy', objectType='note'),
+            self.bridged_to_object('efake:no-copy', objectType='note'),
+            self.bridged_to_object('efake:reply-copy', objectType='comment',
+                                   inReplyTo='efake:copy'),
+            self.bridged_to_object('efake:reply-no-copy', objectType='comment',
+                                   inReplyTo='efake:no-copy'),
+        ]
+        for obj in objs[0], objs[2], objs[3]:
+            obj.copies = [Target(protocol='other', uri=f'other:{obj.key.id()}')]
+            obj.put()
+
+        self.assertEqual(['efake:copy', 'efake:reply-copy'],
+                         [obj.key.id() for obj in models.filter_for_proto(
+                             objs, to_proto=OtherFake)])
+
+    def test_filter_for_proto_raise(self):
+        self.store_bridged_to_objects()
+
+        note = self.bridged_to_object('efake:note', objectType='note')
+        self.assertEqual([note], models.filter_for_proto(
+            [note], to_proto=ActivityPub, raise_=True))
+
+        for exc, obj in (
+            (Gone, self.bridged_to_object('efake:deleted', objectType='note',
+                                          deleted=True)),
+            (Gone, self.bridged_to_object('efake:reply-deleted', objectType='comment',
+                                          inReplyTo='efake:bob-deleted')),
+            (NotFound, self.bridged_to_object('efake:dm', objectType='note',
+                                              to=['efake:bob'])),
+            (NotFound, self.bridged_to_object('efake:eve-note', objectType='note',
+                                              author='efake:eve')),
+            (NotFound, self.bridged_to_object('efake:share-eve',
+                                              objectType='activity', verb='share',
+                                              object='efake:eve-post')),
+        ):
+            with self.subTest(obj=obj.key.id()), self.assertRaises(exc):
+                models.filter_for_proto([note, obj], to_proto=ActivityPub,
+                                        raise_=True)

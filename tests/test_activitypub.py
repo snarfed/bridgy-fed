@@ -2376,69 +2376,203 @@ class ActivityPubTest(TestCase):
         resp = self.client.get(f'/ap/fake:foo/outbox',
                                base_url='https://fa.brid.gy')
         self.assertEqual(200, resp.status_code)
-        self.assertEqual({
-            '@context': 'https://www.w3.org/ns/activitystreams',
+        self.assert_equals({
             'id': 'https://fa.brid.gy/ap/fake:foo/outbox',
             'summary': "fake:foo's outbox",
             'type': 'OrderedCollection',
-            'totalItems': 0,
             'first': {
-                'type': 'CollectionPage',
+                'type': 'OrderedCollectionPage',
                 'partOf': 'https://fa.brid.gy/ap/fake:foo/outbox',
-                'items': [],
+                'orderedItems': [],
             },
-        }, resp.json)
+        }, resp.json, ignore=['@context'])
 
-    def test_outbox_protocol_bot_user_empty(self, *_):
-        self.make_user('bsky.brid.gy', cls=Web, ap_subdomain='bsky')
+    def test_outbox_protocol_bot_user(self, *_):
+        user = self.make_user('bsky.brid.gy', cls=Web, ap_subdomain='bsky')
+        self.store_object(id='https://bsky.brid.gy/#dm', users=[user.key],
+                          source_protocol='web', our_as1={
+                              'objectType': 'note',
+                              'author': 'bsky.brid.gy',
+                              'content': 'a DM',
+                              'to': ['https://inst/alice'],
+                          })
+
         resp = self.client.get(f'/bsky.brid.gy/outbox',
                                base_url='https://bsky.brid.gy')
         self.assertEqual(200, resp.status_code)
-        self.assertEqual({
-            '@context': 'https://www.w3.org/ns/activitystreams',
+        self.assert_equals({
             'id': 'https://bsky.brid.gy/bsky.brid.gy/outbox',
             'summary': "bsky.brid.gy's outbox",
             'type': 'OrderedCollection',
-            'totalItems': 0,
             'first': {
-                'type': 'CollectionPage',
+                'type': 'OrderedCollectionPage',
                 'partOf': 'https://bsky.brid.gy/bsky.brid.gy/outbox',
-                'items': [],
+                'orderedItems': [],
             },
-        }, resp.json)
+        }, resp.json, ignore=['@context'])
 
     def store_outbox_objects(self, user):
-        for i, obj in enumerate([REPLY, MENTION, LIKE, DELETE]):
-            self.store_object(id=obj['id'], users=[user.key], as2=obj)
+        self.make_user('fake:bob', cls=Fake, enabled_protocols=['activitypub'])
+        self.make_user('efake:eve', cls=ExplicitFake)
+        self.store_object(id='fake:bob-post', source_protocol='fake',
+                          our_as1={'objectType': 'note', 'author': 'fake:bob'})
+        self.store_object(id='efake:eve-post', source_protocol='efake',
+                          our_as1={'objectType': 'note', 'author': 'efake:eve'})
 
-    # TODO once we're serving outboxes again
-    # https://github.com/snarfed/bridgy-fed/issues/1248
-    @skip
-    @patch('models.PAGE_SIZE', 2)
+        for id, deleted, our_as1 in (
+                ('fake:note', False, {'objectType': 'note', 'content': 'hello'}),
+                ('fake:reply', False, {
+                    'objectType': 'comment',
+                    'content': 'a reply',
+                    'inReplyTo': 'fake:bob-post',
+                }),
+                ('fake:share', False, {
+                    'objectType': 'activity',
+                    'verb': 'share',
+                    'object': 'fake:bob-post',
+                }),
+                ('fake:like', False, {
+                    'objectType': 'activity',
+                    'verb': 'like',
+                    'object': 'fake:bob-post',
+                }),
+                ('fake:follow', False, {
+                    'objectType': 'activity',
+                    'verb': 'follow',
+                    'object': 'fake:bob',
+                }),
+                ('fake:flag', False, {
+                    'objectType': 'activity',
+                    'verb': 'flag',
+                    'object': 'fake:bob',
+                }),
+                ('fake:deleted', True, {'objectType': 'note', 'content': 'gone'}),
+                ('fake:dm', False, {
+                    'objectType': 'note',
+                    'content': 'a DM',
+                    'to': ['fake:bob'],
+                }),
+                ('fake:reply-eve', False, {
+                    'objectType': 'comment',
+                    'content': 'hi eve',
+                    'inReplyTo': 'efake:eve-post',
+                }),
+                ('fake:share-eve', False, {
+                    'objectType': 'activity',
+                    'verb': 'share',
+                    'object': 'efake:eve-post',
+                }),
+        ):
+            field = 'actor' if our_as1['objectType'] == 'activity' else 'author'
+            self.store_object(id=id, users=[user.key], source_protocol='fake',
+                              deleted=deleted,
+                              our_as1={**our_as1, field: user.key.id()})
+
     def test_outbox_fake_objects(self, *_):
-        user = self.make_user('fake:foo', cls=Fake)
+        user = self.make_user('fake:foo', cls=Fake,
+                              enabled_protocols=['activitypub'])
         self.store_outbox_objects(user)
 
         resp = self.client.get(f'/ap/fake:foo/outbox',
                                base_url='https://fa.brid.gy')
         self.assertEqual(200, resp.status_code)
-
-        after = Object.get_by_id(LIKE['id']).updated.isoformat()
         self.assert_equals({
-            '@context': as2.CONTEXT,
+            '@context': 'https://www.w3.org/ns/activitystreams',
             'id': 'https://fa.brid.gy/ap/fake:foo/outbox',
             'summary': "fake:foo's outbox",
             'type': 'OrderedCollection',
-            'totalItems': 4,
             'first': {
-                'type': 'CollectionPage',
+                'type': 'OrderedCollectionPage',
                 'partOf': 'https://fa.brid.gy/ap/fake:foo/outbox',
-                'items': [DELETE, LIKE],
-                'next': f'https://fa.brid.gy/ap/fake:foo/outbox?before={after}',
+                'orderedItems': [{
+                    'type': 'Announce',
+                    'id': 'https://fa.brid.gy/convert/ap/fake:share',
+                    'url': [{
+                        'type': 'Link',
+                        'rel': 'canonical',
+                        'href': 'fake:share',
+                    }],
+                    'actor': 'https://fa.brid.gy/ap/fake:foo',
+                    'object': 'https://fa.brid.gy/convert/ap/fake:bob-post',
+                    'to': [as2.PUBLIC_AUDIENCE],
+                }, {
+                    'type': 'Create',
+                    'id': 'https://fa.brid.gy/convert/ap/fake:reply#bridgy-fed-create',
+                    'actor': 'https://fa.brid.gy/ap/fake:foo',
+                    'object': {
+                        'type': 'Note',
+                        'id': 'https://fa.brid.gy/convert/ap/fake:reply',
+                        'attributedTo': 'https://fa.brid.gy/ap/fake:foo',
+                        'inReplyTo': 'https://fa.brid.gy/convert/ap/fake:bob-post',
+                        'content': '<p>a reply</p>',
+                        'contentMap': {'en': '<p>a reply</p>'},
+                        'to': [as2.PUBLIC_AUDIENCE],
+                    },
+                    'to': [as2.PUBLIC_AUDIENCE],
+                }, {
+                    'type': 'Create',
+                    'id': 'https://fa.brid.gy/convert/ap/fake:note#bridgy-fed-create',
+                    'actor': 'https://fa.brid.gy/ap/fake:foo',
+                    'object': {
+                        'type': 'Note',
+                        'id': 'https://fa.brid.gy/convert/ap/fake:note',
+                        'attributedTo': 'https://fa.brid.gy/ap/fake:foo',
+                        'content': '<p>hello</p>',
+                        'contentMap': {'en': '<p>hello</p>'},
+                        'to': [as2.PUBLIC_AUDIENCE],
+                    },
+                    'to': [as2.PUBLIC_AUDIENCE],
+                }],
             },
         }, resp.json)
 
-    # TODO once we're serving outboxes again
+    @patch('models.PAGE_SIZE', 1)
+    def test_outbox_first_page_only(self, *_):
+        user = self.make_user('fake:foo', cls=Fake,
+                              enabled_protocols=['activitypub'])
+        self.store_object(id='fake:old', users=[user.key], source_protocol='fake',
+                          our_as1={'objectType': 'note', 'author': 'fake:foo'})
+        self.store_object(id='fake:new', users=[user.key], source_protocol='fake',
+                          our_as1={'objectType': 'note', 'author': 'fake:foo'})
+
+        resp = self.client.get(f'/ap/fake:foo/outbox?before=2000-01-01T00:00:00',
+                               base_url='https://fa.brid.gy')
+        self.assertEqual(200, resp.status_code)
+        self.assert_equals({
+            '@context': 'https://www.w3.org/ns/activitystreams',
+            'id': 'https://fa.brid.gy/ap/fake:foo/outbox',
+            'summary': "fake:foo's outbox",
+            'type': 'OrderedCollection',
+            'first': {
+                'type': 'OrderedCollectionPage',
+                'partOf': 'https://fa.brid.gy/ap/fake:foo/outbox',
+                'orderedItems': [{
+                    'type': 'Create',
+                    'id': 'https://fa.brid.gy/convert/ap/fake:new#bridgy-fed-create',
+                    'actor': 'https://fa.brid.gy/ap/fake:foo',
+                    'object': {
+                        'type': 'Note',
+                        'id': 'https://fa.brid.gy/convert/ap/fake:new',
+                        'attributedTo': 'https://fa.brid.gy/ap/fake:foo',
+                        'to': [as2.PUBLIC_AUDIENCE],
+                    },
+                    'to': [as2.PUBLIC_AUDIENCE],
+                }],
+            },
+        }, resp.json)
+
+    def test_outbox_blocklisted_signer(self, *_):
+        self.make_user(ACTOR['id'], cls=ActivityPub, obj_as2=ACTOR)
+        blocklist = Object(id='https://list', csv='domain\nmas.to').put()
+        self.user.blocks = [blocklist]
+        self.user.put()
+
+        headers = sign(path='/user.com/outbox', body='', key_id=ACTOR['id'],
+                       method='GET')
+        resp = self.client.get('/user.com/outbox', headers=headers)
+        self.assertEqual(403, resp.status_code)
+
+    # TODO once we serve more than just the first page
     # https://github.com/snarfed/bridgy-fed/issues/1248
     @skip
     @patch('models.PAGE_SIZE', 2)
@@ -2465,18 +2599,16 @@ class ActivityPubTest(TestCase):
     def test_outbox_web_empty(self, *_):
         resp = self.client.get(f'/user.com/outbox')
         self.assertEqual(200, resp.status_code)
-        self.assertEqual({
-            '@context': 'https://www.w3.org/ns/activitystreams',
+        self.assert_equals({
             'id': 'http://localhost/user.com/outbox',
             'summary': "user.com's outbox",
             'type': 'OrderedCollection',
-            'totalItems': 0,
             'first': {
-                'type': 'CollectionPage',
+                'type': 'OrderedCollectionPage',
                 'partOf': 'http://localhost/user.com/outbox',
-                'items': [],
+                'orderedItems': [],
             },
-        }, resp.json)
+        }, resp.json, ignore=['@context'])
 
     def test_outbox_web_head(self, *_):
         resp = self.client.head(f'/user.com/outbox')
