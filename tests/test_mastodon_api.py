@@ -1085,6 +1085,22 @@ class MastodonApiTest(TestCase):
         self.assertEqual(200, resp.status_code, resp.json)
         self.assertEqual(['post 3', 'post 2'], [s['content'] for s in resp.json])
 
+    def test_accounts_statuses_merges_types_in_created_order(self):
+        for i, type in enumerate(('note', 'article', 'note', 'article'), start=1):
+            Object(id=f'fake:post{i}', users=[self.user.key], our_as1={
+                'objectType': type,
+                'content': f'post {i}',
+                'published': '2022-01-02T03:04:05',
+            }).put()
+
+        resp = self.get('/api/v1/accounts/fake:alice/statuses?limit=2')
+        self.assertEqual(200, resp.status_code, resp.json)
+        self.assertEqual(['post 4', 'post 3'], [s['content'] for s in resp.json])
+
+        resp = self.get('/api/v1/accounts/fake:alice/statuses?min_id=fake:post1&limit=2')
+        self.assertEqual(200, resp.status_code, resp.json)
+        self.assertEqual(['post 3', 'post 2'], [s['content'] for s in resp.json])
+
     def test_accounts_statuses_max_id_not_found(self):
         Object(id='fake:post', users=[self.user.key], our_as1={
             'objectType': 'note',

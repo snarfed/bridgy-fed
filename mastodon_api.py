@@ -63,7 +63,8 @@ AS1_TO_NOTIFICATION_TYPE = {
     'follow': 'follow',
 }
 
-STATUS_AS1_TYPES = as1.POST_TYPES | {'share'}
+# also see granary.as1.POST_TYPES
+STATUS_AS1_TYPES = frozenset(('article', 'comment', 'note', 'share'))
 
 # https://docs.joinmastodon.org/entities/Instance/#supported_mime_types
 SUPPORTED_MEDIA_TYPES = (
@@ -792,21 +793,33 @@ def paginate(query):
     return query.order(order)
 
 
-def paginate_and_fetch(*filters):
+def paginate_and_fetch(*filters, types=None):
     """Paginates a :meth:`models.Object` query and returns its results, newest first.
+
+    If ``types`` is provided, runs a separate query for each type and merges
+    them. We do that ourselves, instead of with ``Object.type.IN``, because ndb
+    also splits ``IN`` into one query per value, but it doesn't pass the limit
+    down to them, so they each read every matching entity.
 
     Args:
       *filters: passed to :meth:`models.Object.query`
+      types (sequence of str): optional, AS1 types to return
 
     Returns:
       list of :class:`models.Object`: newest first
     """
-    query = paginate(Object.query(*filters))
-    objects = query.fetch(limit())
+    num = limit()
+    queries = ([paginate(Object.query(*filters, Object.type == type))
+                for type in types]
+               if types else [paginate(Object.query(*filters))])
+    futures = [query.fetch_async(num) for query in queries]
 
     # min_id makes paginate sort ascending, to pick the oldest objects newer than
-    # it, so flip back to newest first
-    if not query.order_by[0].reverse:
+    # it, so sort the same way here, then flip back to newest first
+    descending = queries[0].order_by[0].reverse
+    objects = sorted((obj for future in futures for obj in future.get_result()),
+                     key=lambda obj: obj.created, reverse=descending)[:num]
+    if not descending:
         objects.reverse()
 
     return objects
@@ -1193,7 +1206,10 @@ def accounts_get(user, id):
 @auth()
 @cache_global
 def accounts_statuses(user, id):
-    # TODO: tagged
+    # TODO: tagged param
+    exclude_replies = bool_param('exclude_replies')
+    exclude_reblogs = bool_param('exclude_reblogs')
+
     if not (user := load_account_id(id)):
         error('Not found', status=404)
 
@@ -1204,16 +1220,21 @@ def accounts_statuses(user, id):
             objects = ndb.get_multi(Object(id=id).key for id in featured)
 
     else:
-        objects = paginate_and_fetch(Object.users == user.key,
-                                     Object.type.IN(STATUS_AS1_TYPES))
+        types = STATUS_AS1_TYPES
+        if exclude_replies:
+            types -= {'comment'}
+        if exclude_reblogs:
+            types -= {'share'}
+
+        objects = paginate_and_fetch(Object.users == user.key, types=types)
         if (not objects and 'since_id' not in request.args
                 and 'min_id' not in request.args and 'max_id' not in request.args):
             objects = fetch_outbox(user)
 
     objects = [obj for obj in objects
                if visible(obj)
-               and not (bool_param('exclude_replies') and obj.type == 'comment')
-               and not (bool_param('exclude_reblogs') and obj.type == 'share')]
+               and not (exclude_replies and obj.type == 'comment')
+               and not (exclude_reblogs and obj.type == 'share')]
     prefetch_statuses(objects)
 
     statuses = to_statuses(objects)
@@ -1682,13 +1703,15 @@ def timelines_home(user):
     if not followees:
         return []
 
-    # query each followee separately, since datastore can't do a disjunction this
-    # big, then merge. we only project created here so that we don't load all
-    # limit() objects per followee just to throw most of them away.
+    # query each followee and type separately, since datastore can't do a
+    # disjunction this big, then merge. we only project created here so that we
+    # don't load all limit() objects per query just to throw most of them away.
+    # (we don't use Object.type.IN because ndb doesn't pass the limit down to the
+    # per-type queries it generates.)
     num = limit()
-    queries = [paginate(Object.query(Object.users == followee,
-                                     Object.type.IN(('note', 'article', 'share'))))
-               for followee in followees]
+    queries = [paginate(Object.query(Object.users == followee, Object.type == type))
+               for followee in followees
+               for type in ('note', 'article', 'share')]
     futures = [query.fetch_async(num, projection=[Object.created])
                for query in queries]
 
@@ -1714,7 +1737,7 @@ def timelines_public(user):
     local = bool_param('local')
     remote = bool_param('remote')
 
-    objs = paginate_and_fetch(Object.type.IN(('note', 'article', 'share')))
+    objs = paginate_and_fetch(types=('note', 'article', 'share'))
     objects = [obj for obj in objs
                if visible(obj)
                # local means from the user's network
