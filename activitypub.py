@@ -1712,11 +1712,15 @@ def outbox(id):
             error(str(err), status=401)
 
     # fetch and filter objects
-    query = Object.query(Object.users == user.key,
-                         Object.type.IN(OUTBOX_AS1_TYPES)
-                         ).order(-Object.created)
+    #
+    # filter by type in memory, not in the query with IN, since ndb splits that into
+    # one query per type and doesn't pass the limit down to them, which results in
+    # n much heavier queries
+    query = Object.query(Object.users == user.key).order(-Object.updated)
+    objs = [obj for obj in query.fetch(models.PAGE_SIZE)
+            if obj.type in OUTBOX_AS1_TYPES]
     items = []
-    for obj in filter_for_proto(query.fetch(models.PAGE_SIZE), to_proto=ActivityPub):
+    for obj in filter_for_proto(objs, to_proto=ActivityPub):
         # outbox contains activities, not bare objects
         # https://www.w3.org/TR/activitypub/#outbox
         if obj.type != 'share':
