@@ -15,7 +15,7 @@ runtime_config:
 
 resources:
   cpu: 1
-  memory_gb: 2
+  memory_gb: 2.5
 
 # run in default VPC for this project
 # https://cloud.google.com/appengine/docs/flexible/using-shared-vpc
