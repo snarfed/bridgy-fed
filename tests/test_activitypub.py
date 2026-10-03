@@ -277,6 +277,19 @@ ACCEPT = {
     },
    'to': [as2.PUBLIC_AUDIENCE],
 }
+QUOTE_REQUEST = {
+    '@context': as2.CONTEXT,
+    'type': 'QuoteRequest',
+    'id': 'https://mas.to/users/foo/statuses/1/quote',
+    'actor': 'https://mas.to/users/foo',
+    'object': 'https://fa.brid.gy/convert/ap/fake:post',
+    'instrument': {
+        'type': 'Note',
+        'id': 'https://mas.to/users/foo/statuses/1',
+        'attributedTo': 'https://mas.to/users/foo',
+        'quote': 'https://fa.brid.gy/convert/ap/fake:post',
+    },
+}
 
 UNDO_FOLLOW_WRAPPED = {
     '@context': as2.CONTEXT,
@@ -894,6 +907,125 @@ class ActivityPubTest(TestCase):
                     'updated': '2022-01-02T03:04:05+00:00',
                 }),
             })
+
+    def test_inbox_quote_request(self, _, mock_get, mock_post):
+        self.make_user('fake:user', cls=Fake, enabled_protocols=['activitypub'])
+        self.store_object(id='fake:post', source_protocol='fake', our_as1={
+            'objectType': 'note',
+            'author': 'fake:user',
+            'content': 'foo',
+        })
+        self.make_user(ACTOR['id'], cls=ActivityPub, obj_as2=ACTOR)
+        mock_post.return_value = requests_response()
+
+        got = self.post('/ap/sharedInbox', json=QUOTE_REQUEST)
+        self.assertEqual(202, got.status_code, got.get_data(as_text=True))
+
+        stamp = 'https://fa.brid.gy/ap/fake:user/stamp/quote/aHR0cHM6Ly9mYS5icmlkLmd5L2NvbnZlcnQvYXAvZmFrZTpwb3N0/aHR0cHM6Ly9tYXMudG8vdXNlcnMvZm9vL3N0YXR1c2VzLzE='
+        self.assertEqual(1, mock_post.call_count)
+        args, kwargs = mock_post.call_args
+        self.assertEqual(('http://mas.to/inbox',), args)
+        self.assertEqual({
+            '@context': as2.CONTEXT + [SECURITY_CONTEXT],
+            'type': 'Accept',
+            'id': f'{stamp}#accept',
+            'actor': 'https://fa.brid.gy/ap/fake:user',
+            'to': ['https://mas.to/users/foo'],
+            'object': QUOTE_REQUEST,
+            'result': stamp,
+        }, json_loads(kwargs['data']))
+        mock_get.assert_not_called()
+
+        # the stamp should be servable
+        resp = self.client.get(stamp.removeprefix('https://fa.brid.gy'),
+                               base_url='https://fa.brid.gy/')
+        self.assertEqual(200, resp.status_code)
+        self.assertEqual({
+            '@context': as2.CONTEXT + [QUOTE_AUTHORIZATION_CONTEXT],
+            'type': 'QuoteAuthorization',
+            'id': stamp,
+            'attributedTo': 'https://fa.brid.gy/ap/fake:user',
+            'interactingObject': 'https://mas.to/users/foo/statuses/1',
+            'interactionTarget': 'https://fa.brid.gy/convert/ap/fake:post',
+        }, resp.json)
+
+    def test_inbox_quote_request_web_user(self, _, mock_get, mock_post):
+        self.store_object(id='https://user.com/post', source_protocol='web',
+                          our_as1={
+                              'objectType': 'note',
+                              'author': 'https://user.com/',
+                              'content': 'foo',
+                          })
+        self.make_user(ACTOR['id'], cls=ActivityPub, obj_as2=ACTOR)
+        mock_post.return_value = requests_response()
+
+        quote_request = {
+            **QUOTE_REQUEST,
+            'object': 'https://web.brid.gy/r/https://user.com/post',
+        }
+        got = self.post('/ap/sharedInbox', json=quote_request)
+        self.assertEqual(202, got.status_code, got.get_data(as_text=True))
+
+        stamp = 'https://web.brid.gy/ap/user.com/stamp/quote/aHR0cHM6Ly93ZWIuYnJpZC5neS9yL2h0dHBzOi8vdXNlci5jb20vcG9zdA==/aHR0cHM6Ly9tYXMudG8vdXNlcnMvZm9vL3N0YXR1c2VzLzE='
+        self.assertEqual(1, mock_post.call_count)
+        args, kwargs = mock_post.call_args
+        self.assertEqual(('http://mas.to/inbox',), args)
+        self.assertEqual({
+            '@context': as2.CONTEXT + [SECURITY_CONTEXT],
+            'type': 'Accept',
+            'id': f'{stamp}#accept',
+            'actor': 'https://web.brid.gy/user.com',
+            'to': ['https://mas.to/users/foo'],
+            'object': quote_request,
+            'result': stamp,
+        }, json_loads(kwargs['data']))
+
+    def test_inbox_quote_request_unknown_target(self, _, mock_get, mock_post):
+        self.make_user('fake:user', cls=Fake, enabled_protocols=['activitypub'])
+        self.make_user(ACTOR['id'], cls=ActivityPub, obj_as2=ACTOR)
+
+        got = self.post('/ap/sharedInbox', json=QUOTE_REQUEST)
+        self.assertEqual(204, got.status_code, got.get_data(as_text=True))
+        mock_post.assert_not_called()
+
+    def test_inbox_quote_request_user_not_enabled(self, _, mock_get, mock_post):
+        self.make_user('fake:user', cls=Fake)
+        self.store_object(id='fake:post', source_protocol='fake', our_as1={
+            'objectType': 'note',
+            'author': 'fake:user',
+        })
+        self.make_user(ACTOR['id'], cls=ActivityPub, obj_as2=ACTOR)
+
+        got = self.post('/ap/sharedInbox', json=QUOTE_REQUEST)
+        self.assertEqual(204, got.status_code, got.get_data(as_text=True))
+        mock_post.assert_not_called()
+
+    def test_inbox_quote_request_actor_not_signer(self, _, mock_get, mock_post):
+        self.make_user('fake:user', cls=Fake, enabled_protocols=['activitypub'])
+        self.store_object(id='fake:post', source_protocol='fake', our_as1={
+            'objectType': 'note',
+            'author': 'fake:user',
+        })
+        self.make_user(ACTOR['id'], cls=ActivityPub, obj_as2=ACTOR)
+        self.make_user('https://mas.to/users/other', cls=ActivityPub,
+                       obj_as2=add_key({**ACTOR, 'id': 'https://mas.to/users/other'}))
+
+        body = json_dumps(QUOTE_REQUEST)
+        headers = sign('/ap/sharedInbox', body,
+                       key_id='https://mas.to/users/other')
+        got = self.client.post('/ap/sharedInbox', data=body, headers=headers)
+        self.assertEqual(403, got.status_code, got.get_data(as_text=True))
+        mock_post.assert_not_called()
+
+    def test_inbox_quote_request_no_instrument(self, _, mock_get, mock_post):
+        self.make_user(ACTOR['id'], cls=ActivityPub, obj_as2=ACTOR)
+
+        got = self.post('/ap/sharedInbox', json={
+            **QUOTE_REQUEST,
+            'instrument': None,
+        })
+        self.assertEqual(400, got.status_code, got.get_data(as_text=True))
+        mock_post.assert_not_called()
 
     def test_inbox_add_to_featured_read_only(self, _, mock_get, __):
         appengine_info.READ_ONLY = True

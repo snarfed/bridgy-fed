@@ -1,5 +1,5 @@
 """ActivityPub protocol implementation."""
-from base64 import b64encode, urlsafe_b64decode
+from base64 import b64encode, urlsafe_b64decode, urlsafe_b64encode
 import copy
 from datetime import datetime, timedelta
 from hashlib import sha256
@@ -196,7 +196,8 @@ class ActivityPub(User, Protocol):
     ''
     SUPPORTED_AS2_TYPES = tuple(
         as2.OBJECT_TYPE_TO_TYPE.get(t) or as2.VERB_TO_TYPE.get(t)
-        for t in SUPPORTED_AS1_TYPES)
+        for t in SUPPORTED_AS1_TYPES
+    ) + ('QuoteRequest',)
     ''
     SUPPORTS_DMS = True
     ''
@@ -1664,6 +1665,9 @@ def inbox(protocol=None, id=None):
                 return 'OK', 202
         return 'Ignored', 204
 
+    elif type == 'QuoteRequest':
+        return handle_quote_request(activity, authed_as)
+
     if not id:
         id = f'{actor_id}#{type}-{obj_id or ""}-{util.now().isoformat()}'
         logger.info(f'Generated synthetic activity id {id}')
@@ -1686,6 +1690,67 @@ def inbox(protocol=None, id=None):
     return create_task(queue='receive', id=id, as2=activity,
                        source_protocol=ActivityPub.LABEL, authed_as=authed_as,
                        received_at=util.now().isoformat(), delay=delay)
+
+
+def handle_quote_request(activity, authed_as):
+    """Handles an incoming FEP-044f ``QuoteRequest``.
+
+    We currently let anyone quote anything, so we reply to all quote requests
+    by sending an ``Accept``.
+
+    https://codeberg.org/fediverse/fep/src/branch/main/fep/044f/fep-044f.md
+    https://github.com/snarfed/bridgy-fed/issues/1956
+
+    Args:
+      activity (dict): AS2 ``QuoteRequest`` activity
+      authed_as (str): AP actor id that signed the request
+
+    Returns:
+      (str, int) tuple: Flask response
+    """
+    assert activity['type'] == 'QuoteRequest'
+
+    actor_id = as1.get_id(activity, 'actor')
+    if authed_as != actor_id:
+        error(f"QuoteRequest actor {actor_id} doesn't match signer {authed_as}",
+              status=403)
+
+    obj_id = as1.get_id(activity, 'object')
+    quote_id = as1.get_object(activity, 'instrument').get('id')
+    if not obj_id or not quote_id:
+        error('QuoteRequest needs object and instrument', status=400)
+
+    user = None
+    if proto := Protocol.for_bridgy_subdomain(obj_id, fed='web'):
+        # TODO: switch to ids.translate_object_id once that handles resolving a
+        # translated id to a native id
+        target_id = unwrap(obj_id)
+        target = proto.load(target_id, raise_=False)
+        if target and (owner := as1.get_owner(target.as1)):
+            user = proto.get_by_id(ids.normalize_user_id(id=owner, proto=proto))
+
+    if not user or not user.is_enabled(ActivityPub):
+        error(f"{obj_id} isn't a bridged post", status=204)
+
+    if not (inbox := ActivityPub.target_for(ActivityPub.load(actor_id))):
+        error(f"Couldn't find inbox for {actor_id}", status=400)
+
+    user_ap_id = user.id_as(ActivityPub)
+    target_b64 = urlsafe_b64encode(obj_id.encode()).decode()
+    quote_b64 = urlsafe_b64encode(quote_id.encode()).decode()
+    stamp_id = urljoin(user_ap_id, f'/ap/{user_ap_id.rsplit("/", 1)[1]}/stamp/quote/{target_b64}/{quote_b64}')
+
+    accept = {
+        'type': 'Accept',
+        'id': f'{stamp_id}#accept',
+        'actor': user_ap_id,
+        'to': [actor_id],
+        'object': activity,
+        'result': stamp_id,
+    }
+    create_task(queue='send', id=accept['id'], as2=accept, url=inbox,
+                protocol=ActivityPub.LABEL, user=user.key.urlsafe())
+    return 'OK', 202
 
 
 # protocol in subdomain
