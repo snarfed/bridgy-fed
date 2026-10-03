@@ -51,7 +51,6 @@ from webutil.models import (
     StringIdModel,
 )
 from webutil.util import ellipsize, json_dumps, json_loads
-from werkzeug.exceptions import HTTPException
 
 import common
 from common import (
@@ -2750,26 +2749,30 @@ def filter_for_proto(objs, to_proto, raise_=False):
     # filter!
     visible = []
     for obj, keys in zip(objs, target_keys):
-        try:
-            for o in [obj] + [targets[key] for key in keys if key in targets]:
-                id = o.key.id()
-                if o is not obj and o.owner_protocol(remote=False) == to_proto:
-                    continue
-                elif o.deleted or o.type == 'delete':
-                    error('Deleted', status=410)
-                elif not as1.is_public(o.as1, unlisted=False):
-                    # we only bridge fully public data, not eg DMs or anything
-                    # else internal or non-public
-                    error('Not found', status=404)
-                elif to_proto.HAS_COPIES and not o.get_copy(to_proto):
-                    error(f"{id} hasn't been bridged to {to_proto.LABEL}", status=404)
-                elif owner_key := owner_keys.get(o.key):
-                    owner = owners.get(owner_key)
-                    if not owner or owner.status or not owner.is_enabled(to_proto):
-                        error(f"{id} owner {owner_key.id()} not found or isn't bridged to {to_proto.LABEL}", status=404)
-        except HTTPException:
+        for o in [obj] + [targets[key] for key in keys if key in targets]:
+            if o is not obj and o.owner_protocol(remote=False) == to_proto:
+                continue
+
+            id = o.key.id()
+            owner_key = owner_keys.get(o.key)
+            owner = owners.get(owner_key)
+            status = 404
+            if o.deleted or o.type == 'delete':
+                msg = 'Deleted'
+                status = 410
+            elif not as1.is_public(o.as1, unlisted=False):
+                msg = 'Not found'
+            elif to_proto.HAS_COPIES and not o.get_copy(to_proto):
+                msg = f"{id} hasn't been bridged to {to_proto.LABEL}"
+            elif owner_key and (not owner or owner.status
+                                or not owner.is_enabled(to_proto)):
+                msg = f"{id} owner {owner_key.id()} not found or isn't bridged to {to_proto.LABEL}"
+            else:
+                continue
+
             if raise_:
-                raise
+                error(msg, status=status)
+            break
         else:
             visible.append(obj)
 
