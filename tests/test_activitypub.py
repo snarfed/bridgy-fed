@@ -1,5 +1,5 @@
 """Unit tests for activitypub.py."""
-from base64 import b64encode
+from base64 import b64encode, urlsafe_b64encode
 import copy
 from datetime import datetime, timedelta, UTC
 from hashlib import sha256
@@ -35,9 +35,12 @@ from activitypub import (
     ActivityPub,
     AKA_CONTEXT,
     instance_actor,
+    INTERACTION_POLICY,
+    INTERACTION_POLICY_CONTEXT,
     NeedsAlias,
     postprocess_as2,
     postprocess_as2_actor,
+    QUOTE_AUTHORIZATION_CONTEXT,
     SECURITY_CONTEXT,
 )
 from atproto import ATProto
@@ -668,6 +671,71 @@ class ActivityPubTest(TestCase):
     def test_actor_not_web_no_ap_prefix(self, _, __, ___):
         got = self.client.get('/user.com', base_url='https://nostr.brid.gy/',
                               headers={'Accept': as2.CONTENT_TYPE})
+        self.assertEqual(404, got.status_code)
+
+    def get_stamp(self, base_url, id, target, interacting, type='quote'):
+        target = urlsafe_b64encode(target.encode()).decode()
+        interacting = urlsafe_b64encode(interacting.encode()).decode()
+        return self.client.get(f'/ap/{id}/stamp/{type}/{target}/{interacting}',
+                               base_url=base_url)
+
+    def test_stamp_quote(self, *_):
+        got = self.get_stamp('https://fa.brid.gy/', 'fake:user',
+                             'https://fa.brid.gy/convert/ap/fake:post',
+                             'https://inst/quote')
+        self.assertEqual(200, got.status_code, got.get_data(as_text=True))
+        self.assertEqual(as2.CONTENT_TYPE_LD_PROFILE, got.headers['Content-Type'])
+        self.assertEqual({
+            '@context': as2.CONTEXT + [QUOTE_AUTHORIZATION_CONTEXT],
+            'type': 'QuoteAuthorization',
+            'id': 'https://fa.brid.gy/ap/fake:user/stamp/quote/aHR0cHM6Ly9mYS5icmlkLmd5L2NvbnZlcnQvYXAvZmFrZTpwb3N0/aHR0cHM6Ly9pbnN0L3F1b3Rl',
+            'attributedTo': 'https://fa.brid.gy/ap/fake:user',
+            'interactingObject': 'https://inst/quote',
+            'interactionTarget': 'https://fa.brid.gy/convert/ap/fake:post',
+        }, got.json)
+
+    def test_stamp_quote_web(self, *_):
+        got = self.get_stamp('https://web.brid.gy/', 'user.com',
+                             'https://web.brid.gy/r/https://user.com/post',
+                             'https://inst/quote')
+        self.assertEqual(200, got.status_code, got.get_data(as_text=True))
+        self.assertEqual({
+            '@context': as2.CONTEXT + [QUOTE_AUTHORIZATION_CONTEXT],
+            'type': 'QuoteAuthorization',
+            'id': 'https://web.brid.gy/ap/user.com/stamp/quote/aHR0cHM6Ly93ZWIuYnJpZC5neS9yL2h0dHBzOi8vdXNlci5jb20vcG9zdA==/aHR0cHM6Ly9pbnN0L3F1b3Rl',
+            'attributedTo': 'https://web.brid.gy/user.com',
+            'interactingObject': 'https://inst/quote',
+            'interactionTarget': 'https://web.brid.gy/r/https://user.com/post',
+        }, got.json)
+
+    def test_stamp_quote_web_legacy_fed(self, *_):
+        got = self.get_stamp('https://fed.brid.gy/', 'user.com',
+                             'https://fed.brid.gy/r/https://user.com/post',
+                             'https://inst/quote')
+        self.assertEqual(200, got.status_code, got.get_data(as_text=True))
+        self.assertEqual({
+            '@context': as2.CONTEXT + [QUOTE_AUTHORIZATION_CONTEXT],
+            'type': 'QuoteAuthorization',
+            'id': 'https://fed.brid.gy/ap/user.com/stamp/quote/aHR0cHM6Ly9mZWQuYnJpZC5neS9yL2h0dHBzOi8vdXNlci5jb20vcG9zdA==/aHR0cHM6Ly9pbnN0L3F1b3Rl',
+            'attributedTo': 'https://fed.brid.gy/user.com',
+            'interactingObject': 'https://inst/quote',
+            'interactionTarget': 'https://fed.brid.gy/r/https://user.com/post',
+        }, got.json)
+
+    def test_stamp_quote_not_url(self, *_):
+        got = self.client.get('/ap/fake:user/stamp/quote/xyz/aHR0cHM6Ly9pbnN0L3F1b3Rl',
+                              base_url='https://fa.brid.gy/')
+        self.assertEqual(404, got.status_code)
+
+    def test_stamp_quote_target_other_host(self, *_):
+        got = self.get_stamp('https://fa.brid.gy/', 'fake:user',
+                             'https://other.com/post', 'https://inst/quote')
+        self.assertEqual(404, got.status_code)
+
+    def test_stamp_unknown_type(self, *_):
+        got = self.get_stamp('https://fa.brid.gy/', 'fake:user',
+                             'https://fa.brid.gy/convert/ap/fake:post',
+                             'https://inst/quote', type='reply')
         self.assertEqual(404, got.status_code)
 
     def test_instance_actor_fetch(self, *_):
@@ -2518,6 +2586,7 @@ class ActivityPubTest(TestCase):
                         'content': '<p>a reply</p>',
                         'contentMap': {'en': '<p>a reply</p>'},
                         'to': [as2.PUBLIC_AUDIENCE],
+                        'interactionPolicy': INTERACTION_POLICY,
                     },
                     'to': [as2.PUBLIC_AUDIENCE],
                 }, {
@@ -2531,6 +2600,7 @@ class ActivityPubTest(TestCase):
                         'content': '<p>hello</p>',
                         'contentMap': {'en': '<p>hello</p>'},
                         'to': [as2.PUBLIC_AUDIENCE],
+                        'interactionPolicy': INTERACTION_POLICY,
                     },
                     'to': [as2.PUBLIC_AUDIENCE],
                 }],
@@ -2566,6 +2636,7 @@ class ActivityPubTest(TestCase):
                         'id': 'https://fa.brid.gy/convert/ap/fake:new',
                         'attributedTo': 'https://fa.brid.gy/ap/fake:foo',
                         'to': [as2.PUBLIC_AUDIENCE],
+                        'interactionPolicy': INTERACTION_POLICY,
                     },
                     'to': [as2.PUBLIC_AUDIENCE],
                 }],
@@ -2616,6 +2687,7 @@ class ActivityPubTest(TestCase):
                         'tag': [{'type': 'Mention', 'href': 'https://inst/bob'}],
                         'to': [as2.PUBLIC_AUDIENCE],
                         'cc': ['https://inst/bob'],
+                        'interactionPolicy': INTERACTION_POLICY,
                     },
                     'to': [as2.PUBLIC_AUDIENCE],
                     'cc': ['https://inst/bob'],
@@ -3122,6 +3194,9 @@ class ActivityPubUtilsTest(TestCase):
             'content': '<p>foo</p>',
             'contentMap': {'en': '<p>foo</p>'},
             'to': [as2.PUBLIC_AUDIENCE],
+            'interactionPolicy': {
+                'canQuote': {'automaticApproval': [as2.PUBLIC_AUDIENCE]},
+            },
         }, postprocess_as2({
             'id': 'xyz',
             'type': 'Note',
@@ -3135,6 +3210,7 @@ class ActivityPubUtilsTest(TestCase):
             'content': '<p>foo</p>',
             'contentMap': {'en': '<p>foo</p>'},
             'to': [as2.PUBLIC_AUDIENCE],
+            'interactionPolicy': INTERACTION_POLICY,
         }, postprocess_as2({
             'type': 'Note',
             'content': 'foo',
@@ -3233,7 +3309,7 @@ class ActivityPubUtilsTest(TestCase):
                 'type': 'Link',
                 'href': 'http://another/link',
             }],
-        }), ignore=['to'])
+        }), ignore=['to', 'interactionPolicy'])
 
     def test_postprocess_as2_appends_link_attachments_to_content(self):
         # https://github.com/snarfed/bridgy-fed/issues/958
@@ -3250,7 +3326,7 @@ class ActivityPubUtilsTest(TestCase):
                 'type': 'Link',
                 'href': 'http://a/link',
             }],
-        }), ignore=['to'])
+        }), ignore=['to', 'interactionPolicy'])
 
     def test_postprocess_as2_link_attachments_to_content_keeps_lang(self):
         expected = '<p><a href="http://a/link">check it out</a></p>'
@@ -3266,7 +3342,7 @@ class ActivityPubUtilsTest(TestCase):
                 'href': 'http://a/link',
                 'name': 'check it out',
             }],
-        }), ignore=['to'])
+        }), ignore=['to', 'interactionPolicy'])
 
     def test_postprocess_as2_keeps_empty_contentMap(self):
         self.assert_equals({
@@ -3275,7 +3351,7 @@ class ActivityPubUtilsTest(TestCase):
         }, postprocess_as2({
             'type': 'Note',
             'contentMap': {'da': ''},
-        }), ignore=['to'])
+        }), ignore=['to', 'interactionPolicy'])
 
     def test_postprocess_as2_links_indexed_tags_with_link_attachment(self):
         # indexed facets must still be linked even when a Link attachment is
@@ -3293,7 +3369,7 @@ class ActivityPubUtilsTest(TestCase):
             'tag': [{'type': 'Tag', 'href': 'http://inst/baz',
                      'startIndex': 4, 'length': 4}],
             'attachment': [{'type': 'Link', 'href': 'http://a/link'}],
-        }), ignore=['to', 'tag'])
+        }), ignore=['to', 'tag', 'interactionPolicy'])
 
     def test_postprocess_as2_reply_includes_original_posts_mentions(self):
         note = {
@@ -4076,6 +4152,28 @@ class ActivityPubUtilsTest(TestCase):
             'object': ACTOR,
         }, ActivityPub.convert(obj))
 
+    def test_convert_create_note_interaction_policy(self):
+        # use assertEquals so that we don't ignore @context
+        self.assertEqual({
+            '@context': as2.CONTEXT + [INTERACTION_POLICY_CONTEXT],
+            'type': 'Create',
+            'to': [as2.PUBLIC_AUDIENCE],
+            'object': {
+                'type': 'Note',
+                'content': '<p>foo</p>',
+                'contentMap': {'en': '<p>foo</p>'},
+                'to': [as2.PUBLIC_AUDIENCE],
+                'interactionPolicy': INTERACTION_POLICY,
+            },
+        }, ActivityPub.convert(Object(our_as1={
+            'objectType': 'activity',
+            'verb': 'post',
+            'object': {
+                'objectType': 'note',
+                'content': 'foo',
+            },
+        })))
+
     def test_convert_to_cc(self):
         self.assert_equals({
             '@context': as2.CONTEXT,
@@ -4117,6 +4215,7 @@ class ActivityPubUtilsTest(TestCase):
                 'href': 'https://bsky.brid.gy/convert/ap/at://did:plc:bob/app.bsky.feed.post/456',
                 'name': 'RE: https://bsky.app/profile/did:plc:bob/post/456',
             }],
+            'interactionPolicy': INTERACTION_POLICY,
         }, ActivityPub.convert(obj), ignore=['contentMap', 'to'])
 
     @patch.object(util.session, 'get', return_value=requests_response())
@@ -4128,6 +4227,7 @@ class ActivityPubUtilsTest(TestCase):
             'url': 'http://localhost/r/https://bsky.app/profile/did:plc:bob/post/456',
             'attributedTo': 'https://bsky.brid.gy/ap/did:plc:bob',
             'content': '<p>foo bar<br><br><a href="http://a.li/nc">a linc</a></p>',
+            'interactionPolicy': INTERACTION_POLICY,
         }, ActivityPub.convert(Object(id='at://did:plc:bob/app.bsky.feed.post/456', bsky={
             "$type": "app.bsky.feed.post",
             "text": "foo bar",
@@ -4151,6 +4251,7 @@ class ActivityPubUtilsTest(TestCase):
             'attributedTo': 'https://bsky.brid.gy/ap/did:plc:bob',
             'content': content,
             'contentMap': {'da': content},
+            'interactionPolicy': INTERACTION_POLICY,
         }, ActivityPub.convert(Object(id='at://did:plc:bob/app.bsky.feed.post/456', bsky={
             '$type': 'app.bsky.feed.post',
             'text': '',
@@ -4180,7 +4281,7 @@ class ActivityPubUtilsTest(TestCase):
             }],
         })
         self.assertEqual({
-            '@context': as2.CONTEXT,
+            '@context': as2.CONTEXT + [INTERACTION_POLICY_CONTEXT],
             'type': 'Note',
             'content': '<p>hello <a class="mention h-card" href="https://bsky.brid.gy/ap/did:plc:5zspv27pk4iqtrl2ql2nykjh">@snarfed2.bsky.social</a></p>',
             'contentMap': {'en': '<p>hello <a class="mention h-card" href="https://bsky.brid.gy/ap/did:plc:5zspv27pk4iqtrl2ql2nykjh">@snarfed2.bsky.social</a></p>'},
@@ -4190,6 +4291,7 @@ class ActivityPubUtilsTest(TestCase):
                 'href': 'https://bsky.brid.gy/ap/did:plc:5zspv27pk4iqtrl2ql2nykjh',
             }],
             'to': ['https://www.w3.org/ns/activitystreams#Public'],
+            'interactionPolicy': INTERACTION_POLICY,
         }, ActivityPub.convert(obj))
 
     def test_convert_pinned_post_featured_collection_ids(self):

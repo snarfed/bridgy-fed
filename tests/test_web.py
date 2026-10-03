@@ -22,7 +22,7 @@ from werkzeug.exceptions import BadGateway, BadRequest
 # import first so that Fake is defined before URL routes are registered
 from . import testutil
 
-from activitypub import ActivityPub
+from activitypub import ActivityPub, INTERACTION_POLICY
 from atproto import ATProto
 import common
 from common import CONTENT_TYPE_HTML, TASKS_LOCATION
@@ -315,6 +315,7 @@ AS2_CREATE = {
             'type': 'Mention',
             'href': 'https://mas.to/author',
         }],
+        'interactionPolicy': INTERACTION_POLICY,
     },
     'to': [as2.PUBLIC_AUDIENCE],
     'cc': [
@@ -434,6 +435,7 @@ NOTE_AS2 = {
     'content': '<p>hello i am a post</p>',
     'contentMap': {'en': '<p>hello i am a post</p>'},
     'to': [as2.PUBLIC_AUDIENCE],
+    'interactionPolicy': INTERACTION_POLICY,
 }
 CREATE_AS2 = {
     '@context': 'https://www.w3.org/ns/activitystreams',

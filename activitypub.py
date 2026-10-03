@@ -1,5 +1,5 @@
 """ActivityPub protocol implementation."""
-from base64 import b64encode
+from base64 import b64encode, urlsafe_b64decode
 import copy
 from datetime import datetime, timedelta
 from hashlib import sha256
@@ -84,6 +84,23 @@ SECURITY_CONTEXT = 'https://w3id.org/security/v1'
 # https://www.w3.org/ns/activitystreams#did-core
 # https://docs.joinmastodon.org/spec/activitypub/#properties-used-1
 AKA_CONTEXT = {'alsoKnownAs': {'@id': 'as:alsoKnownAs', '@type': '@id'}}
+
+# FEP-044f quote posts. currently we let anyone quote anything.
+# https://codeberg.org/fediverse/fep/src/branch/main/fep/044f/fep-044f.md
+# https://github.com/snarfed/bridgy-fed/issues/1956
+INTERACTION_POLICY = {'canQuote': {'automaticApproval': [as2.PUBLIC_AUDIENCE]}}
+INTERACTION_POLICY_CONTEXT = {
+    'gts': 'https://gotosocial.org/ns#',
+    'interactionPolicy': {'@id': 'gts:interactionPolicy', '@type': '@id'},
+    'canQuote': {'@id': 'gts:canQuote', '@type': '@id'},
+    'automaticApproval': {'@id': 'gts:automaticApproval', '@type': '@id'},
+}
+QUOTE_AUTHORIZATION_CONTEXT = {
+    'QuoteAuthorization': 'https://w3id.org/fep/044f#QuoteAuthorization',
+    'gts': 'https://gotosocial.org/ns#',
+    'interactingObject': {'@id': 'gts:interactingObject', '@type': '@id'},
+    'interactionTarget': {'@id': 'gts:interactionTarget', '@type': '@id'},
+}
 
 # https://seb.jambor.dev/posts/understanding-activitypub-part-4-threads/#the-instance-actor
 _INSTANCE_ACTOR = None
@@ -702,6 +719,9 @@ class ActivityPub(User, Protocol):
 
         # convert!
         converted = postprocess_as2(converted, orig_obj=orig_obj)
+        if (converted.get('interactionPolicy')
+                or as1.get_object(converted).get('interactionPolicy')):
+            add(converted.setdefault('@context', []), INTERACTION_POLICY_CONTEXT)
 
         # FEP-fffd proxy link
         # https://codeberg.org/fediverse/fep/src/branch/main/fep/fffd/fep-fffd.md
@@ -1192,6 +1212,8 @@ def postprocess_as2(activity, orig_obj=None, wrap=True):
         add(activity.setdefault('to', []), as2.PUBLIC_AUDIENCE)
         if obj and type in as2.CRUD_VERBS:
             add(obj.setdefault('to', []), as2.PUBLIC_AUDIENCE)
+        if type in ('Article', 'Note', 'Question'):
+            activity['interactionPolicy'] = INTERACTION_POLICY
 
     # cc target's author(s), recipients, mentions
     # https://www.w3.org/TR/activitystreams-vocabulary/#audienceTargeting
@@ -1473,6 +1495,58 @@ def actor(handle_or_id):
     return actor, {
         'Content-Type': as2_type,
         'Access-Control-Allow-Origin': '*',
+    }
+
+
+@app.get('/ap/<user_id>/stamp/<any(quote):type>/<target_b64>/<interacting_b64>')
+@flask_util.headers(CACHE_CONTROL)
+def stamp(user_id, type, target_b64, interacting_b64):
+    """Serves a FEP-044f ``QuoteAuthorization`` stamp.
+
+    These are stateless. The quote post id, original post id, and original post's
+    user id are all in the URL path. The quote post id and original post id are
+    base64-encoded. The returned ``QuoteAuthorization`` object is generated entirely
+    from those ids, without loading anything from the datastore.
+
+    We currently let anyone quote anything, so we serve a stamp for any quote of any
+    post on this host.
+
+    https://codeberg.org/fediverse/fep/src/branch/main/fep/044f/fep-044f.md
+    https://github.com/snarfed/bridgy-fed/issues/1956
+
+    Args:
+      user_id (str): id of the bridged user who owns the quoted post
+      type (str): interaction type. Currently only ``quote`` is supported.
+      target_b64 (str): base64url-encoded id of the quoted post, with padding
+      interacting_b64 (str): base64url-encoded id of the quote post, with padding
+    """
+    try:
+        target_id = urlsafe_b64decode(target_b64).decode()
+        interacting_id = urlsafe_b64decode(interacting_b64).decode()
+    except ValueError as e:
+        error(f'Invalid base64: {e}', status=404)
+
+    if not util.is_web(target_id) or not util.is_web(interacting_id):
+        error(f'Expected URLs, got {target_id} {interacting_id}', status=404)
+    elif urlparse(target_id).netloc != request.host:
+        error(f'{target_id} is not on {request.host}', status=404)
+
+    # web users' actor ids don't have the /ap/ prefix
+    proto = Protocol.for_request(fed='web')
+    if proto and proto.LABEL == 'web':
+        attributed_to = f'{request.host_url}{user_id}'
+    else:
+        attributed_to = f'{request.host_url}ap/{user_id}'
+
+    return {
+        '@context': as2.CONTEXT + [QUOTE_AUTHORIZATION_CONTEXT],
+        'type': 'QuoteAuthorization',
+        'id': request.base_url,
+        'attributedTo': attributed_to,
+        'interactingObject': interacting_id,
+        'interactionTarget': target_id,
+    }, {
+        'Content-Type': ActivityPub.CONTENT_TYPE,
     }
 
 

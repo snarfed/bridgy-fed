@@ -3559,7 +3559,8 @@ class ProtocolReceiveTest(TestCase):
                     {'type': 'Mention', 'href': 'http://inst/eve'},
                 ],
             },
-        }, from_user=frank.key.get(), ignore=['contentMap', 'to', 'cc', 'published'])
+        }, from_user=frank.key.get(),
+           ignore=['contentMap', 'to', 'cc', 'published', 'interactionPolicy'])
 
     def test_update_reply(self):
         eve = self.make_user('other:eve', cls=OtherFake, obj_id='other:eve')

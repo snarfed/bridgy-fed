@@ -2508,7 +2508,7 @@ class MastodonApiTest(TestCase):
                 'tag': [{'type': 'Mention', 'href': 'https://mas.to/users/bob'}],
                 'published': '2022-01-02T03:04:05+00:00',
             },
-        }, ignore=['@context', 'to', 'cc', 'url'])
+        }, ignore=['@context', 'to', 'cc', 'url', 'interactionPolicy'])
 
     @patch.object(util, 'requests_get', return_value=requests_response(
         '', url='https://alice.com/',
@@ -2725,7 +2725,7 @@ class MastodonApiTest(TestCase):
                     'href': 'https://mas.to/users/bob',
                 }],
             },
-        }, ignore=['@context', 'to', 'cc', 'url'])
+        }, ignore=['@context', 'to', 'cc', 'url', 'interactionPolicy'])
 
     # putRecord
     @patch.object(util.session, 'post', return_value=requests_response({

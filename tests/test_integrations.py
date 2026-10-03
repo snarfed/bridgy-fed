@@ -67,7 +67,7 @@ from webutil.testutil import NOW, NOW_SECONDS, requests_response
 from webutil import util
 from webutil.util import json_dumps, json_loads
 
-from activitypub import ActivityPub
+from activitypub import ActivityPub, INTERACTION_POLICY
 import app
 from atproto import ATProto
 import atproto_firehose
@@ -367,6 +367,7 @@ class IntegrationTests(TestCase):
                 'contentMap': {'en': '<p>I hereby post</p>'},
                 'published': '2022-01-02T03:04:05.000Z',
                 'to': ['https://www.w3.org/ns/activitystreams#Public'],
+                'interactionPolicy': INTERACTION_POLICY,
             },
             'to': ['https://www.w3.org/ns/activitystreams#Public'],
         })
@@ -435,6 +436,7 @@ class IntegrationTests(TestCase):
                     'href': 'https://bsky.brid.gy/convert/ap/at://did:plc:eve/app.bsky.feed.post/456',
                     'name': 'RE: https://bsky.app/profile/did:plc:eve/post/456',
                 }],
+                'interactionPolicy': INTERACTION_POLICY,
             },
         })
 
@@ -581,6 +583,7 @@ class IntegrationTests(TestCase):
                 'inReplyTo': 'http://inst/post',
                 'tag': [{'type': 'Mention', 'href': 'http://inst/bob'}],
                 'cc': ['http://inst/bob'],
+                'interactionPolicy': INTERACTION_POLICY,
             },
             'cc': ['http://inst/bob'],
         }, ignore=['@context', 'to'])
@@ -1986,7 +1989,7 @@ class IntegrationTests(TestCase):
                     'href': 'https://inst/bob',
                 }],
             },
-        }, ignore=['@context', 'contentMap', 'to', 'cc'])
+        }, ignore=['@context', 'contentMap', 'to', 'cc', 'interactionPolicy'])
 
     @patch.object(util.session, 'post')
     @patch.object(util.session, 'get')
@@ -2203,7 +2206,8 @@ class IntegrationTests(TestCase):
                 'name': '#original',
                 'href': 'https://bsky.app/search?q=%23original',
             }],
-        }, ActivityPub.convert(obj), ignore=['@context', 'attributedTo', 'to'])
+        }, ActivityPub.convert(obj),
+           ignore=['@context', 'attributedTo', 'to', 'interactionPolicy'])
 
     @patch.object(util.session, 'get', side_effect=[
         requests_response({**DID_DOC, 'alsoKnownAs': ['at://b.az']}),
@@ -2276,6 +2280,7 @@ class IntegrationTests(TestCase):
                 'rel': 'canonical',
                 'href': 'at://did:plc:alice/post/123',
             }],
+            'interactionPolicy': INTERACTION_POLICY,
         }
         self.assert_equals(expected, ActivityPub.convert(obj),
                            ignore=['@context', 'to'])
@@ -2335,6 +2340,7 @@ class IntegrationTests(TestCase):
                 'rel': 'canonical',
                 'href': 'at://did:plc:alice/post/123',
             }],
+            'interactionPolicy': INTERACTION_POLICY,
         }
         self.assert_equals(expected, ActivityPub.convert(obj),
                            ignore=['@context', 'to'])
@@ -2380,6 +2386,7 @@ class IntegrationTests(TestCase):
                 'contentMap': {'en': '<p>Hello from Nostr!</p>'},
                 'published': '2022-01-02T03:04:05+00:00',
                 'url': f'http://localhost/r/https://njump.me/{bech32_encode("note", post_event["id"])}',
+                'interactionPolicy': INTERACTION_POLICY,
             },
             'published': '2022-01-02T03:04:05+00:00',
         }, ignore=['@context', 'to'])
@@ -2487,6 +2494,7 @@ class IntegrationTests(TestCase):
                 'published': '2022-01-02T03:04:05+00:00',
                 'url': f'http://localhost/r/https://njump.me/{bech32_encode("note", post_event["id"])}',
                 'cc': ['https://inst/alice'],
+                'interactionPolicy': INTERACTION_POLICY,
             },
             'published': '2022-01-02T03:04:05+00:00',
             'cc': ['https://inst/alice'],
@@ -3063,6 +3071,7 @@ class IntegrationTests(TestCase):
                 'content': '<p>Hello from my blog!</p>',
                 'contentMap': {'en': '<p>Hello from my blog!</p>'},
                 'to': ['https://www.w3.org/ns/activitystreams#Public'],
+                'interactionPolicy': INTERACTION_POLICY,
             },
             'to': ['https://www.w3.org/ns/activitystreams#Public'],
         }, ignore=['@context'])
@@ -3451,6 +3460,7 @@ class IntegrationTests(TestCase):
                 'tag': [{'type': 'Mention', 'href': 'https://inst/alice'}],
                 'published': '2022-01-02T03:04:05+00:00',
                 'cc': ['https://inst/alice'],
+                'interactionPolicy': INTERACTION_POLICY,
             },
         }, ignore=['@context', 'to'])
 
@@ -4121,6 +4131,7 @@ cast_add_body { text: "Hello from Farcaster!" }
                 'content': '<p>Hello from Farcaster!</p>',
                 'published': '2022-01-02T03:04:05+00:00',
                 'url': f'http://localhost/r/https://farcaster.xyz/~/conversations/0x{post_msg.hash.hex()}',
+                'interactionPolicy': INTERACTION_POLICY,
             },
             'published': '2022-01-02T03:04:05+00:00',
         }, ignore=['@context', 'to', 'contentMap'])
@@ -4217,6 +4228,7 @@ cast_add_body {
                 }],
                 'published': '2022-01-02T03:04:05+00:00',
                 'url': f'http://localhost/r/https://farcaster.xyz/~/conversations/0x{post_msg.hash.hex()}',
+                'interactionPolicy': INTERACTION_POLICY,
             },
             'published': '2022-01-02T03:04:05+00:00',
         }, ignore=['@context', 'to', 'cc', 'contentMap'])
@@ -4369,6 +4381,7 @@ cast_add_body {{
                 'inReplyTo': 'https://inst/post',
                 'tag': [{'type': 'Mention', 'href': 'https://inst/alice'}],
                 'published': '2022-01-02T03:04:05+00:00',
+                'interactionPolicy': INTERACTION_POLICY,
             },
             'published': '2022-01-02T03:04:05+00:00',
         }, ignore=['@context', 'to', 'cc', 'contentMap', 'url'])

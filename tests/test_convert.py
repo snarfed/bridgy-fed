@@ -15,7 +15,7 @@ from webutil.util import json_loads, parse_mf2
 from . import testutil
 from .testutil import ExplicitFake, Fake, OtherFake
 
-from activitypub import ActivityPub
+from activitypub import ActivityPub, INTERACTION_POLICY
 from atproto import ATProto
 from common import CONTENT_TYPE_HTML
 from web import Web
@@ -33,6 +33,7 @@ COMMENT_AS2 = {
     'contentMap': {'en': '<p>A ☕ reply</p>'},
     'inReplyTo': 'https://web.brid.gy/r/https://fake.com/123',
     'published': '2012-12-05T00:58:26+00:00',
+    'interactionPolicy': INTERACTION_POLICY,
 }
 HTML = """\
 <!DOCTYPE html>
@@ -241,6 +242,7 @@ class ConvertTest(testutil.TestCase):
             'attributedTo': 'https://fa.brid.gy/ap/fake:alice',
             'inReplyTo': 'http://inst/post',
             'to': ['https://www.w3.org/ns/activitystreams#Public'],
+            'interactionPolicy': INTERACTION_POLICY,
         }, json_loads(resp.get_data()), ignore=['@context'])
 
     def test_fake_to_activitypub_unlisted(self):
@@ -296,6 +298,7 @@ class ConvertTest(testutil.TestCase):
             'content': '<p>hello</p>',
             'contentMap': {'en': '<p>hello</p>'},
             'to': ['https://www.w3.org/ns/activitystreams#Public'],
+            'interactionPolicy': INTERACTION_POLICY,
         }, json_loads(resp.get_data()))
 
     def test_ui_to_activitypub_not_public(self):
@@ -344,6 +347,7 @@ class ConvertTest(testutil.TestCase):
             'content': '<p>hello</p>',
             'contentMap': {'en': '<p>hello</p>'},
             'to': ['https://www.w3.org/ns/activitystreams#Public'],
+            'interactionPolicy': INTERACTION_POLICY,
         }, json_loads(resp.get_data()))
 
     def test_activitypub_to_web_object(self):
