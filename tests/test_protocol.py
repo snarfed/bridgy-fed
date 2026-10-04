@@ -1559,6 +1559,20 @@ class ProtocolTest(TestCase):
                     'content': 'x',
                 }), 'receive')
 
+        # non-public actors are allowed, User.status handles them
+        unlisted_actor = {
+            'objectType': 'person',
+            'id': 'fake:user',
+            'to': [{'objectType': 'group', 'alias': '@unlisted'}],
+        }
+        for obj in (
+            unlisted_actor,
+            {'objectType': 'activity', 'verb': 'update', 'actor': 'fake:user',
+             'object': unlisted_actor},
+        ):
+            with self.subTest(obj=obj):
+                Fake.check_supported(Object(our_as1=obj), 'receive')
+
         # followers-only activities from NON_PUBLIC_DOMAINS should be allowed
         Fake.check_supported(Object(our_as1={
             'id': 'https://bird.makeup/post',
@@ -4224,6 +4238,28 @@ class ProtocolReceiveTest(TestCase):
             ('other:alice:target', update_as1),
             ('other:bob:target', update_as1),
         ], OtherFake.sent)
+
+    def test_update_profile_unlisted_enabled_protocols(self):
+        self.user.enabled_protocols = ['other']
+        self.user.put()
+        Follower.get_or_create(to=self.user, from_=self.alice)
+
+        update_as1 = {
+            'objectType': 'activity',
+            'verb': 'update',
+            'id': 'fake:update',
+            'actor': 'fake:user',
+            'object': {
+                'objectType': 'person',
+                'id': 'fake:profile:user',
+                'displayName': 'Ms. ☕ Baz',
+                'to': [{'objectType': 'group', 'alias': '@unlisted'}],
+            },
+        }
+        Fake.receive_as1(update_as1)
+
+        self.assertIsNone(self.user.key.get().status)
+        self.assertEqual([('other:alice:target', update_as1)], OtherFake.sent)
 
     def test_update_profile_bare_object_user_id_is_not_profile_id(self):
         profile = {

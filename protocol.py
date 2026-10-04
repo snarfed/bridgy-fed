@@ -2512,8 +2512,11 @@ Hi! You <a href="{inner_obj_as1.get('url') or inner_obj_id}">recently {verb}</a>
 
             # check that this activity is public. only do this for some activities,
             # not eg likes or follows, since Mastodon doesn't currently mark those
-            # as explicitly public.
-            elif (obj.type in set(('post', 'update')) | as1.POST_TYPES | as1.ACTOR_TYPES
+            # as explicitly public, or actors, since Bluesky's "only show to logged
+            # in users" converts as non-public, but we still want those profile
+            # updates for opted in users.
+            elif (obj.type in set(('post', 'update')) | as1.POST_TYPES
+                  and crud_obj.get('objectType') not in as1.ACTOR_TYPES
                   and not util.domain_or_parent_in(crud_obj.get('id'), NON_PUBLIC_DOMAINS)
                   and not as1.is_public(obj.as1, unlisted=False)):
                 error('Bridgy Fed only supports public activities', status=204)
