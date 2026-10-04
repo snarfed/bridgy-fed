@@ -40,7 +40,8 @@ from activitypub import (
     NeedsAlias,
     postprocess_as2,
     postprocess_as2_actor,
-    QUOTE_AUTHORIZATION_CONTEXT,
+    FEP044F_QUOTE_AUTH_CONTEXT,
+    FEP044F_QUOTE_POST_CONTEXT,
     SECURITY_CONTEXT,
 )
 from atproto import ATProto
@@ -699,7 +700,7 @@ class ActivityPubTest(TestCase):
         self.assertEqual(200, got.status_code, got.get_data(as_text=True))
         self.assertEqual(as2.CONTENT_TYPE_LD_PROFILE, got.headers['Content-Type'])
         self.assertEqual({
-            '@context': as2.CONTEXT + [QUOTE_AUTHORIZATION_CONTEXT],
+            '@context': as2.CONTEXT + [FEP044F_QUOTE_AUTH_CONTEXT],
             'type': 'QuoteAuthorization',
             'id': 'https://fa.brid.gy/ap/fake:user/stamp/quote/aHR0cHM6Ly9mYS5icmlkLmd5L2NvbnZlcnQvYXAvZmFrZTpwb3N0/aHR0cHM6Ly9pbnN0L3F1b3Rl',
             'attributedTo': 'https://fa.brid.gy/ap/fake:user',
@@ -713,7 +714,7 @@ class ActivityPubTest(TestCase):
                              'https://inst/quote')
         self.assertEqual(200, got.status_code, got.get_data(as_text=True))
         self.assertEqual({
-            '@context': as2.CONTEXT + [QUOTE_AUTHORIZATION_CONTEXT],
+            '@context': as2.CONTEXT + [FEP044F_QUOTE_AUTH_CONTEXT],
             'type': 'QuoteAuthorization',
             'id': 'https://web.brid.gy/ap/user.com/stamp/quote/aHR0cHM6Ly93ZWIuYnJpZC5neS9yL2h0dHBzOi8vdXNlci5jb20vcG9zdA==/aHR0cHM6Ly9pbnN0L3F1b3Rl',
             'attributedTo': 'https://web.brid.gy/user.com',
@@ -727,7 +728,7 @@ class ActivityPubTest(TestCase):
                              'https://inst/quote')
         self.assertEqual(200, got.status_code, got.get_data(as_text=True))
         self.assertEqual({
-            '@context': as2.CONTEXT + [QUOTE_AUTHORIZATION_CONTEXT],
+            '@context': as2.CONTEXT + [FEP044F_QUOTE_AUTH_CONTEXT],
             'type': 'QuoteAuthorization',
             'id': 'https://fed.brid.gy/ap/user.com/stamp/quote/aHR0cHM6Ly9mZWQuYnJpZC5neS9yL2h0dHBzOi8vdXNlci5jb20vcG9zdA==/aHR0cHM6Ly9pbnN0L3F1b3Rl',
             'attributedTo': 'https://fed.brid.gy/user.com',
@@ -941,7 +942,7 @@ class ActivityPubTest(TestCase):
                                base_url='https://fa.brid.gy/')
         self.assertEqual(200, resp.status_code)
         self.assertEqual({
-            '@context': as2.CONTEXT + [QUOTE_AUTHORIZATION_CONTEXT],
+            '@context': as2.CONTEXT + [FEP044F_QUOTE_AUTH_CONTEXT],
             'type': 'QuoteAuthorization',
             'id': stamp,
             'attributedTo': 'https://fa.brid.gy/ap/fake:user',
@@ -4339,6 +4340,7 @@ class ActivityPubUtilsTest(TestCase):
             'url': 'http://localhost/r/https://bsky.app/profile/did:plc:alice/post/123',
             'content': '<p>foo bar<span class="quote-inline"><br><br>RE: <a href="https://bsky.app/profile/did:plc:bob/post/456">https://bsky.app/profile/did:plc:bob/post/456</a></span></p>',
             'attributedTo': 'https://bsky.brid.gy/ap/did:plc:alice',
+            'quote': 'https://bsky.brid.gy/convert/ap/at://did:plc:bob/app.bsky.feed.post/456',
             '_misskey_quote': 'https://bsky.brid.gy/convert/ap/at://did:plc:bob/app.bsky.feed.post/456',
             'quoteUrl': 'https://bsky.brid.gy/convert/ap/at://did:plc:bob/app.bsky.feed.post/456',
             'tag': [{
@@ -4349,6 +4351,121 @@ class ActivityPubUtilsTest(TestCase):
             }],
             'interactionPolicy': INTERACTION_POLICY,
         }, ActivityPub.convert(obj), ignore=['contentMap', 'to'])
+
+    def test_convert_quote_post_of_bridged_post_adds_quoteAuthorization(self):
+        self.make_user('fake:bob', cls=Fake, enabled_protocols=['activitypub'])
+        self.store_object(id='fake:orig', source_protocol='fake', our_as1={
+            'objectType': 'note',
+            'author': 'fake:bob',
+        })
+
+        obj = Object(id='fake:quote', source_protocol='fake', our_as1={
+            'objectType': 'note',
+            'id': 'fake:quote',
+            'author': 'fake:alice',
+            'content': 'foo',
+            'attachments': [{
+                'objectType': 'note',
+                'id': 'fake:orig',
+            }],
+        })
+
+        orig = 'https://fa.brid.gy/convert/ap/fake:orig'
+        quote = 'https://fa.brid.gy/convert/ap/fake:quote'
+        orig_b64 = urlsafe_b64encode(orig.encode()).decode()
+        quote_b64 = urlsafe_b64encode(quote.encode()).decode()
+        # use assertEquals so that we don't ignore @context
+        self.assertEqual({
+            '@context': as2.CONTEXT + [
+                as2.FEP044F_QUOTE_CONTEXT,
+                as2.MISSKEY_QUOTE_CONTEXT,
+                INTERACTION_POLICY_CONTEXT,
+                FEP044F_QUOTE_POST_CONTEXT,
+            ],
+            'type': 'Note',
+            'id': quote,
+            'attributedTo': 'https://fa.brid.gy/ap/fake:alice',
+            'content': '<p>foo<span class="quote-inline"><br><br>RE: <a href="https://fa.brid.gy/convert/ap/fake:orig">https://fa.brid.gy/convert/ap/fake:orig</a></span></p>',
+            'contentMap': {'en': '<p>foo<span class="quote-inline"><br><br>RE: <a href="https://fa.brid.gy/convert/ap/fake:orig">https://fa.brid.gy/convert/ap/fake:orig</a></span></p>'},
+            'quote': orig,
+            '_misskey_quote': orig,
+            'quoteUrl': orig,
+            'quoteAuthorization': f'https://fa.brid.gy/ap/fake:bob/stamp/quote/{orig_b64}/{quote_b64}',
+            'tag': [{
+                'type': 'Link',
+                'mediaType': as2.CONTENT_TYPE_LD_PROFILE,
+                'href': orig,
+                'name': 'RE: https://fa.brid.gy/convert/ap/fake:orig',
+            }],
+            'to': [as2.PUBLIC_AUDIENCE],
+            'interactionPolicy': INTERACTION_POLICY,
+            'url': [{
+                'type': 'Link',
+                'rel': 'canonical',
+                'href': 'fake:quote',
+            }],
+        }, ActivityPub.convert(obj))
+
+    def test_convert_quote_post_of_activitypub_post_no_quoteAuthorization(self):
+        obj = Object(id='fake:quote', source_protocol='fake', our_as1={
+            'objectType': 'note',
+            'id': 'fake:quote',
+            'author': 'fake:alice',
+            'attachments': [{
+                'objectType': 'note',
+                'id': 'https://inst/orig',
+            }],
+        })
+
+        got = ActivityPub.convert(obj)
+        self.assertEqual('https://inst/orig', got['quote'])
+        self.assertNotIn('quoteAuthorization', got)
+
+    def test_convert_quote_post_of_bridged_post_not_stored_fetches(self):
+        self.make_user('fake:bob', cls=Fake, enabled_protocols=['activitypub'])
+        Fake.fetchable['fake:orig'] = {
+            'objectType': 'note',
+            'author': 'fake:bob',
+        }
+
+        obj = Object(id='fake:quote', source_protocol='fake', our_as1={
+            'objectType': 'note',
+            'id': 'fake:quote',
+            'author': 'fake:alice',
+            'attachments': [{
+                'objectType': 'note',
+                'id': 'fake:orig',
+            }],
+        })
+
+        got = ActivityPub.convert(obj)
+        self.assertEqual(['fake:orig'], Fake.fetched)
+        orig_b64 = urlsafe_b64encode(b'https://fa.brid.gy/convert/ap/fake:orig').decode()
+        quote_b64 = urlsafe_b64encode(b'https://fa.brid.gy/convert/ap/fake:quote').decode()
+        self.assertEqual(
+            f'https://fa.brid.gy/ap/fake:bob/stamp/quote/{orig_b64}/{quote_b64}',
+            got['quoteAuthorization'])
+
+    def test_convert_quote_post_of_bridged_post_not_stored_remote_false(self):
+        self.make_user('fake:bob', cls=Fake, enabled_protocols=['activitypub'])
+        Fake.fetchable['fake:orig'] = {
+            'objectType': 'note',
+            'author': 'fake:bob',
+        }
+
+        obj = Object(id='fake:quote', source_protocol='fake', our_as1={
+            'objectType': 'note',
+            'id': 'fake:quote',
+            'author': 'fake:alice',
+            'attachments': [{
+                'objectType': 'note',
+                'id': 'fake:orig',
+            }],
+        })
+
+        got = ActivityPub.convert(obj, remote=False)
+        self.assertEqual([], Fake.fetched)
+        self.assertNotIn('quoteAuthorization', got)
 
     @patch.object(util.session, 'get', return_value=requests_response())
     def test_convert_bluesky_external_embed_to_link_in_content(self, _):

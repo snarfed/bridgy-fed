@@ -429,6 +429,8 @@ class IntegrationTests(TestCase):
                 'contentMap': {'en': f'<p>Ok{re_link}</p>'},
                 'published': '2022-01-02T03:04:05.000Z',
                 'quoteUrl': 'https://bsky.brid.gy/convert/ap/at://did:plc:eve/app.bsky.feed.post/456',
+                'quote': 'https://bsky.brid.gy/convert/ap/at://did:plc:eve/app.bsky.feed.post/456',
+                'quoteAuthorization': 'https://bsky.brid.gy/ap/did:plc:eve/stamp/quote/aHR0cHM6Ly9ic2t5LmJyaWQuZ3kvY29udmVydC9hcC9hdDovL2RpZDpwbGM6ZXZlL2FwcC5ic2t5LmZlZWQucG9zdC80NTY=/aHR0cHM6Ly9ic2t5LmJyaWQuZ3kvY29udmVydC9hcC9hdDovL2RpZDpwbGM6YWxpY2UvYXBwLmJza3kuZmVlZC5wb3N0LzEyMw==',
                 '_misskey_quote': 'https://bsky.brid.gy/convert/ap/at://did:plc:eve/app.bsky.feed.post/456',
                 'tag': [{
                     'type': 'Link',
@@ -2324,6 +2326,7 @@ class IntegrationTests(TestCase):
             'content': expected_content,
             'contentMap': {'en': expected_content},
             'quoteUrl': 'https://bsky.brid.gy/convert/ap/at://did:plc:bob/app.bsky.feed.post/123',
+            'quote': 'https://bsky.brid.gy/convert/ap/at://did:plc:bob/app.bsky.feed.post/123',
             '_misskey_quote': 'https://bsky.brid.gy/convert/ap/at://did:plc:bob/app.bsky.feed.post/123',
             'tag': [{
                 'type': 'Mention',

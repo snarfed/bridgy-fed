@@ -95,7 +95,13 @@ INTERACTION_POLICY_CONTEXT = {
     'canQuote': {'@id': 'gts:canQuote', '@type': '@id'},
     'automaticApproval': {'@id': 'gts:automaticApproval', '@type': '@id'},
 }
-QUOTE_AUTHORIZATION_CONTEXT = {
+FEP044F_QUOTE_POST_CONTEXT = {
+    'quoteAuthorization': {
+        '@id': 'https://w3id.org/fep/044f#quoteAuthorization',
+        '@type': '@id',
+    },
+}
+FEP044F_QUOTE_AUTH_CONTEXT = {
     'QuoteAuthorization': 'https://w3id.org/fep/044f#QuoteAuthorization',
     'gts': 'https://gotosocial.org/ns#',
     'interactingObject': {'@id': 'gts:interactingObject', '@type': '@id'},
@@ -723,6 +729,15 @@ class ActivityPub(User, Protocol):
         if (converted.get('interactionPolicy')
                 or as1.get_object(converted).get('interactionPolicy')):
             add(converted.setdefault('@context', []), INTERACTION_POLICY_CONTEXT)
+
+        # include FEP-044f quoteAuthorization for quote of bridged posts
+        # https://codeberg.org/fediverse/fep/src/branch/main/fep/044f/fep-044f.md
+        for post in converted, as1.get_object(converted):
+            if (id := post.get('id')) and (quote := post.get('quote')):
+                _, stamp_id = quote_stamp(quote, id, remote=None if remote else False)
+                if stamp_id:
+                    post['quoteAuthorization'] = stamp_id
+                    add(converted.setdefault('@context', []), FEP044F_QUOTE_POST_CONTEXT)
 
         # FEP-fffd proxy link
         # https://codeberg.org/fediverse/fep/src/branch/main/fep/fffd/fep-fffd.md
@@ -1540,7 +1555,7 @@ def stamp(user_id, type, target_b64, interacting_b64):
         attributed_to = f'{request.host_url}ap/{user_id}'
 
     return {
-        '@context': as2.CONTEXT + [QUOTE_AUTHORIZATION_CONTEXT],
+        '@context': as2.CONTEXT + [FEP044F_QUOTE_AUTH_CONTEXT],
         'type': 'QuoteAuthorization',
         'id': request.base_url,
         'attributedTo': attributed_to,
@@ -1692,6 +1707,40 @@ def inbox(protocol=None, id=None):
                        received_at=util.now().isoformat(), delay=delay)
 
 
+def quote_stamp(target_id, quote_id, remote=None):
+    """Generates the FEP-044f stamp id for a quote of a bridged post.
+
+    Args:
+      target_id (str): AP id of the quoted post
+      quote_id (str): AP id of the quote post
+      remote (bool): passed through to :meth:`Protocol.load` for the quoted post
+
+    Returns:
+      (models.User, str) tuple: the quoted post's author and the stamp id
+      served by :func:`stamp`, or ``(None, None)`` if the quoted post isn't a
+      bridged post from another protocol by a user who's bridged to ActivityPub
+    """
+    proto = Protocol.for_bridgy_subdomain(target_id, fed='web')
+    if not proto or proto == ActivityPub:
+        return None, None
+
+    # TODO: switch to ids.translate_object_id once that handles resolving a
+    # translated id to a native id
+    target = proto.load(unwrap(target_id), remote=remote, raise_=False)
+    owner = as1.get_owner(target.as1) if target else None
+    if not owner:
+        return None, None
+
+    user = proto.get_by_id(ids.normalize_user_id(id=owner, proto=proto))
+    if not user or not user.is_enabled(ActivityPub):
+        return None, None
+
+    user_ap_id = user.id_as(ActivityPub)
+    target_b64 = urlsafe_b64encode(target_id.encode()).decode()
+    quote_b64 = urlsafe_b64encode(quote_id.encode()).decode()
+    return user, urljoin(user_ap_id, f'/ap/{user_ap_id.rsplit("/", 1)[1]}/stamp/quote/{target_b64}/{quote_b64}')
+
+
 def handle_quote_request(activity, authed_as):
     """Handles an incoming FEP-044f ``QuoteRequest``.
 
@@ -1720,30 +1769,17 @@ def handle_quote_request(activity, authed_as):
     if not obj_id or not quote_id:
         error('QuoteRequest needs object and instrument', status=400)
 
-    user = None
-    if proto := Protocol.for_bridgy_subdomain(obj_id, fed='web'):
-        # TODO: switch to ids.translate_object_id once that handles resolving a
-        # translated id to a native id
-        target_id = unwrap(obj_id)
-        target = proto.load(target_id, raise_=False)
-        if target and (owner := as1.get_owner(target.as1)):
-            user = proto.get_by_id(ids.normalize_user_id(id=owner, proto=proto))
-
-    if not user or not user.is_enabled(ActivityPub):
+    user, stamp_id = quote_stamp(obj_id, quote_id)
+    if not user:
         error(f"{obj_id} isn't a bridged post", status=204)
 
     if not (inbox := ActivityPub.target_for(ActivityPub.load(actor_id))):
         error(f"Couldn't find inbox for {actor_id}", status=400)
 
-    user_ap_id = user.id_as(ActivityPub)
-    target_b64 = urlsafe_b64encode(obj_id.encode()).decode()
-    quote_b64 = urlsafe_b64encode(quote_id.encode()).decode()
-    stamp_id = urljoin(user_ap_id, f'/ap/{user_ap_id.rsplit("/", 1)[1]}/stamp/quote/{target_b64}/{quote_b64}')
-
     accept = {
         'type': 'Accept',
         'id': f'{stamp_id}#accept',
-        'actor': user_ap_id,
+        'actor': user.id_as(ActivityPub),
         'to': [actor_id],
         'object': activity,
         'result': stamp_id,
