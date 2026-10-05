@@ -24,7 +24,7 @@ import requests
 from requests import TooManyRedirects
 from requests.models import DEFAULT_REDIRECT_LIMIT
 from webutil import appengine_info, flask_util, util
-from webutil.flask_util import FlashErrors, MovedPermanently
+from webutil.flask_util import bool_param, FlashErrors, MovedPermanently
 from webutil.util import (
     add,
     domain_from_link,
@@ -101,6 +101,10 @@ FEP044F_QUOTE_POST_CONTEXT = {
         '@type': '@id',
     },
 }
+FEP044F_QUOTE_REQUEST_CONTEXT = {
+    'QuoteRequest': 'https://w3id.org/fep/044f#QuoteRequest',
+}
+QUOTE_REQUEST_ID_SUFFIX = '#quote-request'
 FEP044F_QUOTE_AUTH_CONTEXT = {
     'QuoteAuthorization': 'https://w3id.org/fep/044f#QuoteAuthorization',
     'gts': 'https://gotosocial.org/ns#',
@@ -486,16 +490,77 @@ class ActivityPub(User, Protocol):
             logger.info(f'Skipping sending to blocklisted {inbox_url}')
             return False
 
+        # if this is a quote post, the send task has a snapshot of it from when it
+        # was first received. reload it in case we've gotten a FEP-044f
+        # quoteAuthorization for it since then.
+        if obj.type == 'post' and as1.quoted_posts(obj.as1):
+            stored = Object.get_by_id(as1.get_object(obj.as1).get('id'))
+            if stored and stored.extra_as1:
+                obj.our_as1 = {**obj.as1, 'object': stored.as1}
+
         orig_obj = None
         if orig_obj_id:
             orig_obj = to_cls.convert(Object.get_by_id(orig_obj_id),
                                       from_user=from_user)
         activity = to_cls.convert(obj, from_user=from_user, orig_obj=orig_obj)
 
-        log_data = request.values.get('first', '').lower() == 'true'
+        first = bool_param('first')
+        if first and activity.get('type') == 'Create':
+            to_cls.maybe_send_quote_request(activity, from_user=from_user)
+
         resp = signed_post(inbox_url, data=activity, from_user=from_user,
-                           gateway=True, log_data=log_data)
+                           gateway=True, log_data=first)
         return resp.ok
+
+    @classmethod
+    def maybe_send_quote_request(to_cls, create, from_user):
+        """Sends a FEP-044f ``QuoteRequest`` for a quote of a native fediverse post.
+
+        Does nothing if ``create``'s object isn't a quote post, or it already has
+        ``quoteAuthorization``, or the quoted post isn't native ActivityPub.
+
+        The ``Accept`` response is handled by :func:`handle_quote_accept`,
+        in :meth:`ActivityPub.receive`.
+
+        https://codeberg.org/fediverse/fep/src/branch/main/fep/044f/fep-044f.md
+        https://github.com/snarfed/bridgy-fed/issues/1956
+
+        Args:
+          create (dict): AS2 ``Create`` activity
+          from_user (models.User): ``create`` 's actor
+        """
+        post = as1.get_object(create)
+        quoted_id = post.get('quote')
+        if (not quoted_id or not post.get('id') or post.get('quoteAuthorization')
+                or Protocol.for_bridgy_subdomain(quoted_id, fed='web')):
+            return
+
+        if not (quoted := to_cls.load(quoted_id, raise_=False)):
+            return
+
+        if not (inbox := to_cls.target_for(quoted)) or to_cls.is_blocklisted(inbox):
+            return
+
+        quote_request = {
+            '@context': as2.CONTEXT + [FEP044F_QUOTE_REQUEST_CONTEXT],
+            'type': 'QuoteRequest',
+            'id': f'{post["id"]}{QUOTE_REQUEST_ID_SUFFIX}',
+            'actor': create['actor'],
+            'object': quoted_id,
+            'instrument': post,
+        }
+        create_task(queue='send', id=quote_request['id'], as2=quote_request,
+                    url=inbox, protocol=to_cls.LABEL, user=from_user.key.urlsafe())
+
+    @classmethod
+    def receive(from_cls, obj, authed_as=None, **kwargs):
+        """Handles FEP-044f ``Accept``s of our ``QuoteRequest``s separately."""
+        if obj.type == 'accept' and obj.as2 and obj.as2.get('result'):
+            obj_id = as1.get_id(obj.as2, 'object')
+            if obj_id and obj_id.endswith(QUOTE_REQUEST_ID_SUFFIX):
+                return handle_quote_accept(obj.as2, authed_as)
+
+        return super().receive(obj, authed_as=authed_as, **kwargs)
 
     @classmethod
     def fetch(cls, obj, use_fetched_id=True, **_):
@@ -1786,6 +1851,79 @@ def handle_quote_request(activity, authed_as):
     create_task(queue='send', id=accept['id'], as2=accept, url=inbox,
                 protocol=ActivityPub.LABEL, user=user.key.urlsafe())
     return 'OK', 202
+
+
+def handle_quote_accept(accept, authed_as):
+    """Handles an incoming FEP-044f ``Accept`` of one of our ``QuoteRequest``s.
+
+    Stores the ``QuoteAuthorization`` stamp in the quote post's
+    :attr:`models.Object.extra_as1`, then sends an ``Update`` of the quote post
+    to ActivityPub so that other instances see the stamp.
+
+    https://codeberg.org/fediverse/fep/src/branch/main/fep/044f/fep-044f.md
+    https://github.com/snarfed/bridgy-fed/issues/1956
+
+    Args:
+      accept (dict): AS2 ``Accept`` activity
+      authed_as (str): AP actor id that signed the request
+
+    Returns:
+      (str, int) tuple: Flask response
+    """
+    actor_id = as1.get_id(accept, 'actor')
+    stamp_id = as1.get_id(accept, 'result')
+    if authed_as != actor_id:
+        error(f"Accept actor {actor_id} doesn't match signer {authed_as}")
+    elif domain_from_link(stamp_id) != domain_from_link(actor_id):
+        error(f"Stamp {stamp_id} isn't on {actor_id} 's domain")
+
+    quote_ap_id = (as1.get_object(accept)['id']
+                   .removesuffix(QUOTE_REQUEST_ID_SUFFIX))
+    proto = Protocol.for_bridgy_subdomain(quote_ap_id, fed='web')
+    if not proto or proto == ActivityPub:
+        error(f"{quote_ap_id} isn't a bridged post", status=204)
+
+    quote_id = ids.translate_object_id(id=quote_ap_id, from_=ActivityPub, to=proto)
+
+    @ndb.transactional()
+    def store_stamp():
+        quote = Object.get_by_id(quote_id)
+        if not quote or not quote.as1:
+            error(f"We don't have {quote_id} stored", status=204)
+
+        quoted_ids = as1.quoted_posts(quote.as1)
+        for quoted_id in quoted_ids:
+            quoted = ActivityPub.load(
+                ids.translate_object_id(id=quoted_id, from_=proto, to=ActivityPub),
+                remote=False)
+            if quoted and as1.get_owner(quoted.as1) == actor_id:
+                break
+        else:
+            error(f"{actor_id} isn't the author of any of {quote_id} 's quotes: {quoted_ids}")
+
+        if not quote.extra_as1:
+            quote.extra_as1 = {}
+        if quote.extra_as1.get('quoteAuthorization') == stamp_id:
+            error(f'Already have stamp {stamp_id} for {quote_id}', status=204)
+
+        quote.extra_as1['quoteAuthorization'] = stamp_id
+        add(quote.extra_as1.setdefault('@context', []), FEP044F_QUOTE_POST_CONTEXT)
+        quote.put()
+        return quote
+
+    quote = store_stamp()
+    memcache.evict(quote.key)
+
+    # send Updates for this quote post with the new quoteAuthorization
+    owner = as1.get_owner(quote.as1)
+    author = proto.get_by_id(ids.normalize_user_id(id=owner, proto=proto))
+    if not author:
+        error(f"Couldn't load {quote_id} 's author {owner}", status=204)
+
+    quote.changed = True
+    update = proto.handle_bare_object(quote, authed_as=owner, from_user=author)
+    return proto.deliver(update, from_user=author, crud_obj=quote,
+                         to_proto=ActivityPub)
 
 
 # protocol in subdomain

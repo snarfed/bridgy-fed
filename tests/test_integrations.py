@@ -67,7 +67,7 @@ from webutil.testutil import NOW, NOW_SECONDS, requests_response
 from webutil import util
 from webutil.util import json_dumps, json_loads
 
-from activitypub import ActivityPub, INTERACTION_POLICY
+from activitypub import ActivityPub, FEP044F_QUOTE_POST_CONTEXT, INTERACTION_POLICY
 import app
 from atproto import ATProto
 import atproto_firehose
@@ -441,6 +441,122 @@ class IntegrationTests(TestCase):
                 'interactionPolicy': INTERACTION_POLICY,
             },
         })
+
+    @patch.object(util.session, 'post', return_value=requests_response(''))
+    def test_atproto_quote_of_activitypub_post_quote_request_and_accept(
+            self, mock_post):
+        """ATProto quote of a native fediverse post, FEP-044f request and approval.
+
+        ATProto user alice (did:plc:alice)
+        ActivityPub user https://inst/eve , bridged to did:plc:eve
+        ActivityPub follower http://inst/bob
+        """
+        alice = self.make_atproto_user('did:plc:alice')
+        eve = self.make_ap_user('https://inst/eve', did='did:plc:eve')
+        bob = self.make_ap_user('http://inst/bob')
+        Follower.get_or_create(to=alice, from_=bob)
+
+        self.store_object(
+            id='https://inst/post', source_protocol='activitypub',
+            copies=[Target(uri='at://did:plc:eve/app.bsky.feed.post/456',
+                           protocol='atproto')],
+            as2={
+                'type': 'Note',
+                'id': 'https://inst/post',
+                'attributedTo': 'https://inst/eve',
+                'content': 'quoted',
+            })
+
+        post = {
+            '$type': 'app.bsky.feed.post',
+            'text': 'Ok',
+            'createdAt': '2022-01-02T03:04:05.000Z',
+            'embed': {
+                '$type': 'app.bsky.embed.record',
+                'record': {
+                    'cid': 'bafyreiam6fisrctmj7uv6is5wkk4fqw6bxzlooepaapxntuv45j3mu34p4',
+                    'uri': 'at://did:plc:eve/app.bsky.feed.post/456',
+                },
+            },
+        }
+        self.firehose(repo='did:plc:alice', action='create', seq=123,
+                      path='app.bsky.feed.post/123', record=post)
+
+        quote_id = 'https://bsky.brid.gy/convert/ap/at://did:plc:alice/app.bsky.feed.post/123'
+        content = '<p>Ok<span class="quote-inline"><br><br>RE: <a href="https://bsky.app/profile/did:plc:eve/post/456">https://bsky.app/profile/did:plc:eve/post/456</a></span></p>'
+        note = {
+            'type': 'Note',
+            'id': quote_id,
+            'url': 'http://localhost/r/https://bsky.app/profile/did:plc:alice/post/123',
+            'attributedTo': 'https://bsky.brid.gy/ap/did:plc:alice',
+            'content': content,
+            'contentMap': {'en': content},
+            'published': '2022-01-02T03:04:05.000Z',
+            'quote': 'https://inst/post',
+            'quoteUrl': 'https://inst/post',
+            '_misskey_quote': 'https://inst/post',
+            'tag': [{
+                'type': 'Link',
+                'mediaType': as2.CONTENT_TYPE_LD_PROFILE,
+                'href': 'https://inst/post',
+                'name': 'RE: https://bsky.app/profile/did:plc:eve/post/456',
+            }],
+            'interactionPolicy': INTERACTION_POLICY,
+        }
+
+        self.assertEqual(
+            ['https://inst/eve/inbox', 'http://inst/bob/inbox', 'https://inst/eve/inbox'],
+            [call.args[0] for call in mock_post.call_args_list])
+        quote_request, create, _ = [json_loads(call.kwargs['data'])
+                                    for call in mock_post.call_args_list]
+        self.assert_equals({
+            'type': 'QuoteRequest',
+            'id': f'{quote_id}#quote-request',
+            'actor': 'https://bsky.brid.gy/ap/did:plc:alice',
+            'object': 'https://inst/post',
+            'instrument': note,
+        }, quote_request, ignore=['to'])
+        self.assert_equals({
+            'type': 'Create',
+            'id': f'{quote_id}#bridgy-fed-create-2022-01-02T03:04:05+00:00',
+            'actor': 'https://bsky.brid.gy/ap/did:plc:alice',
+            'published': '2022-01-02T03:04:05+00:00',
+            'object': note,
+        }, create, ignore=['to'])
+
+        # eve's instance accepts
+        mock_post.reset_mock()
+        body = json_dumps({
+            'type': 'Accept',
+            'id': 'https://inst/accept',
+            'actor': 'https://inst/eve',
+            'object': quote_request,
+            'result': 'https://inst/stamp',
+        })
+        headers = sign('/ap/atproto/did:plc:alice/inbox', body,
+                       key_id='https://inst/eve')
+        resp = self.client.post('/ap/atproto/did:plc:alice/inbox', data=body,
+                                headers=headers)
+        self.assertEqual(202, resp.status_code)
+
+        quote = Object.get_by_id('at://did:plc:alice/app.bsky.feed.post/123')
+        self.assertEqual({
+            '@context': [FEP044F_QUOTE_POST_CONTEXT],
+            'quoteAuthorization': 'https://inst/stamp',
+        }, quote.extra_as1)
+
+        self.assert_ap_deliveries(
+            mock_post, ['http://inst/bob/inbox', 'https://inst/eve/inbox'],
+            from_user=alice, ignore=['to'], data={
+                'type': 'Update',
+                'id': f'{quote_id}#bridgy-fed-update-2022-01-02T03:04:05+00:00',
+                'actor': 'https://bsky.brid.gy/ap/did:plc:alice',
+                'object': {
+                    **note,
+                    'quoteAuthorization': 'https://inst/stamp',
+                    'updated': '2022-01-02T03:04:05+00:00',
+                },
+            })
 
     @patch.object(util.session, 'post')
     def test_atproto_profile_update_to_activitypub(self, mock_post):
