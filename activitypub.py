@@ -558,7 +558,7 @@ class ActivityPub(User, Protocol):
         if obj.type == 'accept' and obj.as2 and obj.as2.get('result'):
             obj_id = as1.get_id(obj.as2, 'object')
             if obj_id and obj_id.endswith(QUOTE_REQUEST_ID_SUFFIX):
-                return handle_quote_accept(obj.as2, authed_as)
+                return maybe_handle_quote_accept(obj.as2, authed_as)
 
         return super().receive(obj, authed_as=authed_as, **kwargs)
 
@@ -1833,6 +1833,8 @@ def handle_quote_request(activity, authed_as):
     if not obj_id or not quote_id:
         error('QuoteRequest needs object and instrument', status=400)
 
+    logger.info(f'Got QuoteRequest from {actor_id} for post {quote_id} quoting {obj_id}')
+
     user, stamp_id = quote_stamp(obj_id, quote_id)
     if not user:
         error(f"{obj_id} isn't a bridged post", status=204)
@@ -1853,7 +1855,7 @@ def handle_quote_request(activity, authed_as):
     return 'OK', 202
 
 
-def handle_quote_accept(accept, authed_as):
+def maybe_handle_quote_accept(accept, authed_as):
     """Handles an incoming FEP-044f ``Accept`` of one of our ``QuoteRequest``s.
 
     Stores the ``QuoteAuthorization`` stamp in the quote post's
@@ -1884,6 +1886,8 @@ def handle_quote_accept(accept, authed_as):
         error(f"{quote_ap_id} isn't a bridged post", status=204)
 
     quote_id = ids.translate_object_id(id=quote_ap_id, from_=ActivityPub, to=proto)
+
+    logger.info(f'Adding quoteAuthorization {stamp_id} to {quote_id}')
 
     @ndb.transactional()
     def store_stamp():
