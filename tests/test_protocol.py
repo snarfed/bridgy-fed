@@ -2172,6 +2172,34 @@ class ProtocolReceiveTest(TestCase):
         self.assertEqual([], Fake.sent)
         self.assertEqual([], OtherFake.sent)
 
+    def test_deliver_to_proto_ignores_other_protocols_non_bridged_original(self):
+        self.bob.enabled_protocols = ['efake']
+        self.bob.put()
+        Follower.get_or_create(to=self.bob, from_=self.user)
+
+        # bridged to fake but not efake
+        post = self.store_object(
+            id='other:post', source_protocol='other',
+            copies=[Target(protocol='fake', uri='fake:o:other:other:post')],
+            our_as1={
+                'id': 'other:post',
+                'objectType': 'note',
+                'author': 'other:bob',
+                'content': 'foo',
+            })
+        update = Object(id='other:update', source_protocol='other', our_as1={
+            'id': 'other:update',
+            'objectType': 'activity',
+            'verb': 'update',
+            'actor': 'other:bob',
+            'object': post.as1,
+        })
+
+        self.assertEqual(('OK', 202), OtherFake.deliver(
+            update, from_user=self.bob, crud_obj=post, to_proto=Fake))
+        self.assertEqual([('fake:shared:target', update.as1)], Fake.sent)
+        self.assertEqual([], ExplicitFake.sent)
+
     def test_reply_to_non_bridged_post_with_enabled_protocol_fails_for_retry(self):
         self.alice.enabled_protocols = ['efake']
         self.alice.put()

@@ -1939,7 +1939,8 @@ class Protocol:
         #
         # ...then write the relevant object, since targets() has a side effect of
         # setting the notify and feed properties (and dirty attribute)
-        targets = from_cls.targets(obj, from_user=from_user, crud_obj=crud_obj)
+        targets = from_cls.targets(obj, from_user=from_user, crud_obj=crud_obj,
+                                   to_proto=to_proto)
         if to_proto:
             targets = {t: obj for t, obj in targets.items()
                        if t.protocol == to_proto.LABEL}
@@ -1978,7 +1979,8 @@ class Protocol:
         return 'OK', 202
 
     @classmethod
-    def targets(from_cls, obj, from_user, crud_obj=None, internal=False):
+    def targets(from_cls, obj, from_user, crud_obj=None, internal=False,
+                to_proto=None):
         """Collects the targets to send a :class:`models.Object` to.
 
         Targets are both objects - original posts, events, etc - and actors.
@@ -1990,6 +1992,8 @@ class Protocol:
             activity, the inner object that's being written, otherwise None.
             (This object's ``notify`` and ``feed`` properties may be updated.)
           internal (bool): whether this is a recursive internal call
+          to_proto (protocol.Protocol subclass): optional; if provided, only consider
+            targets on this protocol
 
         Returns:
           dict: maps :class:`models.Target` to original (in response to)
@@ -2058,6 +2062,8 @@ class Protocol:
                       + from_user.enabled_protocols):
             if not (proto := PROTOCOLS.get(label)):
                 report_error(f'unknown enabled protocol {label} for {from_user.key.id()}')
+                continue
+            elif to_proto and proto != to_proto:
                 continue
 
             if obj.type == 'post' and crud_obj.key and crud_obj.get_copy(proto):
@@ -2210,7 +2216,8 @@ Hi! You <a href="{inner_obj_as1.get('url') or inner_obj_id}">recently {verb}</a>
                 inner_obj = Object(id=inner_obj_id, our_as1=inner_obj_as1)
             if inner_obj:
                 for target, target_obj in from_cls.targets(
-                        inner_obj, from_user=from_user, internal=True).items():
+                        inner_obj, from_user=from_user, internal=True,
+                        to_proto=to_proto).items():
                     targets[target] = target_obj
                     util.add(to_protocols, PROTOCOLS[target.protocol])
 
