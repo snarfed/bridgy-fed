@@ -1577,7 +1577,8 @@ Sed tortor neque, aliquet quis posuere aliquam, imperdiet sitamet […]
         resp = ATProto.create_account_for_migrate_out(
             self.user, pds='https://new.pds.com',
             email='alice@pds.com', password='hunter2',
-            handle='aly.ce', phone_verification_code='fown')
+            handle='aly.ce', phone_number='fown',
+            phone_verification_code='kowd')
         self.assertEqual(session, resp)
 
         # check createAccount
@@ -1590,6 +1591,7 @@ Sed tortor neque, aliquet quis posuere aliquam, imperdiet sitamet […]
             'email': 'alice@pds.com',
             'password': 'hunter2',
             'verificationPhone': 'fown',
+            'verificationCode': 'kowd',
         }, mock_post.call_args_list[0].kwargs['json'])
         # raises if the JWT signature doesn't validate
         jwt.decode(

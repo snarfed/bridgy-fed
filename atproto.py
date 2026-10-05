@@ -1356,7 +1356,8 @@ class ATProto(User, Protocol):
 
     @classmethod
     def create_account_for_migrate_out(cls, user, pds, email, password, handle=None,
-                                       invite_code=None, phone_verification_code=None):
+                                       invite_code=None, phone_number=None,
+                                       phone_verification_code=None):
         """Creates an account on a new PDS that we can migrate out to.
 
         https://atproto.com/guides/account-migration
@@ -1370,6 +1371,7 @@ class ATProto(User, Protocol):
           handle (str): optional. defaults to generating one based on the user's
             native handle and the new PDS's first available domain
           invite_code (str): optional
+          phone_number (str): optional
           phone_verification_code (str): optional
 
         Returns:
@@ -1382,6 +1384,7 @@ class ATProto(User, Protocol):
         """
         assert email
         assert password
+        assert bool(phone_number) == bool(phone_verification_code)
 
         did = user.get_copy(ATProto)
         assert did
@@ -1417,7 +1420,10 @@ class ATProto(User, Protocol):
         if invite_code:
             create_input['inviteCode'] = invite_code
         if phone_verification_code:
-            create_input['verificationPhone'] = phone_verification_code
+            create_input.update({
+                'verificationPhone': phone_number,
+                'verificationCode': phone_verification_code,
+            })
 
         # createAccount auth is service token (JWT) signed with DID's signing key
         # https://atproto.com/guides/account-migration#creating-new-account
