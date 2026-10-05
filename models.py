@@ -1608,7 +1608,12 @@ class Object(AddRemoveMixin, StringIdModel):
            as1.prefix_urls(obj, 'image', IMAGE_PROXY_URL_BASE)
 
         if self.extra_as1:
+            context = util.get_list(obj, '@context')
             obj.update(self.extra_as1)
+            if context:
+                for val in util.get_list(self.extra_as1, '@context'):
+                    util.add(context, val)
+                obj['@context'] = context
 
         return obj
 

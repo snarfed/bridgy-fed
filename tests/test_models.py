@@ -1444,6 +1444,24 @@ class ObjectTest(TestCase):
         obj = Object(our_as1={'foo': 'bar'}, extra_as1={'x': 'y'})
         self.assertEqual({'foo': 'bar', 'x': 'y'}, obj.as1)
 
+    def test_as1_extra_as1_merges_context(self):
+        obj = Object(our_as1={'foo': 'bar', '@context': ['a', {'b': 'c'}]},
+                     extra_as1={'x': 'y', '@context': [{'b': 'c'}, {'d': 'e'}]})
+        self.assertEqual({
+            'foo': 'bar',
+            'x': 'y',
+            '@context': ['a', {'b': 'c'}, {'d': 'e'}],
+        }, obj.as1)
+
+    def test_as1_extra_as1_merges_context_non_list(self):
+        obj = Object(our_as1={'foo': 'bar', '@context': 'a'},
+                     extra_as1={'@context': {'d': 'e'}})
+        self.assertEqual({'foo': 'bar', '@context': ['a', {'d': 'e'}]}, obj.as1)
+
+    def test_as1_extra_as1_context_only_in_extra(self):
+        obj = Object(our_as1={'foo': 'bar'}, extra_as1={'@context': [{'d': 'e'}]})
+        self.assertEqual({'foo': 'bar', '@context': [{'d': 'e'}]}, obj.as1)
+
     def test_as1_from_as2_extra_as1(self):
         obj = Object(as2={'foo': 'bar'}, extra_as1={'x': 'y'})
         self.assertEqual({'foo': 'bar', 'x': 'y'}, obj.as1)
