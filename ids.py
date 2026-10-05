@@ -554,6 +554,16 @@ def translate_object_id(*, id, from_, to, owner=None):
 
     id, from_, to = validate(id, from_, to)
 
+    # check for and handle our own subdomain-wrapped ids, eg
+    # https://bsky.brid.gy/convert/ap/at://did:plc:456/app.bsky.feed.post/123
+    if domain_proto := Protocol.for_bridgy_subdomain(id, fed='web'):
+        path = urlparse(id).path.strip('/').split('/')
+        if (path[:2] == ['convert', from_.ABBREV]
+                or (from_.ABBREV == 'ap' and domain_proto.ABBREV == 'web'
+                    and path[0] == 'r')):
+            id = unwrap(id)
+            from_ = domain_proto
+
     # internal objects have to be on the same domain as their author's actor id, or
     # Mastodon and other fedi servers reject Creates for them, so we serve them from
     # the author's subdomain, falling back to fed.brid.gy if we don't know them.

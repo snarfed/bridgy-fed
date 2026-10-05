@@ -594,6 +594,34 @@ class IdsTest(TestCase):
              'https://nostr.brid.gy/convert/ap/nostr:456'),
             (Nostr, 'nostr:456', ATProto, 'nostr:456'),
             (Nostr, 'nostr:456', Web, 'https://nostr.brid.gy/convert/web/nostr:456'),
+
+            # bridged AP ids back to native ids
+            (ActivityPub, 'https://fa.brid.gy/convert/ap/fake:post', Fake, 'fake:post'),
+            (ActivityPub, 'https://bsky.brid.gy/convert/ap/at://did:plc:abc/atp/post',
+             ATProto, 'at://did:plc:abc/atp/post'),
+            (ActivityPub, 'https://nostr.brid.gy/convert/ap/nostr:456',
+             Nostr, 'nostr:456'),
+            (ActivityPub, 'https://web.brid.gy/r/http://po.st', Web, 'http://po.st'),
+            (ActivityPub, 'https://fed.brid.gy/r/http://po.st', Web, 'http://po.st'),
+            # ...and on to other protocols
+            (ActivityPub, 'https://fa.brid.gy/convert/ap/fake:post',
+             ATProto, 'at://did:plc:abc/fa/post'),
+            (ActivityPub, 'https://fa.brid.gy/convert/ap/fake:post', Nostr, NOSTR_ID_2),
+            (ActivityPub, 'https://web.brid.gy/r/http://po.st', Nostr, NOSTR_ID_0),
+            (ActivityPub, 'https://web.brid.gy/r/http://po.st',
+             Fake, 'fake:o:web:http://po.st'),
+            (ActivityPub, 'https://fa.brid.gy/convert/ap/fake:post',
+             ActivityPub, 'https://fa.brid.gy/convert/ap/fake:post'),
+            (Web, 'https://fa.brid.gy/convert/web/fake:post', Fake, 'fake:post'),
+            (Web, 'https://fa.brid.gy/convert/web/fake:post', Nostr, NOSTR_ID_2),
+            (Web, 'https://bsky.brid.gy/convert/web/did:plc:x', ATProto, 'did:plc:x'),
+            (Web, 'https://fa.brid.gy/convert/web/fake:post',
+             ActivityPub, 'https://fa.brid.gy/convert/ap/fake:post'),
+            # wrong format or not an object URL, left alone
+            (ActivityPub, 'https://fa.brid.gy/convert/web/fake:post',
+             Fake, 'https://fa.brid.gy/convert/web/fake:post'),
+            (ActivityPub, 'https://fa.brid.gy/ap/fake:user',
+             Fake, 'https://fa.brid.gy/ap/fake:user'),
         ]:
             with self.subTest(id=id, from_=from_.LABEL, to=to.LABEL):
                 self.assertEqual(expected, translate_object_id(

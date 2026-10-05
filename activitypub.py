@@ -1724,9 +1724,8 @@ def quote_stamp(target_id, quote_id, remote=None):
     if not proto or proto == ActivityPub:
         return None, None
 
-    # TODO: switch to ids.translate_object_id once that handles resolving a
-    # translated id to a native id
-    target = proto.load(unwrap(target_id), remote=remote, raise_=False)
+    native_id = ids.translate_object_id(id=target_id, from_=ActivityPub, to=proto)
+    target = proto.load(native_id, remote=remote, raise_=False)
     owner = as1.get_owner(target.as1) if target else None
     if not owner:
         return None, None
