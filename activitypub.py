@@ -797,12 +797,37 @@ class ActivityPub(User, Protocol):
 
         # include FEP-044f quoteAuthorization for quote of bridged posts
         # https://codeberg.org/fediverse/fep/src/branch/main/fep/044f/fep-044f.md
-        for post in converted, as1.get_object(converted):
-            if (id := post.get('id')) and (quote := post.get('quote')):
-                _, stamp_id = quote_stamp(quote, id, remote=None if remote else False)
-                if stamp_id:
-                    post['quoteAuthorization'] = stamp_id
-                    add(converted.setdefault('@context', []), FEP044F_QUOTE_POST_CONTEXT)
+        converted_base = converted
+        obj_as1 = obj.as1
+        if obj.type in ('post', 'update'):
+            converted_base = as1.get_object(converted)
+            obj_as1 = as1.get_object(obj_as1)
+
+        id = converted_base.get('id')
+        quote = converted_base.get('quote')
+        if (id and quote
+                and (proto := Protocol.for_bridgy_subdomain(quote, fed='web'))
+                and proto != ActivityPub):
+            _, stamp_id = quote_stamp(quote, id, remote=None if remote else False)
+            if stamp_id:
+                converted_base['quoteAuthorization'] = stamp_id
+                add(converted.setdefault('@context', []), FEP044F_QUOTE_POST_CONTEXT)
+            else:
+                # quoted post isn't bridged into ActivityPub. remove the quote
+                # fields, fall back to just the inline RE: ... link in content, and
+                # make the quote tag a normal link to the quoted post's web URL
+                logger.debug(f"Quoted post {quote} isn't bridged to activitypub, removing quote fields")
+                for field in as2.QUOTE_FIELDS:
+                    converted_base.pop(field, None)
+
+                quoted = [a for a in as1.get_objects(obj_as1, 'attachments')
+                          if a.get('objectType') == 'note']
+                url = as1.get_url(quoted[0]) if quoted else None
+                for tag in util.get_list(converted_base, 'tag'):
+                    if tag.get('type') == 'Link' and tag.get('href') == quote:
+                        tag.pop('mediaType', None)
+                        if url:
+                            tag['href'] = url
 
         # FEP-fffd proxy link
         # https://codeberg.org/fediverse/fep/src/branch/main/fep/fffd/fep-fffd.md

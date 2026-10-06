@@ -2407,6 +2407,11 @@ class IntegrationTests(TestCase):
         self.make_atproto_user('did:plc:alice', handle='alice.com')
         self.make_atproto_user('did:plc:bob', handle='b.ob')
         self.make_atproto_user('did:plc:eve', handle='e.ve')
+        self.store_object(id='at://did:plc:bob/app.bsky.feed.post/123',
+                          source_protocol='atproto', bsky={
+            '$type': 'app.bsky.feed.post',
+            'text': 'quoted',
+        })
 
         obj = Object(id='at://did:plc:alice/post/123', source_protocol='atproto',
                      bsky={
@@ -2444,6 +2449,7 @@ class IntegrationTests(TestCase):
             'quoteUrl': 'https://bsky.brid.gy/convert/ap/at://did:plc:bob/app.bsky.feed.post/123',
             'quote': 'https://bsky.brid.gy/convert/ap/at://did:plc:bob/app.bsky.feed.post/123',
             '_misskey_quote': 'https://bsky.brid.gy/convert/ap/at://did:plc:bob/app.bsky.feed.post/123',
+            'quoteAuthorization': 'https://bsky.brid.gy/ap/did:plc:bob/stamp/quote/aHR0cHM6Ly9ic2t5LmJyaWQuZ3kvY29udmVydC9hcC9hdDovL2RpZDpwbGM6Ym9iL2FwcC5ic2t5LmZlZWQucG9zdC8xMjM=/aHR0cHM6Ly9ic2t5LmJyaWQuZ3kvY29udmVydC9hcC9hdDovL2RpZDpwbGM6YWxpY2UvcG9zdC8xMjM=',
             'tag': [{
                 'type': 'Mention',
                 'name': '@e.ve@bsky.brid.gy',

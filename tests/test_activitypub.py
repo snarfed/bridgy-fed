@@ -4474,6 +4474,17 @@ class ActivityPubUtilsTest(TestCase):
     def test_convert_quote_post(self, mock_get):
         mock_get.return_value = requests_response(test_atproto.DID_DOC)
 
+        self.store_object(id='did:plc:bob', raw={
+            **test_atproto.DID_DOC,
+            'id': 'did:plc:bob',
+        })
+        self.make_user('did:plc:bob', cls=ATProto, enabled_protocols=['activitypub'])
+        self.store_object(id='at://did:plc:bob/app.bsky.feed.post/456',
+                          source_protocol='atproto', bsky={
+            '$type': 'app.bsky.feed.post',
+            'text': 'quoted',
+        })
+
         obj = Object(id='at://did:plc:alice/app.bsky.feed.post/123', bsky={
             '$type': 'app.bsky.feed.post',
             'text': 'foo bar',
@@ -4502,7 +4513,7 @@ class ActivityPubUtilsTest(TestCase):
                 'name': 'RE: https://bsky.app/profile/did:plc:bob/post/456',
             }],
             'interactionPolicy': INTERACTION_POLICY,
-        }, ActivityPub.convert(obj), ignore=['contentMap', 'to'])
+        }, ActivityPub.convert(obj), ignore=['contentMap', 'quoteAuthorization', 'to'])
 
     def test_convert_quote_post_of_bridged_post_adds_quoteAuthorization(self):
         self.make_user('fake:bob', cls=Fake, enabled_protocols=['activitypub'])
@@ -4595,6 +4606,88 @@ class ActivityPubUtilsTest(TestCase):
             as2.MISSKEY_QUOTE_CONTEXT,
             INTERACTION_POLICY_CONTEXT,
         ], got['@context'])
+
+    def test_convert_quote_post_of_non_bridged_post_omits_quote_fields(self):
+        # fake:bob isn't bridged to ActivityPub
+        self.make_user('fake:bob', cls=Fake)
+        self.store_object(id='fake:orig', source_protocol='fake', our_as1={
+            'objectType': 'note',
+            'author': 'fake:bob',
+        })
+
+        obj = Object(id='fake:quote', source_protocol='fake', our_as1={
+            'objectType': 'note',
+            'id': 'fake:quote',
+            'author': 'fake:alice',
+            'content': 'foo',
+            'attachments': [{
+                'objectType': 'note',
+                'id': 'fake:orig',
+                'url': 'http://fake/orig',
+            }],
+        })
+
+        content = '<p>foo<span class="quote-inline"><br><br>RE: <a href="http://fake/orig">http://fake/orig</a></span></p>'
+        self.assert_equals({
+            'type': 'Note',
+            'id': 'https://fa.brid.gy/convert/ap/fake:quote',
+            'attributedTo': 'https://fa.brid.gy/ap/fake:alice',
+            'content': content,
+            'contentMap': {'en': content},
+            'to': [as2.PUBLIC_AUDIENCE],
+            'interactionPolicy': INTERACTION_POLICY,
+            'tag': [{
+                'type': 'Link',
+                'href': 'http://fake/orig',
+                'name': 'RE: http://fake/orig',
+            }],
+            'url': [{
+                'type': 'Link',
+                'rel': 'canonical',
+                'href': 'fake:quote',
+            }],
+        }, ActivityPub.convert(obj))
+
+        create = Object(id='fake:create', source_protocol='fake', our_as1={
+            'objectType': 'activity',
+            'verb': 'post',
+            'id': 'fake:create',
+            'actor': 'fake:alice',
+            'object': obj.as1,
+        })
+        self.assert_equals({
+            'type': 'Note',
+            'id': 'https://fa.brid.gy/convert/ap/fake:quote',
+            'attributedTo': 'https://fa.brid.gy/ap/fake:alice',
+            'content': content,
+            'contentMap': {'en': content},
+            'to': [as2.PUBLIC_AUDIENCE],
+            'interactionPolicy': INTERACTION_POLICY,
+            'tag': [{
+                'type': 'Link',
+                'href': 'http://fake/orig',
+                'name': 'RE: http://fake/orig',
+            }],
+        }, ActivityPub.convert(create)['object'])
+
+    def test_convert_quote_post_of_non_bridged_post_no_url_keeps_tag_href(self):
+        obj = Object(id='fake:quote', source_protocol='fake', our_as1={
+            'objectType': 'note',
+            'id': 'fake:quote',
+            'author': 'fake:alice',
+            'attachments': [{
+                'objectType': 'note',
+                'id': 'fake:orig',
+            }],
+        })
+
+        got = ActivityPub.convert(obj, remote=False)
+        self.assertNotIn('quote', got)
+        self.assertEqual([{
+            'type': 'Link',
+            'href': 'https://fa.brid.gy/convert/ap/fake:orig',
+            'name': 'RE: https://fa.brid.gy/convert/ap/fake:orig',
+        }], got['tag'])
 
     def test_convert_quote_post_of_bridged_post_not_stored_fetches(self):
         self.make_user('fake:bob', cls=Fake, enabled_protocols=['activitypub'])
