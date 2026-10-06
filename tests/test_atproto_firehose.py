@@ -227,6 +227,28 @@ class ATProtoFirehoseSubscribeTest(ATProtoTestCase):
             },
         }, repo='did:plc:alice')
 
+    def test_invalid_reply_by_bridged_user(self):
+        self.assert_doesnt_enqueue({
+            '$type': 'app.bsky.feed.post',
+            'text': 'foo bar',
+            'reply': {
+                'parent': {},
+                'root': {},
+            },
+            'createdAt': '2026-10-06T11:57:15.908Z',
+        })
+
+    def test_invalid_reply_by_unbridged_user(self):
+        self.assert_doesnt_enqueue({
+            '$type': 'app.bsky.feed.post',
+            'text': 'foo bar',
+            'reply': {
+                'parent': {},
+                'root': {},
+            },
+            'createdAt': '2026-10-06T11:57:15.908Z',
+        }, repo='did:plc:other')
+
     def test_create_store_record_type(self):
         self.assertIn('community.lexicon.payments.webMonetization',
                       ATProto.STORE_RECORD_TYPES)

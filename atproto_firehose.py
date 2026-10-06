@@ -321,8 +321,9 @@ def subscribe():
                 """
                 did = None
                 if isinstance(did_or_ref, dict):
-                    if match := AT_URI_RE.match(did_or_ref['uri']):
-                        did = match.group('repo')
+                    if uri := did_or_ref.get('uri'):
+                        if match := AT_URI_RE.match(uri):
+                            did = match.group('repo')
                 else:
                     did = did_or_ref
 
