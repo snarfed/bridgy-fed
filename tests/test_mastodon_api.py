@@ -311,7 +311,7 @@ class MastodonApiTest(TestCase):
 
     # createRecord
     @patch.object(util.session, 'post', return_value=requests_response({
-        'uri': 'at://did:plc:user/app.bsky.graph.follow/456',
+        'uri': 'at://did:plc:user/gy.brid.record/456',
         'cid': 'bafyreifollowsyddddddddddddddddddddddddddddddddddddddddd',
     }))
     @patch.object(tasks_client, 'create_task', return_value=Task(name='my task'))
@@ -326,16 +326,18 @@ class MastodonApiTest(TestCase):
 
         self.assert_equals({
             'repo': 'did:plc:user',
-            'collection': 'app.bsky.graph.follow',
-            'validate': False,
+            'collection': 'gy.brid.record',
             'record': {
-                '$type': 'app.bsky.graph.follow',
-                'subject': 'fake:bob',
-                'createdAt': '2022-01-02T03:04:05.000Z',
+                '$type': 'gy.brid.record',
+                'record': {
+                    '$type': 'app.bsky.graph.follow',
+                    'subject': 'fake:bob',
+                    'createdAt': '2022-01-02T03:04:05.000Z',
+                },
             },
         }, mock_post.call_args.kwargs['json'])
 
-        id = 'at://did:plc:user/app.bsky.graph.follow/456'
+        id = 'at://did:plc:user/gy.brid.record/456'
         self.assert_task(mock_create_task, 'receive', source_protocol='atproto',
                          authed_as='did:plc:user', id=id,
                          users=[user.key.urlsafe().decode()], our_as1={
@@ -350,7 +352,7 @@ class MastodonApiTest(TestCase):
     @patch.object(util.session, 'post', side_effect=[
         # createRecord
         requests_response({
-            'uri': 'at://did:plc:user/app.bsky.graph.follow/456',
+            'uri': 'at://did:plc:user/gy.brid.record/456',
             'cid': 'bafyreifollowsyddddddddddddddddddddddddddddddddddddddddd',
         }),
         # AP delivery
@@ -375,7 +377,7 @@ class MastodonApiTest(TestCase):
         self.assert_ap_deliveries(mock_post, ['https://mas.to/users/bob/inbox'],
                                   from_user=user, data={
             'type': 'Follow',
-            'id': 'https://bsky.brid.gy/convert/ap/at://did:plc:user/app.bsky.graph.follow/456',
+            'id': 'https://bsky.brid.gy/convert/ap/at://did:plc:user/gy.brid.record/456',
             'actor': 'https://bsky.brid.gy/ap/did:plc:user',
             'object': 'https://mas.to/users/bob',
             'published': '2022-01-02T03:04:05+00:00',
@@ -662,7 +664,7 @@ class MastodonApiTest(TestCase):
 
     # createRecord
     @patch.object(util.session, 'post', return_value=requests_response({
-        'uri': 'at://did:plc:user/app.bsky.graph.block/456',
+        'uri': 'at://did:plc:user/gy.brid.record/456',
         'cid': 'bafyreiblocksyddddddddddddddddddddddddddddddddddddddddd',
     }))
     @patch.object(tasks_client, 'create_task', return_value=Task(name='my task'))
@@ -677,16 +679,18 @@ class MastodonApiTest(TestCase):
 
         self.assert_equals({
             'repo': 'did:plc:user',
-            'collection': 'app.bsky.graph.block',
-            'validate': False,
+            'collection': 'gy.brid.record',
             'record': {
-                '$type': 'app.bsky.graph.block',
-                'subject': 'fake:bob',
-                'createdAt': '2022-01-02T03:04:05.000Z',
+                '$type': 'gy.brid.record',
+                'record': {
+                    '$type': 'app.bsky.graph.block',
+                    'subject': 'fake:bob',
+                    'createdAt': '2022-01-02T03:04:05.000Z',
+                },
             },
         }, mock_post.call_args.kwargs['json'])
 
-        id = 'at://did:plc:user/app.bsky.graph.block/456'
+        id = 'at://did:plc:user/gy.brid.record/456'
         self.assert_task(mock_create_task, 'receive', source_protocol='atproto',
                          authed_as='did:plc:user', id=id,
                          users=[user.key.urlsafe().decode()], our_as1={
@@ -1657,7 +1661,7 @@ class MastodonApiTest(TestCase):
 
     # createRecord
     @patch.object(util.session, 'post', return_value=requests_response({
-        'uri': 'at://did:plc:user/app.bsky.feed.like/456',
+        'uri': 'at://did:plc:user/gy.brid.record/456',
         'cid': 'bafyreilikesyddddddddddddddddddddddddddddddddddddddddddd',
     }))
     @patch.object(tasks_client, 'create_task', return_value=Task(name='my task'))
@@ -1677,16 +1681,18 @@ class MastodonApiTest(TestCase):
 
         self.assert_equals({
             'repo': 'did:plc:user',
-            'collection': 'app.bsky.feed.like',
-            'validate': False,
+            'collection': 'gy.brid.record',
             'record': {
-                '$type': 'app.bsky.feed.like',
-                'subject': {'uri': 'fake:post'},
-                'createdAt': '2022-01-02T03:04:05.000Z',
+                '$type': 'gy.brid.record',
+                'record': {
+                    '$type': 'app.bsky.feed.like',
+                    'subject': {'uri': 'fake:post'},
+                    'createdAt': '2022-01-02T03:04:05.000Z',
+                },
             },
         }, mock_post.call_args.kwargs['json'])
 
-        id = 'at://did:plc:user/app.bsky.feed.like/456'
+        id = 'at://did:plc:user/gy.brid.record/456'
         self.assert_task(mock_create_task, 'receive', source_protocol='atproto',
                          authed_as='did:plc:user', id=id,
                          users=[user.key.urlsafe().decode()], our_as1={
@@ -1701,7 +1707,7 @@ class MastodonApiTest(TestCase):
     @patch.object(util.session, 'post', side_effect=[
         # createRecord
         requests_response({
-            'uri': 'at://did:plc:user/app.bsky.feed.like/456',
+            'uri': 'at://did:plc:user/gy.brid.record/456',
             'cid': 'bafyreilikesyddddddddddddddddddddddddddddddddddddddddddd',
         }),
         # AP delivery
@@ -1731,7 +1737,7 @@ class MastodonApiTest(TestCase):
         self.assert_ap_deliveries(mock_post, ['https://mas.to/users/bob/inbox'],
                                   from_user=user, data={
             'type': 'Like',
-            'id': 'https://bsky.brid.gy/convert/ap/at://did:plc:user/app.bsky.feed.like/456',
+            'id': 'https://bsky.brid.gy/convert/ap/at://did:plc:user/gy.brid.record/456',
             'actor': 'https://bsky.brid.gy/ap/did:plc:user',
             'object': 'https://mas.to/post',
             'published': '2022-01-02T03:04:05+00:00',
@@ -1780,7 +1786,7 @@ class MastodonApiTest(TestCase):
 
     # createRecord
     @patch.object(util.session, 'post', return_value=requests_response({
-        'uri': 'at://did:plc:user/app.bsky.feed.repost/456',
+        'uri': 'at://did:plc:user/gy.brid.record/456',
         'cid': 'bafyreirepostsyddddddddddddddddddddddddddddddddddddddddd',
     }))
     @patch.object(tasks_client, 'create_task', return_value=Task(name='my task'))
@@ -1800,16 +1806,18 @@ class MastodonApiTest(TestCase):
 
         self.assert_equals({
             'repo': 'did:plc:user',
-            'collection': 'app.bsky.feed.repost',
-            'validate': False,
+            'collection': 'gy.brid.record',
             'record': {
-                '$type': 'app.bsky.feed.repost',
-                'subject': {'uri': 'fake:post'},
-                'createdAt': '2022-01-02T03:04:05.000Z',
+                '$type': 'gy.brid.record',
+                'record': {
+                    '$type': 'app.bsky.feed.repost',
+                    'subject': {'uri': 'fake:post'},
+                    'createdAt': '2022-01-02T03:04:05.000Z',
+                },
             },
         }, mock_post.call_args.kwargs['json'])
 
-        id = 'at://did:plc:user/app.bsky.feed.repost/456'
+        id = 'at://did:plc:user/gy.brid.record/456'
         self.assert_task(mock_create_task, 'receive', source_protocol='atproto',
                          authed_as='did:plc:user', id=id,
                          users=[user.key.urlsafe().decode()], our_as1={
@@ -2358,7 +2366,7 @@ class MastodonApiTest(TestCase):
 
     # createRecord
     @patch.object(util.session, 'post', return_value=requests_response({
-        'uri': 'at://did:plc:user/app.bsky.feed.post/456',
+        'uri': 'at://did:plc:user/gy.brid.record/456',
         'cid': 'bafyreipostsyddddddddddddddddddddddddddddddddddddddddddd',
     }))
     @patch.object(tasks_client, 'create_task', return_value=Task(name='my task'))
@@ -2378,21 +2386,24 @@ class MastodonApiTest(TestCase):
         ref = {'uri': 'fake:post'}
         self.assert_equals({
             'repo': 'did:plc:user',
-            'collection': 'app.bsky.feed.post',
-            'validate': False,
+            'collection': 'gy.brid.record',
             'record': {
-                '$type': 'app.bsky.feed.post',
-                'text': 'a reply',
-                'createdAt': '2022-01-02T03:04:05.000Z',
-                'reply': {
-                    '$type': 'app.bsky.feed.post#replyRef',
-                    'root': ref,
-                    'parent': ref,
+                '$type': 'gy.brid.record',
+                'record': {
+                    '$type': 'app.bsky.feed.post',
+                    'text': 'a reply',
+                    'bridgyOriginalText': 'a reply',
+                    'createdAt': '2022-01-02T03:04:05.000Z',
+                    'reply': {
+                        '$type': 'app.bsky.feed.post#replyRef',
+                        'root': ref,
+                        'parent': ref,
+                    },
                 },
             },
         }, mock_post.call_args.kwargs['json'])
 
-        id = 'at://did:plc:user/app.bsky.feed.post/456'
+        id = 'at://did:plc:user/gy.brid.record/456'
         self.assert_task(mock_create_task, 'receive', source_protocol='atproto',
                          authed_as='did:plc:user', id=id,
                          users=[user.key.urlsafe().decode()], our_as1={
@@ -2404,9 +2415,80 @@ class MastodonApiTest(TestCase):
             'published': '2022-01-02T03:04:05+00:00',
         })
 
+    @patch.object(util.session, 'post', side_effect=[
+        # uploadBlob
+        requests_response({
+            'blob': {
+                '$type': 'blob',
+                'ref': {'$link': BLOB_CID},
+                'mimeType': 'image/png',
+                'size': 3,
+            },
+        }),
+        # createRecord
+        requests_response({
+            'uri': 'at://did:plc:user/gy.brid.record/456',
+            'cid': 'bafyreipostsyddddddddddddddddddddddddddddddddddddddddddd',
+        }),
+    ])
+    def test_statuses_create_reply_not_bridged_with_media(self, mock_post):
+        user = self.make_atproto_user()
+        self.store_object(
+            id='fake:post', users=[self.user.key], source_protocol='fake',
+            our_as1={'objectType': 'note', 'content': 'orig'})
+
+        image = Path(__file__).with_name('activitypub_logo.png').read_bytes()
+        resp = self.post('/api/v2/media', user=user, data={
+            'file': (BytesIO(image), 'foo.png', 'image/png'),
+            'description': 'my alt',
+        })
+        self.assertEqual(200, resp.status_code, resp.json)
+
+        resp = self.post('/api/v1/statuses', user=user, data={
+            'status': 'a reply',
+            'in_reply_to_id': 'fake~3Apost',
+            'media_ids[]': [BLOB_CID],
+        })
+        self.assertEqual(200, resp.status_code, resp.json)
+
+        self.assertEqual(2, mock_post.call_count)
+        ref = {'uri': 'fake:post'}
+        self.assert_equals({
+            'repo': 'did:plc:user',
+            'collection': 'gy.brid.record',
+            'record': {
+                '$type': 'gy.brid.record',
+                'record': {
+                    '$type': 'app.bsky.feed.post',
+                    'text': 'a reply',
+                    'bridgyOriginalText': 'a reply',
+                    'createdAt': '2022-01-02T03:04:05.000Z',
+                    'reply': {
+                        '$type': 'app.bsky.feed.post#replyRef',
+                        'root': ref,
+                        'parent': ref,
+                    },
+                    'embed': {
+                        '$type': 'app.bsky.embed.images',
+                        'images': [{
+                            '$type': 'app.bsky.embed.images#image',
+                            'image': {
+                                '$type': 'blob',
+                                'ref': {'$link': BLOB_CID},
+                                'mimeType': 'image/png',
+                                'size': 3,
+                            },
+                            'alt': 'my alt',
+                            'aspectRatio': {'width': 260, 'height': 164},
+                        }],
+                    },
+                },
+            },
+        }, mock_post.call_args.kwargs['json'])
+
     # createRecord
     @patch.object(util.session, 'post', return_value=requests_response({
-        'uri': 'at://did:plc:user/app.bsky.feed.post/456',
+        'uri': 'at://did:plc:user/gy.brid.record/456',
         'cid': 'bafyreipostsyddddddddddddddddddddddddddddddddddddddddddd',
     }))
     @patch.object(tasks_client, 'create_task', return_value=Task(name='my task'))
@@ -2433,21 +2515,24 @@ class MastodonApiTest(TestCase):
         ref = {'uri': 'https://mas.to/post'}
         self.assert_equals({
             'repo': 'did:plc:user',
-            'collection': 'app.bsky.feed.post',
-            'validate': False,
+            'collection': 'gy.brid.record',
             'record': {
-                '$type': 'app.bsky.feed.post',
-                'text': 'a reply',
-                'createdAt': '2022-01-02T03:04:05.000Z',
-                'reply': {
-                    '$type': 'app.bsky.feed.post#replyRef',
-                    'root': ref,
-                    'parent': ref,
+                '$type': 'gy.brid.record',
+                'record': {
+                    '$type': 'app.bsky.feed.post',
+                    'text': 'a reply',
+                    'bridgyOriginalText': 'a reply',
+                    'createdAt': '2022-01-02T03:04:05.000Z',
+                    'reply': {
+                        '$type': 'app.bsky.feed.post#replyRef',
+                        'root': ref,
+                        'parent': ref,
+                    },
                 },
             },
         }, mock_post.call_args.kwargs['json'])
 
-        id = 'at://did:plc:user/app.bsky.feed.post/456'
+        id = 'at://did:plc:user/gy.brid.record/456'
         self.assert_task(mock_create_task, 'receive', source_protocol='atproto',
                          authed_as='did:plc:user', id=id,
                          users=[user.key.urlsafe().decode()], our_as1={
@@ -2462,7 +2547,7 @@ class MastodonApiTest(TestCase):
     @patch.object(util.session, 'post', side_effect=[
         # createRecord
         requests_response({
-            'uri': 'at://did:plc:user/app.bsky.feed.post/456',
+            'uri': 'at://did:plc:user/gy.brid.record/456',
             'cid': 'bafyreipostsyddddddddddddddddddddddddddddddddddddddddddd',
         }),
         # AP delivery
@@ -2491,7 +2576,7 @@ class MastodonApiTest(TestCase):
         self.assertEqual('https://some.pds/xrpc/com.atproto.repo.createRecord',
                          create_record.args[0])
 
-        id = 'https://bsky.brid.gy/convert/ap/at://did:plc:user/app.bsky.feed.post/456'
+        id = 'https://bsky.brid.gy/convert/ap/at://did:plc:user/gy.brid.record/456'
         self.assert_ap_deliveries(mock_post, ['https://mas.to/users/bob/inbox'],
                                   from_user=user, data={
             'type': 'Create',
@@ -2729,7 +2814,7 @@ class MastodonApiTest(TestCase):
 
     # putRecord
     @patch.object(util.session, 'post', return_value=requests_response({
-        'uri': 'at://did:plc:user/app.bsky.feed.post/456',
+        'uri': 'at://did:plc:user/gy.brid.record/456',
         'cid': 'bafyreipostsyddddddddddddddddddddddddddddddddddddddddddd',
     }))
     @patch.object(tasks_client, 'create_task', return_value=Task(name='my task'))
@@ -2739,17 +2824,17 @@ class MastodonApiTest(TestCase):
         self.store_object(id='did:plc:user', raw=DID_DOC)
         reply = {
             'objectType': 'comment',
-            'id': 'at://did:plc:user/app.bsky.feed.post/456',
+            'id': 'at://did:plc:user/gy.brid.record/456',
             'author': 'did:plc:user',
             'content': 'a reply',
             'inReplyTo': 'https://mas.to/post',
         }
-        self.store_object(id='at://did:plc:user/app.bsky.feed.post/456',
+        self.store_object(id='at://did:plc:user/gy.brid.record/456',
                           source_protocol='atproto', users=[user.key],
                           our_as1=reply)
 
         resp = self.put(
-            '/api/v1/statuses/at~3A~2F~2Fdid:plc:user~2Fapp.bsky.feed.post~2F456',
+            '/api/v1/statuses/at~3A~2F~2Fdid:plc:user~2Fgy.brid.record~2F456',
             user=user, data={'status': 'edited'})
         self.assertEqual(200, resp.status_code, resp.json)
         self.assertEqual('edited', resp.json['content'])
@@ -2759,24 +2844,27 @@ class MastodonApiTest(TestCase):
                          mock_post.call_args.args[0])
         self.assert_equals({
             'repo': 'did:plc:user',
-            'collection': 'app.bsky.feed.post',
+            'collection': 'gy.brid.record',
             'rkey': '456',
-            'validate': False,
             'record': {
-                '$type': 'app.bsky.feed.post',
-                'text': 'edited',
-                'createdAt': '2022-01-02T03:04:05.000Z',
-                'reply': {
-                    '$type': 'app.bsky.feed.post#replyRef',
-                    'root': ref,
-                    'parent': ref,
+                '$type': 'gy.brid.record',
+                'record': {
+                    '$type': 'app.bsky.feed.post',
+                    'text': 'edited',
+                    'bridgyOriginalText': 'edited',
+                    'createdAt': '2022-01-02T03:04:05.000Z',
+                    'reply': {
+                        '$type': 'app.bsky.feed.post#replyRef',
+                        'root': ref,
+                        'parent': ref,
+                    },
                 },
             },
         }, mock_post.call_args.kwargs['json'])
 
         self.assert_task(mock_create_task, 'receive', source_protocol='atproto',
                          authed_as='did:plc:user', changed=True,
-                         id='at://did:plc:user/app.bsky.feed.post/456',
+                         id='at://did:plc:user/gy.brid.record/456',
                          users=[user.key.urlsafe().decode()],
                          our_as1={**reply, 'content': 'edited'})
 

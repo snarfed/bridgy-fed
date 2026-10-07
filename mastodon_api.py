@@ -43,6 +43,9 @@ import webfinger
 
 logger = logging.getLogger(__name__)
 
+# ATProto lexicon that we wrap invalid records in, eg replies to non-ATProto posts
+WRAPPER_NSID = 'gy.brid.record'
+
 # limits for list endpoints
 DEFAULT_LIMIT = 20
 MAX_LIMIT = 40
@@ -627,7 +630,7 @@ def bridged_id(user, target):
         return target.get_copy(user) if user.HAS_COPIES else target.id_as(user)
 
 
-def create_native(user, source, obj_as1, **kwargs):
+def create_native(user, source, obj_as1, wrap=False, **kwargs):
     """Creates an object or activity in ``user``'s protocol.
 
     Also enqueues a receive task to bridge it with its native id, which dedupes
@@ -638,19 +641,29 @@ def create_native(user, source, obj_as1, **kwargs):
       user (models.User)
       source (granary.source.Source)
       obj_as1 (dict): AS1 object or activity. ``id`` is set to the new id.
-      kwargs: passed through to :meth:`granary.source.Source.create`
+      wrap (bool): if True, wrap this object in a generic container in ``user``'s
+        protocol, eg ATProto records inside a ``gy.brid.record`` record. (We do this
+        eg when the converted object won't be valid in ``user``'s protocol.)
+      kwargs: passed through to :meth:`granary.source.Source.create` or
+        :func:`granary.bluesky.from_as1`
 
     Returns:
       str: the new object's id
     """
-    try:
-        result = source.create(obj_as1, **kwargs)
-        if not result.content:
-            error(result.error_plain or "Couldn't create this", status=502)
-        id = result.content['id']
-    except NotImplementedError:
-        verb = obj_as1.get('verb') or obj_as1.get('objectType')
-        id = f'ui:{verb}-{user.LABEL}-{user.handle}-{util.now().isoformat()}'
+    if isinstance(user, ATProto) and wrap:
+        record = bluesky.from_as1(obj_as1, validate=False,
+                                  original_fields_prefix='bridgy', **kwargs)
+        logger.info(f'Wrapping invalid {record["$type"]} in {WRAPPER_NSID}')
+        id = source.write_record({'$type': WRAPPER_NSID, 'record': record})['uri']
+    else:
+        try:
+            result = source.create(obj_as1, **kwargs)
+            if not result.content:
+                error(result.error_plain or "Couldn't create this", status=502)
+            id = result.content['id']
+        except NotImplementedError:
+            verb = obj_as1.get('verb') or obj_as1.get('objectType')
+            id = f'ui:{verb}-{user.LABEL}-{user.handle}-{util.now().isoformat()}'
 
     obj_as1['id'] = id
     enqueue_receive(user, id, obj_as1)
@@ -1147,7 +1160,7 @@ def accounts_follow_or_block(user, source, id, verb):
         'actor': user.key.id(),
         'object': target_id or target.key.id(),
         'published': util.now().isoformat(),
-    }, validate=bool(target_id))
+    }, wrap=not target_id)
     return to_relationship(target, **{f'{verb}ing': True})
 
 
@@ -1383,11 +1396,11 @@ def statuses_create(user, source):
         'published': util.now().isoformat(),
     }
 
-    validate = True
+    wrap = False
     if in_reply_to_id := params.get('in_reply_to_id'):
         orig_obj = load_object(in_reply_to_id)
         target_id = bridged_id(user, orig_obj)
-        validate = bool(target_id)
+        wrap = not target_id
         note.update({
             'objectType': 'comment',
             'inReplyTo': target_id or orig_obj.key.id(),
@@ -1414,7 +1427,7 @@ def statuses_create(user, source):
         else:
             note.setdefault('attachments', []).append(media_as1)
 
-    id = create_native(user, source, note, validate=validate, blobs=blobs)
+    id = create_native(user, source, note, wrap=wrap, blobs=blobs)
 
     obj = Object(id=id, source_protocol=user.LABEL, users=[user.key], our_as1=note)
     obj.resolve_ids()
@@ -1442,11 +1455,20 @@ def statuses_update(user, source, id):
             'published': obj.as1.get('published'),
             'updated': util.now().isoformat(),
         }
-        # replies to objects outside user's protocol are invalid there
-        validate = not in_reply_to or user.owns_id(in_reply_to) is not False
-        result = source.update(note, validate=validate)
-        if not result.content:
-            error(result.error_plain or "Couldn't update this status", status=502)
+        collection = rkey = None
+        if isinstance(user, ATProto):
+            _, collection, rkey = arroba.util.parse_at_uri(note['id'])
+
+        if collection == WRAPPER_NSID:
+            logger.info(f'Updating wrapped record {note["id"]}')
+            # omit id so that it doesn't end up in bridgyOriginalUrl
+            record = bluesky.from_as1({**note, 'id': None}, validate=False,
+                                      original_fields_prefix='bridgy')
+            source.write_record({'$type': WRAPPER_NSID, 'record': record}, rkey=rkey)
+        else:
+            result = source.update(note)
+            if not result.content:
+                error(result.error_plain or "Couldn't update this status", status=502)
 
     obj.our_as1 = {**obj.as1, 'content': text}
     enqueue_receive(user, obj.key.id(), obj.our_as1, changed=True)
@@ -1487,7 +1509,7 @@ def statuses_favourite_or_reblog(user, source, id, verb):
         'actor': user.key.id(),
         'object': target_id or obj.key.id(),
         'published': util.now().isoformat(),
-    }, validate=bool(target_id))
+    }, wrap=not target_id)
 
     status = to_status(obj) or {}
     status['favourited' if verb == 'like' else 'reblogged'] = True
