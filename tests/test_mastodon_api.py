@@ -2716,12 +2716,71 @@ class MastodonApiTest(TestCase):
                 'published': '2022-01-02T03:04:05.000Z',
             })
 
+        params = {'status': 'updated'}
+        for kwargs in {'data': params}, {'json': params}:
+            resp = self.put(
+                "/api/v1/statuses/at~3A~2F~2Fdid:plc:user~2Fapp.bsky.feed.post~2F456",
+                user=user, **kwargs)
+            self.assertEqual(200, resp.status_code, resp.json)
+            self.assertEqual('updated', resp.json['content'])
+
+            self.assertEqual('https://some.pds/xrpc/com.atproto.repo.putRecord',
+                             mock_post.call_args.args[0])
+            self.assert_equals({
+                'repo': 'did:plc:user',
+                'collection': 'app.bsky.feed.post',
+                'rkey': '456',
+                'record': {
+                    '$type': 'app.bsky.feed.post',
+                    'text': 'updated',
+                    'createdAt': '2022-01-02T03:04:05.000Z',
+                },
+            }, mock_post.call_args.kwargs['json'])
+
+    # putRecord
+    @patch.object(util.session, 'post', return_value=requests_response({
+        'uri': 'at://did:plc:user/app.bsky.feed.post/456',
+        'cid': 'bafyreipostsyddddddddddddddddddddddddddddddddddddddddddd',
+    }))
+    # getRecord
+    @patch.object(util.session, 'get', return_value=requests_response({
+        'uri': 'at://did:plc:bob/app.bsky.feed.post/123',
+        'cid': 'bafyreibobsyddddddddddddddddddddddddddddddddddddddddddddd',
+        'value': {},
+    }))
+    def test_statuses_update_reply(self, _, mock_post):
+        user = self.make_atproto_user()
+        self.store_object(id='did:plc:user', raw=DID_DOC)
+        self.make_user('fake:bob', cls=Fake, enabled_protocols=['atproto'],
+                       copies=[Target(uri='did:plc:bob', protocol='atproto')])
+        self.store_object(
+            id='fake:post',
+            source_protocol='fake',
+            copies=[Target(uri='at://did:plc:bob/app.bsky.feed.post/123',
+                           protocol='atproto')],
+            our_as1={'objectType': 'note', 'actor': 'fake:bob', 'content': 'orig'})
+        self.store_object(
+            id='at://did:plc:user/app.bsky.feed.post/456',
+            source_protocol='atproto', users=[user.key],
+            our_as1={
+                'objectType': 'comment',
+                'author': 'did:plc:user',
+                'content': 'a reply',
+                'inReplyTo': 'fake:post',
+                'published': '2022-01-02T03:04:05.000Z',
+            })
+
         resp = self.put(
             "/api/v1/statuses/at~3A~2F~2Fdid:plc:user~2Fapp.bsky.feed.post~2F456",
-            user=user, data={'status': 'updated'})
+            user=user, data={'status': 'edited'})
         self.assertEqual(200, resp.status_code, resp.json)
-        self.assertEqual('updated', resp.json['content'])
+        self.assertEqual('edited', resp.json['content'])
+        self.assertEqual('fake~3Apost', resp.json['in_reply_to_id'])
 
+        ref = {
+            'uri': 'at://did:plc:bob/app.bsky.feed.post/123',
+            'cid': 'bafyreibobsyddddddddddddddddddddddddddddddddddddddddddddd',
+        }
         self.assertEqual('https://some.pds/xrpc/com.atproto.repo.putRecord',
                          mock_post.call_args.args[0])
         self.assert_equals({
@@ -2730,8 +2789,13 @@ class MastodonApiTest(TestCase):
             'rkey': '456',
             'record': {
                 '$type': 'app.bsky.feed.post',
-                'text': 'updated',
+                'text': 'edited',
                 'createdAt': '2022-01-02T03:04:05.000Z',
+                'reply': {
+                    '$type': 'app.bsky.feed.post#replyRef',
+                    'root': ref,
+                    'parent': ref,
+                },
             },
         }, mock_post.call_args.kwargs['json'])
 

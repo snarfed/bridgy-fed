@@ -1438,7 +1438,8 @@ def statuses_create(user, source):
 @app.put('/api/v1/statuses/<path:id>', provide_automatic_options=False)
 @auth(granary_source=True)
 def statuses_update(user, source, id):
-    if not (text := get_required_param('status')):
+    params = request.get_json(silent=True) or request.values
+    if not (text := params.get('status')):
         error('Missing required parameter: status')
 
     obj = load_object(id)
@@ -1466,6 +1467,8 @@ def statuses_update(user, source, id):
                                       original_fields_prefix='bridgy')
             source.write_record({'$type': WRAPPER_NSID, 'record': record}, rkey=rkey)
         else:
+            if in_reply_to and (orig_obj := Object.get_by_id(in_reply_to)):
+                note['inReplyTo'] = bridged_id(user, orig_obj) or in_reply_to
             result = source.update(note)
             if not result.content:
                 error(result.error_plain or "Couldn't update this status", status=502)
