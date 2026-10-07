@@ -36,3 +36,7 @@ https://werd.social/users/ben
 wrecka.ge
 did:plc:qrt5rykojeg5sbsajbu4zdke  # kissane.bsky.social
 https://mas.to/users/kissane
+
+# Braid
+https://martianbase.net/@mackuba
+https://indieweb.social/@laurenshof
