@@ -3,7 +3,7 @@ from datetime import timedelta, timezone
 import functools
 import logging
 import os
-from urllib.parse import unquote
+from urllib.parse import parse_qs, unquote, urlparse
 
 from authlib.integrations.flask_oauth2.resource_protector import current_token
 from flask import request
@@ -760,6 +760,51 @@ def load_media(user, id):
         return obj
 
 
+def add_media(obj_as1, media_ids, user, existing=None):
+    """Adds media to an AS1 object's ``image`` and ``attachments`` fields.
+
+    Args:
+      user (models.User)
+      obj_as1 (dict): AS1 object, modified in place
+      media_ids (sequence of str): Mastodon API media ids, either of uploaded
+        media or from a status's existing media attachments, ie media URLs
+      existing (dict): optional, maps str URL to AS1 media object that's already
+        in the post. Used for media that we don't have stored metadata for, eg
+        in posts from other clients.
+
+    Returns:
+      dict: maps str media URL to ATProto ``$type: blob`` dict. Only populated
+      for ATProto users, and only for media that we have stored metadata for.
+    """
+    blobs = {}
+    for media_id in media_ids:
+        url = decode_id(media_id)
+        if isinstance(user, ATProto) and util.is_web(url):
+            # getBlob URL from a status's media attachment
+            media_id = parse_qs(urlparse(url).query).get('cid', [media_id])[0]
+
+        if media_obj := load_media(user, media_id):
+            media_as1 = {k: v for k, v in media_obj.our_as1.items()
+                         if k not in ('id', 'to')}
+            if isinstance(user, ATProto):
+                blob_as1 = as1.get_object(media_as1, 'stream') or media_as1
+                blobs[blob_as1['url']] = {
+                    '$type': 'blob',
+                    'ref': {'$link': decode_id(media_id)},
+                    'mimeType': blob_as1['mimeType'],
+                    'size': blob_as1['size'],
+                }
+        elif not (media_as1 := (existing or {}).get(url)):
+            error(f'Media {media_id} not found', status=422)
+
+        if media_as1['objectType'] == 'image':
+            obj_as1.setdefault('image', []).append(media_as1)
+        else:
+            obj_as1.setdefault('attachments', []).append(media_as1)
+
+    return blobs
+
+
 def limit():
     """Returns the limit query param, if it's between 1 and ``MAX_LIMIT``.
 
@@ -1406,27 +1451,7 @@ def statuses_create(user, source):
             'inReplyTo': target_id or orig_obj.key.id(),
         })
 
-    # inject AS1 images/attachments for media_ids
-    blobs = {}
-    for media_id in media_ids:
-        if not (media_obj := load_media(user, media_id)):
-            error(f'Media {media_id} not found', status=422)
-
-        media_as1 = media_obj.our_as1
-        if isinstance(user, ATProto):
-            obj_as1 = as1.get_object(media_as1, 'stream') or media_as1
-            blobs[obj_as1['url']] = {
-                '$type': 'blob',
-                'ref': {'$link': decode_id(media_id)},
-                'mimeType': obj_as1['mimeType'],
-                'size': obj_as1['size'],
-            }
-        media_as1 = {k: v for k, v in media_as1.items() if k not in ('id', 'to')}
-        if media_as1['objectType'] == 'image':
-            note.setdefault('image', []).append(media_as1)
-        else:
-            note.setdefault('attachments', []).append(media_as1)
-
+    blobs = add_media(note, media_ids, user)
     id = create_native(user, source, note, wrap=wrap, blobs=blobs)
 
     obj = Object(id=id, source_protocol=user.LABEL, users=[user.key], our_as1=note)
@@ -1439,13 +1464,35 @@ def statuses_create(user, source):
 @auth(granary_source=True)
 def statuses_update(user, source, id):
     params = request.get_json(silent=True) or request.values
-    if not (text := params.get('status')):
-        error('Missing required parameter: status')
+    media_ids = (params.get('media_ids') if request.is_json
+                 else params.getlist('media_ids[]') or None)
+    text = params.get('status') or ''
 
     obj = load_object(id)
 
+    # existing media, by URL, and other attachments, eg quoted posts
+    existing = {}
+    atts = []
+    for img in as1.get_objects(obj.as1, 'image'):
+        existing[img.get('url') or img.get('id')] = {'objectType': 'image', **img}
+    for att in as1.get_objects(obj.as1, 'attachments'):
+        if att.get('objectType') in ('audio', 'image', 'video'):
+            existing[util.get_url(att, 'stream') or util.get_url(att)] = att
+        else:
+            atts.append(att)
+
+    if media_ids is None:
+        media_ids = [encode_id(url) for url in existing]
+    if not text and not media_ids:
+        error('Missing required parameter: status')
+
+    media = {}
+    blobs = add_media(media, media_ids, user, existing=existing)
+    if atts:
+        media['attachments'] = atts + media.get('attachments', [])
+
     if not UIProtocol.owns_id(obj.key.id()):
-        # TODO: media_ids, poll, sensitive, spoiler_text
+        # TODO: poll, sensitive, spoiler_text
         in_reply_to = as1.get_id(obj.as1, 'inReplyTo')
         note = {
             'objectType': 'note',
@@ -1455,6 +1502,7 @@ def statuses_update(user, source, id):
             'inReplyTo': in_reply_to,
             'published': obj.as1.get('published'),
             'updated': util.now().isoformat(),
+            **media,
         }
         collection = rkey = None
         if isinstance(user, ATProto):
@@ -1464,16 +1512,29 @@ def statuses_update(user, source, id):
             logger.info(f'Updating wrapped record {note["id"]}')
             # omit id so that it doesn't end up in bridgyOriginalUrl
             record = bluesky.from_as1({**note, 'id': None}, validate=False,
-                                      original_fields_prefix='bridgy')
+                                      original_fields_prefix='bridgy', blobs=blobs)
             source.write_record({'$type': WRAPPER_NSID, 'record': record}, rkey=rkey)
         else:
             if in_reply_to and (orig_obj := Object.get_by_id(in_reply_to)):
                 note['inReplyTo'] = bridged_id(user, orig_obj) or in_reply_to
-            result = source.update(note)
+            # quoted posts
+            note['attachments'] = [
+                {**att, 'id': bridged_id(user, quoted) or att['id']}
+                if (att.get('objectType') == 'note' and att.get('id')
+                    and (quoted := Object.get_by_id(att['id'])))
+                else att
+                for att in note.get('attachments', [])
+            ]
+            kwargs = {'blobs': blobs} if blobs else {}
+            result = source.update(note, **kwargs)
             if not result.content:
                 error(result.error_plain or "Couldn't update this status", status=502)
 
-    obj.our_as1 = {**obj.as1, 'content': text}
+    obj.our_as1 = {
+        **{k: v for k, v in obj.as1.items() if k not in ('image', 'attachments')},
+        'content': text,
+        **media,
+    }
     enqueue_receive(user, obj.key.id(), obj.our_as1, changed=True)
     return to_status(obj)
 

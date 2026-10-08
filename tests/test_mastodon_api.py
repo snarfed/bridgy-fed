@@ -2799,6 +2799,330 @@ class MastodonApiTest(TestCase):
             },
         }, mock_post.call_args.kwargs['json'])
 
+    # putRecord
+    @patch.object(util.session, 'post', return_value=requests_response({
+        'uri': 'at://did:plc:user/app.bsky.feed.post/456',
+        'cid': 'bafyreipostsyddddddddddddddddddddddddddddddddddddddddddd',
+    }))
+    # getRecord
+    @patch.object(util.session, 'get', return_value=requests_response({
+        'uri': 'at://did:plc:bob/app.bsky.feed.post/123',
+        'cid': 'bafyreibobsyddddddddddddddddddddddddddddddddddddddddddddd',
+        'value': {},
+    }))
+    def test_statuses_update_quote(self, _, mock_post):
+        user = self.make_atproto_user()
+        self.store_object(id='did:plc:user', raw=DID_DOC)
+        self.make_user('fake:bob', cls=Fake, enabled_protocols=['atproto'],
+                       copies=[Target(uri='did:plc:bob', protocol='atproto')])
+        self.store_object(
+            id='fake:post',
+            source_protocol='fake',
+            copies=[Target(uri='at://did:plc:bob/app.bsky.feed.post/123',
+                           protocol='atproto')],
+            our_as1={'objectType': 'note', 'actor': 'fake:bob', 'content': 'orig'})
+        self.store_object(
+            id='at://did:plc:user/app.bsky.feed.post/456',
+            source_protocol='atproto', users=[user.key],
+            our_as1={
+                'objectType': 'note',
+                'author': 'did:plc:user',
+                'content': 'a quote',
+                'published': '2022-01-02T03:04:05.000Z',
+                'attachments': [{'objectType': 'note', 'id': 'fake:post'}],
+            })
+
+        resp = self.put(
+            "/api/v1/statuses/at~3A~2F~2Fdid:plc:user~2Fapp.bsky.feed.post~2F456",
+            user=user, data={'status': 'edited'})
+        self.assertEqual(200, resp.status_code, resp.json)
+        self.assertEqual(
+            'edited<span class="quote-inline"><br><br>RE: fake:post</span>',
+            resp.json['content'])
+        self.assertEqual('fake~3Apost',
+                         resp.json['quote']['quoted_status']['id'])
+
+        self.assertEqual('https://some.pds/xrpc/com.atproto.repo.putRecord',
+                         mock_post.call_args.args[0])
+        self.assert_equals({
+            'repo': 'did:plc:user',
+            'collection': 'app.bsky.feed.post',
+            'rkey': '456',
+            'record': {
+                '$type': 'app.bsky.feed.post',
+                'text': 'edited',
+                'createdAt': '2022-01-02T03:04:05.000Z',
+                'embed': {
+                    '$type': 'app.bsky.embed.record',
+                    'record': {
+                        'uri': 'at://did:plc:bob/app.bsky.feed.post/123',
+                        'cid': 'bafyreibobsyddddddddddddddddddddddddddddddddddddddddddddd',
+                    },
+                },
+            },
+        }, mock_post.call_args.kwargs['json'])
+
+    @patch.object(util.session, 'post', side_effect=[
+        # uploadBlob
+        requests_response({
+            'blob': {
+                '$type': 'blob',
+                'ref': {'$link': BLOB_CID},
+                'mimeType': 'image/png',
+                'size': 3,
+            },
+        }),
+        # createRecord
+        requests_response({
+            'uri': 'at://did:plc:user/app.bsky.feed.post/456',
+            'cid': 'bafyreipostsyddddddddddddddddddddddddddddddddddddddddddd',
+        }),
+        # putRecords
+        requests_response({
+            'uri': 'at://did:plc:user/app.bsky.feed.post/456',
+            'cid': 'bafyreipostsyddddddddddddddddddddddddddddddddddddddddddd',
+        }),
+        requests_response({
+            'uri': 'at://did:plc:user/app.bsky.feed.post/456',
+            'cid': 'bafyreipostsyddddddddddddddddddddddddddddddddddddddddddd',
+        }),
+        requests_response({
+            'uri': 'at://did:plc:user/app.bsky.feed.post/456',
+            'cid': 'bafyreipostsyddddddddddddddddddddddddddddddddddddddddddd',
+        }),
+        requests_response({
+            'uri': 'at://did:plc:user/app.bsky.feed.post/456',
+            'cid': 'bafyreipostsyddddddddddddddddddddddddddddddddddddddddddd',
+        }),
+    ])
+    def test_statuses_update_with_media(self, mock_post):
+        user = self.make_atproto_user()
+        self.store_object(id='did:plc:user', raw=DID_DOC)
+
+        image = Path(__file__).with_name('activitypub_logo.png').read_bytes()
+        resp = self.post('/api/v2/media', user=user, data={
+            'file': (BytesIO(image), 'foo.png', 'image/png'),
+            'description': 'my alt',
+        })
+        self.assertEqual(200, resp.status_code, resp.json)
+
+        resp = self.post('/api/v1/statuses', user=user, data={
+            'status': 'hello world',
+            'media_ids[]': [BLOB_CID],
+        })
+        self.assertEqual(200, resp.status_code, resp.json)
+
+        embed = {
+            '$type': 'app.bsky.embed.images',
+            'images': [{
+                '$type': 'app.bsky.embed.images#image',
+                'image': {
+                    '$type': 'blob',
+                    'ref': {'$link': BLOB_CID},
+                    'mimeType': 'image/png',
+                    'size': 3,
+                },
+                'alt': 'my alt',
+                'aspectRatio': {'width': 260, 'height': 164},
+            }],
+        }
+        path = '/api/v1/statuses/at~3A~2F~2Fdid:plc:user~2Fapp.bsky.feed.post~2F456'
+        for params, expected_text, expected_embed in (
+                # media_ids omitted, keeps existing media
+                ({'status': 'edited'}, 'edited', embed),
+                # status's media attachment id, ie getBlob URL
+                ({'status': 'edited', 'media_ids': [BLOB_URL]}, 'edited', embed),
+                # uploaded media id, no text
+                ({'media_ids': [BLOB_CID]}, '', embed),
+                # removes media
+                ({'status': 'edited', 'media_ids': []}, 'edited', None),
+        ):
+            with self.subTest(params=params):
+                resp = self.put(path, user=user, json=params)
+                self.assertEqual(200, resp.status_code, resp.json)
+                self.assertEqual(
+                    [BLOB_URL] if expected_embed else [],
+                    [m['url'] for m in resp.json['media_attachments']])
+
+                self.assertEqual('https://some.pds/xrpc/com.atproto.repo.putRecord',
+                                 mock_post.call_args.args[0])
+                self.assert_equals({
+                    'repo': 'did:plc:user',
+                    'collection': 'app.bsky.feed.post',
+                    'rkey': '456',
+                    'record': {
+                        '$type': 'app.bsky.feed.post',
+                        'text': expected_text,
+                        'createdAt': '2022-01-02T03:04:05.000Z',
+                        'embed': expected_embed,
+                    },
+                }, mock_post.call_args.kwargs['json'])
+
+        self.assertEqual(6, mock_post.call_count)
+
+    @patch.object(util.session, 'post', side_effect=[
+        # uploadBlob
+        requests_response({
+            'blob': {
+                '$type': 'blob',
+                'ref': {'$link': BLOB_CID},
+                'mimeType': 'image/png',
+                'size': 3,
+            },
+        }),
+        # createRecord
+        requests_response({
+            'uri': 'at://did:plc:user/gy.brid.record/456',
+            'cid': 'bafyreipostsyddddddddddddddddddddddddddddddddddddddddddd',
+        }),
+        # putRecord
+        requests_response({
+            'uri': 'at://did:plc:user/gy.brid.record/456',
+            'cid': 'bafyreipostsyddddddddddddddddddddddddddddddddddddddddddd',
+        }),
+    ])
+    def test_statuses_update_unbridged_reply_with_media(self, mock_post):
+        user = self.make_atproto_user()
+        self.store_object(id='did:plc:user', raw=DID_DOC)
+        self.store_object(
+            id='fake:post', users=[self.user.key], source_protocol='fake',
+            our_as1={'objectType': 'note', 'content': 'orig'})
+
+        image = Path(__file__).with_name('activitypub_logo.png').read_bytes()
+        resp = self.post('/api/v2/media', user=user, data={
+            'file': (BytesIO(image), 'foo.png', 'image/png'),
+            'description': 'my alt',
+        })
+        self.assertEqual(200, resp.status_code, resp.json)
+
+        resp = self.post('/api/v1/statuses', user=user, data={
+            'status': 'a reply',
+            'in_reply_to_id': 'fake~3Apost',
+            'media_ids[]': [BLOB_CID],
+        })
+        self.assertEqual(200, resp.status_code, resp.json)
+
+        resp = self.put(
+            '/api/v1/statuses/at~3A~2F~2Fdid:plc:user~2Fgy.brid.record~2F456',
+            user=user, data={'status': 'edited'})
+        self.assertEqual(200, resp.status_code, resp.json)
+
+        ref = {'uri': 'fake:post'}
+        self.assertEqual('https://some.pds/xrpc/com.atproto.repo.putRecord',
+                         mock_post.call_args.args[0])
+        self.assert_equals({
+            'repo': 'did:plc:user',
+            'collection': 'gy.brid.record',
+            'rkey': '456',
+            'record': {
+                '$type': 'gy.brid.record',
+                'record': {
+                    '$type': 'app.bsky.feed.post',
+                    'text': 'edited',
+                    'bridgyOriginalText': 'edited',
+                    'createdAt': '2022-01-02T03:04:05.000Z',
+                    'reply': {
+                        '$type': 'app.bsky.feed.post#replyRef',
+                        'root': ref,
+                        'parent': ref,
+                    },
+                    'embed': {
+                        '$type': 'app.bsky.embed.images',
+                        'images': [{
+                            '$type': 'app.bsky.embed.images#image',
+                            'image': {
+                                '$type': 'blob',
+                                'ref': {'$link': BLOB_CID},
+                                'mimeType': 'image/png',
+                                'size': 3,
+                            },
+                            'alt': 'my alt',
+                            'aspectRatio': {'width': 260, 'height': 164},
+                        }],
+                    },
+                },
+            },
+        }, mock_post.call_args.kwargs['json'])
+
+    @patch.object(util.session, 'post', side_effect=[
+        # uploadBlob
+        requests_response({
+            'blob': {
+                '$type': 'blob',
+                'ref': {'$link': BLOB_CID},
+                'mimeType': 'image/png',
+                'size': 3,
+            },
+        }),
+        # putRecord
+        requests_response({
+            'uri': 'at://did:plc:user/app.bsky.feed.post/456',
+            'cid': 'bafyreipostsyddddddddddddddddddddddddddddddddddddddddddd',
+        }),
+    ])
+    # getBlob
+    @patch.object(util.session, 'get', return_value=requests_response(
+        b'pic', headers={'Content-Type': 'image/png'}))
+    def test_statuses_update_media_from_other_client(self, mock_get, mock_post):
+        user = self.make_atproto_user()
+        self.store_object(id='did:plc:user', raw=DID_DOC)
+        self.store_object(
+            id='at://did:plc:user/app.bsky.feed.post/456',
+            source_protocol='atproto', users=[user.key],
+            our_as1={
+                'objectType': 'note',
+                'content': 'hello',
+                'actor': 'did:plc:user',
+                'published': '2022-01-02T03:04:05.000Z',
+                'image': [{'url': BLOB_URL, 'displayName': 'my alt'}],
+            })
+
+        resp = self.put(
+            "/api/v1/statuses/at~3A~2F~2Fdid:plc:user~2Fapp.bsky.feed.post~2F456",
+            user=user, json={'status': 'edited', 'media_ids': [BLOB_URL]})
+        self.assertEqual(200, resp.status_code, resp.json)
+        self.assertEqual([BLOB_URL],
+                         [m['url'] for m in resp.json['media_attachments']])
+
+        self.assertEqual(BLOB_URL, mock_get.call_args_list[0].args[0])
+        self.assertEqual('https://some.pds/xrpc/com.atproto.repo.putRecord',
+                         mock_post.call_args.args[0])
+        self.assert_equals({
+            'repo': 'did:plc:user',
+            'collection': 'app.bsky.feed.post',
+            'rkey': '456',
+            'record': {
+                '$type': 'app.bsky.feed.post',
+                'text': 'edited',
+                'createdAt': '2022-01-02T03:04:05.000Z',
+                'embed': {
+                    '$type': 'app.bsky.embed.images',
+                    'images': [{
+                        '$type': 'app.bsky.embed.images#image',
+                        'image': {
+                            '$type': 'blob',
+                            'ref': {'$link': BLOB_CID},
+                            'mimeType': 'image/png',
+                            'size': 3,
+                        },
+                        'alt': 'my alt',
+                    }],
+                },
+            },
+        }, mock_post.call_args.kwargs['json'])
+
+    def test_statuses_update_media_not_found(self):
+        user = self.make_atproto_user()
+        self.store_object(
+            id='at://did:plc:user/app.bsky.feed.post/456',
+            source_protocol='atproto', users=[user.key],
+            our_as1={'objectType': 'note', 'content': 'hello'})
+
+        resp = self.put(
+            "/api/v1/statuses/at~3A~2F~2Fdid:plc:user~2Fapp.bsky.feed.post~2F456",
+            user=user, json={'status': 'edited', 'media_ids': ['nope']})
+        self.assertEqual(422, resp.status_code)
+
     @patch.object(tasks_client, 'create_task', return_value=Task(name='my task'))
     def test_statuses_update_ui(self, mock_create_task):
         common.RUN_TASKS_INLINE = False
