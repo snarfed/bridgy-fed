@@ -62,6 +62,15 @@ LOG_OUTLIER_THRESHOLD = timedelta(minutes=5)
 # throttled are operational states from the relay, so we ignore those.
 DELETE_ACCOUNT_STATUSES = ('deactivated', 'deleted', 'takendown')
 
+# ATProto record types whose deletes we convert to Delete activities instead of Undo
+DELETE_COLLECTIONS = (
+    'app.bsky.actor.profile',
+    'app.bsky.feed.post',
+    'community.lexicon.calendar.event',
+    'site.standard.document',
+    'site.standard.publication',
+)
+
 Event = namedtuple('Event',
                    ['action', 'repo', 'path', 'seq', 'record', 'time', 'status'],
                    # last five fields are optional
@@ -441,13 +450,9 @@ def _handle_commit_op(event):
             _handle_standard_site_document(event)
 
     elif event.action == 'delete':
-        verb = (
-            'delete' if type in ('app.bsky.actor.profile',
-                                 'app.bsky.feed.post',
-                                 'community.lexicon.calendar.event',
-                                 'site.standard.document')
-            else 'stop-following' if type == 'app.bsky.graph.follow'
-            else 'undo')
+        verb = ('delete' if type in DELETE_COLLECTIONS
+                else 'stop-following' if type == 'app.bsky.graph.follow'
+                else 'undo')
         obj_id = f'{at_uri}#{verb}'
         record_kwarg = {
             'our_as1': {
