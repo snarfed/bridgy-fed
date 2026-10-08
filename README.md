@@ -198,6 +198,49 @@ gcloud dns --project=brid-gy record-sets create --zone brid-gy x.brid.gy --type 
 ```
 
 
+Publishing lexicons
+---
+Here's how we [publish our lexicons](https://atproto.com/specs/lexicon#lexicon-publication-and-resolution), right now just [`gy.brid.record`](https://github.com/snarfed/bridgy-fed/blob/main/lexicons/gy/brid/record.json):
+
+```py
+# create DID
+did_plc = arroba.did.create_plc('lexicon.brid.gy', pds_url=ATProto.DEFAULT_TARGET)
+did_plc  # did:plc:zyborkzwgpcu772incnjkiyf
+Object.get_or_create(did_plc.did, raw=did_plc.doc, authed_as=did_plc)
+
+handle = 'lexicon.brid.gy'
+ATProto.set_dns(handle=handle, did=did_plc.did)
+
+# create repo
+from arroba.repo import Repo, Write
+
+repo = Repo.create(arroba.server.storage, did_plc.did, handle=handle,
+                   signing_key=did_plc.signing_key, rotation_key=did_plc.rotation_key)
+
+# create DNS _lexicon.brid.gy
+https://console.cloud.google.com/net-services/dns/zones/brid-gy/details?project=brid-gy
+TXT did={did}
+
+# generate record, validate, store as com.atproto.lexicon.schema/gy.brid.record
+with open('/Users/ryan/src/bridgy-fed/lexicons/gy/brid/record.json') as f:
+  lex = json.load(f)
+
+lex["$type"] = "com.atproto.lexicon.schema"
+
+
+with open('/Users/ryan/src/atproto/lexicons/com/atproto/lexicon/schema.json') as f:
+  lexicons = [json.load(f)]
+
+from lexrpc.client import Client
+client = Client(lexicons=lexicons)
+client.validate('com.atproto.lexicon.schema', 'record', lex)
+
+arroba.server.storage.commit(
+  repo, [Write(action=Action.CREATE, record=lex,
+         collection='com.atproto.lexicon.schema', rkey='gy.brid.record')])
+```
+
+
 GCP Artifact Registry cleanup policies
 ---
 `[artifact-registry-cleanup-policy.json](https://github.com/snarfed/bridgy-fed/blob/main/artifact-registry-cleanup-policy.json)` is an [Artifact Registry cleanup policy](https://docs.cloud.google.com/artifact-registry/docs/repositories/cleanup-policy) that automatically deletes old Docker images built by Cloud Build in our repos. [Background.](https://github.com/snarfed/bridgy-fed/issues/2473)
