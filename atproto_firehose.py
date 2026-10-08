@@ -442,7 +442,10 @@ def _handle_commit_op(event):
 
     elif event.action == 'delete':
         verb = (
-            'delete' if type in ('app.bsky.actor.profile', 'app.bsky.feed.post')
+            'delete' if type in ('app.bsky.actor.profile',
+                                 'app.bsky.feed.post',
+                                 'community.lexicon.calendar.event',
+                                 'site.standard.document')
             else 'stop-following' if type == 'app.bsky.graph.follow'
             else 'undo')
         obj_id = f'{at_uri}#{verb}'

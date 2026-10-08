@@ -154,7 +154,7 @@ OAUTH_EXPIRE_APPS_BEFORE = datetime(2026, 9, 30)
 
 FEDI_URL_RE = re.compile(r'https://(?P<domain>[^/]+)/(@|users/)(?P<handle>[^/@]+)(@[^/@]+)?(?P<post_id>/(?:statuses/)?[0-9]+)?')
 
-OUTBOX_AS1_TYPES = ('article', 'comment', 'note', 'share')
+OUTBOX_AS1_TYPES = ('article', 'comment', 'event', 'note', 'share')
 
 # dict mapping string keyId to HTTPSignatureAuth. global cache for signing
 # outbound HTTP requests.
@@ -201,7 +201,7 @@ class ActivityPub(User, Protocol):
         + tuple(as1.POST_TYPES)
         + tuple(as1.CRUD_VERBS)
         + tuple(as1.VERBS_WITH_OBJECT)
-        + ('add', 'audio', 'bookmark', 'image', 'move', 'remove', 'video')
+        + ('add', 'audio', 'bookmark', 'event', 'image', 'move', 'remove', 'video')
     )
     ''
     SUPPORTED_AS2_TYPES = tuple(

@@ -99,8 +99,9 @@ DONT_STORE_AS1_TYPES = as1.CRUD_VERBS | set((
     'stop-following',
     'undo',
 ))
-STORE_AS1_TYPES = (as1.ACTOR_TYPES | as1.POST_TYPES | as1.VERBS_WITH_OBJECT
-                   - DONT_STORE_AS1_TYPES)
+STORE_AS1_TYPES = (
+    (as1.ACTOR_TYPES | as1.POST_TYPES | as1.VERBS_WITH_OBJECT | {'event'})
+    - DONT_STORE_AS1_TYPES)
 
 DONT_NOTIFY_TYPES = (
     'block',
@@ -1865,7 +1866,7 @@ class Protocol:
           models.Object: ``obj`` if it's an activity, otherwise a new object
         """
         is_actor = obj.type in as1.ACTOR_TYPES
-        if not is_actor and obj.type not in ('note', 'article', 'comment'):
+        if not is_actor and obj.type not in ('note', 'article', 'comment', 'event'):
             return obj
 
         obj_actor = ids.normalize_user_id(id=as1.get_owner(obj.as1), proto=from_cls)
