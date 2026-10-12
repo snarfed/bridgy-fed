@@ -20,6 +20,7 @@ from flask import redirect, request
 from flask_app import app
 import filters
 from google.protobuf import text_format
+from google.protobuf.message import DecodeError
 from granary import as1, microformats2
 from granary.generated.farcaster.message_pb2 import Message
 import memcache
@@ -153,7 +154,12 @@ def admin_user_search():
 @app.get('/admin/user/<key>')
 @canonicalize_request_domain(PROTOCOL_DOMAINS, PRIMARY_DOMAIN)
 def admin_user(key):
-    user = Key(urlsafe=key).get()
+    try:
+        user = Key(urlsafe=key).get()
+    except (ValueError, DecodeError):
+        logger.info(f"{key} isn't a urlsafe key, trying as user query")
+        return redirect(f'/admin/user?query={quote(key)}')
+
     if not user or not isinstance(user, User):
         flash('user not found')
         return redirect('/admin/')

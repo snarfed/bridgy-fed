@@ -1,5 +1,6 @@
 """Unit tests for admin.py."""
 from unittest.mock import patch
+from urllib.parse import quote
 
 import arroba.server
 from google.cloud.ndb import Key
@@ -242,6 +243,14 @@ class AdminTest(TestCase):
         resp = self.client.get(f'/admin/user/{bad_key}')
         self.assertEqual(302, resp.status_code)
         self.assertEqual(f'/admin/', resp.headers['Location'])
+
+    def test_user_id_not_key(self):
+        for id in 'gregorlove.com', 'user.com', 'fake:user':
+            with self.subTest(id=id):
+                resp = self.client.get(f'/admin/user/{id}')
+                self.assertEqual(302, resp.status_code)
+                self.assertEqual(f'/admin/user?query={quote(id)}',
+                                 resp.headers['Location'])
 
     def test_home_blocklists(self):
         Object(id='internal:content-blocklist', raw=['bad word', 'another']).put()
