@@ -2111,6 +2111,104 @@ class IntegrationTests(TestCase):
         self.assertEqual('fooey', alice.username())
         self.assertEqual('@fooey@alice.com', alice.handle_as(ActivityPub))
 
+    # TODO: native ATProto user with both Bluesky and Spark profiles => ActivityPub.
+    # the actor should come from the Bluesky profile, and a Spark profile commit
+    # shouldn't clobber it.
+    @patch.object(util.session, 'get', return_value=requests_response(status=404))
+    def test_activitypub_profile_update_to_atproto_bluesky_and_spark(self, _):
+        """ActivityPub user with only a Bluesky profile updates their profile twice.
+
+        The first update creates their Spark profile, the second updates both.
+
+        ActivityPub user https://inst/alice , did:plc:alice
+        """
+        alice = self.make_ap_user('https://inst/alice', did='did:plc:alice')
+        repo = self.storage.load_repo('did:plc:alice')
+        self.storage.commit(repo, arroba.repo.Write(
+            action=arroba.storage.Action.CREATE,
+            collection='app.bsky.actor.profile',
+            rkey='self',
+            record={'$type': 'app.bsky.actor.profile', 'displayName': 'My Name'}))
+
+        profile = {
+            'description': 'New bio\n\n🌉 bridged from ⁂ https://inst/alice by https://fed.brid.gy/',
+            'bridgyOriginalDescription': 'New bio',
+            'bridgyOriginalUrl': 'https://inst/alice',
+            'labels': {
+                '$type': 'com.atproto.label.defs#selfLabels',
+                'values': [{'val': 'bridged-from-bridgy-fed-activitypub'}],
+            },
+        }
+
+        for name in 'One', 'Two':
+            body = json_dumps({
+                '@context': 'https://www.w3.org/ns/activitystreams',
+                'type': 'Update',
+                'id': f'https://inst/alice#{name}',
+                'actor': 'https://inst/alice',
+                'object': add_key({
+                    'type': 'Person',
+                    'id': 'https://inst/alice',
+                    'name': name,
+                    'summary': 'New bio',
+                    'icon': {'type': 'Image', 'url': 'http://new-pic'},
+                }),
+            })
+            headers = sign('/ap/sharedInbox', body, key_id='https://inst/alice')
+            resp = self.client.post('/ap/sharedInbox', data=body, headers=headers)
+            self.assertEqual(202, resp.status_code)
+
+            self.assert_equals({
+                type: {'self': {**profile, '$type': type, 'displayName': name}}
+                for type in bluesky.PROFILE_TYPES
+            }, self.storage.load_repo('did:plc:alice').get_contents())
+
+            self.assertEqual([
+                'at://did:plc:alice/app.bsky.actor.profile/self',
+                'at://did:plc:alice/so.sprk.actor.profile/self',
+            ], alice.obj_key.get().get_copies(ATProto))
+
+    @patch.object(util.session, 'get', return_value=requests_response("""\
+<html><body class="h-card">
+  <a class="u-url p-name" href="/">Alice Updated</a>
+  <p class="p-summary">New bio</p>
+</body></html>""", url='https://alice.com/'))
+    def test_web_profile_update_to_atproto_bluesky_and_spark(self, _):
+        """Web user with only a Bluesky profile updates their profile via /web-site.
+
+        Web user alice.com , did:plc:alice
+        """
+        alice = self.make_web_user('alice.com', did='did:plc:alice')
+        repo = self.storage.load_repo('did:plc:alice')
+        self.storage.commit(repo, arroba.repo.Write(
+            action=arroba.storage.Action.CREATE,
+            collection='app.bsky.actor.profile',
+            rkey='self',
+            record={'$type': 'app.bsky.actor.profile'}))
+
+        resp = self.client.post('/web/alice.com/update-profile')
+        self.assertEqual(302, resp.status_code)
+
+        profile = {
+            'displayName': 'Alice Updated',
+            'description': 'New bio',
+            'website': 'https://alice.com/',
+            'bridgyOriginalUrl': 'https://alice.com/',
+            'labels': {
+                '$type': 'com.atproto.label.defs#selfLabels',
+                'values': [{'val': 'bridged-from-bridgy-fed-web'}],
+            },
+        }
+        self.assert_equals({
+            type: {'self': {**profile, '$type': type}}
+            for type in bluesky.PROFILE_TYPES
+        }, self.storage.load_repo('did:plc:alice').get_contents())
+
+        self.assertEqual([
+            'at://did:plc:alice/app.bsky.actor.profile/self',
+            'at://did:plc:alice/so.sprk.actor.profile/self',
+        ], alice.obj_key.get().get_copies(ATProto))
+
     @patch.object(util.session, 'post')
     @patch.object(util.session, 'get')
     def test_atproto_mention_activitypub(self, mock_get, mock_post):

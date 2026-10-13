@@ -2006,6 +2006,10 @@ class Object(AddRemoveMixin, StringIdModel):
         This would help with or fix:
         https://console.cloud.google.com/errors/detail/COK22a6w4O2JVg;locations=global;time=P30D?project=bridgy-federated
 
+        TODO: for ATProto, let callers choose which lexicon family's copy they
+        want, eg ``so.sprk.feed.post`` instead of ``app.bsky.feed.post`` for the
+        subject of a Spark reply, like, or repost.
+
         Args:
           proto (str or :class:`Protocol` subclass)
 

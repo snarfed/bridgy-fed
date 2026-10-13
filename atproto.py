@@ -388,9 +388,12 @@ class ATProto(User, Protocol):
         + ('block', 'event', 'follow', 'flag', 'like', 'share', 'stop-following')
     )
     ''
-    SUPPORTED_RECORD_TYPES = frozenset(
-        type for type in itertools.chain(*FROM_AS1_TYPES.values())
-        if '#' not in type)
+    SUPPORTED_RECORD_TYPES = (
+        frozenset(type for type in itertools.chain(*FROM_AS1_TYPES.values())
+                  if '#' not in type)
+        # TODO: handle incoming Spark records. for users with both Bluesky and
+        # Spark profiles, which one wins?
+        - {'so.sprk.actor.profile'})
     'Which incoming record lexicons we should accept from the firehose.'
     SUPPORTED_RECORD_TYPES_BETA_USERS = frozenset([])
     'Which incoming record lexicons to accept from the firehose only for beta users.'
