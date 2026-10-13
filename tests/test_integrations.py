@@ -1171,8 +1171,8 @@ class IntegrationTests(TestCase):
         self.assertEqual(did, repo.did)
 
         records = repo.get_contents()
-        self.assertEqual(['app.bsky.actor.profile', 'chat.bsky.actor.declaration'],
-                         list(records.keys()))
+        self.assertEqual(['app.bsky.actor.profile', 'chat.bsky.actor.declaration',
+                          'so.sprk.actor.profile'], list(records.keys()))
         self.assertEqual(['self'], list(records['app.bsky.actor.profile'].keys()))
 
         # bot user DM

@@ -155,10 +155,8 @@ class UserTest(TestCase):
         did = user.get_copy(ATProto)
         repo = arroba.server.storage.load_repo(did)
 
-        # check profile record
-        profile = repo.get_record('app.bsky.actor.profile', 'self')
-        self.assertEqual({
-            '$type': 'app.bsky.actor.profile',
+        # check profile records
+        profile = {
             'displayName': 'Alice',
             'description': 'hi there\n\n🌉 bridged from 🤡 web:fake:user by https://fed.brid.gy/',
             'website': 'https://alice.com/',
@@ -168,12 +166,17 @@ class UserTest(TestCase):
                 '$type': 'com.atproto.label.defs#selfLabels',
                 'values': [{'val' : 'bridged-from-bridgy-fed-fake'}],
             },
-        }, profile)
+        }
+        for type in 'app.bsky.actor.profile', 'so.sprk.actor.profile':
+            self.assertEqual({**profile, '$type': type},
+                             repo.get_record(type, 'self'))
 
         obj = Object.get_by_id('fake:profile:user')
         self.assertEqual([
             Target(protocol='atproto',
                    uri=at_uri(did, 'app.bsky.actor.profile', 'self')),
+            Target(protocol='atproto',
+                   uri=at_uri(did, 'so.sprk.actor.profile', 'self')),
             Target(protocol='other', uri='other:o:fa:fake:profile:user'),
         ], obj.copies)
 

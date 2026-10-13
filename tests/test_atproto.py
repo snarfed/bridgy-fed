@@ -1263,6 +1263,26 @@ class ATProtoTest(TestCase):
             'displayName': 'Alice',
         })))
 
+    def test_convert_non_atproto_actor_multiple_spark_profile(self):
+        profile = {
+            'displayName': 'Alice',
+            'description': 'hi',
+            'labels': {
+                '$type': 'com.atproto.label.defs#selfLabels',
+                'values': [{'val': 'bot'}, {'val': 'bridged-from-bridgy-fed-fake'}],
+            },
+            'bridgyOriginalUrl': 'fake:alice',
+        }
+        self.assertEqual([
+            {**profile, '$type': 'app.bsky.actor.profile'},
+            {**profile, '$type': 'so.sprk.actor.profile'},
+        ], ATProto.convert(Object(source_protocol='fake', our_as1={
+            'objectType': 'service',
+            'id': 'fake:alice',
+            'displayName': 'Alice',
+            'summary': 'hi',
+        }), multiple=True))
+
     def test_convert_non_atproto_actor_adds_source_links(self):
         self.make_user(cls=Web, id='efake.brid.gy',
                        copies=[Target(protocol='atproto', uri='did:efake')])
@@ -3345,6 +3365,13 @@ Sed tortor neque, aliquet quis posuere aliquam, imperdiet sitamet […]
                     },
                 },
             },
+            'so.sprk.actor.profile': {
+                'self': {
+                    '$type': 'so.sprk.actor.profile',
+                    'displayName': 'fooey',
+                    'description': '🌉 bridged from 🤡 web:fake:user by https://fed.brid.gy/',
+                },
+            },
             'app.bsky.feed.post': {
                 last_tid: {
                     '$type': 'app.bsky.feed.post',
@@ -3423,6 +3450,13 @@ Sed tortor neque, aliquet quis posuere aliquam, imperdiet sitamet […]
                     },
                 },
             },
+            'so.sprk.actor.profile': {
+                'self': {
+                    '$type': 'so.sprk.actor.profile',
+                    'displayName': 'fooey',
+                    'description': '🌉 bridged from 🤡 web:fake:user by https://fed.brid.gy/',
+                },
+            },
             'app.bsky.feed.post': {
                 'existing': {
                     '$type': 'app.bsky.feed.post',
@@ -3471,6 +3505,13 @@ Sed tortor neque, aliquet quis posuere aliquam, imperdiet sitamet […]
             'app.bsky.actor.profile': {
                 'self': {
                     '$type': 'app.bsky.actor.profile',
+                    'displayName': 'fooey',
+                    'description': '🌉 bridged from 🤡 web:fake:user by https://fed.brid.gy/',
+                },
+            },
+            'so.sprk.actor.profile': {
+                'self': {
+                    '$type': 'so.sprk.actor.profile',
                     'displayName': 'fooey',
                     'description': '🌉 bridged from 🤡 web:fake:user by https://fed.brid.gy/',
                 },

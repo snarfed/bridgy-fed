@@ -1262,7 +1262,7 @@ class ATProto(User, Protocol):
                                 break
 
             if from_proto != ATProto:
-                if rec['$type'] == 'app.bsky.actor.profile':
+                if rec['$type'] in bluesky.PROFILE_TYPES:
                     # populated by Protocol.convert
                     if orig_summary := obj.as1.get('bridgyOriginalSummary'):
                         rec['bridgyOriginalDescription'] = orig_summary
@@ -1279,11 +1279,11 @@ class ATProto(User, Protocol):
                     })
                     rec['labels'].setdefault('values', []).append({'val' : label_val})
 
-                if (rec['$type'] in ('app.bsky.actor.profile', 'app.bsky.feed.post')
+                if (rec['$type'] in bluesky.PROFILE_TYPES + ('app.bsky.feed.post',)
                         and orig_url):
                     rec['bridgyOriginalUrl'] = orig_url
 
-        return recs if multiple else rec
+        return recs if multiple else recs[0]
 
     @classmethod
     def _migrate_in(cls, user, from_user_id, plc_code, pds_client):
