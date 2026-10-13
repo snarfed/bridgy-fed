@@ -2160,7 +2160,7 @@ class IntegrationTests(TestCase):
 
             self.assert_equals({
                 type: {'self': {**profile, '$type': type, 'displayName': name}}
-                for type in bluesky.PROFILE_TYPES
+                for type in bluesky.ATP_PROFILE_TYPES
             }, self.storage.load_repo('did:plc:alice').get_contents())
 
             self.assertEqual([
@@ -2201,7 +2201,7 @@ class IntegrationTests(TestCase):
         }
         self.assert_equals({
             type: {'self': {**profile, '$type': type}}
-            for type in bluesky.PROFILE_TYPES
+            for type in bluesky.ATP_PROFILE_TYPES
         }, self.storage.load_repo('did:plc:alice').get_contents())
 
         self.assertEqual([
@@ -3359,6 +3359,123 @@ class IntegrationTests(TestCase):
             Target(protocol='atproto',
                    uri=f'at://did:plc:alice/so.sprk.feed.post/{spark_tid}'),
         ], Object.get_by_id('https://alice.com/post').copies)
+
+    @patch.object(util.session, 'get', return_value=requests_response(
+        'image contents', content_type='image/jpeg'))
+    def test_activitypub_update_post_with_image_to_atproto_bluesky_and_spark(self, _):
+        """ActivityPub user creates and then updates post with image.
+
+        ActivityPub user https://inst/alice , did:plc:alice
+        """
+        alice = self.make_ap_user('https://inst/alice', did='did:plc:alice',
+                                  enabled_protocols=['atproto'])
+
+        note = {
+            'type': 'Note',
+            'id': 'https://inst/post',
+            'attributedTo': 'https://inst/alice',
+            'content': 'My post',
+            'published': '2022-01-02T03:04:05.000Z',
+            'attachment': [{
+                'type': 'Image',
+                'url': 'https://inst/pic.jpg',
+                'name': 'my alt text',
+            }],
+        }
+        for type, obj in (
+                ('Create', note),
+                ('Update', {
+                    **note,
+                    'content': 'My updated post',
+                    'updated': '2022-01-03T04:05:06.000Z',
+                }),
+        ):
+            body = json_dumps({
+                '@context': 'https://www.w3.org/ns/activitystreams',
+                'type': type,
+                'id': f'https://inst/post#{type}',
+                'actor': 'https://inst/alice',
+                'object': obj,
+            })
+            headers = sign('/ap/sharedInbox', body, key_id='https://inst/alice')
+            resp = self.client.post('/ap/sharedInbox', data=body, headers=headers)
+            self.assertEqual(202, resp.status_code)
+
+        copies = Object.get_by_id('https://inst/post').get_copies(ATProto)
+        self.assertEqual(['app.bsky.feed.post', 'so.sprk.feed.post'],
+                         [arroba.util.parse_at_uri(copy)[1] for copy in copies])
+        bsky_tid, spark_tid = [arroba.util.parse_at_uri(copy)[2] for copy in copies]
+
+        blob = {
+            '$type': 'blob',
+            'ref': CID.decode('bafkreiewmu2zbbhkvp3qjevgxvjyqcvymmiy7jsmitxz4frd57g2n2a47u'),
+            'mimeType': 'image/jpeg',
+            'size': 14,
+        }
+        self.assertEqual({
+            'app.bsky.feed.post': {bsky_tid: {
+                '$type': 'app.bsky.feed.post',
+                'text': 'My updated post',
+                'createdAt': '2022-01-02T03:04:05.000Z',
+                'embed': {
+                    '$type': 'app.bsky.embed.images',
+                    'images': [{
+                        '$type': 'app.bsky.embed.images#image',
+                        'image': blob,
+                        'alt': 'my alt text',
+                    }],
+                },
+                'bridgyOriginalText': 'My updated post',
+                'bridgyOriginalUrl': 'https://inst/post',
+            }},
+            'so.sprk.feed.post': {spark_tid: {
+                '$type': 'so.sprk.feed.post',
+                'caption': {'text': 'My updated post'},
+                'createdAt': '2022-01-02T03:04:05.000Z',
+                'media': {
+                    '$type': 'so.sprk.media.images',
+                    'images': [{
+                        'image': blob,
+                        'alt': 'my alt text',
+                    }],
+                },
+                'bridgyOriginalText': 'My updated post',
+                'bridgyOriginalUrl': 'https://inst/post',
+            }},
+        }, self.storage.load_repo('did:plc:alice').get_contents())
+
+    @patch.object(util.session, 'get', side_effect=[
+        requests_response("""\
+<html>
+<body class="h-entry">
+<a class="u-url" href="https://alice.com/post"></a>
+<div class="e-content">My post</div>
+<video class="u-video" src="https://alice.com/vid.mp4"></video>
+<a class="u-author h-card" href="https://alice.com/">Alice</a>
+<a href="http://localhost/"></a>
+</body>
+</html>
+"""),
+        requests_response('video contents', content_type='video/mp4'),
+        requests_response('', status=410),
+    ])
+    def test_web_delete_post_with_video_from_atproto_bluesky_and_spark(self, _):
+        """Web user creates and then deletes (410) post with video.
+
+        Web user alice.com , did:plc:alice
+        """
+        alice = self.make_web_user('alice.com', did='did:plc:alice')
+
+        for expected in ['app.bsky.feed.post', 'so.sprk.feed.post'], []:
+            resp = self.post('/queue/webmention', data={
+                'source': 'https://alice.com/post',
+                'target': 'http://localhost/',
+            })
+            self.assertEqual(202, resp.status_code)
+
+            contents = self.storage.load_repo('did:plc:alice').get_contents()
+            self.assertEqual(expected, [type for type, records in contents.items()
+                                        if records])
 
     def test_activitypub_delete_post_to_nostr(self):
         """ActivityPub user deletes already-bridged post, delivered to Nostr follower.

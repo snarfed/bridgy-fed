@@ -1265,7 +1265,7 @@ class ATProto(User, Protocol):
                                 break
 
             if from_proto != ATProto:
-                if rec['$type'] in bluesky.PROFILE_TYPES:
+                if rec['$type'] in bluesky.ATP_PROFILE_TYPES:
                     # populated by Protocol.convert
                     if orig_summary := obj.as1.get('bridgyOriginalSummary'):
                         rec['bridgyOriginalDescription'] = orig_summary
@@ -1282,7 +1282,8 @@ class ATProto(User, Protocol):
                     })
                     rec['labels'].setdefault('values', []).append({'val' : label_val})
 
-                if (rec['$type'] in bluesky.PROFILE_TYPES + ('app.bsky.feed.post',)
+                if (rec['$type'] in (bluesky.ATP_PROFILE_TYPES
+                                     + bluesky.ATP_POST_TYPES)
                         and orig_url):
                     rec['bridgyOriginalUrl'] = orig_url
 
