@@ -393,7 +393,7 @@ class ATProto(User, Protocol):
                   if '#' not in type)
         # TODO: handle incoming Spark records. for users with both Bluesky and
         # Spark profiles, which one wins?
-        - {'so.sprk.actor.profile'})
+        - {'so.sprk.actor.profile', 'so.sprk.feed.post'})
     'Which incoming record lexicons we should accept from the firehose.'
     SUPPORTED_RECORD_TYPES_BETA_USERS = frozenset([])
     'Which incoming record lexicons to accept from the firehose only for beta users.'

@@ -3214,6 +3214,152 @@ class IntegrationTests(TestCase):
             Target(protocol='atproto', uri=expected_doc_uri),
         ], Object.get_by_id('https://inst/article').copies)
 
+    @patch.object(util.session, 'get', return_value=requests_response(
+        'image contents', content_type='image/jpeg'))
+    def test_activitypub_create_post_with_image_to_atproto_bluesky_and_spark(self, _):
+        """ActivityPub user creates post with image, delivered to ATProto.
+
+        ActivityPub user https://inst/alice , did:plc:alice
+        """
+        alice = self.make_ap_user('https://inst/alice', did='did:plc:alice',
+                                  enabled_protocols=['atproto'])
+
+        body = json_dumps({
+            '@context': 'https://www.w3.org/ns/activitystreams',
+            'type': 'Create',
+            'id': 'https://inst/post#create',
+            'actor': 'https://inst/alice',
+            'object': {
+                'type': 'Note',
+                'id': 'https://inst/post',
+                'attributedTo': 'https://inst/alice',
+                'content': 'My post',
+                'published': '2022-01-02T03:04:05.000Z',
+                'attachment': [{
+                    'type': 'Image',
+                    'url': 'https://inst/pic.jpg',
+                    'name': 'my alt text',
+                }],
+            },
+        })
+        headers = sign('/ap/sharedInbox', body, key_id='https://inst/alice')
+        resp = self.client.post('/ap/sharedInbox', data=body, headers=headers)
+        self.assertEqual(202, resp.status_code)
+
+        contents = self.storage.load_repo('did:plc:alice').get_contents()
+        bsky_tid = list(contents['app.bsky.feed.post'].keys())[0]
+        spark_tid = list(contents['so.sprk.feed.post'].keys())[0]
+        blob = {
+            '$type': 'blob',
+            'ref': CID.decode('bafkreiewmu2zbbhkvp3qjevgxvjyqcvymmiy7jsmitxz4frd57g2n2a47u'),
+            'mimeType': 'image/jpeg',
+            'size': 14,
+        }
+        self.assertEqual({
+            'app.bsky.feed.post': {bsky_tid: {
+                '$type': 'app.bsky.feed.post',
+                'text': 'My post',
+                'createdAt': '2022-01-02T03:04:05.000Z',
+                'embed': {
+                    '$type': 'app.bsky.embed.images',
+                    'images': [{
+                        '$type': 'app.bsky.embed.images#image',
+                        'image': blob,
+                        'alt': 'my alt text',
+                    }],
+                },
+                'bridgyOriginalText': 'My post',
+                'bridgyOriginalUrl': 'https://inst/post',
+            }},
+            'so.sprk.feed.post': {spark_tid: {
+                '$type': 'so.sprk.feed.post',
+                'caption': {'text': 'My post'},
+                'createdAt': '2022-01-02T03:04:05.000Z',
+                'media': {
+                    '$type': 'so.sprk.media.images',
+                    'images': [{
+                        'image': blob,
+                        'alt': 'my alt text',
+                    }],
+                },
+                'bridgyOriginalText': 'My post',
+                'bridgyOriginalUrl': 'https://inst/post',
+            }},
+        }, contents)
+
+        self.assert_equals([
+            Target(protocol='atproto',
+                   uri=f'at://did:plc:alice/app.bsky.feed.post/{bsky_tid}'),
+            Target(protocol='atproto',
+                   uri=f'at://did:plc:alice/so.sprk.feed.post/{spark_tid}'),
+        ], Object.get_by_id('https://inst/post').copies)
+
+    @patch.object(util.session, 'get', side_effect=[
+        requests_response("""\
+<html>
+<body class="h-entry">
+<a class="u-url" href="https://alice.com/post"></a>
+<time class="dt-published" datetime="2022-01-02T03:04:05+00:00"></time>
+<div class="e-content">My post</div>
+<video class="u-video" src="https://alice.com/vid.mp4"></video>
+<a class="u-author h-card" href="https://alice.com/">Alice</a>
+<a href="http://localhost/"></a>
+</body>
+</html>
+"""),
+        requests_response('video contents', content_type='video/mp4'),
+    ])
+    def test_web_post_with_video_to_atproto_bluesky_and_spark(self, _):
+        """Web user creates post with video, delivered to ATProto.
+
+        Web user alice.com , did:plc:alice
+        """
+        alice = self.make_web_user('alice.com', did='did:plc:alice')
+
+        resp = self.post('/queue/webmention', data={
+            'source': 'https://alice.com/post',
+            'target': 'http://localhost/',
+        })
+        self.assertEqual(202, resp.status_code)
+
+        contents = self.storage.load_repo('did:plc:alice').get_contents()
+        bsky_tid = list(contents['app.bsky.feed.post'].keys())[0]
+        spark_tid = list(contents['so.sprk.feed.post'].keys())[0]
+        video = {
+            'video': {
+                '$type': 'blob',
+                'ref': CID.decode('bafkreihlbhhpabcpjwmr7v2xcvet27fqd7pg3s2ys35d436attrfutuedi'),
+                'mimeType': 'video/mp4',
+                'size': 14,
+            },
+            'alt': '',
+        }
+        self.assertEqual({
+            'app.bsky.feed.post': {bsky_tid: {
+                '$type': 'app.bsky.feed.post',
+                'text': 'My post',
+                'createdAt': '2022-01-02T03:04:05.000Z',
+                'embed': {**video, '$type': 'app.bsky.embed.video'},
+                'bridgyOriginalText': 'My post',
+                'bridgyOriginalUrl': 'https://alice.com/post',
+            }},
+            'so.sprk.feed.post': {spark_tid: {
+                '$type': 'so.sprk.feed.post',
+                'caption': {'text': 'My post'},
+                'createdAt': '2022-01-02T03:04:05.000Z',
+                'media': {**video, '$type': 'so.sprk.media.video'},
+                'bridgyOriginalText': 'My post',
+                'bridgyOriginalUrl': 'https://alice.com/post',
+            }},
+        }, contents)
+
+        self.assert_equals([
+            Target(protocol='atproto',
+                   uri=f'at://did:plc:alice/app.bsky.feed.post/{bsky_tid}'),
+            Target(protocol='atproto',
+                   uri=f'at://did:plc:alice/so.sprk.feed.post/{spark_tid}'),
+        ], Object.get_by_id('https://alice.com/post').copies)
+
     def test_activitypub_delete_post_to_nostr(self):
         """ActivityPub user deletes already-bridged post, delivered to Nostr follower.
 
