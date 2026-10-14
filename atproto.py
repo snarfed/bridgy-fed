@@ -393,7 +393,18 @@ class ATProto(User, Protocol):
                   if '#' not in type)
         # TODO: handle incoming Spark records. for users with both Bluesky and
         # Spark profiles, which one wins?
-        - {'so.sprk.actor.profile', 'so.sprk.feed.post'})
+        - {
+            'so.sprk.feed.like',
+            'so.sprk.feed.like',
+            'so.sprk.feed.post',
+            'so.sprk.actor.profile',
+            'so.sprk.feed.reply',
+            'so.sprk.feed.repost',
+            'social.grain.actor.profile',
+            'social.grain.gallery',
+            'social.grain.gallery.item',
+            'social.grain.photo',
+        })
     'Which incoming record lexicons we should accept from the firehose.'
     SUPPORTED_RECORD_TYPES_BETA_USERS = frozenset([])
     'Which incoming record lexicons to accept from the firehose only for beta users.'
@@ -1652,6 +1663,9 @@ def postprocess_writes(writes, user):
                     'cid': dag_cbor_cid(post.record).encode('base32'),
                 }
             break
+
+    # TODO: similarly, populate so.sprk.feed.posts' crossposts property with a
+    # strong ref to the app.bsky.feed.post, if we also have one
 
     # create site.standard.publication for user if it doesn't exist
     if docs and user and user.verified_domain:
