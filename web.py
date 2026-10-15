@@ -129,8 +129,9 @@ class Web(User, Protocol):
         tuple(as1.ACTOR_TYPES)
         + tuple(as1.POST_TYPES)
         + tuple(as1.CRUD_VERBS)
-        + ('audio', 'bookmark', 'event', 'image', 'video')
-        + ('follow', 'like', 'share', 'stop-following')
+        + tuple(as1.RSVP_VERB_TO_COLLECTION)
+        + ('audio', 'bookmark', 'event', 'follow', 'image', 'like', 'share',
+           'stop-following', 'video')
     )
     ''
     USES_OBJECT_FEED = True

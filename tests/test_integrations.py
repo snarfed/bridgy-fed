@@ -898,6 +898,50 @@ class IntegrationTests(TestCase):
             'target': 'https://bob.com/post',
         }, allow_redirects=False, headers={'Accept': '*/*'})
 
+    @patch.object(util.session, 'post', return_value=requests_response(''))
+    @patch.object(util.session, 'get', return_value=test_web.WEBMENTION_REL_LINK)
+    def test_atproto_rsvp_to_web(self, mock_get, mock_post):
+        """ATProto RSVP to Web.
+
+        ATProto user alice.com (did:plc:alice)
+        ATProto RSVP at://did:plc:alice/community.lexicon.calendar.rsvp/456
+        Web user bob.com's event https://bob.com/event
+        """
+        self.make_atproto_user('did:plc:alice')
+
+        Repo.create(self.storage, 'did:plc:bob', signing_key=ATPROTO_KEY)
+        self.make_user(id='bob.com', cls=Web,
+                       copies=[Target(uri='did:plc:bob', protocol='atproto')],
+                       enabled_protocols=['atproto'])
+
+        self.store_object(id='https://bob.com/event', source_protocol='web',
+                          our_as1={
+                              'objectType': 'event',
+                              'author': 'https://bob.com/',
+                              'displayName': 'My party',
+                          },
+                          copies=[
+            Target(uri='at://did:plc:bob/community.lexicon.calendar.event/123',
+                   protocol='atproto'),
+        ])
+
+        rsvp = {
+            '$type': 'community.lexicon.calendar.rsvp',
+            'subject': {
+                'uri': 'at://did:plc:bob/community.lexicon.calendar.event/123',
+                'cid': A_CID.encode(),
+            },
+            'status': 'community.lexicon.calendar.rsvp#going',
+        }
+        self.firehose(repo='did:plc:alice', action='create', seq=456,
+                      path='community.lexicon.calendar.rsvp/456', record=rsvp)
+
+        self.assert_req(mock_get, 'https://bob.com/event')
+        self.assert_req(mock_post, 'https://bob.com/webmention', data={
+            'source': 'https://bsky.brid.gy/convert/web/at://did:plc:alice/community.lexicon.calendar.rsvp/456',
+            'target': 'https://bob.com/event',
+        }, allow_redirects=False, headers={'Accept': '*/*'})
+
     @patch('dns.resolver.resolve', side_effect=NXDOMAIN())
     @patch('webutil.appengine_config.tasks_client.create_task')
     @patch.object(util.session, 'post', side_effect=[
@@ -974,6 +1018,55 @@ class IntegrationTests(TestCase):
             'subject': 'did:plc:alice',
             'createdAt': '2022-01-02T03:04:05.000Z',
         }], list(repo.get_contents()['app.bsky.graph.follow'].values()))
+
+    @patch('webutil.appengine_config.tasks_client.create_task')
+    @patch.object(util.session, 'get', return_value=requests_response("""\
+<html>
+<body class="h-entry">
+<a class="u-url" href="https://bob.com/rsvp"></a>
+<data class="p-rsvp" value="yes">I'm going!</data>
+<a class="u-author h-card" href="https://bob.com/">Bob</a>
+<a class="u-in-reply-to" href="https://bsky.brid.gy/convert/web/at://did:plc:alice/community.lexicon.calendar.event/123"></a>
+<a href="http://localhost/"></a>
+</body>
+</html>
+""", url='https://bob.com/rsvp'))
+    def test_web_rsvp_to_atproto(self, mock_get, _):
+        """Web RSVP to an ATProto event.
+
+        Web user bob.com (did:plc:bob)
+        ATProto user alice.com (did:plc:alice)
+        ATProto event at://did:plc:alice/community.lexicon.calendar.event/123
+        """
+        self.make_atproto_user('did:plc:alice')
+        self.make_web_user('bob.com', enabled_protocols=['atproto'],
+                           did='did:plc:bob')
+
+        event = {
+            '$type': 'community.lexicon.calendar.event',
+            'name': 'My party',
+            'createdAt': '2022-01-02T03:04:05.000Z',
+            'startsAt': '2022-02-03T18:00:00.000Z',
+        }
+        self.store_object(id='at://did:plc:alice/community.lexicon.calendar.event/123',
+                          bsky=event)
+
+        resp = self.post('/queue/webmention', data={
+            'source': 'https://bob.com/rsvp',
+            'target': 'https://fed.brid.gy/',
+        })
+        self.assertEqual(202, resp.status_code)
+
+        repo = self.storage.load_repo('did:plc:bob')
+        tid = arroba.util.int_to_tid(arroba.util._tid_ts_last)
+        self.assert_equals({tid: {
+            '$type': 'community.lexicon.calendar.rsvp',
+            'subject': {
+                'uri': 'at://did:plc:alice/community.lexicon.calendar.event/123',
+                'cid': arroba.util.dag_cbor_cid(event).encode('base32'),
+            },
+            'status': 'community.lexicon.calendar.rsvp#going',
+        }}, repo.get_contents()['community.lexicon.calendar.rsvp'])
 
     @patch('webutil.appengine_config.tasks_client.create_task')
     @patch.object(util.session, 'get', side_effect=[
