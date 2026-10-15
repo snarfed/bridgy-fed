@@ -10,53 +10,13 @@
   <form method="post" action="/oauth/bluesky/start">
     <nobr>
       <details name="login" class="row big">
-        <summary class="login-button shadow" title="Atmosphere (Bluesky)">
-          <img src="/static/bluesky_logotype.png" height="60" />
+        <summary class="login-button shadow login-button-logotype" title="Atmosphere (Bluesky)">
+          <img src="/static/atmosphere_icon.svg" height="60" />
+          <span>Atmosphere (Bluesky)</span>
         </summary>
-        <input name="handle" type="text" class="fade-in-element login-input" placeholder="Bluesky handle" required>
+        <label for="login-atmosphere" class="fade-in-element login-label">Handle</label>
+        <input id="login-atmosphere" name="handle" type="text" class="fade-in-element login-input" placeholder="me.bsky.social" required>
         <input type="image" title="Atmosphere (Bluesky)" class="submit-button fade-in-element shadow"
-              src="/static/material-arrow-icon.svg" />
-      </details>
-      <input name="scope" type="hidden">
-    </nobr>
-  </form>
-
-  <form method="post" action="/oauth/bluesky/start">
-    <nobr>
-      <details name="login" class="row big">
-        <summary class="login-button shadow" title="Blacksky">
-          <img src="/static/blacksky_logotype.png" height="60" />
-        </summary>
-        <input name="handle" type="text" class="fade-in-element login-input" placeholder="Blacksky handle" required>
-        <input type="image" title="Blacksky" class="submit-button fade-in-element shadow"
-              src="/static/material-arrow-icon.svg" />
-      </details>
-      <input name="scope" type="hidden">
-    </nobr>
-  </form>
-
-  <form method="post" action="/oauth/mastodon/start">
-    <nobr>
-      <details name="login" class="row big">
-        <summary class="login-button shadow" title="Mastodon">
-          <img src="/static/mastodon_large.png" height="60" />
-        </summary>
-        <input name="instance" type="url" class="fade-in-element login-input" placeholder="Mastodon instance" scheme="https" required>
-        <input type="image" title="Mastodon" class="submit-button fade-in-element shadow"
-              src="/static/material-arrow-icon.svg" />
-      </details>
-      <input name="scope" type="hidden">
-    </nobr>
-  </form>
-
-  <form method="post" action="/oauth/pixelfed/start">
-    <nobr>
-      <details name="login" class="row big">
-        <summary class="login-button shadow" title="Pixelfed">
-          <img src="/static/pixelfed_large.png" height="60" />
-        </summary>
-        <input name="instance" type="url" class="fade-in-element login-input" placeholder="Pixelfed instance" scheme="https" required>
-        <input type="image" title="Pixelfed" class="submit-button fade-in-element shadow"
               src="/static/material-arrow-icon.svg" />
       </details>
       <input name="scope" type="hidden">
@@ -70,10 +30,41 @@
           <img src="/oauth_dropins_static/indieauth_logo.png" height="60" />
           <span>IndieAuth (web)</span>
         </summary>
-        <input name="me" type="url" class="fade-in-element login-input" placeholder="Your web site" required>
+        <label for="login-indieauth" class="fade-in-element login-label">Web site</label>
+        <input id="login-indieauth" name="me" type="url" class="fade-in-element login-input" placeholder="example.com" required>
         <input type="image" title="IndieAuth" class="submit-button fade-in-element shadow"
               src="/static/material-arrow-icon.svg" />
       </details>
+    </nobr>
+  </form>
+
+  <form method="post" action="/oauth/mastodon/start">
+    <nobr>
+      <details name="login" class="row big">
+        <summary class="login-button shadow" title="Mastodon">
+          <img src="/static/mastodon_large.png" height="60" />
+        </summary>
+        <label for="login-mastodon" class="fade-in-element login-label">Instance</label>
+        <input id="login-mastodon" name="instance" type="url" class="fade-in-element login-input" placeholder="mastodon.social" scheme="https" required>
+        <input type="image" title="Mastodon" class="submit-button fade-in-element shadow"
+              src="/static/material-arrow-icon.svg" />
+      </details>
+      <input name="scope" type="hidden">
+    </nobr>
+  </form>
+
+  <form method="post" action="/oauth/pixelfed/start">
+    <nobr>
+      <details name="login" class="row big">
+        <summary class="login-button shadow" title="Pixelfed">
+          <img src="/static/pixelfed_large.png" height="60" />
+        </summary>
+        <label for="login-pixelfed" class="fade-in-element login-label">Instance</label>
+        <input id="login-pixelfed" name="instance" type="url" class="fade-in-element login-input" placeholder="pixelfed.social" scheme="https" required>
+        <input type="image" title="Pixelfed" class="submit-button fade-in-element shadow"
+              src="/static/material-arrow-icon.svg" />
+      </details>
+      <input name="scope" type="hidden">
     </nobr>
   </form>
 </div>

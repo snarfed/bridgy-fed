@@ -175,7 +175,7 @@ My App
         body = resp.get_data(as_text=True)
         self.assertIn('My App', body)
         self.assertIn('alice.com', body)
-        self.assertIn('placeholder="Your web site"', body)
+        self.assertIn('placeholder="example.com"', body)
 
     def test_authorize_no_session_login(self):
         """No existing session: just the fresh login forms, no chooser."""
@@ -185,7 +185,9 @@ My App
             base_url=BASE_URL)
         self.assertEqual(200, resp.status_code)
         body = resp.get_data(as_text=True)
-        self.assertIn('placeholder="Your web site"', body)
+        self.assertIn('placeholder="me.bsky.social"', body)
+        self.assertIn('placeholder="example.com"', body)
+        self.assertNotIn('placeholder="mastodon.social"', body)
         self.assertNotIn('name="user_key"', body)
 
     def test_session_consent_issue_token(self):

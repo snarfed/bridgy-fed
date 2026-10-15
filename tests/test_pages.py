@@ -1082,13 +1082,31 @@ class PagesTest(TestCase):
     def test_login(self):
         resp = self.client.get('/login')
         self.assertEqual(200, resp.status_code)
+        body = resp.get_data(as_text=True)
         self.assert_multiline_in("""\
 <details name="login" class="row big">
-<summary class="login-button shadow" title="Atmosphere (Bluesky)">
-<img src="/static/bluesky_logotype.png" height="60" />
+<summary class="login-button shadow login-button-logotype" title="Atmosphere (Bluesky)">
+<img src="/static/atmosphere_icon.svg" height="60" />
+<span>Atmosphere (Bluesky)</span>
 </summary>
-<input name="handle" type="text" class="fade-in-element login-input" placeholder="Bluesky handle" required>
-""", resp.get_data(as_text=True))
+<label for="login-atmosphere" class="fade-in-element login-label">Handle</label>
+<input id="login-atmosphere" name="handle" type="text" class="fade-in-element login-input" placeholder="me.bsky.social" required>
+""", body)
+        self.assert_multiline_in("""\
+<label for="login-indieauth" class="fade-in-element login-label">Web site</label>
+<input id="login-indieauth" name="me" type="url" class="fade-in-element login-input" placeholder="example.com" required>
+""", body)
+        self.assert_multiline_in("""\
+<label for="login-mastodon" class="fade-in-element login-label">Instance</label>
+<input id="login-mastodon" name="instance" type="url" class="fade-in-element login-input" placeholder="mastodon.social" scheme="https" required>
+""", body)
+        self.assert_multiline_in("""\
+<label for="login-pixelfed" class="fade-in-element login-label">Instance</label>
+<input id="login-pixelfed" name="instance" type="url" class="fade-in-element login-input" placeholder="pixelfed.social" scheme="https" required>
+""", body)
+
+        self.assertLess(body.index('/oauth/indieauth/start'),
+                        body.index('/oauth/mastodon/start'))
 
     def test_login_read_only(self):
         appengine_info.READ_ONLY = True

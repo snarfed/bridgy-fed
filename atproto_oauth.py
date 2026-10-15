@@ -645,7 +645,7 @@ class Proxy(oauth_server.Proxy):
     AUTHORIZE_PATH = AUTHORIZE_PATH
     PROTO = ATProto
     # you can't log in with an ATProto account to use an ATProto account
-    HIDE_LOGINS = ('bluesky', 'blacksky')
+    HIDE_LOGINS = ('atmosphere',)
 
     @classmethod
     def describe_scopes(cls, scope):

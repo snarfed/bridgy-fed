@@ -1146,11 +1146,17 @@ details[open] > .login-button {
   margin-top:20px;
 }
 
+.login-label {
+  font-weight: bold;
+  vertical-align: middle;
+}
+
 .login-input {
   width: 135px;
   height: 50px;
   border-radius: 90px;
   margin-right:10px;
+  vertical-align: middle;
 }
 
 .submit-button {

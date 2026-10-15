@@ -314,7 +314,7 @@ class Proxy:
     PROTO = None
     """protocol.Protocol: users must be bridged into this to log in here."""
     HIDE_LOGINS = ()
-    """sequence of str: login buttons to hide, eg ``('bluesky', 'blacksky')``."""
+    """sequence of str: login buttons to hide, eg ``('mastodon', 'pixelfed')``."""
 
     # for oauth_dropins' FlashErrors
     ON_ERROR_REDIRECT_TO = '/'
