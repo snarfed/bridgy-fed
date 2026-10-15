@@ -1172,7 +1172,8 @@ class IntegrationTests(TestCase):
 
         records = repo.get_contents()
         self.assertEqual(['app.bsky.actor.profile', 'chat.bsky.actor.declaration',
-                          'so.sprk.actor.profile'], list(records.keys()))
+                          'so.sprk.actor.profile', 'social.grain.actor.profile'],
+                         list(records.keys()))
         self.assertEqual(['self'], list(records['app.bsky.actor.profile'].keys()))
 
         # bot user DM
@@ -2158,14 +2159,18 @@ class IntegrationTests(TestCase):
             resp = self.client.post('/ap/sharedInbox', data=body, headers=headers)
             self.assertEqual(202, resp.status_code)
 
-            self.assert_equals({
+            expected = {
                 type: {'self': {**profile, '$type': type, 'displayName': name}}
                 for type in bluesky.ATP_PROFILE_TYPES
-            }, self.storage.load_repo('did:plc:alice').get_contents())
+            }
+            del expected['social.grain.actor.profile']['self']['labels']
+            self.assert_equals(expected,
+                               self.storage.load_repo('did:plc:alice').get_contents())
 
             self.assertEqual([
                 'at://did:plc:alice/app.bsky.actor.profile/self',
                 'at://did:plc:alice/so.sprk.actor.profile/self',
+                'at://did:plc:alice/social.grain.actor.profile/self',
             ], alice.obj_key.get().get_copies(ATProto))
 
     @patch.object(util.session, 'get', return_value=requests_response("""\
@@ -2199,14 +2204,19 @@ class IntegrationTests(TestCase):
                 'values': [{'val': 'bridged-from-bridgy-fed-web'}],
             },
         }
-        self.assert_equals({
+        expected = {
             type: {'self': {**profile, '$type': type}}
             for type in bluesky.ATP_PROFILE_TYPES
-        }, self.storage.load_repo('did:plc:alice').get_contents())
+        }
+        del expected['social.grain.actor.profile']['self']['website']
+        del expected['social.grain.actor.profile']['self']['labels']
+        self.assert_equals(expected,
+                           self.storage.load_repo('did:plc:alice').get_contents())
 
         self.assertEqual([
             'at://did:plc:alice/app.bsky.actor.profile/self',
             'at://did:plc:alice/so.sprk.actor.profile/self',
+            'at://did:plc:alice/social.grain.actor.profile/self',
         ], alice.obj_key.get().get_copies(ATProto))
 
     @patch.object(util.session, 'post')

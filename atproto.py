@@ -1284,14 +1284,16 @@ class ATProto(User, Protocol):
                         # don't use granary's since it will include source links
                         rec.pop('bridgyOriginalDescription', None)
 
-                    # bridged actors get a self label
-                    label_val = 'bridged-from-bridgy-fed'
-                    if from_proto:
-                        label_val += f'-{from_proto.LABEL}'
-                    rec.setdefault('labels', {
-                        '$type': 'com.atproto.label.defs#selfLabels',
-                    })
-                    rec['labels'].setdefault('values', []).append({'val' : label_val})
+                    # bridged actors get a self label. Grain profiles don't
+                    # support labels
+                    if rec['$type'] != 'social.grain.actor.profile':
+                        label_val = 'bridged-from-bridgy-fed'
+                        if from_proto:
+                            label_val += f'-{from_proto.LABEL}'
+                        rec.setdefault('labels', {
+                            '$type': 'com.atproto.label.defs#selfLabels',
+                        })
+                        rec['labels'].setdefault('values', []).append({'val' : label_val})
 
                 if (rec['$type'] in (bluesky.ATP_PROFILE_TYPES
                                      + bluesky.ATP_POST_TYPES)

@@ -1276,6 +1276,12 @@ class ATProtoTest(TestCase):
         self.assertEqual([
             {**profile, '$type': 'app.bsky.actor.profile'},
             {**profile, '$type': 'so.sprk.actor.profile'},
+            {
+                '$type': 'social.grain.actor.profile',
+                'displayName': 'Alice',
+                'description': 'hi',
+                'bridgyOriginalUrl': 'fake:alice',
+            },
         ], ATProto.convert(Object(source_protocol='fake', our_as1={
             'objectType': 'service',
             'id': 'fake:alice',
@@ -3372,6 +3378,13 @@ Sed tortor neque, aliquet quis posuere aliquam, imperdiet sitamet […]
                     'description': '🌉 bridged from 🤡 web:fake:user by https://fed.brid.gy/',
                 },
             },
+            'social.grain.actor.profile': {
+                'self': {
+                    '$type': 'social.grain.actor.profile',
+                    'displayName': 'fooey',
+                    'description': '🌉 bridged from 🤡 web:fake:user by https://fed.brid.gy/',
+                },
+            },
             'app.bsky.feed.post': {
                 last_tid: {
                     '$type': 'app.bsky.feed.post',
@@ -3457,6 +3470,13 @@ Sed tortor neque, aliquet quis posuere aliquam, imperdiet sitamet […]
                     'description': '🌉 bridged from 🤡 web:fake:user by https://fed.brid.gy/',
                 },
             },
+            'social.grain.actor.profile': {
+                'self': {
+                    '$type': 'social.grain.actor.profile',
+                    'displayName': 'fooey',
+                    'description': '🌉 bridged from 🤡 web:fake:user by https://fed.brid.gy/',
+                },
+            },
             'app.bsky.feed.post': {
                 'existing': {
                     '$type': 'app.bsky.feed.post',
@@ -3512,6 +3532,13 @@ Sed tortor neque, aliquet quis posuere aliquam, imperdiet sitamet […]
             'so.sprk.actor.profile': {
                 'self': {
                     '$type': 'so.sprk.actor.profile',
+                    'displayName': 'fooey',
+                    'description': '🌉 bridged from 🤡 web:fake:user by https://fed.brid.gy/',
+                },
+            },
+            'social.grain.actor.profile': {
+                'self': {
+                    '$type': 'social.grain.actor.profile',
                     'displayName': 'fooey',
                     'description': '🌉 bridged from 🤡 web:fake:user by https://fed.brid.gy/',
                 },
