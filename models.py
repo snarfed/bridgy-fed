@@ -124,7 +124,7 @@ IMAGE_PROXY_DOMAINS = ('threads.net',)
 # used by User.status_description. values are formatted with format(user=...)
 USER_STATUS_DESCRIPTIONS = {  # keep in sync with DM.type's docstring!
     'moved': 'account has migrated to another account',
-    'no-feed-or-webmention': "web site doesn't have an RSS or Atom feed or webmention endpoint",
+    'no-feed-or-webmention': "web site doesn't have a feed (RSS, Atom, or h-feed) or webmention endpoint",
     'nobot': "profile has 'nobot' in it",
     'nobridge': "profile has 'nobridge' in it",
     'no-nip05': "account's NIP-05 identifier is missing or invalid",

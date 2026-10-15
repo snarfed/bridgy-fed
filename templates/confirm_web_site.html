@@ -20,9 +20,9 @@
 <li>Your profile, including the name and picture above, <a href="/docs#web-profile">will come from your home page</a>.
 
 {% if feed_url %}
-  <li>We found {% if feed_type == 'atom' %}an Atom{% elif feed_type == 'rss' %}an RSS{% else %}a{% endif %} feed at <a href="{{ feed_url }}">{{ feed_url }}</a>. We'll <a href="/docs#web-how-post">check it periodically and bridge new posts from it automatically</a>. You can also switch to <a href="https://webmention.net/">webmentions</a>.
+  <li>We found {% if feed_type == 'atom' %}an Atom {% elif feed_type == 'rss' %}an RSS {% elif feed_type == 'html' %}an HTML h-{% else %}a {% endif %}feed at <a href="{{ feed_url }}">{{ feed_url }}</a>. We'll <a href="/docs#web-how-post">check it periodically and bridge new posts from it automatically</a>. You can also switch to <a href="https://webmention.net/">webmentions</a>.
 {% else %}
-  <li><a href="/docs#web-which-parts">Your posts will come from the microformats in your HTML.</a> You'll need to <a href="/docs#web-how-post">send us a webmention</a> for each post you want to bridge. Or, if you add an RSS or Atom feed, then come back here and re-register, <a href="/docs#web-how-post">we'll use that instead</a>.
+  <li><a href="/docs#web-which-parts">Your posts will come from the microformats in your HTML.</a> You'll need to <a href="/docs#web-how-post">send us a webmention</a> for each post you want to bridge. Or, if you add an RSS, Atom, or h-feed, then come back here and re-register, <a href="/docs#web-how-post">we'll use that instead</a>.
 {% endif %}
 
 <li>People on the fediverse and the Atmosphere will be able to see, follow, and interact with your site. Bridgy Fed can send those interactions back as <a href="/docs#web-backfeed">webmentions</a> and in a <a href="/docs#web-notifications">notifications feed</a>.

@@ -64,6 +64,8 @@ FEED_TYPES = {
     # https://stackoverflow.com/questions/4832357/whats-the-difference-between-text-xml-vs-application-xml-for-webservice-respons
     'application/xml': 'xml',
     'text/xml': 'xml',
+    # https://indieweb.org/h-feed#Discovery
+    'text/mf2+html': 'html',
 }
 MIN_FEED_POLL_PERIOD = timedelta(hours=2)
 MAX_FEED_POLL_PERIOD = timedelta(days=1)
@@ -495,16 +497,34 @@ class Web(User, Protocol):
         return obj.key.id()
 
     def feed_url(self):
-        """Returns this web site's RSS or Atom feed URL and type, if any.
+        """Returns this web site's RSS, Atom, or HTML h-feed URL and type, if any.
+
+        Prefers RSS and Atom, then ``rel="alternate"`` links with type
+        ``text/mf2+html``, then an h-feed on the home page itself.
+
+        Uses a ``has-h-feed`` top level boolean field in ``self.obj.mf2``,
+        set in :meth:`Web.fetch``.
 
         Returns:
-          (str, type) or (None, None):
+          (str, type) or (None, None): type is ``atom``, ``rss``, ``xml``, or
+          ``html``
         """
-        if self.obj and self.obj.mf2:
-            for url, info in self.obj.mf2.get('rel-urls', {}).items():
-                type = FEED_TYPES.get(info.get('type', '').split(';')[0])
-                if 'alternate' in info.get('rels', []) and type:
-                    return url, type
+        if not self.obj or not self.obj.mf2:
+            return None, None
+
+        feeds = []
+        for url, info in self.obj.mf2.get('rel-urls', {}).items():
+            type = FEED_TYPES.get(info.get('type', '').split(';')[0])
+            if 'alternate' in info.get('rels', []) and type:
+                feeds.append((url, type))
+
+        # sort is stable, so this keeps page order otherwise
+        feeds.sort(key=lambda feed: feed[1] == 'html')
+        if feeds:
+            return feeds[0]
+
+        if self.obj.mf2.get('has-h-feed'):
+            return self.profile_id(), 'html'
 
         return None, None
 
@@ -665,9 +685,14 @@ class Web(User, Protocol):
             props.pop('uid')
 
         # store final URL in mf2 object
+        # also store `has-h-feed` boolean if there's an h-feed on the page.
+        # used in feed_url, poll_feed
         if is_homepage:
             entry.setdefault('rel-urls', {}).update(parsed.get('rel-urls', {}))
             entry.setdefault('type', ['h-card'])
+            if mf2util.find_first_entry(parsed, ['h-feed']):
+                logger.info('Found h-feed')
+                entry['has-h-feed'] = True
         if parsed['url']:
             entry['url'] = parsed['url']
         logger.info(f'Extracted microformats2 entry: {json_dumps(entry)[:500]}')
@@ -890,8 +915,8 @@ def poll_feed(user, feed_url, rel_type):
     Args:
       user (Web)
       feed_url (str)
-      rel_type (str): feed link's top-level rel type in home page HTML, usually
-        either ``atom`` or ``rss``
+      rel_type (str): feed type from :meth:`Web.feed_url`, usually ``atom``,
+        ``rss``, or ``html``
 
     Returns:
       list of dict AS1 activities:
@@ -917,6 +942,14 @@ def poll_feed(user, feed_url, rel_type):
         logger.info('Feed is unchanged since last poll')
         user.put()
         return []
+    elif rel_type == 'html':
+        activities = microformats2.html_hfeed_to_as1(resp, implied=False)
+        if not activities:
+            # has-h-feed is set in Web.fetch
+            if user.obj.mf2.pop('has-h-feed', None):
+                logger.info('Home page no longer has an h-feed with entries')
+                user.obj.put()
+            raise ValueError(f'No h-feed with entries in {feed_url}')
     elif type == 'atom' or (type == 'xml' and rel_type == 'atom'):
         activities = atom.atom_to_activities(resp.text)
     elif type == 'rss' or (type == 'xml' and rel_type == 'rss'):
@@ -939,6 +972,7 @@ def poll_feed(user, feed_url, rel_type):
         for elem in obj, activity:
             if url := elem.get('url'):
                 elem['id'] = elem['url']
+        activity.setdefault('id', obj.get('id'))
 
         logger.debug(f'Converted to AS1: {json_dumps(activity, indent=2)}')
 
@@ -1032,6 +1066,10 @@ def poll_feed_task():
             raise
 
     user.put()
+
+    if not user.feed_url()[0]:
+        logger.info('No feed URL any more, not polling again')
+        return 'OK', status
 
     # determine posting frequency
     published_last = None

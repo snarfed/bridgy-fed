@@ -2092,6 +2092,56 @@ class IntegrationTests(TestCase):
         self.assertEqual(['atproto'], new_alice.enabled_protocols)
         self.assertIs(False, new_alice.manual_opt_out)
 
+    @patch('webutil.appengine_config.tasks_client.create_task')
+    @patch.object(util.session, 'post')
+    @patch.object(util.session, 'get', side_effect=[
+        requests_response(test_web.ACTOR_HTML_HFEED, url='https://alice.com/'),
+        requests_response(status=404),  # webfinger
+        requests_response(test_web.ACTOR_HTML_HFEED, url='https://alice.com/'),
+        test_web.WEBMENTION_NO_REL_LINK,  # fetch post to look for image
+    ])
+    def test_web_enable_site_with_hfeed(self, mock_get, _, mock_create_task):
+        """Web site with an h-feed on its home page enables the bridge.
+
+        Web user alice.com
+        """
+        common.RUN_TASKS_INLINE = False
+
+        resp = self.post('/web-site', data={
+            'url': 'https://alice.com/',
+            'confirm': 'true',
+        })
+        self.assertEqual(302, resp.status_code)
+        self.assertEqual('/web/alice.com', resp.headers['Location'])
+
+        alice = Web.get_by_id('alice.com')
+        self.assertIsNone(alice.status)
+        self.assertIs(True, alice.obj.mf2['has-h-feed'])
+        self.assertEqual(('https://alice.com/', 'html'), alice.feed_url())
+        self.assert_task(mock_create_task, 'poll-feed', domain='alice.com')
+
+        resp = self.post('/queue/poll-feed', data={'domain': 'alice.com'})
+        self.assertEqual(200, resp.status_code)
+        self.assertEqual('https://alice.com/post',
+                         alice.key.get().feed_last_item)
+
+        self.assert_task(mock_create_task, 'receive', id='https://alice.com/post',
+                         source_protocol='web', authed_as='alice.com',
+                         received_at='2022-01-02T03:04:05+00:00', our_as1={
+            'objectType': 'activity',
+            'verb': 'post',
+            'id': 'https://alice.com/post',
+            'actor': {'id': 'https://alice.com/'},
+            'object':{
+                'objectType': 'note',
+                'id': 'https://alice.com/post',
+                'url': 'https://alice.com/post',
+                'author': {'id': 'https://alice.com/'},
+                'content': 'I hereby ☕ post',
+                'content_is_html': True,
+            },
+        })
+
     @patch.object(util.session, 'get')
     def test_web_delete_of_post_bridged_to_atproto(self, mock_get):
         """Web Delete (410) of a post removes it from the ATProto repo.
