@@ -176,6 +176,14 @@ class AdminTest(TestCase):
         self.assertEqual(200, resp.status_code)
         self.assertIn('http://b.c/a', resp.get_data(as_text=True))
 
+    def test_users_activitypub_url_id_not_handle(self):
+        # Misskey actor ids are /users/[opaque id], not /users/[username]
+        self.make_user('https://b.c/users/9qvg', cls=ActivityPub,
+                       webfinger_addr='@alice@b.c')
+        resp = self.client.get('/admin/user?query=https://b.c/users/9qvg')
+        self.assertEqual(200, resp.status_code)
+        self.assertNotIn('No users found', resp.get_data(as_text=True))
+
     def test_users_not_found(self):
         resp = self.client.get('/admin/user?query=fake:nope')
         self.assertEqual(200, resp.status_code)

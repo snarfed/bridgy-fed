@@ -118,6 +118,8 @@ def admin_user_search():
         query = ids.handle_as_domain(f'@{match.group("handle")}@{match.group("domain")}')
 
     queries = [query]
+    if query != orig_query:
+        queries.append(orig_query)
     if '@' in query:
         if handle_as_domain := ids.handle_as_domain(query):
             queries.append(handle_as_domain)
