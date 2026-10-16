@@ -3125,6 +3125,28 @@ Sed tortor neque, aliquet quis posuere aliquam, imperdiet sitamet […]
         profile = repo.get_record('app.bsky.actor.profile', 'self')
         self.assert_equals('updated', profile['displayName'])
 
+    @patch.object(tasks_client, 'create_task')
+    def test_send_create_retries_as_update_on_multiple_conflicts(self, mock_create_task):
+        self.make_user_and_repo()
+
+        self.storage.commit(self.repo, [
+            Write(action=Action.CREATE, collection=collection, rkey='self',
+                  record={**ACTOR_PROFILE_BSKY, '$type': collection})
+            for collection in ('so.sprk.actor.profile', 'social.grain.actor.profile')
+        ])
+
+        obj = self.store_object(id='fake:profile:user', our_as1={
+            'objectType': 'person',
+            'displayName': 'updated',
+        })
+        self.assertTrue(ATProto.send(obj, 'https://bsky.brid.gy', from_user=self.user))
+
+        repo = self.storage.load_repo('did:plc:user')
+        for collection in ('app.bsky.actor.profile', 'so.sprk.actor.profile',
+                           'social.grain.actor.profile'):
+            self.assert_equals('updated',
+                               repo.get_record(collection, 'self')['displayName'])
+
     @patch.object(tasks_client, 'create_task', return_value=Task(name='my task'))
     def test_send_article(self, mock_create_task):
         user = self.make_user_and_repo()

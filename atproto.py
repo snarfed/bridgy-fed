@@ -1004,40 +1004,44 @@ class ATProto(User, Protocol):
 
         postprocess_writes(writes, from_user)
         logger.info(f'Storing ATProto {writes}')
-        try:
-            # serialize commits per repo. constructing and writing the commits can
-            # take some time, so without serializing, we hit datastore contention,
-            # which makes us drop sequence numbers, since they're allocated before
-            # the commit transaction, and those delay hub from emitting commit events
-            # over the firehose while it waits for the skipped seqs, and sometimes
-            # those delays mean we drop events entirely.
-            # https://github.com/snarfed/arroba/issues/74
-            with arroba.memcache.Lease(memcache.memcache, f'arroba-commit-{did}',
-                                       retries=250):
-                arroba.server.storage.commit(repo, writes)
-
-        except ValueError as e:
-            # if a CREATE conflicts with an existing record, retry as UPDATE.
-            # (this exception and error message comes from arroba.mst.MST.add)
-            msg = str(e)
-            prefix = 'There is already a value at key: '
-            if not msg.startswith(prefix):
-                # probably a DELETE but the record doesn't exist
-                logger.warning(e)
-                return False
-
-            path = msg.removeprefix(prefix)
-            for i, write in enumerate(writes):
-                if (write.action == Action.CREATE
-                        and f'{write.collection}/{write.rkey}' == path):
-                    writes[i] = write._replace(action=Action.UPDATE)
-                    logger.info(f'Retrying with UPDATE for conflict at {path}')
+        # each retry converts one CREATE to UPDATE, so at most len(writes) retries
+        for _ in range(len(writes) + 1):
+            try:
+                # serialize commits per repo. constructing and writing the commits
+                # can take some time, so without serializing, we hit datastore
+                # contention, which makes us drop sequence numbers, since they're
+                # allocated before the commit transaction, and those delay hub from
+                # emitting commit events over the firehose while it waits for the
+                # skipped seqs, and sometimes those delays mean we drop events
+                # entirely. https://github.com/snarfed/arroba/issues/74
+                with arroba.memcache.Lease(memcache.memcache, f'arroba-commit-{did}',
+                                           retries=250):
                     arroba.server.storage.commit(repo, writes)
-                    break
-            else:
-                # ¯\_(ツ)_/¯
-                logger.warning(e)
-                return False
+                break
+
+            except ValueError as e:
+                # if a CREATE conflicts with an existing record, retry as UPDATE.
+                # (this exception and error message comes from arroba.mst.MST.add)
+                msg = str(e)
+                prefix = 'There is already a value at key: '
+                if not msg.startswith(prefix):
+                    # probably a DELETE but the record doesn't exist
+                    logger.warning(e)
+                    return False
+
+                path = msg.removeprefix(prefix)
+                for i, write in enumerate(writes):
+                    if (write.action == Action.CREATE
+                            and f'{write.collection}/{write.rkey}' == path):
+                        writes[i] = write._replace(action=Action.UPDATE)
+                        logger.info(f'Retrying with UPDATE for conflict at {path}')
+                        break
+                else:
+                    # ¯\_(ツ)_/¯
+                    logger.warning(e)
+                    return False
+        else:
+            assert False, f'unreachable: {len(writes) + 1} conflicts for {base_id}'
 
         logger.info(f'  seq {repo.head.seq}')
 
