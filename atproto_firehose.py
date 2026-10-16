@@ -192,7 +192,7 @@ def subscribe():
         if cursor.cursor:
             cursor.cursor += 1
 
-    last_stored_cursor = cur_timestamp = last_timestamp = None
+    last_stored_cursor = cur_dt = last_dt = None
 
     client = Client(f'https://{os.environ["BGS_HOST"]}',
                     headers={'User-Agent': USER_AGENT})
@@ -222,11 +222,16 @@ def subscribe():
             logger.warning(f'Payload missing seq! {payload}')
             continue
 
-        if cur_timestamp and (not last_timestamp or cur_timestamp > last_timestamp):
+        if cur_dt and (not last_dt or cur_dt > last_dt):
             # prevent time from moving backwards for commits with outlier stale
             # time values. https://github.com/snarfed/bridgy-fed/issues/2348
-            last_timestamp = cur_timestamp
+            last_dt = cur_dt
         cur_timestamp = payload['time']
+        cur_dt = util.parse_iso8601(cur_timestamp)
+        outlier = last_dt and last_dt - cur_dt > LOG_OUTLIER_THRESHOLD
+        if outlier:
+            # don't pass it through as received_at, it would skew our latency metric
+            cur_timestamp = None
 
         # if we fail processing this commit and raise an exception up to subscriber,
         # skip it and start with the next commit when we're restarted
@@ -243,12 +248,9 @@ def subscribe():
                 msg += f', {events_s} events/s'
             last_stored_cursor = cursor.cursor
 
-            cur_dt = util.parse_iso8601(cur_timestamp)
-            if last_timestamp:
-                last_dt = util.parse_iso8601(last_timestamp)
-                if last_dt - cur_dt <= LOG_OUTLIER_THRESHOLD:
-                    behind = util.now() - cur_dt
-                    msg += f', {behind} ({int(behind.total_seconds())} s) behind'
+            if last_dt and not outlier:
+                behind = util.now() - cur_dt
+                msg += f', {behind} ({int(behind.total_seconds())} s) behind'
 
             logger.info(msg)
             cursor.put()
@@ -282,7 +284,7 @@ def subscribe():
         for p_op in payload.get('ops', []):
             event = Event(repo=payload['repo'], action=p_op.get('action'),
                           path=p_op.get('path'), seq=payload['seq'],
-                          time=payload['time'])
+                          time=cur_timestamp)
             if not event.action or not event.path:
                 logger.info(
                     f'bad payload! seq {event.seq} action {event.action} path {event.path}!')

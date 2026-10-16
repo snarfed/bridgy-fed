@@ -722,6 +722,42 @@ class ATProtoFirehoseSubscribeTest(ATProtoTestCase):
         self.assertNotIn('behind', msgs[3])
         self.assertIn('behind', msgs[4])
 
+    def test_outlier_time_values_omitted_from_events(self):
+        # https://github.com/snarfed/bridgy-fed/issues/2348
+        to_receive = []
+        for i, time in enumerate([
+            NOW,
+            NOW - timedelta(seconds=30),
+            NOW - timedelta(days=2),
+            NOW + timedelta(minutes=1),
+        ]):
+            FakeWebsocketClient.setup_receive(Event(
+                repo='did:plc:user', action='create', seq=i + 1,
+                path=f'app.bsky.feed.post/{i}', record=POST_BSKY))
+            FakeWebsocketClient.to_receive[0][1]['time'] = time.isoformat()
+            to_receive.extend(FakeWebsocketClient.to_receive)
+
+        to_receive.append(({
+            'op': 1,
+            't': '#identity',
+        }, {
+            'seq': 5,
+            'did': 'did:plc:user',
+            'time': (NOW - timedelta(days=1)).isoformat(),
+        }))
+        FakeWebsocketClient.to_receive = to_receive
+
+        self.subscribe()
+
+        self.assertEqual([
+            NOW.isoformat(),
+            (NOW - timedelta(seconds=30)).isoformat(),
+            None,
+            (NOW + timedelta(minutes=1)).isoformat(),
+            None,
+        ], [events.get().time for _ in range(5)])
+        self.assertTrue(events.empty())
+
 
 @patch('webutil.appengine_config.tasks_client.create_task')
 class ATProtoFirehoseHandleTest(ATProtoTestCase):
