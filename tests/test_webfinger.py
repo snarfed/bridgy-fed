@@ -569,6 +569,12 @@ class WebfingerTest(TestCase):
         self.assert_req(mock_get,
                         'https://bar/.well-known/webfinger?resource=acct:foo@bar')
 
+    @patch.object(util.session, 'get', return_value=requests_response(
+        WEBFINGER, content_type='application/jrd+json'))
+    def test_fetch_idn_domain(self, mock_get):
+        self.assertEqual(WEBFINGER, fetch('@français@aŭtomato.swf.pub'))
+        self.assert_req(mock_get, 'https://xn--atomato-htb.swf.pub/.well-known/webfinger?resource=acct:français@xn--atomato-htb.swf.pub')
+
     @patch.object(util.session, 'get', return_value=requests_response(WEBFINGER))
     def test_fetch_actor_url(self, mock_get):
         self.assertEqual('http://localhost/user.com', fetch_actor_url('@foo@bar'))

@@ -8,6 +8,7 @@ import logging
 import re
 from urllib.parse import urljoin, urlparse
 
+from domain2idna import domain2idna
 from flask import render_template, request
 from granary import as2
 from webutil import flask_util, util
@@ -253,8 +254,9 @@ def fetch(addr):
     addr = addr.strip().strip('@')
     split = addr.split('@')
     if len(split) == 2:
-        addr_domain = split[1]
-        resource = f'acct:{addr}'
+        user, domain = split
+        addr_domain = domain2idna(domain)
+        resource = f'acct:{user}@{addr_domain}'
     elif util.is_web(addr):
         addr_domain = util.domain_from_link(addr, minimize=False)
         resource = addr
