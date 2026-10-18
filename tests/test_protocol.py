@@ -5528,6 +5528,72 @@ class ProtocolReceiveTest(TestCase):
         self.assertEqual([copy], user.copies)
         self.assertEqual(['efake:user'], Fake.created_for)
 
+    def _reject_follow(self, follow_id, follow_actor, follow_object='efake:user'):
+        return ExplicitFake.receive_as1({
+            'objectType': 'activity',
+            'verb': 'reject',
+            'id': 'efake:reject',
+            'actor': 'efake:user',
+            'object': {
+                'objectType': 'activity',
+                'verb': 'follow',
+                'id': follow_id,
+                'actor': follow_actor,
+                'object': follow_object,
+            },
+        })
+
+    def test_reject_bot_user_follow_disables_protocol(self):
+        # Ghost sends this when you block an account
+        # https://github.com/snarfed/bridgy-fed/issues/2749
+        self.make_user('fa.brid.gy', cls=Web)
+        user = self.make_user('efake:user', cls=ExplicitFake,
+                              enabled_protocols=['fake'])
+        Follower.get_or_create(to=user, from_=self.user)
+
+        self.assertEqual(('OK', 200),
+                         self._reject_follow('efake:follow', 'fa.brid.gy'))
+        self.assertFalse(user.key.get().is_enabled(Fake))
+
+        id = 'efake:user#bridgy-fed-delete-user-fake-2022-01-02T03:04:05+00:00'
+        self.assertEqual([('fake:shared:target', {
+            'objectType': 'activity',
+            'verb': 'delete',
+            'id': id,
+            'actor': 'efake:user',
+            'object': 'efake:user',
+        })], Fake.sent)
+
+    def test_reject_bot_user_follow_back_doesnt_disable_protocol(self):
+        # eg remove follower, or a locked account declining our follow-back
+        self.make_user('fa.brid.gy', cls=Web)
+        user = self.make_user('efake:user', cls=ExplicitFake,
+                              enabled_protocols=['fake'])
+
+        Follower.get_or_create(to=user, from_=self.user)
+
+        self._reject_follow(
+            'https://fa.brid.gy/#follow-back-efake:user-2022-01-02T03:04:05+00:00',
+            'fa.brid.gy')
+        self.assertTrue(user.key.get().is_enabled(Fake))
+        self.assertEqual([], Fake.sent)
+
+    def test_reject_other_follow_doesnt_disable_protocol(self):
+        self.make_user('fa.brid.gy', cls=Web)
+        user = self.make_user('efake:user', cls=ExplicitFake,
+                              enabled_protocols=['fake'])
+
+        self._reject_follow('efake:follow', 'fake:alice')
+        self.assertTrue(user.key.get().is_enabled(Fake))
+
+    def test_reject_bot_user_follow_of_someone_else_doesnt_disable_protocol(self):
+        self.make_user('fa.brid.gy', cls=Web)
+        user = self.make_user('efake:user', cls=ExplicitFake,
+                              enabled_protocols=['fake'])
+
+        self._reject_follow('efake:follow', 'fa.brid.gy', 'efake:other')
+        self.assertTrue(user.key.get().is_enabled(Fake))
+
     def test_too_old(self):
         Follower.get_or_create(to=self.user, from_=self.alice)
 

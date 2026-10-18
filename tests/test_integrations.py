@@ -1596,6 +1596,62 @@ class IntegrationTests(TestCase):
 
         self.assertEqual('deactivated', self.storage.load_repo('did:plc:alice').status)
 
+    def _deliver_reject_follow(self, follow_id, follow_actor, inbox='/bsky.brid.gy/inbox'):
+        """Delivers a Reject of a Follow of https://inst/alice to inbox."""
+        self.make_ap_user('https://inst/alice', 'did:plc:alice')
+        self.make_user(id='bsky.brid.gy', cls=Web, ap_subdomain='bsky')
+
+        body = json_dumps({
+            'type': 'Reject',
+            'id': 'https://inst/reject',
+            'actor': 'https://inst/alice',
+            'object': {
+                'type': 'Follow',
+                'id': follow_id,
+                'actor': follow_actor,
+                'object': 'https://inst/alice',
+            },
+        })
+        headers = sign(inbox, body, key_id='https://inst/alice')
+        # the inner Follow may not be fetchable, eg Ghost's
+        with patch.object(util.session, 'get',
+                          return_value=requests_response(status=404)):
+            return self.client.post(inbox, data=body, headers=headers)
+
+    def test_activitypub_ghost_block_bsky_bot_deactivates_atproto_repo(self):
+        """Ghost's block of @bsky.brid.gy@bsky.brid.gy deactivates the Bluesky repo.
+
+        Ghost sends a Reject of a Follow it mints instead of a Block.
+        https://github.com/snarfed/bridgy-fed/issues/2749
+        """
+        resp = self._deliver_reject_follow('https://inst/follow/123',
+                                           'https://bsky.brid.gy/bsky.brid.gy')
+        self.assertEqual(200, resp.status_code)
+
+        user = ActivityPub.get_by_id('https://inst/alice')
+        self.assertFalse(user.is_enabled(ATProto))
+        self.assertEqual('deactivated', self.storage.load_repo('did:plc:alice').status)
+
+    def test_activitypub_reject_bsky_bot_follow_back_keeps_atproto_repo(self):
+        """Rejecting our own follow-back, eg remove follower, doesn't opt out."""
+        self._deliver_reject_follow(
+            'https://bsky.brid.gy/#follow-back-https://inst/alice-2022-01-02T03:04:05+00:00',
+            'https://bsky.brid.gy/bsky.brid.gy')
+
+        user = ActivityPub.get_by_id('https://inst/alice')
+        self.assertTrue(user.is_enabled(ATProto))
+        self.assertIsNone(self.storage.load_repo('did:plc:alice').status)
+
+    def test_activitypub_reject_bridged_bsky_user_follow_keeps_atproto_repo(self):
+        """Rejecting a bridged Bluesky user's follow doesn't opt out."""
+        self._deliver_reject_follow('https://inst/follow/123',
+                                    'https://bsky.brid.gy/ap/did:plc:bob',
+                                    inbox='/ap/did:plc:bob/inbox')
+
+        user = ActivityPub.get_by_id('https://inst/alice')
+        self.assertTrue(user.is_enabled(ATProto))
+        self.assertIsNone(self.storage.load_repo('did:plc:alice').status)
+
     @patch.object(util.session, 'post')
     @patch.object(util.session, 'get')
     def test_activitypub_block_list_dm_to_atproto(self, mock_get, mock_post):

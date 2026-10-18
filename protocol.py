@@ -1530,6 +1530,20 @@ class Protocol:
                 from_user.disable_protocol(proto)
                 return 'OK', 200
 
+        elif obj.type == 'reject':
+            # Ghost sends this instead of a Block when you block an account, as a
+            # Reject of a Follow that we never sent. Rejects of our own
+            # follow-backs, eg remove follower, don't disable bridging.
+            # https://github.com/snarfed/bridgy-fed/issues/2749
+            if (inner_obj_as1.get('verb') == 'follow'
+                    and not Protocol.for_bridgy_subdomain(inner_obj_id)
+                    and as1.get_object(inner_obj_as1).get('id') == actor_id
+                    and (proto := Protocol.for_bridgy_subdomain(
+                        as1.get_id(inner_obj_as1, 'actor')))):
+                from_user.delete(proto)
+                from_user.disable_protocol(proto)
+                return 'OK', 200
+
         elif obj.type == 'move':
             from_cls.handle_move(obj, from_user=from_user)
             # fall through to deliver the Move activity to remaining followers
