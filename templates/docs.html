@@ -557,7 +557,7 @@
 
 <li id="fediverse-what" class="question">Which stuff of mine from the fediverse will get bridged?</li>
 <li class="answer">
-<p>Once you've enabled the bridge, anything that's fully public and interacts with bridged users. This includes your posts, replies, likes, and reposts <em>if</em> the original post was bridged. Some other networks have different limits, eg posts on the Atmosphere are limited to 300 characters, so longer posts from the fediverse are truncated and ellipsized. Hashtags, links, link previews, images, videos, and even alt text are also included, if possible.</p>
+<p>Once you've enabled the bridge, anything that's fully public and interacts with bridged users. This includes your posts, replies, likes, and quote posts and reposts <em>if</em> the original post was bridged. It also includes events and RSVPs. Some other networks have different limits, eg posts on the Atmosphere are limited to 300 characters, so longer posts from the fediverse are truncated and ellipsized. Hashtags, links, link previews, images, videos, and even alt text are also included, if possible.</p>
 </li>
 
 
@@ -755,8 +755,11 @@ RewriteRule ^.well-known/(host-meta|webfinger).* https://fed.brid.gy/$0  [redire
 <li class="answer">
 <p>Bridgy Fed currently bridges to these Atmosphere apps and lexicons:
 <ul>
-<li><a href="https://bsky.app/">Bluesky</a> (bsky.app) profiles, follows, posts, images, videos, hashtags, @-mentions, and <a href="https://docs.joinmastodon.org/user/posting/#cw">content warnings</a>. Also replies, likes, and reposts <em>if</em> the original post was already bridged.</p>
+<li><a href="https://bsky.app/">Bluesky</a> (bsky.app) profiles, follows, posts, images, videos, hashtags, @-mentions, and <a href="https://docs.joinmastodon.org/user/posting/#cw">content warnings</a>. Also replies, likes, and reposts <em>if</em> the original post was already bridged.
 <li><a href="https://standard.site/">standard.site</a> publications and documents, usable in apps like <a href="https://leaflet.pub/">Leaflet</a>, <a href="https://pckt.blog/">Pckt</a>, <a href="https://offprint.app/">Offprint</a>, <a href="https://blento.app/">Blento</a>, etc.
+<li><a href="https://sprk.so/">Spark</a> (sprk.so) profiles, videos, and photos.
+<li><a href="https://grain.social/">Grain</a> (grain.social) profiles and photos.
+<li><a href="https://lexicon.community/">lexicon.community</a> events and RSVPs, usable in apps like <a href="https://smokesignal.events/">Smoke Signal</a>, <a href="https://atmo.rsvp/">atmo.rsvp</a>, etc.
 <li>...and more to come!
 </ul>
 </li>
@@ -918,7 +921,7 @@ RewriteRule ^.well-known/(host-meta|webfinger).* https://fed.brid.gy/$0  [redire
 <li class="answer">
 <p>For RSS and Atom, Bridgy Fed uses those formats' native elements to extract your post's title (if any), URL, author, tags, date and time, etc.
 
-<p>For webmention-based posts, Bridgy fetches your HTML and parses its <a href="http://microformats.org/">microformats</a>, notably the <code><a href="https://microformats.org/wiki/h-entry#Core_Properties">e-content</a></code> and (legacy) <code><a href="https://microformats.org/wiki/hatom#Entry_Content">entry-content</a></code> classes. It also understands and translates other classes like <code><a href="#web-like">u-like-of</a></code>, <code><a href="#web-like">u-repost-of</a></code>, <code><a href="#web-reply">u-in-reply-to</a></code>, <code><a href="#web-follow">u-follow-of</a></code>, <code><a href="#web-image">u-photo</a></code>, <code><a href="#web-video">u-video</a></code>, <code><a href="#web-hashtags">p-category</a></code>, and more.</p>
+<p>For webmention-based posts, Bridgy fetches your HTML and parses its <a href="http://microformats.org/">microformats</a>, notably the <code><a href="https://microformats.org/wiki/h-entry#Core_Properties">e-content</a></code> and (legacy) <code><a href="https://microformats.org/wiki/hatom#Entry_Content">entry-content</a></code> classes. It also understands and translates other classes like <code><a href="#web-like">u-like-of</a></code>, <code><a href="#web-like">u-repost-of</a></code>, <code><a href="#web-reply">u-in-reply-to</a></code>, <code><a href="#web-follow">u-follow-of</a></code>, <code><a href="#web-image">u-photo</a></code>, <code><a href="#web-video">u-video</a></code>, <code><a href="#web-hashtags">p-category</a></code>, <code><a href="https://microformats.org/wiki/h-event">h-event</a></code>, <code><a href="https://microformats.org/wiki/h-entry#p-rsvp">p-rsvp</a></code>, and more.</p>
 
 <p>Otherwise, Bridgy Fed uses <a href="https://developer.twitter.com/en/docs/twitter-for-websites/cards/guides/getting-started">Twitter card</a>, <a href="https://ogp.me/">Open Graph</a>, and related meta tags in your HTML.</p>
 
