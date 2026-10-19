@@ -759,6 +759,55 @@ class IntegrationTests(TestCase):
             'cc': ['http://inst/bob'],
         }, ignore=['@context', 'to'])
 
+    @patch.object(util.session, 'post')
+    def test_atproto_spark_reply_to_activitypub(self, mock_post):
+        """ATProto Spark reply, from firehose to ActivityPub.
+
+        ActivityPub original post http://inst/post by bob, bridged to Spark
+        ATProto Spark reply 456 by alice.com (did:plc:alice)
+        """
+        alice = self.make_atproto_user('did:plc:alice')
+        bob = self.make_ap_user('http://inst/bob', 'did:plc:bob')
+
+        self.store_object(
+            id='http://inst/post', source_protocol='activitypub',
+            our_as1={'objectType': 'note', 'author': 'http://inst/bob',},
+            copies=[Target(uri='at://did:plc:bob/so.sprk.feed.post/123',
+                           protocol='atproto')])
+
+        ref = {
+            'cid': A_CID.encode(),
+            'uri': 'at://did:plc:bob/so.sprk.feed.post/123',
+        }
+        self.firehose(repo='did:plc:alice', action='create', seq=456,
+                      path='so.sprk.feed.reply/456', record={
+            '$type': 'so.sprk.feed.reply',
+            'text': 'I hereby reply',
+            'createdAt': '2022-01-02T03:04:05.000Z',
+            'reply': {'root': ref, 'parent': ref},
+        })
+
+        self.assert_ap_deliveries(mock_post, ['http://inst/bob/inbox'],
+                                  from_user=alice, data={
+            'type': 'Create',
+            'id': 'https://bsky.brid.gy/convert/ap/at://did:plc:alice/so.sprk.feed.reply/456#bridgy-fed-create-2022-01-02T03:04:05+00:00',
+            'actor': 'https://bsky.brid.gy/ap/did:plc:alice',
+            'published': '2022-01-02T03:04:05+00:00',
+            'object': {
+                'type': 'Note',
+                'id': 'https://bsky.brid.gy/convert/ap/at://did:plc:alice/so.sprk.feed.reply/456',
+                'attributedTo': 'https://bsky.brid.gy/ap/did:plc:alice',
+                'content': '<p>I hereby reply</p>',
+                'contentMap': {'en': '<p>I hereby reply</p>'},
+                'published': '2022-01-02T03:04:05.000Z',
+                'inReplyTo': 'http://inst/post',
+                'tag': [{'type': 'Mention', 'href': 'http://inst/bob'}],
+                'cc': ['http://inst/bob'],
+                'interactionPolicy': INTERACTION_POLICY,
+            },
+            'cc': ['http://inst/bob'],
+        }, ignore=['@context', 'to'])
+
     @patch.object(util.session, 'post', return_value=BSKY_SEND_MESSAGE_RESP)
     @patch.object(util.session, 'get', return_value=BSKY_GET_CONVO_RESP)
     def test_atproto_not_bridged_reply_to_activitypub(self, mock_get, mock_post):

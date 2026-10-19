@@ -345,11 +345,11 @@ def subscribe():
                 if type == 'app.bsky.actor.profile':
                     events.put(event)
 
-                elif type == 'app.bsky.feed.repost':
+                elif type in ('app.bsky.feed.repost', 'so.sprk.feed.repost'):
                     if is_ours(event.record['subject'], native=True):
                         events.put(event)
 
-                elif type == 'app.bsky.feed.like':
+                elif type in ('app.bsky.feed.like', 'so.sprk.feed.like'):
                     if is_ours(event.record['subject'], native=False):
                         events.put(event)
 
@@ -357,7 +357,7 @@ def subscribe():
                     if is_ours(event.record['subject'], native=False):
                         events.put(event)
 
-                elif type == 'app.bsky.feed.post':
+                elif type in ('app.bsky.feed.post', 'so.sprk.feed.reply'):
                     reply = event.record.get('reply')
                     if not reply or is_ours(reply['parent'], native=True):
                         events.put(event)
@@ -375,7 +375,7 @@ def subscribe():
                     if event.record['subject'] in protocol_bot_dids:
                         events.put(event)
 
-                elif type == 'app.bsky.feed.post':
+                elif type in ('app.bsky.feed.post', 'so.sprk.feed.reply'):
                     subjects = []
                     if reply := event.record.get('reply'):
                         subjects.append(reply.get('parent'))
@@ -384,7 +384,9 @@ def subscribe():
                             subjects.append(embed['record'])
                     for facet in event.record.get('facets', []):
                         for feat in facet.get('features', []):
-                            if feat.get('$type') == 'app.bsky.richtext.facet#mention':
+                            if feat.get('$type') in (
+                                    'app.bsky.richtext.facet#mention',
+                                    'so.sprk.richtext.facet#mention'):
                                 subjects.append(feat.get('did'))
 
                     for subject in subjects:

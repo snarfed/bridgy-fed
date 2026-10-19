@@ -435,6 +435,84 @@ class ATProtoFirehoseSubscribeTest(ATProtoTestCase):
             'subject': {'uri': 'at://did:eve/app.bsky.feed.post/tid'},
         })
 
+    def test_spark_like_of_our_user(self):
+        self.assert_enqueues({
+            '$type': 'so.sprk.feed.like',
+            'subject': {'uri': 'at://did:plc:alice/so.sprk.feed.post/tid'},
+        }, path='so.sprk.feed.like/abc123')
+
+    def test_spark_like_of_other(self):
+        self.assert_doesnt_enqueue({
+            '$type': 'so.sprk.feed.like',
+            'subject': {'uri': 'at://did:eve/so.sprk.feed.post/tid'},
+        }, path='so.sprk.feed.like/abc123')
+
+    def test_spark_repost_of_our_user(self):
+        self.assert_enqueues({
+            '$type': 'so.sprk.feed.repost',
+            'subject': {'uri': 'at://did:plc:alice/so.sprk.feed.post/tid'},
+        }, path='so.sprk.feed.repost/abc123')
+
+    def test_spark_repost_of_other(self):
+        self.assert_doesnt_enqueue({
+            '$type': 'so.sprk.feed.repost',
+            'subject': {'uri': 'at://did:eve/so.sprk.feed.post/tid'},
+        }, path='so.sprk.feed.repost/abc123')
+
+    def test_spark_reply_direct_to_our_user(self):
+        self.assert_enqueues({
+            '$type': 'so.sprk.feed.reply',
+            'reply': {
+                'parent': {'uri': 'at://did:plc:alice/so.sprk.feed.post/tid'},
+                'root': {'uri': 'at://did:plc:alice/so.sprk.feed.post/tid'},
+            },
+        }, path='so.sprk.feed.reply/abc123')
+
+    def test_spark_reply_to_other(self):
+        self.assert_doesnt_enqueue({
+            '$type': 'so.sprk.feed.reply',
+            'reply': {
+                'parent': {'uri': 'at://did:eve/so.sprk.feed.post/tid'},
+                'root': {'uri': 'at://did:eve/so.sprk.feed.post/tid'},
+            },
+        }, path='so.sprk.feed.reply/abc123')
+
+    def test_spark_reply_from_non_bridged_bluesky_to_bridged_other(self):
+        self.assert_enqueues({
+            '$type': 'so.sprk.feed.reply',
+            'reply': {
+                'parent': {'uri': 'at://did:plc:alice/so.sprk.feed.post/tid'},
+                'root': {'uri': 'at://did:plc:alice/so.sprk.feed.post/tid'},
+            },
+        }, repo='did:plc:bob', path='so.sprk.feed.reply/abc123')
+
+    def test_spark_reply_from_non_bridged_bluesky_mentions_bridged_other(self):
+        self.assert_enqueues({
+            '$type': 'so.sprk.feed.reply',
+            'text': 'hi @alice',
+            'facets': [{
+                '$type': 'so.sprk.richtext.facet',
+                'features': [{
+                    '$type': 'so.sprk.richtext.facet#mention',
+                    'did': 'did:plc:alice',
+                }],
+                'index': {'byteStart': 3, 'byteEnd': 9},
+            }],
+            'reply': {
+                'parent': {'uri': 'at://did:eve/so.sprk.feed.post/tid'},
+                'root': {'uri': 'at://did:eve/so.sprk.feed.post/tid'},
+            },
+        }, repo='did:plc:bob', path='so.sprk.feed.reply/abc123')
+
+    def test_spark_reply_from_non_bridged_bluesky_to_non_bridged_bluesky(self):
+        self.assert_doesnt_enqueue({
+            '$type': 'so.sprk.feed.reply',
+            'reply': {
+                'parent': {'uri': 'at://did:eve/so.sprk.feed.post/tid'},
+                'root': {'uri': 'at://did:eve/so.sprk.feed.post/tid'},
+            },
+        }, repo='did:plc:bob', path='so.sprk.feed.reply/abc123')
+
     def test_follow_of_our_user(self):
         self.assert_enqueues({
             '$type': 'app.bsky.graph.follow',

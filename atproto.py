@@ -395,12 +395,8 @@ class ATProto(User, Protocol):
         # TODO: handle incoming Spark records. for users with both Bluesky and
         # Spark profiles, which one wins?
         - {
-            'so.sprk.feed.like',
-            'so.sprk.feed.like',
             'so.sprk.feed.post',
             'so.sprk.actor.profile',
-            'so.sprk.feed.reply',
-            'so.sprk.feed.repost',
             'social.grain.actor.profile',
             'social.grain.gallery',
             'social.grain.gallery.item',
