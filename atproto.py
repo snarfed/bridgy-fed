@@ -1419,7 +1419,7 @@ class ATProto(User, Protocol):
         if not handle:
             handle = repo.handle
             # get new PDS's handle domain via describeServer
-            desc = bs._client.com.atproto.server.describeServer()
+            desc = bs.client.com.atproto.server.describeServer()
             if domains := desc.get('availableUserDomains'):
                 # generate handle on PDS's handle domain. not actually used as the
                 # account's handle, we'll (try to) keep their current handle; this is
@@ -1453,7 +1453,7 @@ class ATProto(User, Protocol):
                                     privkey=repo.signing_key,
                                     lxm='com.atproto.server.createAccount')
 
-        resp = bs._client.com.atproto.server.createAccount(
+        resp = bs.client.com.atproto.server.createAccount(
             create_input, headers={'Authorization': f'Bearer {service_token}'})
         logger.info(f'Created account for {did} on {pds} : {resp}')
         assert resp['did'] == did
@@ -1506,20 +1506,20 @@ class ATProto(User, Protocol):
                      access_token=access_token, refresh_token=refresh_token)
 
         # 1: check account status on new PDS
-        status = bs._client.com.atproto.server.checkAccountStatus()
+        status = bs.client.com.atproto.server.checkAccountStatus()
         logger.info(f'Account status for {to_user_id} on {to_pds} : {status}')
 
         # 2: export repo as CAR and import to new PDS
         logger.info('Exporting our repo')
         car_bytes = xrpc_sync.get_repo(None, did=to_user_id, internal=True)
         logger.info('Importing repo')
-        bs._client.com.atproto.repo.importRepo(car_bytes)
+        bs.client.com.atproto.repo.importRepo(car_bytes)
 
         # 3: get recommended DID credentials from new PDS
         #
         # example getRecommendedDidCredentials output:
         # https://blog.smokesignal.events/posts/3lwopvsmtx22a-creating-a-did-method-web-identity-for-atprotocol
-        recs = bs._client.com.atproto.identity.getRecommendedDidCredentials()
+        recs = bs.client.com.atproto.identity.getRecommendedDidCredentials()
         logger.info(f'Recommended DID updates from {to_pds} : {recs}')
 
         # 4: update DID doc to point to new PDS
@@ -1541,7 +1541,7 @@ class ATProto(User, Protocol):
                        get_fn=util.requests_get, post_fn=util.requests_post)
 
         # 5: activate account on new PDS
-        bs._client.com.atproto.server.activateAccount()
+        bs.client.com.atproto.server.activateAccount()
 
         # 6: disable user's bridging, deactivate repo
         user.remove('copies', Target(uri=to_user_id, protocol=cls.LABEL))
@@ -1575,7 +1575,7 @@ class ATProto(User, Protocol):
                 logger.warning(f'Got {resp.status_code} fetching {url}, skipping')
                 continue
             resp.raise_for_status()
-            client._client.com.atproto.repo.uploadBlob(
+            client.client.com.atproto.repo.uploadBlob(
                 input=resp.content, headers={'Content-Type': blob.mime_type})
 
     @classmethod

@@ -183,7 +183,7 @@ class GranarySourceForTest(TestCase):
         self.assertIsInstance(source, Bluesky)
         self.assertEqual('did:plc:user', source.did)
         self.assertEqual('han.dull', source.handle)
-        self.assertEqual('https://some.pds/', source._client.address)
+        self.assertEqual('https://some.pds/', source.client.address)
 
     @patch('oauth_dropins.bluesky.oauth_client_for_pds',
            return_value=OAuth2Client(token_endpoint='https://un/used',
@@ -202,7 +202,7 @@ class GranarySourceForTest(TestCase):
             source = oauth_server.granary_source_for(user.key)
 
         self.assertEqual('did:plc:user', source.did)
-        self.assertIsInstance(source._client.requests_kwargs['auth'],
+        self.assertIsInstance(source.client.requests_kwargs['auth'],
                               OAuth2AccessTokenAuth)
         mock_oauth_client_for_pds.assert_called_once_with({
             **oauth_dropins.bluesky.CLIENT_METADATA_TEMPLATE,
