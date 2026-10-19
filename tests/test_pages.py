@@ -1717,7 +1717,7 @@ class PagesTest(TestCase):
 
         resp = self.client.post('/web/user.com/respond/reply', data={
             'obj_id': 'fake:post',
-            'content': 'test reply',
+            'content': 'test \r\n reply',
             'token': common.make_jwt(user=self.user, scope='respond',
                                      obj_id='fake:post'),
         })
@@ -1731,7 +1731,7 @@ class PagesTest(TestCase):
             'objectType': 'comment',
             'id': id,
             'inReplyTo': 'fake:post',
-            'content': 'test reply',
+            'content': 'test \n reply',
             'author': 'user.com',
         })
 

@@ -1047,7 +1047,7 @@ def respond_reply(user):
         'objectType': 'comment',
         'id': id,
         'inReplyTo': obj_id,
-        'content': content,
+        'content': content.replace('\r\n', '\n'),
         'author': user.key.id(),
     }
 
