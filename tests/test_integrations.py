@@ -856,7 +856,7 @@ class IntegrationTests(TestCase):
         self.assertEqual(('http://inst/bob/inbox',), args)
         content = json_loads(kwargs['data'])['object']['content']
         self.assertTrue(content.startswith("""\
-<p>Hi! Here are your recent interactions from people who aren't bridged into fake-phrase. Each <em>respond</em> link shows the full post and lets you reply, like, repost, or block it.
+<p>Hi! Here are your recent interactions from people who aren't bridged into the fediverse. Each <em>respond</em> link shows the full post and lets you reply, like, repost, or block it.
 <ul>
 <li><a class="h-card u-author mention" rel="me" href="https://bsky.app/profile/alice.com" title="Alice &middot; alice.com"><span style="unicode-bidi: isolate">Alice</span> &middot; alice.com</a>: <a href="https://bsky.app/profile/did:plc:alice/post/456">I hereby reply</a>"""), content)
 
@@ -1221,12 +1221,12 @@ class IntegrationTests(TestCase):
         self.assertNotEqual(respond_uri.removeprefix(expected_prefix), '')
         self.assert_equals({
             '$type': 'chat.bsky.convo.defs#messageInput',
-            'text': "Hi! Here are your recent interactions from people who aren't bridged into fake-phrase. Each respond link shows the full post and lets you reply, like, repost, or block it.\n\n  * My Name · @alice@inst: I hereby reply (respond)\n\n\n\nTo disable these messages, reply with the text 'mute'.",
+            'text': "Hi! Here are your recent interactions from people who aren't bridged into the Atmosphere (Bluesky). Each _respond_ link shows the full post and lets you reply, like, repost, or block it.\n\n  * My Name · @alice@inst: I hereby reply (respond)\n\n\n\nTo disable these messages, reply with the text 'mute'.",
             'createdAt': '2022-01-02T03:04:05.000Z',
             'facets': [
                 {
                     '$type': 'app.bsky.richtext.facet',
-                    'index': {'byteStart': 170, 'byteEnd': 192},
+                    'index': {'byteStart': 192, 'byteEnd': 214},
                     'features': [{
                         '$type': 'app.bsky.richtext.facet#link',
                         'uri': 'https://inst/bob',
@@ -1234,7 +1234,7 @@ class IntegrationTests(TestCase):
                 },
                 {
                     '$type': 'app.bsky.richtext.facet',
-                    'index': {'byteStart': 194, 'byteEnd': 208},
+                    'index': {'byteStart': 216, 'byteEnd': 230},
                     'features': [{
                         '$type': 'app.bsky.richtext.facet#link',
                         'uri': 'http://inst/reply',
@@ -1242,7 +1242,7 @@ class IntegrationTests(TestCase):
                 },
                 {
                     '$type': 'app.bsky.richtext.facet',
-                    'index': {'byteStart': 210, 'byteEnd': 217},
+                    'index': {'byteStart': 232, 'byteEnd': 239},
                     'features': [{
                         '$type': 'app.bsky.richtext.facet#link',
                         # 'uri': ..., # checked above

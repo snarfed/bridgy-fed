@@ -1086,7 +1086,7 @@ class PagesTest(TestCase):
         self.assert_multiline_in("""\
 <details name="login" class="row big">
 <summary class="login-button shadow login-button-logotype" title="Atmosphere (Bluesky)">
-<img src="/oauth_dropins_static/atmosphere.svg" height="60" />
+<img src="/oauth_dropins_static/atmosphere_icon.svg" height="60" />
 <span>Atmosphere (Bluesky)</span>
 </summary>
 <label for="login-atmosphere" class="fade-in-element login-label">Handle</label>
