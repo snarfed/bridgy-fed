@@ -1651,6 +1651,7 @@ def postprocess_writes(writes, user):
       * Populate the ``bskyPostRef`` property, if we also have an
         ``app.bsky.feed.post``.
       * Create a ``site.standard.publication`` if we don't already have one.
+    * Populate references between records with :func:`populate_references`.
 
     Args:
       writes (sequence of arroba.repo.Write)
@@ -1694,6 +1695,62 @@ def postprocess_writes(writes, user):
                 user.obj.add('copies', Target(uri=uri, protocol='atproto'))
                 user.obj.put()
                 logger.info(f'creating {uri} for {user.obj_key.id()}')
+
+    # last, since strong refs include the CIDs of records' final contents
+    populate_references(writes, did)
+
+
+def populate_references(writes, did):
+    """Populates at-URIs and strong refs between records in the same commit.
+
+    * ``social.grain.gallery.item``: populate the ``gallery`` and ``item``
+      at-URIs with the ``social.grain.gallery`` and the ``social.grain.photo``
+      at index ``position``.
+    * ``community.blacksky.assembly.statement``: populate the
+      ``conversation`` strongRef with ``community.blacksky.assembly.conversation``.
+
+    Only populates fields that are empty, ie that ``from_as1`` couldn't
+    populate itself because the record they point to is in this same commit.
+
+    Args:
+      writes (sequence of arroba.repo.Write)
+      did (str): repo DID
+    """
+    by_collection = defaultdict(list)
+    for write in writes:
+        if write.action in (Action.CREATE, Action.UPDATE):
+            by_collection[write.collection].append(write)
+
+    # Grain gallery items point to their gallery and photo
+    #
+    # WARNING: expects that the social.grain.photo writes are ordered by
+    # their social.grain.gallery.item position!
+    if ((galleries := by_collection['social.grain.gallery'])
+            and (photos := by_collection['social.grain.photo'])):
+        assert len(galleries) == 1, galleries
+        for item in by_collection['social.grain.gallery.item']:
+            if not item.record.get('gallery'):
+                item.record['gallery'] = at_uri(did, galleries[0].collection,
+                                                galleries[0].rkey)
+            if not item.record.get('item'):
+                position = item.record.get('position', 0)
+                assert position < len(photos), (item, len(photos))
+                photo = photos[position]
+                item.record['item'] = at_uri(did, photo.collection, photo.rkey)
+
+    # strong refs go last, after all other changes to the records they point to,
+    # since they include the CID of the record's final contents
+    #
+    # blacksky poll statements point to their conversation
+    if convs := by_collection['community.blacksky.assembly.conversation']:
+        assert len(convs) == 1, convs
+        conv = convs[0]
+        for statement in by_collection['community.blacksky.assembly.statement']:
+            if not statement.record.get('conversation'):
+                statement.record['conversation'] = {
+                    'uri': at_uri(did, conv.collection, conv.rkey),
+                    'cid': dag_cbor_cid(conv.record).encode('base32'),
+                }
 
 
 def create_report(*, input, from_user):

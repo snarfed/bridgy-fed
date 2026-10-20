@@ -22,6 +22,7 @@ from granary import bluesky
 from granary.tests.test_bluesky import (
     ACTOR_AS,
     ACTOR_PROFILE_BSKY,
+    NEW_BLOB,
     POST_AS,
     REPOST_BSKY,
 )
@@ -45,6 +46,7 @@ from atproto import (
     DatastoreClient,
     DNS_GCP_PROJECT,
     DNS_ZONE,
+    postprocess_writes,
 )
 import common
 import config
@@ -3234,6 +3236,104 @@ Sed tortor neque, aliquet quis posuere aliquam, imperdiet sitamet […]
         self.assertIsNone(user.obj.get_copy(ATProto))
 
         mock_create_task.assert_called()  # atproto-commit
+
+    def test_postprocess_writes_grain_gallery_items(self):
+        self.make_user_and_repo()
+
+        gallery = {
+            '$type': 'social.grain.gallery',
+            'title': 'My gallery',
+            'createdAt': '2022-01-02T03:04:05.000Z',
+        }
+        photo = {
+            '$type': 'social.grain.photo',
+            'photo': NEW_BLOB,
+            'aspectRatio': {'width': 1, 'height': 1},
+            'createdAt': '2022-01-02T03:04:05.000Z',
+        }
+        item = {
+            '$type': 'social.grain.gallery.item',
+            'createdAt': '2022-01-02T03:04:05.000Z',
+        }
+        writes = [
+            Write(action=Action.CREATE, collection='social.grain.gallery',
+                  rkey='g', record=copy.deepcopy(gallery)),
+            Write(action=Action.CREATE, collection='social.grain.photo',
+                  rkey='p0', record=copy.deepcopy(photo)),
+            Write(action=Action.CREATE, collection='social.grain.photo',
+                  rkey='p1', record=copy.deepcopy(photo)),
+            Write(action=Action.CREATE, collection='social.grain.gallery.item',
+                  rkey='i1', record={**item, 'position': 1}),
+            Write(action=Action.CREATE, collection='social.grain.gallery.item',
+                  rkey='i0', record={**item, 'position': 0}),
+        ]
+        postprocess_writes(writes, self.user)
+
+        self.assertEqual([gallery, photo, photo, {
+            **item,
+            'gallery': 'at://did:plc:user/social.grain.gallery/g',
+            'item': 'at://did:plc:user/social.grain.photo/p1',
+            'position': 1,
+        }, {
+            **item,
+            'gallery': 'at://did:plc:user/social.grain.gallery/g',
+            'item': 'at://did:plc:user/social.grain.photo/p0',
+            'position': 0,
+        }], [write.record for write in writes])
+
+    def test_postprocess_writes_assembly_statement(self):
+        self.make_user_and_repo()
+
+        conversation = {
+            '$type': 'community.blacksky.assembly.conversation',
+            'topic': 'Foo bar',
+            'createdAt': '2022-01-02T03:04:05.000Z',
+        }
+        statement = {
+            '$type': 'community.blacksky.assembly.statement',
+            'text': 'Baz',
+            'createdAt': '2022-01-02T03:04:05.000Z',
+        }
+        writes = [
+            Write(action=Action.CREATE, rkey='c',
+                  collection='community.blacksky.assembly.conversation',
+                  record=copy.deepcopy(conversation)),
+            Write(action=Action.CREATE, rkey='s',
+                  collection='community.blacksky.assembly.statement',
+                  record=copy.deepcopy(statement)),
+            Write(action=Action.CREATE, rkey='t',
+                  collection='community.blacksky.assembly.statement',
+                  record=copy.deepcopy(statement)),
+        ]
+        postprocess_writes(writes, self.user)
+
+        ref = {
+            'uri': 'at://did:plc:user/community.blacksky.assembly.conversation/c',
+            'cid': arroba.util.dag_cbor_cid(conversation).encode('base32'),
+        }
+        self.assertEqual([
+            conversation,
+            {**statement, 'conversation': ref},
+            {**statement, 'conversation': ref},
+        ], [write.record for write in writes])
+
+    def test_postprocess_writes_assembly_statement_existing_conversation(self):
+        self.make_user_and_repo()
+
+        statement = {
+            '$type': 'community.blacksky.assembly.statement',
+            'conversation': {
+                'uri': 'at://did:plc:other/community.blacksky.assembly.conversation/c',
+                'cid': 'abc123',
+            },
+            'text': 'Something',
+            'createdAt': '2022-01-02T03:04:05.000Z',
+        }
+        writes = [Write(action=Action.UPDATE, rkey='s',
+                        collection='community.blacksky.assembly.statement',
+                        record=copy.deepcopy(statement))]
+        postprocess_writes(writes, self.user)
+        self.assertEqual(statement, writes[0].record)
 
     @patch.object(tasks_client, 'create_task', return_value=Task(name='my task'))
     def test_send_update_note(self, mock_create_task):
