@@ -2456,7 +2456,7 @@ class ProtocolReceiveTest(TestCase):
         self.user.enabled_protocols = ['other', 'efake']
         self.user.put()
 
-        self.alice.enabled_protocols = ['other', 'efake']
+        self.alice.enabled_protocols = ['efake']
         self.alice.put()
 
         self.store_object(id='other:post', source_protocol='other', our_as1={

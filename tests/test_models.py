@@ -255,6 +255,12 @@ class UserTest(TestCase):
             with self.assertRaises(BadRequest):
                 ExplicitFake.get_or_create('efake:a', propagate=True)
 
+    def test_put_own_protocol_in_enabled_protocols_fails(self):
+        with self.assertRaises(AssertionError):
+            Fake(id='fake:a', enabled_protocols=['fake']).put()
+
+        Fake(id='fake:a', enabled_protocols=['other']).put()
+
     def test_public_pem(self):
         user = Fake(id='fake:a')
         self.assertEqual([], user.keypairs)

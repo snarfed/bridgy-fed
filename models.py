@@ -482,6 +482,9 @@ class User(AddRemoveMixin, StringIdModel, metaclass=ProtocolUserMeta):
         """Try to prevent instantiation. Use subclasses instead."""
         raise NotImplementedError()
 
+    def _pre_put_hook(self):
+        assert self.LABEL not in self.enabled_protocols, f'{self.key} has its own protocol {self.LABEL} in enabled_protocols'
+
     def _post_put_hook(self, future):
         logger.debug(f'Wrote {self.key}')
 
