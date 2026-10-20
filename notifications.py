@@ -138,7 +138,7 @@ def notify_task():
 
     objs = ndb.get_multi(Object(id=id).key for id in notifs)
 
-    message = f"<p>Hi! Here are your recent interactions from people who aren't bridged into {user.PHRASE}. Click the <em>respond</em> links to reply, like, repost, or block them.\n<ul>\n"
+    message = f"<p>Hi! Here are your recent interactions from people who aren't bridged into {user.PHRASE}. Each <em>respond</em> link shows the full post and lets you reply, like, repost, or block it.\n<ul>\n"
 
     lines = ''
     attachments = []

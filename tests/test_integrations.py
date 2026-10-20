@@ -856,7 +856,7 @@ class IntegrationTests(TestCase):
         self.assertEqual(('http://inst/bob/inbox',), args)
         content = json_loads(kwargs['data'])['object']['content']
         self.assertTrue(content.startswith("""\
-<p>Hi! Here are your recent interactions from people who aren't bridged into the fediverse. Click the <em>respond</em> links to reply, like, repost, or block them.
+<p>Hi! Here are your recent interactions from people who aren't bridged into fake-phrase. Each <em>respond</em> link shows the full post and lets you reply, like, repost, or block it.
 <ul>
 <li><a class="h-card u-author mention" rel="me" href="https://bsky.app/profile/alice.com" title="Alice &middot; alice.com"><span style="unicode-bidi: isolate">Alice</span> &middot; alice.com</a>: <a href="https://bsky.app/profile/did:plc:alice/post/456">I hereby reply</a>"""), content)
 
@@ -1221,7 +1221,7 @@ class IntegrationTests(TestCase):
         self.assertNotEqual(respond_uri.removeprefix(expected_prefix), '')
         self.assert_equals({
             '$type': 'chat.bsky.convo.defs#messageInput',
-            'text': "Hi! Here are your recent interactions from people who aren't bridged into the Atmosphere (Bluesky). Click the _respond_ links to reply, like, repost, or block them.\n\n  * My Name · @alice@inst: I hereby reply (respond)\n\n\n\nTo disable these messages, reply with the text 'mute'.",
+            'text': "Hi! Here are your recent interactions from people who aren't bridged into fake-phrase. Each respond link shows the full post and lets you reply, like, repost, or block it.\n\n  * My Name · @alice@inst: I hereby reply (respond)\n\n\n\nTo disable these messages, reply with the text 'mute'.",
             'createdAt': '2022-01-02T03:04:05.000Z',
             'facets': [
                 {
