@@ -525,6 +525,36 @@ class ATProtoTest(TestCase):
         )
 
     @patch.object(util.session, 'get', return_value=requests_response({
+        'uri': 'at://did:plc:user/so.sprk.feed.post/123',
+        'cid': 'bafyreigd',
+        'value': {'foo': 'bar'},
+    }))
+    def test_fetch_at_uri_non_bsky_record_from_pds(self, mock_get):
+        self.store_object(id='did:plc:user', raw=DID_DOC)
+
+        obj = Object(id='at://did:plc:user/so.sprk.feed.post/123')
+        self.assertTrue(ATProto.fetch(obj))
+        self.assertEqual({
+            'foo': 'bar',
+            'cid': 'bafyreigd',
+        }, obj.bsky)
+        mock_get.assert_called_once_with(
+            'https://some.pds/xrpc/com.atproto.repo.getRecord?repo=did%3Aplc%3Auser&collection=so.sprk.feed.post&rkey=123',
+            json=None, data=None,
+            headers={
+                'Content-Type': 'application/json',
+                'User-Agent': common.USER_AGENT,
+            },
+        )
+
+    @patch.object(util.session, 'get')
+    def test_fetch_at_uri_non_bsky_record_no_pds(self, mock_get):
+        self.store_object(id='did:plc:user', raw={**DID_DOC, 'service': []})
+        self.assertFalse(ATProto.fetch(
+            Object(id='at://did:plc:user/so.sprk.feed.post/123')))
+        mock_get.assert_not_called()
+
+    @patch.object(util.session, 'get', return_value=requests_response({
         'error':'InvalidRequest',
         'message':'Could not locate record: at://did:plc:abc/app.bsky.feed.post/123',
     }, status=400))
@@ -4599,7 +4629,7 @@ Sed tortor neque, aliquet quis posuere aliquam, imperdiet sitamet […]
             repo='did:plc:user', collection='co.l.l', rkey='post'))
 
         mock_get.assert_called_with(
-            'https://appview.local/xrpc/com.atproto.repo.getRecord?repo=did%3Aplc%3Auser&collection=co.l.l&rkey=post',
+            'https://some.pds/xrpc/com.atproto.repo.getRecord?repo=did%3Aplc%3Auser&collection=co.l.l&rkey=post',
             json=None, data=None, headers=ANY)
 
     @patch.object(util.session, 'get', return_value=requests_response(NOTE_BSKY_RECORD))
@@ -4615,7 +4645,7 @@ Sed tortor neque, aliquet quis posuere aliquam, imperdiet sitamet […]
                            source_protocol='atproto')
 
         mock_get.assert_called_with(
-            'https://appview.local/xrpc/com.atproto.repo.getRecord?repo=did%3Aplc%3Auser&collection=co.l.l&rkey=post',
+            'https://some.pds/xrpc/com.atproto.repo.getRecord?repo=did%3Aplc%3Auser&collection=co.l.l&rkey=post',
             json=None, data=None, headers=ANY)
 
     @patch.object(util.session, 'get', return_value=requests_response(status=404))
@@ -4628,18 +4658,20 @@ Sed tortor neque, aliquet quis posuere aliquam, imperdiet sitamet […]
             repo='did:plc:user', collection='co.l.l', rkey='post'))
 
         mock_get.assert_called_with(
-            'https://appview.local/xrpc/com.atproto.repo.getRecord?repo=did%3Aplc%3Auser&collection=co.l.l&rkey=post',
+            'https://some.pds/xrpc/com.atproto.repo.getRecord?repo=did%3Aplc%3Auser&collection=co.l.l&rkey=post',
             json=None, data=None, headers=ANY)
 
     @patch.object(util.session, 'get', side_effect=HTTPError(
         response=requests_response(status=500)))
     def test_datastore_client_get_record_pass_through_fails(self, mock_get):
+        self.store_object(id='did:plc:user', raw=DID_DOC)  # uses https://some.pds
+
         client = DatastoreClient()
         self.assertEqual({}, client.com.atproto.repo.getRecord(
             repo='did:plc:user', collection='co.l.l', rkey='post'))
 
         mock_get.assert_called_with(
-            'https://appview.local/xrpc/com.atproto.repo.getRecord?repo=did%3Aplc%3Auser&collection=co.l.l&rkey=post',
+            'https://some.pds/xrpc/com.atproto.repo.getRecord?repo=did%3Aplc%3Auser&collection=co.l.l&rkey=post',
             json=None, data=None, headers=ANY)
 
     def test_datastore_client_resolve_handle_datastore_user(self):

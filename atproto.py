@@ -1110,7 +1110,7 @@ class ATProto(User, Protocol):
             # at://did:plc:s2koow7r6t7tozgd4slc3dsg/app.bsky.feed.post/3jqcpv7bv2c2q
             # https://bsky.social/xrpc/com.atproto.repo.getRecord?repo=did:plc:s2koow7r6t7tozgd4slc3dsg&collection=app.bsky.feed.post&rkey=3jqcpv7bv2c2q
             repo, collection, rkey = parse_at_uri(id)
-            if not repo or not collection or not rkey:
+            if not (repo and collection and rkey and AT_URI_RE.fullmatch(id)):
                 return False
         except (ValueError, RequestException) as e:
             util.interpret_http_exception(e)
@@ -1124,9 +1124,18 @@ class ATProto(User, Protocol):
             assert repo.startswith('did:'), repo
             obj.key = ndb.Key(Object, id.replace(f'at://{handle}', f'at://{repo}'))
 
+        # we only expect the Bluesky AppView to serve app.bsky records; fetch others
+        # from the repo's PDS directly
+        client = appview
+        if not collection.startswith('app.bsky.'):
+            if not (pds := cls.pds_for(obj)):
+                logger.info(f"Couldn't find PDS for {obj.key.id()}")
+                return False
+            client = Client(pds, headers={'User-Agent': USER_AGENT},
+                            requests_session=util.session)
+
         try:
-            appview.address = f'https://{os.environ["APPVIEW_HOST"]}'
-            ret = appview.com.atproto.repo.getRecord(
+            ret = client.com.atproto.repo.getRecord(
                 repo=repo, collection=collection, rkey=rkey)
         except RequestException as e:
             util.interpret_http_exception(e)
