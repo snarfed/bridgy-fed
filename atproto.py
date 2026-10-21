@@ -398,6 +398,8 @@ class ATProto(User, Protocol):
             'so.sprk.feed.post',
             'so.sprk.actor.profile',
             'social.grain.actor.profile',
+            'social.grain.comment',
+            'social.grain.favorite',
             'social.grain.gallery',
             'social.grain.gallery.item',
             'social.grain.photo',
