@@ -3318,6 +3318,40 @@ Sed tortor neque, aliquet quis posuere aliquam, imperdiet sitamet […]
             {**statement, 'conversation': ref},
         ], [write.record for write in writes])
 
+    def test_blacksky_vote_as1_statement_in_our_repo(self):
+        self.make_user_and_repo()
+        conv_uri = 'at://did:plc:user/community.blacksky.assembly.conversation/c'
+        self.storage.commit(self.repo, Write(
+            action=Action.CREATE, rkey='s',
+            collection='community.blacksky.assembly.statement',
+            record={
+                '$type': 'community.blacksky.assembly.statement',
+                'conversation': {
+                    'uri': conv_uri,
+                    'cid': 'bafyreie5737gdxlw5i64vzichcalba3z2v5n6icifvx5xytvske7mr3hpm',
+                },
+                'text': 'foo is best',
+                'createdAt': '2022-01-02T04:00:00.000Z',
+            }))
+
+        vote_uri = 'at://did:plc:bob/community.blacksky.assembly.vote/v'
+        self.assert_equals({
+            'objectType': 'comment',
+            'id': vote_uri,
+            'author': 'did:plc:bob',
+            'inReplyTo': conv_uri,
+            'displayName': 'foo is best',
+            'published': '2022-01-02T05:00:00.000Z',
+        }, Object(id=vote_uri, bsky={
+            '$type': 'community.blacksky.assembly.vote',
+            'subject': {
+                'uri': 'at://did:plc:user/community.blacksky.assembly.statement/s',
+                'cid': 'def',
+            },
+            'value': -1,
+            'createdAt': '2022-01-02T05:00:00.000Z',
+        }).as1)
+
     def test_postprocess_writes_assembly_statement_existing_conversation(self):
         self.make_user_and_repo()
 

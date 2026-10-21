@@ -202,6 +202,8 @@ class ActivityPub(User, Protocol):
         + tuple(as1.CRUD_VERBS)
         + tuple(as1.VERBS_WITH_OBJECT)
         + ('add', 'audio', 'bookmark', 'event', 'image', 'move', 'remove', 'video')
+        # TODO
+        # 'question', 'video', 'vote')
     )
     ''
     SUPPORTED_AS2_TYPES = tuple(

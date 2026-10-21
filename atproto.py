@@ -387,6 +387,9 @@ class ATProto(User, Protocol):
         + tuple(as1.CRUD_VERBS)
         + tuple(as1.RSVP_VERB_TO_COLLECTION)
         + ('block', 'event', 'follow', 'flag', 'like', 'share', 'stop-following')
+           # TODO
+           # 'question', 'share',
+           # 'stop-following', 'vote')
     )
     ''
     SUPPORTED_RECORD_TYPES = (

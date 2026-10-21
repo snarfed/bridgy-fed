@@ -1574,6 +1574,96 @@ class ObjectTest(TestCase):
         })
         self.assertIsNone(obj.as1)
 
+    def test_as1_from_bsky_blacksky_conversation(self):
+        self.store_object(id='did:plc:user', raw=DID_DOC)
+        conv_uri = 'at://did:plc:user/community.blacksky.assembly.conversation/c'
+
+        self.store_object(
+            id='at://did:plc:alice/community.blacksky.assembly.statement/a',
+            bsky={
+                '$type': 'community.blacksky.assembly.statement',
+                'conversation': {'uri': conv_uri, 'cid': 'abc'},
+                'text': 'a',
+            })
+        self.store_object(
+            id='at://did:plc:bob/community.blacksky.assembly.statement/b',
+            bsky={
+                '$type': 'community.blacksky.assembly.statement',
+                'conversation': {'uri': conv_uri, 'cid': 'abc'},
+                'text': 'b',
+            })
+        # deleted
+        self.store_object(
+            id='at://did:plc:eve/community.blacksky.assembly.statement/e',
+            bsky={
+                '$type': 'community.blacksky.assembly.statement',
+                'conversation': {'uri': conv_uri, 'cid': 'abc'},
+                'text': 'deleted',
+            }, deleted=True)
+
+        obj = Object(id=conv_uri, bsky={
+            '$type': 'community.blacksky.assembly.conversation',
+            'topic': 'which is best?',
+            'createdAt': '2022-01-02T03:04:05.000Z',
+        })
+        self.assert_equals({
+            'objectType': 'question',
+            'id': conv_uri,
+            'author': 'did:plc:user',
+            'content': 'which is best?',
+            'published': '2022-01-02T03:04:05.000Z',
+            'options': [{
+                'objectType': 'note',
+                'id': 'at://did:plc:alice/community.blacksky.assembly.statement/a',
+                'author': 'did:plc:alice',
+                'displayName': 'a',
+                'inReplyTo': conv_uri,
+            }, {
+                'objectType': 'note',
+                'id': 'at://did:plc:bob/community.blacksky.assembly.statement/b',
+                'author': 'did:plc:bob',
+                'displayName': 'b',
+                'inReplyTo': conv_uri,
+            }],
+        }, obj.as1)
+
+    def test_as1_from_bsky_blacksky_vote(self):
+        conv_uri = 'at://did:plc:user/community.blacksky.assembly.conversation/c'
+        statement_uri = 'at://did:plc:user/community.blacksky.assembly.statement/a'
+        self.store_object(id=statement_uri, bsky={
+            '$type': 'community.blacksky.assembly.statement',
+            'conversation': {'uri': conv_uri, 'cid': 'abc'},
+            'text': 'foo is best',
+            'createdAt': '2022-01-02T04:00:00.000Z',
+        })
+
+        vote = {
+            '$type': 'community.blacksky.assembly.vote',
+            'subject': {'uri': statement_uri, 'cid': 'def'},
+            'value': -1,
+            'createdAt': '2022-01-02T05:00:00.000Z',
+        }
+        vote_uri = 'at://did:plc:bob/community.blacksky.assembly.vote/v'
+        self.assert_equals({
+            'objectType': 'comment',
+            'id': vote_uri,
+            'author': 'did:plc:bob',
+            'inReplyTo': conv_uri,
+            'displayName': 'foo is best',
+            'published': '2022-01-02T05:00:00.000Z',
+        }, Object(id=vote_uri, bsky=vote).as1)
+
+        # pass, disagree
+        for value in 0, 1:
+            with self.subTest(value=value):
+                self.assertIsNone(Object(id=vote_uri, bsky={**vote, 'value': value}).as1)
+
+        # statement not stored
+        self.assertIsNone(Object(id=vote_uri, bsky={
+            **vote,
+            'subject': {'uri': 'at://did:plc:eve/community.blacksky.assembly.statement/x', 'cid': 'def'},
+        }).as1)
+
     def test_as1_from_mf2_uses_url_as_id(self):
         mf2 = {
             'properties': {

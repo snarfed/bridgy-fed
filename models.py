@@ -1532,6 +1532,7 @@ class Object(AddRemoveMixin, StringIdModel):
         Returns:
           dict: AS1 object, or None if we have no data to convert
         """
+        from atproto import DatastoreClient
         from protocol import Protocol
 
         def use_urls_as_ids(obj):
@@ -1557,12 +1558,31 @@ class Object(AddRemoveMixin, StringIdModel):
             owner, _, _ = parse_at_uri(self.key.id())
             ATProto = PROTOCOLS['atproto']
             handle = ATProto(id=owner).handle
+            type = self.bsky.get('$type')
+
+            client = None
+            if type in ('community.blacksky.assembly.vote', 'site.standard.document'):
+                # votes for loading their statement, docs for their bskyPostRef
+                client = DatastoreClient(remote=False)
+
             try:
                 obj = bluesky.to_as1(self.bsky, repo_did=owner, repo_handle=handle,
-                                     uri=self.key.id(), pds=ATProto.pds_for(self))
+                                     uri=self.key.id(), pds=ATProto.pds_for(self),
+                                     client=client)
             except (ValueError, RequestException):
                 logger.info(f"Couldn't convert to AS1", exc_info=True)
                 return None
+
+            if not obj:
+                return None
+
+            if type == 'community.blacksky.assembly.conversation':
+                # poll options are the stored statements that point to this
+                # conversation, ie in reply to it
+                statements = sorted(Object.query(Object.in_reply_to == self.key),
+                                    key=lambda o: o.created)
+                obj['options'] = [s.as1 for s in statements
+                                  if s.type == 'note' and not s.deleted]
 
         elif self.mf2:
             obj = microformats2.json_to_object(self.mf2,
