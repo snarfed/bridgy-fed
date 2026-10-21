@@ -1716,8 +1716,9 @@ def populate_references(writes, did):
     * ``community.blacksky.assembly.statement``: populate the
       ``conversation`` strongRef with ``community.blacksky.assembly.conversation``.
 
-    Only populates fields that are empty, ie that ``from_as1`` couldn't
-    populate itself because the record they point to is in this same commit.
+    Only populates fields that are empty, or strongRefs without a ``cid``, ie
+    that ``from_as1`` couldn't populate itself because the record they point to
+    is in this same commit.
 
     Args:
       writes (sequence of arroba.repo.Write)
@@ -1753,7 +1754,7 @@ def populate_references(writes, did):
         assert len(convs) == 1, convs
         conv = convs[0]
         for statement in by_collection['community.blacksky.assembly.statement']:
-            if not statement.record.get('conversation'):
+            if not statement.record.get('conversation', {}).get('cid'):
                 statement.record['conversation'] = {
                     'uri': at_uri(did, conv.collection, conv.rkey),
                     'cid': dag_cbor_cid(conv.record).encode('base32'),

@@ -3291,6 +3291,7 @@ Sed tortor neque, aliquet quis posuere aliquam, imperdiet sitamet […]
         }
         statement = {
             '$type': 'community.blacksky.assembly.statement',
+            'conversation': {'uri': '', 'cid': ''},
             'text': 'Baz',
             'createdAt': '2022-01-02T03:04:05.000Z',
         }
