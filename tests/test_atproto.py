@@ -3791,13 +3791,71 @@ Sed tortor neque, aliquet quis posuere aliquam, imperdiet sitamet […]
         })
         self.assertTrue(ATProto.send(delete, 'https://bsky.brid.gy/'))
 
-        # check repo, record
-        did = self.user.key.get().get_copy(ATProto)
-        repo = self.storage.load_repo(did)
-        last_tid = arroba.util.int_to_tid(arroba.util._tid_ts_last)
-        self.assertIsNone(repo.get_record('app.bsky.feed.post', last_tid))
+        # both records should be deleted
+        repo = self.storage.load_repo('did:plc:user')
+        self.assertEqual({}, repo.get_contents().get('app.bsky.feed.post', {}))
 
         mock_create_task.assert_called()  # atproto-commit
+
+    @patch.object(tasks_client, 'create_task', return_value=Task(name='my task'))
+    @patch.object(util.session, 'get', return_value=requests_response(
+        'blob contents', content_type='image/png'))
+    def test_send_update_note_with_more_images(self, _, __):
+        self.make_user_and_repo()
+
+        note = {**NOTE_AS, 'image': ['http://pic/0']}
+        self.assertTrue(ATProto.send(Object(id='fake:post', source_protocol='fake',
+                                            our_as1=note), 'https://bsky.brid.gy'))
+        orig_copies = Object.get_by_id('fake:post').get_copies(ATProto)
+        self.assertEqual([
+            'app.bsky.feed.post',
+            'so.sprk.feed.post',
+            'social.grain.gallery',
+            'social.grain.photo',
+            'social.grain.gallery.item',
+        ], [arroba.util.parse_at_uri(copy)[1] for copy in orig_copies])
+
+        update = Object(id='fake:update', source_protocol='fake', our_as1={
+            'objectType': 'activity',
+            'verb': 'update',
+            'object': {**note, 'image': ['http://pic/0', 'http://pic/1']},
+        })
+        self.assertTrue(ATProto.send(update, 'https://bsky.brid.gy'))
+
+        # existing records should be updated in place, new photo and item created
+        copies = Object.get_by_id('fake:post').get_copies(ATProto)
+        self.assertEqual(orig_copies, copies[:5])
+        self.assertEqual(['social.grain.photo', 'social.grain.gallery.item'],
+                         [arroba.util.parse_at_uri(copy)[1] for copy in copies[5:]])
+
+        contents = self.storage.load_repo('did:plc:user').get_contents()
+        self.assertCountEqual(
+            copies,
+            [f'at://did:plc:user/{coll}/{rkey}'
+             for coll, records in contents.items() for rkey in records])
+
+    @patch.object(tasks_client, 'create_task', return_value=Task(name='my task'))
+    @patch.object(util.session, 'get', return_value=requests_response(
+        'blob contents', content_type='image/png'))
+    def test_send_delete_note_with_images(self, _, __):
+        self.make_user_and_repo()
+
+        note = {**NOTE_AS, 'image': ['http://pic/0', 'http://pic/1']}
+        self.assertTrue(ATProto.send(Object(id='fake:post', source_protocol='fake',
+                                            our_as1=note), 'https://bsky.brid.gy'))
+        self.assertEqual(7, len(Object.get_by_id('fake:post').copies))
+
+        delete = Object(id='fake:delete', source_protocol='fake', our_as1={
+            'objectType': 'activity',
+            'verb': 'delete',
+            'actor': 'fake:user',
+            'object': 'fake:post',
+        })
+        self.assertTrue(ATProto.send(delete, 'https://bsky.brid.gy/'))
+
+        contents = self.storage.load_repo('did:plc:user').get_contents()
+        self.assertEqual({}, {coll: records for coll, records in contents.items()
+                              if records})
 
     @patch.object(tasks_client, 'create_task', return_value=Task(name='my task'))
     def test_send_delete_reply_cant_convert_object(self, _):

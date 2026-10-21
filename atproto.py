@@ -952,31 +952,36 @@ class ATProto(User, Protocol):
             assert recip.startswith('did:'), recip
             return send_chat(msg=records[0], from_repo=repo, to_did=recip)
 
-        copies = {}  # maps string collection to (DID, collection, rkey) tuple
+        # maps string collection to list of (DID, collection, rkey) tuples, in
+        # the order they were created
+        copies = defaultdict(list)
         for copy in base_obj.get_copies(to_cls):
             copy_did, collection, rkey = parse_at_uri(copy)
-            if existing := copies.get(collection):
-                logger.warning(f'{base_id} has multiple {collection}: {existing[2]} {rkey}')
-                continue
-            copies[collection] = (copy_did, collection, rkey)
+            copies[collection].append((copy_did, collection, rkey))
 
         writes = []
 
         # generate commit
         if verb in ('delete', 'undo'):
             writes = [Write(action=Action.DELETE, collection=collection, rkey=rkey)
-                      for _, collection, rkey in copies.values()]
+                      for coll_copies in copies.values()
+                      for _, collection, rkey in coll_copies]
 
         else:
-            # create or other verb
+            # create or other verb. match each record to the existing copy in
+            # the same collection at the same index, if any
+            num_records = defaultdict(int)  # maps collection to count so far
             for record in records:
                 type = record['$type']
                 lex_type = LEXICONS[type]['type']
                 assert lex_type == 'record', f"Can't store {type} object of type {lex_type}"
-                copy = copies.get(type)
+                index = num_records[type]
+                num_records[type] += 1
+                copy = (copies[type][index] if index < len(copies[type])
+                        else None)
 
-                if verb == 'create' and copy:
-                    logger.info(f'already has ATProto copy {copy}, cowardly refusing to create again')
+                if verb == 'create' and copies[type]:
+                    logger.info(f'already has ATProto copies {copies[type]}, cowardly refusing to create again')
                     continue
 
                 if verb == 'create' or not copy:
