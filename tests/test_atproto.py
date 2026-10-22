@@ -1308,12 +1308,6 @@ class ATProtoTest(TestCase):
         self.assertEqual([
             {**profile, '$type': 'app.bsky.actor.profile'},
             {**profile, '$type': 'so.sprk.actor.profile'},
-            {
-                '$type': 'social.grain.actor.profile',
-                'displayName': 'Alice',
-                'description': 'hi',
-                'bridgyOriginalUrl': 'fake:alice',
-            },
         ], ATProto.convert(Object(source_protocol='fake', our_as1={
             'objectType': 'service',
             'id': 'fake:alice',
@@ -3164,7 +3158,7 @@ Sed tortor neque, aliquet quis posuere aliquam, imperdiet sitamet […]
         self.storage.commit(self.repo, [
             Write(action=Action.CREATE, collection=collection, rkey='self',
                   record={**ACTOR_PROFILE_BSKY, '$type': collection})
-            for collection in ('so.sprk.actor.profile', 'social.grain.actor.profile')
+            for collection in ('app.bsky.actor.profile', 'so.sprk.actor.profile')
         ])
 
         obj = self.store_object(id='fake:profile:user', our_as1={
@@ -3174,8 +3168,7 @@ Sed tortor neque, aliquet quis posuere aliquam, imperdiet sitamet […]
         self.assertTrue(ATProto.send(obj, 'https://bsky.brid.gy', from_user=self.user))
 
         repo = self.storage.load_repo('did:plc:user')
-        for collection in ('app.bsky.actor.profile', 'so.sprk.actor.profile',
-                           'social.grain.actor.profile'):
+        for collection in ('app.bsky.actor.profile', 'so.sprk.actor.profile'):
             self.assert_equals('updated',
                                repo.get_record(collection, 'self')['displayName'])
 
@@ -3565,13 +3558,6 @@ Sed tortor neque, aliquet quis posuere aliquam, imperdiet sitamet […]
                     'description': '🌉 bridged from 🤡 web:fake:user by https://fed.brid.gy/',
                 },
             },
-            'social.grain.actor.profile': {
-                'self': {
-                    '$type': 'social.grain.actor.profile',
-                    'displayName': 'fooey',
-                    'description': '🌉 bridged from 🤡 web:fake:user by https://fed.brid.gy/',
-                },
-            },
             'app.bsky.feed.post': {
                 last_tid: {
                     '$type': 'app.bsky.feed.post',
@@ -3657,13 +3643,6 @@ Sed tortor neque, aliquet quis posuere aliquam, imperdiet sitamet […]
                     'description': '🌉 bridged from 🤡 web:fake:user by https://fed.brid.gy/',
                 },
             },
-            'social.grain.actor.profile': {
-                'self': {
-                    '$type': 'social.grain.actor.profile',
-                    'displayName': 'fooey',
-                    'description': '🌉 bridged from 🤡 web:fake:user by https://fed.brid.gy/',
-                },
-            },
             'app.bsky.feed.post': {
                 'existing': {
                     '$type': 'app.bsky.feed.post',
@@ -3719,13 +3698,6 @@ Sed tortor neque, aliquet quis posuere aliquam, imperdiet sitamet […]
             'so.sprk.actor.profile': {
                 'self': {
                     '$type': 'so.sprk.actor.profile',
-                    'displayName': 'fooey',
-                    'description': '🌉 bridged from 🤡 web:fake:user by https://fed.brid.gy/',
-                },
-            },
-            'social.grain.actor.profile': {
-                'self': {
-                    '$type': 'social.grain.actor.profile',
                     'displayName': 'fooey',
                     'description': '🌉 bridged from 🤡 web:fake:user by https://fed.brid.gy/',
                 },
@@ -3845,9 +3817,6 @@ Sed tortor neque, aliquet quis posuere aliquam, imperdiet sitamet […]
         self.assertEqual([
             'app.bsky.feed.post',
             'so.sprk.feed.post',
-            'social.grain.gallery',
-            'social.grain.photo',
-            'social.grain.gallery.item',
         ], [arroba.util.parse_at_uri(copy)[1] for copy in orig_copies])
 
         update = Object(id='fake:update', source_protocol='fake', our_as1={
@@ -3857,11 +3826,9 @@ Sed tortor neque, aliquet quis posuere aliquam, imperdiet sitamet […]
         })
         self.assertTrue(ATProto.send(update, 'https://bsky.brid.gy'))
 
-        # existing records should be updated in place, new photo and item created
+        # existing records should be updated in place
         copies = Object.get_by_id('fake:post').get_copies(ATProto)
-        self.assertEqual(orig_copies, copies[:5])
-        self.assertEqual(['social.grain.photo', 'social.grain.gallery.item'],
-                         [arroba.util.parse_at_uri(copy)[1] for copy in copies[5:]])
+        self.assertEqual(orig_copies, copies)
 
         contents = self.storage.load_repo('did:plc:user').get_contents()
         self.assertCountEqual(
@@ -3878,7 +3845,7 @@ Sed tortor neque, aliquet quis posuere aliquam, imperdiet sitamet […]
         note = {**NOTE_AS, 'image': ['http://pic/0', 'http://pic/1']}
         self.assertTrue(ATProto.send(Object(id='fake:post', source_protocol='fake',
                                             our_as1=note), 'https://bsky.brid.gy'))
-        self.assertEqual(7, len(Object.get_by_id('fake:post').copies))
+        self.assertEqual(2, len(Object.get_by_id('fake:post').copies))
 
         delete = Object(id='fake:delete', source_protocol='fake', our_as1={
             'objectType': 'activity',

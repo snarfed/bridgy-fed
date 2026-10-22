@@ -1314,7 +1314,7 @@ class IntegrationTests(TestCase):
 
         records = repo.get_contents()
         self.assertEqual(['app.bsky.actor.profile', 'chat.bsky.actor.declaration',
-                          'so.sprk.actor.profile', 'social.grain.actor.profile'],
+                          'so.sprk.actor.profile'],
                          list(records.keys()))
         self.assertEqual(['self'], list(records['app.bsky.actor.profile'].keys()))
 
@@ -2353,16 +2353,14 @@ class IntegrationTests(TestCase):
 
             expected = {
                 type: {'self': {**profile, '$type': type, 'displayName': name}}
-                for type in bluesky.ATP_PROFILE_TYPES
+                for type in ('app.bsky.actor.profile', 'so.sprk.actor.profile')
             }
-            del expected['social.grain.actor.profile']['self']['labels']
             self.assert_equals(expected,
                                self.storage.load_repo('did:plc:alice').get_contents())
 
             self.assertEqual([
                 'at://did:plc:alice/app.bsky.actor.profile/self',
                 'at://did:plc:alice/so.sprk.actor.profile/self',
-                'at://did:plc:alice/social.grain.actor.profile/self',
             ], alice.obj_key.get().get_copies(ATProto))
 
     @patch.object(util.session, 'get', return_value=requests_response("""\
@@ -2398,17 +2396,14 @@ class IntegrationTests(TestCase):
         }
         expected = {
             type: {'self': {**profile, '$type': type}}
-            for type in bluesky.ATP_PROFILE_TYPES
+            for type in ('app.bsky.actor.profile', 'so.sprk.actor.profile')
         }
-        del expected['social.grain.actor.profile']['self']['website']
-        del expected['social.grain.actor.profile']['self']['labels']
         self.assert_equals(expected,
                            self.storage.load_repo('did:plc:alice').get_contents())
 
         self.assertEqual([
             'at://did:plc:alice/app.bsky.actor.profile/self',
             'at://did:plc:alice/so.sprk.actor.profile/self',
-            'at://did:plc:alice/social.grain.actor.profile/self',
         ], alice.obj_key.get().get_copies(ATProto))
 
     @patch.object(util.session, 'post')
@@ -3418,7 +3413,7 @@ class IntegrationTests(TestCase):
 
     @patch.object(util.session, 'get', return_value=requests_response(
         'image contents', content_type='image/jpeg'))
-    def test_activitypub_create_post_with_image_to_atproto_bluesky_spark_grain(self, _):
+    def test_activitypub_create_post_with_image_to_atproto_bluesky_and_spark(self, _):
         """ActivityPub user creates post with image, delivered to ATProto.
 
         ActivityPub user https://inst/alice , did:plc:alice
@@ -3451,9 +3446,6 @@ class IntegrationTests(TestCase):
         contents = self.storage.load_repo('did:plc:alice').get_contents()
         bsky_tid = list(contents['app.bsky.feed.post'].keys())[0]
         spark_tid = list(contents['so.sprk.feed.post'].keys())[0]
-        gallery_tid = list(contents['social.grain.gallery'].keys())[0]
-        photo_tid = list(contents['social.grain.photo'].keys())[0]
-        item_tid = list(contents['social.grain.gallery.item'].keys())[0]
         blob = {
             '$type': 'blob',
             'ref': CID.decode('bafkreiewmu2zbbhkvp3qjevgxvjyqcvymmiy7jsmitxz4frd57g2n2a47u'),
@@ -3490,28 +3482,6 @@ class IntegrationTests(TestCase):
                 'bridgyOriginalText': 'My post',
                 'bridgyOriginalUrl': 'https://inst/post',
             }},
-            'social.grain.gallery': {gallery_tid: {
-                '$type': 'social.grain.gallery',
-                'title': '',
-                'description': 'My post',
-                'createdAt': '2022-01-02T03:04:05.000Z',
-                'bridgyOriginalText': 'My post',
-                'bridgyOriginalUrl': 'https://inst/post',
-            }},
-            'social.grain.photo': {photo_tid: {
-                '$type': 'social.grain.photo',
-                'photo': blob,
-                'alt': 'my alt text',
-                'aspectRatio': {'width': 1, 'height': 1},
-                'createdAt': '2022-01-02T03:04:05.000Z',
-            }},
-            'social.grain.gallery.item': {item_tid: {
-                '$type': 'social.grain.gallery.item',
-                'gallery': f'at://did:plc:alice/social.grain.gallery/{gallery_tid}',
-                'item': f'at://did:plc:alice/social.grain.photo/{photo_tid}',
-                'position': 0,
-                'createdAt': '2022-01-02T03:04:05.000Z',
-            }},
         }, contents)
 
         self.assert_equals([
@@ -3519,12 +3489,6 @@ class IntegrationTests(TestCase):
                    uri=f'at://did:plc:alice/app.bsky.feed.post/{bsky_tid}'),
             Target(protocol='atproto',
                    uri=f'at://did:plc:alice/so.sprk.feed.post/{spark_tid}'),
-            Target(protocol='atproto',
-                   uri=f'at://did:plc:alice/social.grain.gallery/{gallery_tid}'),
-            Target(protocol='atproto',
-                   uri=f'at://did:plc:alice/social.grain.photo/{photo_tid}'),
-            Target(protocol='atproto',
-                   uri=f'at://did:plc:alice/social.grain.gallery.item/{item_tid}'),
         ], Object.get_by_id('https://inst/post').copies)
 
     @patch.object(util.session, 'get', side_effect=[
@@ -3595,7 +3559,7 @@ class IntegrationTests(TestCase):
 
     @patch.object(util.session, 'get', return_value=requests_response(
         'image contents', content_type='image/jpeg'))
-    def test_activitypub_update_post_with_image_to_atproto_bluesky_spark_grain(self, _):
+    def test_activitypub_update_post_with_image_to_atproto_bluesky_and_spark(self, _):
         """ActivityPub user creates and then updates post with image.
 
         ActivityPub user https://inst/alice , did:plc:alice
@@ -3635,11 +3599,9 @@ class IntegrationTests(TestCase):
             self.assertEqual(202, resp.status_code)
 
         copies = Object.get_by_id('https://inst/post').get_copies(ATProto)
-        self.assertEqual(['app.bsky.feed.post', 'so.sprk.feed.post',
-                          'social.grain.gallery', 'social.grain.photo',
-                          'social.grain.gallery.item'],
+        self.assertEqual(['app.bsky.feed.post', 'so.sprk.feed.post'],
                          [arroba.util.parse_at_uri(copy)[1] for copy in copies])
-        bsky_tid, spark_tid, gallery_tid, photo_tid, item_tid = [
+        bsky_tid, spark_tid = [
             arroba.util.parse_at_uri(copy)[2] for copy in copies]
 
         blob = {
@@ -3677,28 +3639,6 @@ class IntegrationTests(TestCase):
                 },
                 'bridgyOriginalText': 'My updated post',
                 'bridgyOriginalUrl': 'https://inst/post',
-            }},
-            'social.grain.gallery': {gallery_tid: {
-                '$type': 'social.grain.gallery',
-                'title': '',
-                'description': 'My updated post',
-                'createdAt': '2022-01-02T03:04:05.000Z',
-                'bridgyOriginalText': 'My updated post',
-                'bridgyOriginalUrl': 'https://inst/post',
-            }},
-            'social.grain.photo': {photo_tid: {
-                '$type': 'social.grain.photo',
-                'photo': blob,
-                'alt': 'my alt text',
-                'aspectRatio': {'width': 1, 'height': 1},
-                'createdAt': '2022-01-02T03:04:05.000Z',
-            }},
-            'social.grain.gallery.item': {item_tid: {
-                '$type': 'social.grain.gallery.item',
-                'gallery': f'at://did:plc:alice/social.grain.gallery/{gallery_tid}',
-                'item': f'at://did:plc:alice/social.grain.photo/{photo_tid}',
-                'position': 0,
-                'createdAt': '2022-01-02T03:04:05.000Z',
             }},
         }, self.storage.load_repo('did:plc:alice').get_contents())
 

@@ -400,6 +400,8 @@ class ATProto(User, Protocol):
         - {
             'so.sprk.feed.post',
             'so.sprk.actor.profile',
+            # Grain is disabled, at their request:
+            # https://tangled.org/grain.social/grain/issues/11#comment-3myfyydtwek3s
             'social.grain.actor.profile',
             'social.grain.comment',
             'social.grain.favorite',
@@ -1253,6 +1255,11 @@ class ATProto(User, Protocol):
             logger.info(f"Couldn't convert to ATProto", exc_info=True)
             return [] if multiple else {}
 
+        # we currently don't bridge to Grain, at their request
+        # https://tangled.org/grain.social/grain/issues/11#comment-3myfyydtwek3s
+        recs = [rec for rec in recs
+                if not rec.get('$type', '').startswith('social.grain.')]
+
         for rec in recs:
             # if there are any links, generate an external embed as a preview
             # for the first non-@-mention link
@@ -1733,6 +1740,9 @@ def populate_references(writes, did):
             by_collection[write.collection].append(write)
 
     # Grain gallery items point to their gallery and photo
+    #
+    # CURRENTLY UNUSED: we currently don't bridge to/from Grain, at their request
+    # https://tangled.org/grain.social/grain/issues/11#comment-3myfyydtwek3s
     #
     # WARNING: expects that the social.grain.photo writes are ordered by
     # their social.grain.gallery.item position!

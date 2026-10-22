@@ -170,10 +170,6 @@ class UserTest(TestCase):
         for type in 'app.bsky.actor.profile', 'so.sprk.actor.profile':
             self.assertEqual({**profile, '$type': type},
                              repo.get_record(type, 'self'))
-        del profile['website']
-        del profile['labels']
-        self.assertEqual({**profile, '$type': 'social.grain.actor.profile'},
-                         repo.get_record('social.grain.actor.profile', 'self'))
 
         obj = Object.get_by_id('fake:profile:user')
         self.assertEqual([
@@ -181,8 +177,6 @@ class UserTest(TestCase):
                    uri=at_uri(did, 'app.bsky.actor.profile', 'self')),
             Target(protocol='atproto',
                    uri=at_uri(did, 'so.sprk.actor.profile', 'self')),
-            Target(protocol='atproto',
-                   uri=at_uri(did, 'social.grain.actor.profile', 'self')),
             Target(protocol='other', uri='other:o:fa:fake:profile:user'),
         ], obj.copies)
 
