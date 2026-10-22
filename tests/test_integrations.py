@@ -626,9 +626,22 @@ class IntegrationTests(TestCase):
         # need at least one repo for firehose subscriber to load DIDs and run
         Repo.create(self.storage, 'did:unused', signing_key=ATPROTO_KEY)
 
+        link = {
+            '$type': 'app.bsky.actor.link',
+            'url': 'https://alice.blog/',
+            'title': 'My blog',
+            'createdAt': '2022-01-02T03:04:05.000Z',
+        }
+        self.firehose(repo='did:plc:alice', action='create', seq=122,
+                      path='app.bsky.actor.link/123', record=link)
+
         new_profile = {
             **ACTOR_PROFILE_BSKY,
             'displayName': 'Ms New Alice',
+            'links': [{
+                'uri': 'at://did:plc:alice/app.bsky.actor.link/123',
+                'cid': arroba.util.dag_cbor_cid(link).encode('base32'),
+            }],
         }
         self.firehose(repo='did:plc:alice', action='update', seq=123,
                       path='app.bsky.actor.profile/self', record=new_profile)
@@ -648,9 +661,29 @@ class IntegrationTests(TestCase):
                 **expected_actor,
                 'updated': '2022-01-02T03:04:05+00:00',
                 'url': ['http://localhost/r/https://bsky.app/profile/alice.com',
-                        'http://localhost/r/https://alice.com/'],
+                        'http://localhost/r/https://alice.com/',
+                        'http://localhost/r/https://alice.blog/'],
+                'attachment': [{
+                    'type': 'PropertyValue',
+                    'name': 'Web site',
+                    'value': '<a rel="me" href="https://bsky.app/profile/alice.com"><span class="invisible">https://</span>bsky.app/profile/alice.com</a>',
+                }, {
+                    'type': 'PropertyValue',
+                    'name': 'Link',
+                    'value': '<a rel="me" href="https://alice.com"><span class="invisible">https://</span>alice.com</a>',
+                }, {
+                    'type': 'PropertyValue',
+                    'name': 'My blog',
+                    'value': '<a rel="me" href="https://alice.blog"><span class="invisible">https://</span>alice.blog</a>',
+                }, {
+                    'type': 'Image',
+                    'url': 'https://some.pds/xrpc/com.atproto.sync.getBlob?did=did:plc:alice&cid=bafyjrot',
+                }, {
+                    'type': 'Image',
+                    'url': 'https://some.pds/xrpc/com.atproto.sync.getBlob?did=did:plc:alice&cid=bafkreicqpqncshdd27sgztqgzocd3zhhqnnsv6slvzhs5uz6f57cq6lmtq',
+                }],
             },
-        }, ignore=('attachment', 'publicKey', 'to'))
+        }, ignore=('publicKey', 'to'))
 
     @patch.object(util.session, 'post')
     def test_atproto_profile_update_twice_to_activitypub(self, mock_post):
@@ -2324,16 +2357,18 @@ class IntegrationTests(TestCase):
             record={'$type': 'app.bsky.actor.profile', 'displayName': 'My Name'}))
 
         profile = {
-            'description': 'New bio\n\n🌉 bridged from ⁂ https://inst/alice by https://fed.brid.gy/',
+            'description': 'New bio\n\n🌉 bridged from ⁂ https://inst/@alice by https://fed.brid.gy/',
             'bridgyOriginalDescription': 'New bio',
-            'bridgyOriginalUrl': 'https://inst/alice',
+            'bridgyOriginalUrl': 'https://inst/@alice',
             'labels': {
                 '$type': 'com.atproto.label.defs#selfLabels',
                 'values': [{'val': 'bridged-from-bridgy-fed-activitypub'}],
             },
         }
 
+        link_rkeys = None
         for name in 'One', 'Two':
+            blog = f'https://{name.lower()}.blog/'
             body = json_dumps({
                 '@context': 'https://www.w3.org/ns/activitystreams',
                 'type': 'Update',
@@ -2345,23 +2380,62 @@ class IntegrationTests(TestCase):
                     'name': name,
                     'summary': 'New bio',
                     'icon': {'type': 'Image', 'url': 'http://new-pic'},
+                    'url': 'https://inst/@alice',
+                    'attachment': [{
+                        'type': 'PropertyValue',
+                        'name': f'Blog {name}',
+                        'value': f'<a href="{blog}" target="_blank" rel="nofollow noopener me" translate="no"><span class="invisible">https://</span><span class="">{name.lower()}.blog/</span><span class="invisible"></span></a>',
+                    }],
                 }),
             })
             headers = sign('/ap/sharedInbox', body, key_id='https://inst/alice')
             resp = self.client.post('/ap/sharedInbox', data=body, headers=headers)
             self.assertEqual(202, resp.status_code)
 
-            expected = {
-                type: {'self': {**profile, '$type': type, 'displayName': name}}
-                for type in ('app.bsky.actor.profile', 'so.sprk.actor.profile')
-            }
-            self.assert_equals(expected,
-                               self.storage.load_repo('did:plc:alice').get_contents())
+            # the second update updates the same link records in place
+            contents = self.storage.load_repo('did:plc:alice').get_contents()
+            links = contents['app.bsky.actor.link']
+            if link_rkeys:
+                self.assertEqual(link_rkeys, list(links.keys()))
+            link_rkeys = list(links.keys())
+            self.assertEqual(2, len(link_rkeys))
+
+            link_records = [{
+                '$type': 'app.bsky.actor.link',
+                'url': 'https://inst/@alice',
+                'createdAt': '2022-01-02T03:04:05.000Z',
+            }, {
+                '$type': 'app.bsky.actor.link',
+                'url': blog,
+                'title': f'Blog {name}',
+                'createdAt': '2022-01-02T03:04:05.000Z',
+            }]
+            self.assert_equals({
+                'app.bsky.actor.profile': {'self': {
+                    **profile,
+                    '$type': 'app.bsky.actor.profile',
+                    'displayName': name,
+                    'website': 'https://inst/@alice',
+                    'links': [{
+                        'uri': f'at://did:plc:alice/app.bsky.actor.link/{rkey}',
+                        'cid': arroba.util.dag_cbor_cid(record).encode('base32'),
+                    } for rkey, record in zip(link_rkeys, link_records)],
+                }},
+                'so.sprk.actor.profile': {'self': {
+                    **profile,
+                    '$type': 'so.sprk.actor.profile',
+                    'displayName': name,
+                    'website': 'https://inst/@alice',
+                }},
+                'app.bsky.actor.link': dict(zip(link_rkeys, link_records)),
+            }, contents)
 
             self.assertEqual([
                 'at://did:plc:alice/app.bsky.actor.profile/self',
                 'at://did:plc:alice/so.sprk.actor.profile/self',
-            ], alice.obj_key.get().get_copies(ATProto))
+            ] + [f'at://did:plc:alice/app.bsky.actor.link/{rkey}'
+                 for rkey in link_rkeys],
+                alice.obj_key.get().get_copies(ATProto))
 
     @patch.object(util.session, 'get', return_value=requests_response("""\
 <html><body class="h-card">
