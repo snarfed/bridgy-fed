@@ -332,6 +332,35 @@ class WebfingerTest(TestCase):
                     ],
                 }, got.json)
 
+    def test_urls_with_display_names(self):
+        self.user.obj.as2.update({
+            'url': ['https://user.com/about-me', 'https://user.com/blog'],
+            'attachment': [{
+                'type': 'PropertyValue',
+                'name': 'My blog',
+                'value': '<a href="https://user.com/blog">user.com/blog</a>',
+            }],
+        })
+        self.user.obj.put()
+
+        got = self.client.get(
+            '/.well-known/webfinger?resource=acct:user.com@user.com',
+            headers={'Accept': 'application/json'})
+        self.assertEqual(200, got.status_code, got.get_data(as_text=True))
+        self.assert_equals({
+            **WEBFINGER,
+            'aliases': [
+                'https://user.com/about-me',
+                'https://user.com/blog',
+                'https://user.com/',
+            ],
+            'links': WEBFINGER['links'][:1] + [{
+                'rel': 'http://webfinger.net/rel/profile-page',
+                'type': 'text/html',
+                'href': 'https://user.com/blog',
+            }] + WEBFINGER['links'][1:],
+        }, got.json)
+
     def test_missing_user(self):
         for acct in ('nope.com', 'nope.com@nope.com', 'nope.com@web.brid.gy',
                      'nope.com@fed.brid.gy', 'fake-handle-user@fake.brid.gy'):

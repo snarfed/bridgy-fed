@@ -10,7 +10,7 @@ from urllib.parse import urljoin, urlparse
 
 from domain2idna import domain2idna
 from flask import render_template, request
-from granary import as2
+from granary import as1, as2
 from webutil import flask_util, util
 from webutil.flask_util import error, flash, Found
 from webutil.util import json_dumps, json_loads
@@ -88,9 +88,7 @@ class Webfinger(flask_util.XrdOrJrd):
         actor_id = user.id_as(activitypub.ActivityPub)
         logger.debug(f'AS1 actor: {actor_id}')
 
-        urls = util.dedupe_urls(util.get_list(actor, 'urls') +
-                                util.get_list(actor, 'url') +
-                                [user.web_url()])
+        urls = util.dedupe_urls(as1.object_urls(actor) + [user.web_url()])
         logger.debug(f'URLs: {urls}')
         canonical_url = urls[0]
 
