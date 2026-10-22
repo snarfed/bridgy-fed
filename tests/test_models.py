@@ -5,7 +5,7 @@ from unittest.mock import patch
 
 from arroba.datastore_storage import AtpRemoteBlob, AtpRepo
 import arroba.server
-from arroba.util import at_uri
+from arroba.util import at_uri, dag_cbor_cid, parse_at_uri
 from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
 from cryptography.hazmat.primitives.serialization import (
   Encoding,
@@ -167,9 +167,24 @@ class UserTest(TestCase):
                 'values': [{'val' : 'bridged-from-bridgy-fed-fake'}],
             },
         }
-        for type in 'app.bsky.actor.profile', 'so.sprk.actor.profile':
-            self.assertEqual({**profile, '$type': type},
-                             repo.get_record(type, 'self'))
+        bsky_profile = repo.get_record('app.bsky.actor.profile', 'self')
+        _, _, link_rkey = parse_at_uri(bsky_profile['links'][0]['uri'])
+        link = repo.get_record('app.bsky.actor.link', link_rkey)
+        self.assertEqual({
+            '$type': 'app.bsky.actor.link',
+            'url': 'https://alice.com/',
+            'createdAt': '2022-01-02T03:04:05.000Z',
+        }, link)
+        self.assertEqual({
+            **profile,
+            '$type': 'app.bsky.actor.profile',
+            'links': [{
+                'uri': at_uri(did, 'app.bsky.actor.link', link_rkey),
+                'cid': dag_cbor_cid(link).encode('base32'),
+            }],
+        }, bsky_profile)
+        self.assertEqual({**profile, '$type': 'so.sprk.actor.profile'},
+                         repo.get_record('so.sprk.actor.profile', 'self'))
 
         obj = Object.get_by_id('fake:profile:user')
         self.assertEqual([
@@ -177,6 +192,8 @@ class UserTest(TestCase):
                    uri=at_uri(did, 'app.bsky.actor.profile', 'self')),
             Target(protocol='atproto',
                    uri=at_uri(did, 'so.sprk.actor.profile', 'self')),
+            Target(protocol='atproto',
+                   uri=at_uri(did, 'app.bsky.actor.link', link_rkey)),
             Target(protocol='other', uri='other:o:fa:fake:profile:user'),
         ], obj.copies)
 

@@ -2027,7 +2027,16 @@ Sed tortor neque, aliquet quis posuere aliquam, imperdiet sitamet […]
             name='_atproto.fake-handle-us-er.fa.brid.gy.', record_type='TXT',
             ttl=atproto.DNS_TTL, rrdatas=[f'"did={did}"'])
 
-        # check profile and chat declaration records
+        # check profile, link, and chat declaration records
+        profile = repo.get_record('app.bsky.actor.profile', 'self')
+        _, _, link_rkey = arroba.util.parse_at_uri(profile['links'][0]['uri'])
+        link = repo.get_record('app.bsky.actor.link', link_rkey)
+        self.assertEqual({
+            '$type': 'app.bsky.actor.link',
+            'url': 'https://alice.com/',
+            'createdAt': '2022-01-02T03:04:05.000Z',
+        }, link)
+
         self.assertEqual({
             '$type': 'app.bsky.actor.profile',
             'displayName': 'Alice',
@@ -2045,7 +2054,11 @@ Sed tortor neque, aliquet quis posuere aliquam, imperdiet sitamet […]
                 '$type': 'com.atproto.label.defs#selfLabels',
                 'values': [{'val' : 'bridged-from-bridgy-fed-fake'}],
             },
-        }, repo.get_record('app.bsky.actor.profile', 'self'))
+            'links': [{
+                'uri': f'at://{did}/app.bsky.actor.link/{link_rkey}',
+                'cid': arroba.util.dag_cbor_cid(link).encode('base32'),
+            }],
+        }, profile)
 
         self.assertEqual({
             "$type" : "chat.bsky.actor.declaration",
@@ -2103,24 +2116,25 @@ Sed tortor neque, aliquet quis posuere aliquam, imperdiet sitamet […]
         repo = self.storage.load_repo(did)
 
         # check profile, pinned post
-        last_tid = arroba.util.int_to_tid(arroba.util._tid_ts_last)
+        pinned_uri = Object.get_by_id('fake:pinned').get_copy(ATProto)
+        _, _, pinned_rkey = arroba.util.parse_at_uri(pinned_uri)
         self.assert_equals({
             '$type': 'app.bsky.actor.profile',
             'displayName': 'Alice',
             'description': 'hi there\n\n🌉 bridged from 🤡 web:fake:user by https://fed.brid.gy/',
             'website': 'https://alice.com/',
             'pinnedPost': {
-                'uri': f'at://{did}/app.bsky.feed.post/{last_tid}',
+                'uri': pinned_uri,
                 'cid': 'bafyreibjhbhznld7ogitdeub3ptk3cnkaegz3oma46ys5ljnaaec3sylpq',
             },
         }, repo.get_record('app.bsky.actor.profile', 'self'),
-        ignore=['bridgyOriginalDescription', 'bridgyOriginalUrl', 'labels'])
+        ignore=['bridgyOriginalDescription', 'bridgyOriginalUrl', 'labels', 'links'])
 
         self.assert_equals({
             '$type': 'app.bsky.feed.post',
             'text': 'My pinned post',
             'createdAt': '2022-01-02T03:04:05.000Z',
-        }, repo.get_record('app.bsky.feed.post', last_tid),
+        }, repo.get_record('app.bsky.feed.post', pinned_rkey),
         ignore=['bridgyOriginalText', 'bridgyOriginalUrl'])
 
     @patch.object(tasks_client, 'create_task', return_value=Task(name='my task'))
@@ -2160,7 +2174,7 @@ Sed tortor neque, aliquet quis posuere aliquam, imperdiet sitamet […]
             'description': 'hi there\n\n🌉 bridged from 🤡 web:fake:user by https://fed.brid.gy/',
             'website': 'https://alice.com/',
         }, repo.get_record('app.bsky.actor.profile', 'self'),
-        ignore=['bridgyOriginalDescription', 'bridgyOriginalUrl', 'labels'])
+        ignore=['bridgyOriginalDescription', 'bridgyOriginalUrl', 'labels', 'links'])
 
     @patch.object(tasks_client, 'create_task', return_value=Task(name='my task'))
     @patch.object(util.session, 'post', return_value=requests_response('OK'))  # create DID on PLC
@@ -2189,7 +2203,7 @@ Sed tortor neque, aliquet quis posuere aliquam, imperdiet sitamet […]
             'description': 'hi there\n\n🌉 bridged from 🤡 web:fake:user by https://fed.brid.gy/',
             'website': 'https://alice.com/',
         }, repo.get_record('app.bsky.actor.profile', 'self'),
-        ignore=['bridgyOriginalDescription', 'bridgyOriginalUrl', 'labels'])
+        ignore=['bridgyOriginalDescription', 'bridgyOriginalUrl', 'labels', 'links'])
         self.assert_equals({
             '$type': 'community.lexicon.payments.webMonetization',
             'address': 'http://wal/let',
@@ -2763,6 +2777,14 @@ Sed tortor neque, aliquet quis posuere aliquam, imperdiet sitamet […]
         did = user.key.get().get_copy(ATProto)
         repo = self.storage.load_repo(did)
         profile = repo.get_record('app.bsky.actor.profile', 'self')
+        _, _, link_rkey = arroba.util.parse_at_uri(profile['links'][0]['uri'])
+        link = repo.get_record('app.bsky.actor.link', link_rkey)
+        self.assertEqual({
+            '$type': 'app.bsky.actor.link',
+            'url': 'https://alice.com/',
+            'createdAt': '2022-01-02T03:04:05.000Z',
+        }, link)
+
         self.assertEqual({
             '$type': 'app.bsky.actor.profile',
             'displayName': 'Alice',
@@ -2780,6 +2802,10 @@ Sed tortor neque, aliquet quis posuere aliquam, imperdiet sitamet […]
                 '$type': 'com.atproto.label.defs#selfLabels',
                 'values': [{'val' : 'bridged-from-bridgy-fed-fake'}],
             },
+            'links': [{
+                'uri': f'at://{did}/app.bsky.actor.link/{link_rkey}',
+                'cid': arroba.util.dag_cbor_cid(link).encode('base32'),
+            }],
         }, profile)
         last_tid = arroba.util.int_to_tid(arroba.util._tid_ts_last)
         record = repo.get_record('app.bsky.feed.post', last_tid)
@@ -3311,6 +3337,51 @@ Sed tortor neque, aliquet quis posuere aliquam, imperdiet sitamet […]
             {**statement, 'conversation': ref},
         ], [write.record for write in writes])
 
+    def test_postprocess_writes_profile_links(self):
+        self.make_user_and_repo()
+
+        profile = {
+            '$type': 'app.bsky.actor.profile',
+            'displayName': 'Alice',
+            'links': [
+                {'uri': '', 'cid': ''},
+                {'uri': '', 'cid': ''},
+                {'uri': '', 'cid': ''},
+            ],
+        }
+        link_a = {
+            '$type': 'app.bsky.actor.link',
+            'url': 'https://a.com/',
+            'createdAt': '2022-01-02T03:04:05.000Z',
+        }
+        link_b = {
+            '$type': 'app.bsky.actor.link',
+            'url': 'https://b.com/',
+            'title': 'B',
+            'createdAt': '2022-01-02T03:04:05.000Z',
+        }
+        writes = [
+            Write(action=Action.UPDATE, collection='app.bsky.actor.profile',
+                  rkey='self', record=copy.deepcopy(profile)),
+            Write(action=Action.UPDATE, collection='app.bsky.actor.link',
+                  rkey='a', record=copy.deepcopy(link_a)),
+            Write(action=Action.CREATE, collection='app.bsky.actor.link',
+                  rkey='b', record=copy.deepcopy(link_b)),
+        ]
+        postprocess_writes(writes, self.user)
+
+        # the third blank ref has no link record, so it's dropped
+        self.assertEqual([{
+            **profile,
+            'links': [{
+                'uri': 'at://did:plc:user/app.bsky.actor.link/a',
+                'cid': arroba.util.dag_cbor_cid(link_a).encode('base32'),
+            }, {
+                'uri': 'at://did:plc:user/app.bsky.actor.link/b',
+                'cid': arroba.util.dag_cbor_cid(link_b).encode('base32'),
+            }],
+        }, link_a, link_b], [write.record for write in writes])
+
     def test_blacksky_vote_as1_statement_in_our_repo(self):
         self.make_user_and_repo()
         conv_uri = 'at://did:plc:user/community.blacksky.assembly.conversation/c'
@@ -3499,6 +3570,82 @@ Sed tortor neque, aliquet quis posuere aliquam, imperdiet sitamet […]
             '$type': 'community.lexicon.payments.webMonetization',
             'address': 'http://wal/let',
         }, repo.get_record('community.lexicon.payments.webMonetization', 'self'))
+
+        mock_create_task.assert_called()  # atproto-commit
+
+    @patch.object(tasks_client, 'create_task', return_value=Task(name='my task'))
+    def test_send_update_actor_links(self, mock_create_task):
+        user = self.make_user_and_repo(obj_as1={'objectType': 'person', 'foo': 'bar'})
+
+        # create profile and link records, set copies
+        old_link = {
+            '$type': 'app.bsky.actor.link',
+            'url': 'https://old.com/',
+            'createdAt': '2022-01-02T03:04:05.000Z',
+        }
+        self.storage.commit(self.repo, [
+            Write(action=Action.CREATE, collection='app.bsky.actor.profile',
+                  rkey='self', record=ACTOR_PROFILE_BSKY),
+            Write(action=Action.CREATE, collection='app.bsky.actor.link',
+                  rkey='a', record=old_link),
+            Write(action=Action.CREATE, collection='app.bsky.actor.link',
+                  rkey='b', record=old_link),
+        ])
+        user.obj.copies = [
+            Target(uri='at://did:plc:user/app.bsky.actor.profile/self',
+                   protocol='atproto'),
+            Target(uri='at://did:plc:user/app.bsky.actor.link/a', protocol='atproto'),
+            Target(uri='at://did:plc:user/app.bsky.actor.link/b', protocol='atproto'),
+        ]
+        user.obj.put()
+
+        # update profile with three links
+        update = Object(id='fake:update', source_protocol='fake', our_as1={
+            'objectType': 'activity',
+            'verb': 'update',
+            'actor': 'fake:user',
+            'object': {
+                'objectType': 'person',
+                'id': 'fake:profile:user',
+                'updated': '2024-06-24T01:02:03+00:00',
+                'url': 'https://x.com/',
+                'urls': [
+                    'https://x.com/',
+                    {'displayName': 'Why', 'value': 'https://y.com/'},
+                    'https://z.com/',
+                ],
+            },
+        })
+        self.assertTrue(ATProto.send(update, 'https://bsky.brid.gy/', from_user=user))
+
+        # existing link records are updated in place, the third is new
+        repo = self.storage.load_repo('did:plc:user')
+        refs = repo.get_record('app.bsky.actor.profile', 'self')['links']
+        _, _, new_rkey = arroba.util.parse_at_uri(refs[2]['uri'])
+        self.assertNotIn(new_rkey, ('a', 'b'))
+
+        new_link = {
+            '$type': 'app.bsky.actor.link',
+            'createdAt': '2022-01-02T03:04:05.000Z',
+        }
+        links = {
+            'a': {**new_link, 'url': 'https://x.com/'},
+            'b': {**new_link, 'url': 'https://y.com/', 'title': 'Why'},
+            new_rkey: {**new_link, 'url': 'https://z.com/'},
+        }
+        self.assertEqual(links, repo.get_contents()['app.bsky.actor.link'])
+        self.assertEqual([{
+            'uri': f'at://did:plc:user/app.bsky.actor.link/{rkey}',
+            'cid': arroba.util.dag_cbor_cid(link).encode('base32'),
+        } for rkey, link in links.items()], refs)
+
+        self.assertEqual([
+            'at://did:plc:user/app.bsky.actor.profile/self',
+            'at://did:plc:user/app.bsky.actor.link/a',
+            'at://did:plc:user/app.bsky.actor.link/b',
+            'at://did:plc:user/so.sprk.actor.profile/self',
+            f'at://did:plc:user/app.bsky.actor.link/{new_rkey}',
+        ], user.obj.key.get().get_copies(ATProto))
 
         mock_create_task.assert_called()  # atproto-commit
 

@@ -2394,16 +2394,33 @@ class IntegrationTests(TestCase):
                 'values': [{'val': 'bridged-from-bridgy-fed-web'}],
             },
         }
-        expected = {
-            type: {'self': {**profile, '$type': type}}
-            for type in ('app.bsky.actor.profile', 'so.sprk.actor.profile')
-        }
-        self.assert_equals(expected,
-                           self.storage.load_repo('did:plc:alice').get_contents())
+        contents = self.storage.load_repo('did:plc:alice').get_contents()
+        [(link_rkey, link)] = contents['app.bsky.actor.link'].items()
+        link_uri = f'at://did:plc:alice/app.bsky.actor.link/{link_rkey}'
+        self.assert_equals({
+            'app.bsky.actor.profile': {'self': {
+                **profile,
+                '$type': 'app.bsky.actor.profile',
+                'links': [{
+                    'uri': link_uri,
+                    'cid': arroba.util.dag_cbor_cid(link).encode('base32'),
+                }],
+            }},
+            'so.sprk.actor.profile': {'self': {
+                **profile,
+                '$type': 'so.sprk.actor.profile',
+            }},
+            'app.bsky.actor.link': {link_rkey: {
+                '$type': 'app.bsky.actor.link',
+                'url': 'https://alice.com/',
+                'createdAt': '2022-01-02T03:04:05.000Z',
+            }},
+        }, contents)
 
         self.assertEqual([
             'at://did:plc:alice/app.bsky.actor.profile/self',
             'at://did:plc:alice/so.sprk.actor.profile/self',
+            link_uri,
         ], alice.obj_key.get().get_copies(ATProto))
 
     @patch.object(util.session, 'post')

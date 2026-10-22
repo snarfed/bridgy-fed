@@ -4,7 +4,7 @@ from datetime import timedelta
 from unittest.mock import ANY, patch
 
 import arroba.server
-from arroba.util import at_uri
+from arroba.util import at_uri, dag_cbor_cid, parse_at_uri
 from flask import get_flashed_messages
 from google.cloud import ndb
 from google.cloud.ndb.key import _MAX_KEYPART_BYTES
@@ -684,7 +684,21 @@ class WebTest(TestCase):
         did = user.get_copy(ATProto)
         repo = arroba.server.storage.load_repo(did)
         profile = repo.get_record('app.bsky.actor.profile', 'self')
-        self.assert_equals(ACTOR_BSKY, profile)
+        _, _, link_rkey = parse_at_uri(profile['links'][0]['uri'])
+        link = repo.get_record('app.bsky.actor.link', link_rkey)
+        self.assertEqual({
+            '$type': 'app.bsky.actor.link',
+            'url': 'https://new.com/',
+            'title': 'Ms. ☕ Baz',
+            'createdAt': '2022-01-02T03:04:05.000Z',
+        }, link)
+        self.assert_equals({
+            **ACTOR_BSKY,
+            'links': [{
+                'uri': at_uri(did, 'app.bsky.actor.link', link_rkey),
+                'cid': dag_cbor_cid(link).encode('base32'),
+            }],
+        }, profile)
         uri = at_uri(did, 'app.bsky.actor.profile', 'self')
         self.assertIn(Target(uri=uri, protocol='atproto'),
                       Object.get_by_id(id='https://new.com/').copies)

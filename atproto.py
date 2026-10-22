@@ -412,7 +412,10 @@ class ATProto(User, Protocol):
     'Which incoming record lexicons we should accept from the firehose.'
     SUPPORTED_RECORD_TYPES_BETA_USERS = frozenset([])
     'Which incoming record lexicons to accept from the firehose only for beta users.'
-    STORE_RECORD_TYPES = frozenset(['community.lexicon.payments.webMonetization'])
+    STORE_RECORD_TYPES = frozenset([
+        'app.bsky.actor.link',
+        'community.lexicon.payments.webMonetization',
+    ])
     ''
     SUPPORTS_DMS = True
     ''
@@ -1720,6 +1723,8 @@ def postprocess_writes(writes, user):
 def populate_references(writes, did):
     """Populates at-URIs and strong refs between records in the same commit.
 
+    * ``app.bsky.actor.profile``: populate the ``links`` strongRefs with the
+      ``app.bsky.actor.link`` records, in order.
     * ``social.grain.gallery.item``: populate the ``gallery`` and ``item``
       at-URIs with the ``social.grain.gallery`` and the ``social.grain.photo``
       at index ``position``.
@@ -1772,6 +1777,20 @@ def populate_references(writes, did):
                     'uri': at_uri(did, conv.collection, conv.rkey),
                     'cid': dag_cbor_cid(conv.record).encode('base32'),
                 }
+
+    # profiles point to their links. if some link records were skipped, drop
+    # their blank refs
+    links = by_collection['app.bsky.actor.link']
+    for profile in by_collection['app.bsky.actor.profile']:
+        if refs := profile.record.pop('links', []):
+            profile.record['links'] = []
+            for ref, link in zip(refs, links):
+                if not ref.get('cid') or not ref.get('uri'):
+                    ref = {
+                        'uri': at_uri(did, link.collection, link.rkey),
+                        'cid': dag_cbor_cid(link.record).encode('base32'),
+                    }
+                profile.record['links'].append(ref)
 
 
 def create_report(*, input, from_user):
