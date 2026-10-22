@@ -1645,7 +1645,7 @@ class ObjectTest(TestCase):
         }
         vote_uri = 'at://did:plc:bob/community.blacksky.assembly.vote/v'
         self.assert_equals({
-            'objectType': 'comment',
+            'objectType': 'vote',
             'id': vote_uri,
             'author': 'did:plc:bob',
             'inReplyTo': conv_uri,
