@@ -1561,8 +1561,12 @@ class Object(AddRemoveMixin, StringIdModel):
             type = self.bsky.get('$type')
 
             client = None
-            if type in ('community.blacksky.assembly.vote', 'site.standard.document'):
-                # votes for loading their statement, docs for their bskyPostRef
+            if type == 'app.bsky.actor.profile':
+                # load profile links. remote in case we haven't stored them yet,
+                # eg links created before we started storing them
+                client = DatastoreClient(remote=True)
+            elif type in ('community.blacksky.assembly.vote',  # load statements
+                          'site.standard.document'):           # load bskyPostRef
                 client = DatastoreClient(remote=False)
 
             try:

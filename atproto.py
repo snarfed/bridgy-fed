@@ -307,10 +307,12 @@ class DatastoreClient(Client):
             # local record in a repo we own
             record = repo.get_record(collection=collection, rkey=rkey)
         else:
-            # remote record that we may have a cached copy of
-            obj = ATProto.load(uri, remote=(None if self.remote else False),
-                               raise_=False)
-            if (not obj or not obj.bsky) and self.remote:
+            # remote record that we may have a cached copy of. we get
+            # webMonetization records over the firehose, so don't fetch them
+            remote = (self.remote
+                      and collection != 'community.lexicon.payments.webMonetization')
+            obj = ATProto.load(uri, remote=(None if remote else False), raise_=False)
+            if (not obj or not obj.bsky) and remote:
                 obj = ATProto.load(uri, local=False, remote=True, raise_=False)
             if obj:
                 record = obj.bsky

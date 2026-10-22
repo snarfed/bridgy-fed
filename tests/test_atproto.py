@@ -4981,6 +4981,27 @@ Sed tortor neque, aliquet quis posuere aliquam, imperdiet sitamet […]
             'https://some.pds/xrpc/com.atproto.repo.getRecord?repo=did%3Aplc%3Auser&collection=co.l.l&rkey=post',
             json=None, data=None, headers=ANY)
 
+    @patch.object(util.session, 'get')
+    def test_datastore_client_get_record_web_monetization_not_remote(self, mock_get):
+        self.store_object(id='did:plc:user', raw=DID_DOC)
+
+        client = DatastoreClient()
+        self.assertEqual({}, client.com.atproto.repo.getRecord(
+            repo='did:plc:user', rkey='self',
+            collection='community.lexicon.payments.webMonetization'))
+        mock_get.assert_not_called()
+
+        wallet = {
+            '$type': 'community.lexicon.payments.webMonetization',
+            'address': 'http://wal/let',
+        }
+        self.store_object(
+            id='at://did:plc:user/community.lexicon.payments.webMonetization/self',
+            bsky=wallet)
+        self.assertEqual(wallet, client.com.atproto.repo.getRecord(
+            repo='did:plc:user', rkey='self',
+            collection='community.lexicon.payments.webMonetization')['value'])
+
     def test_datastore_client_resolve_handle_datastore_user(self):
         self.store_object(id='did:plc:user', raw=DID_DOC)
         self.make_user('did:plc:user', cls=ATProto)

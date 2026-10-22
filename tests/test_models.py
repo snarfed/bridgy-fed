@@ -1675,6 +1675,66 @@ class ObjectTest(TestCase):
             'subject': {'uri': 'at://did:plc:eve/community.blacksky.assembly.statement/x', 'cid': 'def'},
         }).as1)
 
+    @patch.object(util.session, 'get', return_value=requests_response({
+        'uri': 'at://did:plc:user/app.bsky.actor.link/b',
+        'cid': 'bafyreie5737gdxlw5i64vzichcalba3z2v5n6icifvx5xytvske7mr3hpm',
+        'value': {
+            '$type': 'app.bsky.actor.link',
+            'url': 'https://b.com/',
+            'createdAt': '2022-01-02T03:04:05.000Z',
+        },
+    }))
+    def test_as1_from_bsky_profile_links(self, mock_get):
+        self.store_object(id='did:plc:user', raw=DID_DOC)  # uses https://some.pds
+        self.store_object(id='at://did:plc:user/app.bsky.actor.link/a', bsky={
+            '$type': 'app.bsky.actor.link',
+            'url': 'https://a.com/',
+            'title': 'A',
+            'createdAt': '2022-01-02T03:04:05.000Z',
+        })
+
+        # link a is stored, link b isn't, so we fetch it
+        profile_uri = 'at://did:plc:user/app.bsky.actor.profile/self'
+        self.assert_equals({
+            'objectType': 'person',
+            'id': profile_uri,
+            'username': 'han.dull.fa.brid.gy',
+            'url': 'https://bsky.app/profile/han.dull.fa.brid.gy',
+            'urls': [
+                'https://bsky.app/profile/han.dull.fa.brid.gy',
+                'https://han.dull.fa.brid.gy/',
+                {
+                    'objectType': 'link',
+                    'id': 'at://did:plc:user/app.bsky.actor.link/a',
+                    'author': 'did:plc:user',
+                    'value': 'https://a.com/',
+                    'displayName': 'A',
+                    'published': '2022-01-02T03:04:05.000Z',
+                }, {
+                    'objectType': 'link',
+                    'id': 'at://did:plc:user/app.bsky.actor.link/b',
+                    'author': 'did:plc:user',
+                    'value': 'https://b.com/',
+                    'published': '2022-01-02T03:04:05.000Z',
+                },
+            ],
+        }, Object(id=profile_uri, bsky={
+            '$type': 'app.bsky.actor.profile',
+            'links': [{
+                'uri': 'at://did:plc:user/app.bsky.actor.link/a',
+                'cid': 'bafyreie5737gdxlw5i64vzichcalba3z2v5n6icifvx5xytvske7mr3hpm',
+            }, {
+                'uri': 'at://did:plc:user/app.bsky.actor.link/b',
+                'cid': 'bafyreie5737gdxlw5i64vzichcalba3z2v5n6icifvx5xytvske7mr3hpm',
+            }],
+        }).as1, ignore=['image'])
+
+        # only fetches link b, not webMonetization
+        mock_get.assert_called_once()
+        self.assertEqual(
+            'https://appview.local/xrpc/com.atproto.repo.getRecord?repo=did%3Aplc%3Auser&collection=app.bsky.actor.link&rkey=b',
+            mock_get.call_args.args[0])
+
     def test_as1_from_mf2_uses_url_as_id(self):
         mf2 = {
             'properties': {
