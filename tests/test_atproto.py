@@ -4243,20 +4243,24 @@ Sed tortor neque, aliquet quis posuere aliquam, imperdiet sitamet […]
         })
         self.assertTrue(ATProto.send(obj, 'https://bsky.brid.gy'))
 
-        # check repo, record
+        # check repo, records
         did = user.get_copy(ATProto)
         repo = self.storage.load_repo(did)
-        last_tid = arroba.util.int_to_tid(arroba.util._tid_ts_last)
-        record = repo.get_record('app.bsky.graph.follow', last_tid)
+        bsky_uri, sprk_uri = Object.get_by_id(id='fake:follow').get_copies(ATProto)
+
+        _, _, rkey = arroba.util.parse_at_uri(bsky_uri)
         self.assertEqual({
             '$type': 'app.bsky.graph.follow',
             'subject': 'did:plc:bob',
             'createdAt': '2022-01-02T03:04:05.000Z',
-        }, record)
+        }, repo.get_record('app.bsky.graph.follow', rkey))
 
-        at_uri = f'at://{did}/app.bsky.graph.follow/{last_tid}'
-        self.assertEqual([Target(uri=at_uri, protocol='atproto')],
-                         Object.get_by_id(id='fake:follow').copies)
+        _, _, rkey = arroba.util.parse_at_uri(sprk_uri)
+        self.assertEqual({
+            '$type': 'so.sprk.graph.follow',
+            'subject': 'did:plc:bob',
+            'createdAt': '2022-01-02T03:04:05.000Z',
+        }, repo.get_record('so.sprk.graph.follow', rkey))
 
         mock_create_task.assert_called()  # atproto-commit
 
@@ -4325,7 +4329,7 @@ Sed tortor neque, aliquet quis posuere aliquam, imperdiet sitamet […]
         """Undo of block without id deletes all block records for that subject."""
         user = self.make_user_and_repo()
 
-        # two block records with the same subject
+        # three block records with the same subject
         repo = self.storage.load_repo('did:plc:user')
         self.storage.commit(repo, [
             Write(action=Action.CREATE, collection='app.bsky.graph.block', rkey='a',
@@ -4337,6 +4341,12 @@ Sed tortor neque, aliquet quis posuere aliquam, imperdiet sitamet […]
             Write(action=Action.CREATE, collection='app.bsky.graph.block', rkey='b',
                   record={
                       '$type': 'app.bsky.graph.block',
+                      'subject': 'did:plc:bob',
+                      'createdAt': '2022-01-02T00:00:00.000Z',
+                  }),
+            Write(action=Action.CREATE, collection='so.sprk.graph.block', rkey='c',
+                  record={
+                      '$type': 'so.sprk.graph.block',
                       'subject': 'did:plc:bob',
                       'createdAt': '2022-01-02T00:00:00.000Z',
                   }),
@@ -4356,10 +4366,11 @@ Sed tortor neque, aliquet quis posuere aliquam, imperdiet sitamet […]
         })
         self.assertTrue(ATProto.send(undo, 'https://bsky.brid.gy/'))
 
-        # both block records should be deleted
+        # all block records should be deleted
         repo = self.storage.load_repo('did:plc:user')
         self.assertIsNone(repo.get_record('app.bsky.graph.block', 'a'))
         self.assertIsNone(repo.get_record('app.bsky.graph.block', 'b'))
+        self.assertIsNone(repo.get_record('so.sprk.graph.block', 'c'))
         mock_create_task.assert_called()  # atproto-commit
 
     @patch.object(tasks_client, 'create_task', return_value=Task(name='my task'))

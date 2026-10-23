@@ -940,22 +940,23 @@ class ATProto(User, Protocol):
                 return False
 
             if blockee.startswith('did:'):
-                collection = 'app.bsky.graph.block'
+                collections = ('app.bsky.graph.block', 'so.sprk.graph.block')
             elif parse_at_uri(blockee)[1] == 'app.bsky.graph.list':
-                collection = 'app.bsky.graph.listblock'
+                collections = ('app.bsky.graph.listblock',)
             else:
                 logger.warning(f"unknown block object {blockee}")
                 return
 
-            logger.info(f'Deleting {collection}s for subject {blockee}')
             writes = []
-            resp = xrpc_repo.list_records({}, repo=did, limit=None,
-                                          collection=collection)
-            for record in resp['records']:
-                if record['value']['subject'] == blockee:
-                    _, _, rkey = parse_at_uri(record['uri'])
-                    writes.append(Write(action=Action.DELETE, collection=collection,
-                                        rkey=rkey))
+            for collection in collections:
+                logger.info(f'Deleting {collection}s for subject {blockee}')
+                resp = xrpc_repo.list_records({}, repo=did, limit=None,
+                                              collection=collection)
+                for record in resp['records']:
+                    if record['value']['subject'] == blockee:
+                        _, _, rkey = parse_at_uri(record['uri'])
+                        writes.append(Write(action=Action.DELETE,
+                                            collection=collection, rkey=rkey))
 
             with arroba.memcache.Lease(memcache.memcache, f'arroba-commit-{did}',
                                        retries=250):
