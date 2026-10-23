@@ -400,6 +400,8 @@ class ATProto(User, Protocol):
         # TODO: handle incoming Spark records. for users with both Bluesky and
         # Spark profiles, which one wins?
         - {
+            # in STORE_RECORD_TYPES, we store them for profiles to load
+            'app.bsky.actor.link',
             'so.sprk.feed.post',
             'so.sprk.actor.profile',
             # Grain is disabled, at their request:
