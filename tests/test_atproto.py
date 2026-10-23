@@ -2034,7 +2034,7 @@ Sed tortor neque, aliquet quis posuere aliquam, imperdiet sitamet […]
         self.assertEqual({
             '$type': 'app.bsky.actor.link',
             'url': 'https://alice.com/',
-            'createdAt': '2022-01-02T03:04:05.000Z',
+            'createdAt': '1970-01-01T00:00:00.000Z',
         }, link)
 
         self.assertEqual({
@@ -2782,7 +2782,7 @@ Sed tortor neque, aliquet quis posuere aliquam, imperdiet sitamet […]
         self.assertEqual({
             '$type': 'app.bsky.actor.link',
             'url': 'https://alice.com/',
-            'createdAt': '2022-01-02T03:04:05.000Z',
+            'createdAt': '1970-01-01T00:00:00.000Z',
         }, link)
 
         self.assertEqual({
@@ -3581,7 +3581,7 @@ Sed tortor neque, aliquet quis posuere aliquam, imperdiet sitamet […]
         old_link = {
             '$type': 'app.bsky.actor.link',
             'url': 'https://old.com/',
-            'createdAt': '2022-01-02T03:04:05.000Z',
+            'createdAt': '1970-01-01T00:00:00.000Z',
         }
         self.storage.commit(self.repo, [
             Write(action=Action.CREATE, collection='app.bsky.actor.profile',
@@ -3626,7 +3626,7 @@ Sed tortor neque, aliquet quis posuere aliquam, imperdiet sitamet […]
 
         new_link = {
             '$type': 'app.bsky.actor.link',
-            'createdAt': '2022-01-02T03:04:05.000Z',
+            'createdAt': '1970-01-01T00:00:00.000Z',
         }
         links = {
             'a': {**new_link, 'url': 'https://x.com/'},

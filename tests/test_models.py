@@ -173,7 +173,7 @@ class UserTest(TestCase):
         self.assertEqual({
             '$type': 'app.bsky.actor.link',
             'url': 'https://alice.com/',
-            'createdAt': '2022-01-02T03:04:05.000Z',
+            'createdAt': '1970-01-01T00:00:00.000Z',
         }, link)
         self.assertEqual({
             **profile,

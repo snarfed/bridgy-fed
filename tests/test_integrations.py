@@ -2403,12 +2403,12 @@ class IntegrationTests(TestCase):
             link_records = [{
                 '$type': 'app.bsky.actor.link',
                 'url': 'https://inst/@alice',
-                'createdAt': '2022-01-02T03:04:05.000Z',
+                'createdAt': '1970-01-01T00:00:00.000Z',
             }, {
                 '$type': 'app.bsky.actor.link',
                 'url': blog,
                 'title': f'Blog {name}',
-                'createdAt': '2022-01-02T03:04:05.000Z',
+                'createdAt': '1970-01-01T00:00:00.000Z',
             }]
             self.assert_equals({
                 'app.bsky.actor.profile': {'self': {
@@ -2487,7 +2487,7 @@ class IntegrationTests(TestCase):
             'app.bsky.actor.link': {link_rkey: {
                 '$type': 'app.bsky.actor.link',
                 'url': 'https://alice.com/',
-                'createdAt': '2022-01-02T03:04:05.000Z',
+                'createdAt': '1970-01-01T00:00:00.000Z',
             }},
         }, contents)
 
