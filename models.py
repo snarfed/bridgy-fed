@@ -1531,7 +1531,6 @@ class Object(AddRemoveMixin, StringIdModel):
         Returns:
           dict: AS1 object, or None if we have no data to convert
         """
-        from atproto import DatastoreClient
         from protocol import Protocol
 
         def use_urls_as_ids(obj):
@@ -1559,19 +1558,13 @@ class Object(AddRemoveMixin, StringIdModel):
             handle = ATProto(id=owner).handle
             type = self.bsky.get('$type')
 
-            client = None
-            if type == 'app.bsky.actor.profile':
-                # load profile links. remote in case we haven't stored them yet,
-                # eg links created before we started storing them
-                client = DatastoreClient(remote=True)
-            elif type in ('community.blacksky.assembly.vote',  # load statements
-                          'site.standard.document'):           # load bskyPostRef
-                client = DatastoreClient(remote=False)
-
             try:
                 obj = bluesky.to_as1(self.bsky, repo_did=owner, repo_handle=handle,
                                      uri=self.key.id(), pds=ATProto.pds_for(self),
-                                     client=client)
+                                     # WARNING: keep this None! Object.as1 is high
+                                     # volume. passing a real DatastoreClient triggers
+                                     # a ton of datastore lookups and remote fetches
+                                     client=None)
             except (ValueError, RequestException):
                 logger.info(f"Couldn't convert to AS1", exc_info=True)
                 return None

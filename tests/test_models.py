@@ -1654,37 +1654,13 @@ class ObjectTest(TestCase):
             'value': -1,
             'createdAt': '2022-01-02T05:00:00.000Z',
         }
+        # we don't load the vote's statement, even though it's stored, so we can't
+        # convert the vote
         vote_uri = 'at://did:plc:bob/community.blacksky.assembly.vote/v'
-        self.assert_equals({
-            'objectType': 'vote',
-            'id': vote_uri,
-            'author': 'did:plc:bob',
-            'inReplyTo': conv_uri,
-            'displayName': 'foo is best',
-            'published': '2022-01-02T05:00:00.000Z',
-        }, Object(id=vote_uri, bsky=vote).as1)
+        self.assertIsNone(Object(id=vote_uri, bsky=vote).as1)
 
-        # pass, disagree
-        for value in 0, 1:
-            with self.subTest(value=value):
-                self.assertIsNone(Object(id=vote_uri, bsky={**vote, 'value': value}).as1)
-
-        # statement not stored
-        self.assertIsNone(Object(id=vote_uri, bsky={
-            **vote,
-            'subject': {'uri': 'at://did:plc:eve/community.blacksky.assembly.statement/x', 'cid': 'def'},
-        }).as1)
-
-    @patch.object(util.session, 'get', return_value=requests_response({
-        'uri': 'at://did:plc:user/app.bsky.actor.link/b',
-        'cid': 'bafyreie5737gdxlw5i64vzichcalba3z2v5n6icifvx5xytvske7mr3hpm',
-        'value': {
-            '$type': 'app.bsky.actor.link',
-            'url': 'https://b.com/',
-            'createdAt': '2022-01-02T03:04:05.000Z',
-        },
-    }))
-    def test_as1_from_bsky_profile_links(self, mock_get):
+    @patch.object(util.session, 'get')
+    def test_as1_from_bsky_profile_doesnt_load_links(self, mock_get):
         self.store_object(id='did:plc:user', raw=DID_DOC)  # uses https://some.pds
         self.store_object(id='at://did:plc:user/app.bsky.actor.link/a', bsky={
             '$type': 'app.bsky.actor.link',
@@ -1693,7 +1669,8 @@ class ObjectTest(TestCase):
             'createdAt': '2022-01-02T03:04:05.000Z',
         })
 
-        # link a is stored, link b isn't, so we fetch it
+        # Object.as1 is high volume, so it shouldn't load link records, stored
+        # (a) or not (b)
         profile_uri = 'at://did:plc:user/app.bsky.actor.profile/self'
         self.assert_equals({
             'objectType': 'person',
@@ -1703,20 +1680,6 @@ class ObjectTest(TestCase):
             'urls': [
                 'https://bsky.app/profile/han.dull.fa.brid.gy',
                 'https://han.dull.fa.brid.gy/',
-                {
-                    'objectType': 'link',
-                    'id': 'at://did:plc:user/app.bsky.actor.link/a',
-                    'author': 'did:plc:user',
-                    'value': 'https://a.com/',
-                    'displayName': 'A',
-                    'published': '2022-01-02T03:04:05.000Z',
-                }, {
-                    'objectType': 'link',
-                    'id': 'at://did:plc:user/app.bsky.actor.link/b',
-                    'author': 'did:plc:user',
-                    'value': 'https://b.com/',
-                    'published': '2022-01-02T03:04:05.000Z',
-                },
             ],
         }, Object(id=profile_uri, bsky={
             '$type': 'app.bsky.actor.profile',
@@ -1729,11 +1692,7 @@ class ObjectTest(TestCase):
             }],
         }).as1, ignore=['image'])
 
-        # only fetches link b, not webMonetization
-        mock_get.assert_called_once()
-        self.assertEqual(
-            'https://appview.local/xrpc/com.atproto.repo.getRecord?repo=did%3Aplc%3Auser&collection=app.bsky.actor.link&rkey=b',
-            mock_get.call_args.args[0])
+        mock_get.assert_not_called()
 
     def test_as1_from_mf2_uses_url_as_id(self):
         mf2 = {
