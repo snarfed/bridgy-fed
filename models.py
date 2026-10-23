@@ -1469,9 +1469,8 @@ class Object(AddRemoveMixin, StringIdModel):
     is_csv = ndb.BooleanProperty()
     "Whether this object is a CSV. Needed because :attr:`csv` isn't indexed."
 
-    # TODO: remove and actually delete Objects instead!
     deleted = ndb.BooleanProperty()
-    ''
+    'True if this object has been deleted. Needed so that we can process deleted objects and send delete activities for them in send tasks, which load the object to get its targets, and may retry, etc.'
 
     copies = ndb.StructuredProperty(Target, repeated=True)
     """Copies of this object elsewhere, eg at:// URIs for ATProto records and
