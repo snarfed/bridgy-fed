@@ -2009,14 +2009,22 @@ class Protocol:
         write_obj = crud_obj or obj
         write_obj.dirty = False
 
+        inner_obj_as1 = as1.get_object(obj.as1)
+        inner_obj_id = inner_obj_as1.get('id')
         target_uris = as1.targets(obj.as1)
+
+        if obj.type == 'delete' and set(inner_obj_as1.keys()) == {'id'}:
+            deleted = from_cls.load(inner_obj_id, remote=False)
+            if deleted and deleted.as1:
+                logger.info(f'Object is a delete; adding targets for deleted {inner_obj_id}')
+                inner_obj_as1 = deleted.as1
+                target_uris.extend(as1.targets(inner_obj_as1))
+
         orig_obj = None
         targets = {}  # maps Target (with *normalized* uri) to Object or None
         owner = as1.get_owner(obj.as1)
         # allow opted out users deleting their own actor/profile
         allow_opt_out = (obj.type == 'delete' and from_user.is_profile(obj))
-        inner_obj_as1 = as1.get_object(obj.as1)
-        inner_obj_id = inner_obj_as1.get('id')
         in_reply_tos = as1.get_ids(inner_obj_as1, 'inReplyTo')
         if len(in_reply_tos) > 1:
             logger.warning(f'Multiple inReplyTos! Only the first will be delivered to ActivityPub: {in_reply_tos}')

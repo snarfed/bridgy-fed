@@ -2541,6 +2541,36 @@ class ProtocolReceiveTest(TestCase):
             ('other:share:target', undo_as1),
         ], OtherFake.sent)
 
+    def test_undo_like(self):
+        self.store_object(id='other:post', source_protocol='other', our_as1={
+            'objectType': 'note',
+            'id': 'other:post',
+            'author': 'other:bob',
+        })
+        self.store_object(id='fake:like', source_protocol='fake',
+                          copies=[Target(uri='other:o:fa:fake:like', protocol='other')],
+                          our_as1={
+            'objectType': 'activity',
+            'verb': 'like',
+            'id': 'fake:like',
+            'actor': 'fake:user',
+            'object': 'other:post',
+        })
+
+        undo_as1 = {
+            'objectType': 'activity',
+            'verb': 'undo',
+            'id': 'fake:undo',
+            'actor': 'fake:user',
+            'object': 'fake:like',
+        }
+        self.assertEqual(('OK', 202), Fake.receive_as1(undo_as1))
+        self.assertTrue(Object.get_by_id('fake:like').deleted)
+        self.assertEqual([
+            ('other:o:fa:fake:like:target', undo_as1),
+            ('other:post:target', undo_as1),
+        ], OtherFake.sent)
+
     @patch.object(ATProto, 'send', return_value=True)
     def test_follow_of_bridged_account_by_not_bridged_account_skips_atproto(
             self, mock_send):
@@ -3812,6 +3842,41 @@ class ProtocolReceiveTest(TestCase):
         self.assertEqual('other:bob:target', OtherFake.sent[1][0])
         self.assertEqual('fake:delete', OtherFake.sent[0][1]['id'])
         self.assertEqual('fake:delete', OtherFake.sent[1][1]['id'])
+
+    def test_delete_reply(self):
+        self.make_user('other:eve', cls=OtherFake, obj_id='other:eve')
+        OtherFake.fetchable['other:post'] = {
+            'objectType': 'note',
+            'author': 'other:eve',
+        }
+
+        reply_as1 = {
+            'id': 'fake:reply',
+            'objectType': 'note',
+            'inReplyTo': 'other:post',
+            'author': 'fake:user',
+            'content': 'foo',
+        }
+        self.store_object(id='fake:reply', our_as1=reply_as1, source_protocol='fake',
+                          copies=[Target(protocol='other', uri='other:o:fa:fake:reply')])
+
+        delete_as1 = {
+            'id': 'fake:delete',
+            'objectType': 'activity',
+            'verb': 'delete',
+            'actor': 'fake:user',
+            'object': 'fake:reply',
+        }
+        self.assertEqual(('OK', 202),
+                         Fake.receive_as1(delete_as1, authed_as='fake:user'))
+
+        self.assert_object('fake:reply',
+                           our_as1=reply_as1,
+                           deleted=True,
+                           source_protocol='fake',
+                           copies=[Target(protocol='other', uri='other:o:fa:fake:reply')],
+                           )
+        self.assertEqual([('other:post:target', delete_as1)], OtherFake.sent)
 
     def test_delete_doesnt_fetch_author(self):
         self.user.obj_key.delete()
