@@ -661,7 +661,8 @@ class IntegrationTests(TestCase):
                 **expected_actor,
                 'updated': '2022-01-02T03:04:05+00:00',
                 'url': ['http://localhost/r/https://bsky.app/profile/alice.com',
-                        'http://localhost/r/https://alice.com/'],
+                        'http://localhost/r/https://alice.com/',
+                        'http://localhost/r/https://alice.blog/'],
                 'attachment': [{
                     'type': 'PropertyValue',
                     'name': 'Web site',
@@ -670,6 +671,10 @@ class IntegrationTests(TestCase):
                     'type': 'PropertyValue',
                     'name': 'Link',
                     'value': '<a rel="me" href="https://alice.com"><span class="invisible">https://</span>alice.com</a>',
+                }, {
+                    'type': 'PropertyValue',
+                    'name': 'My blog',
+                    'value': '<a rel="me" href="https://alice.blog"><span class="invisible">https://</span>alice.blog</a>',
                 }, {
                     'type': 'Image',
                     'url': 'https://some.pds/xrpc/com.atproto.sync.getBlob?did=did:plc:alice&cid=bafyjrot',

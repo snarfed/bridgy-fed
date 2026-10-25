@@ -1627,12 +1627,18 @@ class Object(AddRemoveMixin, StringIdModel):
            as1.prefix_urls(obj, 'image', IMAGE_PROXY_URL_BASE)
 
         if self.extra_as1:
+            # merge in extra urls below, eg profile links, instead of overwriting
+            urls = util.get_list(obj, 'urls') or util.get_list(obj, 'url')
+
             context = util.get_list(obj, '@context')
             obj.update(self.extra_as1)
             if context:
                 for val in util.get_list(self.extra_as1, '@context'):
                     util.add(context, val)
                 obj['@context'] = context
+
+            if extra_urls := util.get_list(self.extra_as1, 'urls'):
+                obj['urls'] = as1.merge_urls(urls, extra_urls)
 
         return obj
 

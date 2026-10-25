@@ -1694,6 +1694,34 @@ class ObjectTest(TestCase):
 
         mock_get.assert_not_called()
 
+    def test_as1_from_bsky_profile_merges_extra_as1_urls(self):
+        self.store_object(id='did:plc:user', raw=DID_DOC)  # uses https://some.pds
+
+        home = {
+            'objectType': 'link',
+            'id': 'at://did:plc:user/app.bsky.actor.link/a',
+            'value': 'https://han.dull.fa.brid.gy',
+            'displayName': 'Home',
+        }
+        blog = {
+            'objectType': 'link',
+            'id': 'at://did:plc:user/app.bsky.actor.link/b',
+            'value': 'https://alice.blog/',
+            'displayName': 'Blog',
+        }
+
+        # home matches an existing URL, so it replaces it. blog is new, so it's
+        # appended
+        profile_uri = 'at://did:plc:user/app.bsky.actor.profile/self'
+        self.assert_equals({
+            'objectType': 'person',
+            'id': profile_uri,
+            'username': 'han.dull.fa.brid.gy',
+            'url': 'https://bsky.app/profile/han.dull.fa.brid.gy',
+            'urls': ['https://bsky.app/profile/han.dull.fa.brid.gy', home, blog],
+        }, Object(id=profile_uri, bsky={'$type': 'app.bsky.actor.profile'},
+                  extra_as1={'urls': [home, blog]}).as1, ignore=['image'])
+
     def test_as1_from_mf2_uses_url_as_id(self):
         mf2 = {
             'properties': {

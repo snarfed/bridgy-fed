@@ -1169,6 +1169,7 @@ class ATProto(User, Protocol):
             **ret['value'],
             'cid': ret.get('cid'),
         }
+        hydrate_record(obj, remote=True)
         return True
 
     @classmethod
@@ -1667,6 +1668,66 @@ def generate_rkey(type):
         return next_tid()
     else:
         logger.error(f'unsupported key type for {type}: {key_type}')
+
+
+def hydrate_record(obj, remote=None):
+    """Hydrates an incoming ATProto record with data from related records.
+
+    Updates ``obj`` in place, and also stores the changes to it, and to any other
+    affected :class:`models.Object`\\s, in the datastore.
+
+    * ``app.bsky.actor.profile``: resolves the profile's ``links`` and stores
+      them in ``extra_as1``.
+    * ``community.lexicon.payments.webMonetization``: stores its address in the
+      profile's ``extra_as1``.
+
+    Args:
+      obj (models.Object): with ``bsky`` populated
+      remote (bool): passed to :class:`DatastoreClient` to load related records
+    """
+    repo, collection, _ = parse_at_uri(obj.key.id())
+    record = obj.bsky
+    client = DatastoreClient(remote=remote)
+
+    if collection == 'app.bsky.actor.profile':
+        # TODO: if a link is edited and the profile op comes before the link op in
+        # the same commit, we'll find the old version of the link. compare the
+        # stored link's CID to the strongRef's to detect that.
+        converted = bluesky.to_as1(record, uri=obj.key.id(), repo_did=repo,
+                                   pds=ATProto.pds_for(obj), client=client)
+        links = [url for url in util.get_list(converted, 'urls')
+                 if isinstance(url, dict) and url.get('objectType') == 'link']
+        logger.info(f'Storing {len(links)} profile links for {obj.key.id()}')
+
+        def set_links(o):
+            if not o.extra_as1:
+                o.extra_as1 = {}
+            if links:
+                o.extra_as1['urls'] = links
+            else:
+                o.extra_as1.pop('urls', None)
+
+        set_links(obj)
+
+        @ndb.transactional()
+        def store_links():
+            stored = Object.get_or_insert(obj.key.id())
+            set_links(stored)
+            stored.put()
+
+        store_links()
+
+    elif collection == 'community.lexicon.payments.webMonetization':
+        @ndb.transactional()
+        def store_monetization():
+            profile_uri = at_uri(repo, 'app.bsky.actor.profile', 'self')
+            profile = Object.get_or_insert(profile_uri)
+            if not profile.extra_as1:
+                profile.extra_as1 = {}
+            profile.extra_as1.update({'monetization': record['address']})
+            profile.put()
+
+        store_monetization()
 
 
 def postprocess_writes(writes, user):

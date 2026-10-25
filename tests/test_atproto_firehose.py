@@ -1176,6 +1176,42 @@ class ATProtoFirehoseHandleTest(ATProtoTestCase):
         self.assertEqual({'monetization': 'http://wal/let',}, profile.extra_as1)
         self.assertEqual('http://wal/let', profile.as1['monetization'])
 
+    def test_profile_links_into_extra_as1(self, mock_create_task):
+        self.store_object(id='at://did:plc:user/app.bsky.actor.link/a', bsky={
+            '$type': 'app.bsky.actor.link',
+            'url': 'https://a.com/',
+            'title': 'A',
+            'createdAt': '2022-01-02T03:04:05.000Z',
+        })
+
+        # link b isn't stored, and the firehose doesn't fetch, so it's skipped
+        profile = {
+            **ACTOR_PROFILE_BSKY,
+            'links': [{
+                'uri': 'at://did:plc:user/app.bsky.actor.link/a',
+                'cid': 'bafyreie5737gdxlw5i64vzichcalba3z2v5n6icifvx5xytvske7mr3hpm',
+            }, {
+                'uri': 'at://did:plc:user/app.bsky.actor.link/b',
+                'cid': 'bafyreie5737gdxlw5i64vzichcalba3z2v5n6icifvx5xytvske7mr3hpm',
+            }],
+        }
+        events.put(Event(repo='did:plc:user', action='update', seq=789,
+                         path='app.bsky.actor.profile/self', record=profile,
+                         time='1900-02-04'))
+        handle(limit=1)
+
+        self.assertEqual({
+            'urls': [{
+                'objectType': 'link',
+                'id': 'at://did:plc:user/app.bsky.actor.link/a',
+                'author': 'did:plc:user',
+                'value': 'https://a.com/',
+                'displayName': 'A',
+                'published': '2022-01-02T03:04:05.000Z',
+            }],
+        }, Object.get_by_id('at://did:plc:user/app.bsky.actor.profile/self').extra_as1)
+        mock_create_task.assert_called()  # receive
+
     def test_just_store_update_record(self, mock_create_task):
         profile = Object(id='at://did:plc:user/app.bsky.actor.profile/self',
                          bsky=ACTOR_PROFILE_BSKY,

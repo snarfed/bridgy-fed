@@ -526,6 +526,63 @@ class ATProtoTest(TestCase):
             },
         )
 
+    @patch.object(util.session, 'get', side_effect=[
+        requests_response({
+            'uri': 'at://did:plc:user/app.bsky.actor.profile/self',
+            'cid': 'bafyreigd',
+            'value': {
+                '$type': 'app.bsky.actor.profile',
+                'links': [{
+                    'uri': 'at://did:plc:user/app.bsky.actor.link/a',
+                    'cid': 'bafyreie5737gdxlw5i64vzichcalba3z2v5n6icifvx5xytvske7mr3hpm',
+                }, {
+                    'uri': 'at://did:plc:user/app.bsky.actor.link/b',
+                    'cid': 'bafyreie5737gdxlw5i64vzichcalba3z2v5n6icifvx5xytvske7mr3hpm',
+                }],
+            },
+        }),
+        requests_response({
+            'uri': 'at://did:plc:user/app.bsky.actor.link/b',
+            'cid': 'bafyreie5737gdxlw5i64vzichcalba3z2v5n6icifvx5xytvske7mr3hpm',
+            'value': {
+                '$type': 'app.bsky.actor.link',
+                'url': 'https://b.com/',
+                'createdAt': '2022-01-02T03:04:05.000Z',
+            },
+        }),
+    ])
+    def test_fetch_profile_links_into_extra_as1(self, mock_get):
+        self.store_object(id='did:plc:user', raw=DID_DOC)
+        self.store_object(id='at://did:plc:user/app.bsky.actor.link/a', bsky={
+            '$type': 'app.bsky.actor.link',
+            'url': 'https://a.com/',
+            'title': 'A',
+            'createdAt': '2022-01-02T03:04:05.000Z',
+        })
+
+        # link a is stored, link b isn't, so we fetch it
+        obj = Object(id='at://did:plc:user/app.bsky.actor.profile/self')
+        self.assertTrue(ATProto.fetch(obj))
+
+        expected = {
+            'urls': [{
+                'objectType': 'link',
+                'id': 'at://did:plc:user/app.bsky.actor.link/a',
+                'author': 'did:plc:user',
+                'value': 'https://a.com/',
+                'displayName': 'A',
+                'published': '2022-01-02T03:04:05.000Z',
+            }, {
+                'objectType': 'link',
+                'id': 'at://did:plc:user/app.bsky.actor.link/b',
+                'author': 'did:plc:user',
+                'value': 'https://b.com/',
+                'published': '2022-01-02T03:04:05.000Z',
+            }],
+        }
+        self.assertEqual(expected, obj.extra_as1)
+        self.assertEqual(expected, obj.key.get().extra_as1)
+
     @patch.object(util.session, 'get', return_value=requests_response({
         'uri': 'at://did:plc:user/so.sprk.feed.post/123',
         'cid': 'bafyreigd',

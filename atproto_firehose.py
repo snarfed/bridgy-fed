@@ -29,7 +29,7 @@ from webutil.appengine_config import ndb_client
 from webutil.appengine_info import DEBUG
 from webutil.util import json_dumps, json_loads
 
-from atproto import ATProto, DatastoreClient
+from atproto import ATProto, DatastoreClient, hydrate_record
 from common import (
     BETA_USER_IDS,
     create_task,
@@ -426,10 +426,9 @@ def _handle_commit_op(event):
         # TODO: handle deletes
         logger.info(f'Just storing {event.seq} {event.action} {event.repo} {event.path}')
         assert type not in ATProto.SUPPORTED_RECORD_TYPES, (type, record)
-        Object.get_or_create(at_uri, bsky=record, authed_as=event.repo,
-                             source_protocol=ATProto.LABEL)
-        if type == 'community.lexicon.payments.webMonetization':
-            _handle_webMonetization(event)
+        obj = Object.get_or_create(at_uri, bsky=record, authed_as=event.repo,
+                                   source_protocol=ATProto.LABEL)
+        hydrate_record(obj, remote=False)
         return
 
     if type not in ATProto.SUPPORTED_RECORD_TYPES:
@@ -449,6 +448,10 @@ def _handle_commit_op(event):
         except ValidationError as e:
             report_error(f'skipping invalid {type} record on firehose: {e}; {event}')
             return
+
+        # don't store bsky here, the receive task does that. hydrate_record
+        # only stores its own changes
+        hydrate_record(Object(id=at_uri, bsky=record), remote=False)
 
         if type == 'site.standard.document':
             _handle_standard_site_document(event)
@@ -604,20 +607,6 @@ def _handle_standard_site_document(event):
         post.put()
 
     add_doc_copy()
-
-
-@ndb.transactional()
-def _handle_webMonetization(event):
-    """
-    Args:
-      event (Event)
-    """
-    profile_uri = at_uri(event.repo, 'app.bsky.actor.profile', 'self')
-    profile = Object.get_or_insert(profile_uri)
-    if not profile.extra_as1:
-        profile.extra_as1 = {}
-    profile.extra_as1.update({'monetization': event.record['address']})
-    profile.put()
 
 
 def _encode_bytes_cids(val):
