@@ -5,7 +5,6 @@ https://atproto.com/
 from collections import defaultdict
 from datetime import timedelta
 from functools import partial
-import itertools
 import logging
 import os
 import re
@@ -389,19 +388,16 @@ class ATProto(User, Protocol):
         + tuple(as1.CRUD_VERBS)
         + tuple(as1.RSVP_VERB_TO_COLLECTION)
         + ('block', 'event', 'follow', 'flag', 'like', 'share', 'stop-following')
-           # TODO
-           # 'question', 'share',
-           # 'stop-following', 'vote')
+        # TODO: 'question', 'vote')
     )
     ''
     SUPPORTED_RECORD_TYPES = (
-        frozenset(type for type in itertools.chain(*FROM_AS1_TYPES.values())
+        frozenset(type for as1_type in SUPPORTED_AS1_TYPES
+                  for type in FROM_AS1_TYPES.get(as1_type, ())
                   if '#' not in type)
         # TODO: handle incoming Spark records. for users with both Bluesky and
         # Spark profiles, which one wins?
         - {
-            # in STORE_RECORD_TYPES, we store them for profiles to load
-            'app.bsky.actor.link',
             'so.sprk.feed.post',
             'so.sprk.actor.profile',
             # Grain is disabled, at their request:
