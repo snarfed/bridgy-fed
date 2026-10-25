@@ -1366,3 +1366,15 @@ class ATProtoFirehoseHandleTest(ATProtoTestCase):
         self.assertEqual([Target(protocol='atproto',
                                  uri='at://did:plc:user/site.standard.document/tid')],
                          Object.get_by_id(post_uri).copies)
+
+        # we fetched and stored the post, so we can hydrate the doc's preview
+        self.assertEqual({
+            'preview': {
+                'objectType': 'note',
+                'id': post_uri,
+                'url': 'https://bsky.app/profile/did:plc:user/post/abc123',
+                'author': 'did:plc:user',
+                'content': 'My original post',
+                'published': '2007-07-07T03:04:05.000Z',
+            },
+        }, Object.get_by_id('at://did:plc:user/site.standard.document/tid').extra_as1)

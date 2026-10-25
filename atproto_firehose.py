@@ -449,12 +449,14 @@ def _handle_commit_op(event):
             report_error(f'skipping invalid {type} record on firehose: {e}; {event}')
             return
 
+        # this loads and stores the bskyPostRef post, so do it before
+        # hydrate_record, which loads it as a preview
+        if type == 'site.standard.document':
+            _handle_standard_site_document(event)
+
         # don't store bsky here, the receive task does that. hydrate_record
         # only stores its own changes
         hydrate_record(Object(id=at_uri, bsky=record), remote=False)
-
-        if type == 'site.standard.document':
-            _handle_standard_site_document(event)
 
     elif event.action == 'delete':
         verb = ('delete' if type in DELETE_COLLECTIONS

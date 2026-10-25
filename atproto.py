@@ -1676,6 +1676,8 @@ def hydrate_record(obj, remote=None):
       them in ``extra_as1``.
     * ``community.lexicon.payments.webMonetization``: stores its address in the
       profile's ``extra_as1``.
+    * ``site.standard.document``: stores its ``bskyPostRef`` post as its
+      ``preview`` in ``extra_as1``.
     * ``community.blacksky.assembly.conversation``: stores the stored statements
       that point to it as poll ``options`` in ``extra_as1``.
 
@@ -1704,6 +1706,13 @@ def hydrate_record(obj, remote=None):
         id = at_uri(repo, 'app.bsky.actor.profile', 'self')
         field = 'monetization'
         value = record.get('address')
+
+    elif collection == 'site.standard.document':
+        # load the bskyPostRef post as a preview
+        converted = bluesky.to_as1(record, uri=id, repo_did=repo,
+                                   pds=ATProto.pds_for(obj), client=client)
+        field = 'preview'
+        value = converted.get('preview')
 
     elif collection == 'community.blacksky.assembly.conversation':
         # poll options are the stored statements that point to this
