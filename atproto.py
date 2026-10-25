@@ -1676,6 +1676,8 @@ def hydrate_record(obj, remote=None):
       them in ``extra_as1``.
     * ``community.lexicon.payments.webMonetization``: stores its address in the
       profile's ``extra_as1``.
+    * ``community.blacksky.assembly.conversation``: stores the stored statements
+      that point to it as poll ``options`` in ``extra_as1``.
 
     Args:
       obj (models.Object): with ``bsky`` populated
@@ -1685,46 +1687,57 @@ def hydrate_record(obj, remote=None):
     record = obj.bsky
     client = DatastoreClient(remote=remote)
 
+    # the Object and extra_as1 field to update, and the new value. None removes it
+    id = obj.key.id()
+
     if collection == 'app.bsky.actor.profile':
         # TODO: if a link is edited and the profile op comes before the link op in
         # the same commit, we'll find the old version of the link. compare the
         # stored link's CID to the strongRef's to detect that.
-        converted = bluesky.to_as1(record, uri=obj.key.id(), repo_did=repo,
+        converted = bluesky.to_as1(record, uri=id, repo_did=repo,
                                    pds=ATProto.pds_for(obj), client=client)
-        links = [url for url in util.get_list(converted, 'urls')
+        field = 'urls'
+        value = [url for url in util.get_list(converted, 'urls')
                  if isinstance(url, dict) and url.get('objectType') == 'link']
-        logger.info(f'Storing {len(links)} profile links for {obj.key.id()}')
-
-        def set_links(o):
-            if not o.extra_as1:
-                o.extra_as1 = {}
-            if links:
-                o.extra_as1['urls'] = links
-            else:
-                o.extra_as1.pop('urls', None)
-
-        set_links(obj)
-
-        @ndb.transactional()
-        def store_links():
-            stored = Object.get_or_insert(obj.key.id())
-            set_links(stored)
-            stored.put()
-
-        store_links()
 
     elif collection == 'community.lexicon.payments.webMonetization':
-        @ndb.transactional()
-        def store_monetization():
-            profile_uri = at_uri(repo, 'app.bsky.actor.profile', 'self')
-            profile = Object.get_or_insert(profile_uri)
-            if not profile.extra_as1:
-                profile.extra_as1 = {}
-            profile.extra_as1.update({'monetization': record['address']})
-            profile.put()
+        id = at_uri(repo, 'app.bsky.actor.profile', 'self')
+        field = 'monetization'
+        value = record.get('address')
 
-        store_monetization()
+    elif collection == 'community.blacksky.assembly.conversation':
+        # poll options are the stored statements that point to this
+        # conversation, ie in reply to it
+        # TODO: update options when statements arrive after their conversation
+        statements = sorted(Object.query(Object.in_reply_to == obj.key),
+                            key=lambda o: o.created)
+        field = 'options'
+        value = [s.as1 for s in statements if s.type == 'note' and not s.deleted]
 
+    else:
+        return
+
+    logger.info(f'Setting {id} extra_as1.{field}')
+
+    def set_field(o):
+        o.extra_as1 = o.extra_as1 or {}
+        if value:
+            o.extra_as1[field] = value
+        else:
+            o.extra_as1.pop(field, None)
+
+    # update in memory...
+    if id == obj.key.id():
+        set_field(obj)
+
+    # ...and in the datastore
+    @ndb.transactional()
+    def store():
+        stored = Object.get_or_insert(id)
+        set_field(stored)
+        stored.put()
+
+    store()
 
 def postprocess_writes(writes, user):
     """Applies custom logic to writes before we commit them.

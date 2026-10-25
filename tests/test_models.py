@@ -1612,6 +1612,8 @@ class ObjectTest(TestCase):
                 'text': 'deleted',
             }, deleted=True)
 
+        # Object.as1 is high volume, so it shouldn't query statements.
+        # atproto.hydrate_record populates options in extra_as1 instead.
         obj = Object(id=conv_uri, bsky={
             '$type': 'community.blacksky.assembly.conversation',
             'topic': 'which is best?',
@@ -1623,19 +1625,6 @@ class ObjectTest(TestCase):
             'author': 'did:plc:user',
             'content': 'which is best?',
             'published': '2022-01-02T03:04:05.000Z',
-            'options': [{
-                'objectType': 'note',
-                'id': 'at://did:plc:alice/community.blacksky.assembly.statement/a',
-                'author': 'did:plc:alice',
-                'displayName': 'a',
-                'inReplyTo': conv_uri,
-            }, {
-                'objectType': 'note',
-                'id': 'at://did:plc:bob/community.blacksky.assembly.statement/b',
-                'author': 'did:plc:bob',
-                'displayName': 'b',
-                'inReplyTo': conv_uri,
-            }],
         }, obj.as1)
 
     def test_as1_from_bsky_blacksky_vote(self):

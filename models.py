@@ -1556,7 +1556,6 @@ class Object(AddRemoveMixin, StringIdModel):
             owner, _, _ = parse_at_uri(self.key.id())
             ATProto = PROTOCOLS['atproto']
             handle = ATProto(id=owner).handle
-            type = self.bsky.get('$type')
 
             try:
                 obj = bluesky.to_as1(self.bsky, repo_did=owner, repo_handle=handle,
@@ -1571,14 +1570,6 @@ class Object(AddRemoveMixin, StringIdModel):
 
             if not obj:
                 return None
-
-            if type == 'community.blacksky.assembly.conversation':
-                # poll options are the stored statements that point to this
-                # conversation, ie in reply to it
-                statements = sorted(Object.query(Object.in_reply_to == self.key),
-                                    key=lambda o: o.created)
-                obj['options'] = [s.as1 for s in statements
-                                  if s.type == 'note' and not s.deleted]
 
         elif self.mf2:
             obj = microformats2.json_to_object(self.mf2,

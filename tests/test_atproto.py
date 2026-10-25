@@ -46,6 +46,7 @@ from atproto import (
     DatastoreClient,
     DNS_GCP_PROJECT,
     DNS_ZONE,
+    hydrate_record,
     postprocess_writes,
 )
 import common
@@ -525,6 +526,57 @@ class ATProtoTest(TestCase):
                 'User-Agent': common.USER_AGENT,
             },
         )
+
+    def test_hydrate_record_blacksky_conversation(self):
+        conv_uri = 'at://did:plc:user/community.blacksky.assembly.conversation/c'
+
+        self.store_object(
+            id='at://did:plc:alice/community.blacksky.assembly.statement/a',
+            bsky={
+                '$type': 'community.blacksky.assembly.statement',
+                'conversation': {'uri': conv_uri, 'cid': 'abc'},
+                'text': 'a',
+            })
+        self.store_object(
+            id='at://did:plc:bob/community.blacksky.assembly.statement/b',
+            bsky={
+                '$type': 'community.blacksky.assembly.statement',
+                'conversation': {'uri': conv_uri, 'cid': 'abc'},
+                'text': 'b',
+            })
+        # deleted
+        self.store_object(
+            id='at://did:plc:eve/community.blacksky.assembly.statement/e',
+            bsky={
+                '$type': 'community.blacksky.assembly.statement',
+                'conversation': {'uri': conv_uri, 'cid': 'abc'},
+                'text': 'deleted',
+            }, deleted=True)
+
+        obj = Object(id=conv_uri, bsky={
+            '$type': 'community.blacksky.assembly.conversation',
+            'topic': 'which is best?',
+            'createdAt': '2022-01-02T03:04:05.000Z',
+        })
+        hydrate_record(obj)
+
+        expected = {
+            'options': [{
+                'objectType': 'note',
+                'id': 'at://did:plc:alice/community.blacksky.assembly.statement/a',
+                'author': 'did:plc:alice',
+                'displayName': 'a',
+                'inReplyTo': conv_uri,
+            }, {
+                'objectType': 'note',
+                'id': 'at://did:plc:bob/community.blacksky.assembly.statement/b',
+                'author': 'did:plc:bob',
+                'displayName': 'b',
+                'inReplyTo': conv_uri,
+            }],
+        }
+        self.assertEqual(expected, obj.extra_as1)
+        self.assertEqual(expected, obj.key.get().extra_as1)
 
     @patch.object(util.session, 'get', side_effect=[
         requests_response({
