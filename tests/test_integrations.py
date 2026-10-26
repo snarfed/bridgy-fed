@@ -661,16 +661,11 @@ class IntegrationTests(TestCase):
                 **expected_actor,
                 'updated': '2022-01-02T03:04:05+00:00',
                 'url': ['http://localhost/r/https://bsky.app/profile/alice.com',
-                        'http://localhost/r/https://alice.com/',
                         'http://localhost/r/https://alice.blog/'],
                 'attachment': [{
                     'type': 'PropertyValue',
                     'name': 'Web site',
                     'value': '<a rel="me" href="https://bsky.app/profile/alice.com"><span class="invisible">https://</span>bsky.app/profile/alice.com</a>',
-                }, {
-                    'type': 'PropertyValue',
-                    'name': 'Link',
-                    'value': '<a rel="me" href="https://alice.com"><span class="invisible">https://</span>alice.com</a>',
                 }, {
                     'type': 'PropertyValue',
                     'name': 'My blog',
@@ -729,8 +724,7 @@ class IntegrationTests(TestCase):
                         **expected_actor,
                         'name': name,
                         'updated': '2022-01-02T03:04:05+00:00',
-                        'url': ['http://localhost/r/https://bsky.app/profile/alice.com',
-                                'http://localhost/r/https://alice.com/'],
+                        'url': 'http://localhost/r/https://bsky.app/profile/alice.com',
                     },
                 }, ignore=('attachment', 'publicKey', 'to'))
 

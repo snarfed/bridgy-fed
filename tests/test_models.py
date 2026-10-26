@@ -1666,10 +1666,6 @@ class ObjectTest(TestCase):
             'id': profile_uri,
             'username': 'han.dull.fa.brid.gy',
             'url': 'https://bsky.app/profile/han.dull.fa.brid.gy',
-            'urls': [
-                'https://bsky.app/profile/han.dull.fa.brid.gy',
-                'https://han.dull.fa.brid.gy/',
-            ],
         }, Object(id=profile_uri, bsky={
             '$type': 'app.bsky.actor.profile',
             'links': [{

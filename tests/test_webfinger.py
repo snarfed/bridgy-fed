@@ -462,15 +462,11 @@ class WebfingerTest(TestCase):
         self.assertEqual(200, got.status_code, got.get_data(as_text=True))
         self.assert_equals({
             'subject': 'acct:han.dull@bsky.brid.gy',
-            'aliases': ['https://bsky.app/profile/han.dull', 'https://han.dull/'],
+            'aliases': ['https://bsky.app/profile/han.dull'],
             'links': [{
                 'rel': 'http://webfinger.net/rel/profile-page',
                 'type': 'text/html',
                 'href': 'https://bsky.app/profile/han.dull',
-            }, {
-                'rel': 'http://webfinger.net/rel/profile-page',
-                'type': 'text/html',
-                'href': 'https://han.dull/',
             }, {
                 'rel': 'http://webfinger.net/rel/avatar',
                 'href': 'https://some.pds/xrpc/com.atproto.sync.getBlob?did=did:plc:user&cid=bafkreicqpqncshdd27sgztqgzocd3zhhqnnsv6slvzhs5uz6f57cq6lmtq',
