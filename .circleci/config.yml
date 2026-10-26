@@ -44,6 +44,15 @@ jobs:
     docker:
       # keep this Python version in sync with the runtimes in *.yaml!
       - image: cimg/python:3.14
+      # One in-memory Datastore emulator per pytest worker.
+      - image: guibeira/datastore-emulator:0.1.8
+        command: ["--host-port", "0.0.0.0:8089", "--no-store-on-disk"]
+      - image: guibeira/datastore-emulator:0.1.8
+        command: ["--host-port", "0.0.0.0:8090", "--no-store-on-disk"]
+      - image: guibeira/datastore-emulator:0.1.8
+        command: ["--host-port", "0.0.0.0:8091", "--no-store-on-disk"]
+      - image: guibeira/datastore-emulator:0.1.8
+        command: ["--host-port", "0.0.0.0:8092", "--no-store-on-disk"]
 
     steps:
       - checkout
@@ -52,11 +61,6 @@ jobs:
           key: venv-8-{{ .Branch }}-{{ checksum "requirements.txt" }}
 
       - install-gcloud
-
-      - run:
-          name: Base dependencies for tests
-          command: |
-            sudo apt-get install -y google-cloud-cli-firestore-emulator openjdk-21-jre-headless
 
       - run:
           name: Python dependencies
@@ -98,9 +102,10 @@ jobs:
             echo 1234567890123456789012345678901234657890123= > encrypted_property_key
 
             for port in 8089 8090 8091 8092; do
-              CLOUDSDK_CORE_PROJECT=brid-gy gcloud emulators firestore start --host-port=:${port} --database-mode=datastore-mode < /dev/null >& /tmp/firestore-emulator.${port}.log &
+              curl --fail --silent --show-error --output /dev/null \
+                --retry 30 --retry-connrefused --retry-delay 1 \
+                "http://localhost:${port}/"
             done
-            sleep 3s
 
             pytest -n 4 --dist=worksteal --disable-warnings --cov=. --cov-config=.coveragerc tests/
             coverage html -d /tmp/coverage_html
