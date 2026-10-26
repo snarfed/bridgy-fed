@@ -43,7 +43,7 @@ CLIENT_METADATA = {
 # client that asks for granular permission scopes
 GRANULAR_METADATA = {
     **CLIENT_METADATA,
-    'scope': f'atproto repo:app.bsky.feed.like identity:handle rpc:app.bsky.feed.getTimeline?aud=did:web:ho.st%23svc',
+    'scope': f'atproto repo:app.bsky.feed.like identity:handle rpc:app.bsky.feed.getTimeline?aud=did:web:ho.st%23svc blob:image/*',
 }
 # confidential client, which authenticates with a private_key_jwt assertion
 CONFIDENTIAL_CLIENT_ID = 'https://conf.example/client-metadata.json'
@@ -581,9 +581,10 @@ app.example
             'Know which account is yours',
             'Create, update, and delete app.bsky.feed.like records',
             'Make app.bsky.feed.getTimeline requests to ho.st as you',
+            'Upload image/* files',
         ], atproto_oauth.Proxy.describe_scopes(
             'atproto repo:app.bsky.feed.like identity:handle '
-            'rpc:app.bsky.feed.getTimeline?aud=did:web:ho.st%23svc'))
+            'rpc:app.bsky.feed.getTimeline?aud=did:web:ho.st%23svc blob:image/*'))
 
     @patch.object(util.session, 'get',
                   return_value=requests_response(json_dumps(GRANULAR_METADATA)))
@@ -843,14 +844,15 @@ app.example
     def test_token_drops_unsupported_scopes(self, *_):
         """We grant what we support, and tell the client what it got."""
         request_uri = self.par(
-            scope='atproto repo:app.bsky.feed.like identity:handle',
+            scope='atproto repo:app.bsky.feed.like identity:handle blob:image/*',
         ).json['request_uri']
         resp = self.login(request_uri)
         code = parse_qs(urlparse(resp.headers['Location']).query)['code'][0]
 
         resp = self.token(code=code)
         self.assertEqual(200, resp.status_code, resp.get_data(as_text=True))
-        self.assertEqual('atproto repo:app.bsky.feed.like', resp.json['scope'])
+        self.assertEqual('atproto repo:app.bsky.feed.like blob:image/*',
+                         resp.json['scope'])
 
     #
     # resource server: authenticating service proxied XRPC requests

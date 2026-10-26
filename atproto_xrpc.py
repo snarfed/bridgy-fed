@@ -8,7 +8,7 @@ https://github.com/snarfed/bridgy-fed/issues/1785
 """
 from arroba.datastore_storage import AtpRemoteBlob, AtpRepo
 import arroba.server
-from arroba import xrpc_repo
+from arroba import permissions, xrpc_repo
 from arroba.util import parse_at_uri
 from authlib.integrations.flask_oauth2 import current_token
 from flask import request
@@ -18,7 +18,6 @@ from requests import RequestException
 from webutil import util
 
 from activitypub import ActivityPub
-import atproto_oauth
 import oauth_server
 
 
@@ -30,16 +29,11 @@ def upload_blob(input):
     :class:`AtpRemoteBlob` for it. Mastodon deletes media that isn't attached to
     a status within a day or so, so :func:`create_record` attaches it to a
     self-DM.
-
-    TODO: support the ``blob:`` permission scope. :mod:`arroba.permissions`
-    doesn't support it yet, so we don't check it.
     """
-    with atproto_oauth.require_oauth.acquire('atproto') as token:
-        did = token.did
-        user = token.user_key.get()
-
-    source = oauth_server.granary_source_for(user.key)
     mime_type = request.mimetype or 'application/octet-stream'
+    did = arroba.server.authorize(None, [permissions.Blob((mime_type,))])
+    user = current_token.user_key.get()
+    source = oauth_server.granary_source_for(user.key)
 
     # TODO: generalize
     if not isinstance(source, (mastodon.Mastodon, pixelfed.Pixelfed)):

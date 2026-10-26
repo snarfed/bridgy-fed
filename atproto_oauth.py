@@ -9,7 +9,7 @@ Returns the account's DID in ``sub``.
 ATProto uses a bleeding edge (as of 2026) OAuth profile: CIMD, PAR, DPoP, etc:
 https://atproto.com/specs/oauth
 
-We support the ``repo`` and ``rpc`` permission scopes, along with ``atproto``
+We support the ``repo``, ``rpc``, and ``blob`` permission scopes, along with ``atproto``
 and ``transition:generic``.
 https://atproto.com/specs/permission
 

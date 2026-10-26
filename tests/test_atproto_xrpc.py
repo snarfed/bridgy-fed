@@ -63,7 +63,7 @@ class ATProtoXrpcTest(TestCase):
         Repo.create(arroba.server.storage, DID, handle='alice.mas.to.ap.brid.gy',
                     signing_key=ATPROTO_KEY, rotation_key=ATPROTO_KEY)
 
-    def auth_headers(self, url, user=None):
+    def auth_headers(self, url, user=None, scope='atproto transition:generic'):
         """Returns DPoP auth headers for an XRPC POST request."""
         token = oauth_server.encode_jwt({
             'typ': atproto_oauth.TOKEN_TYP,
@@ -71,7 +71,7 @@ class ATProtoXrpcTest(TestCase):
             'jti': 'abc',
             'sub': DID,
             'user_key': (user or self.user).key.urlsafe().decode(),
-            'scope': 'atproto transition:generic',
+            'scope': scope,
             'cnf': {'jkt': ECKey.import_key(OAUTH_ES256_KEY).thumbprint()},
             'client_id_hash': 'test',
         })
@@ -82,12 +82,15 @@ class ATProtoXrpcTest(TestCase):
                 nonce=atproto_oauth.proof_validator.nonce_generator.next()),
         }
 
-    def upload_blob(self, data=b'foo', mime_type='image/png', user=None):
-        """Makes an uploadBlob XRPC request, authenticated with a DPoP token."""
+    def upload_blob(self, data=b'foo', mime_type='image/png', user=None, **kwargs):
+        """Makes an uploadBlob XRPC request, authenticated with a DPoP token.
+
+        kwargs are passed through to :meth:`auth_headers`.
+        """
         url = 'https://atproto.brid.gy/xrpc/com.atproto.repo.uploadBlob'
         headers = {
             'Content-Type': mime_type,
-            **self.auth_headers(url, user=user),
+            **self.auth_headers(url, user=user, **kwargs),
         }
         return self.client.post(url, data=data, headers=headers)
 
@@ -229,6 +232,24 @@ class ATProtoXrpcTest(TestCase):
 
         resp = self.upload_blob()
         self.assertEqual(501, resp.status_code, resp.get_data(as_text=True))
+        mock_post.assert_not_called()
+
+    @patch.object(util.session, 'get', return_value=MEDIA_RESPONSE)
+    @patch.object(util.session, 'post',
+                  return_value=requests_response(MEDIA_ATTACHMENT))
+    def test_upload_blob_scope(self, mock_post, _):
+        resp = self.upload_blob(scope='atproto blob:image/*')
+        self.assertEqual(200, resp.status_code, resp.get_data(as_text=True))
+        mock_post.assert_called_once()
+
+    @patch.object(util.session, 'post')
+    def test_upload_blob_insufficient_scope(self, mock_post):
+        resp = self.upload_blob(scope='atproto repo:* blob:video/*')
+        self.assertEqual(403, resp.status_code, resp.get_data(as_text=True))
+        self.assertEqual({
+            'error': 'insufficient_scope',
+            'message': 'Missing scope blob:image/png',
+        }, resp.json)
         mock_post.assert_not_called()
 
     @patch.object(util.session, 'post')
