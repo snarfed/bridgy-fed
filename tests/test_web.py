@@ -2413,7 +2413,7 @@ class WebTest(TestCase):
 
         user = self.user.key.get()
         self.assertEqual(NOW, user.last_polled_feed)
-        self.assertEqual('https://user.com/post', user.feed_last_item)
+        self.assertIsNone(user.feed_last_item)
 
         mock_get.assert_has_calls((
             self.req('https://user.com/'),
@@ -2473,8 +2473,7 @@ class WebTest(TestCase):
 
         got = self.post('/queue/poll-feed', data={'domain': 'user.com'})
         self.assertEqual(200, got.status_code)
-        self.assertEqual('https://user.com/party',
-                         self.user.key.get().feed_last_item)
+        self.assertIsNone(self.user.key.get().feed_last_item)
 
         self.assert_task(mock_create_task, 'receive', id='https://user.com/party',
                          source_protocol='web', authed_as='user.com',
@@ -2512,6 +2511,53 @@ class WebTest(TestCase):
                 'content_is_html': True,
             },
         })
+
+    @patch('web.MAX_FEED_ITEMS_PER_POLL', 2)
+    @patch('webutil.appengine_config.tasks_client.create_task')
+    def test_poll_feed_hfeed_skips_existing_not_last_item(
+            self, mock_create_task, mock_get, _):
+        common.RUN_TASKS_INLINE = False
+        self.user.obj.mf2 = ACTOR_MF2_HFEED
+        self.user.obj.put()
+        self.user.feed_last_item = 'https://user.com/party'
+        self.user.put()
+        self.store_object(id='https://user.com/party', our_as1={'objectType': 'event'})
+
+        mock_get.side_effect = [
+            requests_response("""\
+<html>
+<body>
+<div class="h-feed">
+<article class="h-event">
+<a class="u-url p-name" href="/party">Big party</a>
+</article>
+<article class="h-event">
+<a class="u-url p-name" href="/meetup">Small meetup</a>
+</article>
+<article class="h-event">
+<a class="u-url p-name" href="/picnic">Nice picnic</a>
+</article>
+</div>
+</body>
+</html>
+""", url='https://user.com/'),
+            # fetch posts to look for images
+            WEBMENTION_NO_REL_LINK,
+            WEBMENTION_NO_REL_LINK,
+        ]
+
+        got = self.post('/queue/poll-feed', data={'domain': 'user.com'})
+        self.assertEqual(200, got.status_code)
+
+        self.assertEqual([
+            ('receive', 'https://user.com/meetup'),
+            ('receive', 'https://user.com/picnic'),
+            ('poll-feed', None),
+        ], [(queue, params.get('id'))
+            for queue, params in self.parse_tasks(mock_create_task)])
+
+        self.assertEqual('https://user.com/party',
+                         self.user.key.get().feed_last_item)
 
     @patch('webutil.appengine_config.tasks_client.create_task')
     def test_poll_feed_hfeed_gone(self, mock_create_task, mock_get, _):

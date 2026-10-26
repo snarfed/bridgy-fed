@@ -2204,8 +2204,7 @@ class IntegrationTests(TestCase):
 
         resp = self.post('/queue/poll-feed', data={'domain': 'alice.com'})
         self.assertEqual(200, resp.status_code)
-        self.assertEqual('https://alice.com/post',
-                         alice.key.get().feed_last_item)
+        self.assertIsNone(alice.key.get().feed_last_item)
 
         self.assert_task(mock_create_task, 'receive', id='https://alice.com/post',
                          source_protocol='web', authed_as='alice.com',

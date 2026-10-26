@@ -919,7 +919,9 @@ def poll_feed(user, feed_url, rel_type):
         ``rss``, or ``html``
 
     Returns:
-      list of dict AS1 activities:
+      list of dict AS1 activities: the first :const:`MAX_FEED_ITEMS_PER_POLL`
+      items in the feed, including ones we've already seen, for estimating
+      posting frequency
     """
     user.last_polled_feed = util.now()
 
@@ -957,12 +959,8 @@ def poll_feed(user, feed_url, rel_type):
     else:
         raise ValueError(f'Unknown feed type {content_type}')
 
-    if len(activities) > MAX_FEED_ITEMS_PER_POLL:
-        logger.info(f'Got {len(activities)} feed items, only processing the first {MAX_FEED_ITEMS_PER_POLL}')
-        activities = activities[:MAX_FEED_ITEMS_PER_POLL]
-
-    # create receive tasks
-    for i, activity in enumerate(activities):
+    items = []  # (id, activity) tuples
+    for activity in activities:
         # default actor and author to user
         activity.setdefault('actor', {}).setdefault('id', user.profile_id())
         obj = activity.setdefault('object', {})
@@ -979,26 +977,43 @@ def poll_feed(user, feed_url, rel_type):
         id = Object(our_as1=activity).as1.get('id')
         if not id:
             logger.warning('No id or URL!')
-            continue
-
-        if id == user.feed_last_item:
-            logger.info(f'Already seen {id}, skipping rest of feed')
-            break
-
-        if i == 0:
-            logger.info(f'Setting feed_last_item to {id}')
-            user.feed_last_item = id
-
-        if Web.owns_id(id) is False:
+        elif Web.owns_id(id) is False:
             logger.warning(f'Skipping bad id {id}')
-            continue
+        else:
+            items.append((id, activity))
 
+    if rel_type == 'html':
+        # h-feeds aren't always reverse chronological, eg h-events are often sorted
+        # by start time (eg events.indieweb.org), so we can't use feed_last_item.
+        # skip items we've already seen instead.
+        keys = [Object(id=id).key for id, _ in items]
+        seen = [obj.key.id() for obj in ndb.get_multi(keys) if obj]
+        if seen:
+            logger.info(f'Already seen {len(seen)} h-feed items, skipping them')
+        items = [(id, activity) for id, activity in items if id not in seen]
+
+    if len(items) > MAX_FEED_ITEMS_PER_POLL:
+        logger.info(f'Got {len(items)} feed items, only processing the first {MAX_FEED_ITEMS_PER_POLL}')
+        items = items[:MAX_FEED_ITEMS_PER_POLL]
+
+    # create receive tasks
+    for i, (id, activity) in enumerate(items):
+        if rel_type != 'html':
+            if id == user.feed_last_item:
+                logger.info(f'Already seen {id}, skipping rest of feed')
+                break
+            elif i == 0:
+                logger.info(f'Setting feed_last_item to {id}')
+                user.feed_last_item = id
+
+        obj = activity['object']
         if not obj.get('image'):
             # fetch and check the post itself
             logger.info(f'No image in {id} , trying metaformats')
             post = Object(id=id)
             try:
-                fetched = Web.fetch(post, metaformats=True, authorship_fetch_mf2=False)
+                fetched = Web.fetch(post, metaformats=True,
+                                    authorship_fetch_mf2=False)
             except (RequestException, HTTPException):
                 fetched = False
             if fetched and post.as1:
@@ -1011,7 +1026,7 @@ def poll_feed(user, feed_url, rel_type):
                     source_protocol=Web.ABBREV, authed_as=user.key.id(),
                     received_at=util.now().isoformat())
 
-    return activities
+    return activities[:MAX_FEED_ITEMS_PER_POLL]
 
 
 @app.post(f'/queue/poll-feed')
