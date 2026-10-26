@@ -328,6 +328,18 @@ class ATProtoXrpcTest(TestCase):
             'createdAt': NOW_STR,
         }, 'app.bsky.feed.threadgate')
 
+    @patch.object(util.session, 'post', return_value=requests_response(STATUS))
+    def test_create_record_calendar_event(self, mock_post):
+        self.assert_create_record(mock_post, {
+            '$type': 'community.lexicon.calendar.event',
+            'name': 'Party',
+            'description': 'come one, come all',
+            'createdAt': NOW_STR,
+            'startsAt': '2026-11-01T18:00:00.000Z',
+            'mode': 'community.lexicon.calendar.event#inperson',
+            'status': 'community.lexicon.calendar.event#scheduled',
+        }, 'Party')
+
     @patch.object(util.session, 'get', return_value=MEDIA_RESPONSE)
     @patch.object(util.session, 'post', side_effect=[
         requests_response(MEDIA_ATTACHMENT),
