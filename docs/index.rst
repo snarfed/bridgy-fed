@@ -59,19 +59,6 @@ Now, run the tests to check that everything is set up ok:
    gcloud emulators firestore start --host-port=:8089 --database-mode=datastore-mode < /dev/null >& /dev/null &
    python3 -m unittest discover
 
-CI uses the `Rust Datastore
-emulator <https://github.com/guibeira/datastore-emulator>`__, with a separate
-in-memory instance for each pytest worker. To use it locally, start this
-container in another terminal instead of the Firestore emulator:
-
-.. code:: shell
-
-   docker run --rm --name bridgy-fed-datastore \
-     -p 127.0.0.1:8089:8042 guibeira/datastore-emulator:0.1.8 \
-     --host-port 0.0.0.0:8042 --no-store-on-disk
-
-Then run ``python3 -m unittest discover`` as above. Stop the container with Ctrl+C.
-
 Finally, run this in the repo root directory to start the web app
 locally:
 
