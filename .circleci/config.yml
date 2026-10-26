@@ -44,7 +44,6 @@ jobs:
     docker:
       # keep this Python version in sync with the runtimes in *.yaml!
       - image: cimg/python:3.14
-      # One in-memory Datastore emulator per pytest worker.
       - image: guibeira/datastore-emulator:0.1.8
         command: ["--host-port", "0.0.0.0:8089", "--no-store-on-disk"]
       - image: guibeira/datastore-emulator:0.1.8
