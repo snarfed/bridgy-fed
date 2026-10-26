@@ -1817,17 +1817,11 @@ class WebTest(TestCase):
                                  )
 
         followers = Follower.query().fetch()
-        self.assertEqual(2, len(followers))
-
-        self.assertEqual(self.user.key, followers[0].from_)
-        self.assertEqual(ActivityPub(id='https://mas.to/mr-biff').key,
-                         followers[0].to)
-        self.assert_equals(obj.key, followers[0].follow)
-
-        self.assertEqual(self.user.key, followers[1].from_)
-        self.assertEqual(ActivityPub(id='https://mas.to/mrs-foo').key,
-                         followers[1].to)
-        self.assert_equals(obj.key, followers[1].follow)
+        # Queries without an explicit sort order may return either follower first.
+        self.assertCountEqual([
+            (self.user.key, mr_biff, obj.key),
+            (self.user.key, self.mrs_foo, obj.key),
+        ], [(f.from_, f.to, f.follow) for f in followers])
 
     def test_error_fragment_missing(self, mock_get, mock_post):
         mock_get.return_value = requests_response(
