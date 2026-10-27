@@ -875,52 +875,66 @@ class ActivityPubTest(TestCase):
                          received_at='2022-01-02T03:04:05+00:00')
 
     @patch('webutil.appengine_config.tasks_client.create_task')
-    def test_inbox_add_to_featured_reloads_profile(self, *mocks):
-        return self._test_inbox_modify_featured_reloads_profile('Add', *mocks)
+    def test_inbox_add_to_featured(self, mock_create_task, _, mock_get, __):
+        self._test_inbox_modify_featured(mock_create_task, mock_get, 'Add', [
+            'https://mas.to/users/foo/statuses/2',
+        ], [
+            'https://mas.to/users/foo/statuses/1',
+            'https://mas.to/users/foo/statuses/2',
+        ])
 
     @patch('webutil.appengine_config.tasks_client.create_task')
-    def test_inbox_remove_from_featured_reloads_profile(self, *mocks):
-        return self._test_inbox_modify_featured_reloads_profile('Remove', *mocks)
+    def test_inbox_remove_from_featured(self, mock_create_task, _, mock_get, __):
+        # https://github.com/snarfed/bridgy-fed/issues/2761
+        self._test_inbox_modify_featured(mock_create_task, mock_get, 'Remove', [
+            'https://mas.to/users/foo/statuses/1',
+        ], [])
 
-
-    def _test_inbox_modify_featured_reloads_profile(self, verb, mock_create_task,
-                                                    _, mock_get, __):
+    def _test_inbox_modify_featured(self, mock_create_task, mock_get, verb,
+                                    orig_items, expected_items):
         common.RUN_TASKS_INLINE = False
 
+        featured = {
+            'id': 'https://mas.to/users/foo/collections/featured',
+            'type': 'OrderedCollection',
+            'totalItems': len(orig_items),
+            'orderedItems': orig_items,
+        }
         user = self.make_user(ACTOR['id'], cls=ActivityPub, obj_as2={
             **ACTOR,
-            'featured': {'id': 'https://orig/feat/ured'},
+            'featured': featured,
         })
-
-        mock_get.side_effect = [
-            self.as2_resp({
-                **ACTOR,
-                'featured': {'id': 'https://new/feat/ured'},
-            }),
-            self.as2_resp({'id': 'https://new/feat/ured'}),
-            requests_response(status=404),  # webfinger
-        ]
 
         resp = self.post('/ap/sharedInbox', json={
             'type': verb,
             'actor': ACTOR['id'],
-            'target': 'https://orig/feat/ured',
+            'object': 'https://mas.to/users/foo/statuses/1',
+            'target': 'https://mas.to/users/foo/collections/featured',
         })
         self.assertEqual(202, resp.status_code)
-        self.assertEqual({'id': 'https://new/feat/ured'},
-                         user.obj.key.get().as2['featured'])
+        mock_get.assert_not_called()
+
+        self.assertEqual({
+            **featured,
+            'totalItems': len(expected_items),
+            'orderedItems': expected_items,
+        }, user.obj.key.get().as2['featured'])
 
         id = 'https://mas.to/users/foo#bridgy-fed-update-2022-01-02T03:04:05+00:00'
         self.assert_task(
             mock_create_task, 'receive', id=id, source_protocol='activitypub',
             authed_as=ACTOR['id'], our_as1={
-'actor': 'https://mas.to/users/foo',
+                'actor': 'https://mas.to/users/foo',
                 'objectType': 'activity',
                 'verb': 'update',
                 'id': id,
                 'object': add_key({
                     **ACTOR_AS1,
-                    'featured': {'id': 'https://new/feat/ured'},
+                    'featured': util.trim_nulls({
+                        'id': 'https://mas.to/users/foo/collections/featured',
+                        'totalItems': len(expected_items),
+                        'items': expected_items,
+                    }),
                     'updated': '2022-01-02T03:04:05+00:00',
                 }),
             })
@@ -1188,11 +1202,11 @@ class ActivityPubTest(TestCase):
             'featured': {'id': 'https://orig/feat/ured'},
         })
 
-        with patch.object(ActivityPub, 'reload_profile',
-                          side_effect=PermissionDenied('read only')):
+        with patch.object(Object, 'put', side_effect=PermissionDenied('read only')):
             resp = self.post('/ap/sharedInbox', json={
                 'type': 'Add',
                 'actor': ACTOR['id'],
+                'object': 'https://mas.to/users/foo/statuses/1',
                 'target': 'https://orig/feat/ured',
             })
         self.assertEqual(503, resp.status_code)

@@ -1766,21 +1766,7 @@ def inbox(protocol=None, id=None):
         activity.setdefault('url', f'{follower_url}#followed-{followee_url}')
 
     elif type in ('Add', 'Remove'):
-        # a user changed their pinned posts
-        # https://github.com/snarfed/bridgy-fed/issues/2102
-        if target := as1.get_id(activity, 'target'):
-            user = ActivityPub.get_by_id(actor_id)
-            if user and user.obj and target == as1.get_id(user.obj.as1, 'featured'):
-                logger.info('Modified pinned posts, reloading profile')
-                user.reload_profile()
-                # enqueue an update, not the bare profile object, so that it gets
-                # a unique id and doesn't get de-duped
-                update = ActivityPub.handle_bare_object(user.obj, authed_as=authed_as,
-                                                        from_user=user)
-                create_task(queue='receive', authed_as=authed_as,
-                            **update.to_request())
-                return 'OK', 202
-        return 'Ignored', 204
+        return handle_pin_change(activity, authed_as)
 
     elif type == 'QuoteRequest':
         return handle_quote_request(activity, authed_as)
@@ -1840,6 +1826,56 @@ def quote_stamp(target_id, quote_id, remote=None):
     target_b64 = urlsafe_b64encode(target_id.encode()).decode()
     quote_b64 = urlsafe_b64encode(quote_id.encode()).decode()
     return user, urljoin(user_ap_id, f'/ap/{user_ap_id.rsplit("/", 1)[1]}/stamp/quote/{target_b64}/{quote_b64}')
+
+
+def handle_pin_change(activity, authed_as):
+    """Handles an incoming ``Add`` or ``Remove`` to a user's pinned posts.
+
+    Applies the change directly to the user's stored ``featured`` collection
+    instead of refetching it. Mastodon serves it with
+    ``Cache-Control: max-age=180``, so we often get a stale copy if we refetch
+    right away.
+
+    https://docs.joinmastodon.org/spec/activitypub/#featured
+    https://github.com/snarfed/bridgy-fed/issues/2102
+    https://github.com/snarfed/bridgy-fed/issues/2761
+
+    Args:
+      activity (dict): AS2 ``Add`` or ``Remove`` activity
+      authed_as (str): AP actor id that signed the request
+
+    Returns:
+      (str, int) tuple: Flask response
+    """
+    type = activity['type']
+    assert type in ('Add', 'Remove')
+
+    target = as1.get_id(activity, 'target')
+    obj_id = as1.get_id(activity, 'object')
+    if not target or not obj_id:
+        return 'Ignored', 204
+
+    user = ActivityPub.get_by_id(as1.get_id(activity, 'actor'))
+    if not (user and user.obj and user.obj.as2
+            and target == as1.get_id(user.obj.as1, 'featured')):
+        return 'Ignored', 204
+
+    logger.info(f'{type} {obj_id} to/from pinned posts {target}')
+    featured = user.obj.as2['featured'] = as1.get_object(user.obj.as2, 'featured')
+    field = 'items' if 'items' in featured else 'orderedItems'
+    items = [item for item in as1.get_ids(featured, field) if item != obj_id]
+    if type == 'Add':
+        items.insert(0, obj_id)
+    featured[field] = items
+    featured['totalItems'] = len(items)
+    user.obj.put()
+
+    # enqueue an update, not the bare profile object, so that it gets a unique
+    # id and doesn't get de-duped
+    update = ActivityPub.handle_bare_object(user.obj, authed_as=authed_as,
+                                            from_user=user)
+    create_task(queue='receive', authed_as=authed_as, **update.to_request())
+    return 'OK', 202
 
 
 def handle_quote_request(activity, authed_as):
