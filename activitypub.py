@@ -2100,7 +2100,7 @@ def outbox(id):
 
 
 @app.get('/ap/replies/<id_b64>')
-@memcache.memoize(expire=timedelta(hours=1), key=lambda **kwargs: request.url)
+@memcache.memoize(expire=timedelta(minutes=5), key=lambda **kwargs: request.url)
 @flask_util.headers({'Cache-Control': 'public, max-age=300'})  # 5m
 def replies(id_b64):
     """Serves the first page of a post's replies collection.
