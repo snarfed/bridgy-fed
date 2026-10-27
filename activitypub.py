@@ -155,6 +155,8 @@ OAUTH_EXPIRE_APPS_BEFORE = datetime(2026, 9, 30)
 FEDI_URL_RE = re.compile(r'https://(?P<domain>[^/]+)/(@|users/)(?P<handle>[^/@]+)(@[^/@]+)?(?P<post_id>/(?:statuses/)?[0-9]+)?')
 
 OUTBOX_AS1_TYPES = ('article', 'comment', 'event', 'note', 'share')
+REPLIES_AS1_TYPES = as1.POST_TYPES | {'event', 'question'}
+REPLIES_PAGE_SIZE = 50
 
 # dict mapping string keyId to HTTPSignatureAuth. global cache for signing
 # outbound HTTP requests.
@@ -830,6 +832,14 @@ class ActivityPub(User, Protocol):
                         tag.pop('mediaType', None)
                         if url:
                             tag['href'] = url
+
+        # replies collection
+        # https://github.com/snarfed/bridgy-fed/issues/1739
+        if (as1.object_type(obj_as1) in REPLIES_AS1_TYPES
+                and as1.is_public(obj_as1, unlisted=False)
+                and (native_id := obj_as1.get('id'))):
+            id_b64 = urlsafe_b64encode(native_id.encode()).decode()
+            converted_base['replies'] = urljoin(id, f'/ap/replies/{id_b64}')
 
         # FEP-fffd proxy link
         # https://codeberg.org/fediverse/fep/src/branch/main/fep/fffd/fep-fffd.md
@@ -2085,6 +2095,47 @@ def outbox(id):
             'type': 'OrderedCollectionPage',
             'partOf': request.base_url,
             'orderedItems': util.trim_nulls(items),
+        },
+    }, {'Content-Type': as2.CONTENT_TYPE_LD_PROFILE}
+
+
+@app.get('/ap/replies/<id_b64>')
+@memcache.memoize(expire=timedelta(hours=1), key=lambda **kwargs: request.url)
+@flask_util.headers({'Cache-Control': 'public, max-age=300'})  # 5m
+def replies(id_b64):
+    """Serves the first page of a post's replies collection.
+
+    Only includes the first :const:`REPLIES_PAGE_SIZE` replies, unordered. No paging.
+
+    https://www.w3.org/TR/activitystreams-vocabulary/#dfn-replies
+    https://docs.joinmastodon.org/spec/activitypub/#properties-used
+    https://github.com/snarfed/bridgy-fed/issues/1739
+
+    Args:
+      id_b64 (str): base64url-encoded native id of the parent post, with padding
+    """
+    try:
+        id = urlsafe_b64decode(id_b64).decode()
+    except ValueError as e:
+        error(f'Invalid base64: {e}', status=404)
+
+    try:
+        ActivityPub.authed_user_for_request()
+    except RuntimeError as err:
+        error(str(err), status=401)
+
+    query = Object.query(Object.in_reply_to == ndb.Key(Object, id))
+    objs = filter_for_proto(query.fetch(REPLIES_PAGE_SIZE), to_proto=ActivityPub)
+    logger.info(f'Found {len(objs)} replies to {id}')
+
+    return {
+        '@context': as2.CONTEXT,
+        'id': request.base_url,
+        'type': 'Collection',
+        'first': {
+            'type': 'CollectionPage',
+            'partOf': request.base_url,
+            'items': [obj.id_as(ActivityPub) for obj in objs],
         },
     }, {'Content-Type': as2.CONTENT_TYPE_LD_PROFILE}
 

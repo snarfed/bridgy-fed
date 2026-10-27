@@ -34,6 +34,7 @@ COMMENT_AS2 = {
     'inReplyTo': 'https://web.brid.gy/r/https://fake.com/123',
     'published': '2012-12-05T00:58:26+00:00',
     'interactionPolicy': INTERACTION_POLICY,
+    'replies': 'https://web.brid.gy/ap/replies/aHR0cHM6Ly9mYWtlLmNvbS8xMjM0NTY=',
 }
 HTML = """\
 <!DOCTYPE html>
@@ -243,6 +244,7 @@ class ConvertTest(testutil.TestCase):
             'inReplyTo': 'http://inst/post',
             'to': ['https://www.w3.org/ns/activitystreams#Public'],
             'interactionPolicy': INTERACTION_POLICY,
+            'replies': 'https://fa.brid.gy/ap/replies/ZmFrZTpyZXBseQ==',
         }, json_loads(resp.get_data()), ignore=['@context'])
 
     def test_fake_to_activitypub_unlisted(self):
@@ -299,6 +301,7 @@ class ConvertTest(testutil.TestCase):
             'contentMap': {'en': '<p>hello</p>'},
             'to': ['https://www.w3.org/ns/activitystreams#Public'],
             'interactionPolicy': INTERACTION_POLICY,
+            'replies': 'https://fa.brid.gy/ap/replies/dWk6cmVwbHktZmFrZTphbGljZS1mYWtlOnBvc3Q=',
         }, json_loads(resp.get_data()))
 
     def test_ui_to_activitypub_not_public(self):
@@ -348,6 +351,7 @@ class ConvertTest(testutil.TestCase):
             'contentMap': {'en': '<p>hello</p>'},
             'to': ['https://www.w3.org/ns/activitystreams#Public'],
             'interactionPolicy': INTERACTION_POLICY,
+            'replies': 'https://fa.brid.gy/ap/replies/dWk6cmVwbHktZmFrZTphbGljZS1mYWtlOnBvc3Q=',
         }, json_loads(resp.get_data()))
 
     def test_activitypub_to_web_object(self):

@@ -1115,6 +1115,7 @@ class ActivityPubTest(TestCase):
                 'to': [as2.PUBLIC_AUDIENCE],
                 'updated': '2022-01-02T03:04:05+00:00',
                 'interactionPolicy': INTERACTION_POLICY,
+                'replies': 'https://fa.brid.gy/ap/replies/ZmFrZTpxdW90ZQ==',
             },
             'to': [as2.PUBLIC_AUDIENCE],
         }
@@ -2872,6 +2873,7 @@ class ActivityPubTest(TestCase):
                         'contentMap': {'en': '<p>a reply</p>'},
                         'to': [as2.PUBLIC_AUDIENCE],
                         'interactionPolicy': INTERACTION_POLICY,
+                        'replies': 'https://fa.brid.gy/ap/replies/ZmFrZTpyZXBseQ==',
                     },
                     'to': [as2.PUBLIC_AUDIENCE],
                 }, {
@@ -2886,6 +2888,7 @@ class ActivityPubTest(TestCase):
                         'contentMap': {'en': '<p>hello</p>'},
                         'to': [as2.PUBLIC_AUDIENCE],
                         'interactionPolicy': INTERACTION_POLICY,
+                        'replies': 'https://fa.brid.gy/ap/replies/ZmFrZTpub3Rl',
                     },
                     'to': [as2.PUBLIC_AUDIENCE],
                 }],
@@ -2922,6 +2925,7 @@ class ActivityPubTest(TestCase):
                         'attributedTo': 'https://fa.brid.gy/ap/fake:foo',
                         'to': [as2.PUBLIC_AUDIENCE],
                         'interactionPolicy': INTERACTION_POLICY,
+                        'replies': 'https://fa.brid.gy/ap/replies/ZmFrZTpuZXc=',
                     },
                     'to': [as2.PUBLIC_AUDIENCE],
                 }],
@@ -2973,6 +2977,7 @@ class ActivityPubTest(TestCase):
                         'to': [as2.PUBLIC_AUDIENCE],
                         'cc': ['https://inst/bob'],
                         'interactionPolicy': INTERACTION_POLICY,
+                        'replies': 'https://fa.brid.gy/ap/replies/ZmFrZTpyZXBseQ==',
                     },
                     'to': [as2.PUBLIC_AUDIENCE],
                     'cc': ['https://inst/bob'],
@@ -3036,6 +3041,85 @@ class ActivityPubTest(TestCase):
         resp = self.client.get(f'/ap/efake:alice/outbox',
                                base_url='https://efake.brid.gy')
         self.assertEqual(404, resp.status_code)
+
+    def test_replies(self, *_):
+        self.make_user('fake:foo', cls=Fake, enabled_protocols=['activitypub'])
+        self.make_user(ACTOR['id'], cls=ActivityPub, obj_as2=ACTOR)
+        self.make_user('efake:eve', cls=ExplicitFake)
+
+        self.store_object(id='fake:post', source_protocol='fake', our_as1={
+            'objectType': 'note',
+            'author': 'fake:foo',
+        })
+        self.store_object(id='fake:reply', source_protocol='fake', our_as1={
+            'objectType': 'comment',
+            'author': 'fake:foo',
+            'inReplyTo': 'fake:post',
+        })
+        self.store_object(id='https://mas.to/reply', source_protocol='activitypub',
+                          our_as1={
+                              'objectType': 'comment',
+                              'author': ACTOR['id'],
+                              'inReplyTo': 'fake:post',
+                          })
+        # not bridged
+        self.store_object(id='efake:reply', source_protocol='efake', our_as1={
+            'objectType': 'comment',
+            'author': 'efake:eve',
+            'inReplyTo': 'fake:post',
+        })
+        # reply to a different post
+        self.store_object(id='fake:other-reply', source_protocol='fake', our_as1={
+            'objectType': 'comment',
+            'author': 'fake:foo',
+            'inReplyTo': 'fake:other',
+        })
+
+        id_b64 = urlsafe_b64encode(b'fake:post').decode()
+        resp = self.client.get(f'/ap/replies/{id_b64}', base_url='https://fa.brid.gy')
+        self.assertEqual(200, resp.status_code, resp.get_data(as_text=True))
+        self.assertEqual(as2.CONTENT_TYPE_LD_PROFILE, resp.headers['Content-Type'])
+        self.assertEqual({
+            '@context': as2.CONTEXT,
+            'id': f'https://fa.brid.gy/ap/replies/{id_b64}',
+            'type': 'Collection',
+            'first': {
+                'type': 'CollectionPage',
+                'partOf': f'https://fa.brid.gy/ap/replies/{id_b64}',
+                'items': [
+                    'https://fa.brid.gy/convert/ap/fake:reply',
+                    'https://mas.to/reply',
+                ],
+            },
+        }, resp.json)
+
+    def test_replies_empty(self, *_):
+        id_b64 = urlsafe_b64encode(b'fake:post').decode()
+        resp = self.client.get(f'/ap/replies/{id_b64}', base_url='https://fa.brid.gy')
+        self.assertEqual(200, resp.status_code, resp.get_data(as_text=True))
+        self.assertEqual({
+            '@context': as2.CONTEXT,
+            'id': f'https://fa.brid.gy/ap/replies/{id_b64}',
+            'type': 'Collection',
+            'first': {
+                'type': 'CollectionPage',
+                'partOf': f'https://fa.brid.gy/ap/replies/{id_b64}',
+                'items': [],
+            },
+        }, resp.json)
+
+    def test_replies_invalid_base64(self, *_):
+        resp = self.client.get('/ap/replies/xyz', base_url='https://fa.brid.gy')
+        self.assertEqual(404, resp.status_code)
+
+    def test_replies_bad_signature(self, *_):
+        self.make_user(ACTOR['id'], cls=ActivityPub, obj_as2=ACTOR)
+
+        path = f'/ap/replies/{urlsafe_b64encode(b"fake:post").decode()}'
+        headers = sign(path=path, body='', key_id=ACTOR['id'], method='GET')
+        headers['signature'] += 'foo'
+        resp = self.client.get(path, base_url='https://fa.brid.gy', headers=headers)
+        self.assertEqual(401, resp.status_code)
 
     # TODO: bring back once we figure out how to get Mastodon to support this and
     # Pleroma and Akkoma not to DDoS us
@@ -4459,6 +4543,89 @@ class ActivityPubUtilsTest(TestCase):
             },
         })))
 
+    def test_convert_note_adds_replies(self):
+        self.assert_equals({
+            'type': 'Note',
+            'id': 'https://fa.brid.gy/convert/ap/fake:post',
+            'url': [{
+                'type': 'Link',
+                'rel': 'canonical',
+                'href': 'fake:post',
+            }],
+            'attributedTo': 'https://fa.brid.gy/ap/fake:alice',
+            'replies': 'https://fa.brid.gy/ap/replies/ZmFrZTpwb3N0',
+            'to': [as2.PUBLIC_AUDIENCE],
+            'interactionPolicy': INTERACTION_POLICY,
+        }, ActivityPub.convert(Object(id='fake:post', source_protocol='fake', our_as1={
+            'objectType': 'note',
+            'id': 'fake:post',
+            'author': 'fake:alice',
+        })), ignore=['@context'])
+
+    def test_convert_create_note_adds_replies(self):
+        self.assert_equals({
+            'type': 'Create',
+            'id': 'https://fa.brid.gy/convert/ap/fake:create',
+            'actor': 'https://fa.brid.gy/ap/fake:alice',
+            'to': [as2.PUBLIC_AUDIENCE],
+            'object': {
+                'type': 'Note',
+                'id': 'https://fa.brid.gy/convert/ap/fake:post',
+                'attributedTo': 'https://fa.brid.gy/ap/fake:alice',
+                'replies': 'https://fa.brid.gy/ap/replies/ZmFrZTpwb3N0',
+                'to': [as2.PUBLIC_AUDIENCE],
+                'interactionPolicy': INTERACTION_POLICY,
+            },
+        }, ActivityPub.convert(Object(id='fake:create', source_protocol='fake', our_as1={
+            'objectType': 'activity',
+            'verb': 'post',
+            'id': 'fake:create',
+            'actor': 'fake:alice',
+            'object': {
+                'objectType': 'note',
+                'id': 'fake:post',
+                'author': 'fake:alice',
+            },
+        })), ignore=['@context'])
+
+    def test_convert_dm_no_replies(self):
+        self.assert_equals({
+            'type': 'Note',
+            'id': 'https://fa.brid.gy/convert/ap/fake:dm',
+            'url': [{
+                'type': 'Link',
+                'rel': 'canonical',
+                'href': 'fake:dm',
+            }],
+            'attributedTo': 'https://fa.brid.gy/ap/fake:alice',
+            'to': ['https://fa.brid.gy/ap/fake:bob'],
+        }, ActivityPub.convert(Object(id='fake:dm', source_protocol='fake', our_as1={
+            'objectType': 'note',
+            'id': 'fake:dm',
+            'author': 'fake:alice',
+            'to': ['fake:bob'],
+        })), ignore=['@context'])
+
+    def test_convert_like_no_replies(self):
+        self.assert_equals({
+            'type': 'Like',
+            'id': 'https://fa.brid.gy/convert/ap/fake:like',
+            'url': [{
+                'type': 'Link',
+                'rel': 'canonical',
+                'href': 'fake:like',
+            }],
+            'actor': 'https://fa.brid.gy/ap/fake:alice',
+            'object': 'https://fa.brid.gy/convert/ap/fake:post',
+            'to': [as2.PUBLIC_AUDIENCE],
+        }, ActivityPub.convert(Object(id='fake:like', source_protocol='fake', our_as1={
+            'objectType': 'activity',
+            'verb': 'like',
+            'id': 'fake:like',
+            'actor': 'fake:alice',
+            'object': 'fake:post',
+        })), ignore=['@context'])
+
     def test_convert_to_cc(self):
         self.assert_equals({
             '@context': as2.CONTEXT,
@@ -4513,6 +4680,7 @@ class ActivityPubUtilsTest(TestCase):
                 'name': 'RE: https://bsky.app/profile/did:plc:bob/post/456',
             }],
             'interactionPolicy': INTERACTION_POLICY,
+            'replies': 'https://bsky.brid.gy/ap/replies/YXQ6Ly9kaWQ6cGxjOmFsaWNlL2FwcC5ic2t5LmZlZWQucG9zdC8xMjM=',
         }, ActivityPub.convert(obj), ignore=['contentMap', 'quoteAuthorization', 'to'])
 
     def test_convert_quote_post_of_bridged_post_adds_quoteAuthorization(self):
@@ -4562,6 +4730,7 @@ class ActivityPubUtilsTest(TestCase):
             }],
             'to': [as2.PUBLIC_AUDIENCE],
             'interactionPolicy': INTERACTION_POLICY,
+            'replies': 'https://fa.brid.gy/ap/replies/ZmFrZTpxdW90ZQ==',
             'url': [{
                 'type': 'Link',
                 'rel': 'canonical',
@@ -4636,6 +4805,7 @@ class ActivityPubUtilsTest(TestCase):
             'contentMap': {'en': content},
             'to': [as2.PUBLIC_AUDIENCE],
             'interactionPolicy': INTERACTION_POLICY,
+            'replies': 'https://fa.brid.gy/ap/replies/ZmFrZTpxdW90ZQ==',
             'tag': [{
                 'type': 'Link',
                 'href': 'http://fake/orig',
@@ -4663,6 +4833,7 @@ class ActivityPubUtilsTest(TestCase):
             'contentMap': {'en': content},
             'to': [as2.PUBLIC_AUDIENCE],
             'interactionPolicy': INTERACTION_POLICY,
+            'replies': 'https://fa.brid.gy/ap/replies/ZmFrZTpxdW90ZQ==',
             'tag': [{
                 'type': 'Link',
                 'href': 'http://fake/orig',
@@ -4745,6 +4916,7 @@ class ActivityPubUtilsTest(TestCase):
             'attributedTo': 'https://bsky.brid.gy/ap/did:plc:bob',
             'content': '<p>foo bar<br><br><a href="http://a.li/nc">a linc</a></p>',
             'interactionPolicy': INTERACTION_POLICY,
+            'replies': 'https://bsky.brid.gy/ap/replies/YXQ6Ly9kaWQ6cGxjOmJvYi9hcHAuYnNreS5mZWVkLnBvc3QvNDU2',
         }, ActivityPub.convert(Object(id='at://did:plc:bob/app.bsky.feed.post/456', bsky={
             "$type": "app.bsky.feed.post",
             "text": "foo bar",
@@ -4769,6 +4941,7 @@ class ActivityPubUtilsTest(TestCase):
             'content': content,
             'contentMap': {'da': content},
             'interactionPolicy': INTERACTION_POLICY,
+            'replies': 'https://bsky.brid.gy/ap/replies/YXQ6Ly9kaWQ6cGxjOmJvYi9hcHAuYnNreS5mZWVkLnBvc3QvNDU2',
         }, ActivityPub.convert(Object(id='at://did:plc:bob/app.bsky.feed.post/456', bsky={
             '$type': 'app.bsky.feed.post',
             'text': '',
@@ -5312,6 +5485,7 @@ class ActivityPubUtilsTest(TestCase):
             }],
             'to': [as2.PUBLIC_AUDIENCE],
             'interactionPolicy': INTERACTION_POLICY,
+            'replies': 'https://fa.brid.gy/ap/replies/ZmFrZTpxdW90ZQ==',
         }
 
         self.assertEqual(2, mock_post.call_count)

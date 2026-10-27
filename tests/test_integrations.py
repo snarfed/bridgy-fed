@@ -368,6 +368,7 @@ class IntegrationTests(TestCase):
                 'published': '2022-01-02T03:04:05.000Z',
                 'to': ['https://www.w3.org/ns/activitystreams#Public'],
                 'interactionPolicy': INTERACTION_POLICY,
+                'replies': 'https://bsky.brid.gy/ap/replies/YXQ6Ly9kaWQ6cGxjOmFsaWNlL2FwcC5ic2t5LmZlZWQucG9zdC8xMjM=',
             },
             'to': ['https://www.w3.org/ns/activitystreams#Public'],
         })
@@ -414,6 +415,7 @@ class IntegrationTests(TestCase):
                 'id': 'https://bsky.brid.gy/convert/ap/at://did:plc:alice/community.lexicon.calendar.event/123',
                 'url': 'http://localhost/r/http://my/party',
                 'attributedTo': 'https://bsky.brid.gy/ap/did:plc:alice',
+                'replies': 'https://bsky.brid.gy/ap/replies/YXQ6Ly9kaWQ6cGxjOmFsaWNlL2NvbW11bml0eS5sZXhpY29uLmNhbGVuZGFyLmV2ZW50LzEyMw==',
                 'name': 'My party',
                 'content': '<p>Come on down</p>',
                 'contentMap': {'en': '<p>Come on down</p>'},
@@ -492,6 +494,7 @@ class IntegrationTests(TestCase):
                     'name': 'RE: https://bsky.app/profile/did:plc:eve/post/456',
                 }],
                 'interactionPolicy': INTERACTION_POLICY,
+                'replies': 'https://bsky.brid.gy/ap/replies/YXQ6Ly9kaWQ6cGxjOmFsaWNlL2FwcC5ic2t5LmZlZWQucG9zdC8xMjM=',
             },
         })
 
@@ -555,6 +558,7 @@ class IntegrationTests(TestCase):
                 'name': 'RE: https://bsky.app/profile/did:plc:eve/post/456',
             }],
             'interactionPolicy': INTERACTION_POLICY,
+            'replies': 'https://bsky.brid.gy/ap/replies/YXQ6Ly9kaWQ6cGxjOmFsaWNlL2FwcC5ic2t5LmZlZWQucG9zdC8xMjM=',
         }
 
         self.assertEqual(
@@ -782,6 +786,7 @@ class IntegrationTests(TestCase):
                 'tag': [{'type': 'Mention', 'href': 'http://inst/bob'}],
                 'cc': ['http://inst/bob'],
                 'interactionPolicy': INTERACTION_POLICY,
+                'replies': 'https://bsky.brid.gy/ap/replies/YXQ6Ly9kaWQ6cGxjOmFsaWNlL2FwcC5ic2t5LmZlZWQucG9zdC80NTY=',
             },
             'cc': ['http://inst/bob'],
         }, ignore=['@context', 'to'])
@@ -831,6 +836,7 @@ class IntegrationTests(TestCase):
                 'tag': [{'type': 'Mention', 'href': 'http://inst/bob'}],
                 'cc': ['http://inst/bob'],
                 'interactionPolicy': INTERACTION_POLICY,
+                'replies': 'https://bsky.brid.gy/ap/replies/YXQ6Ly9kaWQ6cGxjOmFsaWNlL3NvLnNwcmsuZmVlZC5yZXBseS80NTY=',
             },
             'cc': ['http://inst/bob'],
         }, ignore=['@context', 'to'])
@@ -2531,6 +2537,7 @@ class IntegrationTests(TestCase):
                 'id': 'https://bsky.brid.gy/convert/ap/at://did:plc:alice/app.bsky.feed.post/123',
                 'url': 'http://localhost/r/https://bsky.app/profile/did:plc:alice/post/123',
                 'attributedTo': 'https://bsky.brid.gy/ap/did:plc:alice',
+                'replies': 'https://bsky.brid.gy/ap/replies/YXQ6Ly9kaWQ6cGxjOmFsaWNlL2FwcC5ic2t5LmZlZWQucG9zdC8xMjM=',
                 'content': '<p>maybe if <a class="mention h-card" href="https://inst/bob">@bob@inst</a> and Alf meet up</p>',
                 'published': '2022-01-02T03:04:05.000Z',
                 'tag': [{
@@ -2747,6 +2754,7 @@ class IntegrationTests(TestCase):
         self.assert_equals({
             'type': 'Note',
             'id': 'https://bsky.brid.gy/convert/ap/at://did:plc:alice/post/123',
+            'replies': 'https://bsky.brid.gy/ap/replies/YXQ6Ly9kaWQ6cGxjOmFsaWNlL3Bvc3QvMTIz',
             'content': '<p>My <a class="hashtag" rel="tag" href="https://bsky.app/search?q=%23original">#original</a> post</p>',
             'contentMap': {
                 'en': '<p>My <a class="hashtag" rel="tag" href="https://bsky.app/search?q=%23original">#original</a> post</p>',
@@ -2831,6 +2839,7 @@ class IntegrationTests(TestCase):
                 'href': 'at://did:plc:alice/post/123',
             }],
             'interactionPolicy': INTERACTION_POLICY,
+            'replies': 'https://bsky.brid.gy/ap/replies/YXQ6Ly9kaWQ6cGxjOmFsaWNlL3Bvc3QvMTIz',
         }
         self.assert_equals(expected, ActivityPub.convert(obj),
                            ignore=['@context', 'to'])
@@ -2898,6 +2907,7 @@ class IntegrationTests(TestCase):
                 'href': 'at://did:plc:alice/post/123',
             }],
             'interactionPolicy': INTERACTION_POLICY,
+            'replies': 'https://bsky.brid.gy/ap/replies/YXQ6Ly9kaWQ6cGxjOmFsaWNlL3Bvc3QvMTIz',
         }
         self.assert_equals(expected, ActivityPub.convert(obj),
                            ignore=['@context', 'to'])
@@ -2944,6 +2954,7 @@ class IntegrationTests(TestCase):
                 'published': '2022-01-02T03:04:05+00:00',
                 'url': f'http://localhost/r/https://njump.me/{bech32_encode("note", post_event["id"])}',
                 'interactionPolicy': INTERACTION_POLICY,
+                'replies': 'https://nostr.brid.gy/ap/replies/bm9zdHI6ZjhmMTk3YjVkZTg0NWVhMDQ4YTFlMDEwODAxYmQxNGQ5YTk0ZmY1ZDkyZWFlMjUwNDhiZDhmMTI1YjRhOTE4Yw==',
             },
             'published': '2022-01-02T03:04:05+00:00',
         }, ignore=['@context', 'to'])
@@ -3052,6 +3063,7 @@ class IntegrationTests(TestCase):
                 'url': f'http://localhost/r/https://njump.me/{bech32_encode("note", post_event["id"])}',
                 'cc': ['https://inst/alice'],
                 'interactionPolicy': INTERACTION_POLICY,
+                'replies': 'https://nostr.brid.gy/ap/replies/bm9zdHI6MGQxMjAxNGZjNWY4ZWYwODJjOTUzNGIzNzI1MTE3MDI5N2FiNWMyNjY4NTE3OGNjMjZhNGM0ZDQ0YTliMzIwZA==',
             },
             'published': '2022-01-02T03:04:05+00:00',
             'cc': ['https://inst/alice'],
@@ -3886,6 +3898,7 @@ class IntegrationTests(TestCase):
             'object': {
                 'type': 'Note',
                 'id': 'https://bsky.brid.gy/internal/snarfed.org/post',
+                'replies': 'https://bsky.brid.gy/ap/replies/aHR0cHM6Ly9ic2t5LmJyaWQuZ3kvaW50ZXJuYWwvc25hcmZlZC5vcmcvcG9zdA==',
                 'url': 'https://bsky.brid.gy/internal/snarfed.org/post',
                 'attributedTo': 'https://bsky.brid.gy/bsky.brid.gy',
                 'name': 'Hello from my blog!',
@@ -4282,6 +4295,7 @@ class IntegrationTests(TestCase):
                 'published': '2022-01-02T03:04:05+00:00',
                 'cc': ['https://inst/alice'],
                 'interactionPolicy': INTERACTION_POLICY,
+                'replies': 'https://nostr.brid.gy/ap/replies/bm9zdHI6ZWE4MjhmZjE4ODI1ZTRiM2U3ZGI4YjVmYWRjZWJjZGVjOTliYWQ5OTA3ZDNlYjE2OTAxN2FiYzY3NDhhNjRjYQ==',
             },
         }, ignore=['@context', 'to'])
 
@@ -4948,6 +4962,7 @@ cast_add_body { text: "Hello from Farcaster!" }
             'object': {
                 'type': 'Note',
                 'id': f'https://fc.brid.gy/convert/ap/{post_id}',
+                'replies': 'https://fc.brid.gy/ap/replies/ZmFyY2FzdGVyOi8vMTIzLzB4N2RjZGVjOGJjOTEwNmRkMjdkNmM4M2M3ZGZkYzkzNDQxNWYyMmQ2Nw==',
                 'attributedTo': 'https://fc.brid.gy/ap/farcaster:123',
                 'content': '<p>Hello from Farcaster!</p>',
                 'published': '2022-01-02T03:04:05+00:00',
@@ -5036,6 +5051,7 @@ cast_add_body {
             'object': {
                 'type': 'Note',
                 'id': f'https://fc.brid.gy/convert/ap/{post_id}',
+                'replies': 'https://fc.brid.gy/ap/replies/ZmFyY2FzdGVyOi8vMTIzLzB4N2ZmZDkxZWQyMDU4NmQwYWYzZDk0NTY5ZjI3M2Q2MTdiOWUyODA2Zg==',
                 'attributedTo': 'https://fc.brid.gy/ap/farcaster:123',
                 'content': '<p>Hi <a class="mention h-card" href="https://inst/alice">@alice@inst</a> and !<a class="mention h-card" href="https://bsky.brid.gy/ap/did:plc:charlie">@charl.ie@bsky.brid.gy</a></p>',
                 'tag': [{
@@ -5197,6 +5213,7 @@ cast_add_body {{
             'object': {
                 'type': 'Note',
                 'id': f'https://fc.brid.gy/convert/ap/{reply_id}',
+                'replies': 'https://fc.brid.gy/ap/replies/ZmFyY2FzdGVyOi8vMTIzLzB4OWY5N2VkODAxNTU2MWQ4MTNiM2I1MDJjYWEwZjY5N2JjMWFlNzE5Mw==',
                 'attributedTo': 'https://fc.brid.gy/ap/farcaster:123',
                 'content': '<p>Replying to Alice!</p>',
                 'inReplyTo': 'https://inst/post',

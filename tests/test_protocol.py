@@ -3623,6 +3623,7 @@ class ProtocolReceiveTest(TestCase):
                 'type': 'Note',
                 'id': 'https://fa.brid.gy/convert/ap/fake:reply',
                 'attributedTo': 'https://fa.brid.gy/ap/fake:frank',
+                'replies': 'https://fa.brid.gy/ap/replies/ZmFrZTpyZXBseQ==',
                 'content': '<p>ok</p>',
                 'inReplyTo': 'http://inst/note',
                 'tag': [
