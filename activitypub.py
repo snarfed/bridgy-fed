@@ -2143,6 +2143,11 @@ def replies(id_b64):
 
     Only includes the first :const:`REPLIES_PAGE_SIZE` replies, unordered. No paging.
 
+    Only includes ids in the returned collection, not full reply objects. We don't
+    most replies, so receiving fediverse instances re-fetch instead of accepting our
+    objects as authoritative anyway. And we still need to fetch full :class:`Object`s
+    from the datastore so that we can filter out deleted, non-public, etc.
+
     https://www.w3.org/TR/activitystreams-vocabulary/#dfn-replies
     https://docs.joinmastodon.org/spec/activitypub/#properties-used
     https://github.com/snarfed/bridgy-fed/issues/1739
