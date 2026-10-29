@@ -2988,6 +2988,10 @@ class ActivityPubTest(TestCase):
                         'content': '<p>hello<br><br><a href="https://example.com/article">example.com/article</a></p>',
                         'contentMap': {'en': '<p>hello<br><br><a href="https://example.com/article">example.com/article</a></p>'},
                         'tag': [{'type': 'Mention', 'href': 'https://inst/bob'}],
+                        'attachment': [{
+                            'type': 'Link',
+                            'href': 'https://example.com/article',
+                        }],
                         'to': [as2.PUBLIC_AUDIENCE],
                         'cc': ['https://inst/bob'],
                         'interactionPolicy': INTERACTION_POLICY,
@@ -3674,24 +3678,40 @@ class ActivityPubUtilsTest(TestCase):
             }],
         }))
 
-    def test_postprocess_as2_moves_link_attachments_to_content(self):
+    def test_postprocess_as2_copies_link_attachments_to_content(self):
         # https://github.com/snarfed/bridgy-fed/issues/958
+        # https://github.com/snarfed/bridgy-fed/issues/2286
+        atts = [{
+            'type': 'Link',
+            'href': 'http://a/link',
+            'name': 'check it out',
+        }, {
+            'type': 'Link',
+            'href': 'http://another/link',
+        }]
         self.assert_equals({
             'type': 'Note',
             'content': '<p><a href="http://a/link">check it out</a><br><br><a href="http://another/link">another/link</a></p>',
             'contentMap': {
                 'en': '<p><a href="http://a/link">check it out</a><br><br><a href="http://another/link">another/link</a></p>',
             },
+            'attachment': atts,
         }, postprocess_as2({
             'type': 'Note',
-            'attachment': [{
-                'type': 'Link',
-                'href': 'http://a/link',
-                'name': 'check it out',
-            }, {
-                'type': 'Link',
-                'href': 'http://another/link',
-            }],
+            'attachment': copy.deepcopy(atts),
+        }), ignore=['to', 'interactionPolicy'])
+
+    def test_postprocess_as2_link_attachment_already_in_content(self):
+        content = '<p>original <a href="http://a/link">a/link</a></p>'
+        self.assert_equals({
+            'type': 'Note',
+            'content': content,
+            'contentMap': {'en': content},
+            'attachment': [{'type': 'Link', 'href': 'http://a/link'}],
+        }, postprocess_as2({
+            'type': 'Note',
+            'content': content,
+            'attachment': [{'type': 'Link', 'href': 'http://a/link'}],
         }), ignore=['to', 'interactionPolicy'])
 
     def test_postprocess_as2_appends_link_attachments_to_content(self):
@@ -3702,6 +3722,10 @@ class ActivityPubUtilsTest(TestCase):
             'contentMap': {
                 'en': '<p>original<br><br><a href="http://a/link">a/link</a></p>',
             },
+            'attachment': [{
+                'type': 'Link',
+                'href': 'http://a/link',
+            }],
         }, postprocess_as2({
             'type': 'Note',
             'content': 'original',
@@ -3717,6 +3741,11 @@ class ActivityPubUtilsTest(TestCase):
             'type': 'Note',
             'content': expected,
             'contentMap': {'da': expected},
+            'attachment': [{
+                'type': 'Link',
+                'href': 'http://a/link',
+                'name': 'check it out',
+            }],
         }, postprocess_as2({
             'type': 'Note',
             'contentMap': {'da': ''},
@@ -3746,6 +3775,7 @@ class ActivityPubUtilsTest(TestCase):
             'type': 'Note',
             'content': expected,
             'contentMap': {'en': expected},
+            'attachment': [{'type': 'Link', 'href': 'http://a/link'}],
         }, postprocess_as2({
             'type': 'Note',
             'content': 'foo #baz',
@@ -4929,6 +4959,16 @@ class ActivityPubUtilsTest(TestCase):
             'url': 'http://localhost/r/https://bsky.app/profile/did:plc:bob/post/456',
             'attributedTo': 'https://bsky.brid.gy/ap/did:plc:bob',
             'content': '<p>foo bar<br><br><a href="http://a.li/nc">a linc</a></p>',
+            'attachment': [{
+                'type': 'Link',
+                'href': 'http://a.li/nc',
+                'name': 'a linc',
+                'preview': {
+                    'type': 'Article',
+                    'name': 'a linc',
+                    'summary': 'baz biff',
+                },
+            }],
             'interactionPolicy': INTERACTION_POLICY,
             'replies': 'https://bsky.brid.gy/ap/replies/YXQ6Ly9kaWQ6cGxjOmJvYi9hcHAuYnNreS5mZWVkLnBvc3QvNDU2',
         }, ActivityPub.convert(Object(id='at://did:plc:bob/app.bsky.feed.post/456', bsky={
@@ -4954,6 +4994,16 @@ class ActivityPubUtilsTest(TestCase):
             'attributedTo': 'https://bsky.brid.gy/ap/did:plc:bob',
             'content': content,
             'contentMap': {'da': content},
+            'attachment': [{
+                'type': 'Link',
+                'href': 'http://a.li/nc',
+                'name': 'a linc',
+                'preview': {
+                    'type': 'Article',
+                    'name': 'a linc',
+                    'summary': 'baz biff',
+                },
+            }],
             'interactionPolicy': INTERACTION_POLICY,
             'replies': 'https://bsky.brid.gy/ap/replies/YXQ6Ly9kaWQ6cGxjOmJvYi9hcHAuYnNreS5mZWVkLnBvc3QvNDU2',
         }, ActivityPub.convert(Object(id='at://did:plc:bob/app.bsky.feed.post/456', bsky={

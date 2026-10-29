@@ -374,6 +374,86 @@ class IntegrationTests(TestCase):
         })
 
     @patch.object(util.session, 'post')
+    def test_atproto_post_link_preview_to_activitypub(self, mock_post):
+        """ATProto post with external embed, from firehose to ActivityPub.
+
+        https://github.com/snarfed/bridgy-fed/issues/2286
+
+        ATProto original post at://did:plc:alice/app.bsky.feed.post/123
+        ActivityPub follower http://inst/bob
+        """
+        self.store_object(id='did:plc:alice', raw=DID_DOC)
+        alice = self.make_user(id='did:plc:alice', cls=ATProto,
+                               enabled_protocols=['activitypub'],
+                               obj_bsky=test_atproto.ACTOR_PROFILE_BSKY)
+
+        bob = self.make_ap_user('http://inst/bob')
+        Follower.get_or_create(to=alice, from_=bob)
+
+        # need at least one repo for firehose subscriber to load DIDs and run
+        Repo.create(self.storage, 'did:unused', signing_key=ATPROTO_KEY)
+
+        post = {
+            '$type': 'app.bsky.feed.post',
+            'text': 'check this out',
+            'createdAt': '2022-01-02T03:04:05.000Z',
+            'embed': {
+                '$type': 'app.bsky.embed.external',
+                'external': {
+                    '$type': 'app.bsky.embed.external#external',
+                    'uri': 'https://example.com/article',
+                    'title': 'An Article',
+                    'description': 'All about it',
+                    'thumb': {
+                        '$type': 'blob',
+                        'ref': test_atproto.BLOB_CID,
+                        'mimeType': 'image/jpeg',
+                        'size': 13,
+                    },
+                },
+            },
+        }
+        self.firehose(repo='did:plc:alice', action='create', seq=123,
+                      path='app.bsky.feed.post/123', record=post)
+
+        thumb = {
+            'type': 'Image',
+            'url': f'https://some.pds/xrpc/com.atproto.sync.getBlob?did=did:plc:alice&cid={test_atproto.BLOB_CID.encode("base32")}',
+        }
+        self.assert_ap_deliveries(mock_post, ['http://inst/bob/inbox'],
+                                  from_user=alice, data={
+            '@context': 'https://www.w3.org/ns/activitystreams',
+            'type': 'Create',
+            'id': 'https://bsky.brid.gy/convert/ap/at://did:plc:alice/app.bsky.feed.post/123#bridgy-fed-create-2022-01-02T03:04:05+00:00',
+            'actor': 'https://bsky.brid.gy/ap/did:plc:alice',
+            'published': '2022-01-02T03:04:05+00:00',
+            'object': {
+                'type': 'Note',
+                'id': 'https://bsky.brid.gy/convert/ap/at://did:plc:alice/app.bsky.feed.post/123',
+                'url': 'http://localhost/r/https://bsky.app/profile/did:plc:alice/post/123',
+                'attributedTo': 'https://bsky.brid.gy/ap/did:plc:alice',
+                'content': '<p>check this out<br><br><a href="https://example.com/article">An Article</a></p>',
+                'contentMap': {'en': '<p>check this out<br><br><a href="https://example.com/article">An Article</a></p>'},
+                'published': '2022-01-02T03:04:05.000Z',
+                'to': ['https://www.w3.org/ns/activitystreams#Public'],
+                'interactionPolicy': INTERACTION_POLICY,
+                'replies': 'https://bsky.brid.gy/ap/replies/YXQ6Ly9kaWQ6cGxjOmFsaWNlL2FwcC5ic2t5LmZlZWQucG9zdC8xMjM=',
+                'attachment': [{
+                    'type': 'Link',
+                    'href': 'https://example.com/article',
+                    'name': 'An Article',
+                    'preview': {
+                        'type': 'Article',
+                        'name': 'An Article',
+                        'summary': 'All about it',
+                        'image': thumb,
+                    },
+                }],
+            },
+            'to': ['https://www.w3.org/ns/activitystreams#Public'],
+        })
+
+    @patch.object(util.session, 'post')
     def test_atproto_event_to_activitypub(self, mock_post):
         """ATProto event, from firehose to ActivityPub.
 
@@ -3470,6 +3550,147 @@ class IntegrationTests(TestCase):
         self.assert_equals([
             Target(protocol='nostr', uri='nostr:' + expected_event['id']),
         ], Object.get_by_id('https://inst/post').copies)
+
+    @patch.object(util.session, 'get', return_value=requests_response(
+        'thumb contents', content_type='image/jpeg'))
+    def test_activitypub_post_link_preview_to_atproto(self, mock_get):
+        """ActivityPub post with FEP-8967 Link attachment, delivered to ATProto.
+
+        https://github.com/snarfed/bridgy-fed/issues/2286
+
+        ActivityPub user https://inst/alice
+        """
+        alice = self.make_ap_user('https://inst/alice', did='did:plc:alice',
+                                  enabled_protocols=['atproto'])
+
+        create = {
+            '@context': 'https://www.w3.org/ns/activitystreams',
+            'type': 'Create',
+            'id': 'https://inst/post#create',
+            'actor': 'https://inst/alice',
+            'object': {
+                'type': 'Note',
+                'id': 'https://inst/post',
+                'attributedTo': 'https://inst/alice',
+                'content': 'check this out',
+                'published': '2022-01-02T03:04:05.000Z',
+                'to': [as2.PUBLIC_AUDIENCE],
+                'attachment': {
+                    'type': 'Link',
+                    'href': 'https://example.com/article',
+                    'preview': {
+                        'type': 'Article',
+                        'name': 'An Article',
+                        'summary': 'All about it',
+                        'image': {
+                            'url': {
+                                'href': 'https://example.com/thumb.jpg',
+                                'mediaType': 'image/jpeg',
+                            },
+                        },
+                    },
+                },
+            },
+        }
+        body = json_dumps(create)
+        headers = sign('/ap/sharedInbox', body, key_id='https://inst/alice')
+        resp = self.client.post('/ap/sharedInbox', data=body, headers=headers)
+        self.assertEqual(202, resp.status_code)
+
+        repo = self.storage.load_repo('did:plc:alice')
+        records = repo.get_contents()['app.bsky.feed.post']
+        tid = list(records.keys())[0]
+        self.assert_equals({tid: {
+            '$type': 'app.bsky.feed.post',
+            'text': 'check this out',
+            'createdAt': '2022-01-02T03:04:05.000Z',
+            'embed': {
+                '$type': 'app.bsky.embed.external',
+                'external': {
+                    '$type': 'app.bsky.embed.external#external',
+                    'uri': 'https://example.com/article',
+                    'title': 'An Article',
+                    'description': 'All about it',
+                    'thumb': {
+                        '$type': 'blob',
+                        'ref': CID.decode('bafkreihq3u4bvn2aek2i7f5wnhomwemfa5ia4vyflhmmqptpnks4xipv3e'),
+                        'mimeType': 'image/jpeg',
+                        'size': 14,
+                    },
+                },
+            },
+            'bridgyOriginalText': 'check this out',
+            'bridgyOriginalUrl': 'https://inst/post',
+        }}, records)
+
+    @patch.object(util.session, 'get', side_effect=[
+        requests_response(test_atproto.METAFORMATS_HTML, url='http://orig.co/post'),
+        requests_response('blob contents', content_type='image/png'),
+    ])
+    def test_activitypub_post_bare_link_attachment_to_atproto(self, mock_get):
+        """ActivityPub post with bare FEP-8967 Link attachment, eg from Mastodon.
+
+        We should fetch the link preview for the attached link, not the first
+        link in content.
+
+        https://github.com/snarfed/bridgy-fed/issues/2286
+
+        ActivityPub user https://inst/alice
+        """
+        alice = self.make_ap_user('https://inst/alice', did='did:plc:alice',
+                                  enabled_protocols=['atproto'])
+
+        content = 'see <a href="http://other/link">this</a> and <a href="http://orig.co/post">that</a>'
+        create = {
+            '@context': 'https://www.w3.org/ns/activitystreams',
+            'type': 'Create',
+            'id': 'https://inst/post#create',
+            'actor': 'https://inst/alice',
+            'object': {
+                'type': 'Note',
+                'id': 'https://inst/post',
+                'attributedTo': 'https://inst/alice',
+                'content': content,
+                'published': '2022-01-02T03:04:05.000Z',
+                'to': [as2.PUBLIC_AUDIENCE],
+                'attachment': {
+                    'type': 'Link',
+                    'href': 'http://orig.co/post',
+                },
+            },
+        }
+        body = json_dumps(create)
+        headers = sign('/ap/sharedInbox', body, key_id='https://inst/alice')
+        resp = self.client.post('/ap/sharedInbox', data=body, headers=headers)
+        self.assertEqual(202, resp.status_code)
+
+        self.assert_req(mock_get, 'http://orig.co/post')
+
+        repo = self.storage.load_repo('did:plc:alice')
+        records = repo.get_contents()['app.bsky.feed.post']
+        tid = list(records.keys())[0]
+        self.assert_equals({tid: {
+            '$type': 'app.bsky.feed.post',
+            'text': 'see this and that',
+            'createdAt': '2022-01-02T03:04:05.000Z',
+            'embed': {
+                '$type': 'app.bsky.embed.external',
+                'external': {
+                    '$type': 'app.bsky.embed.external#external',
+                    'uri': 'http://orig.co/post',
+                    'title': 'Titull',
+                    'description': 'Descrypshun',
+                    'thumb': {
+                        '$type': 'blob',
+                        'ref': test_atproto.BLOB_CID,
+                        'mimeType': 'image/png',
+                        'size': 13,
+                    },
+                },
+            },
+            'bridgyOriginalText': content,
+            'bridgyOriginalUrl': 'https://inst/post',
+        }}, records, ignore=['facets'])
 
     @patch.object(util.session, 'get', return_value=requests_response(
         'cover image contents', content_type='image/jpeg'))

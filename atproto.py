@@ -1266,46 +1266,58 @@ class ATProto(User, Protocol):
                 if not rec.get('$type', '').startswith('social.grain.')]
 
         for rec in recs:
-            # if there are any links, generate an external embed as a preview
-            # for the first non-@-mention link
+            # generate an external embed as a link preview. if there's a bare
+            # link attachment, eg a FEP-8967 Link with no preview, use that.
+            # otherwise, use the first non-@-mention link.
+            # https://github.com/snarfed/bridgy-fed/issues/2286
             #
             # not good enough to just look for #link facets, since bluesky.from_as1
             # generates those for mention tags for non-Bluesky URLs, so we also
             # need to check against the AS1 mention tags and avoid those
-            if rec.get('$type') == 'app.bsky.feed.post' and not rec.get('embed'):
-                mentions = [
-                    as1.get_url(tag) for tag in as1.get_objects(obj.as1, 'tags')
-                    if tag.get('objectType') == 'mention']
-                for facet in rec.get('facets', []):
-                    if feats := facet.get('features'):
-                        feat = feats[0]
-                        first_char = rec['text'].encode()[facet['index']['byteStart']]
-                        if (feat['$type'] == 'app.bsky.richtext.facet#link'
-                                and feat['uri'] not in mentions
-                                # background discussion:
-                                # https://github.com/snarfed/bridgy-fed/issues/1615#issuecomment-2667191265
-                                and first_char != ord('@')):
-                            try:
-                                link = web.Web.load(feat['uri'], metaformats=True,
-                                                    authorship_fetch_mf2=False,
-                                                    raise_=False)
-                            except AssertionError as e:
-                                # we probably have an Object already stored for this
-                                # URL with source_protocol that's not web
-                                logger.warning(e)
-                                continue
+            embed = rec.get('embed') or {}
+            external = embed.get('external') or {}
+            link_urls = []
+            if rec.get('$type') == 'app.bsky.feed.post':
+                if (embed.get('$type') == 'app.bsky.embed.external'
+                    and not external.get('title') and not external.get('thumb')):
+                    logger.info(f'fetching link preview for bare link attachment {external["uri"]}')
+                    link_urls = [external['uri']]
+                elif not embed:
+                    mentions = [
+                        as1.get_url(tag) for tag in as1.get_objects(obj.as1, 'tags')
+                        if tag.get('objectType') == 'mention']
+                    for facet in rec.get('facets', []):
+                        if feats := facet.get('features'):
+                            feat = feats[0]
+                            first_char = rec['text'].encode()[facet['index']['byteStart']]
+                            if (feat['$type'] == 'app.bsky.richtext.facet#link'
+                                    and feat['uri'] not in mentions
+                                    # background discussion:
+                                    # https://github.com/snarfed/bridgy-fed/issues/1615#issuecomment-2667191265
+                                    and first_char != ord('@')):
+                                link_urls.append(feat['uri'])
 
-                            if link and link.as1:
-                                if img := util.get_url(link.as1, 'image'):
-                                    props = appview.defs['app.bsky.embed.external#external']['properties']
-                                    fetch_blob(img, props, name='thumb',
-                                               check_size=False, check_type=False)
-                                rec['embed'] = to_external_embed(link.as1, blobs=blobs)
-                                uri = rec['embed']['external']['uri']
-                                # backward compatibility for some Objects with bad urls
-                                if not util.is_url(uri) or not util.is_web(uri):
-                                    rec['embed']['external']['uri'] = feat['uri']
-                                break
+            for link_url in link_urls:
+                try:
+                    link = web.Web.load(link_url, metaformats=True,
+                                        authorship_fetch_mf2=False, raise_=False)
+                except AssertionError as e:
+                    # we probably have an Object already stored for this
+                    # URL with source_protocol that's not web
+                    logger.warning(e)
+                    continue
+
+                if link and link.as1:
+                    if img := util.get_url(link.as1, 'image'):
+                        props = appview.defs['app.bsky.embed.external#external']['properties']
+                        fetch_blob(img, props, name='thumb',
+                                   check_size=False, check_type=False)
+                    rec['embed'] = to_external_embed(link.as1, blobs=blobs)
+                    uri = rec['embed']['external']['uri']
+                    # backward compatibility for some Objects with bad urls
+                    if not util.is_url(uri) or not util.is_web(uri):
+                        rec['embed']['external']['uri'] = link_url
+                    break
 
             if from_proto != ATProto:
                 if rec['$type'] in bluesky.ATP_PROFILE_TYPES:

@@ -1300,12 +1300,13 @@ def postprocess_as2(activity, orig_obj=None, wrap=True):
                        and not isinstance(activity.get('object'), str)
                        else activity)
 
-    # separate out Link attachments; we move them to links in content below,
-    # after render_content, since fediverse instances generate their own link
-    # previews. https://github.com/snarfed/bridgy-fed/issues/958
-    atts = util.pop_list(obj_or_activity, 'attachment')
-    obj_or_activity['attachment'] = [a for a in atts if a.get('type') != 'Link']
-    link_atts = [a for a in atts if a.get('type') == 'Link']
+    # copy Link attachments to links in content below, after render_content,
+    # since many fediverse instances only generate link previews from content.
+    # keep the attachments too for FEP-8967.
+    # https://github.com/snarfed/bridgy-fed/issues/958
+    # https://github.com/snarfed/bridgy-fed/issues/2286
+    obj_or_activity['attachment'] = util.pop_list(obj_or_activity, 'attachment')
+    link_atts = [a for a in obj_or_activity['attachment'] if a.get('type') == 'Link']
 
     # copy image(s) into attachment(s). may be Mastodon-specific.
     # https://github.com/snarfed/bridgy-fed/issues/33#issuecomment-440965618
@@ -1386,14 +1387,20 @@ def postprocess_as2(activity, orig_obj=None, wrap=True):
 
     as2.render_content(obj_or_activity)
 
-    # move Link attachments to links in content. MUST be after render_content,
+    # copy Link attachments to links in content. MUST be after render_content,
     # which requires plain text content and does the whole plain => HTML
     # conversion; here we just concatenate trusted HTML onto its output.
     # https://github.com/snarfed/bridgy-fed/issues/958
     if link_atts:
         content = obj_or_activity.get('content', '')
+        # we may postprocess the same object more than once, so skip links that
+        # are already in content
+        linked = ({a.get('href') for a in util.parse_html(content).find_all('a')}
+                  if content else set())
         for link in link_atts:
             for url in util.get_list(link, 'href'):
+                if url in linked:
+                    continue
                 if content:
                     content += '<br><br>'
                 content += util.pretty_link(url, text=link.get('name'))
