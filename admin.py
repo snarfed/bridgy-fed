@@ -32,6 +32,7 @@ from webutil.flask_util import canonicalize_request_domain, flash
 
 from activitypub import ActivityPub, FEDI_URL_RE
 from atproto import ATProto
+from farcaster import Farcaster
 import ids
 from nostr import Nostr
 import pages
@@ -143,7 +144,7 @@ def admin_user_search():
     for user in users:
         user.bridged_ids = {
             proto: ids.translate_user_id(id=user.key.id(), from_=user, to=proto)
-            for proto in (ATProto, ActivityPub, Nostr)
+            for proto in (ATProto, ActivityPub, Farcaster, Nostr)
             if not isinstance(user, proto)
         }
         user.sent_dms_ = ', '.join(
