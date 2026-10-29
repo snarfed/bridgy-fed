@@ -1643,6 +1643,46 @@ class PagesTest(TestCase):
 """, html, ignore_blanks=True)
 
     @patch('webutil.util.now', return_value=datetime.now())
+    def test_respond_loads_quoted_post(self, _):
+        Fake.fetchable = {
+            'fake:quoted': {
+                'objectType': 'note',
+                'author': 'fake:bob',
+                'content': 'original post',
+            },
+            'fake:profile:bob': {
+                'objectType': 'person',
+                'displayName': 'Bob',
+                'url': 'https://bob.com/',
+            },
+        }
+        self.store_object(id='fake:post', source_protocol='fake', our_as1={
+            'objectType': 'note',
+            'content': 'hi there',
+            'attachments': [{'objectType': 'note', 'id': 'fake:quoted'}],
+        })
+        token = common.make_jwt(user=self.user, scope='respond', obj_id='fake:post')
+
+        resp = self.client.get(
+            f'/web/user.com/respond?obj_id=fake:post&token={token}')
+        self.assertEqual(200, resp.status_code)
+        self.assertEqual(['fake:quoted', 'fake:profile:bob'], Fake.fetched)
+        self.assert_multiline_in("""\
+<article class="u-quotation-of h-cite">
+<span class="p-uid">fake:quoted</span>
+<span class="p-author h-card">
+<data class="p-uid" value="fake:profile:bob"></data>
+<a class="p-name u-url" href="https://bob.com/">Bob</a>
+</span>
+""", resp.get_data(as_text=True), ignore_blanks=True)
+        self.assert_multiline_in("""\
+<div class="e-content p-name">
+original post
+</div>
+</article>
+""", resp.get_data(as_text=True), ignore_blanks=True)
+
+    @patch('webutil.util.now', return_value=datetime.now())
     def test_respond_author_no_display_name_uses_handle(self, _):
         self.store_object(id='fake:post', source_protocol='fake', our_as1={
             'objectType': 'note',

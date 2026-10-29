@@ -977,7 +977,7 @@ def serve_feed(*, objects, format, user, title, as_snippets=False, quiet=False):
 def render_embed(obj):
     """Renders an object as HTML to embed in a page.
 
-    Loads the object's author if necessary.
+    Loads the object's author and quoted posts if necessary.
 
     Args:
       obj (models.Object)
@@ -989,18 +989,36 @@ def render_embed(obj):
         return ''
 
     obj_as1 = copy.deepcopy(obj.as1)
-    as1.convert_html_content_to_text(obj_as1)
+    to_hydrate = [(obj_as1, PROTOCOLS.get(obj.source_protocol))]
 
-    # hydrate author
+    # load quoted posts
+    attachments = as1.get_objects(obj_as1, 'attachments')
+    for i, att in enumerate(attachments):
+        if (as1.object_type(att) == 'note' and not att.get('content')
+                and (id := att.get('id'))
+                and (proto := Protocol.for_id(id, remote=False))):
+            logger.info(f'loaded quoted post {id}')
+            quoted = proto.load(id, raise_=False)
+            if quoted and quoted.as1:
+                attachments[i] = copy.deepcopy(quoted.as1)
+                to_hydrate.append((attachments[i], proto))
+
+    if attachments:
+        obj_as1['attachments'] = attachments
+
+    # hydrate authors
     # (overlaps with models.hydrate some, but it's not a good fit to reuse here)
-    author = as1.get_object(obj_as1, 'author')
-    if author.keys() == {'id'} and (proto := PROTOCOLS.get(obj.source_protocol)):
-        profile_id = ids.profile_id(id=author['id'], proto=proto)
-        if profile := proto.load(profile_id, raise_=False):
-            obj_as1['author'] = author = copy.deepcopy(profile.as1)
+    for elem, proto in to_hydrate:
+        as1.convert_html_content_to_text(elem)
 
-    if not author.get('displayName') and author.get('username'):
-        author['displayName'] = author.pop('username')
+        author = as1.get_object(elem, 'author')
+        if author.keys() == {'id'} and proto:
+            profile_id = ids.profile_id(id=author['id'], proto=proto)
+            if profile := proto.load(profile_id, raise_=False):
+                elem['author'] = author = copy.deepcopy(profile.as1)
+
+        if not author.get('displayName') and author.get('username'):
+            author['displayName'] = author.pop('username')
 
     return microformats2.object_to_html(obj_as1)
 
