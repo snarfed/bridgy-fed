@@ -1453,6 +1453,24 @@ class ProtocolTest(TestCase):
             'displayName': 'Alice',
         }), from_user=user))
 
+    def test_convert_web_actor_custom_atproto_handle_no_unofficial(self):
+        # https://github.com/snarfed/bridgy-fed/issues/2566
+        self.store_object(id='did:plc:user', raw={
+            **DID_DOC,
+            'alsoKnownAs': ['at://www.user.com'],
+        })
+        user = self.make_user('user.com', cls=Web, last_webmention_in=None,
+                              copies=[Target(uri='did:plc:user', protocol='atproto')])
+        self.assertEqual({
+            'objectType': 'person',
+            'id': 'other:u:user.com',
+            'displayName': 'Alice',
+        }, OtherFake.convert(Object(id='user.com', source_protocol='web', our_as1={
+            'objectType': 'person',
+            'id': 'user.com',
+            'displayName': 'Alice',
+        }), from_user=user))
+
     def test_convert_web_actor_has_redirects_renders_summary(self):
         user = self.make_user('user.com', cls=Web, has_redirects=True)
         self.assertEqual({

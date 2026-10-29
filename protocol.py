@@ -773,10 +773,11 @@ class Protocol:
 
             # TODO: more systematic way to get this that covers all protocols,
             # eg Nostr NIP-05
-            web_opted_in = (from_user.LABEL == 'web' and
-                            (from_user.last_webmention_in
-                             or from_user.has_redirects
-                             or from_user.handle_as('atproto') == from_user.key.id()))
+            handle = from_user.handle_as('atproto') or ''
+            web_opted_in = (from_user.LABEL == 'web'
+                            and (from_user.last_webmention_in
+                                 or from_user.has_redirects
+                                 or not handle.endswith(SUPERDOMAIN)))
             if not web_opted_in:
                 # mark bridged actors as bots and add "bridged by Bridgy Fed" to
                 # their bios. (web users are special cased, they don't get the label
