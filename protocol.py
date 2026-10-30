@@ -1795,9 +1795,9 @@ class Protocol:
         if not to_cls:
             error(f"Couldn't determine protocol for target {target_id}")
 
-        to_user = to_cls.get_or_create(
-            target_id, manual_opt_out=False, allow_opt_out=True,
-            enabled_protocols=from_user.enabled_protocols)
+        # enabled_protocols are set below
+        to_user = to_cls.get_or_create(target_id, manual_opt_out=False,
+                                       allow_opt_out=True)
         if not to_user:
             error(f"Couldn't create {to_cls.LABEL} user {target_id}", status=299)
 
@@ -1811,6 +1811,11 @@ class Protocol:
                     to_user.add('copies', Target(uri=copy_id, protocol=label))
 
             to_user.put()
+            # after transferring copies so that get_or_create doesn't think
+            # they're external copies and reject them
+            to_user = to_cls.get_or_create(
+                target_id, allow_opt_out=True,
+                enabled_protocols=from_user.enabled_protocols)
             from_user.enabled_protocols = []
             from_user.put()
 

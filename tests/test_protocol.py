@@ -4118,6 +4118,59 @@ class ProtocolReceiveTest(TestCase):
         ], Fake.sent)
         self.assertEqual([], alice.copies)
 
+    def test_move_bridged_user_dest_has_external_copy(self):
+        """The copy we transfer makes the dest's external copy not matter."""
+        self.make_user('efake.brid.gy', cls=Web)
+        self.make_user('other.brid.gy', cls=Web)
+        alice = self.make_user('other:alice', cls=OtherFake, obj_id='other:alice',
+                               enabled_protocols=['efake'],
+                               copies=[Target(protocol='efake', uri='efake:alice')])
+        new_alice = self.make_user('fake:new-alice', cls=Fake, obj_as1={
+            'objectType': 'person',
+            'urls': [{'value': 'efake:external', 'rel': 'alternate'}],
+        })
+
+        _, code = OtherFake.receive_as1({
+            'objectType': 'activity',
+            'verb': 'move',
+            'id': 'other:move',
+            'actor': 'other:alice',
+            'object': 'other:alice',
+            'target': 'fake:new-alice',
+        })
+        self.assertEqual(204, code)
+
+        new_alice = new_alice.key.get()
+        self.assertEqual(['efake'], new_alice.enabled_protocols)
+        self.assertEqual([Target(protocol='efake', uri='efake:alice')],
+                         new_alice.copies)
+
+    def test_move_no_copy_dest_has_external_copy(self):
+        """No copy to transfer, so the dest's external copy wins."""
+        self.make_user('efake.brid.gy', cls=Web)
+        self.make_user('other.brid.gy', cls=Web)
+        alice = self.make_user('other:alice', cls=OtherFake, obj_id='other:alice',
+                               enabled_protocols=['efake'], copies=[])
+        new_alice = self.make_user('fake:new-alice', cls=Fake, obj_as1={
+            'objectType': 'person',
+            'urls': [{'value': 'efake:external', 'rel': 'alternate'}],
+        })
+
+        _, code = OtherFake.receive_as1({
+            'objectType': 'activity',
+            'verb': 'move',
+            'id': 'other:move',
+            'actor': 'other:alice',
+            'object': 'other:alice',
+            'target': 'fake:new-alice',
+        })
+        self.assertEqual(204, code)
+
+        new_alice = new_alice.key.get()
+        self.assertEqual([], new_alice.enabled_protocols)
+        self.assertEqual([], new_alice.copies)
+        self.assertEqual([], alice.key.get().enabled_protocols)
+
     def test_move_bot_user_doesnt_exist(self):
         """Bridged into a protocol with no bot user, eg Web. Shouldn't crash."""
         alice = self.make_user('other:alice', cls=OtherFake, obj_id='other:alice')
