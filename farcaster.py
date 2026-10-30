@@ -12,9 +12,13 @@ from google.cloud import ndb
 from granary import as1
 import granary.farcaster
 from granary.farcaster import (
+    BLAKE3_HASH_LENGTH_BYTES,
     FARCASTER_URI_RE,
     from_as1,
     hash_and_sign,
+    WEB_RESOURCE_URL_RE,
+    WEB_URL_RE,
+    web_url_to_farcaster_uri,
 )
 from granary.generated.farcaster.message_pb2 import (
     CastId,
@@ -29,6 +33,7 @@ import grpc
 from webutil import util
 
 import ids
+from ids import IdType
 from models import Target, User
 from protocol import Protocol, STORE_AS1_TYPES
 
@@ -94,19 +99,26 @@ class Farcaster(User, Protocol):
     @classmethod
     def owns_id(cls, id):
         return bool(id and (id.startswith('farcaster://')
+                            or id.startswith('https://farcaster.xyz/')
                             or re.fullmatch(r'farcaster:[0-9]+', id)))
 
     @classmethod
     def id_type(cls, id):
-        """``farcaster://[fid or @username]``, plus a ``/0x[hash]`` for casts."""
+        """``farcaster://[fid or @username]``, plus a ``/0x[hash]`` for casts.
+
+        Also ``https://farcaster.xyz/`` profile and cast URLs.
+        """
         if not id:
             return None
         elif re.fullmatch(r'farcaster:[0-9]+', id):
-            return ids.IdType.USER
+            return IdType.USER
+        elif match := WEB_RESOURCE_URL_RE.fullmatch(id):
+            return IdType.USER if match['type'] == 'profiles' else IdType.OBJECT
+        elif match := WEB_URL_RE.fullmatch(id):
+            return IdType.OBJECT if match['hash'] else IdType.USER
         elif id.startswith('farcaster://'):
             match = FARCASTER_URI_RE.fullmatch(id)
-            return (ids.IdType.OBJECT if not match or match['hash']
-                    else ids.IdType.USER)
+            return IdType.OBJECT if not match or match['hash'] else IdType.USER
 
     @classmethod
     def owns_handle(cls, handle, allow_internal=False):
@@ -118,6 +130,54 @@ class Farcaster(User, Protocol):
             return None
 
         return False
+
+    @classmethod
+    def resolve_user_id(cls, id):
+        """Resolves ``farcaster.xyz`` profile URLs to ``farcaster://[fid]``.
+
+        Example input URL ids:
+        * ``https://farcaster.xyz/[username]``
+        * ``https://farcaster.xyz/~/profiles/[fid]``
+        """
+        if id.startswith('https://farcaster.xyz/'):
+            try:
+                if uri := web_url_to_farcaster_uri(id):
+                    id = uri
+            except ValueError as e:
+                logger.info(f"Couldn't convert {id} : {e}")
+
+        return ids.normalize_user_id(id=id, proto=cls)
+
+    @classmethod
+    def resolve_object_id(cls, id):
+        """Resolves ``farcaster.xyz`` cast URLs to ``farcaster://[fid]/0x[hash]``.
+
+        Example input URL ids:
+        * ``https://farcaster.xyz/[username]/0x[short hash]``
+        * ``https://farcaster.xyz/[username]/0x[full hash]``
+        * ``https://farcaster.xyz/~/conversations/0x[hash]``
+
+        If the URL id only include a short hash (aka hash prefix), this fetches the
+        full hash from farcaster.xyz's client API.
+        """
+        if not id.startswith('https://farcaster.xyz/'):
+            return ids.normalize_object_id(id=id, proto=cls)
+
+        try:
+            uri = web_url_to_farcaster_uri(id, remote=True)
+        except ValueError as e:
+            logger.info(f"Couldn't convert {id} : {e}")
+            uri = None
+
+        if ((match := FARCASTER_URI_RE.fullmatch(uri or ''))
+                and match['hash']
+                and len(match['hash']) == BLAKE3_HASH_LENGTH_BYTES * 2):
+            if match['fid']:
+                id = uri
+            elif user_id := cls.handle_to_id(match['username']):
+                id = f'{user_id}/0x{match["hash"]}'
+
+        return ids.normalize_object_id(id=id, proto=cls)
 
     @classmethod
     def handle_to_id(cls, handle):
