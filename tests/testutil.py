@@ -298,6 +298,7 @@ class ExplicitFake(Fake):
     LABEL = ABBREV = 'efake'
     PHRASE = 'efake-phrase'
     CONTENT_TYPE = 'un/known'
+    URI_PREFIXES = ('efake:',)
     LOGO_EMOJI = '📣'
     DEFAULT_ENABLED_PROTOCOLS = ()
     SUPPORTS_DMS = True

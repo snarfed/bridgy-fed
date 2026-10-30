@@ -194,6 +194,7 @@ class DM(ndb.Model):
     ineligible users):
 
       * dms_not_supported-[RECIPIENT-USER-ID]
+      * external-copy
       * moved
       * no-feed-or-webmention
       * no-nip05
@@ -509,8 +510,8 @@ class User(AddRemoveMixin, StringIdModel, metaclass=ProtocolUserMeta):
         return user
 
     @classmethod
-    def get_or_create(cls, id, propagate=False, allow_opt_out=False,
-                      reload=False, raise_=False, **kwargs):
+    def get_or_create(cls, id, propagate=False, enabled_protocols=(),
+                      allow_opt_out=False, reload=False, raise_=False, **kwargs):
         """Loads and returns a :class:`User`. Creates it if necessary.
 
         If ``allow_opt_out`` is False and ``id`` is the bridged id for a user in
@@ -524,6 +525,7 @@ class User(AddRemoveMixin, StringIdModel, metaclass=ProtocolUserMeta):
         Args:
           propagate (bool): whether to create copies of this user in push-based
             protocols, eg ATProto and Nostr.
+          enabled_protocols (tuple of str): labels of protocol to bridge this user to
           allow_opt_out (bool): whether to allow and create the user if they're
             currently opted out
           reload (bool): whether to reload profile always, vs only if necessary
@@ -545,6 +547,7 @@ class User(AddRemoveMixin, StringIdModel, metaclass=ProtocolUserMeta):
         # id = ids.normalize_user_id(id=id, proto=cls)
 
         user = cls.get_by_id(id, allow_opt_out=True)
+        changed = False
         if user:  # existing
             if reload:
                 user.reload_profile(gateway=True, raise_=raise_)
@@ -554,27 +557,12 @@ class User(AddRemoveMixin, StringIdModel, metaclass=ProtocolUserMeta):
             user.existing = True
 
             # TODO: propagate more fields?
-            changed = False
             for field in ['obj', 'obj_key', 'manual_opt_out']:
                 old_val = getattr(user, field, None)
                 new_val = kwargs.get(field)
                 if old_val is None and new_val is not None:
                     setattr(user, field, new_val)
                     changed = True
-
-            if enabled_protocols := kwargs.get('enabled_protocols'):
-                user.enabled_protocols = (set(user.enabled_protocols)
-                                          | set(enabled_protocols))
-                changed = True
-
-            if not propagate:
-                if changed:
-                    try:
-                        user.put()
-                    except AssertionError as e:
-                        logger.debug(e)
-                        error(f'Bad {cls.__name__} id {id} : {e}')
-                return user
 
         else:  # new, not existing
             if not allow_opt_out and (orig_key := get_original_user_key(id)):
@@ -584,7 +572,7 @@ class User(AddRemoveMixin, StringIdModel, metaclass=ProtocolUserMeta):
                 orig.existing = False
                 return orig
 
-            user = cls(id=id, **kwargs)
+            user = cls(id=id, enabled_protocols=enabled_protocols, **kwargs)
             user.existing = False
             try:
                 user.reload_profile(gateway=True, raise_=raise_)
@@ -595,6 +583,29 @@ class User(AddRemoveMixin, StringIdModel, metaclass=ProtocolUserMeta):
             if user.status and not allow_opt_out:
                 return None
 
+        # handle enabled protocol changes. drop any protocols where we see that the
+        # user is already bridged there externally
+        # https://github.com/snarfed/bridgy-fed/issues/800
+        for label in enabled_protocols:
+            proto = PROTOCOLS[label]
+            if (not user.get_copy(proto)
+                    and (external_copy := user.get_external_copy(proto))):
+                logger.info(f'{id} is already on {label} as {external_copy} , not enabling')
+                user.remove('enabled_protocols', label)
+            else:
+                user.add('enabled_protocols', label)
+            changed = True
+
+        if user.existing and not propagate:
+            if changed:
+                try:
+                    user.put()
+                except AssertionError as e:
+                    logger.debug(e)
+                    error(f'Bad {cls.__name__} id {id} : {e}')
+            return user
+
+        # create copy users in new protocols, if any
         if propagate and user.status in (None, 'private'):
             for label in user.enabled_protocols + list(user.DEFAULT_ENABLED_PROTOCOLS):
                 proto = PROTOCOLS[label]
@@ -875,6 +886,11 @@ class User(AddRemoveMixin, StringIdModel, metaclass=ProtocolUserMeta):
                 dms.maybe_send(from_=to_proto, to_user=self, type=self.status,
                                text=ineligible.format(desc=desc))
             common.error(f'Nope, user {self.key.id()} is {self.status}', status=299)
+
+        if external_copy := self.get_external_copy(to_proto):
+            dms.maybe_send(from_=to_proto, to_user=self, type='external-copy',
+                           text=f"Hi! Your account can't be bridged to {to_proto.PHRASE} because it's already there as {html.escape(external_copy)}.")
+            common.error(f'Nope, user {self.key.id()} is already on {to_proto.LABEL} as {external_copy}', status=299)
 
         # check that our handle is supported in this protocol
         err = handle = None
@@ -1234,6 +1250,38 @@ class User(AddRemoveMixin, StringIdModel, metaclass=ProtocolUserMeta):
             path += rest
 
         return path
+
+    def get_external_copy(self, to_proto):
+        """Returns this user's copy in a given protocol that we don't manage, if any.
+
+        For example, if this user is bridged by another bridge, or they're on a
+        multi-protocol server.
+
+        ...or None if this user's profile doesn't link to one. Copies may come from
+        another bridge or a multi-protocol server, eg
+        `FEP-fffd proxy links <https://codeberg.org/fediverse/fep/src/branch/main/fep/fffd/fep-fffd.md>`_ .
+
+        Args:
+          to_proto (:class:`Protocol` subclass)
+
+        Returns:
+          str: URI of the copy, or None if this user's profile doesn't show
+            that they're on ``to_proto``
+        """
+        if not self.obj or not self.obj.as1:
+            return None
+
+        our_copy = self.get_copy(to_proto)
+        for link in (util.get_list(self.obj.as1, 'url')
+                     + util.get_list(self.obj.as1, 'urls')):
+            if not isinstance(link, dict) or not link.get('rel'):
+                continue
+
+            uri = link.get('value')
+            if (uri and (uri.startswith(to_proto.URI_PREFIXES)
+                         or link.get('mimeType') in to_proto.MIME_TYPES)
+                    and not (our_copy and our_copy in uri)):
+                return uri
 
     def get_copy(self, proto):
         """Returns the id for the copy of this user in a given protocol.

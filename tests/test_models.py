@@ -40,6 +40,7 @@ from flask_app import app
 import memcache
 import models
 from models import (
+    DM,
     Follower,
     maybe_truncate_key_id,
     Object,
@@ -72,6 +73,11 @@ from granary.tests.test_nostr import (
 from .test_activitypub import ACTOR
 from .test_atproto import DID_DOC
 from . import testutil
+
+EXTERNAL_COPY_ACTOR = {
+    'objectType': 'person',
+    'urls': [{'value': 'efake:alice', 'rel': 'alternate'}],
+}
 
 
 class UserTest(TestCase):
@@ -221,6 +227,49 @@ class UserTest(TestCase):
         user = Fake.get_or_create('fake:a', enabled_protocols=['efake'],
                                   propagate=True)
         self.assertEqual([], user.enabled_protocols)
+
+    def test_get_or_create_propagate_external_copy(self):
+        self.make_user('fake:a', cls=Fake, obj_as1=EXTERNAL_COPY_ACTOR)
+        user = Fake.get_or_create('fake:a', enabled_protocols=['efake'],
+                                  propagate=True)
+        self.assertEqual([], user.enabled_protocols)
+        self.assertEqual([], ExplicitFake.created_for)
+
+    def test_get_or_create_propagate_external_copy_not_has_copies(self):
+        self.make_user('fake:a', cls=Fake, obj_as1={
+            'objectType': 'person',
+            'urls': [{
+                'value': 'http://in.st/alice',
+                'rel': 'alternate',
+                'mimeType': 'application/activity+json',
+            }],
+        })
+        user = Fake.get_or_create('fake:a', enabled_protocols=['activitypub'],
+                                  propagate=True)
+        self.assertEqual([], user.enabled_protocols)
+
+    def test_get_or_create_propagate_external_copy_and_our_copy(self):
+        self.make_user('fake:a', cls=Fake, obj_as1=EXTERNAL_COPY_ACTOR,
+                       copies=[Target(uri='efake:ours', protocol='efake')])
+        user = Fake.get_or_create('fake:a', enabled_protocols=['efake'],
+                                  propagate=True)
+        self.assertEqual(['efake'], user.enabled_protocols)
+
+    def test_get_or_create_existing_external_copy(self):
+        self.make_user('fake:a', cls=Fake, obj_as1=EXTERNAL_COPY_ACTOR)
+
+        user = Fake.get_or_create('fake:a', enabled_protocols=['efake', 'other'])
+
+        self.assertEqual(['other'], user.enabled_protocols)
+        self.assertEqual(['other'], user.key.get().enabled_protocols)
+
+    def test_get_or_create_new_external_copy(self):
+        Fake.fetchable = {'fake:profile:a': EXTERNAL_COPY_ACTOR}
+
+        user = Fake.get_or_create('fake:a', enabled_protocols=['efake', 'other'])
+
+        self.assertEqual(['other'], user.enabled_protocols)
+        self.assertEqual(['other'], user.key.get().enabled_protocols)
 
     def test_get_or_create_use_instead(self):
         user = Fake.get_or_create('fake:a')
@@ -594,6 +643,90 @@ class UserTest(TestCase):
         user = self.make_user(cls=Fake, id='fake:user')
         with self.assertRaises(common.ErrorButDoNotRetryTask):
             user.enable_protocol(ExplicitFake)
+
+    def test_enable_protocol_external_copy(self):
+        self.make_user('efake.brid.gy', cls=Web)
+        user = self.make_user('other:user', cls=OtherFake,
+                              obj_as1=EXTERNAL_COPY_ACTOR)
+
+        with self.assertRaises(common.ErrorButDoNotRetryTask):
+            user.enable_protocol(ExplicitFake)
+
+        user = user.key.get()
+        self.assertEqual([], user.enabled_protocols)
+        self.assertEqual([], ExplicitFake.created_for)
+        self.assertEqual([DM(protocol='efake', type='external-copy')], user.sent_dms)
+        self.assert_sent(ExplicitFake, user, 'external-copy', "Hi! Your account can't be bridged to efake-phrase because it's already there as efake:alice.")
+
+    def test_enable_protocol_external_copy_escapes_uri(self):
+        self.make_user('efake.brid.gy', cls=Web)
+        user = self.make_user('other:user', cls=OtherFake, obj_as1={
+            'objectType': 'person',
+            'urls': [{'value': 'efake:<b>alice', 'rel': 'alternate'}],
+        })
+
+        with self.assertRaises(common.ErrorButDoNotRetryTask):
+            user.enable_protocol(ExplicitFake)
+
+        self.assert_sent(ExplicitFake, user, 'external-copy', "Hi! Your account can't be bridged to efake-phrase because it's already there as efake:&lt;b&gt;alice.")
+
+    def test_get_external_copy(self):
+        user = self.make_user('fake:user', cls=Fake, obj_as1={
+            'objectType': 'person',
+            'url': 'http://in.st/alice',
+            'urls': [
+                'http://in.st/alice',
+                {'value': 'at://did:plc:alice', 'rel': 'alternate'},
+                {'value': 'nostr:npub1alice', 'rel': 'alternate'},
+                {
+                    'value': 'http://ot.her/alice',
+                    'rel': 'canonical',
+                    'mimeType': 'application/activity+json',
+                },
+            ],
+        })
+        self.assertEqual('at://did:plc:alice', user.get_external_copy(ATProto))
+        self.assertEqual('nostr:npub1alice', user.get_external_copy(Nostr))
+        self.assertEqual('http://ot.her/alice', user.get_external_copy(ActivityPub))
+        self.assertIsNone(user.get_external_copy(Farcaster))
+
+    def test_get_external_copy_in_url(self):
+        user = self.make_user('fake:user', cls=Fake, obj_as1={
+            'objectType': 'person',
+            'url': {'value': 'did:plc:alice', 'rel': 'canonical'},
+        })
+        self.assertEqual('did:plc:alice', user.get_external_copy(ATProto))
+
+    def test_get_external_copy_no_profile(self):
+        user = self.make_user('fake:user', cls=Fake)
+        self.assertIsNone(user.get_external_copy(ATProto))
+
+    def test_get_external_copy_not_proxy_link(self):
+        user = self.make_user('fake:user', cls=Fake, obj_as1={
+            'objectType': 'person',
+            'urls': ['at://did:plc:alice', {'value': 'at://did:plc:bob'}],
+        })
+        self.assertIsNone(user.get_external_copy(ATProto))
+
+    def test_get_external_copy_other_did_method(self):
+        user = self.make_user('fake:user', cls=Fake, obj_as1={
+            'objectType': 'person',
+            'urls': [{'value': 'did:key:alice', 'rel': 'alternate'}],
+        })
+        self.assertIsNone(user.get_external_copy(ATProto))
+
+    def test_get_external_copy_our_copy(self):
+        user = self.make_user(
+            'fake:user', cls=Fake,
+            copies=[Target(uri='did:plc:alice', protocol='atproto')],
+            obj_as1={
+                'objectType': 'person',
+                'urls': [
+                    {'value': 'did:plc:alice', 'rel': 'alternate'},
+                    {'value': 'at://did:plc:alice', 'rel': 'alternate'},
+                ],
+            })
+        self.assertIsNone(user.get_external_copy(ATProto))
 
     def test_load_multi(self):
         # obj_key is None
