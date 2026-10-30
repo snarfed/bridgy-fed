@@ -250,10 +250,17 @@ class UserTest(TestCase):
 
     def test_get_or_create_propagate_external_copy_and_our_copy(self):
         self.make_user('fake:a', cls=Fake, obj_as1=EXTERNAL_COPY_ACTOR,
+                       enabled_protocols=['efake'],
                        copies=[Target(uri='efake:ours', protocol='efake')])
         user = Fake.get_or_create('fake:a', enabled_protocols=['efake'],
                                   propagate=True)
         self.assertEqual(['efake'], user.enabled_protocols)
+
+    def test_get_or_create_external_copy_and_our_copy_not_enabled(self):
+        self.make_user('fake:a', cls=Fake, obj_as1=EXTERNAL_COPY_ACTOR,
+                       copies=[Target(uri='efake:ours', protocol='efake')])
+        user = Fake.get_or_create('fake:a', enabled_protocols=['efake'])
+        self.assertEqual([], user.enabled_protocols)
 
     def test_get_or_create_existing_external_copy(self):
         self.make_user('fake:a', cls=Fake, obj_as1=EXTERNAL_COPY_ACTOR)
@@ -658,6 +665,19 @@ class UserTest(TestCase):
         self.assertEqual([DM(protocol='efake', type='external-copy')], user.sent_dms)
         self.assert_sent(ExplicitFake, user, 'external-copy', "Hi! Your account can't be bridged to efake-phrase because it's already there as efake:alice.")
 
+    def test_enable_protocol_external_copy_and_our_copy(self):
+        self.make_user('efake.brid.gy', cls=Web)
+        user = self.make_user('other:user', cls=OtherFake,
+                              obj_as1=EXTERNAL_COPY_ACTOR,
+                              enabled_protocols=['efake'],
+                              copies=[Target(uri='efake:ours', protocol='efake')])
+
+        user.enable_protocol(ExplicitFake)
+
+        self.assertEqual(['efake'], user.key.get().enabled_protocols)
+        self.assertEqual([DM(protocol='efake', type='welcome')],
+                         user.key.get().sent_dms)
+
     def test_enable_protocol_external_copy_escapes_uri(self):
         self.make_user('efake.brid.gy', cls=Web)
         user = self.make_user('other:user', cls=OtherFake, obj_as1={
@@ -727,6 +747,20 @@ class UserTest(TestCase):
                 ],
             })
         self.assertIsNone(user.get_external_copy(ATProto))
+
+    def test_get_external_copy_our_copy_enabled(self):
+        user = self.make_user(
+            'fake:user', cls=Fake, enabled_protocols=['efake'],
+            copies=[Target(uri='efake:ours', protocol='efake')],
+            obj_as1=EXTERNAL_COPY_ACTOR)
+        self.assertIsNone(user.get_external_copy(ExplicitFake))
+
+    def test_get_external_copy_our_copy_not_enabled(self):
+        user = self.make_user(
+            'fake:user', cls=Fake,
+            copies=[Target(uri='efake:ours', protocol='efake')],
+            obj_as1=EXTERNAL_COPY_ACTOR)
+        self.assertEqual('efake:alice', user.get_external_copy(ExplicitFake))
 
     def test_load_multi(self):
         # obj_key is None

@@ -1809,6 +1809,7 @@ class Protocol:
                     logger.info(f'Transferring {label} copy id {copy_id} to {target_id}')
                     from_user.remove_copies_on(proto)
                     to_user.add('copies', Target(uri=copy_id, protocol=label))
+                    to_user.add('enabled_protocols', label)
 
             to_user.put()
             # after transferring copies so that get_or_create doesn't think

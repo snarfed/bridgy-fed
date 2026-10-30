@@ -587,9 +587,7 @@ class User(AddRemoveMixin, StringIdModel, metaclass=ProtocolUserMeta):
         # user is already bridged there externally
         # https://github.com/snarfed/bridgy-fed/issues/800
         for label in enabled_protocols:
-            proto = PROTOCOLS[label]
-            if (not user.get_copy(proto)
-                    and (external_copy := user.get_external_copy(proto))):
+            if external_copy := user.get_external_copy(PROTOCOLS[label]):
                 logger.info(f'{id} is already on {label} as {external_copy} , not enabling')
                 user.remove('enabled_protocols', label)
             else:
@@ -1266,12 +1264,15 @@ class User(AddRemoveMixin, StringIdModel, metaclass=ProtocolUserMeta):
 
         Returns:
           str: URI of the copy, or None if this user's profile doesn't show
-            that they're on ``to_proto``
+            that they're on ``to_proto``, or if we're already bridging them there
         """
+        our_copy = self.get_copy(to_proto)
+        if our_copy and to_proto.LABEL in self.enabled_protocols:
+            return None
+
         if not self.obj or not self.obj.as1:
             return None
 
-        our_copy = self.get_copy(to_proto)
         for link in (util.get_list(self.obj.as1, 'url')
                      + util.get_list(self.obj.as1, 'urls')):
             if not isinstance(link, dict) or not link.get('rel'):
