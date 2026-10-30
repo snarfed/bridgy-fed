@@ -88,6 +88,8 @@ class Nostr(User, Protocol):
     LOGO_EMOJI = '𓅦'  # ostrich-ish bird
     LOGO_HTML = '<img src="/static/nostr_logo.png">'
     CONTENT_TYPE = 'application/json'
+    URI_PREFIXES = ('nostr:',)
+    'https://nostr-nips.com/nip-21'
     HAS_COPIES = True
     DEFAULT_TARGET = 'wss://nos.lol/'
     REQUIRES_AVATAR = True
@@ -238,7 +240,7 @@ class Nostr(User, Protocol):
 
     @classmethod
     def owns_id(cls, id):
-        if id.startswith('nostr:'):
+        if id.startswith(cls.URI_PREFIXES):
             return True
         elif is_bech32(id) or ID_RE.match(id):
             return None

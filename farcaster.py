@@ -55,6 +55,8 @@ class Farcaster(User, Protocol):
     LOGO_EMOJI = '🏛️'
     LOGO_HTML = '<img src="/static/farcaster_logo.png">'
     CONTENT_TYPE = 'application/octet-stream'
+    URI_PREFIXES = ('farcaster://',)
+    'https://github.com/farcasterxyz/protocol/discussions/123'
     DEFAULT_TARGET = f'snapchain://{SNAPCHAIN_HOST}:{SNAPCHAIN_PORT}'
     DEFAULT_ENABLED_PROTOCOLS = ('web',)
     HAS_COPIES = True
@@ -98,7 +100,7 @@ class Farcaster(User, Protocol):
 
     @classmethod
     def owns_id(cls, id):
-        return bool(id and (id.startswith('farcaster://')
+        return bool(id and (id.startswith(cls.URI_PREFIXES)
                             or id.startswith('https://farcaster.xyz/')
                             or re.fullmatch(r'farcaster:[0-9]+', id)))
 

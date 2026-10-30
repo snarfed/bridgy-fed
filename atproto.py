@@ -374,6 +374,8 @@ class ATProto(User, Protocol):
     """
     CONTENT_TYPE = 'application/json'
     ''
+    URI_PREFIXES = ('at://', 'did:plc:', 'did:web:')
+    'https://atproto.com/specs/at-uri-scheme , https://atproto.com/specs/did'
     HAS_COPIES = True
     ''
     REQUIRES_AVATAR = True

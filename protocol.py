@@ -133,6 +133,10 @@ class Protocol:
     'str: logo ``<img>`` tag, if any'
     CONTENT_TYPE = None
     "str: MIME type of this protocol's native data format, appropriate for the ``Content-Type`` HTTP header."
+    URI_PREFIXES = ()
+    'sequence of str: prefixes of URIs that identify this protocol in proxy links, eg `FEP-fffd <https://codeberg.org/fediverse/fep/src/branch/main/fep/fffd/fep-fffd.md>`_. Empty if no URI prefix is unique to this protocol.'
+    MIME_TYPES = ()
+    'sequence of str: MIME types, without ``charset``, that identify this protocol in proxy links, eg `FEP-fffd <https://codeberg.org/fediverse/fep/src/branch/main/fep/fffd/fep-fffd.md>`_. Empty if no MIME type is unique to this protocol.'
     HAS_COPIES = False
     'bool: whether this protocol is push and needs us to proactively create "copy" users and objects, as opposed to pulling converted objects on demand'
     DEFAULT_TARGET = None

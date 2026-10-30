@@ -194,6 +194,8 @@ class ActivityPub(User, Protocol):
     ''
     CONTENT_TYPE = as2.CONTENT_TYPE_LD_PROFILE
     ''
+    MIME_TYPES = as2.CONTENT_TYPES
+    'https://w3c.github.io/activitypub/#retrieving-objects'
     REQUIRES_NAME = False
     ''
     DEFAULT_ENABLED_PROTOCOLS = ('web',)

@@ -125,6 +125,8 @@ class Web(User, Protocol):
     ''
     CONTENT_TYPE = common.CONTENT_TYPE_HTML
     ''
+    MIME_TYPES = (common.CONTENT_TYPE_HTML.split(';')[0], *FEED_TYPES)
+    ''
     DEFAULT_ENABLED_PROTOCOLS = ()
     ''
     SUPPORTED_AS1_TYPES = (
