@@ -271,8 +271,6 @@ def normalize_user_id(*, id, proto):
         return normalized
 
     elif proto.LABEL == 'atproto':
-        # id = translate_user_id(id=id, from_=proto, to=proto)
-
         # bsky.app profile URL to DID
         if (match := BSKY_APP_URL_RE.match(id)) and not match['type']:
             repo = match.group('id')
