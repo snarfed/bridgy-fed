@@ -193,6 +193,7 @@ class DM(ndb.Model):
     """Known values (keep in sync with USER_STATUS_DESCRIPTIONS, the subset for
     ineligible users):
 
+      * canonical-external-copy
       * dms_not_supported-[RECIPIENT-USER-ID]
       * external-copy
       * moved
@@ -547,7 +548,9 @@ class User(AddRemoveMixin, StringIdModel, metaclass=ProtocolUserMeta):
         # id = ids.normalize_user_id(id=id, proto=cls)
 
         user = cls.get_by_id(id, allow_opt_out=True)
+        new_protocols = set(enabled_protocols)
         changed = False
+
         if user:  # existing
             if reload:
                 user.reload_profile(gateway=True, raise_=raise_)
@@ -563,6 +566,8 @@ class User(AddRemoveMixin, StringIdModel, metaclass=ProtocolUserMeta):
                 if old_val is None and new_val is not None:
                     setattr(user, field, new_val)
                     changed = True
+
+            new_protocols -= set(user.enabled_protocols)
 
         else:  # new, not existing
             if not allow_opt_out and (orig_key := get_original_user_key(id)):
@@ -583,16 +588,17 @@ class User(AddRemoveMixin, StringIdModel, metaclass=ProtocolUserMeta):
             if user.status and not allow_opt_out:
                 return None
 
-        # handle enabled protocol changes. drop any protocols where we see that the
-        # user is already bridged there externally
-        # https://github.com/snarfed/bridgy-fed/issues/800
-        for label in enabled_protocols:
-            if external_copy := user.get_external_copy(PROTOCOLS[label]):
-                logger.info(f'{id} is already on {label} as {external_copy} , not enabling')
+        canonical = user.get_canonical_external_copy()
+        for label in new_protocols:
+            if canonical:
+                logger.info(f'{id} has other canonical account {canonical}; not bridging to {label}')
+                user.remove('enabled_protocols', label)
+            elif external_copy := user.get_external_copy(PROTOCOLS[label]):
+                logger.info(f'{id} has external copy {external_copy} , not enabling {label}')
                 user.remove('enabled_protocols', label)
             else:
                 user.add('enabled_protocols', label)
-            changed = True
+                changed = True
 
         if user.existing and not propagate:
             if changed:
@@ -889,6 +895,13 @@ class User(AddRemoveMixin, StringIdModel, metaclass=ProtocolUserMeta):
             dms.maybe_send(from_=to_proto, to_user=self, type='external-copy',
                            text=f"Hi! Your account can't be bridged to {to_proto.PHRASE} because it's already there as {html.escape(external_copy)}.")
             common.error(f'Nope, user {self.key.id()} is already on {to_proto.LABEL} as {external_copy}', status=299)
+
+        if (to_proto.LABEL not in self.enabled_protocols
+                and (canonical := self.get_canonical_external_copy())):
+            dms.maybe_send(from_=to_proto, to_user=self,
+                           type='canonical-external-copy',
+                           text=f"Hi! Your account can't be bridged to {to_proto.PHRASE} because it's a copy of {html.escape(canonical)}. Bridge that account instead!")
+            common.error(f'Nope, user {self.key.id()} is a copy of {canonical}', status=299)
 
         # check that our handle is supported in this protocol
         err = handle = None
@@ -1249,6 +1262,31 @@ class User(AddRemoveMixin, StringIdModel, metaclass=ProtocolUserMeta):
 
         return path
 
+    def get_canonical_external_copy(self):
+        """Returns the canonical version of this user elsewhere, if any.
+
+        For example, if this user is another bridge's proxy for an account on a
+        different network. Unlike :meth:`get_external_copy`, this is independent of
+        any specific protocol, and may be on a protocol that we don't support.
+
+        A canonical link to this user itself, one of its copies, or a web URL on
+        this user's host doesn't count.
+
+        Returns:
+          str: URI of the canonical copy, or None
+        """
+        if not self.obj or not self.obj.as1:
+            return None
+
+        id = self.key.id()
+        ours = [id] + [copy.uri for copy in self.copies]
+        for link in as1.get_rel_links(self.obj.as1, rels=('canonical',)):
+            uri = link.get('value')
+            if (uri and not any(our_id in uri for our_id in ours)
+                    and not (util.is_web(uri) and util.is_web(id)
+                             and util.domain_from_link(uri) == util.domain_from_link(id))):
+                return uri
+
     def get_external_copy(self, to_proto):
         """Returns this user's copy in a given protocol that we don't manage, if any.
 
@@ -1273,11 +1311,7 @@ class User(AddRemoveMixin, StringIdModel, metaclass=ProtocolUserMeta):
         if not self.obj or not self.obj.as1:
             return None
 
-        for link in (util.get_list(self.obj.as1, 'url')
-                     + util.get_list(self.obj.as1, 'urls')):
-            if not isinstance(link, dict) or not link.get('rel'):
-                continue
-
+        for link in as1.get_rel_links(self.obj.as1):
             uri = link.get('value')
             if (uri and (uri.startswith(to_proto.URI_PREFIXES)
                          or link.get('mimeType') in to_proto.MIME_TYPES)

@@ -78,6 +78,10 @@ EXTERNAL_COPY_ACTOR = {
     'objectType': 'person',
     'urls': [{'value': 'efake:alice', 'rel': 'alternate'}],
 }
+CANONICAL_COPY_ACTOR = {
+    'objectType': 'person',
+    'urls': [{'value': 'unknown:alice', 'rel': 'canonical'}],
+}
 
 
 class UserTest(TestCase):
@@ -261,6 +265,30 @@ class UserTest(TestCase):
                        copies=[Target(uri='efake:ours', protocol='efake')])
         user = Fake.get_or_create('fake:a', enabled_protocols=['efake'])
         self.assertEqual([], user.enabled_protocols)
+
+    def test_get_or_create_existing_canonical_external_copy(self):
+        self.make_user('fake:a', cls=Fake, obj_as1=CANONICAL_COPY_ACTOR)
+
+        user = Fake.get_or_create('fake:a', enabled_protocols=['efake', 'other'])
+
+        self.assertEqual([], user.enabled_protocols)
+        self.assertEqual([], user.key.get().enabled_protocols)
+
+    def test_get_or_create_already_enabled_canonical_external_copy(self):
+        self.make_user('fake:a', cls=Fake, obj_as1=CANONICAL_COPY_ACTOR,
+                       enabled_protocols=['efake'])
+
+        user = Fake.get_or_create('fake:a', enabled_protocols=['efake'])
+
+        self.assertEqual(['efake'], user.enabled_protocols)
+
+    def test_get_or_create_new_canonical_external_copy(self):
+        Fake.fetchable = {'fake:profile:a': CANONICAL_COPY_ACTOR}
+
+        user = Fake.get_or_create('fake:a', enabled_protocols=['efake'])
+
+        self.assertEqual([], user.enabled_protocols)
+        self.assertEqual([], user.key.get().enabled_protocols)
 
     def test_get_or_create_existing_external_copy(self):
         self.make_user('fake:a', cls=Fake, obj_as1=EXTERNAL_COPY_ACTOR)
@@ -678,6 +706,32 @@ class UserTest(TestCase):
         self.assertEqual([DM(protocol='efake', type='welcome')],
                          user.key.get().sent_dms)
 
+    def test_enable_protocol_canonical_external_copy(self):
+        self.make_user('efake.brid.gy', cls=Web)
+        user = self.make_user('other:user', cls=OtherFake,
+                              obj_as1=CANONICAL_COPY_ACTOR)
+
+        with self.assertRaises(common.ErrorButDoNotRetryTask):
+            user.enable_protocol(ExplicitFake)
+
+        user = user.key.get()
+        self.assertEqual([], user.enabled_protocols)
+        self.assertEqual([], ExplicitFake.created_for)
+        self.assertEqual([DM(protocol='efake', type='canonical-external-copy')],
+                         user.sent_dms)
+        self.assert_sent(ExplicitFake, user, 'canonical-external-copy', "Hi! Your account can't be bridged to efake-phrase because it's a copy of unknown:alice. Bridge that account instead!")
+
+    def test_enable_protocol_canonical_external_copy_already_enabled(self):
+        self.make_user('efake.brid.gy', cls=Web)
+        user = self.make_user('other:user', cls=OtherFake,
+                              obj_as1=CANONICAL_COPY_ACTOR,
+                              enabled_protocols=['efake'],
+                              copies=[Target(uri='efake:ours', protocol='efake')])
+
+        user.enable_protocol(ExplicitFake)
+
+        self.assertEqual(['efake'], user.key.get().enabled_protocols)
+
     def test_enable_protocol_external_copy_escapes_uri(self):
         self.make_user('efake.brid.gy', cls=Web)
         user = self.make_user('other:user', cls=OtherFake, obj_as1={
@@ -761,6 +815,66 @@ class UserTest(TestCase):
             copies=[Target(uri='efake:ours', protocol='efake')],
             obj_as1=EXTERNAL_COPY_ACTOR)
         self.assertEqual('efake:alice', user.get_external_copy(ExplicitFake))
+
+    def test_get_canonical_external_copy(self):
+        for i, uri in enumerate(('at://did:plc:other', 'nostr:npub1other',
+                                 'unknown:other', 'https://twitter.com/alice')):
+            with self.subTest(uri=uri):
+                user = self.make_user(f'fake:user-{i}', cls=Fake, obj_as1={
+                    'objectType': 'person',
+                    'urls': [
+                        'http://in.st/alice',
+                        {'value': 'efake:alt', 'rel': 'alternate'},
+                        {'value': uri, 'rel': 'canonical'},
+                    ],
+                })
+                self.assertEqual(uri, user.get_canonical_external_copy())
+
+    def test_get_canonical_external_copy_in_url(self):
+        user = self.make_user('fake:user', cls=Fake, obj_as1={
+            'objectType': 'person',
+            'url': {'value': 'did:plc:other', 'rel': 'canonical'},
+        })
+        self.assertEqual('did:plc:other', user.get_canonical_external_copy())
+
+    def test_get_canonical_external_copy_no_profile(self):
+        user = self.make_user('fake:user', cls=Fake)
+        self.assertIsNone(user.get_canonical_external_copy())
+
+    def test_get_canonical_external_copy_alternate(self):
+        user = self.make_user('fake:user', cls=Fake, obj_as1=EXTERNAL_COPY_ACTOR)
+        self.assertIsNone(user.get_canonical_external_copy())
+
+    def test_get_canonical_external_copy_self(self):
+        user = self.make_user('fake:user', cls=Fake, obj_as1={
+            'objectType': 'person',
+            'url': {'value': 'fake:user', 'rel': 'canonical'},
+        })
+        self.assertIsNone(user.get_canonical_external_copy())
+
+    def test_get_canonical_external_copy_our_copy_on_other_protocol(self):
+        user = self.make_user(
+            'fake:user', cls=Fake,
+            copies=[Target(uri='did:plc:alice', protocol='atproto')],
+            obj_as1={
+                'objectType': 'person',
+                'url': {'value': 'at://did:plc:alice', 'rel': 'canonical'},
+            })
+        self.assertIsNone(user.get_canonical_external_copy())
+
+    def test_get_canonical_external_copy_same_host(self):
+        user = self.make_user('https://in.st/users/alice', cls=ActivityPub, obj_as1={
+            'objectType': 'person',
+            'url': {'value': 'https://in.st/@alice', 'rel': 'canonical'},
+        })
+        self.assertIsNone(user.get_canonical_external_copy())
+
+    def test_get_canonical_external_copy_other_host(self):
+        user = self.make_user('https://in.st/users/alice', cls=ActivityPub, obj_as1={
+            'objectType': 'person',
+            'url': {'value': 'https://ot.her/alice', 'rel': 'canonical'},
+        })
+        self.assertEqual('https://ot.her/alice', user.get_canonical_external_copy())
 
     def test_load_multi(self):
         # obj_key is None
@@ -1285,9 +1399,9 @@ class UserTest(TestCase):
     def test_load_user_activitypub_resolve_url_to_existing_user(self, _):
         user = self.make_user('https://mas.to/users/foo', cls=ActivityPub,
                               obj_as2=ACTOR)
-        self.assertEqual(user, models.load_user('https://mas.to/@foo',
-                                                proto=ActivityPub, create=True,
-                                                resolve=True))
+        stored = models.load_user('https://mas.to/@foo', proto=ActivityPub,
+                                  create=True, resolve=True)
+        self.assert_entities_equal(user, stored)
         self.assertEqual(['https://mas.to/users/foo'],
                          [u.key.id() for u in ActivityPub.query()])
 
