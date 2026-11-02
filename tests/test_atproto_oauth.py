@@ -386,7 +386,7 @@ class ATProtoOAuthTest(TestCase):
 
         state = parse_qs(urlparse(resp.headers['Location']).query)['state'][0]
         return self.client.get(
-            f'/oauth/atproto/authorize/indieauth/finish?code=my_code&state={state}',
+            f'/oauth/atproto/authorize/indieauth/finish?code=my_code&state={state}&iss=https://indielogin.com/',
             base_url='https://fed.brid.gy/')
 
     @patch.object(util.session, 'get',
@@ -720,7 +720,7 @@ app.example
                                 data={'me': 'https://alice.com', 'state': qs})
         state = parse_qs(urlparse(resp.headers['Location']).query)['state'][0]
         resp = self.client.get(
-            f'/oauth/atproto/authorize/indieauth/finish?code=my_code&state={state}',
+            f'/oauth/atproto/authorize/indieauth/finish?code=my_code&state={state}&iss=https://indielogin.com/',
             base_url='https://fed.brid.gy/')
         code = parse_qs(urlparse(resp.headers['Location']).query)['code'][0]
 

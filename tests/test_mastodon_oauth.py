@@ -68,7 +68,7 @@ class MastodonOAuthTest(TestCase):
 
         state = parse_qs(urlparse(location).query)['state'][0]
         return self.client.get(
-            f'/oauth/authorize/indieauth/finish?code=my_code&state={state}',
+            f'/oauth/authorize/indieauth/finish?code=my_code&state={state}&iss=https://indielogin.com/',
             base_url=BASE_URL)
 
     def login(self, client_id, authorize_qs=None):

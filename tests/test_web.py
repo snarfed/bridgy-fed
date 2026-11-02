@@ -11,6 +11,7 @@ from google.cloud.ndb.key import _MAX_KEYPART_BYTES
 from granary import as1, as2, atom, microformats2, rss
 from granary.source import html_to_text
 from oauth_dropins import indieauth
+from oauth_dropins.models import PkceCode
 from webutil import util
 from webutil import appengine_info
 from webutil.flask_util import APP_ENGINE_CRON_HEADER, NoContent
@@ -4375,18 +4376,15 @@ class IndieAuthTest(TestCase):
             'me': 'https://alice.com',
         })
         self.assertEqual(302, resp.status_code)
-        self.assertTrue(resp.headers['Location'].startswith(indieauth.INDIEAUTH_URL),
+        self.assertTrue(resp.headers['Location'].startswith(indieauth.INDIELOGIN_URL),
                         resp.headers['Location'])
 
     @patch.object(util.session, 'post', return_value=requests_response('me=https://alice.com'))
     @patch.object(util.session, 'get', return_value=requests_response(''))
     def test_callback(self, mock_get, mock_post):
-        state = util.encode_oauth_state({
-            'endpoint': indieauth.INDIEAUTH_URL,
-            'me': 'https://alice.com',
-            'state': '',
-        })
-        resp = self.client.get(f'/oauth/indieauth/finish?code=my_code&state={state}',
+        PkceCode(id='my_state', verifier='my_verifier', challenge='my_challenge',
+                 auth_endpoint=indieauth.INDIELOGIN_URL, me='https://alice.com').put()
+        resp = self.client.get('/oauth/indieauth/finish?code=my_code&state=my_state&iss=https://indielogin.com/',
                                base_url='https://fed.brid.gy/')
         self.assertEqual(302, resp.status_code)
         self.assertTrue(resp.headers['Location'].startswith('/settings'),
