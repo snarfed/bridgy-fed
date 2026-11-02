@@ -2885,6 +2885,59 @@ cast_add_body { text: "hi" }
         obj.copies.append(Target(uri='fake:foo', protocol='fake'))
         self.assertEqual('fake:foo', obj.get_copy(Fake))
 
+    def test_get_external_copy(self):
+        obj = Object(id='fake:post', source_protocol='fake', our_as1={
+            'objectType': 'note',
+            'url': 'http://in.st/post',
+            'urls': [
+                'http://in.st/post',
+                {'value': 'at://did:plc:alice/app.bsky.feed.post/123',
+                 'rel': 'alternate'},
+                {'value': 'nostr:note1post', 'rel': 'alternate'},
+                {
+                    'value': 'http://ot.her/post',
+                    'rel': 'canonical',
+                    'mimeType': 'application/activity+json',
+                },
+            ],
+        })
+        self.assertEqual('at://did:plc:alice/app.bsky.feed.post/123',
+                         obj.get_external_copy(ATProto))
+        self.assertEqual('nostr:note1post', obj.get_external_copy(Nostr))
+        self.assertEqual('http://ot.her/post', obj.get_external_copy(ActivityPub))
+        self.assertIsNone(obj.get_external_copy(Farcaster))
+
+    def test_get_external_copy_in_url(self):
+        obj = Object(id='fake:post', source_protocol='fake', our_as1={
+            'objectType': 'note',
+            'url': {'value': 'nostr:note1post', 'rel': 'canonical'},
+        })
+        self.assertEqual('nostr:note1post', obj.get_external_copy(Nostr))
+
+    def test_get_external_copy_no_as1(self):
+        self.assertIsNone(Object(id='fake:post').get_external_copy(ATProto))
+
+    def test_get_external_copy_not_proxy_link(self):
+        obj = Object(id='fake:post', source_protocol='fake', our_as1={
+            'objectType': 'note',
+            'urls': ['nostr:note1a', {'value': 'nostr:note1b'}],
+        })
+        self.assertIsNone(obj.get_external_copy(Nostr))
+
+    def test_get_external_copy_our_copy(self):
+        obj = Object(id='fake:post', source_protocol='fake', our_as1={
+            'objectType': 'note',
+            'urls': [{'value': 'nostr:note1post', 'rel': 'alternate'}],
+        }, copies=[Target(uri='nostr:note1ours', protocol='nostr')])
+        self.assertIsNone(obj.get_external_copy(Nostr))
+
+    def test_get_external_copy_source_protocol(self):
+        obj = Object(id='nostr:note1post', source_protocol='nostr', our_as1={
+            'objectType': 'note',
+            'urls': [{'value': 'nostr:note1other', 'rel': 'alternate'}],
+        })
+        self.assertIsNone(obj.get_external_copy(Nostr))
+
     def test_get_copy_atproto_article_prefers_document(self):
         obj = Object(id='x', source_protocol='web', our_as1={'objectType': 'article'})
         obj.copies = [

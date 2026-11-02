@@ -2090,6 +2090,27 @@ class Object(AddRemoveMixin, StringIdModel):
           <span style="unicode-bidi: isolate">{html.escape(util.ellipsize(name, chars=40), quote=False)}</span>
         </a>"""
 
+    def get_external_copy(self, to_proto):
+        """Returns this object's copy in a given protocol that we don't manage, if any.
+
+        For example, if this object was bridged by another bridge, or published by a
+        multi-protocol server, eg with
+        `FEP-fffd proxy links <https://codeberg.org/fediverse/fep/src/branch/main/fep/fffd/fep-fffd.md>`_ .
+
+        Args:
+          to_proto (:class:`Protocol` subclass)
+
+        Returns:
+          str: URI of the copy, or None if this object doesn't link to one, or if
+            it's native to ``to_proto`` or we've already bridged it there
+        """
+        if not self.as1 or self.get_copy(to_proto):
+            return None
+
+        if links := as1.get_rel_links(self.as1, url_prefixes=to_proto.URI_PREFIXES,
+                                      mime_types=to_proto.MIME_TYPES):
+            return links[0]['value']
+
     def get_copy(self, proto):
         """Returns the id for the copy of this object in a given protocol.
 
