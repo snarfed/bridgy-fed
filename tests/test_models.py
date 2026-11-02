@@ -816,6 +816,52 @@ class UserTest(TestCase):
             obj_as1=EXTERNAL_COPY_ACTOR)
         self.assertEqual('efake:alice', user.get_external_copy(ExplicitFake))
 
+    def test_get_external_copy_enabled_no_copy(self):
+        user = self.make_user('fake:user', cls=Fake, enabled_protocols=['efake'],
+                              copies=[], obj_as1=EXTERNAL_COPY_ACTOR)
+        self.assertEqual('efake:alice', user.get_external_copy(ExplicitFake))
+
+    def test_get_external_copy_protocol_without_copies(self):
+        actor = {
+            'objectType': 'person',
+            'urls': [{
+                'value': 'http://in.st/alice',
+                'rel': 'alternate',
+                'mimeType': 'application/activity+json',
+            }],
+        }
+        user = self.make_user('fake:user', cls=Fake, obj_as1=actor)
+        self.assertEqual('http://in.st/alice', user.get_external_copy(ActivityPub))
+
+        user = self.make_user('fake:enabled', cls=Fake, obj_as1=actor,
+                              enabled_protocols=['activitypub'])
+        self.assertIsNone(user.get_external_copy(ActivityPub))
+
+    def test_get_external_copy_our_copy_other_form(self):
+        for proto, copy, link in (
+            (ATProto, 'did:plc:alice', 'at://did:plc:alice/app.bsky.actor.profile/self'),
+            (Nostr, PUBKEY_URI, NPUB_URI),
+        ):
+            with self.subTest(link=link):
+                user = self.make_user(
+                    f'fake:{proto.LABEL}', cls=Fake,
+                    copies=[Target(uri=copy, protocol=proto.LABEL)],
+                    obj_as1={
+                        'objectType': 'person',
+                        'urls': [{'value': link, 'rel': 'alternate'}],
+                    })
+                self.assertIsNone(user.get_external_copy(proto))
+
+    def test_get_external_copy_similar_to_our_copy(self):
+        user = self.make_user(
+            'fake:user', cls=Fake,
+            copies=[Target(uri='did:web:foo.com', protocol='atproto')],
+            obj_as1={
+                'objectType': 'person',
+                'urls': [{'value': 'did:web:foo.com.evil.net', 'rel': 'alternate'}],
+            })
+        self.assertEqual('did:web:foo.com.evil.net', user.get_external_copy(ATProto))
+
     def test_get_canonical_external_copy(self):
         for i, uri in enumerate(('at://did:plc:other', 'nostr:npub1other',
                                  'unknown:other', 'https://twitter.com/alice')):
@@ -867,7 +913,7 @@ class UserTest(TestCase):
             'objectType': 'person',
             'url': {'value': 'https://in.st/@alice', 'rel': 'canonical'},
         })
-        self.assertIsNone(user.get_canonical_external_copy())
+        self.assertEqual('https://in.st/@alice', user.get_canonical_external_copy())
 
     def test_get_canonical_external_copy_other_host(self):
         user = self.make_user('https://in.st/users/alice', cls=ActivityPub, obj_as1={
@@ -875,6 +921,52 @@ class UserTest(TestCase):
             'url': {'value': 'https://ot.her/alice', 'rel': 'canonical'},
         })
         self.assertEqual('https://ot.her/alice', user.get_canonical_external_copy())
+
+    def test_get_canonical_external_copy_self_other_form(self):
+        user = self.make_user('did:plc:alice', cls=ATProto, obj_as1={
+            'objectType': 'person',
+            'url': {'value': 'at://did:plc:alice', 'rel': 'canonical'},
+        })
+        self.assertIsNone(user.get_canonical_external_copy())
+
+    def test_get_canonical_external_copy_web_same_domain(self):
+        user = self.make_user('foo.com', cls=Web, obj_as1={
+            'objectType': 'person',
+            'id': 'https://foo.com/',
+            'urls': [{'value': 'https://foo.com/about', 'rel': 'canonical'}],
+        })
+        self.assertIsNone(user.get_canonical_external_copy())
+
+    def test_get_canonical_external_copy_web_similar_domain(self):
+        for uri in 'https://notfoo.com/', 'https://ot.her/foo.com':
+            with self.subTest(uri=uri):
+                user = self.make_user('foo.com', cls=Web, obj_as1={
+                    'objectType': 'person',
+                    'id': 'https://foo.com/',
+                    'urls': [{'value': uri, 'rel': 'canonical'}],
+                })
+                self.assertEqual(uri, user.get_canonical_external_copy())
+
+    def test_get_canonical_external_copy_our_copy_other_form(self):
+        user = self.make_user(
+            'fake:user', cls=Fake,
+            copies=[Target(uri=PUBKEY_URI, protocol='nostr')],
+            obj_as1={
+                'objectType': 'person',
+                'url': {'value': NPUB_URI, 'rel': 'canonical'},
+            })
+        self.assertIsNone(user.get_canonical_external_copy())
+
+    def test_get_canonical_external_copy_similar_to_our_copy(self):
+        user = self.make_user(
+            'fake:user', cls=Fake,
+            copies=[Target(uri='did:web:foo.com', protocol='atproto')],
+            obj_as1={
+                'objectType': 'person',
+                'url': {'value': 'did:web:foo.com.evil.net', 'rel': 'canonical'},
+            })
+        self.assertEqual('did:web:foo.com.evil.net',
+                         user.get_canonical_external_copy())
 
     def test_load_multi(self):
         # obj_key is None

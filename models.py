@@ -1269,8 +1269,7 @@ class User(AddRemoveMixin, StringIdModel, metaclass=ProtocolUserMeta):
         different network. Unlike :meth:`get_external_copy`, this is independent of
         any specific protocol, and may be on a protocol that we don't support.
 
-        A canonical link to this user itself, one of its copies, or a web URL on
-        this user's host doesn't count.
+        A canonical link to this user itself or one of its copies doesn't count.
 
         Returns:
           str: URI of the canonical copy, or None
@@ -1278,13 +1277,11 @@ class User(AddRemoveMixin, StringIdModel, metaclass=ProtocolUserMeta):
         if not self.obj or not self.obj.as1:
             return None
 
-        id = self.key.id()
-        ours = [id] + [copy.uri for copy in self.copies]
+        ours = self.copies + [Target(uri=self.key.id(), protocol=self.LABEL)]
         for link in as1.get_rel_links(self.obj.as1, rels=('canonical',)):
             uri = link['value']
-            if (not any(our_id in uri for our_id in ours)
-                    and not (util.is_web(uri) and util.is_web(id)
-                             and util.domain_from_link(uri) == util.domain_from_link(id))):
+            if not any(ids.normalize_user_id(id=uri, proto=PROTOCOLS[t.protocol]) == t.uri
+                       for t in ours):
                 return uri
 
     def get_external_copy(self, to_proto):
@@ -1304,8 +1301,9 @@ class User(AddRemoveMixin, StringIdModel, metaclass=ProtocolUserMeta):
           str: URI of the copy, or None if this user's profile doesn't show
             that they're on ``to_proto``, or if we're already bridging them there
         """
-        our_copy = self.get_copy(to_proto)
-        if our_copy and to_proto.LABEL in self.enabled_protocols:
+        ours = self.get_copy(to_proto)
+        if (to_proto.LABEL in self.enabled_protocols
+                and (ours or not to_proto.HAS_COPIES)):
             return None
 
         if not self.obj or not self.obj.as1:
@@ -1314,8 +1312,9 @@ class User(AddRemoveMixin, StringIdModel, metaclass=ProtocolUserMeta):
         for link in as1.get_rel_links(self.obj.as1,
                                       url_prefixes=to_proto.URI_PREFIXES,
                                       mime_types=to_proto.MIME_TYPES):
-            if not (our_copy and our_copy in link['value']):
-                return link['value']
+            uri = link['value']
+            if not ours or ids.normalize_user_id(id=uri, proto=to_proto) != ours:
+                return uri
 
     def get_copy(self, proto):
         """Returns the id for the copy of this user in a given protocol.
@@ -2097,12 +2096,16 @@ class Object(AddRemoveMixin, StringIdModel):
         multi-protocol server, eg with
         `FEP-fffd proxy links <https://codeberg.org/fediverse/fep/src/branch/main/fep/fffd/fep-fffd.md>`_ .
 
+        If ``to_proto`` doesn't use copies, eg ActivityPub or Web, this can't tell
+        whether we've bridged this object there. Callers need to check that
+        themselves, eg whether its owner is enabled for ``to_proto``.
+
         Args:
           to_proto (:class:`Protocol` subclass)
 
         Returns:
           str: URI of the copy, or None if this object doesn't link to one, or if
-            it's native to ``to_proto`` or we've already bridged it there
+            it's native to ``to_proto`` or we have a copy of it there
         """
         if not self.as1 or self.get_copy(to_proto):
             return None
