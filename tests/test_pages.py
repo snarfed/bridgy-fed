@@ -1347,7 +1347,11 @@ class PagesTest(TestCase):
     def test_unblock_atproto_unrecognized(self):
         self._test_block_or_unblock_atproto_unrecognized('/settings/unblock')
 
-    def _test_block_or_unblock_atproto_unrecognized(self, path):
+    # after the target isn't recognized as an ATProto id, we try to fetch it
+    # as a CSV blocklist URL
+    @patch.object(util.session, 'get', return_value=requests_response(
+        '<html></html>', headers={'Content-Type': 'text/html'}))
+    def _test_block_or_unblock_atproto_unrecognized(self, path, mock_get):
         user, _ = self.make_logged_in_mastodon_user(enabled_protocols=['atproto'])
 
         resp = self.client.post(path, data={
