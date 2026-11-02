@@ -1281,8 +1281,8 @@ class User(AddRemoveMixin, StringIdModel, metaclass=ProtocolUserMeta):
         id = self.key.id()
         ours = [id] + [copy.uri for copy in self.copies]
         for link in as1.get_rel_links(self.obj.as1, rels=('canonical',)):
-            uri = link.get('value')
-            if (uri and not any(our_id in uri for our_id in ours)
+            uri = link['value']
+            if (not any(our_id in uri for our_id in ours)
                     and not (util.is_web(uri) and util.is_web(id)
                              and util.domain_from_link(uri) == util.domain_from_link(id))):
                 return uri
@@ -1311,12 +1311,11 @@ class User(AddRemoveMixin, StringIdModel, metaclass=ProtocolUserMeta):
         if not self.obj or not self.obj.as1:
             return None
 
-        for link in as1.get_rel_links(self.obj.as1):
-            uri = link.get('value')
-            if (uri and (uri.startswith(to_proto.URI_PREFIXES)
-                         or link.get('mimeType') in to_proto.MIME_TYPES)
-                    and not (our_copy and our_copy in uri)):
-                return uri
+        for link in as1.get_rel_links(self.obj.as1,
+                                      url_prefixes=to_proto.URI_PREFIXES,
+                                      mime_types=to_proto.MIME_TYPES):
+            if not (our_copy and our_copy in link['value']):
+                return link['value']
 
     def get_copy(self, proto):
         """Returns the id for the copy of this user in a given protocol.
