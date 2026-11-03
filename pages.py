@@ -34,7 +34,7 @@ from webutil.flask_util import (
     MovedPermanently,
 )
 import werkzeug.exceptions
-from werkzeug.exceptions import NotFound
+from werkzeug.exceptions import BadGateway, NotFound
 
 import activitypub
 from activitypub import ActivityPub
@@ -335,8 +335,19 @@ def settings():
         if user_key := login_to_user_key(login):
             if login.key == logged_in_as:
                 cls = Model._lookup_model(user_key.kind())
-                user = cls.get_or_create(id=user_key.id(), allow_opt_out=True,
-                                         reload=True)
+                try:
+                    user = cls.get_or_create(id=user_key.id(), allow_opt_out=True,
+                                             reload=True, raise_=True)
+                except (requests.RequestException, werkzeug.exceptions.HTTPException,
+                        RuntimeError) as e:
+                    name = login.user_display_name()
+                    if (isinstance(e, BadGateway) and e.requests_response is not None
+                            and e.requests_response.status_code in (401, 403)):
+                        flash(f"Couldn't load {name} from {login.site_name()}; you or your server may be blocking Bridgy Fed.")
+                    else:
+                        flash(f"Couldn't load {name} from {login.site_name()}.")
+                    if not (user := user_key.get()):
+                        continue
                 user.logo = site_logo(login)
                 users.append(user)
             else:
@@ -559,6 +570,12 @@ def migrate_to_activitypub(user=None):
     except (AttributeError, RuntimeError, ValueError) as err:
         flash(str(err))
         return redirect('/settings')
+    except BadGateway as err:
+        if (err.requests_response is not None
+                and err.requests_response.status_code in (401, 403)):
+            flash(f"Couldn't load {handle}; you or your server may be blocking Bridgy Fed.")
+            return redirect('/settings')
+        raise
 
     try:
         ActivityPub.check_can_migrate_out(user, to_user.key.id())

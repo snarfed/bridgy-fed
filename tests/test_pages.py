@@ -1062,6 +1062,48 @@ class PagesTest(TestCase):
             'cid': 'bafyreigd',
         }, user.obj.bsky)
 
+    @patch.object(util.session, 'get', return_value=requests_response(
+        '{"error":"Public key not found"}', status=403))
+    def test_settings_on_login_blocked(self, _):
+        user, auth = self.make_logged_in_mastodon_user()
+
+        resp = self.client.get(f'/settings?auth_entity={auth.urlsafe().decode()}')
+        self.assertEqual(200, resp.status_code)
+        self.assertEqual(["Couldn't load @a@b.c from Mastodon; you or your server may be blocking Bridgy Fed."],
+                         get_flashed_messages())
+        self.assert_multiline_in('@a@b.c', resp.get_data(as_text=True))
+
+    @patch.object(util.session, 'get', return_value=requests_response(status=401))
+    def test_settings_on_login_create_new_user_blocked(self, _):
+        auth = MastodonAuth(id='@a@b.c', access_token_str='',
+                            user_json='{"uri":"http://b.c/a"}').put()
+        with self.client.session_transaction() as sess:
+            sess[LOGINS_SESSION_KEY] = [('MastodonAuth', '@a@b.c')]
+
+        resp = self.client.get(f'/settings?auth_entity={auth.urlsafe().decode()}')
+        self.assertEqual(302, resp.status_code)
+        self.assertEqual('/login', resp.headers['Location'])
+        self.assertEqual(["Couldn't load @a@b.c from Mastodon; you or your server may be blocking Bridgy Fed."],
+                         get_flashed_messages())
+        self.assertIsNone(ActivityPub.get_by_id('http://b.c/a', allow_opt_out=True))
+
+    @patch.object(util.session, 'get', return_value=requests_response(status=500))
+    def test_settings_on_login_fetch_fails(self, _):
+        user, auth = self.make_logged_in_mastodon_user()
+
+        resp = self.client.get(f'/settings?auth_entity={auth.urlsafe().decode()}')
+        self.assertEqual(200, resp.status_code)
+        self.assertEqual(["Couldn't load @a@b.c from Mastodon."], get_flashed_messages())
+
+    @patch.object(util.session, 'get', return_value=requests_response(
+        '<html></html>', content_type='text/html'))
+    def test_settings_on_login_not_actor(self, _):
+        user, auth = self.make_logged_in_mastodon_user()
+
+        resp = self.client.get(f'/settings?auth_entity={auth.urlsafe().decode()}')
+        self.assertEqual(200, resp.status_code)
+        self.assertEqual(["Couldn't load @a@b.c from Mastodon."], get_flashed_messages())
+
     def test_settings_bad_auth_entity(self):
         self.make_logged_in_mastodon_user()
 
@@ -1456,6 +1498,21 @@ class PagesTest(TestCase):
         self.assertEqual(200, resp.status_code)
         self.assertIn('In the account settings for <code>@&lt;script&gt;alert(1)&lt;/script&gt;@in.st</code>',
                       resp.get_data(as_text=True))
+
+    @patch.object(util.session, 'get', return_value=requests_response(status=403))
+    def test_migrate_to_activitypub_blocked(self, _):
+        user, _ = self.make_logged_in_bluesky_user(enabled_protocols=['activitypub'])
+
+        resp = self.client.post('/settings/migrate-to-activitypub', data={
+            'key': user.key.urlsafe().decode(),
+            'handle': 'http://in.st/carol',
+        })
+        self.assertEqual(302, resp.status_code)
+        self.assertEqual('/settings', resp.headers['Location'])
+        self.assertEqual(
+            ["Couldn't load http://in.st/carol; they or their server may be blocking Bridgy Fed."],
+            get_flashed_messages())
+        self.assertNotIn('movedTo', user.obj.key.get().as1)
 
     def test_migrate_to_activitypub_not_logged_in(self):
         resp = self.client.post('/settings/migrate-to-activitypub', data={

@@ -11,7 +11,7 @@ from oauth_dropins.bluesky import BlueskyAuth
 from requests import HTTPError
 from webutil import util
 from webutil.util import json_dumps
-from werkzeug.exceptions import BadRequest
+from werkzeug.exceptions import BadGateway, BadRequest
 
 from collections import namedtuple
 import common
@@ -320,6 +320,11 @@ def migrate_to_activitypub(from_user, to_proto, handle):
                                    allow_opt_out=True, raise_=True, resolve=True)
     except (AttributeError, RuntimeError, ValueError) as err:
         return str(err)
+    except BadGateway as err:
+        if (err.requests_response is not None
+                and err.requests_response.status_code in (401, 403)):
+            return f"Couldn't load {handle}; they or their server may be blocking Bridgy Fed."
+        raise
     assert to_user
 
     logger.info(f'Migrating out {from_user.key.id()} to {to_user.key.id()}')

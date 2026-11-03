@@ -387,6 +387,24 @@ class FollowTest(TestCase):
         self.assertEqual(302, resp.status_code)
         self.assertEqual('/web/alice.com/following', resp.headers['Location'])
 
+    def test_callback_followee_fetch_403_blocked(self, mock_get, mock_post):
+        mock_post.return_value = requests_response('me=https://alice.com')
+        mock_get.side_effect = [
+            requests_response(''),  # IndieAuth endpoint discovery
+            WEBFINGER,
+            requests_response('{"error":"Public key not found"}', status=403),
+        ]
+
+        state = store_indieauth_state(self.state['state'])
+        resp = self.client.get(f'/follow/callback?code=my_code&state={state}',
+                               base_url='https://fed.brid.gy/')
+
+        self.assertEqual(302, resp.status_code)
+        self.assertEqual('/web/alice.com/following', resp.headers['Location'])
+        self.assertEqual(["Couldn't load @foo@ba.r; they or their server may be blocking Bridgy Fed."],
+                         get_flashed_messages())
+        self.assertEqual([], Follower.query().fetch())
+
     def check(self, input, resp, expected_follow, mock_get, mock_post,
               fetched_followee=True, expected_follow_as1=None):
         self.assertEqual(302, resp.status_code)
@@ -628,6 +646,27 @@ class UnfollowTest(TestCase):
         resp = self.client.get(f'/unfollow/callback?code=my_code&state={self.state}',
                                base_url='https://fed.brid.gy/')
         self.check(resp, undo, mock_get, mock_post)
+
+    def test_callback_followee_fetch_401_blocked(self, mock_get, mock_post):
+        to = self.follower.to.get()
+        to.obj.key.delete()
+        to.obj = None
+        to.put()
+
+        mock_get.side_effect = [
+            requests_response(''),  # IndieAuth endpoint discovery
+            requests_response('', status=401),  # actor fetch
+        ]
+        mock_post.return_value = requests_response('me=https://alice.com')
+
+        resp = self.client.get(f'/unfollow/callback?code=my_code&state={self.state}',
+                               base_url='https://fed.brid.gy/')
+
+        self.assertEqual(302, resp.status_code)
+        self.assertEqual('/web/alice.com/following', resp.headers['Location'])
+        self.assertEqual(["Couldn't load https://ba.r/id; they or their server may be blocking Bridgy Fed."],
+                         get_flashed_messages())
+        self.assertEqual('active', self.follower.key.get().status)
 
     def check(self, resp, expected_undo, mock_get, mock_post):
         self.assertEqual(302, resp.status_code)

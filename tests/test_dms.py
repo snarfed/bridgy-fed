@@ -1196,6 +1196,20 @@ Hi! I'm a friendly bot that can help you bridge your account into the fediverse.
             ActivityPub, alice, '?',
             "First, you'll need to <a href='https://docs.joinmastodon.org/user/moving/#summary'>add an alias</a> to that account.")
 
+    @patch.object(util.session, 'get', return_value=requests_response(status=403))
+    def test_receive_migrate_to_activitypub_blocked(self, _):
+        alice, bob = self.make_alice_bob(alice_enabled=ActivityPub)
+
+        obj = Object(our_as1={
+            **DM_BASE,
+            'to': ['ap.brid.gy'],
+            'content': 'migrate-to http://in.st/carol',
+        })
+        self.assertEqual(('OK', 200), receive(from_user=alice, obj=obj))
+        self.assert_replied(
+            ActivityPub, alice, '?',
+            "Couldn't load http://in.st/carol; they or their server may be blocking Bridgy Fed.")
+
     @patch.object(tasks_client, 'create_task')
     @patch.object(ATProto, 'migrate_out')
     @patch.object(ATProto, 'create_account_for_migrate_out')

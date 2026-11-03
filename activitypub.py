@@ -692,8 +692,8 @@ class ActivityPub(User, Protocol):
         try:
             resp = signed_get(url, headers=headers, gateway=True)
         except BadGateway as e:
-            # ugh, this is ugly, should be something structured
-            if '406 Client Error' in str(e):
+            if (e.requests_response is not None
+                    and e.requests_response.status_code == 406):
                 return resp, None
             raise
 
