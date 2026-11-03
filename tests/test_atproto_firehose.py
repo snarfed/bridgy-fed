@@ -57,7 +57,7 @@ def setup_firehose():
     atproto_firehose.protocol_bot_dids = set()
     atproto_firehose.dids_initialized.clear()
 
-    cursor = Cursor(id='bgs.local com.atproto.sync.subscribeRepos')
+    cursor = Cursor(id='bgs.invalid com.atproto.sync.subscribeRepos')
     cursor.put()
     return cursor
 
@@ -190,7 +190,7 @@ class ATProtoFirehoseSubscribeTest(ATProtoTestCase):
         self.subscribe()
         self.assertTrue(events.empty())
         self.assertEqual(
-            'https://bgs.local/xrpc/com.atproto.sync.subscribeRepos?cursor=445',
+            'https://bgs.invalid/xrpc/com.atproto.sync.subscribeRepos?cursor=445',
             FakeWebsocketClient.url)
 
     def test_non_commit(self):
@@ -201,7 +201,7 @@ class ATProtoFirehoseSubscribeTest(ATProtoTestCase):
 
         self.subscribe()
         self.assertTrue(events.empty())
-        self.assertEqual('https://bgs.local/xrpc/com.atproto.sync.subscribeRepos',
+        self.assertEqual('https://bgs.invalid/xrpc/com.atproto.sync.subscribeRepos',
                          FakeWebsocketClient.url)
 
     def test_post_by_our_atproto_user(self):
@@ -651,7 +651,7 @@ class ATProtoFirehoseSubscribeTest(ATProtoTestCase):
 
         self.assertTrue(events.empty())
         self.assertEqual(
-            'https://bgs.local/xrpc/com.atproto.sync.subscribeRepos?cursor=2',
+            'https://bgs.invalid/xrpc/com.atproto.sync.subscribeRepos?cursor=2',
             FakeWebsocketClient.url)
 
         self.assert_enqueues(action='update', record={
@@ -659,7 +659,7 @@ class ATProtoFirehoseSubscribeTest(ATProtoTestCase):
             'subject': {'uri': 'at://did:plc:alice/app.bsky.feed.post/tid'},
         })
         self.assertEqual(
-            'https://bgs.local/xrpc/com.atproto.sync.subscribeRepos?cursor=5',
+            'https://bgs.invalid/xrpc/com.atproto.sync.subscribeRepos?cursor=5',
             FakeWebsocketClient.url)
 
     @patch.object(common.error_reporting_client, 'report_exception')

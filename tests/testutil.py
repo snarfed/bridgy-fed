@@ -432,24 +432,26 @@ class TestCase(unittest.TestCase, testutil.Asserts):
         self.request_context = app.test_request_context('/')
         self.request_context.push()
 
-        # arroba etc config
+        # arroba etc config. use .invalid, not .local, so that unmocked fetches
+        # fail fast. (.local goes to mDNS on macOS.)
+        # https://www.rfc-editor.org/rfc/rfc6761#section-6.4
         os.environ.update({
-            'APPVIEW_HOST': 'appview.local',
-            'BGS_HOST': 'bgs.local',
-            'PDS_HOST': 'pds.local',
-            'PLC_HOST': 'plc.local',
-            'MOD_SERVICE_HOST': 'mod.service.local',
+            'APPVIEW_HOST': 'appview.invalid',
+            'BGS_HOST': 'bgs.invalid',
+            'PDS_HOST': 'pds.invalid',
+            'PLC_HOST': 'plc.invalid',
+            'MOD_SERVICE_HOST': 'mod.service.invalid',
             'MOD_SERVICE_DID': 'did:mod-service',
-            'CHAT_HOST': 'chat.local',
+            'CHAT_HOST': 'chat.invalid',
             'CHAT_DID': 'did:chat',
-            'SNAPCHAIN_HOST': 'snapchain.local',
+            'SNAPCHAIN_HOST': 'snapchain.invalid',
         })
-        atproto.appview.address = 'https://appview.local'
+        atproto.appview.address = 'https://appview.invalid'
         atproto.init(MemcacheSequences)
 
         # farcaster
         farcaster.SNAPCHAIN_HOST = granary.farcaster.DEFAULT_SNAPCHAIN_HOST = \
-            'snapchain.local'
+            'snapchain.invalid'
 
         # nostr fake websocket
         FakeConnection.reset()

@@ -1029,7 +1029,7 @@ class IntegrationTests(TestCase):
 
         # "you replied to a bridged user" DM to alice
         args, kwargs = mock_post.call_args_list[1]
-        self.assertEqual(('https://chat.local/xrpc/chat.bsky.convo.sendMessage',), args)
+        self.assertEqual(('https://chat.invalid/xrpc/chat.bsky.convo.sendMessage',), args)
         text = kwargs['json']['message']['text']
         self.assertTrue(text.startswith("""Hi! You recently replied to My Name · @bob@inst, who's bridged here from the fediverse."""), text)
 
@@ -1377,7 +1377,7 @@ class IntegrationTests(TestCase):
         self.assertEqual('did:plc:ap', repos[0].did)
 
         self.assertEqual(2, mock_post.call_count)
-        self.assertEqual(('https://chat.local/xrpc/chat.bsky.convo.sendMessage',),
+        self.assertEqual(('https://chat.invalid/xrpc/chat.bsky.convo.sendMessage',),
                          mock_post.call_args_list[0][0])
 
         # unbridged reply notif
@@ -1655,10 +1655,10 @@ class IntegrationTests(TestCase):
             'Authorization': ANY,
         }
         mock_get.assert_any_call(
-            'https://chat.local/xrpc/chat.bsky.convo.getConvoForMembers?members=did%3Aplc%3Aalice',
+            'https://chat.invalid/xrpc/chat.bsky.convo.getConvoForMembers?members=did%3Aplc%3Aalice',
             json=None, data=None, headers=headers)
         mock_post.assert_called_with(
-            'https://chat.local/xrpc/chat.bsky.convo.sendMessage',
+            'https://chat.invalid/xrpc/chat.bsky.convo.sendMessage',
             json={
                 'convoId': 'convo123',
                 'message': {
@@ -2122,7 +2122,7 @@ class IntegrationTests(TestCase):
 
         # confirmation reply DM sent to alice over Bluesky chat
         sends = [c for c in mock_post.call_args_list
-                 if c.args == ('https://chat.local/xrpc/chat.bsky.convo.sendMessage',)]
+                 if c.args == ('https://chat.invalid/xrpc/chat.bsky.convo.sendMessage',)]
         self.assertEqual(1, len(sends), mock_post.call_args_list)
         self.assertEqual(
             "OK, we'll migrate your bridged account on the fediverse to "
@@ -2854,7 +2854,7 @@ class IntegrationTests(TestCase):
         self.assertTrue(user.is_enabled(ATProto))
 
         mock_post.assert_called_with(
-            'https://mod.service.local/xrpc/com.atproto.moderation.createReport',
+            'https://mod.service.invalid/xrpc/com.atproto.moderation.createReport',
             json={
                 '$type': 'com.atproto.moderation.createReport#input',
                 'reasonType': 'com.atproto.moderation.defs#reasonOther',
