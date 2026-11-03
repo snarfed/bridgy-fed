@@ -1510,7 +1510,7 @@ class PagesTest(TestCase):
         self.assertEqual(302, resp.status_code)
         self.assertEqual('/settings', resp.headers['Location'])
         self.assertEqual(
-            ["Couldn't load http://in.st/carol; they or their server may be blocking Bridgy Fed."],
+            ["Couldn't load http://in.st/carol; you or your server may be blocking Bridgy Fed."],
             get_flashed_messages())
         self.assertNotIn('movedTo', user.obj.key.get().as1)
 
