@@ -64,6 +64,7 @@ from domains import (
     DOMAIN_RE,
     PRIMARY_DOMAIN,
     PROTOCOL_DOMAINS,
+    SUPERDOMAIN,
     unwrap,
 )
 import ids
@@ -1269,7 +1270,8 @@ class User(AddRemoveMixin, StringIdModel, metaclass=ProtocolUserMeta):
         different network. Unlike :meth:`get_external_copy`, this is independent of
         any specific protocol, and may be on a protocol that we don't support.
 
-        A canonical link to this user itself or one of its copies doesn't count.
+        A canonical link to this user itself, one of its copies, or anything else
+        on our domains doesn't count.
 
         Returns:
           str: URI of the canonical copy, or None
@@ -1280,6 +1282,8 @@ class User(AddRemoveMixin, StringIdModel, metaclass=ProtocolUserMeta):
         ours = self.copies + [Target(uri=self.key.id(), protocol=self.LABEL)]
         for link in as1.get_rel_links(self.obj.as1, rels=('canonical',)):
             uri = link['value']
+            if util.domain_or_parent_in(uri, [SUPERDOMAIN]):
+                continue
             if not any(ids.normalize_user_id(id=uri, proto=PROTOCOLS[t.protocol]) == t.uri
                        for t in ours):
                 return uri
@@ -1297,6 +1301,8 @@ class User(AddRemoveMixin, StringIdModel, metaclass=ProtocolUserMeta):
         Args:
           to_proto (:class:`Protocol` subclass)
 
+        Links on our domains don't count.
+
         Returns:
           str: URI of the copy, or None if this user's profile doesn't show
             that they're on ``to_proto``, or if we're already bridging them there
@@ -1313,6 +1319,8 @@ class User(AddRemoveMixin, StringIdModel, metaclass=ProtocolUserMeta):
                                       url_prefixes=to_proto.URI_PREFIXES,
                                       mime_types=to_proto.MIME_TYPES):
             uri = link['value']
+            if util.domain_or_parent_in(uri, [SUPERDOMAIN]):
+                continue
             if not ours or ids.normalize_user_id(id=uri, proto=to_proto) != ours:
                 return uri
 
@@ -2100,6 +2108,8 @@ class Object(AddRemoveMixin, StringIdModel):
         whether we've bridged this object there. Callers need to check that
         themselves, eg whether its owner is enabled for ``to_proto``.
 
+        Links on our domains don't count.
+
         Args:
           to_proto (:class:`Protocol` subclass)
 
@@ -2110,9 +2120,10 @@ class Object(AddRemoveMixin, StringIdModel):
         if not self.as1 or self.get_copy(to_proto):
             return None
 
-        if links := as1.get_rel_links(self.as1, url_prefixes=to_proto.URI_PREFIXES,
+        for link in as1.get_rel_links(self.as1, url_prefixes=to_proto.URI_PREFIXES,
                                       mime_types=to_proto.MIME_TYPES):
-            return links[0]['value']
+            if not util.domain_or_parent_in(link['value'], [SUPERDOMAIN]):
+                return link['value']
 
     def get_copy(self, proto):
         """Returns the id for the copy of this object in a given protocol.

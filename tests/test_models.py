@@ -837,6 +837,21 @@ class UserTest(TestCase):
                               enabled_protocols=['activitypub'])
         self.assertIsNone(user.get_external_copy(ActivityPub))
 
+    def test_get_external_copy_our_domain(self):
+        user = self.make_user('fake:user', cls=Fake, obj_as1={
+            'objectType': 'person',
+            'urls': [{
+                'value': 'https://fa.brid.gy/ap/fake:user',
+                'rel': 'alternate',
+                'mimeType': 'application/activity+json',
+            }, {
+                'value': 'at://user.fake.brid.gy',
+                'rel': 'alternate',
+            }],
+        })
+        self.assertIsNone(user.get_external_copy(ActivityPub))
+        self.assertIsNone(user.get_external_copy(ATProto))
+
     def test_get_external_copy_our_copy_other_form(self):
         for proto, copy, link in (
             (ATProto, 'did:plc:alice', 'at://did:plc:alice/app.bsky.actor.profile/self'),
@@ -967,6 +982,16 @@ class UserTest(TestCase):
             })
         self.assertEqual('did:web:foo.com.evil.net',
                          user.get_canonical_external_copy())
+
+    def test_get_canonical_external_copy_our_domain(self):
+        for i, uri in enumerate(('https://bsky.brid.gy/ap/did:plc:other',
+                                 'https://fed.brid.gy/other.com')):
+            with self.subTest(uri=uri):
+                user = self.make_user(f'fake:user{i}', cls=Fake, obj_as1={
+                    'objectType': 'person',
+                    'url': {'value': uri, 'rel': 'canonical'},
+                })
+                self.assertIsNone(user.get_canonical_external_copy())
 
     def test_load_multi(self):
         # obj_key is None
@@ -3029,6 +3054,18 @@ cast_add_body { text: "hi" }
             'urls': [{'value': 'nostr:note1other', 'rel': 'alternate'}],
         })
         self.assertIsNone(obj.get_external_copy(Nostr))
+
+    def test_get_external_copy_our_domain(self):
+        obj = Object(id='at://did:plc:alice/app.bsky.feed.post/123',
+                     source_protocol='atproto', our_as1={
+            'objectType': 'note',
+            'urls': [{
+                'value': 'https://bsky.brid.gy/convert/ap/at://did:plc:alice/app.bsky.feed.post/123',
+                'rel': 'alternate',
+                'mimeType': 'application/activity+json',
+            }],
+        })
+        self.assertIsNone(obj.get_external_copy(ActivityPub))
 
     def test_get_copy_atproto_article_prefers_document(self):
         obj = Object(id='x', source_protocol='web', our_as1={'objectType': 'article'})
