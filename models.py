@@ -1304,8 +1304,9 @@ class User(AddRemoveMixin, StringIdModel, metaclass=ProtocolUserMeta):
         Links on our domains don't count.
 
         Returns:
-          str: URI of the copy, or None if this user's profile doesn't show
-            that they're on ``to_proto``, or if we're already bridging them there
+          str: id of the copy, normalized with :func:`ids.normalize_user_id`, or
+            None if this user's profile doesn't show that they're on ``to_proto``,
+            or if we're already bridging them there
         """
         ours = self.get_copy(to_proto)
         if (to_proto.LABEL in self.enabled_protocols
@@ -1321,8 +1322,9 @@ class User(AddRemoveMixin, StringIdModel, metaclass=ProtocolUserMeta):
             uri = link['value']
             if util.domain_or_parent_in(uri, [SUPERDOMAIN]):
                 continue
-            if not ours or ids.normalize_user_id(id=uri, proto=to_proto) != ours:
-                return uri
+            normalized = ids.normalize_user_id(id=uri, proto=to_proto)
+            if normalized and normalized != ours:
+                return normalized
 
     def get_copy(self, proto):
         """Returns the id for the copy of this user in a given protocol.
@@ -2114,16 +2116,20 @@ class Object(AddRemoveMixin, StringIdModel):
           to_proto (:class:`Protocol` subclass)
 
         Returns:
-          str: URI of the copy, or None if this object doesn't link to one, or if
-            it's native to ``to_proto`` or we have a copy of it there
+          str: id of the copy, normalized with :func:`ids.normalize_object_id`, or
+            None if this object doesn't link to one, or if it's native to
+            ``to_proto`` or we have a copy of it there
         """
         if not self.as1 or self.get_copy(to_proto):
             return None
 
         for link in as1.get_rel_links(self.as1, url_prefixes=to_proto.URI_PREFIXES,
                                       mime_types=to_proto.MIME_TYPES):
-            if not util.domain_or_parent_in(link['value'], [SUPERDOMAIN]):
-                return link['value']
+            uri = link['value']
+            if util.domain_or_parent_in(uri, [SUPERDOMAIN]):
+                continue
+            if normalized := ids.normalize_object_id(id=uri, proto=to_proto):
+                return normalized
 
     def get_copy(self, proto):
         """Returns the id for the copy of this object in a given protocol.

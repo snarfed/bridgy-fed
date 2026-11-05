@@ -751,7 +751,7 @@ class UserTest(TestCase):
             'urls': [
                 'http://in.st/alice',
                 {'value': 'at://did:plc:alice', 'rel': 'alternate'},
-                {'value': 'nostr:npub1alice', 'rel': 'alternate'},
+                {'value': NPUB_URI, 'rel': 'alternate'},
                 {
                     'value': 'http://ot.her/alice',
                     'rel': 'canonical',
@@ -759,8 +759,8 @@ class UserTest(TestCase):
                 },
             ],
         })
-        self.assertEqual('at://did:plc:alice', user.get_external_copy(ATProto))
-        self.assertEqual('nostr:npub1alice', user.get_external_copy(Nostr))
+        self.assertEqual('did:plc:alice', user.get_external_copy(ATProto))
+        self.assertEqual(PUBKEY_URI, user.get_external_copy(Nostr))
         self.assertEqual('http://ot.her/alice', user.get_external_copy(ActivityPub))
         self.assertIsNone(user.get_external_copy(Farcaster))
 
@@ -3010,7 +3010,7 @@ cast_add_body { text: "hi" }
                 'http://in.st/post',
                 {'value': 'at://did:plc:alice/app.bsky.feed.post/123',
                  'rel': 'alternate'},
-                {'value': 'nostr:note1post', 'rel': 'alternate'},
+                {'value': URI, 'rel': 'alternate'},
                 {
                     'value': 'http://ot.her/post',
                     'rel': 'canonical',
@@ -3020,16 +3020,16 @@ cast_add_body { text: "hi" }
         })
         self.assertEqual('at://did:plc:alice/app.bsky.feed.post/123',
                          obj.get_external_copy(ATProto))
-        self.assertEqual('nostr:note1post', obj.get_external_copy(Nostr))
+        self.assertEqual(f'nostr:{ID}', obj.get_external_copy(Nostr))
         self.assertEqual('http://ot.her/post', obj.get_external_copy(ActivityPub))
         self.assertIsNone(obj.get_external_copy(Farcaster))
 
     def test_get_external_copy_in_url(self):
         obj = Object(id='fake:post', source_protocol='fake', our_as1={
             'objectType': 'note',
-            'url': {'value': 'nostr:note1post', 'rel': 'canonical'},
+            'url': {'value': URI, 'rel': 'canonical'},
         })
-        self.assertEqual('nostr:note1post', obj.get_external_copy(Nostr))
+        self.assertEqual(f'nostr:{ID}', obj.get_external_copy(Nostr))
 
     def test_get_external_copy_no_as1(self):
         self.assertIsNone(Object(id='fake:post').get_external_copy(ATProto))
