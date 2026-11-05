@@ -589,7 +589,7 @@ class User(AddRemoveMixin, StringIdModel, metaclass=ProtocolUserMeta):
             if user.status and not allow_opt_out:
                 return None
 
-        canonical = user.get_canonical_external_id()
+        canonical = new_protocols and user.get_canonical_external_id()
         for label in new_protocols:
             if canonical:
                 logger.info(f'{id} has other canonical account {canonical}; not bridging to {label}')
@@ -1276,11 +1276,11 @@ class User(AddRemoveMixin, StringIdModel, metaclass=ProtocolUserMeta):
         Returns:
           str: URI of the canonical copy, or None
         """
-        if not self.obj or not self.obj.as1:
+        if not self.obj or not (obj_as1 := self.obj.as1):
             return None
 
         ours = self.copies + [Target(uri=self.key.id(), protocol=self.LABEL)]
-        for link in as1.get_rel_links(self.obj.as1, rels=('canonical',)):
+        for link in as1.get_rel_links(obj_as1, rels=('canonical',)):
             uri = link['value']
             if util.domain_or_parent_in(uri, [SUPERDOMAIN]):
                 continue
@@ -1313,10 +1313,10 @@ class User(AddRemoveMixin, StringIdModel, metaclass=ProtocolUserMeta):
                 and (ours or not to_proto.HAS_COPIES)):
             return None
 
-        if not self.obj or not self.obj.as1:
+        if not self.obj or not (obj_as1 := self.obj.as1):
             return None
 
-        for link in as1.get_rel_links(self.obj.as1,
+        for link in as1.get_rel_links(obj_as1,
                                       url_prefixes=to_proto.URI_PREFIXES,
                                       mime_types=to_proto.MIME_TYPES):
             uri = link['value']
@@ -2120,10 +2120,10 @@ class Object(AddRemoveMixin, StringIdModel):
             None if this object doesn't link to one, or if it's native to
             ``to_proto`` or we have a copy of it there
         """
-        if not self.as1 or self.get_copy(to_proto):
+        if self.get_copy(to_proto) or not (obj_as1 := self.as1):
             return None
 
-        for link in as1.get_rel_links(self.as1, url_prefixes=to_proto.URI_PREFIXES,
+        for link in as1.get_rel_links(obj_as1, url_prefixes=to_proto.URI_PREFIXES,
                                       mime_types=to_proto.MIME_TYPES):
             uri = link['value']
             if util.domain_or_parent_in(uri, [SUPERDOMAIN]):

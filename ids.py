@@ -195,8 +195,8 @@ def translate_user_id(*, id, from_, to, external=False):
             if orig.kind() == to._get_kind():
                 return orig.id()
 
-    if (external and user and not user.is_enabled(to)
-            and (external_id := user.get_external_id(to))):
+    if (external and user and (external_id := user.get_external_id(to))
+            and not user.is_enabled(to)):
         common.report_error(f'Translating user {id} to external {to.LABEL} copy {external_id}')
         return external_id
 

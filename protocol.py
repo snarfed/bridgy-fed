@@ -2107,13 +2107,15 @@ class Protocol:
                         logger.info(f"Allowing {label}, this is the user's profile")
                         break
 
+                    external_id = orig.get_external_id(proto)
                     orig_author = None
-                    if ((orig_author_id := as1.get_owner(orig.as1))
+                    if ((external_id or origs_could_bridge is not False)
+                            and (orig_author_id := as1.get_owner(orig.as1))
                             and (orig_proto := orig.owner_protocol())):
                         orig_author = orig_proto.get_by_id(orig_author_id)
 
-                    if (not (orig_author and orig_author.is_enabled(proto))
-                            and (external_id := orig.get_external_id(proto))):
+                    if external_id and not (orig_author
+                                            and orig_author.is_enabled(proto)):
                         logger.info(f'Allowing {label}, original {id} is already there as {external_id}')
                         break
 
@@ -2214,11 +2216,11 @@ Hi! You <a href="{inner_obj_as1.get('url') or inner_obj_id}">recently {verb}</a>
                         targets[Target(protocol=copy.protocol, uri=target)] = orig_obj
 
             # and external targets, eg proxy links, if we're not bridging their author
-            target_author = target_author_key.get() if target_author_key else None
             for proto in to_protocols:
-                if target_author and target_author.is_enabled(proto):
+                if not (external_id := orig_obj.get_external_id(proto)):
                     continue
-                elif not (external_id := orig_obj.get_external_id(proto)):
+                target_author = target_author_key.get() if target_author_key else None
+                if target_author and target_author.is_enabled(proto):
                     continue
 
                 external_obj = proto.load(external_id, raise_=False)
