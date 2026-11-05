@@ -2113,8 +2113,8 @@ class Protocol:
                         orig_author = orig_proto.get_by_id(orig_author_id)
 
                     if (not (orig_author and orig_author.is_enabled(proto))
-                            and (external_copy := orig.get_external_copy(proto))):
-                        logger.info(f'Allowing {label}, original {id} is already there as {external_copy}')
+                            and (external_id := orig.get_external_id(proto))):
+                        logger.info(f'Allowing {label}, original {id} is already there as {external_id}')
                         break
 
                     if origs_could_bridge is not False and orig_author:
@@ -2218,13 +2218,13 @@ Hi! You <a href="{inner_obj_as1.get('url') or inner_obj_id}">recently {verb}</a>
             for proto in to_protocols:
                 if target_author and target_author.is_enabled(proto):
                     continue
-                elif not (external_copy := orig_obj.get_external_copy(proto)):
+                elif not (external_id := orig_obj.get_external_id(proto)):
                     continue
 
-                external_obj = proto.load(external_copy, raise_=False)
+                external_obj = proto.load(external_id, raise_=False)
                 if external_obj and (target := proto.target_for(external_obj)):
                     target = util.normalize_url(target, trailing_slash=False)
-                    logger.info(f'Adding target {target} for external copy {external_copy} of original {target_id}')
+                    logger.info(f'Adding target {target} for external id {external_id} of original {target_id}')
                     targets[Target(protocol=proto.LABEL, uri=target)] = orig_obj
 
             if target_proto == from_cls:

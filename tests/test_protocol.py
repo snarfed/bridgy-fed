@@ -602,7 +602,7 @@ class ProtocolTest(TestCase):
             Target(protocol='other', uri='other:orig:target'),
         }, Fake.targets(obj, from_user=self.user).keys())
 
-    def test_targets_share_external_copy(self):
+    def test_targets_share_external_id(self):
         user = self.make_user('fake:user', cls=Fake, enabled_protocols=['efake'])
         ExplicitFake.fetchable = {'efake:post-ext': {'objectType': 'note'}}
         self.store_object(id='fake:post', source_protocol='fake', our_as1={
@@ -623,7 +623,7 @@ class ProtocolTest(TestCase):
             Target(protocol='efake', uri='efake:post-ext:target'),
         }, Fake.targets(obj, from_user=user).keys())
 
-    def test_targets_reply_external_copy(self):
+    def test_targets_reply_external_id(self):
         user = self.make_user('fake:user', cls=Fake, enabled_protocols=['efake'])
         ExplicitFake.fetchable = {'efake:post-ext': {'objectType': 'note'}}
         self.store_object(id='fake:post', source_protocol='fake', our_as1={
@@ -643,7 +643,7 @@ class ProtocolTest(TestCase):
             Target(protocol='efake', uri='efake:post-ext:target'),
         }, Fake.targets(obj, from_user=user).keys())
 
-    def test_targets_share_external_copy_load_fails(self):
+    def test_targets_share_external_id_load_fails(self):
         user = self.make_user('fake:user', cls=Fake, enabled_protocols=['efake'])
         self.store_object(id='fake:post', source_protocol='fake', our_as1={
             'id': 'fake:post',
@@ -661,7 +661,7 @@ class ProtocolTest(TestCase):
         })
         self.assertEqual({}, Fake.targets(obj, from_user=user))
 
-    def test_targets_share_external_copy_author_enabled(self):
+    def test_targets_share_external_id_author_enabled(self):
         """We bridge the author, so we don't use the post's proxy link."""
         user = self.make_user('fake:user', cls=Fake, enabled_protocols=['efake'])
         self.make_user('fake:charlie', cls=Fake, enabled_protocols=['efake'])
@@ -697,7 +697,7 @@ class ProtocolTest(TestCase):
             'inbox': 'https://in.st/charlie/inbox',
         }),
     ])
-    def test_targets_like_external_copy_activitypub(self, _):
+    def test_targets_like_external_id_activitypub(self, _):
         user = self.make_user('fake:user', cls=Fake,
                               enabled_protocols=['activitypub'])
         self.store_object(id='fake:post', source_protocol='fake', our_as1={
@@ -1104,7 +1104,7 @@ class ProtocolTest(TestCase):
             }],
         }))
 
-    def test_translate_ids_external_copies(self):
+    def test_translate_ids_external_ids(self):
         self.make_user('fake:alice', cls=Fake, enabled_protocols=['efake'],
                        copies=[Target(uri='efake:alice', protocol='efake')])
         self.make_user('fake:bob', cls=Fake, obj_as1={
@@ -1167,7 +1167,7 @@ class ProtocolTest(TestCase):
                     'object': obj,
                 }))
 
-    def test_translate_ids_external_copy_undo(self):
+    def test_translate_ids_external_id_undo(self):
         self.make_user('fake:alice', cls=Fake, enabled_protocols=['efake'],
                        copies=[Target(uri='efake:alice', protocol='efake')])
         self.store_object(id='fake:post', source_protocol='fake', our_as1={
@@ -1200,7 +1200,7 @@ class ProtocolTest(TestCase):
             },
         }))
 
-    def test_translate_ids_external_copy_own_post(self):
+    def test_translate_ids_external_id_own_post(self):
         """We bridge alice, so we use our ids for her post, not its proxy links."""
         self.make_user('fake:alice', cls=Fake, enabled_protocols=['efake'],
                        copies=[Target(uri='efake:alice', protocol='efake')],
@@ -4366,8 +4366,8 @@ class ProtocolReceiveTest(TestCase):
         ], Fake.sent)
         self.assertEqual([], alice.copies)
 
-    def test_move_bridged_user_dest_has_external_copy(self):
-        """The copy we transfer makes the dest's external copy not matter."""
+    def test_move_bridged_user_dest_has_external_id(self):
+        """The copy we transfer makes the dest's external id not matter."""
         self.make_user('efake.brid.gy', cls=Web)
         self.make_user('other.brid.gy', cls=Web)
         alice = self.make_user('other:alice', cls=OtherFake, obj_id='other:alice',
@@ -4393,7 +4393,7 @@ class ProtocolReceiveTest(TestCase):
         self.assertEqual([Target(protocol='efake', uri='efake:alice')],
                          new_alice.copies)
 
-    def test_move_bridged_user_dest_has_canonical_external_copy(self):
+    def test_move_bridged_user_dest_has_canonical_external_id(self):
         self.make_user('efake.brid.gy', cls=Web)
         self.make_user('other.brid.gy', cls=Web)
         alice = self.make_user('other:alice', cls=OtherFake, obj_id='other:alice',
@@ -4419,7 +4419,7 @@ class ProtocolReceiveTest(TestCase):
         self.assertEqual([Target(protocol='efake', uri='efake:alice')],
                          new_alice.copies)
 
-    def test_move_some_copies_dest_has_canonical_external_copy(self):
+    def test_move_some_copies_dest_has_canonical_external_id(self):
         """Transfers the copy that exists, drops the protocol that has none."""
         self.make_user('efake.brid.gy', cls=Web)
         self.make_user('other.brid.gy', cls=Web)
@@ -4450,8 +4450,8 @@ class ProtocolReceiveTest(TestCase):
         self.assertEqual([Target(protocol='efake', uri='efake:alice')],
                          new_alice.copies)
 
-    def test_move_no_copy_dest_has_external_copy(self):
-        """No copy to transfer, so the dest's external copy wins."""
+    def test_move_no_copy_dest_has_external_id(self):
+        """No copy to transfer, so the dest's external id wins."""
         self.make_user('efake.brid.gy', cls=Web)
         self.make_user('other.brid.gy', cls=Web)
         alice = self.make_user('other:alice', cls=OtherFake, obj_id='other:alice',

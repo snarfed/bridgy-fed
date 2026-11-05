@@ -145,7 +145,7 @@ def translate_user_id(*, id, from_, to, external=False):
       to (protocol.Protocol)
       external (bool): if True, and we don't bridge this user to ``to``, return
         their copy there that we don't manage, if any, eg from a proxy link. See
-        :meth:`models.User.get_external_copy`.
+        :meth:`models.User.get_external_id`.
 
     Returns:
       str: the corresponding id in ``to``
@@ -196,9 +196,9 @@ def translate_user_id(*, id, from_, to, external=False):
                 return orig.id()
 
     if (external and user and not user.is_enabled(to)
-            and (external_copy := user.get_external_copy(to))):
-        common.report_error(f'Translating user {id} to external {to.LABEL} copy {external_copy}')
-        return external_copy
+            and (external_id := user.get_external_id(to))):
+        common.report_error(f'Translating user {id} to external {to.LABEL} copy {external_id}')
+        return external_id
 
     match from_.LABEL, to.LABEL:
         case _, 'atproto' | 'nostr' | 'farcaster':
@@ -555,7 +555,7 @@ def translate_object_id(*, id, from_, to, owner=None, external=False):
         for, eg activity wrappers, which we don't store.
       external (bool): if True, and we don't bridge this object's author to
         ``to``, return its copy there that we don't manage, if any, eg from a
-        proxy link. See :meth:`models.Object.get_external_copy`.
+        proxy link. See :meth:`models.Object.get_external_id`.
 
     Returns:
       str: the corresponding id in ``to``
@@ -621,14 +621,14 @@ def translate_object_id(*, id, from_, to, owner=None, external=False):
         if orig := models.get_original_object_key(id):
             return orig.id()
 
-    if external and obj and (external_copy := obj.get_external_copy(to)):
+    if external and obj and (external_id := obj.get_external_id(to)):
         author_id = as1.get_owner(obj.as1)
         author_proto = obj.owner_protocol(remote=False)
         author = (author_proto.get_by_id(author_id)
                   if author_id and author_proto else None)
         if not (author and author.is_enabled(to)):
-            common.report_error(f'Translating object {id} to external {to.LABEL} copy {external_copy}')
-            return external_copy
+            common.report_error(f'Translating object {id} to external {to.LABEL} copy {external_id}')
+            return external_id
 
     match from_.LABEL, to.LABEL:
         case _, 'atproto' | 'nostr' | 'farcaster':

@@ -194,9 +194,9 @@ class DM(ndb.Model):
     """Known values (keep in sync with USER_STATUS_DESCRIPTIONS, the subset for
     ineligible users):
 
-      * canonical-external-copy
+      * canonical-external-id
       * dms_not_supported-[RECIPIENT-USER-ID]
-      * external-copy
+      * external-id
       * moved
       * no-feed-or-webmention
       * no-nip05
@@ -589,13 +589,13 @@ class User(AddRemoveMixin, StringIdModel, metaclass=ProtocolUserMeta):
             if user.status and not allow_opt_out:
                 return None
 
-        canonical = user.get_canonical_external_copy()
+        canonical = user.get_canonical_external_id()
         for label in new_protocols:
             if canonical:
                 logger.info(f'{id} has other canonical account {canonical}; not bridging to {label}')
                 user.remove('enabled_protocols', label)
-            elif external_copy := user.get_external_copy(PROTOCOLS[label]):
-                logger.info(f'{id} has external copy {external_copy} , not enabling {label}')
+            elif external_id := user.get_external_id(PROTOCOLS[label]):
+                logger.info(f'{id} has external id {external_id} , not enabling {label}')
                 user.remove('enabled_protocols', label)
             else:
                 user.add('enabled_protocols', label)
@@ -892,15 +892,15 @@ class User(AddRemoveMixin, StringIdModel, metaclass=ProtocolUserMeta):
                                text=ineligible.format(desc=desc))
             common.error(f'Nope, user {self.key.id()} is {self.status}', status=299)
 
-        if external_copy := self.get_external_copy(to_proto):
-            dms.maybe_send(from_=to_proto, to_user=self, type='external-copy',
-                           text=f"Hi! Your account can't be bridged to {to_proto.PHRASE} because it's already there as {html.escape(external_copy)}.")
-            common.error(f'Nope, user {self.key.id()} is already on {to_proto.LABEL} as {external_copy}', status=299)
+        if external_id := self.get_external_id(to_proto):
+            dms.maybe_send(from_=to_proto, to_user=self, type='external-id',
+                           text=f"Hi! Your account can't be bridged to {to_proto.PHRASE} because it's already there as {html.escape(external_id)}.")
+            common.error(f'Nope, user {self.key.id()} is already on {to_proto.LABEL} as {external_id}', status=299)
 
         if (to_proto.LABEL not in self.enabled_protocols
-                and (canonical := self.get_canonical_external_copy())):
+                and (canonical := self.get_canonical_external_id())):
             dms.maybe_send(from_=to_proto, to_user=self,
-                           type='canonical-external-copy',
+                           type='canonical-external-id',
                            text=f"Hi! Your account can't be bridged to {to_proto.PHRASE} because it's a copy of {html.escape(canonical)}. Bridge that account instead!")
             common.error(f'Nope, user {self.key.id()} is a copy of {canonical}', status=299)
 
@@ -1263,11 +1263,11 @@ class User(AddRemoveMixin, StringIdModel, metaclass=ProtocolUserMeta):
 
         return path
 
-    def get_canonical_external_copy(self):
+    def get_canonical_external_id(self):
         """Returns the canonical version of this user elsewhere, if any.
 
         For example, if this user is another bridge's proxy for an account on a
-        different network. Unlike :meth:`get_external_copy`, this is independent of
+        different network. Unlike :meth:`get_external_id`, this is independent of
         any specific protocol, and may be on a protocol that we don't support.
 
         A canonical link to this user itself, one of its copies, or anything else
@@ -1288,7 +1288,7 @@ class User(AddRemoveMixin, StringIdModel, metaclass=ProtocolUserMeta):
                        for t in ours):
                 return uri
 
-    def get_external_copy(self, to_proto):
+    def get_external_id(self, to_proto):
         """Returns this user's copy in a given protocol that we don't manage, if any.
 
         For example, if this user is bridged by another bridge, or they're on a
@@ -2099,7 +2099,7 @@ class Object(AddRemoveMixin, StringIdModel):
           <span style="unicode-bidi: isolate">{html.escape(util.ellipsize(name, chars=40), quote=False)}</span>
         </a>"""
 
-    def get_external_copy(self, to_proto):
+    def get_external_id(self, to_proto):
         """Returns this object's copy in a given protocol that we don't manage, if any.
 
         For example, if this object was bridged by another bridge, or published by a
