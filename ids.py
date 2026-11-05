@@ -14,11 +14,13 @@ from cachetools import cached, LRUCache
 from flask import request
 from google.cloud.ndb.key import _MAX_KEYPART_BYTES
 from google.cloud.ndb.query import FilterNode, Query
+from granary import as1
 from granary.bluesky import BSKY_APP_URL_RE, web_url_to_at_uri
 import granary.farcaster
 import granary.nostr
 from webutil import util
 
+import common
 from domains import (
     DOMAIN_RE,
     LOCAL_DOMAINS,
@@ -129,7 +131,7 @@ def web_ap_base_domain(user_domain):
     return f'https://web{SUPERDOMAIN}/'
 
 
-def translate_user_id(*, id, from_, to):
+def translate_user_id(*, id, from_, to, external=False):
     """Translate a user id from one protocol to another.
 
     *NOTE*: unlike :func:`translate_object_id`, if ``to`` is a ``HAS_COPIES`` protocol
@@ -141,6 +143,9 @@ def translate_user_id(*, id, from_, to):
       id (str)
       from_ (protocol.Protocol)
       to (protocol.Protocol)
+      external (bool): if True, and we don't bridge this user to ``to``, return
+        their copy there that we don't manage, if any, eg from a proxy link. See
+        :meth:`models.User.get_external_copy`.
 
     Returns:
       str: the corresponding id in ``to``
@@ -189,6 +194,11 @@ def translate_user_id(*, id, from_, to):
         if orig := models.get_original_user_key(id):
             if orig.kind() == to._get_kind():
                 return orig.id()
+
+    if (external and user and not user.is_enabled(to)
+            and (external_copy := user.get_external_copy(to))):
+        common.report_error(f'Translating user {id} to external {to.LABEL} copy {external_copy}')
+        return external_copy
 
     match from_.LABEL, to.LABEL:
         case _, 'atproto' | 'nostr' | 'farcaster':
@@ -526,7 +536,7 @@ def translate_handle(*, from_, to, handle=None, short=False):
     return output
 
 
-def translate_object_id(*, id, from_, to, owner=None):
+def translate_object_id(*, id, from_, to, owner=None, external=False):
     """Translates a user handle from one protocol to another.
 
     Allows any ``id`` if ``from_`` is :class:`UIProtocol` or if ``id`` is ``ui:...``.
@@ -543,6 +553,9 @@ def translate_object_id(*, id, from_, to, owner=None):
       owner (protocol.Protocol): optional, the protocol of ``id``'s author. only used
         as a fallback for ``ui:`` ids that we don't have an :class:`models.Object`
         for, eg activity wrappers, which we don't store.
+      external (bool): if True, and we don't bridge this object's author to
+        ``to``, return its copy there that we don't manage, if any, eg from a
+        proxy link. See :meth:`models.Object.get_external_copy`.
 
     Returns:
       str: the corresponding id in ``to``
@@ -596,14 +609,26 @@ def translate_object_id(*, id, from_, to, owner=None):
     if from_ == to:
         return id
 
-    if to.LABEL in COPIES_PROTOCOLS:
-        if obj := from_.load(id, remote=False):
-            if copy := obj.get_copy(to):
-                return copy
+    obj = None
+    if to.LABEL in COPIES_PROTOCOLS or external:
+        obj = from_.load(id, remote=False)
+
+    if obj and to.LABEL in COPIES_PROTOCOLS:
+        if copy := obj.get_copy(to):
+            return copy
 
     if from_.LABEL in COPIES_PROTOCOLS:
         if orig := models.get_original_object_key(id):
             return orig.id()
+
+    if external and obj and (external_copy := obj.get_external_copy(to)):
+        author_id = as1.get_owner(obj.as1)
+        author_proto = obj.owner_protocol(remote=False)
+        author = (author_proto.get_by_id(author_id)
+                  if author_id and author_proto else None)
+        if not (author and author.is_enabled(to)):
+            common.report_error(f'Translating object {id} to external {to.LABEL} copy {external_copy}')
+            return external_copy
 
     match from_.LABEL, to.LABEL:
         case _, 'atproto' | 'nostr' | 'farcaster':
@@ -629,7 +654,7 @@ def translate_object_id(*, id, from_, to, owner=None):
     assert False, (id, from_.LABEL, to.LABEL)
 
 
-def translate_id(*, id, from_, to, default=IdType.USER):
+def translate_id(*, id, from_, to, default=IdType.USER, external=False):
     """Translates an id from one protocol to another, user id or object id.
 
     Use this when you don't know which kind of id you have, eg the ``object`` of
@@ -645,14 +670,16 @@ def translate_id(*, id, from_, to, default=IdType.USER):
       to (protocol.Protocol)
       default (IdType): which kind to assume if ``from_`` can't tell from ``id``
         itself, eg all :class:`activitypub.ActivityPub` ids are http(s) URLs
+      external (bool): passed through to :func:`translate_user_id` or
+        :func:`translate_object_id`
 
     Returns:
       str: the corresponding id in ``to``
     """
     if (from_.id_type(id) or default) is IdType.OBJECT:
-        return translate_object_id(id=id, from_=from_, to=to)
+        return translate_object_id(id=id, from_=from_, to=to, external=external)
 
-    return translate_user_id(id=id, from_=from_, to=to)
+    return translate_user_id(id=id, from_=from_, to=to, external=external)
 
 
 def handle_as_domain(handle):
