@@ -602,6 +602,126 @@ class ProtocolTest(TestCase):
             Target(protocol='other', uri='other:orig:target'),
         }, Fake.targets(obj, from_user=self.user).keys())
 
+    def test_targets_share_external_copy(self):
+        user = self.make_user('fake:user', cls=Fake, enabled_protocols=['efake'])
+        ExplicitFake.fetchable = {'efake:post-ext': {'objectType': 'note'}}
+        self.store_object(id='fake:post', source_protocol='fake', our_as1={
+            'id': 'fake:post',
+            'objectType': 'note',
+            'author': 'fake:charlie',
+            'urls': [{'value': 'efake:post-ext', 'rel': 'alternate'}],
+        })
+
+        obj = Object(id='fake:share', source_protocol='fake', our_as1={
+            'objectType': 'activity',
+            'verb': 'share',
+            'id': 'fake:share',
+            'actor': 'fake:user',
+            'object': 'fake:post',
+        })
+        self.assertEqual({
+            Target(protocol='efake', uri='efake:post-ext:target'),
+        }, Fake.targets(obj, from_user=user).keys())
+
+    def test_targets_reply_external_copy(self):
+        user = self.make_user('fake:user', cls=Fake, enabled_protocols=['efake'])
+        ExplicitFake.fetchable = {'efake:post-ext': {'objectType': 'note'}}
+        self.store_object(id='fake:post', source_protocol='fake', our_as1={
+            'id': 'fake:post',
+            'objectType': 'note',
+            'author': 'fake:charlie',
+            'urls': [{'value': 'efake:post-ext', 'rel': 'alternate'}],
+        })
+
+        obj = Object(id='fake:reply', source_protocol='fake', our_as1={
+            'objectType': 'note',
+            'id': 'fake:reply',
+            'author': 'fake:user',
+            'inReplyTo': 'fake:post',
+        })
+        self.assertEqual({
+            Target(protocol='efake', uri='efake:post-ext:target'),
+        }, Fake.targets(obj, from_user=user).keys())
+
+    def test_targets_share_external_copy_load_fails(self):
+        user = self.make_user('fake:user', cls=Fake, enabled_protocols=['efake'])
+        self.store_object(id='fake:post', source_protocol='fake', our_as1={
+            'id': 'fake:post',
+            'objectType': 'note',
+            'author': 'fake:charlie',
+            'urls': [{'value': 'efake:post-ext', 'rel': 'alternate'}],
+        })
+
+        obj = Object(id='fake:share', source_protocol='fake', our_as1={
+            'objectType': 'activity',
+            'verb': 'share',
+            'id': 'fake:share',
+            'actor': 'fake:user',
+            'object': 'fake:post',
+        })
+        self.assertEqual({}, Fake.targets(obj, from_user=user))
+
+    def test_targets_share_external_copy_author_enabled(self):
+        """We bridge the author, so we don't use the post's proxy link."""
+        user = self.make_user('fake:user', cls=Fake, enabled_protocols=['efake'])
+        self.make_user('fake:charlie', cls=Fake, enabled_protocols=['efake'])
+        self.store_object(id='fake:post', source_protocol='fake', our_as1={
+            'id': 'fake:post',
+            'objectType': 'note',
+            'author': 'fake:charlie',
+            'urls': [{'value': 'efake:post-ext', 'rel': 'alternate'}],
+        }, copies=[Target(protocol='efake', uri='efake:post')])
+
+        obj = Object(id='fake:share', source_protocol='fake', our_as1={
+            'objectType': 'activity',
+            'verb': 'share',
+            'id': 'fake:share',
+            'actor': 'fake:user',
+            'object': 'fake:post',
+        })
+        self.assertEqual({
+            Target(protocol='efake', uri='efake:post:target'),
+        }, Fake.targets(obj, from_user=user).keys())
+
+    @patch.object(util.session, 'get', side_effect=[
+        TestCase.as2_resp({
+            '@context': 'https://www.w3.org/ns/activitystreams',
+            'id': 'https://in.st/post',
+            'type': 'Note',
+            'attributedTo': 'https://in.st/charlie',
+        }),
+        TestCase.as2_resp({
+            '@context': 'https://www.w3.org/ns/activitystreams',
+            'id': 'https://in.st/charlie',
+            'type': 'Person',
+            'inbox': 'https://in.st/charlie/inbox',
+        }),
+    ])
+    def test_targets_like_external_copy_activitypub(self, _):
+        user = self.make_user('fake:user', cls=Fake,
+                              enabled_protocols=['activitypub'])
+        self.store_object(id='fake:post', source_protocol='fake', our_as1={
+            'id': 'fake:post',
+            'objectType': 'note',
+            'author': 'fake:charlie',
+            'urls': [{
+                'value': 'https://in.st/post',
+                'rel': 'alternate',
+                'mimeType': 'application/activity+json',
+            }],
+        })
+
+        obj = Object(id='fake:like', source_protocol='fake', our_as1={
+            'objectType': 'activity',
+            'verb': 'like',
+            'id': 'fake:like',
+            'actor': 'fake:user',
+            'object': 'fake:post',
+        })
+        self.assertEqual({
+            Target(protocol='activitypub', uri='https://in.st/charlie/inbox'),
+        }, Fake.targets(obj, from_user=user).keys())
+
     def test_targets_composite_inreplyto(self):
         Fake.fetchable['fake:post'] = {
             'objectType': 'note',
