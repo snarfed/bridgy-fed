@@ -984,6 +984,134 @@ class ProtocolTest(TestCase):
             }],
         }))
 
+    def test_translate_ids_external_copies(self):
+        self.make_user('fake:alice', cls=Fake, enabled_protocols=['efake'],
+                       copies=[Target(uri='efake:alice', protocol='efake')])
+        self.make_user('fake:bob', cls=Fake, obj_as1={
+            'objectType': 'person',
+            'urls': [{'value': 'efake:bob-ext', 'rel': 'alternate'}],
+        })
+        self.store_object(id='fake:post', source_protocol='fake', our_as1={
+            'objectType': 'note',
+            'author': 'fake:bob',
+            'urls': [{'value': 'efake:post-ext', 'rel': 'alternate'}],
+        })
+
+        self.assert_equals({
+            'objectType': 'activity',
+            'verb': 'post',
+            'actor': 'efake:alice',
+            'object': {
+                'id': 'efake:o:fa:fake:reply',
+                'author': 'efake:alice',
+                'inReplyTo': 'efake:post-ext',
+                'tags': [{
+                    'objectType': 'mention',
+                    'url': 'uri:efake:bob-ext',
+                }],
+            },
+        }, ExplicitFake.translate_ids({
+            'objectType': 'activity',
+            'verb': 'post',
+            'actor': 'fake:alice',
+            'object': {
+                'id': 'fake:reply',
+                'author': 'fake:alice',
+                'inReplyTo': 'fake:post',
+                'tags': [{
+                    'objectType': 'mention',
+                    'url': 'fake:bob',
+                }],
+            },
+        }))
+
+        for verb, inner in [
+            ('like', 'efake:post-ext'),
+            ('share', 'efake:post-ext'),
+            ('follow', 'efake:bob-ext'),
+            ('block', 'efake:bob-ext'),
+        ]:
+            with self.subTest(verb=verb):
+                obj = 'fake:bob' if verb in ('follow', 'block') else 'fake:post'
+                self.assert_equals({
+                    'id': f'efake:o:fa:fake:{verb}',
+                    'objectType': 'activity',
+                    'verb': verb,
+                    'actor': 'efake:alice',
+                    'object': inner,
+                }, ExplicitFake.translate_ids({
+                    'id': f'fake:{verb}',
+                    'objectType': 'activity',
+                    'verb': verb,
+                    'actor': 'fake:alice',
+                    'object': obj,
+                }))
+
+    def test_translate_ids_external_copy_undo(self):
+        self.make_user('fake:alice', cls=Fake, enabled_protocols=['efake'],
+                       copies=[Target(uri='efake:alice', protocol='efake')])
+        self.store_object(id='fake:post', source_protocol='fake', our_as1={
+            'objectType': 'note',
+            'author': 'fake:bob',
+            'urls': [{'value': 'efake:post-ext', 'rel': 'alternate'}],
+        })
+
+        self.assert_equals({
+            'objectType': 'activity',
+            'verb': 'undo',
+            'actor': 'efake:alice',
+            'object': {
+                'id': 'efake:o:fa:fake:like',
+                'objectType': 'activity',
+                'verb': 'like',
+                'actor': 'efake:alice',
+                'object': 'efake:post-ext',
+            },
+        }, ExplicitFake.translate_ids({
+            'objectType': 'activity',
+            'verb': 'undo',
+            'actor': 'fake:alice',
+            'object': {
+                'id': 'fake:like',
+                'objectType': 'activity',
+                'verb': 'like',
+                'actor': 'fake:alice',
+                'object': 'fake:post',
+            },
+        }))
+
+    def test_translate_ids_external_copy_own_post(self):
+        """We bridge alice, so we use our ids for her post, not its proxy links."""
+        self.make_user('fake:alice', cls=Fake, enabled_protocols=['efake'],
+                       copies=[Target(uri='efake:alice', protocol='efake')],
+                       obj_as1={
+                           'objectType': 'person',
+                           'urls': [{'value': 'efake:alice-ext', 'rel': 'alternate'}],
+                       })
+        post = {
+            'id': 'fake:post',
+            'objectType': 'note',
+            'author': 'fake:alice',
+            'urls': [{'value': 'efake:post-ext', 'rel': 'alternate'}],
+        }
+        self.store_object(id='fake:post', source_protocol='fake', our_as1=post)
+
+        self.assert_equals({
+            'objectType': 'activity',
+            'verb': 'post',
+            'actor': 'efake:alice',
+            'object': {
+                **post,
+                'id': 'efake:o:fa:fake:post',
+                'author': 'efake:alice',
+            },
+        }, ExplicitFake.translate_ids({
+            'objectType': 'activity',
+            'verb': 'post',
+            'actor': 'fake:alice',
+            'object': post,
+        }))
+
     def test_translate_ids_multiple_objects(self):
         self.assert_equals({
             'objectType': 'activity',

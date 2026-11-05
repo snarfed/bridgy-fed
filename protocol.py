@@ -1121,7 +1121,10 @@ class Protocol:
         outer_obj = to_cls.translate_mention_handles(copy.deepcopy(obj))
         inner_objs = outer_obj['object'] = as1.get_objects(outer_obj)
 
-        def translate(elem, field, fn, uri=False):
+        # external copies are only used for users and objects whose author we
+        # don't bridge to to_cls, so this is safe for every field except our own
+        # outer activity id
+        def translate(elem, field, fn, uri=False, external=True):
             owner_id = as1.get_owner(elem)
             owner_proto = Protocol.for_id(owner_id, remote=remote)
 
@@ -1135,7 +1138,7 @@ class Protocol:
                     # don't fetch to identify recipients; the ones that need
                     # translating can all be done locally
                     from_cls = Protocol.for_id(id, remote=remote and not audience)
-                    kwargs = {}
+                    kwargs = {'external': external}
 
                     if field == 'id' and from_cls == UIProtocol and owner_proto:
                         if not UIProtocol.owns_id(id):
@@ -1163,7 +1166,7 @@ class Protocol:
         type = as1.object_type(outer_obj)
         translate(outer_obj, 'id',
                   ids.translate_user_id if type in as1.ACTOR_TYPES
-                  else ids.translate_object_id)
+                  else ids.translate_object_id, external=False)
 
         for o in inner_objs:
             if (as1.object_type(o) in as1.ACTOR_TYPES
@@ -1200,7 +1203,7 @@ class Protocol:
                 if url and not att.get('id') and att.get('objectType') != 'link':
                     if from_cls := Protocol.for_id(url, remote=remote):
                         att['id'] = ids.translate_object_id(from_=from_cls, to=to_cls,
-                                                            id=url)
+                                                            id=url, external=True)
             if feat := as1.get_object(o, 'featured'):
                 translate(feat, 'orderedItems', ids.translate_object_id)
                 translate(feat, 'items', ids.translate_object_id)
