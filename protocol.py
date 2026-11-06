@@ -2116,7 +2116,7 @@ class Protocol:
 
                     if external_id and not (orig_author
                                             and orig_author.is_enabled(proto)):
-                        logger.info(f'Allowing {label}, original {id} is already there as {external_id}')
+                        logger.info(f'Allowing {label}, original {id} is already there as external id {external_id}')
                         break
 
                     if origs_could_bridge is not False and orig_author:

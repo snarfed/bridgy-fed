@@ -895,14 +895,14 @@ class User(AddRemoveMixin, StringIdModel, metaclass=ProtocolUserMeta):
         if external_id := self.get_external_id(to_proto):
             dms.maybe_send(from_=to_proto, to_user=self, type='external-id',
                            text=f"Hi! Your account can't be bridged to {to_proto.PHRASE} because it's already there as {html.escape(external_id)}.")
-            common.error(f'Nope, user {self.key.id()} is already on {to_proto.LABEL} as {external_id}', status=299)
+            common.error(f'Nope, user {self.key.id()} is already on {to_proto.LABEL} as external id {external_id}', status=299)
 
         if (to_proto.LABEL not in self.enabled_protocols
                 and (canonical := self.get_canonical_external_id())):
             dms.maybe_send(from_=to_proto, to_user=self,
                            type='canonical-external-id',
                            text=f"Hi! Your account can't be bridged to {to_proto.PHRASE} because it's a copy of {html.escape(canonical)}. Bridge that account instead!")
-            common.error(f'Nope, user {self.key.id()} is a copy of {canonical}', status=299)
+            common.error(f'Nope, user {self.key.id()} is a copy of canonical external id {canonical}', status=299)
 
         # check that our handle is supported in this protocol
         err = handle = None
@@ -2146,8 +2146,7 @@ class Object(AddRemoveMixin, StringIdModel):
                         author_external_id = author.get_external_id(to_proto)
 
             if not author_external_id:
-                # TODO: drop to logger.info once we've seen enough usage
-                common.report_error(f"Ignoring {self.key.id()} 's proxy link {normalized} , its author isn't on {to_proto.LABEL}")
+                logger.warning(f"Ignoring {self.key.id()} 's external id {normalized} , its author isn't on {to_proto.LABEL}")
                 return None
 
             owner = None
@@ -2156,8 +2155,7 @@ class Object(AddRemoveMixin, StringIdModel):
                 owner = ids.normalize_user_id(id=owner_id, proto=to_proto)
 
             if owner != author_external_id:
-                # TODO: drop to logger.info once we've seen enough usage
-                common.report_error(f"Ignoring {self.key.id()} 's proxy link {normalized} , it's not owned by its author's {to_proto.LABEL} account {author_external_id}")
+                logger.warning(f"Ignoring {self.key.id()} 's external id {normalized} , it's not owned by its author's {to_proto.LABEL} account {author_external_id}")
                 continue
 
             return normalized

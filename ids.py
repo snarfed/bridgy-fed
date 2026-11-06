@@ -197,7 +197,7 @@ def translate_user_id(*, id, from_, to, external=False):
 
     if (external and user and (external_id := user.get_external_id(to))
             and not user.is_enabled(to)):
-        common.report_error(f'Translating user {id} to external {to.LABEL} copy {external_id}')
+        logger.info(f'Translating user {id} to external id {to.LABEL} {external_id}')
         return external_id
 
     match from_.LABEL, to.LABEL:
@@ -627,7 +627,7 @@ def translate_object_id(*, id, from_, to, owner=None, external=False):
         author = (author_proto.get_by_id(author_id)
                   if author_id and author_proto else None)
         if not (author and author.is_enabled(to)):
-            common.report_error(f'Translating object {id} to external {to.LABEL} copy {external_id}')
+            logger.info(f'Translating object {id} to external id {to.LABEL} {external_id}')
             return external_id
 
     match from_.LABEL, to.LABEL:
