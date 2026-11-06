@@ -1031,7 +1031,8 @@ def render_embed(obj):
         author = as1.get_object(elem, 'author')
         if author.keys() == {'id'} and proto:
             profile_id = ids.profile_id(id=author['id'], proto=proto)
-            if profile := proto.load(profile_id, raise_=False):
+            profile = proto.load(profile_id, raise_=False)
+            if profile and profile.as1:
                 elem['author'] = author = copy.deepcopy(profile.as1)
 
         if not author.get('displayName') and author.get('username'):

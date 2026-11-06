@@ -1704,6 +1704,28 @@ class PagesTest(TestCase):
 """, html, ignore_blanks=True)
 
     @patch('webutil.util.now', return_value=datetime.now())
+    def test_respond_author_profile_object_has_no_data(self, _):
+        self.store_object(id='fake:profile:alice', source_protocol='fake')
+        self.store_object(id='fake:post', source_protocol='fake', our_as1={
+            'objectType': 'note',
+            'author': 'fake:alice',
+            'content': 'hi there',
+        })
+        token = common.make_jwt(user=self.user, scope='respond', obj_id='fake:post')
+
+        resp = self.client.get(
+            f'/web/user.com/respond?obj_id=fake:post&token={token}')
+        self.assertEqual(200, resp.status_code)
+        self.assert_multiline_in("""\
+<article class="h-entry">
+<span class="p-uid">fake:post</span>
+<div class="e-content p-name">
+hi there
+</div>
+</article>
+""", resp.get_data(as_text=True), ignore_blanks=True)
+
+    @patch('webutil.util.now', return_value=datetime.now())
     def test_respond_loads_quoted_post(self, _):
         Fake.fetchable = {
             'fake:quoted': {
