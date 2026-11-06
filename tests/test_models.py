@@ -952,6 +952,7 @@ class UserTest(TestCase):
         self.assertEqual('https://ot.her/alice', user.get_canonical_external_id())
 
     def test_get_canonical_external_id_self_other_form(self):
+        self.store_object(id='did:plc:alice', raw={**DID_DOC, 'id': 'did:plc:alice'})
         user = self.make_user('did:plc:alice', cls=ATProto, obj_as1={
             'objectType': 'person',
             'url': {'value': 'at://did:plc:alice', 'rel': 'canonical'},
@@ -1998,7 +1999,8 @@ class ObjectTest(TestCase):
         self.assertIsNone(obj.as1)
 
     def test_as1_from_bsky_blacksky_conversation(self):
-        self.store_object(id='did:plc:user', raw=DID_DOC)
+        for did in 'did:plc:user', 'did:plc:alice', 'did:plc:bob', 'did:plc:eve':
+            self.store_object(id=did, raw={**DID_DOC, 'id': did})
         conv_uri = 'at://did:plc:user/community.blacksky.assembly.conversation/c'
 
         self.store_object(
@@ -2040,6 +2042,8 @@ class ObjectTest(TestCase):
         }, obj.as1)
 
     def test_as1_from_bsky_blacksky_vote(self):
+        for did in 'did:plc:user', 'did:plc:bob':
+            self.store_object(id=did, raw={**DID_DOC, 'id': did})
         conv_uri = 'at://did:plc:user/community.blacksky.assembly.conversation/c'
         statement_uri = 'at://did:plc:user/community.blacksky.assembly.statement/a'
         self.store_object(id=statement_uri, bsky={

@@ -528,6 +528,8 @@ class ATProtoTest(TestCase):
         )
 
     def test_hydrate_record_blacksky_conversation(self):
+        for did in 'did:plc:alice', 'did:plc:bob', 'did:plc:eve':
+            self.store_object(id=did, raw={**DID_DOC, 'id': did})
         conv_uri = 'at://did:plc:user/community.blacksky.assembly.conversation/c'
 
         self.store_object(
@@ -2342,6 +2344,8 @@ Sed tortor neque, aliquet quis posuere aliquam, imperdiet sitamet […]
             },
         }
         # Create user with obj already set (with #nobot), save to datastore
+        AtpRemoteBlob(id='https://alice.com/alice.jpg', mime_type='image/png',
+                      cid=BLOB_CID.encode('base32'), size=8, last_fetched=NOW).put()
         user = Fake(id='fake:user')
         user.obj = Object(id='fake:profile:user', our_as1=Fake.fetchable['fake:profile:user'])
         user.obj.put()

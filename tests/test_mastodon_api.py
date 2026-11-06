@@ -284,7 +284,7 @@ class MastodonApiTest(TestCase):
         'cid': 'bafyreifollowsyddddddddddddddddddddddddddddddddddddddddd',
     }))
     def test_accounts_follow(self, mock_post):
-        user = self.make_atproto_user()
+        user = self.make_atproto_user(obj_bsky=test_atproto.ACTOR_PROFILE_BSKY)
         bob = self.make_user('fake:bob', cls=Fake, enabled_protocols=['atproto'],
                              copies=[Target(uri='did:plc:bob', protocol='atproto')])
 

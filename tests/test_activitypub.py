@@ -3450,6 +3450,8 @@ class ActivityPubUtilsTest(TestCase):
         self.assertEqual('/ap/@user@inst.com', user.user_page_path(prefer_id=True))
 
     def test_check_supported(self):
+        self.make_user('http://inst/bob', cls=ActivityPub)
+
         # sending DMs should be allowed
         dm = Object(our_as1={
             'objectType': 'note',
@@ -5123,6 +5125,7 @@ class ActivityPubUtilsTest(TestCase):
                          'content': 'From ActivityPub',
                          'url': 'https://mastodon.social/url',
                      })
+        obj.put()
         converted = ActivityPub.convert(obj)
         self.assertEqual('https://mastodon.social/url', converted['url'])
 

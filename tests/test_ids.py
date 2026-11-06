@@ -20,6 +20,7 @@ from ids import translate_handle, translate_object_id, translate_user_id
 from models import Object, Target
 from nostr import Nostr
 from ui import UIProtocol
+from .test_atproto import DID_DOC
 from .testutil import ExplicitFake, Fake, TestCase
 from web import Web
 
@@ -694,6 +695,7 @@ class IdsTest(TestCase):
         # ui: ids have to be on the same domain as their author's actor id, or
         # Mastodon rejects Creates for them:
         # https://github.com/mastodon/mastodon/blob/main/app/lib/activitypub/activity/create.rb
+        self.store_object(id='did:plc:user', raw=DID_DOC)
         user = self.make_user('did:plc:user', cls=ATProto)
         self.store_object(id='ui:my-note', source_protocol='ui', users=[user.key],
                           our_as1={'objectType': 'note', 'author': 'did:plc:user'})

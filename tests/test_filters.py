@@ -57,6 +57,7 @@ class ContentBlocklistedTest(TestCase):
 class MediaBlocklistedTest(TestCase):
     def setUp(self):
         super().setUp()
+        AtpRemoteBlob(id='http://example.com/ok', cid='okcid').put()
         AtpRemoteBlob(id='http://example.com/bad', cid='badcid').put()
         self.blocklist = Object(id='internal:media-blocklist', raw=['badcid']).put()
         filters.MEDIA_BLOCKLIST.loaded_at = None
