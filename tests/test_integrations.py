@@ -1617,6 +1617,194 @@ class IntegrationTests(TestCase):
         self.assertFalse(user.is_enabled(ATProto))
         self.assertEqual(0, len(user.copies))
 
+    @patch.object(util.session, 'post')  # for Reject, DM explaining why not
+    @patch.object(util.session, 'get')
+    def test_activitypub_follow_bsky_bot_external_id_declines(self, mock_get, mock_post):
+        """AP follow of the Bluesky bot from an account that's already on Bluesky.
+
+        https://github.com/snarfed/bridgy-fed/issues/800
+
+        ActivityPub user @alice@inst , https://inst/alice , on a multi-protocol
+          server that's also on Bluesky as did:plc:native
+        ATProto bot user bsky.brid.gy (did:plc:bsky)
+        Follow is https://inst/follow
+        """
+        mock_get.return_value = self.as2_resp(add_key({
+            'type': 'Person',
+            'id': 'https://inst/alice',
+            'name': 'Mrs. ☕ Alice',
+            'preferredUsername': 'alice',
+            'image': 'http://pic',
+            'inbox': 'http://inst/inbox',
+            'url': [
+                'https://inst/@alice',
+                {'type': 'Link', 'rel': 'alternate', 'href': 'at://did:plc:native'},
+            ],
+        }))
+        self.make_user(id='bsky.brid.gy', cls=Web, ap_subdomain='bsky')
+
+        # deliver follow
+        body = json_dumps({
+            'type': 'Follow',
+            'id': 'http://inst/follow',
+            'actor': 'https://inst/alice',
+            'object': 'https://bsky.brid.gy/bsky.brid.gy',
+        })
+        headers = sign('/bsky.brid.gy/inbox', body, key_id='https://inst/alice')
+        resp = self.client.post('/bsky.brid.gy/inbox', data=body, headers=headers)
+        self.assertEqual(299, resp.status_code)
+
+        # check results
+        user = ActivityPub.get_by_id('https://inst/alice', allow_opt_out=True)
+        self.assertFalse(user.is_enabled(ATProto))
+        self.assertEqual([], user.copies)
+        self.assertEqual([DM(protocol='atproto', type='external-id')], user.sent_dms)
+        self.assertIsNone(self.storage.load_repo('alice.inst.ap.brid.gy'))
+
+        sent = [json_loads(kwargs['data']) for _, kwargs in mock_post.call_args_list]
+        self.assertEqual(['Create', 'Reject'], [a['type'] for a in sent])
+        self.assertIn('did:plc:native', sent[0]['object']['content'])
+        self.assertEqual('http://inst/follow', sent[1]['object']['id'])
+
+    def _setup_post_with_atproto_proxy_link(self, proxy_link):
+        """Shared setup for the AP proxy link tests.
+
+        ActivityPub user @alice@inst , https://inst/alice , bridged to did:plc:alice
+        ActivityPub user @charlie@inst , https://inst/charlie , not bridged, also
+          on Bluesky as did:plc:charlie
+        Charlie's post is https://inst/charlie/post , with proxy link proxy_link
+        """
+        self.make_ap_user('https://inst/alice', 'did:plc:alice')
+        for did in 'did:plc:charlie', 'did:plc:eve':
+            self.store_object(id=did, raw={
+                **DID_DOC,
+                'id': did,
+                'alsoKnownAs': [f'at://{did.split(":")[-1]}.com'],
+            })
+        self.make_user('https://inst/charlie', cls=ActivityPub, obj_as2=add_key({
+            'type': 'Person',
+            'id': 'https://inst/charlie',
+            'preferredUsername': 'charlie',
+            'inbox': 'https://inst/charlie/inbox',
+            'url': {'type': 'Link', 'rel': 'alternate', 'href': 'at://did:plc:charlie'},
+        }))
+        self.store_object(id='https://inst/charlie/post', source_protocol='activitypub',
+                          as2={
+            'type': 'Note',
+            'id': 'https://inst/charlie/post',
+            'attributedTo': 'https://inst/charlie',
+            'content': 'hello world',
+            'to': ['https://www.w3.org/ns/activitystreams#Public'],
+            'url': {'type': 'Link', 'rel': 'alternate', 'href': proxy_link},
+        })
+
+    def _deliver(self, activity):
+        body = json_dumps({
+            '@context': 'https://www.w3.org/ns/activitystreams',
+            **activity,
+        })
+        headers = sign('/ap/sharedInbox', body, key_id='https://inst/alice')
+        return self.client.post('/ap/sharedInbox', data=body, headers=headers)
+
+    @patch.object(util.session, 'get', side_effect=[
+        requests_response({  # getRecord, for Charlie's Bluesky post
+            'uri': 'at://did:plc:charlie/app.bsky.feed.post/123',
+            'cid': A_CID.encode('base32'),
+            'value': {
+                '$type': 'app.bsky.feed.post',
+                'text': 'hello world',
+                'createdAt': '2022-01-01T00:00:00.000Z',
+            },
+        }),
+    ])
+    def test_activitypub_reply_to_post_with_atproto_proxy_link(self, mock_get):
+        """AP reply to a post that's also on Bluesky, by a user we don't bridge.
+
+        We should reply to the Bluesky post as is, not bridge Charlie or their post.
+        https://github.com/snarfed/bridgy-fed/issues/800
+
+        Reply is https://inst/alice/reply
+        """
+        self._setup_post_with_atproto_proxy_link(
+            'at://did:plc:charlie/app.bsky.feed.post/123')
+
+        resp = self._deliver({
+            'type': 'Create',
+            'id': 'https://inst/alice/reply#create',
+            'actor': 'https://inst/alice',
+            'object': {
+                'type': 'Note',
+                'id': 'https://inst/alice/reply',
+                'attributedTo': 'https://inst/alice',
+                'inReplyTo': 'https://inst/charlie/post',
+                'content': 'nice post',
+                'to': ['https://www.w3.org/ns/activitystreams#Public'],
+            },
+            'to': ['https://www.w3.org/ns/activitystreams#Public'],
+        })
+        self.assertEqual(202, resp.status_code)
+
+        repo = self.storage.load_repo('did:plc:alice')
+        tid = arroba.util.int_to_tid(arroba.util._tid_ts_last)
+        charlies_post = {
+            'uri': 'at://did:plc:charlie/app.bsky.feed.post/123',
+            'cid': A_CID.encode('base32'),
+        }
+        self.assert_equals({tid: {
+            '$type': 'app.bsky.feed.post',
+            'text': 'nice post',
+            'reply': {
+                '$type': 'app.bsky.feed.post#replyRef',
+                'root': charlies_post,
+                'parent': charlies_post,
+            },
+            'createdAt': '2022-01-02T03:04:05.000Z',
+            'bridgyOriginalText': 'nice post',
+            'bridgyOriginalUrl': 'https://inst/alice/reply',
+        }}, repo.get_contents()['app.bsky.feed.post'])
+
+        # we didn't bridge Charlie or their post
+        charlie = ActivityPub.get_by_id('https://inst/charlie', allow_opt_out=True)
+        self.assertEqual([], charlie.copies)
+        self.assertEqual([], charlie.enabled_protocols)
+        self.assertEqual([], Object.get_by_id('https://inst/charlie/post').copies)
+
+    @patch.object(util.session, 'get', side_effect=[
+        requests_response({  # getRecord, for Eve's Bluesky post
+            'uri': 'at://did:plc:eve/app.bsky.feed.post/123',
+            'cid': A_CID.encode('base32'),
+            'value': {
+                '$type': 'app.bsky.feed.post',
+                'text': 'something else',
+                'createdAt': '2022-01-01T00:00:00.000Z',
+            },
+        }),
+    ])
+    def test_activitypub_repost_of_post_with_spoofed_atproto_proxy_link(self, mock_get):
+        """AP repost of a post whose proxy link points to someone else's post.
+
+        Charlie is on Bluesky as did:plc:charlie, but their post's proxy link
+        points to Eve's post, so we don't trust it.
+        https://github.com/snarfed/bridgy-fed/issues/800
+        """
+        self._setup_post_with_atproto_proxy_link(
+            'at://did:plc:eve/app.bsky.feed.post/123')
+
+        self._deliver({
+            'type': 'Announce',
+            'id': 'https://inst/alice/repost',
+            'actor': 'https://inst/alice',
+            'object': 'https://inst/charlie/post',
+            'to': ['https://www.w3.org/ns/activitystreams#Public'],
+        })
+
+        repo = self.storage.load_repo('did:plc:alice')
+        self.assertNotIn('app.bsky.feed.repost', repo.get_contents())
+
+        charlie = ActivityPub.get_by_id('https://inst/charlie', allow_opt_out=True)
+        self.assertEqual([], charlie.copies)
+        self.assertEqual([], Object.get_by_id('https://inst/charlie/post').copies)
+
     @patch.object(util.session, 'post', return_value=BSKY_SEND_MESSAGE_RESP)
     @patch.object(util.session, 'get', side_effect=[
         requests_response(DID_DOC),  # alice DID
@@ -2125,8 +2313,7 @@ class IntegrationTests(TestCase):
                  if c.args == ('https://chat.invalid/xrpc/chat.bsky.convo.sendMessage',)]
         self.assertEqual(1, len(sends), mock_post.call_args_list)
         self.assertEqual(
-            "OK, we'll migrate your bridged account on the fediverse to "
-            'alice-new · @alice-new@inst.',
+            "OK, we'll migrate your bridged account on the fediverse to alice-new · @alice-new@inst.",
             sends[0].kwargs['json']['message']['text'])
 
     @patch.object(util.session, 'get', side_effect=[
