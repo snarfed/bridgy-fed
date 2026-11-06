@@ -1006,7 +1006,7 @@ def render_embed(obj):
         return ''
 
     obj_as1 = copy.deepcopy(obj.as1)
-    to_hydrate = [(obj_as1, PROTOCOLS.get(obj.source_protocol))]
+    to_hydrate = [obj_as1]
 
     # load quoted posts
     attachments = as1.get_objects(obj_as1, 'attachments')
@@ -1018,18 +1018,19 @@ def render_embed(obj):
             quoted = proto.load(id, raise_=False)
             if quoted and quoted.as1:
                 attachments[i] = copy.deepcopy(quoted.as1)
-                to_hydrate.append((attachments[i], proto))
+                to_hydrate.append(attachments[i])
 
     if attachments:
         obj_as1['attachments'] = attachments
 
     # hydrate authors
     # (overlaps with models.hydrate some, but it's not a good fit to reuse here)
-    for elem, proto in to_hydrate:
+    for elem in to_hydrate:
         as1.convert_html_content_to_text(elem)
 
         author = as1.get_object(elem, 'author')
-        if author.keys() == {'id'} and proto:
+        if (author.keys() == {'id'}
+                and (proto := Protocol.for_id(author['id'], remote=False))):
             profile_id = ids.profile_id(id=author['id'], proto=proto)
             profile = proto.load(profile_id, raise_=False)
             if profile and profile.as1:

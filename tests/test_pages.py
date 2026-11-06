@@ -1726,6 +1726,31 @@ hi there
 """, resp.get_data(as_text=True), ignore_blanks=True)
 
     @patch('webutil.util.now', return_value=datetime.now())
+    def test_respond_loads_author_from_different_protocol(self, _):
+        Fake.fetchable = {'fake:profile:alice': {
+            'objectType': 'person',
+            'displayName': 'Alice',
+            'url': 'https://alice.com/',
+        }}
+        self.store_object(id='other:post', source_protocol='other', our_as1={
+            'objectType': 'note',
+            'author': 'fake:alice',
+            'content': 'hi there',
+        })
+        token = common.make_jwt(user=self.user, scope='respond', obj_id='other:post')
+
+        resp = self.client.get(
+            f'/web/user.com/respond?obj_id=other:post&token={token}')
+        self.assertEqual(200, resp.status_code)
+        self.assertEqual(['fake:profile:alice'], Fake.fetched)
+        self.assert_multiline_in("""\
+<span class="p-author h-card">
+<data class="p-uid" value="fake:profile:alice"></data>
+<a class="p-name u-url" href="https://alice.com/">Alice</a>
+</span>
+""", resp.get_data(as_text=True), ignore_blanks=True)
+
+    @patch('webutil.util.now', return_value=datetime.now())
     def test_respond_loads_quoted_post(self, _):
         Fake.fetchable = {
             'fake:quoted': {
