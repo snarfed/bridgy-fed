@@ -2146,7 +2146,9 @@ class Object(AddRemoveMixin, StringIdModel):
                         author_external_id = author.get_external_id(to_proto)
 
             if not author_external_id:
-                logger.warning(f"Ignoring {self.key.id()} 's external id {normalized} , its author isn't on {to_proto.LABEL}")
+                common.report_error(
+                    "Ignoring external id, author isn't on protocol",
+                    user=f'{self.key.id()} external id {normalized} on {to_proto.LABEL}')
                 return None
 
             owner = None
@@ -2155,7 +2157,9 @@ class Object(AddRemoveMixin, StringIdModel):
                 owner = ids.normalize_user_id(id=owner_id, proto=to_proto)
 
             if owner != author_external_id:
-                logger.warning(f"Ignoring {self.key.id()} 's external id {normalized} , it's not owned by its author's {to_proto.LABEL} account {author_external_id}")
+                common.report_error(
+                    'Ignoring external id, not owned by author',
+                    user=f'{self.key.id()} external id {normalized} on {to_proto.LABEL}, author {author_external_id} owner {owner}')
                 continue
 
             return normalized
