@@ -8,7 +8,7 @@ import random
 import re
 import threading
 import unittest
-from unittest.mock import ANY, call
+from unittest.mock import ANY, call, patch
 from urllib.parse import parse_qs, urlencode
 import warnings
 
@@ -469,6 +469,11 @@ class TestCase(unittest.TestCase, testutil.Asserts):
         # system level local timezone
         os.environ['TZ'] = 'America/Los_Angeles'
 
+        self.session_patch = patch.object(
+            util.session, 'send',
+            side_effect=AssertionError('unmocked HTTP request!')
+        ).start()
+
     def tearDown(self):
         self.app_context.pop()
         self.ndb_context.__exit__(None, None, None)
@@ -478,6 +483,8 @@ class TestCase(unittest.TestCase, testutil.Asserts):
         for thread in threading.enumerate():
             if thread is not main and not thread.daemon:
                 thread.join()
+
+        self.session_patch.stop()
 
         super().tearDown()
 
