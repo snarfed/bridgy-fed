@@ -20,7 +20,7 @@ from ids import translate_handle, translate_object_id, translate_user_id
 from models import Object, Target
 from nostr import Nostr
 from ui import UIProtocol
-from .testutil import Fake, TestCase
+from .testutil import ExplicitFake, Fake, TestCase
 from web import Web
 
 NOSTR_ID_0 = 'nostr:0' + 'a' * 63
@@ -744,7 +744,15 @@ class IdsTest(TestCase):
                 self.assertEqual('https://web.brid.gy/r/http://on-web.com/post', got)
 
     def test_translate_object_id_external(self):
-        self.make_user('fake:user', cls=Fake)
+        self.make_user('fake:user', cls=Fake, obj_as1=EXTERNAL_ACTOR)
+        self.store_object(id='at://did:plc:ext/app.bsky.feed.post/123',
+                          source_protocol='atproto',
+                          our_as1={'objectType': 'note', 'author': 'did:plc:ext'})
+        self.store_object(id=ID_URI, source_protocol='nostr',
+                          our_as1={'objectType': 'note', 'author': NPUB_URI})
+        self.store_object(id='http://in.st/post', source_protocol='activitypub',
+                          our_as1={'objectType': 'note',
+                                   'author': 'http://in.st/alice'})
         self.store_object(id='fake:post', source_protocol='fake',
                           our_as1=EXTERNAL_POST)
 
@@ -787,11 +795,32 @@ class IdsTest(TestCase):
                     id='fake:post', from_=Fake, to=proto, external=True))
 
     def test_translate_object_id_external_no_owner(self):
+        """We can't verify the proxy link without its author, so we don't use it."""
         self.store_object(id='fake:post', source_protocol='fake',
                           our_as1=EXTERNAL_POST)
 
-        self.assertEqual('http://in.st/post', translate_object_id(
-            id='fake:post', from_=Fake, to=ActivityPub, external=True))
+        self.assertEqual('https://fa.brid.gy/convert/ap/fake:post',
+                         translate_object_id(id='fake:post', from_=Fake,
+                                             to=ActivityPub, external=True))
+
+    def test_translate_object_id_external_doesnt_fetch(self):
+        """We only use external objects that we've already fetched and verified."""
+        self.make_user('fake:user', cls=Fake, obj_as1={
+            'objectType': 'person',
+            'urls': [{'value': 'efake:user-ext', 'rel': 'alternate'}],
+        })
+        self.store_object(id='fake:post', source_protocol='fake', our_as1={
+            'objectType': 'note',
+            'author': 'fake:user',
+            'urls': [{'value': 'efake:post-ext', 'rel': 'alternate'}],
+        })
+        ExplicitFake.fetchable = {
+            'efake:post-ext': {'objectType': 'note', 'author': 'efake:user-ext'},
+        }
+
+        self.assertEqual('efake:o:fa:fake:post', translate_object_id(
+            id='fake:post', from_=Fake, to=ExplicitFake, external=True))
+        self.assertEqual([], ExplicitFake.fetched)
 
     def test_translate_object_id_external_no_object(self):
         self.assertEqual('fake:post', translate_object_id(
@@ -830,6 +859,9 @@ class IdsTest(TestCase):
 
     def test_translate_id_external(self):
         self.make_user('fake:user', cls=Fake, obj_as1=EXTERNAL_ACTOR)
+        self.store_object(id='at://did:plc:ext/app.bsky.feed.post/123',
+                          source_protocol='atproto',
+                          our_as1={'objectType': 'note', 'author': 'did:plc:ext'})
         self.store_object(id='fake:post', source_protocol='fake',
                           our_as1=EXTERNAL_POST)
 

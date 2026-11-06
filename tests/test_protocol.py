@@ -604,7 +604,14 @@ class ProtocolTest(TestCase):
 
     def test_targets_share_external_id(self):
         user = self.make_user('fake:user', cls=Fake, enabled_protocols=['efake'])
-        ExplicitFake.fetchable = {'efake:post-ext': {'objectType': 'note'}}
+        ExplicitFake.fetchable = {'efake:post-ext': {
+            'objectType': 'note',
+            'author': 'efake:charlie-ext',
+        }}
+        self.make_user('fake:charlie', cls=Fake, obj_as1={
+            'objectType': 'person',
+            'urls': [{'value': 'efake:charlie-ext', 'rel': 'alternate'}],
+        })
         self.store_object(id='fake:post', source_protocol='fake', our_as1={
             'id': 'fake:post',
             'objectType': 'note',
@@ -625,7 +632,14 @@ class ProtocolTest(TestCase):
 
     def test_targets_reply_external_id(self):
         user = self.make_user('fake:user', cls=Fake, enabled_protocols=['efake'])
-        ExplicitFake.fetchable = {'efake:post-ext': {'objectType': 'note'}}
+        ExplicitFake.fetchable = {'efake:post-ext': {
+            'objectType': 'note',
+            'author': 'efake:charlie-ext',
+        }}
+        self.make_user('fake:charlie', cls=Fake, obj_as1={
+            'objectType': 'person',
+            'urls': [{'value': 'efake:charlie-ext', 'rel': 'alternate'}],
+        })
         self.store_object(id='fake:post', source_protocol='fake', our_as1={
             'id': 'fake:post',
             'objectType': 'note',
@@ -700,6 +714,14 @@ class ProtocolTest(TestCase):
     def test_targets_like_external_id_activitypub(self, _):
         user = self.make_user('fake:user', cls=Fake,
                               enabled_protocols=['activitypub'])
+        self.make_user('fake:charlie', cls=Fake, obj_as1={
+            'objectType': 'person',
+            'urls': [{
+                'value': 'https://in.st/charlie',
+                'rel': 'alternate',
+                'mimeType': 'application/activity+json',
+            }],
+        })
         self.store_object(id='fake:post', source_protocol='fake', our_as1={
             'id': 'fake:post',
             'objectType': 'note',
@@ -1111,6 +1133,10 @@ class ProtocolTest(TestCase):
             'objectType': 'person',
             'urls': [{'value': 'efake:bob-ext', 'rel': 'alternate'}],
         })
+        self.store_object(id='efake:post-ext', source_protocol='efake', our_as1={
+            'objectType': 'note',
+            'author': 'efake:bob-ext',
+        })
         self.store_object(id='fake:post', source_protocol='fake', our_as1={
             'objectType': 'note',
             'author': 'fake:bob',
@@ -1170,6 +1196,14 @@ class ProtocolTest(TestCase):
     def test_translate_ids_external_id_undo(self):
         self.make_user('fake:alice', cls=Fake, enabled_protocols=['efake'],
                        copies=[Target(uri='efake:alice', protocol='efake')])
+        self.make_user('fake:bob', cls=Fake, obj_as1={
+            'objectType': 'person',
+            'urls': [{'value': 'efake:bob-ext', 'rel': 'alternate'}],
+        })
+        self.store_object(id='efake:post-ext', source_protocol='efake', our_as1={
+            'objectType': 'note',
+            'author': 'efake:bob-ext',
+        })
         self.store_object(id='fake:post', source_protocol='fake', our_as1={
             'objectType': 'note',
             'author': 'fake:bob',

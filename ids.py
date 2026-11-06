@@ -621,7 +621,7 @@ def translate_object_id(*, id, from_, to, owner=None, external=False):
         if orig := models.get_original_object_key(id):
             return orig.id()
 
-    if external and obj and (external_id := obj.get_external_id(to)):
+    if external and obj and (external_id := obj.get_external_id(to, remote=False)):
         author_id = as1.get_owner(obj.as1)
         author_proto = obj.owner_protocol(remote=False)
         author = (author_proto.get_by_id(author_id)

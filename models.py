@@ -2099,7 +2099,7 @@ class Object(AddRemoveMixin, StringIdModel):
           <span style="unicode-bidi: isolate">{html.escape(util.ellipsize(name, chars=40), quote=False)}</span>
         </a>"""
 
-    def get_external_id(self, to_proto):
+    def get_external_id(self, to_proto, remote=None):
         """Returns this object's copy in a given protocol that we don't manage, if any.
 
         For example, if this object was bridged by another bridge, or published by a
@@ -2110,10 +2110,15 @@ class Object(AddRemoveMixin, StringIdModel):
         whether we've bridged this object there. Callers need to check that
         themselves, eg whether its owner is enabled for ``to_proto``.
 
-        Links on our domains don't count.
+        Links on our domains don't count. Proxy links are unverified, so we only
+        trust them if this object's author is also on ``to_proto``, ie
+        :meth:`User.get_external_id`, and the linked object's own author there is
+        that same account.
 
         Args:
           to_proto (:class:`Protocol` subclass)
+          remote (bool): passed through to :meth:`Protocol.load` when loading the
+            linked object to check its author
 
         Returns:
           str: id of the copy, normalized with :func:`ids.normalize_object_id`, or
@@ -2123,13 +2128,39 @@ class Object(AddRemoveMixin, StringIdModel):
         if self.get_copy(to_proto) or not (obj_as1 := self.as1):
             return None
 
+        author_external_id = False  # not loaded yet
         for link in as1.get_rel_links(obj_as1, url_prefixes=to_proto.URI_PREFIXES,
                                       mime_types=to_proto.MIME_TYPES):
             uri = link['value']
             if util.domain_or_parent_in(uri, [SUPERDOMAIN]):
                 continue
-            if normalized := ids.normalize_object_id(id=uri, proto=to_proto):
-                return normalized
+            elif not (normalized := ids.normalize_object_id(id=uri, proto=to_proto)):
+                continue
+
+            # check that the external object's author is this user
+            if author_external_id is False:
+                author = None
+                if ((author_id := as1.get_owner(obj_as1))
+                        and (author_proto := self.owner_protocol(remote=False))):
+                    if author := author_proto.get_by_id(author_id):
+                        author_external_id = author.get_external_id(to_proto)
+
+            if not author_external_id:
+                # TODO: drop to logger.info once we've seen enough usage
+                common.report_error(f"Ignoring {self.key.id()} 's proxy link {normalized} , its author isn't on {to_proto.LABEL}")
+                return None
+
+            owner = None
+            external_obj = to_proto.load(normalized, remote=remote, raise_=False)
+            if external_obj and (owner_id := as1.get_owner(external_obj.as1)):
+                owner = ids.normalize_user_id(id=owner_id, proto=to_proto)
+
+            if owner != author_external_id:
+                # TODO: drop to logger.info once we've seen enough usage
+                common.report_error(f"Ignoring {self.key.id()} 's proxy link {normalized} , it's not owned by its author's {to_proto.LABEL} account {author_external_id}")
+                continue
+
+            return normalized
 
     def get_copy(self, proto):
         """Returns the id for the copy of this object in a given protocol.

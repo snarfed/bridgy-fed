@@ -82,6 +82,20 @@ CANONICAL_ID_ACTOR = {
     'objectType': 'person',
     'urls': [{'value': 'unknown:alice', 'rel': 'canonical'}],
 }
+ALICE_EXTERNAL_IDS_ACTOR = {
+    'objectType': 'person',
+    'urls': [
+        {'value': 'at://did:plc:alice', 'rel': 'alternate'},
+        {'value': NPUB_URI, 'rel': 'alternate'},
+        {
+            'value': 'http://ot.her/alice',
+            'rel': 'alternate',
+            'mimeType': 'application/activity+json',
+        },
+        {'value': 'farcaster://123', 'rel': 'alternate'},
+        {'value': 'efake:alice-ext', 'rel': 'alternate'},
+    ],
+}
 
 
 class UserTest(TestCase):
@@ -3003,8 +3017,18 @@ cast_add_body { text: "hi" }
         self.assertEqual('fake:foo', obj.get_copy(Fake))
 
     def test_get_external_id(self):
+        self.make_user('fake:alice', cls=Fake, obj_as1=ALICE_EXTERNAL_IDS_ACTOR)
+        self.store_object(id='at://did:plc:alice/app.bsky.feed.post/123',
+                          source_protocol='atproto',
+                          our_as1={'objectType': 'note', 'author': 'did:plc:alice'})
+        self.store_object(id=f'nostr:{ID}', source_protocol='nostr',
+                          our_as1={'objectType': 'note', 'author': NPUB_URI})
+        self.store_object(id='http://ot.her/post', source_protocol='activitypub',
+                          our_as1={'objectType': 'note',
+                                   'author': 'http://ot.her/alice'})
         obj = Object(id='fake:post', source_protocol='fake', our_as1={
             'objectType': 'note',
+            'author': 'fake:alice',
             'url': 'http://in.st/post',
             'urls': [
                 'http://in.st/post',
@@ -3025,11 +3049,97 @@ cast_add_body { text: "hi" }
         self.assertIsNone(obj.get_external_id(Farcaster))
 
     def test_get_external_id_in_url(self):
+        self.make_user('fake:alice', cls=Fake, obj_as1=ALICE_EXTERNAL_IDS_ACTOR)
+        self.store_object(id=f'nostr:{ID}', source_protocol='nostr',
+                          our_as1={'objectType': 'note', 'author': NPUB_URI})
         obj = Object(id='fake:post', source_protocol='fake', our_as1={
             'objectType': 'note',
+            'author': 'fake:alice',
             'url': {'value': URI, 'rel': 'canonical'},
         })
         self.assertEqual(f'nostr:{ID}', obj.get_external_id(Nostr))
+
+    def test_get_external_id_no_author(self):
+        obj = Object(id='fake:post', source_protocol='fake', our_as1={
+            'objectType': 'note',
+            'urls': [{'value': URI, 'rel': 'alternate'}],
+        })
+        self.assertIsNone(obj.get_external_id(Nostr))
+
+    def test_get_external_id_author_not_stored(self):
+        obj = Object(id='fake:post', source_protocol='fake', our_as1={
+            'objectType': 'note',
+            'author': 'fake:alice',
+            'urls': [{'value': URI, 'rel': 'alternate'}],
+        })
+        self.assertIsNone(obj.get_external_id(Nostr))
+
+    def test_get_external_id_author_has_no_external_id(self):
+        self.make_user('fake:alice', cls=Fake, obj_as1={
+            'objectType': 'person',
+            'urls': [{'value': 'at://did:plc:alice', 'rel': 'alternate'}],
+        })
+        obj = Object(id='fake:post', source_protocol='fake', our_as1={
+            'objectType': 'note',
+            'author': 'fake:alice',
+            'urls': [{'value': URI, 'rel': 'alternate'}],
+        })
+        self.assertIsNone(obj.get_external_id(Nostr))
+
+    def test_get_external_id_owned_by_author(self):
+        self.make_user('fake:alice', cls=Fake, obj_as1=ALICE_EXTERNAL_IDS_ACTOR)
+        ExplicitFake.fetchable = {
+            'efake:alices': {'objectType': 'note', 'author': 'efake:alice-ext'},
+            'efake:eves': {'objectType': 'note', 'author': 'efake:eve'},
+            'efake:no-author': {'objectType': 'note'},
+        }
+
+        for uri, expected in [
+            ('efake:alices', 'efake:alices'),
+            ('efake:eves', None),
+            ('efake:no-author', None),
+            ('efake:not-fetchable', None),
+        ]:
+            with self.subTest(uri=uri):
+                obj = Object(id='fake:post', source_protocol='fake', our_as1={
+                    'objectType': 'note',
+                    'author': 'fake:alice',
+                    'urls': [{'value': uri, 'rel': 'alternate'}],
+                })
+                self.assertEqual(expected, obj.get_external_id(ExplicitFake))
+
+    def test_get_external_id_tries_next_link(self):
+        self.make_user('fake:alice', cls=Fake, obj_as1=ALICE_EXTERNAL_IDS_ACTOR)
+        ExplicitFake.fetchable = {
+            'efake:eves': {'objectType': 'note', 'author': 'efake:eve'},
+            'efake:alices': {'objectType': 'note', 'author': 'efake:alice-ext'},
+        }
+        obj = Object(id='fake:post', source_protocol='fake', our_as1={
+            'objectType': 'note',
+            'author': 'fake:alice',
+            'urls': [
+                {'value': 'efake:eves', 'rel': 'alternate'},
+                {'value': 'efake:alices', 'rel': 'alternate'},
+            ],
+        })
+        self.assertEqual('efake:alices', obj.get_external_id(ExplicitFake))
+
+    def test_get_external_id_remote_false(self):
+        self.make_user('fake:alice', cls=Fake, obj_as1=ALICE_EXTERNAL_IDS_ACTOR)
+        ExplicitFake.fetchable = {
+            'efake:alices': {'objectType': 'note', 'author': 'efake:alice-ext'},
+        }
+        obj = Object(id='fake:post', source_protocol='fake', our_as1={
+            'objectType': 'note',
+            'author': 'fake:alice',
+            'urls': [{'value': 'efake:alices', 'rel': 'alternate'}],
+        })
+        self.assertIsNone(obj.get_external_id(ExplicitFake, remote=False))
+
+        self.store_object(id='efake:alices', source_protocol='efake',
+                          our_as1={'objectType': 'note', 'author': 'efake:alice-ext'})
+        self.assertEqual('efake:alices',
+                         obj.get_external_id(ExplicitFake, remote=False))
 
     def test_get_external_id_no_as1(self):
         self.assertIsNone(Object(id='fake:post').get_external_id(ATProto))
