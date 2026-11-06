@@ -3108,6 +3108,22 @@ cast_add_body { text: "hi" }
                 })
                 self.assertEqual(expected, obj.get_external_id(ExplicitFake))
 
+    def test_get_external_id_author_opted_out(self):
+        """We don't bridge the author, but we can still use their native posts."""
+        self.make_user('fake:alice', cls=Fake, obj_as1={
+            **ALICE_EXTERNAL_IDS_ACTOR,
+            'summary': '#nobridge',
+        })
+        ExplicitFake.fetchable = {
+            'efake:alices': {'objectType': 'note', 'author': 'efake:alice-ext'},
+        }
+        obj = Object(id='fake:post', source_protocol='fake', our_as1={
+            'objectType': 'note',
+            'author': 'fake:alice',
+            'urls': [{'value': 'efake:alices', 'rel': 'alternate'}],
+        })
+        self.assertEqual('efake:alices', obj.get_external_id(ExplicitFake))
+
     def test_get_external_id_tries_next_link(self):
         self.make_user('fake:alice', cls=Fake, obj_as1=ALICE_EXTERNAL_IDS_ACTOR)
         ExplicitFake.fetchable = {

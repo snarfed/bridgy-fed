@@ -2142,7 +2142,7 @@ class Object(AddRemoveMixin, StringIdModel):
                 author = None
                 if ((author_id := as1.get_owner(obj_as1))
                         and (author_proto := self.owner_protocol(remote=False))):
-                    if author := author_proto.get_by_id(author_id):
+                    if author := author_proto.get_by_id(author_id, allow_opt_out=True):
                         author_external_id = author.get_external_id(to_proto)
 
             if not author_external_id:
