@@ -29,6 +29,7 @@ from granary.generated.farcaster.request_response_pb2 import (
     FidRequest,
     SubmitBulkMessagesRequest,
 )
+from granary.source import PROTOCOL_URI_PREFIXES
 import grpc
 from webutil import util
 
@@ -55,7 +56,7 @@ class Farcaster(User, Protocol):
     LOGO_EMOJI = '🏛️'
     LOGO_HTML = '<img src="/static/farcaster_logo.png">'
     CONTENT_TYPE = 'application/octet-stream'
-    URI_PREFIXES = ('farcaster://',)
+    URI_PREFIXES = PROTOCOL_URI_PREFIXES['farcaster']
     'https://github.com/farcasterxyz/protocol/discussions/123'
     DEFAULT_TARGET = f'snapchain://{SNAPCHAIN_HOST}:{SNAPCHAIN_PORT}'
     DEFAULT_ENABLED_PROTOCOLS = ('web',)

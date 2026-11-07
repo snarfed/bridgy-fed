@@ -41,7 +41,12 @@ from google.cloud import ndb
 import googleapiclient.discovery
 from granary import as1, as2, bluesky
 from granary.bluesky import Bluesky, FROM_AS1_TYPES, to_external_embed
-from granary.source import html_to_text, INCLUDE_LINK, Source
+from granary.source import (
+    html_to_text,
+    INCLUDE_LINK,
+    PROTOCOL_URI_PREFIXES,
+    Source,
+)
 from lexrpc import Client, ValidationError
 from lexrpc.base import AT_URI_RE, DID_RE
 from requests import RequestException
@@ -374,7 +379,7 @@ class ATProto(User, Protocol):
     """
     CONTENT_TYPE = 'application/json'
     ''
-    URI_PREFIXES = ('at://', 'did:plc:', 'did:web:')
+    URI_PREFIXES = PROTOCOL_URI_PREFIXES['atproto']
     'https://atproto.com/specs/at-uri-scheme , https://atproto.com/specs/did'
     HAS_COPIES = True
     ''

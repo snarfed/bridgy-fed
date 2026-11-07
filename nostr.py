@@ -34,6 +34,7 @@ from granary.nostr import (
     nip05_to_npub,
     uri_to_id,
 )
+from granary.source import PROTOCOL_URI_PREFIXES
 from requests import RequestException
 import secp256k1
 from websockets.exceptions import ConnectionClosedOK
@@ -88,7 +89,7 @@ class Nostr(User, Protocol):
     LOGO_EMOJI = '𓅦'  # ostrich-ish bird
     LOGO_HTML = '<img src="/static/nostr_logo.png">'
     CONTENT_TYPE = 'application/json'
-    URI_PREFIXES = ('nostr:',)
+    URI_PREFIXES = PROTOCOL_URI_PREFIXES['nostr']
     'https://nostr-nips.com/nip-21'
     HAS_COPIES = True
     DEFAULT_TARGET = 'wss://nos.lol/'
