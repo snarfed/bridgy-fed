@@ -1274,7 +1274,12 @@ class Protocol:
                     if user:
                         start = tag['startIndex']
                         end = start + tag['length']
-                        if handle := user.handle_as(cls):
+                        try:
+                            handle = user.handle_as(cls)
+                        except ValueError as e:
+                            logger.info(f"Couldn't translate mention of {id} : {e}")
+                            handle = None
+                        if handle:
                             content = content[:start] + handle + content[end:]
                             offset += len(handle) - tag['length']
                             tag.update({

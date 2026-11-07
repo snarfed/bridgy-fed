@@ -37,6 +37,7 @@ from atproto import ATProto
 import common
 import ids
 from common import ErrorButDoNotRetryTask
+from farcaster import Farcaster
 import filters
 import memcache
 import models
@@ -1622,6 +1623,20 @@ class ProtocolTest(TestCase):
                 'length': 3,
             }],
         }))
+
+    def test_translate_mention_handles_unsupported_handle(self):
+        self.make_user('toolongforfarcaster.com', cls=Web)
+
+        obj = {
+            'content': 'Hi @toolongforfarcaster.com!',
+            'tags': [{
+                'objectType': 'mention',
+                'url': 'https://toolongforfarcaster.com/',
+                'startIndex': 3,
+                'length': 18,
+            }],
+        }
+        self.assertEqual(obj, Farcaster.translate_mention_handles(obj))
 
     def test_convert_object_is_from_user_adds_source_links(self):
         self.make_user(cls=Web, id='fa.brid.gy',
