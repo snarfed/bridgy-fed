@@ -2113,7 +2113,8 @@ class Object(AddRemoveMixin, StringIdModel):
         Links on our domains don't count. Proxy links are unverified, so we only
         trust them if this object's author is also on ``to_proto``, ie
         :meth:`User.get_external_id`, and the linked object's own author there is
-        that same account.
+        that same account. If this object is an actor, the linked object must be
+        that account itself.
 
         Args:
           to_proto (:class:`Protocol` subclass)
@@ -2121,12 +2122,16 @@ class Object(AddRemoveMixin, StringIdModel):
             linked object to check its author
 
         Returns:
-          str: id of the copy, normalized with :func:`ids.normalize_object_id`, or
+          str: id of the copy, normalized with :func:`ids.normalize_object_id`,
+            or :func:`ids.normalize_user_id` for actors, or
             None if this object doesn't link to one, or if it's native to
             ``to_proto`` or we have a copy of it there
         """
         if self.get_copy(to_proto) or not (obj_as1 := self.as1):
             return None
+
+        is_actor = as1.object_type(obj_as1) in as1.ACTOR_TYPES
+        normalize = ids.normalize_user_id if is_actor else ids.normalize_object_id
 
         author_external_id = False  # not loaded yet
         for link in as1.get_rel_links(obj_as1, url_prefixes=to_proto.URI_PREFIXES,
@@ -2134,7 +2139,7 @@ class Object(AddRemoveMixin, StringIdModel):
             uri = link['value']
             if util.domain_or_parent_in(uri, [SUPERDOMAIN]):
                 continue
-            elif not (normalized := ids.normalize_object_id(id=uri, proto=to_proto)):
+            elif not (normalized := normalize(id=uri, proto=to_proto)):
                 continue
 
             # check that the external object's author is this user
@@ -2158,10 +2163,14 @@ class Object(AddRemoveMixin, StringIdModel):
                     user=f'{self.key.id()} external id {normalized} on {to_proto.LABEL}')
                 return None
 
-            owner = None
-            external_obj = to_proto.load(normalized, remote=remote, raise_=False)
-            if external_obj and (owner_id := as1.get_owner(external_obj.as1)):
-                owner = ids.normalize_user_id(id=owner_id, proto=to_proto)
+            if is_actor:
+                # the external object is the author's account itself
+                owner = normalized
+            else:
+                owner = None
+                external_obj = to_proto.load(normalized, remote=remote, raise_=False)
+                if external_obj and (owner_id := as1.get_owner(external_obj.as1)):
+                    owner = ids.normalize_user_id(id=owner_id, proto=to_proto)
 
             if owner != author_external_id:
                 common.report_error(

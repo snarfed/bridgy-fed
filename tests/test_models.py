@@ -3131,6 +3131,29 @@ cast_add_body { text: "hi" }
                 })
                 self.assertEqual(expected, obj.get_external_id(ExplicitFake))
 
+    def test_get_external_id_actor(self):
+        self.make_user('fake:alice', cls=Fake, obj_as1=ALICE_EXTERNAL_IDS_ACTOR)
+
+        actor = Object(id='fake:alice', source_protocol='fake', our_as1={
+            'objectType': 'person',
+            'id': 'fake:alice',
+            'urls': [{'value': 'efake:alice-ext', 'rel': 'alternate'}],
+        })
+        self.assertEqual('efake:alice-ext', actor.get_external_id(ExplicitFake))
+
+        actor.our_as1['urls'] = [{'value': 'at://did:plc:alice', 'rel': 'alternate'}]
+        self.assertEqual('did:plc:alice', actor.get_external_id(ATProto))
+
+        actor.our_as1['urls'] = [{'value': 'efake:eve', 'rel': 'alternate'}]
+        self.assertIsNone(actor.get_external_id(ExplicitFake))
+
+        post = Object(id='fake:post', source_protocol='fake', our_as1={
+            'objectType': 'note',
+            'author': 'fake:alice',
+            'urls': [{'value': 'efake:alice-ext', 'rel': 'alternate'}],
+        })
+        self.assertIsNone(post.get_external_id(ExplicitFake))
+
     def test_get_external_id_author_opted_out(self):
         """We don't bridge the author, but we can still use their native posts."""
         self.make_user('fake:alice', cls=Fake, obj_as1={
