@@ -478,6 +478,29 @@ class ATProtoTest(TestCase):
 
         self.assertEqual('private', user.status)
 
+    def test_status_external_id(self):
+        """eg multi-protocol servers like wafrn that already bridge this account."""
+        self.store_object(id='did:plc:user', raw=DID_DOC)
+        obj = self.store_object(id='at://did:plc:user/app.bsky.actor.profile/self',
+                                bsky=ACTOR_PROFILE_BSKY)
+        user = self.make_user('did:plc:user', cls=ATProto, obj_key=obj.key,
+                              enabled_protocols=['activitypub'])
+
+        for aka, expected in [
+            (['at://han.dull'], None),
+            (['at://han.dull', 'https://bsky.brid.gy/ap/did:plc:user'], None),
+            (['at://han.dull', 'https://in.st.example/users/alice'], 'external-id'),
+        ]:
+            with self.subTest(aka=aka):
+                self.store_object(id='did:plc:user', raw={
+                    **DID_DOC,
+                    'alsoKnownAs': aka,
+                })
+                self.assertEqual(expected, user.status)
+
+        user.manual_opt_out = False
+        self.assertIsNone(user.status)
+
     def test_target_for_user_no_stored_did(self):
         self.assertEqual('https://atproto.brid.gy', ATProto.target_for(
             Object(id='at://did:plc:foo/app.bsky.feed.post/123')))

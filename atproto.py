@@ -449,6 +449,24 @@ class ATProto(User, Protocol):
         """Returns handle if the DID document includes one, otherwise None."""
         return did_to_handle(self.key.id())
 
+    @ndb.ComputedProperty
+    def status(self):
+        if self.manual_opt_out is not None:
+            return super().status
+
+        # other alsoKnownAs ids in the DID doc, eg from multi-protocol servers like
+        # wafrn, mean this account is already bridged elsewhere
+        # https://github.com/snarfed/bridgy-fed/issues/800
+        if (self.key and self.key.id()
+                and (did_doc := self.load(self.key.id(), raw=True, remote=False))):
+            for aka in did_doc.raw.get('alsoKnownAs') or []:
+                if (not aka.startswith('at://')
+                        and not util.domain_or_parent_in(aka, [SUPERDOMAIN])):
+                    logger.info(f'{self.key.id()} DID doc has external id in alsoKnownAs: {aka}')
+                    return 'external-id'
+
+        return super().status
+
     def web_url(self):
         return Bluesky.user_url(self.handle_or_id())
 
