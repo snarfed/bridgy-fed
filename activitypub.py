@@ -849,7 +849,8 @@ class ActivityPub(User, Protocol):
         if (obj.source_protocol not in (None, 'activitypub')
                 and obj.type not in as1.CRUD_VERBS and obj.key and obj.key.id()
                 and not UIProtocol.owns_id(obj.key.id())
-                and not cls.is_blocklisted(obj.key.id())):
+                and not cls.is_blocklisted(obj.key.id())
+                and not as1.get_rel_links(obj_as1, rels=('canonical',))):
             canonical = {
                 'type': 'Link',
                 'rel': 'canonical',
@@ -1287,7 +1288,9 @@ def postprocess_as2(activity, orig_obj=None, wrap=True):
         if redirect_domain not in DOMAINS:
             redirect_domain = None
         activity['id'] = redirect_wrap(activity.get('id'), domain=redirect_domain)
-        activity['url'] = [redirect_wrap(u) for u in util.get_list(activity, 'url')]
+        # don't wrap Links, eg FEP-fffd proxy links
+        activity['url'] = [redirect_wrap(u) if isinstance(u, str) else u
+                           for u in util.get_list(activity, 'url')]
         if len(activity['url']) == 1:
             activity['url'] = activity['url'][0]
 

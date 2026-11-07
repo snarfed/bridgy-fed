@@ -5117,6 +5117,42 @@ class ActivityPubUtilsTest(TestCase):
             },
         ], converted['url'])
 
+    def test_convert_fep_fffd_existing_canonical_link(self):
+        obj = Object(id='fake:post', source_protocol='fake', our_as1={
+            'objectType': 'note',
+            'content': 'Hello',
+            'url': [{
+                'value': 'at://did:plc:alice/app.bsky.feed.post/123',
+                'rel': 'canonical',
+            }],
+        })
+        converted = ActivityPub.convert(obj)
+        self.assertEqual({
+            'type': 'Link',
+            'rel': 'canonical',
+            'href': 'at://did:plc:alice/app.bsky.feed.post/123',
+        }, converted['url'])
+
+    def test_convert_fep_fffd_existing_alternate_link(self):
+        obj = Object(id='fake:post', source_protocol='fake', our_as1={
+            'objectType': 'note',
+            'content': 'Hello',
+            'url': [{
+                'value': 'at://did:plc:alice/app.bsky.feed.post/123',
+                'rel': 'alternate',
+            }],
+        })
+        converted = ActivityPub.convert(obj)
+        self.assertEqual([{
+            'type': 'Link',
+            'rel': 'alternate',
+            'href': 'at://did:plc:alice/app.bsky.feed.post/123',
+        }, {
+            'type': 'Link',
+            'rel': 'canonical',
+            'href': 'fake:post',
+        }], converted['url'])
+
     def test_convert_fep_fffd_skips_ap_objects(self):
         obj = Object(id='https://mastodon.social/id',
                      source_protocol='activitypub',
