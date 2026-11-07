@@ -715,6 +715,10 @@ A ☕ reply
             'text': 'My original post',
             'bridgyOriginalText': 'My <a href="http://orig.co/post">original</a> post',
             'bridgyOriginalUrl': 'https://ap.example.com/post/1',
+            'community.lexicon.meta.links': {
+                '$type': 'community.lexicon.meta.links',
+                'links': [{'href': 'https://ap.example.com/post/1', 'rel': 'canonical'}],
+            },
             'createdAt': '2022-01-02T03:04:05.000Z',
             'embed': {
                 '$type': 'app.bsky.embed.external',

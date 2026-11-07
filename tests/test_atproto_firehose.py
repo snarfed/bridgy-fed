@@ -1373,6 +1373,10 @@ class ATProtoFirehoseHandleTest(ATProtoTestCase):
                 'objectType': 'note',
                 'id': post_uri,
                 'url': 'https://bsky.app/profile/did:plc:user/post/abc123',
+                'urls': [
+                    'https://bsky.app/profile/did:plc:user/post/abc123',
+                    {'value': 'fake:post', 'rel': 'canonical'},
+                ],
                 'author': 'did:plc:user',
                 'content': 'My original post',
                 'published': '2007-07-07T03:04:05.000Z',

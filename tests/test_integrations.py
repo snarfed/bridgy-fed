@@ -1416,7 +1416,8 @@ class IntegrationTests(TestCase):
                     }]
                 }
             ],
-        }, message, ignore=['bridgyOriginalText', 'bridgyOriginalUrl'])
+        }, message, ignore=['bridgyOriginalText', 'bridgyOriginalUrl',
+                            'community.lexicon.meta.links'])
 
         self.assertEqual(('https://inst/bob/inbox',), mock_post.call_args_list[1][0])
         self.assertEqual("""<p>Hi! You <a href="http://inst/reply">recently replied to</a> <a class="h-card u-author mention" rel="me" href="https://bsky.app/profile/alice.com" title="Alice &middot; alice.com"><span style="unicode-bidi: isolate">Alice</span> &middot; alice.com</a>, who's bridged here from the Atmosphere (Bluesky). To make sure they see your replies, you can bridge your account into the Atmosphere (Bluesky) by following this account. <a href="https://fed.brid.gy/docs">See the docs</a> for more information.</p>""",
@@ -1761,6 +1762,10 @@ class IntegrationTests(TestCase):
             'createdAt': '2022-01-02T03:04:05.000Z',
             'bridgyOriginalText': 'nice post',
             'bridgyOriginalUrl': 'https://inst/alice/reply',
+            'community.lexicon.meta.links': {
+                '$type': 'community.lexicon.meta.links',
+                'links': [{'href': 'https://inst/alice/reply', 'rel': 'canonical'}],
+            },
         }}, repo.get_contents()['app.bsky.feed.post'])
 
         # we didn't bridge Charlie or their post
@@ -2680,6 +2685,10 @@ class IntegrationTests(TestCase):
             'description': 'New bio\n\n🌉 bridged from ⁂ https://inst/@alice by https://fed.brid.gy/',
             'bridgyOriginalDescription': 'New bio',
             'bridgyOriginalUrl': 'https://inst/@alice',
+            'community.lexicon.meta.links': {
+                '$type': 'community.lexicon.meta.links',
+                'links': [{'href': 'https://inst/@alice', 'rel': 'canonical'}],
+            },
             'labels': {
                 '$type': 'com.atproto.label.defs#selfLabels',
                 'values': [{'val': 'bridged-from-bridgy-fed-activitypub'}],
@@ -2783,6 +2792,10 @@ class IntegrationTests(TestCase):
             'description': 'New bio',
             'website': 'https://alice.com/',
             'bridgyOriginalUrl': 'https://alice.com/',
+            'community.lexicon.meta.links': {
+                '$type': 'community.lexicon.meta.links',
+                'links': [{'href': 'https://alice.com/', 'rel': 'canonical'}],
+            },
             'labels': {
                 '$type': 'com.atproto.label.defs#selfLabels',
                 'values': [{'val': 'bridged-from-bridgy-fed-web'}],
@@ -3313,6 +3326,10 @@ class IntegrationTests(TestCase):
             'text': 'Hello from Nostr!',
             'bridgyOriginalText': 'Hello from Nostr!',
             'bridgyOriginalUrl': f'https://njump.me/{bech32_encode("note", post_event["id"])}',
+            'community.lexicon.meta.links': {
+                '$type': 'community.lexicon.meta.links',
+                'links': [{'href': f'https://njump.me/{bech32_encode("note", post_event["id"])}', 'rel': 'canonical'}],
+            },
             'createdAt': '2022-01-02T03:04:05.000Z',
         }}}, repo.get_contents())
 
@@ -3399,6 +3416,10 @@ class IntegrationTests(TestCase):
             'text': text,
             'bridgyOriginalText': text,
             'bridgyOriginalUrl': f'https://njump.me/{bech32_encode("note", post_event["id"])}',
+            'community.lexicon.meta.links': {
+                '$type': 'community.lexicon.meta.links',
+                'links': [{'href': f'https://njump.me/{bech32_encode("note", post_event["id"])}', 'rel': 'canonical'}],
+            },
             'createdAt': '2022-01-02T03:04:05.000Z',
             'facets': [{
                 '$type': 'app.bsky.richtext.facet',
@@ -3561,6 +3582,10 @@ class IntegrationTests(TestCase):
             'createdAt': '2022-01-02T03:04:05.000Z',
             'bridgyOriginalText': 'Hello from ActivityPub!',
             'bridgyOriginalUrl': 'https://inst/post',
+            'community.lexicon.meta.links': {
+                '$type': 'community.lexicon.meta.links',
+                'links': [{'href': 'https://inst/post', 'rel': 'canonical'}],
+            },
         }}}, repo.get_contents())
 
         # check that we set Object.copies
@@ -3646,6 +3671,10 @@ class IntegrationTests(TestCase):
             'text': 'hi @alice @bob.com @charlie.nos.tr!',
             'bridgyOriginalText': html_content,
             'bridgyOriginalUrl': 'https://inst/post',
+            'community.lexicon.meta.links': {
+                '$type': 'community.lexicon.meta.links',
+                'links': [{'href': 'https://inst/post', 'rel': 'canonical'}],
+            },
             'createdAt': '2022-01-02T03:04:05.000Z',
             'facets': [{
                 '$type': 'app.bsky.richtext.facet',
@@ -3808,6 +3837,10 @@ class IntegrationTests(TestCase):
             },
             'bridgyOriginalText': 'check this out',
             'bridgyOriginalUrl': 'https://inst/post',
+            'community.lexicon.meta.links': {
+                '$type': 'community.lexicon.meta.links',
+                'links': [{'href': 'https://inst/post', 'rel': 'canonical'}],
+            },
         }}, records)
 
     @patch.object(util.session, 'get', side_effect=[
@@ -3877,6 +3910,10 @@ class IntegrationTests(TestCase):
             },
             'bridgyOriginalText': content,
             'bridgyOriginalUrl': 'https://inst/post',
+            'community.lexicon.meta.links': {
+                '$type': 'community.lexicon.meta.links',
+                'links': [{'href': 'https://inst/post', 'rel': 'canonical'}],
+            },
         }}, records, ignore=['facets'])
 
     @patch.object(util.session, 'get', return_value=requests_response(
@@ -3916,29 +3953,34 @@ class IntegrationTests(TestCase):
         contents = repo.get_contents()
         post_tid = list(contents['app.bsky.feed.post'].keys())[0]
         doc_tid = list(contents['site.standard.document'].keys())[0]
-        self.assert_equals({
-            'app.bsky.feed.post': {post_tid: {
-                '$type': 'app.bsky.feed.post',
-                'text': 'This is a summary of the article',
-                'createdAt': '2022-01-02T03:04:05.000Z',
-                'embed': {
-                    '$type': 'app.bsky.embed.external',
-                    'external': {
-                        '$type': 'app.bsky.embed.external#external',
-                        'uri': 'https://inst/article',
-                        'title': 'My Great Article',
-                        'description': 'This is the full content of the article with much more detail.',
-                        'thumb': {
-                            '$type': 'blob',
-                            'ref': CID.decode('bafkreienspp4shecijw6syyhcabwei4bquias7zx6hlldbr5ckz55r2evq'),
-                            'mimeType': 'image/jpeg',
-                            'size': 20,
-                        },
+        post = {
+            '$type': 'app.bsky.feed.post',
+            'text': 'This is a summary of the article',
+            'createdAt': '2022-01-02T03:04:05.000Z',
+            'embed': {
+                '$type': 'app.bsky.embed.external',
+                'external': {
+                    '$type': 'app.bsky.embed.external#external',
+                    'uri': 'https://inst/article',
+                    'title': 'My Great Article',
+                    'description': 'This is the full content of the article with much more detail.',
+                    'thumb': {
+                        '$type': 'blob',
+                        'ref': CID.decode('bafkreienspp4shecijw6syyhcabwei4bquias7zx6hlldbr5ckz55r2evq'),
+                        'mimeType': 'image/jpeg',
+                        'size': 20,
                     },
                 },
-                'bridgyOriginalText': 'This is the full content of the article with much more detail.',
-                'bridgyOriginalUrl': 'https://inst/article',
-            }},
+            },
+            'bridgyOriginalText': 'This is the full content of the article with much more detail.',
+            'bridgyOriginalUrl': 'https://inst/article',
+            'community.lexicon.meta.links': {
+                '$type': 'community.lexicon.meta.links',
+                'links': [{'href': 'https://inst/article', 'rel': 'canonical'}],
+            },
+        }
+        self.assert_equals({
+            'app.bsky.feed.post': {post_tid: post},
             'site.standard.document': {doc_tid: {
                 '$type': 'site.standard.document',
                 'site': 'https://inst',
@@ -3954,7 +3996,7 @@ class IntegrationTests(TestCase):
                 },
                 'bskyPostRef': {
                     'uri': f'at://did:plc:alice/app.bsky.feed.post/{post_tid}',
-                    'cid': 'bafyreidgrqtmgovqopahpaj3fpcrqohyiwvgl5w4borco6qbg55w4ihq5m',
+                    'cid': arroba.util.dag_cbor_cid(post).encode('base32'),
                 },
                 'publishedAt': '2022-01-02T03:04:05.000Z',
                 'updatedAt': '2022-01-03T04:05:06.000Z',
@@ -4025,6 +4067,10 @@ class IntegrationTests(TestCase):
                 },
                 'bridgyOriginalText': 'My post',
                 'bridgyOriginalUrl': 'https://inst/post',
+                'community.lexicon.meta.links': {
+                    '$type': 'community.lexicon.meta.links',
+                    'links': [{'href': 'https://inst/post', 'rel': 'canonical'}],
+                },
             }},
             'so.sprk.feed.post': {spark_tid: {
                 '$type': 'so.sprk.feed.post',
@@ -4039,6 +4085,10 @@ class IntegrationTests(TestCase):
                 },
                 'bridgyOriginalText': 'My post',
                 'bridgyOriginalUrl': 'https://inst/post',
+                'community.lexicon.meta.links': {
+                    '$type': 'community.lexicon.meta.links',
+                    'links': [{'href': 'https://inst/post', 'rel': 'canonical'}],
+                },
             }},
         }, contents)
 
@@ -4097,6 +4147,10 @@ class IntegrationTests(TestCase):
                 'embed': {**video, '$type': 'app.bsky.embed.video'},
                 'bridgyOriginalText': 'My post',
                 'bridgyOriginalUrl': 'https://alice.com/post',
+                'community.lexicon.meta.links': {
+                    '$type': 'community.lexicon.meta.links',
+                    'links': [{'href': 'https://alice.com/post', 'rel': 'canonical'}],
+                },
             }},
             'so.sprk.feed.post': {spark_tid: {
                 '$type': 'so.sprk.feed.post',
@@ -4105,6 +4159,10 @@ class IntegrationTests(TestCase):
                 'media': {**video, '$type': 'so.sprk.media.video'},
                 'bridgyOriginalText': 'My post',
                 'bridgyOriginalUrl': 'https://alice.com/post',
+                'community.lexicon.meta.links': {
+                    '$type': 'community.lexicon.meta.links',
+                    'links': [{'href': 'https://alice.com/post', 'rel': 'canonical'}],
+                },
             }},
         }, contents)
 
@@ -4183,6 +4241,10 @@ class IntegrationTests(TestCase):
                 },
                 'bridgyOriginalText': 'My updated post',
                 'bridgyOriginalUrl': 'https://inst/post',
+                'community.lexicon.meta.links': {
+                    '$type': 'community.lexicon.meta.links',
+                    'links': [{'href': 'https://inst/post', 'rel': 'canonical'}],
+                },
             }},
             'so.sprk.feed.post': {spark_tid: {
                 '$type': 'so.sprk.feed.post',
@@ -4197,6 +4259,10 @@ class IntegrationTests(TestCase):
                 },
                 'bridgyOriginalText': 'My updated post',
                 'bridgyOriginalUrl': 'https://inst/post',
+                'community.lexicon.meta.links': {
+                    '$type': 'community.lexicon.meta.links',
+                    'links': [{'href': 'https://inst/post', 'rel': 'canonical'}],
+                },
             }},
         }, self.storage.load_repo('did:plc:alice').get_contents())
 
@@ -4956,7 +5022,8 @@ class IntegrationTests(TestCase):
                     'cid': 'bafyreih25jnzwc5izsjs4h5djjbw6k66vy3xerjksl34nmmrdg4ziq4v4m',
                 },
             },
-        }}}, repo.get_contents(), ignore=['bridgyOriginalText', 'bridgyOriginalUrl'])
+        }}}, repo.get_contents(), ignore=['bridgyOriginalText', 'bridgyOriginalUrl',
+                                          'community.lexicon.meta.links'])
 
     def test_atproto_reply_to_nostr(self):
         """ATProto reply to Nostr user's post.
@@ -5288,7 +5355,8 @@ class IntegrationTests(TestCase):
                     'cid': 'bafyreie5cvv4h5typfvqef2wf7nwytgdaaimzbk2cl7pza7lkxmjbmhmk4',
                 },
             },
-        }, record, ignore=['bridgyOriginalText', 'bridgyOriginalUrl', 'createdAt'])
+        }, record, ignore=['bridgyOriginalText', 'bridgyOriginalUrl',
+                           'community.lexicon.meta.links', 'createdAt'])
 
     @patch('webutil.util.now', return_value=datetime.now(timezone.utc))
     @patch.object(util.session, 'post')
@@ -5465,6 +5533,10 @@ cast_add_body { text: "Hello from Farcaster!" }
             'text': 'Hello from Farcaster!',
             'bridgyOriginalText': 'Hello from Farcaster!',
             'bridgyOriginalUrl': f'https://farcaster.xyz/~/conversations/0x{post_msg.hash.hex()}',
+            'community.lexicon.meta.links': {
+                '$type': 'community.lexicon.meta.links',
+                'links': [{'href': f'https://farcaster.xyz/~/conversations/0x{post_msg.hash.hex()}', 'rel': 'canonical'}],
+            },
             'createdAt': '2022-01-02T03:04:05.000Z',
         }}}, repo.get_contents())
 
@@ -5742,7 +5814,8 @@ cast_add_body {{
                 },
             },
         }}}, repo.get_contents(),
-            ignore=['bridgyOriginalText', 'bridgyOriginalUrl'])
+            ignore=['bridgyOriginalText', 'bridgyOriginalUrl',
+                    'community.lexicon.meta.links'])
 
     @patch.object(util.session, 'get')
     @patch.object(util.session, 'post')

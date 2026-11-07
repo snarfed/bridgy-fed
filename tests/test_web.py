@@ -161,6 +161,10 @@ ACTOR_BSKY = {
     "values": [{"val": "bridged-from-bridgy-fed-web"}],
   },
   "bridgyOriginalUrl": "https://new.com/",
+  'community.lexicon.meta.links': {
+      '$type': 'community.lexicon.meta.links',
+      'links': [{'href': "https://new.com/", 'rel': 'canonical'}],
+  },
 }
 
 REPOST_HTML = """\

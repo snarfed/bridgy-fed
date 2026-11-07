@@ -91,6 +91,10 @@ NOTE_BSKY = {
   'text': 'My original post',
   'bridgyOriginalText': 'My original post',
   'bridgyOriginalUrl': 'fake:post',
+  'community.lexicon.meta.links': {
+    '$type': 'community.lexicon.meta.links',
+    'links': [{'href': 'fake:post', 'rel': 'canonical'}],
+  },
   'createdAt': '2007-07-07T03:04:05.000Z',
 }
 NOTE_BSKY_RECORD = {
@@ -968,6 +972,10 @@ class ATProtoTest(TestCase):
                 'values': [{'val': 'bridged-from-bridgy-fed'}],
             },
             'bridgyOriginalUrl': 'did:web:alice.com',
+            'community.lexicon.meta.links': {
+                '$type': 'community.lexicon.meta.links',
+                'links': [{'href': 'did:web:alice.com', 'rel': 'canonical'}],
+            },
         }, ATProto.convert(Object(our_as1={
             'objectType': 'person',
             'id': 'did:web:alice.com',
@@ -994,6 +1002,10 @@ class ATProtoTest(TestCase):
                 'values': [{'val': 'bridged-from-bridgy-fed'}],
             },
             'bridgyOriginalUrl': 'did:web:alice.com',
+            'community.lexicon.meta.links': {
+                '$type': 'community.lexicon.meta.links',
+                'links': [{'href': 'did:web:alice.com', 'rel': 'canonical'}],
+            },
         }, ATProto.convert(Object(our_as1={
             'objectType': 'person',
             'id': 'did:web:alice.com',
@@ -1180,6 +1192,10 @@ class ATProtoTest(TestCase):
                 'size': 8,
             },
             'bridgyOriginalUrl': 'did:web:alice.com',
+            'community.lexicon.meta.links': {
+                '$type': 'community.lexicon.meta.links',
+                'links': [{'href': 'did:web:alice.com', 'rel': 'canonical'}],
+            },
         }, ATProto.convert(Object(our_as1={
             'objectType': 'person',
             'id': 'did:web:alice.com',
@@ -1351,7 +1367,8 @@ class ATProtoTest(TestCase):
                 },
             }],
         }, repo.get_record('app.bsky.feed.post', last_tid),
-        ignore=['bridgyOriginalText', 'bridgyOriginalUrl'])
+        ignore=['bridgyOriginalText', 'bridgyOriginalUrl',
+                'community.lexicon.meta.links'])
 
     def test_convert_quote_post_translate_attachment_url_with_copy_id(self):
         self.make_user_and_repo()
@@ -1371,7 +1388,7 @@ class ATProtoTest(TestCase):
                 '$type': 'app.bsky.embed.record',
                 'record': {
                     'uri': 'at://did:plc:user/co.l.l/tid',
-                    'cid': 'bafyreiccskuaccxa6zbaf7jeaiwyzg3pqtj3rg5qra653f5cmqilvgvejy',
+                    'cid': arroba.util.dag_cbor_cid(NOTE_BSKY).encode('base32'),
                 },
             },
         }, ATProto.convert(Object(our_as1={
@@ -1400,6 +1417,10 @@ class ATProtoTest(TestCase):
                 'values': [{'val': 'bridged-from-bridgy-fed-fake'}],
             },
             'bridgyOriginalUrl': 'fake:alice',
+            'community.lexicon.meta.links': {
+                '$type': 'community.lexicon.meta.links',
+                'links': [{'href': 'fake:alice', 'rel': 'canonical'}],
+            },
         }, ATProto.convert(Object(source_protocol='fake', our_as1={
             'objectType': 'person',
             'id': 'fake:alice',
@@ -1415,6 +1436,10 @@ class ATProtoTest(TestCase):
                 'values': [{'val': 'bot'}, {'val': 'bridged-from-bridgy-fed-fake'}],
             },
             'bridgyOriginalUrl': 'fake:alice',
+            'community.lexicon.meta.links': {
+                '$type': 'community.lexicon.meta.links',
+                'links': [{'href': 'fake:alice', 'rel': 'canonical'}],
+            },
         }
         self.assertEqual([
             {**profile, '$type': 'app.bsky.actor.profile'},
@@ -1440,6 +1465,10 @@ class ATProtoTest(TestCase):
                 'values': [{'val': 'bridged-from-bridgy-fed-efake'}],
             },
             'bridgyOriginalUrl': 'efake:user',
+            'community.lexicon.meta.links': {
+                '$type': 'community.lexicon.meta.links',
+                'links': [{'href': 'efake:user', 'rel': 'canonical'}],
+            },
         }, ATProto.convert(Object(source_protocol='efake', our_as1={
             'objectType': 'person',
             'id': 'efake:user',
@@ -1458,6 +1487,10 @@ class ATProtoTest(TestCase):
                 'values': [{'val': 'bridged-from-bridgy-fed-web'}],
             },
             'bridgyOriginalUrl': 'user.com',
+            'community.lexicon.meta.links': {
+                '$type': 'community.lexicon.meta.links',
+                'links': [{'href': 'user.com', 'rel': 'canonical'}],
+            },
         }, ATProto.convert(Object(source_protocol='web', our_as1={
             'objectType': 'person',
             'id': 'user.com',
@@ -1490,6 +1523,10 @@ Sed tortor neque, aliquet quis posuere aliquam, imperdiet sitamet […]
 🌉 bridged from 🤡 web:fake:user by https://fed.brid.gy/""",
             'bridgyOriginalDescription': summary,
             'bridgyOriginalUrl': 'fake:user',
+            'community.lexicon.meta.links': {
+                '$type': 'community.lexicon.meta.links',
+                'links': [{'href': 'fake:user', 'rel': 'canonical'}],
+            },
             'labels': {
                 '$type': 'com.atproto.label.defs#selfLabels',
                 'values': [{'val': 'bridged-from-bridgy-fed-fake'}],
@@ -1518,6 +1555,10 @@ Sed tortor neque, aliquet quis posuere aliquam, imperdiet sitamet […]
             },
             'bridgyOriginalDescription': '<a href="http://foo">bar</a>',
             'bridgyOriginalUrl': 'fake:user',
+            'community.lexicon.meta.links': {
+                '$type': 'community.lexicon.meta.links',
+                'links': [{'href': 'fake:user', 'rel': 'canonical'}],
+            },
         }, ATProto.convert(Object(source_protocol='fake', our_as1={
             'objectType': 'person',
             'id': 'fake:user',
@@ -2155,6 +2196,10 @@ Sed tortor neque, aliquet quis posuere aliquam, imperdiet sitamet […]
             'website': 'https://alice.com/',
             'bridgyOriginalDescription': 'hi there',
             'bridgyOriginalUrl': 'https://alice.com/',
+            'community.lexicon.meta.links': {
+                '$type': 'community.lexicon.meta.links',
+                'links': [{'href': 'https://alice.com/', 'rel': 'canonical'}],
+            },
             'avatar': {
                 '$type': 'blob',
                 'mimeType': 'image/png',
@@ -2236,17 +2281,20 @@ Sed tortor neque, aliquet quis posuere aliquam, imperdiet sitamet […]
             'website': 'https://alice.com/',
             'pinnedPost': {
                 'uri': pinned_uri,
-                'cid': 'bafyreibjhbhznld7ogitdeub3ptk3cnkaegz3oma46ys5ljnaaec3sylpq',
+                'cid': arroba.util.dag_cbor_cid(repo.get_record(
+                    'app.bsky.feed.post', pinned_rkey)).encode('base32'),
             },
         }, repo.get_record('app.bsky.actor.profile', 'self'),
-        ignore=['bridgyOriginalDescription', 'bridgyOriginalUrl', 'labels', 'links'])
+        ignore=['bridgyOriginalDescription', 'bridgyOriginalUrl',
+                'community.lexicon.meta.links', 'labels', 'links'])
 
         self.assert_equals({
             '$type': 'app.bsky.feed.post',
             'text': 'My pinned post',
             'createdAt': '2022-01-02T03:04:05.000Z',
         }, repo.get_record('app.bsky.feed.post', pinned_rkey),
-        ignore=['bridgyOriginalText', 'bridgyOriginalUrl'])
+        ignore=['bridgyOriginalText', 'bridgyOriginalUrl',
+                'community.lexicon.meta.links'])
 
     @patch.object(tasks_client, 'create_task', return_value=Task(name='my task'))
     @patch.object(util.session, 'post', return_value=requests_response('OK'))  # create DID on PLC
@@ -2285,7 +2333,8 @@ Sed tortor neque, aliquet quis posuere aliquam, imperdiet sitamet […]
             'description': 'hi there\n\n🌉 bridged from 🤡 web:fake:user by https://fed.brid.gy/',
             'website': 'https://alice.com/',
         }, repo.get_record('app.bsky.actor.profile', 'self'),
-        ignore=['bridgyOriginalDescription', 'bridgyOriginalUrl', 'labels', 'links'])
+        ignore=['bridgyOriginalDescription', 'bridgyOriginalUrl',
+                'community.lexicon.meta.links', 'labels', 'links'])
 
     @patch.object(tasks_client, 'create_task', return_value=Task(name='my task'))
     @patch.object(util.session, 'post', return_value=requests_response('OK'))  # create DID on PLC
@@ -2314,7 +2363,8 @@ Sed tortor neque, aliquet quis posuere aliquam, imperdiet sitamet […]
             'description': 'hi there\n\n🌉 bridged from 🤡 web:fake:user by https://fed.brid.gy/',
             'website': 'https://alice.com/',
         }, repo.get_record('app.bsky.actor.profile', 'self'),
-        ignore=['bridgyOriginalDescription', 'bridgyOriginalUrl', 'labels', 'links'])
+        ignore=['bridgyOriginalDescription', 'bridgyOriginalUrl',
+                'community.lexicon.meta.links', 'labels', 'links'])
         self.assert_equals({
             '$type': 'community.lexicon.payments.webMonetization',
             'address': 'http://wal/let',
@@ -2905,6 +2955,10 @@ Sed tortor neque, aliquet quis posuere aliquam, imperdiet sitamet […]
             'website': 'https://alice.com/',
             'bridgyOriginalDescription': 'hi there',
             'bridgyOriginalUrl': 'https://alice.com/',
+            'community.lexicon.meta.links': {
+                '$type': 'community.lexicon.meta.links',
+                'links': [{'href': 'https://alice.com/', 'rel': 'canonical'}],
+            },
             'avatar': {
                 '$type': 'blob',
                 'ref': BLOB_CID,
@@ -3328,23 +3382,28 @@ Sed tortor neque, aliquet quis posuere aliquam, imperdiet sitamet […]
         # check records
         # (no publication record because user doesn't have verified_domain set)
         repo = self.storage.load_repo('did:plc:user')
-        self.assert_equals({
-            'app.bsky.feed.post': {'a': {
-                '$type': 'app.bsky.feed.post',
-                'text': '',
-                'createdAt': '2022-01-02T03:04:05.000Z',
-                'embed': {
-                    '$type': 'app.bsky.embed.external',
-                    'external': {
-                        '$type': 'app.bsky.embed.external#external',
-                        'uri': 'fake://art/icle',
-                        'title': 'Foo bar',
-                        'description': "it's a big'un",
-                    },
+        post = {
+            '$type': 'app.bsky.feed.post',
+            'text': '',
+            'createdAt': '2022-01-02T03:04:05.000Z',
+            'embed': {
+                '$type': 'app.bsky.embed.external',
+                'external': {
+                    '$type': 'app.bsky.embed.external#external',
+                    'uri': 'fake://art/icle',
+                    'title': 'Foo bar',
+                    'description': "it's a big'un",
                 },
-                'bridgyOriginalText': "it's a big'un",
-                'bridgyOriginalUrl': 'fake://art/icle',
-            }},
+            },
+            'bridgyOriginalText': "it's a big'un",
+            'bridgyOriginalUrl': 'fake://art/icle',
+            'community.lexicon.meta.links': {
+                '$type': 'community.lexicon.meta.links',
+                'links': [{'href': 'fake://art/icle', 'rel': 'canonical'}],
+            },
+        }
+        self.assert_equals({
+            'app.bsky.feed.post': {'a': post},
             'site.standard.document': {'b': {
                 '$type': 'site.standard.document',
                 'site': 'fake://art',
@@ -3354,7 +3413,7 @@ Sed tortor neque, aliquet quis posuere aliquam, imperdiet sitamet […]
                 'publishedAt': '2022-01-02T03:04:05.000Z',
                 'bskyPostRef': {
                     'uri': 'at://did:plc:user/app.bsky.feed.post/a',
-                    'cid': 'bafyreieaivdft5fc76h6flpihdvrejhyb7b3vehq4tnnquhqlajxyx4rri',
+                    'cid': arroba.util.dag_cbor_cid(post).encode('base32'),
                 },
             }},
         }, repo.get_contents())
@@ -3602,7 +3661,7 @@ Sed tortor neque, aliquet quis posuere aliquam, imperdiet sitamet […]
             'displayName': 'fooey',
             'description': '🌉 bridged from 🤡 web:fake:user by https://fed.brid.gy/',
         }, repo.get_record('app.bsky.actor.profile', 'self'),
-        ignore=['bridgyOriginalUrl', 'labels'])
+        ignore=['bridgyOriginalUrl', 'community.lexicon.meta.links', 'labels'])
 
         mock_create_task.assert_called()  # atproto-commit
 
@@ -3790,8 +3849,10 @@ Sed tortor neque, aliquet quis posuere aliquam, imperdiet sitamet […]
                     'text': 'My pinned post',
                 },
             },
-        }, repo.get_contents(), ignore=['bridgyOriginalText', 'bridgyOriginalUrl',
-                                        'createdAt', 'labels', 'cid'])
+        }, repo.get_contents(), ignore=[
+            'bridgyOriginalText', 'bridgyOriginalUrl',
+            'community.lexicon.meta.links', 'createdAt', 'labels', 'cid',
+        ])
 
         ndb.context.get_context().clear_cache()
         self.assertIsNotNone(Object.get_by_id('fake:pinned').get_copy(ATProto))
@@ -3876,7 +3937,9 @@ Sed tortor neque, aliquet quis posuere aliquam, imperdiet sitamet […]
                     'createdAt': '2022-01-02T03:04:05.000Z',
                 },
             },
-        }, repo.get_contents(), ignore=['bridgyOriginalUrl', 'labels', 'cid'])
+        }, repo.get_contents(), ignore=[
+            'bridgyOriginalUrl', 'community.lexicon.meta.links', 'labels', 'cid',
+        ])
 
         mock_create_task.assert_called()  # atproto-commit
 
@@ -3928,7 +3991,7 @@ Sed tortor neque, aliquet quis posuere aliquam, imperdiet sitamet […]
                     'description': '🌉 bridged from 🤡 web:fake:user by https://fed.brid.gy/',
                 },
             },
-        }, repo.get_contents(), ignore=['bridgyOriginalUrl', 'labels', 'cid'])
+        }, repo.get_contents(), ignore=['bridgyOriginalUrl', 'community.lexicon.meta.links', 'labels', 'cid'])
 
         mock_create_task.assert_called()  # atproto-commit
 
@@ -4779,6 +4842,10 @@ Sed tortor neque, aliquet quis posuere aliquam, imperdiet sitamet […]
             'text': 'foo',
             'bridgyOriginalText': 'foo',
             'bridgyOriginalUrl': 'fake:reply',
+            'community.lexicon.meta.links': {
+                '$type': 'community.lexicon.meta.links',
+                'links': [{'href': 'fake:reply', 'rel': 'canonical'}],
+            },
             'reply': {
                 '$type': 'app.bsky.feed.post#replyRef',
                 'root': {
