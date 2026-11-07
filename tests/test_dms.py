@@ -188,6 +188,34 @@ class DmsTest(TestCase):
         self.assertEqual([], OtherFake.sent)
         self.assertEqual([], Fake.sent)
 
+    def test_receive_yes_reloads_profile(self):
+        self.make_user('fa.brid.gy', cls=Web)
+        user = self.make_user('efake:user', cls=ExplicitFake, obj_as1={
+            'objectType': 'person',
+            'summary': '#nobridge',
+        })
+        self.assertEqual('nobridge', user.status)
+
+        ExplicitFake.fetchable = {
+            'efake:user': {
+                'objectType': 'person',
+                'id': 'efake:user',
+                'summary': 'hi there',
+            },
+        }
+        dm = Object(our_as1={
+            'objectType': 'note',
+            'id': 'efake:dm',
+            'actor': 'efake:user',
+            'to': ['fa.brid.gy'],
+            'content': 'yes',
+        })
+        self.assertEqual(('OK', 200), receive(from_user=user, obj=dm))
+
+        user = user.key.get()
+        self.assertEqual('hi there', user.obj.as1['summary'])
+        self.assertEqual(['fake'], user.enabled_protocols)
+
     def test_receive_no_yes_sets_enabled_protocols(self):
         alice = self.make_user('fake:alice', cls=Fake, obj_id='fake:alice')
         # bot user

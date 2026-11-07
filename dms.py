@@ -223,6 +223,7 @@ def help(from_user, to_proto):
 @command(['yes', 'ok', 'start'], from_user_bridged=False,
          help_text='<em>start</em>: enable bridging for your account')
 def start(from_user, to_proto):
+    from_user.reload_profile()
     from_user.enable_protocol(to_proto)
     to_proto.bot_maybe_follow_back(from_user)
 

@@ -1590,12 +1590,15 @@ class ActivityPubTest(TestCase):
         user = user.key.get()
         self.assertTrue(user.is_enabled(ExplicitFake))
 
-    def test_inbox_dm_yes_to_bot_user_enables_protocol(self, *mocks):
+    def test_inbox_dm_yes_to_bot_user_enables_protocol(self, _, mock_get, __):
         # bot user
         self.make_user('efake.brid.gy', cls=Web)
 
         user = self.make_user(ACTOR['id'], cls=ActivityPub, obj_as2=ACTOR)
         self.assertFalse(user.is_enabled(ExplicitFake))
+
+        # actor gets reloaded
+        mock_get.return_value = self.as2_resp(ACTOR)
 
         got = self.post('/ap/sharedInbox', json={
             'type': 'Create',
