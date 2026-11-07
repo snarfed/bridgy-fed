@@ -2142,7 +2142,14 @@ class Object(AddRemoveMixin, StringIdModel):
                 author = None
                 if ((author_id := as1.get_owner(obj_as1))
                         and (author_proto := self.owner_protocol(remote=False))):
-                    if author := author_proto.get_by_id(author_id, allow_opt_out=True):
+                    author = author_proto.get_by_id(author_id, allow_opt_out=True)
+                    if not author:
+                        # unsaved user, just to check their profile's proxy links
+                        profile_id = ids.profile_id(id=author_id, proto=author_proto)
+                        if profile := author_proto.load(profile_id, remote=remote,
+                                                        raise_=False):
+                            author = author_proto(id=author_id, obj=profile)
+                    if author:
                         author_external_id = author.get_external_id(to_proto)
 
             if not author_external_id:

@@ -3082,6 +3082,21 @@ cast_add_body { text: "hi" }
         })
         self.assertIsNone(obj.get_external_id(Nostr))
 
+    def test_get_external_id_author_not_stored_loads_profile(self):
+        Fake.fetchable = {
+            'fake:profile:alice': ALICE_EXTERNAL_IDS_ACTOR,
+        }
+        ExplicitFake.fetchable = {
+            'efake:alices': {'objectType': 'note', 'author': 'efake:alice-ext'},
+        }
+        obj = Object(id='fake:post', source_protocol='fake', our_as1={
+            'objectType': 'note',
+            'author': 'fake:alice',
+            'urls': [{'value': 'efake:alices', 'rel': 'alternate'}],
+        })
+        self.assertEqual('efake:alices', obj.get_external_id(ExplicitFake))
+        self.assertIsNone(Fake.get_by_id('fake:alice'))
+
     def test_get_external_id_author_has_no_external_id(self):
         self.make_user('fake:alice', cls=Fake, obj_as1={
             'objectType': 'person',
