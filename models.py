@@ -2116,7 +2116,8 @@ class Object(AddRemoveMixin, StringIdModel):
         trust them if the linked object's owner on ``to_proto`` is this object's
         author, from either side: this object's author links to the owner, or the
         owner links back to the author, both via :meth:`User.get_external_id`. If
-        this object is an actor, the linked object must be that account itself.
+        this object is its author's profile, the linked object must be that
+        account itself.
 
         Args:
           to_proto (:class:`Protocol` subclass)
@@ -2126,15 +2127,12 @@ class Object(AddRemoveMixin, StringIdModel):
 
         Returns:
           str: id of the copy, normalized with :func:`ids.normalize_object_id`,
-            or :func:`ids.normalize_user_id` for actors, or
+            or :func:`ids.normalize_user_id` for profiles, or
             None if this object doesn't link to one, or if it's native to
             ``to_proto`` or we have a copy of it there
         """
         if self.get_copy(to_proto) or not (obj_as1 := self.as1):
             return None
-
-        is_actor = as1.object_type(obj_as1) in as1.ACTOR_TYPES
-        normalize = ids.normalize_user_id if is_actor else ids.normalize_object_id
 
         def load_user(proto, id):
             # stored user, or unsaved user with their profile, just to check their
@@ -2145,7 +2143,7 @@ class Object(AddRemoveMixin, StringIdModel):
             profile = proto.load(profile_id, remote=remote, raise_=False)
             return proto(id=id, obj=profile) if profile else proto(id=id)
 
-        author_id = author_proto = None
+        author_id = author_proto = is_profile = None
         author_external_id = False  # not loaded yet
 
         for link in as1.get_rel_links(obj_as1, url_prefixes=to_proto.URI_PREFIXES,
@@ -2153,20 +2151,23 @@ class Object(AddRemoveMixin, StringIdModel):
             uri = link['value']
             if util.domain_or_parent_in(uri, [SUPERDOMAIN]):
                 continue
-            elif not (normalized := normalize(id=uri, proto=to_proto)):
-                continue
 
             if author_external_id is False:
                 if not ((author_id := as1.get_owner(obj_as1))
                         and (author_proto := self.owner_protocol(remote=False))):
                     common.report_error(
                         'Ignoring external id, no author',
-                        user=f'{self.key.id()} external id {normalized} on {to_proto.LABEL}')
+                        user=f'{self.key.id()} external id {uri} on {to_proto.LABEL}')
                     return None
-                author_external_id = (load_user(author_proto, author_id)
-                                      .get_external_id(to_proto))
+                author = load_user(author_proto, author_id)
+                author_external_id = author.get_external_id(to_proto)
+                is_profile = author.is_profile(self)
 
-            if is_actor:
+            normalize = ids.normalize_user_id if is_profile else ids.normalize_object_id
+            if not (normalized := normalize(id=uri, proto=to_proto)):
+                continue
+
+            if is_profile:
                 # the external object is the author's account itself
                 owner = normalized
             else:

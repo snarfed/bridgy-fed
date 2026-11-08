@@ -3210,6 +3210,26 @@ cast_add_body { text: "hi" }
         })
         self.assertIsNone(post.get_external_id(ExplicitFake))
 
+    def test_get_external_id_actor_type_not_authors_profile(self):
+        """eg Bluesky feed generators, which are services with authors."""
+        self.make_user('fake:alice', cls=Fake, obj_as1=ALICE_EXTERNAL_IDS_ACTOR)
+        ExplicitFake.fetchable = {
+            'efake:feed': {'objectType': 'service', 'author': 'efake:alice-ext'},
+        }
+
+        for uri, expected in [
+            ('efake:alice-ext', None),
+            ('efake:feed', 'efake:feed'),
+        ]:
+            with self.subTest(uri=uri):
+                feed = Object(id='fake:feed', source_protocol='fake', our_as1={
+                    'objectType': 'service',
+                    'id': 'fake:feed',
+                    'author': 'fake:alice',
+                    'urls': [{'value': uri, 'rel': 'alternate'}],
+                })
+                self.assertEqual(expected, feed.get_external_id(ExplicitFake))
+
     def test_get_external_id_author_opted_out(self):
         """We don't bridge the author, but we can still use their native posts."""
         self.make_user('fake:alice', cls=Fake, obj_as1={
