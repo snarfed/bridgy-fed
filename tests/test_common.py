@@ -57,7 +57,8 @@ class CommonTest(TestCase):
         finally:
             self.request_context.push()
 
-        mock_client.report.assert_called_with('foo', http_context=None, bar='baz')
+        mock_client.report.assert_called_with('foo', user=None, http_context=None,
+                                              bar='baz')
 
     @patch('webutil.appengine_config.tasks_client.create_task')
     def test_create_task_no_request_context(self, mock_create_task):

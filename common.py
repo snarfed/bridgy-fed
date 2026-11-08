@@ -277,15 +277,25 @@ def report_exception(**kwargs):
     return report_error(msg=None, exception=True, **kwargs)
 
 
-def report_error(msg, *, exception=False, **kwargs):
+def report_error(msg, *, user=None, exception=False, **kwargs):
     """Reports an error to StackDriver Error Reporting.
 
-    https://cloud.google.com/python/docs/reference/clouderrorreporting/latest/google.cloud.error_reporting.client.Client
+    Thin wrapper around :class:`google.cloud.error_reporting.client.Client`.
 
     If ``DEBUG`` and ``exception`` are ``True``, re-raises the exception instead.
 
     Duplicated in ``bridgy.util``.
+
+    Args:
+      msg (str)
+      user (str): optional; passed through to
+        :class:`google.cloud.error_reporting_client.client.Client.report`
+      exception (bool): whether to include exception info
     """
+    log_msg = msg
+    if user:
+      log_msg += ' ' + user
+
     if DEBUG or LOCAL_SERVER:
         if DEBUG and exception:
             raise
@@ -299,11 +309,13 @@ def report_error(msg, *, exception=False, **kwargs):
 
     try:
         if exception:
-            logger.warning(msg, exc_info=True)
-            error_reporting_client.report_exception(http_context=http_context, **kwargs)
+            logger.warning(log_msg, exc_info=True)
+            error_reporting_client.report_exception(http_context=http_context,
+                                                    user=user, **kwargs)
         else:
-            logger.error(msg)
-            error_reporting_client.report(msg, http_context=http_context, **kwargs)
+            logger.error(log_msg)
+            error_reporting_client.report(msg, user=user, http_context=http_context,
+                                          **kwargs)
     except BaseException:
         kwargs['exception'] = exception
         logger.warning(f'Failed to report error! {kwargs}', exc_info=exception)
