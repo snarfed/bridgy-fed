@@ -5,6 +5,7 @@ from urllib.parse import parse_qs, urlencode, urlparse
 
 import jwt
 from oauth_dropins import indieauth
+from oauth_dropins.mastodon import MastodonApp, MastodonAuth
 from webutil import util
 import webutil.models
 from webutil.testutil import requests_response
@@ -223,6 +224,23 @@ My App
             'scope': '',
         }, resp.json, ignore=['access_token', 'created_at'])
         self.assertTrue(resp.json['access_token'])
+
+    def test_authorize_skips_login_without_user_key(self):
+        indieauth.IndieAuth(id='https://alice.com', user_json='{}').put()
+        MastodonAuth(id='@bob@mas.to', access_token_str='towkin', user_json='{}',
+                     app=MastodonApp(instance='https://mas.to/', data='{}').put(),
+                     ).put()
+        with self.client.session_transaction(base_url=BASE_URL) as sess:
+            sess['oauth-dropins.logins'] = [
+                ('IndieAuth', 'https://alice.com'),
+                ('MastodonAuth', '@bob@mas.to'),
+            ]
+
+        qs = self.authorize_query(self.register_app()['client_id'])
+        resp = self.client.get(f'/oauth/authorize?{qs}', base_url=BASE_URL)
+        self.assertEqual(200, resp.status_code, resp.get_data(as_text=True))
+        self.assertIn(f'value="{self.user.key.urlsafe().decode()}"',
+                      resp.get_data(as_text=True))
 
     def test_authorize_bad_client_id(self):
         resp = self.client.get(

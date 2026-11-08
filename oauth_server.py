@@ -394,9 +394,9 @@ class Proxy:
             return cls.SERVER.handle_error_response(None, err)
 
         # only offer accounts that check_user will actually accept
-        logins = [l for l in ndb.get_multi(pages.login_to_user_key(l)
-                                           for l in pages.get_logins())
-                  if l and l.is_enabled(cls.PROTO)]
+        keys = [key for l in pages.get_logins()
+                if (key := pages.login_to_user_key(l))]
+        logins = [l for l in ndb.get_multi(keys) if l and l.is_enabled(cls.PROTO)]
 
         client = grant.client
         client_id = client.get_client_id()
