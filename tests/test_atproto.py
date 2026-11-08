@@ -55,6 +55,7 @@ from flask_app import app
 import hub
 import ids
 from models import Follower, Object, PROTOCOLS, Target
+from nostr import Nostr
 import protocol
 from .testutil import ATPROTO_KEY, ExplicitFake, Fake, OtherFake, TestCase
 from . import test_activitypub
@@ -500,6 +501,28 @@ class ATProtoTest(TestCase):
 
         user.manual_opt_out = False
         self.assertIsNone(user.status)
+
+    def test_get_external_id_did_doc_also_known_as(self):
+        self.store_object(id='did:plc:user', raw={
+            **DID_DOC,
+            'alsoKnownAs': [
+                'at://han.dull',
+                'https://bsky.brid.gy/ap/did:plc:user',
+                'https://in.st.example/users/alice',
+            ],
+        })
+        obj = self.store_object(id='at://did:plc:user/app.bsky.actor.profile/self',
+                                bsky=ACTOR_PROFILE_BSKY)
+        user = self.make_user('did:plc:user', cls=ATProto, obj_key=obj.key,
+                              enabled_protocols=['activitypub'])
+
+        self.assertEqual('https://in.st.example/users/alice',
+                         user.get_external_id(ActivityPub))
+        self.assertIsNone(user.get_external_id(Nostr))
+
+        # admin override, we bridge them anyway
+        user.manual_opt_out = False
+        self.assertIsNone(user.get_external_id(ActivityPub))
 
     def test_target_for_user_no_stored_did(self):
         self.assertEqual('https://atproto.brid.gy', ATProto.target_for(

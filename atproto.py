@@ -467,6 +467,25 @@ class ATProto(User, Protocol):
 
         return super().status
 
+    def get_external_id(self, to_proto):
+        """Also checks this user's stored DID doc's ``alsoKnownAs``.
+
+        eg from multi-protocol servers like wafrn. Those ids are usually ActivityPub
+        actors.
+        """
+        if external_id := super().get_external_id(to_proto):
+            return external_id
+        elif not self.status:  # not external-id, or an admin override
+            return None
+
+        if did_doc := self.load(self.key.id(), raw=True, remote=False):
+            for aka in did_doc.raw.get('alsoKnownAs') or []:
+                if (not aka.startswith('at://')
+                        and not util.domain_or_parent_in(aka, [SUPERDOMAIN])
+                        and (aka.startswith(to_proto.URI_PREFIXES)
+                             or as2.CONTENT_TYPE in to_proto.MIME_TYPES)):
+                    return ids.normalize_user_id(id=aka, proto=to_proto)
+
     def web_url(self):
         return Bluesky.user_url(self.handle_or_id())
 
