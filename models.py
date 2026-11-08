@@ -1309,8 +1309,9 @@ class User(AddRemoveMixin, StringIdModel, metaclass=ProtocolUserMeta):
             None if this user's profile doesn't show that they're on ``to_proto``,
             or if we're already bridging them there
         """
+        # if we're bridging them, ie they've opted in and don't have a status
         ours = self.get_copy(to_proto)
-        if (to_proto.LABEL in self.enabled_protocols
+        if (to_proto.LABEL in self.enabled_protocols and not self.status
                 and (ours or not to_proto.HAS_COPIES)):
             return None
 

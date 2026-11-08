@@ -855,6 +855,28 @@ class UserTest(TestCase):
                               enabled_protocols=['activitypub'])
         self.assertIsNone(user.get_external_id(ActivityPub))
 
+    def test_get_external_id_enabled_but_has_status(self):
+        """eg external-id or opted out, so we're not actually bridging them."""
+        actor = {
+            'objectType': 'person',
+            'summary': '#nobridge',
+            'urls': [{
+                'value': 'http://in.st/alice',
+                'rel': 'alternate',
+                'mimeType': 'application/activity+json',
+            }, {
+                'value': 'efake:alice',
+                'rel': 'alternate',
+            }],
+        }
+        user = self.make_user(
+            'fake:user', cls=Fake, obj_as1=actor,
+            enabled_protocols=['activitypub', 'efake'],
+            copies=[Target(uri='efake:ours', protocol='efake')])
+        self.assertEqual('nobridge', user.status)
+        self.assertEqual('http://in.st/alice', user.get_external_id(ActivityPub))
+        self.assertEqual('efake:alice', user.get_external_id(ExplicitFake))
+
     def test_get_external_id_our_domain(self):
         user = self.make_user('fake:user', cls=Fake, obj_as1={
             'objectType': 'person',

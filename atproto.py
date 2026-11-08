@@ -462,7 +462,7 @@ class ATProto(User, Protocol):
             for aka in did_doc.raw.get('alsoKnownAs') or []:
                 if (not aka.startswith('at://')
                         and not util.domain_or_parent_in(aka, [SUPERDOMAIN])):
-                    logger.info(f'{self.key.id()} DID doc has external id in alsoKnownAs: {aka}')
+                    logger.debug(f'{self.key.id()} DID doc has external id in alsoKnownAs: {aka}')
                     return 'external-id'
 
         return super().status
