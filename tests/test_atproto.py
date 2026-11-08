@@ -607,6 +607,30 @@ class ATProtoTest(TestCase):
         self.assertEqual(expected, obj.extra_as1)
         self.assertEqual(expected, obj.key.get().extra_as1)
 
+    def test_hydrate_record_standard_site_document_publication_url(self):
+        self.store_object(id='did:plc:user', raw=DID_DOC)
+        self.store_object(
+            id='at://did:plc:user/site.standard.publication/p',
+            bsky={
+                '$type': 'site.standard.publication',
+                'url': 'https://example.com',
+                'name': 'My Blog',
+            })
+
+        obj = Object(id='at://did:plc:user/site.standard.document/d', bsky={
+            '$type': 'site.standard.document',
+            'site': 'at://did:plc:user/site.standard.publication/p',
+            'path': '/post',
+            'title': 'My Article',
+            'publishedAt': '2022-01-02T03:04:05.000Z',
+        })
+        hydrate_record(obj, remote=False)
+
+        self.assertEqual({'url': 'https://example.com/post'}, obj.extra_as1)
+        self.assertEqual({'url': 'https://example.com/post'},
+                         obj.key.get().extra_as1)
+        self.assertEqual('https://example.com/post', obj.as1['url'])
+
     @patch.object(util.session, 'get', side_effect=[
         requests_response({
             'uri': 'at://did:plc:user/app.bsky.actor.profile/self',

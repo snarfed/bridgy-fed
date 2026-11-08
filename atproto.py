@@ -1737,7 +1737,8 @@ def hydrate_record(obj, remote=None):
     * ``community.lexicon.payments.webMonetization``: stores its address in the
       profile's ``extra_as1``.
     * ``site.standard.document``: stores its ``bskyPostRef`` post as its
-      ``preview`` in ``extra_as1``.
+      ``preview`` in ``extra_as1``. If its ``site`` is a
+      ``site.standard.publication`` record, also stores its ``url``.
     * ``community.blacksky.assembly.conversation``: stores the stored statements
       that point to it as poll ``options`` in ``extra_as1``.
 
@@ -1749,7 +1750,7 @@ def hydrate_record(obj, remote=None):
     record = obj.bsky
     client = DatastoreClient(remote=remote)
 
-    # the Object and extra_as1 field to update, and the new value. None removes it
+    # the Object and extra_as1 fields to update, and the new values. None removes
     id = obj.key.id()
 
     if collection == 'app.bsky.actor.profile':
@@ -1758,21 +1759,22 @@ def hydrate_record(obj, remote=None):
         # stored link's CID to the strongRef's to detect that.
         converted = bluesky.to_as1(record, uri=id, repo_did=repo,
                                    pds=ATProto.pds_for(obj), client=client)
-        field = 'urls'
-        value = [url for url in util.get_list(converted, 'urls')
-                 if isinstance(url, dict) and url.get('objectType') == 'link']
+        values = {
+            'urls': [url for url in util.get_list(converted, 'urls')
+                     if isinstance(url, dict) and url.get('objectType') == 'link'],
+        }
 
     elif collection == 'community.lexicon.payments.webMonetization':
         id = at_uri(repo, 'app.bsky.actor.profile', 'self')
-        field = 'monetization'
-        value = record.get('address')
+        values = {'monetization': record.get('address')}
 
     elif collection == 'site.standard.document':
-        # load the bskyPostRef post as a preview
+        # load the bskyPostRef post as a preview, and the publication's URL
         converted = bluesky.to_as1(record, uri=id, repo_did=repo,
                                    pds=ATProto.pds_for(obj), client=client)
-        field = 'preview'
-        value = converted.get('preview')
+        values = {'preview': converted.get('preview')}
+        if record.get('site', '').startswith('at://'):
+            values['url'] = converted.get('url')
 
     elif collection == 'community.blacksky.assembly.conversation':
         # poll options are the stored statements that point to this
@@ -1780,30 +1782,33 @@ def hydrate_record(obj, remote=None):
         # TODO: update options when statements arrive after their conversation
         statements = sorted(Object.query(Object.in_reply_to == obj.key),
                             key=lambda o: o.created)
-        field = 'options'
-        value = [s.as1 for s in statements if s.type == 'note' and not s.deleted]
+        values = {
+            'options': [s.as1 for s in statements
+                        if s.type == 'note' and not s.deleted],
+        }
 
     else:
         return
 
-    logger.info(f'Setting {id} extra_as1.{field}')
+    logger.info(f'Setting {id} extra_as1 {list(values)}')
 
-    def set_field(o):
+    def set_fields(o):
         o.extra_as1 = o.extra_as1 or {}
-        if value:
-            o.extra_as1[field] = value
-        else:
-            o.extra_as1.pop(field, None)
+        for field, value in values.items():
+            if value:
+                o.extra_as1[field] = value
+            else:
+                o.extra_as1.pop(field, None)
 
     # update in memory...
     if id == obj.key.id():
-        set_field(obj)
+        set_fields(obj)
 
     # ...and in the datastore
     @ndb.transactional()
     def store():
         stored = Object.get_or_insert(id)
-        set_field(stored)
+        set_fields(stored)
         stored.put()
 
     store()
