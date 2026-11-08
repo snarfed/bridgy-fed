@@ -3153,6 +3153,40 @@ cast_add_body { text: "hi" }
                 })
                 self.assertEqual(expected, obj.get_external_id(ExplicitFake))
 
+    def test_get_external_id_owner_links_back_to_author(self):
+        """eg wafrn, where the AP actor may not link to its ATProto DID, but the
+        DID doc's alsoKnownAs links back to the AP actor."""
+        self.make_user('https://in.st.example/users/alice', cls=ActivityPub,
+                       obj_as2={
+                           'type': 'Person',
+                           'id': 'https://in.st.example/users/alice',
+                       })
+        self.store_object(id='at://did:plc:alice/app.bsky.feed.post/123',
+                          source_protocol='atproto',
+                          our_as1={'objectType': 'note', 'author': 'did:plc:alice'})
+        post = Object(id='https://in.st.example/post', source_protocol='activitypub',
+                      our_as1={
+                          'objectType': 'note',
+                          'author': 'https://in.st.example/users/alice',
+                          'urls': [{
+                              'value': 'at://did:plc:alice/app.bsky.feed.post/123',
+                              'rel': 'alternate',
+                          }],
+                      })
+
+        for aka, expected in [
+            ('https://in.st.example/users/alice',
+             'at://did:plc:alice/app.bsky.feed.post/123'),
+            ('https://in.st.example/users/eve', None),
+        ]:
+            with self.subTest(aka=aka):
+                self.store_object(id='did:plc:alice', raw={
+                    'id': 'did:plc:alice',
+                    'alsoKnownAs': ['at://alice.example', aka],
+                })
+                self.make_user('did:plc:alice', cls=ATProto)
+                self.assertEqual(expected, post.get_external_id(ATProto))
+
     def test_get_external_id_actor(self):
         self.make_user('fake:alice', cls=Fake, obj_as1=ALICE_EXTERNAL_IDS_ACTOR)
 

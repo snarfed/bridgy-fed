@@ -2113,15 +2113,16 @@ class Object(AddRemoveMixin, StringIdModel):
         themselves, eg whether its owner is enabled for ``to_proto``.
 
         Links on our domains don't count. Proxy links are unverified, so we only
-        trust them if this object's author is also on ``to_proto``, ie
-        :meth:`User.get_external_id`, and the linked object's own author there is
-        that same account. If this object is an actor, the linked object must be
-        that account itself.
+        trust them if the linked object's owner on ``to_proto`` is this object's
+        author, from either side: this object's author links to the owner, or the
+        owner links back to the author, both via :meth:`User.get_external_id`. If
+        this object is an actor, the linked object must be that account itself.
 
         Args:
           to_proto (:class:`Protocol` subclass)
           remote (bool): passed through to :meth:`Protocol.load` when loading the
-            linked object to check its author
+            linked object, and the author's and owner's profiles if they're not
+            stored users
 
         Returns:
           str: id of the copy, normalized with :func:`ids.normalize_object_id`,
@@ -2135,7 +2136,18 @@ class Object(AddRemoveMixin, StringIdModel):
         is_actor = as1.object_type(obj_as1) in as1.ACTOR_TYPES
         normalize = ids.normalize_user_id if is_actor else ids.normalize_object_id
 
+        def load_user(proto, id):
+            # stored user, or unsaved user with their profile, just to check their
+            # proxy links
+            if user := proto.get_by_id(id, allow_opt_out=True):
+                return user
+            profile_id = ids.profile_id(id=id, proto=proto)
+            profile = proto.load(profile_id, remote=remote, raise_=False)
+            return proto(id=id, obj=profile) if profile else proto(id=id)
+
+        author_id = author_proto = None
         author_external_id = False  # not loaded yet
+
         for link in as1.get_rel_links(obj_as1, url_prefixes=to_proto.URI_PREFIXES,
                                       mime_types=to_proto.MIME_TYPES):
             uri = link['value']
@@ -2144,26 +2156,15 @@ class Object(AddRemoveMixin, StringIdModel):
             elif not (normalized := normalize(id=uri, proto=to_proto)):
                 continue
 
-            # check that the external object's author is this user
             if author_external_id is False:
-                author = None
-                if ((author_id := as1.get_owner(obj_as1))
+                if not ((author_id := as1.get_owner(obj_as1))
                         and (author_proto := self.owner_protocol(remote=False))):
-                    author = author_proto.get_by_id(author_id, allow_opt_out=True)
-                    if not author:
-                        # unsaved user, just to check their profile's proxy links
-                        profile_id = ids.profile_id(id=author_id, proto=author_proto)
-                        if profile := author_proto.load(profile_id, remote=remote,
-                                                        raise_=False):
-                            author = author_proto(id=author_id, obj=profile)
-                    if author:
-                        author_external_id = author.get_external_id(to_proto)
-
-            if not author_external_id:
-                common.report_error(
-                    "Ignoring external id, author isn't on protocol",
-                    user=f'{self.key.id()} external id {normalized} on {to_proto.LABEL}')
-                return None
+                    common.report_error(
+                        'Ignoring external id, no author',
+                        user=f'{self.key.id()} external id {normalized} on {to_proto.LABEL}')
+                    return None
+                author_external_id = (load_user(author_proto, author_id)
+                                      .get_external_id(to_proto))
 
             if is_actor:
                 # the external object is the author's account itself
@@ -2174,13 +2175,20 @@ class Object(AddRemoveMixin, StringIdModel):
                 if external_obj and (owner_id := as1.get_owner(external_obj.as1)):
                     owner = ids.normalize_user_id(id=owner_id, proto=to_proto)
 
-            if owner != author_external_id:
-                common.report_error(
-                    'Ignoring external id, not owned by author',
-                    user=f'{self.key.id()} external id {normalized} on {to_proto.LABEL}, author {author_external_id} owner {owner}')
-                continue
+            # check that the external object's owner is this object's author, from
+            # either side: the author links to the owner, or the owner links back
+            if owner:
+                if owner == author_external_id:
+                    return normalized
 
-            return normalized
+                user_id = load_user(to_proto, owner).get_external_id(author_proto)
+                author_id = ids.normalize_user_id(id=author_id, proto=author_proto)
+                if user_id == author_id:
+                    return normalized
+
+            common.report_error(
+                'Ignoring external id, not owned by author',
+                user=f'{self.key.id()} external id {normalized} on {to_proto.LABEL}, author {author_id} external id {author_external_id} owner {owner}')
 
     def get_copy(self, proto):
         """Returns the id for the copy of this object in a given protocol.
