@@ -3747,6 +3747,39 @@ class WebUtilTest(TestCase):
 
         self.assert_equals({**REPOST_MF2, 'url': 'https://user.com/repost'}, obj.mf2)
 
+    def test_fetch_post_proxy_link_rel_urls(self, mock_get, __):
+        mock_get.return_value = requests_response("""\
+<html>
+<head>
+<link rel="alternate" type="application/activity+json" href="https://in.st.example/post">
+<link rel="canonical" href="https://user.com/post">
+<link rel="stylesheet" href="https://user.com/style.css">
+<link rel="me" href="https://in.st.example/@alice">
+</head>
+<body class="h-entry">
+<p class="e-content">hello</p>
+</body>
+</html>
+""", url='https://user.com/post')
+
+        obj = Object(id='https://user.com/post')
+        Web.fetch(obj)
+
+        self.assertEqual({
+            'https://in.st.example/post': {
+                'rels': ['alternate'],
+                'type': 'application/activity+json',
+            },
+            'https://user.com/post': {
+                'rels': ['canonical'],
+            },
+        }, obj.mf2['rel-urls'])
+        self.assertEqual([{
+            'value': 'https://in.st.example/post',
+            'rel': 'alternate',
+            'mimeType': 'application/activity+json',
+        }], obj.as1['urls'])
+
     def test_fetch_redirect(self, mock_get, __):
         mock_get.return_value = requests_response(
             REPOST_HTML, redirected_url='http://new/url')

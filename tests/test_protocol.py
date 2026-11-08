@@ -392,7 +392,7 @@ class ProtocolTest(TestCase):
             },
             'rel-urls': {
                 'https://f.ooo': {'rels': ['me'], 'text': 'Ms. ☕ Baz'},
-                'https://user.com/webmention': {'rels': ['webmention'], 'text': ''},
+                'https://user.com/webmention': {'rels': ['webmention']},
             },
             'url': 'https://f.ooo',
         }

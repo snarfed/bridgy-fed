@@ -695,6 +695,13 @@ class Web(User, Protocol):
             if mf2util.find_first_entry(parsed, ['h-feed']):
                 logger.info('Found h-feed')
                 entry['has-h-feed'] = True
+        else:
+            # only keep rel alternate and canonical, ie potential
+            # FEP-fffd proxy links
+            entry['rel-urls'] = {
+                url: info for url, info in parsed.get('rel-urls', {}).items()
+                          if set(info.get('rels', [])) & set(as1.PROXY_LINK_RELS)
+            }
         if parsed['url']:
             entry['url'] = parsed['url']
         logger.info(f'Extracted microformats2 entry: {json_dumps(entry)[:500]}')
@@ -733,7 +740,7 @@ class Web(User, Protocol):
                         },
                     }])
 
-        obj.mf2 = entry
+        obj.mf2 = util.trim_nulls(entry)
         return True
 
     @classmethod
