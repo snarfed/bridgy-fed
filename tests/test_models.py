@@ -3311,6 +3311,19 @@ cast_add_body { text: "hi" }
                 self.assertEqual(expected,
                                  obj.get_external_id(ActivityPub, remote=False))
 
+    def test_get_external_id_object_internal_on_our_domain(self):
+        """eg blog redirects, https://bsky.brid.gy/internal/..."""
+        self.make_user('fake:alice', cls=Fake, obj_as1=ALICE_EXTERNAL_IDS_ACTOR)
+        ExplicitFake.fetchable = {
+            'efake:alices': {'objectType': 'note', 'author': 'efake:alice-ext'},
+        }
+        obj = Object(id='https://bsky.brid.gy/internal/user.com/post', our_as1={
+            'objectType': 'note',
+            'author': 'fake:alice',
+            'urls': [{'value': 'efake:alices', 'rel': 'alternate'}],
+        })
+        self.assertIsNone(obj.get_external_id(ExplicitFake))
+
     def test_get_external_id_no_as1(self):
         self.assertIsNone(Object(id='fake:post').get_external_id(ATProto))
 

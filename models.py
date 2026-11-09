@@ -2112,13 +2112,14 @@ class Object(AddRemoveMixin, StringIdModel):
         whether we've bridged this object there. Callers need to check that
         themselves, eg whether its owner is enabled for ``to_proto``.
 
-        Links on our domains don't count. Proxy links are unverified, so we only
-        trust them if the linked object's owner on ``to_proto`` is this object's
-        author, from either side: this object's author links to the owner, or the
-        owner links back to the author, both via :meth:`User.get_external_id`. If
-        this object is its author's profile, the linked object must be that
-        account itself. Web authors also own anything on their own domain, eg from
-        the WordPress ActivityPub plugin.
+        Links on our domains don't count, and neither do objects on our domains, eg
+        blog redirects under :const:`ids.INTERNAL_PATH_PREFIX`. Proxy links are
+        unverified, so we only trust them if the linked object's owner on
+        ``to_proto`` is this object's author, from either side: this object's author
+        links to the owner, or the owner links back to the author, both via
+        :meth:`User.get_external_id`. If this object is its author's profile, the
+        linked object must be that account itself. Web authors also own anything on
+        their own domain, eg from the WordPress ActivityPub plugin.
 
         Args:
           to_proto (:class:`Protocol` subclass)
@@ -2131,8 +2132,10 @@ class Object(AddRemoveMixin, StringIdModel):
             or :func:`ids.normalize_user_id` for profiles, or
             None if this object doesn't link to one, or if it's native to
             ``to_proto`` or we have a copy of it there
+
         """
-        if self.get_copy(to_proto) or not (obj_as1 := self.as1):
+        if (self.get_copy(to_proto) or not (obj_as1 := self.as1)
+                or util.domain_or_parent_in(self.key.id(), [SUPERDOMAIN])):
             return None
 
         def load_user(proto, id):
