@@ -1217,6 +1217,7 @@ class IntegrationTests(TestCase):
             'properties': {
                 'url': ['https://bob.com/follow'],
                 'follow-of': ['https://bsky.app/profile/alice.com'],
+                'name': [''],
                 'author': [{
                     'type': ['h-card'],
                     'properties': {

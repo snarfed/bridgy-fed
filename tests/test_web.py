@@ -3769,9 +3769,11 @@ class WebUtilTest(TestCase):
             'https://in.st.example/post': {
                 'rels': ['alternate'],
                 'type': 'application/activity+json',
+                'text': '',
             },
             'https://user.com/post': {
                 'rels': ['canonical'],
+                'text': '',
             },
         }, obj.mf2['rel-urls'])
         self.assertEqual([{
@@ -3919,6 +3921,24 @@ class WebUtilTest(TestCase):
         Web.fetch(obj)
 
         self.assert_equals(ACTOR_MF2_HFEED, obj.mf2, ignore=['rel-urls'])
+
+    def test_fetch_user_homepage_child_hfeed_no_properties(self, mock_get, __):
+        mock_get.return_value = requests_response("""\
+<html>
+<body class="h-card">
+<a class="p-name u-url" rel="me" href="/">Ms. ☕ Baz</a>
+<div class="h-feed">
+<div class="h-entry"><p class="e-content">hello</p></div>
+</div>
+</body>
+</html>
+""", url='https://user.com/')
+
+        obj = Object(id='https://user.com/')
+        Web.fetch(obj)
+
+        self.assertEqual({}, obj.mf2['children'][0]['properties'])
+        self.assert_equals(ACTOR_AS1_UNWRAPPED_URLS, obj.as1)
 
     def test_fetch_user_homepage_other_u_url(self, mock_get, __):
         mock_get.return_value = requests_response(
