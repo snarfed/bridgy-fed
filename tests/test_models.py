@@ -3279,6 +3279,30 @@ cast_add_body { text: "hi" }
         self.assertEqual('efake:alices',
                          obj.get_external_id(ExplicitFake, remote=False))
 
+    def test_get_external_id_web_author_same_domain(self):
+        """eg WordPress ActivityPub plugin, Mastodon post pages."""
+        self.make_user('user.com', cls=Web)
+
+        for uri, expected in [
+            ('https://user.com/?p=123', 'https://user.com/?p=123'),
+            ('https://www.user.com/?p=123', 'https://www.user.com/?p=123'),
+            ('https://blog.user.com/?p=123', None),
+            ('https://ot.her/?p=123', None),
+        ]:
+            with self.subTest(uri=uri):
+                obj = Object(id='https://user.com/post', source_protocol='web',
+                             our_as1={
+                    'objectType': 'note',
+                    'author': 'https://user.com/',
+                    'urls': [{
+                        'value': uri,
+                        'rel': 'alternate',
+                        'mimeType': 'application/activity+json',
+                    }],
+                })
+                self.assertEqual(expected,
+                                 obj.get_external_id(ActivityPub, remote=False))
+
     def test_get_external_id_no_as1(self):
         self.assertIsNone(Object(id='fake:post').get_external_id(ATProto))
 

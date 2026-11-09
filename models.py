@@ -2117,7 +2117,8 @@ class Object(AddRemoveMixin, StringIdModel):
         author, from either side: this object's author links to the owner, or the
         owner links back to the author, both via :meth:`User.get_external_id`. If
         this object is its author's profile, the linked object must be that
-        account itself.
+        account itself. Web authors also own anything on their own domain, eg from
+        the WordPress ActivityPub plugin.
 
         Args:
           to_proto (:class:`Protocol` subclass)
@@ -2166,6 +2167,11 @@ class Object(AddRemoveMixin, StringIdModel):
             normalize = ids.normalize_user_id if is_profile else ids.normalize_object_id
             if not (normalized := normalize(id=uri, proto=to_proto)):
                 continue
+
+            # web users own their domain, so they own everything on it
+            if (author_proto.LABEL == 'web'
+                    and util.domain_from_link(normalized) == util.domain_from_link(author_id)):
+                return normalized
 
             if is_profile:
                 # the external object is the author's account itself
