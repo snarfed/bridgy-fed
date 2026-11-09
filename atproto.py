@@ -1346,11 +1346,6 @@ class ATProto(User, Protocol):
                                      + bluesky.ATP_POST_TYPES)
                         and orig_url):
                     rec['bridgyOriginalUrl'] = orig_url
-                    # FEP-fffd proxy link. granary may have already added links
-                    rec.setdefault('community.lexicon.meta.links', {
-                        '$type': 'community.lexicon.meta.links',
-                        'links': [],
-                    })['links'].append({'href': orig_url, 'rel': 'canonical'})
 
         return recs if multiple else recs[0]
 

@@ -724,11 +724,12 @@ class UnfollowTest(TestCase):
                 **FOLLOW_ADDRESS,
                 'actor': 'http://localhost/www.alice.com',
             },
-            'url': [{
+            'url': {
                 'type': 'Link',
                 'rel': 'canonical',
                 'href': 'https://www.alice.com/#bridgy-fed-unfollow-2022-01-02T03:04:05-https://ba.r/id',
-            }],
+                'mediaType': 'text/html',
+            },
        }
         del expected_undo['object']['id']
 

@@ -298,6 +298,7 @@ class NostrTest(TestCase):
                 'name': 'Ms Alice [Unofficial]',
                 'about': 'It me\n\n🌉 bridged from 🌐 https://alice.com/: https://fed.brid.gy/web/alice.com',
                 'nip05': 'alice.com@web.brid.gy',
+                'website': 'https://alice.com/',
             }, sort_keys=True, ensure_ascii=False),
             'tags': [['proxy', 'https://alice.com/', 'web']],
             'created_at': NOW_TS,

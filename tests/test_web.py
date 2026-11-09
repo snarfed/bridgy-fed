@@ -163,7 +163,11 @@ ACTOR_BSKY = {
   "bridgyOriginalUrl": "https://new.com/",
   'community.lexicon.meta.links': {
       '$type': 'community.lexicon.meta.links',
-      'links': [{'href': "https://new.com/", 'rel': 'canonical'}],
+      'links': [{
+          'href': 'https://new.com/',
+          'rel': 'canonical',
+          'mediaType': 'text/html',
+      }],
   },
 }
 
@@ -185,11 +189,12 @@ REPOST_AS2 = {
     'name': 'reposted!',
     'actor': 'http://localhost/user.com',
     'object': 'https://mas.to/toot/id',
-    'url': [{
+    'url': {
         'type': 'Link',
         'rel': 'canonical',
         'href': 'https://user.com/repost',
-    }],
+        'mediaType': 'text/html',
+    },
     'to': [as2.PUBLIC_AUDIENCE],
     'cc': [
         'https://mas.to/author',
@@ -338,6 +343,12 @@ AS2_CREATE = {
         }],
         'interactionPolicy': INTERACTION_POLICY,
         'replies': 'http://localhost/ap/replies/aHR0cHM6Ly91c2VyLmNvbS9yZXBseQ==',
+        'url': {
+            'type': 'Link',
+            'rel': 'canonical',
+            'href': 'https://user.com/reply',
+            'mediaType': 'text/html',
+        },
     },
     'to': [as2.PUBLIC_AUDIENCE],
     'cc': [
@@ -376,11 +387,12 @@ FOLLOW_AS2 = {
     'id': 'http://localhost/r/https://user.com/follow',
     'object': 'https://mas.to/mrs-foo',
     'actor': 'http://localhost/user.com',
-    'url': [{
+    'url': {
         'type': 'Link',
         'rel': 'canonical',
         'href': 'https://user.com/follow',
-    }],
+        'mediaType': 'text/html',
+    },
     'to': [as2.PUBLIC_AUDIENCE],
 }
 
@@ -404,11 +416,12 @@ FOLLOW_FRAGMENT_MF2 = util.parse_mf2(FOLLOW_FRAGMENT_HTML, id='2')['items'][0]
 FOLLOW_FRAGMENT_AS2 = {
     **FOLLOW_AS2,
     'id': 'http://localhost/r/https://user.com/follow#2',
-    'url': [{
+    'url': {
         'type': 'Link',
         'rel': 'canonical',
         'href': 'https://user.com/follow#2',
-    }],
+        'mediaType': 'text/html',
+    },
 }
 
 NOTE_HTML = """\
@@ -459,6 +472,12 @@ NOTE_AS2 = {
     'to': [as2.PUBLIC_AUDIENCE],
     'interactionPolicy': INTERACTION_POLICY,
     'replies': 'http://localhost/ap/replies/aHR0cHM6Ly91c2VyLmNvbS9wb3N0',
+    'url': {
+        'type': 'Link',
+        'rel': 'canonical',
+        'href': 'https://user.com/post',
+        'mediaType': 'text/html',
+    },
 }
 CREATE_AS2 = {
     '@context': 'https://www.w3.org/ns/activitystreams',
@@ -1295,11 +1314,12 @@ class WebTest(TestCase):
             'contentMap': {'en': '<p>hello i am a post</p>'},
             'name': 'hello i am a post',
             'object': 'http://localhost/r/http://bob.com/post',
-            'url': [{
+            'url': {
                 'type': 'Link',
                 'rel': 'canonical',
                 'href': 'https://user.com/multiple',
-            }],
+                'mediaType': 'text/html',
+            },
             'to': ['https://www.w3.org/ns/activitystreams#Public'],
             'cc': ['http://localhost/user.com',
                    'https://www.w3.org/ns/activitystreams#Public'],
@@ -1354,7 +1374,7 @@ class WebTest(TestCase):
         self.assertEqual(('https://mas.to/inbox',), args)
         self.assert_equals({
             **REPOST_AS2,
-            'url': ['http://localhost/r/https://unused'] + REPOST_AS2['url'],
+            'url': ['http://localhost/r/https://unused', REPOST_AS2['url']],
         }, json_loads(kwargs['data']))
 
     def test_create_author_only_url(self, mock_get, mock_post):
@@ -1509,6 +1529,7 @@ class WebTest(TestCase):
         create_as2['id'] = 'http://localhost/r/https://www.user.com/post#bridgy-fed-create-2022-01-02T03:04:05+00:00'
         create_as2['object']['id'] = 'http://localhost/r/https://www.user.com/post'
         create_as2['object']['replies'] = 'http://localhost/ap/replies/aHR0cHM6Ly93d3cudXNlci5jb20vcG9zdA=='
+        create_as2['object']['url']['href'] = 'https://www.user.com/post'
         self.assert_ap_deliveries(mock_post, inboxes, create_as2)
 
     def test_create_post(self, mock_get, mock_post):
@@ -1993,6 +2014,12 @@ class WebTest(TestCase):
             'object': {
                 **ACTOR_AS2,
                 'attachment': ACTOR_AS2_FULL['attachment'],
+                'url': ['http://localhost/r/https://user.com/', {
+                    'type': 'Link',
+                    'rel': 'canonical',
+                    'href': 'https://user.com/',
+                    'mediaType': 'text/html',
+                }],
                 'updated': NOW.isoformat(),
                 'to': ['https://www.w3.org/ns/activitystreams#Public'],
             },
@@ -2070,6 +2097,12 @@ class WebTest(TestCase):
             'object': {
                 **ACTOR_AS2_FULL,
                 'name': 'user.com',
+                'url': ['http://localhost/r/https://user.com/', {
+                    'type': 'Link',
+                    'rel': 'canonical',
+                    'href': 'https://user.com/',
+                    'mediaType': 'text/html',
+                }],
                 'updated': NOW.isoformat(),
                 'to': ['https://www.w3.org/ns/activitystreams#Public'],
             },

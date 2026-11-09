@@ -480,8 +480,15 @@ class ActivityPubTest(TestCase):
         self.assertEqual(200, got.status_code)
         self.assertEqual(as2.CONTENT_TYPE, got.headers['Content-Type'])
         self.assertEqual('Accept', got.headers['Vary'])
-        self.assert_equals(ACTOR_FULL, got.json,
-                           ignore=['@context', 'attachment', 'publicKey'])
+        self.assert_equals({
+            **ACTOR_FULL,
+            'url': ['http://localhost/r/https://user.com/', {
+                'type': 'Link',
+                'rel': 'canonical',
+                'href': 'https://user.com/',
+                'mediaType': 'text/html',
+            }],
+        }, got.json, ignore=['@context', 'attachment', 'publicKey'])
 
     def test_actor_blocked_tld(self, _, __, ___):
         got = self.client.get('/foo.json')
@@ -495,8 +502,15 @@ class ActivityPubTest(TestCase):
 
         got = self.client.get('/user.com', headers=headers)
         self.assertEqual(200, got.status_code)
-        self.assert_equals(ACTOR_FULL, got.json,
-                           ignore=['@context', 'attachment', 'publicKey'])
+        self.assert_equals({
+            **ACTOR_FULL,
+            'url': ['http://localhost/r/https://user.com/', {
+                'type': 'Link',
+                'rel': 'canonical',
+                'href': 'https://user.com/',
+                'mediaType': 'text/html',
+            }],
+        }, got.json, ignore=['@context', 'attachment', 'publicKey'])
 
     def test_actor_bad_signature(self, *_):
         self.make_user(ACTOR['id'], cls=ActivityPub, obj_as2=ACTOR)
@@ -563,8 +577,14 @@ class ActivityPubTest(TestCase):
         got = self.client.get('/ap/fake:user', base_url='https://fa.brid.gy/',
                               headers={'Accept': as2.CONTENT_TYPE})
         self.assertEqual(200, got.status_code)
-        self.assert_equals(ACTOR_FAKE_USER, got.json,
-                           ignore=['attachment', 'publicKey'])
+        self.assert_equals({
+            **ACTOR_FAKE_USER,
+            'url': ['https://fa.brid.gy/r/web:fake:user', {
+                'type': 'Link',
+                'rel': 'canonical',
+                'href': 'uri:fake:user',
+            }],
+        }, got.json, ignore=['attachment', 'publicKey'])
 
     @patch.object(Fake, 'DEFAULT_ENABLED_PROTOCOLS', new=['activitypub'])
     def test_actor_handle_unknown_user_isnt_created(self, _, __, ___):
@@ -1130,6 +1150,11 @@ class ActivityPubTest(TestCase):
                 'updated': '2022-01-02T03:04:05+00:00',
                 'interactionPolicy': INTERACTION_POLICY,
                 'replies': 'https://fa.brid.gy/ap/replies/ZmFrZTpxdW90ZQ==',
+                'url': {
+                    'type': 'Link',
+                    'rel': 'canonical',
+                    'href': 'fake:quote',
+                },
             },
             'to': [as2.PUBLIC_AUDIENCE],
         }
@@ -2869,11 +2894,11 @@ class ActivityPubTest(TestCase):
                 'orderedItems': [{
                     'type': 'Announce',
                     'id': 'https://fa.brid.gy/convert/ap/fake:share',
-                    'url': [{
+                    'url': {
                         'type': 'Link',
                         'rel': 'canonical',
                         'href': 'fake:share',
-                    }],
+                    },
                     'actor': 'https://fa.brid.gy/ap/fake:foo',
                     'object': 'https://fa.brid.gy/convert/ap/fake:bob-post',
                     'to': [as2.PUBLIC_AUDIENCE],
@@ -3884,6 +3909,23 @@ class ActivityPubUtilsTest(TestCase):
 
         self.assertEqual('foo', got['attachment'][0]['name'])
 
+    def test_postprocess_as2_actor_keeps_proxy_links(self):
+        self.assert_equals([
+            'http://localhost/r/https://user.com/',
+            {
+                'type': 'Link',
+                'rel': 'canonical',
+                'href': 'at://did:plc:user',
+            },
+        ], postprocess_as2_actor({
+            'type': 'Person',
+            'url': {
+                'type': 'Link',
+                'rel': 'canonical',
+                'href': 'at://did:plc:user',
+            },
+        }, user=self.user)['url'])
+
     def test_postprocess_as2_actor_strips_acct_url(self):
         self.assert_equals('http://localhost/r/http://user.com/',
                            postprocess_as2_actor({
@@ -4487,7 +4529,10 @@ class ActivityPubUtilsTest(TestCase):
         self.assert_equals({
             'type': 'Service',
             'id': 'https://bsky.brid.gy/ap/did:plc:user',
-            'url': 'http://localhost/r/https://bsky.app/profile/did:plc:user',
+            'url': [
+                'http://localhost/r/https://bsky.app/profile/did:plc:user',
+                {'type': 'Link', 'rel': 'canonical', 'href': 'did:plc:user'},
+            ],
             'alsoKnownAs': ['did:plc:user'],
             'name': 'Alice',
  'summary': 'hi there<br><br>🌉 <a href="https://fed.brid.gy/bsky/did:plc:user">bridged</a> from 🦋 <a href="https://bsky.app/profile/did:plc:user">None</a> by <a href="https://fed.brid.gy/">Bridgy Fed</a>',
@@ -4505,11 +4550,11 @@ class ActivityPubUtilsTest(TestCase):
     def test_convert_actor_as1_proxy_link(self):
         obj = Object(id='fake:id', our_as1=ACTOR_AS1, source_protocol='fake')
         converted = ActivityPub.convert(obj)
-        self.assert_equals([{
+        self.assert_equals({
             'type': 'Link',
             'rel': 'canonical',
             'href': 'fake:id',
-        }], converted['url'])
+        }, converted['url'])
 
     def test_convert_actor_as1_skip_proxy_link_for_brid_gy_ids(self):
         obj = Object(id='https://web.brid.gy/foo', our_as1=ACTOR_AS1,
@@ -4596,11 +4641,11 @@ class ActivityPubUtilsTest(TestCase):
         self.assert_equals({
             'type': 'Note',
             'id': 'https://fa.brid.gy/convert/ap/fake:post',
-            'url': [{
+            'url': {
                 'type': 'Link',
                 'rel': 'canonical',
                 'href': 'fake:post',
-            }],
+            },
             'attributedTo': 'https://fa.brid.gy/ap/fake:alice',
             'replies': 'https://fa.brid.gy/ap/replies/ZmFrZTpwb3N0',
             'to': [as2.PUBLIC_AUDIENCE],
@@ -4624,6 +4669,11 @@ class ActivityPubUtilsTest(TestCase):
                 'replies': 'https://fa.brid.gy/ap/replies/ZmFrZTpwb3N0',
                 'to': [as2.PUBLIC_AUDIENCE],
                 'interactionPolicy': INTERACTION_POLICY,
+                'url': {
+                    'type': 'Link',
+                    'rel': 'canonical',
+                    'href': 'fake:post',
+                },
             },
         }, ActivityPub.convert(Object(id='fake:create', source_protocol='fake', our_as1={
             'objectType': 'activity',
@@ -4641,11 +4691,11 @@ class ActivityPubUtilsTest(TestCase):
         self.assert_equals({
             'type': 'Note',
             'id': 'https://fa.brid.gy/convert/ap/fake:dm',
-            'url': [{
+            'url': {
                 'type': 'Link',
                 'rel': 'canonical',
                 'href': 'fake:dm',
-            }],
+            },
             'attributedTo': 'https://fa.brid.gy/ap/fake:alice',
             'to': ['https://fa.brid.gy/ap/fake:bob'],
         }, ActivityPub.convert(Object(id='fake:dm', source_protocol='fake', our_as1={
@@ -4659,11 +4709,11 @@ class ActivityPubUtilsTest(TestCase):
         self.assert_equals({
             'type': 'Like',
             'id': 'https://fa.brid.gy/convert/ap/fake:like',
-            'url': [{
+            'url': {
                 'type': 'Link',
                 'rel': 'canonical',
                 'href': 'fake:like',
-            }],
+            },
             'actor': 'https://fa.brid.gy/ap/fake:alice',
             'object': 'https://fa.brid.gy/convert/ap/fake:post',
             'to': [as2.PUBLIC_AUDIENCE],
@@ -4780,11 +4830,11 @@ class ActivityPubUtilsTest(TestCase):
             'to': [as2.PUBLIC_AUDIENCE],
             'interactionPolicy': INTERACTION_POLICY,
             'replies': 'https://fa.brid.gy/ap/replies/ZmFrZTpxdW90ZQ==',
-            'url': [{
+            'url': {
                 'type': 'Link',
                 'rel': 'canonical',
                 'href': 'fake:quote',
-            }],
+            },
         }, ActivityPub.convert(obj))
 
     def test_convert_quote_post_of_activitypub_post_no_quoteAuthorization(self):
@@ -4860,11 +4910,11 @@ class ActivityPubUtilsTest(TestCase):
                 'href': 'http://fake/orig',
                 'name': 'RE: http://fake/orig',
             }],
-            'url': [{
+            'url': {
                 'type': 'Link',
                 'rel': 'canonical',
                 'href': 'fake:quote',
-            }],
+            },
         }, ActivityPub.convert(obj))
 
         create = Object(id='fake:create', source_protocol='fake', our_as1={
@@ -4888,6 +4938,11 @@ class ActivityPubUtilsTest(TestCase):
                 'href': 'http://fake/orig',
                 'name': 'RE: http://fake/orig',
             }],
+            'url': {
+                'type': 'Link',
+                'rel': 'canonical',
+                'href': 'fake:quote',
+            },
         }, ActivityPub.convert(create)['object'])
 
     def test_convert_quote_post_of_non_bridged_post_no_url_keeps_tag_href(self):
@@ -5081,11 +5136,11 @@ class ActivityPubUtilsTest(TestCase):
             'content': 'Hello world',
         })
         converted = ActivityPub.convert(obj)
-        self.assertEqual([{
+        self.assertEqual({
             'type': 'Link',
             'rel': 'canonical',
             'href': 'fake:post:123'
-        }], converted['url'])
+        }, converted['url'])
 
     def test_convert_fep_fffd_preserves_existing_url_string(self):
         obj = Object(id='fake:post:456', source_protocol='web', our_as1={
@@ -5099,7 +5154,8 @@ class ActivityPubUtilsTest(TestCase):
             {
                 'type': 'Link',
                 'rel': 'canonical',
-                'href': 'fake:post:456'
+                'href': 'fake:post:456',
+                'mediaType': 'text/html',
             },
         ], converted['url'])
 
@@ -5116,7 +5172,8 @@ class ActivityPubUtilsTest(TestCase):
             {
                 'type': 'Link',
                 'rel': 'canonical',
-                'href': 'fake:post:789'
+                'href': 'fake:post:789',
+                'mediaType': 'text/html',
             },
         ], converted['url'])
 
@@ -5184,6 +5241,19 @@ class ActivityPubUtilsTest(TestCase):
         })
         converted = ActivityPub.convert(obj)
         self.assertNotIn('url', converted)
+
+    def test_convert_fep_fffd_atproto_no_media_type(self):
+        obj = Object(id='at://did:plc:alice/app.bsky.feed.post/123',
+                     source_protocol='atproto', our_as1={
+                         'objectType': 'note',
+                         'content': 'hello',
+                     })
+        converted = ActivityPub.convert(obj)
+        self.assertEqual({
+            'type': 'Link',
+            'rel': 'canonical',
+            'href': 'at://did:plc:alice/app.bsky.feed.post/123',
+        }, converted['url'])
 
     def test_postprocess_as2_idempotent(self):
         for obj in (ACTOR, REPLY_OBJECT, REPLY_OBJECT_WRAPPED, REPLY,
@@ -5592,6 +5662,11 @@ class ActivityPubUtilsTest(TestCase):
             'to': [as2.PUBLIC_AUDIENCE],
             'interactionPolicy': INTERACTION_POLICY,
             'replies': 'https://fa.brid.gy/ap/replies/ZmFrZTpxdW90ZQ==',
+            'url': {
+                'type': 'Link',
+                'rel': 'canonical',
+                'href': 'fake:quote',
+            },
         }
 
         self.assertEqual(2, mock_post.call_count)
@@ -5696,11 +5771,12 @@ class ActivityPubUtilsTest(TestCase):
             'attributedTo': 'https://web.brid.gy/web.brid.gy',
             'content': '<p>hello world</p>',
             'contentMap': {'en': '<p>hello world</p>'},
-            'url': [{
+            'url': {
                 'href': 'https://internal.brid.gy/dm',
                 'rel': 'canonical',
+                'mediaType': 'text/html',
                 'type': 'Link',
-            }],
+            },
         }, ignore=['@context', 'to'])
 
     @patch.object(util.session, 'post')

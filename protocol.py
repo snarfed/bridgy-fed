@@ -759,6 +759,34 @@ class Protocol:
         base_obj = as1.get_object(obj.as1) if is_crud else obj.as1
         orig_our_as1 = obj.our_as1
 
+        # FEP-fffd canonical proxy link to the original object in its source
+        # protocol. each protocol's granary from_as1 renders it.
+        # https://codeberg.org/fediverse/fep/src/branch/main/fep/fffd/fep-fffd.md
+        # https://github.com/snarfed/bridgy-fed/issues/543
+        from_proto = PROTOCOLS.get(obj.source_protocol)
+        if is_crud:
+            orig_id = base_obj.get('id')
+        else:
+            orig_id = obj.key.id() if obj.key else None
+        if from_user and (orig_id in (from_user.key.id(), from_user.profile_id())
+                          or (not is_crud and from_user.is_profile(obj))):
+            orig_id = from_user.id_uri()
+        if (from_proto and from_proto != cls and orig_id
+                and set(base_obj) != {'id'}
+                and as1.object_type(base_obj) not in as1.CRUD_VERBS
+                and not as1.get_rel_links(base_obj, rels=('canonical',))
+                and not PROTOCOLS['ui'].owns_id(orig_id)
+                and not cls.is_blocklisted(orig_id)):
+            obj.our_as1 = copy.deepcopy(obj.as1)
+            base_obj = as1.get_object(obj.our_as1) if is_crud else obj.our_as1
+            base_obj['urls'] = (util.get_list(base_obj, 'urls')
+                                or util.get_list(base_obj, 'url'))
+            base_obj['urls'].append(util.trim_nulls({
+                'value': orig_id,
+                'rel': 'canonical',
+                'mimeType': next(iter(from_proto.MIME_TYPES), None),
+            }))
+
         # post-processing for user profiles
         if (from_user and from_user.is_profile(obj)
                 and PROTOCOLS.get(obj.source_protocol) != cls

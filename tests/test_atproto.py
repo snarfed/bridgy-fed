@@ -1042,10 +1042,6 @@ class ATProtoTest(TestCase):
                 'values': [{'val': 'bridged-from-bridgy-fed'}],
             },
             'bridgyOriginalUrl': 'did:web:alice.com',
-            'community.lexicon.meta.links': {
-                '$type': 'community.lexicon.meta.links',
-                'links': [{'href': 'did:web:alice.com', 'rel': 'canonical'}],
-            },
         }, ATProto.convert(Object(our_as1={
             'objectType': 'person',
             'id': 'did:web:alice.com',
@@ -1072,10 +1068,6 @@ class ATProtoTest(TestCase):
                 'values': [{'val': 'bridged-from-bridgy-fed'}],
             },
             'bridgyOriginalUrl': 'did:web:alice.com',
-            'community.lexicon.meta.links': {
-                '$type': 'community.lexicon.meta.links',
-                'links': [{'href': 'did:web:alice.com', 'rel': 'canonical'}],
-            },
         }, ATProto.convert(Object(our_as1={
             'objectType': 'person',
             'id': 'did:web:alice.com',
@@ -1262,10 +1254,6 @@ class ATProtoTest(TestCase):
                 'size': 8,
             },
             'bridgyOriginalUrl': 'did:web:alice.com',
-            'community.lexicon.meta.links': {
-                '$type': 'community.lexicon.meta.links',
-                'links': [{'href': 'did:web:alice.com', 'rel': 'canonical'}],
-            },
         }, ATProto.convert(Object(our_as1={
             'objectType': 'person',
             'id': 'did:web:alice.com',
@@ -1487,10 +1475,6 @@ class ATProtoTest(TestCase):
                 'values': [{'val': 'bridged-from-bridgy-fed-fake'}],
             },
             'bridgyOriginalUrl': 'fake:alice',
-            'community.lexicon.meta.links': {
-                '$type': 'community.lexicon.meta.links',
-                'links': [{'href': 'fake:alice', 'rel': 'canonical'}],
-            },
         }, ATProto.convert(Object(source_protocol='fake', our_as1={
             'objectType': 'person',
             'id': 'fake:alice',
@@ -1506,10 +1490,6 @@ class ATProtoTest(TestCase):
                 'values': [{'val': 'bot'}, {'val': 'bridged-from-bridgy-fed-fake'}],
             },
             'bridgyOriginalUrl': 'fake:alice',
-            'community.lexicon.meta.links': {
-                '$type': 'community.lexicon.meta.links',
-                'links': [{'href': 'fake:alice', 'rel': 'canonical'}],
-            },
         }
         self.assertEqual([
             {**profile, '$type': 'app.bsky.actor.profile'},
@@ -1537,7 +1517,7 @@ class ATProtoTest(TestCase):
             'bridgyOriginalUrl': 'efake:user',
             'community.lexicon.meta.links': {
                 '$type': 'community.lexicon.meta.links',
-                'links': [{'href': 'efake:user', 'rel': 'canonical'}],
+                'links': [{'href': 'uri:efake:user', 'rel': 'canonical'}],
             },
         }, ATProto.convert(Object(source_protocol='efake', our_as1={
             'objectType': 'person',
@@ -1556,16 +1536,45 @@ class ATProtoTest(TestCase):
                 '$type': 'com.atproto.label.defs#selfLabels',
                 'values': [{'val': 'bridged-from-bridgy-fed-web'}],
             },
-            'bridgyOriginalUrl': 'user.com',
+            'website': 'https://user.com/',
+            'bridgyOriginalUrl': 'https://user.com/',
             'community.lexicon.meta.links': {
                 '$type': 'community.lexicon.meta.links',
-                'links': [{'href': 'user.com', 'rel': 'canonical'}],
+                'links': [{
+                    'href': 'https://user.com/',
+                    'rel': 'canonical',
+                    'mediaType': 'text/html',
+                }],
             },
         }, ATProto.convert(Object(source_protocol='web', our_as1={
             'objectType': 'person',
             'id': 'user.com',
             'displayName': 'Alice',
         }), from_user=user))
+
+    def test_convert_activitypub_note_canonical_link_is_ap_id(self):
+        self.assertEqual({
+            '$type': 'app.bsky.feed.post',
+            'text': 'hello',
+            'bridgyOriginalText': 'hello',
+            'bridgyOriginalUrl': 'https://inst.example/@alice/123',
+            'community.lexicon.meta.links': {
+                '$type': 'community.lexicon.meta.links',
+                'links': [{
+                    'href': 'https://inst.example/users/alice/statuses/123',
+                    'rel': 'canonical',
+                    'mediaType': 'application/activity+json',
+                }],
+            },
+            'createdAt': '2022-01-02T03:04:05.000Z',
+        }, ATProto.convert(Object(
+            id='https://inst.example/users/alice/statuses/123',
+            source_protocol='activitypub', our_as1={
+            'objectType': 'note',
+            'id': 'https://inst.example/users/alice/statuses/123',
+            'url': 'https://inst.example/@alice/123',
+            'content': 'hello',
+        })))
 
     def test_convert_non_atproto_update_actor_truncates_before_source_links(self):
         self.make_user(cls=Web, id='fa.brid.gy',
@@ -1595,7 +1604,7 @@ Sed tortor neque, aliquet quis posuere aliquam, imperdiet sitamet […]
             'bridgyOriginalUrl': 'fake:user',
             'community.lexicon.meta.links': {
                 '$type': 'community.lexicon.meta.links',
-                'links': [{'href': 'fake:user', 'rel': 'canonical'}],
+                'links': [{'href': 'uri:fake:user', 'rel': 'canonical'}],
             },
             'labels': {
                 '$type': 'com.atproto.label.defs#selfLabels',
@@ -1627,7 +1636,7 @@ Sed tortor neque, aliquet quis posuere aliquam, imperdiet sitamet […]
             'bridgyOriginalUrl': 'fake:user',
             'community.lexicon.meta.links': {
                 '$type': 'community.lexicon.meta.links',
-                'links': [{'href': 'fake:user', 'rel': 'canonical'}],
+                'links': [{'href': 'uri:fake:user', 'rel': 'canonical'}],
             },
         }, ATProto.convert(Object(source_protocol='fake', our_as1={
             'objectType': 'person',
@@ -2268,7 +2277,7 @@ Sed tortor neque, aliquet quis posuere aliquam, imperdiet sitamet […]
             'bridgyOriginalUrl': 'https://alice.com/',
             'community.lexicon.meta.links': {
                 '$type': 'community.lexicon.meta.links',
-                'links': [{'href': 'https://alice.com/', 'rel': 'canonical'}],
+                'links': [{'href': 'uri:fake:us_er', 'rel': 'canonical'}],
             },
             'avatar': {
                 '$type': 'blob',
@@ -3027,7 +3036,7 @@ Sed tortor neque, aliquet quis posuere aliquam, imperdiet sitamet […]
             'bridgyOriginalUrl': 'https://alice.com/',
             'community.lexicon.meta.links': {
                 '$type': 'community.lexicon.meta.links',
-                'links': [{'href': 'https://alice.com/', 'rel': 'canonical'}],
+                'links': [{'href': 'uri:fake:user', 'rel': 'canonical'}],
             },
             'avatar': {
                 '$type': 'blob',
@@ -3481,6 +3490,10 @@ Sed tortor neque, aliquet quis posuere aliquam, imperdiet sitamet […]
                 'title': 'Foo bar',
                 'textContent': "it's a big'un",
                 'publishedAt': '2022-01-02T03:04:05.000Z',
+                'community.lexicon.meta.links': {
+                    '$type': 'community.lexicon.meta.links',
+                    'links': [{'href': 'fake://art/icle', 'rel': 'canonical'}],
+                },
                 'bskyPostRef': {
                     'uri': 'at://did:plc:user/app.bsky.feed.post/a',
                     'cid': arroba.util.dag_cbor_cid(post).encode('base32'),
@@ -4472,6 +4485,10 @@ Sed tortor neque, aliquet quis posuere aliquam, imperdiet sitamet […]
             '$type': 'so.sprk.graph.follow',
             'subject': 'did:plc:bob',
             'createdAt': '2022-01-02T03:04:05.000Z',
+            'community.lexicon.meta.links': {
+                '$type': 'community.lexicon.meta.links',
+                'links': [{'href': 'fake:follow', 'rel': 'canonical'}],
+            },
         }, repo.get_record('so.sprk.graph.follow', rkey))
 
         mock_create_task.assert_called()  # atproto-commit

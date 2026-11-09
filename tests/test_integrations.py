@@ -361,7 +361,11 @@ class IntegrationTests(TestCase):
             'object': {
                 'type': 'Note',
                 'id': 'https://bsky.brid.gy/convert/ap/at://did:plc:alice/app.bsky.feed.post/123',
-                'url': 'http://localhost/r/https://bsky.app/profile/did:plc:alice/post/123',
+                'url': ['http://localhost/r/https://bsky.app/profile/did:plc:alice/post/123', {
+                    'type': 'Link',
+                    'rel': 'canonical',
+                    'href': 'at://did:plc:alice/app.bsky.feed.post/123',
+                }],
                 'attributedTo': 'https://bsky.brid.gy/ap/did:plc:alice',
                 'content': '<p>I hereby post</p>',
                 'contentMap': {'en': '<p>I hereby post</p>'},
@@ -430,7 +434,11 @@ class IntegrationTests(TestCase):
             'object': {
                 'type': 'Note',
                 'id': 'https://bsky.brid.gy/convert/ap/at://did:plc:alice/app.bsky.feed.post/123',
-                'url': 'http://localhost/r/https://bsky.app/profile/did:plc:alice/post/123',
+                'url': ['http://localhost/r/https://bsky.app/profile/did:plc:alice/post/123', {
+                    'type': 'Link',
+                    'rel': 'canonical',
+                    'href': 'at://did:plc:alice/app.bsky.feed.post/123',
+                }],
                 'attributedTo': 'https://bsky.brid.gy/ap/did:plc:alice',
                 'content': '<p>check this out<br><br><a href="https://example.com/article">An Article</a></p>',
                 'contentMap': {'en': '<p>check this out<br><br><a href="https://example.com/article">An Article</a></p>'},
@@ -493,7 +501,11 @@ class IntegrationTests(TestCase):
             'object': {
                 'type': 'Event',
                 'id': 'https://bsky.brid.gy/convert/ap/at://did:plc:alice/community.lexicon.calendar.event/123',
-                'url': 'http://localhost/r/http://my/party',
+                'url': ['http://localhost/r/http://my/party', {
+                    'type': 'Link',
+                    'rel': 'canonical',
+                    'href': 'at://did:plc:alice/community.lexicon.calendar.event/123',
+                }],
                 'attributedTo': 'https://bsky.brid.gy/ap/did:plc:alice',
                 'replies': 'https://bsky.brid.gy/ap/replies/YXQ6Ly9kaWQ6cGxjOmFsaWNlL2NvbW11bml0eS5sZXhpY29uLmNhbGVuZGFyLmV2ZW50LzEyMw==',
                 'name': 'My party',
@@ -547,7 +559,11 @@ class IntegrationTests(TestCase):
             'object': {
                 'type': 'Article',
                 'id': 'https://bsky.brid.gy/convert/ap/at://did:plc:alice/site.standard.document/123',
-                'url': 'http://localhost/r/https://alice.com/my-article',
+                'url': ['http://localhost/r/https://alice.com/my-article', {
+                    'type': 'Link',
+                    'rel': 'canonical',
+                    'href': 'at://did:plc:alice/site.standard.document/123',
+                }],
                 'attributedTo': 'https://bsky.brid.gy/ap/did:plc:alice',
                 'replies': 'https://bsky.brid.gy/ap/replies/YXQ6Ly9kaWQ6cGxjOmFsaWNlL3NpdGUuc3RhbmRhcmQuZG9jdW1lbnQvMTIz',
                 'name': 'My Great Article',
@@ -612,7 +628,11 @@ class IntegrationTests(TestCase):
             'object': {
                 'type': 'Note',
                 'id': 'https://bsky.brid.gy/convert/ap/at://did:plc:alice/app.bsky.feed.post/123',
-                'url': 'http://localhost/r/https://bsky.app/profile/did:plc:alice/post/123',
+                'url': ['http://localhost/r/https://bsky.app/profile/did:plc:alice/post/123', {
+                    'type': 'Link',
+                    'rel': 'canonical',
+                    'href': 'at://did:plc:alice/app.bsky.feed.post/123',
+                }],
                 'attributedTo': 'https://bsky.brid.gy/ap/did:plc:alice',
                 'content': f'<p>Ok{re_link}</p>',
                 'contentMap': {'en': f'<p>Ok{re_link}</p>'},
@@ -677,7 +697,11 @@ class IntegrationTests(TestCase):
         note = {
             'type': 'Note',
             'id': quote_id,
-            'url': 'http://localhost/r/https://bsky.app/profile/did:plc:alice/post/123',
+            'url': ['http://localhost/r/https://bsky.app/profile/did:plc:alice/post/123', {
+                'type': 'Link',
+                'rel': 'canonical',
+                'href': 'at://did:plc:alice/app.bsky.feed.post/123',
+            }],
             'attributedTo': 'https://bsky.brid.gy/ap/did:plc:alice',
             'content': content,
             'contentMap': {'en': content},
@@ -798,8 +822,11 @@ class IntegrationTests(TestCase):
             'object': {
                 **expected_actor,
                 'updated': '2022-01-02T03:04:05+00:00',
-                'url': ['http://localhost/r/https://bsky.app/profile/alice.com',
-                        'http://localhost/r/https://alice.blog/'],
+                'url': [
+                    'http://localhost/r/https://bsky.app/profile/alice.com',
+                    'http://localhost/r/https://alice.blog/',
+                    {'type': 'Link', 'rel': 'canonical', 'href': 'did:plc:alice'},
+                ],
                 'attachment': [{
                     'type': 'PropertyValue',
                     'name': 'Web site',
@@ -862,7 +889,11 @@ class IntegrationTests(TestCase):
                         **expected_actor,
                         'name': name,
                         'updated': '2022-01-02T03:04:05+00:00',
-                        'url': 'http://localhost/r/https://bsky.app/profile/alice.com',
+                        'url': ['http://localhost/r/https://bsky.app/profile/alice.com', {
+                            'type': 'Link',
+                            'rel': 'canonical',
+                            'href': 'did:plc:alice',
+                        }],
                     },
                 }, ignore=('attachment', 'publicKey', 'to'))
 
@@ -911,7 +942,11 @@ class IntegrationTests(TestCase):
             'object': {
                 'type': 'Note',
                 'id': 'https://bsky.brid.gy/convert/ap/at://did:plc:alice/app.bsky.feed.post/456',
-                'url': 'http://localhost/r/https://bsky.app/profile/did:plc:alice/post/456',
+                'url': ['http://localhost/r/https://bsky.app/profile/did:plc:alice/post/456', {
+                    'type': 'Link',
+                    'rel': 'canonical',
+                    'href': 'at://did:plc:alice/app.bsky.feed.post/456',
+                }],
                 'attributedTo': 'https://bsky.brid.gy/ap/did:plc:alice',
                 'content': '<p>I hereby reply</p>',
                 'contentMap': {'en': '<p>I hereby reply</p>'},
@@ -971,6 +1006,11 @@ class IntegrationTests(TestCase):
                 'cc': ['http://inst/bob'],
                 'interactionPolicy': INTERACTION_POLICY,
                 'replies': 'https://bsky.brid.gy/ap/replies/YXQ6Ly9kaWQ6cGxjOmFsaWNlL3NvLnNwcmsuZmVlZC5yZXBseS80NTY=',
+                'url': {
+                    'type': 'Link',
+                    'rel': 'canonical',
+                    'href': 'at://did:plc:alice/so.sprk.feed.reply/456',
+                },
             },
             'cc': ['http://inst/bob'],
         }, ignore=['@context', 'to'])
@@ -1764,7 +1804,11 @@ class IntegrationTests(TestCase):
             'bridgyOriginalUrl': 'https://inst/alice/reply',
             'community.lexicon.meta.links': {
                 '$type': 'community.lexicon.meta.links',
-                'links': [{'href': 'https://inst/alice/reply', 'rel': 'canonical'}],
+                'links': [{
+                    'href': 'https://inst/alice/reply',
+                    'rel': 'canonical',
+                    'mediaType': 'application/activity+json',
+                }],
             },
         }}, repo.get_contents()['app.bsky.feed.post'])
 
@@ -2687,7 +2731,11 @@ class IntegrationTests(TestCase):
             'bridgyOriginalUrl': 'https://inst/@alice',
             'community.lexicon.meta.links': {
                 '$type': 'community.lexicon.meta.links',
-                'links': [{'href': 'https://inst/@alice', 'rel': 'canonical'}],
+                'links': [{
+                    'href': 'https://inst/alice',
+                    'rel': 'canonical',
+                    'mediaType': 'application/activity+json',
+                }],
             },
             'labels': {
                 '$type': 'com.atproto.label.defs#selfLabels',
@@ -2794,7 +2842,11 @@ class IntegrationTests(TestCase):
             'bridgyOriginalUrl': 'https://alice.com/',
             'community.lexicon.meta.links': {
                 '$type': 'community.lexicon.meta.links',
-                'links': [{'href': 'https://alice.com/', 'rel': 'canonical'}],
+                'links': [{
+                    'href': 'https://alice.com/',
+                    'rel': 'canonical',
+                    'mediaType': 'text/html',
+                }],
             },
             'labels': {
                 '$type': 'com.atproto.label.defs#selfLabels',
@@ -2869,7 +2921,11 @@ class IntegrationTests(TestCase):
             'object': {
                 'type': 'Note',
                 'id': 'https://bsky.brid.gy/convert/ap/at://did:plc:alice/app.bsky.feed.post/123',
-                'url': 'http://localhost/r/https://bsky.app/profile/did:plc:alice/post/123',
+                'url': ['http://localhost/r/https://bsky.app/profile/did:plc:alice/post/123', {
+                    'type': 'Link',
+                    'rel': 'canonical',
+                    'href': 'at://did:plc:alice/app.bsky.feed.post/123',
+                }],
                 'attributedTo': 'https://bsky.brid.gy/ap/did:plc:alice',
                 'replies': 'https://bsky.brid.gy/ap/replies/YXQ6Ly9kaWQ6cGxjOmFsaWNlL2FwcC5ic2t5LmZlZWQucG9zdC8xMjM=',
                 'content': '<p>maybe if <a class="mention h-card" href="https://inst/bob">@bob@inst</a> and Alf meet up</p>',
@@ -3167,11 +3223,11 @@ class IntegrationTests(TestCase):
                 'name': '@b.ob@bsky.brid.gy',
                 'href': 'https://bsky.brid.gy/ap/https://bsky.app/profile/did:plc:bob',
             }],
-            'url': [{
+            'url': {
                 'type': 'Link',
                 'rel': 'canonical',
                 'href': 'at://did:plc:alice/post/123',
-            }],
+            },
             'interactionPolicy': INTERACTION_POLICY,
             'replies': 'https://bsky.brid.gy/ap/replies/YXQ6Ly9kaWQ6cGxjOmFsaWNlL3Bvc3QvMTIz',
         }
@@ -3235,11 +3291,11 @@ class IntegrationTests(TestCase):
                 'name': 'RE: https://bsky.app/profile/did:plc:bob/post/123',
                 'mediaType': 'application/ld+json; profile="https://www.w3.org/ns/activitystreams"',
             }],
-            'url': [{
+            'url': {
                 'type': 'Link',
                 'rel': 'canonical',
                 'href': 'at://did:plc:alice/post/123',
-            }],
+            },
             'interactionPolicy': INTERACTION_POLICY,
             'replies': 'https://bsky.brid.gy/ap/replies/YXQ6Ly9kaWQ6cGxjOmFsaWNlL3Bvc3QvMTIz',
         }
@@ -3286,7 +3342,11 @@ class IntegrationTests(TestCase):
                 'content': '<p>Hello from Nostr!</p>',
                 'contentMap': {'en': '<p>Hello from Nostr!</p>'},
                 'published': '2022-01-02T03:04:05+00:00',
-                'url': f'http://localhost/r/https://njump.me/{bech32_encode("note", post_event["id"])}',
+                'url': [f'http://localhost/r/https://njump.me/{bech32_encode("note", post_event["id"])}', {
+                    'type': 'Link',
+                    'rel': 'canonical',
+                    'href': f'nostr:{post_event["id"]}',
+                }],
                 'interactionPolicy': INTERACTION_POLICY,
                 'replies': 'https://nostr.brid.gy/ap/replies/bm9zdHI6ZjhmMTk3YjVkZTg0NWVhMDQ4YTFlMDEwODAxYmQxNGQ5YTk0ZmY1ZDkyZWFlMjUwNDhiZDhmMTI1YjRhOTE4Yw==',
             },
@@ -3328,7 +3388,10 @@ class IntegrationTests(TestCase):
             'bridgyOriginalUrl': f'https://njump.me/{bech32_encode("note", post_event["id"])}',
             'community.lexicon.meta.links': {
                 '$type': 'community.lexicon.meta.links',
-                'links': [{'href': f'https://njump.me/{bech32_encode("note", post_event["id"])}', 'rel': 'canonical'}],
+                'links': [{
+                    'href': f'nostr:{post_event["id"]}',
+                    'rel': 'canonical',
+                }],
             },
             'createdAt': '2022-01-02T03:04:05.000Z',
         }}}, repo.get_contents())
@@ -3398,7 +3461,11 @@ class IntegrationTests(TestCase):
                     'name': '@charl.ie@bsky.brid.gy',
                 }],
                 'published': '2022-01-02T03:04:05+00:00',
-                'url': f'http://localhost/r/https://njump.me/{bech32_encode("note", post_event["id"])}',
+                'url': [f'http://localhost/r/https://njump.me/{bech32_encode("note", post_event["id"])}', {
+                    'type': 'Link',
+                    'rel': 'canonical',
+                    'href': f'nostr:{post_event["id"]}',
+                }],
                 'cc': ['https://inst/alice'],
                 'interactionPolicy': INTERACTION_POLICY,
                 'replies': 'https://nostr.brid.gy/ap/replies/bm9zdHI6MGQxMjAxNGZjNWY4ZWYwODJjOTUzNGIzNzI1MTE3MDI5N2FiNWMyNjY4NTE3OGNjMjZhNGM0ZDQ0YTliMzIwZA==',
@@ -3418,7 +3485,10 @@ class IntegrationTests(TestCase):
             'bridgyOriginalUrl': f'https://njump.me/{bech32_encode("note", post_event["id"])}',
             'community.lexicon.meta.links': {
                 '$type': 'community.lexicon.meta.links',
-                'links': [{'href': f'https://njump.me/{bech32_encode("note", post_event["id"])}', 'rel': 'canonical'}],
+                'links': [{
+                    'href': f'nostr:{post_event["id"]}',
+                    'rel': 'canonical',
+                }],
             },
             'createdAt': '2022-01-02T03:04:05.000Z',
             'facets': [{
@@ -3584,7 +3654,11 @@ class IntegrationTests(TestCase):
             'bridgyOriginalUrl': 'https://inst/post',
             'community.lexicon.meta.links': {
                 '$type': 'community.lexicon.meta.links',
-                'links': [{'href': 'https://inst/post', 'rel': 'canonical'}],
+                'links': [{
+                    'href': 'https://inst/post',
+                    'rel': 'canonical',
+                    'mediaType': 'application/activity+json',
+                }],
             },
         }}}, repo.get_contents())
 
@@ -3673,7 +3747,11 @@ class IntegrationTests(TestCase):
             'bridgyOriginalUrl': 'https://inst/post',
             'community.lexicon.meta.links': {
                 '$type': 'community.lexicon.meta.links',
-                'links': [{'href': 'https://inst/post', 'rel': 'canonical'}],
+                'links': [{
+                    'href': 'https://inst/post',
+                    'rel': 'canonical',
+                    'mediaType': 'application/activity+json',
+                }],
             },
             'createdAt': '2022-01-02T03:04:05.000Z',
             'facets': [{
@@ -3839,7 +3917,11 @@ class IntegrationTests(TestCase):
             'bridgyOriginalUrl': 'https://inst/post',
             'community.lexicon.meta.links': {
                 '$type': 'community.lexicon.meta.links',
-                'links': [{'href': 'https://inst/post', 'rel': 'canonical'}],
+                'links': [{
+                    'href': 'https://inst/post',
+                    'rel': 'canonical',
+                    'mediaType': 'application/activity+json',
+                }],
             },
         }}, records)
 
@@ -3912,7 +3994,11 @@ class IntegrationTests(TestCase):
             'bridgyOriginalUrl': 'https://inst/post',
             'community.lexicon.meta.links': {
                 '$type': 'community.lexicon.meta.links',
-                'links': [{'href': 'https://inst/post', 'rel': 'canonical'}],
+                'links': [{
+                    'href': 'https://inst/post',
+                    'rel': 'canonical',
+                    'mediaType': 'application/activity+json',
+                }],
             },
         }}, records, ignore=['facets'])
 
@@ -3976,7 +4062,11 @@ class IntegrationTests(TestCase):
             'bridgyOriginalUrl': 'https://inst/article',
             'community.lexicon.meta.links': {
                 '$type': 'community.lexicon.meta.links',
-                'links': [{'href': 'https://inst/article', 'rel': 'canonical'}],
+                'links': [{
+                    'href': 'https://inst/article',
+                    'rel': 'canonical',
+                    'mediaType': 'application/activity+json',
+                }],
             },
         }
         self.assert_equals({
@@ -3993,6 +4083,14 @@ class IntegrationTests(TestCase):
                     'ref': CID.decode('bafkreienspp4shecijw6syyhcabwei4bquias7zx6hlldbr5ckz55r2evq'),
                     'mimeType': 'image/jpeg',
                     'size': 20,
+                },
+                'community.lexicon.meta.links': {
+                    '$type': 'community.lexicon.meta.links',
+                    'links': [{
+                        'href': 'https://inst/article',
+                        'rel': 'canonical',
+                        'mediaType': 'application/activity+json',
+                    }],
                 },
                 'bskyPostRef': {
                     'uri': f'at://did:plc:alice/app.bsky.feed.post/{post_tid}',
@@ -4069,7 +4167,11 @@ class IntegrationTests(TestCase):
                 'bridgyOriginalUrl': 'https://inst/post',
                 'community.lexicon.meta.links': {
                     '$type': 'community.lexicon.meta.links',
-                    'links': [{'href': 'https://inst/post', 'rel': 'canonical'}],
+                    'links': [{
+                        'href': 'https://inst/post',
+                        'rel': 'canonical',
+                        'mediaType': 'application/activity+json',
+                    }],
                 },
             }},
             'so.sprk.feed.post': {spark_tid: {
@@ -4087,7 +4189,11 @@ class IntegrationTests(TestCase):
                 'bridgyOriginalUrl': 'https://inst/post',
                 'community.lexicon.meta.links': {
                     '$type': 'community.lexicon.meta.links',
-                    'links': [{'href': 'https://inst/post', 'rel': 'canonical'}],
+                    'links': [{
+                        'href': 'https://inst/post',
+                        'rel': 'canonical',
+                        'mediaType': 'application/activity+json',
+                    }],
                 },
             }},
         }, contents)
@@ -4149,7 +4255,11 @@ class IntegrationTests(TestCase):
                 'bridgyOriginalUrl': 'https://alice.com/post',
                 'community.lexicon.meta.links': {
                     '$type': 'community.lexicon.meta.links',
-                    'links': [{'href': 'https://alice.com/post', 'rel': 'canonical'}],
+                    'links': [{
+                        'href': 'https://alice.com/post',
+                        'rel': 'canonical',
+                        'mediaType': 'text/html',
+                    }],
                 },
             }},
             'so.sprk.feed.post': {spark_tid: {
@@ -4161,7 +4271,11 @@ class IntegrationTests(TestCase):
                 'bridgyOriginalUrl': 'https://alice.com/post',
                 'community.lexicon.meta.links': {
                     '$type': 'community.lexicon.meta.links',
-                    'links': [{'href': 'https://alice.com/post', 'rel': 'canonical'}],
+                    'links': [{
+                        'href': 'https://alice.com/post',
+                        'rel': 'canonical',
+                        'mediaType': 'text/html',
+                    }],
                 },
             }},
         }, contents)
@@ -4243,7 +4357,11 @@ class IntegrationTests(TestCase):
                 'bridgyOriginalUrl': 'https://inst/post',
                 'community.lexicon.meta.links': {
                     '$type': 'community.lexicon.meta.links',
-                    'links': [{'href': 'https://inst/post', 'rel': 'canonical'}],
+                    'links': [{
+                        'href': 'https://inst/post',
+                        'rel': 'canonical',
+                        'mediaType': 'application/activity+json',
+                    }],
                 },
             }},
             'so.sprk.feed.post': {spark_tid: {
@@ -4261,7 +4379,11 @@ class IntegrationTests(TestCase):
                 'bridgyOriginalUrl': 'https://inst/post',
                 'community.lexicon.meta.links': {
                     '$type': 'community.lexicon.meta.links',
-                    'links': [{'href': 'https://inst/post', 'rel': 'canonical'}],
+                    'links': [{
+                        'href': 'https://inst/post',
+                        'rel': 'canonical',
+                        'mediaType': 'application/activity+json',
+                    }],
                 },
             }},
         }, self.storage.load_repo('did:plc:alice').get_contents())
@@ -4701,7 +4823,7 @@ class IntegrationTests(TestCase):
             'actor': f'https://nostr.brid.gy/ap/{bob.key.id()}',
             'object': 'https://inst/alice',
             'published': NOW.isoformat(),
-            'url': [{'type': 'Link', 'rel': 'canonical', 'href': follow_id}],
+            'url': {'type': 'Link', 'rel': 'canonical', 'href': follow_id},
         }, ignore=['@context', 'to'])
 
     # TODO: https://github.com/snarfed/bridgy-fed/issues/2203
@@ -4818,7 +4940,11 @@ class IntegrationTests(TestCase):
                 'content': '<p>Replying to Alice!</p>',
                 'contentMap': {'en': '<p>Replying to Alice!</p>'},
                 'inReplyTo': 'https://inst/post',
-                'url': f'http://localhost/r/https://njump.me/{bech32_encode("note", reply["id"])}',
+                'url': [f'http://localhost/r/https://njump.me/{bech32_encode("note", reply["id"])}', {
+                    'type': 'Link',
+                    'rel': 'canonical',
+                    'href': f'nostr:{reply["id"]}',
+                }],
                 'tag': [{'type': 'Mention', 'href': 'https://inst/alice'}],
                 'published': '2022-01-02T03:04:05+00:00',
                 'cc': ['https://inst/alice'],
@@ -5126,7 +5252,11 @@ class IntegrationTests(TestCase):
                 'name': 'Bob Updated',
                 'preferredUsername': 'bob.new.example.com',
                 'summary': f'New bio<br><br>🌉 <a href="https://fed.brid.gy/nostr/bob@new.example.com">bridged</a> from 𓅦 <a href="https://njump.me/{NPUB}">bob@new.example.com</a> by <a href="https://fed.brid.gy/">Bridgy Fed</a>',
-                'url': 'http://localhost/r/https://njump.me/bob@new.example.com',
+                'url': ['http://localhost/r/https://njump.me/bob@new.example.com', {
+                    'type': 'Link',
+                    'rel': 'canonical',
+                    'href': NPUB_URI,
+                }],
                 'attachment': [{
                     'name': 'Link',
                     'type': 'PropertyValue',
@@ -5496,7 +5626,11 @@ cast_add_body { text: "Hello from Farcaster!" }
                 'attributedTo': 'https://fc.brid.gy/ap/farcaster:123',
                 'content': '<p>Hello from Farcaster!</p>',
                 'published': '2022-01-02T03:04:05+00:00',
-                'url': f'http://localhost/r/https://farcaster.xyz/~/conversations/0x{post_msg.hash.hex()}',
+                'url': [f'http://localhost/r/https://farcaster.xyz/~/conversations/0x{post_msg.hash.hex()}', {
+                    'type': 'Link',
+                    'rel': 'canonical',
+                    'href': f'farcaster://123/0x{post_msg.hash.hex()}',
+                }],
                 'interactionPolicy': INTERACTION_POLICY,
             },
             'published': '2022-01-02T03:04:05+00:00',
@@ -5535,7 +5669,10 @@ cast_add_body { text: "Hello from Farcaster!" }
             'bridgyOriginalUrl': f'https://farcaster.xyz/~/conversations/0x{post_msg.hash.hex()}',
             'community.lexicon.meta.links': {
                 '$type': 'community.lexicon.meta.links',
-                'links': [{'href': f'https://farcaster.xyz/~/conversations/0x{post_msg.hash.hex()}', 'rel': 'canonical'}],
+                'links': [{
+                    'href': f'farcaster://123/0x{post_msg.hash.hex()}',
+                    'rel': 'canonical',
+                }],
             },
             'createdAt': '2022-01-02T03:04:05.000Z',
         }}}, repo.get_contents())
@@ -5598,7 +5735,11 @@ cast_add_body {
                     'name': '@charl.ie@bsky.brid.gy',
                 }],
                 'published': '2022-01-02T03:04:05+00:00',
-                'url': f'http://localhost/r/https://farcaster.xyz/~/conversations/0x{post_msg.hash.hex()}',
+                'url': [f'http://localhost/r/https://farcaster.xyz/~/conversations/0x{post_msg.hash.hex()}', {
+                    'type': 'Link',
+                    'rel': 'canonical',
+                    'href': f'farcaster://123/0x{post_msg.hash.hex()}',
+                }],
                 'interactionPolicy': INTERACTION_POLICY,
             },
             'published': '2022-01-02T03:04:05+00:00',
@@ -5696,7 +5837,7 @@ link_body { type: "follow" target_fid: 456 }
             'id': f'https://fc.brid.gy/convert/ap/{follow_id}',
             'actor': 'https://fc.brid.gy/ap/farcaster:123',
             'object': 'https://inst/alice',
-            'url': [{'type': 'Link', 'rel': 'canonical', 'href': follow_id}],
+            'url': {'type': 'Link', 'rel': 'canonical', 'href': follow_id},
         }, ignore=['@context', 'to', 'published'])
 
     @patch.object(util.session, 'post')
@@ -5906,7 +6047,7 @@ reaction_body {{
             'actor': 'https://fc.brid.gy/ap/farcaster:123',
             'object': 'https://inst/post',
             'cc': ['https://inst/alice'],
-            'url': [{'type': 'Link', 'rel': 'canonical', 'href': like_id}],
+            'url': {'type': 'Link', 'rel': 'canonical', 'href': like_id},
         }, ignore=['@context', 'to', 'published'])
 
     def test_activitypub_post_to_farcaster_follower(self):

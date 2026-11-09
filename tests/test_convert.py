@@ -717,7 +717,11 @@ A ☕ reply
             'bridgyOriginalUrl': 'https://ap.example.com/post/1',
             'community.lexicon.meta.links': {
                 '$type': 'community.lexicon.meta.links',
-                'links': [{'href': 'https://ap.example.com/post/1', 'rel': 'canonical'}],
+                'links': [{
+                    'href': 'https://ap.example.com/post/1',
+                    'rel': 'canonical',
+                    'mediaType': 'application/activity+json',
+                }],
             },
             'createdAt': '2022-01-02T03:04:05.000Z',
             'embed': {

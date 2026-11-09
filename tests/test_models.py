@@ -188,7 +188,7 @@ class UserTest(TestCase):
             'bridgyOriginalUrl': 'https://alice.com/',
             'community.lexicon.meta.links': {
                 '$type': 'community.lexicon.meta.links',
-                'links': [{'href': 'https://alice.com/', 'rel': 'canonical'}],
+                'links': [{'href': 'uri:fake:user', 'rel': 'canonical'}],
             },
             'labels': {
                 '$type': 'com.atproto.label.defs#selfLabels',
@@ -788,6 +788,14 @@ class UserTest(TestCase):
             'url': {'value': 'did:plc:alice', 'rel': 'canonical'},
         })
         self.assertEqual('did:plc:alice', user.get_external_id(ATProto))
+
+    def test_get_external_id_self(self):
+        user = self.make_user('efake:alice', cls=ExplicitFake, obj_as1={
+            'objectType': 'person',
+            'id': 'efake:alice',
+            'url': {'value': 'efake:alice', 'rel': 'canonical'},
+        })
+        self.assertIsNone(user.get_external_id(ExplicitFake))
 
     def test_get_external_id_no_profile(self):
         user = self.make_user('fake:user', cls=Fake)
@@ -3324,6 +3332,15 @@ cast_add_body { text: "hi" }
         obj = Object(id='nostr:note1post', source_protocol='nostr', our_as1={
             'objectType': 'note',
             'urls': [{'value': 'nostr:note1other', 'rel': 'alternate'}],
+        })
+        self.assertIsNone(obj.get_external_id(Nostr))
+
+    def test_get_external_id_self(self):
+        obj = Object(id='nostr:note1post', source_protocol='nostr', our_as1={
+            'objectType': 'note',
+            'id': 'nostr:note1post',
+            'author': 'nostr:npub1alice',
+            'url': {'value': 'nostr:note1post', 'rel': 'canonical'},
         })
         self.assertIsNone(obj.get_external_id(Nostr))
 

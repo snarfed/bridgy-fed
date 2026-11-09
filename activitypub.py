@@ -63,7 +63,6 @@ import memcache
 import models
 from models import filter_for_proto, Follower, Object, PROTOCOLS, User
 from protocol import activity_id_memcache_key, DELETE_TASK_DELAY, Protocol
-from ui import UIProtocol
 import webfinger
 
 logger = logging.getLogger(__name__)
@@ -843,22 +842,6 @@ class ActivityPub(User, Protocol):
             id_b64 = urlsafe_b64encode(native_id.encode()).decode()
             converted_base['replies'] = urljoin(id, f'/ap/replies/{id_b64}')
 
-        # FEP-fffd proxy link
-        # https://codeberg.org/fediverse/fep/src/branch/main/fep/fffd/fep-fffd.md
-        # https://github.com/snarfed/bridgy-fed/issues/543
-        if (obj.source_protocol not in (None, 'activitypub')
-                and obj.type not in as1.CRUD_VERBS and obj.key and obj.key.id()
-                and not UIProtocol.owns_id(obj.key.id())
-                and not cls.is_blocklisted(obj.key.id())
-                and not as1.get_rel_links(obj_as1, rels=('canonical',))):
-            canonical = {
-                'type': 'Link',
-                'rel': 'canonical',
-                'href': obj.key.id(),
-            }
-            converted['url'] = util.get_list(converted, 'url')
-            util.add(converted['url'], canonical)
-
         return converted
 
     @classmethod
@@ -1452,13 +1435,24 @@ def postprocess_as2_actor(actor, user):
     assert isinstance(actor, dict)
     assert user
 
-    # remove acct: urls, set default url
-    urls = [u for u in as2.get_urls(actor) if not u.startswith('acct:')]
+    # remove acct: urls, set default url. keep FEP-fffd proxy links as is
+    proxy_links = []
+    other_urls = []
+    for u in util.get_list(actor, 'url'):
+        if (isinstance(u, dict)
+                and set(util.get_list(u, 'rel')) & set(as1.PROXY_LINK_RELS)):
+            if not (u.get('href') or '').startswith('acct:'):
+                proxy_links.append(u)
+        else:
+            other_urls.append(u)
+
+    urls = [u for u in as2.get_urls({'url': other_urls}) if not u.startswith('acct:')]
     url = user.web_url()
     if not urls and url:
         urls = [url]
     if urls:
         urls[0] = redirect_wrap(urls[0])
+    urls += proxy_links
     actor['url'] = urls[0] if len(urls) == 1 else urls
 
     id = actor.get('id')

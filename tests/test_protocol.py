@@ -1647,6 +1647,7 @@ class ProtocolTest(TestCase):
             'id': 'other:u:fake:alice',
             'url': 'http://unused',
             'summary': 'something about me<br><br>🌉 <a href="https://fed.brid.gy/fa/fake:handle:alice">bridged</a> from 🤡 <a href="web:fake:alice">fake:handle:alice</a> by <a href="https://fed.brid.gy/">Bridgy Fed</a>',
+            'urls': ['http://unused', {'value': 'uri:fake:alice', 'rel': 'canonical'}],
         }, OtherFake.convert(Object(
             id='fake:profile:alice', source_protocol='fake', our_as1={
                 'objectType': 'person',
@@ -1664,6 +1665,7 @@ class ProtocolTest(TestCase):
             'id': 'other:u:fake:alice',
             'url': 'http://unused',
             'summary': 'foo bar<br />&nbsp;&nbsp;baz &amp; biff<br><br>🌉 <a href="https://fed.brid.gy/fa/fake:handle:alice">bridged</a> from 🤡 <a href="web:fake:alice">fake:handle:alice</a> by <a href="https://fed.brid.gy/">Bridgy Fed</a>',
+            'urls': ['http://unused', {'value': 'uri:fake:alice', 'rel': 'canonical'}],
         }, OtherFake.convert(Object(
             id='fake:profile:alice', source_protocol='fake', our_as1={
                 'objectType': 'person',
@@ -1678,6 +1680,7 @@ class ProtocolTest(TestCase):
             'objectType': 'person',
             'id': 'other:u:fake:alice',
             'url': 'http://al/ice',
+            'urls': ['http://al/ice', {'value': 'fake:alice', 'rel': 'canonical'}],
         }, OtherFake.convert(Object(id='fake:alice', source_protocol='fake', our_as1={
             'objectType': 'person',
             'id': 'fake:alice',
@@ -1693,6 +1696,7 @@ class ProtocolTest(TestCase):
             'id': 'other:u:efake:alice',
             'url': 'http://unused',
             'summary': 'something about me<br><br>🌉 <a href="https://fed.brid.gy/efake/efake:handle:alice">bridged</a> from 📣 <a href="web:efake:alice">efake:handle:alice</a>, follow <a class="h-card u-author mention" rel="me" href="web:other:efake.brid.gy" title="other:handle:efake.brid.gy">other:handle:efake.brid.gy</a> to interact',
+            'urls': ['http://unused', {'value': 'uri:efake:alice', 'rel': 'canonical'}],
         }, OtherFake.convert(Object(
             id='efake:profile:alice', source_protocol='efake', our_as1={
                 'objectType': 'person',
@@ -1706,6 +1710,7 @@ class ProtocolTest(TestCase):
             'objectType': 'person',
             'id': 'other:u:fake:alice',
             'url': 'http://al/ice',
+            'urls': ['http://al/ice', {'value': 'fake:alice', 'rel': 'canonical'}],
         }, OtherFake.convert(Object(id='fake:alice', source_protocol='fake', our_as1={
             'objectType': 'person',
             'id': 'fake:alice',
@@ -1719,6 +1724,7 @@ class ProtocolTest(TestCase):
             'objectType': 'person',
             'id': 'other:u:fake:alice',
             'summary': summary,
+            'urls': [{'value': 'uri:fake:alice', 'rel': 'canonical'}],
         }, OtherFake.convert(Object(id='fake:alice', source_protocol='fake', our_as1={
             'objectType': 'person',
             'id': 'fake:alice',
@@ -1732,6 +1738,11 @@ class ProtocolTest(TestCase):
             'id': 'other:u:user.com',
             'displayName': 'Alice [Unofficial]',
             'summary': '🌉 <a href="https://fed.brid.gy/web/user.com">bridged</a> from 🌐 <a href="https://user.com/">user.com</a> by <a href="https://fed.brid.gy/">Bridgy Fed</a>',
+            'urls': [{
+                'value': 'https://user.com/',
+                'rel': 'canonical',
+                'mimeType': 'text/html',
+            }],
         }, OtherFake.convert(Object(id='user.com', source_protocol='web', our_as1={
             'objectType': 'person',
             'id': 'user.com',
@@ -1744,6 +1755,11 @@ class ProtocolTest(TestCase):
             'objectType': 'person',
             'id': 'other:u:user.com',
             'displayName': 'Alice',
+            'urls': [{
+                'value': 'https://user.com/',
+                'rel': 'canonical',
+                'mimeType': 'text/html',
+            }],
         }, OtherFake.convert(Object(id='user.com', source_protocol='web', our_as1={
             'objectType': 'person',
             'id': 'user.com',
@@ -1762,6 +1778,11 @@ class ProtocolTest(TestCase):
             'objectType': 'person',
             'id': 'other:u:user.com',
             'displayName': 'Alice',
+            'urls': [{
+                'value': 'https://user.com/',
+                'rel': 'canonical',
+                'mimeType': 'text/html',
+            }],
         }, OtherFake.convert(Object(id='user.com', source_protocol='web', our_as1={
             'objectType': 'person',
             'id': 'user.com',
@@ -1774,6 +1795,11 @@ class ProtocolTest(TestCase):
             'objectType': 'person',
             'id': 'other:u:user.com',
             'summary': 'foo bar<br />&nbsp;&nbsp;baz &amp; biff',
+            'urls': [{
+                'value': 'https://user.com/',
+                'rel': 'canonical',
+                'mimeType': 'text/html',
+            }],
         }, OtherFake.convert(Object(id='user.com', source_protocol='web', our_as1={
             'objectType': 'person',
             'id': 'user.com',
@@ -1795,6 +1821,7 @@ class ProtocolTest(TestCase):
                     'objectType': 'person',
                     'id': 'other:u:efake:alice',
                     'summary': 'something about me<br><br>🌉 <a href="https://fed.brid.gy/efake/efake:handle:alice">bridged</a> from 📣 <a href="web:efake:alice">efake:handle:alice</a>, follow <a class="h-card u-author mention" rel="me" href="web:other:efake.brid.gy" title="other:handle:efake.brid.gy">other:handle:efake.brid.gy</a> to interact',
+                    'urls': [{'value': 'uri:efake:alice', 'rel': 'canonical'}],
                 },
             }, OtherFake.convert(
                 Object(id='efake:profile:update', source_protocol='efake', our_as1={
@@ -3946,6 +3973,11 @@ class ProtocolReceiveTest(TestCase):
                     {'type': 'Mention', 'href': 'http://inst/bob'},
                     {'type': 'Mention', 'href': 'http://inst/eve'},
                 ],
+                'url': {
+                    'type': 'Link',
+                    'rel': 'canonical',
+                    'href': 'fake:reply',
+                },
             },
         }, from_user=frank.key.get(),
            ignore=['contentMap', 'to', 'cc', 'published', 'interactionPolicy'])
