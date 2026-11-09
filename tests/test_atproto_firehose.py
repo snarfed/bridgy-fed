@@ -808,6 +808,8 @@ class ATProtoFirehoseSubscribeTest(ATProtoTestCase):
             NOW - timedelta(seconds=30),
             NOW - timedelta(days=2),
             NOW + timedelta(minutes=1),
+            NOW + timedelta(hours=2),
+            NOW + timedelta(seconds=10),
         ]):
             FakeWebsocketClient.setup_receive(Event(
                 repo='did:plc:user', action='create', seq=i + 1,
@@ -819,7 +821,7 @@ class ATProtoFirehoseSubscribeTest(ATProtoTestCase):
             'op': 1,
             't': '#identity',
         }, {
-            'seq': 5,
+            'seq': 7,
             'did': 'did:plc:user',
             'time': (NOW - timedelta(days=1)).isoformat(),
         }))
@@ -831,9 +833,11 @@ class ATProtoFirehoseSubscribeTest(ATProtoTestCase):
             NOW.isoformat(),
             (NOW - timedelta(seconds=30)).isoformat(),
             None,
-            (NOW + timedelta(minutes=1)).isoformat(),
             None,
-        ], [events.get().time for _ in range(5)])
+            None,
+            (NOW + timedelta(seconds=10)).isoformat(),
+            None,
+        ], [events.get().time for _ in range(7)])
         self.assertTrue(events.empty())
 
 

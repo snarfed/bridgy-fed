@@ -49,7 +49,12 @@ _validator = Client()
 
 RECONNECT_DELAY = timedelta(seconds=30)
 STORE_CURSOR_FREQ = timedelta(seconds=10)
-LOG_OUTLIER_THRESHOLD = timedelta(minutes=5)
+
+# window that we'll accept firehose events' `time` values
+PAST_OUTLIER_THRESHOLD = timedelta(minutes=5)
+# must be <= PAST_OUTLIER_THRESHOLD, otherwise a future outlier that gets through
+# makes all subsequent normal events look like stale outliers
+FUTURE_OUTLIER_THRESHOLD = timedelta(seconds=30)
 
 # #account statuses that make us delete a native ATProto user's bridged actors.
 # https://atproto.com/guides/account-lifecycle
@@ -193,6 +198,7 @@ def subscribe():
             cursor.cursor += 1
 
     last_stored_cursor = cur_dt = last_dt = None
+    outlier = False
 
     client = Client(f'https://{os.environ["BGS_HOST"]}',
                     headers={'User-Agent': USER_AGENT})
@@ -222,13 +228,14 @@ def subscribe():
             logger.warning(f'Payload missing seq! {payload}')
             continue
 
-        if cur_dt and (not last_dt or cur_dt > last_dt):
+        if cur_dt and not outlier and (not last_dt or cur_dt > last_dt):
             # prevent time from moving backwards for commits with outlier stale
             # time values. https://github.com/snarfed/bridgy-fed/issues/2348
             last_dt = cur_dt
         cur_timestamp = payload['time']
         cur_dt = util.parse_iso8601(cur_timestamp)
-        outlier = last_dt and last_dt - cur_dt > LOG_OUTLIER_THRESHOLD
+        outlier = ((last_dt and last_dt - cur_dt > PAST_OUTLIER_THRESHOLD)
+                   or cur_dt - util.now() > FUTURE_OUTLIER_THRESHOLD)
         if outlier:
             # don't pass it through as received_at, it would skew our latency metric
             cur_timestamp = None
