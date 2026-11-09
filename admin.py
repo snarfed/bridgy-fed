@@ -10,6 +10,7 @@ import arroba.server
 import common
 from common import (
     COLLAPSED_SCHEME_RE,
+    error,
     secret_key_auth,
 )
 from domains import (
