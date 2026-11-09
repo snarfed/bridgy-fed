@@ -763,6 +763,13 @@ class Protocol:
         # protocol. each protocol's granary from_as1 renders it.
         # https://codeberg.org/fediverse/fep/src/branch/main/fep/fffd/fep-fffd.md
         # https://github.com/snarfed/bridgy-fed/issues/543
+        #
+        # TODO: Nostr object links use our internal nostr:[hex] ids, which aren't
+        # valid NIP-21; they should be nostr:note1... or nostr:nevent1... WIP fix
+        # is in git stash 4d7c0db0, "WIP Object.id_uri: NIP-21 nostr: URIs...". it
+        # adds Object.id_uri, but inner objects of create/update activities are
+        # stored without the raw nostr event, so we don't know their kind. see the
+        # TODO in Object.id_uri there.
         from_proto = PROTOCOLS.get(obj.source_protocol)
         if is_crud:
             orig_id = base_obj.get('id')
