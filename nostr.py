@@ -19,6 +19,7 @@ import granary.nostr
 from granary.nostr import (
     bech32_prefix_for,
     id_and_sign,
+    id_for,
     id_to_uri,
     is_bech32,
     KIND_ARTICLE,
