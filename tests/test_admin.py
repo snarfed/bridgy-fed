@@ -94,6 +94,16 @@ class AdminTest(TestCase):
         self.assertEqual(200, resp.status_code)
         self.assertEqual("b'bar'", resp.get_data(as_text=True))
 
+    def test_memcache_get_no_key_or_raw(self):
+        resp = self.client.get('/admin/memcache/get',
+                               headers={'Authorization': config.SECRET_KEY})
+        self.assertEqual(400, resp.status_code)
+
+    def test_memcache_evict_no_key_or_raw(self):
+        resp = self.client.post('/admin/memcache/evict',
+                                headers={'Authorization': config.SECRET_KEY})
+        self.assertEqual(400, resp.status_code)
+
     def test_sequences_alloc(self):
         resp = self.client.post('/admin/sequences/alloc', data={'nsid': 'foo.bar'},
                                 headers={'Authorization': config.SECRET_KEY})
@@ -190,6 +200,12 @@ class AdminTest(TestCase):
         body = resp.get_data(as_text=True)
         self.assertNotIn('fake:user', body)
         self.assertIn('No users found', body)
+
+    def test_users_empty_query(self):
+        for query in '', '%20':
+            with self.subTest(query=query):
+                resp = self.client.get(f'/admin/user?query={query}')
+                self.assertEqual(400, resp.status_code)
 
     def test_users_multiple(self):
         # OtherFake('fake:handle:user').handle = 'fake:handle:user'
