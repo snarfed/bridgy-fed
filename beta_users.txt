@@ -44,3 +44,33 @@ did:plc:oio4hkxaop4ao4wz2pp3f4cr
 # Laurens
 https://indieweb.social/users/laurenshof
 did:plc:mdjhvva6vlrswsj26cftjttd
+# Chris M
+did:plc:l5ubox2264vtrpl2lla2drdf
+https://mastodon.xyz/users/chrismessina
+# Greg
+did:plc:alahutph4eo3m26opigl5uym
+https://flipboard.social/users/greg
+# Jaz
+did:plc:zqeneaobrxkk4u2dc255sobg
+https://toot.wales/users/jaz
+# Michael F
+did:plc:qexhcu2thuo6mg3w3m7lhfgm
+https://backend.newsmast.org/users/michael
+# Michael M
+did:plc:tfxz6jcxd4v6374fib4qmtny
+https://mastodon.social/users/mmasnick
+# Scott J
+did:plc:lgmi7gohtr7znobqhmamfhpw
+https://social.coop/users/scottjenson
+Tim Chambers
+did:plc:bitzoewdveqxvx7x7rv5iagh
+https://indieweb.social/users/tchambers
+Evan P
+https://cosocial.ca/users/evan
+Boris M
+did:plc:2cxgdrgtsmrbqnjkwyplmp43
+https://cosocial.ca/users/boris
+Tynan P
+did:plc:6ayddqghxhciedbaofoxkcbs
+Graham
+did:plc:57od6g2ic3e3b3kauctjmo3k
