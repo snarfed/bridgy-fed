@@ -558,6 +558,24 @@ class NostrTest(TestCase):
         obj.put()
         self.assert_equals(event, Nostr.convert(obj, from_user=self.user))
 
+    def test_convert_article_no_user(self):
+        # without a user's key the event isn't signed, but its id still has to
+        # be recomputed after the d tag is overridden
+        obj = Object(id='fake:post', our_as1={
+            'objectType': 'article',
+            'id': 'fake:post',
+            'author': PUBKEY_URI,
+            'content': 'Something to say',
+            'published': '2022-01-02T03:04:05+00:00',
+        }, source_protocol='fake',
+                     copies=[Target(uri='nostr:' + ID, protocol='nostr')])
+        obj.put()
+
+        got = Nostr._convert(obj)
+        self.assertIn(['d', 'fake:post'], got['tags'])
+        self.assertNotIn('sig', got)
+        self.assertEqual(granary.nostr.id_for(got), got['id'])
+
     def test_send_bare_note(self):
         obj = Object(id='fake:note', our_as1={
             'objectType': 'note',
