@@ -62,15 +62,15 @@ https://mastodon.social/users/mmasnick
 # Scott J
 did:plc:lgmi7gohtr7znobqhmamfhpw
 https://social.coop/users/scottjenson
-Tim Chambers
+# Tim Chambers
 did:plc:bitzoewdveqxvx7x7rv5iagh
 https://indieweb.social/users/tchambers
-Evan P
+# Evan P
 https://cosocial.ca/users/evan
-Boris M
+# Boris M
 did:plc:2cxgdrgtsmrbqnjkwyplmp43
 https://cosocial.ca/users/boris
-Tynan P
+# Tynan P
 did:plc:6ayddqghxhciedbaofoxkcbs
-Graham
+# Graham
 did:plc:57od6g2ic3e3b3kauctjmo3k
