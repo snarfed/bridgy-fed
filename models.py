@@ -2214,6 +2214,9 @@ class Object(AddRemoveMixin, StringIdModel):
         This would help with or fix:
         https://console.cloud.google.com/errors/detail/COK22a6w4O2JVg;locations=global;time=P30D?project=bridgy-federated
 
+        ...or for articles, when we're processing eg a repost or quote post, we
+        generally want the app.bsky.feed.post instead of the site.standard.document.
+
         TODO: for ATProto, let callers choose which lexicon family's copy they
         want, eg ``so.sprk.feed.post`` instead of ``app.bsky.feed.post`` for the
         subject of a Spark reply, like, or repost.
@@ -2231,10 +2234,14 @@ class Object(AddRemoveMixin, StringIdModel):
         if not copies:
             return None
 
-        # for ATProto, prefer ids from types in granary.bluesky.FROM_AS1_TYPES order,
-        # eg for article, site.standard.document over app.bsky.feed.post
+        # for ATProto, prefer app.bsky.feed.post, since callers generally use this
+        # for replies, quotes, reposts, etc, then ids from types in
+        # granary.bluesky.FROM_AS1_TYPES order, eg for actors,
+        # app.bsky.actor.profile over site.standard.publication
+        # https://github.com/snarfed/bridgy-fed/issues/2775
         if proto == 'atproto':
-            for type in bluesky.FROM_AS1_TYPES.get(self.type, []):
+            for type in (('app.bsky.feed.post',)
+                         + tuple(bluesky.FROM_AS1_TYPES.get(self.type, ()))):
                 for copy in copies:
                     _, coll, _ = parse_at_uri(copy)
                     if type == coll:

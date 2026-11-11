@@ -3369,13 +3369,22 @@ cast_add_body { text: "hi" }
         })
         self.assertIsNone(obj.get_external_id(ActivityPub))
 
-    def test_get_copy_atproto_article_prefers_document(self):
+    def test_get_copy_atproto_article_prefers_post(self):
         obj = Object(id='x', source_protocol='web', our_as1={'objectType': 'article'})
         obj.copies = [
-            Target(uri='at://did:plc:foo/app.bsky.feed.post/123', protocol='atproto'),
             Target(uri='at://did:plc:foo/site.standard.document/123', protocol='atproto'),
+            Target(uri='at://did:plc:foo/app.bsky.feed.post/123', protocol='atproto'),
         ]
-        self.assertEqual('at://did:plc:foo/site.standard.document/123',
+        self.assertEqual('at://did:plc:foo/app.bsky.feed.post/123',
+                         obj.get_copy(ATProto))
+
+    def test_get_copy_atproto_person_prefers_profile(self):
+        obj = Object(id='x', source_protocol='web', our_as1={'objectType': 'person'})
+        obj.copies = [
+            Target(uri='at://did:plc:foo/site.standard.publication/123', protocol='atproto'),
+            Target(uri='at://did:plc:foo/app.bsky.actor.profile/self', protocol='atproto'),
+        ]
+        self.assertEqual('at://did:plc:foo/app.bsky.actor.profile/self',
                          obj.get_copy(ATProto))
 
     def test_get_copy_atproto_note_prefers_post(self):
