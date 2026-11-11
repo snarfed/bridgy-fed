@@ -257,12 +257,17 @@ class Farcaster(User, Protocol):
             return False
 
         fid = int(match['fid'])
-        hash_hex = match['hash']
+
+        if hash_hex := match['hash']:
+            try:
+                hash_bytes = bytes.fromhex(hash_hex)
+            except ValueError as e:
+                logger.info(f'invalid cast hash in {id} {hash_hex} : {e}')
+                return False
 
         try:
             if hash_hex:
-                msg = cls.client().hub.GetCast(
-                    CastId(fid=fid, hash=bytes.fromhex(hash_hex)))
+                msg = cls.client().hub.GetCast(CastId(fid=fid, hash=hash_bytes))
                 obj.farcaster = [msg.SerializeToString()]
             else:
                 resp = cls.client().hub.GetUserDataByFid(FidRequest(fid=fid))

@@ -202,6 +202,10 @@ cast_add_body { text: "hello world" }
         mock_stub.return_value.GetUserDataByFid.assert_called_once_with(
             FidRequest(fid=123))
 
+    def test_fetch_cast_invalid_hash(self, mock_stub):
+        self.assertFalse(Farcaster.fetch(Object(id='farcaster://123/0xabc')))
+        mock_stub.return_value.GetCast.assert_not_called()
+
     def test_fetch_unsupported_id(self, _):
         self.assertFalse(Farcaster.fetch(Object(id='https://x.com/y')))
 
