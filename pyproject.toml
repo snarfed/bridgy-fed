@@ -15,12 +15,12 @@ app = [
     'authlib',
     'brevity @ git+https://github.com/snarfed/brevity.git@new-tlds',
     'dag-json',
-    'granary',
+    'granary[bluesky,farcaster,nostr,rss]',
     'httpsig',
     'lexrpc[flask]',
     'mf2util',
     'negotiator',
-    'oauth-dropins',
+    'oauth-dropins[bluesky,indieauth]',
     'pymemcache',
     'pywebutil[google-cloud,html]',
     'secp256k1',
@@ -40,6 +40,7 @@ app = [
     'humanize>=4.16.0',
     'joserfc>=1.7.3',
     'libipld>=3.0.0',
+    'lxml>=6.0',
     'multiformats>=0.3.1',
     'pycryptodome>=3.0',
     'pyjwt>=2.14.0',
@@ -93,9 +94,10 @@ extend_exclude = ['build', 'dist', 'docs']
 
 [tool.deptry.per_rule_ignores]
 # these deps aren't imported directly but we still need them: gunicorn (WSGI
-# server), ujson
+# server), lxml (webutil.appengine_config's BeautifulSoup parser), ujson
 DEP002 = [
     'gunicorn',
+    'lxml',
     'pytest',
     'pytest-xdist',
     'sphinx',
