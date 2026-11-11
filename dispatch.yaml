@@ -1,4 +1,14 @@
 # https://cloud.google.com/appengine/docs/flexible/reference/dispatch-yaml?tab=python
+#
+# Routes URLs between App Engine services only. Not Cloud Run!
+
+# Rules apply in order. First match wins.
+#
+# Also see url-map.yaml, the URL map for our load balancer, which all external
+# requests (ie not Cloud Tasks, Scheduler, etc) come through. It overrides this
+# file for those requests.
+#
+# Deploy with:  gcloud app deploy dispatch.yaml
 
 dispatch:
 

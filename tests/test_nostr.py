@@ -12,6 +12,7 @@ from granary.nostr import (
     KIND_DELETE,
     KIND_NOTE,
     KIND_PROFILE,
+    KIND_REACTION,
     KIND_RELAYS,
     KIND_REPOST,
     id_and_sign,
@@ -39,6 +40,7 @@ from web import Web
 from granary.tests.test_nostr import (
     FakeConnection,
     ID,
+    NEVENT,
     NOTE_AS1,
     NOTE_NOSTR,
     NOW_TS,
@@ -196,6 +198,21 @@ class NostrTest(TestCase):
             with self.subTest(id=id):
                 self.assertEqual(False, Nostr.owns_id(id))
 
+    def test_id_type(self):
+        for id in (NPUB, NPUB_URI):
+            with self.subTest(id=id):
+                self.assertEqual(ids.IdType.USER, Nostr.id_type(id))
+
+        for id in (NEVENT, 'nostr:' + NEVENT):
+            with self.subTest(id=id):
+                self.assertEqual(ids.IdType.OBJECT, Nostr.id_type(id))
+
+        # hex ids are used for both pubkeys and event ids, so they're unclear
+        for id in ('', 'abc', 'did:abc', 'foo.com', PUBKEY, PUBKEY_URI, ID,
+                   ID_URI, NSEC_URI):
+            with self.subTest(id=id):
+                self.assertIsNone(Nostr.id_type(id))
+
     def test_owns_handle(self):
         for handle in ('user@domain', 'user@domain.com', 'user.com@domain.com',
                        'user@domain', 'user@sub.do.main', '_@domain'):
@@ -281,6 +298,7 @@ class NostrTest(TestCase):
                 'name': 'Ms Alice [Unofficial]',
                 'about': 'It me\n\n🌉 bridged from 🌐 https://alice.com/: https://fed.brid.gy/web/alice.com',
                 'nip05': 'alice.com@web.brid.gy',
+                'website': 'https://alice.com/',
             }, sort_keys=True, ensure_ascii=False),
             'tags': [['proxy', 'https://alice.com/', 'web']],
             'created_at': NOW_TS,
@@ -539,6 +557,24 @@ class NostrTest(TestCase):
         obj.copies = [Target(uri='nostr:' + ID, protocol='nostr')]
         obj.put()
         self.assert_equals(event, Nostr.convert(obj, from_user=self.user))
+
+    def test_convert_article_no_user(self):
+        # without a user's key the event isn't signed, but its id still has to
+        # be recomputed after the d tag is overridden
+        obj = Object(id='fake:post', our_as1={
+            'objectType': 'article',
+            'id': 'fake:post',
+            'author': PUBKEY_URI,
+            'content': 'Something to say',
+            'published': '2022-01-02T03:04:05+00:00',
+        }, source_protocol='fake',
+                     copies=[Target(uri='nostr:' + ID, protocol='nostr')])
+        obj.put()
+
+        got = Nostr._convert(obj)
+        self.assertIn(['d', 'fake:post'], got['tags'])
+        self.assertNotIn('sig', got)
+        self.assertEqual(granary.nostr.id_for(got), got['id'])
 
     def test_send_bare_note(self):
         obj = Object(id='fake:note', our_as1={
@@ -1120,6 +1156,47 @@ class NostrTest(TestCase):
         alice = alice.key.get()
         self.assertIsNone(alice.valid_nip05)
         self.assertIsNone(alice.handle_pay_level_domain)
+
+    @patch('secrets.token_urlsafe', return_value='towkin')
+    def test_receive_reloads_actor_profile_not_stored(self, _):
+        user = self.make_user(PUBKEY_URI_2, cls=Nostr)
+        profile = id_and_sign({
+            'kind': KIND_PROFILE,
+            'pubkey': PUBKEY_2,
+            'content': json_dumps({'name': 'Bob'}),
+        }, privkey=NSEC_URI_2)
+        FakeConnection.to_receive = [
+            ['EVENT', 'towkin', profile],
+            ['EOSE', 'towkin'],
+        ]
+
+        like = id_and_sign({
+            'kind': KIND_REACTION,
+            'pubkey': PUBKEY_2,
+            'content': '+',
+            'tags': [['e', ID], ['p', PUBKEY]],
+        }, privkey=NSEC_URI_2)
+        obj = Object(id='nostr:' + like['id'], nostr=like, source_protocol='nostr')
+
+        with app.test_request_context('/'):
+            self.assertEqual(204, Nostr.receive(obj, authed_as=PUBKEY_URI_2)[1])
+
+        self.assertEqual([
+            ['REQ', 'towkin', {
+                'authors': [PUBKEY_2],
+                'kinds': [KIND_PROFILE, KIND_RELAYS],
+                'limit': 20,
+            }],
+            ['CLOSE', 'towkin'],
+        ], FakeConnection.sent[:2])
+        self.assertEqual(profile, user.key.get().obj_key.get().nostr)
+        self.assertEqual({
+            'id': PUBKEY_URI_2,
+            'objectType': 'person',
+            'displayName': 'Bob',
+            'urls': ['https://njump.me/nprofile1qqsgg39lu60dv6ktxdjvdvkgxw88gn36f2mwtaz2tf68cmk9459w06gqkjzvr'],
+            'published': '2022-01-02T03:04:05+00:00',
+        }, obj.as1['actor'])
 
     def test_check_supported(self):
         Nostr.check_supported(Object(our_as1={

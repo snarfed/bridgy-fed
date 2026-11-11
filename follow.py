@@ -11,6 +11,7 @@ from granary import as1
 from oauth_dropins import indieauth
 from webutil import util
 from webutil.flask_util import error, flash
+from werkzeug.exceptions import BadGateway
 
 from activitypub import ActivityPub
 from flask_app import app
@@ -120,7 +121,15 @@ class FollowCallback(indieauth.Callback):
 
         # TODO(#512): follower will always be Web here, but we should generalize
         # followee support in UI and here across protocols
-        followee = ActivityPub.load(as2_url)
+        try:
+            followee = ActivityPub.load(as2_url)
+        except BadGateway as e:
+            if (e.requests_response is not None
+                    and e.requests_response.status_code in (401, 403)):
+                flash(f"Couldn't load {addr}; they or their server may be blocking Bridgy Fed.")
+                return redirect(user.user_page_path('following'))
+            raise
+
         if not followee:
             flash(f"Couldn't load {as2_url} as AS2")
             return redirect(user.user_page_path('following'))
@@ -136,14 +145,11 @@ class FollowCallback(indieauth.Callback):
             'object': followee_id,
         }
         followee_user = ActivityPub.get_or_create(followee_id, obj=followee)
-        follow_obj = Object(id=follow_id, our_as1=follow_as1, source_protocol='ui')
+        follow_obj = Object(id=follow_id, users=[user.key], our_as1=follow_as1,
+                            source_protocol='web')
 
         resp = Web.receive(follow_obj, authed_as=domain, internal=True)
         logger.info(f'Web.receive returned {resp}')
-
-        follow_obj = follow_obj.key.get()
-        follow_obj.source_protocol = 'ui'
-        follow_obj.put()
 
         url = as1.get_url(followee.as1) or followee_id
         link = common.pretty_link(url, text=addr)
@@ -201,9 +207,17 @@ class UnfollowCallback(indieauth.Callback):
 
         if not followee.obj or not followee.obj.as1:
             # fetch to get full followee so we can find its target to deliver to
-            followee.obj = ActivityPub.load(followee_id)
+            try:
+                followee.obj = ActivityPub.load(followee_id)
+            except BadGateway as e:
+                if (e.requests_response is not None
+                        and e.requests_response.status_code in (401, 403)):
+                    flash(f"Couldn't load {followee_id}; they or their server may be blocking Bridgy Fed.")
+                    return redirect(user.user_page_path('following'))
+                raise
+
             if not followee.obj:
-                error("Couldn't load {followee_id} as AS2")
+                error(f"Couldn't load {followee_id} as AS2")
             followee.put()
 
         # TODO(#529): generalize
@@ -221,7 +235,7 @@ class UnfollowCallback(indieauth.Callback):
         # property, since we don't want to notify or show them. (standard social
         # network etiquette.)
         unfollow_obj = Object(id=unfollow_id, users=[user.key],
-                              source_protocol='ui', our_as1=unfollow_as1)
+                              source_protocol='web', our_as1=unfollow_as1)
         resp = Web.receive(unfollow_obj, authed_as=domain, internal=True)
 
         follower.status = 'inactive'

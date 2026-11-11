@@ -5,6 +5,7 @@ TODO: move most or all of this to webutil?
 from datetime import datetime, timedelta, timezone
 from enum import auto, Enum
 import functools
+import inspect
 import logging
 import os
 import re
@@ -140,6 +141,16 @@ def key(key):
 
 
 def memoize_key(fn, *args, _version=MEMOIZE_VERSION, **kwargs):
+    # normalize kwargs with defaults so that eg fn(x) and fn(x, y=z) get
+    # the same key when y defaults to z
+    try:
+        bound = inspect.signature(fn).bind(*args, **kwargs)
+        bound.apply_defaults()
+        args, kwargs = bound.args, bound.kwargs
+    except TypeError:
+        # not fn's own args, eg memoize's key kwarg passes a synthetic key
+        pass
+
     return key(f'{fn.__qualname__}-{_version}-{repr(args)}-{repr(kwargs)}')
 
 

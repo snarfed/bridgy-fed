@@ -19,6 +19,7 @@ import granary.nostr
 from granary.nostr import (
     bech32_prefix_for,
     id_and_sign,
+    id_for,
     id_to_uri,
     is_bech32,
     KIND_ARTICLE,
@@ -34,6 +35,7 @@ from granary.nostr import (
     nip05_to_npub,
     uri_to_id,
 )
+from granary.source import PROTOCOL_URI_PREFIXES
 from requests import RequestException
 import secp256k1
 from websockets.exceptions import ConnectionClosedOK
@@ -56,6 +58,11 @@ from protocol import Protocol, STORE_AS1_TYPES
 import web
 
 logger = logging.getLogger(__name__)
+
+# NIP-19 bech32 prefixes, by whether they identify a user or an event. nsec and
+# nrelay are neither, so they're in neither.
+USER_BECH32_PREFIXES = ('npub', 'nprofile')
+OBJECT_BECH32_PREFIXES = ('naddr', 'nevent', 'note')
 
 
 class NostrRelay(StringIdModel):
@@ -83,6 +90,8 @@ class Nostr(User, Protocol):
     LOGO_EMOJI = '𓅦'  # ostrich-ish bird
     LOGO_HTML = '<img src="/static/nostr_logo.png">'
     CONTENT_TYPE = 'application/json'
+    URI_PREFIXES = PROTOCOL_URI_PREFIXES['nostr']
+    'https://nostr-nips.com/nip-21'
     HAS_COPIES = True
     DEFAULT_TARGET = 'wss://nos.lol/'
     REQUIRES_AVATAR = True
@@ -233,12 +242,28 @@ class Nostr(User, Protocol):
 
     @classmethod
     def owns_id(cls, id):
-        if id.startswith('nostr:'):
+        if id.startswith(cls.URI_PREFIXES):
             return True
         elif is_bech32(id) or ID_RE.match(id):
             return None
 
         return False
+
+    @classmethod
+    def id_type(cls, id):
+        """Only bech32 ids say which kind they are.
+
+        Hex ids, ie our key ids, are used for both pubkeys and events, so
+        they're unclear.
+        """
+        if not id:
+            return None
+
+        bare = id.removeprefix('nostr:')
+        if bare.startswith(USER_BECH32_PREFIXES):
+            return ids.IdType.USER
+        elif bare.startswith(OBJECT_BECH32_PREFIXES):
+            return ids.IdType.OBJECT
 
     @classmethod
     def owns_handle(cls, handle, allow_internal=False):

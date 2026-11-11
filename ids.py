@@ -2,6 +2,7 @@
 
 https://fed.brid.gy/docs#translate
 """
+from enum import auto, Enum
 import inspect
 import logging
 import re
@@ -13,11 +14,13 @@ from cachetools import cached, LRUCache
 from flask import request
 from google.cloud.ndb.key import _MAX_KEYPART_BYTES
 from google.cloud.ndb.query import FilterNode, Query
+from granary import as1
 from granary.bluesky import BSKY_APP_URL_RE, web_url_to_at_uri
 import granary.farcaster
 import granary.nostr
 from webutil import util
 
+import common
 from domains import (
     DOMAIN_RE,
     LOCAL_DOMAINS,
@@ -28,7 +31,6 @@ from domains import (
     unwrap,
 )
 import models
-from models import PROTOCOLS
 
 logger = logging.getLogger(__name__)
 
@@ -79,6 +81,15 @@ WWW_DOMAINS = frozenset((
 ))
 
 
+class IdType(Enum):
+    """Whether an id identifies a user or an object.
+
+    Returned by :meth:`protocol.Protocol.id_type`.
+    """
+    USER = auto()
+    OBJECT = auto()
+
+
 def validate(id, from_, to):
     """Validates args.
 
@@ -120,7 +131,7 @@ def web_ap_base_domain(user_domain):
     return f'https://web{SUPERDOMAIN}/'
 
 
-def translate_user_id(*, id, from_, to):
+def translate_user_id(*, id, from_, to, external=False):
     """Translate a user id from one protocol to another.
 
     *NOTE*: unlike :func:`translate_object_id`, if ``to`` is a ``HAS_COPIES`` protocol
@@ -132,6 +143,9 @@ def translate_user_id(*, id, from_, to):
       id (str)
       from_ (protocol.Protocol)
       to (protocol.Protocol)
+      external (bool): if True, and we don't bridge this user to ``to``, return
+        their copy there that we don't manage, if any, eg from a proxy link. See
+        :meth:`models.User.get_external_id`.
 
     Returns:
       str: the corresponding id in ``to``
@@ -180,6 +194,11 @@ def translate_user_id(*, id, from_, to):
         if orig := models.get_original_user_key(id):
             if orig.kind() == to._get_kind():
                 return orig.id()
+
+    if (external and user and (external_id := user.get_external_id(to))
+            and not user.is_enabled(to)):
+        logger.info(f'Translating user {id} to external id {to.LABEL} {external_id}')
+        return external_id
 
     match from_.LABEL, to.LABEL:
         case _, 'atproto' | 'nostr' | 'farcaster':
@@ -252,7 +271,7 @@ def normalize_user_id(*, id, proto):
 
         return id
 
-    if proto.owns_id(id) is False and proto.LABEL != 'ui':
+    if proto.owns_id(id) is False:
         return id
 
     if proto.LABEL == 'web':
@@ -262,8 +281,6 @@ def normalize_user_id(*, id, proto):
         return normalized
 
     elif proto.LABEL == 'atproto':
-        # id = translate_user_id(id=id, from_=proto, to=proto)
-
         # bsky.app profile URL to DID
         if (match := BSKY_APP_URL_RE.match(id)) and not match['type']:
             repo = match.group('id')
@@ -418,9 +435,7 @@ def translate_handle(*, from_, to, handle=None, short=False):
     if isinstance(from_, models.User):
         from_user = from_
         assert handle is None
-        # override web users to always use domain instead of custom username
-        handle = (from_user.key.id() if from_user.LABEL == 'web'
-                  else from_user.handle)
+        handle = from_user.handle
 
     if not handle:
         return None
@@ -457,8 +472,8 @@ def translate_handle(*, from_, to, handle=None, short=False):
             username, abbrev = handle.rsplit('@' if '@' in handle else '.', 1)
             if abbrev in ('fa', 'other', 'efake'):
                 username = username.replace('-', ':')
-            return translate_handle(handle=username, from_=PROTOCOLS[abbrev], to=to,
-                                    short=short)
+            return translate_handle(handle=username, from_=models.PROTOCOLS[abbrev],
+                                    to=to, short=short)
 
         case _, 'activitypub':
             if short:
@@ -521,7 +536,7 @@ def translate_handle(*, from_, to, handle=None, short=False):
     return output
 
 
-def translate_object_id(*, id, from_, to):
+def translate_object_id(*, id, from_, to, owner=None, external=False):
     """Translates a user handle from one protocol to another.
 
     Allows any ``id`` if ``from_`` is :class:`UIProtocol` or if ``id`` is ``ui:...``.
@@ -533,16 +548,46 @@ def translate_object_id(*, id, from_, to):
 
     Args:
       id (str)
-      from_ (protocol.Protocol)
-      to (protocol.Protocol)
+      from_ (protocol.Protocol): the native protocol for ``id``
+      to (protocol.Protocol): the protocol to convert to
+      owner (protocol.Protocol): optional, the protocol of ``id``'s author. only used
+        as a fallback for ``ui:`` ids that we don't have an :class:`models.Object`
+        for, eg activity wrappers, which we don't store.
+      external (bool): if True, and we don't bridge this object's author to
+        ``to``, return its copy there that we don't manage, if any, eg from a
+        proxy link. See :meth:`models.Object.get_external_id`.
 
     Returns:
       str: the corresponding id in ``to``
     """
     from protocol import Protocol
+    from ui import UIProtocol
 
     id, from_, to = validate(id, from_, to)
-    if from_.owns_id(id) is False and from_.LABEL != 'ui' and not id.startswith('ui:'):
+
+    # check for and handle our own subdomain-wrapped ids, eg
+    # https://bsky.brid.gy/convert/ap/at://did:plc:456/app.bsky.feed.post/123
+    if domain_proto := Protocol.for_bridgy_subdomain(id, fed='web'):
+        path = urlparse(id).path.strip('/').split('/')
+        if (path[:2] == ['convert', from_.ABBREV]
+                or (from_.ABBREV == 'ap' and domain_proto.ABBREV == 'web'
+                    and path[0] == 'r')):
+            id = unwrap(id)
+            from_ = domain_proto
+
+    # internal objects have to be on the same domain as their author's actor id, or
+    # Mastodon and other fedi servers reject Creates for them, so we serve them from
+    # the author's subdomain, falling back to fed.brid.gy if we don't know them.
+    wrap_proto = from_
+    wrap_user_id = None
+    if UIProtocol.owns_id(id):
+        obj = models.Object.get_by_id(re.sub(r'#bridgy-fed-[^#]*$', '', id))
+        wrap_proto = (obj.owner_protocol() if obj else None) or owner or UIProtocol
+        if obj and obj.users:
+            wrap_user_id = obj.users[0].id()
+
+    if (from_.owns_id(id) is False
+            and from_ != UIProtocol and not UIProtocol.owns_id(id)):
         return id
 
     # bsky.app profile URL to at:// URI
@@ -564,14 +609,26 @@ def translate_object_id(*, id, from_, to):
     if from_ == to:
         return id
 
-    if to.LABEL in COPIES_PROTOCOLS:
-        if obj := from_.load(id, remote=False):
-            if copy := obj.get_copy(to):
-                return copy
+    obj = None
+    if to.LABEL in COPIES_PROTOCOLS or external:
+        obj = from_.load(id, remote=False)
+
+    if obj and to.LABEL in COPIES_PROTOCOLS:
+        if copy := obj.get_copy(to):
+            return copy
 
     if from_.LABEL in COPIES_PROTOCOLS:
         if orig := models.get_original_object_key(id):
             return orig.id()
+
+    if external and obj and (external_id := obj.get_external_id(to, remote=False)):
+        author_id = as1.get_owner(obj.as1)
+        author_proto = obj.owner_protocol(remote=False)
+        author = (author_proto.get_by_id(author_id)
+                  if author_id and author_proto else None)
+        if not (author and author.is_enabled(to)):
+            logger.info(f'Translating object {id} to external id {to.LABEL} {external_id}')
+            return external_id
 
     match from_.LABEL, to.LABEL:
         case _, 'atproto' | 'nostr' | 'farcaster':
@@ -584,13 +641,45 @@ def translate_object_id(*, id, from_, to):
             return urljoin(web_ap_base_domain(util.domain_from_link(id)), f'/r/{id}')
 
         case _, 'activitypub' | 'web':
-            return subdomain_wrap(from_, f'/convert/{to.ABBREV}/{id}')
+            path = f'/convert/{to.ABBREV}/{id}'
+            if wrap_proto.LABEL == 'web' and wrap_user_id:
+                # legacy Web users' actors are on fed.brid.gy, not web.brid.gy
+                return urljoin(web_ap_base_domain(wrap_user_id), path)
+            return subdomain_wrap(wrap_proto, path)
 
         # only for unit tests
         case _, 'fake' | 'other' | 'efake':
-            return f'{to.LABEL}:o:{from_.ABBREV}:{id}'
+            return f'{to.LABEL}:o:{wrap_proto.ABBREV}:{id}'
 
     assert False, (id, from_.LABEL, to.LABEL)
+
+
+def translate_id(*, id, from_, to, default=IdType.USER, external=False):
+    """Translates an id from one protocol to another, user id or object id.
+
+    Use this when you don't know which kind of id you have, eg the ``object`` of
+    a ``block``, which may be either a user or a blocklist. Asks
+    :meth:`protocol.Protocol.id_type` which kind ``id`` is, then hands off to
+    :func:`translate_user_id` or :func:`translate_object_id`.
+
+    https://github.com/snarfed/bridgy-fed/issues/2281
+
+    Args:
+      id (str)
+      from_ (protocol.Protocol)
+      to (protocol.Protocol)
+      default (IdType): which kind to assume if ``from_`` can't tell from ``id``
+        itself, eg all :class:`activitypub.ActivityPub` ids are http(s) URLs
+      external (bool): passed through to :func:`translate_user_id` or
+        :func:`translate_object_id`
+
+    Returns:
+      str: the corresponding id in ``to``
+    """
+    if (from_.id_type(id) or default) is IdType.OBJECT:
+        return translate_object_id(id=id, from_=from_, to=to, external=external)
+
+    return translate_user_id(id=id, from_=from_, to=to, external=external)
 
 
 def handle_as_domain(handle):

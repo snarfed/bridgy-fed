@@ -28,16 +28,6 @@
 {% for user in users %}
 <hr id="{{ user.key.id() }}">
 
-{% if user.obj and user.obj.as1 and user.obj.as1.get('url') %}
-<div class="row">
-  <div class="iframely-embed col-lg-6 col-md-8 col-sm-12">
-    <div class="iframely-responsive">
-      <a data-iframely-url href="{{ user.obj.as1['url'] }}"></a>
-    </div>
-  </div>
-</div>
-{% endif %}
-
 <div class="row">
   {% include 'user_with_links.html' %}
 </div>
@@ -137,7 +127,5 @@
 {% endfor %}
 
 {% endfor %}
-
-<script async src="https://iframely.net/embed.js?key={{ IFRAMELY_API_KEY_MD5 }}&theme=light"></script>
 
 {% endblock %}

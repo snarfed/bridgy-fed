@@ -6,8 +6,9 @@
 <p class="row big">Copy this code into your app:</p>
 
 <p class="row big">
-  <input type="text" id="code" readonly value="{{ code }}" onclick="this.select()"
-        style="font-family: monospace; width: 100%;">
+  <code id="code" style="word-break: break-all">{{ code }}</code>
+  <button class="btn btn-default btn-copy glyphicon glyphicon-duplicate"
+          data-copy="{{ code }}" title="Copy to clipboard"></button>
 </p>
 
 {% endblock %}

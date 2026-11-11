@@ -1,0 +1,798 @@
+"""Serves ATProto OAuth, passes through to other protocols.
+
+Users with accounts bridged into ATProto can use this to log into ATProto clients
+with OAuth. We authenticate them by passing through to their native network's auth,
+eg IndieAuth for web users.
+
+Returns the account's DID in ``sub``.
+
+ATProto uses a bleeding edge (as of 2026) OAuth profile: CIMD, PAR, DPoP, etc:
+https://atproto.com/specs/oauth
+
+We support the ``repo``, ``rpc``, and ``blob`` permission scopes, along with ``atproto``
+and ``transition:generic``.
+https://atproto.com/specs/permission
+
+https://github.com/snarfed/bridgy-fed/issues/1785
+"""
+from datetime import timedelta
+import logging
+import secrets
+import time
+import urllib.parse
+
+import arroba.server
+from arroba import permissions
+from authlib.integrations.flask_oauth2 import ResourceProtector
+from authlib.oauth2 import cimd, rfc7523, rfc9126, rfc9207, rfc9449
+from authlib.oauth2.rfc6749 import (
+    InvalidClientError,
+    InvalidRequestError,
+    InvalidScopeError,
+    TokenMixin,
+)
+from authlib.oauth2.rfc6749.grants import RefreshTokenGrant as BaseRefreshTokenGrant
+from authlib.oauth2.rfc7636 import CodeChallenge
+from authlib.oauth2.rfc8414 import AuthorizationServerMetadata
+from flask import g, redirect, request
+from google.cloud.ndb.key import Key
+from joserfc.jwk import KeySet
+from oauth_dropins import indieauth
+import oauth_dropins.mastodon
+import oauth_dropins.pixelfed
+import requests
+from webutil import flask_util, models, util
+from webutil.appengine_info import DEBUG, LOCAL_SERVER
+from webutil.flask_util import FlashErrors, flash, get_required_param
+
+import activitypub
+import atproto
+from atproto import ATProto
+from common import CACHE_CONTROL
+import domains
+from flask_app import app
+import memcache
+import oauth_server
+from oauth_server import decode_jwt, encode_jwt, hash_client_id, log_request_response
+
+logger = logging.getLogger(__name__)
+
+AUTHORIZE_PATH = '/oauth/atproto/authorize'
+TOKEN_PATH = '/oauth/atproto/token'
+PAR_PATH = '/oauth/atproto/par'
+
+# https://atproto.com/specs/oauth#authorization-scopes
+# all scopes we advertise. granular permission scopes are unbounded, so we can't
+# enumerate them here; we validate them with arroba.permissions instead.
+# https://atproto.com/specs/permission
+SCOPES = ['atproto', 'transition:generic']
+
+TOKEN_TYP = 'atproto-oauth-token'
+REFRESH_TYP = 'atproto-oauth-refresh'
+CODE_TYP = 'atproto-oauth-code'
+
+# RFC 9126 suggests 60s, but we look the pushed request up again at the end of
+# the user's login, after they've authenticated with their native network, so it
+# has to outlive that whole round trip.
+PAR_MAX_AGE = timedelta(minutes=10)
+# ATProto wants under 30m, and 5m if we can't revoke individual access tokens
+TOKEN_MAX_AGE = timedelta(minutes=15)
+REFRESH_MAX_AGE = timedelta(days=14)
+
+# ATProto clients authenticate with a private_key_jwt assertion, or not at all
+TOKEN_ENDPOINT_AUTH_METHODS = ['none', 'private_key_jwt']
+
+# RFC 9126 requires client authentication at the PAR endpoint, but these aren't
+# part of the authorization request, so don't store them with it
+CLIENT_AUTH_PARAMS = ('client_assertion', 'client_assertion_type', 'client_secret')
+
+# ATProto's localhost dev client exception. Ports aren't matched, since the
+# client picks one at runtime.
+# https://atproto.com/specs/oauth#localhost-client-development
+LOCALHOST_REDIRECT_URIS = ['http://127.0.0.1/', 'http://[::1]/']
+LOOPBACK_HOSTS = ('127.0.0.1', '::1', 'localhost')
+
+# ATProto requires server-provided DPoP nonces, rotated at least every 5 min
+DPOP_NONCE_MAX_AGE = timedelta(minutes=3)
+
+# ATProto requires ES256 and allows more, as long as we advertise them. RS256 is
+# here because some clients sign their proofs with it, eg Frontpage.
+DPOP_ALGS = ['ES256', 'RS256']
+
+# how long a client's metadata document and JWKS are cached for
+CLIENT_METADATA_CACHE_EXPIRE = timedelta(hours=1)
+
+
+def host_url(path=''):
+    """Returns an absolute URL on our PDS's host, ie our OAuth issuer's origin.
+
+    Not :func:`domains.host_url`, which is based on the request's host. The login
+    leg of :func:`authorize` runs on :const:`domains.PRIMARY_DOMAIN`, so anything
+    that has to name the issuer needs our PDS's host regardless of where it's
+    served from.
+    """
+    base = (request.host_url
+            if LOCAL_SERVER and request.host in domains.LOCAL_DOMAINS
+            else ATProto.DEFAULT_TARGET)
+    return urllib.parse.urljoin(base.rstrip('/'), path)
+
+
+class MemcacheDPoPReplayCache(rfc9449.validator.DPoPReplayCache):
+    """Checks memcache for used DPoP proofs."""
+    def check_and_add(self, jti, expires_at):
+        return oauth_server.mark_used('dpop-jti', jti, expires_at)
+
+
+@memcache.memoize(expire=CLIENT_METADATA_CACHE_EXPIRE)
+def fetch_client_json(url, **kwargs):
+    """Fetches a JSON document that a client publishes, eg its metadata or JWKS.
+
+    Raises on failure instead of returning None so that :func:`memcache.memoize`
+    doesn't cache failures, which would turn a blip at the client's server into
+    an hour of failed logins.
+
+    Module level, not a method on :class:`ClientIdMetadataDocument`, so that
+    :func:`memcache.memoize`'s key doesn't include the instance's ``repr``.
+
+    Args:
+      url (str)
+      kwargs: passed through to :func:`webutil.util.requests_get`
+
+    Returns:
+      dict: JSON document
+
+    Raises:
+      requests.RequestException: if the fetch fails
+      ValueError: if the response isn't JSON
+    """
+    resp = util.requests_get(url, **kwargs)
+    resp.raise_for_status()
+    return resp.json()
+
+
+def without_port(url):
+    """Returns ``url``'s scheme, host, and path, dropping its port."""
+    parsed = urllib.parse.urlparse(url)
+    return parsed.scheme, parsed.hostname, parsed.path
+
+
+class LocalhostClient(cimd.ClientIdMetadataDocumentClient):
+    """A localhost dev client, whose redirect URIs are matched without ports."""
+    def check_redirect_uri(self, redirect_uri):
+        return without_port(redirect_uri) in [without_port(uri)
+                                              for uri in self.redirect_uris]
+
+
+class ClientIdMetadataDocument(cimd.ClientIdMetadataDocument):
+    """Resolves clients by fetching the document at their ``client_id`` URL.
+
+    https://atproto.com/specs/oauth#clients
+    """
+    def fetch_client_id_metadata_document(self, client_id):
+        # the authorization server MUST NOT follow redirects when fetching a
+        # client ID metadata document, and only 200 is success
+        # https://datatracker.ietf.org/doc/html/draft-ietf-oauth-client-id-metadata-document#section-5
+        try:
+            return fetch_client_json(client_id, allow_redirects=False)
+        except (requests.RequestException, ValueError) as e:
+            logger.info(e)
+            util.interpret_http_exception(e)
+            return None
+
+    def resolve_client_id_metadata_document(self, client_id):
+        parsed = urllib.parse.urlparse(client_id.rstrip('/'))
+        if not (parsed.scheme == 'http'
+                and parsed.hostname == 'localhost'
+                and not parsed.port
+                and not parsed.path):
+            return super().resolve_client_id_metadata_document(client_id)
+
+        # localhost client
+        # https://atproto.com/specs/oauth#localhost-client-development
+        params = urllib.parse.parse_qs(parsed.query)
+        redirect_uris = params.get('redirect_uri') or LOCALHOST_REDIRECT_URIS
+        for uri in redirect_uris:
+            scheme, host, _ = without_port(uri)
+            if not (scheme == 'http' and host in LOOPBACK_HOSTS):
+                logger.warning(f'{client_id} has non-loopback redirect_uri {uri}')
+                return None
+
+        return LocalhostClient(cimd.ClientMetadataClaims({
+            'client_id': client_id,
+            'client_name': 'Localhost dev client',
+            'redirect_uris': redirect_uris,
+            # multiple scopes, space-separated
+            'scope': ' '.join(params.get('scope') or SCOPES),
+            'response_types': ['code'],
+            'grant_types': ['authorization_code', 'refresh_token'],
+            'token_endpoint_auth_method': 'none',
+            'application_type': 'native',
+            'dpop_bound_access_tokens': True,
+        }, {}, params={'client_id': client_id}))
+
+
+class DPoP(rfc9449.DPoP):
+    """ATProto requires DPoP."""
+    def get_client_metadata(self, client):
+        return rfc9449.ClientMetadataClaims({'dpop_bound_access_tokens': True})
+
+
+class PushedAuthorizationEndpoint(rfc9126.PushedAuthorizationEndpoint):
+    """Stores pushed requests in memcache, keyed by super()'s ``request_uri``.
+
+    Not self-contained in the ``request_uri`` itself: that grows with the pushed
+    params, and clients cap the PAR response, eg atcute rejects anything over 1KB.
+    """
+    REQUEST_URI_EXPIRES_IN = int(PAR_MAX_AGE.total_seconds())
+
+    def create_endpoint_response(self, request):
+        # ATProto says clients must send a DPoP proof here:
+        # https://atproto.com/specs/oauth#demonstrating-proof-of-possession-d-po-p
+        # ...but the reference PDS doesn't check for it, and some clients don't
+        # send one, so we don't require it either. We bind to the DPoP proof's key
+        # if provided, otherwise authlib's DPoP binds the code at the token endpoint
+        # instead.
+        # check scopes here too, so that clients find out before sending the
+        # user through their whole login
+        supported_scopes(request.payload.scope)
+
+        dpop_jkt = (proof_validator.validate_proof(request)
+                    if 'DPoP' in request.headers
+                    else request.payload.data.get('dpop_jkt'))
+
+        # here and not in save_request_payload, which doesn't get the proof's
+        # jkt, and can't validate it again since that would trip our own replay
+        # cache. self.dpop_jkt wouldn't work either; we're a shared instance.
+        status, body, headers = super().create_endpoint_response(request)
+        params = {k: v for k, v in request.payload.data.items()
+                  if k not in CLIENT_AUTH_PARAMS}
+        params['dpop_jkt'] = dpop_jkt
+
+        memcache.pickle_memcache.set(memcache.key(body['request_uri']),
+                                     params, expire=self.REQUEST_URI_EXPIRES_IN)
+        return status, body, headers
+
+    def save_request_payload(self, payload, request_uri, expires_at):
+        pass
+
+
+class PushedAuthorizationRequest(rfc9126.PushedAuthorizationRequest):
+    """Require PAR, and read the pushed request back out of memcache."""
+    def get_request_payload(self, request_uri):
+        # TODO: request_uris are single use per RFC 9126, but we look this up
+        # again after the user's login round trip, so we can't just delete it
+        # here. it does expire at least.
+        return memcache.pickle_memcache.get(memcache.key(request_uri))
+
+    def handle_request_uri_data(self, request_uri_data, server, request):
+        if request.payload.client_id != request_uri_data.get('client_id'):
+            raise InvalidRequestError(
+                'This request_uri was issued to a different client.')
+
+        super().handle_request_uri_data(request_uri_data, server, request)
+
+    def get_server_metadata(self):
+        return rfc9126.AuthorizationServerMetadata(
+            {'require_pushed_authorization_requests': True})
+
+
+class Token(rfc9449.TokenMixin, TokenMixin):
+    """In-memory access or refresh token; the token itself is a JWT."""
+    def __init__(self, payload):
+        # only access tokens have sub, ie the user's DID
+        self.did = payload.get('sub')
+        self.jti = payload['jti']
+        self.exp = payload['exp']
+        self.user_key = Key(urlsafe=payload['user_key'])
+        self.scope = payload.get('scope') or ''
+        self.dpop_jkt = (payload.get('cnf') or {}).get('jkt')
+        self.client_id_hash = payload['client_id_hash']
+
+    def get_scope(self):
+        return self.scope
+
+    def is_expired(self):
+        # the JWT's own exp is checked when we decode it
+        return False
+
+    def is_revoked(self):
+        # TODO: check a denylist of revoked jtis, if/when we add that
+        # POST /oauth/atproto/revoke
+        return False
+
+    def get_dpop_jkt(self):
+        return self.dpop_jkt
+
+    def check_client(self, client):
+        """Only the client this token was issued to can use it."""
+        return self.client_id_hash == hash_client_id(client.get_client_id())
+
+
+def generate_token(oauth_request, user, scope, include_refresh_token=True):
+    """Builds the token endpoint's response.
+
+    Not registered with :meth:`AuthorizationServer.register_token_generator`,
+    since that doesn't see the request, and we need its DPoP key binding.
+
+    Args:
+      oauth_request (authlib.oauth2.rfc6749.OAuth2Request)
+      user (models.User)
+      scope (str)
+      include_refresh_token (bool)
+
+    Returns:
+      dict:
+    """
+    did = user.get_copy(ATProto)
+    user_key = user.key.urlsafe().decode()
+    client_id_hash = hash_client_id(oauth_request.client.get_client_id())
+
+    # bind these to the client's DPoP key
+    # https://datatracker.ietf.org/doc/html/rfc9449#section-6
+    cnf = {'jkt': getattr(oauth_request.payload, 'dpop_jkt', None)}
+
+    # real wall-clock time, not util.now(): PyJWT checks 'exp' against real time
+    # regardless of any test-time mocking
+    now = int(time.time())
+
+    resp = {
+        'access_token': encode_jwt({
+            'typ': TOKEN_TYP,
+            'exp': now + int(TOKEN_MAX_AGE.total_seconds()),
+            'jti': secrets.token_urlsafe(16),
+            'sub': did,
+            'user_key': user_key,
+            'scope': scope,
+            'cnf': cnf,
+            'client_id_hash': client_id_hash,
+        }),
+        'token_type': 'DPoP',
+        'expires_in': int(TOKEN_MAX_AGE.total_seconds()),
+        'scope': scope or '',
+        # ATProto requires the account's DID here
+        'sub': did,
+    }
+
+    if include_refresh_token:
+        resp['refresh_token'] = encode_jwt({
+            'typ': REFRESH_TYP,
+            'exp': now + int(REFRESH_MAX_AGE.total_seconds()),
+            'jti': secrets.token_urlsafe(16),
+            'user_key': user_key,
+            'scope': scope,
+            'cnf': cnf,
+            'client_id_hash': client_id_hash,
+        })
+
+    return resp
+
+
+def supported_scopes(scope):
+    """Returns the scopes we'll grant out of the ones a client requested.
+
+    Scopes we don't support are dropped, eg ``identity:handle``. The ``atproto``
+    scope is required.
+
+    https://atproto.com/specs/oauth#authorization-scopes
+
+    Args:
+      scope (str): space-separated scopes
+
+    Returns:
+      str: space-separated scopes
+
+    Raises:
+      InvalidScopeError: if the request doesn't include the ``atproto`` scope
+    """
+    scopes = permissions.supported((scope or '').split())
+    if 'atproto' not in scopes:
+        raise InvalidScopeError(description='Missing atproto scope')
+
+    return ' '.join(scopes)
+
+
+class AuthorizationCodeGrant(oauth_server.JwtAuthorizationCodeGrant):
+    CODE_TYP = CODE_TYP
+    TOKEN_ENDPOINT_AUTH_METHODS = TOKEN_ENDPOINT_AUTH_METHODS
+
+    def validate_authorization_request(self):
+        """Drops scopes we don't support from the request.
+
+        authlib has already narrowed the requested scopes to the ones the
+        client's metadata document declares.
+        """
+        redirect_uri = super().validate_authorization_request()
+        self.request.scope = supported_scopes(self.request.scope)
+        return redirect_uri
+
+    def generate_token(self, user=None, scope=None, grant_type=None,
+                       expires_in=None, include_refresh_token=True):
+        return generate_token(self.request, user, scope, include_refresh_token)
+
+
+class RefreshTokenGrant(BaseRefreshTokenGrant):
+    TOKEN_ENDPOINT_AUTH_METHODS = TOKEN_ENDPOINT_AUTH_METHODS
+    INCLUDE_NEW_REFRESH_TOKEN = True
+
+    def generate_token(self, user=None, scope=None, grant_type=None,
+                       expires_in=None, include_refresh_token=True):
+        return generate_token(self.request, user, scope, include_refresh_token)
+
+    def authenticate_refresh_token(self, refresh_token):
+        if not (payload := decode_jwt(refresh_token, REFRESH_TYP)):
+            return None
+
+        if oauth_server.used(REFRESH_TYP, payload['jti']):
+            logger.warning('refresh token was already used!')
+            return None
+
+        return Token(payload)
+
+    def authenticate_user(self, credential):
+        return credential.user_key.get()
+
+    def revoke_old_credential(self, credential):
+        """ATProto refresh tokens are single use.
+
+        Here and not in :meth:`authenticate_refresh_token` because marking it used
+        there would burn it code before the client's retry could use it. (Same
+        in :meth:`JwtAuthorizationCodeGrant.delete_authorization_code`.)
+        """
+        oauth_server.mark_used(REFRESH_TYP, credential.jti, credential.exp)
+
+
+class JWTClientAuth(rfc7523.JWTBearerClientAssertion):
+    """``private_key_jwt`` auth for confidential clients.
+
+    https://atproto.com/specs/oauth#confidential-clients
+    """
+    CLIENT_AUTH_METHOD = 'private_key_jwt'
+
+    def get_audiences(self):
+        return [host_url(), host_url(TOKEN_PATH)]
+
+    def verify_claims(self, claims):
+        """Allow a missing ``exp``, bounding the assertion with ``iat`` instead.
+
+        RFC 7523 section 3 requires ``exp``, but some clients omit it, eg Graze,
+        due to using an out of date version of AIP. We check `iat`'s age instead,
+        and prevent replay via `jti` like usual.
+        """
+        if 'exp' not in claims:
+            if not isinstance(iat := claims.get('iat'), (int, float)):
+                raise InvalidClientError(description="Missing claim: 'exp' or 'iat'")
+            claims['exp'] = int(iat + TOKEN_MAX_AGE.total_seconds())
+
+        super().verify_claims(claims)
+
+        # TODO? if claims has cnf.jkt, check against the DPoP proof's key thumbprint.
+        # https://github.com/bluesky-social/proposals/tree/main/0010-client-assertion-backend
+        # says we MUST, but isn't authoritative, and https://atproto.com/specs/oauth
+        # doesn't mention cnf at all, and we haven't seen cnf from a client in the
+        # wild yet.
+
+    def validate_jti(self, claims, jti):
+        """RFC 7523 section 3: an assertion's jti may only be used once.
+
+        Only checks here; :func:`mark_client_assertion_used` marks it used once
+        the request succeeds, since client auth also runs on the nonce-less first
+        half of DPoP's nonce handshake, and marking it used here would reject the
+        client's own retry.
+        """
+        g.client_assertion = (claims, jti)
+        return not oauth_server.used(claims['sub'], jti)
+
+    def resolve_client_public_key(self, client, headers=None):
+        """Returns the keys from the client's metadata document."""
+        metadata = client.client_metadata
+        if jwks := metadata.get('jwks'):
+            return KeySet.import_key_set(jwks)
+
+        if jwks_uri := metadata.get('jwks_uri'):
+            try:
+                return KeySet.import_key_set(fetch_client_json(jwks_uri))
+            except (requests.RequestException, ValueError) as e:
+                logger.info(e)
+                util.interpret_http_exception(e)
+                raise InvalidClientError(
+                    description=f"Couldn't fetch the client's JWKS at {jwks_uri}") from e
+
+        raise InvalidClientError(
+            description='Client has no jwks or jwks_uri to verify its assertion.')
+
+
+class IssuerParameter(rfc9207.IssuerParameter):
+    """Adds ``iss`` to authorization responses, which ATProto requires."""
+    def get_issuer(self):
+        return host_url()
+
+
+@app.get('/.well-known/oauth-protected-resource')
+@app.get('/.well-known/oauth-protected-resource/')
+@flask_util.headers(CACHE_CONTROL)
+def oauth_protected_resource():
+    """Serves our resource server metadata document.
+
+    https://atproto.com/specs/oauth#authorization-server-metadata
+
+    Only on our PDS, ie atproto.brid.gy, which is what bridged users' DID docs
+    point to. Everywhere else we still don't serve OAuth.
+    """
+    if not atproto.is_pds_host():
+        return "Sorry, Bridgy Fed doesn't serve OAuth. https://fed.brid.gy/docs#use-like-normal", 404
+
+    origin = host_url().rstrip('/')
+    return {
+        'resource': origin,
+        'authorization_servers': [origin],
+        'scopes_supported': SCOPES,
+        'bearer_methods_supported': ['header'],
+    }
+
+
+def metadata():
+    """Serves our authorization server metadata document.
+
+    https://atproto.com/specs/oauth#authorization-server-metadata
+
+    The ``/.well-known/oauth-authorization-server`` route that serves this is in
+    :mod:`app`, since :mod:`mastodon_oauth` serves its own on every other host.
+    """
+    md = AuthorizationServerMetadata({
+        # the issuer must be a bare origin, no trailing slash
+        'issuer': host_url().rstrip('/'),
+        'authorization_endpoint': host_url(AUTHORIZE_PATH),
+        'token_endpoint': host_url(TOKEN_PATH),
+        'pushed_authorization_request_endpoint': host_url(PAR_PATH),
+        'require_pushed_authorization_requests': True,
+        'response_types_supported': ['code'],
+        # no 'form_post'; authlib supports it, but no ATProto client uses it
+        'response_modes_supported': ['query', 'fragment'],
+        'grant_types_supported': ['authorization_code', 'refresh_token'],
+        # no 'plain'; ATProto requires S256
+        'code_challenge_methods_supported': ['S256'],
+        # must match what the grants actually accept
+        'token_endpoint_auth_methods_supported': TOKEN_ENDPOINT_AUTH_METHODS,
+        'token_endpoint_auth_signing_alg_values_supported': ['ES256'],
+        'dpop_signing_alg_values_supported': DPOP_ALGS,
+        'scopes_supported': SCOPES,
+        'authorization_response_iss_parameter_supported': True,
+        'client_id_metadata_document_supported': True,
+    })
+    md.validate(metadata_classes=[
+        cimd.AuthorizationServerMetadata,
+        rfc9126.AuthorizationServerMetadata,
+        rfc9207.AuthorizationServerMetadata,
+        rfc9449.AuthorizationServerMetadata,
+    ])
+    return md
+
+
+proof_validator = rfc9449.DPoPProofValidator(
+    algs=DPOP_ALGS,
+    nonce_generator=rfc9449.HMACDPoPNonceGenerator(
+        models.ENCRYPTED_PROPERTY_KEYS_BYTES[0],
+        max_age=int(DPOP_NONCE_MAX_AGE.total_seconds())),
+    replay_cache=MemcacheDPoPReplayCache())
+
+server = oauth_server.JsonAwareAuthorizationServer(
+    app,
+    # every ATProto client is a client ID metadata document client, which the
+    # ClientIdMetadataDocument extension resolves by wrapping this
+    query_client=lambda client_id: None,
+    # noop; our tokens are self-contained, not stored
+    save_token=lambda token, request: None)
+
+par_endpoint = PushedAuthorizationEndpoint(server)
+server.register_endpoint(par_endpoint)
+# ATProto requires PKCE, always, with S256
+server.register_grant(AuthorizationCodeGrant, [CodeChallenge(required=True)])
+server.register_grant(RefreshTokenGrant)
+server.register_extension(PushedAuthorizationRequest())
+# allow_loopback is whether to fetch client metadata documents from loopback
+# addresses, ie SSRF against ourselves. Unrelated to localhost dev clients, which
+# LocalhostClient handles without fetching anything.
+server.register_extension(ClientIdMetadataDocument(allow_loopback=DEBUG))
+server.register_extension(DPoP(proof_validator))
+server.register_extension(IssuerParameter())
+server.register_client_auth_method(JWTClientAuth.CLIENT_AUTH_METHOD, JWTClientAuth())
+
+
+class DPoPValidator(rfc9449.DPoPTokenValidator):
+    """Validates DPoP bound access tokens on XRPC requests."""
+    def authenticate_token(self, token_string):
+        if payload := decode_jwt(token_string, TOKEN_TYP):
+            return Token(payload)
+
+
+require_oauth = ResourceProtector()
+require_oauth.register_token_validator(DPoPValidator(proof_validator=proof_validator))
+
+
+def arroba_authenticate():
+    """Authenticates a request via OAuth. Used as :func:`arroba.server.authenticate`.
+
+    Requires the ``atproto`` scope. Callers in :mod:`arroba` check the rest of
+    the token's scopes against what they're doing, eg repo writes.
+
+    Errors are raised as werkzeug ``HTTPException``\\s with OAuth error bodies and
+    headers, eg ``WWW-Authenticate`` and ``DPoP-Nonce``, not XRPC errors, since
+    clients need those headers to retry.
+
+    Returns:
+      (str authenticated DID, list of str scopes) tuple:
+    """
+    with require_oauth.acquire('atproto') as token:
+        return token.did, token.scope.split()
+
+
+@arroba.server.server.method('com.atproto.server.getSession', override=True)
+def get_session(input):
+    """Handler for ``com.atproto.server.getSession``, backed by OAuth.
+
+    No ``email`` or ``emailConfirmed``; we don't have email addresses.
+    """
+    with require_oauth.acquire('atproto') as token:
+        return {
+            'did': token.did,
+            'handle': token.user_key.get().handle_as(ATProto),
+            'active': True,
+        }
+
+
+class Proxy(oauth_server.Proxy):
+    SERVER = server
+    AUTHORIZE_PATH = AUTHORIZE_PATH
+    PROTO = ATProto
+    # you can't log in with an ATProto account to use an ATProto account
+    HIDE_LOGINS = ('atmosphere',)
+
+    @classmethod
+    def describe_scopes(cls, scope):
+        return [description for s in supported_scopes(scope).split()
+                for description in permissions.describe(s)]
+
+    @classmethod
+    def check_user(cls, user, params):
+        if not (user := super().check_user(user, params)):
+            return None
+
+        # "If a login_hint was supplied, the Authorization Server should only
+        # allow the user to authenticate with that account."
+        # https://atproto.com/specs/oauth#authorization-interface
+        if hint := params.get('login_hint'):
+            if hint.lstrip('@') not in (user.get_copy(ATProto),
+                                        user.handle_as(ATProto)):
+                flash(f'This app asked you to log in as {hint}.')
+                return None
+
+        return user
+
+
+@app.after_request
+def mark_client_assertion_used(resp):
+    """Marks this request's ``private_key_jwt`` assertion used, if it succeeded.
+
+    Here and not in :meth:`JWTClientAuth.validate_jti` since DPoP lets clients
+    retry token requests with the same JWT if the server requires a nonce.
+    (See RFC 9449 section 8.)
+    """
+    if resp.status_code < 400 and (claims_jti := g.get('client_assertion')):
+        claims, jti = claims_jti
+        oauth_server.mark_used(claims['sub'], jti, claims['exp'])
+
+    return resp
+
+
+@app.after_request
+def add_dpop_nonce(resp):
+    """Hands out a fresh DPoP nonce on success, not just on errors.
+
+    authlib puts ``DPoP-Nonce`` on :class:`UseDPoPNonceError` responses, but
+    clients also need one from successful responses, so that their next request
+    doesn't have to be rejected first.
+    """
+    # some clients hardcode the reference PDS's paths; see app.py
+    path = request.path.rstrip('/')
+    if (path in (PAR_PATH, TOKEN_PATH)
+            or (path in ('/oauth/par', '/oauth/token') and atproto.is_pds_host())):
+        resp.headers.setdefault('DPoP-Nonce', proof_validator.nonce_generator.next())
+
+    return resp
+
+
+@app.post(PAR_PATH)
+@log_request_response
+def par():
+    """https://datatracker.ietf.org/doc/html/rfc9126"""
+    return server.create_endpoint_response(par_endpoint.ENDPOINT_NAME)
+
+
+@app.get(AUTHORIZE_PATH)
+@log_request_response
+def authorize():
+    # the backend login runs on fed.brid.gy, since that's where our OAuth clients'
+    # redirect URIs are. also helps that users' login cookies are there too.
+    if request.host not in domains.LOCAL_DOMAINS + (domains.PRIMARY_DOMAIN,):
+        # AUTHORIZE_PATH, not request.path; we're also served at /oauth/authorize
+        # on our PDS host, and that path is Mastodon's on PRIMARY_DOMAIN
+        return redirect(f'https://{domains.PRIMARY_DOMAIN}{AUTHORIZE_PATH}?{request.query_string.decode()}')
+
+    return Proxy.authorize_response()
+
+
+@app.post(AUTHORIZE_PATH)
+@log_request_response
+def authorize_consent():
+    """Handles the authorization consent prompt."""
+    return Proxy.consent_response(get_required_param('state'))
+
+
+@app.post(TOKEN_PATH)
+@log_request_response
+def token():
+    return server.create_token_response()
+
+
+#
+# proxy login backends: everything that can be bridged into ATProto
+#
+
+class ProxyIndieAuthStart(FlashErrors, indieauth.Start):
+    ON_ERROR_REDIRECT_TO = '/'
+
+
+class ProxyIndieAuthCallback(Proxy, FlashErrors, indieauth.Callback):
+    pass
+
+
+class ProxyMastodonStart(activitypub.MastodonStart):
+    ON_ERROR_REDIRECT_TO = '/'
+    DEFAULT_SCOPE = oauth_dropins.mastodon.Start.SCOPE_SEPARATOR.join(
+        oauth_dropins.mastodon.ALL_SCOPES)
+
+
+class ProxyMastodonCallback(Proxy, FlashErrors, oauth_dropins.mastodon.Callback):
+    pass
+
+
+class ProxyPixelfedStart(activitypub.PixelfedStart):
+    ON_ERROR_REDIRECT_TO = '/'
+    # as of 9/2026, Pixelfed doesn't support Mastodon's granular scopes, only
+    # the older coarse ones. not in any of their docs; determined from their code
+    DEFAULT_SCOPE = 'read write follow'
+
+
+class ProxyPixelfedCallback(Proxy, FlashErrors, oauth_dropins.pixelfed.Callback):
+    pass
+
+
+app.add_url_rule(
+    f'{AUTHORIZE_PATH}/indieauth/start',
+    view_func=ProxyIndieAuthStart.as_view(
+        'atproto_proxy_indieauth_start', f'{AUTHORIZE_PATH}/indieauth/finish'),
+    methods=['POST'])
+app.add_url_rule(
+    f'{AUTHORIZE_PATH}/indieauth/finish',
+    view_func=ProxyIndieAuthCallback.as_view(
+        'atproto_proxy_indieauth_finish', AUTHORIZE_PATH))
+
+app.add_url_rule(
+    f'{AUTHORIZE_PATH}/mastodon/start',
+    view_func=ProxyMastodonStart.as_view(
+        'atproto_proxy_mastodon_start', f'{AUTHORIZE_PATH}/mastodon/finish'),
+    methods=['POST'])
+app.add_url_rule(
+    f'{AUTHORIZE_PATH}/mastodon/finish',
+    view_func=ProxyMastodonCallback.as_view(
+        'atproto_proxy_mastodon_finish', AUTHORIZE_PATH))
+
+app.add_url_rule(
+    f'{AUTHORIZE_PATH}/pixelfed/start',
+    view_func=ProxyPixelfedStart.as_view(
+        'atproto_proxy_pixelfed_start', f'{AUTHORIZE_PATH}/pixelfed/finish'),
+    methods=['POST'])
+app.add_url_rule(
+    f'{AUTHORIZE_PATH}/pixelfed/finish',
+    view_func=ProxyPixelfedCallback.as_view(
+        'atproto_proxy_pixelfed_finish', AUTHORIZE_PATH))

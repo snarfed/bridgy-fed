@@ -51,6 +51,15 @@ class DomainsTest(TestCase):
         ]:
             self.assertEqual(expected, unwrap(input))
 
+    def test_unwrap_not_wrapped_url(self):
+        for input in (
+                'https://fed.brid.gy/docs#bluesky-get-started',
+                'https://fa.brid.gy/about',
+                'http://localhost/docs',
+        ):
+            self.assertEqual(input, unwrap(input))
+            self.assertEqual({'url': input}, unwrap({'url': input}))
+
     def test_unwrap_protocol_subdomain_object(self):
         self.assert_equals({'object': 'http://foo'},
                            unwrap({'object': 'https://ap.brid.gy/r/http://foo',}))

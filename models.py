@@ -10,6 +10,7 @@ import re
 from threading import Lock
 from urllib.parse import quote, urlparse
 import csv
+import html
 import io
 
 from arroba.util import parse_at_uri
@@ -63,6 +64,7 @@ from domains import (
     DOMAIN_RE,
     PRIMARY_DOMAIN,
     PROTOCOL_DOMAINS,
+    SUPERDOMAIN,
     unwrap,
 )
 import ids
@@ -122,8 +124,9 @@ IMAGE_PROXY_DOMAINS = ('threads.net',)
 
 # used by User.status_description. values are formatted with format(user=...)
 USER_STATUS_DESCRIPTIONS = {  # keep in sync with DM.type's docstring!
+    'external-id': 'account is already on other networks via its server',
     'moved': 'account has migrated to another account',
-    'no-feed-or-webmention': "web site doesn't have an RSS or Atom feed or webmention endpoint",
+    'no-feed-or-webmention': "web site doesn't have a feed (RSS, Atom, or h-feed) or webmention endpoint",
     'nobot': "profile has 'nobot' in it",
     'nobridge': "profile has 'nobridge' in it",
     'no-nip05': "account's NIP-05 identifier is missing or invalid",
@@ -192,7 +195,9 @@ class DM(ndb.Model):
     """Known values (keep in sync with USER_STATUS_DESCRIPTIONS, the subset for
     ineligible users):
 
+      * canonical-external-id
       * dms_not_supported-[RECIPIENT-USER-ID]
+      * external-id
       * moved
       * no-feed-or-webmention
       * no-nip05
@@ -281,7 +286,7 @@ def reset_protocol_properties():
     """Recreates various protocol properties to include choices from ``PROTOCOLS``."""
     abbrevs = f'({"|".join(PROTOCOLS.keys())}|fed)'
     domains.SUBDOMAIN_BASE_URL_RE = re.compile(
-        rf'^https?://({abbrevs}\.brid\.gy|localhost(:8080)?)/(convert/|r/)?({abbrevs}/)?(?P<path>.+)')
+        rf'^https?://({abbrevs}\.brid\.gy|localhost(:8080)?)/(?P<redirect>convert/|r/)?(?P<abbrev>{abbrevs}/)?(?P<path>.+)')
     ids.COPIES_PROTOCOLS = tuple(label for label, proto in PROTOCOLS.items()
                                  if proto and proto.HAS_COPIES)
 
@@ -481,6 +486,9 @@ class User(AddRemoveMixin, StringIdModel, metaclass=ProtocolUserMeta):
         """Try to prevent instantiation. Use subclasses instead."""
         raise NotImplementedError()
 
+    def _pre_put_hook(self):
+        assert self.LABEL not in self.enabled_protocols, f'{self.key} has its own protocol {self.LABEL} in enabled_protocols'
+
     def _post_put_hook(self, future):
         logger.debug(f'Wrote {self.key}')
 
@@ -505,8 +513,8 @@ class User(AddRemoveMixin, StringIdModel, metaclass=ProtocolUserMeta):
         return user
 
     @classmethod
-    def get_or_create(cls, id, propagate=False, allow_opt_out=False,
-                      reload=False, raise_=False, **kwargs):
+    def get_or_create(cls, id, propagate=False, enabled_protocols=(),
+                      allow_opt_out=False, reload=False, raise_=False, **kwargs):
         """Loads and returns a :class:`User`. Creates it if necessary.
 
         If ``allow_opt_out`` is False and ``id`` is the bridged id for a user in
@@ -520,6 +528,7 @@ class User(AddRemoveMixin, StringIdModel, metaclass=ProtocolUserMeta):
         Args:
           propagate (bool): whether to create copies of this user in push-based
             protocols, eg ATProto and Nostr.
+          enabled_protocols (tuple of str): labels of protocol to bridge this user to
           allow_opt_out (bool): whether to allow and create the user if they're
             currently opted out
           reload (bool): whether to reload profile always, vs only if necessary
@@ -541,6 +550,9 @@ class User(AddRemoveMixin, StringIdModel, metaclass=ProtocolUserMeta):
         # id = ids.normalize_user_id(id=id, proto=cls)
 
         user = cls.get_by_id(id, allow_opt_out=True)
+        new_protocols = set(enabled_protocols)
+        changed = False
+
         if user:  # existing
             if reload:
                 user.reload_profile(gateway=True, raise_=raise_)
@@ -550,7 +562,6 @@ class User(AddRemoveMixin, StringIdModel, metaclass=ProtocolUserMeta):
             user.existing = True
 
             # TODO: propagate more fields?
-            changed = False
             for field in ['obj', 'obj_key', 'manual_opt_out']:
                 old_val = getattr(user, field, None)
                 new_val = kwargs.get(field)
@@ -558,19 +569,7 @@ class User(AddRemoveMixin, StringIdModel, metaclass=ProtocolUserMeta):
                     setattr(user, field, new_val)
                     changed = True
 
-            if enabled_protocols := kwargs.get('enabled_protocols'):
-                user.enabled_protocols = (set(user.enabled_protocols)
-                                          | set(enabled_protocols))
-                changed = True
-
-            if not propagate:
-                if changed:
-                    try:
-                        user.put()
-                    except AssertionError as e:
-                        logger.debug(e)
-                        error(f'Bad {cls.__name__} id {id} : {e}')
-                return user
+            new_protocols -= set(user.enabled_protocols)
 
         else:  # new, not existing
             if not allow_opt_out and (orig_key := get_original_user_key(id)):
@@ -580,7 +579,7 @@ class User(AddRemoveMixin, StringIdModel, metaclass=ProtocolUserMeta):
                 orig.existing = False
                 return orig
 
-            user = cls(id=id, **kwargs)
+            user = cls(id=id, enabled_protocols=enabled_protocols, **kwargs)
             user.existing = False
             try:
                 user.reload_profile(gateway=True, raise_=raise_)
@@ -591,6 +590,28 @@ class User(AddRemoveMixin, StringIdModel, metaclass=ProtocolUserMeta):
             if user.status and not allow_opt_out:
                 return None
 
+        canonical = new_protocols and user.get_canonical_external_id()
+        for label in new_protocols:
+            if canonical:
+                logger.info(f'{id} has other canonical account {canonical}; not bridging to {label}')
+                user.remove('enabled_protocols', label)
+            elif external_id := user.get_external_id(PROTOCOLS[label]):
+                logger.info(f'{id} has external id {external_id} , not enabling {label}')
+                user.remove('enabled_protocols', label)
+            else:
+                user.add('enabled_protocols', label)
+                changed = True
+
+        if user.existing and not propagate:
+            if changed:
+                try:
+                    user.put()
+                except AssertionError as e:
+                    logger.debug(e)
+                    error(f'Bad {cls.__name__} id {id} : {e}')
+            return user
+
+        # create copy users in new protocols, if any
         if propagate and user.status in (None, 'private'):
             for label in user.enabled_protocols + list(user.DEFAULT_ENABLED_PROTOCOLS):
                 proto = PROTOCOLS[label]
@@ -658,7 +679,11 @@ class User(AddRemoveMixin, StringIdModel, metaclass=ProtocolUserMeta):
         Args:
           users (sequence of User)
         """
-        objs = ndb.get_multi(u.obj_key for u in users if u.obj_key)
+        keys = [u.obj_key for u in users if u.obj_key]
+        # disable cache on big lists of users because ndb writes each missed entity
+        # back to memcache, serially, which can take minutes with 10ks of users
+        # https://github.com/snarfed/bridgy-fed/issues/2154
+        objs = ndb.get_multi(keys, use_global_cache=(len(keys) < 1000))
         keys_to_objs = {o.key: o for o in objs if o}
 
         for u in users:
@@ -751,8 +776,14 @@ class User(AddRemoveMixin, StringIdModel, metaclass=ProtocolUserMeta):
 
         if self.REQUIRES_OLD_ACCOUNT:
             if published := self.obj.as1.get('published'):
-                if util.now() - util.parse_iso8601(published) < OLD_ACCOUNT_AGE:
-                    return 'requires-old-account'
+                try:
+                    published_dt = util.parse_iso8601(published)
+                    if not published_dt.tzinfo:
+                        published_dt = published_dt.replace(tzinfo=timezone.utc)
+                    if util.now() - published_dt < OLD_ACCOUNT_AGE:
+                        return 'requires-old-account'
+                except ValueError:  # from parse_iso8601
+                    logger.debug(f"Couldn't parse published {published}")
 
         # https://swicg.github.io/miscellany/#movedTo
         # https://docs.joinmastodon.org/spec/activitypub/#as
@@ -806,7 +837,8 @@ class User(AddRemoveMixin, StringIdModel, metaclass=ProtocolUserMeta):
         * The user is opted out or blocked.
         * The user is on a domain that's opted out or blocked.
         * The from protocol requires opt in, and the user hasn't opted in.
-        * ``explicit`` is True, and this protocol supports ``to_proto`` by, but the user hasn't explicitly opted into it.
+        * ``explicit`` is True, and this protocol supports ``to_proto`` by, but
+          the user hasn't explicitly opted into it.
 
         Args:
           to_proto (Protocol subclass)
@@ -860,6 +892,18 @@ class User(AddRemoveMixin, StringIdModel, metaclass=ProtocolUserMeta):
                 dms.maybe_send(from_=to_proto, to_user=self, type=self.status,
                                text=ineligible.format(desc=desc))
             common.error(f'Nope, user {self.key.id()} is {self.status}', status=299)
+
+        if external_id := self.get_external_id(to_proto):
+            dms.maybe_send(from_=to_proto, to_user=self, type='external-id',
+                           text=f"Hi! Your account can't be bridged to {to_proto.PHRASE} because it's already there as {html.escape(external_id)}.")
+            common.error(f'Nope, user {self.key.id()} is already on {to_proto.LABEL} as external id {external_id}', status=299)
+
+        if (to_proto.LABEL not in self.enabled_protocols
+                and (canonical := self.get_canonical_external_id())):
+            dms.maybe_send(from_=to_proto, to_user=self,
+                           type='canonical-external-id',
+                           text=f"Hi! Your account can't be bridged to {to_proto.PHRASE} because it's a copy of {html.escape(canonical)}. Bridge that account instead!")
+            common.error(f'Nope, user {self.key.id()} is a copy of canonical external id {canonical}', status=299)
 
         # check that our handle is supported in this protocol
         err = handle = None
@@ -1114,13 +1158,15 @@ class User(AddRemoveMixin, StringIdModel, metaclass=ProtocolUserMeta):
             return False
 
         url = url.strip().rstrip('/')
-        url = re.sub(r'^(https?://)www\.', r'\1', url)
+        this = self.web_url().rstrip('/')
+        if ignore_www:
+            url = re.sub(r'^(https?://)www\.', r'\1', url)
+            this = re.sub(r'^(https?://)www\.', r'\1', this)
+
         parsed_url = urlparse(url)
         if parsed_url.scheme not in ('http', 'https', ''):
             return False
 
-        this = self.web_url().rstrip('/')
-        this = re.sub(r'^(https?://)www\.', r'\1', this)
         parsed_this = urlparse(this)
 
         return (url == this or url == parsed_this.netloc or
@@ -1218,6 +1264,70 @@ class User(AddRemoveMixin, StringIdModel, metaclass=ProtocolUserMeta):
 
         return path
 
+    def get_canonical_external_id(self):
+        """Returns the canonical version of this user elsewhere, if any.
+
+        For example, if this user is another bridge's proxy for an account on a
+        different network. Unlike :meth:`get_external_id`, this is independent of
+        any specific protocol, and may be on a protocol that we don't support.
+
+        A canonical link to this user itself, one of its copies, or anything else
+        on our domains doesn't count.
+
+        Returns:
+          str: URI of the canonical copy, or None
+        """
+        if not self.obj or not (obj_as1 := self.obj.as1):
+            return None
+
+        ours = self.copies + [Target(uri=self.key.id(), protocol=self.LABEL)]
+        for link in as1.get_rel_links(obj_as1, rels=('canonical',)):
+            uri = link['value']
+            if util.domain_or_parent_in(uri, [SUPERDOMAIN]):
+                continue
+            if not any(ids.normalize_user_id(id=uri, proto=PROTOCOLS[t.protocol]) == t.uri
+                       for t in ours):
+                return uri
+
+    def get_external_id(self, to_proto):
+        """Returns this user's copy in a given protocol that we don't manage, if any.
+
+        For example, if this user is bridged by another bridge, or they're on a
+        multi-protocol server.
+
+        ...or None if this user's profile doesn't link to one. Copies may come from
+        another bridge or a multi-protocol server, eg
+        `FEP-fffd proxy links <https://codeberg.org/fediverse/fep/src/branch/main/fep/fffd/fep-fffd.md>`_ .
+
+        Args:
+          to_proto (:class:`Protocol` subclass)
+
+        Links on our domains don't count.
+
+        Returns:
+          str: id of the copy, normalized with :func:`ids.normalize_user_id`, or
+            None if this user's profile doesn't show that they're on ``to_proto``,
+            or if we're already bridging them there
+        """
+        # if we're bridging them, ie they've opted in and don't have a status
+        ours = self.get_copy(to_proto)
+        if (to_proto.LABEL in self.enabled_protocols and not self.status
+                and (ours or not to_proto.HAS_COPIES)):
+            return None
+
+        if not self.obj or not (obj_as1 := self.obj.as1):
+            return None
+
+        for link in as1.get_rel_links(obj_as1,
+                                      url_prefixes=to_proto.URI_PREFIXES,
+                                      mime_types=to_proto.MIME_TYPES):
+            uri = link['value']
+            if util.domain_or_parent_in(uri, [SUPERDOMAIN]):
+                continue
+            normalized = ids.normalize_user_id(id=uri, proto=to_proto)
+            if normalized and normalized != ours:
+                return normalized
+
     def get_copy(self, proto):
         """Returns the id for the copy of this user in a given protocol.
 
@@ -1277,8 +1387,8 @@ class User(AddRemoveMixin, StringIdModel, metaclass=ProtocolUserMeta):
                 logo_html = f'<img class="logo" title="{proto.__name__}" src="{logo}" /> '
             else:
                 logo_html = f'<span class="logo" title="{proto.__name__}">{proto.LOGO_HTML or proto.LOGO_EMOJI}</span> '
-            if pic := self.profile_picture():
-                img = f'<img src="{pic}" class="profile"> '
+            if (pic := self.profile_picture()) and util.is_web(pic):
+                img = f'<img src="{html.escape(pic)}" class="profile"> '
 
         if handle:
             full_handle = self.handle_as(proto) or ''
@@ -1292,11 +1402,11 @@ class User(AddRemoveMixin, StringIdModel, metaclass=ProtocolUserMeta):
             dot = ' &middot; '
 
         if url:
-            a_open = f'<a class="h-card u-author mention" rel="me" href="{url}" title="{name_str}{dot}{full_handle}">'
+            a_open = f'<a class="h-card u-author mention" rel="me" href="{html.escape(url)}" title="{html.escape(name_str)}{dot}{html.escape(full_handle)}">'
             a_close = '</a>'
 
-        name_html = f'<span style="unicode-bidi: isolate">{ellipsize(name_str, chars=40)}</span>' if name_str else ''
-        return f'{logo_html}{a_open}{img}{name_html}{dot}{handle_str}{a_close}'
+        name_html = f'<span style="unicode-bidi: isolate">{html.escape(ellipsize(name_str, chars=40), quote=False)}</span>' if name_str else ''
+        return f'{logo_html}{a_open}{img}{name_html}{dot}{html.escape(handle_str, quote=False)}{a_close}'
 
     def profile_picture(self):
         """Returns the user's profile picture image URL, if available, or None."""
@@ -1452,9 +1562,8 @@ class Object(AddRemoveMixin, StringIdModel):
     is_csv = ndb.BooleanProperty()
     "Whether this object is a CSV. Needed because :attr:`csv` isn't indexed."
 
-    # TODO: remove and actually delete Objects instead!
     deleted = ndb.BooleanProperty()
-    ''
+    'True if this object has been deleted. Needed so that we can process deleted objects and send delete activities for them in send tasks, which load the object to get its targets, and may retry, etc.'
 
     copies = ndb.StructuredProperty(Target, repeated=True)
     """Copies of this object elsewhere, eg at:// URIs for ATProto records and
@@ -1508,6 +1617,13 @@ class Object(AddRemoveMixin, StringIdModel):
 
     @property
     def as1(self):
+        """This object's AS1, converted from whichever protocol data we have.
+
+        *WARNING*: this is expensive! And not cached.
+
+        Returns:
+          dict: AS1 object, or None if we have no data to convert
+        """
         from protocol import Protocol
 
         def use_urls_as_ids(obj):
@@ -1533,11 +1649,19 @@ class Object(AddRemoveMixin, StringIdModel):
             owner, _, _ = parse_at_uri(self.key.id())
             ATProto = PROTOCOLS['atproto']
             handle = ATProto(id=owner).handle
+
             try:
                 obj = bluesky.to_as1(self.bsky, repo_did=owner, repo_handle=handle,
-                                     uri=self.key.id(), pds=ATProto.pds_for(self))
+                                     uri=self.key.id(), pds=ATProto.pds_for(self),
+                                     # WARNING: keep this None! Object.as1 is high
+                                     # volume. passing a real DatastoreClient triggers
+                                     # a ton of datastore lookups and remote fetches
+                                     client=None)
             except (ValueError, RequestException):
                 logger.info(f"Couldn't convert to AS1", exc_info=True)
+                return None
+
+            if not obj:
                 return None
 
         elif self.mf2:
@@ -1564,14 +1688,17 @@ class Object(AddRemoveMixin, StringIdModel):
 
         elif self.farcaster:
             msgs = [Message.FromString(b) for b in self.farcaster]
+            client = PROTOCOLS['farcaster'].client()
             # a single USER_DATA_ADD message is still profile data, not a cast
             # or other object, so it needs the MessagesResponse wrapper too
             if (len(msgs) > 1
                 or granary.farcaster.deserialize(msgs[0]).type
                     == MESSAGE_TYPE_USER_DATA_ADD):
-                obj = granary.farcaster.to_as1(MessagesResponse(messages=msgs))
+                obj = granary.farcaster.to_as1(MessagesResponse(messages=msgs),
+                                               client=client)
             else:
-                obj = granary.farcaster.to_as1(msgs[0])
+                # client fetches @-mentioned users' usernames
+                obj = granary.farcaster.to_as1(msgs[0], client=client)
 
         else:
             return None
@@ -1584,14 +1711,42 @@ class Object(AddRemoveMixin, StringIdModel):
            as1.prefix_urls(obj, 'image', IMAGE_PROXY_URL_BASE)
 
         if self.extra_as1:
+            # merge in extra urls below, eg profile links, instead of overwriting
+            urls = util.get_list(obj, 'urls') or util.get_list(obj, 'url')
+
+            context = util.get_list(obj, '@context')
             obj.update(self.extra_as1)
+            if context:
+                for val in util.get_list(self.extra_as1, '@context'):
+                    util.add(context, val)
+                obj['@context'] = context
+
+            if extra_urls := util.get_list(self.extra_as1, 'urls'):
+                obj['urls'] = as1.merge_urls(urls, extra_urls)
 
         return obj
 
     @ndb.ComputedProperty
     def type(self):  # AS1 objectType, or verb if it's an activity
-        if self.as1:
-            return as1.object_type(self.as1)
+        if self_as1 := self.as1:
+            return as1.object_type(self_as1)
+
+    def _in_reply_to(self):
+        """Keys of the :class:`Object`\\s this object is in reply to.
+
+        They may or may not exist in the datastore. Their ids should already be
+        resolved to their original protocol and normalized; :meth:`resolve_ids`
+        and :meth:`normalize_ids` do that, in place, before we're put.
+
+        Only this object's own ``inReplyTo``, not any inner object's, eg a share
+        of a reply isn't itself a reply.
+        """
+        if not (self_as1 := self.as1):
+            return []
+
+        return [ndb.Key(Object, id) for id in as1.get_ids(self.as1, 'inReplyTo')]
+
+    in_reply_to = ndb.ComputedProperty(_in_reply_to, repeated=True)
 
     def _expire(self):
         """Automatically delete most Objects after a while using a TTL policy.
@@ -1634,6 +1789,11 @@ class Object(AddRemoveMixin, StringIdModel):
                for val in util.get_list(self.as2, field):
                    if isinstance(val, dict):
                        val.pop('@context', None)
+
+        # internal objects are authored by a user on another protocol, so we need
+        # their key to know which
+        if self.source_protocol == 'ui':
+            assert self.users, f'internal object {self.key.id()} has no users'
 
         def check_id(id, proto):
             if proto in (None, 'ui'):
@@ -1786,9 +1946,30 @@ class Object(AddRemoveMixin, StringIdModel):
             obj.put()
         return obj
 
+    def id_as(self, to_proto):
+        """Returns this object's id in a different protocol.
+
+        Args:
+          to_proto (str or Protocol)
+
+        Returns:
+          str
+        """
+        if isinstance(to_proto, str):
+            to_proto = PROTOCOLS[to_proto]
+
+        from_ = PROTOCOLS.get(self.source_protocol)
+        assert from_, f'{self.key.id()} has no source_protocol'
+        return ids.translate_object_id(id=self.key.id(), from_=from_, to=to_proto,
+                                       owner=self.owner_protocol())
+
     @staticmethod
     def from_request():
         """Creates and returns an :class:`Object` from form-encoded JSON parameters.
+
+        Note that this reads the `users` param, one or more URL-safe ndb keys of
+        users to populate into :attr:`Object.users`, but :meth:`Object.to_request`
+        *doesn't* populate `users`!
 
         Parameters:
           obj_id (str): id of :class:`models.Object` to handle
@@ -1809,6 +1990,9 @@ class Object(AddRemoveMixin, StringIdModel):
             props['farcaster'] = [text_format.Parse(v, Message()).SerializeToString()
                                   for v in val]
 
+        if val := request.form.getlist('users'):
+            props['users'] = [ndb.Key(urlsafe=v) for v in val]
+
         obj = Object(**props)
         if not obj.key and obj.as1:
             if id := obj.as1.get('id'):
@@ -1817,7 +2001,11 @@ class Object(AddRemoveMixin, StringIdModel):
         return obj
 
     def to_request(self):
-        """Returns a query parameter dict representing this :class:`Object`."""
+        """Returns a query parameter dict representing this :class:`Object`.
+
+        Note that this doesn't populate :attr:`Object.users` into a `users` param,
+        but :meth:`Object.from_request` does read it.
+        """
         form = {}
 
         for json_prop in 'as2', 'bsky', 'mf2', 'nostr', 'our_as1', 'raw':
@@ -1890,12 +2078,16 @@ class Object(AddRemoveMixin, StringIdModel):
         if not actor:
             return ''
         elif set(actor.keys()) == {'id'}:
+            if not util.is_web(actor['id']):
+                return html.escape(actor['id'], quote=False)
             return common.pretty_link(actor['id'], attrs=attrs, user=user)
 
         url = as1.get_url(actor)
+        if not util.is_web(url):
+            url = ''
         name = actor.get('displayName') or actor.get('username') or ''
         img_url = util.get_url(actor, 'image')
-        if not image or not img_url:
+        if not image or not util.is_web(img_url):
             return common.pretty_link(url, text=name, attrs=attrs, user=user)
 
         logo = ''
@@ -1904,10 +2096,109 @@ class Object(AddRemoveMixin, StringIdModel):
 
         return f"""\
         {logo}
-        <a class="h-card u-author" href="{url}" title="{name}">
-          <img class="profile" src="{img_url}" {'width="32"' if sized else ''}/>
-          <span style="unicode-bidi: isolate">{util.ellipsize(name, chars=40)}</span>
+        <a class="h-card u-author" href="{html.escape(url)}" title="{html.escape(name)}">
+          <img class="profile" src="{html.escape(img_url)}" {'width="32"' if sized else ''}/>
+          <span style="unicode-bidi: isolate">{html.escape(util.ellipsize(name, chars=40), quote=False)}</span>
         </a>"""
+
+    def get_external_id(self, to_proto, remote=None):
+        """Returns this object's copy in a given protocol that we don't manage, if any.
+
+        For example, if this object was bridged by another bridge, or published by a
+        multi-protocol server, eg with
+        `FEP-fffd proxy links <https://codeberg.org/fediverse/fep/src/branch/main/fep/fffd/fep-fffd.md>`_ .
+
+        If ``to_proto`` doesn't use copies, eg ActivityPub or Web, this can't tell
+        whether we've bridged this object there. Callers need to check that
+        themselves, eg whether its owner is enabled for ``to_proto``.
+
+        Links on our domains don't count, and neither do objects on our domains, eg
+        blog redirects under :const:`ids.INTERNAL_PATH_PREFIX`. Proxy links are
+        unverified, so we only trust them if the linked object's owner on
+        ``to_proto`` is this object's author, from either side: this object's author
+        links to the owner, or the owner links back to the author, both via
+        :meth:`User.get_external_id`. If this object is its author's profile, the
+        linked object must be that account itself. Web authors also own anything on
+        their own domain, eg from the WordPress ActivityPub plugin.
+
+        Args:
+          to_proto (:class:`Protocol` subclass)
+          remote (bool): passed through to :meth:`Protocol.load` when loading the
+            linked object, and the author's and owner's profiles if they're not
+            stored users
+
+        Returns:
+          str: id of the copy, normalized with :func:`ids.normalize_object_id`,
+            or :func:`ids.normalize_user_id` for profiles, or
+            None if this object doesn't link to one, or if it's native to
+            ``to_proto`` or we have a copy of it there
+
+        """
+        if (self.get_copy(to_proto) or not (obj_as1 := self.as1)
+                or util.domain_or_parent_in(self.key.id(), [SUPERDOMAIN])):
+            return None
+
+        def load_user(proto, id):
+            # stored user, or unsaved user with their profile, just to check their
+            # proxy links
+            if user := proto.get_by_id(id, allow_opt_out=True):
+                return user
+            profile_id = ids.profile_id(id=id, proto=proto)
+            profile = proto.load(profile_id, remote=remote, raise_=False)
+            return proto(id=id, obj=profile) if profile else proto(id=id)
+
+        author_id = author_proto = is_profile = None
+        author_external_id = False  # not loaded yet
+
+        for link in as1.get_rel_links(obj_as1, url_prefixes=to_proto.URI_PREFIXES,
+                                      mime_types=to_proto.MIME_TYPES):
+            uri = link['value']
+            if util.domain_or_parent_in(uri, [SUPERDOMAIN]):
+                continue
+
+            if author_external_id is False:
+                if not ((author_id := as1.get_owner(obj_as1))
+                        and (author_proto := self.owner_protocol(remote=False))):
+                    common.report_error(
+                        'Ignoring external id, no author',
+                        user=f'{self.key.id()} external id {uri} on {to_proto.LABEL}')
+                    return None
+                author = load_user(author_proto, author_id)
+                author_external_id = author.get_external_id(to_proto)
+                is_profile = author.is_profile(self)
+
+            normalize = ids.normalize_user_id if is_profile else ids.normalize_object_id
+            if not (normalized := normalize(id=uri, proto=to_proto)):
+                continue
+
+            # web users own their domain, so they own everything on it
+            if (author_proto.LABEL == 'web'
+                    and util.domain_from_link(normalized) == util.domain_from_link(author_id)):
+                return normalized
+
+            if is_profile:
+                # the external object is the author's account itself
+                owner = normalized
+            else:
+                owner = None
+                external_obj = to_proto.load(normalized, remote=remote, raise_=False)
+                if external_obj and (owner_id := as1.get_owner(external_obj.as1)):
+                    owner = ids.normalize_user_id(id=owner_id, proto=to_proto)
+
+            # check that the external object's owner is this object's author, from
+            # either side: the author links to the owner, or the owner links back
+            if owner:
+                if owner == author_external_id:
+                    return normalized
+
+                user_id = load_user(to_proto, owner).get_external_id(author_proto)
+                author_id = ids.normalize_user_id(id=author_id, proto=author_proto)
+                if user_id == author_id:
+                    return normalized
+
+            common.report_error(
+                'Ignoring external id, not owned by author',
+                user=f'{self.key.id()} external id {normalized} on {to_proto.LABEL}, author {author_id} external id {author_external_id} owner {owner}')
 
     def get_copy(self, proto):
         """Returns the id for the copy of this object in a given protocol.
@@ -1923,6 +2214,13 @@ class Object(AddRemoveMixin, StringIdModel):
         This would help with or fix:
         https://console.cloud.google.com/errors/detail/COK22a6w4O2JVg;locations=global;time=P30D?project=bridgy-federated
 
+        ...or for articles, when we're processing eg a repost or quote post, we
+        generally want the app.bsky.feed.post instead of the site.standard.document.
+
+        TODO: for ATProto, let callers choose which lexicon family's copy they
+        want, eg ``so.sprk.feed.post`` instead of ``app.bsky.feed.post`` for the
+        subject of a Spark reply, like, or repost.
+
         Args:
           proto (str or :class:`Protocol` subclass)
 
@@ -1936,10 +2234,14 @@ class Object(AddRemoveMixin, StringIdModel):
         if not copies:
             return None
 
-        # for ATProto, prefer ids from types in granary.bluesky.FROM_AS1_TYPES order,
-        # eg for article, site.standard.document over app.bsky.feed.post
+        # for ATProto, prefer app.bsky.feed.post, since callers generally use this
+        # for replies, quotes, reposts, etc, then ids from types in
+        # granary.bluesky.FROM_AS1_TYPES order, eg for actors,
+        # app.bsky.actor.profile over site.standard.publication
+        # https://github.com/snarfed/bridgy-fed/issues/2775
         if proto == 'atproto':
-            for type in bluesky.FROM_AS1_TYPES.get(self.type, []):
+            for type in (('app.bsky.feed.post',)
+                         + tuple(bluesky.FROM_AS1_TYPES.get(self.type, ()))):
                 for copy in copies:
                     _, coll, _ = parse_at_uri(copy)
                     if type == coll:
@@ -1966,7 +2268,7 @@ class Object(AddRemoveMixin, StringIdModel):
 
         return [copy.uri for copy in self.copies if copy.protocol == proto]
 
-    def resolve_ids(self):
+    def resolve_ids(self, remote=False):
         """Replaces "copy" ids, subdomain ids, etc with their originals.
 
         The end result is that all ids are original "source" ids, ie in the
@@ -1982,17 +2284,20 @@ class Object(AddRemoveMixin, StringIdModel):
           ``https://bsky.brid.gy/ap/did:plc:xyz`` => ``did:plc:xyz``
         * ATProto bsky.app URLs to their DIDs or `at://` URIs, eg
           ``https://bsky.app/profile/a.com`` => ``did:plc:123``
+        * if ``remote`` is True, user-facing URLs to the canonical ids of what
+          they point at, with :meth:`protocol.Protocol.resolve_user_id` and
+          :meth:`protocol.Protocol.resolve_object_id`, eg
+          ``https://mas.to/@user/456`` =>
+          ``https://mas.to/users/user/statuses/456``
 
-        ...in these AS1 fields, in place:
+        ...in these AS1 fields, in place, on both this object and its inner
+        ``object``\\ s:
 
         * ``id``
         * ``actor``
         * ``author``
+        * ``inReplyTo``
         * ``object``
-        * ``object.actor``
-        * ``object.author``
-        * ``object.id``
-        * ``object.inReplyTo``
         * ``attachments.[objectType=note].id``
         * ``tags.[objectType=mention].url``
 
@@ -2000,69 +2305,132 @@ class Object(AddRemoveMixin, StringIdModel):
         Much of the same logic is duplicated there!
 
         TODO: unify with :meth:`normalize_ids`, :meth:`Object.normalize_ids`.
+
+        Args:
+          remote (bool): whether to resolve ids over the network. Off by default
+            since we're called from :meth:`protocol.Protocol.load`, which would
+            otherwise recurse up the whole reply chain. Never resolves ``actor``
+            or ``author``; :meth:`protocol.Protocol.receive` has already
+            authenticated those by the time it calls us.
         """
+        from protocol import Protocol
+
         if not self.as1:
             return
 
+        logger.debug(f'Resolving ids for {self.key.id()}')
+
         # extract ids, strip Bridgy Fed subdomain URLs
         outer_obj = unwrap(self.as1)
-        if outer_obj != self.as1:
-            self.our_as1 = util.trim_nulls(outer_obj)
-
+        inner_objs = as1.get_objects(outer_obj)
+        replaced = outer_obj != self.as1
         self_proto = PROTOCOLS.get(self.source_protocol)
-        if not self_proto:
-            return
 
-        logger.debug(f'Resolving ids for {self.key.id()}')
-        inner_obj = outer_obj['object'] = as1.get_object(outer_obj)
-        replaced = False
+        def original_id(id, kind):
+            """Returns the original id for a copy id, or None if there isn't one."""
+            if not self_proto or not self_proto.HAS_COPIES:
+                return None
 
-        def replace(val, orig_fn):
+            if kind is ids.IdType.USER and (orig := get_original_user_key(id)):
+                return orig.id()
+            elif kind is ids.IdType.OBJECT and (orig := get_original_object_key(id)):
+                return orig.id()
+
+        def resolved_id(id, kind):
+            """Returns the canonical id for a user-facing URL, or None."""
+            if Object.get_by_id(id):
+                # we already have this id, so it's canonical
+                return None
+
+            if proto := Protocol.for_id(id):
+                fn = (proto.resolve_user_id if kind is ids.IdType.USER
+                      else proto.resolve_object_id)
+                if (resolved := fn(id)) != id:
+                    return resolved
+
+        def replace(val, kind, remote=False):
+            """Replaces ``val``'s id with its original, if it has one.
+
+            Args:
+              val (str or dict): id or AS1 object
+              kind (ids.IdType or None)
+              remote (bool): whether to also resolve over the network
+            """
             id = val.get('id') if isinstance(val, dict) else val
-            if not id or not self_proto.HAS_COPIES:
-                return id
+            if not id:
+                return val
 
-            orig = orig_fn(id)
-            if not orig:
+            # if we can't tell which kind of id this is, try both. copy lookups
+            # are local, so trying both is cheap; resolving is a network fetch,
+            # so only do that once, for the more likely kind.
+            kinds = [kind] if kind else [ids.IdType.OBJECT, ids.IdType.USER]
+
+            new_id = None
+            for k in kinds:
+                if new_id := original_id(id, k):
+                    break
+            if not new_id and remote:
+                new_id = resolved_id(id, kinds[0])
+
+            if not new_id:
                 return val
 
             nonlocal replaced
             replaced = True
-            logger.debug(f'Resolved copy id {val} to original {orig.id()}')
+            logger.debug(f'Resolved id {id} to {new_id}')
 
             if isinstance(val, dict) and util.trim_nulls(val).keys() > {'id'}:
-                val['id'] = orig.id()
+                val['id'] = new_id
                 return val
-            else:
-                return orig.id()
+
+            return new_id
 
         # actually replace ids
-        #
-        # object field could be either object (eg repost) or actor (eg follow)
-        # TODO: handle better
-        # https://github.com/snarfed/bridgy-fed/issues/2281
-        outer_obj['object'] = replace(inner_obj, get_original_object_key)
-        if not replaced:
-            outer_obj['object'] = replace(inner_obj, get_original_user_key)
-
-        for obj in outer_obj, inner_obj:
+        for obj in [outer_obj] + inner_objs:
             for tag in as1.get_objects(obj, 'tags'):
                 if tag.get('objectType') == 'mention':
-                    tag['url'] = replace(tag.get('url'), get_original_user_key)
+                    tag['url'] = replace(tag.get('url'), ids.IdType.USER,
+                                         remote=remote)
             for att in as1.get_objects(obj, 'attachments'):
                 if att.get('objectType') == 'note':
-                    att['id'] = replace(att.get('id'), get_original_object_key)
-            for field, fn in (
-                    ('actor', get_original_user_key),
-                    ('author', get_original_user_key),
-                    ('inReplyTo', get_original_object_key),
-                ):
-                obj[field] = [replace(val, fn) for val in util.get_list(obj, field)]
+                    att['id'] = replace(att.get('id'), ids.IdType.OBJECT,
+                                        remote=remote)
+            # we never resolve actor or author remotely; receive has already
+            # authenticated them by the time it calls us
+            for field, kind, field_remote in (('actor', ids.IdType.USER, False),
+                                              ('author', ids.IdType.USER, False),
+                                              ('inReplyTo', ids.IdType.OBJECT, remote)):
+                obj[field] = [replace(val, kind, remote=field_remote)
+                              for val in util.get_list(obj, field)]
                 if len(obj[field]) == 1:
                     obj[field] = obj[field][0]
 
+        # an object may be either an object (eg repost) or a user (eg follow).
+        # ask the id itself which it is, and if it can't say, go by the verb.
+        # a block's object may be either, eg a blocklist, so leave it unknown.
+        #
+        # a create/update/delete's object is our own content, not a reference to
+        # someone else's, so never resolve it remotely.
+        outer_type = as1.object_type(outer_obj)
+        object_remote = remote and outer_type not in as1.CRUD_VERBS
+        if outer_type == 'block':
+            default_kind = None
+        elif outer_type in as1.VERBS_WITH_ACTOR_OBJECT:
+            default_kind = ids.IdType.USER
+        else:
+            default_kind = ids.IdType.OBJECT
+
+        objects = []
+        for inner_obj in inner_objs:
+            inner_id = inner_obj.get('id')
+            kind = self_proto.id_type(inner_id) if self_proto and inner_id else None
+            objects.append(replace(inner_obj, kind or default_kind,
+                                   remote=object_remote))
+
+        outer_obj['object'] = objects[0] if len(objects) == 1 else objects
+
         if replaced:
-            self.our_as1 = util.trim_nulls(outer_obj)
+            self.our_as1 = as1.trim_nulls(outer_obj)
 
     def normalize_ids(self):
         """Normalizes ids to their protocol's canonical representation, if any.
@@ -2120,10 +2488,15 @@ class Object(AddRemoveMixin, StringIdModel):
                     obj[field] = obj[field][0]
 
         outer_obj['object'] = []
+        outer_type = as1.object_type(outer_obj)
         for inner_obj in inner_objs:
-            translate_fn = ids.translate_object_id
-            if as1.object_type(outer_obj) in as1.VERBS_WITH_ACTOR_OBJECT:
+            if outer_type == 'block':
+                # a block's object may be a user or an object, eg a blocklist
+                translate_fn = ids.translate_id
+            elif outer_type in as1.VERBS_WITH_ACTOR_OBJECT:
                 translate_fn = ids.translate_user_id
+            else:
+                translate_fn = ids.translate_object_id
             got = replace(inner_obj, translate_fn)
             if isinstance(got, dict) and util.trim_nulls(got).keys() == {'id'}:
                 got = got['id']
@@ -2134,22 +2507,33 @@ class Object(AddRemoveMixin, StringIdModel):
             outer_obj['object'] = outer_obj['object'][0]
 
         if replaced:
-            self.our_as1 = util.trim_nulls(outer_obj)
+            self.our_as1 = as1.trim_nulls(outer_obj)
 
-    def owner_protocol(self):
+    def owner_protocol(self, remote=True):
         """Wrapper around :attr:`source_protocol` that handles :class:`UIProtocol`.
+
+        Args:
+          remote (bool): passed through to :meth:`protocol.Protocol.for_id`
 
         Returns:
           Protocol subclass: :attr:`source_protocol` *unless* it's None or
-            :class:`UIProtocol`, in which case infers and returns ``author``'s or
-            ``actor``'s protocol instead.
+            :class:`UIProtocol`, in which case returns the protocol of the first
+            :attr:`users` key, or if there are none, infers and returns
+            ``author``'s or ``actor``'s protocol instead.
         """
         from protocol import Protocol
+        from ui import UIProtocol
 
-        if self.source_protocol in (None, 'ui'):
-            return Protocol.for_id(as1.get_owner(self.as1))
+        if self.source_protocol not in (None, 'ui'):
+            proto = PROTOCOLS.get(self.source_protocol)
+        elif self.users:
+            proto = PROTOCOLS_BY_KIND[self.users[0].kind()]
+        else:
+            proto = Protocol.for_id(as1.get_owner(self.as1), remote=remote)
 
-        return PROTOCOLS.get(self.source_protocol)
+        # internal objects' authors are always on a real protocol
+        assert proto != UIProtocol, self.key
+        return proto
 
     @cached_property
     def domain_blocklist(self):
@@ -2518,6 +2902,19 @@ def hydrate(activity, fields=('author', 'actor', 'object')):
             # determine Protocol for every id, which is expensive.
             #
             # same TODO is in models.fetch_objects
+            #
+            # note that Protocol.id_type (#2281) doesn't help here: it says
+            # whether an id is a user or an object, but only once you already
+            # know which protocol owns it, which is the expensive part.
+            #
+            # TODO: bug: only ATProto is handled here, so ids in user id form
+            # whose profile object id differs - eg Web bare domains, user.com vs
+            # https://user.com/ - don't hydrate. fix by finding the protocol
+            # that definitively owns the id, ie owns_id is True (in memory, and
+            # unambiguous for exactly these ids; ambiguous http(s) ids are
+            # ActivityPub, where profile_id is identity), then using
+            # ids.profile_id. skip Nostr, whose profile_id does a datastore get,
+            # which would break batching here.
             id = val['id']
             if id.startswith('did:'):
                 id = f'at://{id}/app.bsky.actor.profile/self'
@@ -2527,6 +2924,83 @@ def hydrate(activity, fields=('author', 'actor', 'object')):
             futures.append(future)
 
     return futures
+
+
+def filter_for_proto(objs, to_proto, raise_=False):
+    """Filters out objects that shouldn't be visible in a given protocol.
+
+    An object may be visible if it's public, not deleted, its owner has ``to_proto``
+    enabled, and if ``to_proto`` uses copies, it has a copy.
+
+    Also, reposts and replies are only visible in a given protocol if the original
+    post they're reposting or replying to is also visible there.
+
+    Args:
+      objs (sequence of Object)
+      to_proto (Protocol subclass)
+      raise_ (bool): if True, raise on the first object that isn't bridged
+        instead of filtering it out
+
+    Returns:
+      list of Object: the elements of ``objs`` that are bridged to ``to_proto``
+
+    Raises:
+      werkzeug.exceptions.HTTPException: if ``raise_`` is True and one of ``objs``
+        isn't bridged
+    """
+    # load original objects for reposts, replies
+    target_keys = [[ndb.Key(Object, id) for id in as1.get_ids(obj.as1, 'object')]
+                   if obj.type == 'share' else obj.in_reply_to
+                   for obj in objs]
+    keys = list(set(itertools.chain(*target_keys)))
+    # maps target Object key to Object
+    targets = {t.key: t for t in ndb.get_multi(keys) if t and t.as1}
+
+    # load owners
+    owner_keys = {}  # maps Object key to owner User key
+    for obj in itertools.chain(objs, targets.values()):
+        if ((owner := as1.get_owner(obj.as1))
+                and (proto := obj.owner_protocol(remote=False))):
+            owner_keys[obj.key] = proto(id=owner).key
+
+    keys = list(set(owner_keys.values()))
+    # maps owner User key to User
+    owners = dict(zip(keys, ndb.get_multi(keys)))
+    for key, owner in list(owners.items()):
+        if owner and owner.use_instead:
+            owners[key] = owner.use_instead.get()
+
+    # filter!
+    visible = []
+    for obj, keys in zip(objs, target_keys):
+        for o in [obj] + [targets[key] for key in keys if key in targets]:
+            if o is not obj and o.owner_protocol(remote=False) == to_proto:
+                continue
+
+            id = o.key.id()
+            owner_key = owner_keys.get(o.key)
+            owner = owners.get(owner_key)
+            status = 404
+            if o.deleted or o.type == 'delete':
+                msg = 'Deleted'
+                status = 410
+            elif not as1.is_public(o.as1, unlisted=False):
+                msg = 'Not found'
+            elif to_proto.HAS_COPIES and not o.get_copy(to_proto):
+                msg = f"{id} hasn't been bridged to {to_proto.LABEL}"
+            elif owner_key and (not owner or owner.status
+                                or not owner.is_enabled(to_proto)):
+                msg = f"{id} owner {owner_key.id()} not found or isn't bridged to {to_proto.LABEL}"
+            else:
+                continue
+
+            if raise_:
+                error(msg, status=status)
+            break
+        else:
+            visible.append(obj)
+
+    return visible
 
 
 def fetch_page(query, model_class, by=None, max_age=None):
@@ -2609,7 +3083,7 @@ def fetch_page(query, model_class, by=None, max_age=None):
 
 
 def load_user(handle_or_id, proto=None, create=False, allow_opt_out=False,
-              raise_=False):
+              raise_=False, resolve=False):
     """Loads a user by handle or id.
 
     Args:
@@ -2621,6 +3095,8 @@ def load_user(handle_or_id, proto=None, create=False, allow_opt_out=False,
       raise_ (bool): passed through to :meth:`User.reload_profile`. If False, and
         :meth:`User.reload_profile` returns None when fetching the user's profile,
         this method raises :class:`RuntimeError`
+      resolve (bool): if True, and ``create`` is True, resolves ``handle_or_id`` with
+        :meth:`Protocol.resolve_user_id` first, which may fetch over the network.
 
     Returns:
       User:
@@ -2641,7 +3117,7 @@ def load_user(handle_or_id, proto=None, create=False, allow_opt_out=False,
     if not proto:
         if handle_or_id.startswith('@'):
             return load_user(handle_or_id.removeprefix('@'), create=create,
-                             allow_opt_out=allow_opt_out)
+                             allow_opt_out=allow_opt_out, resolve=resolve)
         raise RuntimeError(f"Couldn't determine network for {handle_or_id}")
 
     if proto.owns_id(handle_or_id) is not False:
@@ -2649,21 +3125,29 @@ def load_user(handle_or_id, proto=None, create=False, allow_opt_out=False,
             if not util.is_homepage(handle_or_id):
                 raise RuntimeError(f"{handle_or_id} isn't a web domain or homepage URL")
 
-        # TODO: handle user vs object ids here. this incorrectly assumes that it's
-        # a user id. https://github.com/snarfed/bridgy-fed/issues/2281
+        # normalizing turns profile object ids into their user ids, eg an
+        # at://.../app.bsky.actor.profile/self URI into its DID. if it's still an
+        # object id afterward, it's not a user at all, so don't create one for it.
         id = ids.normalize_user_id(id=handle_or_id, proto=proto)
-        user = (proto.get_or_create(id, allow_opt_out=allow_opt_out, raise_=raise_)
-                if create else proto.get_by_id(id, allow_opt_out=allow_opt_out))
-        if not user:
-            raise RuntimeError(f"Couldn't load {handle_or_id} on {proto.PHRASE}")
-        return user
+        if not id:
+            raise RuntimeError(f"{handle_or_id} isn't a valid {proto.PHRASE} user id")
+
+        if proto.id_type(id) is not ids.IdType.OBJECT:
+            if create and resolve:
+                id = proto.resolve_user_id(id)
+            user = (proto.get_or_create(id, allow_opt_out=allow_opt_out, raise_=raise_)
+                    if create else proto.get_by_id(id, allow_opt_out=allow_opt_out))
+            if not user:
+                raise RuntimeError(f"Couldn't load {handle_or_id} on {proto.PHRASE}")
+            return user
 
     logger.debug(f"doesn't look like a {proto.LABEL} user ID, trying as a handle")
 
     if proto.owns_handle(handle_or_id) is False:
         if handle_or_id.startswith('@'):
             return load_user(handle_or_id.removeprefix('@'), create=create,
-                             proto=proto, allow_opt_out=allow_opt_out)
+                             proto=proto, allow_opt_out=allow_opt_out,
+                             resolve=resolve)
         raise RuntimeError(f"{handle_or_id} doesn't look like a user id or handle on {proto.PHRASE}")
 
     candidates = (handle_or_id, '@' + handle_or_id)

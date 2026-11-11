@@ -5,49 +5,51 @@
 [project]
 name = 'bridgy-fed'
 version = '1.0'
-requires-python = '>=3.12'
+requires-python = '>=3.14'
 
 [project.optional-dependencies]
 app = [
     # our own packages, used at head via the editable local checkouts in
     # [tool.uv.sources]; the deploy-time git refs are in requirements.txt
     'arroba[datastore,flask]',
+    'authlib',
     'brevity @ git+https://github.com/snarfed/brevity.git@new-tlds',
     'dag-json',
-    'granary',
+    'granary[bluesky,farcaster,nostr,rss]',
     'httpsig',
     'lexrpc[flask]',
     'mf2util',
     'negotiator',
-    'oauth-dropins',
+    'oauth-dropins[bluesky,indieauth]',
     'pymemcache',
     'pywebutil[google-cloud,html]',
     'secp256k1',
 
     # third-party
-    'authlib>=1.0.0',
     'cachetools>=5.0.0',
-    'cryptography>=41.0.0',
-    'domain2idna>=1.12',
+    'cryptography>=49.0.0',
+    'domain2idna>=1.12.4',
     'flask>=3.0.0',
-    'google-api-python-client>=2.198.0',
-    'google-cloud-dns>=0.34',
-    'google-cloud-error-reporting>=1.16.0',
-    'google-cloud-ndb>=2.0',
-    'google-cloud-tasks>=2.23.0',
-    'grpcio>=1.83.0',
-    'gunicorn>=26.0.0',
+    'google-api-python-client>=2.197.0',
+    'google-cloud-dns>=0.37.0',
+    'google-cloud-error-reporting>=1.15.0',
+    'google-cloud-ndb>=2.5.0',
+    'google-cloud-tasks>=2.22.0',
+    'grpcio>=1.81.1',
+    'gunicorn>=25.3.0',
     'humanize>=4.16.0',
+    'joserfc>=1.7.3',
     'libipld>=3.0.0',
+    'lxml>=6.0',
     'multiformats>=0.3.1',
     'pycryptodome>=3.0',
-    'pyjwt>=2.0.0',
+    'pyjwt>=2.14.0',
     'python-dateutil>=2.8.1',
-    'pytz>=2026.3.post1',
+    'pytz>=2026.2',
     'requests>=2.22',
-    'tldextract>=3.0',
-    'ujson>=5.7.0',
-    'websockets>=16.1.1',
+    'tldextract>=5.3.1',
+    'ujson>=6.0.0',
+    'websockets>=16.0',
     'werkzeug>=3.0.0',
 ]
 tests = [
@@ -56,8 +58,8 @@ tests = [
 ]
 docs = [
     'sphinx>=7.0.0',
-    'sphinx-rtd-theme>=3.1.0',
-    'myst-parser>=5.1.0',
+    'sphinx-rtd-theme>=3.0.0',
+    'myst-parser>=2.0.0',
 ]
 
 [tool.setuptools]
@@ -69,6 +71,7 @@ package = false
 # keep these sections in sync with requirements.txt
 [tool.uv.sources]
 arroba =            { editable = true, path = "../arroba" }
+authlib =           { editable = true, path = "../authlib" }
 brevity =           { editable = true, path = "../brevity" }
 carbox =            { editable = true, path = "../carbox" }
 dag-json =          { editable = true, path = "../dag-json" }
@@ -91,9 +94,10 @@ extend_exclude = ['build', 'dist', 'docs']
 
 [tool.deptry.per_rule_ignores]
 # these deps aren't imported directly but we still need them: gunicorn (WSGI
-# server), ujson
+# server), lxml (webutil.appengine_config's BeautifulSoup parser), ujson
 DEP002 = [
     'gunicorn',
+    'lxml',
     'pytest',
     'pytest-xdist',
     'sphinx',

@@ -8,16 +8,18 @@ import random
 import re
 import threading
 import unittest
-from unittest.mock import ANY, call
+from unittest.mock import ANY, call, patch
 from urllib.parse import parse_qs, urlencode
 import warnings
 
 from arroba import did
 from arroba.datastore_storage import MemcacheSequences
+import arroba.server
 import arroba.util
 from arroba.util import datetime_to_tid
 from bs4 import MarkupResemblesLocatorWarning
 import cachetools
+from cryptography.hazmat.primitives.asymmetric import ec
 import dag_cbor.random
 from google.cloud import ndb
 from google.protobuf.timestamp_pb2 import Timestamp
@@ -62,6 +64,10 @@ logging.getLogger('memcache').setLevel(logging.INFO)
 
 ATPROTO_KEY = arroba.util.new_key(2349823483510)  # deterministic seed
 
+# ATProto OAuth's DPoP proofs and private_key_jwt client assertions are both
+# ES256, ie P-256, not the K-256 that ATPROTO_KEY (and atproto repos) use.
+OAUTH_ES256_KEY = ec.generate_private_key(ec.SECP256R1())
+
 NOTE = {
     **NOTE,
     # bare string author id
@@ -92,7 +98,6 @@ class Fake(User, protocol.Protocol):
     HAS_COPIES = True
     LOGO_EMOJI = '🤡'
     LOGO_HTML = '<img src="fake-logo">'
-    DEFAULT_SERVE_USER_PAGES = True
     SUPPORTED_AS1_TYPES = frozenset(
         tuple(as1.ACTOR_TYPES)
         + tuple(as1.POST_TYPES)
@@ -264,7 +269,6 @@ class OtherFake(Fake):
     CONTENT_TYPE = 'ot/her'
     LOGO_EMOJI = '⏎'
     DEFAULT_ENABLED_PROTOCOLS = ('fake',)
-    DEFAULT_SERVE_USER_PAGES = False
     RECEIVE_FILTERS = ()
     SUPPORTED_AS1_TYPES = Fake.SUPPORTED_AS1_TYPES - set(('accept', 'flag'))
     SUPPORTS_DMS = True
@@ -294,9 +298,9 @@ class ExplicitFake(Fake):
     LABEL = ABBREV = 'efake'
     PHRASE = 'efake-phrase'
     CONTENT_TYPE = 'un/known'
+    URI_PREFIXES = ('efake:',)
     LOGO_EMOJI = '📣'
     DEFAULT_ENABLED_PROTOCOLS = ()
-    DEFAULT_SERVE_USER_PAGES = False
     SUPPORTS_DMS = True
     USES_OBJECT_FEED = True
     RATE_LIMIT_TYPE = RateLimitType.EXPONENTIAL
@@ -312,6 +316,7 @@ class ExplicitFake(Fake):
 models.reset_protocol_properties()
 
 import app
+
 import activitypub
 from activitypub import ActivityPub, CONNEG_HEADERS_AS2_HTML
 import atproto
@@ -325,6 +330,9 @@ from memcache import (
 import farcaster
 from farcaster import Farcaster
 from flask_app import app
+
+XRPC_METHODS = dict(arroba.server.server._methods)
+
 
 # stub out the Farcaster snapchain gRPC client so tests don't hit the network
 class _FakeFarcasterHub:
@@ -368,6 +376,10 @@ class TestCase(unittest.TestCase, testutil.Asserts):
         appengine_info.READ_ONLY = False
         common.RUN_TASKS_INLINE = True
         app.testing = True
+
+        # hub edits arroba.server.server._methods wholesale when it's imported, eg by
+        # test_atproto, so reset it here
+        arroba.server.server._methods = dict(XRPC_METHODS)
 
         memcache.clear()
         pickle_memcache.clear()
@@ -420,24 +432,26 @@ class TestCase(unittest.TestCase, testutil.Asserts):
         self.request_context = app.test_request_context('/')
         self.request_context.push()
 
-        # arroba etc config
+        # arroba etc config. use .invalid, not .local, so that unmocked fetches
+        # fail fast. (.local goes to mDNS on macOS.)
+        # https://www.rfc-editor.org/rfc/rfc6761#section-6.4
         os.environ.update({
-            'APPVIEW_HOST': 'appview.local',
-            'BGS_HOST': 'bgs.local',
-            'PDS_HOST': 'pds.local',
-            'PLC_HOST': 'plc.local',
-            'MOD_SERVICE_HOST': 'mod.service.local',
+            'APPVIEW_HOST': 'appview.invalid',
+            'BGS_HOST': 'bgs.invalid',
+            'PDS_HOST': 'pds.invalid',
+            'PLC_HOST': 'plc.invalid',
+            'MOD_SERVICE_HOST': 'mod.service.invalid',
             'MOD_SERVICE_DID': 'did:mod-service',
-            'CHAT_HOST': 'chat.local',
+            'CHAT_HOST': 'chat.invalid',
             'CHAT_DID': 'did:chat',
-            'SNAPCHAIN_HOST': 'snapchain.local',
+            'SNAPCHAIN_HOST': 'snapchain.invalid',
         })
-        atproto.appview.address = 'https://appview.local'
+        atproto.appview.address = 'https://appview.invalid'
         atproto.init(MemcacheSequences)
 
         # farcaster
         farcaster.SNAPCHAIN_HOST = granary.farcaster.DEFAULT_SNAPCHAIN_HOST = \
-            'snapchain.local'
+            'snapchain.invalid'
 
         # nostr fake websocket
         FakeConnection.reset()
@@ -455,6 +469,11 @@ class TestCase(unittest.TestCase, testutil.Asserts):
         # system level local timezone
         os.environ['TZ'] = 'America/Los_Angeles'
 
+        self.session_patch = patch.object(
+            util.session, 'send',
+            side_effect=AssertionError('unmocked HTTP request!')
+        ).start()
+
     def tearDown(self):
         self.app_context.pop()
         self.ndb_context.__exit__(None, None, None)
@@ -464,6 +483,8 @@ class TestCase(unittest.TestCase, testutil.Asserts):
         for thread in threading.enumerate():
             if thread is not main and not thread.daemon:
                 thread.join()
+
+        self.session_patch.stop()
 
         super().tearDown()
 
@@ -696,15 +717,17 @@ class TestCase(unittest.TestCase, testutil.Asserts):
         if type is not None:
             self.assertEqual(type, got.type)
 
+        if in_reply_to := props.pop('in_reply_to', None):
+            self.assertEqual(in_reply_to, got.in_reply_to)
+
         if expected_as1 := props.pop('as1', None):
             self.assert_equals(expected_as1, got.as1)
 
         if got.mf2:
             got.mf2.pop('url', None)
 
-        self.assert_entities_equal(Object(id=id, **props), got,
-                                   ignore=['as1', 'created', 'expire',
-                                           'type', 'updated'] + ignore)
+        ignore += ['as1', 'created', 'expire', 'in_reply_to', 'type', 'updated']
+        self.assert_entities_equal(Object(id=id, **props), got, ignore=ignore)
         return got
 
     def assert_user(self, cls, id, ignore=(), **props):
@@ -736,7 +759,6 @@ class TestCase(unittest.TestCase, testutil.Asserts):
                 'body': urlencode(sorted(params), doseq=True).encode(),
                 'headers': {
                     'Content-Type': 'application/x-www-form-urlencoded',
-                    'Authorization': '',
                     'traceparent': '',
                     'X-Cloud-Trace-Context': '',
                 },
@@ -768,8 +790,20 @@ class TestCase(unittest.TestCase, testutil.Asserts):
                              rsa_key.exportKey())
             calls[args[0]] = json_loads(kwargs['data'])
 
+        def check_no_ui_ids(val):
+            # ui: ids are internal; we should always send subdomain-wrapped URLs
+            if isinstance(val, str):
+                assert not val.startswith('ui:'), f'leaked {val} in {got}'
+            elif isinstance(val, dict):
+                for elem in val.values():
+                    check_no_ui_ids(elem)
+            elif isinstance(val, list):
+                for elem in val:
+                    check_no_ui_ids(elem)
+
         for inbox in inboxes:
             got = calls[inbox]
+            check_no_ui_ids(got)
             as1.get_object(got).pop('publicKey', None)
             self.assert_equals(data, got, inbox, ignore=ignore)
 

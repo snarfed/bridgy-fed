@@ -9,21 +9,31 @@ from google.cloud.ndb import Key
 import arroba.server
 import common
 from common import (
+    COLLAPSED_SCHEME_RE,
+    error,
     secret_key_auth,
+)
+from domains import (
+    PRIMARY_DOMAIN,
+    PROTOCOL_DOMAINS,
 )
 from flask import redirect, request
 from flask_app import app
 import filters
+from google.protobuf import text_format
+from google.protobuf.message import DecodeError
 from granary import as1, microformats2
+from granary.generated.farcaster.message_pb2 import Message
 import memcache
 import models
 from models import Object, PROTOCOLS, User
 import pytz
 from webutil import flask_util, logs, util
-from webutil.flask_util import flash
+from webutil.flask_util import canonicalize_request_domain, flash
 
 from activitypub import ActivityPub, FEDI_URL_RE
 from atproto import ATProto
+from farcaster import Farcaster
 import ids
 from nostr import Nostr
 import pages
@@ -66,15 +76,16 @@ def format_properties(entity):
     return vars
 
 
-# TODO: bring back
-# @app.get('/admin/')
+@app.get('/admin/')
+@canonicalize_request_domain(PROTOCOL_DOMAINS, PRIMARY_DOMAIN)
 def admin_home():
     for reloader in BLOCKLISTS.values():
         reloader.reload()
     return render('admin.html', filters=filters)
 
 
-# @app.post('/admin/blocklist')
+@app.post('/admin/blocklist')
+@canonicalize_request_domain(PROTOCOL_DOMAINS, PRIMARY_DOMAIN)
 def save_blocklist():
     """
     Form values:
@@ -89,7 +100,8 @@ def save_blocklist():
     return redirect('/admin/')
 
 
-# @app.get('/admin/user')
+@app.get('/admin/user')
+@canonicalize_request_domain(PROTOCOL_DOMAINS, PRIMARY_DOMAIN)
 def admin_user_search():
     """
     Query params:
@@ -108,6 +120,8 @@ def admin_user_search():
         query = ids.handle_as_domain(f'@{match.group("handle")}@{match.group("domain")}')
 
     queries = [query]
+    if query != orig_query:
+        queries.append(orig_query)
     if '@' in query:
         if handle_as_domain := ids.handle_as_domain(query):
             queries.append(handle_as_domain)
@@ -131,7 +145,7 @@ def admin_user_search():
     for user in users:
         user.bridged_ids = {
             proto: ids.translate_user_id(id=user.key.id(), from_=user, to=proto)
-            for proto in (ATProto, ActivityPub, Nostr)
+            for proto in (ATProto, ActivityPub, Farcaster, Nostr)
             if not isinstance(user, proto)
         }
         user.sent_dms_ = ', '.join(
@@ -141,9 +155,15 @@ def admin_user_search():
     return render('admin_users.html', query=orig_query, users=users)
 
 
-# @app.get('/admin/user/<key>')
+@app.get('/admin/user/<key>')
+@canonicalize_request_domain(PROTOCOL_DOMAINS, PRIMARY_DOMAIN)
 def admin_user(key):
-    user = Key(urlsafe=key).get()
+    try:
+        user = Key(urlsafe=key).get()
+    except (ValueError, DecodeError):
+        logger.info(f"{key} isn't a urlsafe key, trying as user query")
+        return redirect(f'/admin/user?query={quote(key)}')
+
     if not user or not isinstance(user, User):
         flash('user not found')
         return redirect('/admin/')
@@ -151,7 +171,8 @@ def admin_user(key):
     return redirect(f'/admin/user?query={quote(user.key.id())}')
 
 
-# @app.post('/admin/object')
+@app.post('/admin/object')
+@canonicalize_request_domain(PROTOCOL_DOMAINS, PRIMARY_DOMAIN)
 def admin_object_lookup():
     """
     Form values:
@@ -168,8 +189,11 @@ def admin_object_lookup():
     return redirect('/admin/')
 
 
-# @app.get('/admin/object/<path:id>')
+@app.get('/admin/object/<path:id>')
+@canonicalize_request_domain(PROTOCOL_DOMAINS, PRIMARY_DOMAIN)
 def admin_object(id):
+    id = COLLAPSED_SCHEME_RE.sub(r'\1/', id)
+
     if not (obj := Object.get_by_id(id)):
         flash('object not found')
         return redirect('/admin/')
@@ -179,28 +203,37 @@ def admin_object(id):
             if inner := Object.get_by_id(inner_id):
                 return redirect(f'/admin/object/{inner.key.id()}')
 
-    proto = PROTOCOLS[obj.source_protocol]
+    # proto is the id's own protocol, for translating it below. the user who owns
+    # the object may be on a different one, eg for internal objects.
+    proto = PROTOCOLS.get(obj.source_protocol)
     user = None
     if obj.users:
         user = obj.users[0].get()
-    elif obj.as1 and proto and (user_id := as1.get_owner(obj.as1)):
-        user = proto.get_by_id(user_id)
+    elif (obj.as1
+          and (owner_proto := obj.owner_protocol())
+          and (user_id := as1.get_owner(obj.as1))):
+        user = owner_proto.get_by_id(user_id)
 
     bridged_ids = {
         to_proto: ids.translate_object_id(id=obj.key.id(), from_=proto, to=to_proto)
         for to_proto in (ATProto, ActivityPub, Nostr)
-        if to_proto != proto and user and user.is_enabled(to_proto)
+        if proto and to_proto != proto and user and user.is_enabled(to_proto)
     }
 
     return render(
         'admin_object.html',
         obj=obj,
+        obj_html=pages.render_embed(obj),
         user=user,
         bridged_ids=bridged_ids,
-        **format_properties(obj))
+        Message=Message,
+        text_format=text_format,
+        **format_properties(obj),
+    )
 
 
-# @app.post('/admin/receive')
+@app.post('/admin/receive')
+@canonicalize_request_domain(PROTOCOL_DOMAINS, PRIMARY_DOMAIN)
 def admin_receive():
     obj_key = Key(urlsafe=request.values['obj_key'])
     user_key = Key(urlsafe=request.values['user_key'])
@@ -209,7 +242,8 @@ def admin_receive():
     return redirect(f'/admin/object/{obj_key.id()}')
 
 
-# @app.post('/admin/enable')
+@app.post('/admin/enable')
+@canonicalize_request_domain(PROTOCOL_DOMAINS, PRIMARY_DOMAIN)
 def admin_enable():
     """
     Form values:
@@ -224,7 +258,8 @@ def admin_enable():
     return redirect(f'/admin/user/{key}')
 
 
-# @app.post('/admin/disable')
+@app.post('/admin/disable')
+@canonicalize_request_domain(PROTOCOL_DOMAINS, PRIMARY_DOMAIN)
 def admin_disable():
     """
     Form values:

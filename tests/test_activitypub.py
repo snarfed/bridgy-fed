@@ -1,5 +1,5 @@
 """Unit tests for activitypub.py."""
-from base64 import b64encode
+from base64 import b64encode, urlsafe_b64encode
 import copy
 from datetime import datetime, timedelta, UTC
 from hashlib import sha256
@@ -35,9 +35,14 @@ from activitypub import (
     ActivityPub,
     AKA_CONTEXT,
     instance_actor,
+    INTERACTION_POLICY,
+    INTERACTION_POLICY_CONTEXT,
     NeedsAlias,
     postprocess_as2,
     postprocess_as2_actor,
+    FEP044F_QUOTE_AUTH_CONTEXT,
+    FEP044F_QUOTE_POST_CONTEXT,
+    FEP044F_QUOTE_REQUEST_CONTEXT,
     SECURITY_CONTEXT,
 )
 from atproto import ATProto
@@ -160,7 +165,7 @@ NOTE_OBJECT = {
     'cc': [
         'https://mas.to/author/followers',
         'https://masto.foo/@other',
-        'http://localhost/target',  # redirect-wrapped
+        'http://localhost/r/https://tar.get/',  # redirect-wrapped
     ],
 }
 NOTE = {
@@ -274,6 +279,34 @@ ACCEPT = {
     },
    'to': [as2.PUBLIC_AUDIENCE],
 }
+QUOTE_REQUEST = {
+    '@context': as2.CONTEXT,
+    'type': 'QuoteRequest',
+    'id': 'https://mas.to/users/foo/statuses/1/quote',
+    'actor': 'https://mas.to/users/foo',
+    'object': 'https://fa.brid.gy/convert/ap/fake:post',
+    'instrument': {
+        'type': 'Note',
+        'id': 'https://mas.to/users/foo/statuses/1',
+        'attributedTo': 'https://mas.to/users/foo',
+        'quote': 'https://fa.brid.gy/convert/ap/fake:post',
+    },
+}
+QUOTE_ACCEPT = {
+    '@context': as2.CONTEXT,
+    'type': 'Accept',
+    'id': 'https://mas.to/accept/1',
+    'actor': 'https://mas.to/users/foo',
+    'to': ['https://fa.brid.gy/ap/fake:alice'],
+    'object': {
+        'type': 'QuoteRequest',
+        'id': 'https://fa.brid.gy/convert/ap/fake:quote#quote-request',
+        'actor': 'https://fa.brid.gy/ap/fake:alice',
+        'object': 'https://mas.to/orig',
+        'instrument': 'https://fa.brid.gy/convert/ap/fake:quote',
+    },
+    'result': 'https://mas.to/stamps/1',
+}
 
 UNDO_FOLLOW_WRAPPED = {
     '@context': as2.CONTEXT,
@@ -370,6 +403,7 @@ class ActivityPubTest(TestCase):
         super().setUp()
 
         self.user = self.make_user('user.com', cls=Web, has_redirects=True,
+                                   enabled_protocols=['activitypub'],
                                    obj_as1={**ACTOR_AS1, 'id': 'https://user.com/'})
         self.foo_key = ndb.Key(ActivityPub, 'https://mas.to/users/foo')
         self.masto_actor_key = ndb.Key(ActivityPub, 'https://mas.to/me')
@@ -446,8 +480,15 @@ class ActivityPubTest(TestCase):
         self.assertEqual(200, got.status_code)
         self.assertEqual(as2.CONTENT_TYPE, got.headers['Content-Type'])
         self.assertEqual('Accept', got.headers['Vary'])
-        self.assert_equals(ACTOR_FULL, got.json,
-                           ignore=['@context', 'attachment', 'publicKey'])
+        self.assert_equals({
+            **ACTOR_FULL,
+            'url': ['http://localhost/r/https://user.com/', {
+                'type': 'Link',
+                'rel': 'canonical',
+                'href': 'https://user.com/',
+                'mediaType': 'text/html',
+            }],
+        }, got.json, ignore=['@context', 'attachment', 'publicKey'])
 
     def test_actor_blocked_tld(self, _, __, ___):
         got = self.client.get('/foo.json')
@@ -461,21 +502,15 @@ class ActivityPubTest(TestCase):
 
         got = self.client.get('/user.com', headers=headers)
         self.assertEqual(200, got.status_code)
-        self.assert_equals(ACTOR_FULL, got.json,
-                           ignore=['@context', 'attachment', 'publicKey'])
-
-    def test_actor_blocklisted_signer(self, *_):
-        self.make_user(ACTOR['id'], cls=ActivityPub, obj_as2=ACTOR)
-        self.assertEqual('mas.to', util.domain_from_link(ACTOR['id']))
-
-        blocklist = Object(id='https://list', csv='domain\nmas.to').put()
-        self.user.blocks = [blocklist]
-        self.user.put()
-
-        headers = sign(path='/user.com', body='', key_id=ACTOR['id'], method='GET')
-        headers['Accept'] = as2.CONTENT_TYPE
-        got = self.client.get('/user.com', headers=headers)
-        self.assertEqual(403, got.status_code)
+        self.assert_equals({
+            **ACTOR_FULL,
+            'url': ['http://localhost/r/https://user.com/', {
+                'type': 'Link',
+                'rel': 'canonical',
+                'href': 'https://user.com/',
+                'mediaType': 'text/html',
+            }],
+        }, got.json, ignore=['@context', 'attachment', 'publicKey'])
 
     def test_actor_bad_signature(self, *_):
         self.make_user(ACTOR['id'], cls=ActivityPub, obj_as2=ACTOR)
@@ -515,38 +550,22 @@ class ActivityPubTest(TestCase):
         self.assertEqual('https://user.com/', got.headers['Location'])
         self.assertEqual('Accept', got.headers['Vary'])
 
-    def test_actor_new_user_fetch(self, _, mock_get, __):
+    def test_actor_unknown_user_isnt_created(self, _, mock_get, __):
+        """Fetching an actor must not bridge a web site that never opted in."""
         self.make_user(cls=Web, id='fa.brid.gy')
         self.user.obj_key.delete()
         self.user.key.delete()
-        mock_get.side_effect = test_web.web_user_gets('user.com')
-
-        got = self.client.get('/user.com', headers={'Accept': as2.CONTENT_TYPE})
-        self.assertEqual(200, got.status_code)
-        self.assert_equals(add_key({
-            **ACTOR_BASE_FULL,
-            'name': 'Ms. ☕ Baz [Unofficial]',
-            'discoverable': True,
-            'indexable': True,
-        }), got.json, ignore=['@context', 'publicKeyPem', 'summary'])
-
-    def test_actor_new_user_fetch_no_mf2(self, _, mock_get, __):
-        self.user.obj_key.delete()
-        self.user.key.delete()
-
-        mock_get.side_effect = [
-            WEBMENTION_DISCOVERY,
-            requests_response(status=404),
-            WEBMENTION_DISCOVERY,
-        ]
 
         got = self.client.get('/user.com', headers={'Accept': as2.CONTENT_TYPE})
         self.assertEqual(404, got.status_code)
+        self.assertIsNone(Web.get_by_id('user.com'))
+        mock_get.assert_not_called()
 
-    def test_actor_new_user_fetch_fails(self, _, mock_get, ___):
-        mock_get.side_effect = ReadTimeoutError(None, None, None)
+    def test_actor_unknown_user_no_fetch(self, _, mock_get, ___):
         got = self.client.get('/nope.com', headers={'Accept': as2.CONTENT_TYPE})
-        self.assertEqual(504, got.status_code)
+        self.assertEqual(404, got.status_code)
+        self.assertIsNone(Web.get_by_id('nope.com'))
+        mock_get.assert_not_called()
 
     def test_actor_handle_existing_user(self, _, __, ___):
         self.make_user(cls=Web, id='fa.brid.gy')
@@ -558,11 +577,17 @@ class ActivityPubTest(TestCase):
         got = self.client.get('/ap/fake:user', base_url='https://fa.brid.gy/',
                               headers={'Accept': as2.CONTENT_TYPE})
         self.assertEqual(200, got.status_code)
-        self.assert_equals(ACTOR_FAKE_USER, got.json,
-                           ignore=['attachment', 'publicKey'])
+        self.assert_equals({
+            **ACTOR_FAKE_USER,
+            'url': ['https://fa.brid.gy/r/web:fake:user', {
+                'type': 'Link',
+                'rel': 'canonical',
+                'href': 'uri:fake:user',
+            }],
+        }, got.json, ignore=['attachment', 'publicKey'])
 
     @patch.object(Fake, 'DEFAULT_ENABLED_PROTOCOLS', new=['activitypub'])
-    def test_actor_handle_new_user(self, _, __, ___):
+    def test_actor_handle_unknown_user_isnt_created(self, _, __, ___):
         self.make_user(cls=Web, id='fa.brid.gy')
         Fake.fetchable['fake:profile:user'] = as2.to_as1({
             **ACTOR_FAKE,
@@ -570,9 +595,8 @@ class ActivityPubTest(TestCase):
         })
         got = self.client.get('/ap/fake:user', base_url='https://fa.brid.gy/',
                               headers={'Accept': as2.CONTENT_TYPE})
-        self.assertEqual(200, got.status_code)
-        self.assert_equals(ACTOR_FAKE_USER, got.json,
-                           ignore=['attachment', 'publicKey'])
+        self.assertEqual(404, got.status_code)
+        self.assertIsNone(Fake.get_by_id('fake:user'))
 
     def test_actor_activitypub_not_enabled(self, *_):
         obj = self.store_object(id='did:plc:user', raw={'foo': 'baz'})
@@ -699,6 +723,71 @@ class ActivityPubTest(TestCase):
                               headers={'Accept': as2.CONTENT_TYPE})
         self.assertEqual(404, got.status_code)
 
+    def get_stamp(self, base_url, id, target, interacting, type='quote'):
+        target = urlsafe_b64encode(target.encode()).decode()
+        interacting = urlsafe_b64encode(interacting.encode()).decode()
+        return self.client.get(f'/ap/{id}/stamp/{type}/{target}/{interacting}',
+                               base_url=base_url)
+
+    def test_stamp_quote(self, *_):
+        got = self.get_stamp('https://fa.brid.gy/', 'fake:user',
+                             'https://fa.brid.gy/convert/ap/fake:post',
+                             'https://inst/quote')
+        self.assertEqual(200, got.status_code, got.get_data(as_text=True))
+        self.assertEqual(as2.CONTENT_TYPE_LD_PROFILE, got.headers['Content-Type'])
+        self.assertEqual({
+            '@context': as2.CONTEXT + [FEP044F_QUOTE_AUTH_CONTEXT],
+            'type': 'QuoteAuthorization',
+            'id': 'https://fa.brid.gy/ap/fake:user/stamp/quote/aHR0cHM6Ly9mYS5icmlkLmd5L2NvbnZlcnQvYXAvZmFrZTpwb3N0/aHR0cHM6Ly9pbnN0L3F1b3Rl',
+            'attributedTo': 'https://fa.brid.gy/ap/fake:user',
+            'interactingObject': 'https://inst/quote',
+            'interactionTarget': 'https://fa.brid.gy/convert/ap/fake:post',
+        }, got.json)
+
+    def test_stamp_quote_web(self, *_):
+        got = self.get_stamp('https://web.brid.gy/', 'user.com',
+                             'https://web.brid.gy/r/https://user.com/post',
+                             'https://inst/quote')
+        self.assertEqual(200, got.status_code, got.get_data(as_text=True))
+        self.assertEqual({
+            '@context': as2.CONTEXT + [FEP044F_QUOTE_AUTH_CONTEXT],
+            'type': 'QuoteAuthorization',
+            'id': 'https://web.brid.gy/ap/user.com/stamp/quote/aHR0cHM6Ly93ZWIuYnJpZC5neS9yL2h0dHBzOi8vdXNlci5jb20vcG9zdA==/aHR0cHM6Ly9pbnN0L3F1b3Rl',
+            'attributedTo': 'https://web.brid.gy/user.com',
+            'interactingObject': 'https://inst/quote',
+            'interactionTarget': 'https://web.brid.gy/r/https://user.com/post',
+        }, got.json)
+
+    def test_stamp_quote_web_legacy_fed(self, *_):
+        got = self.get_stamp('https://fed.brid.gy/', 'user.com',
+                             'https://fed.brid.gy/r/https://user.com/post',
+                             'https://inst/quote')
+        self.assertEqual(200, got.status_code, got.get_data(as_text=True))
+        self.assertEqual({
+            '@context': as2.CONTEXT + [FEP044F_QUOTE_AUTH_CONTEXT],
+            'type': 'QuoteAuthorization',
+            'id': 'https://fed.brid.gy/ap/user.com/stamp/quote/aHR0cHM6Ly9mZWQuYnJpZC5neS9yL2h0dHBzOi8vdXNlci5jb20vcG9zdA==/aHR0cHM6Ly9pbnN0L3F1b3Rl',
+            'attributedTo': 'https://fed.brid.gy/user.com',
+            'interactingObject': 'https://inst/quote',
+            'interactionTarget': 'https://fed.brid.gy/r/https://user.com/post',
+        }, got.json)
+
+    def test_stamp_quote_not_url(self, *_):
+        got = self.client.get('/ap/fake:user/stamp/quote/xyz/aHR0cHM6Ly9pbnN0L3F1b3Rl',
+                              base_url='https://fa.brid.gy/')
+        self.assertEqual(404, got.status_code)
+
+    def test_stamp_quote_target_other_host(self, *_):
+        got = self.get_stamp('https://fa.brid.gy/', 'fake:user',
+                             'https://other.com/post', 'https://inst/quote')
+        self.assertEqual(404, got.status_code)
+
+    def test_stamp_unknown_type(self, *_):
+        got = self.get_stamp('https://fa.brid.gy/', 'fake:user',
+                             'https://fa.brid.gy/convert/ap/fake:post',
+                             'https://inst/quote', type='reply')
+        self.assertEqual(404, got.status_code)
+
     def test_instance_actor_fetch(self, *_):
         def reset_instance_actor():
             activitypub._INSTANCE_ACTOR = testutil.global_user
@@ -707,7 +796,7 @@ class ActivityPubTest(TestCase):
         actor_as2 = json_loads(util.read('fed.brid.gy.as2.json'))
         self.make_user(domains.PRIMARY_DOMAIN, cls=Web, obj_as2=actor_as2,
                        obj_id='https://fed.brid.gy/', ap_subdomain='fed',
-                       has_redirects=True)
+                       has_redirects=True, enabled_protocols=['activitypub'])
 
         activitypub._INSTANCE_ACTOR = None
         got = self.client.get('/fed.brid.gy', base_url='https://fed.brid.gy/',
@@ -806,55 +895,330 @@ class ActivityPubTest(TestCase):
                          received_at='2022-01-02T03:04:05+00:00')
 
     @patch('webutil.appengine_config.tasks_client.create_task')
-    def test_inbox_add_to_featured_reloads_profile(self, *mocks):
-        return self._test_inbox_modify_featured_reloads_profile('Add', *mocks)
+    def test_inbox_add_to_featured(self, mock_create_task, _, mock_get, __):
+        self._test_inbox_modify_featured(mock_create_task, mock_get, 'Add', [
+            'https://mas.to/users/foo/statuses/2',
+        ], [
+            'https://mas.to/users/foo/statuses/1',
+            'https://mas.to/users/foo/statuses/2',
+        ])
 
     @patch('webutil.appengine_config.tasks_client.create_task')
-    def test_inbox_remove_from_featured_reloads_profile(self, *mocks):
-        return self._test_inbox_modify_featured_reloads_profile('Remove', *mocks)
+    def test_inbox_remove_from_featured(self, mock_create_task, _, mock_get, __):
+        # https://github.com/snarfed/bridgy-fed/issues/2761
+        self._test_inbox_modify_featured(mock_create_task, mock_get, 'Remove', [
+            'https://mas.to/users/foo/statuses/1',
+        ], [])
 
-
-    def _test_inbox_modify_featured_reloads_profile(self, verb, mock_create_task,
-                                                    _, mock_get, __):
+    def _test_inbox_modify_featured(self, mock_create_task, mock_get, verb,
+                                    orig_items, expected_items):
         common.RUN_TASKS_INLINE = False
 
+        featured = {
+            'id': 'https://mas.to/users/foo/collections/featured',
+            'type': 'OrderedCollection',
+            'totalItems': len(orig_items),
+            'orderedItems': orig_items,
+        }
         user = self.make_user(ACTOR['id'], cls=ActivityPub, obj_as2={
             **ACTOR,
-            'featured': {'id': 'https://orig/feat/ured'},
+            'featured': featured,
         })
-
-        mock_get.side_effect = [
-            self.as2_resp({
-                **ACTOR,
-                'featured': {'id': 'https://new/feat/ured'},
-            }),
-            self.as2_resp({'id': 'https://new/feat/ured'}),
-            requests_response(status=404),  # webfinger
-        ]
 
         resp = self.post('/ap/sharedInbox', json={
             'type': verb,
             'actor': ACTOR['id'],
-            'target': 'https://orig/feat/ured',
+            'object': 'https://mas.to/users/foo/statuses/1',
+            'target': 'https://mas.to/users/foo/collections/featured',
         })
         self.assertEqual(202, resp.status_code)
-        self.assertEqual({'id': 'https://new/feat/ured'},
-                         user.obj.key.get().as2['featured'])
+        mock_get.assert_not_called()
+
+        self.assertEqual({
+            **featured,
+            'totalItems': len(expected_items),
+            'orderedItems': expected_items,
+        }, user.obj.key.get().as2['featured'])
 
         id = 'https://mas.to/users/foo#bridgy-fed-update-2022-01-02T03:04:05+00:00'
         self.assert_task(
             mock_create_task, 'receive', id=id, source_protocol='activitypub',
             authed_as=ACTOR['id'], our_as1={
-'actor': 'https://mas.to/users/foo',
+                'actor': 'https://mas.to/users/foo',
                 'objectType': 'activity',
                 'verb': 'update',
                 'id': id,
                 'object': add_key({
                     **ACTOR_AS1,
-                    'featured': {'id': 'https://new/feat/ured'},
+                    'featured': util.trim_nulls({
+                        'id': 'https://mas.to/users/foo/collections/featured',
+                        'totalItems': len(expected_items),
+                        'items': expected_items,
+                    }),
                     'updated': '2022-01-02T03:04:05+00:00',
                 }),
             })
+
+    def test_inbox_quote_request(self, _, mock_get, mock_post):
+        self.make_user('fake:user', cls=Fake, enabled_protocols=['activitypub'])
+        self.store_object(id='fake:post', source_protocol='fake', our_as1={
+            'objectType': 'note',
+            'author': 'fake:user',
+            'content': 'foo',
+        })
+        self.make_user(ACTOR['id'], cls=ActivityPub, obj_as2=ACTOR)
+        mock_post.return_value = requests_response()
+
+        got = self.post('/ap/sharedInbox', json=QUOTE_REQUEST)
+        self.assertEqual(202, got.status_code, got.get_data(as_text=True))
+
+        stamp = 'https://fa.brid.gy/ap/fake:user/stamp/quote/aHR0cHM6Ly9mYS5icmlkLmd5L2NvbnZlcnQvYXAvZmFrZTpwb3N0/aHR0cHM6Ly9tYXMudG8vdXNlcnMvZm9vL3N0YXR1c2VzLzE='
+        self.assertEqual(1, mock_post.call_count)
+        args, kwargs = mock_post.call_args
+        self.assertEqual(('http://mas.to/inbox',), args)
+        self.assertEqual({
+            '@context': as2.CONTEXT + [SECURITY_CONTEXT],
+            'type': 'Accept',
+            'id': f'{stamp}#accept',
+            'actor': 'https://fa.brid.gy/ap/fake:user',
+            'to': ['https://mas.to/users/foo'],
+            'object': QUOTE_REQUEST,
+            'result': stamp,
+        }, json_loads(kwargs['data']))
+        mock_get.assert_not_called()
+
+        # the stamp should be servable
+        resp = self.client.get(stamp.removeprefix('https://fa.brid.gy'),
+                               base_url='https://fa.brid.gy/')
+        self.assertEqual(200, resp.status_code)
+        self.assertEqual({
+            '@context': as2.CONTEXT + [FEP044F_QUOTE_AUTH_CONTEXT],
+            'type': 'QuoteAuthorization',
+            'id': stamp,
+            'attributedTo': 'https://fa.brid.gy/ap/fake:user',
+            'interactingObject': 'https://mas.to/users/foo/statuses/1',
+            'interactionTarget': 'https://fa.brid.gy/convert/ap/fake:post',
+        }, resp.json)
+
+    def test_inbox_quote_request_web_user(self, _, mock_get, mock_post):
+        self.store_object(id='https://user.com/post', source_protocol='web',
+                          our_as1={
+                              'objectType': 'note',
+                              'author': 'https://user.com/',
+                              'content': 'foo',
+                          })
+        self.make_user(ACTOR['id'], cls=ActivityPub, obj_as2=ACTOR)
+        mock_post.return_value = requests_response()
+
+        quote_request = {
+            **QUOTE_REQUEST,
+            'object': 'https://web.brid.gy/r/https://user.com/post',
+        }
+        got = self.post('/ap/sharedInbox', json=quote_request)
+        self.assertEqual(202, got.status_code, got.get_data(as_text=True))
+
+        stamp = 'https://web.brid.gy/ap/user.com/stamp/quote/aHR0cHM6Ly93ZWIuYnJpZC5neS9yL2h0dHBzOi8vdXNlci5jb20vcG9zdA==/aHR0cHM6Ly9tYXMudG8vdXNlcnMvZm9vL3N0YXR1c2VzLzE='
+        self.assertEqual(1, mock_post.call_count)
+        args, kwargs = mock_post.call_args
+        self.assertEqual(('http://mas.to/inbox',), args)
+        self.assertEqual({
+            '@context': as2.CONTEXT + [SECURITY_CONTEXT],
+            'type': 'Accept',
+            'id': f'{stamp}#accept',
+            'actor': 'https://web.brid.gy/user.com',
+            'to': ['https://mas.to/users/foo'],
+            'object': quote_request,
+            'result': stamp,
+        }, json_loads(kwargs['data']))
+
+    def test_inbox_quote_request_unknown_target(self, _, mock_get, mock_post):
+        self.make_user('fake:user', cls=Fake, enabled_protocols=['activitypub'])
+        self.make_user(ACTOR['id'], cls=ActivityPub, obj_as2=ACTOR)
+
+        got = self.post('/ap/sharedInbox', json=QUOTE_REQUEST)
+        self.assertEqual(204, got.status_code, got.get_data(as_text=True))
+        mock_post.assert_not_called()
+
+    def test_inbox_quote_request_user_not_enabled(self, _, mock_get, mock_post):
+        self.make_user('fake:user', cls=Fake)
+        self.store_object(id='fake:post', source_protocol='fake', our_as1={
+            'objectType': 'note',
+            'author': 'fake:user',
+        })
+        self.make_user(ACTOR['id'], cls=ActivityPub, obj_as2=ACTOR)
+
+        got = self.post('/ap/sharedInbox', json=QUOTE_REQUEST)
+        self.assertEqual(204, got.status_code, got.get_data(as_text=True))
+        mock_post.assert_not_called()
+
+    def test_inbox_quote_request_actor_not_signer(self, _, mock_get, mock_post):
+        self.make_user('fake:user', cls=Fake, enabled_protocols=['activitypub'])
+        self.store_object(id='fake:post', source_protocol='fake', our_as1={
+            'objectType': 'note',
+            'author': 'fake:user',
+        })
+        self.make_user(ACTOR['id'], cls=ActivityPub, obj_as2=ACTOR)
+        self.make_user('https://mas.to/users/other', cls=ActivityPub,
+                       obj_as2=add_key({**ACTOR, 'id': 'https://mas.to/users/other'}))
+
+        body = json_dumps(QUOTE_REQUEST)
+        headers = sign('/ap/sharedInbox', body,
+                       key_id='https://mas.to/users/other')
+        got = self.client.post('/ap/sharedInbox', data=body, headers=headers)
+        self.assertEqual(403, got.status_code, got.get_data(as_text=True))
+        mock_post.assert_not_called()
+
+    def test_inbox_quote_request_no_instrument(self, _, mock_get, mock_post):
+        self.make_user(ACTOR['id'], cls=ActivityPub, obj_as2=ACTOR)
+
+        got = self.post('/ap/sharedInbox', json={
+            **QUOTE_REQUEST,
+            'instrument': None,
+        })
+        self.assertEqual(400, got.status_code, got.get_data(as_text=True))
+        mock_post.assert_not_called()
+
+    def _setup_quote_accept(self):
+        self.alice = self.make_user('fake:alice', cls=Fake,
+                                    enabled_protocols=['activitypub'])
+        self.make_user(ACTOR['id'], cls=ActivityPub, obj_as2=ACTOR)
+        bob = self.make_user('https://inst/bob', cls=ActivityPub, obj_as2={
+            **ACTOR,
+            'id': 'https://inst/bob',
+            'inbox': 'https://inst/bob/inbox',
+        })
+        Follower.get_or_create(to=self.alice, from_=bob)
+
+        self.store_object(id='https://mas.to/orig', source_protocol='activitypub',
+                          as2={
+                              'type': 'Note',
+                              'id': 'https://mas.to/orig',
+                              'attributedTo': ACTOR['id'],
+                          })
+        self.store_object(id='fake:quote', source_protocol='fake', our_as1={
+            'objectType': 'note',
+            'id': 'fake:quote',
+            'author': 'fake:alice',
+            'content': 'foo',
+            'attachments': [{
+                'objectType': 'note',
+                'id': 'https://mas.to/orig',
+            }],
+        })
+
+    def test_inbox_quote_accept(self, _, mock_get, mock_post):
+        self._setup_quote_accept()
+        mock_post.return_value = requests_response()
+
+        got = self.post('/ap/fake:alice/inbox', json=QUOTE_ACCEPT,
+                        base_url='https://fa.brid.gy/')
+        self.assertEqual(202, got.status_code, got.get_data(as_text=True))
+
+        self.assertEqual({
+            '@context': [FEP044F_QUOTE_POST_CONTEXT],
+            'quoteAuthorization': 'https://mas.to/stamps/1',
+        }, Object.get_by_id('fake:quote').extra_as1)
+
+        content = '<p>foo<span class="quote-inline"><br><br>RE: <a href="https://mas.to/orig">https://mas.to/orig</a></span></p>'
+        update = {
+            '@context': as2.CONTEXT + [INTERACTION_POLICY_CONTEXT],
+            'type': 'Update',
+            'id': 'https://fa.brid.gy/convert/ap/fake:quote#bridgy-fed-update-2022-01-02T03:04:05+00:00',
+            'actor': 'https://fa.brid.gy/ap/fake:alice',
+            'object': {
+                '@context': [
+                    FEP044F_QUOTE_POST_CONTEXT,
+                    as2.FEP044F_QUOTE_CONTEXT,
+                    as2.MISSKEY_QUOTE_CONTEXT,
+                ],
+                'type': 'Note',
+                'id': 'https://fa.brid.gy/convert/ap/fake:quote',
+                'attributedTo': 'https://fa.brid.gy/ap/fake:alice',
+                'content': content,
+                'contentMap': {'en': content},
+                'quote': 'https://mas.to/orig',
+                '_misskey_quote': 'https://mas.to/orig',
+                'quoteUrl': 'https://mas.to/orig',
+                'quoteAuthorization': 'https://mas.to/stamps/1',
+                'tag': [{
+                    'type': 'Link',
+                    'mediaType': as2.CONTENT_TYPE_LD_PROFILE,
+                    'href': 'https://mas.to/orig',
+                    'name': 'RE: https://mas.to/orig',
+                }],
+                'to': [as2.PUBLIC_AUDIENCE],
+                'updated': '2022-01-02T03:04:05+00:00',
+                'interactionPolicy': INTERACTION_POLICY,
+                'replies': 'https://fa.brid.gy/ap/replies/ZmFrZTpxdW90ZQ==',
+                'url': {
+                    'type': 'Link',
+                    'rel': 'canonical',
+                    'href': 'fake:quote',
+                },
+            },
+            'to': [as2.PUBLIC_AUDIENCE],
+        }
+        self.assertEqual(
+            [('http://mas.to/inbox',), ('https://inst/bob/inbox',)],
+            [call.args for call in mock_post.call_args_list])
+        for call in mock_post.call_args_list:
+            self.assertEqual(update, json_loads(call.kwargs['data']))
+
+        # duplicate accept shouldn't redeliver
+        mock_post.reset_mock()
+        got = self.post('/ap/fake:alice/inbox', json={
+            **QUOTE_ACCEPT,
+            'id': 'https://mas.to/accept/2',
+        }, base_url='https://fa.brid.gy/')
+        self.assertEqual(204, got.status_code, got.get_data(as_text=True))
+        mock_post.assert_not_called()
+
+    def _test_inbox_quote_accept_ignored(self, accept, mock_post, status=204):
+        got = self.post('/ap/fake:alice/inbox', json=accept,
+                        base_url='https://fa.brid.gy/')
+        self.assertEqual(status, got.status_code, got.get_data(as_text=True))
+        mock_post.assert_not_called()
+        if quote := Object.get_by_id('fake:quote'):
+            self.assertIsNone(quote.extra_as1)
+
+    def test_inbox_quote_accept_not_quoted_author(self, _, mock_get, mock_post):
+        self._setup_quote_accept()
+        self.make_user('https://mas.to/eve', cls=ActivityPub,
+                       obj_as2=add_key({**ACTOR, 'id': 'https://mas.to/eve'}))
+        self._test_inbox_quote_accept_ignored({
+            **QUOTE_ACCEPT,
+            'actor': 'https://mas.to/eve',
+        }, mock_post, status=400)
+
+    def test_inbox_quote_accept_actor_not_signer(self, _, mock_get, mock_post):
+        self._setup_quote_accept()
+        self.make_user('https://mas.to/eve', cls=ActivityPub,
+                       obj_as2=add_key({**ACTOR, 'id': 'https://mas.to/eve'}))
+
+        body = json_dumps(QUOTE_ACCEPT)
+        headers = sign('/ap/sharedInbox', body, key_id='https://mas.to/eve')
+        got = self.client.post('/ap/sharedInbox', data=body, headers=headers)
+        self.assertEqual(400, got.status_code, got.get_data(as_text=True))
+        mock_post.assert_not_called()
+        self.assertIsNone(Object.get_by_id('fake:quote').extra_as1)
+
+    def test_inbox_quote_accept_stamp_other_domain(self, _, mock_get, mock_post):
+        self._setup_quote_accept()
+        self._test_inbox_quote_accept_ignored({
+            **QUOTE_ACCEPT,
+            'result': 'https://other/stamp',
+        }, mock_post, status=400)
+
+    def test_inbox_quote_accept_unknown_quote_post(self, _, mock_get, mock_post):
+        self.make_user(ACTOR['id'], cls=ActivityPub, obj_as2=ACTOR)
+        self._test_inbox_quote_accept_ignored(QUOTE_ACCEPT, mock_post)
+
+    def test_inbox_quote_accept_not_our_quote_post(self, _, mock_get, mock_post):
+        self._setup_quote_accept()
+        self._test_inbox_quote_accept_ignored({
+            **QUOTE_ACCEPT,
+            'object': 'https://mas.to/users/foo/statuses/1#quote-request',
+        }, mock_post)
 
     def test_inbox_add_to_featured_read_only(self, _, mock_get, __):
         appengine_info.READ_ONLY = True
@@ -863,11 +1227,11 @@ class ActivityPubTest(TestCase):
             'featured': {'id': 'https://orig/feat/ured'},
         })
 
-        with patch.object(ActivityPub, 'reload_profile',
-                          side_effect=PermissionDenied('read only')):
+        with patch.object(Object, 'put', side_effect=PermissionDenied('read only')):
             resp = self.post('/ap/sharedInbox', json={
                 'type': 'Add',
                 'actor': ACTOR['id'],
+                'object': 'https://mas.to/users/foo/statuses/1',
                 'target': 'https://orig/feat/ured',
             })
         self.assertEqual(503, resp.status_code)
@@ -948,17 +1312,19 @@ class ActivityPubTest(TestCase):
 
     def _test_inbox_reply(self, reply, mock_head, mock_get, mock_post):
         mock_head.return_value = requests_response(url='https://user.com/post')
-        mock_get.side_effect = (
-            (list(mock_get.side_effect) if mock_get.side_effect else [
-                # source actor, webfinger
-                self.as2_resp(ACTOR),
-                self.as2_resp(ACTOR),
-                requests_response(status=404),
-            ]) + [
-                requests_response(test_web.NOTE_HTML),
-                requests_response(test_web.NOTE_HTML),
-                WEBMENTION_DISCOVERY,
-            ])
+        actor_resps = list(mock_get.side_effect) if mock_get.side_effect else [
+            # source actor, webfinger
+            self.as2_resp(ACTOR),
+            self.as2_resp(ACTOR),
+            requests_response(status=404),
+        ]
+        # the first response authenticates the delivery; the rest load the actor,
+        # which happens after we resolve inReplyTo
+        mock_get.side_effect = actor_resps[:1] + [
+            # inReplyTo, resolved when we receive: ActivityPub, then Web
+            requests_response(test_web.NOTE_HTML),
+            requests_response(test_web.NOTE_HTML),
+        ] + actor_resps[1:] + [WEBMENTION_DISCOVERY]
         mock_post.return_value = requests_response()
 
         got = self.post('/ap/web/user.com/inbox', json=reply)
@@ -1075,7 +1441,7 @@ class ActivityPubTest(TestCase):
             'cc': [
                 {'id': 'https://mas.to/author/followers'},
                 {'id': 'https://masto.foo/@other'},
-                {'id': 'target'},
+                {'id': 'https://tar.get/'},
             ],
         }
         self.assert_object(
@@ -1170,13 +1536,14 @@ class ActivityPubTest(TestCase):
 
     def test_inbox_no_user(self, mock_head, mock_get, mock_post):
         mock_get.side_effect = [
+            # source actor
+            self.as2_resp(LIKE_WITH_ACTOR['actor']),
+            # object, resolved when we receive: protocol inference
+            requests_response(test_web.NOTE_HTML),
+            requests_response(test_web.NOTE_HTML),
             # source actor, webfinger
             self.as2_resp(LIKE_WITH_ACTOR['actor']),
-            self.as2_resp(LIKE_WITH_ACTOR['actor']),
             requests_response(status=404),
-            # protocol inference
-            requests_response(test_web.NOTE_HTML),
-            requests_response(test_web.NOTE_HTML),
             # target post webmention discovery
             HTML,
         ]
@@ -1248,12 +1615,15 @@ class ActivityPubTest(TestCase):
         user = user.key.get()
         self.assertTrue(user.is_enabled(ExplicitFake))
 
-    def test_inbox_dm_yes_to_bot_user_enables_protocol(self, *mocks):
+    def test_inbox_dm_yes_to_bot_user_enables_protocol(self, _, mock_get, __):
         # bot user
         self.make_user('efake.brid.gy', cls=Web)
 
         user = self.make_user(ACTOR['id'], cls=ActivityPub, obj_as2=ACTOR)
         self.assertFalse(user.is_enabled(ExplicitFake))
+
+        # actor gets reloaded
+        mock_get.return_value = self.as2_resp(ACTOR)
 
         got = self.post('/ap/sharedInbox', json={
             'type': 'Create',
@@ -1288,12 +1658,14 @@ class ActivityPubTest(TestCase):
     def test_inbox_like(self, mock_head, mock_get, mock_post):
         mock_head.return_value = requests_response(url='https://user.com/post')
         mock_get.side_effect = [
+            # source actor
+            self.as2_resp(LIKE_WITH_ACTOR['actor']),
+            # object, resolved when we receive
+            requests_response(test_web.NOTE_HTML),
+            requests_response(test_web.NOTE_HTML),
             # source actor, webfinger
             self.as2_resp(LIKE_WITH_ACTOR['actor']),
-            self.as2_resp(LIKE_WITH_ACTOR['actor']),
             requests_response(status=404),
-            requests_response(test_web.NOTE_HTML),
-            requests_response(test_web.NOTE_HTML),
             WEBMENTION_DISCOVERY,
         ]
         mock_post.return_value = requests_response()
@@ -1488,7 +1860,8 @@ class ActivityPubTest(TestCase):
             ignore=['created', 'updated'])
 
         self.assert_user(ActivityPub, 'https://mas.to/users/foo', obj_as2=ACTOR)
-        self.assert_user(Web, 'user.com', last_webmention_in=NOW, has_redirects=True)
+        self.assert_user(Web, 'user.com', last_webmention_in=NOW, has_redirects=True,
+                         enabled_protocols=['activitypub'])
 
     def test_inbox_follow_use_instead_strip_www(self, mock_head, mock_get, mock_post):
         self.make_user('www.user.com', cls=Web, use_instead=self.user.key)
@@ -2006,13 +2379,14 @@ class ActivityPubTest(TestCase):
     def test_inbox_webmention_discovery_connection_fails(self, mock_head,
                                                          mock_get, mock_post):
         mock_get.side_effect = [
+            # source actor
+            self.as2_resp(LIKE_WITH_ACTOR['actor']),
+            # object, resolved when we receive: protocol inference
+            requests_response(test_web.NOTE_HTML),
+            requests_response(test_web.NOTE_HTML),
             # source actor, webfinger
             self.as2_resp(LIKE_WITH_ACTOR['actor']),
-            self.as2_resp(LIKE_WITH_ACTOR['actor']),
             requests_response(status=404),
-            # protocol inference
-            requests_response(test_web.NOTE_HTML),
-            requests_response(test_web.NOTE_HTML),
             # target post webmention discovery
             ReadTimeoutError(None, None, None),
         ]
@@ -2022,13 +2396,14 @@ class ActivityPubTest(TestCase):
 
     def test_inbox_no_webmention_endpoint(self, mock_head, mock_get, mock_post):
         mock_get.side_effect = [
+            # source actor
+            self.as2_resp(LIKE_WITH_ACTOR['actor']),
+            # object, resolved when we receive: protocol inference
+            requests_response(test_web.NOTE_HTML),
+            requests_response(test_web.NOTE_HTML),
             # source actor, webfinger
             self.as2_resp(LIKE_WITH_ACTOR['actor']),
-            self.as2_resp(LIKE_WITH_ACTOR['actor']),
             requests_response(status=404),
-            # protocol inference
-            requests_response(test_web.NOTE_HTML),
-            requests_response(test_web.NOTE_HTML),
             # target post webmention discovery
             HTML,
         ]
@@ -2270,6 +2645,30 @@ class ActivityPubTest(TestCase):
             'items': [ACTOR],
         }, resp.json)
 
+    @patch('models.PAGE_SIZE', 2)
+    def test_followers_collection_page_after_memoized_first_page(self, *_):
+        self.store_followers()
+        resp = self.client.get('/user.com/followers')
+        self.assertEqual(200, resp.status_code)
+
+        before = (datetime.now(UTC) + timedelta(seconds=1)
+                  ).replace(tzinfo=None).isoformat()
+        next = Follower.query(Follower.from_ == ActivityPub(id='http://baz').key,
+                              Follower.to == self.user.key,
+                              ).get().updated.isoformat()
+
+        resp = self.client.get(f'/user.com/followers?before={before}')
+        self.assertEqual(200, resp.status_code)
+        self.assert_equals({
+            '@context': as2.CONTEXT,
+            'id': f'http://localhost/user.com/followers?before={before}',
+            'type': 'CollectionPage',
+            'partOf': 'http://localhost/user.com/followers',
+            'next': f'http://localhost/user.com/followers?before={next}',
+            'prev': f'http://localhost/user.com/followers?after={before}',
+            'items': [ACTOR],
+        }, resp.json)
+
     def test_followers_collection_page_protocol_bot_user(self, *_):
         self.user = self.make_user('bsky.brid.gy', cls=Web, ap_subdomain='bsky')
         self.store_followers()
@@ -2384,69 +2783,256 @@ class ActivityPubTest(TestCase):
         resp = self.client.get(f'/ap/fake:foo/outbox',
                                base_url='https://fa.brid.gy')
         self.assertEqual(200, resp.status_code)
-        self.assertEqual({
-            '@context': 'https://www.w3.org/ns/activitystreams',
+        self.assert_equals({
             'id': 'https://fa.brid.gy/ap/fake:foo/outbox',
             'summary': "fake:foo's outbox",
             'type': 'OrderedCollection',
-            'totalItems': 0,
             'first': {
-                'type': 'CollectionPage',
+                'type': 'OrderedCollectionPage',
                 'partOf': 'https://fa.brid.gy/ap/fake:foo/outbox',
-                'items': [],
+                'orderedItems': [],
             },
-        }, resp.json)
+        }, resp.json, ignore=['@context'])
 
-    def test_outbox_protocol_bot_user_empty(self, *_):
-        self.make_user('bsky.brid.gy', cls=Web, ap_subdomain='bsky')
+    def test_outbox_protocol_bot_user(self, *_):
+        user = self.make_user('bsky.brid.gy', cls=Web, ap_subdomain='bsky')
+        self.store_object(id='https://bsky.brid.gy/#dm', users=[user.key],
+                          source_protocol='web', our_as1={
+                              'objectType': 'note',
+                              'author': 'bsky.brid.gy',
+                              'content': 'a DM',
+                              'to': ['https://inst/alice'],
+                          })
+
         resp = self.client.get(f'/bsky.brid.gy/outbox',
                                base_url='https://bsky.brid.gy')
         self.assertEqual(200, resp.status_code)
-        self.assertEqual({
-            '@context': 'https://www.w3.org/ns/activitystreams',
+        self.assert_equals({
             'id': 'https://bsky.brid.gy/bsky.brid.gy/outbox',
             'summary': "bsky.brid.gy's outbox",
             'type': 'OrderedCollection',
-            'totalItems': 0,
             'first': {
-                'type': 'CollectionPage',
+                'type': 'OrderedCollectionPage',
                 'partOf': 'https://bsky.brid.gy/bsky.brid.gy/outbox',
-                'items': [],
+                'orderedItems': [],
             },
-        }, resp.json)
+        }, resp.json, ignore=['@context'])
 
     def store_outbox_objects(self, user):
-        for i, obj in enumerate([REPLY, MENTION, LIKE, DELETE]):
-            self.store_object(id=obj['id'], users=[user.key], as2=obj)
+        self.make_user('fake:bob', cls=Fake, enabled_protocols=['activitypub'])
+        self.make_user('efake:eve', cls=ExplicitFake)
+        self.store_object(id='fake:bob-post', source_protocol='fake',
+                          our_as1={'objectType': 'note', 'author': 'fake:bob'})
+        self.store_object(id='efake:eve-post', source_protocol='efake',
+                          our_as1={'objectType': 'note', 'author': 'efake:eve'})
 
-    # TODO once we're serving outboxes again
-    # https://github.com/snarfed/bridgy-fed/issues/1248
-    @skip
-    @patch('models.PAGE_SIZE', 2)
+        for id, deleted, our_as1 in (
+                ('fake:note', False, {'objectType': 'note', 'content': 'hello'}),
+                ('fake:reply', False, {
+                    'objectType': 'comment',
+                    'content': 'a reply',
+                    'inReplyTo': 'fake:bob-post',
+                }),
+                ('fake:share', False, {
+                    'objectType': 'activity',
+                    'verb': 'share',
+                    'object': 'fake:bob-post',
+                }),
+                ('fake:like', False, {
+                    'objectType': 'activity',
+                    'verb': 'like',
+                    'object': 'fake:bob-post',
+                }),
+                ('fake:follow', False, {
+                    'objectType': 'activity',
+                    'verb': 'follow',
+                    'object': 'fake:bob',
+                }),
+                ('fake:flag', False, {
+                    'objectType': 'activity',
+                    'verb': 'flag',
+                    'object': 'fake:bob',
+                }),
+                ('fake:deleted', True, {'objectType': 'note', 'content': 'gone'}),
+                ('fake:dm', False, {
+                    'objectType': 'note',
+                    'content': 'a DM',
+                    'to': ['fake:bob'],
+                }),
+                ('fake:reply-eve', False, {
+                    'objectType': 'comment',
+                    'content': 'hi eve',
+                    'inReplyTo': 'efake:eve-post',
+                }),
+                ('fake:share-eve', False, {
+                    'objectType': 'activity',
+                    'verb': 'share',
+                    'object': 'efake:eve-post',
+                }),
+        ):
+            field = 'actor' if our_as1['objectType'] == 'activity' else 'author'
+            self.store_object(id=id, users=[user.key], source_protocol='fake',
+                              deleted=deleted,
+                              our_as1={**our_as1, field: user.key.id()})
+
     def test_outbox_fake_objects(self, *_):
-        user = self.make_user('fake:foo', cls=Fake)
+        user = self.make_user('fake:foo', cls=Fake,
+                              enabled_protocols=['activitypub'])
         self.store_outbox_objects(user)
 
         resp = self.client.get(f'/ap/fake:foo/outbox',
                                base_url='https://fa.brid.gy')
         self.assertEqual(200, resp.status_code)
+        self.assert_equals({
+            '@context': 'https://www.w3.org/ns/activitystreams',
+            'id': 'https://fa.brid.gy/ap/fake:foo/outbox',
+            'summary': "fake:foo's outbox",
+            'type': 'OrderedCollection',
+            'first': {
+                'type': 'OrderedCollectionPage',
+                'partOf': 'https://fa.brid.gy/ap/fake:foo/outbox',
+                'orderedItems': [{
+                    'type': 'Announce',
+                    'id': 'https://fa.brid.gy/convert/ap/fake:share',
+                    'url': {
+                        'type': 'Link',
+                        'rel': 'canonical',
+                        'href': 'fake:share',
+                    },
+                    'actor': 'https://fa.brid.gy/ap/fake:foo',
+                    'object': 'https://fa.brid.gy/convert/ap/fake:bob-post',
+                    'to': [as2.PUBLIC_AUDIENCE],
+                }, {
+                    'type': 'Create',
+                    'id': 'https://fa.brid.gy/convert/ap/fake:reply#bridgy-fed-create',
+                    'actor': 'https://fa.brid.gy/ap/fake:foo',
+                    'object': {
+                        'type': 'Note',
+                        'id': 'https://fa.brid.gy/convert/ap/fake:reply',
+                        'attributedTo': 'https://fa.brid.gy/ap/fake:foo',
+                        'inReplyTo': 'https://fa.brid.gy/convert/ap/fake:bob-post',
+                        'content': '<p>a reply</p>',
+                        'contentMap': {'en': '<p>a reply</p>'},
+                        'to': [as2.PUBLIC_AUDIENCE],
+                        'interactionPolicy': INTERACTION_POLICY,
+                        'replies': 'https://fa.brid.gy/ap/replies/ZmFrZTpyZXBseQ==',
+                    },
+                    'to': [as2.PUBLIC_AUDIENCE],
+                }, {
+                    'type': 'Create',
+                    'id': 'https://fa.brid.gy/convert/ap/fake:note#bridgy-fed-create',
+                    'actor': 'https://fa.brid.gy/ap/fake:foo',
+                    'object': {
+                        'type': 'Note',
+                        'id': 'https://fa.brid.gy/convert/ap/fake:note',
+                        'attributedTo': 'https://fa.brid.gy/ap/fake:foo',
+                        'content': '<p>hello</p>',
+                        'contentMap': {'en': '<p>hello</p>'},
+                        'to': [as2.PUBLIC_AUDIENCE],
+                        'interactionPolicy': INTERACTION_POLICY,
+                        'replies': 'https://fa.brid.gy/ap/replies/ZmFrZTpub3Rl',
+                    },
+                    'to': [as2.PUBLIC_AUDIENCE],
+                }],
+            },
+        }, resp.json)
 
-        after = Object.get_by_id(LIKE['id']).updated.isoformat()
+    @patch('models.PAGE_SIZE', 1)
+    def test_outbox_first_page_only(self, *_):
+        user = self.make_user('fake:foo', cls=Fake,
+                              enabled_protocols=['activitypub'])
+        self.store_object(id='fake:old', users=[user.key], source_protocol='fake',
+                          our_as1={'objectType': 'note', 'author': 'fake:foo'})
+        self.store_object(id='fake:new', users=[user.key], source_protocol='fake',
+                          our_as1={'objectType': 'note', 'author': 'fake:foo'})
+
+        resp = self.client.get(f'/ap/fake:foo/outbox?before=2000-01-01T00:00:00',
+                               base_url='https://fa.brid.gy')
+        self.assertEqual(200, resp.status_code)
+        self.assert_equals({
+            '@context': 'https://www.w3.org/ns/activitystreams',
+            'id': 'https://fa.brid.gy/ap/fake:foo/outbox',
+            'summary': "fake:foo's outbox",
+            'type': 'OrderedCollection',
+            'first': {
+                'type': 'OrderedCollectionPage',
+                'partOf': 'https://fa.brid.gy/ap/fake:foo/outbox',
+                'orderedItems': [{
+                    'type': 'Create',
+                    'id': 'https://fa.brid.gy/convert/ap/fake:new#bridgy-fed-create',
+                    'actor': 'https://fa.brid.gy/ap/fake:foo',
+                    'object': {
+                        'type': 'Note',
+                        'id': 'https://fa.brid.gy/convert/ap/fake:new',
+                        'attributedTo': 'https://fa.brid.gy/ap/fake:foo',
+                        'to': [as2.PUBLIC_AUDIENCE],
+                        'interactionPolicy': INTERACTION_POLICY,
+                        'replies': 'https://fa.brid.gy/ap/replies/ZmFrZTpuZXc=',
+                    },
+                    'to': [as2.PUBLIC_AUDIENCE],
+                }],
+            },
+        }, resp.json)
+
+    def test_outbox_doesnt_fetch(self, _, mock_get, __):
+        user = self.make_user('fake:foo', cls=Fake,
+                              enabled_protocols=['activitypub'])
+        self.store_object(id='fake:reply', users=[user.key], source_protocol='fake',
+                          our_as1={
+                              'objectType': 'comment',
+                              'author': 'fake:foo',
+                              'content': 'hello',
+                              'inReplyTo': 'https://inst/post',
+                              'tags': [{
+                                  'objectType': 'mention',
+                                  'url': 'https://inst/bob',
+                              }],
+                              'attachments': [{
+                                  'objectType': 'link',
+                                  'url': 'https://example.com/article',
+                              }],
+                          })
+
+        resp = self.client.get(f'/ap/fake:foo/outbox',
+                               base_url='https://fa.brid.gy')
+        self.assertEqual(200, resp.status_code)
         self.assert_equals({
             '@context': as2.CONTEXT,
             'id': 'https://fa.brid.gy/ap/fake:foo/outbox',
             'summary': "fake:foo's outbox",
             'type': 'OrderedCollection',
-            'totalItems': 4,
             'first': {
-                'type': 'CollectionPage',
+                'type': 'OrderedCollectionPage',
                 'partOf': 'https://fa.brid.gy/ap/fake:foo/outbox',
-                'items': [DELETE, LIKE],
-                'next': f'https://fa.brid.gy/ap/fake:foo/outbox?before={after}',
+                'orderedItems': [{
+                    'type': 'Create',
+                    'id': 'https://fa.brid.gy/convert/ap/fake:reply#bridgy-fed-create',
+                    'actor': 'https://fa.brid.gy/ap/fake:foo',
+                    'object': {
+                        'type': 'Note',
+                        'id': 'https://fa.brid.gy/convert/ap/fake:reply',
+                        'attributedTo': 'https://fa.brid.gy/ap/fake:foo',
+                        'inReplyTo': 'https://inst/post',
+                        'content': '<p>hello<br><br><a href="https://example.com/article">example.com/article</a></p>',
+                        'contentMap': {'en': '<p>hello<br><br><a href="https://example.com/article">example.com/article</a></p>'},
+                        'tag': [{'type': 'Mention', 'href': 'https://inst/bob'}],
+                        'attachment': [{
+                            'type': 'Link',
+                            'href': 'https://example.com/article',
+                        }],
+                        'to': [as2.PUBLIC_AUDIENCE],
+                        'cc': ['https://inst/bob'],
+                        'interactionPolicy': INTERACTION_POLICY,
+                        'replies': 'https://fa.brid.gy/ap/replies/ZmFrZTpyZXBseQ==',
+                    },
+                    'to': [as2.PUBLIC_AUDIENCE],
+                    'cc': ['https://inst/bob'],
+                }],
             },
         }, resp.json)
+        mock_get.assert_not_called()
 
-    # TODO once we're serving outboxes again
+    # TODO once we serve more than just the first page
     # https://github.com/snarfed/bridgy-fed/issues/1248
     @skip
     @patch('models.PAGE_SIZE', 2)
@@ -2473,18 +3059,16 @@ class ActivityPubTest(TestCase):
     def test_outbox_web_empty(self, *_):
         resp = self.client.get(f'/user.com/outbox')
         self.assertEqual(200, resp.status_code)
-        self.assertEqual({
-            '@context': 'https://www.w3.org/ns/activitystreams',
+        self.assert_equals({
             'id': 'http://localhost/user.com/outbox',
             'summary': "user.com's outbox",
             'type': 'OrderedCollection',
-            'totalItems': 0,
             'first': {
-                'type': 'CollectionPage',
+                'type': 'OrderedCollectionPage',
                 'partOf': 'http://localhost/user.com/outbox',
-                'items': [],
+                'orderedItems': [],
             },
-        }, resp.json)
+        }, resp.json, ignore=['@context'])
 
     def test_outbox_web_head(self, *_):
         resp = self.client.head(f'/user.com/outbox')
@@ -2503,6 +3087,85 @@ class ActivityPubTest(TestCase):
         resp = self.client.get(f'/ap/efake:alice/outbox',
                                base_url='https://efake.brid.gy')
         self.assertEqual(404, resp.status_code)
+
+    def test_replies(self, *_):
+        self.make_user('fake:foo', cls=Fake, enabled_protocols=['activitypub'])
+        self.make_user(ACTOR['id'], cls=ActivityPub, obj_as2=ACTOR)
+        self.make_user('efake:eve', cls=ExplicitFake)
+
+        self.store_object(id='fake:post', source_protocol='fake', our_as1={
+            'objectType': 'note',
+            'author': 'fake:foo',
+        })
+        self.store_object(id='fake:reply', source_protocol='fake', our_as1={
+            'objectType': 'comment',
+            'author': 'fake:foo',
+            'inReplyTo': 'fake:post',
+        })
+        self.store_object(id='https://mas.to/reply', source_protocol='activitypub',
+                          our_as1={
+                              'objectType': 'comment',
+                              'author': ACTOR['id'],
+                              'inReplyTo': 'fake:post',
+                          })
+        # not bridged
+        self.store_object(id='efake:reply', source_protocol='efake', our_as1={
+            'objectType': 'comment',
+            'author': 'efake:eve',
+            'inReplyTo': 'fake:post',
+        })
+        # reply to a different post
+        self.store_object(id='fake:other-reply', source_protocol='fake', our_as1={
+            'objectType': 'comment',
+            'author': 'fake:foo',
+            'inReplyTo': 'fake:other',
+        })
+
+        id_b64 = urlsafe_b64encode(b'fake:post').decode()
+        resp = self.client.get(f'/ap/replies/{id_b64}', base_url='https://fa.brid.gy')
+        self.assertEqual(200, resp.status_code, resp.get_data(as_text=True))
+        self.assertEqual(as2.CONTENT_TYPE_LD_PROFILE, resp.headers['Content-Type'])
+        self.assertEqual({
+            '@context': as2.CONTEXT,
+            'id': f'https://fa.brid.gy/ap/replies/{id_b64}',
+            'type': 'Collection',
+            'first': {
+                'type': 'CollectionPage',
+                'partOf': f'https://fa.brid.gy/ap/replies/{id_b64}',
+                'items': [
+                    'https://fa.brid.gy/convert/ap/fake:reply',
+                    'https://mas.to/reply',
+                ],
+            },
+        }, resp.json)
+
+    def test_replies_empty(self, *_):
+        id_b64 = urlsafe_b64encode(b'fake:post').decode()
+        resp = self.client.get(f'/ap/replies/{id_b64}', base_url='https://fa.brid.gy')
+        self.assertEqual(200, resp.status_code, resp.get_data(as_text=True))
+        self.assertEqual({
+            '@context': as2.CONTEXT,
+            'id': f'https://fa.brid.gy/ap/replies/{id_b64}',
+            'type': 'Collection',
+            'first': {
+                'type': 'CollectionPage',
+                'partOf': f'https://fa.brid.gy/ap/replies/{id_b64}',
+                'items': [],
+            },
+        }, resp.json)
+
+    def test_replies_invalid_base64(self, *_):
+        resp = self.client.get('/ap/replies/xyz', base_url='https://fa.brid.gy')
+        self.assertEqual(404, resp.status_code)
+
+    def test_replies_bad_signature(self, *_):
+        self.make_user(ACTOR['id'], cls=ActivityPub, obj_as2=ACTOR)
+
+        path = f'/ap/replies/{urlsafe_b64encode(b"fake:post").decode()}'
+        headers = sign(path=path, body='', key_id=ACTOR['id'], method='GET')
+        headers['signature'] += 'foo'
+        resp = self.client.get(path, base_url='https://fa.brid.gy', headers=headers)
+        self.assertEqual(401, resp.status_code)
 
     # TODO: bring back once we figure out how to get Mastodon to support this and
     # Pleroma and Akkoma not to DDoS us
@@ -2654,7 +3317,8 @@ class ActivityPubTest(TestCase):
 class ActivityPubUtilsTest(TestCase):
     def setUp(self):
         super().setUp()
-        self.user = self.make_user('user.com', cls=Web, obj_as2=ACTOR)
+        self.user = self.make_user('user.com', cls=Web, obj_as2=ACTOR,
+                                   enabled_protocols=['activitypub'])
 
     def test_put_validates_id(self, *_):
         for bad in (
@@ -2681,6 +3345,21 @@ class ActivityPubUtilsTest(TestCase):
                    'https://ap.brid.gy/foo'):
             with self.subTest(id=id):
                 self.assertFalse(ActivityPub.owns_id(id))
+
+    def test_id_type(self):
+        # AP actor ids and object ids are both http(s) URLs, indistinguishable
+        for id in (
+            'http://foo',
+            'http://inst.com/',
+            'https://inst.com/users/alice',
+            'https://bar/baz',
+            '',
+            'at://did:plc:foo/bar/123',
+            'e45fab982',
+            'https://twitter.com/foo',
+        ):
+            with self.subTest(id=id):
+                self.assertIsNone(ActivityPub.id_type(id))
 
     def test_owns_handle(self):
         for addr in ('user@instance', 'user@instance.com', 'user.com@instance.com',
@@ -2720,6 +3399,56 @@ class ActivityPubUtilsTest(TestCase):
             mock_get,
             'https://inst.com/.well-known/webfinger?resource=acct:user@inst.com')
 
+    @patch.object(util.session, 'get', return_value=TestCase.as2_resp(ACTOR))
+    def test_resolve_user_id(self, mock_get):
+        self.assertEqual('https://mas.to/users/foo',
+                         ActivityPub.resolve_user_id('https://mas.to/@foo'))
+        mock_get.assert_has_calls((self.as2_req('https://mas.to/@foo'),))
+
+    @patch.object(util.session, 'get', return_value=TestCase.as2_resp(ACTOR))
+    def test_resolve_user_id_already_actor_id(self, _):
+        self.assertEqual('https://mas.to/users/foo',
+                         ActivityPub.resolve_user_id('https://mas.to/users/foo'))
+
+    @patch.object(util.session, 'get', return_value=TestCase.as2_resp({
+        **ACTOR,
+        'id': 'https://evil/users/foo',
+    }))
+    def test_resolve_user_id_different_origin(self, _):
+        # we only take the returned id if it's on the same origin
+        self.assertEqual('https://mas.to/@foo',
+                         ActivityPub.resolve_user_id('https://mas.to/@foo'))
+
+    @patch.object(util.session, 'get', return_value=requests_response(status=404))
+    def test_resolve_user_id_fetch_fails(self, _):
+        self.assertEqual('https://mas.to/@foo',
+                         ActivityPub.resolve_user_id('https://mas.to/@foo'))
+
+    def test_resolve_user_id_not_url(self):
+        # doesn't try to fetch
+        self.assertEqual('@foo@mas.to',
+                         ActivityPub.resolve_user_id('@foo@mas.to'))
+
+    @patch.object(util.session, 'get', return_value=TestCase.as2_resp(NOTE_OBJECT))
+    def test_resolve_object_id(self, mock_get):
+        self.assertEqual('http://mas.to/note/id',
+                         ActivityPub.resolve_object_id('http://mas.to/note'))
+        mock_get.assert_has_calls((self.as2_req('http://mas.to/note'),))
+
+    @patch.object(util.session, 'get', return_value=TestCase.as2_resp({
+        **NOTE_OBJECT,
+        'id': 'http://evil/note/id',
+    }))
+    def test_resolve_object_id_different_origin(self, _):
+        # we only take the returned id if it's on the same origin
+        self.assertEqual('http://mas.to/note',
+                         ActivityPub.resolve_object_id('http://mas.to/note'))
+
+    @patch.object(util.session, 'get', return_value=requests_response(status=404))
+    def test_resolve_object_id_fetch_fails(self, _):
+        self.assertEqual('http://mas.to/note',
+                         ActivityPub.resolve_object_id('http://mas.to/note'))
+
     def test_handle_as_domain(self):
         user = ActivityPub(webfinger_addr='@a@b.c')
         self.assertEqual('a.b.c', user.handle_as_domain)
@@ -2749,6 +3478,8 @@ class ActivityPubUtilsTest(TestCase):
         self.assertEqual('/ap/@user@inst.com', user.user_page_path(prefer_id=True))
 
     def test_check_supported(self):
+        self.make_user('http://inst/bob', cls=ActivityPub)
+
         # sending DMs should be allowed
         dm = Object(our_as1={
             'objectType': 'note',
@@ -2771,6 +3502,56 @@ class ActivityPubUtilsTest(TestCase):
         }, postprocess_as2({
             'id': 'xyz',
             'inReplyTo': ['foo', 'bar'],
+        }))
+
+    def test_postprocess_as2_multiple_in_reply_tos_uses_orig_obj(self):
+        self.assert_equals({
+            'id': 'http://localhost/r/xyz',
+            'inReplyTo': 'bar',
+            'to': [as2.PUBLIC_AUDIENCE],
+        }, postprocess_as2({
+            'id': 'xyz',
+            'inReplyTo': ['foo', 'bar'],
+        }, orig_obj={'id': 'bar'}))
+
+    def test_postprocess_as2_single_element_in_reply_to_list(self):
+        self.assert_equals({
+            'id': 'http://localhost/r/xyz',
+            'inReplyTo': 'foo',
+            'to': [as2.PUBLIC_AUDIENCE],
+        }, postprocess_as2({
+            'id': 'xyz',
+            'inReplyTo': ['foo'],
+        }))
+
+    def test_postprocess_as2_composite_object_to_bare_id(self):
+        self.assert_equals({
+            'id': 'http://localhost/r/xyz',
+            'type': 'Like',
+            'object': 'http://inst/note',
+            'to': [as2.PUBLIC_AUDIENCE],
+        }, postprocess_as2({
+            'id': 'xyz',
+            'type': 'Like',
+            'object': {
+                'id': 'http://inst/note',
+                'type': 'Note',
+            },
+        }))
+
+    def test_postprocess_as2_composite_object_url_to_bare_id(self):
+        self.assert_equals({
+            'id': 'http://localhost/r/xyz',
+            'type': 'Like',
+            'object': 'http://inst/note',
+            'to': [as2.PUBLIC_AUDIENCE],
+        }, postprocess_as2({
+            'id': 'xyz',
+            'type': 'Like',
+            'object': {
+                'url': 'http://inst/note',
+                'type': 'Note',
+            },
         }))
 
     def test_postprocess_as2_multiple_url(self):
@@ -2830,6 +3611,9 @@ class ActivityPubUtilsTest(TestCase):
             'content': '<p>foo</p>',
             'contentMap': {'en': '<p>foo</p>'},
             'to': [as2.PUBLIC_AUDIENCE],
+            'interactionPolicy': {
+                'canQuote': {'automaticApproval': [as2.PUBLIC_AUDIENCE]},
+            },
         }, postprocess_as2({
             'id': 'xyz',
             'type': 'Note',
@@ -2843,6 +3627,7 @@ class ActivityPubUtilsTest(TestCase):
             'content': '<p>foo</p>',
             'contentMap': {'en': '<p>foo</p>'},
             'to': [as2.PUBLIC_AUDIENCE],
+            'interactionPolicy': INTERACTION_POLICY,
         }, postprocess_as2({
             'type': 'Note',
             'content': 'foo',
@@ -2923,25 +3708,41 @@ class ActivityPubUtilsTest(TestCase):
             }],
         }))
 
-    def test_postprocess_as2_moves_link_attachments_to_content(self):
+    def test_postprocess_as2_copies_link_attachments_to_content(self):
         # https://github.com/snarfed/bridgy-fed/issues/958
+        # https://github.com/snarfed/bridgy-fed/issues/2286
+        atts = [{
+            'type': 'Link',
+            'href': 'http://a/link',
+            'name': 'check it out',
+        }, {
+            'type': 'Link',
+            'href': 'http://another/link',
+        }]
         self.assert_equals({
             'type': 'Note',
             'content': '<p><a href="http://a/link">check it out</a><br><br><a href="http://another/link">another/link</a></p>',
             'contentMap': {
                 'en': '<p><a href="http://a/link">check it out</a><br><br><a href="http://another/link">another/link</a></p>',
             },
+            'attachment': atts,
         }, postprocess_as2({
             'type': 'Note',
-            'attachment': [{
-                'type': 'Link',
-                'href': 'http://a/link',
-                'name': 'check it out',
-            }, {
-                'type': 'Link',
-                'href': 'http://another/link',
-            }],
-        }), ignore=['to'])
+            'attachment': copy.deepcopy(atts),
+        }), ignore=['to', 'interactionPolicy'])
+
+    def test_postprocess_as2_link_attachment_already_in_content(self):
+        content = '<p>original <a href="http://a/link">a/link</a></p>'
+        self.assert_equals({
+            'type': 'Note',
+            'content': content,
+            'contentMap': {'en': content},
+            'attachment': [{'type': 'Link', 'href': 'http://a/link'}],
+        }, postprocess_as2({
+            'type': 'Note',
+            'content': content,
+            'attachment': [{'type': 'Link', 'href': 'http://a/link'}],
+        }), ignore=['to', 'interactionPolicy'])
 
     def test_postprocess_as2_appends_link_attachments_to_content(self):
         # https://github.com/snarfed/bridgy-fed/issues/958
@@ -2951,6 +3752,10 @@ class ActivityPubUtilsTest(TestCase):
             'contentMap': {
                 'en': '<p>original<br><br><a href="http://a/link">a/link</a></p>',
             },
+            'attachment': [{
+                'type': 'Link',
+                'href': 'http://a/link',
+            }],
         }, postprocess_as2({
             'type': 'Note',
             'content': 'original',
@@ -2958,7 +3763,37 @@ class ActivityPubUtilsTest(TestCase):
                 'type': 'Link',
                 'href': 'http://a/link',
             }],
-        }), ignore=['to'])
+        }), ignore=['to', 'interactionPolicy'])
+
+    def test_postprocess_as2_link_attachments_to_content_keeps_lang(self):
+        expected = '<p><a href="http://a/link">check it out</a></p>'
+        self.assert_equals({
+            'type': 'Note',
+            'content': expected,
+            'contentMap': {'da': expected},
+            'attachment': [{
+                'type': 'Link',
+                'href': 'http://a/link',
+                'name': 'check it out',
+            }],
+        }, postprocess_as2({
+            'type': 'Note',
+            'contentMap': {'da': ''},
+            'attachment': [{
+                'type': 'Link',
+                'href': 'http://a/link',
+                'name': 'check it out',
+            }],
+        }), ignore=['to', 'interactionPolicy'])
+
+    def test_postprocess_as2_keeps_empty_contentMap(self):
+        self.assert_equals({
+            'type': 'Note',
+            'contentMap': {'da': ''},
+        }, postprocess_as2({
+            'type': 'Note',
+            'contentMap': {'da': ''},
+        }), ignore=['to', 'interactionPolicy'])
 
     def test_postprocess_as2_links_indexed_tags_with_link_attachment(self):
         # indexed facets must still be linked even when a Link attachment is
@@ -2970,13 +3805,14 @@ class ActivityPubUtilsTest(TestCase):
             'type': 'Note',
             'content': expected,
             'contentMap': {'en': expected},
+            'attachment': [{'type': 'Link', 'href': 'http://a/link'}],
         }, postprocess_as2({
             'type': 'Note',
             'content': 'foo #baz',
             'tag': [{'type': 'Tag', 'href': 'http://inst/baz',
                      'startIndex': 4, 'length': 4}],
             'attachment': [{'type': 'Link', 'href': 'http://a/link'}],
-        }), ignore=['to', 'tag'])
+        }), ignore=['to', 'tag', 'interactionPolicy'])
 
     def test_postprocess_as2_reply_includes_original_posts_mentions(self):
         note = {
@@ -3060,6 +3896,35 @@ class ActivityPubUtilsTest(TestCase):
             'name': 'two title',
             'value': '<a rel="me" href="https://two"><span class="invisible">https://</span>two</a>',
         }], got['attachment'])
+
+    def test_postprocess_as2_actor_property_value_link_no_href(self):
+        got = postprocess_as2_actor({
+            'type': 'Person',
+            'attachment': [{
+                'type': 'PropertyValue',
+                'name': 'foo',
+                'value': '<a>no href here</a>',
+            }],
+        }, user=self.user)
+
+        self.assertEqual('foo', got['attachment'][0]['name'])
+
+    def test_postprocess_as2_actor_keeps_proxy_links(self):
+        self.assert_equals([
+            'http://localhost/r/https://user.com/',
+            {
+                'type': 'Link',
+                'rel': 'canonical',
+                'href': 'at://did:plc:user',
+            },
+        ], postprocess_as2_actor({
+            'type': 'Person',
+            'url': {
+                'type': 'Link',
+                'rel': 'canonical',
+                'href': 'at://did:plc:user',
+            },
+        }, user=self.user)['url'])
 
     def test_postprocess_as2_actor_strips_acct_url(self):
         self.assert_equals('http://localhost/r/http://user.com/',
@@ -3314,6 +4179,15 @@ class ActivityPubUtilsTest(TestCase):
             self.as2_req('http://orig'),
         ))
 
+    @patch.object(util.session, 'get', return_value=AS2)
+    def test_fetch_caches_within_request(self, mock_get):
+        for _ in range(2):
+            obj = Object(id='http://orig')
+            self.assertTrue(ActivityPub.fetch(obj))
+            self.assertEqual(AS2_OBJ, obj.as2)
+
+        mock_get.assert_called_once()
+
     @patch.object(util.session, 'get')
     def test_fetch_direct_list(self, mock_get):
         mock_get.return_value = self.as2_resp([AS2_OBJ])
@@ -3446,17 +4320,132 @@ class ActivityPubUtilsTest(TestCase):
             **ACTOR,
             'featured': 'http://feat/ured',
         }
-        featured = {'foo': 'bar'}
+        featured = {'items': ['bar']}
         mock_get.side_effect = [self.as2_resp(actor), self.as2_resp(featured)]
 
         obj = Object(id='http://orig')
         self.assertTrue(ActivityPub.fetch(obj))
-        self.assertEqual({**actor, 'featured': {'foo': 'bar'}}, obj.as2)
+        self.assertEqual({**actor, 'featured': featured}, obj.as2)
 
         mock_get.assert_has_calls((
             self.as2_req('http://orig'),
             self.as2_req('http://feat/ured', headers=as2.CONNEG_HEADERS),
         ))
+
+    @patch.object(util.session, 'get')
+    def test_fetch_hydrate_actor_featured_strips_inlined_items(self, mock_get):
+        actor = {
+            **ACTOR,
+            'featured': 'http://feat/ured',
+        }
+        mock_get.side_effect = [
+            self.as2_resp(actor),
+            self.as2_resp({
+                'type': 'OrderedCollection',
+                'orderedItems': [
+                    {'id': 'http://foo', 'type': 'Note', 'content': 'foo'},
+                    {'id': 'http://bar', 'type': 'Note', 'content': 'bar'},
+                ],
+            }),
+        ]
+
+        obj = Object(id='http://orig')
+        self.assertTrue(ActivityPub.fetch(obj))
+        self.assertEqual({
+            **actor,
+            'featured': {
+                'type': 'OrderedCollection',
+                'orderedItems': ['http://foo', 'http://bar'],
+            },
+        }, obj.as2)
+
+    @patch.object(util.session, 'get')
+    def test_fetch_hydrate_actor_featured_first_page(self, mock_get):
+        actor = {
+            **ACTOR,
+            'featured': {
+                'type': 'OrderedCollection',
+                'first': 'http://feat/ured?page=1',
+            },
+        }
+        mock_get.side_effect = [
+            self.as2_resp(actor),
+            self.as2_resp({
+                'type': 'OrderedCollectionPage',
+                'orderedItems': ['http://foo'],
+            }),
+        ]
+
+        obj = Object(id='http://orig')
+        self.assertTrue(ActivityPub.fetch(obj))
+        self.assertEqual({
+            **actor,
+            'featured': {
+                'type': 'OrderedCollection',
+                'first': 'http://feat/ured?page=1',
+                'orderedItems': ['http://foo'],
+            },
+        }, obj.as2)
+
+        mock_get.assert_has_calls((
+            self.as2_req('http://orig'),
+            self.as2_req('http://feat/ured?page=1', headers=as2.CONNEG_HEADERS),
+        ))
+
+    @patch.object(util.session, 'get')
+    def test_fetch_hydrate_actor_featured_id_then_first_page(self, mock_get):
+        actor = {
+            **ACTOR,
+            'featured': 'http://feat/ured',
+        }
+        mock_get.side_effect = [
+            self.as2_resp(actor),
+            self.as2_resp({
+                'type': 'OrderedCollection',
+                'totalItems': 1,
+                'first': 'http://feat/ured?page=1',
+            }),
+            self.as2_resp({
+                'type': 'OrderedCollectionPage',
+                'orderedItems': ['http://foo'],
+            }),
+        ]
+
+        obj = Object(id='http://orig')
+        self.assertTrue(ActivityPub.fetch(obj))
+        self.assertEqual({
+            **actor,
+            'featured': {
+                'type': 'OrderedCollection',
+                'totalItems': 1,
+                'first': 'http://feat/ured?page=1',
+                'orderedItems': ['http://foo'],
+            },
+        }, obj.as2)
+
+        mock_get.assert_has_calls((
+            self.as2_req('http://orig'),
+            self.as2_req('http://feat/ured', headers=as2.CONNEG_HEADERS),
+            self.as2_req('http://feat/ured?page=1', headers=as2.CONNEG_HEADERS),
+        ))
+
+    @patch.object(util.session, 'get')
+    def test_fetch_hydrate_actor_featured_first_page_fetch_fails(self, mock_get):
+        actor = {
+            **ACTOR,
+            'featured': {
+                'type': 'OrderedCollection',
+                'first': 'http://feat/ured?page=1',
+            },
+        }
+        mock_get.side_effect = [
+            self.as2_resp(actor),
+            requests_response(status=404),
+        ]
+
+        obj = Object(id='http://orig')
+        self.assertTrue(ActivityPub.fetch(obj))
+        self.assertEqual(actor, obj.as2)
 
     @patch.object(util.session, 'get')
     def test_fetch_actor_featured_already_hydrated(self, mock_get):
@@ -3540,7 +4529,10 @@ class ActivityPubUtilsTest(TestCase):
         self.assert_equals({
             'type': 'Service',
             'id': 'https://bsky.brid.gy/ap/did:plc:user',
-            'url': 'http://localhost/r/https://bsky.app/profile/did:plc:user',
+            'url': [
+                'http://localhost/r/https://bsky.app/profile/did:plc:user',
+                {'type': 'Link', 'rel': 'canonical', 'href': 'did:plc:user'},
+            ],
             'alsoKnownAs': ['did:plc:user'],
             'name': 'Alice',
  'summary': 'hi there<br><br>🌉 <a href="https://fed.brid.gy/bsky/did:plc:user">bridged</a> from 🦋 <a href="https://bsky.app/profile/did:plc:user">None</a> by <a href="https://fed.brid.gy/">Bridgy Fed</a>',
@@ -3558,11 +4550,11 @@ class ActivityPubUtilsTest(TestCase):
     def test_convert_actor_as1_proxy_link(self):
         obj = Object(id='fake:id', our_as1=ACTOR_AS1, source_protocol='fake')
         converted = ActivityPub.convert(obj)
-        self.assert_equals([{
+        self.assert_equals({
             'type': 'Link',
             'rel': 'canonical',
             'href': 'fake:id',
-        }], converted['url'])
+        }, converted['url'])
 
     def test_convert_actor_as1_skip_proxy_link_for_brid_gy_ids(self):
         obj = Object(id='https://web.brid.gy/foo', our_as1=ACTOR_AS1,
@@ -3623,6 +4615,116 @@ class ActivityPubUtilsTest(TestCase):
             'object': ACTOR,
         }, ActivityPub.convert(obj))
 
+    def test_convert_create_note_interaction_policy(self):
+        # use assertEquals so that we don't ignore @context
+        self.assertEqual({
+            '@context': as2.CONTEXT + [INTERACTION_POLICY_CONTEXT],
+            'type': 'Create',
+            'to': [as2.PUBLIC_AUDIENCE],
+            'object': {
+                'type': 'Note',
+                'content': '<p>foo</p>',
+                'contentMap': {'en': '<p>foo</p>'},
+                'to': [as2.PUBLIC_AUDIENCE],
+                'interactionPolicy': INTERACTION_POLICY,
+            },
+        }, ActivityPub.convert(Object(our_as1={
+            'objectType': 'activity',
+            'verb': 'post',
+            'object': {
+                'objectType': 'note',
+                'content': 'foo',
+            },
+        })))
+
+    def test_convert_note_adds_replies(self):
+        self.assert_equals({
+            'type': 'Note',
+            'id': 'https://fa.brid.gy/convert/ap/fake:post',
+            'url': {
+                'type': 'Link',
+                'rel': 'canonical',
+                'href': 'fake:post',
+            },
+            'attributedTo': 'https://fa.brid.gy/ap/fake:alice',
+            'replies': 'https://fa.brid.gy/ap/replies/ZmFrZTpwb3N0',
+            'to': [as2.PUBLIC_AUDIENCE],
+            'interactionPolicy': INTERACTION_POLICY,
+        }, ActivityPub.convert(Object(id='fake:post', source_protocol='fake', our_as1={
+            'objectType': 'note',
+            'id': 'fake:post',
+            'author': 'fake:alice',
+        })), ignore=['@context'])
+
+    def test_convert_create_note_adds_replies(self):
+        self.assert_equals({
+            'type': 'Create',
+            'id': 'https://fa.brid.gy/convert/ap/fake:create',
+            'actor': 'https://fa.brid.gy/ap/fake:alice',
+            'to': [as2.PUBLIC_AUDIENCE],
+            'object': {
+                'type': 'Note',
+                'id': 'https://fa.brid.gy/convert/ap/fake:post',
+                'attributedTo': 'https://fa.brid.gy/ap/fake:alice',
+                'replies': 'https://fa.brid.gy/ap/replies/ZmFrZTpwb3N0',
+                'to': [as2.PUBLIC_AUDIENCE],
+                'interactionPolicy': INTERACTION_POLICY,
+                'url': {
+                    'type': 'Link',
+                    'rel': 'canonical',
+                    'href': 'fake:post',
+                },
+            },
+        }, ActivityPub.convert(Object(id='fake:create', source_protocol='fake', our_as1={
+            'objectType': 'activity',
+            'verb': 'post',
+            'id': 'fake:create',
+            'actor': 'fake:alice',
+            'object': {
+                'objectType': 'note',
+                'id': 'fake:post',
+                'author': 'fake:alice',
+            },
+        })), ignore=['@context'])
+
+    def test_convert_dm_no_replies(self):
+        self.assert_equals({
+            'type': 'Note',
+            'id': 'https://fa.brid.gy/convert/ap/fake:dm',
+            'url': {
+                'type': 'Link',
+                'rel': 'canonical',
+                'href': 'fake:dm',
+            },
+            'attributedTo': 'https://fa.brid.gy/ap/fake:alice',
+            'to': ['https://fa.brid.gy/ap/fake:bob'],
+        }, ActivityPub.convert(Object(id='fake:dm', source_protocol='fake', our_as1={
+            'objectType': 'note',
+            'id': 'fake:dm',
+            'author': 'fake:alice',
+            'to': ['fake:bob'],
+        })), ignore=['@context'])
+
+    def test_convert_like_no_replies(self):
+        self.assert_equals({
+            'type': 'Like',
+            'id': 'https://fa.brid.gy/convert/ap/fake:like',
+            'url': {
+                'type': 'Link',
+                'rel': 'canonical',
+                'href': 'fake:like',
+            },
+            'actor': 'https://fa.brid.gy/ap/fake:alice',
+            'object': 'https://fa.brid.gy/convert/ap/fake:post',
+            'to': [as2.PUBLIC_AUDIENCE],
+        }, ActivityPub.convert(Object(id='fake:like', source_protocol='fake', our_as1={
+            'objectType': 'activity',
+            'verb': 'like',
+            'id': 'fake:like',
+            'actor': 'fake:alice',
+            'object': 'fake:post',
+        })), ignore=['@context'])
+
     def test_convert_to_cc(self):
         self.assert_equals({
             '@context': as2.CONTEXT,
@@ -3637,6 +4739,17 @@ class ActivityPubUtilsTest(TestCase):
     @patch.object(util.session, 'get')
     def test_convert_quote_post(self, mock_get):
         mock_get.return_value = requests_response(test_atproto.DID_DOC)
+
+        self.store_object(id='did:plc:bob', raw={
+            **test_atproto.DID_DOC,
+            'id': 'did:plc:bob',
+        })
+        self.make_user('did:plc:bob', cls=ATProto, enabled_protocols=['activitypub'])
+        self.store_object(id='at://did:plc:bob/app.bsky.feed.post/456',
+                          source_protocol='atproto', bsky={
+            '$type': 'app.bsky.feed.post',
+            'text': 'quoted',
+        })
 
         obj = Object(id='at://did:plc:alice/app.bsky.feed.post/123', bsky={
             '$type': 'app.bsky.feed.post',
@@ -3656,6 +4769,7 @@ class ActivityPubUtilsTest(TestCase):
             'url': 'http://localhost/r/https://bsky.app/profile/did:plc:alice/post/123',
             'content': '<p>foo bar<span class="quote-inline"><br><br>RE: <a href="https://bsky.app/profile/did:plc:bob/post/456">https://bsky.app/profile/did:plc:bob/post/456</a></span></p>',
             'attributedTo': 'https://bsky.brid.gy/ap/did:plc:alice',
+            'quote': 'https://bsky.brid.gy/convert/ap/at://did:plc:bob/app.bsky.feed.post/456',
             '_misskey_quote': 'https://bsky.brid.gy/convert/ap/at://did:plc:bob/app.bsky.feed.post/456',
             'quoteUrl': 'https://bsky.brid.gy/convert/ap/at://did:plc:bob/app.bsky.feed.post/456',
             'tag': [{
@@ -3664,7 +4778,237 @@ class ActivityPubUtilsTest(TestCase):
                 'href': 'https://bsky.brid.gy/convert/ap/at://did:plc:bob/app.bsky.feed.post/456',
                 'name': 'RE: https://bsky.app/profile/did:plc:bob/post/456',
             }],
-        }, ActivityPub.convert(obj), ignore=['contentMap', 'to'])
+            'interactionPolicy': INTERACTION_POLICY,
+            'replies': 'https://bsky.brid.gy/ap/replies/YXQ6Ly9kaWQ6cGxjOmFsaWNlL2FwcC5ic2t5LmZlZWQucG9zdC8xMjM=',
+        }, ActivityPub.convert(obj), ignore=['contentMap', 'quoteAuthorization', 'to'])
+
+    def test_convert_quote_post_of_bridged_post_adds_quoteAuthorization(self):
+        self.make_user('fake:bob', cls=Fake, enabled_protocols=['activitypub'])
+        self.store_object(id='fake:orig', source_protocol='fake', our_as1={
+            'objectType': 'note',
+            'author': 'fake:bob',
+        })
+
+        obj = Object(id='fake:quote', source_protocol='fake', our_as1={
+            'objectType': 'note',
+            'id': 'fake:quote',
+            'author': 'fake:alice',
+            'content': 'foo',
+            'attachments': [{
+                'objectType': 'note',
+                'id': 'fake:orig',
+            }],
+        })
+
+        orig = 'https://fa.brid.gy/convert/ap/fake:orig'
+        quote = 'https://fa.brid.gy/convert/ap/fake:quote'
+        orig_b64 = urlsafe_b64encode(orig.encode()).decode()
+        quote_b64 = urlsafe_b64encode(quote.encode()).decode()
+        # use assertEquals so that we don't ignore @context
+        self.assertEqual({
+            '@context': as2.CONTEXT + [
+                as2.FEP044F_QUOTE_CONTEXT,
+                as2.MISSKEY_QUOTE_CONTEXT,
+                INTERACTION_POLICY_CONTEXT,
+                FEP044F_QUOTE_POST_CONTEXT,
+            ],
+            'type': 'Note',
+            'id': quote,
+            'attributedTo': 'https://fa.brid.gy/ap/fake:alice',
+            'content': '<p>foo<span class="quote-inline"><br><br>RE: <a href="https://fa.brid.gy/convert/ap/fake:orig">https://fa.brid.gy/convert/ap/fake:orig</a></span></p>',
+            'contentMap': {'en': '<p>foo<span class="quote-inline"><br><br>RE: <a href="https://fa.brid.gy/convert/ap/fake:orig">https://fa.brid.gy/convert/ap/fake:orig</a></span></p>'},
+            'quote': orig,
+            '_misskey_quote': orig,
+            'quoteUrl': orig,
+            'quoteAuthorization': f'https://fa.brid.gy/ap/fake:bob/stamp/quote/{orig_b64}/{quote_b64}',
+            'tag': [{
+                'type': 'Link',
+                'mediaType': as2.CONTENT_TYPE_LD_PROFILE,
+                'href': orig,
+                'name': 'RE: https://fa.brid.gy/convert/ap/fake:orig',
+            }],
+            'to': [as2.PUBLIC_AUDIENCE],
+            'interactionPolicy': INTERACTION_POLICY,
+            'replies': 'https://fa.brid.gy/ap/replies/ZmFrZTpxdW90ZQ==',
+            'url': {
+                'type': 'Link',
+                'rel': 'canonical',
+                'href': 'fake:quote',
+            },
+        }, ActivityPub.convert(obj))
+
+    def test_convert_quote_post_of_activitypub_post_no_quoteAuthorization(self):
+        obj = Object(id='fake:quote', source_protocol='fake', our_as1={
+            'objectType': 'note',
+            'id': 'fake:quote',
+            'author': 'fake:alice',
+            'attachments': [{
+                'objectType': 'note',
+                'id': 'https://inst/orig',
+            }],
+        })
+
+        got = ActivityPub.convert(obj)
+        self.assertEqual('https://inst/orig', got['quote'])
+        self.assertNotIn('quoteAuthorization', got)
+
+    def test_convert_quote_post_quoteAuthorization_in_extra_as1(self):
+        obj = Object(id='fake:quote', source_protocol='fake', our_as1={
+            'objectType': 'note',
+            'id': 'fake:quote',
+            'author': 'fake:alice',
+            'attachments': [{
+                'objectType': 'note',
+                'id': 'https://inst/orig',
+            }],
+        }, extra_as1={
+            '@context': [FEP044F_QUOTE_POST_CONTEXT],
+            'quoteAuthorization': 'https://inst/stamp',
+        })
+
+        got = ActivityPub.convert(obj)
+        self.assertEqual('https://inst/stamp', got['quoteAuthorization'])
+        self.assertEqual(as2.CONTEXT + [
+            FEP044F_QUOTE_POST_CONTEXT,
+            as2.FEP044F_QUOTE_CONTEXT,
+            as2.MISSKEY_QUOTE_CONTEXT,
+            INTERACTION_POLICY_CONTEXT,
+        ], got['@context'])
+
+    def test_convert_quote_post_of_non_bridged_post_omits_quote_fields(self):
+        # fake:bob isn't bridged to ActivityPub
+        self.make_user('fake:bob', cls=Fake)
+        self.store_object(id='fake:orig', source_protocol='fake', our_as1={
+            'objectType': 'note',
+            'author': 'fake:bob',
+        })
+
+        obj = Object(id='fake:quote', source_protocol='fake', our_as1={
+            'objectType': 'note',
+            'id': 'fake:quote',
+            'author': 'fake:alice',
+            'content': 'foo',
+            'attachments': [{
+                'objectType': 'note',
+                'id': 'fake:orig',
+                'url': 'http://fake/orig',
+            }],
+        })
+
+        content = '<p>foo<span class="quote-inline"><br><br>RE: <a href="http://fake/orig">http://fake/orig</a></span></p>'
+        self.assert_equals({
+            'type': 'Note',
+            'id': 'https://fa.brid.gy/convert/ap/fake:quote',
+            'attributedTo': 'https://fa.brid.gy/ap/fake:alice',
+            'content': content,
+            'contentMap': {'en': content},
+            'to': [as2.PUBLIC_AUDIENCE],
+            'interactionPolicy': INTERACTION_POLICY,
+            'replies': 'https://fa.brid.gy/ap/replies/ZmFrZTpxdW90ZQ==',
+            'tag': [{
+                'type': 'Link',
+                'href': 'http://fake/orig',
+                'name': 'RE: http://fake/orig',
+            }],
+            'url': {
+                'type': 'Link',
+                'rel': 'canonical',
+                'href': 'fake:quote',
+            },
+        }, ActivityPub.convert(obj))
+
+        create = Object(id='fake:create', source_protocol='fake', our_as1={
+            'objectType': 'activity',
+            'verb': 'post',
+            'id': 'fake:create',
+            'actor': 'fake:alice',
+            'object': obj.as1,
+        })
+        self.assert_equals({
+            'type': 'Note',
+            'id': 'https://fa.brid.gy/convert/ap/fake:quote',
+            'attributedTo': 'https://fa.brid.gy/ap/fake:alice',
+            'content': content,
+            'contentMap': {'en': content},
+            'to': [as2.PUBLIC_AUDIENCE],
+            'interactionPolicy': INTERACTION_POLICY,
+            'replies': 'https://fa.brid.gy/ap/replies/ZmFrZTpxdW90ZQ==',
+            'tag': [{
+                'type': 'Link',
+                'href': 'http://fake/orig',
+                'name': 'RE: http://fake/orig',
+            }],
+            'url': {
+                'type': 'Link',
+                'rel': 'canonical',
+                'href': 'fake:quote',
+            },
+        }, ActivityPub.convert(create)['object'])
+
+    def test_convert_quote_post_of_non_bridged_post_no_url_keeps_tag_href(self):
+        obj = Object(id='fake:quote', source_protocol='fake', our_as1={
+            'objectType': 'note',
+            'id': 'fake:quote',
+            'author': 'fake:alice',
+            'attachments': [{
+                'objectType': 'note',
+                'id': 'fake:orig',
+            }],
+        })
+
+        got = ActivityPub.convert(obj, remote=False)
+        self.assertNotIn('quote', got)
+        self.assertEqual([{
+            'type': 'Link',
+            'href': 'https://fa.brid.gy/convert/ap/fake:orig',
+            'name': 'RE: https://fa.brid.gy/convert/ap/fake:orig',
+        }], got['tag'])
+
+    def test_convert_quote_post_of_bridged_post_not_stored_fetches(self):
+        self.make_user('fake:bob', cls=Fake, enabled_protocols=['activitypub'])
+        Fake.fetchable['fake:orig'] = {
+            'objectType': 'note',
+            'author': 'fake:bob',
+        }
+
+        obj = Object(id='fake:quote', source_protocol='fake', our_as1={
+            'objectType': 'note',
+            'id': 'fake:quote',
+            'author': 'fake:alice',
+            'attachments': [{
+                'objectType': 'note',
+                'id': 'fake:orig',
+            }],
+        })
+
+        got = ActivityPub.convert(obj)
+        self.assertEqual(['fake:orig'], Fake.fetched)
+        orig_b64 = urlsafe_b64encode(b'https://fa.brid.gy/convert/ap/fake:orig').decode()
+        quote_b64 = urlsafe_b64encode(b'https://fa.brid.gy/convert/ap/fake:quote').decode()
+        self.assertEqual(
+            f'https://fa.brid.gy/ap/fake:bob/stamp/quote/{orig_b64}/{quote_b64}',
+            got['quoteAuthorization'])
+
+    def test_convert_quote_post_of_bridged_post_not_stored_remote_false(self):
+        self.make_user('fake:bob', cls=Fake, enabled_protocols=['activitypub'])
+        Fake.fetchable['fake:orig'] = {
+            'objectType': 'note',
+            'author': 'fake:bob',
+        }
+
+        obj = Object(id='fake:quote', source_protocol='fake', our_as1={
+            'objectType': 'note',
+            'id': 'fake:quote',
+            'author': 'fake:alice',
+            'attachments': [{
+                'objectType': 'note',
+                'id': 'fake:orig',
+            }],
+        })
+
+        got = ActivityPub.convert(obj, remote=False)
+        self.assertEqual([], Fake.fetched)
+        self.assertNotIn('quoteAuthorization', got)
 
     @patch.object(util.session, 'get', return_value=requests_response())
     def test_convert_bluesky_external_embed_to_link_in_content(self, _):
@@ -3675,6 +5019,18 @@ class ActivityPubUtilsTest(TestCase):
             'url': 'http://localhost/r/https://bsky.app/profile/did:plc:bob/post/456',
             'attributedTo': 'https://bsky.brid.gy/ap/did:plc:bob',
             'content': '<p>foo bar<br><br><a href="http://a.li/nc">a linc</a></p>',
+            'attachment': [{
+                'type': 'Link',
+                'href': 'http://a.li/nc',
+                'name': 'a linc',
+                'preview': {
+                    'type': 'Article',
+                    'name': 'a linc',
+                    'summary': 'baz biff',
+                },
+            }],
+            'interactionPolicy': INTERACTION_POLICY,
+            'replies': 'https://bsky.brid.gy/ap/replies/YXQ6Ly9kaWQ6cGxjOmJvYi9hcHAuYnNreS5mZWVkLnBvc3QvNDU2',
         }, ActivityPub.convert(Object(id='at://did:plc:bob/app.bsky.feed.post/456', bsky={
             "$type": "app.bsky.feed.post",
             "text": "foo bar",
@@ -3687,6 +5043,42 @@ class ActivityPubUtilsTest(TestCase):
                 },
             },
         })), ignore=['@context', 'contentMap', 'to'])
+
+    @patch.object(util.session, 'get', return_value=requests_response())
+    def test_convert_bluesky_external_embed_no_text_keeps_lang(self, _):
+        content = '<p><a href="http://a.li/nc">a linc</a></p>'
+        self.assert_equals({
+            'type': 'Note',
+            'id': 'https://bsky.brid.gy/convert/ap/at://did:plc:bob/app.bsky.feed.post/456',
+            'url': 'http://localhost/r/https://bsky.app/profile/did:plc:bob/post/456',
+            'attributedTo': 'https://bsky.brid.gy/ap/did:plc:bob',
+            'content': content,
+            'contentMap': {'da': content},
+            'attachment': [{
+                'type': 'Link',
+                'href': 'http://a.li/nc',
+                'name': 'a linc',
+                'preview': {
+                    'type': 'Article',
+                    'name': 'a linc',
+                    'summary': 'baz biff',
+                },
+            }],
+            'interactionPolicy': INTERACTION_POLICY,
+            'replies': 'https://bsky.brid.gy/ap/replies/YXQ6Ly9kaWQ6cGxjOmJvYi9hcHAuYnNreS5mZWVkLnBvc3QvNDU2',
+        }, ActivityPub.convert(Object(id='at://did:plc:bob/app.bsky.feed.post/456', bsky={
+            '$type': 'app.bsky.feed.post',
+            'text': '',
+            'langs': ['da'],
+            'embed': {
+                '$type': 'app.bsky.embed.external',
+                'external': {
+                    'description': 'baz biff',
+                    'title': 'a linc',
+                    'uri': 'http://a.li/nc',
+                },
+            },
+        })), ignore=['@context', 'to'])
 
     def test_convert_mention_non_bridged_id_uses_profile_url(self):
         self.store_object(id='did:plc:5zspv27pk4iqtrl2ql2nykjh', raw={'foo': 'bar'})
@@ -3703,7 +5095,7 @@ class ActivityPubUtilsTest(TestCase):
             }],
         })
         self.assertEqual({
-            '@context': as2.CONTEXT,
+            '@context': as2.CONTEXT + [INTERACTION_POLICY_CONTEXT],
             'type': 'Note',
             'content': '<p>hello <a class="mention h-card" href="https://bsky.brid.gy/ap/did:plc:5zspv27pk4iqtrl2ql2nykjh">@snarfed2.bsky.social</a></p>',
             'contentMap': {'en': '<p>hello <a class="mention h-card" href="https://bsky.brid.gy/ap/did:plc:5zspv27pk4iqtrl2ql2nykjh">@snarfed2.bsky.social</a></p>'},
@@ -3713,6 +5105,7 @@ class ActivityPubUtilsTest(TestCase):
                 'href': 'https://bsky.brid.gy/ap/did:plc:5zspv27pk4iqtrl2ql2nykjh',
             }],
             'to': ['https://www.w3.org/ns/activitystreams#Public'],
+            'interactionPolicy': INTERACTION_POLICY,
         }, ActivityPub.convert(obj))
 
     def test_convert_pinned_post_featured_collection_ids(self):
@@ -3743,11 +5136,11 @@ class ActivityPubUtilsTest(TestCase):
             'content': 'Hello world',
         })
         converted = ActivityPub.convert(obj)
-        self.assertEqual([{
+        self.assertEqual({
             'type': 'Link',
             'rel': 'canonical',
             'href': 'fake:post:123'
-        }], converted['url'])
+        }, converted['url'])
 
     def test_convert_fep_fffd_preserves_existing_url_string(self):
         obj = Object(id='fake:post:456', source_protocol='web', our_as1={
@@ -3761,7 +5154,8 @@ class ActivityPubUtilsTest(TestCase):
             {
                 'type': 'Link',
                 'rel': 'canonical',
-                'href': 'fake:post:456'
+                'href': 'fake:post:456',
+                'mediaType': 'text/html',
             },
         ], converted['url'])
 
@@ -3778,9 +5172,46 @@ class ActivityPubUtilsTest(TestCase):
             {
                 'type': 'Link',
                 'rel': 'canonical',
-                'href': 'fake:post:789'
+                'href': 'fake:post:789',
+                'mediaType': 'text/html',
             },
         ], converted['url'])
+
+    def test_convert_fep_fffd_existing_canonical_link(self):
+        obj = Object(id='fake:post', source_protocol='fake', our_as1={
+            'objectType': 'note',
+            'content': 'Hello',
+            'url': [{
+                'value': 'at://did:plc:alice/app.bsky.feed.post/123',
+                'rel': 'canonical',
+            }],
+        })
+        converted = ActivityPub.convert(obj)
+        self.assertEqual({
+            'type': 'Link',
+            'rel': 'canonical',
+            'href': 'at://did:plc:alice/app.bsky.feed.post/123',
+        }, converted['url'])
+
+    def test_convert_fep_fffd_existing_alternate_link(self):
+        obj = Object(id='fake:post', source_protocol='fake', our_as1={
+            'objectType': 'note',
+            'content': 'Hello',
+            'url': [{
+                'value': 'at://did:plc:alice/app.bsky.feed.post/123',
+                'rel': 'alternate',
+            }],
+        })
+        converted = ActivityPub.convert(obj)
+        self.assertEqual([{
+            'type': 'Link',
+            'rel': 'alternate',
+            'href': 'at://did:plc:alice/app.bsky.feed.post/123',
+        }, {
+            'type': 'Link',
+            'rel': 'canonical',
+            'href': 'fake:post',
+        }], converted['url'])
 
     def test_convert_fep_fffd_skips_ap_objects(self):
         obj = Object(id='https://mastodon.social/id',
@@ -3790,6 +5221,7 @@ class ActivityPubUtilsTest(TestCase):
                          'content': 'From ActivityPub',
                          'url': 'https://mastodon.social/url',
                      })
+        obj.put()
         converted = ActivityPub.convert(obj)
         self.assertEqual('https://mastodon.social/url', converted['url'])
 
@@ -3809,6 +5241,19 @@ class ActivityPubUtilsTest(TestCase):
         })
         converted = ActivityPub.convert(obj)
         self.assertNotIn('url', converted)
+
+    def test_convert_fep_fffd_atproto_no_media_type(self):
+        obj = Object(id='at://did:plc:alice/app.bsky.feed.post/123',
+                     source_protocol='atproto', our_as1={
+                         'objectType': 'note',
+                         'content': 'hello',
+                     })
+        converted = ActivityPub.convert(obj)
+        self.assertEqual({
+            'type': 'Link',
+            'rel': 'canonical',
+            'href': 'at://did:plc:alice/app.bsky.feed.post/123',
+        }, converted['url'])
 
     def test_postprocess_as2_idempotent(self):
         for obj in (ACTOR, REPLY_OBJECT, REPLY_OBJECT_WRAPPED, REPLY,
@@ -3868,6 +5313,9 @@ class ActivityPubUtilsTest(TestCase):
 
         user.obj.as2['url'] = ['http://my/url']
         self.assertEqual('http://my/url', user.web_url())
+
+        user.obj.as2['url'] = 'javascript:alert(1)'
+        self.assertEqual('http://foo/person', user.web_url())
 
     @patch.object(util.session, 'get', side_effect=[
         TestCase.as2_resp({
@@ -4151,6 +5599,158 @@ class ActivityPubUtilsTest(TestCase):
             'to': [as2.PUBLIC_AUDIENCE],
         }, json_loads(kwargs['data']))
 
+    def _send_quote_create(self, quoted_id='https://mas.to/orig', verb='post',
+                           **params):
+        alice = self.make_user('fake:alice', cls=Fake,
+                               enabled_protocols=['activitypub'])
+        self.make_user(ACTOR['id'], cls=ActivityPub, obj_as2=ACTOR)
+        self.store_object(id='https://mas.to/orig', source_protocol='activitypub',
+                          as2={
+                              'type': 'Note',
+                              'id': 'https://mas.to/orig',
+                              'attributedTo': ACTOR['id'],
+                          })
+
+        create = Object(id='fake:quote#bridgy-fed-create', source_protocol='fake',
+                        our_as1={
+                            'objectType': 'activity',
+                            'verb': verb,
+                            'id': 'fake:quote#bridgy-fed-create',
+                            'actor': 'fake:alice',
+                            'object': {
+                                'objectType': 'note',
+                                'id': 'fake:quote',
+                                'author': 'fake:alice',
+                                'content': 'foo',
+                                'attachments': [{
+                                    'objectType': 'note',
+                                    'id': quoted_id,
+                                }],
+                            },
+                        })
+        resp = self.post('/queue/send', data={
+            'protocol': 'activitypub',
+            'url': 'https://inst/inbox',
+            'user': alice.key.urlsafe(),
+            **create.to_request(),
+            **params,
+        })
+        self.assertEqual(200, resp.status_code)
+
+    @patch.object(util.session, 'post', return_value=requests_response())
+    def test_send_quote_post_sends_quote_request(self, mock_post):
+        self._send_quote_create(first='true')
+
+        quote_id = 'https://fa.brid.gy/convert/ap/fake:quote'
+        content = '<p>foo<span class="quote-inline"><br><br>RE: <a href="https://mas.to/orig">https://mas.to/orig</a></span></p>'
+        note = {
+            '@context': [as2.FEP044F_QUOTE_CONTEXT, as2.MISSKEY_QUOTE_CONTEXT],
+            'type': 'Note',
+            'id': quote_id,
+            'attributedTo': 'https://fa.brid.gy/ap/fake:alice',
+            'content': content,
+            'contentMap': {'en': content},
+            'quote': 'https://mas.to/orig',
+            '_misskey_quote': 'https://mas.to/orig',
+            'quoteUrl': 'https://mas.to/orig',
+            'tag': [{
+                'type': 'Link',
+                'mediaType': as2.CONTENT_TYPE_LD_PROFILE,
+                'href': 'https://mas.to/orig',
+                'name': 'RE: https://mas.to/orig',
+            }],
+            'to': [as2.PUBLIC_AUDIENCE],
+            'interactionPolicy': INTERACTION_POLICY,
+            'replies': 'https://fa.brid.gy/ap/replies/ZmFrZTpxdW90ZQ==',
+            'url': {
+                'type': 'Link',
+                'rel': 'canonical',
+                'href': 'fake:quote',
+            },
+        }
+
+        self.assertEqual(2, mock_post.call_count)
+        (request_args, request_kwargs), (create_args, create_kwargs) = \
+            mock_post.call_args_list
+
+        self.assertEqual((ACTOR['inbox'],), request_args)
+        self.assertEqual({
+            '@context': as2.CONTEXT + [FEP044F_QUOTE_REQUEST_CONTEXT],
+            'type': 'QuoteRequest',
+            'id': f'{quote_id}#quote-request',
+            'actor': 'https://fa.brid.gy/ap/fake:alice',
+            'object': 'https://mas.to/orig',
+            'instrument': note,
+        }, json_loads(request_kwargs['data']))
+
+        self.assertEqual(('https://inst/inbox',), create_args)
+        self.assert_equals({
+            'type': 'Create',
+            'id': 'https://fa.brid.gy/convert/ap/fake:quote#bridgy-fed-create',
+            'actor': 'https://fa.brid.gy/ap/fake:alice',
+            'object': note,
+            'to': [as2.PUBLIC_AUDIENCE],
+        }, json_loads(create_kwargs['data']))
+
+    @patch.object(util.session, 'post', return_value=requests_response())
+    def test_send_quote_post_not_first_no_quote_request(self, mock_post):
+        self._send_quote_create()
+        self.assertEqual([('https://inst/inbox',)],
+                         [call.args for call in mock_post.call_args_list])
+
+    @patch.object(util.session, 'post', return_value=requests_response())
+    def test_send_quote_post_update_no_quote_request(self, mock_post):
+        self._send_quote_create(first='true', verb='update')
+        self.assertEqual([('https://inst/inbox',)],
+                         [call.args for call in mock_post.call_args_list])
+
+    @patch.object(util.session, 'post', return_value=requests_response())
+    def test_send_quote_post_of_bridged_post_no_quote_request(self, mock_post):
+        self.make_user('fake:bob', cls=Fake, enabled_protocols=['activitypub'])
+        self.store_object(id='fake:orig', source_protocol='fake', our_as1={
+            'objectType': 'note',
+            'author': 'fake:bob',
+        })
+        self._send_quote_create(first='true', quoted_id='fake:orig')
+        self.assertEqual([('https://inst/inbox',)],
+                         [call.args for call in mock_post.call_args_list])
+
+    @patch.object(util.session, 'get', return_value=requests_response(status=404))
+    @patch.object(util.session, 'post', return_value=requests_response())
+    def test_send_quote_post_cant_load_quoted_no_quote_request(self, mock_post, _):
+        self._send_quote_create(first='true', quoted_id='https://mas.to/other')
+        self.assertEqual([('https://inst/inbox',)],
+                         [call.args for call in mock_post.call_args_list])
+
+    @patch.object(util.session, 'post', return_value=requests_response())
+    def test_send_quote_post_stored_stamp_refreshes_no_quote_request(self, mock_post):
+        self.store_object(id='fake:quote', source_protocol='fake', our_as1={
+            'objectType': 'note',
+            'id': 'fake:quote',
+            'author': 'fake:alice',
+            'content': 'foo',
+            'attachments': [{
+                'objectType': 'note',
+                'id': 'https://mas.to/orig',
+            }],
+        }, extra_as1={
+            '@context': [FEP044F_QUOTE_POST_CONTEXT],
+            'quoteAuthorization': 'https://mas.to/stamp',
+        })
+        self._send_quote_create(first='true')
+
+        self.assertEqual(1, mock_post.call_count)
+        args, kwargs = mock_post.call_args
+        self.assertEqual(('https://inst/inbox',), args)
+        create = json_loads(kwargs['data'])
+        self.assertEqual('https://mas.to/stamp',
+                         create['object']['quoteAuthorization'])
+        self.assertEqual([
+            FEP044F_QUOTE_POST_CONTEXT,
+            as2.FEP044F_QUOTE_CONTEXT,
+            as2.MISSKEY_QUOTE_CONTEXT,
+        ], create['object']['@context'])
+
     @patch.object(util.session, 'post', return_value=requests_response())
     def test_send_dm(self, mock_post):
         bot = self.make_user('web.brid.gy', cls=Web)
@@ -4171,11 +5771,12 @@ class ActivityPubUtilsTest(TestCase):
             'attributedTo': 'https://web.brid.gy/web.brid.gy',
             'content': '<p>hello world</p>',
             'contentMap': {'en': '<p>hello world</p>'},
-            'url': [{
+            'url': {
                 'href': 'https://internal.brid.gy/dm',
                 'rel': 'canonical',
+                'mediaType': 'text/html',
                 'type': 'Link',
-            }],
+            },
         }, ignore=['@context', 'to'])
 
     @patch.object(util.session, 'post')

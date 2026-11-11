@@ -29,7 +29,7 @@ import simple_websocket
 
 from atproto import ATProto
 import atproto_firehose
-from atproto_firehose import commits, handle, Op, STORE_CURSOR_FREQ
+from atproto_firehose import Event, events, handle, STORE_CURSOR_FREQ
 import common
 from memcache import memcache
 from models import Cursor, Object, Target
@@ -47,7 +47,7 @@ def setup_firehose():
     FakeWebsocketClient.sent = []
     FakeWebsocketClient.to_receive = []
 
-    assert commits.empty()
+    assert events.empty()
 
     atproto_firehose.cursor = None
     atproto_firehose.atproto_dids = set()
@@ -57,7 +57,7 @@ def setup_firehose():
     atproto_firehose.protocol_bot_dids = set()
     atproto_firehose.dids_initialized.clear()
 
-    cursor = Cursor(id='bgs.local com.atproto.sync.subscribeRepos')
+    cursor = Cursor(id='bgs.invalid com.atproto.sync.subscribeRepos')
     cursor.put()
     return cursor
 
@@ -88,11 +88,11 @@ class FakeWebsocketClient:
         FakeWebsocketClient.connected = False
 
     @classmethod
-    def setup_receive(cls, op):
-        if op.action == 'delete':
+    def setup_receive(cls, event):
+        if event.action == 'delete':
             block_bytes = b''
         else:
-            block = Block(decoded=op.record)
+            block = Block(decoded=event.record)
             block_bytes = write_car([A_CID], [block])
 
         cls.to_receive = [({
@@ -102,15 +102,15 @@ class FakeWebsocketClient:
             'blocks': block_bytes,
             'commit': A_CID,
             'ops': [{
-                'action': op.action,
-                'cid': None if op.action == 'delete' else block.cid,
-                'path': op.path,
+                'action': event.action,
+                'cid': None if event.action == 'delete' else block.cid,
+                'path': event.path,
             }],
             'prev': None,
             'rebase': False,
-            'repo': op.repo,
+            'repo': event.repo,
             'rev': 'abc',
-            'seq': op.seq,
+            'seq': event.seq,
             'since': 'def',
             'time': util.now().isoformat(),
             'tooBig': False,
@@ -147,23 +147,23 @@ class ATProtoFirehoseSubscribeTest(ATProtoTestCase):
     def assert_enqueues(self, record=None, repo='did:plc:user', action='create',
                         path='app.bsky.feed.post/abc123'):
         FakeWebsocketClient.setup_receive(
-            Op(repo=repo, action=action, path=path, seq=789, record=record))
+            Event(repo=repo, action=action, path=path, seq=789, record=record))
         self.subscribe()
 
-        op = commits.get()
-        self.assertEqual(repo, op.repo)
-        self.assertEqual(action, op.action)
-        self.assertEqual(path, op.path)
-        self.assertEqual(789, op.seq)
-        self.assertEqual(record, op.record)
-        self.assertTrue(commits.empty())
+        event = events.get()
+        self.assertEqual(repo, event.repo)
+        self.assertEqual(action, event.action)
+        self.assertEqual(path, event.path)
+        self.assertEqual(789, event.seq)
+        self.assertEqual(record, event.record)
+        self.assertTrue(events.empty())
 
     def assert_doesnt_enqueue(self, record=None, repo='did:plc:user', action='create',
                               path='app.bsky.feed.post/abc123'):
         FakeWebsocketClient.setup_receive(
-            Op(repo=repo, action=action, path=path, seq=789, record=record))
+            Event(repo=repo, action=action, path=path, seq=789, record=record))
         self.subscribe()
-        self.assertTrue(commits.empty())
+        self.assertTrue(events.empty())
 
     def test_error_message(self):
         FakeWebsocketClient.to_receive = [(
@@ -172,7 +172,7 @@ class ATProtoFirehoseSubscribeTest(ATProtoTestCase):
         )]
 
         self.subscribe()
-        self.assertTrue(commits.empty())
+        self.assertTrue(events.empty())
 
     def test_info_message(self):
         FakeWebsocketClient.to_receive = [(
@@ -181,16 +181,16 @@ class ATProtoFirehoseSubscribeTest(ATProtoTestCase):
         )]
 
         self.subscribe()
-        self.assertTrue(commits.empty())
+        self.assertTrue(events.empty())
 
     def test_cursor(self):
         self.cursor.cursor = 444
         self.cursor.put()
 
         self.subscribe()
-        self.assertTrue(commits.empty())
+        self.assertTrue(events.empty())
         self.assertEqual(
-            'https://bgs.local/xrpc/com.atproto.sync.subscribeRepos?cursor=445',
+            'https://bgs.invalid/xrpc/com.atproto.sync.subscribeRepos?cursor=445',
             FakeWebsocketClient.url)
 
     def test_non_commit(self):
@@ -200,8 +200,8 @@ class ATProtoFirehoseSubscribeTest(ATProtoTestCase):
         )]
 
         self.subscribe()
-        self.assertTrue(commits.empty())
-        self.assertEqual('https://bgs.local/xrpc/com.atproto.sync.subscribeRepos',
+        self.assertTrue(events.empty())
+        self.assertEqual('https://bgs.invalid/xrpc/com.atproto.sync.subscribeRepos',
                          FakeWebsocketClient.url)
 
     def test_post_by_our_atproto_user(self):
@@ -226,6 +226,28 @@ class ATProtoFirehoseSubscribeTest(ATProtoTestCase):
                 'root': {'uri': '-'},
             },
         }, repo='did:plc:alice')
+
+    def test_invalid_reply_by_bridged_user(self):
+        self.assert_doesnt_enqueue({
+            '$type': 'app.bsky.feed.post',
+            'text': 'foo bar',
+            'reply': {
+                'parent': {},
+                'root': {},
+            },
+            'createdAt': '2026-10-06T11:57:15.908Z',
+        })
+
+    def test_invalid_reply_by_unbridged_user(self):
+        self.assert_doesnt_enqueue({
+            '$type': 'app.bsky.feed.post',
+            'text': 'foo bar',
+            'reply': {
+                'parent': {},
+                'root': {},
+            },
+            'createdAt': '2026-10-06T11:57:15.908Z',
+        }, repo='did:plc:other')
 
     def test_create_store_record_type(self):
         self.assertIn('community.lexicon.payments.webMonetization',
@@ -413,6 +435,84 @@ class ATProtoFirehoseSubscribeTest(ATProtoTestCase):
             'subject': {'uri': 'at://did:eve/app.bsky.feed.post/tid'},
         })
 
+    def test_spark_like_of_our_user(self):
+        self.assert_enqueues({
+            '$type': 'so.sprk.feed.like',
+            'subject': {'uri': 'at://did:plc:alice/so.sprk.feed.post/tid'},
+        }, path='so.sprk.feed.like/abc123')
+
+    def test_spark_like_of_other(self):
+        self.assert_doesnt_enqueue({
+            '$type': 'so.sprk.feed.like',
+            'subject': {'uri': 'at://did:eve/so.sprk.feed.post/tid'},
+        }, path='so.sprk.feed.like/abc123')
+
+    def test_spark_repost_of_our_user(self):
+        self.assert_enqueues({
+            '$type': 'so.sprk.feed.repost',
+            'subject': {'uri': 'at://did:plc:alice/so.sprk.feed.post/tid'},
+        }, path='so.sprk.feed.repost/abc123')
+
+    def test_spark_repost_of_other(self):
+        self.assert_doesnt_enqueue({
+            '$type': 'so.sprk.feed.repost',
+            'subject': {'uri': 'at://did:eve/so.sprk.feed.post/tid'},
+        }, path='so.sprk.feed.repost/abc123')
+
+    def test_spark_reply_direct_to_our_user(self):
+        self.assert_enqueues({
+            '$type': 'so.sprk.feed.reply',
+            'reply': {
+                'parent': {'uri': 'at://did:plc:alice/so.sprk.feed.post/tid'},
+                'root': {'uri': 'at://did:plc:alice/so.sprk.feed.post/tid'},
+            },
+        }, path='so.sprk.feed.reply/abc123')
+
+    def test_spark_reply_to_other(self):
+        self.assert_doesnt_enqueue({
+            '$type': 'so.sprk.feed.reply',
+            'reply': {
+                'parent': {'uri': 'at://did:eve/so.sprk.feed.post/tid'},
+                'root': {'uri': 'at://did:eve/so.sprk.feed.post/tid'},
+            },
+        }, path='so.sprk.feed.reply/abc123')
+
+    def test_spark_reply_from_non_bridged_bluesky_to_bridged_other(self):
+        self.assert_enqueues({
+            '$type': 'so.sprk.feed.reply',
+            'reply': {
+                'parent': {'uri': 'at://did:plc:alice/so.sprk.feed.post/tid'},
+                'root': {'uri': 'at://did:plc:alice/so.sprk.feed.post/tid'},
+            },
+        }, repo='did:plc:bob', path='so.sprk.feed.reply/abc123')
+
+    def test_spark_reply_from_non_bridged_bluesky_mentions_bridged_other(self):
+        self.assert_enqueues({
+            '$type': 'so.sprk.feed.reply',
+            'text': 'hi @alice',
+            'facets': [{
+                '$type': 'so.sprk.richtext.facet',
+                'features': [{
+                    '$type': 'so.sprk.richtext.facet#mention',
+                    'did': 'did:plc:alice',
+                }],
+                'index': {'byteStart': 3, 'byteEnd': 9},
+            }],
+            'reply': {
+                'parent': {'uri': 'at://did:eve/so.sprk.feed.post/tid'},
+                'root': {'uri': 'at://did:eve/so.sprk.feed.post/tid'},
+            },
+        }, repo='did:plc:bob', path='so.sprk.feed.reply/abc123')
+
+    def test_spark_reply_from_non_bridged_bluesky_to_non_bridged_bluesky(self):
+        self.assert_doesnt_enqueue({
+            '$type': 'so.sprk.feed.reply',
+            'reply': {
+                'parent': {'uri': 'at://did:eve/so.sprk.feed.post/tid'},
+                'root': {'uri': 'at://did:eve/so.sprk.feed.post/tid'},
+            },
+        }, repo='did:plc:bob', path='so.sprk.feed.reply/abc123')
+
     def test_follow_of_our_user(self):
         self.assert_enqueues({
             '$type': 'app.bsky.graph.follow',
@@ -490,9 +590,38 @@ class ATProtoFirehoseSubscribeTest(ATProtoTestCase):
                 self.subscribe()
 
                 self.assertEqual(
-                    (type.removeprefix('#'), 'did:plc:user', None, 789, None, time),
-                    commits.get())
-                self.assertTrue(commits.empty())
+                    (type.removeprefix('#'), 'did:plc:user', None, 789, None, time,
+                     None),
+                    events.get())
+                self.assertTrue(events.empty())
+
+    def test_account_event_status(self):
+        time = NOW.isoformat()
+
+        for payload, status in (
+                ({'active': False, 'status': 'deleted'}, 'deleted'),
+                ({'active': False, 'status': 'takendown'}, 'takendown'),
+                ({'active': False}, None),
+                ({'active': True}, None),
+        ):
+            with self.subTest(payload=payload):
+                FakeWebsocketClient.to_receive = [({
+                    'op': 1,
+                    't': '#account',
+                }, {
+                    'seq': 789,
+                    'did': 'did:plc:user',
+                    'time': time,
+                    **payload,
+                })]
+
+                self.subscribe()
+
+                self.assertEqual(
+                    Event(action='account', repo='did:plc:user', seq=789, time=time,
+                          status=status),
+                    events.get())
+                self.assertTrue(events.empty())
 
     def test_account_event_user_not_bridged(self):
         time = NOW.isoformat()
@@ -508,21 +637,21 @@ class ATProtoFirehoseSubscribeTest(ATProtoTestCase):
 
         self.subscribe()
 
-        self.assertTrue(commits.empty())
+        self.assertTrue(events.empty())
 
     def test_uncaught_exception_skips_commit(self):
         self.cursor.cursor = 1
         self.cursor.put()
 
-        FakeWebsocketClient.setup_receive(Op(repo='did:plc:user', action='create',
-                                             path='y', seq=4, record={'foo': 'bar'}))
+        FakeWebsocketClient.setup_receive(Event(repo='did:plc:user', action='create',
+                                                path='y', seq=4, record={'foo': 'bar'}))
         with patch('libipld.decode_car', side_effect=RuntimeError('oops')), \
               self.assertRaises(RuntimeError):
             self.subscribe()
 
-        self.assertTrue(commits.empty())
+        self.assertTrue(events.empty())
         self.assertEqual(
-            'https://bgs.local/xrpc/com.atproto.sync.subscribeRepos?cursor=2',
+            'https://bgs.invalid/xrpc/com.atproto.sync.subscribeRepos?cursor=2',
             FakeWebsocketClient.url)
 
         self.assert_enqueues(action='update', record={
@@ -530,17 +659,17 @@ class ATProtoFirehoseSubscribeTest(ATProtoTestCase):
             'subject': {'uri': 'at://did:plc:alice/app.bsky.feed.post/tid'},
         })
         self.assertEqual(
-            'https://bgs.local/xrpc/com.atproto.sync.subscribeRepos?cursor=5',
+            'https://bgs.invalid/xrpc/com.atproto.sync.subscribeRepos?cursor=5',
             FakeWebsocketClient.url)
 
     @patch.object(common.error_reporting_client, 'report_exception')
     @patch('common.DEBUG', new=False)  # for report_error
     def test_decode_blocks_fails(self, _):
-        FakeWebsocketClient.setup_receive(Op(repo='did:plc:user', action='create',
-                                             path='y', seq=4, record={'foo': 'bar'}))
+        FakeWebsocketClient.setup_receive(Event(repo='did:plc:user', action='create',
+                                                path='y', seq=4, record={'foo': 'bar'}))
         FakeWebsocketClient.to_receive[0][1]['blocks'] = b'bad!!!'
         self.subscribe()
-        self.assertTrue(commits.empty())
+        self.assertTrue(events.empty())
 
     def test_load_dids_updated_atproto_user(self):
         self.cursor.cursor = 1
@@ -552,7 +681,7 @@ class ATProtoFirehoseSubscribeTest(ATProtoTestCase):
         self.assertLess(eve.created, util.now())
 
         self.subscribe()
-        self.assertTrue(commits.empty())
+        self.assertTrue(events.empty())
         self.assertNotIn('did:plc:eve', atproto_firehose.atproto_dids)
 
         # updating a previously created ATProto should be enough to load it into
@@ -612,11 +741,11 @@ class ATProtoFirehoseSubscribeTest(ATProtoTestCase):
         self.cursor.cursor = 444
         self.cursor.put()
 
-        op = Op(repo='did:x', action='create', path='y', seq=789, record={'a': 'b'})
+        event = Event(repo='did:x', action='create', path='y', seq=789, record={'a': 'b'})
         # hasn't quite been long enough to store new cursor
         now = (self.cursor.updated.replace(tzinfo=timezone.utc)
                + STORE_CURSOR_FREQ - timedelta(seconds=1))
-        FakeWebsocketClient.setup_receive(op)
+        FakeWebsocketClient.setup_receive(event)
         self.subscribe()
         ndb.context.get_context().cache.clear()
         self.assertEqual(444, self.cursor.key.get().cursor)
@@ -624,7 +753,7 @@ class ATProtoFirehoseSubscribeTest(ATProtoTestCase):
         # now it's been long enough
         now = (self.cursor.updated.replace(tzinfo=timezone.utc)
                + STORE_CURSOR_FREQ + timedelta(seconds=1))
-        FakeWebsocketClient.setup_receive(op)
+        FakeWebsocketClient.setup_receive(event)
         self.subscribe()
         self.assertEqual(790, self.cursor.key.get().cursor)
 
@@ -671,6 +800,46 @@ class ATProtoFirehoseSubscribeTest(ATProtoTestCase):
         self.assertNotIn('behind', msgs[3])
         self.assertIn('behind', msgs[4])
 
+    def test_outlier_time_values_omitted_from_events(self):
+        # https://github.com/snarfed/bridgy-fed/issues/2348
+        to_receive = []
+        for i, time in enumerate([
+            NOW,
+            NOW - timedelta(seconds=30),
+            NOW - timedelta(days=2),
+            NOW + timedelta(minutes=1),
+            NOW + timedelta(hours=2),
+            NOW + timedelta(seconds=10),
+        ]):
+            FakeWebsocketClient.setup_receive(Event(
+                repo='did:plc:user', action='create', seq=i + 1,
+                path=f'app.bsky.feed.post/{i}', record=POST_BSKY))
+            FakeWebsocketClient.to_receive[0][1]['time'] = time.isoformat()
+            to_receive.extend(FakeWebsocketClient.to_receive)
+
+        to_receive.append(({
+            'op': 1,
+            't': '#identity',
+        }, {
+            'seq': 7,
+            'did': 'did:plc:user',
+            'time': (NOW - timedelta(days=1)).isoformat(),
+        }))
+        FakeWebsocketClient.to_receive = to_receive
+
+        self.subscribe()
+
+        self.assertEqual([
+            NOW.isoformat(),
+            (NOW - timedelta(seconds=30)).isoformat(),
+            None,
+            None,
+            None,
+            (NOW + timedelta(seconds=10)).isoformat(),
+            None,
+        ], [events.get().time for _ in range(7)])
+        self.assertTrue(events.empty())
+
 
 @patch('webutil.appengine_config.tasks_client.create_task')
 class ATProtoFirehoseHandleTest(ATProtoTestCase):
@@ -689,9 +858,9 @@ class ATProtoFirehoseHandleTest(ATProtoTestCase):
         reply['reply']['root']['cid'] = \
             reply['reply']['parent']['cid'] = A_CID.encode()
 
-        commits.put(Op(repo='did:plc:user', action='create', seq=789,
-                       path='app.bsky.feed.post/123', record=reply,
-                       time='1900-02-04'))
+        events.put(Event(repo='did:plc:user', action='create', seq=789,
+                         path='app.bsky.feed.post/123', record=reply,
+                         time='1900-02-04'))
 
         handle(limit=1)
 
@@ -700,6 +869,20 @@ class ATProtoFirehoseHandleTest(ATProtoTestCase):
                          id='at://did:plc:user/app.bsky.feed.post/123',
                          bsky=reply, source_protocol='atproto',
                          authed_as='did:plc:user', received_at='1900-02-04')
+
+    def test_update_profile(self, mock_create_task):
+        # https://github.com/snarfed/bridgy-fed/issues/2686
+        events.put(Event(repo='did:plc:user', action='update', seq=789,
+                         path='app.bsky.actor.profile/self',
+                         record=ACTOR_PROFILE_BSKY, time='1900-02-04'))
+
+        handle(limit=1)
+
+        self.assert_task(mock_create_task, 'receive',
+                         id='at://did:plc:user/app.bsky.actor.profile/self',
+                         bsky=ACTOR_PROFILE_BSKY, source_protocol='atproto',
+                         authed_as='did:plc:user', received_at='1900-02-04',
+                         changed=True)
 
     def test_create_post_with_image_blob_bytes_cid_from_libipld_v2(
             self, mock_create_task):
@@ -728,9 +911,9 @@ class ATProtoFirehoseHandleTest(ATProtoTestCase):
                 mock_create_task.reset_mock()
                 memcache.clear()
 
-                commits.put(Op(repo='did:plc:user', action='create', seq=789,
-                               path='app.bsky.feed.post/123', record=record,
-                               time='1900-02-04'))
+                events.put(Event(repo='did:plc:user', action='create', seq=789,
+                                 path='app.bsky.feed.post/123', record=record,
+                                 time='1900-02-04'))
                 handle(limit=1)
                 self.assert_task(mock_create_task, 'receive',
                                  id='at://did:plc:user/app.bsky.feed.post/123',
@@ -738,8 +921,8 @@ class ATProtoFirehoseHandleTest(ATProtoTestCase):
                                  authed_as='did:plc:user', received_at='1900-02-04')
 
     def test_delete_post(self, mock_create_task):
-        commits.put(Op(repo='did:plc:user', action='delete', seq=789,
-                       path='app.bsky.feed.post/123', time='1900-02-04'))
+        events.put(Event(repo='did:plc:user', action='delete', seq=789,
+                         path='app.bsky.feed.post/123', time='1900-02-04'))
         handle(limit=1)
 
         obj_id = 'at://did:plc:user/app.bsky.feed.post/123'
@@ -757,9 +940,48 @@ class ATProtoFirehoseHandleTest(ATProtoTestCase):
                          our_as1=expected_as1, source_protocol='atproto',
                          authed_as='did:plc:user', eta_seconds=delayed_eta)
 
+    def test_delete_event(self, mock_create_task):
+        events.put(Event(repo='did:plc:user', action='delete', seq=789,
+                         path='community.lexicon.calendar.event/123',
+                         time='1900-02-04'))
+        handle(limit=1)
+
+        obj_id = 'at://did:plc:user/community.lexicon.calendar.event/123'
+        delete_id = f'{obj_id}#delete'
+        expected_as1 = {
+            'objectType': 'activity',
+            'verb': 'delete',
+            'id': delete_id,
+            'actor': 'did:plc:user',
+            'object': obj_id,
+        }
+        delayed_eta = util.to_utc_timestamp(NOW) + DELETE_TASK_DELAY.total_seconds()
+        self.assert_task(mock_create_task, 'receive', id=delete_id,
+                         our_as1=expected_as1, source_protocol='atproto',
+                         authed_as='did:plc:user', eta_seconds=delayed_eta)
+
+    def test_delete_standard_site_document(self, mock_create_task):
+        events.put(Event(repo='did:plc:user', action='delete', seq=789,
+                         path='site.standard.document/123', time='1900-02-04'))
+        handle(limit=1)
+
+        obj_id = 'at://did:plc:user/site.standard.document/123'
+        delete_id = f'{obj_id}#delete'
+        expected_as1 = {
+            'objectType': 'activity',
+            'verb': 'delete',
+            'id': delete_id,
+            'actor': 'did:plc:user',
+            'object': obj_id,
+        }
+        delayed_eta = util.to_utc_timestamp(NOW) + DELETE_TASK_DELAY.total_seconds()
+        self.assert_task(mock_create_task, 'receive', id=delete_id,
+                         our_as1=expected_as1, source_protocol='atproto',
+                         authed_as='did:plc:user', eta_seconds=delayed_eta)
+
     def test_delete_block(self, mock_create_task):
-        commits.put(Op(repo='did:plc:user', action='delete', seq=789,
-                       path=f'app.bsky.graph.block/123', time='1900-02-04'))
+        events.put(Event(repo='did:plc:user', action='delete', seq=789,
+                         path=f'app.bsky.graph.block/123', time='1900-02-04'))
         handle(limit=1)
 
         obj_id = f'at://did:plc:user/app.bsky.graph.block/123'
@@ -786,8 +1008,8 @@ class ATProtoFirehoseHandleTest(ATProtoTestCase):
             'createdAt': '2022-01-02T03:04:05.000Z',
         }).put()
 
-        commits.put(Op(repo='did:plc:user', action='delete', seq=789,
-                       path='app.bsky.graph.follow/123', time='1900-02-04'))
+        events.put(Event(repo='did:plc:user', action='delete', seq=789,
+                         path='app.bsky.graph.follow/123', time='1900-02-04'))
         handle(limit=1)
 
         activity_id = 'at://did:plc:user/app.bsky.graph.follow/123#stop-following'
@@ -806,16 +1028,57 @@ class ATProtoFirehoseHandleTest(ATProtoTestCase):
                          authed_as='did:plc:user', eta_seconds=delayed_eta)
 
     def test_delete_follow_to_stop_following_no_stored_follow(self, mock_create_task):
-        commits.put(Op(repo='did:plc:user', action='delete', seq=789,
-                       path='app.bsky.graph.follow/123', time='1900-02-04'))
+        events.put(Event(repo='did:plc:user', action='delete', seq=789,
+                         path='app.bsky.graph.follow/123', time='1900-02-04'))
         handle(limit=1)
         mock_create_task.assert_not_called()
 
     @patch.object(util.session, 'get', return_value=requests_response({**DID_DOC, 'new': 'stuff'}))
     def test_account(self, mock_get, mock_create_task):
-        commits.put(Op(repo='did:plc:user', action='account', seq=789))
+        events.put(Event(repo='did:plc:user', action='account', seq=789))
         handle(limit=1)
         self.assertEqual('stuff', Object.get_by_id('did:plc:user').raw['new'])
+        mock_create_task.assert_not_called()
+
+    @patch.object(util.session, 'get', return_value=requests_response(DID_DOC))
+    def test_account_inactive_deletes_user(self, mock_get, mock_create_task):
+        for status in 'deactivated', 'deleted', 'takendown':
+            with self.subTest(status=status):
+                mock_create_task.reset_mock()
+                memcache.clear()
+                events.put(Event(repo='did:plc:user', action='account', seq=789,
+                                 time='1900-02-04', status=status))
+                handle(limit=1)
+
+                delete = {
+                    'objectType': 'activity',
+                    'verb': 'delete',
+                    'id': 'at://did:plc:user#delete-789',
+                    'actor': 'did:plc:user',
+                    'object': 'did:plc:user',
+                }
+                eta = util.to_utc_timestamp(NOW) + DELETE_TASK_DELAY.total_seconds()
+                self.assert_task(mock_create_task, 'receive',
+                                 id='at://did:plc:user#delete-789',
+                                 our_as1=delete, source_protocol='atproto',
+                                 authed_as='did:plc:user', eta_seconds=eta)
+
+    @patch.object(util.session, 'get', return_value=requests_response(DID_DOC))
+    def test_account_inactive_other_status_doesnt_delete_user(
+            self, mock_get, mock_create_task):
+        for status in None, 'suspended', 'desynchronized', 'throttled':
+            with self.subTest(status=status):
+                events.put(Event(repo='did:plc:user', action='account', seq=789,
+                                 time='1900-02-04', status=status))
+                handle(limit=1)
+                mock_create_task.assert_not_called()
+
+    @patch.object(util.session, 'get', return_value=requests_response(DID_DOC))
+    def test_account_deleted_not_atproto_user(self, mock_get, mock_create_task):
+        # eg a user bridged into ATProto; the account event is from our own PDS
+        events.put(Event(repo='did:plc:alice', action='account', seq=789,
+                         time='1900-02-04', status='deleted'))
+        handle(limit=1)
         mock_create_task.assert_not_called()
 
     @patch.object(util.session, 'get', side_effect=[
@@ -823,24 +1086,25 @@ class ATProtoFirehoseHandleTest(ATProtoTestCase):
         requests_response(ACTOR_PROFILE_BSKY),
     ])
     def test_identity(self, mock_get, mock_create_task):
-        commits.put(Op(repo='did:plc:user', action='identity', seq=789))
+        events.put(Event(repo='did:plc:user', action='identity', seq=789))
         handle(limit=1)
         self.assertEqual('stuff', Object.get_by_id('did:plc:user').raw['new'])
 
         self.assert_task(mock_create_task, 'receive', bsky=ACTOR_PROFILE_BSKY,
                          id='at://did:plc:user/app.bsky.actor.profile/self',
-                         source_protocol='atproto', authed_as='did:plc:user')
+                         source_protocol='atproto', authed_as='did:plc:user',
+                         changed=True)
 
     def test_unsupported_type(self, mock_create_task):
         orig_objs = Object.query().count()
 
-        commits.put(Op(repo='did:plc:user', action='update', seq=789,
-                       path='app.bsky.graph.listitem/123', record={
-                           '$type': 'app.bsky.graph.listitem',
-                           'subject': 'did:bob',
-                           'list': 'at://did:plc:alice/app.bsky.graph.list/456',
-                           'a_cid': A_CID,  # check that we encode this ok
-                       }))
+        events.put(Event(repo='did:plc:user', action='update', seq=789,
+                         path='app.bsky.graph.listitem/123', record={
+                             '$type': 'app.bsky.graph.listitem',
+                             'subject': 'did:bob',
+                             'list': 'at://did:plc:alice/app.bsky.graph.list/456',
+                             'a_cid': A_CID,  # check that we encode this ok
+                         }))
         handle(limit=1)
 
         self.assertEqual(orig_objs, Object.query().count())
@@ -849,8 +1113,8 @@ class ATProtoFirehoseHandleTest(ATProtoTestCase):
     def test_delete_unsupported_type_no_record(self, mock_create_task):
         orig_objs = Object.query().count()
 
-        commits.put(Op(repo='did:plc:user', action='delete', seq=789,
-                       path='app.bsky.graph.listitem/123', record=None))
+        events.put(Event(repo='did:plc:user', action='delete', seq=789,
+                         path='app.bsky.graph.listitem/123', record=None))
         handle(limit=1)
 
         self.assertEqual(orig_objs, Object.query().count())
@@ -859,8 +1123,8 @@ class ATProtoFirehoseHandleTest(ATProtoTestCase):
     def test_missing_type(self, mock_create_task):
         orig_objs = Object.query().count()
 
-        commits.put(Op(repo='did:plc:user', action='delete', seq=789,
-                       path='app.bsky.graph.listitem/123', record={'foo': 'bar'}))
+        events.put(Event(repo='did:plc:user', action='delete', seq=789,
+                         path='app.bsky.graph.listitem/123', record={'foo': 'bar'}))
         handle(limit=1)
 
         self.assertEqual(orig_objs, Object.query().count())
@@ -872,12 +1136,12 @@ class ATProtoFirehoseHandleTest(ATProtoTestCase):
     def test_invalid_record(self, mock_create_task, mock_report_error, _):
         orig_objs = Object.query().count()
 
-        commits.put(Op(repo='did:plc:user', action='create', seq=789,
-                       path='app.bsky.feed.post/123', record={
-                           '$type': 'app.bsky.feed.post',
-                           'createdAt': '2024-01-01T00:00:00.000Z',
-                           # missing required text field
-                       }))
+        events.put(Event(repo='did:plc:user', action='create', seq=789,
+                         path='app.bsky.feed.post/123', record={
+                             '$type': 'app.bsky.feed.post',
+                             'createdAt': '2024-01-01T00:00:00.000Z',
+                             # missing required text field
+                         }))
         handle(limit=1)
 
         self.assertEqual(orig_objs, Object.query().count())
@@ -888,8 +1152,8 @@ class ATProtoFirehoseHandleTest(ATProtoTestCase):
     @patch.object(Object, 'get_or_create', side_effect=RuntimeError('oops'))
     @patch('common.DEBUG', new=False)  # with DEBUG True, report_error just raises
     def test_exception_continues(self, mock_create_task, _, __):
-        commits.put(Op(repo='did:plc:user', action='create', seq=789,
-                       path='app.bsky.feed.post/123', record=REPLY_BSKY))
+        events.put(Event(repo='did:plc:user', action='create', seq=789,
+                         path='app.bsky.feed.post/123', record=REPLY_BSKY))
         handle(limit=1)
         # just check that we return instead of raising
 
@@ -902,9 +1166,9 @@ class ATProtoFirehoseHandleTest(ATProtoTestCase):
             '$type': 'community.lexicon.payments.webMonetization',
             'address': 'http://wal/let',
         }
-        commits.put(Op(repo='did:plc:user', action='create', seq=789,
-                       path='community.lexicon.payments.webMonetization/self',
-                       record=wallet, time='1900-02-04'))
+        events.put(Event(repo='did:plc:user', action='create', seq=789,
+                         path='community.lexicon.payments.webMonetization/self',
+                         record=wallet, time='1900-02-04'))
 
         handle(limit=1)
         self.assert_object(
@@ -915,6 +1179,42 @@ class ATProtoFirehoseHandleTest(ATProtoTestCase):
         profile = profile.key.get()
         self.assertEqual({'monetization': 'http://wal/let',}, profile.extra_as1)
         self.assertEqual('http://wal/let', profile.as1['monetization'])
+
+    def test_profile_links_into_extra_as1(self, mock_create_task):
+        self.store_object(id='at://did:plc:user/app.bsky.actor.link/a', bsky={
+            '$type': 'app.bsky.actor.link',
+            'url': 'https://a.com/',
+            'title': 'A',
+            'createdAt': '2022-01-02T03:04:05.000Z',
+        })
+
+        # link b isn't stored, and the firehose doesn't fetch, so it's skipped
+        profile = {
+            **ACTOR_PROFILE_BSKY,
+            'links': [{
+                'uri': 'at://did:plc:user/app.bsky.actor.link/a',
+                'cid': 'bafyreie5737gdxlw5i64vzichcalba3z2v5n6icifvx5xytvske7mr3hpm',
+            }, {
+                'uri': 'at://did:plc:user/app.bsky.actor.link/b',
+                'cid': 'bafyreie5737gdxlw5i64vzichcalba3z2v5n6icifvx5xytvske7mr3hpm',
+            }],
+        }
+        events.put(Event(repo='did:plc:user', action='update', seq=789,
+                         path='app.bsky.actor.profile/self', record=profile,
+                         time='1900-02-04'))
+        handle(limit=1)
+
+        self.assertEqual({
+            'urls': [{
+                'objectType': 'link',
+                'id': 'at://did:plc:user/app.bsky.actor.link/a',
+                'author': 'did:plc:user',
+                'value': 'https://a.com/',
+                'displayName': 'A',
+                'published': '2022-01-02T03:04:05.000Z',
+            }],
+        }, Object.get_by_id('at://did:plc:user/app.bsky.actor.profile/self').extra_as1)
+        mock_create_task.assert_called()  # receive
 
     def test_just_store_update_record(self, mock_create_task):
         profile = Object(id='at://did:plc:user/app.bsky.actor.profile/self',
@@ -932,9 +1232,9 @@ class ATProtoFirehoseHandleTest(ATProtoTestCase):
             '$type': 'community.lexicon.payments.webMonetization',
             'address': 'http://wal/let',
         }
-        commits.put(Op(repo='did:plc:user', action='update', seq=789,
-                       path='community.lexicon.payments.webMonetization/self',
-                       record=wallet, time='1900-02-04'))
+        events.put(Event(repo='did:plc:user', action='update', seq=789,
+                         path='community.lexicon.payments.webMonetization/self',
+                         record=wallet, time='1900-02-04'))
 
         handle(limit=1)
         self.assert_object(id, bsky=wallet, source_protocol='atproto')
@@ -959,9 +1259,9 @@ class ATProtoFirehoseHandleTest(ATProtoTestCase):
                 'cid': 'sydddddd',
             },
         }
-        commits.put(Op(repo='did:plc:user', action='create', seq=789,
-                       path='site.standard.document/tid', record=doc,
-                       time='1900-02-04'))
+        events.put(Event(repo='did:plc:user', action='create', seq=789,
+                         path='site.standard.document/tid', record=doc,
+                         time='1900-02-04'))
 
         handle(limit=1)
 
@@ -1004,9 +1304,9 @@ class ATProtoFirehoseHandleTest(ATProtoTestCase):
                 'cid': 'sydddddd',
             },
         }
-        commits.put(Op(repo='did:plc:user', action='create', seq=789,
-                       path='site.standard.document/tid', record=doc,
-                       time='1900-02-04'))
+        events.put(Event(repo='did:plc:user', action='create', seq=789,
+                         path='site.standard.document/tid', record=doc,
+                         time='1900-02-04'))
 
         handle(limit=1)
 
@@ -1025,9 +1325,9 @@ class ATProtoFirehoseHandleTest(ATProtoTestCase):
             'title': 'My Article',
             'publishedAt': '2022-01-02T03:04:05.000Z',
         }
-        commits.put(Op(repo='did:plc:user', action='create', seq=789,
-                       path='site.standard.document/tid', record=doc,
-                       time='1900-02-04'))
+        events.put(Event(repo='did:plc:user', action='create', seq=789,
+                         path='site.standard.document/tid', record=doc,
+                         time='1900-02-04'))
 
         handle(limit=1)
         # only the normal document receive task, no delete task
@@ -1055,9 +1355,9 @@ class ATProtoFirehoseHandleTest(ATProtoTestCase):
                 'cid': 'sydddddd',
             },
         }
-        commits.put(Op(repo='did:plc:user', action='create', seq=789,
-                       path='site.standard.document/tid', record=doc,
-                       time='1900-02-04'))
+        events.put(Event(repo='did:plc:user', action='create', seq=789,
+                         path='site.standard.document/tid', record=doc,
+                         time='1900-02-04'))
 
         handle(limit=1)
         # only the normal document receive task, no delete task
@@ -1070,3 +1370,19 @@ class ATProtoFirehoseHandleTest(ATProtoTestCase):
         self.assertEqual([Target(protocol='atproto',
                                  uri='at://did:plc:user/site.standard.document/tid')],
                          Object.get_by_id(post_uri).copies)
+
+        # we fetched and stored the post, so we can hydrate the doc's preview
+        self.assertEqual({
+            'preview': {
+                'objectType': 'note',
+                'id': post_uri,
+                'url': 'https://bsky.app/profile/did:plc:user/post/abc123',
+                'urls': [
+                    'https://bsky.app/profile/did:plc:user/post/abc123',
+                    {'value': 'fake:post', 'rel': 'canonical'},
+                ],
+                'author': 'did:plc:user',
+                'content': 'My original post',
+                'published': '2007-07-07T03:04:05.000Z',
+            },
+        }, Object.get_by_id('at://did:plc:user/site.standard.document/tid').extra_as1)

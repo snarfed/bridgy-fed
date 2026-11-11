@@ -13,6 +13,7 @@ from granary import atom, microformats2, rss
 from oauth_dropins.bluesky import BlueskyAuth
 from oauth_dropins.indieauth import IndieAuth
 from oauth_dropins.mastodon import MastodonAuth
+from oauth_dropins.threads import ThreadsAuth
 from oauth_dropins.views import LOGINS_SESSION_KEY
 from webutil import appengine_info
 from webutil import util
@@ -37,6 +38,7 @@ from activitypub import ActivityPub
 from atproto import ATProto
 import common
 import config
+from flask_app import app
 import memcache
 from models import Object, Follower, Target
 from pages import login_to_user_key
@@ -72,13 +74,14 @@ class PagesTest(TestCase):
     EXPECTED = contents([COMMENT, MENTION, NOTE])
     EXPECTED_SNIPPETS = [
         'Dr. Eve replied a comment',
-        'tag:fake.com:44... posted a mention',
+        'tag:fake.com:444 posted a mention',
         '🌐 user.com posted my note',
     ]
 
     def setUp(self):
         super().setUp()
-        self.user = self.make_user('user.com', cls=Web, has_redirects=True)
+        self.user = self.make_user('user.com', cls=Web, has_redirects=True,
+                                   enabled_protocols=['activitypub'])
 
     def make_logged_in_mastodon_user(self, **props):
         """
@@ -149,12 +152,21 @@ class PagesTest(TestCase):
         login = IndieAuth.get_by_id('https://alice.com')
         self.assertEqual(Web(id='alice.com').key, login_to_user_key(login))
 
+    @patch.object(util.session, 'get', return_value=requests_response(status=404))
+    def test_login_to_user_key_threads_not_found(self, mock_get):
+        login = ThreadsAuth(token_json='{}', user_json='{"username": "alice"}')
+        with app.test_request_context('/'):
+            self.assertIsNone(login_to_user_key(login))
+            self.assertEqual(
+                [('message', 'You need to <a href="https://help.instagram.com/169559812696339">turn on fediverse sharing</a> first.')],
+                session['_flashes'])
+
     def test_user(self):
         got = self.client.get('/web/user.com', base_url='https://fed.brid.gy/')
         self.assert_equals(200, got.status_code, got.headers)
 
     def test_user_fake(self):
-        self.make_user('fake:foo', cls=Fake)
+        self.make_user('fake:foo', cls=Fake, enabled_protocols=['other'])
         got = self.client.get('/fake/fake:foo')
         self.assert_equals(200, got.status_code)
 
@@ -266,8 +278,7 @@ class PagesTest(TestCase):
 
     def test_user_www_domain_special_case(self):
         """https://github.com/snarfed/bridgy-fed/issues/1244"""
-        www = self.make_user('www.jvt.me', cls=Web)
-
+        www = self.make_user('www.jvt.me', cls=Web, enabled_protocols=['activitypub'])
         got = self.client.get('/web/www.jvt.me')
         self.assert_equals(200, got.status_code)
 
@@ -291,15 +302,20 @@ class PagesTest(TestCase):
         got = self.client.get('/fa/fake:handle:user')
         self.assert_equals(404, got.status_code)
 
-    def test_user_default_serve_false_no_enabled_protocols(self):
+    def test_user_page_no_enabled_protocols(self):
         self.make_user('other:foo', cls=OtherFake)
         got = self.client.get('/other/other:foo')
         self.assert_equals(404, got.status_code)
 
-    def test_user_default_serve_false_enabled_protocols(self):
+    def test_user_page_enabled_protocols(self):
         self.make_user('other:foo', cls=OtherFake, enabled_protocols=['fake'])
         got = self.client.get('/other/other:foo')
         self.assert_equals(200, got.status_code)
+
+    def test_user_page_web_not_bridged(self):
+        self.make_user('new.com', cls=Web, enabled_protocols=[])
+        got = self.client.get('/web/new.com')
+        self.assert_equals(404, got.status_code)
 
     def test_user_use_instead(self):
         self.make_user('bar.com', cls=Web, use_instead=self.user.key)
@@ -428,13 +444,24 @@ class PagesTest(TestCase):
         self.assert_equals(200, got.status_code)
         self.assertIn('...and more', got.get_data(as_text=True))
 
+    def test_user_redirects_error_escaped(self):
+        self.user.has_redirects = False
+        self.user.redirects_error = 'Current vs expected:\n- http://this/<script>alert(1)</script>'
+        self.user.put()
+
+        got = self.client.get('/web/user.com')
+        self.assert_equals(200, got.status_code)
+        self.assert_multiline_in("""\
+<pre style="white-space: pre-wrap">Current vs expected:
+- http://this/&lt;script&gt;alert(1)&lt;/script&gt;</pre>""", got.get_data(as_text=True))
+
     def test_user_protocol_bot_user(self):
         bot = self.make_user(id='fa.brid.gy', cls=Web)
         got = self.client.get('/web/fa.brid.gy')
         self.assert_equals(404, got.status_code)
 
     def test_update_profile(self):
-        user = self.make_user('fake:user', cls=Fake)
+        user = self.make_user('fake:user', cls=Fake, enabled_protocols=['other'])
         user.obj.copies = [Target(protocol='other', uri='other:profile:fake:user')]
         user.obj.put()
 
@@ -450,9 +477,7 @@ class PagesTest(TestCase):
         got = self.client.post('/fa/fake:user/update-profile')
         self.assert_equals(302, got.status_code)
         self.assert_equals('/fa/fake:handle:user', got.headers['Location'])
-        self.assertEqual(
-            ['Updating profile from <a href="web:fake:user">fake:handle:user</a>...'],
-            get_flashed_messages())
+        self.assertEqual(['Updating profile...'], get_flashed_messages())
 
         self.assertEqual(['fake:profile:user'], Fake.fetched)
 
@@ -471,14 +496,21 @@ class PagesTest(TestCase):
 
     @patch.object(Fake, 'fetch', side_effect=ConnectionError('foo'))
     def test_update_profile_load_fails(self, _):
-        self.make_user('fake:user', cls=Fake)
+        self.make_user('fake:user', cls=Fake, enabled_protocols=['other'])
 
         got = self.client.post('/fa/fake:user/update-profile')
         self.assert_equals(302, got.status_code)
         self.assert_equals('/fa/fake:handle:user', got.headers['Location'])
-        self.assertEqual(
-            ['Couldn\'t update profile for <a href="web:fake:user">fake:handle:user</a>: foo'],
-            get_flashed_messages())
+        self.assertEqual(['Couldn\'t update profile: foo'], get_flashed_messages())
+
+    @patch.object(Fake, 'fetch', side_effect=ConnectionError('<script>alert(1)'))
+    def test_update_profile_load_fails_escapes_html(self, _):
+        self.make_user('fake:"><b>x', cls=Fake, enabled_protocols=['other'])
+
+        got = self.client.post('/fa/fake:%22%3E%3Cb%3Ex/update-profile')
+        self.assert_equals(302, got.status_code)
+        self.assertEqual(['Couldn\'t update profile: &lt;script&gt;alert(1)'],
+                         get_flashed_messages())
 
     @patch.object(tasks_client, 'create_task', return_value=Task(name='my task'))
     def test_update_profile_receive_task(self, mock_create_task):
@@ -518,8 +550,9 @@ class PagesTest(TestCase):
         ]
         self.user.enabled_protocols = ['other']
         self.user.obj.put()
-        Follower.get_or_create(from_=self.make_user('fake:user', cls=Fake),
-                               to=self.user)
+        Follower.get_or_create(
+            from_=self.make_user('fake:user', cls=Fake, enabled_protocols=['other']),
+            to=self.user)
 
         got = self.client.post('/web/user.com/update-profile')
         self.assert_equals(302, got.status_code)
@@ -551,8 +584,9 @@ class PagesTest(TestCase):
             Target(protocol='fake', uri='fake:profile:web:user.com'),
         ]
         self.user.obj.put()
-        Follower.get_or_create(from_=self.make_user('fake:user', cls=Fake),
-                               to=self.user)
+        Follower.get_or_create(
+            from_=self.make_user('fake:user', cls=Fake, enabled_protocols=['other']),
+            to=self.user)
 
         got = self.client.post('/web/user.com/update-profile')
         self.assert_equals(302, got.status_code)
@@ -582,8 +616,9 @@ class PagesTest(TestCase):
         self.user.obj.copies = [Target(protocol='fake',
                                        uri='fake:profile:web:user.com')]
         self.user.obj.put()
-        Follower.get_or_create(from_=self.make_user('fake:user', cls=Fake),
-                               to=self.user)
+        Follower.get_or_create(
+            from_=self.make_user('fake:user', cls=Fake, enabled_protocols=['other']),
+            to=self.user)
 
         got = self.client.post('/web/user.com/update-profile')
         self.assert_equals(302, got.status_code)
@@ -621,7 +656,7 @@ class PagesTest(TestCase):
         self.assertIn('@me@masto', body)
 
     def test_home_fake(self):
-        self.make_user('fake:foo', cls=Fake)
+        self.make_user('fake:foo', cls=Fake, enabled_protocols=['other'])
         got = self.client.get('/fake/fake:foo/home')
         self.assert_equals(200, got.status_code)
 
@@ -631,7 +666,7 @@ class PagesTest(TestCase):
         self.assert_equals(200, got.status_code)
 
     def test_notifications_fake(self):
-        self.make_user('fake:foo', cls=Fake)
+        self.make_user('fake:foo', cls=Fake, enabled_protocols=['other'])
         got = self.client.get('/fake/fake:foo/notifications')
         self.assert_equals(200, got.status_code)
 
@@ -664,7 +699,7 @@ class PagesTest(TestCase):
                            contents(microformats2.html_to_activities(got.text)))
 
     def test_followers_fake(self):
-        self.make_user('fake:foo', cls=Fake)
+        self.make_user('fake:foo', cls=Fake, enabled_protocols=['other'])
         got = self.client.get('/fake/fake:foo/followers')
         self.assert_equals(200, got.status_code)
 
@@ -735,7 +770,7 @@ class PagesTest(TestCase):
         self.assertNotIn('class="follower', got.get_data(as_text=True))
 
     def test_following_fake(self):
-        self.make_user('fake:foo', cls=Fake)
+        self.make_user('fake:foo', cls=Fake, enabled_protocols=['other'])
         got = self.client.get('/fake/fake:foo/following')
         self.assert_equals(200, got.status_code)
 
@@ -790,7 +825,7 @@ class PagesTest(TestCase):
         self.assert_equals(404, got.status_code)
 
     def test_feed_fake(self):
-        self.make_user('fake:foo', cls=Fake)
+        self.make_user('fake:foo', cls=Fake, enabled_protocols=['other'])
         got = self.client.get('/fake/fake:foo/feed')
         self.assert_equals(200, got.status_code)
 
@@ -843,11 +878,7 @@ class PagesTest(TestCase):
         self.assert_equals(self.EXPECTED, contents(atom.atom_to_activities(got.text)))
 
         # NOTE's and MENTION's authors; check for two instances
-        bob = """
- <uri>https://plus.google.com/bob</uri>
- 
- <name>Bob</name>
-"""
+        bob = '<uri>https://plus.google.com/bob</uri>'
         assert got.text.index(bob) != got.text.rindex(bob)
         # COMMENT's author
         self.assertIn('Dr. Eve', got.text)
@@ -883,7 +914,7 @@ class PagesTest(TestCase):
         self.assert_equals('/web/user.com', got.headers['Location'])
 
     def test_find_user_page_fake_id(self):
-        self.make_user('fake:foo', cls=Fake)
+        self.make_user('fake:foo', cls=Fake, enabled_protocols=['other'])
         got = self.client.post('/user-page', data={'id': 'fake:foo'})
         self.assert_equals(302, got.status_code)
         self.assert_equals('/fa/fake:handle:foo', got.headers['Location'])
@@ -895,7 +926,7 @@ class PagesTest(TestCase):
         self.assert_equals('/fa/fake:handle:foo', got.headers['Location'])
 
     def test_find_user_page_unknown_protocol(self):
-        self.make_user('fake:foo', cls=Fake)
+        self.make_user('fake:foo', cls=Fake, enabled_protocols=['other'])
         got = self.client.post('/user-page', data={'id': 'un:kn:own'})
         self.assert_equals(404, got.status_code)
         self.assertEqual(["Couldn't determine network for un:kn:own."],
@@ -958,10 +989,14 @@ class PagesTest(TestCase):
         body = resp.get_data(as_text=True)
 
         self.assert_multiline_in('<a href="/ap/@a@b.c">Bridging: </a>', body)
-        self.assert_multiline_in('<a class="h-card u-author mention" rel="me" href="https://bsky.app/profile/ab.c" title="ab.c"><img src="https://some.pds/xrpc/com.atproto.sync.getBlob?did=did:plc:abc&cid=bafyk123" class="profile"> ab.c</a>', body)
+        self.assert_multiline_in('<a class="h-card u-author mention" rel="me" href="https://bsky.app/profile/ab.c" title="ab.c"><img src="https://some.pds/xrpc/com.atproto.sync.getBlob?did=did:plc:abc&amp;cid=bafyk123" class="profile"> ab.c</a>', body)
 
         self.assertIn('action="/settings/migrate-to-activitypub"', body)
         self.assertIn('action="/settings/migrate-to-atproto"', body)
+        self.assertIn('<label><input type="checkbox" required /> I understand that migrating out is irreversible</label>', body)
+        self.assertIn('data-copy="@ab.c@bsky.brid.gy"', body)
+        self.assertIn('data-confirm="Are you sure you want to disable bridging?', body)
+        self.assertIn('<summary class="panel-heading">Domain blocklists</summary>', body)
 
     def test_settings_private_status(self):
         # the enable switch should be enabled even if the user is status=private
@@ -976,7 +1011,16 @@ class PagesTest(TestCase):
         self.assert_multiline_in('Not bridging', body)
         self.assert_multiline_in('because your account is set as private', body)
         self.assert_multiline_in(
-            f'<input id="{user.key.urlsafe().decode()}-switch" type="checkbox" onClick="bridgingSwitch(event)" >', body)
+            f'<input id="{user.key.urlsafe().decode()}-switch" type="checkbox" class="bridging-switch" >', body)
+
+    def test_templates_have_no_inline_js(self):
+        # inline event handlers, inline <script>s, and javascript: URLs would all
+        # need 'unsafe-inline' in our Content-Security-Policy
+        for name in app.jinja_env.list_templates(extensions=['html']):
+            source, _, _ = app.jinja_env.loader.get_source(app.jinja_env, name)
+            with self.subTest(name):
+                self.assertNotRegex(
+                    source, r'(?i)\son[a-z]+=|<script(?![^>]*\ssrc=)[^>]*>|javascript:')
 
     @patch.object(util.session, 'get')
     def test_settings_on_login_create_new_user(self, mock_get):
@@ -1018,6 +1062,48 @@ class PagesTest(TestCase):
             'cid': 'bafyreigd',
         }, user.obj.bsky)
 
+    @patch.object(util.session, 'get', return_value=requests_response(
+        '{"error":"Public key not found"}', status=403))
+    def test_settings_on_login_blocked(self, _):
+        user, auth = self.make_logged_in_mastodon_user()
+
+        resp = self.client.get(f'/settings?auth_entity={auth.urlsafe().decode()}')
+        self.assertEqual(200, resp.status_code)
+        self.assertEqual(["Couldn't load @a@b.c from Mastodon; you or your server may be blocking Bridgy Fed."],
+                         get_flashed_messages())
+        self.assert_multiline_in('@a@b.c', resp.get_data(as_text=True))
+
+    @patch.object(util.session, 'get', return_value=requests_response(status=401))
+    def test_settings_on_login_create_new_user_blocked(self, _):
+        auth = MastodonAuth(id='@a@b.c', access_token_str='',
+                            user_json='{"uri":"http://b.c/a"}').put()
+        with self.client.session_transaction() as sess:
+            sess[LOGINS_SESSION_KEY] = [('MastodonAuth', '@a@b.c')]
+
+        resp = self.client.get(f'/settings?auth_entity={auth.urlsafe().decode()}')
+        self.assertEqual(302, resp.status_code)
+        self.assertEqual('/login', resp.headers['Location'])
+        self.assertEqual(["Couldn't load @a@b.c from Mastodon; you or your server may be blocking Bridgy Fed."],
+                         get_flashed_messages())
+        self.assertIsNone(ActivityPub.get_by_id('http://b.c/a', allow_opt_out=True))
+
+    @patch.object(util.session, 'get', return_value=requests_response(status=500))
+    def test_settings_on_login_fetch_fails(self, _):
+        user, auth = self.make_logged_in_mastodon_user()
+
+        resp = self.client.get(f'/settings?auth_entity={auth.urlsafe().decode()}')
+        self.assertEqual(200, resp.status_code)
+        self.assertEqual(["Couldn't load @a@b.c from Mastodon."], get_flashed_messages())
+
+    @patch.object(util.session, 'get', return_value=requests_response(
+        '<html></html>', content_type='text/html'))
+    def test_settings_on_login_not_actor(self, _):
+        user, auth = self.make_logged_in_mastodon_user()
+
+        resp = self.client.get(f'/settings?auth_entity={auth.urlsafe().decode()}')
+        self.assertEqual(200, resp.status_code)
+        self.assertEqual(["Couldn't load @a@b.c from Mastodon."], get_flashed_messages())
+
     def test_settings_bad_auth_entity(self):
         self.make_logged_in_mastodon_user()
 
@@ -1034,6 +1120,35 @@ class PagesTest(TestCase):
         body = resp.get_data(as_text=True)
         self.assertIn('planned maintenance', body)
         self.assertNotIn('action="/settings/disable"', body)
+
+    def test_login(self):
+        resp = self.client.get('/login')
+        self.assertEqual(200, resp.status_code)
+        body = resp.get_data(as_text=True)
+        self.assert_multiline_in("""\
+<details name="login" class="row big">
+<summary class="login-button shadow login-button-logotype" title="Atmosphere (Bluesky)">
+<img src="/oauth_dropins_static/atmosphere_icon.svg" height="60" />
+<span>Atmosphere (Bluesky)</span>
+</summary>
+<label for="login-atmosphere" class="fade-in-element login-label">Handle</label>
+<input id="login-atmosphere" name="handle" type="text" class="fade-in-element login-input" placeholder="me.bsky.social" required>
+""", body)
+        self.assert_multiline_in("""\
+<label for="login-indieauth" class="fade-in-element login-label">Web site</label>
+<input id="login-indieauth" name="me" type="url" class="fade-in-element login-input" placeholder="example.com" required>
+""", body)
+        self.assert_multiline_in("""\
+<label for="login-mastodon" class="fade-in-element login-label">Instance</label>
+<input id="login-mastodon" name="instance" type="url" class="fade-in-element login-input" placeholder="mastodon.social" scheme="https" required>
+""", body)
+        self.assert_multiline_in("""\
+<label for="login-pixelfed" class="fade-in-element login-label">Instance</label>
+<input id="login-pixelfed" name="instance" type="url" class="fade-in-element login-input" placeholder="pixelfed.social" scheme="https" required>
+""", body)
+
+        self.assertLess(body.index('/oauth/indieauth/start'),
+                        body.index('/oauth/mastodon/start'))
 
     def test_login_read_only(self):
         appengine_info.READ_ONLY = True
@@ -1274,7 +1389,11 @@ class PagesTest(TestCase):
     def test_unblock_atproto_unrecognized(self):
         self._test_block_or_unblock_atproto_unrecognized('/settings/unblock')
 
-    def _test_block_or_unblock_atproto_unrecognized(self, path):
+    # after the target isn't recognized as an ATProto id, we try to fetch it
+    # as a CSV blocklist URL
+    @patch.object(util.session, 'get', return_value=requests_response(
+        '<html></html>', headers={'Content-Type': 'text/html'}))
+    def _test_block_or_unblock_atproto_unrecognized(self, path, mock_get):
         user, _ = self.make_logged_in_mastodon_user(enabled_protocols=['atproto'])
 
         resp = self.client.post(path, data={
@@ -1284,7 +1403,7 @@ class PagesTest(TestCase):
         self.assertEqual(302, resp.status_code)
         self.assertEqual('/settings', resp.headers['Location'])
         self.assertEqual(
-            ["https://bsky.app/xyz/456 doesn't look like a user or list on Bluesky, or we couldn't fetch it"],
+            ["https://bsky.app/xyz/456 doesn't look like a user or list on the Atmosphere (Bluesky), or we couldn't fetch it"],
             get_flashed_messages())
 
     def test_toggle_notifs(self):
@@ -1363,6 +1482,38 @@ class PagesTest(TestCase):
         self.assertIn('action="/settings/migrate-to-activitypub"', body)
         self.assertIn(user.handle_as(ActivityPub), body)
 
+    @patch.object(util.session, 'get')
+    def test_migrate_to_activitypub_needs_alias_escapes_handle(self, mock_get):
+        user, _ = self.make_logged_in_bluesky_user(enabled_protocols=['activitypub'])
+        mock_get.return_value = self.as2_resp({
+            'type': 'Person',
+            'id': 'http://in.st/carol',
+            'preferredUsername': '<script>alert(1)</script>',
+        })
+
+        resp = self.client.post('/settings/migrate-to-activitypub', data={
+            'key': user.key.urlsafe().decode(),
+            'handle': 'http://in.st/carol',
+        })
+        self.assertEqual(200, resp.status_code)
+        self.assertIn('In the account settings for <code>@&lt;script&gt;alert(1)&lt;/script&gt;@in.st</code>',
+                      resp.get_data(as_text=True))
+
+    @patch.object(util.session, 'get', return_value=requests_response(status=403))
+    def test_migrate_to_activitypub_blocked(self, _):
+        user, _ = self.make_logged_in_bluesky_user(enabled_protocols=['activitypub'])
+
+        resp = self.client.post('/settings/migrate-to-activitypub', data={
+            'key': user.key.urlsafe().decode(),
+            'handle': 'http://in.st/carol',
+        })
+        self.assertEqual(302, resp.status_code)
+        self.assertEqual('/settings', resp.headers['Location'])
+        self.assertEqual(
+            ["Couldn't load http://in.st/carol; you or your server may be blocking Bridgy Fed."],
+            get_flashed_messages())
+        self.assertNotIn('movedTo', user.obj.key.get().as1)
+
     def test_migrate_to_activitypub_not_logged_in(self):
         resp = self.client.post('/settings/migrate-to-activitypub', data={
             'key': ATProto(id='did:plc:nope').key.urlsafe().decode(),
@@ -1386,6 +1537,7 @@ class PagesTest(TestCase):
         self.assertIn('action="/settings/migrate-to-atproto/create-account"', body)
         self.assertIn('value="https://new.pds.com"', body)
         self.assertIn('name="handle_domain" value=".pds.com"', body)
+        self.assertIn('<label><input type="checkbox" required /> I understand that migrating out is irreversible</label>', body)
 
     def test_migrate_to_atproto_main_pds(self):
         user, _ = self.make_logged_in_mastodon_user(enabled_protocols=['atproto'])
@@ -1469,7 +1621,7 @@ class PagesTest(TestCase):
         self.assertEqual(302, resp.status_code)
         self.assertEqual('/settings', resp.headers['Location'])
         self.assertEqual(
-            "OK, we've migrated your bridged Bluesky account to aly.ce on new.pds.com.",
+            "OK, we've migrated your bridged Atmosphere (Bluesky) account to aly.ce on new.pds.com.",
             get_flashed_messages()[0])
 
         mock_create.assert_called_once_with(
@@ -1503,10 +1655,9 @@ class PagesTest(TestCase):
         self.assertEqual(200, resp.status_code)
         self.assertIn('Error from new.pds.com: nopey', resp.get_data(as_text=True))
 
-    @patch.dict('pages.TEMPLATE_VARS', IFRAMELY_API_KEY_MD5='iframelee-key')
     @patch('webutil.util.now', return_value=datetime.now())
     def test_respond(self, _):
-        self.store_object(id='other:post', our_as1={'url': 'https://other/post'})
+        self.store_object(id='other:post', source_protocol='other', our_as1={'url': 'https://other/post'})
         token = common.make_jwt(user=self.user, scope='respond', obj_id='other:post')
 
         resp = self.client.get(
@@ -1517,8 +1668,151 @@ class PagesTest(TestCase):
         self.assertIn('https://other/post', html)
         self.assertIn('user.com', html)
         self.assertIn(token, html)
-        self.assertIn('https://iframely.net/embed.js?key=iframelee-key&theme=light',
-                      html)
+
+    @patch('webutil.util.now', return_value=datetime.now())
+    def test_respond_loads_author(self, _):
+        Fake.fetchable = {'fake:profile:alice': {
+            'objectType': 'person',
+            'displayName': 'Alice',
+            'url': 'https://alice.com/',
+            'image': 'https://alice.com/pic.jpg',
+        }}
+        self.store_object(id='fake:post', source_protocol='fake', our_as1={
+            'objectType': 'note',
+            'author': 'fake:alice',
+            'content': 'hi there',
+        })
+        token = common.make_jwt(user=self.user, scope='respond', obj_id='fake:post')
+
+        resp = self.client.get(
+            f'/web/user.com/respond?obj_id=fake:post&token={token}')
+        self.assertEqual(200, resp.status_code)
+        self.assertEqual(['fake:profile:alice'], Fake.fetched)
+
+        html = resp.get_data(as_text=True)
+        self.assert_multiline_in("""\
+<span class="logo post-logo" title="fake-phrase">
+<img src="fake-logo">
+</span>
+""", html, ignore_blanks=True)
+        self.assert_multiline_in("""\
+<span class="p-author h-card">
+<data class="p-uid" value="fake:profile:alice"></data>
+<a class="p-name u-url" href="https://alice.com/">Alice</a>
+<img class="u-photo" src="https://alice.com/pic.jpg" alt="" />
+</span>
+""", html, ignore_blanks=True)
+
+    @patch('webutil.util.now', return_value=datetime.now())
+    def test_respond_author_profile_object_has_no_data(self, _):
+        self.store_object(id='fake:profile:alice', source_protocol='fake')
+        self.store_object(id='fake:post', source_protocol='fake', our_as1={
+            'objectType': 'note',
+            'author': 'fake:alice',
+            'content': 'hi there',
+        })
+        token = common.make_jwt(user=self.user, scope='respond', obj_id='fake:post')
+
+        resp = self.client.get(
+            f'/web/user.com/respond?obj_id=fake:post&token={token}')
+        self.assertEqual(200, resp.status_code)
+        self.assert_multiline_in("""\
+<article class="h-entry">
+<span class="p-uid">fake:post</span>
+<div class="e-content p-name">
+hi there
+</div>
+</article>
+""", resp.get_data(as_text=True), ignore_blanks=True)
+
+    @patch('webutil.util.now', return_value=datetime.now())
+    def test_respond_loads_author_from_different_protocol(self, _):
+        Fake.fetchable = {'fake:profile:alice': {
+            'objectType': 'person',
+            'displayName': 'Alice',
+            'url': 'https://alice.com/',
+        }}
+        self.store_object(id='other:post', source_protocol='other', our_as1={
+            'objectType': 'note',
+            'author': 'fake:alice',
+            'content': 'hi there',
+        })
+        token = common.make_jwt(user=self.user, scope='respond', obj_id='other:post')
+
+        resp = self.client.get(
+            f'/web/user.com/respond?obj_id=other:post&token={token}')
+        self.assertEqual(200, resp.status_code)
+        self.assertEqual(['fake:profile:alice'], Fake.fetched)
+        self.assert_multiline_in("""\
+<span class="p-author h-card">
+<data class="p-uid" value="fake:profile:alice"></data>
+<a class="p-name u-url" href="https://alice.com/">Alice</a>
+</span>
+""", resp.get_data(as_text=True), ignore_blanks=True)
+
+    @patch('webutil.util.now', return_value=datetime.now())
+    def test_respond_loads_quoted_post(self, _):
+        Fake.fetchable = {
+            'fake:quoted': {
+                'objectType': 'note',
+                'author': 'fake:bob',
+                'content': 'original post',
+            },
+            'fake:profile:bob': {
+                'objectType': 'person',
+                'displayName': 'Bob',
+                'url': 'https://bob.com/',
+            },
+        }
+        self.store_object(id='fake:post', source_protocol='fake', our_as1={
+            'objectType': 'note',
+            'content': 'hi there',
+            'attachments': [{'objectType': 'note', 'id': 'fake:quoted'}],
+        })
+        token = common.make_jwt(user=self.user, scope='respond', obj_id='fake:post')
+
+        resp = self.client.get(
+            f'/web/user.com/respond?obj_id=fake:post&token={token}')
+        self.assertEqual(200, resp.status_code)
+        self.assertEqual(['fake:quoted', 'fake:profile:bob'], Fake.fetched)
+        self.assert_multiline_in("""\
+<article class="u-quotation-of h-cite">
+<span class="p-uid">fake:quoted</span>
+<span class="p-author h-card">
+<data class="p-uid" value="fake:profile:bob"></data>
+<a class="p-name u-url" href="https://bob.com/">Bob</a>
+</span>
+""", resp.get_data(as_text=True), ignore_blanks=True)
+        self.assert_multiline_in("""\
+<div class="e-content p-name">
+original post
+</div>
+</article>
+""", resp.get_data(as_text=True), ignore_blanks=True)
+
+    @patch('webutil.util.now', return_value=datetime.now())
+    def test_respond_author_no_display_name_uses_handle(self, _):
+        self.store_object(id='fake:post', source_protocol='fake', our_as1={
+            'objectType': 'note',
+            'author': {
+                'objectType': 'person',
+                'id': 'fake:profile:alice',
+                'username': 'alice.com',
+                'url': 'https://alice.com/',
+            },
+            'content': 'hi there',
+        })
+        token = common.make_jwt(user=self.user, scope='respond', obj_id='fake:post')
+
+        resp = self.client.get(
+            f'/web/user.com/respond?obj_id=fake:post&token={token}')
+        self.assertEqual(200, resp.status_code)
+        self.assert_multiline_in("""\
+<span class="p-author h-card">
+<data class="p-uid" value="fake:profile:alice"></data>
+<a class="p-name u-url" href="https://alice.com/">alice.com</a>
+</span>
+""", resp.get_data(as_text=True), ignore_blanks=True)
 
     def test_respond_missing_token(self):
         self.store_object(id='other:post')
@@ -1526,7 +1820,7 @@ class PagesTest(TestCase):
         self.assertEqual(400, resp.status_code)
 
     def test_respond_wrong_user(self):
-        self.make_user('fake:alice', cls=Fake)
+        self.make_user('fake:alice', cls=Fake, enabled_protocols=['other'])
         token = common.make_jwt(user=self.user, scope='respond')
         self.store_object(id='other:post')
         resp = self.client.get(
@@ -1567,11 +1861,11 @@ class PagesTest(TestCase):
     def test_respond_reply(self, mock_create_task, _):
         common.RUN_TASKS_INLINE = False
 
-        self.store_object(id='fake:post')
+        self.store_object(id='fake:post', source_protocol='fake')
 
         resp = self.client.post('/web/user.com/respond/reply', data={
             'obj_id': 'fake:post',
-            'content': 'test reply',
+            'content': 'test \r\n reply',
             'token': common.make_jwt(user=self.user, scope='respond',
                                      obj_id='fake:post'),
         })
@@ -1580,11 +1874,12 @@ class PagesTest(TestCase):
 
         id = f'ui:reply-user.com-fake:post-{util.now().isoformat()}'
         self.assert_task(mock_create_task, 'receive', source_protocol='ui',
-                         authed_as='user.com', id=id, our_as1={
+                         authed_as='user.com', id=id,
+                         users=[self.user.key.urlsafe().decode()], our_as1={
             'objectType': 'comment',
             'id': id,
             'inReplyTo': 'fake:post',
-            'content': 'test reply',
+            'content': 'test \n reply',
             'author': 'user.com',
         })
 
@@ -1612,7 +1907,7 @@ class PagesTest(TestCase):
 
     @patch('webutil.util.now', return_value=datetime.now())
     def test_respond_reply_wrong_user(self, _):
-        self.make_user('fake:bob', cls=Fake)
+        self.make_user('fake:bob', cls=Fake, enabled_protocols=['other'])
         resp = self.client.post('/fake/fake:bob/respond/reply', data={
             'obj_id': 'fake:post',
             'content': 'test reply',
@@ -1652,7 +1947,7 @@ class PagesTest(TestCase):
     def test_respond_like(self, mock_create_task, _):
         common.RUN_TASKS_INLINE = False
 
-        self.store_object(id='fake:post')
+        self.store_object(id='fake:post', source_protocol='fake')
 
         resp = self.client.post('/web/user.com/respond/like', data={
             'obj_id': 'fake:post',
@@ -1664,7 +1959,8 @@ class PagesTest(TestCase):
 
         id = f'ui:like-user.com-fake:post-{util.now().isoformat()}'
         self.assert_task(mock_create_task, 'receive', source_protocol='ui',
-                         authed_as='user.com', id=id, our_as1={
+                         authed_as='user.com', id=id,
+                         users=[self.user.key.urlsafe().decode()], our_as1={
             'objectType': 'activity',
             'verb': 'like',
             'id': id,
@@ -1681,7 +1977,7 @@ class PagesTest(TestCase):
 
     @patch('webutil.util.now', return_value=datetime.now())
     def test_respond_like_wrong_user(self, _):
-        self.make_user('fake:bob', cls=Fake)
+        self.make_user('fake:bob', cls=Fake, enabled_protocols=['other'])
         resp = self.client.post('/fake/fake:bob/respond/like', data={
             'obj_id': 'fake:post',
             'token': common.make_jwt(user=self.user, scope='respond',
@@ -1703,7 +1999,7 @@ class PagesTest(TestCase):
     def test_respond_repost(self, mock_create_task, _):
         common.RUN_TASKS_INLINE = False
 
-        self.store_object(id='fake:post')
+        self.store_object(id='fake:post', source_protocol='fake')
 
         resp = self.client.post('/web/user.com/respond/repost', data={
             'obj_id': 'fake:post',
@@ -1715,7 +2011,8 @@ class PagesTest(TestCase):
 
         id = f'ui:repost-user.com-fake:post-{util.now().isoformat()}'
         self.assert_task(mock_create_task, 'receive', source_protocol='ui',
-                         authed_as='user.com', id=id, our_as1={
+                         authed_as='user.com', id=id,
+                         users=[self.user.key.urlsafe().decode()], our_as1={
             'objectType': 'activity',
             'verb': 'share',
             'id': id,
@@ -1732,7 +2029,7 @@ class PagesTest(TestCase):
 
     @patch('webutil.util.now', return_value=datetime.now())
     def test_respond_repost_wrong_user(self, _):
-        self.make_user('fake:bob', cls=Fake)
+        self.make_user('fake:bob', cls=Fake, enabled_protocols=['other'])
         resp = self.client.post('/fake/fake:bob/respond/repost', data={
             'obj_id': 'fake:post',
             'token': common.make_jwt(user=self.user, scope='respond', obj_id='fake:post'),
@@ -1753,7 +2050,7 @@ class PagesTest(TestCase):
     def test_respond_block(self, mock_create_task, _):
         common.RUN_TASKS_INLINE = False
 
-        self.store_object(id='fake:post', our_as1={'author': 'fake:alice'})
+        self.store_object(id='fake:post', source_protocol='fake', our_as1={'author': 'fake:alice'})
 
         resp = self.client.post('/web/user.com/respond/block', data={
             'obj_id': 'fake:post',
@@ -1765,7 +2062,8 @@ class PagesTest(TestCase):
 
         id = f'ui:block-user.com-fake:post-{util.now().isoformat()}'
         self.assert_task(mock_create_task, 'receive', source_protocol='ui',
-                         authed_as='user.com', id=id, our_as1={
+                         authed_as='user.com', id=id,
+                         users=[self.user.key.urlsafe().decode()], our_as1={
             'objectType': 'activity',
             'verb': 'block',
             'id': id,
@@ -1782,7 +2080,7 @@ class PagesTest(TestCase):
 
     @patch('webutil.util.now', return_value=datetime.now())
     def test_respond_block_wrong_user(self, _):
-        self.make_user('fake:bob', cls=Fake)
+        self.make_user('fake:bob', cls=Fake, enabled_protocols=['other'])
         resp = self.client.post('/fake/fake:bob/respond/block', data={
             'obj_id': 'fake:post',
             'token': common.make_jwt(user=self.user, scope='respond', obj_id='fake:post'),

@@ -1,30 +1,50 @@
 """Serves the Mastodon API, backed by Bridgy Fed users and objects."""
-from datetime import timezone
+from datetime import timedelta, timezone
 import functools
 import logging
 import os
+from urllib.parse import parse_qs, unquote, urlparse
 
 from authlib.integrations.flask_oauth2.resource_protector import current_token
 from flask import request
 from google.cloud import ndb
-from granary import as1, bluesky
-from granary.mastodon import from_as1
+from granary import as1, as2, bluesky
+from granary.mastodon import decode_id, encode_id, from_as1
+from requests import RequestException
+from requests_oauth2client.exceptions import InvalidGrant
+from webutil.appengine_info import DEBUG, LOCAL_SERVER
 from webutil import util
-from webutil.flask_util import bool_param, get_required_param, error
-from werkzeug.exceptions import BadGateway, HTTPException
+from webutil.flask_util import (
+    bool_param,
+    error,
+    get_required_param,
+    handle_exception,
+    MODERN_HEADERS,
+)
+from werkzeug.exceptions import HTTPException, MethodNotAllowed, NotFound
 
 import activitypub
 from activitypub import ActivityPub
 from arroba import datastore_storage
-from domains import PRIMARY_DOMAIN
+import arroba.util
+from atproto import ATProto
+import common
+from domains import DOMAINS, PRIMARY_DOMAIN
 from flask_app import app
 import ids
 from mastodon_oauth import require_oauth
+import memcache
 import models
 from models import Follower, Object, PROTOCOLS
+import oauth_server
+import protocol
+from ui import UIProtocol
 import webfinger
 
 logger = logging.getLogger(__name__)
+
+# ATProto lexicon that we wrap invalid records in, eg replies to non-ATProto posts
+WRAPPER_NSID = 'gy.brid.record'
 
 # limits for list endpoints
 DEFAULT_LIMIT = 20
@@ -33,6 +53,12 @@ MAX_LIMIT = 40
 # how many ancestors to include in a status's context
 MAX_ANCESTORS = 20
 
+# how many descendants to include in a status's context, and how many levels of
+# replies to walk down to find them
+# https://docs.joinmastodon.org/methods/statuses/#context
+MAX_DESCENDANTS = 40
+MAX_DESCENDANT_DEPTH = 20
+
 # https://docs.joinmastodon.org/entities/Notification/#type
 AS1_TO_NOTIFICATION_TYPE = {
     'like': 'favourite',
@@ -40,21 +66,109 @@ AS1_TO_NOTIFICATION_TYPE = {
     'follow': 'follow',
 }
 
+# also see granary.as1.POST_TYPES
+STATUS_AS1_TYPES = frozenset(('article', 'comment', 'note', 'share'))
 
-def auth(fn):
+# https://docs.joinmastodon.org/entities/Instance/#supported_mime_types
+SUPPORTED_MEDIA_TYPES = (
+    'audio/3gpp',
+    'audio/aac',
+    'audio/flac',
+    'audio/m4a',
+    'audio/mp3',
+    'audio/mp4',
+    'audio/mpeg',
+    'audio/ogg',
+    'audio/vnd.wave',
+    'audio/vorbis',
+    'audio/wav',
+    'audio/wave',
+    'audio/webm',
+    'audio/x-m4a',
+    'audio/x-pn-wave',
+    'audio/x-wav',
+    'image/avif',
+    'image/gif',
+    'image/heic',
+    'image/heif',
+    'image/jpeg',
+    'image/png',
+    'image/webp',
+    'video/mp4',
+    'video/ogg',
+    'video/quicktime',
+    'video/webm',
+    'video/x-ms-asf',
+)
+
+# how many notifications /api/v2/notifications fetches and then aggregates into
+# groups. the datastore can't group, so we over-fetch and collapse in memory,
+# which means notifications_count under-counts groups bigger than this.
+GROUPED_NOTIF_OBJECT_FETCHES = 100
+
+# notification types that /api/v2/notifications groups by default, ie when the
+# grouped_types[] query param isn't provided
+# https://docs.joinmastodon.org/methods/grouped_notifications/#get-grouped
+GROUPED_NOTIF_TYPES = ('favourite', 'reblog', 'follow')
+
+# how many accounts each notification group includes in sample_account_ids
+GROUPED_NOTIF_SAMPLE_ACCOUNTS = 8
+
+MEMOIZE_EXPIRATION = timedelta(seconds=15)
+
+
+def cache_global(fn):
+    return memcache.memoize(
+        key=lambda **_: request.full_path,
+        expire=MEMOIZE_EXPIRATION,
+        )(fn)
+
+
+def cache_user(fn):
+    return memcache.memoize(
+        key=lambda user, **_: f'{user.key.id()} {request.full_path}',
+        expire=MEMOIZE_EXPIRATION,
+        )(fn)
+
+
+def non_none(seq):
+    return [elem for elem in seq if elem is not None]
+
+
+def auth(granary_source=False):
     """Requires a valid bearer token, resolves it to a :class:`models.User`.
 
     Passes the resolved user to the wrapped view function as a ``user`` kwarg.
-    """
-    @require_oauth()
-    @functools.wraps(fn)
-    def wrapper(*args, **kwargs):
-        if not (user := current_token.get_user()):
-            error('Account not found', status=401)
-        logger.info(f'Logged in as {user.key.id()} for {request.url}')
-        return fn(*args, user=user, **kwargs)
 
-    return wrapper
+    Args:
+      * granary_source (bool): if true, generates a :class:`granary.source.Source`
+        for the user and passes it as the ``source`` kwarg.
+    """
+    def decorator(fn):
+        @require_oauth()
+        @functools.wraps(fn)
+        def wrapper(*args, **kwargs):
+            if not (user := current_token.get_user()):
+                error('Account not found', status=401)
+            logger.info(f'Logged in as {user.key.id()} for {request.url}')
+
+            if not user.is_enabled(ActivityPub):
+                error(f"{user.handle_or_id()} isn't bridged to the fediverse",
+                      status=403)
+
+            if granary_source:
+                if not (source := oauth_server.granary_source_for(user.key)):
+                    error(f"{user.LABEL} accounts not supported yet", status=501)
+                kwargs['source'] = source
+
+            try:
+                return fn(*args, user=user, **kwargs)
+            except InvalidGrant as e:
+                error(f'{user.LABEL} login expired or revoked: {e}', status=401)
+
+        return wrapper
+
+    return decorator
 
 
 def to_account(user):
@@ -78,7 +192,7 @@ def to_account(user):
             username = acct.split('@')[0]
 
     account.update({
-        'id': addr,
+        'id': encode_id(user.key.id()),
         'uri': user.id_as(ActivityPub),
         'username': username,
         'acct': acct,
@@ -89,12 +203,26 @@ def to_account(user):
     return account
 
 
-def to_status(obj):
+def to_status(obj, limit=2):
     """Converts a :class:`models.Object` to a Mastodon ``Status``.
 
-    Returns None if ``obj`` can't be converted, eg its AS1 ``objectType``/``verb``
-    isn't supported, or its account can't be fetched or converted.
+    If :func:`prefetch_statuses` has run on ``obj``, uses the ``owner``,
+    ``target``, and ``quoted`` it stashed on it, so that converting a whole page
+    of objects doesn't need a datastore round trip per object. Otherwise loads
+    ``obj``'s owner, reblog target, and quoted post, if any, individually.
+
+    Returns None if ``obj`` can't be converted, eg it has no data, its AS1
+    ``objectType``/``verb`` isn't supported, or its account can't be fetched or
+    converted.
+
+    Args:
+      obj (models.Object)
+      limit (int): how many times to recursively call to_status on reposted and
+        quoted posts. used to prevent loops.
     """
+    if not obj.as1 or as1.object_type(obj.as1) not in STATUS_AS1_TYPES:
+        return None
+
     try:
         status = from_as1(obj.as1)
     except:
@@ -108,25 +236,91 @@ def to_status(obj):
         status['uri'] = ids.translate_object_id(
             id=obj.key.id(), from_=from_proto, to=ActivityPub)
 
-    # TODO: parallelize/optimize
-    if owner := load_owner(obj):
+    if hasattr(obj, 'owner'):
+        # unlike load_owner, a prefetched owner is never None just because a
+        # user hasn't been created yet; treat that as fully unresolved, instead
+        # of falling back to whatever placeholder account from_as1 built
+        status['account'] = to_account(obj.owner) if obj.owner else None
+    elif owner := load_owner(obj):
         status['account'] = to_account(owner)
 
     if not status['account']:
         return None
 
-    if status.get('reblog') is not None:
-        target_id = as1.get_id(obj.as1, 'object')
-        if target_id and (target := Object.get_by_id(target_id)) and target.as1:
-            status['reblog'] = to_status(target) or None
-        else:
-            status['reblog'] = None
+    # convert mention ids and handles to ActivityPub
+    for mention in status['mentions']:
+        if not (id := mention['url']):
+            continue
+
+        user = None
+        if hasattr(obj, 'mentioned'):
+            user = obj.mentioned.get(id)
+        elif ((proto := protocol.Protocol.for_id(id, remote=False))
+                and (user_id := ids.normalize_user_id(id=id, proto=proto))):
+            user = proto.get_by_id(user_id)
+
+        if not user:
+            mention['id'] = encode_id(id)
+            continue
+
+        # a Mention is a subset of an Account, so keep them consistent
+        account = to_account(user)
+        mention.update({
+            'id': account['id'],
+            'username': account['username'],
+            'acct': account['acct'],
+            'url': account.get('url') or account['uri'],
+        })
+
+    if status['reblog'] and limit:
+        # try to hydrate the original post
+        status['reblog'] = target_to_status(obj, limit=limit-1)
+        if not status['reblog']:
+            # reposts aren't renderable without their original post
+            return None
+
+    if status['quote'] and limit:
+        # try to hydrate the quoted post
+        quoted = (getattr(obj, 'quoted', None)
+                  or Object.get_by_id(as1.quoted_posts(obj.as1)[0]))
+
+        if quoted and quoted.as1:
+            if quoted_status := to_status(quoted, limit=limit-1):
+                status['quote'] = {
+                    'state': 'accepted',
+                    'quoted_status': quoted_status,
+                }
 
     return status
 
 
+def target_to_status(obj, **kwargs):
+    """Converts ``obj``'s object to a status.
+
+    Uses the ``target`` stashed by :func:`prefetch_statuses`, if it's run on
+    ``obj``, instead of loading it.
+
+    Args:
+      obj (models.Object)
+      kwargs: passed through to :func:`to_status`
+
+    Returns:
+      dict: Mastodon API Status, or None if ``obj`` has no ``object`` or it's not
+        in the datastore.
+    """
+    if not (target := getattr(obj, 'target', None)):
+        if id := as1.get_id(obj.as1, 'object'):
+            target = Object.get_by_id(id)
+
+    if target and target.as1:
+        return to_status(target, **kwargs)
+
+
 def to_notification(obj):
     """Converts a :class:`models.Object` to a Mastodon ``Notification``.
+
+    Uses the ``owner`` and ``target`` stashed by :func:`prefetch_statuses`, if
+    it's run on ``obj``; see :func:`to_status`.
 
     Returns None if ``obj`` can't be converted, eg its account can't be fetched or
     converted.
@@ -134,14 +328,12 @@ def to_notification(obj):
     type = AS1_TO_NOTIFICATION_TYPE.get(obj.as1.get('verb'), 'mention')
 
     notif = {
-        'id': obj.key.id(),
+        'id': encode_id(obj.key.id()),
         'type': type,
         'created_at': (obj.as1.get('published')
                        or obj.created.replace(tzinfo=timezone.utc).isoformat()),
         'account': None,  # populated below
     }
-
-    # TODO: parallelize/optimize
 
     if type in ('mention', 'quote'):
         notif['status'] = to_status(obj)
@@ -149,17 +341,175 @@ def to_notification(obj):
             notif['account'] = notif['status']['account']
 
     elif type in ('favourite', 'follow', 'reblog'):
-        target_id = as1.get_id(obj.as1, 'object')
-        if target_id and (target := Object.get_by_id(target_id)) and target.as1:
-            notif['status'] = to_status(target)
+        notif['status'] = target_to_status(obj)
 
-        if owner := load_owner(obj):
+        owner = obj.owner if hasattr(obj, 'owner') else load_owner(obj)
+        if owner:
             notif['account'] = to_account(owner)
 
-    if not notif['account']:
+    if not notif['account'] or (type in ('favourite', 'reblog')
+                                and not notif['status']):
         return None
 
     return notif
+
+
+def to_relationship(user, **values):
+    return {
+        'id': encode_id(user.key.id()),
+        'following': False,
+        'followed_by': False,
+        'showing_reblogs': False,
+        'blocking': False,
+        'blocked_by': False,
+        'domain_blocking': False,
+        'endorsed': False,
+        'muting': False,
+        'muting_notifications': False,
+        'notifying': False,
+        'requested': False,
+        'note': '',
+        **values,
+    }
+
+
+def to_media_attachment(obj, media_id):
+    """Converts an uploaded media AS1 object to a Mastodon ``MediaAttachment``.
+
+    https://docs.joinmastodon.org/entities/MediaAttachment/
+
+    Args:
+      obj (dict): AS1 image or video object from :func:`load_media`
+      media_id (str): ``id`` to populate in the returned ``MediaAttachment``
+
+    Returns:
+      dict: ``MediaAttachment``
+    """
+    type = obj.get('objectType')
+    if type not in ('image', 'video', 'audio'):
+        type = 'unknown'
+
+    url = util.get_url(obj, 'stream') or util.get_url(obj)
+
+    # matches Mastodon's layout: images have everything in original, video and
+    # audio have most fields top level and only raw values in original
+    # https://docs.joinmastodon.org/entities/MediaAttachment/
+    meta = {}
+    original = {}
+    obj_as1 = util.get_first(obj, 'stream') or obj
+    width = obj_as1.get('width')
+    height = obj_as1.get('height')
+    if width and height:
+        dims = {
+            'width': width,
+            'height': height,
+            'size': f'{width}x{height}',
+            'aspect': width / height,
+        }
+        if type == 'image':
+            original = dims
+        else:
+            meta.update(dims)
+            original = {'width': width, 'height': height}
+
+    if duration := obj_as1.get('duration'):
+        meta['duration'] = original['duration'] = duration
+
+    if original:
+        meta['original'] = original
+
+    return {
+        'id': media_id,
+        'type': type,
+        'url': url,
+        'preview_url': url if type == 'image' else None,
+        'remote_url': None,
+        'meta': meta,
+        'description': obj.get('displayName'),
+        'blurhash': None,
+    }
+
+
+def to_statuses(objects):
+    """Converts objects to statuses, handling the ``only_media`` query param.
+
+    Args:
+      objects (sequence of :class:`models.Object`)
+
+    Returns:
+      list of dict: Mastodon API statuses
+    """
+    only_media = bool_param('only_media')
+    return [s for s in non_none(to_status(obj) for obj in objects)
+            if not (only_media and not s.get('media_attachments'))]
+
+
+def prefetch_statuses(objs):
+    """Prefetches the owners and reblog/favourite/follow targets of ``objects``.
+
+    Batches the datastore gets for the whole list of objects into a small,
+    fixed number of round trips, instead of :func:`to_status` and
+    :func:`to_notification` each doing their own gets one object at a time.
+
+    Stashes what it loads on each object in attributes:
+      * ``owner``: its :class:`models.User`
+      * ``target``: the :class:`models.Object` referenced by its AS1 ``object`` field
+      * ``quoted``: the :class:`models.Object` it quotes
+      * ``mentioned``: dict mapping each mention tag's id to its :class:`models.User`
+
+    Args:
+      objs (sequence of :class:`models.Object`)
+    """
+    # de-dupe
+    objs = list({obj.key: obj for obj in objs}.values())
+
+    for obj in objs:
+        obj_as1 = obj.as1 or {}
+
+        # owner user
+        if obj.users:
+            obj.owner = obj.users[0].get_async()
+        elif ((owner := as1.get_owner(obj_as1))
+              and (proto := obj.owner_protocol(remote=False))
+              and (id := ids.normalize_user_id(id=owner, proto=proto))):
+            obj.owner = proto.get_by_id_async(id)
+        else:
+            obj.owner = None
+
+        # target object
+        obj.target = None
+        if target := as1.get_id(obj_as1, 'object'):
+            obj.target = Object.get_by_id_async(target)
+
+        # quoted post
+        obj.quoted = None
+        if quoted := as1.quoted_posts(obj_as1):
+            obj.quoted = Object.get_by_id_async(quoted[0])
+
+        # mentions
+        obj.mentioned = {}
+        for mention in as1.mentions(obj_as1):
+            if ((proto := protocol.Protocol.for_id(mention, remote=False))
+                    and (user_id := ids.normalize_user_id(id=mention, proto=proto))):
+                obj.mentioned[mention] = proto.get_by_id_async(user_id)
+
+    for obj in objs:
+        if obj.owner:
+            obj.owner = obj.owner.get_result()
+        if obj.target:
+            obj.target = obj.target.get_result()
+        if obj.quoted:
+            obj.quoted = obj.quoted.get_result()
+        obj.mentioned = {id: future.get_result()
+                         for id, future in obj.mentioned.items()}
+
+    redirects = [(obj, obj.owner.use_instead.get_async()) for obj in objs
+                 if obj.owner and obj.owner.use_instead]
+    for obj, future in redirects:
+        obj.owner = future.get_result()
+
+    if nested := non_none([o.target for o in objs] + [o.quoted for o in objs]):
+        prefetch_statuses(nested)
 
 
 def load_user(handle, resolve=False):
@@ -175,20 +525,192 @@ def load_user(handle, resolve=False):
             pass
         try:
             return models.load_user(handle, proto=ActivityPub, create=resolve,
-                                    allow_opt_out=True)
+                                    allow_opt_out=True, resolve=True)
         except (AttributeError, RuntimeError, ValueError) as e:
             logger.info(e)
 
 
+def load_account_id(id):
+    """Loads a :class:`models.User` by their native id.
+
+    This is the id we return in ``Account``s, from :func:`to_account`.
+
+    Returns None if the id's protocol can't be determined, or if they're not in
+    the datastore.
+    """
+    try:
+        return models.load_user(decode_id(id), allow_opt_out=True)
+    except (RuntimeError, ValueError) as e:
+        logger.info(e)
+
+
+def visible(obj):
+    """Returns True if ``obj`` exists and should be visible in this API.
+
+    Args:
+      obj (models.Object or None)
+
+    Returns:
+      bool:
+    """
+    return bool(obj and obj.as1 and not obj.deleted and as1.is_public(obj.as1))
+
+
 def load_object(id):
-    obj = Object.get_by_id(id)
+    obj = Object.get_by_id(decode_id(id))
     if not obj or not obj.as1:
         error('Status not found', status=404)
     return obj
 
 
-def load_owner(obj):
+def fetch_outbox(user):
+    """Fetches, stores, and returns the posts in a user's ActivityPub outbox.
+
+    Args:
+      user (models.User)
+
+    Returns:
+      list of :class:`models.Object`: in outbox order, ie newest first
+    """
+    if not (user.obj and user.obj.as2 and (url := user.obj.as2.get('outbox'))):
+        return []
+
+    logger.info(f'No stored posts for {user.key.id()}, fetching outbox {url}')
+    try:
+        # copy so that we don't hydrate the outbox into the user's stored profile
+        items = as2.maybe_hydrate_collection(dict(user.obj.as2), 'outbox',
+                                             get_fn=activitypub.signed_get)
+    except (RequestException, HTTPException) as e:
+        util.interpret_http_exception(e)
+        return []
+
+    objects = []
+    for item in items[:limit()]:
+        if isinstance(item, dict) and item.get('type') in ('Create', 'Update'):
+            item = item.get('object')
+        if not isinstance(item, dict) or not (id := item.get('id')):
+            continue
+
+        obj = Object.get_or_create(id, authed_as=user.key.id(), users=[user.key],
+                                   as2=item, source_protocol=ActivityPub.LABEL)
+        if obj.type in STATUS_AS1_TYPES:
+            objects.append(obj)
+
+    return objects
+
+
+def enqueue_receive(user, id, our_as1, **kwargs):
+    """Enqueues a task to receive and deliver an object or activity by ``user``.
+
+    Args:
+      user (models.User)
+      id (str): either native in ``user``'s protocol or ``ui:``
+      our_as1 (dict): AS1 object or activity
+      kwargs: passed through to the task
+    """
+    source_protocol = UIProtocol.LABEL if UIProtocol.owns_id(id) else user.LABEL
+    common.create_task(queue='receive', id=id, our_as1=our_as1,
+                       source_protocol=source_protocol,
+                       users=[user.key.urlsafe().decode()],
+                       authed_as=user.key.id(), **kwargs)
+
+
+def bridged_id(user, target):
+    """Returns ``target``'s id in ``user``'s protocol, if it's bridged there.
+
+    Args:
+      user (models.User)
+      target (models.Object or models.User)
+
+    Returns:
+      str or None
+    """
+    owner = target if isinstance(target, models.User) else load_owner(target)
+    if owner and owner.is_enabled(user):
+        return target.get_copy(user) if user.HAS_COPIES else target.id_as(user)
+
+
+def create_native(user, source, obj_as1, wrap=False, **kwargs):
+    """Creates an object or activity in ``user``'s protocol.
+
+    Also enqueues a receive task to bridge it with its native id, which dedupes
+    with the native bridging path, eg the firehose. If ``source`` can't create
+    it, eg a block via Micropub, we create it internally only, with a ``ui:`` id.
+
+    Args:
+      user (models.User)
+      source (granary.source.Source)
+      obj_as1 (dict): AS1 object or activity. ``id`` is set to the new id.
+      wrap (bool): if True, wrap this object in a generic container in ``user``'s
+        protocol, eg ATProto records inside a ``gy.brid.record`` record. (We do this
+        eg when the converted object won't be valid in ``user``'s protocol.)
+      kwargs: passed through to :meth:`granary.source.Source.create` or
+        :func:`granary.bluesky.from_as1`
+
+    Returns:
+      str: the new object's id
+    """
+    if isinstance(user, ATProto) and wrap:
+        record = bluesky.from_as1(obj_as1, validate=False,
+                                  original_fields_prefix='bridgy', **kwargs)
+        logger.info(f'Wrapping invalid {record["$type"]} in {WRAPPER_NSID}')
+        id = source.write_record({'$type': WRAPPER_NSID, 'record': record})['uri']
+    else:
+        try:
+            result = source.create(obj_as1, **kwargs)
+            if not result.content:
+                error(result.error_plain or "Couldn't create this", status=502)
+            id = result.content['id']
+        except NotImplementedError:
+            verb = obj_as1.get('verb') or obj_as1.get('objectType')
+            id = f'ui:{verb}-{user.LABEL}-{user.handle}-{util.now().isoformat()}'
+
+    obj_as1['id'] = id
+    enqueue_receive(user, id, obj_as1)
+    return id
+
+
+def undo(user, source, activity_id, verb, object_id):
+    """Undoes a follow, block, like, or repost, both native and internally.
+
+    Always delivers the undo ourselves, even if the native delete will also be
+    bridged, eg via the firehose. Duplicate undos are harmless.
+
+    Args:
+      user (models.User)
+      source (granary.source.Source)
+      activity_id (str): id of the activity to undo
+      verb (str): the activity's AS1 verb, eg ``follow``
+      object_id (str): id of the activity's object, eg the followed user
+    """
+    if not UIProtocol.owns_id(activity_id):
+        source.delete(activity_id)
+
+    id = f'{activity_id}#undo'
+    enqueue_receive(user, id, our_as1={
+        'objectType': 'activity',
+        'verb': 'undo',
+        'id': id,
+        'actor': user.key.id(),
+        'object': {
+            'objectType': 'activity',
+            'verb': verb,
+            'id': activity_id,
+            'actor': user.key.id(),
+            'object': object_id,
+        },
+        'published': util.now().isoformat(),
+    })
+
+
+def load_owner(obj, remote=False):
     """Loads the :class:`models.User` that owns ``obj``, if any.
+
+    Args:
+      obj (models.Object)
+      create (bool): whether to fetch the owner's actor over the network and
+        store it as a new :class:`activitypub.ActivityPub` user in the datastore
+        if necessary
 
     Returns None if ``obj`` has no owner, or if the owner can't be loaded, eg
     if their handle can't be resolved to a protocol.
@@ -198,11 +720,89 @@ def load_owner(obj):
 
     if owner_id := as1.get_owner(obj.as1):
         try:
-            return models.load_user(owner_id, create=True, allow_opt_out=True)
+            return models.load_user(owner_id, create=remote, allow_opt_out=True)
         except RuntimeError:
             logger.info(f"Couldn't load owner {owner_id}", exc_info=True)
 
     return None
+
+
+def media_object_id(user, media_id):
+    """Returns the :class:`models.Object` key id for uploaded media.
+
+    Args:
+      user (models.User)
+      media_id (str): the media's id in the user's protocol, eg blob CID for
+        ATProto, media endpoint URL for Micropub
+    """
+    return f'ui:media-{user.key.id()}-{media_id}'
+
+
+def load_media(user, id):
+    """Loads uploaded media's internal :class:`models.Object`.
+
+    Uploaded media often has no metadata of its own, eg ATProto blobs, and may not be
+    served until a post references it, eg ATProto PDSes, so we store the metadata
+    ourselves when the media is uploaded. ``our_as1`` is an AS1 image or video object
+    with a private audience in ``to``, and ``mimeType`` and ``size`` on the object
+    itself for images, in ``stream`` for videos.
+
+    Args:
+      user (models.User)
+      id (str): Mastodon API media id, ie :func:`encode_id` of the media's id in
+        the user's protocol
+
+    Returns:
+      models.Object or None: if the media doesn't exist or is deleted
+    """
+    obj = Object.get_by_id(media_object_id(user, decode_id(id)))
+    if obj and not obj.deleted:
+        return obj
+
+
+def add_media(obj_as1, media_ids, user, existing=None):
+    """Adds media to an AS1 object's ``image`` and ``attachments`` fields.
+
+    Args:
+      user (models.User)
+      obj_as1 (dict): AS1 object, modified in place
+      media_ids (sequence of str): Mastodon API media ids, either of uploaded
+        media or from a status's existing media attachments, ie media URLs
+      existing (dict): optional, maps str URL to AS1 media object that's already
+        in the post. Used for media that we don't have stored metadata for, eg
+        in posts from other clients.
+
+    Returns:
+      dict: maps str media URL to ATProto ``$type: blob`` dict. Only populated
+      for ATProto users, and only for media that we have stored metadata for.
+    """
+    blobs = {}
+    for media_id in media_ids:
+        url = decode_id(media_id)
+        if isinstance(user, ATProto) and util.is_web(url):
+            # getBlob URL from a status's media attachment
+            media_id = parse_qs(urlparse(url).query).get('cid', [media_id])[0]
+
+        if media_obj := load_media(user, media_id):
+            media_as1 = {k: v for k, v in media_obj.our_as1.items()
+                         if k not in ('id', 'to')}
+            if isinstance(user, ATProto):
+                blob_as1 = as1.get_object(media_as1, 'stream') or media_as1
+                blobs[blob_as1['url']] = {
+                    '$type': 'blob',
+                    'ref': {'$link': decode_id(media_id)},
+                    'mimeType': blob_as1['mimeType'],
+                    'size': blob_as1['size'],
+                }
+        elif not (media_as1 := (existing or {}).get(url)):
+            error(f'Media {media_id} not found', status=422)
+
+        if media_as1['objectType'] == 'image':
+            obj_as1.setdefault('image', []).append(media_as1)
+        else:
+            obj_as1.setdefault('attachments', []).append(media_as1)
+
+    return blobs
 
 
 def limit():
@@ -222,16 +822,154 @@ def limit():
     return DEFAULT_LIMIT
 
 
+def paginate(query):
+    """Applies the ``max_id``, ``since_id``, and ``min_id`` query params.
+
+    https://docs.joinmastodon.org/api/guidelines/#pagination
+
+    Args:
+      query (google.cloud.ndb.Query): on :class:`models.Object`
+
+    Returns:
+      google.cloud.ndb.Query: the query, ordered by ``Object.created``, descending
+      except for ``min_id``, which returns the oldest posts newer than it
+    """
+    def obj_created(param):
+        if id := request.args.get(param):
+            if obj := Object.get_by_id(decode_id(id)):
+                return obj.created
+
+    order = -Object.created
+    if max := obj_created('max_id'):
+        query = query.filter(Object.created < max)
+    if since := obj_created('since_id'):
+        query = query.filter(Object.created > since)
+    if min := obj_created('min_id'):
+        query = query.filter(Object.created > min)
+        order = Object.created
+
+    return query.order(order)
+
+
+def paginate_and_fetch(*filters, types=None):
+    """Paginates a :meth:`models.Object` query and returns its results, newest first.
+
+    If ``types`` is provided, runs a separate query for each type and merges
+    them. We do that ourselves, instead of with ``Object.type.IN``, because ndb
+    also splits ``IN`` into one query per value, but it doesn't pass the limit
+    down to them, so they each read every matching entity.
+
+    Args:
+      *filters: passed to :meth:`models.Object.query`
+      types (sequence of str): optional, AS1 types to return
+
+    Returns:
+      list of :class:`models.Object`: newest first
+    """
+    num = limit()
+    queries = ([paginate(Object.query(*filters, Object.type == type))
+                for type in types]
+               if types else [paginate(Object.query(*filters))])
+    futures = [query.fetch_async(num) for query in queries]
+
+    # min_id makes paginate sort ascending, to pick the oldest objects newer than
+    # it, so sort the same way here, then flip back to newest first
+    descending = queries[0].order_by[0].reverse
+    objects = sorted((obj for future in futures for obj in future.get_result()),
+                     key=lambda obj: obj.created, reverse=descending)[:num]
+    if not descending:
+        objects.reverse()
+
+    return objects
+
+
+def link_header(objects):
+    """Returns a ``Link`` response header with ``next`` and ``prev`` page URLs.
+
+    Only uses the newest and oldest objects, by ``created``, which is what
+    :func:`paginate` sorts and filters on. Order doesn't matter.
+    https://docs.joinmastodon.org/api/guidelines/#pagination
+
+    Args:
+      objects (sequence of :class:`models.Object`)
+
+    Returns:
+      dict: response headers, empty if ``objects`` is empty
+    """
+    if not objects:
+        return {}
+
+    newest = max(objects, key=lambda obj: obj.created)
+    oldest = min(objects, key=lambda obj: obj.created)
+    params = [(name, val) for name, vals in request.args.lists() for val in vals
+              if name not in ('max_id', 'since_id', 'min_id')]
+    next_url = util.add_query_params(
+        request.base_url, params + [('max_id', encode_id(oldest.key.id()))])
+    prev_url = util.add_query_params(
+        request.base_url, params + [('min_id', encode_id(newest.key.id()))])
+
+    return {'Link': f'<{next_url}>; rel="next", <{prev_url}>; rel="prev"'}
+
+
 #
 # API endpoints
 #
+
+@app.before_request
+def require_primary_domain():
+    """Only serves the Mastodon API on PRIMARY_DOMAIN.
+
+    Serving this API on multiple brid.gy subdomains would mean multiple ATProto OAuth
+    client ids, and ATProto OAuth DPoP tokens are bound to their client id, and
+    oauth-dropins doesn't support multiple client ids in the same project.
+
+    /api/v1/instance is excluded since it's in activitypub.py.
+    """
+    if (not (DEBUG or LOCAL_SERVER)
+            and request.path.startswith('/api/')
+            and request.path != '/api/v1/instance'
+            and request.host != PRIMARY_DOMAIN):
+        return f"Bridgy Fed's Mastodon API is only served on https://{PRIMARY_DOMAIN}/", 404
+
+
+@app.route('/api/<path:_>', methods=['OPTIONS'])
+def cors_preflight_options(_):
+    return 'OK', {
+        **MODERN_HEADERS,
+        'Cache-Control': 'public, max-age=31536000',  # 1y
+    }
+
+
+@app.errorhandler(HTTPException)
+def json_error(e):
+    """Renders API errors as JSON instead of HTML.
+
+    Mastodon API clients deserialize every response as JSON, so an HTML error
+    page makes them report an opaque parse error instead of showing ours.
+    https://docs.joinmastodon.org/entities/Error/
+    """
+    if not request.path.startswith('/api/'):
+        return handle_exception(e)
+
+    # cors_preflight_options matches every /api/ path, if this endpoint only has
+    # OPTIONS registered, it's not a real endpoint
+    if isinstance(e, MethodNotAllowed) and e.valid_methods == ['OPTIONS']:
+        e = NotFound("Sorry, Bridgy Fed doesn't support this.")
+
+    headers = {name: val for name, val in e.get_headers()
+               if name.lower() not in ('content-type', 'content-length')}
+    return {
+        'error': e.name.lower().replace(' ', '_'),
+        'error_description': e.description,
+    }, e.code, headers
+
 
 @app.get('/health')
 def health():
     return {'status': 'UP'}
 
 
-@app.get('/api/v2/instance')
+@app.get('/api/v2/instance', provide_automatic_options=False)
 def instance():
     return {
         'domain': 'brid.gy',
@@ -248,11 +986,6 @@ def instance():
         'thumbnail': {
             'url': 'https://fed.brid.gy/static/bridgy_logo_with_alpha.png',
             'description': 'Hand-painted sketch of a bridge with just a few brush strokes',
-            # 'blurhash': 'UeKUpFxuo~R%0nW;WCnhF6RjaJt757oJodS$',
-            # 'versions': {
-            #     '@1x': 'https://files.mastodon.social/site_uploads/files/000/000/001/@1x/57c12f441d083cde.png',
-            #     '@2x': 'https://files.mastodon.social/site_uploads/files/000/000/001/@2x/57c12f441d083cde.png'
-            # }
         },
         'icon': [{
             'src': 'https://fed.brid.gy/static/favicon.ico',
@@ -276,33 +1009,28 @@ def instance():
                 'privacy_policy': 'https://fed.brid.gy/docs#privacy',
                 'terms_of_service': 'https://fed.brid.gy/docs#terms',
             },
-            # 'vapid': {
-            #     'public_key': '...'
-            # },
             'accounts': {
                 'max_featured_tags': 0,
                 'max_pinned_statuses': 1,
             },
-            # 'statuses': {
-            #     'max_characters': 500,
-            #     'max_media_attachments': 4,
-            #     'characters_reserved_per_url': 23
-            # },
+            'statuses': {
+                'max_characters': 500,
+                'max_media_attachments': 8,
+                'characters_reserved_per_url': 23,
+            },
             'media_attachments': {
-                # 'description_limit': ,
-                # 'image_matrix_limit': ,
                 'image_size_limit': bluesky.MAX_MEDIA_SIZE_BYTES,
-                'supported_mime_types': [
-                    'image/jpeg',
-                    'image/png',
-                    'image/gif',
-                    'image/webp',
-                    'image/avif',
-                    'video/mp4',
-                ],
-                # 'video_frame_rate_limit': None,
-                # 'video_matrix_limit': None,
+                'supported_mime_types': list(SUPPORTED_MEDIA_TYPES),
                 'video_size_limit': datastore_storage.BLOB_MAX_BYTES,
+            },
+            'polls': {
+                'max_options': 0,
+                'max_characters_per_option': 0,
+                'min_expiration': 0,
+                'max_expiration': 0,
+            },
+            'translation': {
+                'enabled': False,
             },
             'limited_federation': False,
         },
@@ -342,9 +1070,6 @@ def instance():
                 'header': 'https://files.mastodon.social/accounts/headers/112/696/499/069/491/559/original/2834aa5dde24424e.png',
                 'header_static': 'https://files.mastodon.social/accounts/headers/112/696/499/069/491/559/original/2834aa5dde24424e.png',
                 'header_description': '',
-                # 'followers_count': 1552,
-                # 'following_count': 9,
-                # 'statuses_count': 176,
                 'last_status_at': '2026-07-06',
                 'hide_collections': None,
                 'show_media': True,
@@ -366,7 +1091,7 @@ def instance():
         },
     }
 
-@app.get('/api/v1/instance/extended_description')
+@app.get('/api/v1/instance/extended_description', provide_automatic_options=False)
 def instance_extended_description():
     return {
         'updated_at': util.now().isoformat(),
@@ -374,7 +1099,7 @@ def instance_extended_description():
     }
 
 
-@app.get('/api/v1/instance/privacy_policy')
+@app.get('/api/v1/instance/privacy_policy', provide_automatic_options=False)
 def instance_privacy_policy():
     return {
         'updated_at': util.now().isoformat(),
@@ -382,7 +1107,7 @@ def instance_privacy_policy():
     }
 
 
-@app.get('/api/v1/instance/terms_of_service')
+@app.get('/api/v1/instance/terms_of_service', provide_automatic_options=False)
 def instance_terms_of_service():
     return {
         'effective_date': '2025-08-23',
@@ -406,14 +1131,14 @@ def instance_terms_of_service():
     }
 
 
-@app.get('/api/v1/accounts/verify_credentials')
-@auth
+@app.get('/api/v1/accounts/verify_credentials', provide_automatic_options=False)
+@auth()
 def verify_credentials(user):
     return to_account(user)
 
 
-@app.get('/api/v1/preferences')
-@auth
+@app.get('/api/v1/preferences', provide_automatic_options=False)
+@auth()
 def preferences(user):
     # TODO
     return {
@@ -425,8 +1150,9 @@ def preferences(user):
     }
 
 
-@app.get('/api/v1/accounts/lookup')
-@auth
+@app.get('/api/v1/accounts/lookup', provide_automatic_options=False)
+@auth()
+@cache_global
 def accounts_lookup(user):
     if user := load_user(get_required_param('acct')):
         return to_account(user)
@@ -434,196 +1160,258 @@ def accounts_lookup(user):
     error('Not found', status=404)
 
 
-@app.get('/api/v1/accounts/relationships')
-@auth
+@app.get('/api/v1/accounts/relationships', provide_automatic_options=False)
+@auth()
+# not cached since clients reread this immediately after following/unfollowing someone
 def accounts_relationships(user):
     relationships = []
 
-    for addr in (request.args.getlist('id[]') + request.args.getlist('id')):
-        # TODO: parallelize
-        # TODO: unify with search
-        if not (target := load_user(addr)):
-            continue
+    others = []
+    for id in request.args.getlist('id[]') + request.args.getlist('id'):
+        if other := load_account_id(id):
+            others.append(other)
 
-        following = bool(Follower.query(Follower.from_ == user.key,
-                                        Follower.to == target.key,
-                                        Follower.status == 'active'
-                                        ).get(keys_only=True))
-        followed_by = bool(Follower.query(Follower.from_ == target.key,
-                                          Follower.to == user.key,
-                                          Follower.status == 'active'
-                                          ).get(keys_only=True))
-        relationships.append({
-            'id': target.handle_as(ActivityPub),
-            'following': following,
-            'showing_reblogs': following,
-            'followed_by': followed_by,
-            # TODO
-            'blocking': False,
-            'blocked_by': False,
-            'domain_blocking': False,
-            'endorsed': False,
-            'muting': False,
-            'muting_notifications': False,
-            'notifying': False,
-            'requested': False,
-            'note': '',
-        })
+    followings = [Follower.query(Follower.from_ == user.key,
+                                 Follower.to == other.key,
+                                 Follower.status == 'active'
+                                 ).get_async(keys_only=True)
+                  for other in others]
+    followed_bys = [Follower.query(Follower.from_ == other.key,
+                                   Follower.to == user.key,
+                                   Follower.status == 'active'
+                                   ).get_async(keys_only=True)
+                    for other in others]
+
+    for other, following, followed_by in zip(others, followings, followed_bys):
+        relationships.append(to_relationship(
+            other,
+            following=bool(following.get_result()),
+            followed_by=bool(followed_by.get_result())))
 
     return relationships
 
 
-@app.get('/api/v1/follow_requests')
-@auth
+@app.post('/api/v1/accounts/<path:id>/<any(follow,block):verb>',
+          provide_automatic_options=False)
+@auth(granary_source=True)
+def accounts_follow_or_block(user, source, id, verb):
+    if not (target := load_account_id(id)):
+        error('Account not found', status=404)
+
+    target_id = bridged_id(user, target)
+    create_native(user, source, {
+        'objectType': 'activity',
+        'verb': verb,
+        'actor': user.key.id(),
+        'object': target_id or target.key.id(),
+        'published': util.now().isoformat(),
+    }, wrap=not target_id)
+    return to_relationship(target, **{f'{verb}ing': True})
+
+
+@app.post('/api/v1/accounts/<path:id>/unfollow', provide_automatic_options=False)
+@auth(granary_source=True)
+def accounts_unfollow(user, source, id):
+    if not (target := load_account_id(id)):
+        error('Account not found', status=404)
+
+    # TODO: if the follow hasn't been bridged back from the PDS to our datastore yet,
+    # we won't find it here. look it up on the PDS directly as a fallback
+    follower = Follower.query(Follower.from_ == user.key,
+                              Follower.to == target.key,
+                              Follower.status == 'active').get()
+    if follower and follower.follow:
+        undo(user, source, activity_id=follower.follow.id(), verb='follow',
+             object_id=target.key.id())
+
+    return to_relationship(target, following=False)
+
+
+@app.post('/api/v1/accounts/<path:id>/unblock', provide_automatic_options=False)
+@auth(granary_source=True)
+def accounts_unblock(user, source, id):
+    if not (target := load_account_id(id)):
+        error('Account not found', status=404)
+
+    # TODO: if the block hasn't been bridged back from the PDS to our datastore yet,
+    # we won't find it here. look it up on the PDS directly as a fallback
+    for obj in Object.query(Object.users == user.key, Object.type == 'block'):
+        if as1.get_id(obj.as1, 'object') == target.key.id() and not obj.deleted:
+            undo(user, source, activity_id=obj.key.id(), verb='block',
+                 object_id=target.key.id())
+
+    return to_relationship(target, blocking=False)
+
+
+@app.get('/api/v1/follow_requests', provide_automatic_options=False)
+@auth()
 def follow_requests(user):
     # TODO
     return []
 
 
-@app.get('/api/v1/accounts/<path:addr>')
-@auth
-def accounts_get(user, addr):
-    if user := load_user(addr):
+@app.get('/api/v1/accounts/<path:id>', provide_automatic_options=False)
+@auth()
+@cache_global
+def accounts_get(user, id):
+    if user := load_account_id(id):
         return to_account(user)
 
     error('Not found', status=404)
 
 
-@app.get('/api/v1/accounts/<path:addr>/statuses')
-@auth
-def accounts_statuses(user, addr):
-    # TODO: tagged
-    user = load_user(addr)
+@app.get('/api/v1/accounts/<path:id>/statuses', provide_automatic_options=False)
+@auth()
+@cache_global
+def accounts_statuses(user, id):
+    # TODO: tagged param
+    exclude_replies = bool_param('exclude_replies')
+    exclude_reblogs = bool_param('exclude_reblogs')
 
-    if request.args.get('pinned', '').strip().lower() == 'true':
+    if not (user := load_account_id(id)):
+        error('Not found', status=404)
+
+    if pinned := bool_param('pinned'):
         objects = []
         if user.obj and user.obj.as1:
             featured = as1.get_ids(as1.get_object(user.obj.as1, 'featured'), 'items')
             objects = ndb.get_multi(Object(id=id).key for id in featured)
 
     else:
-        query = Object.query(Object.users == user.key,
-                             Object.type.IN(as1.POST_TYPES | set(['share'])))
+        types = STATUS_AS1_TYPES
+        if exclude_replies:
+            types -= {'comment'}
+        if exclude_reblogs:
+            types -= {'share'}
 
-        def obj_created(param):
-            if id := request.args.get(param):
-                if obj := Object.get_by_id(id):
-                    return obj.created
+        objects = paginate_and_fetch(Object.users == user.key, types=types)
+        if (not objects and 'since_id' not in request.args
+                and 'min_id' not in request.args and 'max_id' not in request.args):
+            objects = fetch_outbox(user)
 
-        order = -Object.created
-        if max := obj_created('max_id'):
-            query = query.filter(Object.created < max)
-        if since := obj_created('since_id'):
-            query = query.filter(Object.created > since)
-        if min := obj_created('min_id'):
-            query = query.filter(Object.created > min)
-            order = Object.created
+    objects = [obj for obj in objects
+               if visible(obj)
+               and not (exclude_replies and obj.type == 'comment')
+               and not (exclude_reblogs and obj.type == 'share')]
+    prefetch_statuses(objects)
 
-        objects = query.order(order).fetch(limit())
-
-    return [s for obj in objects
-            if obj and obj.as1 and not obj.deleted and as1.is_public(obj.as1)
-            and (s := to_status(obj))
-            and not (bool_param('exclude_replies') and obj.type == 'comment')
-            and not (bool_param('exclude_reblogs') and obj.type == 'share')
-            and not (bool_param('only_media') and not s.get('media_attachments'))]
+    statuses = to_statuses(objects)
+    # pinned statuses aren't paginated
+    headers = {} if pinned else link_header(objects)
+    return statuses, headers
 
 
-@app.get('/api/v1/accounts/<path:addr>/followers')
-@auth
-def accounts_followers(user, addr):
-    followers, _, _ = Follower.fetch_page('followers', load_user(addr))
+@app.get('/api/v1/accounts/<path:id>/followers', provide_automatic_options=False)
+@auth()
+@cache_global
+def accounts_followers(user, id):
+    if not (other := load_account_id(id)):
+        error('Not found', status=404)
+
+    followers, _, _ = Follower.fetch_page('followers', other)
     return [to_account(f.user) for f in followers]
 
 
-@app.get('/api/v1/accounts/<path:addr>/following')
-@auth
-def accounts_following(user, addr):
-    following, _, _ = Follower.fetch_page('following', load_user(addr))
+@app.get('/api/v1/accounts/<path:id>/following', provide_automatic_options=False)
+@auth()
+@cache_global
+def accounts_following(user, id):
+    if not (other := load_account_id(id)):
+        error('Not found', status=404)
+
+    following, _, _ = Follower.fetch_page('following', other)
     return [to_account(f.user) for f in following]
 
 
-@app.get('/api/v1/accounts/<path:addr>/featured_tags')
-@auth
-def accounts_featured_tags(user, addr):
+@app.get('/api/v1/accounts/<path:id>/featured_tags', provide_automatic_options=False)
+@auth()
+def accounts_featured_tags(user, id):
     # TODO
     return []
 
 
-@app.get('/api/v1/accounts/<path:addr>/lists')
-@auth
-def accounts_lists(user, addr):
+@app.get('/api/v1/accounts/<path:id>/lists', provide_automatic_options=False)
+@auth()
+def accounts_lists(user, id):
     # TODO
     return []
 
 
-@app.get('/api/v1/accounts/<path:addr>/endorsements')
-@auth
-def accounts_endorsements(user, addr):
+@app.get('/api/v1/accounts/<path:id>/endorsements', provide_automatic_options=False)
+@auth()
+def accounts_endorsements(user, id):
     # TODO
     return []
 
 
-@app.get('/api/v1/accounts/familiar_followers')
-@auth
+@app.get('/api/v1/accounts/familiar_followers', provide_automatic_options=False)
+@auth()
 def accounts_familiar_followers(user):
     # TODO
     ids = request.args.getlist('id[]') + request.args.getlist('id')
     return [{'id': id, 'accounts': []} for id in ids]
 
 
-@app.get('/api/v1/followed_tags')
-@auth
+@app.get('/api/v1/followed_tags', provide_automatic_options=False)
+@auth()
 def followed_tags(user):
     # TODO
     return []
 
 
-@app.get('/api/v1/blocks')
-@auth
+@app.get('/api/v1/blocks', provide_automatic_options=False)
+@auth()
 def blocks(user):
     # TODO
     return []
 
 
-@app.get('/api/v1/bookmarks')
-@auth
+@app.get('/api/v1/bookmarks', provide_automatic_options=False)
+@auth()
 def bookmarks(user):
     # TODO
     return []
 
 
-@app.get('/api/v1/domain_blocks')
-@auth
+@app.get('/api/v1/domain_blocks', provide_automatic_options=False)
+@auth()
+@cache_user
 def domain_blocks_get(user):
     blocklists = ndb.get_multi(user.blocks)
     return [domain for list in blocklists for domain in list.domain_blocklist]
 
 
-@app.get('/api/v1/favourites')
-@auth
+@app.get('/api/v1/favourites', provide_automatic_options=False)
+@auth()
+# not cached since clients reread this immediately after liking a post
 def favourites(user):
     likes = Object.query(Object.users == user.key,
                          Object.type == 'like',
                         ).order(-Object.created
                         ).fetch(limit())
     ids = [as1.get_id(like.as1, 'object') for like in likes]
-    objs = ndb.get_multi(Object(id=id).key for id in ids if id)
-    return [status for obj in objs if obj and obj.as1 and (status := to_status(obj))]
+    objs = [obj for obj in ndb.get_multi(Object(id=id).key for id in ids if id)
+            if obj and obj.as1]
+    prefetch_statuses(objs)
+    return to_statuses(objs)
 
 
-@app.get('/api/v1/statuses')
-@auth
+@app.get('/api/v1/statuses', provide_automatic_options=False)
+@auth()
+@cache_global
 def statuses_multiple(user):
-    ids = request.args.getlist('id[]') + request.args.getlist('id')
-    objs = ndb.get_multi(Object(id=id).key for id in ids)
-    return [s for obj in objs
-                  if obj and obj.as1 and not obj.deleted and as1.is_public(obj.as1)
-            and (s := to_status(obj))]
+    ids = [decode_id(id) for id in
+           request.args.getlist('id[]') + request.args.getlist('id')]
+    objs = [obj for obj in ndb.get_multi(Object(id=id).key for id in ids)
+            if visible(obj)]
+    prefetch_statuses(objs)
+    return to_statuses(objs)
 
 
-@app.get('/api/v1/statuses/<path:id>')
-@auth
+@app.get('/api/v1/statuses/<path:id>', provide_automatic_options=False)
+@auth()
+# not cached since clients reread this immediately after reposting
+# (except we don't populate reblogged anyway yet)
 def statuses_single(user, id):
     obj = load_object(id)
     if not (status := to_status(obj)):
@@ -631,13 +1419,200 @@ def statuses_single(user, id):
     return status
 
 
-@app.get('/api/v1/statuses/<path:id>/context')
-@auth
+@app.post('/api/v1/statuses', provide_automatic_options=False)
+@auth(granary_source=True)
+def statuses_create(user, source):
+    """
+    https://docs.joinmastodon.org/methods/statuses/#create
+    """
+    params = request.get_json(silent=True) or request.values
+    media_ids = (params.get('media_ids') or [] if request.is_json
+                 else params.getlist('media_ids[]'))
+    text = params.get('status') or ''
+    if not text and not media_ids:
+        error('Missing required parameter: status')
+
+    # make AS1 note object
+    # TODO: poll, sensitive, spoiler_text, visibility, language
+    note = {
+        'objectType': 'note',
+        'author': user.key.id(),
+        'content': text,
+        'published': util.now().isoformat(),
+    }
+
+    wrap = False
+    if in_reply_to_id := params.get('in_reply_to_id'):
+        orig_obj = load_object(in_reply_to_id)
+        target_id = bridged_id(user, orig_obj)
+        wrap = not target_id
+        note.update({
+            'objectType': 'comment',
+            'inReplyTo': target_id or orig_obj.key.id(),
+        })
+
+    blobs = add_media(note, media_ids, user)
+    id = create_native(user, source, note, wrap=wrap, blobs=blobs)
+
+    obj = Object(id=id, source_protocol=user.LABEL, users=[user.key], our_as1=note)
+    obj.resolve_ids()
+    obj.owner = user
+    return to_status(obj)
+
+
+@app.put('/api/v1/statuses/<path:id>', provide_automatic_options=False)
+@auth(granary_source=True)
+def statuses_update(user, source, id):
+    params = request.get_json(silent=True) or request.values
+    media_ids = (params.get('media_ids') if request.is_json
+                 else params.getlist('media_ids[]') or None)
+    text = params.get('status') or ''
+
+    obj = load_object(id)
+
+    # existing media, by URL, and other attachments, eg quoted posts
+    existing = {}
+    atts = []
+    for img in as1.get_objects(obj.as1, 'image'):
+        existing[img.get('url') or img.get('id')] = {'objectType': 'image', **img}
+    for att in as1.get_objects(obj.as1, 'attachments'):
+        if att.get('objectType') in ('audio', 'image', 'video'):
+            existing[util.get_url(att, 'stream') or util.get_url(att)] = att
+        else:
+            atts.append(att)
+
+    if media_ids is None:
+        media_ids = [encode_id(url) for url in existing]
+    if not text and not media_ids:
+        error('Missing required parameter: status')
+
+    media = {}
+    blobs = add_media(media, media_ids, user, existing=existing)
+    if atts:
+        media['attachments'] = atts + media.get('attachments', [])
+
+    if not UIProtocol.owns_id(obj.key.id()):
+        # TODO: poll, sensitive, spoiler_text
+        in_reply_to = as1.get_id(obj.as1, 'inReplyTo')
+        note = {
+            'objectType': 'note',
+            'id': obj.id_as(user),
+            'author': user.key.id(),
+            'content': text,
+            'inReplyTo': in_reply_to,
+            'published': obj.as1.get('published'),
+            'updated': util.now().isoformat(),
+            **media,
+        }
+        collection = rkey = None
+        if isinstance(user, ATProto):
+            _, collection, rkey = arroba.util.parse_at_uri(note['id'])
+
+        if collection == WRAPPER_NSID:
+            logger.info(f'Updating wrapped record {note["id"]}')
+            # omit id so that it doesn't end up in bridgyOriginalUrl
+            record = bluesky.from_as1({**note, 'id': None}, validate=False,
+                                      original_fields_prefix='bridgy', blobs=blobs)
+            source.write_record({'$type': WRAPPER_NSID, 'record': record}, rkey=rkey)
+        else:
+            if in_reply_to and (orig_obj := Object.get_by_id(in_reply_to)):
+                note['inReplyTo'] = bridged_id(user, orig_obj) or in_reply_to
+            # quoted posts
+            note['attachments'] = [
+                {**att, 'id': bridged_id(user, quoted) or att['id']}
+                if (att.get('objectType') == 'note' and att.get('id')
+                    and (quoted := Object.get_by_id(att['id'])))
+                else att
+                for att in note.get('attachments', [])
+            ]
+            kwargs = {'blobs': blobs} if blobs else {}
+            result = source.update(note, **kwargs)
+            if not result.content:
+                error(result.error_plain or "Couldn't update this status", status=502)
+
+    obj.our_as1 = {
+        **{k: v for k, v in obj.as1.items() if k not in ('image', 'attachments')},
+        'content': text,
+        **media,
+    }
+    enqueue_receive(user, obj.key.id(), obj.our_as1, changed=True)
+    return to_status(obj)
+
+
+@app.delete('/api/v1/statuses/<path:id>', provide_automatic_options=False)
+@auth(granary_source=True)
+def statuses_delete(user, source, id):
+    obj = load_object(id)
+
+    if not UIProtocol.owns_id(obj.key.id()):
+        source.delete(obj.id_as(user))
+
+    id = f'{obj.key.id()}#delete'
+    enqueue_receive(user, id, our_as1={
+        'objectType': 'activity',
+        'verb': 'delete',
+        'id': id,
+        'object': obj.key.id(),
+        'actor': user.key.id(),
+    })
+
+    return to_status(obj)
+
+
+@app.post('/api/v1/statuses/<path:id>/<any(favourite,reblog):verb>',
+          provide_automatic_options=False)
+@auth(granary_source=True)
+def statuses_favourite_or_reblog(user, source, id, verb):
+    obj = load_object(id)
+
+    verb = 'like' if verb == 'favourite' else 'share'
+    target_id = bridged_id(user, obj)
+    create_native(user, source, {
+        'objectType': 'activity',
+        'verb': verb,
+        'actor': user.key.id(),
+        'object': target_id or obj.key.id(),
+        'published': util.now().isoformat(),
+    }, wrap=not target_id)
+
+    status = to_status(obj) or {}
+    status['favourited' if verb == 'like' else 'reblogged'] = True
+    return status
+
+
+@app.post('/api/v1/statuses/<path:id>/<any(unfavourite,unreblog):verb>',
+          provide_automatic_options=False)
+@auth(granary_source=True)
+def statuses_unfavourite_or_unreblog(user, source, id, verb):
+    orig_obj = load_object(id)
+
+    # TODO: optimize
+    #
+    # TODO: if the like/repost hasn't been bridged back from the PDS to our datastore
+    # yet, we won't find it here. look it up on the PDS directly as a fallback
+    type = 'like' if verb == 'unfavourite' else 'share'
+    for obj in Object.query(Object.users == user.key, Object.type == type):
+        if as1.get_id(obj.as1, 'object') == orig_obj.key.id() and not obj.deleted:
+            undo(user, source, activity_id=obj.key.id(), verb=type,
+                 object_id=orig_obj.key.id())
+
+    status = to_status(orig_obj) or {}
+    status['favourited' if verb == 'unfavourite' else 'reblogged'] = False
+    return status
+
+
+@app.get('/api/v1/statuses/<path:id>/context', provide_automatic_options=False)
+@auth()
+@cache_global
 def statuses_context(user, id):
     obj = load_object(id)
 
     ancestors = []
     parent_id = as1.get_object(obj.as1, 'inReplyTo').get('id')
+
+    # TODO: if there's an inReplyTo loop, ie two objects with inReplyTos that
+    # point to each other, and to_status below fails and returns None on them, this
+    # will loop forever
     while (parent_id and len(ancestors) < MAX_ANCESTORS
            and (parent := Object.get_by_id(parent_id)) and parent.as1):
         if parent_status := to_status(parent):
@@ -645,128 +1620,394 @@ def statuses_context(user, id):
         # TODO: convert to native protocol?
         parent_id = as1.get_id(parent.as1, 'inReplyTo')
 
+    # walk down the reply tree breadth first
+    #
+    # TODO: filter to objects owned by users who are either fediverse native or
+    # bridged there
+    #
+    # TODO: consider adding an Object.in_reply_to_root computed property. then
+    # this would all collapse to a single query on that
+    descendants = []
+    frontier = [obj.key]
+    for _ in range(MAX_DESCENDANT_DEPTH):
+        replies = Object.query(Object.in_reply_to.IN(frontier)
+                               ).fetch(MAX_DESCENDANTS - len(descendants))
+        frontier = []
+        for reply in replies:
+            if visible(reply) and (status := to_status(reply)):
+                descendants.append(status)
+                frontier.append(reply.key)
+
+        if not frontier or len(descendants) >= MAX_DESCENDANTS:
+            break
+
     return {
         'ancestors': ancestors,
-        # descendants aren't indexed, so we can't look them up efficiently
-        'descendants': [],
+        'descendants': descendants,
     }
 
 
-@app.get('/api/v1/statuses/<path:id>/favourited_by')
-@auth
+@app.get('/api/v1/statuses/<path:id>/favourited_by', provide_automatic_options=False)
+@auth()
 def statuses_favourited_by(user, id):
     load_object(id)
     # likes aren't indexed by target, so we can't look them up efficiently
     return []
 
 
-@app.get('/api/v1/statuses/<path:id>/reblogged_by')
-@auth
+@app.get('/api/v1/statuses/<path:id>/reblogged_by', provide_automatic_options=False)
+@auth()
 def statuses_reblogged_by(user, id):
     load_object(id)
     # reposts aren't indexed by target, so we can't look them up efficiently
     return []
 
 
-@app.get('/api/v1/timelines/home')
-@auth
+@app.post('/api/v1/media', provide_automatic_options=False)
+@app.post('/api/v2/media', provide_automatic_options=False)
+@auth(granary_source=True)
+def media_create(user, source):
+    """Uploads media to the user's native account, eg a blob to their PDS.
+
+    https://docs.joinmastodon.org/methods/media/#v2
+
+    TODO:
+    * generalize to other protocols, eg Micropub media endpoints for web, via
+      granary's :meth:`granary.source.Source.upload_media` instead of calling
+      ``uploadBlob`` directly
+    """
+    if not isinstance(user, ATProto):
+        error(f'{user.LABEL} accounts not supported yet', status=501)
+
+    if not (file := request.files.get('file')):
+        error('Missing required parameter: file', status=422)
+    elif file.mimetype not in SUPPORTED_MEDIA_TYPES:
+        error(f'Unsupported media type {file.mimetype}', status=422)
+
+    limit = (bluesky.MAX_MEDIA_SIZE_BYTES if file.mimetype.startswith('image/')
+             else datastore_storage.BLOB_MAX_BYTES)
+    # we can't stream the upload through to the PDS because lexrpc and
+    # requests_oauth2client both retry requests, eg for token refreshes and DPoP
+    # nonces, and they resend the body, so it has to be replayable
+    data = file.read(limit + 1)
+    if len(data) > limit:
+        error(f'File is over the {limit} byte limit', status=422)
+
+    try:
+        resp = source.client.com.atproto.repo.uploadBlob(
+            input=data, headers={'Content-Type': file.mimetype})
+    except RequestException as e:
+        util.interpret_http_exception(e)
+        error(f"Couldn't upload media: {e}", status=502)
+
+    blob = resp['blob']
+    cid = bluesky.blob_cid(blob)
+    did_doc = ATProto.load(user.key.id(), raw=True)
+    obj_as1 = {
+        'url': bluesky.blob_to_url(blob=blob, repo_did=user.key.id(),
+                                   pds=ATProto.pds_for(did_doc)),
+        'mimeType': blob['mimeType'],
+        'size': blob['size'],
+    }
+    if track := arroba.util.media_metadata(data):
+        obj_as1.update(util.trim_nulls({
+            'width': track.width,
+            'height': track.height,
+            # pymediainfo returns duration in ms; Mastodon's MediaAttachment is s
+            'duration': track.duration / 1000 if track.duration else None,
+        }))
+
+    id = media_object_id(user, cid)
+    media_as1 = {
+        'id': id,
+        'displayName': request.form.get('description'),
+        # hide from eg profile pages in the web UI
+        'to': [{'objectType': 'group', 'alias': '@private'}],
+    }
+    if file.mimetype.startswith('image/'):
+        media_as1.update({'objectType': 'image', **obj_as1})
+    else:
+        media_as1.update({'objectType': 'video', 'stream': obj_as1})
+
+    Object(id=id, source_protocol='ui', users=[user.key], our_as1=media_as1).put()
+    return to_media_attachment(media_as1, cid)
+
+
+@app.get('/api/v1/media/<id>', provide_automatic_options=False)
+@auth()
+def media_get(user, id):
+    """
+    https://docs.joinmastodon.org/methods/media/#get
+
+    Only uses our stored metadata. Doesn't fetch the media itself, eg with
+    ``getBlob``, since eg PDSes don't serve blobs until they're referenced by a
+    record.
+    """
+    if not (obj := load_media(user, id)):
+        error('Media not found', status=404)
+
+    return to_media_attachment(obj.our_as1, id)
+
+
+@app.put('/api/v1/media/<id>', provide_automatic_options=False)
+@auth()
+def media_update(user, id):
+    """
+    https://docs.joinmastodon.org/methods/media/#update
+    """
+    if not (obj := load_media(user, id)):
+        error('Media not found', status=404)
+
+    params = request.get_json(silent=True) or request.values
+    obj.our_as1['displayName'] = params.get('description')
+    obj.put()
+    return to_media_attachment(obj.our_as1, id)
+
+
+@app.delete('/api/v1/media/<id>', provide_automatic_options=False)
+@auth()
+def media_delete(user, id):
+    """
+    https://docs.joinmastodon.org/methods/media/#delete
+    """
+    if not (obj := load_media(user, id)):
+        error('Media not found', status=404)
+
+    # neither ATProto nor Micropub support deleting media, so just mark it deleted
+    obj.deleted = True
+    obj.put()
+    return {}
+
+
+@app.get('/api/v1/timelines/home', provide_automatic_options=False)
+@auth()
+@cache_user
 def timelines_home(user):
-    objects = Object.query(Object.feed == user.key
-                           ).order(-Object.created
-                           ).fetch(limit())
-    statuses = [to_status(obj) for obj in objects
-                if obj.as1 and not obj.deleted and as1.is_public(obj.as1)]
-    # TODO: formalize
-    return [s for s in statuses
-            if s and s.get('account')
-            and (not s['reblog'] or s['reblog'].get('account'))]
+    # user keys
+    followees = [f.to for f in Follower.query(Follower.from_ == user.key,
+                                              Follower.status == 'active')]
+    if not followees:
+        return []
+
+    # query each followee and type separately, since datastore can't do a
+    # disjunction this big, then merge. we only project created here so that we
+    # don't load all limit() objects per query just to throw most of them away.
+    # (we don't use Object.type.IN because ndb doesn't pass the limit down to the
+    # per-type queries it generates.)
+    num = limit()
+    queries = [paginate(Object.query(Object.users == followee, Object.type == type))
+               for followee in followees
+               for type in ('note', 'article', 'share')]
+    futures = [query.fetch_async(num, projection=[Object.created])
+               for query in queries]
+
+    # min_id makes paginate sort ascending, to pick the oldest posts newer than
+    # it, so sort the same way here, then reverse, since we return newest first
+    descending = queries[0].order_by[0].reverse
+    merged = sorted((obj for future in futures for obj in future.get_result()),
+                    key=lambda obj: obj.created, reverse=descending)
+    # dict.fromkeys so that we can de-dupe by key
+    keys = list(dict.fromkeys(obj.key for obj in merged))[:num]
+    if not descending:
+        keys.reverse()
+
+    objects = [obj for obj in ndb.get_multi(keys) if visible(obj)]
+    prefetch_statuses(objects)
+    return to_statuses(objects), link_header(objects)
 
 
-@app.get('/api/v1/timelines/public')
-@auth
+@app.get('/api/v1/timelines/public', provide_automatic_options=False)
+@auth()
+@cache_global
 def timelines_public(user):
-    objects = Object.query(Object.type.IN(as1.POST_TYPES | set(['share'])),
-                           ).order(-Object.created
-                           ).fetch(limit())
-    return [status for obj in objects
-            if obj.as1 and not obj.deleted and as1.is_public(obj.as1)
-            and (status := to_status(obj))]
+    local = bool_param('local')
+    remote = bool_param('remote')
+
+    objs = paginate_and_fetch(types=('note', 'article', 'share'))
+    objects = [obj for obj in objs
+               if visible(obj)
+               # local means from the user's network
+               and not (local and obj.source_protocol != user.LABEL)
+               # remote means native from the fediverse, ie not from Bridgy Fed
+               and not (remote and obj.source_protocol != 'activitypub')]
+    prefetch_statuses(objects)
+    return to_statuses(objects), link_header(objects)
 
 
-@app.get('/api/v1/timelines/tag/<hashtag>')
-@auth
+@app.get('/api/v1/timelines/tag/<hashtag>', provide_automatic_options=False)
+@auth()
 def timelines_tag(user, hashtag):
     return []
 
 
-@app.get('/api/v1/conversations')
-@auth
+@app.get('/api/v1/conversations', provide_automatic_options=False)
+@auth()
 def conversations(user):
     # TODO
     return []
 
 
-@app.get('/api/v1/lists')
-@auth
+@app.get('/api/v1/lists', provide_automatic_options=False)
+@auth()
 def lists(user):
     # TODO
     return []
 
 
-@app.get('/api/v1/lists/<path:id>')
-@auth
+@app.get('/api/v1/lists/<path:id>', provide_automatic_options=False)
+@auth()
 def lists_get(user, id):
     # TODO
     error('List not found', status=404)
 
 
-@app.get('/api/v1/lists/<path:id>/accounts')
-@auth
+@app.get('/api/v1/lists/<path:id>/accounts', provide_automatic_options=False)
+@auth()
 def lists_accounts(user, id):
     # TODO
     error('List not found', status=404)
 
 
-@app.get('/api/v1/markers')
-@auth
+@app.get('/api/v1/markers', provide_automatic_options=False)
+@auth()
 def markers(user):
     # TODO
     return {}
 
 
-@app.get('/api/v1/notifications')
-@auth
+@app.get('/api/v1/notifications', provide_automatic_options=False)
+@auth()
+@cache_user
 def notifications_list(user):
     # TODO: unbridged notifs
-    objects = Object.query(Object.notify == user.key
-                           ).order(-Object.updated
-                           ).fetch(limit())
-    return [notif for obj in objects
-            if obj.as1 and not obj.deleted and as1.is_public(obj.as1)
-            and (notif := to_notification(obj))]
+    types = request.args.getlist('types[]')
+    exclude_types = request.args.getlist('exclude_types[]')
+
+    objs = paginate_and_fetch(Object.notify == user.key)
+    objects = [obj for obj in objs if visible(obj)]
+    prefetch_statuses(objects)
+
+    notifs = non_none(to_notification(obj) for obj in objects)
+    filtered = [notif for notif in notifs
+                if (not types or notif['type'] in types)
+                and notif['type'] not in exclude_types]
+    return filtered, link_header(objects)
 
 
-@app.get('/api/v1/notifications/<path:id>')
-@auth
+@app.get('/api/v1/notifications/<path:id>', provide_automatic_options=False)
+@auth()
+@cache_user
 def notifications_get(user, id):
-    obj = Object.get_by_id(id)
-    if (obj and obj.as1 and not obj.deleted and as1.is_public(obj.as1)
-            and user.key in obj.notify):
+    obj = Object.get_by_id(decode_id(id))
+    if visible(obj) and user.key in obj.notify:
         if notif := to_notification(obj):
             return notif
 
     error('Notification not found', status=404)
 
 
-@app.get('/api/v1/notifications/unread_count')
-@auth
+@app.get('/api/v1/notifications/unread_count', provide_automatic_options=False)
+@auth()
+@cache_user
 def notifications_unread_count(user):
     # we don't currently track read vs unread
     return {'count': 0}
 
 
-@app.get('/api/v2/search')
-@auth
+@app.get('/api/v2/notifications', provide_automatic_options=False)
+@auth()
+@cache_user
+def grouped_notifications_list(user):
+    """https://docs.joinmastodon.org/methods/grouped_notifications/#get-grouped"""
+    # TODO: unbridged notifs
+    query = paginate(Object.query(Object.notify == user.key))
+    objects = [obj for obj in query.fetch(GROUPED_NOTIF_OBJECT_FETCHES)
+               if visible(obj)]
+
+    # min_id makes paginate sort ascending, to pick the oldest notifications newer
+    # than it, so flip back to newest first, which the grouping below depends on
+    ascending = not query.order_by[0].reverse
+    if ascending:
+        objects.reverse()
+
+    prefetch_statuses(objects)
+
+    grouped_types = request.args.getlist('grouped_types[]') or GROUPED_NOTIF_TYPES
+    groups = {}    # maps type to NotificationGroup
+    accounts = {}  # maps encoded id to Account
+    statuses = {}  # maps encoded id to Status
+    group_objs = {}  # maps group key to its notification Objects
+
+    for obj in objects:
+        if not (notif := to_notification(obj)):
+            continue
+
+        type = notif['type']
+        account = notif['account']
+        status = notif.get('status')
+
+        if type not in grouped_types:
+            key = f'ungrouped-{notif["id"]}'
+        elif status:
+            key = f'{type}-{status["id"]}'
+        else:
+            key = type
+
+        accounts.setdefault(account['id'], account)
+        if status:
+            statuses.setdefault(status['id'], status)
+        # objects are newest first, so the last one for each group is its oldest
+        group_objs.setdefault(key, []).append(obj)
+
+        if not (group := groups.get(key)):
+            groups[key] = {
+                'group_key': key,
+                'type': type,
+                'notifications_count': 1,
+                'most_recent_notification_id': notif['id'],
+                'page_max_id': notif['id'],
+                'page_min_id': notif['id'],
+                'latest_page_notification_at': notif['created_at'],
+                'sample_account_ids': [account['id']],
+                'status_id': status['id'] if status else None,
+            }
+            continue
+
+        group['notifications_count'] += 1
+        group['page_min_id'] = notif['id']
+        if (account['id'] not in group['sample_account_ids']
+                and len(group['sample_account_ids']) < GROUPED_NOTIF_SAMPLE_ACCOUNTS):
+            group['sample_account_ids'].append(account['id'])
+
+    # limit counts groups, not notifications. min_id asks for the oldest
+    # notifications newer than it, so keep the oldest groups for it.
+    num = limit()
+    kept = list(groups.values())
+    kept = kept[-num:] if ascending else kept[:num]
+
+    account_ids = dict.fromkeys(id for group in kept
+                                for id in group['sample_account_ids'])
+    status_ids = dict.fromkeys(group['status_id'] for group in kept
+                               if group['status_id'])
+
+    resp = {
+        'accounts': [accounts[id] for id in account_ids],
+        'statuses': [statuses[id] for id in status_ids],
+        'notification_groups': kept,
+    }
+
+    headers = link_header([obj for group in kept
+                           for obj in group_objs[group['group_key']]])
+    return resp, headers
+
+    # TODO:
+    # account_id
+    # supported_types
+
+
+@app.get('/api/v2/search', provide_automatic_options=False)
+@auth()
+@cache_global
 def search(user):
     resp = {
         'accounts': [],
@@ -774,20 +2015,28 @@ def search(user):
         'hashtags': [],
     }
 
-    q = get_required_param('q').strip()
+    q = unquote(get_required_param('q').strip())
+    resolve = bool_param('resolve')
     type = request.args.get('type')
 
     if not type or type == 'accounts':
-        if user := load_user(q, resolve=bool_param('resolve')):
+        if user := load_user(q, resolve=resolve):
             if acct := to_account(user):
                 resp['accounts'] = [acct]
 
     if not type or type == 'statuses':
         # Phanpy does an odd thing to load individual statuses: it searches
         # for them with the format '[domain]/s/[id]'. no clue why yet
-        q = q.removeprefix(f'{PRIMARY_DOMAIN}/s/')
-        if obj := Object.get_by_id(q):
+        for domain in DOMAINS:
+            q = q.removeprefix(f'{domain}/s/')
+
+        if obj := Object.get_by_id(decode_id(q)):
             if status := to_status(obj):
                 resp['statuses'] = [status]
+        elif resolve and ActivityPub.owns_id(q) is not False:
+            if obj := ActivityPub.load(q, remote=True, raise_=False):
+                obj.owner = load_owner(obj, remote=True)
+                if status := to_status(obj):
+                    resp['statuses'] = [status]
 
     return resp

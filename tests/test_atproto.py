@@ -22,6 +22,7 @@ from granary import bluesky
 from granary.tests.test_bluesky import (
     ACTOR_AS,
     ACTOR_PROFILE_BSKY,
+    NEW_BLOB,
     POST_AS,
     REPOST_BSKY,
 )
@@ -45,11 +46,16 @@ from atproto import (
     DatastoreClient,
     DNS_GCP_PROJECT,
     DNS_ZONE,
+    hydrate_record,
+    postprocess_writes,
 )
 import common
 import config
+from flask_app import app
 import hub
+import ids
 from models import Follower, Object, PROTOCOLS, Target
+from nostr import Nostr
 import protocol
 from .testutil import ATPROTO_KEY, ExplicitFake, Fake, OtherFake, TestCase
 from . import test_activitypub
@@ -86,6 +92,10 @@ NOTE_BSKY = {
   'text': 'My original post',
   'bridgyOriginalText': 'My original post',
   'bridgyOriginalUrl': 'fake:post',
+  'community.lexicon.meta.links': {
+    '$type': 'community.lexicon.meta.links',
+    'links': [{'href': 'fake:post', 'rel': 'canonical'}],
+  },
   'createdAt': '2007-07-07T03:04:05.000Z',
 }
 NOTE_BSKY_RECORD = {
@@ -253,6 +263,31 @@ class ATProtoTest(TestCase):
         self.assertTrue(ATProto.owns_id('did:web:bar.com'))
         self.assertTrue(ATProto.owns_id(
             'https://bsky.app/profile/snarfed.org/post/3k62u4ht77f2z'))
+
+    def test_id_type(self):
+        # DIDs, repo-only at:// URIs, and bsky.app profile URLs identify users
+        for id in (
+            'did:plc:user',
+            'did:web:bar.com',
+            'at://did:plc:user',
+            'https://bsky.app/profile/snarfed.org',
+        ):
+            with self.subTest(id=id):
+                self.assertEqual(ids.IdType.USER, ATProto.id_type(id))
+
+        for id in (
+            'at://did:plc:user/app.bsky.feed.post/123',
+            'at://did:web:user.com/app.bsky.feed.post/123',
+            'at://did:plc:user/app.bsky.actor.profile/self',
+            'https://bsky.app/profile/snarfed.org/post/3k62u4ht77f2z',
+        ):
+            with self.subTest(id=id):
+                self.assertEqual(ids.IdType.OBJECT, ATProto.id_type(id))
+
+        for id in ('', 'did:plc:user/rss', 'http://foo', 'e45fab982',
+                   'https://bsky.app/hashtag/foo', 'https://bsky.app/search?bar'):
+            with self.subTest(id=id):
+                self.assertIsNone(ATProto.id_type(id))
 
     def test_owns_handle(self):
         self.assertIsNone(ATProto.owns_handle('foo.com'))
@@ -423,7 +458,7 @@ class ATProtoTest(TestCase):
 
         mock_get.assert_has_calls((
             self.req('https://baz.com/.well-known/atproto-did'),
-            self.req('https://plc.local/did:plc:user'),
+            self.req('https://plc.invalid/did:plc:user'),
         ))
 
     def test_no_authenticated_label_opt_out(self):
@@ -444,6 +479,51 @@ class ATProtoTest(TestCase):
 
         self.assertEqual('private', user.status)
 
+    def test_status_external_id(self):
+        """eg multi-protocol servers like wafrn that already bridge this account."""
+        self.store_object(id='did:plc:user', raw=DID_DOC)
+        obj = self.store_object(id='at://did:plc:user/app.bsky.actor.profile/self',
+                                bsky=ACTOR_PROFILE_BSKY)
+        user = self.make_user('did:plc:user', cls=ATProto, obj_key=obj.key,
+                              enabled_protocols=['activitypub'])
+
+        for aka, expected in [
+            (['at://han.dull'], None),
+            (['at://han.dull', 'https://bsky.brid.gy/ap/did:plc:user'], None),
+            (['at://han.dull', 'https://in.st.example/users/alice'], 'external-id'),
+        ]:
+            with self.subTest(aka=aka):
+                self.store_object(id='did:plc:user', raw={
+                    **DID_DOC,
+                    'alsoKnownAs': aka,
+                })
+                self.assertEqual(expected, user.status)
+
+        user.manual_opt_out = False
+        self.assertIsNone(user.status)
+
+    def test_get_external_id_did_doc_also_known_as(self):
+        self.store_object(id='did:plc:user', raw={
+            **DID_DOC,
+            'alsoKnownAs': [
+                'at://han.dull',
+                'https://bsky.brid.gy/ap/did:plc:user',
+                'https://in.st.example/users/alice',
+            ],
+        })
+        obj = self.store_object(id='at://did:plc:user/app.bsky.actor.profile/self',
+                                bsky=ACTOR_PROFILE_BSKY)
+        user = self.make_user('did:plc:user', cls=ATProto, obj_key=obj.key,
+                              enabled_protocols=['activitypub'])
+
+        self.assertEqual('https://in.st.example/users/alice',
+                         user.get_external_id(ActivityPub))
+        self.assertIsNone(user.get_external_id(Nostr))
+
+        # admin override, we bridge them anyway
+        user.manual_opt_out = False
+        self.assertIsNone(user.get_external_id(ActivityPub))
+
     def test_target_for_user_no_stored_did(self):
         self.assertEqual('https://atproto.brid.gy', ATProto.target_for(
             Object(id='at://did:plc:foo/app.bsky.feed.post/123')))
@@ -456,7 +536,7 @@ class ATProtoTest(TestCase):
         self.assertEqual({'foo': 'bar'}, obj.raw)
 
         mock_get.assert_has_calls((
-            self.req('https://plc.local/did:plc:123'),
+            self.req('https://plc.invalid/did:plc:123'),
         ))
 
     @patch.object(util.session, 'get', return_value=requests_response({'foo': 'bar'}))
@@ -489,13 +569,177 @@ class ATProtoTest(TestCase):
         }, obj.bsky)
         # eg https://bsky.social/xrpc/com.atproto.repo.getRecord?repo=did:plc:s2koow7r6t7tozgd4slc3dsg&collection=app.bsky.feed.post&rkey=3jqcpv7bv2c2q
         mock_get.assert_called_once_with(
-            'https://appview.local/xrpc/com.atproto.repo.getRecord?repo=did%3Aplc%3Aabc&collection=app.bsky.feed.post&rkey=123',
+            'https://appview.invalid/xrpc/com.atproto.repo.getRecord?repo=did%3Aplc%3Aabc&collection=app.bsky.feed.post&rkey=123',
             json=None, data=None,
             headers={
                 'Content-Type': 'application/json',
                 'User-Agent': common.USER_AGENT,
             },
         )
+
+    def test_hydrate_record_blacksky_conversation(self):
+        for did in 'did:plc:alice', 'did:plc:bob', 'did:plc:eve':
+            self.store_object(id=did, raw={**DID_DOC, 'id': did})
+        conv_uri = 'at://did:plc:user/community.blacksky.assembly.conversation/c'
+
+        self.store_object(
+            id='at://did:plc:alice/community.blacksky.assembly.statement/a',
+            bsky={
+                '$type': 'community.blacksky.assembly.statement',
+                'conversation': {'uri': conv_uri, 'cid': 'abc'},
+                'text': 'a',
+            })
+        self.store_object(
+            id='at://did:plc:bob/community.blacksky.assembly.statement/b',
+            bsky={
+                '$type': 'community.blacksky.assembly.statement',
+                'conversation': {'uri': conv_uri, 'cid': 'abc'},
+                'text': 'b',
+            })
+        # deleted
+        self.store_object(
+            id='at://did:plc:eve/community.blacksky.assembly.statement/e',
+            bsky={
+                '$type': 'community.blacksky.assembly.statement',
+                'conversation': {'uri': conv_uri, 'cid': 'abc'},
+                'text': 'deleted',
+            }, deleted=True)
+
+        obj = Object(id=conv_uri, bsky={
+            '$type': 'community.blacksky.assembly.conversation',
+            'topic': 'which is best?',
+            'createdAt': '2022-01-02T03:04:05.000Z',
+        })
+        hydrate_record(obj)
+
+        expected = {
+            'options': [{
+                'objectType': 'note',
+                'id': 'at://did:plc:alice/community.blacksky.assembly.statement/a',
+                'author': 'did:plc:alice',
+                'displayName': 'a',
+                'inReplyTo': conv_uri,
+            }, {
+                'objectType': 'note',
+                'id': 'at://did:plc:bob/community.blacksky.assembly.statement/b',
+                'author': 'did:plc:bob',
+                'displayName': 'b',
+                'inReplyTo': conv_uri,
+            }],
+        }
+        self.assertEqual(expected, obj.extra_as1)
+        self.assertEqual(expected, obj.key.get().extra_as1)
+
+    def test_hydrate_record_standard_site_document_publication_url(self):
+        self.store_object(id='did:plc:user', raw=DID_DOC)
+        self.store_object(
+            id='at://did:plc:user/site.standard.publication/p',
+            bsky={
+                '$type': 'site.standard.publication',
+                'url': 'https://example.com',
+                'name': 'My Blog',
+            })
+
+        obj = Object(id='at://did:plc:user/site.standard.document/d', bsky={
+            '$type': 'site.standard.document',
+            'site': 'at://did:plc:user/site.standard.publication/p',
+            'path': '/post',
+            'title': 'My Article',
+            'publishedAt': '2022-01-02T03:04:05.000Z',
+        })
+        hydrate_record(obj, remote=False)
+
+        self.assertEqual({'url': 'https://example.com/post'}, obj.extra_as1)
+        self.assertEqual({'url': 'https://example.com/post'},
+                         obj.key.get().extra_as1)
+        self.assertEqual('https://example.com/post', obj.as1['url'])
+
+    @patch.object(util.session, 'get', side_effect=[
+        requests_response({
+            'uri': 'at://did:plc:user/app.bsky.actor.profile/self',
+            'cid': 'bafyreigd',
+            'value': {
+                '$type': 'app.bsky.actor.profile',
+                'links': [{
+                    'uri': 'at://did:plc:user/app.bsky.actor.link/a',
+                    'cid': 'bafyreie5737gdxlw5i64vzichcalba3z2v5n6icifvx5xytvske7mr3hpm',
+                }, {
+                    'uri': 'at://did:plc:user/app.bsky.actor.link/b',
+                    'cid': 'bafyreie5737gdxlw5i64vzichcalba3z2v5n6icifvx5xytvske7mr3hpm',
+                }],
+            },
+        }),
+        requests_response({
+            'uri': 'at://did:plc:user/app.bsky.actor.link/b',
+            'cid': 'bafyreie5737gdxlw5i64vzichcalba3z2v5n6icifvx5xytvske7mr3hpm',
+            'value': {
+                '$type': 'app.bsky.actor.link',
+                'url': 'https://b.com/',
+                'createdAt': '2022-01-02T03:04:05.000Z',
+            },
+        }),
+    ])
+    def test_fetch_profile_links_into_extra_as1(self, mock_get):
+        self.store_object(id='did:plc:user', raw=DID_DOC)
+        self.store_object(id='at://did:plc:user/app.bsky.actor.link/a', bsky={
+            '$type': 'app.bsky.actor.link',
+            'url': 'https://a.com/',
+            'title': 'A',
+            'createdAt': '2022-01-02T03:04:05.000Z',
+        })
+
+        # link a is stored, link b isn't, so we fetch it
+        obj = Object(id='at://did:plc:user/app.bsky.actor.profile/self')
+        self.assertTrue(ATProto.fetch(obj))
+
+        expected = {
+            'urls': [{
+                'objectType': 'link',
+                'id': 'at://did:plc:user/app.bsky.actor.link/a',
+                'author': 'did:plc:user',
+                'value': 'https://a.com/',
+                'displayName': 'A',
+                'published': '2022-01-02T03:04:05.000Z',
+            }, {
+                'objectType': 'link',
+                'id': 'at://did:plc:user/app.bsky.actor.link/b',
+                'author': 'did:plc:user',
+                'value': 'https://b.com/',
+                'published': '2022-01-02T03:04:05.000Z',
+            }],
+        }
+        self.assertEqual(expected, obj.extra_as1)
+        self.assertEqual(expected, obj.key.get().extra_as1)
+
+    @patch.object(util.session, 'get', return_value=requests_response({
+        'uri': 'at://did:plc:user/so.sprk.feed.post/123',
+        'cid': 'bafyreigd',
+        'value': {'foo': 'bar'},
+    }))
+    def test_fetch_at_uri_non_bsky_record_from_pds(self, mock_get):
+        self.store_object(id='did:plc:user', raw=DID_DOC)
+
+        obj = Object(id='at://did:plc:user/so.sprk.feed.post/123')
+        self.assertTrue(ATProto.fetch(obj))
+        self.assertEqual({
+            'foo': 'bar',
+            'cid': 'bafyreigd',
+        }, obj.bsky)
+        mock_get.assert_called_once_with(
+            'https://some.pds/xrpc/com.atproto.repo.getRecord?repo=did%3Aplc%3Auser&collection=so.sprk.feed.post&rkey=123',
+            json=None, data=None,
+            headers={
+                'Content-Type': 'application/json',
+                'User-Agent': common.USER_AGENT,
+            },
+        )
+
+    @patch.object(util.session, 'get')
+    def test_fetch_at_uri_non_bsky_record_no_pds(self, mock_get):
+        self.store_object(id='did:plc:user', raw={**DID_DOC, 'service': []})
+        self.assertFalse(ATProto.fetch(
+            Object(id='at://did:plc:user/so.sprk.feed.post/123')))
+        mock_get.assert_not_called()
 
     @patch.object(util.session, 'get', return_value=requests_response({
         'error':'InvalidRequest',
@@ -505,7 +749,7 @@ class ATProtoTest(TestCase):
         obj = Object(id='at://did:plc:abc/app.bsky.feed.post/123')
         self.assertFalse(ATProto.fetch(obj))
         mock_get.assert_called_once_with(
-            'https://appview.local/xrpc/com.atproto.repo.getRecord?repo=did%3Aplc%3Aabc&collection=app.bsky.feed.post&rkey=123',
+            'https://appview.invalid/xrpc/com.atproto.repo.getRecord?repo=did%3Aplc%3Aabc&collection=app.bsky.feed.post&rkey=123',
             json=None, data=None, headers=ANY)
 
     @patch.object(util.session, 'get')
@@ -570,12 +814,12 @@ class ATProtoTest(TestCase):
         }, obj.bsky)
 
         mock_get.assert_any_call(
-            'https://appview.local/xrpc/com.atproto.repo.getRecord?repo=did%3Aplc%3Auser&collection=app.bsky.feed.post&rkey=789',
+            'https://appview.invalid/xrpc/com.atproto.repo.getRecord?repo=did%3Aplc%3Auser&collection=app.bsky.feed.post&rkey=789',
             json=None, data=None, headers={
                 'Content-Type': 'application/json',
                 'User-Agent': common.USER_AGENT,
             })
-        self.assert_req(mock_get, 'https://plc.local/did:plc:user')
+        self.assert_req(mock_get, 'https://plc.invalid/did:plc:user')
 
     @patch.object(util.session, 'get', return_value=requests_response({
         'uri': 'at://did:plc:user/app.bsky.actor.profile/self',
@@ -595,7 +839,7 @@ class ATProtoTest(TestCase):
         }, obj.bsky)
 
         mock_get.assert_called_with(
-            'https://appview.local/xrpc/com.atproto.repo.getRecord?repo=did%3Aplc%3Auser&collection=app.bsky.actor.profile&rkey=self',
+            'https://appview.invalid/xrpc/com.atproto.repo.getRecord?repo=did%3Aplc%3Auser&collection=app.bsky.actor.profile&rkey=self',
             json=None, data=None, headers={
                 'Content-Type': 'application/json',
                 'User-Agent': common.USER_AGENT,
@@ -754,7 +998,7 @@ class ATProtoTest(TestCase):
             'object': 'at://han.dull.fa.brid.gy/app.bsky.feed.post/tid',
         })))
         mock_get.assert_called_with(
-            'https://appview.local/xrpc/com.atproto.repo.getRecord?repo=did%3Aplc%3Auser&collection=app.bsky.feed.post&rkey=tid',
+            'https://appview.invalid/xrpc/com.atproto.repo.getRecord?repo=did%3Aplc%3Auser&collection=app.bsky.feed.post&rkey=tid',
             json=None, data=None, headers=ANY)
 
     @patch('dns.resolver.resolve', side_effect=NXDOMAIN())
@@ -1181,7 +1425,8 @@ class ATProtoTest(TestCase):
                 },
             }],
         }, repo.get_record('app.bsky.feed.post', last_tid),
-        ignore=['bridgyOriginalText', 'bridgyOriginalUrl'])
+        ignore=['bridgyOriginalText', 'bridgyOriginalUrl',
+                'community.lexicon.meta.links'])
 
     def test_convert_quote_post_translate_attachment_url_with_copy_id(self):
         self.make_user_and_repo()
@@ -1201,7 +1446,7 @@ class ATProtoTest(TestCase):
                 '$type': 'app.bsky.embed.record',
                 'record': {
                     'uri': 'at://did:plc:user/co.l.l/tid',
-                    'cid': 'bafyreiccskuaccxa6zbaf7jeaiwyzg3pqtj3rg5qra653f5cmqilvgvejy',
+                    'cid': arroba.util.dag_cbor_cid(NOTE_BSKY).encode('base32'),
                 },
             },
         }, ATProto.convert(Object(our_as1={
@@ -1236,6 +1481,26 @@ class ATProtoTest(TestCase):
             'displayName': 'Alice',
         })))
 
+    def test_convert_non_atproto_actor_multiple_spark_profile(self):
+        profile = {
+            'displayName': 'Alice',
+            'description': 'hi',
+            'labels': {
+                '$type': 'com.atproto.label.defs#selfLabels',
+                'values': [{'val': 'bot'}, {'val': 'bridged-from-bridgy-fed-fake'}],
+            },
+            'bridgyOriginalUrl': 'fake:alice',
+        }
+        self.assertEqual([
+            {**profile, '$type': 'app.bsky.actor.profile'},
+            {**profile, '$type': 'so.sprk.actor.profile'},
+        ], ATProto.convert(Object(source_protocol='fake', our_as1={
+            'objectType': 'service',
+            'id': 'fake:alice',
+            'displayName': 'Alice',
+            'summary': 'hi',
+        }), multiple=True))
+
     def test_convert_non_atproto_actor_adds_source_links(self):
         self.make_user(cls=Web, id='efake.brid.gy',
                        copies=[Target(protocol='atproto', uri='did:efake')])
@@ -1250,6 +1515,10 @@ class ATProtoTest(TestCase):
                 'values': [{'val': 'bridged-from-bridgy-fed-efake'}],
             },
             'bridgyOriginalUrl': 'efake:user',
+            'community.lexicon.meta.links': {
+                '$type': 'community.lexicon.meta.links',
+                'links': [{'href': 'uri:efake:user', 'rel': 'canonical'}],
+            },
         }, ATProto.convert(Object(source_protocol='efake', our_as1={
             'objectType': 'person',
             'id': 'efake:user',
@@ -1267,12 +1536,45 @@ class ATProtoTest(TestCase):
                 '$type': 'com.atproto.label.defs#selfLabels',
                 'values': [{'val': 'bridged-from-bridgy-fed-web'}],
             },
-            'bridgyOriginalUrl': 'user.com',
+            'website': 'https://user.com/',
+            'bridgyOriginalUrl': 'https://user.com/',
+            'community.lexicon.meta.links': {
+                '$type': 'community.lexicon.meta.links',
+                'links': [{
+                    'href': 'https://user.com/',
+                    'rel': 'canonical',
+                    'mediaType': 'text/html',
+                }],
+            },
         }, ATProto.convert(Object(source_protocol='web', our_as1={
             'objectType': 'person',
             'id': 'user.com',
             'displayName': 'Alice',
         }), from_user=user))
+
+    def test_convert_activitypub_note_canonical_link_is_ap_id(self):
+        self.assertEqual({
+            '$type': 'app.bsky.feed.post',
+            'text': 'hello',
+            'bridgyOriginalText': 'hello',
+            'bridgyOriginalUrl': 'https://inst.example/@alice/123',
+            'community.lexicon.meta.links': {
+                '$type': 'community.lexicon.meta.links',
+                'links': [{
+                    'href': 'https://inst.example/users/alice/statuses/123',
+                    'rel': 'canonical',
+                    'mediaType': 'application/activity+json',
+                }],
+            },
+            'createdAt': '2022-01-02T03:04:05.000Z',
+        }, ATProto.convert(Object(
+            id='https://inst.example/users/alice/statuses/123',
+            source_protocol='activitypub', our_as1={
+            'objectType': 'note',
+            'id': 'https://inst.example/users/alice/statuses/123',
+            'url': 'https://inst.example/@alice/123',
+            'content': 'hello',
+        })))
 
     def test_convert_non_atproto_update_actor_truncates_before_source_links(self):
         self.make_user(cls=Web, id='fa.brid.gy',
@@ -1300,6 +1602,10 @@ Sed tortor neque, aliquet quis posuere aliquam, imperdiet sitamet […]
 🌉 bridged from 🤡 web:fake:user by https://fed.brid.gy/""",
             'bridgyOriginalDescription': summary,
             'bridgyOriginalUrl': 'fake:user',
+            'community.lexicon.meta.links': {
+                '$type': 'community.lexicon.meta.links',
+                'links': [{'href': 'uri:fake:user', 'rel': 'canonical'}],
+            },
             'labels': {
                 '$type': 'com.atproto.label.defs#selfLabels',
                 'values': [{'val': 'bridged-from-bridgy-fed-fake'}],
@@ -1328,6 +1634,10 @@ Sed tortor neque, aliquet quis posuere aliquam, imperdiet sitamet […]
             },
             'bridgyOriginalDescription': '<a href="http://foo">bar</a>',
             'bridgyOriginalUrl': 'fake:user',
+            'community.lexicon.meta.links': {
+                '$type': 'community.lexicon.meta.links',
+                'links': [{'href': 'uri:fake:user', 'rel': 'canonical'}],
+            },
         }, ATProto.convert(Object(source_protocol='fake', our_as1={
             'objectType': 'person',
             'id': 'fake:user',
@@ -1394,7 +1704,7 @@ Sed tortor neque, aliquet quis posuere aliquam, imperdiet sitamet […]
             },
         }, kwargs['json'])
 
-        self.assertEqual((f'https://plc.local/did:plc:user',),
+        self.assertEqual((f'https://plc.invalid/did:plc:user',),
                          mock_post.call_args_list[1].args)
         self.assertEqual({'signed': 'op'}, mock_post.call_args_list[1].kwargs['json'])
 
@@ -1550,7 +1860,8 @@ Sed tortor neque, aliquet quis posuere aliquam, imperdiet sitamet […]
         resp = ATProto.create_account_for_migrate_out(
             self.user, pds='https://new.pds.com',
             email='alice@pds.com', password='hunter2',
-            handle='aly.ce', phone_verification_code='fown')
+            handle='aly.ce', phone_number='fown',
+            phone_verification_code='kowd')
         self.assertEqual(session, resp)
 
         # check createAccount
@@ -1563,6 +1874,7 @@ Sed tortor neque, aliquet quis posuere aliquam, imperdiet sitamet […]
             'email': 'alice@pds.com',
             'password': 'hunter2',
             'verificationPhone': 'fown',
+            'verificationCode': 'kowd',
         }, mock_post.call_args_list[0].kwargs['json'])
         # raises if the JWT signature doesn't validate
         jwt.decode(
@@ -1676,9 +1988,9 @@ Sed tortor neque, aliquet quis posuere aliquam, imperdiet sitamet […]
             mock_get.call_args_list[1].args)
 
         # PLC update
-        self.assert_equals(['https://plc.local/did:plc:user/log/audit'],
+        self.assert_equals(['https://plc.invalid/did:plc:user/log/audit'],
                            mock_get.call_args_list[2].args)
-        self.assert_equals(['https://plc.local/did:plc:user'],
+        self.assert_equals(['https://plc.invalid/did:plc:user'],
                            mock_post.call_args_list[1].args)
 
         mock_post.call_args_list[1].kwargs['json'].pop('sig')
@@ -1946,7 +2258,16 @@ Sed tortor neque, aliquet quis posuere aliquam, imperdiet sitamet […]
             name='_atproto.fake-handle-us-er.fa.brid.gy.', record_type='TXT',
             ttl=atproto.DNS_TTL, rrdatas=[f'"did={did}"'])
 
-        # check profile and chat declaration records
+        # check profile, link, and chat declaration records
+        profile = repo.get_record('app.bsky.actor.profile', 'self')
+        _, _, link_rkey = arroba.util.parse_at_uri(profile['links'][0]['uri'])
+        link = repo.get_record('app.bsky.actor.link', link_rkey)
+        self.assertEqual({
+            '$type': 'app.bsky.actor.link',
+            'url': 'https://alice.com/',
+            'createdAt': '1970-01-01T00:00:00.000Z',
+        }, link)
+
         self.assertEqual({
             '$type': 'app.bsky.actor.profile',
             'displayName': 'Alice',
@@ -1954,6 +2275,10 @@ Sed tortor neque, aliquet quis posuere aliquam, imperdiet sitamet […]
             'website': 'https://alice.com/',
             'bridgyOriginalDescription': 'hi there',
             'bridgyOriginalUrl': 'https://alice.com/',
+            'community.lexicon.meta.links': {
+                '$type': 'community.lexicon.meta.links',
+                'links': [{'href': 'uri:fake:us_er', 'rel': 'canonical'}],
+            },
             'avatar': {
                 '$type': 'blob',
                 'mimeType': 'image/png',
@@ -1964,7 +2289,11 @@ Sed tortor neque, aliquet quis posuere aliquam, imperdiet sitamet […]
                 '$type': 'com.atproto.label.defs#selfLabels',
                 'values': [{'val' : 'bridged-from-bridgy-fed-fake'}],
             },
-        }, repo.get_record('app.bsky.actor.profile', 'self'))
+            'links': [{
+                'uri': f'at://{did}/app.bsky.actor.link/{link_rkey}',
+                'cid': arroba.util.dag_cbor_cid(link).encode('base32'),
+            }],
+        }, profile)
 
         self.assertEqual({
             "$type" : "chat.bsky.actor.declaration",
@@ -2022,25 +2351,29 @@ Sed tortor neque, aliquet quis posuere aliquam, imperdiet sitamet […]
         repo = self.storage.load_repo(did)
 
         # check profile, pinned post
-        last_tid = arroba.util.int_to_tid(arroba.util._tid_ts_last)
+        pinned_uri = Object.get_by_id('fake:pinned').get_copy(ATProto)
+        _, _, pinned_rkey = arroba.util.parse_at_uri(pinned_uri)
         self.assert_equals({
             '$type': 'app.bsky.actor.profile',
             'displayName': 'Alice',
             'description': 'hi there\n\n🌉 bridged from 🤡 web:fake:user by https://fed.brid.gy/',
             'website': 'https://alice.com/',
             'pinnedPost': {
-                'uri': f'at://{did}/app.bsky.feed.post/{last_tid}',
-                'cid': 'bafyreibjhbhznld7ogitdeub3ptk3cnkaegz3oma46ys5ljnaaec3sylpq',
+                'uri': pinned_uri,
+                'cid': arroba.util.dag_cbor_cid(repo.get_record(
+                    'app.bsky.feed.post', pinned_rkey)).encode('base32'),
             },
         }, repo.get_record('app.bsky.actor.profile', 'self'),
-        ignore=['bridgyOriginalDescription', 'bridgyOriginalUrl', 'labels'])
+        ignore=['bridgyOriginalDescription', 'bridgyOriginalUrl',
+                'community.lexicon.meta.links', 'labels', 'links'])
 
         self.assert_equals({
             '$type': 'app.bsky.feed.post',
             'text': 'My pinned post',
             'createdAt': '2022-01-02T03:04:05.000Z',
-        }, repo.get_record('app.bsky.feed.post', last_tid),
-        ignore=['bridgyOriginalText', 'bridgyOriginalUrl'])
+        }, repo.get_record('app.bsky.feed.post', pinned_rkey),
+        ignore=['bridgyOriginalText', 'bridgyOriginalUrl',
+                'community.lexicon.meta.links'])
 
     @patch.object(tasks_client, 'create_task', return_value=Task(name='my task'))
     @patch.object(util.session, 'post', return_value=requests_response('OK'))  # create DID on PLC
@@ -2079,7 +2412,8 @@ Sed tortor neque, aliquet quis posuere aliquam, imperdiet sitamet […]
             'description': 'hi there\n\n🌉 bridged from 🤡 web:fake:user by https://fed.brid.gy/',
             'website': 'https://alice.com/',
         }, repo.get_record('app.bsky.actor.profile', 'self'),
-        ignore=['bridgyOriginalDescription', 'bridgyOriginalUrl', 'labels'])
+        ignore=['bridgyOriginalDescription', 'bridgyOriginalUrl',
+                'community.lexicon.meta.links', 'labels', 'links'])
 
     @patch.object(tasks_client, 'create_task', return_value=Task(name='my task'))
     @patch.object(util.session, 'post', return_value=requests_response('OK'))  # create DID on PLC
@@ -2108,7 +2442,8 @@ Sed tortor neque, aliquet quis posuere aliquam, imperdiet sitamet […]
             'description': 'hi there\n\n🌉 bridged from 🤡 web:fake:user by https://fed.brid.gy/',
             'website': 'https://alice.com/',
         }, repo.get_record('app.bsky.actor.profile', 'self'),
-        ignore=['bridgyOriginalDescription', 'bridgyOriginalUrl', 'labels'])
+        ignore=['bridgyOriginalDescription', 'bridgyOriginalUrl',
+                'community.lexicon.meta.links', 'labels', 'links'])
         self.assert_equals({
             '$type': 'community.lexicon.payments.webMonetization',
             'address': 'http://wal/let',
@@ -2138,6 +2473,8 @@ Sed tortor neque, aliquet quis posuere aliquam, imperdiet sitamet […]
             },
         }
         # Create user with obj already set (with #nobot), save to datastore
+        AtpRemoteBlob(id='https://alice.com/alice.jpg', mime_type='image/png',
+                      cid=BLOB_CID.encode('base32'), size=8, last_fetched=NOW).put()
         user = Fake(id='fake:user')
         user.obj = Object(id='fake:profile:user', our_as1=Fake.fetchable['fake:profile:user'])
         user.obj.put()
@@ -2414,13 +2751,13 @@ Sed tortor neque, aliquet quis posuere aliquam, imperdiet sitamet […]
         mock_get.assert_has_calls([
             call('https://ne.w/.well-known/atproto-did',
                  timeout=15, stream=True, headers=ANY),
-            call('https://plc.local/did:plc:user/log/audit',
+            call('https://plc.invalid/did:plc:user/log/audit',
                  timeout=15, stream=True, headers=ANY),
         ])
 
         mock_post.call_args.kwargs['json'].pop('sig')
         did_key = encode_did_key(ATPROTO_KEY.public_key())
-        mock_post.assert_called_with('https://plc.local/did:plc:user', json={
+        mock_post.assert_called_with('https://plc.invalid/did:plc:user', json={
             'type': 'plc_operation',
             'rotationKeys': [did_key],
             'verificationMethods': {'atproto': did_key},
@@ -2428,7 +2765,7 @@ Sed tortor neque, aliquet quis posuere aliquam, imperdiet sitamet […]
             'services': {
                 'atproto_pds': {
                     'type': 'AtprotoPersonalDataServer',
-                    'endpoint': 'https://pds.local',
+                    'endpoint': 'https://pds.invalid',
                 },
             },
             'prev': 'orig',
@@ -2450,6 +2787,74 @@ Sed tortor neque, aliquet quis posuere aliquam, imperdiet sitamet […]
         }, next(self.storage.read_events_by_seq(seq)))
 
         mock_create_task.assert_called()  # atproto-commit
+
+    @patch.object(ATProto, 'set_dns')
+    @patch.object(tasks_client, 'create_task', return_value=Task(name='my task'))
+    @patch.object(util.session, 'get', side_effect=[
+        # fetch PLC operation log
+        requests_response([{
+            'cid': 'orig',
+            'operation': {'alsoKnownAs': ['at://ol.d', 'http://ol.d']},
+        }]),
+        # fetch updated DID doc
+        requests_response({
+            **DID_DOC,
+            'alsoKnownAs': ['at://fake-handle-user.fa.brid.gy'],
+        }),
+    ])
+    @patch.object(util.session, 'post', return_value=requests_response('OK'))  # update DID on PLC
+    def test_set_username_own_default_domain(self, mock_post, mock_get,
+                                             mock_create_task, mock_set_dns):
+        """The user's own default *.brid.gy handle sets DNS instead of resolving."""
+        user = self.make_user_and_repo(enabled_protocols=['atproto'])
+        ATProto.set_username(user, 'fake-handle-user.fa.brid.gy')
+
+        mock_set_dns.assert_called_once_with(handle='fake-handle-user.fa.brid.gy',
+                                             did='did:plc:user')
+
+        mock_post.call_args.kwargs['json'].pop('sig')
+        did_key = encode_did_key(ATPROTO_KEY.public_key())
+        mock_post.assert_called_with('https://plc.invalid/did:plc:user', json={
+            'type': 'plc_operation',
+            'rotationKeys': [did_key],
+            'verificationMethods': {'atproto': did_key},
+            'alsoKnownAs': ['at://fake-handle-user.fa.brid.gy', 'http://ol.d'],
+            'services': {
+                'atproto_pds': {
+                    'type': 'AtprotoPersonalDataServer',
+                    'endpoint': 'https://pds.invalid',
+                },
+            },
+            'prev': 'orig',
+            'did': 'did:plc:user',
+        }, timeout=15, stream=True, headers=ANY)
+
+        self.assertEqual('fake-handle-user.fa.brid.gy', user.handle_as(ATProto))
+        repo = self.storage.load_repo('did:plc:user')
+        self.assertEqual('fake-handle-user.fa.brid.gy', repo.handle)
+
+        mock_create_task.assert_called()  # atproto-commit
+
+    @patch.object(ATProto, 'set_dns')
+    # resolve handle, DNS method, not found
+    @patch('dns.resolver.resolve', side_effect=NXDOMAIN())
+    # resolve handle, HTTPS method, not found
+    @patch.object(util.session, 'get', return_value=requests_response(status=404))
+    def test_set_username_someone_elses_brid_gy_domain(self, _, __, mock_set_dns):
+        """Can't claim a *.brid.gy handle that isn't our own default one."""
+        user = self.make_user_and_repo(enabled_protocols=['atproto'])
+
+        for username in ('bsky.brid.gy', 'alice.inst.ap.brid.gy',
+                         'other-handle-user.fa.brid.gy'):
+            with self.assertRaises(RuntimeError) as e:
+                ATProto.set_username(user, username)
+            self.assertIn("You'll need to connect that domain", str(e.exception))
+
+        mock_set_dns.assert_not_called()
+
+        self.assertEqual('han.dull.fa.brid.gy', user.handle_as(ATProto))
+        repo = self.storage.load_repo('did:plc:user')
+        self.assertEqual('han.dull.fa.brid.gy', repo.handle)
 
     # resolve handle, DNS method, not found
     @patch('dns.resolver.resolve', side_effect=NXDOMAIN())
@@ -2488,7 +2893,15 @@ Sed tortor neque, aliquet quis posuere aliquam, imperdiet sitamet […]
         with self.assertRaises(ValueError) as e:
             ATProto.set_username(user, 'new.org')
 
-        self.assertEqual("First, you'll need to bridge your account into Bluesky by following this account.", str(e.exception))
+        self.assertEqual("First, you'll need to bridge your account into the Atmosphere (Bluesky) by following this account.", str(e.exception))
+
+    def test_set_username_deactivated_repo(self):
+        user = self.make_user_and_repo(enabled_protocols=['atproto'])
+        repo = self.storage.load_repo('did:plc:user')
+        self.storage.deactivate_repo(repo)
+
+        with self.assertRaises(RuntimeError):
+            ATProto.set_username(user, 'new.org')
 
     def test_set_username_not_domain(self):
         user = self.make_user_and_repo(enabled_protocols=['atproto'])
@@ -2496,7 +2909,7 @@ Sed tortor neque, aliquet quis posuere aliquam, imperdiet sitamet […]
         with self.assertRaises(ValueError) as e:
             ATProto.set_username(user, 'bad nope')
 
-        self.assertEqual("bad nope isn't a valid Bluesky handle", str(e.exception))
+        self.assertEqual("bad nope isn't a valid ATProto (Bluesky) handle", str(e.exception))
 
         self.assertEqual('han.dull.fa.brid.gy', user.handle_as(ATProto))
         repo = self.storage.load_repo('did:plc:user')
@@ -2508,7 +2921,7 @@ Sed tortor neque, aliquet quis posuere aliquam, imperdiet sitamet […]
         with self.assertRaises(ValueError) as e:
             ATProto.set_username(user, 'x_y.com')
 
-        self.assertEqual("x_y.com isn't a valid Bluesky handle", str(e.exception))
+        self.assertEqual("x_y.com isn't a valid ATProto (Bluesky) handle", str(e.exception))
 
         self.assertEqual('han.dull.fa.brid.gy', user.handle_as(ATProto))
         repo = self.storage.load_repo('did:plc:user')
@@ -2553,7 +2966,7 @@ Sed tortor neque, aliquet quis posuere aliquam, imperdiet sitamet […]
                          Object.get_by_id(id='fake:post').copies)
 
         # check PLC directory call to create did:plc
-        self.assertEqual((f'https://plc.local/{did}',), mock_post.call_args.args)
+        self.assertEqual((f'https://plc.invalid/{did}',), mock_post.call_args.args)
         genesis_op = mock_post.call_args.kwargs['json']
         self.assertEqual(did, genesis_op.pop('did'))
         genesis_op['sig'] = base64.urlsafe_b64decode(
@@ -2606,6 +3019,14 @@ Sed tortor neque, aliquet quis posuere aliquam, imperdiet sitamet […]
         did = user.key.get().get_copy(ATProto)
         repo = self.storage.load_repo(did)
         profile = repo.get_record('app.bsky.actor.profile', 'self')
+        _, _, link_rkey = arroba.util.parse_at_uri(profile['links'][0]['uri'])
+        link = repo.get_record('app.bsky.actor.link', link_rkey)
+        self.assertEqual({
+            '$type': 'app.bsky.actor.link',
+            'url': 'https://alice.com/',
+            'createdAt': '1970-01-01T00:00:00.000Z',
+        }, link)
+
         self.assertEqual({
             '$type': 'app.bsky.actor.profile',
             'displayName': 'Alice',
@@ -2613,6 +3034,10 @@ Sed tortor neque, aliquet quis posuere aliquam, imperdiet sitamet […]
             'website': 'https://alice.com/',
             'bridgyOriginalDescription': 'hi there',
             'bridgyOriginalUrl': 'https://alice.com/',
+            'community.lexicon.meta.links': {
+                '$type': 'community.lexicon.meta.links',
+                'links': [{'href': 'uri:fake:user', 'rel': 'canonical'}],
+            },
             'avatar': {
                 '$type': 'blob',
                 'ref': BLOB_CID,
@@ -2623,6 +3048,10 @@ Sed tortor neque, aliquet quis posuere aliquam, imperdiet sitamet […]
                 '$type': 'com.atproto.label.defs#selfLabels',
                 'values': [{'val' : 'bridged-from-bridgy-fed-fake'}],
             },
+            'links': [{
+                'uri': f'at://{did}/app.bsky.actor.link/{link_rkey}',
+                'cid': arroba.util.dag_cbor_cid(link).encode('base32'),
+            }],
         }, profile)
         last_tid = arroba.util.int_to_tid(arroba.util._tid_ts_last)
         record = repo.get_record('app.bsky.feed.post', last_tid)
@@ -2994,6 +3423,27 @@ Sed tortor neque, aliquet quis posuere aliquam, imperdiet sitamet […]
         profile = repo.get_record('app.bsky.actor.profile', 'self')
         self.assert_equals('updated', profile['displayName'])
 
+    @patch.object(tasks_client, 'create_task')
+    def test_send_create_retries_as_update_on_multiple_conflicts(self, mock_create_task):
+        self.make_user_and_repo()
+
+        self.storage.commit(self.repo, [
+            Write(action=Action.CREATE, collection=collection, rkey='self',
+                  record={**ACTOR_PROFILE_BSKY, '$type': collection})
+            for collection in ('app.bsky.actor.profile', 'so.sprk.actor.profile')
+        ])
+
+        obj = self.store_object(id='fake:profile:user', our_as1={
+            'objectType': 'person',
+            'displayName': 'updated',
+        })
+        self.assertTrue(ATProto.send(obj, 'https://bsky.brid.gy', from_user=self.user))
+
+        repo = self.storage.load_repo('did:plc:user')
+        for collection in ('app.bsky.actor.profile', 'so.sprk.actor.profile'):
+            self.assert_equals('updated',
+                               repo.get_record(collection, 'self')['displayName'])
+
     @patch.object(tasks_client, 'create_task', return_value=Task(name='my task'))
     def test_send_article(self, mock_create_task):
         user = self.make_user_and_repo()
@@ -3011,23 +3461,28 @@ Sed tortor neque, aliquet quis posuere aliquam, imperdiet sitamet […]
         # check records
         # (no publication record because user doesn't have verified_domain set)
         repo = self.storage.load_repo('did:plc:user')
-        self.assert_equals({
-            'app.bsky.feed.post': {'a': {
-                '$type': 'app.bsky.feed.post',
-                'text': '',
-                'createdAt': '2022-01-02T03:04:05.000Z',
-                'embed': {
-                    '$type': 'app.bsky.embed.external',
-                    'external': {
-                        '$type': 'app.bsky.embed.external#external',
-                        'uri': 'fake://art/icle',
-                        'title': 'Foo bar',
-                        'description': "it's a big'un",
-                    },
+        post = {
+            '$type': 'app.bsky.feed.post',
+            'text': '',
+            'createdAt': '2022-01-02T03:04:05.000Z',
+            'embed': {
+                '$type': 'app.bsky.embed.external',
+                'external': {
+                    '$type': 'app.bsky.embed.external#external',
+                    'uri': 'fake://art/icle',
+                    'title': 'Foo bar',
+                    'description': "it's a big'un",
                 },
-                'bridgyOriginalText': "it's a big'un",
-                'bridgyOriginalUrl': 'fake://art/icle',
-            }},
+            },
+            'bridgyOriginalText': "it's a big'un",
+            'bridgyOriginalUrl': 'fake://art/icle',
+            'community.lexicon.meta.links': {
+                '$type': 'community.lexicon.meta.links',
+                'links': [{'href': 'fake://art/icle', 'rel': 'canonical'}],
+            },
+        }
+        self.assert_equals({
+            'app.bsky.feed.post': {'a': post},
             'site.standard.document': {'b': {
                 '$type': 'site.standard.document',
                 'site': 'fake://art',
@@ -3035,9 +3490,13 @@ Sed tortor neque, aliquet quis posuere aliquam, imperdiet sitamet […]
                 'title': 'Foo bar',
                 'textContent': "it's a big'un",
                 'publishedAt': '2022-01-02T03:04:05.000Z',
+                'community.lexicon.meta.links': {
+                    '$type': 'community.lexicon.meta.links',
+                    'links': [{'href': 'fake://art/icle', 'rel': 'canonical'}],
+                },
                 'bskyPostRef': {
                     'uri': 'at://did:plc:user/app.bsky.feed.post/a',
-                    'cid': 'bafyreieaivdft5fc76h6flpihdvrejhyb7b3vehq4tnnquhqlajxyx4rri',
+                    'cid': arroba.util.dag_cbor_cid(post).encode('base32'),
                 },
             }},
         }, repo.get_contents())
@@ -3051,6 +3510,150 @@ Sed tortor neque, aliquet quis posuere aliquam, imperdiet sitamet […]
         self.assertIsNone(user.obj.get_copy(ATProto))
 
         mock_create_task.assert_called()  # atproto-commit
+
+    def test_postprocess_writes_grain_gallery_items(self):
+        self.make_user_and_repo()
+
+        gallery = {
+            '$type': 'social.grain.gallery',
+            'title': 'My gallery',
+            'createdAt': '2022-01-02T03:04:05.000Z',
+        }
+        photo = {
+            '$type': 'social.grain.photo',
+            'photo': NEW_BLOB,
+            'aspectRatio': {'width': 1, 'height': 1},
+            'createdAt': '2022-01-02T03:04:05.000Z',
+        }
+        item = {
+            '$type': 'social.grain.gallery.item',
+            'createdAt': '2022-01-02T03:04:05.000Z',
+        }
+        writes = [
+            Write(action=Action.CREATE, collection='social.grain.gallery',
+                  rkey='g', record=copy.deepcopy(gallery)),
+            Write(action=Action.CREATE, collection='social.grain.photo',
+                  rkey='p0', record=copy.deepcopy(photo)),
+            Write(action=Action.CREATE, collection='social.grain.photo',
+                  rkey='p1', record=copy.deepcopy(photo)),
+            Write(action=Action.CREATE, collection='social.grain.gallery.item',
+                  rkey='i1', record={**item, 'position': 1}),
+            Write(action=Action.CREATE, collection='social.grain.gallery.item',
+                  rkey='i0', record={**item, 'position': 0}),
+        ]
+        postprocess_writes(writes, self.user)
+
+        self.assertEqual([gallery, photo, photo, {
+            **item,
+            'gallery': 'at://did:plc:user/social.grain.gallery/g',
+            'item': 'at://did:plc:user/social.grain.photo/p1',
+            'position': 1,
+        }, {
+            **item,
+            'gallery': 'at://did:plc:user/social.grain.gallery/g',
+            'item': 'at://did:plc:user/social.grain.photo/p0',
+            'position': 0,
+        }], [write.record for write in writes])
+
+    def test_postprocess_writes_assembly_statement(self):
+        self.make_user_and_repo()
+
+        conversation = {
+            '$type': 'community.blacksky.assembly.conversation',
+            'topic': 'Foo bar',
+            'createdAt': '2022-01-02T03:04:05.000Z',
+        }
+        statement = {
+            '$type': 'community.blacksky.assembly.statement',
+            'conversation': {'uri': '', 'cid': ''},
+            'text': 'Baz',
+            'createdAt': '2022-01-02T03:04:05.000Z',
+        }
+        writes = [
+            Write(action=Action.CREATE, rkey='c',
+                  collection='community.blacksky.assembly.conversation',
+                  record=copy.deepcopy(conversation)),
+            Write(action=Action.CREATE, rkey='s',
+                  collection='community.blacksky.assembly.statement',
+                  record=copy.deepcopy(statement)),
+            Write(action=Action.CREATE, rkey='t',
+                  collection='community.blacksky.assembly.statement',
+                  record=copy.deepcopy(statement)),
+        ]
+        postprocess_writes(writes, self.user)
+
+        ref = {
+            'uri': 'at://did:plc:user/community.blacksky.assembly.conversation/c',
+            'cid': arroba.util.dag_cbor_cid(conversation).encode('base32'),
+        }
+        self.assertEqual([
+            conversation,
+            {**statement, 'conversation': ref},
+            {**statement, 'conversation': ref},
+        ], [write.record for write in writes])
+
+    def test_postprocess_writes_profile_links(self):
+        self.make_user_and_repo()
+
+        profile = {
+            '$type': 'app.bsky.actor.profile',
+            'displayName': 'Alice',
+            'links': [
+                {'uri': '', 'cid': ''},
+                {'uri': '', 'cid': ''},
+                {'uri': '', 'cid': ''},
+            ],
+        }
+        link_a = {
+            '$type': 'app.bsky.actor.link',
+            'url': 'https://a.com/',
+            'createdAt': '2022-01-02T03:04:05.000Z',
+        }
+        link_b = {
+            '$type': 'app.bsky.actor.link',
+            'url': 'https://b.com/',
+            'title': 'B',
+            'createdAt': '2022-01-02T03:04:05.000Z',
+        }
+        writes = [
+            Write(action=Action.UPDATE, collection='app.bsky.actor.profile',
+                  rkey='self', record=copy.deepcopy(profile)),
+            Write(action=Action.UPDATE, collection='app.bsky.actor.link',
+                  rkey='a', record=copy.deepcopy(link_a)),
+            Write(action=Action.CREATE, collection='app.bsky.actor.link',
+                  rkey='b', record=copy.deepcopy(link_b)),
+        ]
+        postprocess_writes(writes, self.user)
+
+        # the third blank ref has no link record, so it's dropped
+        self.assertEqual([{
+            **profile,
+            'links': [{
+                'uri': 'at://did:plc:user/app.bsky.actor.link/a',
+                'cid': arroba.util.dag_cbor_cid(link_a).encode('base32'),
+            }, {
+                'uri': 'at://did:plc:user/app.bsky.actor.link/b',
+                'cid': arroba.util.dag_cbor_cid(link_b).encode('base32'),
+            }],
+        }, link_a, link_b], [write.record for write in writes])
+
+    def test_postprocess_writes_assembly_statement_existing_conversation(self):
+        self.make_user_and_repo()
+
+        statement = {
+            '$type': 'community.blacksky.assembly.statement',
+            'conversation': {
+                'uri': 'at://did:plc:other/community.blacksky.assembly.conversation/c',
+                'cid': 'abc123',
+            },
+            'text': 'Something',
+            'createdAt': '2022-01-02T03:04:05.000Z',
+        }
+        writes = [Write(action=Action.UPDATE, rkey='s',
+                        collection='community.blacksky.assembly.statement',
+                        record=copy.deepcopy(statement))]
+        postprocess_writes(writes, self.user)
+        self.assertEqual(statement, writes[0].record)
 
     @patch.object(tasks_client, 'create_task', return_value=Task(name='my task'))
     def test_send_update_note(self, mock_create_task):
@@ -3141,7 +3744,7 @@ Sed tortor neque, aliquet quis posuere aliquam, imperdiet sitamet […]
             'displayName': 'fooey',
             'description': '🌉 bridged from 🤡 web:fake:user by https://fed.brid.gy/',
         }, repo.get_record('app.bsky.actor.profile', 'self'),
-        ignore=['bridgyOriginalUrl', 'labels'])
+        ignore=['bridgyOriginalUrl', 'community.lexicon.meta.links', 'labels'])
 
         mock_create_task.assert_called()  # atproto-commit
 
@@ -3188,6 +3791,82 @@ Sed tortor neque, aliquet quis posuere aliquam, imperdiet sitamet […]
             '$type': 'community.lexicon.payments.webMonetization',
             'address': 'http://wal/let',
         }, repo.get_record('community.lexicon.payments.webMonetization', 'self'))
+
+        mock_create_task.assert_called()  # atproto-commit
+
+    @patch.object(tasks_client, 'create_task', return_value=Task(name='my task'))
+    def test_send_update_actor_links(self, mock_create_task):
+        user = self.make_user_and_repo(obj_as1={'objectType': 'person', 'foo': 'bar'})
+
+        # create profile and link records, set copies
+        old_link = {
+            '$type': 'app.bsky.actor.link',
+            'url': 'https://old.com/',
+            'createdAt': '1970-01-01T00:00:00.000Z',
+        }
+        self.storage.commit(self.repo, [
+            Write(action=Action.CREATE, collection='app.bsky.actor.profile',
+                  rkey='self', record=ACTOR_PROFILE_BSKY),
+            Write(action=Action.CREATE, collection='app.bsky.actor.link',
+                  rkey='a', record=old_link),
+            Write(action=Action.CREATE, collection='app.bsky.actor.link',
+                  rkey='b', record=old_link),
+        ])
+        user.obj.copies = [
+            Target(uri='at://did:plc:user/app.bsky.actor.profile/self',
+                   protocol='atproto'),
+            Target(uri='at://did:plc:user/app.bsky.actor.link/a', protocol='atproto'),
+            Target(uri='at://did:plc:user/app.bsky.actor.link/b', protocol='atproto'),
+        ]
+        user.obj.put()
+
+        # update profile with three links
+        update = Object(id='fake:update', source_protocol='fake', our_as1={
+            'objectType': 'activity',
+            'verb': 'update',
+            'actor': 'fake:user',
+            'object': {
+                'objectType': 'person',
+                'id': 'fake:profile:user',
+                'updated': '2024-06-24T01:02:03+00:00',
+                'url': 'https://x.com/',
+                'urls': [
+                    'https://x.com/',
+                    {'displayName': 'Why', 'value': 'https://y.com/'},
+                    'https://z.com/',
+                ],
+            },
+        })
+        self.assertTrue(ATProto.send(update, 'https://bsky.brid.gy/', from_user=user))
+
+        # existing link records are updated in place, the third is new
+        repo = self.storage.load_repo('did:plc:user')
+        refs = repo.get_record('app.bsky.actor.profile', 'self')['links']
+        _, _, new_rkey = arroba.util.parse_at_uri(refs[2]['uri'])
+        self.assertNotIn(new_rkey, ('a', 'b'))
+
+        new_link = {
+            '$type': 'app.bsky.actor.link',
+            'createdAt': '1970-01-01T00:00:00.000Z',
+        }
+        links = {
+            'a': {**new_link, 'url': 'https://x.com/'},
+            'b': {**new_link, 'url': 'https://y.com/', 'title': 'Why'},
+            new_rkey: {**new_link, 'url': 'https://z.com/'},
+        }
+        self.assertEqual(links, repo.get_contents()['app.bsky.actor.link'])
+        self.assertEqual([{
+            'uri': f'at://did:plc:user/app.bsky.actor.link/{rkey}',
+            'cid': arroba.util.dag_cbor_cid(link).encode('base32'),
+        } for rkey, link in links.items()], refs)
+
+        self.assertEqual([
+            'at://did:plc:user/app.bsky.actor.profile/self',
+            'at://did:plc:user/app.bsky.actor.link/a',
+            'at://did:plc:user/app.bsky.actor.link/b',
+            'at://did:plc:user/so.sprk.actor.profile/self',
+            f'at://did:plc:user/app.bsky.actor.link/{new_rkey}',
+        ], user.obj.key.get().get_copies(ATProto))
 
         mock_create_task.assert_called()  # atproto-commit
 
@@ -3240,14 +3919,23 @@ Sed tortor neque, aliquet quis posuere aliquam, imperdiet sitamet […]
                     },
                 },
             },
+            'so.sprk.actor.profile': {
+                'self': {
+                    '$type': 'so.sprk.actor.profile',
+                    'displayName': 'fooey',
+                    'description': '🌉 bridged from 🤡 web:fake:user by https://fed.brid.gy/',
+                },
+            },
             'app.bsky.feed.post': {
                 last_tid: {
                     '$type': 'app.bsky.feed.post',
                     'text': 'My pinned post',
                 },
             },
-        }, repo.get_contents(), ignore=['bridgyOriginalText', 'bridgyOriginalUrl',
-                                        'createdAt', 'labels', 'cid'])
+        }, repo.get_contents(), ignore=[
+            'bridgyOriginalText', 'bridgyOriginalUrl',
+            'community.lexicon.meta.links', 'createdAt', 'labels', 'cid',
+        ])
 
         ndb.context.get_context().clear_cache()
         self.assertIsNotNone(Object.get_by_id('fake:pinned').get_copy(ATProto))
@@ -3318,6 +4006,13 @@ Sed tortor neque, aliquet quis posuere aliquam, imperdiet sitamet […]
                     },
                 },
             },
+            'so.sprk.actor.profile': {
+                'self': {
+                    '$type': 'so.sprk.actor.profile',
+                    'displayName': 'fooey',
+                    'description': '🌉 bridged from 🤡 web:fake:user by https://fed.brid.gy/',
+                },
+            },
             'app.bsky.feed.post': {
                 'existing': {
                     '$type': 'app.bsky.feed.post',
@@ -3325,7 +4020,9 @@ Sed tortor neque, aliquet quis posuere aliquam, imperdiet sitamet […]
                     'createdAt': '2022-01-02T03:04:05.000Z',
                 },
             },
-        }, repo.get_contents(), ignore=['bridgyOriginalUrl', 'labels', 'cid'])
+        }, repo.get_contents(), ignore=[
+            'bridgyOriginalUrl', 'community.lexicon.meta.links', 'labels', 'cid',
+        ])
 
         mock_create_task.assert_called()  # atproto-commit
 
@@ -3370,7 +4067,14 @@ Sed tortor neque, aliquet quis posuere aliquam, imperdiet sitamet […]
                     'description': '🌉 bridged from 🤡 web:fake:user by https://fed.brid.gy/',
                 },
             },
-        }, repo.get_contents(), ignore=['bridgyOriginalUrl', 'labels', 'cid'])
+            'so.sprk.actor.profile': {
+                'self': {
+                    '$type': 'so.sprk.actor.profile',
+                    'displayName': 'fooey',
+                    'description': '🌉 bridged from 🤡 web:fake:user by https://fed.brid.gy/',
+                },
+            },
+        }, repo.get_contents(), ignore=['bridgyOriginalUrl', 'community.lexicon.meta.links', 'labels', 'cid'])
 
         mock_create_task.assert_called()  # atproto-commit
 
@@ -3406,7 +4110,8 @@ Sed tortor neque, aliquet quis posuere aliquam, imperdiet sitamet […]
                 'content': 'nope',
             },
         })
-        self.assertFalse(ATProto.send(update, 'https://bsky.brid.gy'))
+        self.assertFalse(ATProto.send(update, 'https://bsky.brid.gy',
+                                      from_user=self.user))
 
         # check repo, record
         did = self.user.key.get().get_copy(ATProto)
@@ -3465,13 +4170,66 @@ Sed tortor neque, aliquet quis posuere aliquam, imperdiet sitamet […]
         })
         self.assertTrue(ATProto.send(delete, 'https://bsky.brid.gy/'))
 
-        # check repo, record
-        did = self.user.key.get().get_copy(ATProto)
-        repo = self.storage.load_repo(did)
-        last_tid = arroba.util.int_to_tid(arroba.util._tid_ts_last)
-        self.assertIsNone(repo.get_record('app.bsky.feed.post', last_tid))
+        # both records should be deleted
+        repo = self.storage.load_repo('did:plc:user')
+        self.assertEqual({}, repo.get_contents().get('app.bsky.feed.post', {}))
 
         mock_create_task.assert_called()  # atproto-commit
+
+    @patch.object(tasks_client, 'create_task', return_value=Task(name='my task'))
+    @patch.object(util.session, 'get', return_value=requests_response(
+        'blob contents', content_type='image/png'))
+    def test_send_update_note_with_more_images(self, _, __):
+        self.make_user_and_repo()
+
+        note = {**NOTE_AS, 'image': ['http://pic/0']}
+        self.assertTrue(ATProto.send(Object(id='fake:post', source_protocol='fake',
+                                            our_as1=note), 'https://bsky.brid.gy'))
+        orig_copies = Object.get_by_id('fake:post').get_copies(ATProto)
+        self.assertEqual([
+            'app.bsky.feed.post',
+            'so.sprk.feed.post',
+        ], [arroba.util.parse_at_uri(copy)[1] for copy in orig_copies])
+
+        update = Object(id='fake:update', source_protocol='fake', our_as1={
+            'objectType': 'activity',
+            'verb': 'update',
+            'object': {**note, 'image': ['http://pic/0', 'http://pic/1']},
+        })
+        self.assertTrue(ATProto.send(update, 'https://bsky.brid.gy'))
+
+        # existing records should be updated in place
+        copies = Object.get_by_id('fake:post').get_copies(ATProto)
+        self.assertEqual(orig_copies, copies)
+
+        contents = self.storage.load_repo('did:plc:user').get_contents()
+        self.assertCountEqual(
+            copies,
+            [f'at://did:plc:user/{coll}/{rkey}'
+             for coll, records in contents.items() for rkey in records])
+
+    @patch.object(tasks_client, 'create_task', return_value=Task(name='my task'))
+    @patch.object(util.session, 'get', return_value=requests_response(
+        'blob contents', content_type='image/png'))
+    def test_send_delete_note_with_images(self, _, __):
+        self.make_user_and_repo()
+
+        note = {**NOTE_AS, 'image': ['http://pic/0', 'http://pic/1']}
+        self.assertTrue(ATProto.send(Object(id='fake:post', source_protocol='fake',
+                                            our_as1=note), 'https://bsky.brid.gy'))
+        self.assertEqual(2, len(Object.get_by_id('fake:post').copies))
+
+        delete = Object(id='fake:delete', source_protocol='fake', our_as1={
+            'objectType': 'activity',
+            'verb': 'delete',
+            'actor': 'fake:user',
+            'object': 'fake:post',
+        })
+        self.assertTrue(ATProto.send(delete, 'https://bsky.brid.gy/'))
+
+        contents = self.storage.load_repo('did:plc:user').get_contents()
+        self.assertEqual({}, {coll: records for coll, records in contents.items()
+                              if records})
 
     @patch.object(tasks_client, 'create_task', return_value=Task(name='my task'))
     def test_send_delete_reply_cant_convert_object(self, _):
@@ -3673,7 +4431,7 @@ Sed tortor neque, aliquet quis posuere aliquam, imperdiet sitamet […]
                          Object.get_by_id(id='fake:repost').copies)
 
         mock_get.assert_called_with(
-            'https://appview.local/xrpc/com.atproto.repo.getRecord?repo=did%3Abo%3Ab&collection=app.bsky.feed.post&rkey=tid',
+            'https://appview.invalid/xrpc/com.atproto.repo.getRecord?repo=did%3Abo%3Ab&collection=app.bsky.feed.post&rkey=tid',
             json=None, data=None, headers=ANY)
         mock_create_task.assert_called()  # atproto-commit
 
@@ -3710,20 +4468,28 @@ Sed tortor neque, aliquet quis posuere aliquam, imperdiet sitamet […]
         })
         self.assertTrue(ATProto.send(obj, 'https://bsky.brid.gy'))
 
-        # check repo, record
+        # check repo, records
         did = user.get_copy(ATProto)
         repo = self.storage.load_repo(did)
-        last_tid = arroba.util.int_to_tid(arroba.util._tid_ts_last)
-        record = repo.get_record('app.bsky.graph.follow', last_tid)
+        bsky_uri, sprk_uri = Object.get_by_id(id='fake:follow').get_copies(ATProto)
+
+        _, _, rkey = arroba.util.parse_at_uri(bsky_uri)
         self.assertEqual({
             '$type': 'app.bsky.graph.follow',
             'subject': 'did:plc:bob',
             'createdAt': '2022-01-02T03:04:05.000Z',
-        }, record)
+        }, repo.get_record('app.bsky.graph.follow', rkey))
 
-        at_uri = f'at://{did}/app.bsky.graph.follow/{last_tid}'
-        self.assertEqual([Target(uri=at_uri, protocol='atproto')],
-                         Object.get_by_id(id='fake:follow').copies)
+        _, _, rkey = arroba.util.parse_at_uri(sprk_uri)
+        self.assertEqual({
+            '$type': 'so.sprk.graph.follow',
+            'subject': 'did:plc:bob',
+            'createdAt': '2022-01-02T03:04:05.000Z',
+            'community.lexicon.meta.links': {
+                '$type': 'community.lexicon.meta.links',
+                'links': [{'href': 'fake:follow', 'rel': 'canonical'}],
+            },
+        }, repo.get_record('so.sprk.graph.follow', rkey))
 
         mock_create_task.assert_called()  # atproto-commit
 
@@ -3777,12 +4543,22 @@ Sed tortor neque, aliquet quis posuere aliquam, imperdiet sitamet […]
         self.assertIsNone(repo.get_record('app.bsky.graph.follow', '123'))
         mock_create_task.assert_called()  # atproto-commit
 
+    def test_send_unfollow_no_from_user(self):
+        obj = Object(id='fake:unfollow', source_protocol='fake', our_as1={
+            'objectType': 'activity',
+            'verb': 'stop-following',
+            'id': 'fake:unfollow',
+            'actor': 'fake:user',
+            'object': 'did:plc:bob',
+        })
+        self.assertFalse(ATProto.send(obj, 'https://bsky.brid.gy'))
+
     @patch.object(tasks_client, 'create_task', return_value=Task(name='my task'))
     def test_send_undo_block_without_id_deletes_all_blocks(self, mock_create_task):
         """Undo of block without id deletes all block records for that subject."""
         user = self.make_user_and_repo()
 
-        # two block records with the same subject
+        # three block records with the same subject
         repo = self.storage.load_repo('did:plc:user')
         self.storage.commit(repo, [
             Write(action=Action.CREATE, collection='app.bsky.graph.block', rkey='a',
@@ -3794,6 +4570,12 @@ Sed tortor neque, aliquet quis posuere aliquam, imperdiet sitamet […]
             Write(action=Action.CREATE, collection='app.bsky.graph.block', rkey='b',
                   record={
                       '$type': 'app.bsky.graph.block',
+                      'subject': 'did:plc:bob',
+                      'createdAt': '2022-01-02T00:00:00.000Z',
+                  }),
+            Write(action=Action.CREATE, collection='so.sprk.graph.block', rkey='c',
+                  record={
+                      '$type': 'so.sprk.graph.block',
                       'subject': 'did:plc:bob',
                       'createdAt': '2022-01-02T00:00:00.000Z',
                   }),
@@ -3813,10 +4595,11 @@ Sed tortor neque, aliquet quis posuere aliquam, imperdiet sitamet […]
         })
         self.assertTrue(ATProto.send(undo, 'https://bsky.brid.gy/'))
 
-        # both block records should be deleted
+        # all block records should be deleted
         repo = self.storage.load_repo('did:plc:user')
         self.assertIsNone(repo.get_record('app.bsky.graph.block', 'a'))
         self.assertIsNone(repo.get_record('app.bsky.graph.block', 'b'))
+        self.assertIsNone(repo.get_record('so.sprk.graph.block', 'c'))
         mock_create_task.assert_called()  # atproto-commit
 
     @patch.object(tasks_client, 'create_task', return_value=Task(name='my task'))
@@ -4146,6 +4929,10 @@ Sed tortor neque, aliquet quis posuere aliquam, imperdiet sitamet […]
             'text': 'foo',
             'bridgyOriginalText': 'foo',
             'bridgyOriginalUrl': 'fake:reply',
+            'community.lexicon.meta.links': {
+                '$type': 'community.lexicon.meta.links',
+                'links': [{'href': 'fake:reply', 'rel': 'canonical'}],
+            },
             'reply': {
                 '$type': 'app.bsky.feed.post#replyRef',
                 'root': {
@@ -4205,7 +4992,7 @@ Sed tortor neque, aliquet quis posuere aliquam, imperdiet sitamet […]
         self.assertEqual({}, repo.get_contents())
 
         mock_post.assert_called_with(
-            'https://mod.service.local/xrpc/com.atproto.moderation.createReport',
+            'https://mod.service.invalid/xrpc/com.atproto.moderation.createReport',
             json={
                 '$type': 'com.atproto.moderation.createReport#input',
                 'reasonType': 'com.atproto.moderation.defs#reasonOther',
@@ -4243,10 +5030,10 @@ Sed tortor neque, aliquet quis posuere aliquam, imperdiet sitamet […]
             'Authorization': ANY,
         }
         mock_get.assert_any_call(
-            'https://chat.local/xrpc/chat.bsky.convo.getConvoForMembers?members=did%3Aplc%3Aalice',
+            'https://chat.invalid/xrpc/chat.bsky.convo.getConvoForMembers?members=did%3Aplc%3Aalice',
             json=None, data=None, headers=headers)
         mock_post.assert_called_with(
-            'https://chat.local/xrpc/chat.bsky.convo.sendMessage',
+            'https://chat.invalid/xrpc/chat.bsky.convo.sendMessage',
             json={
                 'convoId': 'convo123',
                 'message': {
@@ -4278,10 +5065,10 @@ Sed tortor neque, aliquet quis posuere aliquam, imperdiet sitamet […]
         self.assertTrue(ATProto.send(dm, 'https://bsky.brid.gy/'))
 
         mock_get.assert_any_call(
-            'https://chat.local/xrpc/chat.bsky.convo.getConvoForMembers?members=did%3Aplc%3Aalice',
+            'https://chat.invalid/xrpc/chat.bsky.convo.getConvoForMembers?members=did%3Aplc%3Aalice',
             json=None, data=None, headers=ANY)
         mock_post.assert_called_with(
-            'https://chat.local/xrpc/chat.bsky.convo.sendMessage',
+            'https://chat.invalid/xrpc/chat.bsky.convo.sendMessage',
             json={
                 'convoId': 'convo123',
                 'message': {
@@ -4311,7 +5098,7 @@ Sed tortor neque, aliquet quis posuere aliquam, imperdiet sitamet […]
         self.assertFalse(ATProto.send(dm, 'https://bsky.brid.gy/'))
 
         mock_get.assert_any_call(
-            'https://chat.local/xrpc/chat.bsky.convo.getConvoForMembers?members=did%3Aplc%3Aalice',
+            'https://chat.invalid/xrpc/chat.bsky.convo.getConvoForMembers?members=did%3Aplc%3Aalice',
             json=None, data=None, headers=ANY)
 
     @patch.object(util.session, 'get', return_value=requests_response({
@@ -4330,7 +5117,7 @@ Sed tortor neque, aliquet quis posuere aliquam, imperdiet sitamet […]
         self.assertFalse(ATProto.send(dm, 'https://bsky.brid.gy/'))
 
         mock_get.assert_any_call(
-            'https://chat.local/xrpc/chat.bsky.convo.getConvoForMembers?members=did%3Aplc%3Aalice',
+            'https://chat.invalid/xrpc/chat.bsky.convo.getConvoForMembers?members=did%3Aplc%3Aalice',
             json=None, data=None, headers=ANY)
 
     def test_send_object_without_id(self):
@@ -4393,7 +5180,7 @@ Sed tortor neque, aliquet quis posuere aliquam, imperdiet sitamet […]
             repo='did:plc:user', collection='co.l.l', rkey='post'))
 
         mock_get.assert_called_with(
-            'https://appview.local/xrpc/com.atproto.repo.getRecord?repo=did%3Aplc%3Auser&collection=co.l.l&rkey=post',
+            'https://some.pds/xrpc/com.atproto.repo.getRecord?repo=did%3Aplc%3Auser&collection=co.l.l&rkey=post',
             json=None, data=None, headers=ANY)
 
     @patch.object(util.session, 'get', return_value=requests_response(NOTE_BSKY_RECORD))
@@ -4409,7 +5196,7 @@ Sed tortor neque, aliquet quis posuere aliquam, imperdiet sitamet […]
                            source_protocol='atproto')
 
         mock_get.assert_called_with(
-            'https://appview.local/xrpc/com.atproto.repo.getRecord?repo=did%3Aplc%3Auser&collection=co.l.l&rkey=post',
+            'https://some.pds/xrpc/com.atproto.repo.getRecord?repo=did%3Aplc%3Auser&collection=co.l.l&rkey=post',
             json=None, data=None, headers=ANY)
 
     @patch.object(util.session, 'get', return_value=requests_response(status=404))
@@ -4422,19 +5209,42 @@ Sed tortor neque, aliquet quis posuere aliquam, imperdiet sitamet […]
             repo='did:plc:user', collection='co.l.l', rkey='post'))
 
         mock_get.assert_called_with(
-            'https://appview.local/xrpc/com.atproto.repo.getRecord?repo=did%3Aplc%3Auser&collection=co.l.l&rkey=post',
+            'https://some.pds/xrpc/com.atproto.repo.getRecord?repo=did%3Aplc%3Auser&collection=co.l.l&rkey=post',
             json=None, data=None, headers=ANY)
 
     @patch.object(util.session, 'get', side_effect=HTTPError(
         response=requests_response(status=500)))
     def test_datastore_client_get_record_pass_through_fails(self, mock_get):
+        self.store_object(id='did:plc:user', raw=DID_DOC)  # uses https://some.pds
+
         client = DatastoreClient()
         self.assertEqual({}, client.com.atproto.repo.getRecord(
             repo='did:plc:user', collection='co.l.l', rkey='post'))
 
         mock_get.assert_called_with(
-            'https://appview.local/xrpc/com.atproto.repo.getRecord?repo=did%3Aplc%3Auser&collection=co.l.l&rkey=post',
+            'https://some.pds/xrpc/com.atproto.repo.getRecord?repo=did%3Aplc%3Auser&collection=co.l.l&rkey=post',
             json=None, data=None, headers=ANY)
+
+    @patch.object(util.session, 'get')
+    def test_datastore_client_get_record_web_monetization_not_remote(self, mock_get):
+        self.store_object(id='did:plc:user', raw=DID_DOC)
+
+        client = DatastoreClient()
+        self.assertEqual({}, client.com.atproto.repo.getRecord(
+            repo='did:plc:user', rkey='self',
+            collection='community.lexicon.payments.webMonetization'))
+        mock_get.assert_not_called()
+
+        wallet = {
+            '$type': 'community.lexicon.payments.webMonetization',
+            'address': 'http://wal/let',
+        }
+        self.store_object(
+            id='at://did:plc:user/community.lexicon.payments.webMonetization/self',
+            bsky=wallet)
+        self.assertEqual(wallet, client.com.atproto.repo.getRecord(
+            repo='did:plc:user', rkey='self',
+            collection='community.lexicon.payments.webMonetization')['value'])
 
     def test_datastore_client_resolve_handle_datastore_user(self):
         self.store_object(id='did:plc:user', raw=DID_DOC)
@@ -4466,7 +5276,7 @@ Sed tortor neque, aliquet quis posuere aliquam, imperdiet sitamet […]
                          client.com.atproto.identity.resolveHandle(handle='han.dull.fa.brid.gy'))
 
         mock_get.assert_called_with(
-            'https://appview.local/xrpc/com.atproto.identity.resolveHandle?handle=han.dull.fa.brid.gy',
+            'https://appview.invalid/xrpc/com.atproto.identity.resolveHandle?handle=han.dull.fa.brid.gy',
             json=None, data=None, headers=ANY)
 
     @patch.object(util.session, 'get')
@@ -4483,7 +5293,7 @@ Sed tortor neque, aliquet quis posuere aliquam, imperdiet sitamet […]
         self.assertEqual(output, client.com.atproto.repo.describeRepo(repo='y.z'))
 
         mock_get.assert_called_with(
-            'https://appview.local/xrpc/com.atproto.repo.describeRepo?repo=y.z',
+            'https://appview.invalid/xrpc/com.atproto.repo.describeRepo?repo=y.z',
             json=None, data=None, headers=ANY)
 
     def test_datastore_client_remote_False_get_record(self):
@@ -4522,7 +5332,7 @@ Sed tortor neque, aliquet quis posuere aliquam, imperdiet sitamet […]
         self.assert_equals(200, resp.status_code)
 
         mock_get.assert_called_with(
-            'https://chat.local/xrpc/chat.bsky.convo.getLog?cursor=kursur',
+            'https://chat.invalid/xrpc/chat.bsky.convo.getLog?cursor=kursur',
             json=None, data=None, headers=ANY)
         self.assertEqual('neckst', fa.key.get().atproto_last_chat_log_cursor)
         mock_create_task.assert_not_called()
@@ -4564,10 +5374,10 @@ Sed tortor neque, aliquet quis posuere aliquam, imperdiet sitamet […]
         self.assert_equals(200, resp.status_code)
 
         mock_get.assert_any_call(
-            'https://chat.local/xrpc/chat.bsky.convo.getLog?cursor=kursur',
+            'https://chat.invalid/xrpc/chat.bsky.convo.getLog?cursor=kursur',
             json=None, data=None, headers=ANY)
         mock_get.assert_any_call(
-            'https://chat.local/xrpc/chat.bsky.convo.getLog?cursor=neckst',
+            'https://chat.invalid/xrpc/chat.bsky.convo.getLog?cursor=neckst',
             json=None, data=None, headers=ANY)
         self.assertEqual('dunn', fa.key.get().atproto_last_chat_log_cursor)
         mock_create_task.assert_not_called()
@@ -4675,13 +5485,13 @@ Sed tortor neque, aliquet quis posuere aliquam, imperdiet sitamet […]
         self.assert_equals(200, resp.status_code)
 
         mock_get.assert_any_call(
-            'https://chat.local/xrpc/chat.bsky.convo.getLog?cursor=kursur',
+            'https://chat.invalid/xrpc/chat.bsky.convo.getLog?cursor=kursur',
             json=None, data=None, headers=ANY)
         mock_get.assert_any_call(
-            'https://chat.local/xrpc/chat.bsky.convo.getLog?cursor=neckst',
+            'https://chat.invalid/xrpc/chat.bsky.convo.getLog?cursor=neckst',
             json=None, data=None, headers=ANY)
         mock_get.assert_any_call(
-            'https://chat.local/xrpc/chat.bsky.convo.getLog?cursor=moar',
+            'https://chat.invalid/xrpc/chat.bsky.convo.getLog?cursor=moar',
             json=None, data=None, headers=ANY)
 
         self.assertEqual(3, mock_create_task.call_count)
@@ -4824,18 +5634,28 @@ Sed tortor neque, aliquet quis posuere aliquam, imperdiet sitamet […]
         resp = self.get('/.well-known/site.standard.publication')
         self.assert_equals(400, resp.status_code)
 
-    def test_oauth(self):
-        resp = self.get('/.well-known/oauth-protected-resource')
-        self.assertEqual(404, resp.status_code)
+    def test_oauth_client_metadata(self):
+        self._test_oauth_client_metadata()
 
-    def test_bluesky_oauth_client_metadata(self):
-        self._test_bluesky_oauth_client_metadata()
+    def test_oauth_client_metadata_forged_host(self):
+        self._test_oauth_client_metadata(headers={'Host': 'evil.example'})
 
-    def test_bluesky_oauth_client_metadata_forged_host(self):
-        self._test_bluesky_oauth_client_metadata(headers={'Host': 'evil.example'})
+    def test_oauth_client_metadata_pinned_to_primary_domain(self):
+        """Always uses PRIMARY_DOMAIN, even on other prod subdomains, so that
+        there's a single ATProto OAuth client id and tokens work everywhere,
+        eg for callers like mastodon_oauth's proxy login that don't canonicalize
+        their route to PRIMARY_DOMAIN.
+        """
+        self.request_context.pop()
+        self.request_context = app.test_request_context(
+            base_url='https://bsky.brid.gy')
+        self.request_context.push()
+
+        self._test_oauth_client_metadata()
 
     @patch('domains.DEBUG', False)
-    def _test_bluesky_oauth_client_metadata(self, **kwargs):
+    @patch('domains.LOCAL_SERVER', False)
+    def _test_oauth_client_metadata(self, **kwargs):
         resp = self.get('/oauth/bluesky/client-metadata.json', **kwargs)
         self.assertEqual(200, resp.status_code)
         self.assert_equals({
@@ -4845,7 +5665,10 @@ Sed tortor neque, aliquet quis posuere aliquam, imperdiet sitamet […]
             'client_uri': 'https://fed.brid.gy/',
             'dpop_bound_access_tokens': True,
             'grant_types': ['authorization_code', 'refresh_token'],
-            'redirect_uris': ['https://fed.brid.gy/oauth/bluesky/finish'],
+            'redirect_uris': [
+                'https://fed.brid.gy/oauth/bluesky/finish',
+                'https://fed.brid.gy/oauth/authorize/atproto/finish',
+            ],
             'response_types': ['code'],
             'scope': 'atproto transition:generic',
             'token_endpoint_auth_method': 'none',

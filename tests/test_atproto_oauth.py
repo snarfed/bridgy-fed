@@ -1,0 +1,1161 @@
+"""Unit tests for atproto_oauth.py."""
+import os
+import secrets
+import time
+from unittest.mock import patch
+from urllib.parse import parse_qs, urlencode, urlparse
+
+from arroba.repo import Repo
+import arroba.server
+from authlib.oauth2.rfc7636 import create_s256_code_challenge
+from authlib.oauth2.rfc9449.validator import hash_access_token
+from cryptography.hazmat.primitives.asymmetric import ec, rsa
+from joserfc import jwt as joserfc_jwt
+from joserfc.jwk import ECKey, RSAKey
+from webutil import util
+from webutil.testutil import requests_response
+from webutil.util import json_dumps
+from werkzeug.exceptions import HTTPException
+
+from .testutil import ATPROTO_KEY, OAUTH_ES256_KEY, TestCase
+import atproto_oauth
+import common
+from flask_app import app
+from models import Target
+from web import Web
+
+DID = 'did:plc:alice'
+# a method we don't implement ourselves, so it gets service proxied
+CLIENT_ID = 'https://app.example/client-metadata.json'
+REDIRECT_URI = 'https://app.example/callback'
+CLIENT_METADATA = {
+    'client_id': CLIENT_ID,
+    'client_uri': 'https://app.example/home',
+    'client_name': 'My App',
+    'redirect_uris': [REDIRECT_URI],
+    'response_types': ['code'],
+    'grant_types': ['authorization_code', 'refresh_token'],
+    'scope': 'atproto transition:generic',
+    'token_endpoint_auth_method': 'none',
+    'application_type': 'web',
+    'dpop_bound_access_tokens': True,
+}
+# client that asks for granular permission scopes
+GRANULAR_METADATA = {
+    **CLIENT_METADATA,
+    'scope': f'atproto repo:app.bsky.feed.like identity:handle rpc:app.bsky.feed.getTimeline?aud=did:web:ho.st%23svc blob:image/*',
+}
+# confidential client, which authenticates with a private_key_jwt assertion
+CONFIDENTIAL_CLIENT_ID = 'https://conf.example/client-metadata.json'
+CONFIDENTIAL_METADATA = {
+    **CLIENT_METADATA,
+    'client_id': CONFIDENTIAL_CLIENT_ID,
+    'client_name': 'Confidential App',
+    'token_endpoint_auth_method': 'private_key_jwt',
+    'token_endpoint_auth_signing_alg': 'ES256',
+    'jwks': {
+        'keys': [{
+            **ECKey.import_key(OAUTH_ES256_KEY).as_dict(private=False),
+            'kid': 'kee',
+            'use': 'sig',
+            'alg': 'ES256',
+        }],
+    },
+}
+
+# same confidential client, but publishing its keys at a jwks_uri
+JWKS_URI = 'https://conf.example/jwks.json'
+CONFIDENTIAL_JWKS_URI_METADATA = {**CONFIDENTIAL_METADATA, 'jwks_uri': JWKS_URI}
+CONFIDENTIAL_JWKS_URI_METADATA.pop('jwks')
+
+# PKCE, https://datatracker.ietf.org/doc/html/rfc7636
+CODE_VERIFIER = 'abcdefghijklmnopqrstuvwxyz012345678901234567890'
+
+# for clients that sign their DPoP proofs with RS256 instead of ES256
+OAUTH_RS256_KEY = rsa.generate_private_key(public_exponent=65537, key_size=2048)
+
+
+
+def dpop_proof(method, url, nonce=None, key=OAUTH_ES256_KEY, alg='ES256', **claims):
+    """Mints a DPoP proof JWT, like a real client would.
+
+    https://datatracker.ietf.org/doc/html/rfc9449#section-4.2
+    """
+    key = (RSAKey if alg.startswith('RS') else ECKey).import_key(key)
+    # algorithms, since joserfc won't sign with an alg it doesn't recommend
+    return joserfc_jwt.encode({
+        'alg': alg,
+        'typ': 'dpop+jwt',
+        'jwk': key.as_dict(private=False),
+    }, {
+        'jti': secrets.token_urlsafe(16),
+        'htm': method,
+        'htu': url,
+        'iat': int(time.time()),
+        **({'nonce': nonce} if nonce else {}),
+        **claims,
+    }, key, algorithms=[alg])
+
+
+@patch.object(common, 'BETA_USER_IDS', ('alice.com',))
+class ATProtoOAuthTest(TestCase):
+
+    def setUp(self):
+        super().setUp()
+        self.user = self.make_user(
+            'alice.com', cls=Web, enabled_protocols=['atproto'],
+            copies=[Target(protocol='atproto', uri=DID)])
+
+    def par_raw(self, nonce=None, dpop=True, key=OAUTH_ES256_KEY, alg='ES256',
+                path='/oauth/atproto/par', json=False, **params):
+        """Makes a single pushed authorization request, no nonce retry."""
+        headers = {}
+        if dpop:
+            headers = {
+                'DPoP': dpop_proof(
+                    'POST', f'https://atproto.brid.gy{path}',
+                    nonce=nonce, key=key, alg=alg),
+            }
+
+        body = {
+            'response_type': 'code',
+            'client_id': CLIENT_ID,
+            'redirect_uri': REDIRECT_URI,
+            'scope': 'atproto',
+            'state': 'xyz',
+            'code_challenge': create_s256_code_challenge(CODE_VERIFIER),
+            'code_challenge_method': 'S256',
+            **params,
+        }
+        return self.client.post(path, base_url='https://atproto.brid.gy/',
+                                headers=headers,
+                                **({'json': body} if json else {'data': body}))
+
+    def par(self, **kwargs):
+        """Makes a pushed authorization request, retrying with the DPoP nonce.
+
+        Server-provided nonces are mandatory in ATProto, so real clients always
+        make this second request.
+        """
+        resp = self.par_raw(**kwargs)
+        if resp.status_code == 400 and resp.json.get('error') == 'use_dpop_nonce':
+            resp = self.par_raw(nonce=resp.headers['DPoP-Nonce'], **kwargs)
+
+        return resp
+
+    def test_metadata(self):
+        resp = self.client.get('/.well-known/oauth-authorization-server',
+                               base_url='https://atproto.brid.gy/')
+        self.assertEqual(200, resp.status_code, resp.get_data(as_text=True))
+        self.assert_equals({
+            'issuer': 'https://atproto.brid.gy',
+            'authorization_endpoint': 'https://atproto.brid.gy/oauth/atproto/authorize',
+            'token_endpoint': 'https://atproto.brid.gy/oauth/atproto/token',
+            'pushed_authorization_request_endpoint': 'https://atproto.brid.gy/oauth/atproto/par',
+            'require_pushed_authorization_requests': True,
+            'response_types_supported': ['code'],
+            'response_modes_supported': ['query', 'fragment'],
+            'grant_types_supported': ['authorization_code', 'refresh_token'],
+            'code_challenge_methods_supported': ['S256'],
+            'token_endpoint_auth_methods_supported': ['none', 'private_key_jwt'],
+            'token_endpoint_auth_signing_alg_values_supported': ['ES256'],
+            'dpop_signing_alg_values_supported': ['ES256', 'RS256'],
+            'scopes_supported': ['atproto', 'transition:generic'],
+            'authorization_response_iss_parameter_supported': True,
+            'client_id_metadata_document_supported': True,
+        }, resp.json)
+
+    def test_oauth_protected_resource(self):
+        """atproto.brid.gy is our PDS, so it serves real metadata there."""
+        resp = self.client.get('/.well-known/oauth-protected-resource',
+                               base_url='https://atproto.brid.gy/')
+        self.assertEqual(200, resp.status_code)
+        self.assertEqual('application/json', resp.headers['Content-Type'])
+        self.assert_equals({
+            'resource': 'https://atproto.brid.gy',
+            'authorization_servers': ['https://atproto.brid.gy'],
+            'scopes_supported': ['atproto', 'transition:generic'],
+            'bearer_methods_supported': ['header'],
+        }, resp.json)
+
+    def test_oauth_protected_resource_other_host(self):
+        resp = self.client.get('/.well-known/oauth-protected-resource',
+                               base_url='https://web.brid.gy/')
+        self.assertEqual(404, resp.status_code)
+
+    def test_localhost_client_scope(self):
+        """The localhost dev client gets all our scopes unless it asks for some."""
+        resolve = atproto_oauth.ClientIdMetadataDocument(
+            allow_loopback=True).resolve_client_id_metadata_document
+        self.assertEqual('atproto transition:generic',
+                         resolve('http://localhost').scope)
+        self.assertEqual('atproto', resolve('http://localhost?scope=atproto').scope)
+
+    @patch.object(util.session, 'get',
+                  return_value=requests_response(json_dumps(CLIENT_METADATA)))
+    def test_par_scope_missing_atproto(self, _):
+        resp = self.par(scope='transition:generic')
+        self.assertEqual(400, resp.status_code, resp.get_data(as_text=True))
+        self.assertEqual('invalid_scope', resp.json['error'])
+
+    @patch.object(util.session, 'get',
+                  return_value=requests_response(json_dumps(GRANULAR_METADATA)))
+    def test_par_scope_unsupported_dropped(self, _):
+        """Scopes we don't support don't fail the request, they're just dropped."""
+        resp = self.par(scope='atproto identity:handle')
+        self.assertEqual(201, resp.status_code, resp.get_data(as_text=True))
+
+    def test_metadata_other_host_is_still_mastodon(self):
+        """Only our PDS host serves the ATProto authorization server."""
+        resp = self.client.get('/.well-known/oauth-authorization-server',
+                               base_url='https://web.brid.gy/')
+        self.assertEqual(200, resp.status_code)
+        self.assertEqual('https://web.brid.gy/oauth/authorize',
+                         resp.json['authorization_endpoint'])
+        self.assertNotIn('pushed_authorization_request_endpoint', resp.json)
+
+    @patch.object(util.session, 'get',
+                  return_value=requests_response(json_dumps(CLIENT_METADATA)))
+    def test_par(self, _):
+        """The client's metadata document is fetched at its client_id URL."""
+        resp = self.par()
+        self.assertEqual(201, resp.status_code,
+                         (resp.get_data(as_text=True), dict(resp.headers)))
+        self.assertTrue(resp.json['request_uri'].startswith(
+            'urn:ietf:params:oauth:request_uri:'), resp.json)
+        self.assertEqual(600, resp.json['expires_in'])
+
+    @patch.object(util.session, 'get',
+                  return_value=requests_response(json_dumps(CLIENT_METADATA)))
+    def test_par_json_body(self, _):
+        """RFC 9126 requires form encoding, but some clients post JSON anyway.
+
+        eg @atcute/oauth-browser-client, which pdsls uses. The Mastodon API
+        genuinely uses JSON, so we already accept it there.
+        """
+        resp = self.par(json=True)
+        self.assertEqual(201, resp.status_code, resp.get_data(as_text=True))
+        self.assertTrue(resp.json['request_uri'])
+
+    @patch.object(util.session, 'get',
+                  return_value=requests_response(json_dumps(CLIENT_METADATA)))
+    @patch.object(util.session, 'post',
+                  return_value=requests_response('me=https://alice.com'))
+    def test_reference_pds_paths(self, *_):
+        """Some clients ignore our metadata and hardcode the reference PDS's paths.
+
+        The authorize leg is covered by
+        :meth:`test_authorize_reference_pds_path_on_pds_host`.
+        """
+        resp = self.par(path='/oauth/par')
+        self.assertTrue(resp.headers['DPoP-Nonce'])
+        resp = self.login(resp.json['request_uri'])
+        code = parse_qs(urlparse(resp.headers['Location']).query)['code'][0]
+
+        resp = self.token(code=code, path='/oauth/token')
+        self.assertEqual(200, resp.status_code, resp.get_data(as_text=True))
+        self.assertEqual(DID, resp.json['sub'])
+        self.assertTrue(resp.headers['DPoP-Nonce'])
+
+    def test_par_reference_path_on_atproto_brid_gy(self):
+        """Mastodon OAuth has no PAR endpoint, so this path is ours alone."""
+        resp = self.client.post('/oauth/par', base_url='https://web.brid.gy/')
+        self.assertEqual(404, resp.status_code)
+
+    @patch.object(util.session, 'get',
+                  return_value=requests_response(json_dumps(CLIENT_METADATA)))
+    def test_authorize_unknown_request_uri(self, _):
+        qs = urlencode({'client_id': CLIENT_ID,
+                        'request_uri': 'urn:ietf:params:oauth:request_uri:nope'})
+        resp = self.client.get(f'/oauth/atproto/authorize?{qs}',
+                               base_url='https://fed.brid.gy/')
+        self.assertEqual(400, resp.status_code, resp.get_data(as_text=True))
+        self.assertEqual('invalid_request_uri', resp.json['error'])
+
+    @patch.object(util.session, 'get',
+                  return_value=requests_response(json_dumps(CLIENT_METADATA)))
+    def test_par_requires_dpop_nonce(self, _):
+        """Server-provided DPoP nonces are mandatory in ATProto."""
+        resp = self.par_raw()
+        self.assertEqual(400, resp.status_code)
+        self.assertEqual('use_dpop_nonce', resp.json['error'])
+        self.assertTrue(resp.headers['DPoP-Nonce'])
+
+    @patch.object(util.session, 'get',
+                  return_value=requests_response(json_dumps(CLIENT_METADATA)))
+    @patch.object(util.session, 'post',
+                  return_value=requests_response('me=https://alice.com'))
+    def test_par_without_dpop(self, *_):
+        """RFC 9449 makes DPoP optional at PAR, and some clients skip it, eg OpenVibe.
+
+        The code is bound to the key from the token request instead.
+        """
+        resp = self.par(dpop=False)
+        self.assertEqual(201, resp.status_code, resp.get_data(as_text=True))
+        self.assertTrue(resp.headers['DPoP-Nonce'])
+
+        resp = self.login(resp.json['request_uri'])
+        code = parse_qs(urlparse(resp.headers['Location']).query)['code'][0]
+
+        resp = self.token(code=code)
+        self.assertEqual(200, resp.status_code, resp.get_data(as_text=True))
+        self.assertEqual(DID, resp.json['sub'])
+
+    @patch.object(util.session, 'get',
+                  return_value=requests_response(json_dumps(CLIENT_METADATA)))
+    @patch.object(util.session, 'post',
+                  return_value=requests_response('me=https://alice.com'))
+    def test_dpop_proof_rs256(self, *_):
+        """ATProto requires ES256 and allows other algs we advertise, eg RS256.
+
+        A proof carries its whole public key in its JOSE header, so an RSA key
+        makes that header much bigger than an EC one. Frontpage signs with RS256.
+        """
+        resp = self.par(key=OAUTH_RS256_KEY, alg='RS256')
+        self.assertEqual(201, resp.status_code, resp.get_data(as_text=True))
+
+        resp = self.login(resp.json['request_uri'])
+        code = parse_qs(urlparse(resp.headers['Location']).query)['code'][0]
+
+        resp = self.token(code=code, key=OAUTH_RS256_KEY, alg='RS256')
+        self.assertEqual(200, resp.status_code, resp.get_data(as_text=True))
+        self.assertEqual(DID, resp.json['sub'])
+
+    @patch.object(util.session, 'get',
+                  return_value=requests_response(json_dumps(CLIENT_METADATA)))
+    def test_dpop_proof_unsupported_alg(self, _):
+        """The error should name the alg, not say the proof is malformed."""
+        resp = self.par(key=OAUTH_RS256_KEY, alg='RS384')
+        self.assertEqual(400, resp.status_code)
+        self.assertEqual('invalid_dpop_proof', resp.json['error'])
+        self.assertIn('alg', resp.json['error_description'])
+
+    @patch.object(util.session, 'get',
+                  return_value=requests_response(json_dumps(CLIENT_METADATA)))
+    @patch.object(util.session, 'post',
+                  return_value=requests_response('me=https://alice.com'))
+    def test_par_without_dpop_binds_dpop_jkt_param(self, *_):
+        """Without a proof, the dpop_jkt param binds the code instead.
+
+        https://datatracker.ietf.org/doc/html/rfc9449#section-10
+        """
+        jkt = ECKey.import_key(OAUTH_ES256_KEY).thumbprint()
+        request_uri = self.par(dpop=False, dpop_jkt=jkt).json['request_uri']
+        resp = self.login(request_uri)
+        code = parse_qs(urlparse(resp.headers['Location']).query)['code'][0]
+
+        other_key = ec.generate_private_key(ec.SECP256R1())
+        resp = self.token(code=code, key=other_key)
+        self.assertEqual(400, resp.status_code)
+        self.assertEqual('invalid_grant', resp.json['error'])
+
+    @patch.object(util.session, 'get', side_effect=[
+        requests_response('', status=503),
+        requests_response(json_dumps(CLIENT_METADATA)),
+    ])
+    def test_client_metadata_fetch_failure_isnt_cached(self, _):
+        """A transient failure must not be cached, or it locks the client out."""
+        resp = self.par()
+        self.assertEqual(400, resp.status_code)
+        self.assertEqual('invalid_client_metadata_document', resp.json['error'])
+
+        # the client's server has recovered, so we should fetch it again
+        resp = self.par()
+        self.assertEqual(201, resp.status_code, resp.get_data(as_text=True))
+
+    #
+    # full authorization code flow, via IndieAuth passthrough
+    #
+    def login(self, request_uri, me='https://alice.com'):
+        """Runs a full IndieAuth login, returns the finish response."""
+        qs = urlencode({'client_id': CLIENT_ID, 'request_uri': request_uri})
+        resp = self.client.get(f'/oauth/atproto/authorize?{qs}',
+                               base_url='https://atproto.brid.gy/')
+        self.assertEqual(302, resp.status_code, resp.get_data(as_text=True))
+        self.assertEqual(f'https://fed.brid.gy/oauth/atproto/authorize?{qs}',
+                         resp.headers['Location'])
+
+        resp = self.client.get(f'/oauth/atproto/authorize?{qs}',
+                               base_url='https://fed.brid.gy/')
+        self.assertEqual(200, resp.status_code, resp.get_data(as_text=True))
+
+        resp = self.client.post(f'/oauth/atproto/authorize/indieauth/start',
+                                base_url='https://fed.brid.gy/',
+                                data={'me': me, 'state': qs})
+        self.assertEqual(302, resp.status_code, resp.get_data(as_text=True))
+
+        state = parse_qs(urlparse(resp.headers['Location']).query)['state'][0]
+        return self.client.get(
+            f'/oauth/atproto/authorize/indieauth/finish?code=my_code&state={state}&iss=https://indielogin.com/',
+            base_url='https://fed.brid.gy/')
+
+    @patch.object(util.session, 'get',
+                  return_value=requests_response(json_dumps(CLIENT_METADATA)))
+    @patch.object(util.session, 'post',
+                  return_value=requests_response('me=https://alice.com'))
+    def test_response_mode_fragment(self, *_):
+        """We advertise fragment in response_modes_supported, so it must work."""
+        request_uri = self.par(response_mode='fragment').json['request_uri']
+        resp = self.login(request_uri)
+        self.assertEqual(302, resp.status_code, resp.get_data(as_text=True))
+
+        location = urlparse(resp.headers['Location'])
+        self.assertEqual('', location.query)
+        params = parse_qs(location.fragment)
+        self.assertEqual(['code', 'iss', 'state'], sorted(params.keys()))
+        self.assertEqual(['xyz'], params['state'])
+        self.assertEqual(['https://atproto.brid.gy'], params['iss'])
+
+    def token_raw(self, nonce=None, key=OAUTH_ES256_KEY, alg='ES256',
+                  path='/oauth/atproto/token', **params):
+        proof = dpop_proof('POST', f'https://atproto.brid.gy{path}',
+                           nonce=nonce, key=key, alg=alg)
+        return self.client.post(path, base_url='https://atproto.brid.gy/', data={
+            'grant_type': 'authorization_code',
+            'client_id': CLIENT_ID,
+            'redirect_uri': REDIRECT_URI,
+            'code_verifier': CODE_VERIFIER,
+            **params,
+        }, headers={
+            'DPoP': proof,
+        })
+
+    def token(self, **kwargs):
+        """Exchanges a code for a token, retrying with the DPoP nonce."""
+        resp = self.token_raw(**kwargs)
+        if resp.status_code == 400 and resp.json.get('error') == 'use_dpop_nonce':
+            resp = self.token_raw(nonce=resp.headers['DPoP-Nonce'], **kwargs)
+
+        return resp
+
+    @patch.object(util.session, 'get',
+                  return_value=requests_response(json_dumps(CLIENT_METADATA)))
+    @patch.object(util.session, 'post',
+                  return_value=requests_response('me=https://alice.com'))
+    def test_authorization_code_flow(self, *_):
+        request_uri = self.par().json['request_uri']
+
+        resp = self.login(request_uri)
+        self.assertEqual(302, resp.status_code, resp.get_data(as_text=True))
+
+        location = urlparse(resp.headers['Location'])
+        self.assertEqual('app.example', location.netloc)
+        params = parse_qs(location.query)
+        self.assertEqual(['xyz'], params['state'])
+        # ATProto requires the iss parameter, RFC 9207
+        self.assertEqual(['https://atproto.brid.gy'], params['iss'])
+
+        resp = self.token(code=params['code'][0])
+        self.assertEqual(200, resp.status_code, resp.get_data(as_text=True))
+        self.assertEqual(DID, resp.json['sub'])
+        self.assertEqual('DPoP', resp.json['token_type'])
+        self.assertEqual('atproto', resp.json['scope'])
+        self.assertTrue(resp.json['access_token'])
+        self.assertTrue(resp.json['refresh_token'])
+
+    @patch.object(util.session, 'get',
+                  return_value=requests_response(json_dumps(CLIENT_METADATA)))
+    @patch.object(util.session, 'post',
+                  return_value=requests_response('me=https://alice.com'))
+    def test_token_with_different_dpop_key_rejected(self, *_):
+        """The code is bound to the key from PAR; another key can't redeem it."""
+        request_uri = self.par().json['request_uri']
+        resp = self.login(request_uri)
+        code = parse_qs(urlparse(resp.headers['Location']).query)['code'][0]
+
+        other_key = ec.generate_private_key(ec.SECP256R1())
+        resp = self.token(code=code, key=other_key)
+        self.assertEqual(400, resp.status_code)
+        self.assertEqual('invalid_grant', resp.json['error'])
+
+    @patch.object(util.session, 'get',
+                  return_value=requests_response(json_dumps(CLIENT_METADATA)))
+    def test_dpop_proof_replay_rejected(self, _):
+        proof = dpop_proof('POST', 'https://atproto.brid.gy/oauth/atproto/par',
+                           nonce=self.par_raw().headers['DPoP-Nonce'])
+
+        post = lambda: self.client.post('/oauth/atproto/par',
+                                        base_url='https://atproto.brid.gy/',
+                                        data={
+            'response_type': 'code',
+            'client_id': CLIENT_ID,
+            'redirect_uri': REDIRECT_URI,
+            'scope': 'atproto',
+            'code_challenge': create_s256_code_challenge(CODE_VERIFIER),
+            'code_challenge_method': 'S256',
+        }, headers={'DPoP': proof})
+
+        self.assertEqual(201, post().status_code)
+
+        resp = post()
+        self.assertEqual(400, resp.status_code)
+        self.assertEqual('invalid_dpop_proof', resp.json['error'])
+
+    def test_authorize_redirects_to_primary_domain(self):
+        """The login leg runs on fed.brid.gy, where the user's logins live.
+
+        No client metadata fetch is mocked here, so this also checks that we
+        redirect before doing any OAuth work.
+        """
+        qs = urlencode({'client_id': CLIENT_ID, 'request_uri': 'urn:foo'})
+        resp = self.client.get(f'/oauth/atproto/authorize?{qs}',
+                               base_url='https://atproto.brid.gy/')
+        self.assertEqual(302, resp.status_code, resp.get_data(as_text=True))
+        self.assertEqual(f'https://fed.brid.gy/oauth/atproto/authorize?{qs}',
+                         resp.headers['Location'])
+
+    def test_authorize_reference_pds_path_on_pds_host(self):
+        """Some clients ignore authorization_endpoint and hardcode /oauth/authorize.
+
+        That's Mastodon's endpoint everywhere else, so it's only ours on our PDS
+        host, and it still redirects to our own path on fed.brid.gy.
+        """
+        qs = urlencode({'client_id': CLIENT_ID, 'request_uri': 'urn:foo'})
+        resp = self.client.get(f'/oauth/authorize?{qs}',
+                               base_url='https://atproto.brid.gy/')
+        self.assertEqual(302, resp.status_code, resp.get_data(as_text=True))
+        self.assertEqual(f'https://fed.brid.gy/oauth/atproto/authorize?{qs}',
+                         resp.headers['Location'])
+
+    @patch.object(util.session, 'get',
+                  return_value=requests_response(json_dumps(CLIENT_METADATA)))
+    def test_authorize_requires_par(self, _):
+        """ATProto clients must always go through PAR."""
+        resp = self.client.get(f'/oauth/atproto/authorize?' + urlencode({
+            'response_type': 'code',
+            'client_id': CLIENT_ID,
+            'redirect_uri': REDIRECT_URI,
+            'scope': 'atproto',
+            'state': 'xyz',
+            'code_challenge': create_s256_code_challenge(CODE_VERIFIER),
+            'code_challenge_method': 'S256',
+        }), base_url='https://fed.brid.gy/')
+        self.assertEqual(400, resp.status_code, resp.get_data(as_text=True))
+        self.assertEqual('invalid_request', resp.json['error'])
+
+    @patch.object(util.session, 'get',
+                  return_value=requests_response(json_dumps(CLIENT_METADATA)))
+    def test_authorize_renders_login_form(self, _):
+        qs = urlencode({
+            'client_id': CLIENT_ID,
+            'request_uri': self.par().json['request_uri'],
+        })
+        resp = self.client.get(f'/oauth/atproto/authorize?{qs}',
+                               base_url='https://fed.brid.gy/')
+        self.assertEqual(200, resp.status_code)
+
+        body = resp.get_data(as_text=True)
+        self.assert_multiline_in("""\
+<a href="https://app.example/home">
+My App
+</a>""", body, body)
+        self.assertNotIn(CLIENT_ID, body)
+        self.assertIn('placeholder="mastodon.social"', body)
+        self.assertIn('placeholder="example.com"', body)
+        # you can't log in with an ATProto account to get an ATProto account
+        self.assertNotIn('placeholder="me.bsky.social"', body)
+
+    @patch.object(util.session, 'get', return_value=requests_response(json_dumps({
+        **{k: v for k, v in CLIENT_METADATA.items() if k != 'client_name'},
+        'client_uri': 'javascript://app.example/%0Aalert(1)',
+    })))
+    def test_authorize_login_form_no_client_name_or_web_client_uri(self, _):
+        qs = urlencode({
+            'client_id': CLIENT_ID,
+            'request_uri': self.par().json['request_uri'],
+        })
+        resp = self.client.get(f'/oauth/atproto/authorize?{qs}',
+                               base_url='https://fed.brid.gy/')
+        self.assertEqual(200, resp.status_code)
+
+        body = resp.get_data(as_text=True)
+        self.assert_multiline_in("""\
+<a href="https://app.example/">
+app.example
+</a>""", body, body)
+        self.assertNotIn(CLIENT_ID, body)
+        self.assertNotIn('javascript:', body)
+
+    def test_describe_scopes(self):
+        self.assertEqual([
+            'Know which account is yours',
+            'Create, update, and delete app.bsky.feed.like records',
+            'Make app.bsky.feed.getTimeline requests to ho.st as you',
+            'Upload image/* files',
+        ], atproto_oauth.Proxy.describe_scopes(
+            'atproto repo:app.bsky.feed.like identity:handle '
+            'rpc:app.bsky.feed.getTimeline?aud=did:web:ho.st%23svc blob:image/*'))
+
+    @patch.object(util.session, 'get',
+                  return_value=requests_response(json_dumps(GRANULAR_METADATA)))
+    def test_authorize_shows_permissions(self, _):
+        request_uri = self.par(
+            scope='atproto repo:app.bsky.feed.like identity:handle rpc:app.bsky.feed.getTimeline?aud=did:web:ho.st%23svc',
+        ).json['request_uri']
+        qs = urlencode({'client_id': CLIENT_ID, 'request_uri': request_uri})
+        resp = self.client.get(f'/oauth/atproto/authorize?{qs}',
+                               base_url='https://fed.brid.gy/')
+        self.assertEqual(200, resp.status_code)
+
+        body = resp.get_data(as_text=True)
+        self.assertIn('Know which account is yours', body)
+        self.assertIn('Create, update, and delete app.bsky.feed.like records', body)
+        self.assertIn('Make app.bsky.feed.getTimeline requests to ho.st as you', body)
+        # we don't grant this one, so don't show it
+        self.assertNotIn('handle', body)
+
+    @patch.object(util.session, 'get',
+                  return_value=requests_response(json_dumps(CLIENT_METADATA)))
+    def test_dpop_nonce_on_success(self, _):
+        """Clients need a nonce from successful responses too, not just errors."""
+        resp = self.par()
+        self.assertEqual(201, resp.status_code)
+        self.assertTrue(resp.headers['DPoP-Nonce'])
+
+    @patch.object(util.session, 'get',
+                  side_effect=AssertionError('should not fetch anything'))
+    def test_localhost_client(self, _):
+        """Localhost dev clients carry their metadata in the client_id's query.
+
+        https://atproto.com/specs/oauth#localhost-client-development
+        """
+        client_id = 'http://localhost?' + urlencode({
+            'redirect_uri': 'http://127.0.0.1/callback',
+            'scope': 'atproto',
+        })
+        # ports aren't matched, so the client can listen on any of them
+        resp = self.par(client_id=client_id,
+                        redirect_uri='http://127.0.0.1:8080/callback')
+        self.assertEqual(201, resp.status_code, resp.get_data(as_text=True))
+
+    @patch.object(util.session, 'get',
+                  side_effect=AssertionError('should not fetch anything'))
+    def test_localhost_client_default_redirect_uris(self, _):
+        resp = self.par(client_id='http://localhost',
+                        redirect_uri='http://[::1]:1234/')
+        self.assertEqual(201, resp.status_code, resp.get_data(as_text=True))
+
+    @patch.object(util.session, 'get',
+                  side_effect=AssertionError('should not fetch anything'))
+    def test_localhost_client_id_lookalike_host_rejected(self, _):
+        """http://localhost.evil.com must not get a localhost dev client."""
+        client_id = 'http://localhost.evil.com?' + urlencode({
+            'redirect_uri': 'https://evil.example/steal'})
+        resp = self.par(client_id=client_id,
+                        redirect_uri='https://evil.example/steal')
+        self.assertEqual(400, resp.status_code, resp.get_data(as_text=True))
+
+    @patch.object(util.session, 'get',
+                  side_effect=AssertionError('should not fetch anything'))
+    def test_localhost_client_id_with_port_rejected(self, _):
+        client_id = 'http://localhost:8080?' + urlencode({
+            'redirect_uri': 'http://127.0.0.1/callback'})
+        resp = self.par(client_id=client_id,
+                        redirect_uri='http://127.0.0.1/callback')
+        self.assertEqual(400, resp.status_code, resp.get_data(as_text=True))
+
+    @patch.object(util.session, 'get',
+                  side_effect=AssertionError('should not fetch anything'))
+    def test_localhost_client_id_with_path_rejected(self, _):
+        client_id = 'http://localhost/app?' + urlencode({
+            'redirect_uri': 'http://127.0.0.1/callback'})
+        resp = self.par(client_id=client_id,
+                        redirect_uri='http://127.0.0.1/callback')
+        self.assertEqual(400, resp.status_code, resp.get_data(as_text=True))
+
+    @patch.object(util.session, 'get',
+                  side_effect=AssertionError('should not fetch anything'))
+    def test_localhost_client_non_loopback_redirect_uri_rejected(self, _):
+        """Otherwise anyone could exfiltrate authorization codes."""
+        client_id = 'http://localhost?' + urlencode({
+            'redirect_uri': 'https://evil.example/steal'})
+        resp = self.par(client_id=client_id,
+                        redirect_uri='https://evil.example/steal')
+        self.assertEqual(400, resp.status_code, resp.get_data(as_text=True))
+
+    #
+    # confidential clients, https://atproto.com/specs/oauth#confidential-clients
+    #
+    def client_assertion(self, key=OAUTH_ES256_KEY, **claims):
+        """Mints a private_key_jwt client assertion, like a confidential client.
+
+        Keyword args override claims; pass None to omit one.
+        """
+        key = ECKey.import_key(key)
+        now = int(time.time())
+        claims = {
+            'iss': CONFIDENTIAL_CLIENT_ID,
+            'sub': CONFIDENTIAL_CLIENT_ID,
+            'aud': 'https://atproto.brid.gy',
+            'jti': secrets.token_urlsafe(16),
+            'iat': now,
+            'exp': now + 60,
+            **claims,
+        }
+        return joserfc_jwt.encode(
+            {'alg': 'ES256', 'kid': 'kee'},
+            {k: v for k, v in claims.items() if v is not None}, key)
+
+    @patch.object(util.session, 'get',
+                  return_value=requests_response(json_dumps(CONFIDENTIAL_METADATA)))
+    @patch.object(util.session, 'post',
+                  return_value=requests_response('me=https://alice.com'))
+    def test_confidential_client(self, *_):
+        # RFC 9126: confidential clients authenticate at the PAR endpoint too
+        resp = self.par(
+            client_id=CONFIDENTIAL_CLIENT_ID,
+            client_assertion_type='urn:ietf:params:oauth:client-assertion-type:jwt-bearer',
+            client_assertion=self.client_assertion())
+        self.assertEqual(201, resp.status_code, resp.get_data(as_text=True))
+        request_uri = resp.json['request_uri']
+
+        qs = urlencode({'client_id': CONFIDENTIAL_CLIENT_ID,
+                        'request_uri': request_uri})
+        resp = self.client.get(f'/oauth/atproto/authorize?{qs}',
+                               base_url='https://fed.brid.gy/')
+        self.assertEqual(200, resp.status_code, resp.get_data(as_text=True))
+
+        resp = self.client.post(f'/oauth/atproto/authorize/indieauth/start',
+                                base_url='https://fed.brid.gy/',
+                                data={'me': 'https://alice.com', 'state': qs})
+        state = parse_qs(urlparse(resp.headers['Location']).query)['state'][0]
+        resp = self.client.get(
+            f'/oauth/atproto/authorize/indieauth/finish?code=my_code&state={state}&iss=https://indielogin.com/',
+            base_url='https://fed.brid.gy/')
+        code = parse_qs(urlparse(resp.headers['Location']).query)['code'][0]
+
+        resp = self.token(
+            code=code, client_id=CONFIDENTIAL_CLIENT_ID,
+            client_assertion_type='urn:ietf:params:oauth:client-assertion-type:jwt-bearer',
+            client_assertion=self.client_assertion())
+        self.assertEqual(200, resp.status_code, resp.get_data(as_text=True))
+        self.assertEqual(DID, resp.json['sub'])
+
+    @patch.object(util.session, 'get',
+                  return_value=requests_response(json_dumps(CONFIDENTIAL_METADATA)))
+    def test_client_assertion_no_exp(self, _):
+        """RFC 7523 requires exp, but AIP omits it. A fresh iat bounds it instead.
+
+        Replay is still rejected, since that's jti's job, not exp's.
+        """
+        kwargs = {
+            'client_id': CONFIDENTIAL_CLIENT_ID,
+            'client_assertion_type': 'urn:ietf:params:oauth:client-assertion-type:jwt-bearer',
+            'client_assertion': self.client_assertion(exp=None),
+        }
+        resp = self.par(**kwargs)
+        self.assertEqual(201, resp.status_code, resp.get_data(as_text=True))
+
+        resp = self.par(**kwargs)
+        self.assertEqual('invalid_client', resp.json.get('error'),
+                         resp.get_data(as_text=True))
+
+    @patch.object(util.session, 'get',
+                  return_value=requests_response(json_dumps(CONFIDENTIAL_METADATA)))
+    def test_client_assertion_no_exp_stale_iat(self, _):
+        resp = self.par(
+            client_id=CONFIDENTIAL_CLIENT_ID,
+            client_assertion_type='urn:ietf:params:oauth:client-assertion-type:jwt-bearer',
+            client_assertion=self.client_assertion(
+                exp=None, iat=int(time.time()) - 60 * 60))
+        self.assertEqual(400, resp.status_code, resp.get_data(as_text=True))
+        self.assertEqual('invalid_client', resp.json['error'])
+
+    @patch.object(util.session, 'get',
+                  return_value=requests_response(json_dumps(CONFIDENTIAL_METADATA)))
+    def test_client_assertion_no_exp_or_iat(self, _):
+        """Without either, we have nothing to bound the assertion's lifetime with."""
+        resp = self.par(
+            client_id=CONFIDENTIAL_CLIENT_ID,
+            client_assertion_type='urn:ietf:params:oauth:client-assertion-type:jwt-bearer',
+            client_assertion=self.client_assertion(exp=None, iat=None))
+        self.assertEqual(400, resp.status_code, resp.get_data(as_text=True))
+        self.assertEqual('invalid_client', resp.json['error'])
+
+    @patch.object(util.session, 'get', side_effect=[
+        requests_response(json_dumps(CONFIDENTIAL_JWKS_URI_METADATA)),
+        requests_response(json_dumps(CONFIDENTIAL_METADATA['jwks'])),
+    ])
+    def test_confidential_client_jwks_uri(self, _):
+        resp = self.par(
+            client_id=CONFIDENTIAL_CLIENT_ID,
+            client_assertion_type='urn:ietf:params:oauth:client-assertion-type:jwt-bearer',
+            client_assertion=self.client_assertion())
+        self.assertEqual(201, resp.status_code, resp.get_data(as_text=True))
+
+    @patch.object(util.session, 'get', side_effect=[
+        requests_response(json_dumps(CONFIDENTIAL_JWKS_URI_METADATA)),
+        requests_response('', status=503),
+    ])
+    def test_confidential_client_jwks_uri_fetch_fails(self, _):
+        """The error should say we couldn't fetch the JWKS, not that it's missing."""
+        resp = self.par(
+            client_id=CONFIDENTIAL_CLIENT_ID,
+            client_assertion_type='urn:ietf:params:oauth:client-assertion-type:jwt-bearer',
+            client_assertion=self.client_assertion())
+        self.assertEqual(400, resp.status_code, resp.get_data(as_text=True))
+        self.assertEqual('invalid_client', resp.json['error'])
+        self.assertIn(JWKS_URI, resp.json['error_description'])
+
+    @patch.object(util.session, 'get',
+                  return_value=requests_response(json_dumps(CLIENT_METADATA)))
+    @patch.object(util.session, 'post',
+                  return_value=requests_response('me=https://alice.com'))
+    def test_login_hint_matching_did(self, *_):
+        request_uri = self.par(login_hint=DID).json['request_uri']
+        resp = self.login(request_uri)
+        self.assertEqual(302, resp.status_code)
+        self.assertIn('code', parse_qs(urlparse(resp.headers['Location']).query))
+
+    @patch.object(util.session, 'get',
+                  return_value=requests_response(json_dumps(CLIENT_METADATA)))
+    @patch.object(util.session, 'post',
+                  return_value=requests_response('me=https://alice.com'))
+    def test_login_hint_mismatch_denied(self, *_):
+        """The AS should only allow the account the client asked for."""
+        request_uri = self.par(login_hint='did:plc:someone-else').json['request_uri']
+        resp = self.login(request_uri)
+        self.assertEqual(302, resp.status_code)
+        params = parse_qs(urlparse(resp.headers['Location']).query)
+        self.assertEqual(['access_denied'], params['error'])
+
+    @patch.object(util.session, 'get',
+                  return_value=requests_response(json_dumps(CLIENT_METADATA)))
+    @patch.object(util.session, 'post',
+                  return_value=requests_response('me=https://alice.com'))
+    def test_refresh_token(self, *_):
+        request_uri = self.par().json['request_uri']
+        resp = self.login(request_uri)
+        code = parse_qs(urlparse(resp.headers['Location']).query)['code'][0]
+
+        refresh_token = self.token(code=code).json['refresh_token']
+
+        resp = self.token(grant_type='refresh_token', code=None,
+                          refresh_token=refresh_token, scope='atproto')
+        self.assertEqual(200, resp.status_code, resp.get_data(as_text=True))
+        self.assertEqual(DID, resp.json['sub'])
+        self.assertEqual('DPoP', resp.json['token_type'])
+        self.assertNotEqual(refresh_token, resp.json['refresh_token'])
+
+    @patch.object(util.session, 'get',
+                  return_value=requests_response(json_dumps(GRANULAR_METADATA)))
+    @patch.object(util.session, 'post',
+                  return_value=requests_response('me=https://alice.com'))
+    def test_token_drops_unsupported_scopes(self, *_):
+        """We grant what we support, and tell the client what it got."""
+        request_uri = self.par(
+            scope='atproto repo:app.bsky.feed.like identity:handle blob:image/*',
+        ).json['request_uri']
+        resp = self.login(request_uri)
+        code = parse_qs(urlparse(resp.headers['Location']).query)['code'][0]
+
+        resp = self.token(code=code)
+        self.assertEqual(200, resp.status_code, resp.get_data(as_text=True))
+        self.assertEqual('atproto repo:app.bsky.feed.like blob:image/*',
+                         resp.json['scope'])
+
+    #
+    # resource server: authenticating service proxied XRPC requests
+    #
+    def access_token(self, scope='atproto transition:generic'):
+        """Runs the full authorization code flow, returns an access token."""
+        resp = self.login(self.par(scope=scope).json['request_uri'])
+        code = parse_qs(urlparse(resp.headers['Location']).query)['code'][0]
+        return self.token(code=code).json['access_token']
+
+    def proxy(self, token, nonce=None, key=OAUTH_ES256_KEY):
+        """Makes a service proxied XRPC request with a DPoP bound access token."""
+        proof = dpop_proof('GET',
+                           'https://atproto.brid.gy/xrpc/app.bsky.feed.getTimeline',
+                           nonce=nonce, key=key, ath=hash_access_token(token))
+        return self.client.get(
+            '/xrpc/app.bsky.feed.getTimeline',
+            base_url='https://atproto.brid.gy/',
+            headers={
+                'Authorization': f'DPoP {token}',
+                'DPoP': proof,
+                'atproto-proxy': 'did:web:ho.st#svc',
+            })
+
+    @patch.object(util.session, 'get',
+                  return_value=requests_response(json_dumps(CLIENT_METADATA)))
+    @patch.object(util.session, 'post',
+                  return_value=requests_response('me=https://alice.com'))
+    def test_auth(self, *_):
+        token = self.access_token()
+        proof = dpop_proof(
+            'GET', 'https://atproto.brid.gy/xrpc/app.bsky.feed.getTimeline',
+            nonce=atproto_oauth.proof_validator.nonce_generator.next(),
+            ath=hash_access_token(token))
+
+        with app.test_request_context('/xrpc/app.bsky.feed.getTimeline',
+                                      base_url='https://atproto.brid.gy/',
+                                      headers={
+                                          'Authorization': f'DPoP {token}',
+                                          'DPoP': proof,
+                                      }):
+            self.assertEqual((DID, ['atproto', 'transition:generic']),
+                             atproto_oauth.arroba_authenticate())
+
+    def test_auth_unauthenticated(self):
+        with app.test_request_context(f'/xrpc/app.bsky.feed.getTimeline',
+                                      base_url='https://atproto.brid.gy/'):
+            with self.assertRaises(HTTPException) as e:
+                atproto_oauth.arroba_authenticate()
+
+            self.assertEqual(401, e.exception.code)
+
+    def test_service_proxy_unauthenticated(self):
+        """Methods we don't implement get proxied, but only for logged in users."""
+        resp = self.client.get(
+            '/xrpc/app.bsky.feed.getTimeline',
+            base_url='https://atproto.brid.gy/',
+            headers={'atproto-proxy': 'did:web:ho.st#svc'})
+        self.assertEqual(401, resp.status_code, resp.get_data(as_text=True))
+        self.assertEqual('missing_authorization', resp.json['error'])
+
+    def test_service_proxy_bad_token(self):
+        resp = self.proxy('not-a-jwt',
+                          nonce=atproto_oauth.proof_validator.nonce_generator.next())
+        self.assertEqual(401, resp.status_code, resp.get_data(as_text=True))
+        self.assertEqual('invalid_token', resp.json['error'])
+
+    @patch.object(util.session, 'get',
+                  return_value=requests_response(json_dumps(CLIENT_METADATA)))
+    @patch.object(util.session, 'post',
+                  return_value=requests_response('me=https://alice.com'))
+    def test_service_proxy_requires_dpop_nonce(self, *_):
+        """Resource requests need a server-provided nonce, same as the AS's.
+
+        Unlike the token endpoint's 400 and JSON body, a protected resource
+        reports this as a WWW-Authenticate challenge with an empty body.
+        https://datatracker.ietf.org/doc/html/rfc9449#section-7.2
+        """
+        resp = self.proxy(self.access_token())
+        self.assertEqual(401, resp.status_code, resp.get_data(as_text=True))
+        self.assertIn('error="use_dpop_nonce"', resp.headers['WWW-Authenticate'])
+        self.assertTrue(resp.headers['DPoP-Nonce'])
+
+    @patch.object(util.session, 'get',
+                  return_value=requests_response(json_dumps(GRANULAR_METADATA)))
+    @patch.object(util.session, 'post',
+                  return_value=requests_response('me=https://alice.com'))
+    def test_service_proxy_insufficient_scope(self, *_):
+        """Proxying needs an rpc scope for the method and service."""
+        for scope in ('atproto', 'atproto repo:app.bsky.feed.like'):
+            with self.subTest(scope=scope):
+                token = self.access_token(scope=scope)
+                resp = self.proxy(
+                    token, nonce=atproto_oauth.proof_validator.nonce_generator.next())
+                self.assertEqual(403, resp.status_code, resp.get_data(as_text=True))
+                self.assertEqual('insufficient_scope', resp.json['error'])
+                self.assertIn('Missing scope rpc:app.bsky.feed.getTimeline?aud=did:web:ho.st%23svc',
+                              resp.headers['WWW-Authenticate'])
+
+    #
+    # resource server: repo writes
+    #
+    def create_like(self, headers=None, repo=DID, token=None):
+        """Makes a createRecord XRPC request for a like.
+
+        If token is set, authenticates with it and a DPoP proof.
+        """
+        url = 'https://atproto.brid.gy/xrpc/com.atproto.repo.createRecord'
+        if token:
+            headers = {
+                'Authorization': f'DPoP {token}',
+                'DPoP': dpop_proof(
+                    'POST', url, ath=hash_access_token(token),
+                    nonce=atproto_oauth.proof_validator.nonce_generator.next()),
+            }
+
+        return self.client.post(url, headers=headers, json={
+            'repo': repo,
+            'collection': 'app.bsky.feed.like',
+            'record': {
+                '$type': 'app.bsky.feed.like',
+                'subject': {
+                    'uri': 'at://did:plc:bob/app.bsky.feed.post/123',
+                    'cid': 'bafyreibwxoxuto2bj2lsspzs6dl4kw6cyu3goswuxi5qbhpc2xlqvnnjg4',
+                },
+                'createdAt': '2022-01-02T03:04:05.000Z',
+            },
+        })
+
+    def assert_likes(self, count, did=DID):
+        repo = arroba.server.storage.load_repo(did)
+        self.assertEqual(count, len(repo.get_contents().get('app.bsky.feed.like', {})))
+
+    @patch.object(util.session, 'get',
+                  return_value=requests_response(json_dumps(CLIENT_METADATA)))
+    @patch.object(util.session, 'post',
+                  return_value=requests_response('me=https://alice.com'))
+    def test_create_record(self, *_):
+        Repo.create(arroba.server.storage, DID, handle='alice.com.web.brid.gy',
+                    signing_key=ATPROTO_KEY, rotation_key=ATPROTO_KEY)
+
+        resp = self.create_like(token=self.access_token())
+        self.assertEqual(200, resp.status_code, resp.get_data(as_text=True))
+        self.assert_likes(1)
+
+    @patch.object(util.session, 'get',
+                  return_value=requests_response(json_dumps(CLIENT_METADATA)))
+    @patch.object(util.session, 'post',
+                  return_value=requests_response('me=https://alice.com'))
+    def test_create_record_insufficient_scope(self, *_):
+        """Writes need a repo scope, not just atproto."""
+        Repo.create(arroba.server.storage, DID, handle='alice.com.web.brid.gy',
+                    signing_key=ATPROTO_KEY, rotation_key=ATPROTO_KEY)
+
+        resp = self.create_like(token=self.access_token(scope='atproto'))
+        self.assertEqual(403, resp.status_code, resp.get_data(as_text=True))
+        self.assertEqual('insufficient_scope', resp.json['error'])
+        self.assert_likes(0)
+
+    @patch.object(util.session, 'get',
+                  return_value=requests_response(json_dumps(GRANULAR_METADATA)))
+    @patch.object(util.session, 'post',
+                  return_value=requests_response('me=https://alice.com'))
+    def test_create_record_repo_scope(self, *_):
+        Repo.create(arroba.server.storage, DID, handle='alice.com.web.brid.gy',
+                    signing_key=ATPROTO_KEY, rotation_key=ATPROTO_KEY)
+
+        token = self.access_token(scope='atproto repo:app.bsky.feed.like')
+        resp = self.create_like(token=token)
+        self.assertEqual(200, resp.status_code, resp.get_data(as_text=True))
+        self.assert_likes(1)
+
+    @patch.object(util.session, 'get',
+                  return_value=requests_response(json_dumps(GRANULAR_METADATA)))
+    @patch.object(util.session, 'post',
+                  return_value=requests_response('me=https://alice.com'))
+    def test_create_record_other_collection_scope(self, *_):
+        """A repo scope for one collection doesn't allow writing another."""
+        Repo.create(arroba.server.storage, DID, handle='alice.com.web.brid.gy',
+                    signing_key=ATPROTO_KEY, rotation_key=ATPROTO_KEY)
+
+        token = self.access_token(
+            scope='atproto repo:app.bsky.feed.like?action=delete')
+        resp = self.create_like(token=token)
+        self.assertEqual(403, resp.status_code, resp.get_data(as_text=True))
+        self.assertEqual('insufficient_scope', resp.json['error'])
+        self.assert_likes(0)
+
+    @patch.object(util.session, 'get',
+                  return_value=requests_response(json_dumps(CLIENT_METADATA)))
+    @patch.object(util.session, 'post',
+                  return_value=requests_response('me=https://alice.com'))
+    def test_create_record_other_repo(self, *_):
+        """A user's token can only write to their own repo."""
+        Repo.create(arroba.server.storage, 'did:plc:bob',
+                    signing_key=ATPROTO_KEY, rotation_key=ATPROTO_KEY,
+                    handle='bob.com.web.brid.gy')
+
+        resp = self.create_like(repo='did:plc:bob', token=self.access_token())
+        self.assertEqual(400, resp.status_code, resp.get_data(as_text=True))
+        self.assertEqual('AuthRequired', resp.json['error'])
+        self.assert_likes(0, did='did:plc:bob')
+
+    def test_create_record_unauthenticated(self):
+        Repo.create(arroba.server.storage, DID, handle='alice.com.web.brid.gy',
+                    signing_key=ATPROTO_KEY, rotation_key=ATPROTO_KEY)
+
+        resp = self.create_like()
+        self.assertEqual(401, resp.status_code, resp.get_data(as_text=True))
+        self.assert_likes(0)
+
+    @patch.dict(os.environ, {'REPO_TOKEN': 'towkin'})
+    def test_create_record_repo_token(self):
+        """Arroba's global $REPO_TOKEN isn't supported."""
+        Repo.create(arroba.server.storage, DID, handle='alice.com.web.brid.gy',
+                    signing_key=ATPROTO_KEY, rotation_key=ATPROTO_KEY)
+
+        resp = self.create_like(headers={'Authorization': 'Bearer towkin'})
+        self.assertEqual(401, resp.status_code, resp.get_data(as_text=True))
+        self.assert_likes(0)
+
+    #
+    # replay prevention
+    #
+    @patch.object(util.session, 'get',
+                  return_value=requests_response(json_dumps(CLIENT_METADATA)))
+    @patch.object(util.session, 'post',
+                  return_value=requests_response('me=https://alice.com'))
+    def test_authorization_code_single_use(self, *_):
+        resp = self.login(self.par().json['request_uri'])
+        code = parse_qs(urlparse(resp.headers['Location']).query)['code'][0]
+
+        resp = self.token(code=code)
+        self.assertEqual(200, resp.status_code, resp.get_data(as_text=True))
+
+        resp = self.token(code=code)
+        self.assertEqual(400, resp.status_code, resp.get_data(as_text=True))
+        self.assertEqual('invalid_grant', resp.json['error'])
+
+    @patch.object(util.session, 'get',
+                  return_value=requests_response(json_dumps(CLIENT_METADATA)))
+    @patch.object(util.session, 'post',
+                  return_value=requests_response('me=https://alice.com'))
+    def test_refresh_token_single_use(self, *_):
+        resp = self.login(self.par().json['request_uri'])
+        code = parse_qs(urlparse(resp.headers['Location']).query)['code'][0]
+        refresh_token = self.token(code=code).json['refresh_token']
+
+        kwargs = {'grant_type': 'refresh_token', 'code': None,
+                  'refresh_token': refresh_token, 'scope': 'atproto'}
+        resp = self.token(**kwargs)
+        self.assertEqual(200, resp.status_code, resp.get_data(as_text=True))
+
+        resp = self.token(**kwargs)
+        self.assertEqual(400, resp.status_code, resp.get_data(as_text=True))
+        self.assertEqual('invalid_grant', resp.json['error'])
+
+    @patch.object(util.session, 'get',
+                  return_value=requests_response(json_dumps(CONFIDENTIAL_METADATA)))
+    def test_client_assertion_single_use(self, _):
+        """RFC 7523 section 3: an assertion's jti may only be used once.
+
+        The first call here also exercises DPoP's nonce handshake, which resends
+        the same assertion, so this checks that that retry isn't rejected.
+        """
+        kwargs = {
+            'client_id': CONFIDENTIAL_CLIENT_ID,
+            'client_assertion_type': 'urn:ietf:params:oauth:client-assertion-type:jwt-bearer',
+            'client_assertion': self.client_assertion(),
+        }
+        resp = self.par(**kwargs)
+        self.assertEqual(201, resp.status_code, resp.get_data(as_text=True))
+
+        resp = self.par(**kwargs)
+        self.assertEqual('invalid_client', resp.json.get('error'),
+                         resp.get_data(as_text=True))
+
+    #
+    # com.atproto.server.getSession
+    #
+    @patch.object(util.session, 'get',
+                  return_value=requests_response(json_dumps(CLIENT_METADATA)))
+    @patch.object(util.session, 'post',
+                  return_value=requests_response('me=https://alice.com'))
+    def test_get_session(self, *_):
+        """getSession only needs the atproto scope."""
+        token = self.access_token(scope='atproto')
+        url = 'https://atproto.brid.gy/xrpc/com.atproto.server.getSession'
+        resp = self.client.get('/xrpc/com.atproto.server.getSession',
+                               base_url='https://atproto.brid.gy/', headers={
+            'Authorization': f'DPoP {token}',
+            'DPoP': dpop_proof(
+                'GET', url, ath=hash_access_token(token),
+                nonce=atproto_oauth.proof_validator.nonce_generator.next()),
+        })
+        self.assertEqual(200, resp.status_code, resp.get_data(as_text=True))
+        self.assert_equals({
+            'did': DID,
+            'handle': 'alice.com.web.brid.gy',
+            'active': True,
+        }, resp.json)
+
+    def test_get_session_unauthenticated(self):
+        resp = self.client.get('/xrpc/com.atproto.server.getSession',
+                               base_url='https://atproto.brid.gy/')
+        self.assertEqual(401, resp.status_code, resp.get_data(as_text=True))

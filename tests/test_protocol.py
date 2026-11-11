@@ -35,7 +35,9 @@ from activitypub import ActivityPub
 from app import app
 from atproto import ATProto
 import common
+import ids
 from common import ErrorButDoNotRetryTask
+from farcaster import Farcaster
 import filters
 import memcache
 import models
@@ -115,6 +117,22 @@ class ProtocolTest(TestCase):
                 with app.test_request_context('/foo', base_url=url):
                     self.assertEqual(expected, Protocol.for_request(fed=Fake))
 
+    def test_id_type_default(self):
+        # fake: ids don't distinguish users from objects
+        for id in ('fake:foo', 'http://ui.org/obj', 'user.com', ''):
+            with self.subTest(id=id):
+                self.assertIsNone(Fake.id_type(id))
+
+    def test_resolve_user_id_default_normalizes(self):
+        # protocols that don't override resolve_user_id still normalize
+        self.assertEqual('fake:alice', Fake.resolve_user_id('fake:profile:alice'))
+        self.assertEqual('fake:alice', Fake.resolve_user_id('fake:alice'))
+
+    def test_resolve_object_id_default_normalizes(self):
+        # protocols that don't override resolve_object_id still normalize
+        self.assertEqual('https://user.com/', Web.resolve_object_id('user.com'))
+        self.assertEqual('fake:post', Fake.resolve_object_id('fake:post'))
+
     def test_for_id(self):
         for id, expected in [
                 (None, None),
@@ -150,7 +168,8 @@ class ProtocolTest(TestCase):
         self.assertEqual(Greedy, Protocol.for_id('https://bar/baz'))
 
     def test_for_id_object(self):
-        self.store_object(id='http://ui.org/obj', source_protocol='ui')
+        self.store_object(id='http://ui.org/obj', source_protocol='ui',
+                          users=[self.user.key])
         self.assertEqual(UIProtocol, Protocol.for_id('http://ui.org/obj'))
 
     @patch.object(util.session, 'get', return_value=requests_response())
@@ -163,6 +182,14 @@ class ProtocolTest(TestCase):
         mock_get.return_value = self.as2_resp(ACTOR)
         self.assertEqual(ActivityPub, Protocol.for_id('http://ap.org/actor'))
         self.assertIn(self.as2_req('http://ap.org/actor'), mock_get.mock_calls)
+
+    def test_for_id_remote_default_shares_cache_key(self):
+        # passing remote's default explicitly should still hit the cache
+        key = Protocol.for_id.cache_key
+        self.assertEqual(key('http://ap.org/actor'),
+                         key('http://ap.org/actor', remote=True))
+        self.assertNotEqual(key('http://ap.org/actor'),
+                            key('http://ap.org/actor', remote=False))
 
     @patch.object(util.session, 'get')
     def test_for_id_activitypub_fetch_fails(self, mock_get):
@@ -232,6 +259,15 @@ class ProtocolTest(TestCase):
         user = self.make_user(id='user.com', cls=Web, obj_as1={'summary': '#nobot'})
         self.assertEqual('user.com', user.handle)
         self.assertEqual((None, None), Protocol.for_handle('user.com'))
+
+    def test_bot_user(self):
+        self.assertIsNone(Fake.bot_user())
+
+        bot = self.make_user(id='fa.brid.gy', cls=Web)
+        self.assertEqual(bot, Fake.bot_user())
+
+        # UIProtocol has no bot user id at all
+        self.assertIsNone(UIProtocol.bot_user())
 
     @patch('dns.resolver.resolve', return_value = dns_answer(
             '_atproto.ha.nl.', '"did=did:plc:123abc"'))
@@ -377,6 +413,15 @@ class ProtocolTest(TestCase):
         self.assertTrue(loaded.changed)
         self.assertFalse(loaded.new)
 
+    def test_load_remote_true_fetch_fails_keeps_our_as1(self):
+        # only internal objects keep their data in our_as1, so they're the ones
+        # that lose it if we clear it and then the fetch fails
+        obj = self.store_object(id='fake:foo', our_as1={'x': 'y'})
+
+        self.assertIsNone(Fake.load('fake:foo', remote=True))
+        self.assertEqual(['fake:foo'], Fake.fetched)
+        self.assertEqual({'id': 'fake:foo', 'x': 'y'}, obj.as1)
+
     def test_load_remote_false(self):
         self.assertIsNone(Fake.load('fake:nope', remote=False))
         self.assertEqual([], Fake.fetched)
@@ -395,7 +440,7 @@ class ProtocolTest(TestCase):
 
     def test_load_local_false_existing(self):
         self.store_object(id='fake:foo', our_as1={'content': 'stored'},
-                          source_protocol='ui')
+                          source_protocol='ui', users=[self.user.key])
 
         Fake.fetchable['fake:foo'] = {'foo': 'bar'}
         Fake.load('fake:foo', local=False)
@@ -558,6 +603,148 @@ class ProtocolTest(TestCase):
             Target(protocol='other', uri='other:orig:target'),
         }, Fake.targets(obj, from_user=self.user).keys())
 
+    def test_targets_share_external_id(self):
+        user = self.make_user('fake:user', cls=Fake, enabled_protocols=['efake'])
+        ExplicitFake.fetchable = {'efake:post-ext': {
+            'objectType': 'note',
+            'author': 'efake:charlie-ext',
+        }}
+        self.make_user('fake:charlie', cls=Fake, obj_as1={
+            'objectType': 'person',
+            'urls': [{'value': 'efake:charlie-ext', 'rel': 'alternate'}],
+        })
+        self.store_object(id='fake:post', source_protocol='fake', our_as1={
+            'id': 'fake:post',
+            'objectType': 'note',
+            'author': 'fake:charlie',
+            'urls': [{'value': 'efake:post-ext', 'rel': 'alternate'}],
+        })
+
+        obj = Object(id='fake:share', source_protocol='fake', our_as1={
+            'objectType': 'activity',
+            'verb': 'share',
+            'id': 'fake:share',
+            'actor': 'fake:user',
+            'object': 'fake:post',
+        })
+        self.assertEqual({
+            Target(protocol='efake', uri='efake:post-ext:target'),
+        }, Fake.targets(obj, from_user=user).keys())
+
+    def test_targets_reply_external_id(self):
+        user = self.make_user('fake:user', cls=Fake, enabled_protocols=['efake'])
+        ExplicitFake.fetchable = {'efake:post-ext': {
+            'objectType': 'note',
+            'author': 'efake:charlie-ext',
+        }}
+        self.make_user('fake:charlie', cls=Fake, obj_as1={
+            'objectType': 'person',
+            'urls': [{'value': 'efake:charlie-ext', 'rel': 'alternate'}],
+        })
+        self.store_object(id='fake:post', source_protocol='fake', our_as1={
+            'id': 'fake:post',
+            'objectType': 'note',
+            'author': 'fake:charlie',
+            'urls': [{'value': 'efake:post-ext', 'rel': 'alternate'}],
+        })
+
+        obj = Object(id='fake:reply', source_protocol='fake', our_as1={
+            'objectType': 'note',
+            'id': 'fake:reply',
+            'author': 'fake:user',
+            'inReplyTo': 'fake:post',
+        })
+        self.assertEqual({
+            Target(protocol='efake', uri='efake:post-ext:target'),
+        }, Fake.targets(obj, from_user=user).keys())
+
+    def test_targets_share_external_id_load_fails(self):
+        user = self.make_user('fake:user', cls=Fake, enabled_protocols=['efake'])
+        self.store_object(id='fake:post', source_protocol='fake', our_as1={
+            'id': 'fake:post',
+            'objectType': 'note',
+            'author': 'fake:charlie',
+            'urls': [{'value': 'efake:post-ext', 'rel': 'alternate'}],
+        })
+
+        obj = Object(id='fake:share', source_protocol='fake', our_as1={
+            'objectType': 'activity',
+            'verb': 'share',
+            'id': 'fake:share',
+            'actor': 'fake:user',
+            'object': 'fake:post',
+        })
+        self.assertEqual({}, Fake.targets(obj, from_user=user))
+
+    def test_targets_share_external_id_author_enabled(self):
+        """We bridge the author, so we don't use the post's proxy link."""
+        user = self.make_user('fake:user', cls=Fake, enabled_protocols=['efake'])
+        self.make_user('fake:charlie', cls=Fake, enabled_protocols=['efake'])
+        self.store_object(id='fake:post', source_protocol='fake', our_as1={
+            'id': 'fake:post',
+            'objectType': 'note',
+            'author': 'fake:charlie',
+            'urls': [{'value': 'efake:post-ext', 'rel': 'alternate'}],
+        }, copies=[Target(protocol='efake', uri='efake:post')])
+
+        obj = Object(id='fake:share', source_protocol='fake', our_as1={
+            'objectType': 'activity',
+            'verb': 'share',
+            'id': 'fake:share',
+            'actor': 'fake:user',
+            'object': 'fake:post',
+        })
+        self.assertEqual({
+            Target(protocol='efake', uri='efake:post:target'),
+        }, Fake.targets(obj, from_user=user).keys())
+
+    @patch.object(util.session, 'get', side_effect=[
+        TestCase.as2_resp({
+            '@context': 'https://www.w3.org/ns/activitystreams',
+            'id': 'https://in.st/post',
+            'type': 'Note',
+            'attributedTo': 'https://in.st/charlie',
+        }),
+        TestCase.as2_resp({
+            '@context': 'https://www.w3.org/ns/activitystreams',
+            'id': 'https://in.st/charlie',
+            'type': 'Person',
+            'inbox': 'https://in.st/charlie/inbox',
+        }),
+    ])
+    def test_targets_like_external_id_activitypub(self, _):
+        user = self.make_user('fake:user', cls=Fake,
+                              enabled_protocols=['activitypub'])
+        self.make_user('fake:charlie', cls=Fake, obj_as1={
+            'objectType': 'person',
+            'urls': [{
+                'value': 'https://in.st/charlie',
+                'rel': 'alternate',
+                'mimeType': 'application/activity+json',
+            }],
+        })
+        self.store_object(id='fake:post', source_protocol='fake', our_as1={
+            'id': 'fake:post',
+            'objectType': 'note',
+            'author': 'fake:charlie',
+            'urls': [{
+                'value': 'https://in.st/post',
+                'rel': 'alternate',
+                'mimeType': 'application/activity+json',
+            }],
+        })
+
+        obj = Object(id='fake:like', source_protocol='fake', our_as1={
+            'objectType': 'activity',
+            'verb': 'like',
+            'id': 'fake:like',
+            'actor': 'fake:user',
+            'object': 'fake:post',
+        })
+        self.assertEqual({
+            Target(protocol='activitypub', uri='https://in.st/charlie/inbox'),
+        }, Fake.targets(obj, from_user=user).keys())
+
     def test_targets_composite_inreplyto(self):
         Fake.fetchable['fake:post'] = {
             'objectType': 'note',
@@ -627,6 +814,27 @@ class ProtocolTest(TestCase):
             Target(protocol='other', uri='other:alice:target'): None,
             Target(protocol='other', uri='other:bob:target'): note,
             Target(protocol='other', uri='other:eve:target'): note,
+        }, Fake.targets(create, from_user=frank, crud_obj=reply))
+
+    def test_targets_in_reply_to_post_empty(self):
+        frank = self.make_user(id='fake:frank', cls=Fake, obj_as1={'foo': 'bar'})
+        Object(id='other:note', source_protocol='other').put()
+
+        reply = Object(id='fake:reply', our_as1={
+            'objectType': 'note',
+            'id': 'fake:reply',
+            'author': 'fake:frank',
+            'content': 'ok',
+            'inReplyTo': 'other:note',
+        })
+        create = Object(our_as1={
+            'objectType': 'activity',
+            'verb': 'post',
+            'object': reply.as1,
+        })
+
+        self.assert_equals({
+            Target(protocol='other', uri='other:note:target'): None,
         }, Fake.targets(create, from_user=frank, crud_obj=reply))
 
     def test_targets_link_tag_has_no_orig_obj(self):
@@ -727,6 +935,25 @@ class ProtocolTest(TestCase):
             },
         }))
 
+    @patch.object(util.session, 'get')
+    def test_translate_ids_audience_doesnt_fetch(self, mock_get):
+        # recipients we can't identify locally are remote ids that don't need
+        # translating anyway, so don't fetch them
+        self.assert_equals({
+            'objectType': 'note',
+            'id': 'other:o:fa:fake:post',
+            'author': 'other:u:fake:alice',
+            'to': ['https://mas.to/users/unknown', as2.PUBLIC_AUDIENCE],
+            'cc': ['https://mas.to/users/bystander', 'other:u:fake:bob'],
+        }, OtherFake.translate_ids({
+            'objectType': 'note',
+            'id': 'fake:post',
+            'author': 'fake:alice',
+            'to': ['https://mas.to/users/unknown', as2.PUBLIC_AUDIENCE],
+            'cc': ['https://mas.to/users/bystander', 'fake:bob'],
+        }))
+        mock_get.assert_not_called()
+
     def test_translate_ids_update_profile(self):
         self.assert_equals({
             'objectType': 'activity',
@@ -772,6 +999,35 @@ class ProtocolTest(TestCase):
             'object': 'efake:bob',
         }))
 
+    def test_translate_ids_block_object_is_user(self):
+        self.assert_equals({
+            'objectType': 'activity',
+            'verb': 'block',
+            'actor': 'other:u:fake:alice',
+            'object': 'other:u:did:plc:123',
+        }, OtherFake.translate_ids({
+            'objectType': 'activity',
+            'verb': 'block',
+            'actor': 'fake:alice',
+            'object': 'did:plc:123',
+        }))
+
+    def test_translate_ids_block_object_is_list(self):
+        # a block's object may be a blocklist instead of a user
+        # https://github.com/snarfed/bridgy-fed/issues/2281
+        list_uri = 'at://did:plc:123/app.bsky.graph.list/abc'
+        self.assert_equals({
+            'objectType': 'activity',
+            'verb': 'block',
+            'actor': 'other:u:fake:alice',
+            'object': f'other:o:bsky:{list_uri}',
+        }, OtherFake.translate_ids({
+            'objectType': 'activity',
+            'verb': 'block',
+            'actor': 'fake:alice',
+            'object': list_uri,
+        }))
+
     def test_translate_ids_attachments_mention_tags(self):
         self.assert_equals({
             'objectType': 'note',
@@ -795,6 +1051,39 @@ class ProtocolTest(TestCase):
                 {'url': 'fake:000'},
             ],
         }))
+
+    @patch.object(util.session, 'get')
+    def test_translate_ids_link_attachment_doesnt_fetch(self, mock_get):
+        note = {
+            'objectType': 'note',
+            'id': 'other:o:fa:fake:post',
+            'attachments': [{
+                'objectType': 'link',
+                'url': 'https://example.com/article',
+                'displayName': 'An article',
+            }],
+        }
+        self.assert_equals(note, OtherFake.translate_ids({**note, 'id': 'fake:post'}))
+        mock_get.assert_not_called()
+
+    @patch.object(util.session, 'get')
+    def test_translate_ids_remote_false(self, mock_get):
+        self.assert_equals({
+            'objectType': 'note',
+            'id': 'other:o:fa:fake:reply',
+            'author': 'other:u:fake:alice',
+            'inReplyTo': 'https://mas.to/post',
+            'attachments': [{'objectType': 'note', 'url': 'https://mas.to/quoted'}],
+            'tags': [{'objectType': 'mention', 'url': 'uri:https://mas.to/bob'}],
+        }, OtherFake.translate_ids({
+            'objectType': 'note',
+            'id': 'fake:reply',
+            'author': 'fake:alice',
+            'inReplyTo': 'https://mas.to/post',
+            'attachments': [{'objectType': 'note', 'url': 'https://mas.to/quoted'}],
+            'tags': [{'objectType': 'mention', 'url': 'https://mas.to/bob'}],
+        }, remote=False))
+        mock_get.assert_not_called()
 
     def test_translate_ids_attachment_url_blocklisted(self):
         self.assert_equals({
@@ -836,6 +1125,146 @@ class ProtocolTest(TestCase):
                 'objectType': 'note',
                 'url': 'fake:post',
             }],
+        }))
+
+    def test_translate_ids_external_ids(self):
+        self.make_user('fake:alice', cls=Fake, enabled_protocols=['efake'],
+                       copies=[Target(uri='efake:alice', protocol='efake')])
+        self.make_user('fake:bob', cls=Fake, obj_as1={
+            'objectType': 'person',
+            'urls': [{'value': 'efake:bob-ext', 'rel': 'alternate'}],
+        })
+        self.store_object(id='efake:post-ext', source_protocol='efake', our_as1={
+            'objectType': 'note',
+            'author': 'efake:bob-ext',
+        })
+        self.store_object(id='fake:post', source_protocol='fake', our_as1={
+            'objectType': 'note',
+            'author': 'fake:bob',
+            'urls': [{'value': 'efake:post-ext', 'rel': 'alternate'}],
+        })
+
+        self.assert_equals({
+            'objectType': 'activity',
+            'verb': 'post',
+            'actor': 'efake:alice',
+            'object': {
+                'id': 'efake:o:fa:fake:reply',
+                'author': 'efake:alice',
+                'inReplyTo': 'efake:post-ext',
+                'tags': [{
+                    'objectType': 'mention',
+                    'url': 'uri:efake:bob-ext',
+                }],
+            },
+        }, ExplicitFake.translate_ids({
+            'objectType': 'activity',
+            'verb': 'post',
+            'actor': 'fake:alice',
+            'object': {
+                'id': 'fake:reply',
+                'author': 'fake:alice',
+                'inReplyTo': 'fake:post',
+                'tags': [{
+                    'objectType': 'mention',
+                    'url': 'fake:bob',
+                }],
+            },
+        }))
+
+        for verb, inner in [
+            ('like', 'efake:post-ext'),
+            ('share', 'efake:post-ext'),
+            ('follow', 'efake:bob-ext'),
+            ('block', 'efake:bob-ext'),
+        ]:
+            with self.subTest(verb=verb):
+                obj = 'fake:bob' if verb in ('follow', 'block') else 'fake:post'
+                self.assert_equals({
+                    'id': f'efake:o:fa:fake:{verb}',
+                    'objectType': 'activity',
+                    'verb': verb,
+                    'actor': 'efake:alice',
+                    'object': inner,
+                }, ExplicitFake.translate_ids({
+                    'id': f'fake:{verb}',
+                    'objectType': 'activity',
+                    'verb': verb,
+                    'actor': 'fake:alice',
+                    'object': obj,
+                }))
+
+    def test_translate_ids_external_id_undo(self):
+        self.make_user('fake:alice', cls=Fake, enabled_protocols=['efake'],
+                       copies=[Target(uri='efake:alice', protocol='efake')])
+        self.make_user('fake:bob', cls=Fake, obj_as1={
+            'objectType': 'person',
+            'urls': [{'value': 'efake:bob-ext', 'rel': 'alternate'}],
+        })
+        self.store_object(id='efake:post-ext', source_protocol='efake', our_as1={
+            'objectType': 'note',
+            'author': 'efake:bob-ext',
+        })
+        self.store_object(id='fake:post', source_protocol='fake', our_as1={
+            'objectType': 'note',
+            'author': 'fake:bob',
+            'urls': [{'value': 'efake:post-ext', 'rel': 'alternate'}],
+        })
+
+        self.assert_equals({
+            'objectType': 'activity',
+            'verb': 'undo',
+            'actor': 'efake:alice',
+            'object': {
+                'id': 'efake:o:fa:fake:like',
+                'objectType': 'activity',
+                'verb': 'like',
+                'actor': 'efake:alice',
+                'object': 'efake:post-ext',
+            },
+        }, ExplicitFake.translate_ids({
+            'objectType': 'activity',
+            'verb': 'undo',
+            'actor': 'fake:alice',
+            'object': {
+                'id': 'fake:like',
+                'objectType': 'activity',
+                'verb': 'like',
+                'actor': 'fake:alice',
+                'object': 'fake:post',
+            },
+        }))
+
+    def test_translate_ids_external_id_own_post(self):
+        """We bridge alice, so we use our ids for her post, not its proxy links."""
+        self.make_user('fake:alice', cls=Fake, enabled_protocols=['efake'],
+                       copies=[Target(uri='efake:alice', protocol='efake')],
+                       obj_as1={
+                           'objectType': 'person',
+                           'urls': [{'value': 'efake:alice-ext', 'rel': 'alternate'}],
+                       })
+        post = {
+            'id': 'fake:post',
+            'objectType': 'note',
+            'author': 'fake:alice',
+            'urls': [{'value': 'efake:post-ext', 'rel': 'alternate'}],
+        }
+        self.store_object(id='fake:post', source_protocol='fake', our_as1=post)
+
+        self.assert_equals({
+            'objectType': 'activity',
+            'verb': 'post',
+            'actor': 'efake:alice',
+            'object': {
+                **post,
+                'id': 'efake:o:fa:fake:post',
+                'author': 'efake:alice',
+            },
+        }, ExplicitFake.translate_ids({
+            'objectType': 'activity',
+            'verb': 'post',
+            'actor': 'fake:alice',
+            'object': post,
         }))
 
     def test_translate_ids_multiple_objects(self):
@@ -941,7 +1370,9 @@ class ProtocolTest(TestCase):
         obj = {'inReplyTo': ['foo', 'bar']}
         self.assertEqual(obj, Fake.translate_ids(obj))
 
-    def test_translate_ui_id_uses_actors_protocol_subdomain(self):
+    def test_translate_ui_id_uses_authors_subdomain(self):
+        # ui: ids have to be on the same domain as their author's actor id, or
+        # Mastodon rejects Creates for them
         note = {
             'objectType': 'note',
             'id': 'ui:my-note',
@@ -951,6 +1382,22 @@ class ProtocolTest(TestCase):
             'objectType': 'note',
             'id': 'https://bsky.brid.gy/convert/ap/ui:my-note',
             'author': 'https://bsky.brid.gy/ap/did:plc:bob',
+        }, ActivityPub.translate_ids(note))
+
+    def test_translate_ui_id_author_on_same_protocol(self):
+        # the id can't be translated *from* the author's protocol, since that's
+        # the protocol we're translating to, but we still use their subdomain
+        self.make_user('https://inst.com/alice', cls=ActivityPub,
+                       obj_as1={'id': 'https://inst.com/alice'})
+        note = {
+            'objectType': 'note',
+            'id': 'ui:my-note',
+            'author': 'https://inst.com/alice',
+        }
+        self.assert_equals({
+            'objectType': 'note',
+            'id': 'https://ap.brid.gy/convert/ap/ui:my-note',
+            'author': 'https://inst.com/alice',
         }, ActivityPub.translate_ids(note))
 
     def test_translate_mention_handles(self):
@@ -1177,6 +1624,20 @@ class ProtocolTest(TestCase):
             }],
         }))
 
+    def test_translate_mention_handles_unsupported_handle(self):
+        self.make_user('toolongforfarcaster.com', cls=Web)
+
+        obj = {
+            'content': 'Hi @toolongforfarcaster.com!',
+            'tags': [{
+                'objectType': 'mention',
+                'url': 'https://toolongforfarcaster.com/',
+                'startIndex': 3,
+                'length': 18,
+            }],
+        }
+        self.assertEqual(obj, Farcaster.translate_mention_handles(obj))
+
     def test_convert_object_is_from_user_adds_source_links(self):
         self.make_user(cls=Web, id='fa.brid.gy',
                        copies=[Target(protocol='other', uri='other:bot')])
@@ -1186,6 +1647,7 @@ class ProtocolTest(TestCase):
             'id': 'other:u:fake:alice',
             'url': 'http://unused',
             'summary': 'something about me<br><br>🌉 <a href="https://fed.brid.gy/fa/fake:handle:alice">bridged</a> from 🤡 <a href="web:fake:alice">fake:handle:alice</a> by <a href="https://fed.brid.gy/">Bridgy Fed</a>',
+            'urls': ['http://unused', {'value': 'uri:fake:alice', 'rel': 'canonical'}],
         }, OtherFake.convert(Object(
             id='fake:profile:alice', source_protocol='fake', our_as1={
                 'objectType': 'person',
@@ -1194,12 +1656,31 @@ class ProtocolTest(TestCase):
                 'summary': 'something about me',
             }), from_user=alice))
 
+    def test_convert_adds_source_links_renders_summary_whitespace(self):
+        self.make_user(cls=Web, id='fa.brid.gy',
+                       copies=[Target(protocol='other', uri='other:bot')])
+        alice = Fake(id='fake:alice')
+        self.assertEqual({
+            'objectType': 'person',
+            'id': 'other:u:fake:alice',
+            'url': 'http://unused',
+            'summary': 'foo bar<br />&nbsp;&nbsp;baz &amp; biff<br><br>🌉 <a href="https://fed.brid.gy/fa/fake:handle:alice">bridged</a> from 🤡 <a href="web:fake:alice">fake:handle:alice</a> by <a href="https://fed.brid.gy/">Bridgy Fed</a>',
+            'urls': ['http://unused', {'value': 'uri:fake:alice', 'rel': 'canonical'}],
+        }, OtherFake.convert(Object(
+            id='fake:profile:alice', source_protocol='fake', our_as1={
+                'objectType': 'person',
+                'id': 'fake:alice',
+                'url': 'http://unused',
+                'summary': 'foo bar\n  baz & biff',
+            }), from_user=alice))
+
     def test_convert_object_isnt_from_user_no_source_links(self):
         bob = Fake(id='fake:bob')
         self.assertEqual({
             'objectType': 'person',
             'id': 'other:u:fake:alice',
             'url': 'http://al/ice',
+            'urls': ['http://al/ice', {'value': 'fake:alice', 'rel': 'canonical'}],
         }, OtherFake.convert(Object(id='fake:alice', source_protocol='fake', our_as1={
             'objectType': 'person',
             'id': 'fake:alice',
@@ -1215,6 +1696,7 @@ class ProtocolTest(TestCase):
             'id': 'other:u:efake:alice',
             'url': 'http://unused',
             'summary': 'something about me<br><br>🌉 <a href="https://fed.brid.gy/efake/efake:handle:alice">bridged</a> from 📣 <a href="web:efake:alice">efake:handle:alice</a>, follow <a class="h-card u-author mention" rel="me" href="web:other:efake.brid.gy" title="other:handle:efake.brid.gy">other:handle:efake.brid.gy</a> to interact',
+            'urls': ['http://unused', {'value': 'uri:efake:alice', 'rel': 'canonical'}],
         }, OtherFake.convert(Object(
             id='efake:profile:alice', source_protocol='efake', our_as1={
                 'objectType': 'person',
@@ -1228,6 +1710,7 @@ class ProtocolTest(TestCase):
             'objectType': 'person',
             'id': 'other:u:fake:alice',
             'url': 'http://al/ice',
+            'urls': ['http://al/ice', {'value': 'fake:alice', 'rel': 'canonical'}],
         }, OtherFake.convert(Object(id='fake:alice', source_protocol='fake', our_as1={
             'objectType': 'person',
             'id': 'fake:alice',
@@ -1241,6 +1724,7 @@ class ProtocolTest(TestCase):
             'objectType': 'person',
             'id': 'other:u:fake:alice',
             'summary': summary,
+            'urls': [{'value': 'uri:fake:alice', 'rel': 'canonical'}],
         }, OtherFake.convert(Object(id='fake:alice', source_protocol='fake', our_as1={
             'objectType': 'person',
             'id': 'fake:alice',
@@ -1254,6 +1738,11 @@ class ProtocolTest(TestCase):
             'id': 'other:u:user.com',
             'displayName': 'Alice [Unofficial]',
             'summary': '🌉 <a href="https://fed.brid.gy/web/user.com">bridged</a> from 🌐 <a href="https://user.com/">user.com</a> by <a href="https://fed.brid.gy/">Bridgy Fed</a>',
+            'urls': [{
+                'value': 'https://user.com/',
+                'rel': 'canonical',
+                'mimeType': 'text/html',
+            }],
         }, OtherFake.convert(Object(id='user.com', source_protocol='web', our_as1={
             'objectType': 'person',
             'id': 'user.com',
@@ -1266,10 +1755,55 @@ class ProtocolTest(TestCase):
             'objectType': 'person',
             'id': 'other:u:user.com',
             'displayName': 'Alice',
+            'urls': [{
+                'value': 'https://user.com/',
+                'rel': 'canonical',
+                'mimeType': 'text/html',
+            }],
         }, OtherFake.convert(Object(id='user.com', source_protocol='web', our_as1={
             'objectType': 'person',
             'id': 'user.com',
             'displayName': 'Alice',
+        }), from_user=user))
+
+    def test_convert_web_actor_custom_atproto_handle_no_unofficial(self):
+        # https://github.com/snarfed/bridgy-fed/issues/2566
+        self.store_object(id='did:plc:user', raw={
+            **DID_DOC,
+            'alsoKnownAs': ['at://www.user.com'],
+        })
+        user = self.make_user('user.com', cls=Web, last_webmention_in=None,
+                              copies=[Target(uri='did:plc:user', protocol='atproto')])
+        self.assertEqual({
+            'objectType': 'person',
+            'id': 'other:u:user.com',
+            'displayName': 'Alice',
+            'urls': [{
+                'value': 'https://user.com/',
+                'rel': 'canonical',
+                'mimeType': 'text/html',
+            }],
+        }, OtherFake.convert(Object(id='user.com', source_protocol='web', our_as1={
+            'objectType': 'person',
+            'id': 'user.com',
+            'displayName': 'Alice',
+        }), from_user=user))
+
+    def test_convert_web_actor_has_redirects_renders_summary(self):
+        user = self.make_user('user.com', cls=Web, has_redirects=True)
+        self.assertEqual({
+            'objectType': 'person',
+            'id': 'other:u:user.com',
+            'summary': 'foo bar<br />&nbsp;&nbsp;baz &amp; biff',
+            'urls': [{
+                'value': 'https://user.com/',
+                'rel': 'canonical',
+                'mimeType': 'text/html',
+            }],
+        }, OtherFake.convert(Object(id='user.com', source_protocol='web', our_as1={
+            'objectType': 'person',
+            'id': 'user.com',
+            'summary': 'foo bar\n  baz & biff',
         }), from_user=user))
 
     def test_convert_object_adds_source_links_to_create_update(self):
@@ -1287,6 +1821,7 @@ class ProtocolTest(TestCase):
                     'objectType': 'person',
                     'id': 'other:u:efake:alice',
                     'summary': 'something about me<br><br>🌉 <a href="https://fed.brid.gy/efake/efake:handle:alice">bridged</a> from 📣 <a href="web:efake:alice">efake:handle:alice</a>, follow <a class="h-card u-author mention" rel="me" href="web:other:efake.brid.gy" title="other:handle:efake.brid.gy">other:handle:efake.brid.gy</a> to interact',
+                    'urls': [{'value': 'uri:efake:alice', 'rel': 'canonical'}],
                 },
             }, OtherFake.convert(
                 Object(id='efake:profile:update', source_protocol='efake', our_as1={
@@ -1366,6 +1901,20 @@ class ProtocolTest(TestCase):
                     'content': 'x',
                 }), 'receive')
 
+        # non-public actors are allowed, User.status handles them
+        unlisted_actor = {
+            'objectType': 'person',
+            'id': 'fake:user',
+            'to': [{'objectType': 'group', 'alias': '@unlisted'}],
+        }
+        for obj in (
+            unlisted_actor,
+            {'objectType': 'activity', 'verb': 'update', 'actor': 'fake:user',
+             'object': unlisted_actor},
+        ):
+            with self.subTest(obj=obj):
+                Fake.check_supported(Object(our_as1=obj), 'receive')
+
         # followers-only activities from NON_PUBLIC_DOMAINS should be allowed
         Fake.check_supported(Object(our_as1={
             'id': 'https://bird.makeup/post',
@@ -1384,8 +1933,29 @@ class ProtocolTest(TestCase):
                  'object': {'objectType': 'note'}},
                 {'objectType': 'activity', 'verb': 'update',
                  'object': {'objectType': 'note'}},
+                # link attachment with no url
+                {'objectType': 'note',
+                 'attachments': [{'objectType': 'link', 'displayName': 'foo'}]},
         ):
             with self.subTest(obj=obj), self.assertRaises(NoContent):
+                Fake.check_supported(Object(our_as1=obj), 'receive')
+
+        # blank content but link attachment
+        # https://github.com/snarfed/bridgy-fed/issues/2658
+        for obj in ({
+                'objectType': 'note',
+                'attachments': [{'objectType': 'link', 'url': 'http://a/link'}],
+        }, {
+            'objectType': 'activity', 'verb': 'post',
+            'object': {
+                'objectType': 'note',
+                'attachments': [{
+                    'objectType': 'link',
+                    'url': 'http://a/link',
+                }],
+            },
+        }):
+            with self.subTest(obj=obj):
                 Fake.check_supported(Object(our_as1=obj), 'receive')
 
         # from and to a copy id of a protocol bot user
@@ -1719,6 +2289,34 @@ class ProtocolReceiveTest(TestCase):
             ('other:bob:target', create_as1),
         ], OtherFake.sent)
 
+    def test_deliver_ui_object_to_followers(self):
+        """The author's Followers are on their own protocol, not ui."""
+        self.make_followers()
+
+        post_as1 = {
+            'id': 'ui:post-foo',
+            'objectType': 'note',
+            'author': 'fake:user',
+            'content': 'foo',
+        }
+        obj = Object(id='ui:post-foo', source_protocol='ui', users=[self.user.key],
+                     our_as1=post_as1)
+        obj.new = True
+        self.assertEqual(('OK', 202), UIProtocol.receive(obj, authed_as='fake:user'))
+
+        create_as1 = {
+            'id': 'ui:post-foo#bridgy-fed-create-2022-01-02T03:04:05+00:00',
+            'objectType': 'activity',
+            'verb': 'post',
+            'actor': 'fake:user',
+            'published': '2022-01-02T03:04:05+00:00',
+            'object': post_as1,
+        }
+        self.assertEqual([
+            ('other:alice:target', create_as1),
+            ('other:bob:target', create_as1),
+        ], OtherFake.sent)
+
     def test_create_post_object_missing_id(self):
         self.make_followers()
 
@@ -1733,6 +2331,22 @@ class ProtocolReceiveTest(TestCase):
                 'Item1': 'id',
                 'Item2': 'https://pandacap.azurewebsites.net/#transient-abc-123',
             }],
+        }
+        _, code = Fake.receive_as1(create_as1)
+        self.assertEqual(299, code)
+
+        self.assertEqual([], OtherFake.sent)
+
+    def test_create_post_bare_object_id_not_ours(self):
+        """Create whose object is a bare id we don't own, so we can't fetch it."""
+        self.make_followers()
+
+        create_as1 = {
+            'id': 'fake:create',
+            'objectType': 'activity',
+            'verb': 'post',
+            'actor': 'fake:user',
+            'object': 'nope:post',
         }
         _, code = Fake.receive_as1(create_as1)
         self.assertEqual(299, code)
@@ -1900,6 +2514,34 @@ class ProtocolReceiveTest(TestCase):
         self.assertEqual([], Fake.sent)
         self.assertEqual([], OtherFake.sent)
 
+    def test_deliver_to_proto_ignores_other_protocols_non_bridged_original(self):
+        self.bob.enabled_protocols = ['efake']
+        self.bob.put()
+        Follower.get_or_create(to=self.bob, from_=self.user)
+
+        # bridged to fake but not efake
+        post = self.store_object(
+            id='other:post', source_protocol='other',
+            copies=[Target(protocol='fake', uri='fake:o:other:other:post')],
+            our_as1={
+                'id': 'other:post',
+                'objectType': 'note',
+                'author': 'other:bob',
+                'content': 'foo',
+            })
+        update = Object(id='other:update', source_protocol='other', our_as1={
+            'id': 'other:update',
+            'objectType': 'activity',
+            'verb': 'update',
+            'actor': 'other:bob',
+            'object': post.as1,
+        })
+
+        self.assertEqual(('OK', 202), OtherFake.deliver(
+            update, from_user=self.bob, crud_obj=post, to_proto=Fake))
+        self.assertEqual([('fake:shared:target', update.as1)], Fake.sent)
+        self.assertEqual([], ExplicitFake.sent)
+
     def test_reply_to_non_bridged_post_with_enabled_protocol_fails_for_retry(self):
         self.alice.enabled_protocols = ['efake']
         self.alice.put()
@@ -1961,9 +2603,52 @@ class ProtocolReceiveTest(TestCase):
         self.assert_sent(OtherFake, eve, 'replied_to_bridged_user', """Hi! You <a href="http://efake/reply">recently replied to</a> <a class="h-card u-author mention" rel="me" href="web:other:user" title="other:handle:user">other:handle:user</a>, who's bridged here from other-phrase. To make sure they see your replies, you can bridge your account into other-phrase by following this account. <a href="https://fed.brid.gy/docs">See the docs</a> for more information.""")
         token = common.make_jwt(user=user, scope='respond', obj_id='efake:reply')
         self.assert_sent(ExplicitFake, user, '?', f"""\
-<p>Hi! Here are your recent interactions from people who aren't bridged into other-phrase. Click the <em>respond</em> links to reply, like, repost, or block them.
+<p>Hi! Here are your recent interactions from people who aren't bridged into other-phrase. Each <em>respond</em> link shows the full post and lets you reply, like, repost, or block it.
 <ul>
-<li><a class="h-card u-author mention" rel="me" href="web:efake:eve" title="efake:handle:eve">efake:handle:eve</a>: <a href="http://efake/reply">foo</a> (<a href="https://fed.brid.gy/other/other:handle:user/respond?obj_id=efake:reply&token={token}">respond</a>)
+<li><a class="h-card u-author mention" rel="me" href="web:efake:eve" title="efake:handle:eve">efake:handle:eve</a>: <a href="http://efake/reply">foo</a> (<a href="https://fed.brid.gy/other/other:handle:user/respond?obj_id=efake:reply&amp;token={token}">respond</a>)
+</ul>""", attachments=ANY)
+
+    def test_reply_to_ui_reply_from_non_bridged_user_gets_dm_prompt_and_notif(self):
+        """https://github.com/snarfed/bridgy-fed/issues/2481"""
+        self.make_user(id='other.brid.gy', cls=Web)
+        self.make_user(id='efake.brid.gy', cls=Web)
+
+        user = self.make_user('other:user', cls=OtherFake,
+                              enabled_protocols=['efake'],
+                              obj_as1={'id': 'other:user'})
+        eve = self.make_user('efake:eve', cls=ExplicitFake,
+                             obj_as1={'id': 'efake:eve'})
+
+        # reply that user wrote in our web UI, ie pages.respond_reply
+        self.store_object(id='ui:reply-other:user-efake:post', source_protocol='ui',
+                          users=[user.key], our_as1={
+                              'id': 'ui:reply-other:user-efake:post',
+                              'objectType': 'comment',
+                              'author': 'other:user',
+                              'inReplyTo': 'efake:post',
+                              'content': 'bar',
+                          })
+
+        _, code = ExplicitFake.receive_as1({
+            'id': 'efake:reply',
+            'url': 'http://efake/reply',
+            'objectType': 'note',
+            'author': {
+                'id': 'efake:eve',
+                'username': 'evey',
+            },
+            'inReplyTo': 'ui:reply-other:user-efake:post',
+            'content': 'foo',
+        })
+        self.assertEqual(204, code)
+
+        # check that we sent a prompt to eve and a notif to other:user
+        self.assert_sent(OtherFake, eve, 'replied_to_bridged_user', """Hi! You <a href="http://efake/reply">recently replied to</a> <a class="h-card u-author mention" rel="me" href="web:other:user" title="other:handle:user">other:handle:user</a>, who's bridged here from other-phrase. To make sure they see your replies, you can bridge your account into other-phrase by following this account. <a href="https://fed.brid.gy/docs">See the docs</a> for more information.""")
+        token = common.make_jwt(user=user, scope='respond', obj_id='efake:reply')
+        self.assert_sent(ExplicitFake, user, '?', f"""\
+<p>Hi! Here are your recent interactions from people who aren't bridged into other-phrase. Each <em>respond</em> link shows the full post and lets you reply, like, repost, or block it.
+<ul>
+<li><a class="h-card u-author mention" rel="me" href="web:efake:eve" title="efake:handle:eve">efake:handle:eve</a>: <a href="http://efake/reply">foo</a> (<a href="https://fed.brid.gy/other/other:handle:user/respond?obj_id=efake:reply&amp;token={token}">respond</a>)
 </ul>""", attachments=ANY)
 
     @patch.object(ExplicitFake, 'REQUIRES_AVATAR', new=True)
@@ -1999,9 +2684,9 @@ class ProtocolReceiveTest(TestCase):
         self.assert_sent(OtherFake, eve, 'replied_to_bridged_user', """Hi! You <a href="http://efake/quote">recently quoted</a> <a class="h-card u-author mention" rel="me" href="web:other:user" title="other:handle:user">other:handle:user</a>, who's bridged here from other-phrase. To make sure they see your quotes, you can bridge your account into other-phrase by following this account. <a href="https://fed.brid.gy/docs">See the docs</a> for more information.""")
         token = common.make_jwt(user=user, scope='respond', obj_id='efake:quote')
         self.assert_sent(ExplicitFake, user, '?', f"""\
-<p>Hi! Here are your recent interactions from people who aren't bridged into other-phrase. Click the <em>respond</em> links to reply, like, repost, or block them.
+<p>Hi! Here are your recent interactions from people who aren't bridged into other-phrase. Each <em>respond</em> link shows the full post and lets you reply, like, repost, or block it.
 <ul>
-<li><a class="h-card u-author mention" rel="me" href="web:efake:eve" title="efake:handle:eve">efake:handle:eve</a>: <a href="http://efake/quote">weird flex but ok</a> (<a href="https://fed.brid.gy/other/other:handle:user/respond?obj_id=efake:quote&token={token}">respond</a>)
+<li><a class="h-card u-author mention" rel="me" href="web:efake:eve" title="efake:handle:eve">efake:handle:eve</a>: <a href="http://efake/quote">weird flex but ok</a> (<a href="https://fed.brid.gy/other/other:handle:user/respond?obj_id=efake:quote&amp;token={token}">respond</a>)
 </ul>""", attachments=ANY)
 
     def test_mention_non_bridged_user_isnt_bridged_gets_dm_prompt_and_notif(self):
@@ -2030,9 +2715,9 @@ class ProtocolReceiveTest(TestCase):
         self.assert_sent(OtherFake, eve, 'replied_to_bridged_user', """Hi! You <a href="http://efake/mention">recently mentioned</a> <a class="h-card u-author mention" rel="me" href="web:other:user" title="other:handle:user">other:handle:user</a>, who's bridged here from other-phrase. To make sure they see your mentions, you can bridge your account into other-phrase by following this account. <a href="https://fed.brid.gy/docs">See the docs</a> for more information.""")
         token = common.make_jwt(user=user, scope='respond', obj_id='efake:mention')
         self.assert_sent(ExplicitFake, user, '?', f"""\
-<p>Hi! Here are your recent interactions from people who aren't bridged into other-phrase. Click the <em>respond</em> links to reply, like, repost, or block them.
+<p>Hi! Here are your recent interactions from people who aren't bridged into other-phrase. Each <em>respond</em> link shows the full post and lets you reply, like, repost, or block it.
 <ul>
-<li><a class="h-card u-author mention" rel="me" href="web:efake:eve" title="efake:handle:eve">efake:handle:eve</a>: <a href="http://efake/mention">weird flex but ok</a> (<a href="https://fed.brid.gy/other/other:handle:user/respond?obj_id=efake:mention&token={token}">respond</a>)
+<li><a class="h-card u-author mention" rel="me" href="web:efake:eve" title="efake:handle:eve">efake:handle:eve</a>: <a href="http://efake/mention">weird flex but ok</a> (<a href="https://fed.brid.gy/other/other:handle:user/respond?obj_id=efake:mention&amp;token={token}">respond</a>)
 </ul>""", attachments=ANY)
 
     @patch.object(ATProto, 'send', return_value=True)
@@ -2059,11 +2744,61 @@ class ProtocolReceiveTest(TestCase):
         self.assertEqual([], ExplicitFake.sent)
         self.assertEqual([], Fake.sent)
 
+    def test_ui_share_hydrates_inner_object_from_its_own_protocol(self):
+        self.store_object(id='http://inst.com/post', source_protocol='activitypub',
+                          our_as1={
+                              'id': 'http://inst.com/post',
+                              'objectType': 'note',
+                              'author': 'http://inst.com/alice',
+                          })
+
+        id = 'ui:share-fake:user-http://inst.com/post'
+        obj = Object(id=id, source_protocol='ui', users=[self.user.key], our_as1={
+            'id': id,
+            'objectType': 'activity',
+            'verb': 'share',
+            'actor': 'fake:user',
+            'object': 'http://inst.com/post',
+        })
+        UIProtocol.receive(obj, authed_as='fake:user')
+
+        self.assert_equals({
+            'id': 'http://inst.com/post',
+            'objectType': 'note',
+            'author': 'http://inst.com/alice',
+        }, obj.key.get().as1['object'])
+
+    def test_ui_post_of_ui_object_hydrates(self):
+        self.store_object(id='ui:reply-fake:user-fake:post', source_protocol='ui',
+                          users=[self.user.key], our_as1={
+                              'id': 'ui:reply-fake:user-fake:post',
+                              'objectType': 'comment',
+                              'author': 'fake:user',
+                              'content': 'hello',
+                          })
+
+        id = 'ui:post-fake:user-1'
+        obj = Object(id=id, source_protocol='ui', users=[self.user.key], our_as1={
+            'id': id,
+            'objectType': 'activity',
+            'verb': 'post',
+            'actor': 'fake:user',
+            'object': 'ui:reply-fake:user-fake:post',
+        })
+        UIProtocol.receive(obj, authed_as='fake:user')
+
+        self.assert_equals({
+            'id': 'ui:reply-fake:user-fake:post',
+            'objectType': 'comment',
+            'author': 'fake:user',
+            'content': 'hello',
+        }, obj.as1['object'])
+
     def test_repost_of_not_bridged_post_last_retry_skips_unbridged_protocol(self):
         self.user.enabled_protocols = ['other', 'efake']
         self.user.put()
 
-        self.alice.enabled_protocols = ['other', 'efake']
+        self.alice.enabled_protocols = ['efake']
         self.alice.put()
 
         self.store_object(id='other:post', source_protocol='other', our_as1={
@@ -2148,6 +2883,36 @@ class ProtocolReceiveTest(TestCase):
             ('other:share:target', undo_as1),
         ], OtherFake.sent)
 
+    def test_undo_like(self):
+        self.store_object(id='other:post', source_protocol='other', our_as1={
+            'objectType': 'note',
+            'id': 'other:post',
+            'author': 'other:bob',
+        })
+        self.store_object(id='fake:like', source_protocol='fake',
+                          copies=[Target(uri='other:o:fa:fake:like', protocol='other')],
+                          our_as1={
+            'objectType': 'activity',
+            'verb': 'like',
+            'id': 'fake:like',
+            'actor': 'fake:user',
+            'object': 'other:post',
+        })
+
+        undo_as1 = {
+            'objectType': 'activity',
+            'verb': 'undo',
+            'id': 'fake:undo',
+            'actor': 'fake:user',
+            'object': 'fake:like',
+        }
+        self.assertEqual(('OK', 202), Fake.receive_as1(undo_as1))
+        self.assertTrue(Object.get_by_id('fake:like').deleted)
+        self.assertEqual([
+            ('other:o:fa:fake:like:target', undo_as1),
+            ('other:post:target', undo_as1),
+        ], OtherFake.sent)
+
     @patch.object(ATProto, 'send', return_value=True)
     def test_follow_of_bridged_account_by_not_bridged_account_skips_atproto(
             self, mock_send):
@@ -2171,28 +2936,6 @@ class ProtocolReceiveTest(TestCase):
                                    Follower.query().fetch(),
                                    ignore=['created', 'updated'])
         self.assertEqual(0, mock_send.call_count)
-
-    @patch.object(ATProto, 'send')
-    def test_follow_of_unbridged_account_by_bridged_account_skips(self, mock_send):
-        # efake:alice follows did:plc:bob, who's not bridged, should be a noop
-        alice = self.make_user('efake:alice', cls=ExplicitFake,
-                               enabled_protocols=['atproto'])
-        self.store_object(id='efake:alice', our_as1={'x': 'y'})
-        self.store_object(id='did:plc:bob', raw=DID_DOC)
-        bob = self.make_user('did:plc:bob', cls=ATProto, obj_bsky=ACTOR_PROFILE_BSKY)
-
-        _, code = ExplicitFake.receive_as1({
-            'id': 'efake:follow',
-            'objectType': 'activity',
-            'verb': 'follow',
-            'actor': 'efake:alice',
-            'object': 'did:plc:bob',
-        })
-        self.assertEqual(299, code)
-
-        mock_send.assert_not_called()
-        self.assertEqual([], ExplicitFake.sent)
-        self.assertEqual([], Follower.query().fetch())
 
     def test_targets_block(self):
         self.bob.obj.our_as1 = {'foo': 'bar'}
@@ -2417,6 +3160,32 @@ class ProtocolReceiveTest(TestCase):
             # not eve or frank
             Target(protocol='other', uri='other://b.ob:target'),
         ], list(Fake.targets(create, from_user=alice, crud_obj=note)))
+
+    @patch('protocol.TARGETS_CHUNK_SIZE', 2)
+    def test_targets_followers_multiple_chunks(self):
+        # five followers, so they're loaded in chunks of 2, 2, and 1
+        alice = self.make_user('fake://ali.ce', cls=Fake, obj_id='fake://ali.ce')
+        for i in range(5):
+            Follower.get_or_create(to=alice, from_=self.make_user(
+                f'other://follower{i}', cls=OtherFake,
+                obj_id=f'other://follower{i}'))
+
+        note = Object(id='fake:note', our_as1={
+            'id': 'fake:post',
+            'objectType': 'note',
+            'author': 'fake://ali.ce',
+        })
+        create = Object(id='fake:create', our_as1={
+            'id': 'fake:create',
+            'objectType': 'activity',
+            'verb': 'post',
+            'actor': 'fake://ali.ce',
+            'object': note.our_as1,
+        })
+        self.assertEqual(
+            [Target(protocol='other', uri=f'other://follower{i}:target')
+             for i in range(5)],
+            list(Fake.targets(create, from_user=alice, crud_obj=note)))
 
     def test_targets_skips_uses_object_feed_proto_without_followers(self):
         # ExplicitFake has USES_OBJECT_FEED True
@@ -2933,6 +3702,35 @@ class ProtocolReceiveTest(TestCase):
         # not a self reply, shouldn't deliver to follower frank
         self.assertEqual([('other:post:target', create_as1)], OtherFake.sent)
 
+    def test_create_reply_already_created(self):
+        """If a reply already has a copy on the target protocol, don't recreate it."""
+        eve = self.make_user('other:eve', cls=OtherFake, obj_id='other:eve')
+
+        OtherFake.fetchable['other:post'] = {
+            'objectType': 'note',
+            'author': 'other:eve',
+        }
+        reply_as1 = {
+            'id': 'fake:reply',
+            'objectType': 'note',
+            'inReplyTo': 'other:post',
+            'author': 'fake:user',
+            'content': 'foo',
+        }
+        self.store_object(id='fake:reply', our_as1=reply_as1, source_protocol='fake',
+                          copies=[Target(uri='other:reply', protocol='other')])
+
+        create_as1 = {
+            'id': 'fake:create',
+            'objectType': 'activity',
+            'verb': 'post',
+            'actor': 'fake:user',
+            'object': reply_as1,
+        }
+        self.assertEqual(('No targets, nothing to do ¯\\_(ツ)_/¯', 204),
+                         Fake.receive_as1(create_as1))
+        self.assertEqual([], OtherFake.sent)
+
     def test_create_reply_bare_object(self):
         eve = self.make_user('other:eve', cls=OtherFake, obj_id='other:eve')
 
@@ -3029,8 +3827,14 @@ class ProtocolReceiveTest(TestCase):
         self.assertEqual(('OK', 202), Fake.receive_as1(reply_as1))
 
         copy = Target(protocol='other', uri='other:o:fa:fake:reply')
-        reply = self.assert_object('fake:reply', our_as1=reply_as1, type='note',
-                                   users=[self.user.key], copies=[copy], deleted=False)
+        reply = self.assert_object(
+            'fake:reply',
+            our_as1=reply_as1, type='note',
+            users=[self.user.key],
+            notify=[eve.key],
+            copies=[copy],
+            deleted=False)
+
         self.assertEqual([('other:post:target', {
             'objectType': 'activity',
             'verb': 'post',
@@ -3161,6 +3965,7 @@ class ProtocolReceiveTest(TestCase):
                 'type': 'Note',
                 'id': 'https://fa.brid.gy/convert/ap/fake:reply',
                 'attributedTo': 'https://fa.brid.gy/ap/fake:frank',
+                'replies': 'https://fa.brid.gy/ap/replies/ZmFrZTpyZXBseQ==',
                 'content': '<p>ok</p>',
                 'inReplyTo': 'http://inst/note',
                 'tag': [
@@ -3168,8 +3973,14 @@ class ProtocolReceiveTest(TestCase):
                     {'type': 'Mention', 'href': 'http://inst/bob'},
                     {'type': 'Mention', 'href': 'http://inst/eve'},
                 ],
+                'url': {
+                    'type': 'Link',
+                    'rel': 'canonical',
+                    'href': 'fake:reply',
+                },
             },
-        }, from_user=frank.key.get(), ignore=['contentMap', 'to', 'cc', 'published'])
+        }, from_user=frank.key.get(),
+           ignore=['contentMap', 'to', 'cc', 'published', 'interactionPolicy'])
 
     def test_update_reply(self):
         eve = self.make_user('other:eve', cls=OtherFake, obj_id='other:eve')
@@ -3380,6 +4191,41 @@ class ProtocolReceiveTest(TestCase):
         self.assertEqual('fake:delete', OtherFake.sent[0][1]['id'])
         self.assertEqual('fake:delete', OtherFake.sent[1][1]['id'])
 
+    def test_delete_reply(self):
+        self.make_user('other:eve', cls=OtherFake, obj_id='other:eve')
+        OtherFake.fetchable['other:post'] = {
+            'objectType': 'note',
+            'author': 'other:eve',
+        }
+
+        reply_as1 = {
+            'id': 'fake:reply',
+            'objectType': 'note',
+            'inReplyTo': 'other:post',
+            'author': 'fake:user',
+            'content': 'foo',
+        }
+        self.store_object(id='fake:reply', our_as1=reply_as1, source_protocol='fake',
+                          copies=[Target(protocol='other', uri='other:o:fa:fake:reply')])
+
+        delete_as1 = {
+            'id': 'fake:delete',
+            'objectType': 'activity',
+            'verb': 'delete',
+            'actor': 'fake:user',
+            'object': 'fake:reply',
+        }
+        self.assertEqual(('OK', 202),
+                         Fake.receive_as1(delete_as1, authed_as='fake:user'))
+
+        self.assert_object('fake:reply',
+                           our_as1=reply_as1,
+                           deleted=True,
+                           source_protocol='fake',
+                           copies=[Target(protocol='other', uri='other:o:fa:fake:reply')],
+                           )
+        self.assertEqual([('other:post:target', delete_as1)], OtherFake.sent)
+
     def test_delete_doesnt_fetch_author(self):
         self.user.obj_key.delete()
 
@@ -3410,6 +4256,48 @@ class ProtocolReceiveTest(TestCase):
         self.assertIsNone(Object.get_by_id('fake:post'))
         self.assertIsNone(Object.get_by_id('fake:delete'))
         self.assertEqual([], Fake.sent)
+
+    def test_delete_opted_out_user_non_actor_object_no_followers(self):
+        self.make_followers()
+        self.user.obj.our_as1 = {'id': 'fake:user', 'summary': '#nobridge'}
+        self.user.obj.put()
+
+        self.store_object(id='fake:post', source_protocol='fake',
+                          copies=[Target(protocol='other', uri='other:post')],
+                          our_as1={
+                              'objectType': 'note',
+                              'id': 'fake:post',
+                              'author': 'fake:user',
+                          })
+
+        _, code = Fake.receive_as1({
+            'objectType': 'activity',
+            'verb': 'delete',
+            'id': 'fake:delete',
+            'actor': 'fake:user',
+            'object': 'fake:post',
+        }, authed_as='fake:user')
+        self.assertEqual(204, code)
+
+        self.assertTrue(Object.get_by_id('fake:post').deleted)
+        self.assertEqual([], OtherFake.sent)
+
+    def test_delete_opted_out_user_actor_object_delivers_to_followers(self):
+        self.make_followers()
+        self.user.obj.our_as1 = {'id': 'fake:user', 'summary': '#nobridge'}
+        self.user.obj.put()
+
+        _, code = Fake.receive_as1({
+            'objectType': 'activity',
+            'verb': 'delete',
+            'id': 'fake:delete',
+            'actor': 'fake:user',
+            'object': 'fake:user',
+        }, authed_as='fake:user')
+        self.assertEqual(202, code)
+
+        self.assertEqual(['other:alice:target', 'other:bob:target'],
+                         [target for target, _ in OtherFake.sent])
 
     def test_delete_not_authed_as_object_owner(self):
         self.make_followers()
@@ -3496,8 +4384,16 @@ class ProtocolReceiveTest(TestCase):
         self.assertEqual(alice.key, carol_follower.key.get().to)
         self.assertEqual(alice.key, dave_follower.key.get().to)
 
+        # new_alice isn't bridged into any other protocols, so no bot should
+        # have followed it back
+        self.assertEqual([], Fake.sent)
+        self.assertEqual([], OtherFake.sent)
+        self.assertEqual([], ExplicitFake.sent)
+
     def test_move_bridged_user(self):
         """Transfers the copy account, enables the target, disables the source."""
+        self.make_user('efake.brid.gy', cls=Web)
+        self.make_user('other.brid.gy', cls=Web)
         alice = self.make_user('other:alice', cls=OtherFake, obj_id='other:alice',
                                enabled_protocols=['efake'],
                                copies=[Target(protocol='efake', uri='efake:alice')])
@@ -3528,7 +4424,153 @@ class ProtocolReceiveTest(TestCase):
         # old account should be disabled on efake with no copies
         alice = alice.key.get()
         self.assertEqual([], alice.enabled_protocols)
+
+        # new_alice is bridged into OtherFake (Fake's default) and ExplicitFake
+        # (transferred from alice), so both of those protocols' bots should
+        # have followed it back, but not Fake's own bot, since that's
+        # new_alice's native protocol
+        self.assertCountEqual([
+            ('fake:new-alice:target', {
+                'objectType': 'activity',
+                'verb': 'follow',
+                'id': 'https://other.brid.gy/#follow-back-fake:new-alice-2022-01-02T03:04:05+00:00',
+                'actor': 'other.brid.gy',
+                'object': 'fake:new-alice',
+            }),
+            ('fake:new-alice:target', {
+                'objectType': 'activity',
+                'verb': 'follow',
+                'id': 'https://efake.brid.gy/#follow-back-fake:new-alice-2022-01-02T03:04:05+00:00',
+                'actor': 'efake.brid.gy',
+                'object': 'fake:new-alice',
+            }),
+        ], Fake.sent)
         self.assertEqual([], alice.copies)
+
+    def test_move_bridged_user_dest_has_external_id(self):
+        """The copy we transfer makes the dest's external id not matter."""
+        self.make_user('efake.brid.gy', cls=Web)
+        self.make_user('other.brid.gy', cls=Web)
+        alice = self.make_user('other:alice', cls=OtherFake, obj_id='other:alice',
+                               enabled_protocols=['efake'],
+                               copies=[Target(protocol='efake', uri='efake:alice')])
+        new_alice = self.make_user('fake:new-alice', cls=Fake, obj_as1={
+            'objectType': 'person',
+            'urls': [{'value': 'efake:external', 'rel': 'alternate'}],
+        })
+
+        _, code = OtherFake.receive_as1({
+            'objectType': 'activity',
+            'verb': 'move',
+            'id': 'other:move',
+            'actor': 'other:alice',
+            'object': 'other:alice',
+            'target': 'fake:new-alice',
+        })
+        self.assertEqual(204, code)
+
+        new_alice = new_alice.key.get()
+        self.assertEqual(['efake'], new_alice.enabled_protocols)
+        self.assertEqual([Target(protocol='efake', uri='efake:alice')],
+                         new_alice.copies)
+
+    def test_move_bridged_user_dest_has_canonical_external_id(self):
+        self.make_user('efake.brid.gy', cls=Web)
+        self.make_user('other.brid.gy', cls=Web)
+        alice = self.make_user('other:alice', cls=OtherFake, obj_id='other:alice',
+                               enabled_protocols=['efake'],
+                               copies=[Target(protocol='efake', uri='efake:alice')])
+        new_alice = self.make_user('fake:new-alice', cls=Fake, obj_as1={
+            'objectType': 'person',
+            'urls': [{'value': 'unknown:external', 'rel': 'canonical'}],
+        })
+
+        _, code = OtherFake.receive_as1({
+            'objectType': 'activity',
+            'verb': 'move',
+            'id': 'other:move',
+            'actor': 'other:alice',
+            'object': 'other:alice',
+            'target': 'fake:new-alice',
+        })
+        self.assertEqual(204, code)
+
+        new_alice = new_alice.key.get()
+        self.assertEqual(['efake'], new_alice.enabled_protocols)
+        self.assertEqual([Target(protocol='efake', uri='efake:alice')],
+                         new_alice.copies)
+
+    def test_move_some_copies_dest_has_canonical_external_id(self):
+        """Transfers the copy that exists, drops the protocol that has none."""
+        self.make_user('efake.brid.gy', cls=Web)
+        self.make_user('other.brid.gy', cls=Web)
+        alice = self.make_user('other:alice', cls=OtherFake, obj_id='other:alice',
+                               enabled_protocols=['efake', 'fa'],
+                               copies=[Target(protocol='efake', uri='efake:alice')])
+        new_alice = self.make_user('fake:new-alice', cls=Fake, obj_as1={
+            'objectType': 'person',
+            'urls': [{'value': 'unknown:external', 'rel': 'canonical'}],
+        })
+
+        _, code = OtherFake.receive_as1({
+            'objectType': 'activity',
+            'verb': 'move',
+            'id': 'other:move',
+            'actor': 'other:alice',
+            'object': 'other:alice',
+            'target': 'fake:new-alice',
+        })
+        self.assertEqual(204, code)
+
+        alice = alice.key.get()
+        self.assertEqual([], alice.enabled_protocols)
+        self.assertEqual([], alice.copies)
+
+        new_alice = new_alice.key.get()
+        self.assertEqual(['efake'], new_alice.enabled_protocols)
+        self.assertEqual([Target(protocol='efake', uri='efake:alice')],
+                         new_alice.copies)
+
+    def test_move_no_copy_dest_has_external_id(self):
+        """No copy to transfer, so the dest's external id wins."""
+        self.make_user('efake.brid.gy', cls=Web)
+        self.make_user('other.brid.gy', cls=Web)
+        alice = self.make_user('other:alice', cls=OtherFake, obj_id='other:alice',
+                               enabled_protocols=['efake'], copies=[])
+        new_alice = self.make_user('fake:new-alice', cls=Fake, obj_as1={
+            'objectType': 'person',
+            'urls': [{'value': 'efake:external', 'rel': 'alternate'}],
+        })
+
+        _, code = OtherFake.receive_as1({
+            'objectType': 'activity',
+            'verb': 'move',
+            'id': 'other:move',
+            'actor': 'other:alice',
+            'object': 'other:alice',
+            'target': 'fake:new-alice',
+        })
+        self.assertEqual(204, code)
+
+        new_alice = new_alice.key.get()
+        self.assertEqual([], new_alice.enabled_protocols)
+        self.assertEqual([], new_alice.copies)
+        self.assertEqual([], alice.key.get().enabled_protocols)
+
+    def test_move_bot_user_doesnt_exist(self):
+        """Bridged into a protocol with no bot user, eg Web. Shouldn't crash."""
+        alice = self.make_user('other:alice', cls=OtherFake, obj_id='other:alice')
+        new_alice = self.make_user('fake:new-alice', cls=Fake)
+
+        _, code = OtherFake.receive_as1({
+            'objectType': 'activity',
+            'verb': 'move',
+            'id': 'other:move',
+            'actor': 'other:alice',
+            'object': 'other:alice',
+            'target': 'fake:new-alice',
+        })
+        self.assertEqual(204, code)
 
     @patch.object(Fake, 'REQUIRES_OLD_ACCOUNT', True)
     def test_move_bridged_user_dest_not_yet_eligible(self):
@@ -3537,6 +4579,8 @@ class ProtocolReceiveTest(TestCase):
         eg the dest account is too new. The move should still enable it, by
         opting it in (manual_opt_out=False) to override its status.
         """
+        self.make_user('efake.brid.gy', cls=Web)
+        self.make_user('other.brid.gy', cls=Web)
         alice = self.make_user('other:alice', cls=OtherFake, obj_id='other:alice',
                                enabled_protocols=['efake'],
                                copies=[Target(protocol='efake', uri='efake:alice')])
@@ -3564,6 +4608,77 @@ class ProtocolReceiveTest(TestCase):
         self.assertEqual([Target(protocol='efake', uri='efake:alice')],
                          new_alice.copies)
         self.assertTrue(new_alice.is_enabled(ExplicitFake))
+
+    def test_move_updates_default_bridged_handle(self):
+        """Move updates a bridged handle that's still the old account's default."""
+        self.make_user('other.brid.gy', cls=Web)
+        alice = self.make_user('other:alice', cls=OtherFake, obj_id='other:alice')
+        new_alice = self.make_user('fake:new-alice', cls=Fake)
+
+        with patch.object(Fake, 'handle_as', return_value=alice.handle):
+            _, code = OtherFake.receive_as1({
+                'objectType': 'activity',
+                'verb': 'move',
+                'id': 'other:move',
+                'actor': 'other:alice',
+                'object': 'other:alice',
+                'target': 'fake:new-alice',
+            })
+        self.assertEqual(204, code)
+
+        self.assertEqual({'fake:new-alice': f'other:handle:{new_alice.handle}'},
+                         OtherFake.usernames)
+
+    def test_move_keeps_custom_bridged_handle(self):
+        """Move doesn't touch a bridged handle that's been customized."""
+        self.make_user('other.brid.gy', cls=Web)
+        alice = self.make_user('other:alice', cls=OtherFake, obj_id='other:alice')
+        new_alice = self.make_user('fake:new-alice', cls=Fake)
+
+        with patch.object(Fake, 'handle_as', return_value='custom.example'):
+            _, code = OtherFake.receive_as1({
+                'objectType': 'activity',
+                'verb': 'move',
+                'id': 'other:move',
+                'actor': 'other:alice',
+                'object': 'other:alice',
+                'target': 'fake:new-alice',
+            })
+        self.assertEqual(204, code)
+
+        self.assertEqual({}, OtherFake.usernames)
+
+    def test_move_bridged_handle_set_username_not_implemented(self):
+        """Move still succeeds if a protocol doesn't support custom usernames."""
+        self.make_user('efake.brid.gy', cls=Web)
+        self.make_user('other.brid.gy', cls=Web)
+        alice = self.make_user('other:alice', cls=OtherFake, obj_id='other:alice',
+                               enabled_protocols=['efake'],
+                               copies=[Target(protocol='efake', uri='efake:alice')])
+        new_alice = self.make_user('fake:new-alice', cls=Fake)
+
+        def handle_as(to_proto, short=False):
+            return {OtherFake: alice.handle,
+                   ExplicitFake: f'efake:handle:{alice.handle}',
+                  }[to_proto]
+
+        with patch.object(Fake, 'handle_as', side_effect=handle_as):
+            _, code = OtherFake.receive_as1({
+                'objectType': 'activity',
+                'verb': 'move',
+                'id': 'other:move',
+                'actor': 'other:alice',
+                'object': 'other:alice',
+                'target': 'fake:new-alice',
+            })
+        self.assertEqual(204, code)
+
+        # ExplicitFake doesn't implement set_username; should be attempted,
+        # raise NotImplementedError, and get silently skipped, while
+        # OtherFake's still gets updated
+        self.assertEqual({}, ExplicitFake.usernames)
+        self.assertEqual({'fake:new-alice': f'other:handle:{new_alice.handle}'},
+                         OtherFake.usernames)
 
     def test_move_no_target(self):
         """Test Move activity without target fails."""
@@ -3674,6 +4789,28 @@ class ProtocolReceiveTest(TestCase):
             ('other:alice:target', update_as1),
             ('other:bob:target', update_as1),
         ], OtherFake.sent)
+
+    def test_update_profile_unlisted_enabled_protocols(self):
+        self.user.enabled_protocols = ['other']
+        self.user.put()
+        Follower.get_or_create(to=self.user, from_=self.alice)
+
+        update_as1 = {
+            'objectType': 'activity',
+            'verb': 'update',
+            'id': 'fake:update',
+            'actor': 'fake:user',
+            'object': {
+                'objectType': 'person',
+                'id': 'fake:profile:user',
+                'displayName': 'Ms. ☕ Baz',
+                'to': [{'objectType': 'group', 'alias': '@unlisted'}],
+            },
+        }
+        Fake.receive_as1(update_as1)
+
+        self.assertIsNone(self.user.key.get().status)
+        self.assertEqual([('other:alice:target', update_as1)], OtherFake.sent)
 
     def test_update_profile_bare_object_user_id_is_not_profile_id(self):
         profile = {
@@ -5120,6 +6257,62 @@ class ProtocolReceiveTest(TestCase):
         self.assertEqual(note, obj.our_as1)
         self.assertIsNone(Object.get_by_id('fake:post#bridgy-fed-create-2022-01-02T03:04:05+00:00'))
 
+    def test_receive_task_handler_changed(self):
+        # https://github.com/snarfed/bridgy-fed/issues/2686
+        self.make_followers()
+
+        post_as1 = {
+            'id': 'fake:post',
+            'objectType': 'note',
+            'author': 'fake:user',
+            'content': 'first',
+        }
+        self.store_object(id='fake:post', our_as1=post_as1, source_protocol='fake',
+                          copies=[Target(uri='other:post', protocol='other')])
+        memcache.memcache.set(protocol.activity_id_memcache_key('fake:post'), 'done')
+
+        post_as1['content'] = 'second'
+        resp = self.post('/queue/receive', data={
+            'our_as1': json_dumps(post_as1),
+            'source_protocol': 'fake',
+            'authed_as': 'fake:user',
+            'changed': 'True',
+        })
+        self.assertEqual(202, resp.status_code)
+
+        update = {
+            'objectType': 'activity',
+            'verb': 'update',
+            'id': 'fake:post#bridgy-fed-update-2022-01-02T03:04:05+00:00',
+            'actor': 'fake:user',
+            'object': {
+                **post_as1,
+                'updated': '2022-01-02T03:04:05+00:00',
+            },
+        }
+        self.assert_equals([
+            ('other:alice:target', update),
+            ('other:bob:target', update),
+        ], OtherFake.sent)
+
+    def test_receive_task_handler_not_new(self):
+        self.make_followers()
+
+        post_as1 = {
+            'id': 'fake:post',
+            'objectType': 'note',
+            'author': 'fake:user',
+            'content': 'foo',
+        }
+        resp = self.post('/queue/receive', data={
+            'our_as1': json_dumps(post_as1),
+            'source_protocol': 'fake',
+            'authed_as': 'fake:user',
+            'new': 'False',
+        })
+        self.assertEqual(204, resp.status_code)
+        self.assertEqual([], OtherFake.sent)
+
     @patch.object(Fake, 'receive', side_effect=requests.ConnectionError('foo'))
     def test_receive_task_handler_connection_error(self, _):
         orig_count = Object.query().count()
@@ -5513,6 +6706,52 @@ class ProtocolReceiveTest(TestCase):
         _, kwargs = mock_send.call_args
         self.assertEqual('other:alice', kwargs['from_user'].key.id())
 
+    @patch.object(Fake, 'send', return_value=True)
+    def test_send_task_delete_actor_opted_out_user(self, mock_send):
+        self.user.manual_opt_out = True
+        self.user.put()
+
+        self.store_object(id='fake:delete', our_as1={
+            'id': 'fake:delete',
+            'objectType': 'activity',
+            'verb': 'delete',
+            'actor': 'fake:user',
+            'object': 'fake:user',
+        })
+        resp = self.post('/queue/send', data={
+            'protocol': 'fake',
+            'obj_id': 'fake:delete',
+            'url': 'fake:target',
+            'user': self.user.key.urlsafe(),
+        })
+        self.assertEqual(200, resp.status_code)
+
+        _, kwargs = mock_send.call_args
+        self.assertEqual('fake:user', kwargs['from_user'].key.id())
+
+    @patch.object(Fake, 'send', return_value=True)
+    def test_send_task_delete_non_actor_opted_out_user(self, mock_send):
+        self.user.manual_opt_out = True
+        self.user.put()
+
+        self.store_object(id='fake:delete', our_as1={
+            'id': 'fake:delete',
+            'objectType': 'activity',
+            'verb': 'delete',
+            'actor': 'fake:user',
+            'object': 'fake:post',
+        })
+        resp = self.post('/queue/send', data={
+            'protocol': 'fake',
+            'obj_id': 'fake:delete',
+            'url': 'fake:target',
+            'user': self.user.key.urlsafe(),
+        })
+        self.assertEqual(200, resp.status_code)
+
+        _, kwargs = mock_send.call_args
+        self.assertIsNone(kwargs['from_user'])
+
     @patch('webutil.appengine_config.tasks_client.create_task')
     @patch.object(Fake, 'send', side_effect=MemcacheUnexpectedCloseError())
     def test_send_task_memcache_exception_reenqueues_with_delay(
@@ -5551,7 +6790,7 @@ class ProtocolReceiveTest(TestCase):
 
         bob.enable_protocol(ExplicitFake)
 
-        self.assert_sent(ExplicitFake, alice, '?', '<p>Hi! <a class="h-card u-author mention" rel="me" href="web:efake:other:bob" title="other:handle:bob &middot; efake:handle:other:handle:bob"><span style="unicode-bidi: isolate">other:handle:bob</span> &middot; efake:handle:other:handle:bob</a>, who you asked to bridge, has bridged their account into efake-phrase. You can follow them now if you want.')
+        self.assert_sent(OtherFake, alice, '?', '<p>Hi! <a class="h-card u-author mention" rel="me" href="web:efake:other:bob" title="other:handle:bob &middot; efake:handle:other:handle:bob"><span style="unicode-bidi: isolate">other:handle:bob</span> &middot; efake:handle:other:handle:bob</a>, who you asked to bridge, has bridged their account into efake-phrase. You can follow them now if you want.')
         self.assertEqual('inactive', follower.key.get().status)
 
     def test_enable_protocol_dms_dormant_followers_bounce(self):
@@ -5564,7 +6803,7 @@ class ProtocolReceiveTest(TestCase):
                                           reason='bounce')
 
         bob.enable_protocol(ExplicitFake)
-        self.assert_sent(ExplicitFake, alice, '?', '<p>Hi! <a class="h-card u-author mention" rel="me" href="web:efake:other:bob" title="other:handle:bob &middot; efake:handle:other:handle:bob"><span style="unicode-bidi: isolate">other:handle:bob</span> &middot; efake:handle:other:handle:bob</a>, who you originally followed before you Bounced, has bridged their account into efake-phrase. You can follow them now if you want.')
+        self.assert_sent(OtherFake, alice, '?', '<p>Hi! <a class="h-card u-author mention" rel="me" href="web:efake:other:bob" title="other:handle:bob &middot; efake:handle:other:handle:bob"><span style="unicode-bidi: isolate">other:handle:bob</span> &middot; efake:handle:other:handle:bob</a>, who you originally followed before you Bounced, has bridged their account into efake-phrase. You can follow them now if you want.')
         self.assertEqual('inactive', follower.key.get().status)
 
     def test_enable_protocol_skips_dormant_followers_on_other_protocol(self):

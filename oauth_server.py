@@ -1,0 +1,465 @@
+"""Common code for our OAuth server implementations.
+
+We serve OAuth for more than one protocol - Mastodon in :mod:`mastodon_oauth`,
+ATProto in :mod:`atproto_oauth` - and they both work the same way: we're the
+authorization server, but we don't have any credentials of our own for the user,
+so we authenticate them by passing through to whatever auth their original
+account supports, eg IndieAuth for web users.
+"""
+from datetime import timedelta
+import hashlib
+import logging
+import secrets
+import time
+from urllib.parse import parse_qsl, urljoin
+
+from authlib.integrations.flask_oauth2 import AuthorizationServer
+from authlib.integrations.flask_oauth2.requests import FlaskOAuth2Request
+from authlib.oauth2 import OAuth2Error
+from authlib.oauth2.rfc6749 import (
+    AuthorizationCodeGrant,
+    AuthorizationCodeMixin,
+    OAuth2Request,
+)
+from authlib.oauth2.rfc6749.requests import BasicOAuth2Payload
+from flask import redirect, request
+from google.cloud import ndb
+from google.cloud.ndb.key import Key
+from google.protobuf.message import DecodeError
+from granary import bluesky
+from granary.mastodon import Mastodon
+from granary.micropub import Micropub
+from granary.pixelfed import Pixelfed
+import jwt
+from oauth_dropins import indieauth
+from oauth_dropins.bluesky import BlueskyAuth
+from oauth_dropins.mastodon import MastodonAuth
+from oauth_dropins.pixelfed import PixelfedAuth
+from webutil import models, util
+from webutil.flask_util import flash
+from werkzeug.exceptions import HTTPException
+
+from activitypub import ActivityPub
+import atproto
+from atproto import ATProto
+import common
+import domains
+import memcache
+import pages
+from web import Web
+
+logger = logging.getLogger(__name__)
+
+JWT_ALG = 'HS256'
+
+
+def log_request_response(fn):
+    """Logs the full request and response for this view."""
+    def wrapper(*args, **kwargs):
+        logger.info(f'>> {request.method} {request.url}')
+        for header in 'Authorization', 'DPoP':
+            if val := request.headers.get(header):
+                logger.info(f'>> {header}: {val}')
+        if body := request.get_data(as_text=True):
+            logger.info(f'>> body: {body}')
+        elif request.form:
+            logger.info(f'>> form: {dict(request.form)}')
+
+        try:
+            resp = fn(*args, **kwargs)
+        except HTTPException as e:
+            # authlib's own HTTPException subclass carries the real error body in
+            # .body instead of .description
+            body = getattr(e, 'body', None) or e.description
+            logger.info(f'<< {e.code}: {body}')
+            raise
+
+        if not isinstance(resp, str):
+            logger.info(f'<< {resp}')
+            # errors are the interesting ones, and a Response's repr is just its size
+            if getattr(resp, 'status_code', 200) >= 400:
+                logger.info(f'<< body: {resp.get_data(as_text=True)}')
+
+        return resp
+
+    wrapper.__name__ = fn.__name__
+    return wrapper
+
+
+def encode_jwt(val):
+    return jwt.encode(val, key=models.ENCRYPTED_PROPERTY_KEYS_BYTES[0], algorithm=JWT_ALG)
+
+
+def decode_jwt(val, typ):
+    """Decodes a JWT and checks its ``typ``."""
+    try:
+        payload = jwt.decode(val, key=models.ENCRYPTED_PROPERTY_KEYS_BYTES[0],
+                             algorithms=[JWT_ALG])
+    except jwt.InvalidTokenError as e:
+        logger.info(f'decode failed for {val}: {e}')
+        return None
+
+    if payload.get('typ') != typ:
+        logger.info(f"expected type {typ} but got {payload['typ']} in {val}")
+        return None
+
+    return payload
+
+
+def hash_client_id(client_id):
+    return hashlib.sha256(client_id.encode()).hexdigest()
+
+
+def granary_source_for(user_key):
+    """Returns a :class:`granary.source.Source` for a user.
+
+    Uses the user's own credentials from their oauth-dropins auth entity.
+
+    TODO: our bearer tokens never expire, but the underlying login can be
+    revoked or expire. Distinguish that from "never logged in" and return 401.
+
+    Args:
+      user_key (google.cloud.ndb.key.Key)
+
+    Returns:
+      granary.source.Source or None:
+    """
+    if user_key.kind() == ATProto._get_kind():
+        if auth := BlueskyAuth.get_by_id(user_key.id()):
+            return bluesky.Bluesky.from_auth(
+                auth, client_metadata=atproto.oauth_client_metadata())
+
+    elif user_key.kind() == Web._get_kind():
+        url = f'https://{user_key.id()}'
+        if auth := (indieauth.IndieAuth.get_by_id(url)
+                    or indieauth.IndieAuth.get_by_id(url + '/')):
+            return Micropub.from_auth(auth)
+
+    elif user_key.kind() == ActivityPub._get_kind():
+        if user := user_key.get():
+            for auth_cls, source_cls in ((MastodonAuth, Mastodon),
+                                         (PixelfedAuth, Pixelfed)):
+                auth = auth_cls.get_by_id(user.handle)
+                if auth and pages.login_to_user_key(auth) == user_key:
+                    return source_cls(auth.instance(), auth.access_token_str,
+                                      user_id=auth.user_id())
+
+    logger.info(f"No auth for {user_key}, or it doesn't support writes yet")
+
+
+def _cred_memcache_key(kind, value):
+    return memcache.key(f'oauth-used-{kind}-'
+                        + hashlib.sha256(value.encode()).hexdigest())
+
+
+def mark_used(kind, value, expires_at):
+    """Marks a single use credential as used, and reports whether it already was.
+
+    Args:
+      kind (str): credential type or namespace (eg client id)
+      value (str): credential value
+      expires_at (int): epoch seconds when the credential expires
+
+    Returns:
+      bool: False if it was already used
+    """
+    expire = max(int(expires_at - time.time()), 1)
+    return bool(memcache.memcache.add(_cred_memcache_key(kind, value), 'used',
+                                      expire=expire))
+
+
+def used(kind, value):
+    """Returns whether a single use credential has already been used.
+
+    Only for credentials that can't be used at the point they're checked. See
+    :func:`mark_used`, which is atomic and should be preferred.
+
+    Args:
+      kind (str): type of credential
+      value (str): credential value
+
+    Returns:
+      bool:
+    """
+    return bool(memcache.memcache.get(_cred_memcache_key(kind, value)))
+
+
+class JsonAwareOAuth2Request(FlaskOAuth2Request):
+    """Like :class:`FlaskOAuth2Request`, but also reads JSON bodies.
+
+    Technically this shouldn't be necessary. OAuth 2 (RFC 6749 section 4.1.3) and PAR
+    (RFC 9126 section 2) both say request bodies *have* to be form-encoded, but
+    Mastodon and the Bluesky reference PDS evidently accept JSON too, so lots of
+    clients do that instead.
+    """
+    def __init__(self, flask_request):
+        super().__init__(flask_request)
+        if flask_request.is_json and (data := flask_request.get_json(silent=True)):
+            self._json_data = data
+            self.payload = BasicOAuth2Payload(data)
+
+    @property
+    def form(self):
+        if hasattr(self, '_json_data'):
+            return self._json_data
+        return super().form
+
+
+class JsonAwareAuthorizationServer(AuthorizationServer):
+    def create_oauth2_request(self, _):
+        return JsonAwareOAuth2Request(request)
+
+
+class AuthCode(AuthorizationCodeMixin):
+    """In-memory :class:`authlib.oauth2.rfc6749.AuthorizationCodeMixin`.
+
+    The authorization code is a self-contained JWT that provides all data.
+    """
+    def __init__(self, payload):
+        self.user_key = Key(urlsafe=payload['user_key'])
+        self.redirect_uri = payload['redirect_uri']
+        self.scope = payload.get('scope') or ''
+        self.code_challenge = payload.get('code_challenge')
+        self.code_challenge_method = payload.get('code_challenge_method')
+        self.dpop_jkt = payload.get('dpop_jkt')
+        self.exp = payload['exp']
+
+    def get_redirect_uri(self):
+        return self.redirect_uri
+
+    def get_scope(self):
+        return self.scope
+
+    def get_dpop_jkt(self):
+        """None unless the client bound this code to a DPoP key."""
+        return self.dpop_jkt
+
+
+class JwtAuthorizationCodeGrant(AuthorizationCodeGrant):
+    """Authorization code grant whose codes are self-contained JWTs.
+
+    Nothing is stored: the code carries all its own data, signed with our key,
+    and expires on its own. Subclasses set :attr:`CODE_TYP`.
+    """
+    CODE_TYP = None
+    """str: ``typ`` for this server's code JWTs, eg ``mastodon-oauth-code``."""
+    CODE_MAX_AGE = timedelta(seconds=60)
+
+    def generate_authorization_code(self):
+        payload = self.request.payload
+        return encode_jwt({
+            'typ': self.CODE_TYP,
+            # real wall-clock time, not util.now(): PyJWT checks 'exp' against real
+            # time regardless of any test-time mocking
+            'exp': int(time.time() + self.CODE_MAX_AGE.total_seconds()),
+            # without this, two codes for the same user, client, scope, and second
+            # would be identical, and the second would look like a replay of the
+            # first. also the entropy RFC 6749 section 10.5 asks for.
+            'jti': secrets.token_urlsafe(16),
+            'user_key': self.request.user.key.urlsafe().decode(),
+            'client_id_hash': hash_client_id(self.request.client.get_client_id()),
+            # same defaulting as authlib itself, in create_authorization_response();
+            # the resolved redirect_uri isn't otherwise available here
+            'redirect_uri': (payload.redirect_uri
+                             or self.request.client.get_default_redirect_uri()),
+            'scope': self.request.scope,
+            'code_challenge': payload.data.get('code_challenge'),
+            'code_challenge_method': payload.data.get('code_challenge_method'),
+            # DPoP key the client bound this code to, if any
+            'dpop_jkt': payload.data.get('dpop_jkt'),
+        })
+
+    def save_authorization_code(self, code, request):
+        pass
+
+    def query_authorization_code(self, code, client):
+        if not (payload := decode_jwt(code, self.CODE_TYP)):
+            return None
+
+        client_id_hash = hash_client_id(client.get_client_id())
+        if payload['client_id_hash'] != client_id_hash:
+            logger.info(f"query_authorization_code: client_id_hash mismatch, code was issued to {payload['client_id_hash']}, token request is from {client.get_client_id()} (hash {client_id_hash})")
+            return None
+
+        if used(self.CODE_TYP, code):
+            logger.warning('code was already used!')
+            return None
+
+        return AuthCode(payload)
+
+    def delete_authorization_code(self, authorization_code):
+        """RFC 6749 section 4.1.2: codes are single use.
+
+        Here and not in :meth:`query_authorization_code` because marking it used
+        there would burn it code before the client's retry could use it.
+        """
+        mark_used(self.CODE_TYP, self.request.payload.data['code'],
+                  authorization_code.exp)
+
+    def authenticate_user(self, authorization_code):
+        return authorization_code.user_key.get()
+
+
+class Proxy:
+    """One OAuth server's proxy login.
+
+    Each OAuth server subclasses this once, filling in the class attrs below.
+    That subclass then also serves as a base class for the server's proxy login
+    ``Callback`` views, which is how they get :meth:`finish`.
+    """
+    SERVER = None
+    """authlib.oauth2.rfc6749.AuthorizationServer: this server."""
+    AUTHORIZE_PATH = None
+    """str: this server's authorization endpoint, eg ``/oauth/authorize``."""
+    PROTO = None
+    """protocol.Protocol: users must be bridged into this to log in here."""
+    HIDE_LOGINS = ()
+    """sequence of str: login buttons to hide, eg ``('mastodon', 'pixelfed')``."""
+
+    # for oauth_dropins' FlashErrors
+    ON_ERROR_REDIRECT_TO = '/'
+
+    @classmethod
+    def check_user(cls, user, params):
+        """Returns ``user`` if they're allowed to log into this server.
+
+        Otherwise flashes why and returns None.
+
+        Args:
+          user (models.User)
+          params (dict): the authorization request's parameters
+
+        Returns:
+          models.User or None:
+        """
+        if user.key.id() not in common.BETA_USER_IDS:
+            flash('OAuth login is limited to beta testers for now.')
+            return None
+
+        if not user.is_enabled(cls.PROTO):
+            flash(f"{user.handle_or_id()} isn't bridged to {cls.PROTO.PHRASE} yet.")
+            return None
+
+        return user
+
+    @classmethod
+    def grant_or_deny(cls, grant_user, state):
+        """Finishes, or denies, the authorization request captured in ``state``.
+
+        Args:
+          grant_user (models.User): the resolved Bridgy Fed user, or None to deny
+          state (str): the original authorize request's query string
+        """
+        req = OAuth2Request('GET', domains.host_url(cls.AUTHORIZE_PATH))
+        req.payload = BasicOAuth2Payload(dict(parse_qsl(state or '')))
+
+        try:
+            # get the grant first: it's what resolves a PAR request_uri back
+            # into the parameters the client actually pushed, which is what
+            # check_user needs to see
+            grant = cls.SERVER.get_authorization_grant(req)
+            if grant_user:
+                grant_user = cls.check_user(grant_user, req.payload.data)
+
+            resp = cls.SERVER.create_authorization_response(
+                request=req, grant_user=grant_user, grant=grant)
+        except OAuth2Error as err:
+            logger.info(err)
+            resp = cls.SERVER.handle_error_response(None, err)
+
+        logger.info(f'<< {resp.get_data(as_text=True)}, Location: {resp.headers.get("Location")}')
+        return resp
+
+    @classmethod
+    def describe_scopes(cls, scope):
+        """Describes requested scopes in English, to show the user.
+
+        Args:
+          scope (str): space-separated scopes
+
+        Returns:
+          list of str: Short phrases that explain each scope, eg "Know which account
+          is yours" and "Create, update, and delete foo.bar records". Capitalized,
+          without trailing periods. Empty if this server doesn't describe its scopes.
+        """
+        return []
+
+    @classmethod
+    def authorize_response(cls):
+        """Renders the authorization prompt's login page."""
+        try:
+            grant = cls.SERVER.get_consent_grant()
+        except OAuth2Error as err:
+            logger.info(err)
+            return cls.SERVER.handle_error_response(None, err)
+
+        # only offer accounts that check_user will actually accept
+        keys = [key for l in pages.get_logins()
+                if (key := pages.login_to_user_key(l))]
+        logins = [l for l in ndb.get_multi(keys) if l and l.is_enabled(cls.PROTO)]
+
+        client = grant.client
+        client_id = client.get_client_id()
+        client_uri = client.client_metadata.get('client_uri')
+        if not util.is_web(client_uri):
+            client_uri = urljoin(client_id, '/') if util.is_web(client_id) else None
+
+        client_name = (client.client_metadata.get('client_name')
+                       or util.domain_from_link(client_uri)
+                       or client_id)
+
+        return common.render_template(
+            'oauth_login.html',
+            client_name=client_name,
+            client_url=client_uri,
+            state=request.query_string.decode(),
+            permissions=cls.describe_scopes(grant.request.scope),
+            existing_logins=logins,
+            authorize_path=cls.AUTHORIZE_PATH,
+            hide=cls.HIDE_LOGINS)
+
+    @classmethod
+    def consent_response(cls, state):
+        """Handles the authorization prompt's consent POST.
+
+        The user must be logged into the account they're granting, in this
+        browser session. Otherwise anyone could POST someone else's ``user_key``
+        and get an authorization code for their account.
+
+        Args:
+          state (str): the original authorize request's query string
+        """
+        grant_user = None
+
+        if not request.form.get('deny') and (key := request.form.get('user_key')):
+            try:
+                key = Key(urlsafe=key)
+            except (DecodeError, ValueError):
+                logger.warning(f"couldn't decode user_key {key}")
+                key = None
+
+            if key in [pages.login_to_user_key(l) for l in pages.get_logins()]:
+                grant_user = key.get()
+            else:
+                logger.warning(f'not logged in as {key}')
+
+        return cls.grant_or_deny(grant_user, state)
+
+    def finish(self, auth_entity, state=None):
+        """``finish()`` for every backend's proxy login callback view.
+
+        Resolves the oauth-dropins auth entity to a Bridgy Fed user via
+        :func:`pages.login_to_user_key`, then hands off to :meth:`grant_or_deny`.
+        """
+        logger.info(f'auth_entity: {auth_entity}, state: {state}')
+
+        if not auth_entity:
+            flash("OK, you're not logged in.")
+            return redirect('/')
+
+        if (not (user_key := pages.login_to_user_key(auth_entity))
+                or not (grant_user := user_key.get())):
+            flash("That account isn't set up on Bridgy Fed yet.")
+            return redirect('/')
+
+        return self.grant_or_deny(grant_user, state)

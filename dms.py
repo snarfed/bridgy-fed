@@ -11,7 +11,7 @@ from oauth_dropins.bluesky import BlueskyAuth
 from requests import HTTPError
 from webutil import util
 from webutil.util import json_dumps
-from werkzeug.exceptions import BadRequest
+from werkzeug.exceptions import BadGateway, BadRequest
 
 from collections import namedtuple
 import common
@@ -114,7 +114,7 @@ def load_user(handle, proto, from_proto, bridged):
     """
     try:
         to_user = models.load_user(handle, proto, create=True, allow_opt_out=True,
-                                   raise_=True)
+                                   raise_=True, resolve=True)
     except (AttributeError, RuntimeError) as err:
         raise ValueError(str(err))
 
@@ -223,6 +223,7 @@ def help(from_user, to_proto):
 @command(['yes', 'ok', 'start'], from_user_bridged=False,
          help_text='<em>start</em>: enable bridging for your account')
 def start(from_user, to_proto):
+    from_user.reload_profile()
     from_user.enable_protocol(to_proto)
     to_proto.bot_maybe_follow_back(from_user)
 
@@ -250,7 +251,7 @@ def mute(from_user, to_proto):
 
 
 @command(['did'], to_proto='atproto', from_user_bridged=True,
-         help_text="<em>did</em>: get your bridged Bluesky account's <a href=\"https://atproto.com/guides/identity#identifiers\">DID</a>")
+         help_text="<em>did</em>: get your bridged Atmosphere account's <a href=\"https://atproto.com/guides/identity#identifiers\">DID</a>")
 def did(from_user, to_proto):
     return f'Your DID is <code>{from_user.get_copy(models.PROTOCOLS["atproto"])}</code>'
 
@@ -317,9 +318,14 @@ def migrate_to_activitypub(from_user, to_proto, handle):
 
     try:
         to_user = models.load_user(handle, ActivityPub, create=True,
-                                   allow_opt_out=True, raise_=True)
+                                   allow_opt_out=True, raise_=True, resolve=True)
     except (AttributeError, RuntimeError, ValueError) as err:
         return str(err)
+    except BadGateway as err:
+        if (err.requests_response is not None
+                and err.requests_response.status_code in (401, 403)):
+            return f"Couldn't load {handle}; they or their server may be blocking Bridgy Fed."
+        raise
     assert to_user
 
     logger.info(f'Migrating out {from_user.key.id()} to {to_user.key.id()}')
@@ -407,7 +413,7 @@ def migrate_to_atproto(from_user, to_proto, pds, email, handle, password,
     common.create_task(queue='migrate-out', user=from_user.key.urlsafe(),
                        auth=auth.key.urlsafe(), protocol=ATProto.LABEL)
 
-    return f"OK, we've migrated your bridged Bluesky account to <code>{resp['handle']}</code> on {pds_domain}."
+    return f"OK, we've migrated your bridged Atmosphere (Bluesky) account to <code>{resp['handle']}</code> on {pds_domain}."
 
 
 @command(None, from_user_bridged=True, to_user_bridged='eligible',
@@ -474,8 +480,7 @@ def maybe_send(*, from_, to_user, text, type=None, in_reply_to=None, **kwargs):
     from_proto = from_
     if not isinstance(from_, models.User):
         assert issubclass(from_, protocol.Protocol)
-        from web import Web
-        if not (from_ := Web.get_by_id(from_.bot_user_id())):
+        if not (from_ := from_.bot_user()):
             logger.info(f'not sending DM, {from_proto.LABEL} has no bot user')
             return
 
@@ -506,7 +511,7 @@ def maybe_send(*, from_, to_user, text, type=None, in_reply_to=None, **kwargs):
         'to': [to_user.key.id()],
         **kwargs,
     }
-    models.Object(id=dm_id, our_as1=dm_as1).put()
+    models.Object(id=dm_id, our_as1=dm_as1, source_protocol=from_.LABEL).put()
 
     create_id = f'{dm_id}-create'
     create_as1 = {

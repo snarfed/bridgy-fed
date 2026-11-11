@@ -4,13 +4,14 @@ from datetime import timedelta
 from unittest.mock import ANY, patch
 
 import arroba.server
-from arroba.util import at_uri
+from arroba.util import at_uri, dag_cbor_cid, parse_at_uri
 from flask import get_flashed_messages
 from google.cloud import ndb
 from google.cloud.ndb.key import _MAX_KEYPART_BYTES
 from granary import as1, as2, atom, microformats2, rss
 from granary.source import html_to_text
 from oauth_dropins import indieauth
+from oauth_dropins.models import PkceCode
 from webutil import util
 from webutil import appengine_info
 from webutil.flask_util import APP_ENGINE_CRON_HEADER, NoContent
@@ -22,10 +23,11 @@ from werkzeug.exceptions import BadGateway, BadRequest
 # import first so that Fake is defined before URL routes are registered
 from . import testutil
 
-from activitypub import ActivityPub
+from activitypub import ActivityPub, INTERACTION_POLICY
 from atproto import ATProto
 import common
 from common import CONTENT_TYPE_HTML, TASKS_LOCATION
+import config
 import domains
 from flask_app import app
 import ids
@@ -91,6 +93,22 @@ ACTOR_MF2_REL_FEED_URL = {
 }
 ACTOR_MF2_REL_WEBMENTION_URL = copy.deepcopy(ACTOR_MF2_REL_URLS)
 ACTOR_MF2_REL_WEBMENTION_URL['rel-urls']['https://foo/wm'] = {'rels': ['webmention']}
+ACTOR_HTML_HFEED = """\
+<html>
+<body>
+<div class="h-card">
+<a class="p-name u-url" rel="me" href="/">Ms. ☕ Baz</a>
+</div>
+<div class="h-feed">
+<article class="h-entry">
+<a class="u-url" href="/post"></a>
+<div class="e-content">I hereby ☕ post</div>
+</article>
+</div>
+</body>
+</html>
+"""
+ACTOR_MF2_HFEED = {**ACTOR_MF2, 'has-h-feed': True}
 ACTOR_AS1_UNWRAPPED = {
     'objectType': 'person',
     'id': 'https://user.com/',
@@ -143,6 +161,14 @@ ACTOR_BSKY = {
     "values": [{"val": "bridged-from-bridgy-fed-web"}],
   },
   "bridgyOriginalUrl": "https://new.com/",
+  'community.lexicon.meta.links': {
+      '$type': 'community.lexicon.meta.links',
+      'links': [{
+          'href': 'https://new.com/',
+          'rel': 'canonical',
+          'mediaType': 'text/html',
+      }],
+  },
 }
 
 REPOST_HTML = """\
@@ -163,11 +189,12 @@ REPOST_AS2 = {
     'name': 'reposted!',
     'actor': 'http://localhost/user.com',
     'object': 'https://mas.to/toot/id',
-    'url': [{
+    'url': {
         'type': 'Link',
         'rel': 'canonical',
         'href': 'https://user.com/repost',
-    }],
+        'mediaType': 'text/html',
+    },
     'to': [as2.PUBLIC_AUDIENCE],
     'cc': [
         'https://mas.to/author',
@@ -314,6 +341,14 @@ AS2_CREATE = {
             'type': 'Mention',
             'href': 'https://mas.to/author',
         }],
+        'interactionPolicy': INTERACTION_POLICY,
+        'replies': 'http://localhost/ap/replies/aHR0cHM6Ly91c2VyLmNvbS9yZXBseQ==',
+        'url': {
+            'type': 'Link',
+            'rel': 'canonical',
+            'href': 'https://user.com/reply',
+            'mediaType': 'text/html',
+        },
     },
     'to': [as2.PUBLIC_AUDIENCE],
     'cc': [
@@ -352,11 +387,12 @@ FOLLOW_AS2 = {
     'id': 'http://localhost/r/https://user.com/follow',
     'object': 'https://mas.to/mrs-foo',
     'actor': 'http://localhost/user.com',
-    'url': [{
+    'url': {
         'type': 'Link',
         'rel': 'canonical',
         'href': 'https://user.com/follow',
-    }],
+        'mediaType': 'text/html',
+    },
     'to': [as2.PUBLIC_AUDIENCE],
 }
 
@@ -380,11 +416,12 @@ FOLLOW_FRAGMENT_MF2 = util.parse_mf2(FOLLOW_FRAGMENT_HTML, id='2')['items'][0]
 FOLLOW_FRAGMENT_AS2 = {
     **FOLLOW_AS2,
     'id': 'http://localhost/r/https://user.com/follow#2',
-    'url': [{
+    'url': {
         'type': 'Link',
         'rel': 'canonical',
         'href': 'https://user.com/follow#2',
-    }],
+        'mediaType': 'text/html',
+    },
 }
 
 NOTE_HTML = """\
@@ -433,6 +470,14 @@ NOTE_AS2 = {
     'content': '<p>hello i am a post</p>',
     'contentMap': {'en': '<p>hello i am a post</p>'},
     'to': [as2.PUBLIC_AUDIENCE],
+    'interactionPolicy': INTERACTION_POLICY,
+    'replies': 'http://localhost/ap/replies/aHR0cHM6Ly91c2VyLmNvbS9wb3N0',
+    'url': {
+        'type': 'Link',
+        'rel': 'canonical',
+        'href': 'https://user.com/post',
+        'mediaType': 'text/html',
+    },
 }
 CREATE_AS2 = {
     '@context': 'https://www.w3.org/ns/activitystreams',
@@ -482,6 +527,7 @@ class WebTest(TestCase):
         obj = Object(id='https://user.com/', mf2=ACTOR_MF2, source_protocol='web')
         obj.put()
         self.user = self.make_user('user.com', cls=Web, has_redirects=True, obj=obj,
+                                   enabled_protocols=['activitypub'],
                                    last_webmention_in=None)
 
         self.mrs_foo = ndb.Key(ActivityPub, 'https://mas.to/mrs-foo')
@@ -572,8 +618,22 @@ class WebTest(TestCase):
             requests_response(status=404),  # webfinger
             new,
         ]
-        user = Web.get_or_create('new.com')
+        user = Web.get_or_create('new.com', enabled_protocols=['activitypub'])
         self.assert_task(mock_create_task, 'poll-feed', domain='new.com')
+
+    @patch('webutil.appengine_config.tasks_client.create_task')
+    def test_get_or_create_new_not_bridged_no_poll_feed_task(self, mock_create_task,
+                                                             mock_get, __):
+        common.RUN_TASKS_INLINE = False
+        new = requests_response(ACTOR_HTML, url='https://new.com/')
+        mock_get.side_effect = [
+            new,
+            requests_response(status=404),  # webfinger
+            new,
+        ]
+        user = Web.get_or_create('new.com')
+        self.assertEqual([], user.enabled_protocols)
+        mock_create_task.assert_not_called()
 
     def test_get_or_create_nobridge_opted_out(self, *_):
         self.user.obj.mf2['properties']['summary'] = '#nobridge'
@@ -650,7 +710,21 @@ class WebTest(TestCase):
         did = user.get_copy(ATProto)
         repo = arroba.server.storage.load_repo(did)
         profile = repo.get_record('app.bsky.actor.profile', 'self')
-        self.assert_equals(ACTOR_BSKY, profile)
+        _, _, link_rkey = parse_at_uri(profile['links'][0]['uri'])
+        link = repo.get_record('app.bsky.actor.link', link_rkey)
+        self.assertEqual({
+            '$type': 'app.bsky.actor.link',
+            'url': 'https://new.com/',
+            'title': 'Ms. ☕ Baz',
+            'createdAt': '1970-01-01T00:00:00.000Z',
+        }, link)
+        self.assert_equals({
+            **ACTOR_BSKY,
+            'links': [{
+                'uri': at_uri(did, 'app.bsky.actor.link', link_rkey),
+                'cid': dag_cbor_cid(link).encode('base32'),
+            }],
+        }, profile)
         uri = at_uri(did, 'app.bsky.actor.profile', 'self')
         self.assertIn(Target(uri=uri, protocol='atproto'),
                       Object.get_by_id(id='https://new.com/').copies)
@@ -760,6 +834,42 @@ class WebTest(TestCase):
         self.assert_task(mock_create_task, 'webmention', **params)
         self.assertIsNone(self.user.key.get().last_webmention_in)
 
+    @patch('webutil.appengine_config.tasks_client.create_task')
+    def test_make_task_internal(self, mock_create_task, mock_get, mock_post):
+        common.RUN_TASKS_INLINE = False
+        self.make_user('fed.brid.gy', cls=Web)
+
+        params = {'source': 'https://fed.brid.gy/r/https://user.com/foo'}
+        got = self.post('/webmention', data=params,
+                        headers={'Authorization': config.SECRET_KEY})
+
+        self.assertEqual(202, got.status_code)
+        self.assert_task(mock_create_task, 'webmention', internal='true', **params)
+
+    @patch('webutil.appengine_config.tasks_client.create_task')
+    def test_make_task_internal_param_untrusted(self, mock_create_task, mock_get,
+                                                mock_post):
+        """The internal param is ours; requests can't set it themselves."""
+        common.RUN_TASKS_INLINE = False
+
+        got = self.post('/webmention', data={
+            'source': 'https://user.com/post',
+            'internal': 'true',
+        })
+
+        self.assertEqual(202, got.status_code)
+        self.assert_task(mock_create_task, 'webmention',
+                         source='https://user.com/post')
+
+    def test_task_source_on_our_domain_not_internal(self, mock_get, mock_post):
+        self.make_user('fed.brid.gy', cls=Web)
+
+        got = self.post('/queue/webmention', data={
+            'source': 'https://fed.brid.gy/r/https://user.com/foo',
+        })
+        self.assertEqual(400, got.status_code)
+        mock_get.assert_not_called()
+
     def test_no_user(self, mock_get, mock_post):
         orig_count = Object.query().count()
 
@@ -830,6 +940,8 @@ class WebTest(TestCase):
                            source_protocol='web',
                            type='comment',
                            users=[self.user.key],
+                           in_reply_to=[Object(id='bad:nope/id').key,
+                                        Object(id='https://user.com/reply').key],
                            deleted=False,
                            ignore=['mf2', 'our_as1'])
 
@@ -950,7 +1062,7 @@ class WebTest(TestCase):
         """Like and Announce shouldn't use Update, they should just resend as is."""
         Object(id='https://user.com/repost', mf2={}).put()
 
-        mock_get.side_effect = [REPOST, TOOT_AS2, ACTOR]
+        mock_get.side_effect = [REPOST, TOOT_AS2, ACTOR, ACTOR]
         mock_post.return_value = requests_response('abc xyz')
 
         got = self.post('/queue/webmention', data={
@@ -1057,7 +1169,9 @@ class WebTest(TestCase):
         mock_get.side_effect = [
             requests_response(html, url='https://user.com/repost'),
             TOOT_AS2,
-            ACTOR,
+            ACTOR,  # webmention task
+            ACTOR,  # send task
+            REPOSTED_ACTOR,
             REPOSTED_ACTOR,
         ]
         mock_post.return_value = requests_response('abc xyz')
@@ -1076,7 +1190,7 @@ class WebTest(TestCase):
 
         inboxes = ('https://inbox', 'https://public/inbox',
                    'https://shared/inbox', 'https://mas.to/inbox')
-        self.assert_ap_deliveries(mock_post, inboxes, expected_as2, ignore=['cc'])
+        self.assert_ap_deliveries(mock_post, inboxes, expected_as2)
 
         for args, kwargs in mock_get.call_args_list[1:]:
             with self.subTest(url=args[0]):
@@ -1123,6 +1237,28 @@ class WebTest(TestCase):
         args, kwargs = mock_post.call_args
         self.assertEqual(('https://mas.to/inbox',), args)
         self.assert_equals(AS2_CREATE, json_loads(kwargs['data']))
+
+    def test_create_reply_in_reply_to_user_facing_url(self, mock_get, mock_post):
+        """u-in-reply-to is the original's user-facing URL, not its AS2 id."""
+        mock_get.side_effect = [
+            requests_response(
+                REPLY_HTML.replace('https://mas.to/toot/id', 'https://mas.to/toot'),
+                url='https://user.com/reply'),
+        ] + ACTIVITYPUB_GETS[1:]
+        mock_post.return_value = requests_response('abc xyz')
+
+        got = self.post('/queue/webmention', data={
+            'source': 'https://user.com/reply',
+            'target': 'https://fed.brid.gy/',
+        })
+        self.assertEqual(202, got.status_code)
+
+        reply = Object.get_by_id('https://user.com/reply')
+        self.assert_equals(['http://no.tt/fediverse', 'https://mas.to/toot/id'],
+                           reply.as1['inReplyTo'])
+        self.assert_equals([ndb.Key(Object, 'http://no.tt/fediverse'),
+                            ndb.Key(Object, 'https://mas.to/toot/id')],
+                           reply.in_reply_to)
 
     def test_like_stored_object(self, mock_get, mock_post):
         Object(id='https://mas.to/toot', source_protocol='ap').put()
@@ -1178,11 +1314,12 @@ class WebTest(TestCase):
             'contentMap': {'en': '<p>hello i am a post</p>'},
             'name': 'hello i am a post',
             'object': 'http://localhost/r/http://bob.com/post',
-            'url': [{
+            'url': {
                 'type': 'Link',
                 'rel': 'canonical',
                 'href': 'https://user.com/multiple',
-            }],
+                'mediaType': 'text/html',
+            },
             'to': ['https://www.w3.org/ns/activitystreams#Public'],
             'cc': ['http://localhost/user.com',
                    'https://www.w3.org/ns/activitystreams#Public'],
@@ -1199,7 +1336,7 @@ class WebTest(TestCase):
 </body>
 </html>
 """, url='https://user.com/repost')
-        mock_get.side_effect = [missing_url, TOOT_AS2, ACTOR]
+        mock_get.side_effect = [missing_url, TOOT_AS2, ACTOR, ACTOR]
         mock_post.return_value = requests_response('abc xyz')
 
         got = self.post('/queue/webmention', data={
@@ -1224,7 +1361,7 @@ class WebTest(TestCase):
 </body>
 </html>
 """, url='https://user.com/repost')
-        mock_get.side_effect = [missing_url, TOOT_AS2, ACTOR]
+        mock_get.side_effect = [missing_url, TOOT_AS2, ACTOR, ACTOR]
         mock_post.return_value = requests_response('abc xyz')
 
         got = self.post('/queue/webmention', data={
@@ -1237,7 +1374,7 @@ class WebTest(TestCase):
         self.assertEqual(('https://mas.to/inbox',), args)
         self.assert_equals({
             **REPOST_AS2,
-            'url': ['http://localhost/r/https://unused'] + REPOST_AS2['url'],
+            'url': ['http://localhost/r/https://unused', REPOST_AS2['url']],
         }, json_loads(kwargs['data']))
 
     def test_create_author_only_url(self, mock_get, mock_post):
@@ -1254,9 +1391,7 @@ class WebTest(TestCase):
 </body>
 </html>
 """, url='https://user.com/repost')
-        # extra TOOT_AS2 fetches because its id is https://mas.to/toot/id which is
-        # different from https://mas.to/toot, the target of the mf2 repost
-        mock_get.side_effect = [repost, ACTOR, TOOT_AS2, TOOT_AS2, TOOT_AS2, ACTOR]
+        mock_get.side_effect = [repost, ACTOR, TOOT_AS2, ACTOR, ACTOR]
         mock_post.return_value = requests_response('abc xyz')
 
         got = self.post('/queue/webmention', data={
@@ -1393,6 +1528,8 @@ class WebTest(TestCase):
         create_as2 = copy.deepcopy(CREATE_AS2)
         create_as2['id'] = 'http://localhost/r/https://www.user.com/post#bridgy-fed-create-2022-01-02T03:04:05+00:00'
         create_as2['object']['id'] = 'http://localhost/r/https://www.user.com/post'
+        create_as2['object']['replies'] = 'http://localhost/ap/replies/aHR0cHM6Ly93d3cudXNlci5jb20vcG9zdA=='
+        create_as2['object']['url']['href'] = 'https://www.user.com/post'
         self.assert_ap_deliveries(mock_post, inboxes, create_as2)
 
     def test_create_post(self, mock_get, mock_post):
@@ -1672,8 +1809,6 @@ class WebTest(TestCase):
                 html, url='https://user.com/follow',
                 content_type=CONTENT_TYPE_HTML),
             ACTOR,
-            ACTOR,
-            biff,
             biff,
         ]
         mock_post.return_value = requests_response('unused')
@@ -1687,8 +1822,6 @@ class WebTest(TestCase):
         mock_get.assert_has_calls((
             self.req('https://user.com/follow'),
             self.as2_req('https://mas.to/mrs-foo'),
-            self.as2_req('https://mas.to/mrs-foo'),
-            self.as2_req('https://mas.to/mr-biff'),
             self.as2_req('https://mas.to/mr-biff'),
         ))
 
@@ -1713,17 +1846,11 @@ class WebTest(TestCase):
                                  )
 
         followers = Follower.query().fetch()
-        self.assertEqual(2, len(followers))
-
-        self.assertEqual(self.user.key, followers[0].from_)
-        self.assertEqual(ActivityPub(id='https://mas.to/mr-biff').key,
-                         followers[0].to)
-        self.assert_equals(obj.key, followers[0].follow)
-
-        self.assertEqual(self.user.key, followers[1].from_)
-        self.assertEqual(ActivityPub(id='https://mas.to/mrs-foo').key,
-                         followers[1].to)
-        self.assert_equals(obj.key, followers[1].follow)
+        # Queries without an explicit sort order may return either follower first.
+        self.assertCountEqual([
+            (self.user.key, mr_biff, obj.key),
+            (self.user.key, self.mrs_foo, obj.key),
+        ], [(f.from_, f.to, f.follow) for f in followers])
 
     def test_error_fragment_missing(self, mock_get, mock_post):
         mock_get.return_value = requests_response(
@@ -1887,6 +2014,12 @@ class WebTest(TestCase):
             'object': {
                 **ACTOR_AS2,
                 'attachment': ACTOR_AS2_FULL['attachment'],
+                'url': ['http://localhost/r/https://user.com/', {
+                    'type': 'Link',
+                    'rel': 'canonical',
+                    'href': 'https://user.com/',
+                    'mediaType': 'text/html',
+                }],
                 'updated': NOW.isoformat(),
                 'to': ['https://www.w3.org/ns/activitystreams#Public'],
             },
@@ -1916,7 +2049,7 @@ class WebTest(TestCase):
             'indexable': True,
         }
         self.assert_user(Web, 'user.com', obj_as2=expected_actor_as2,
-                         has_redirects=True)
+                         has_redirects=True, enabled_protocols=['activitypub'])
 
         # homepage object
         actor = {
@@ -1964,6 +2097,12 @@ class WebTest(TestCase):
             'object': {
                 **ACTOR_AS2_FULL,
                 'name': 'user.com',
+                'url': ['http://localhost/r/https://user.com/', {
+                    'type': 'Link',
+                    'rel': 'canonical',
+                    'href': 'https://user.com/',
+                    'mediaType': 'text/html',
+                }],
                 'updated': NOW.isoformat(),
                 'to': ['https://www.w3.org/ns/activitystreams#Public'],
             },
@@ -1975,7 +2114,8 @@ class WebTest(TestCase):
         self.assert_ap_deliveries(mock_post, ('https://inbox',), update_as2)
 
         # updated Web user
-        self.assert_user(Web, 'user.com', has_redirects=True, obj_as2={
+        self.assert_user(Web, 'user.com', has_redirects=True,
+                         enabled_protocols=['activitypub'], obj_as2={
             '@context': [
                 'https://www.w3.org/ns/activitystreams',
                 as2.DISCOVERABLE_INDEXABLE_CONTEXT,
@@ -2292,6 +2432,209 @@ class WebTest(TestCase):
                          authed_as='user.com', received_at='2022-01-02T03:04:05+00:00')
 
     @patch('webutil.appengine_config.tasks_client.create_task')
+    def test_poll_feed_hfeed(self, mock_create_task, mock_get, _):
+        common.RUN_TASKS_INLINE = False
+        self.user.obj.mf2 = ACTOR_MF2_HFEED
+        self.user.obj.put()
+
+        mock_get.side_effect = [
+            requests_response(ACTOR_HTML_HFEED, url='https://user.com/'),
+            # fetch post to look for image
+            WEBMENTION_NO_REL_LINK,
+        ]
+
+        got = self.post('/queue/poll-feed', data={'domain': 'user.com'})
+        self.assertEqual(200, got.status_code)
+
+        user = self.user.key.get()
+        self.assertEqual(NOW, user.last_polled_feed)
+        self.assertIsNone(user.feed_last_item)
+
+        mock_get.assert_has_calls((
+            self.req('https://user.com/'),
+        ))
+
+        expected_as1 = {
+            'objectType': 'activity',
+            'verb': 'post',
+            'id': 'https://user.com/post',
+            'actor': {'id': 'https://user.com/'},
+            'object':{
+                'objectType': 'note',
+                'id': 'https://user.com/post',
+                'url': 'https://user.com/post',
+                'author': {'id': 'https://user.com/'},
+                'content': 'I hereby ☕ post',
+                'content_is_html': True,
+            },
+        }
+        self.assert_task(mock_create_task, 'receive', id='https://user.com/post',
+                         our_as1=expected_as1, source_protocol='web',
+                         authed_as='user.com', received_at='2022-01-02T03:04:05+00:00')
+
+        expected_eta = NOW_SECONDS + web.MIN_FEED_POLL_PERIOD.total_seconds()
+        self.assert_task(mock_create_task, 'poll-feed', domain='user.com',
+                         last_polled=NOW.isoformat(), eta_seconds=expected_eta)
+
+    @patch('webutil.appengine_config.tasks_client.create_task')
+    def test_poll_feed_hfeed_hevents(self, mock_create_task, mock_get, _):
+        common.RUN_TASKS_INLINE = False
+        self.user.obj.mf2 = ACTOR_MF2_HFEED
+        self.user.obj.put()
+
+        mock_get.side_effect = [
+            requests_response("""\
+<html>
+<body>
+<div class="h-feed">
+<article class="h-event">
+<a class="u-url p-name" href="/party">Big ☕ party</a>
+<time class="dt-start" datetime="2022-02-03T18:00:00+00:00"></time>
+<time class="dt-end" datetime="2022-02-03T22:00:00+00:00"></time>
+<div class="e-content">Come one, come all</div>
+</article>
+<article class="h-event">
+<a class="u-url p-name" href="/meetup">Small meetup</a>
+<time class="dt-start" datetime="2022-01-05T12:00:00+00:00"></time>
+</article>
+</div>
+</body>
+</html>
+""", url='https://user.com/'),
+            # fetch posts to look for images
+            WEBMENTION_NO_REL_LINK,
+            WEBMENTION_NO_REL_LINK,
+        ]
+
+        got = self.post('/queue/poll-feed', data={'domain': 'user.com'})
+        self.assertEqual(200, got.status_code)
+        self.assertIsNone(self.user.key.get().feed_last_item)
+
+        self.assert_task(mock_create_task, 'receive', id='https://user.com/party',
+                         source_protocol='web', authed_as='user.com',
+                         received_at='2022-01-02T03:04:05+00:00', our_as1={
+            'objectType': 'activity',
+            'verb': 'post',
+            'id': 'https://user.com/party',
+            'actor': {'id': 'https://user.com/'},
+            'object': {
+                'objectType': 'event',
+                'id': 'https://user.com/party',
+                'url': 'https://user.com/party',
+                'author': {'id': 'https://user.com/'},
+                'displayName': 'Big ☕ party',
+                'startTime': '2022-02-03T18:00:00+00:00',
+                'endTime': '2022-02-03T22:00:00+00:00',
+                'content': 'Come one, come all',
+                'content_is_html': True,
+            },
+        })
+        self.assert_task(mock_create_task, 'receive', id='https://user.com/meetup',
+                         source_protocol='web', authed_as='user.com',
+                         eta_seconds=int(NOW.timestamp() + 5), our_as1={
+            'objectType': 'activity',
+            'verb': 'post',
+            'id': 'https://user.com/meetup',
+            'actor': {'id': 'https://user.com/'},
+            'object': {
+                'objectType': 'event',
+                'id': 'https://user.com/meetup',
+                'url': 'https://user.com/meetup',
+                'author': {'id': 'https://user.com/'},
+                'displayName': 'Small meetup',
+                'startTime': '2022-01-05T12:00:00+00:00',
+                'content_is_html': True,
+            },
+        })
+
+    @patch('web.MAX_FEED_ITEMS_PER_POLL', 2)
+    @patch('webutil.appengine_config.tasks_client.create_task')
+    def test_poll_feed_hfeed_skips_existing_not_last_item(
+            self, mock_create_task, mock_get, _):
+        common.RUN_TASKS_INLINE = False
+        self.user.obj.mf2 = ACTOR_MF2_HFEED
+        self.user.obj.put()
+        self.user.feed_last_item = 'https://user.com/party'
+        self.user.put()
+        self.store_object(id='https://user.com/party', our_as1={'objectType': 'event'})
+
+        mock_get.side_effect = [
+            requests_response("""\
+<html>
+<body>
+<div class="h-feed">
+<article class="h-event">
+<a class="u-url p-name" href="/party">Big party</a>
+</article>
+<article class="h-event">
+<a class="u-url p-name" href="/meetup">Small meetup</a>
+</article>
+<article class="h-event">
+<a class="u-url p-name" href="/picnic">Nice picnic</a>
+</article>
+</div>
+</body>
+</html>
+""", url='https://user.com/'),
+            # fetch posts to look for images
+            WEBMENTION_NO_REL_LINK,
+            WEBMENTION_NO_REL_LINK,
+        ]
+
+        got = self.post('/queue/poll-feed', data={'domain': 'user.com'})
+        self.assertEqual(200, got.status_code)
+
+        self.assertEqual([
+            ('receive', 'https://user.com/meetup'),
+            ('receive', 'https://user.com/picnic'),
+            ('poll-feed', None),
+        ], [(queue, params.get('id'))
+            for queue, params in self.parse_tasks(mock_create_task)])
+
+        self.assertEqual('https://user.com/party',
+                         self.user.key.get().feed_last_item)
+
+    @patch('webutil.appengine_config.tasks_client.create_task')
+    def test_poll_feed_hfeed_gone(self, mock_create_task, mock_get, _):
+        common.RUN_TASKS_INLINE = False
+        self.user.obj.mf2 = ACTOR_MF2_HFEED
+        self.user.obj.put()
+
+        mock_get.return_value = ACTOR_HTML_RESP
+
+        got = self.post('/queue/poll-feed', data={'domain': 'user.com'})
+        self.assertEqual(204, got.status_code)
+        self.assertEqual(ACTOR_MF2, self.user.obj.key.get().mf2)
+        mock_create_task.assert_not_called()
+
+    @patch('webutil.appengine_config.tasks_client.create_task')
+    def test_poll_feed_mf2_html_link_no_hfeed(self, mock_create_task, mock_get, _):
+        common.RUN_TASKS_INLINE = False
+        self.user.obj.mf2 = {
+            **ACTOR_MF2,
+            'rel-urls': {
+                'https://user.com/notes': {
+                    'rels': ['alternate'],
+                    'type': 'text/mf2+html',
+                },
+            },
+        }
+        self.user.obj.put()
+
+        mock_get.return_value = ACTOR_HTML_RESP
+
+        got = self.post('/queue/poll-feed', data={'domain': 'user.com'})
+        self.assertEqual(204, got.status_code)
+
+        mock_get.assert_has_calls((
+            self.req('https://user.com/notes'),
+        ))
+
+        expected_eta = NOW_SECONDS + web.MIN_FEED_POLL_PERIOD.total_seconds()
+        self.assert_task(mock_create_task, 'poll-feed', domain='user.com',
+                         last_polled=NOW.isoformat(), eta_seconds=expected_eta)
+
+    @patch('webutil.appengine_config.tasks_client.create_task')
     def test_poll_feed_fails(self, mock_create_task, mock_get, _):
         common.RUN_TASKS_INLINE = False
         self.user.obj.mf2 = ACTOR_MF2_REL_FEED_URL
@@ -2392,7 +2735,7 @@ class WebTest(TestCase):
                          last_polled=NOW.isoformat(), eta_seconds=expected_eta)
 
     @patch('webutil.appengine_config.tasks_client.create_task')
-    def test_poll_feed_blocklisted_entry_url(self, mock_create_task, mock_get, _):
+    def test_poll_feed_first_item_already_seen(self, mock_create_task, mock_get, _):
         common.RUN_TASKS_INLINE = False
         self.user.obj.mf2 = ACTOR_MF2_REL_FEED_URL
         self.user.obj.put()
@@ -2406,17 +2749,21 @@ class WebTest(TestCase):
   <content>I hereby ☕ post</content>
 </entry>
 """
-        mock_get.side_effect = [
-            requests_response(feed, headers={'Content-Type': atom.CONTENT_TYPE}),
-            # fetch post to look for image
-            WEBMENTION_NO_REL_LINK,
-        ]
+        mock_get.return_value = requests_response(
+            feed, headers={'Content-Type': atom.CONTENT_TYPE})
+
         got = self.post('/queue/poll-feed', data={'domain': 'user.com'})
         self.assertEqual(200, got.status_code)
 
         user = self.user.key.get()
         self.assertEqual(NOW, user.last_polled_feed)
         self.assertEqual('https://user.com/post', user.feed_last_item)
+
+        # only the feed itself should have been fetched, not the post, since
+        # it was already seen last poll
+        mock_get.assert_called_once()
+        # only the poll-feed reschedule task, no receive task
+        self.assertEqual(1, mock_create_task.call_count)
 
     @patch('webutil.appengine_config.tasks_client.create_task')
     def test_poll_feed_last_webmention_in_noop(self, mock_create_task, mock_get, _):
@@ -2692,8 +3039,8 @@ class WebTest(TestCase):
         empty = requests_response('')
         mock_get.side_effect = [empty, empty]
         self._test_verify(False, False, None, """\
-<pre>https://user.com/.well-known/webfinger?resource=acct:user.com@user.com
-  returned HTTP 200</pre>""")
+https://user.com/.well-known/webfinger?resource=acct:user.com@user.com
+  returned HTTP 200""")
 
     def test_verify_redirect_strips_query_params(self, mock_get, _):
         half_redir = requests_response(
@@ -2705,8 +3052,9 @@ class WebTest(TestCase):
             no_hcard,
         ]
         self._test_verify(False, False, None, """\
-Current vs expected:<pre>- http://localhost/.well-known/webfinger
-+ https://fed.brid.gy/.well-known/webfinger?resource=acct:user.com@user.com</pre>""")
+Current vs expected:
+- http://localhost/.well-known/webfinger
++ https://fed.brid.gy/.well-known/webfinger?resource=acct:user.com@user.com""")
 
     def test_verify_multiple_redirects(self, mock_get, _):
         two_redirs = requests_response(
@@ -2723,8 +3071,9 @@ Current vs expected:<pre>- http://localhost/.well-known/webfinger
         no_hcard = requests_response('<html><body></body></html>')
         mock_get.side_effect = [redir_404, redir_404, no_hcard]
         self._test_verify(False, False, None, """\
-Current vs expected:<pre>- http://this/404s
-+ https://fed.brid.gy/.well-known/webfinger?resource=acct:user.com@user.com</pre>""")
+Current vs expected:
+- http://this/404s
++ https://fed.brid.gy/.well-known/webfinger?resource=acct:user.com@user.com""")
 
     def test_verify_redirect_404_right_destination(self, mock_get, _):
         redir_404 = requests_response(status=404, redirected_url='http://localhost/.well-known/webfinger?resource=acct:user.com@user.com')
@@ -3026,7 +3375,7 @@ Current vs expected:<pre>- http://this/404s
         self.assertNotIn('user.com', body)
 
     @patch('webutil.appengine_config.tasks_client.create_task')
-    def test_check_web_site(self, mock_create_task, mock_get, _):
+    def test_check_web_site_confirm(self, mock_create_task, mock_get, _):
         common.RUN_TASKS_INLINE = False
 
         redir = 'http://localhost/.well-known/webfinger?resource=acct:user.com@user.com'
@@ -3035,20 +3384,105 @@ Current vs expected:<pre>- http://this/404s
             requests_response(status=302, redirected_url=redir),
             ACTOR_HTML_RESP,
         )
+        self.user.enabled_protocols = []
+        self.user.put()
 
-        got = self.post('/web-site', data={'url': 'https://user.com/'})
+        got = self.post('/web-site', data={'url': 'https://user.com/',
+                                           'confirm': 'true'})
         self.assert_equals(302, got.status_code)
         self.assert_equals('/web/user.com', got.headers['Location'])
 
         user = Web.get_by_id('user.com')
         self.assertEqual('person', user.obj.as1['objectType'])
+        self.assertEqual(['activitypub', 'atproto'], sorted(user.enabled_protocols))
 
         self.assert_task(mock_create_task, 'poll-feed', domain='user.com')
+
+    @patch('webutil.appengine_config.tasks_client.create_task')
+    def test_check_web_site_confirm_feed(self, mock_create_task, mock_get, _):
+        common.RUN_TASKS_INLINE = False
+        mock_get.side_effect = [
+            requests_response(ACTOR_HTML_REL_FEED_URL, url='https://new.com/'),
+            requests_response(status=404),  # webfinger
+        ]
+
+        got = self.post('/web-site', data={'url': 'https://new.com/'})
+        self.assert_equals(200, got.status_code)
+
+        body = got.get_data(as_text=True)
+        self.assertIn('Do you want to bridge', body)
+        self.assertIn('We found', body)
+        self.assertIn('an Atom feed', body)
+
+        # not bridged yet
+        user = Web.get_by_id('new.com', allow_opt_out=True)
+        self.assertEqual([], user.enabled_protocols)
+        self.assertEqual([], user.copies)
+        mock_create_task.assert_not_called()
+
+    @patch('webutil.appengine_config.tasks_client.create_task')
+    def test_check_web_site_confirm_hfeed(self, mock_create_task, mock_get, _):
+        common.RUN_TASKS_INLINE = False
+        mock_get.side_effect = [
+            requests_response(ACTOR_HTML_HFEED, url='https://new.com/'),
+            requests_response(status=404),  # webfinger
+        ]
+
+        got = self.post('/web-site', data={'url': 'https://new.com/'})
+        self.assert_equals(200, got.status_code)
+
+        body = got.get_data(as_text=True)
+        self.assertIn('Do you want to bridge', body)
+        self.assertIn('We found an HTML h-feed at', body)
+        mock_create_task.assert_not_called()
+
+    @patch('webutil.appengine_config.tasks_client.create_task')
+    def test_check_web_site_confirm_webmention(self, mock_create_task, mock_get, _):
+        common.RUN_TASKS_INLINE = False
+        mock_get.side_effect = web_user_gets('new.com')
+
+        got = self.post('/web-site', data={'url': 'https://new.com/'})
+        self.assert_equals(200, got.status_code)
+
+        body = got.get_data(as_text=True)
+        self.assertIn('Do you want to bridge', body)
+        self.assertIn('Your posts will come from the microformats', body)
+
+        user = Web.get_by_id('new.com', allow_opt_out=True)
+        self.assertEqual([], user.enabled_protocols)
+        self.assertEqual([], user.copies)
+        mock_create_task.assert_not_called()
+
+    def test_check_web_site_already_bridged(self, mock_get, _):
+        mock_get.side_effect = (
+            ACTOR_HTML_RESP,
+            requests_response(status=404),  # webfinger
+            ACTOR_HTML_RESP,
+        )
+
+        got = self.post('/web-site', data={'url': 'https://user.com/'})
+        self.assert_equals(302, got.status_code)
+        self.assert_equals('/web/user.com', got.headers['Location'])
+        self.assertEqual(['user.com is already bridged!'], get_flashed_messages())
+
+    def test_check_web_site_no_feed_or_webmention(self, mock_get, _):
+        mock_get.side_effect = [
+            requests_response(ACTOR_HTML_METAFORMATS, url='https://new.com/'),
+            requests_response(status=404),  # webfinger
+            requests_response(ACTOR_HTML_METAFORMATS, url='https://new.com/'),
+        ]
+
+        got = self.post('/web-site', data={'url': 'https://new.com/'})
+        self.assert_equals(400, got.status_code)
+        self.assertEqual(
+            ["Sorry, we can't bridge new.com: web site doesn't have a feed (RSS, Atom, or h-feed) or webmention endpoint. <a href=\"/docs#web-get-started\">More details.</a>"],
+            get_flashed_messages())
 
     def test_check_web_site_unicode_domain(self, mock_get, _):
         mock_get.side_effect = web_user_gets('☃.net')
 
-        got = self.post('/web-site', data={'url': 'https://☃.net/'})
+        got = self.post('/web-site', data={'url': 'https://☃.net/',
+                                           'confirm': 'true'})
         self.assert_equals(302, got.status_code)
         self.assert_equals('/web/%E2%98%83.net', got.headers['Location'])
         user = Web.get_by_id('☃.net')
@@ -3063,7 +3497,8 @@ Current vs expected:<pre>- http://this/404s
             requests_response(status=404),  # webfinger
         ]
         mock_get.side_effect = gets
-        got = self.post('/web-site', data={'url': 'https://AbC.oRg/'})
+        got = self.post('/web-site', data={'url': 'https://AbC.oRg/',
+                                           'confirm': 'true'})
         self.assert_equals(302, got.status_code)
         self.assert_equals('/web/abc.org', got.headers['Location'])
         self.assertIsNotNone(Web.get_by_id('abc.org'))
@@ -3115,7 +3550,7 @@ Current vs expected:<pre>- http://this/404s
         got = self.post('/web-site', data={'url': 'user.com'})
         self.assert_equals(400, got.status_code)
         self.assertEqual(
-            ['<a href="http://user.com">user.com</a> is not a <a href="/docs#web-get-started">valid or supported web site</a>'],
+            ['Sorry, we can\'t bridge user.com: account or instance has requested to be opted out. <a href="/docs#web-get-started">More details.</a>'],
             get_flashed_messages())
         self.assertEqual(1, Web.query().count())
 
@@ -3151,7 +3586,8 @@ Current vs expected:<pre>- http://this/404s
             ACTOR_HTML_RESP,
         )
 
-        got = self.post('/web-site', data={'url': 'https://orig.co/'})
+        got = self.post('/web-site', data={'url': 'https://orig.co/',
+                                           'confirm': 'true'})
         self.assert_equals(302, got.status_code, got.headers)
         self.assert_equals('/web/orig.co', got.headers['Location'])
 
@@ -3160,9 +3596,8 @@ Current vs expected:<pre>- http://this/404s
 
         got = self.post('/web-site', data={'url': 'https://orig.co/'})
         self.assert_equals(400, got.status_code, got.headers)
-        msg = get_flashed_messages()[0]
         self.assertEqual(
-            ['<a href="https://orig.co/">orig.co</a> is not a <a href="/docs#web-get-started">valid or supported web site</a>'],
+            ['Sorry, we can\'t bridge orig.co: web site doesn\'t have a feed (RSS, Atom, or h-feed) or webmention endpoint. <a href="/docs#web-get-started">More details.</a>'],
             get_flashed_messages())
 
 
@@ -3196,6 +3631,14 @@ class WebUtilTest(TestCase):
     def test_handle(self, *_):
         self.assertEqual('user.com', self.user.handle)
 
+    def test_handle_ignores_custom_username(self, *_):
+        self.user.obj = Object(id='a', as2={
+            'type': 'Person',
+            'url': ['acct:alice@user.com'],
+        })
+        self.assertEqual('alice', self.user.username())
+        self.assertEqual('user.com', self.user.handle)
+
     def test_handle_as_domain(self, *_):
         self.assertEqual('user.com', self.user.handle_as_domain)
 
@@ -3223,6 +3666,28 @@ class WebUtilTest(TestCase):
         self.assertIs(False, Web.owns_id('https://twitter.com/'))
         self.assertIs(True, Web.owns_id('https://ap.brid.gy/foo'))
         self.assertIs(True, Web.owns_id('https://ap.brid.gy/internal/foo'))
+
+    def test_id_type(self, *_):
+        self.assertEqual(ids.IdType.USER, Web.id_type('user.com'))
+        self.assertEqual(ids.IdType.OBJECT, Web.id_type('https://bar.com/baz'))
+
+        for id in (
+            # home page URLs are unclear: they identify the user, but they're
+            # also the user's profile object id
+            'http://foo.com',
+            'https://bar.com/',
+            'https://fed.brid.gy/',
+            '',
+            'at://did:plc:foo/bar/123',
+            'e45fab982',
+            'foo.bad',
+            'foo.json',
+            'alice.com@bsky.brid.gy',
+            'localhost',
+            'https://twitter.com/',
+        ):
+            with self.subTest(id=id):
+                self.assertIsNone(Web.id_type(id))
 
     def test_owns_handle(self, *_):
         self.assertIsNone(Web.owns_handle('foo.com'))
@@ -3258,12 +3723,54 @@ class WebUtilTest(TestCase):
         self.user.obj.mf2 = ACTOR_MF2_REL_WEBMENTION_URL
         self.assertIsNone(self.user.status)
 
+        self.user.obj.mf2 = ACTOR_MF2_HFEED
+        self.assertIsNone(self.user.status)
+
         self.user.obj.mf2 = ACTOR_MF2_REL_URLS
         self.assertEqual('no-feed-or-webmention', self.user.status)
 
         self.user.obj.mf2 = ACTOR_MF2
         self.user.key = Web(id='fa.brid.gy').key
         self.assertIsNone(self.user.status)
+
+    def test_feed_url(self, *_):
+        self.user.obj.mf2 = ACTOR_MF2
+        self.assertEqual((None, None), self.user.feed_url())
+
+        self.user.obj.mf2 = ACTOR_MF2_REL_FEED_URL
+        self.assertEqual(('https://foo/feed', 'atom'), self.user.feed_url())
+
+    def test_feed_url_hfeed(self, *_):
+        self.user.obj.mf2 = ACTOR_MF2_HFEED
+        self.assertEqual(('https://user.com/', 'html'), self.user.feed_url())
+
+    def test_feed_url_mf2_html(self, *_):
+        self.user.obj.mf2 = {
+            **ACTOR_MF2_HFEED,
+            'rel-urls': {
+                'https://user.com/notes': {
+                    'rels': ['alternate'],
+                    'type': 'text/mf2+html',
+                },
+            },
+        }
+        self.assertEqual(('https://user.com/notes', 'html'), self.user.feed_url())
+
+    def test_feed_url_prefers_rss_atom(self, *_):
+        self.user.obj.mf2 = {
+            **ACTOR_MF2_HFEED,
+            'rel-urls': {
+                'https://user.com/notes': {
+                    'rels': ['alternate'],
+                    'type': 'text/mf2+html',
+                },
+                'https://foo/feed': {
+                    'rels': ['alternate'],
+                    'type': atom.CONTENT_TYPE,
+                },
+            },
+        }
+        self.assertEqual(('https://foo/feed', 'atom'), self.user.feed_url())
 
     def test_fetch(self, mock_get, __):
         mock_get.return_value = REPOST
@@ -3272,6 +3779,41 @@ class WebUtilTest(TestCase):
         Web.fetch(obj)
 
         self.assert_equals({**REPOST_MF2, 'url': 'https://user.com/repost'}, obj.mf2)
+
+    def test_fetch_post_proxy_link_rel_urls(self, mock_get, __):
+        mock_get.return_value = requests_response("""\
+<html>
+<head>
+<link rel="alternate" type="application/activity+json" href="https://in.st.example/post">
+<link rel="canonical" href="https://user.com/post">
+<link rel="stylesheet" href="https://user.com/style.css">
+<link rel="me" href="https://in.st.example/@alice">
+</head>
+<body class="h-entry">
+<p class="e-content">hello</p>
+</body>
+</html>
+""", url='https://user.com/post')
+
+        obj = Object(id='https://user.com/post')
+        Web.fetch(obj)
+
+        self.assertEqual({
+            'https://in.st.example/post': {
+                'rels': ['alternate'],
+                'type': 'application/activity+json',
+                'text': '',
+            },
+            'https://user.com/post': {
+                'rels': ['canonical'],
+                'text': '',
+            },
+        }, obj.mf2['rel-urls'])
+        self.assertEqual([{
+            'value': 'https://in.st.example/post',
+            'rel': 'alternate',
+            'mimeType': 'application/activity+json',
+        }], obj.as1['urls'])
 
     def test_fetch_redirect(self, mock_get, __):
         mock_get.return_value = requests_response(
@@ -3288,12 +3830,22 @@ class WebUtilTest(TestCase):
         with self.assertRaises(BadGateway):
             Web.fetch(Object(id='https://foo'), gateway=True)
 
-    def test_fetch_blocklisted(self, mock_get, __):
-        self.assertFalse(Web.fetch(Object(id='https://x.com/foo')))
+    def test_fetch_bridgy_fed_domain(self, mock_get, __):
+        self.assertFalse(Web.fetch(Object(id='https://fed.brid.gy/foo')))
         mock_get.assert_not_called()
 
-        self.assertFalse(Web.fetch(Object(id='https://bsky.app/foo')))
+        self.assertFalse(Web.fetch(Object(id='https://ap.brid.gy/foo')))
         mock_get.assert_not_called()
+
+    def test_fetch_internal(self, mock_get, __):
+        mock_get.return_value = NOTE
+
+        obj = Object(id='https://bsky.brid.gy/internal/snarfed.org/post')
+        self.assertTrue(Web.fetch(obj, internal=True))
+        self.assert_equals({
+            **NOTE_MF2,
+            'url': 'https://user.com/post',
+        }, obj.mf2)
 
     def test_fetch_run_authorship(self, mock_get, __):
         mock_get.side_effect = [
@@ -3392,6 +3944,33 @@ class WebUtilTest(TestCase):
             **ACTOR_MF2_REL_WEBMENTION_URL,
             'url': 'https://user.com/',
         }, obj.mf2, ignore=['rel-urls'])
+        self.assert_equals(ACTOR_AS1_UNWRAPPED_URLS, obj.as1)
+
+    def test_fetch_user_homepage_hfeed(self, mock_get, __):
+        mock_get.return_value = requests_response(ACTOR_HTML_HFEED,
+                                                  url='https://user.com/')
+
+        obj = Object(id='https://user.com/')
+        Web.fetch(obj)
+
+        self.assert_equals(ACTOR_MF2_HFEED, obj.mf2, ignore=['rel-urls'])
+
+    def test_fetch_user_homepage_child_hfeed_no_properties(self, mock_get, __):
+        mock_get.return_value = requests_response("""\
+<html>
+<body class="h-card">
+<a class="p-name u-url" rel="me" href="/">Ms. ☕ Baz</a>
+<div class="h-feed">
+<div class="h-entry"><p class="e-content">hello</p></div>
+</div>
+</body>
+</html>
+""", url='https://user.com/')
+
+        obj = Object(id='https://user.com/')
+        Web.fetch(obj)
+
+        self.assertEqual({}, obj.mf2['children'][0]['properties'])
         self.assert_equals(ACTOR_AS1_UNWRAPPED_URLS, obj.as1)
 
     def test_fetch_user_homepage_other_u_url(self, mock_get, __):
@@ -3878,7 +4457,8 @@ class IndieAuthTest(TestCase):
 
     def setUp(self):
         super().setUp()
-        self.user = self.make_user('alice.com', cls=Web)
+        self.user = self.make_user('alice.com', cls=Web,
+                                   enabled_protocols=['activitypub'])
 
     @patch.object(util.session, 'get', return_value=requests_response(''))
     def test_start(self, mock_get):
@@ -3886,18 +4466,15 @@ class IndieAuthTest(TestCase):
             'me': 'https://alice.com',
         })
         self.assertEqual(302, resp.status_code)
-        self.assertTrue(resp.headers['Location'].startswith(indieauth.INDIEAUTH_URL),
+        self.assertTrue(resp.headers['Location'].startswith(indieauth.INDIELOGIN_URL),
                         resp.headers['Location'])
 
     @patch.object(util.session, 'post', return_value=requests_response('me=https://alice.com'))
     @patch.object(util.session, 'get', return_value=requests_response(''))
     def test_callback(self, mock_get, mock_post):
-        state = util.encode_oauth_state({
-            'endpoint': indieauth.INDIEAUTH_URL,
-            'me': 'https://alice.com',
-            'state': '',
-        })
-        resp = self.client.get(f'/oauth/indieauth/finish?code=my_code&state={state}',
+        PkceCode(id='my_state', verifier='my_verifier', challenge='my_challenge',
+                 auth_endpoint=indieauth.INDIELOGIN_URL, me='https://alice.com').put()
+        resp = self.client.get('/oauth/indieauth/finish?code=my_code&state=my_state&iss=https://indielogin.com/',
                                base_url='https://fed.brid.gy/')
         self.assertEqual(302, resp.status_code)
         self.assertTrue(resp.headers['Location'].startswith('/settings'),

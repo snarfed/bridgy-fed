@@ -3,13 +3,19 @@
 Import all modules that define views in the app so that their URL routes get
 registered.
 """
+import os
+
+from arroba import xrpc_proxy
 from arroba.datastore_storage import MemcacheSequences
+import arroba.server
+from flask import abort
+import lexrpc.flask_server
 from webutil.appengine_info import DEBUG, LOCAL_SERVER
 
 from flask_app import app
 
 # import all modules to register their Flask handlers
-import activitypub, admin, atproto, convert, farcaster, follow, mastodon_api, mastodon_oauth, nostr, pages, redirect, ui, webfinger, web
+import activitypub, admin, atproto, atproto_oauth, atproto_xrpc, convert, farcaster, follow, mastodon_api, mastodon_oauth, nostr, oauth_server, pages, redirect, ui, webfinger, web
 
 # https://docs.cloud.google.com/profiler/docs/profiling-python
 # import googlecloudprofiler
@@ -21,6 +27,67 @@ import activitypub, admin, atproto, convert, farcaster, follow, mastodon_api, ma
 import models
 models.reset_protocol_properties()
 
+
+@app.get('/.well-known/oauth-authorization-server')
+@app.get('/.well-known/oauth-authorization-server/')
+@oauth_server.log_request_response
+def oauth_metadata():
+    """Serves whichever OAuth authorization server this host runs.
+
+    Here, and not in either OAuth module, because RFC 8414 pins this to one path
+    per host, so the two servers have to share the route.
+    """
+    # atproto.brid.gy is our PDS, so it serves ATProto OAuth
+    return (atproto_oauth.metadata() if atproto.is_pds_host()
+            else mastodon_oauth.metadata())
+
+
+@app.get('/oauth/authorize')
+@app.get('/oauth/authorize/')
+@oauth_server.log_request_response
+def oauth_authorize():
+    """Serves whichever OAuth authorization endpoint this host runs.
+
+    Shared here for the same reason as :func:`oauth_metadata`. This is Mastodon's
+    authorization endpoint, and the reference PDS's; some ATProto clients ignore
+    our ``authorization_endpoint`` and hardcode this path, so serve them here too.
+
+    Only GET. The ATProto branch redirects to its own path on
+    :const:`domains.PRIMARY_DOMAIN`, so its consent POST never lands here.
+    """
+    return (atproto_oauth.authorize() if atproto.is_pds_host()
+            else mastodon_oauth.authorize())
+
+
+@app.post('/oauth/token')
+@app.post('/oauth/token/')
+@oauth_server.log_request_response
+def oauth_token():
+    """Serves whichever OAuth token endpoint this host runs.
+
+    Shared here for the same reason as :func:`oauth_authorize`, and hardcoded by
+    the same clients. No redirect: both servers' token endpoints already run on
+    the host the client asked for, and moving hosts would break DPoP's ``htu``.
+    """
+    return (atproto_oauth.token() if atproto.is_pds_host()
+            else mastodon_oauth.token())
+
+
+@app.post('/oauth/par')
+@app.post('/oauth/par/')
+@oauth_server.log_request_response
+def oauth_par():
+    """Alternate path for ATProto PAR requests.
+
+    Unlike the others above, Mastodon OAuth has no PAR endpoint, so this is only for
+    atproto.brid.gy.
+    """
+    if not atproto.is_pds_host():
+        abort(404)
+
+    return atproto_oauth.par()
+
+
 if DEBUG or LOCAL_SERVER:
     atproto.init(atproto.RemoteSequences)
 else:
@@ -29,6 +96,15 @@ else:
 # only serve subscribeRepos on atproto.brid.gy (hub), not on fed.brid.gy, so
 # that relays don't think they're two separate PDSes.
 #
-# must be before flask_app import!
-import arroba.server
+# must be before init_flask below!
 del arroba.server.server._methods['com.atproto.sync.subscribeRepos']
+
+# authenticate XRPC requests, both proxied and ones we implement, eg repo writes
+arroba.server.authenticate = atproto_oauth.arroba_authenticate
+
+# initialize XRPC server
+#
+# methods we don't implement get service proxied to whichever service the client
+# asks for in the atproto-proxy request header
+# https://atproto.com/specs/xrpc#service-proxying
+lexrpc.flask_server.init_flask(arroba.server.server, app, fallback=xrpc_proxy.handler)

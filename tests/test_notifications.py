@@ -117,10 +117,10 @@ class NotificationsTest(TestCase):
         token_a = common.make_jwt(user=user, scope='respond', obj_id='efake:a')
         token_b = common.make_jwt(user=user, scope='respond', obj_id='http://notif/b')
         self.assert_sent(ExplicitFake, user, '?', f"""\
-<p>Hi! Here are your recent interactions from people who aren't bridged into fake-phrase. Click the <em>respond</em> links to reply, like, repost, or block them.
+<p>Hi! Here are your recent interactions from people who aren't bridged into fake-phrase. Each <em>respond</em> link shows the full post and lets you reply, like, repost, or block it.
 <ul>
-<li><a class="h-card u-author mention" rel="me" href="web:efake:alice" title="Ms Alice &middot; efake:handle:alice"><span style="unicode-bidi: isolate">Ms Alice</span> &middot; efake:handle:alice</a>: <a href="http://notif/a">foo bar</a> (<a href="https://fed.brid.gy/fa/fake:handle:user/respond?obj_id=efake:a&token={token_a}">respond</a>)
-<li><a href="http://notif/b">notif/b</a> (<a href="https://fed.brid.gy/fa/fake:handle:user/respond?obj_id=http://notif/b&token={token_b}">respond</a>)
+<li><a class="h-card u-author mention" rel="me" href="web:efake:alice" title="Ms Alice &middot; efake:handle:alice"><span style="unicode-bidi: isolate">Ms Alice</span> &middot; efake:handle:alice</a>: <a href="http://notif/a">foo bar</a> (<a href="https://fed.brid.gy/fa/fake:handle:user/respond?obj_id=efake:a&amp;token={token_a}">respond</a>)
+<li><a href="http://notif/b">notif/b</a> (<a href="https://fed.brid.gy/fa/fake:handle:user/respond?obj_id=http://notif/b&amp;token={token_b}">respond</a>)
 </ul>
 <p>To disable these messages, reply with the text 'mute'.""",
             attachments=[{
@@ -200,6 +200,32 @@ class NotificationsTest(TestCase):
         })
         self.assertEqual(200, resp.status_code)
         self.assertIn('Ms Alice</span> &middot; efake:handle:alice</a>: <a href="http://notif/a">foo bar</a>',
+                      Fake.sent[0][1]['object']['content'])
+
+    @patch('webutil.appengine_config.tasks_client.create_task')
+    def test_notify_task_ui_object(self, _):
+        common.RUN_TASKS_INLINE = False
+        self.make_user(id='efake.brid.gy', cls=Web)
+        user = self.make_user(id='fake:user', cls=Fake, enabled_protocols=['efake'],
+                              obj_as1={'x': 'y'})
+        alice = self.make_user(id='efake:alice', cls=ExplicitFake,
+                               obj_as1={'id': 'efake:alice'})
+
+        add_notification(user, self.store_object(
+            id='ui:reply-efake:alice-fake:post', source_protocol='ui',
+            users=[alice.key], our_as1={
+                'url': 'http://notif/a',
+                'content': 'foo bar',
+                'author': 'efake:alice',
+            }))
+
+        common.RUN_TASKS_INLINE = True
+        resp = self.post('/queue/notify', data={
+            'user_id': 'fake:user',
+            'protocol': 'fake',
+        })
+        self.assertEqual(200, resp.status_code)
+        self.assertIn('efake:handle:alice</a>: <a href="http://notif/a">foo bar</a>',
                       Fake.sent[0][1]['object']['content'])
 
     @patch('webutil.appengine_config.tasks_client.create_task')

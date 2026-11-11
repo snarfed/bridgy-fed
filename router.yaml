@@ -8,14 +8,14 @@ service: router
 env: flex
 runtime: python
 runtime_config:
-    operating_system: ubuntu22
+    operating_system: ubuntu24
     # keep this in sync with the test job image in .circleci/config.yml!
     # change to 3.11 to use Cloud Profiler
-    runtime_version: "3.12"
+    runtime_version: "3.14"
 
 resources:
   cpu: 1
-  memory_gb: 2
+  memory_gb: 2.5
 
 # run in default VPC for this project
 # https://cloud.google.com/appengine/docs/flexible/using-shared-vpc

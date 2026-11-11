@@ -9,18 +9,19 @@ from granary.tests.test_as1 import ACTOR, COMMENT, DELETE_OF_ID, UPDATE
 from models import Object, Target
 from webutil import util
 from webutil.testutil import requests_response
-from webutil.util import domain_from_link, json_loads, parse_mf2
+from webutil.util import json_loads, parse_mf2
 
 # import first so that Fake is defined before URL routes are registered
 from . import testutil
 from .testutil import ExplicitFake, Fake, OtherFake
 
-from activitypub import ActivityPub
+from activitypub import ActivityPub, INTERACTION_POLICY
+from atproto import ATProto
 from common import CONTENT_TYPE_HTML
 from web import Web
 
 from . import test_activitypub
-from .test_atproto import METAFORMATS_HTML
+from .test_atproto import DID_DOC, METAFORMATS_HTML
 from .test_web import ACTOR_HTML
 
 COMMENT_AS2 = {
@@ -32,6 +33,8 @@ COMMENT_AS2 = {
     'contentMap': {'en': '<p>A ☕ reply</p>'},
     'inReplyTo': 'https://web.brid.gy/r/https://fake.com/123',
     'published': '2012-12-05T00:58:26+00:00',
+    'interactionPolicy': INTERACTION_POLICY,
+    'replies': 'https://web.brid.gy/ap/replies/aHR0cHM6Ly9mYWtlLmNvbS8xMjM0NTY=',
 }
 HTML = """\
 <!DOCTYPE html>
@@ -41,13 +44,11 @@ HTML = """\
 <body class="">
 <article class="h-entry">
   <span class="p-uid">tag:fake.com:123456</span>
-  <time class="dt-published" datetime="2012-12-05T00:58:26+00:00">2012-12-05T00:58:26+00:00</time>
-  <a class="u-url" href="https://fake.com/123456">fake.com/123456</a>
+  <a class="u-url" href="https://fake.com/123456"><time class="dt-published" datetime="2012-12-05T00:58:26+00:00">2012-12-05T00:58:26+00:00</time></a>
   <div class="e-content p-name">
   A ☕ reply
   </div>
   <a class="u-in-reply-to" href="https://fake.com/123"></a>
-  <a class="u-in-reply-to" href="tag:fake.com:123"></a>
 </article>
 </body>
 </html>
@@ -61,18 +62,16 @@ AUTHOR_HTML = """\
 <body class="">
 <article class="h-entry">
   <span class="p-uid">tag:fake.com:123456</span>
-  <time class="dt-published" datetime="2012-12-05T00:58:26+00:00">2012-12-05T00:58:26+00:00</time>
+  <a class="u-url" href="https://fake.com/123456"><time class="dt-published" datetime="2012-12-05T00:58:26+00:00">2012-12-05T00:58:26+00:00</time></a>
   <span class="p-author h-card">
     <data class="p-uid" value="tag:fake.com:444"></data>
     <a class="p-name u-url" href="https://plus.google.com/bob">Bob</a>
     <img class="u-photo" src="https://bob/picture" alt="" />
   </span>
-  <a class="u-url" href="https://fake.com/123456">fake.com/123456</a>
   <div class="e-content p-name">
   A ☕ reply
   </div>
   <a class="u-in-reply-to" href="https://fake.com/123"></a>
-  <a class="u-in-reply-to" href="tag:fake.com:123"></a>
 </article>
 </body>
 </html>
@@ -202,6 +201,64 @@ class ConvertTest(testutil.TestCase):
                                base_url='https://fa.brid.gy/')
         self.assertEqual(404, resp.status_code)
 
+    @patch.object(Fake, 'HAS_COPIES', new=False)
+    def test_efake_to_other_reply_original_author_not_enabled(self):
+        """https://github.com/snarfed/bridgy-fed/issues/1248"""
+        self.make_user('efake:user', cls=ExplicitFake,
+                       enabled_protocols=['other'])
+        self.make_user('efake:orig-user', cls=ExplicitFake,
+                       enabled_protocols=[])
+
+        self.store_object(id='efake:post', our_as1={'author': 'efake:orig-user'})
+        self.store_object(id='efake:reply', our_as1={
+            'objectType': 'comment',
+            'inReplyTo': 'efake:post',
+            'author': 'efake:user',
+        })
+
+        resp = self.client.get(f'/convert/other/efake:reply',
+                               base_url='https://efake.brid.gy/')
+        self.assertEqual(404, resp.status_code)
+
+    def test_fake_to_activitypub_reply_to_activitypub_unlisted(self):
+        self.make_user('fake:alice', cls=Fake, enabled_protocols=['activitypub'])
+        self.store_object(id='http://inst/post', source_protocol='activitypub',
+                          our_as1={
+                              'objectType': 'note',
+                              'author': 'http://inst/bob',
+                              'to': [{'objectType': 'group', 'alias': '@unlisted'}],
+                          })
+        self.store_object(id='fake:reply', our_as1={
+            'objectType': 'comment',
+            'inReplyTo': 'http://inst/post',
+            'author': 'fake:alice',
+        })
+
+        resp = self.client.get('/convert/ap/fake:reply',
+                               base_url='https://fa.brid.gy/')
+        self.assertEqual(200, resp.status_code)
+        self.assert_equals({
+            'type': 'Note',
+            'id': 'https://fa.brid.gy/convert/ap/fake:reply',
+            'attributedTo': 'https://fa.brid.gy/ap/fake:alice',
+            'inReplyTo': 'http://inst/post',
+            'to': ['https://www.w3.org/ns/activitystreams#Public'],
+            'interactionPolicy': INTERACTION_POLICY,
+            'replies': 'https://fa.brid.gy/ap/replies/ZmFrZTpyZXBseQ==',
+        }, json_loads(resp.get_data()), ignore=['@context'])
+
+    def test_fake_to_activitypub_unlisted(self):
+        self.make_user('fake:alice', cls=Fake, enabled_protocols=['activitypub'])
+        self.store_object(id='fake:post', our_as1={
+            'objectType': 'note',
+            'author': 'fake:alice',
+            'to': [{'objectType': 'group', 'alias': '@unlisted'}],
+        })
+
+        resp = self.client.get('/convert/ap/fake:post',
+                               base_url='https://fa.brid.gy/')
+        self.assertEqual(404, resp.status_code)
+
     def test_fake_to_activitypub(self):
         self.make_user('fake:alice', cls=Fake, enabled_protocols=['activitypub'])
         self.store_object(id='fake:post', our_as1={
@@ -221,6 +278,81 @@ class ConvertTest(testutil.TestCase):
             'to': ['https://www.w3.org/ns/activitystreams#Public'],
         }, json_loads(resp.get_data()))
         self.assertEqual(f'<{ap_id}>; rel="self"', resp.headers['Link'])
+
+    def test_ui_to_activitypub(self):
+        user = self.make_user('fake:alice', cls=Fake,
+                              enabled_protocols=['activitypub'])
+        self.store_object(id='ui:reply-fake:alice-fake:post', source_protocol='ui',
+                          users=[user.key], our_as1={
+                              'objectType': 'comment',
+                              'author': 'fake:alice',
+                              'content': 'hello',
+                          })
+
+        resp = self.client.get('/convert/ap/ui:reply-fake:alice-fake:post',
+                               base_url='https://fa.brid.gy/')
+        self.assertEqual(200, resp.status_code)
+        self.assertEqual(ActivityPub.CONTENT_TYPE, resp.content_type)
+        self.assert_equals({
+            'type': 'Note',
+            'id': 'https://fa.brid.gy/convert/ap/ui:reply-fake:alice-fake:post',
+            'attributedTo': 'https://fa.brid.gy/ap/fake:alice',
+            'content': '<p>hello</p>',
+            'contentMap': {'en': '<p>hello</p>'},
+            'to': ['https://www.w3.org/ns/activitystreams#Public'],
+            'interactionPolicy': INTERACTION_POLICY,
+            'replies': 'https://fa.brid.gy/ap/replies/dWk6cmVwbHktZmFrZTphbGljZS1mYWtlOnBvc3Q=',
+        }, json_loads(resp.get_data()))
+
+    def test_ui_to_activitypub_not_public(self):
+        user = self.make_user('fake:alice', cls=Fake,
+                              enabled_protocols=['activitypub'])
+        self.store_object(id='ui:media-fake:alice-123', source_protocol='ui',
+                          users=[user.key], our_as1={
+                              'objectType': 'image',
+                              'url': 'http://pic',
+                              'to': [{'objectType': 'group', 'alias': '@private'}],
+                          })
+
+        resp = self.client.get('/convert/ap/ui:media-fake:alice-123',
+                               base_url='https://fa.brid.gy/')
+        self.assertEqual(404, resp.status_code)
+
+    def test_activitypub_to_web_dm(self):
+        Object(id='http://foo', our_as1={
+            'objectType': 'note',
+            'content': 'hi',
+            'to': ['http://bob'],
+        }).put()
+
+        resp = self.client.get('/convert/web/http://foo',
+                               base_url='https://ap.brid.gy/')
+        self.assertEqual(404, resp.status_code)
+
+    def test_ui_to_activitypub_on_fed_subdomain(self):
+        """ui: objects are ours, so we always serve them from fed.brid.gy."""
+        user = self.make_user('fake:alice', cls=Fake,
+                              enabled_protocols=['activitypub'])
+        self.store_object(id='ui:reply-fake:alice-fake:post', source_protocol='ui',
+                          users=[user.key], our_as1={
+                              'objectType': 'comment',
+                              'author': 'fake:alice',
+                              'content': 'hello',
+                          })
+
+        resp = self.client.get('/convert/ap/ui:reply-fake:alice-fake:post',
+                               base_url='https://fed.brid.gy/')
+        self.assertEqual(200, resp.status_code)
+        self.assert_equals({
+            'type': 'Note',
+            'id': 'https://fa.brid.gy/convert/ap/ui:reply-fake:alice-fake:post',
+            'attributedTo': 'https://fa.brid.gy/ap/fake:alice',
+            'content': '<p>hello</p>',
+            'contentMap': {'en': '<p>hello</p>'},
+            'to': ['https://www.w3.org/ns/activitystreams#Public'],
+            'interactionPolicy': INTERACTION_POLICY,
+            'replies': 'https://fa.brid.gy/ap/replies/dWk6cmVwbHktZmFrZTphbGljZS1mYWtlOnBvc3Q=',
+        }, json_loads(resp.get_data()))
 
     def test_activitypub_to_web_object(self):
         url = 'https://user.com/bar?baz=baj&biff'
@@ -254,7 +386,7 @@ class ConvertTest(testutil.TestCase):
 
         expected = HTML.replace(
             '<span class="p-uid">tag:fake.com:123456</span>',
-            '<span class="p-uid">https://ap.brid.gy/convert/web/https://user.com/bar?baz=baj&biff</span>')
+            '<span class="p-uid">https://ap.brid.gy/convert/web/https://user.com/bar?baz=baj&amp;biff</span>')
         self.assert_multiline_equals(expected, resp.get_data(as_text=True),
                                      ignore_blanks=True)
 
@@ -291,7 +423,8 @@ class ConvertTest(testutil.TestCase):
         self.assertEqual(200, resp.status_code)
         expected = HTML.replace(
             '\n<meta http-equiv="refresh" content="0;url=https://fake.com/123456">', ''
-            ).replace('<a class="u-url" href="https://fake.com/123456">fake.com/123456</a>', '')
+            ).replace('<a class="u-url" href="https://fake.com/123456">', ''
+            ).replace('</time></a>', '</time>')
         self.assert_multiline_equals(expected, resp.get_data(as_text=True),
                                      ignore_blanks=True)
 
@@ -375,6 +508,75 @@ A ☕ reply
         #                  resp.headers['Location'])
 
     @patch.object(util.session, 'get', return_value=requests_response(HTML_NO_ID))
+    def test_web_to_activitypub_collapsed_scheme(self, mock_get):
+        """The GCP load balancer collapses // down to / in URL paths."""
+        self.make_user('user.com', cls=Web)
+
+        Object(id='https://user.com/bar?baz=baj&biff',
+               mf2=parse_mf2(HTML_NO_ID)['items'][0]).put()
+
+        resp = self.client.get('/convert/ap/https:/user.com/bar?baz=baj&biff',
+                               base_url='https://web.brid.gy/')
+        self.assertEqual(200, resp.status_code)
+        self.assert_equals(COMMENT_AS2, resp.json, ignore=['to'])
+
+    def test_atproto_to_activitypub_collapsed_scheme(self):
+        """The GCP load balancer collapses // down to / in URL paths."""
+        self.store_object(id='did:plc:user', raw=DID_DOC)
+        self.make_user('did:plc:user', cls=ATProto,
+                       enabled_protocols=['activitypub'])
+        self.store_object(id='at://did:plc:user/app.bsky.feed.post/123',
+                          source_protocol='atproto', our_as1={'content': 'hello'})
+
+        resp = self.client.get('/convert/ap/at:/did:plc:user/app.bsky.feed.post/123',
+                               base_url='https://bsky.brid.gy/')
+        self.assertEqual(200, resp.status_code)
+        self.assertEqual(
+            '<https://bsky.brid.gy/convert/ap/at://did:plc:user/app.bsky.feed.post/123>; rel="self"',
+            resp.headers['Link'])
+
+    def _store_collapsed_scheme_post(self):
+        """Sets up a signing AP actor and a bridged ATProto post."""
+        actor = test_activitypub.add_key(copy.deepcopy(test_activitypub.ACTOR))
+        self.make_user(actor['id'], cls=ActivityPub, obj_as2=actor)
+
+        self.store_object(id='did:plc:user', raw=DID_DOC)
+        self.make_user('did:plc:user', cls=ATProto,
+                       enabled_protocols=['activitypub'])
+        self.store_object(id='at://did:plc:user/app.bsky.feed.post/123',
+                          source_protocol='atproto',
+                          our_as1={
+                              'objectType': 'note',
+                              'author': 'did:plc:user',
+                              'content': 'hello',
+                          })
+        return actor
+
+    def test_atproto_to_activitypub_collapsed_scheme_signed(self):
+        """The client signed the original URL; the load balancer collapsed it."""
+        actor = self._store_collapsed_scheme_post()
+
+        path = '/convert/ap/at://did:plc:user/app.bsky.feed.post/123'
+        headers = test_activitypub.sign(path=path, body='', method='GET',
+                                        host='bsky.brid.gy', key_id=actor['id'])
+
+        resp = self.client.get(path.replace('at://', 'at:/'), headers=headers,
+                               base_url='https://bsky.brid.gy/')
+        self.assertEqual(200, resp.status_code)
+
+    def test_atproto_to_activitypub_collapsed_scheme_signed_collapsed(self):
+        """The client collapsed the URL itself, before signing it."""
+        actor = self._store_collapsed_scheme_post()
+
+        path = '/convert/ap/at:/did:plc:user/app.bsky.feed.post/123'
+        headers = test_activitypub.sign(path=path, body='', method='GET',
+                                        host='bsky.brid.gy', key_id=actor['id'])
+
+        resp = self.client.get(path, headers=headers,
+                               base_url='https://bsky.brid.gy/')
+        self.assertEqual(200, resp.status_code)
+
+    @patch.object(util.session, 'get', return_value=requests_response(HTML_NO_ID))
     def test_web_to_activitypub_object(self, mock_get):
         self.make_user('user.com', cls=Web)
 
@@ -453,23 +655,6 @@ A ☕ reply
                                base_url='https://fed.brid.gy/')
         self.assertEqual(404, resp.status_code)
 
-    def test_fake_to_activitypub_blocklisted_signer(self):
-        actor = test_activitypub.add_key(copy.deepcopy(test_activitypub.ACTOR))
-        self.make_user(actor['id'], cls=ActivityPub, obj_as2=actor)
-        self.assertEqual('mas.to', domain_from_link(actor['id']))
-
-        blocklist = Object(id='http://list', csv='domain\nmas.to').put()
-        self.make_user('fake:user', cls=Fake, enabled_protocols=['activitypub'],
-                       blocks=[blocklist])
-
-        Object(id='fake:note', our_as1={'author': 'fake:user'}).put()
-
-        path = '/convert/ap/fake:note'
-        headers = test_activitypub.sign(path=path, body='', method='GET',
-                                        host='fa.brid.gy', key_id=actor['id'])
-        resp = self.client.get(path, headers=headers)
-        self.assertEqual(403, resp.status_code)
-
     @patch.object(util.session, 'get')
     def test_fake_to_activitypub_signed(self, mock_get):
         actor = test_activitypub.add_key(copy.deepcopy(test_activitypub.ACTOR))
@@ -530,6 +715,14 @@ A ☕ reply
             'text': 'My original post',
             'bridgyOriginalText': 'My <a href="http://orig.co/post">original</a> post',
             'bridgyOriginalUrl': 'https://ap.example.com/post/1',
+            'community.lexicon.meta.links': {
+                '$type': 'community.lexicon.meta.links',
+                'links': [{
+                    'href': 'https://ap.example.com/post/1',
+                    'rel': 'canonical',
+                    'mediaType': 'application/activity+json',
+                }],
+            },
             'createdAt': '2022-01-02T03:04:05.000Z',
             'embed': {
                 '$type': 'app.bsky.embed.external',

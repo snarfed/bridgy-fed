@@ -5,7 +5,6 @@ URL pattern is ``/convert/SOURCE/DEST``, where ``SOURCE`` and ``DEST`` are the
 """
 from datetime import timedelta
 import logging
-import re
 from urllib.parse import quote, unquote
 
 from flask import redirect, request
@@ -14,7 +13,7 @@ from webutil import flask_util, util
 from webutil.flask_util import error
 
 from activitypub import ActivityPub
-from common import CACHE_CONTROL
+from common import CACHE_CONTROL, COLLAPSED_SCHEME_RE
 from domains import (
     LOCAL_DOMAINS,
     subdomain_wrap,
@@ -23,15 +22,17 @@ from domains import (
 from flask_app import app
 import ids
 import memcache
-from models import PROTOCOLS
+from models import filter_for_proto, PROTOCOLS
 from protocol import Protocol
+from ui import UIProtocol
 from web import Web
 
 logger = logging.getLogger(__name__)
 
 
-@app.get(f'/convert/<to>/<path:_>')
-@memcache.memoize(expire=timedelta(hours=1))
+@app.get(f'/convert/<any({",".join(PROTOCOLS)}):to>/<path:_>')
+@memcache.memoize(expire=timedelta(hours=1),
+                  key=lambda *args, **kwargs: (args, kwargs, request.url))
 @flask_util.headers(CACHE_CONTROL)
 def convert(to, _, from_=None):
     """Converts data from one protocol to another and serves it.
@@ -52,7 +53,7 @@ def convert(to, _, from_=None):
             error(f'No protocol found for {from_}', status=404)
         logger.info(f'Overriding any domain protocol with {from_}')
     else:
-        from_proto = Protocol.for_request(fed=Protocol)
+        from_proto = Protocol.for_request(fed=Web)
     if not from_proto:
         error(f'Unknown protocol {request.host.removesuffix(SUPERDOMAIN)}', status=404)
 
@@ -66,9 +67,11 @@ def convert(to, _, from_=None):
     path_prefix = f'convert/{to}/'
     id = unquote(request.url.removeprefix(request.root_url).removeprefix(path_prefix))
 
-    # our redirects evidently collapse :// down to :/ , maybe to prevent URL
-    # parsing bugs? if that happened to this URL, expand it back to ://
-    id = re.sub(r'^(https?:/)([^/])', r'\1/\2', id)
+    id = COLLAPSED_SCHEME_RE.sub(r'\1/', id)
+
+    if UIProtocol.owns_id(id):
+        # internal objects are ours, not their author's protocol's
+        from_proto = UIProtocol
 
     logger.debug(f'Converting from {from_proto.LABEL} to {to}: {id}')
 
@@ -80,30 +83,22 @@ def convert(to, _, from_=None):
         error(f'Stored object for {id} has no data', status=404)
 
     type = as1.object_type(obj.as1)
-    if type in as1.CRUD_VERBS or type == 'share':
+    if type in as1.CRUD_VERBS:
         if obj_id := as1.get_object(obj.as1).get('id'):
             if obj_obj := from_proto.load(obj_id, remote=False):
-                if type == 'share':
-                    # TODO: should this be Source.base_object? That's broad
-                    # though, includes inReplyTo
-                    check_bridged_to(obj_obj, to_proto=to_proto)
-                elif (type in as1.CRUD_VERBS
-                      and obj_obj.as1
-                      and obj_obj.as1.keys() - set(['id', 'url', 'objectType'])):
+                if (obj_obj.as1
+                        and obj_obj.as1.keys() - set(['id', 'url', 'objectType'])):
                     logger.info(f'{type} activity, redirecting to Object {obj_id}')
                     return redirect(f'/{path_prefix}{obj_id}', code=301)
 
-    check_bridged_to(obj, to_proto=to_proto)
+    # raises HTTPException if we shouldn't serve this object
+    filter_for_proto([obj], to_proto=to_proto, raise_=True)
 
-    # check that this object's owner isn't blocking the authed user, if any
-    if owner_id := as1.get_owner(obj.as1):
-        try:
-            fetcher = to_proto.authed_user_for_request()
-        except RuntimeError as err:
-            error(str(err), status=401)
-        if fetcher and (owner := from_proto.get_by_id(owner_id, allow_opt_out=True)):
-            if owner.is_blocking(fetcher):
-                error('', status=403)
+    # check HTTP Signature, if any
+    try:
+        to_proto.authed_user_for_request()
+    except RuntimeError as err:
+        error(str(err), status=401)
 
     # convert and serve
     to_id = ids.translate_object_id(id=id, from_=from_proto, to=to_proto)
@@ -113,39 +108,14 @@ def convert(to, _, from_=None):
     }
 
 
-def check_bridged_to(obj, to_proto):
-    """If ``object`` or its owner isn't bridged to ``to_proto``, raises :class:`werkzeug.exceptions.HTTPException`.
-
-    Args:
-      obj (models.Object)
-      to_proto (subclass of protocol.Protocol)
-    """
-    # don't serve deletes or deleted objects
-    if obj.deleted or obj.type == 'delete':
-        error('Deleted', status=410)
-
-    # don't serve for a given protocol if we haven't bridged it there
-    if to_proto.HAS_COPIES and not obj.get_copy(to_proto):
-        error(f"{obj.key.id()} hasn't been bridged to {to_proto.LABEL}", status=404)
-
-    # check that owner has this protocol enabled
-    if owner := as1.get_owner(obj.as1):
-        if from_proto := Protocol.for_id(owner):
-            user = from_proto.get_by_id(owner)
-            if not user:
-                error(f"{from_proto.LABEL} user {owner} not found", status=404)
-            elif not user.is_enabled(to_proto):
-                error(f"{from_proto.LABEL} user {owner} isn't bridged to {to_proto.LABEL}", status=404)
-
-
-@app.get(f'/convert/<from_>/<to>/<path:_>')
+@app.get(f'/convert/<any({",".join(PROTOCOLS)}):from_>/<any({",".join(PROTOCOLS)}):to>/<path:_>')
 def convert_source_path_redirect(from_, to, _):
     """Old route that included source protocol in path instead of subdomain.
 
     DEPRECATED! Only kept to support old webmention source URLs.
     """
     if Protocol.for_request() not in (None, 'web'):  # no per-protocol subdomains
-        error(f'Try again on fed.brid.gy', status=404)
+        error('Try again on fed.brid.gy', status=404)
 
     # in prod, eg gunicorn, the path somehow gets URL-decoded before we see
     # it, so we need to re-encode.

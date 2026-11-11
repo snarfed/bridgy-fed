@@ -89,6 +89,158 @@ cd ~/src/bridgy-fed && curl -v -H "Authorization: `cat flask_secret_key`" \
 (Ideally we'd like to be able to do this from [blog.anew.social](https://blog.anew.social/) too! [They don't support microformats in the default theme](https://indieweb.org/Ghost#Rejected_microformats2_markup_in_default_theme), though, so we'd need to switch to a microformats-enabled theme first. 😕)
 
 
+Load balancer
+---
+One part of our production architecture on GCP is a [Global Application Load Balancer](https://docs.cloud.google.com/load-balancing/docs/load-balancing-overview#application-lb). This lets us do layer 7 (ie HTTP) routing, by URL path, across both App Engine and Cloud Run, and also lets us put `/admin/*` URL paths behind [IAP](https://docs.cloud.google.com/iap/docs/concepts-overview).
+
+The IAP policy for which accounts are allowed to access `/admin/*` paths is in IAM, but separate from other principals/roles on the project. It's only `roles/iap.httpsResourceAccessor`, which is currently only granted to `domain:anew.social`.
+
+The URL routing is in [`url-map.yaml`](https://github.com/snarfed/bridgy-fed/blob/main/url-map.yaml). Here's how set up the load balancer:
+
+```sh
+# Create ALB on https://console.cloud.google.com/net-services/loadbalancing/list/loadBalancers?project=bridgy-federated
+
+# Create serverless NEGs
+# https://console.cloud.google.com/compute/networkendpointgroups/list?project=bridgy-federated
+
+gcloud compute network-endpoint-groups create hub --region=us-central1 --network-endpoint-type=SERVERLESS --app-engine-service=hub
+
+gcloud compute network-endpoint-groups create frontend --region=us-central1 --network-endpoint-type=SERVERLESS --cloud-run-service=frontend
+
+
+# Create backend services, attach NEGs
+#
+# note that serverless NEGs don't support most backend services' options/flags,
+# they need to be left to their defaults.
+#
+# specifically, they'll say their IP address selection policy is IPv4 only
+# (the default), but it doesn't matter, serverless NEGs don't actually use that.
+
+gcloud compute backend-services create hub --global --load-balancing-scheme=EXTERNAL_MANAGED
+gcloud compute backend-services add-backend hub --global --network-endpoint-group=hub --network-endpoint-group-region=us-central1
+
+gcloud compute backend-services create frontend --global --load-balancing-scheme=EXTERNAL_MANAGED
+gcloud compute backend-services add-backend frontend --global --network-endpoint-group=frontend --network-endpoint-group-region=us-central1
+
+# this one will go behind IAP
+gcloud compute backend-services create frontend-admin --global --load-balancing-scheme=EXTERNAL_MANAGED
+gcloud compute backend-services add-backend frontend-admin --global --network-endpoint-group=frontend --network-endpoint-group-region=us-central1
+
+# toggle IAP on for frontend-admin in
+# https://console.cloud.google.com/security/iap?project=bridgy-federated
+# use web console instead of gcloud since the web console handles the OAuth
+# client id and secret automatically
+
+
+# Validate and import url-map.yaml
+
+gcloud compute url-maps validate --source=url-map.yaml
+
+gcloud compute url-maps import bridgy-fed --source=url-map.yaml --global
+
+
+# Reserve IPs, create SSL cert
+# https://console.cloud.google.com/networking/addresses/list?project=bridgy-federated
+
+gcloud compute addresses create load-balancer --ip-version=IPV4 --global
+gcloud compute addresses create lb-ipv6-address --ip-version=IPV6 --global
+
+# https://console.cloud.google.com/networking/addresses/list?project=bridgy-federated
+136.68.247.97
+2600:1901:0:584a::
+
+# now add DNS for foo.brid.gy with a single A record pointing to 136.68.247.97
+
+gcloud compute ssl-certificates create managed-ssl-cert --domains=foo.brid.gy,... --global
+
+gcloud compute ssl-certificates describe managed-ssl-cert
+
+# https://console.cloud.google.com/security/ccm/list/lbCertificates?project=bridgy-federated
+
+# for a real prod domain like atproto.brid.gy, I made a cert with DNS Authorization instead. doable in the web console and with gcloud.
+# https://docs.cloud.google.com/certificate-manager/docs/dns-authorizations
+
+
+# Create target HTTP[S] proxies, forwarding rules
+
+gcloud compute target-https-proxies create bridgy-fed --ssl-certificates=managed-ssl-cert --url-map=bridgy-fed --global
+
+gcloud compute target-http-proxies create bridgy-fed-http --url-map=bridgy-fed --global
+
+gcloud compute forwarding-rules create bridgy-fed --load-balancing-scheme=EXTERNAL_MANAGED --address=load-balancer --target-https-proxy=bridgy-fed --ports=443 --global
+
+gcloud compute forwarding-rules create bridgy-fed-ipv6 --load-balancing-scheme=EXTERNAL_MANAGED --address=lb-ipv6-address --target-https-proxy=bridgy-fed --ports=443 --global
+
+gcloud compute forwarding-rules create bridgy-fed-http --load-balancing-scheme=EXTERNAL_MANAGED --address=load-balancer --target-http-proxy=bridgy-fed-http --ports=80 --global
+
+gcloud compute forwarding-rules create bridgy-fed-http-ipv6 --load-balancing-scheme=EXTERNAL_MANAGED --address=lb-ipv6-address --target-http-proxy=bridgy-fed-http --ports=80 --global
+
+
+# view!
+
+https://console.cloud.google.com/net-services/loadbalancing/details/httpAdvanced/bridgy-fed?project=bridgy-federated
+```
+
+To move a subdomain onto the load balancer:
+
+```sh
+gcloud dns --project=brid-gy record-sets delete --zone brid-gy x.brid.gy --type A
+gcloud dns --project=brid-gy record-sets delete --zone brid-gy x.brid.gy --type AAAA
+gcloud dns --project=brid-gy record-sets create x.brid.gy. --type=CNAME --zone=brid-gy --rrdatas=ghs.googlehosted.com. --ttl=10800
+```
+
+...and to move it back to Cloud Run ([check first that CR has a domain mapping for it!](https://console.cloud.google.com/run/detail/us-central1/frontend/networking?project=bridgy-federated)):
+
+```sh
+gcloud dns --project=brid-gy record-sets delete --zone=brid-gy x.brid.gy. --type=CNAME
+gcloud dns --project=brid-gy record-sets create --zone brid-gy x.brid.gy --type A --rdatas 136.68.247.97
+gcloud dns --project=brid-gy record-sets create --zone brid-gy x.brid.gy --type AAAA --rdatas 2600:1901:0:584a::
+```
+
+
+Publishing lexicons
+---
+Here's how we [publish our lexicons](https://atproto.com/specs/lexicon#lexicon-publication-and-resolution), right now just [`gy.brid.record`](https://github.com/snarfed/bridgy-fed/blob/main/lexicons/gy/brid/record.json):
+
+```py
+# create DID
+did_plc = arroba.did.create_plc('lexicon.brid.gy', pds_url=ATProto.DEFAULT_TARGET)
+did_plc  # did:plc:zyborkzwgpcu772incnjkiyf
+Object.get_or_create(did_plc.did, raw=did_plc.doc, authed_as=did_plc)
+
+handle = 'lexicon.brid.gy'
+ATProto.set_dns(handle=handle, did=did_plc.did)
+
+# create repo
+from arroba.repo import Repo, Write
+
+repo = Repo.create(arroba.server.storage, did_plc.did, handle=handle,
+                   signing_key=did_plc.signing_key, rotation_key=did_plc.rotation_key)
+
+# create DNS _lexicon.brid.gy
+https://console.cloud.google.com/net-services/dns/zones/brid-gy/details?project=brid-gy
+TXT did={did}
+
+# generate record, validate, store as com.atproto.lexicon.schema/gy.brid.record
+with open('/Users/ryan/src/bridgy-fed/lexicons/gy/brid/record.json') as f:
+  lex = json.load(f)
+
+lex["$type"] = "com.atproto.lexicon.schema"
+
+
+with open('/Users/ryan/src/atproto/lexicons/com/atproto/lexicon/schema.json') as f:
+  lexicons = [json.load(f)]
+
+from lexrpc.client import Client
+client = Client(lexicons=lexicons)
+client.validate('com.atproto.lexicon.schema', 'record', lex)
+
+arroba.server.storage.commit(
+  repo, [Write(action=Action.CREATE, record=lex,
+         collection='com.atproto.lexicon.schema', rkey='gy.brid.record')])
+```
+
+
 GCP Artifact Registry cleanup policies
 ---
 `[artifact-registry-cleanup-policy.json](https://github.com/snarfed/bridgy-fed/blob/main/artifact-registry-cleanup-policy.json)` is an [Artifact Registry cleanup policy](https://docs.cloud.google.com/artifact-registry/docs/repositories/cleanup-policy) that automatically deletes old Docker images built by Cloud Build in our repos. [Background.](https://github.com/snarfed/bridgy-fed/issues/2473)

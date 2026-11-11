@@ -292,25 +292,6 @@ form.settings-item, #block-row, #blocklist-buttons input[type="submit"] {
   border: 2px solid #c94786;
 }
 
-#front-instructions {
-  min-height: 4em;
-}
-
-.instruction {
-  display: none;
-  margin: 1em;
-  margin-left: 2em;
-  margin-right: 2em;
-  margin-top: 0;
-  margin-bottom: 0;
-}
-
-#front-instruction-placeholder {
-  display: block;
-  font-style: italic;
-  opacity: 70%;
-}
-
 #front-logo-bottom {
   padding-bottom: 0;
   margin-bottom: -1em;
@@ -627,6 +608,12 @@ a.active-tab + a {
   text-decoration: none;
 }
 
+/* bootstrap sets summary to display: block, which hides the ▸/▾ marker */
+.blocklist-buttons summary {
+  display: list-item;
+  cursor: pointer;
+}
+
 .disable-button {
   border-color: red;
   color: red;
@@ -681,25 +668,152 @@ a.active-tab + a {
   margin-top: 1em;
 }
 
-.iframely-responsive > .h-entry > * {
-  display: block;
-  margin-top: 1em;
+.post-embed > .h-entry,
+.post-embed > .h-card,
+.post-embed .u-quotation-of {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: .75em 1em;
+  margin: 1em 0;
+  padding: 1em;
+  border: 1px solid #dddddd;
+  border-radius: 12px;
+  background-color: white;
+  text-align: left;
 }
 
-.iframely-responsive .p-uid {
+/* quoted post, nested card after the quoting post's content and images */
+.post-embed .u-quotation-of {
+  order: 3;
+  box-sizing: border-box;
+  width: 100%;
+  margin: 0;
+  padding: .75em;
+  border-radius: 8px;
+}
+
+/* link previews inside a quoted post */
+.post-embed .u-quotation-of > .h-cite {
   display: none;
 }
 
-.iframely-responsive > .h-entry > .dt-published::before {
-  content: 'At: ';
+/* bare h-card, eg a user profile */
+.post-embed > .h-card {
+  align-items: center;
 }
 
-.iframely-responsive > .h-entry > .p-author::before {
-  content: 'From: ';
+.post-embed > .h-card .u-photo {
+  order: -1;
+  width: 48px;
+  height: 48px;
+  border-radius: 50%;
+  object-fit: cover;
 }
 
-.iframely-responsive > .h-entry > .u-url::before {
-  content: 'Link: ';
+.post-embed:has(> .post-logo) {
+  position: relative;
+}
+
+/* bottom right corner of the .h-entry card, inside its 1em padding. its
+   vertical margin collapses through .post-embed */
+.post-embed > .post-logo {
+  position: absolute;
+  bottom: 1em;
+  right: 1em;
+}
+
+.post-embed > .post-logo,
+.post-embed > .post-logo img {
+  height: 1.5em;
+  margin: 0;
+}
+
+.post-embed .p-uid,
+.post-embed .u-in-reply-to:empty,
+.post-embed .u-url:empty {
+  display: none;
+}
+
+:is(.post-embed > .h-entry, .post-embed .u-quotation-of) > .p-author {
+  order: 1;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  column-gap: .5em;
+  width: 100%;
+  position: relative;
+}
+
+:is(.post-embed > .h-entry, .post-embed .u-quotation-of) > .p-author:has(.u-photo) {
+  padding-left: calc(48px + .75em);
+  min-height: 48px;
+}
+
+:is(.post-embed > .h-entry, .post-embed .u-quotation-of) > .p-author .u-photo {
+  position: absolute;
+  left: 0;
+  top: 0;
+  width: 48px;
+  height: 48px;
+  border-radius: 50%;
+  object-fit: cover;
+}
+
+/* author images after the first are usually profile banners */
+:is(.post-embed > .h-entry, .post-embed .u-quotation-of) > .p-author .u-photo ~ .u-photo {
+  display: none;
+}
+
+:is(.post-embed > .h-entry, .post-embed .u-quotation-of) > .p-author .p-name,
+.post-embed > .h-card .p-name {
+  font-weight: bold;
+}
+
+:is(.post-embed > .h-entry, .post-embed .u-quotation-of) > .p-author .p-nickname,
+.post-embed > .h-card .p-nickname {
+  color: #777777;
+}
+
+:is(.post-embed > .h-entry, .post-embed .u-quotation-of) > .p-author .p-nickname::before,
+.post-embed > .h-card .p-nickname::before {
+  content: '@';
+}
+
+:is(.post-embed > .h-entry, .post-embed .u-quotation-of) > .e-content {
+  order: 2;
+  width: 100%;
+  overflow-wrap: anywhere;
+}
+
+/* granary wraps multi-line plain text in an inline white-space: pre div */
+:is(.post-embed > .h-entry, .post-embed .u-quotation-of) > .e-content > div {
+  white-space: pre-wrap !important;
+}
+
+:is(.post-embed > .h-entry, .post-embed .u-quotation-of) > img,
+:is(.post-embed > .h-entry, .post-embed .u-quotation-of) > video {
+  order: 3;
+  max-width: 100%;
+  max-height: 400px;
+  border-radius: 8px;
+}
+
+/* title, for posts that have one, eg articles */
+:is(.post-embed > .h-entry, .post-embed .u-quotation-of) > .p-name:not(.e-content) {
+  order: 2;
+  width: 100%;
+  font-weight: bold;
+}
+
+/* granary links published time to the post if it has a URL */
+:is(.post-embed > .h-entry, .post-embed .u-quotation-of) > .dt-published,
+:is(.post-embed > .h-entry, .post-embed .u-quotation-of) > a:has(> .dt-published) {
+  order: 4;
+  font-size: .85em;
+  color: #777777;
+  /* leave room for .post-logo */
+  margin-right: 2em;
 }
 
 input[type="text"], input[type="url"] {
@@ -1031,16 +1145,63 @@ input:checked + .slider:before {
   margin-top: 35px;
 }
 
-.submit-button {
-  position: absolute;
-}
-
+/* login buttons: <details> with the logo as <summary>, input and submit inside */
 .login-button {
   cursor: pointer;
+  list-style: none;
+  width: fit-content;
+  margin: 0 auto 5px;
+  border:gray 1px solid;
+  border-radius:30px;
+  padding:15px;
+  transition: transform 0.5s ease-in-out;
+  position: relative;
+}
+
+.login-button::-webkit-details-marker {
+  display: none;
+}
+
+details[open] > .login-button {
+  transform: translateY(-20px);
+  margin-top:20px;
+}
+
+.login-label {
+  font-weight: bold;
+  vertical-align: middle;
+}
+
+.login-input {
+  width: 135px;
+  height: 50px;
+  border-radius: 90px;
+  margin-right:10px;
+  vertical-align: middle;
+}
+
+.submit-button {
+  position: absolute;
+  border:gray 1px solid;
+  border-radius:30px;
+  width: 45px;
+  height: 45px;
+}
+
+.fade-in-element {
+  transition: all 0.3s ease-in-out;
+  margin-top:20px;
+}
+
+@starting-style {
+  .fade-in-element {
+    opacity: 0;
+    transform: translateY(-10px);
+  }
 }
 
 .login-button-logotype {
-  display: inline-flex;
+  display: flex;
   flex-direction: row;
   align-items: center;
   user-select: none;
@@ -1066,85 +1227,4 @@ input:checked + .slider:before {
 .account-chooser button a {
   /* the user's link shouldn't navigate; clicks should always submit the form */
   pointer-events: none;
-}
-
-
-@media (scripting: none) {
-  .login-button {
-    margin-top:20px;
-  }
-
-  .login-input {
-    width: 135px;
-    height: 50px;
-    border-radius: 90px;
-    margin-right:10px;
-  }
-
-  .submit-button {
-    border:gray 1px solid;
-    border-radius:30px;
-    width: 45px;
-    height: 45px;
-  }
-
-  .fade-in-element {
-    opacity: 1;
-    transform: translateY(0px);
-    margin-top:20px;
-  }
-}
-
-@media (scripting: enabled) {
-  /* sliding OAuth login buttons and inputs */
-  .login-button {
-    margin-right:10px;
-    margin-bottom:-20px;
-    border:gray 1px solid;
-    border-radius:30px;
-    padding:15px;
-    transition: transform 0.5s ease-in-out;
-    position: relative;
-  }
-
-  .login-button.slide-up {
-    transform: translateY(-20px);
-    margin-top:20px;
-  }
-
-  .login-input {
-    width: 0px;
-    height: 0px;
-  }
-
-  .login-input.visible {
-    width: 135px;
-    height: 50px;
-    border-radius: 90px;
-    margin-right:10px;
-  }
-
-  .submit-button {
-    border:gray 1px solid;
-    border-radius:30px;
-    width: 0px;
-    height: 0px;
-  }
-
-  .submit-button.visible {
-    width: 45px;
-    height: 45px;
-  }
-
-  .fade-in-element {
-    transition: all 0.3s ease-in-out;
-    opacity: 0;
-    transform: translateY(-10px);
-  }
-
-  .fade-in-element.visible {
-    opacity: 1;
-    transform: translateY(0px);
-    margin-top:20px;
-  }
 }

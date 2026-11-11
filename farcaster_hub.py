@@ -172,7 +172,7 @@ def subscribe():
     if cursor.cursor:
         kwargs['from_id'] = cursor.cursor
 
-    # don't use farcaster.client() since it logs response bodies, and we don't
+    # don't use Farcaster.client() since it logs response bodies, and we don't
     # want to log every event on the firehose
     client = granary.farcaster.Farcaster(host=SNAPCHAIN_HOST, port=SNAPCHAIN_PORT)
     for event in client.hub.Subscribe(SubscribeRequest(**kwargs)):
@@ -237,7 +237,7 @@ def handle(event):
         if fid in fids:
             # fetch complete user profile
             try:
-                resp = farcaster.client().hub.GetUserDataByFid(FidRequest(fid=fid))
+                resp = Farcaster.client().hub.GetUserDataByFid(FidRequest(fid=fid))
                 enqueue(f'{user_id}#bridgy-fed-update-{util.now().isoformat()}',
                         resp.messages)
             except grpc.RpcError as e:

@@ -9,7 +9,7 @@ from activitypub import ActivityPub
 from atproto import ATProto
 import config
 import memcache
-from memcache import memoize, pickle_memcache, task_eta
+from memcache import memoize, memoize_key, pickle_memcache, task_eta
 from models import Follower, get_original_user_key, Object, Target
 from webutil import util
 from webutil.testutil import NOW, requests_response
@@ -84,6 +84,38 @@ class MemcacheTest(TestCase):
         self.assertEqual(['a'], calls)
         self.assertIsNone(foo('a'))
         self.assertEqual(['a'], calls)
+
+    def test_memoize_key_normalizes_to_signature(self):
+        def foo(x, y=2, z=3):
+            return x
+
+        expected = memoize_key(foo, 1)
+        for args, kwargs in (((1, 2), {}),
+                             ((1,), {'y': 2}),
+                             ((1,), {'y': 2, 'z': 3}),
+                             ((1, 2, 3), {})):
+            with self.subTest(args=args, kwargs=kwargs):
+                self.assertEqual(expected, memoize_key(foo, *args, **kwargs))
+
+        self.assertNotEqual(expected, memoize_key(foo, 1, y=9))
+
+    def test_memoize_default_kwarg_hits_cache(self):
+        calls = []
+
+        @memoize()
+        def foo(x, y=2):
+            calls.append((x, y))
+            return str(x)
+
+        self.assertEqual('5', foo(5))
+        self.assertEqual([(5, 2)], calls)
+
+        # passing y's default explicitly should still hit the cache
+        self.assertEqual('5', foo(5, y=2))
+        self.assertEqual([(5, 2)], calls)
+
+        self.assertEqual('5', foo(5, 2))
+        self.assertEqual([(5, 2)], calls)
 
     def test_memoize_key_fn(self):
         calls = []

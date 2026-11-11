@@ -34,7 +34,7 @@ from webutil.flask_util import (
     MovedPermanently,
 )
 import werkzeug.exceptions
-from werkzeug.exceptions import NotFound
+from werkzeug.exceptions import BadGateway, NotFound
 
 import activitypub
 from activitypub import ActivityPub
@@ -79,7 +79,6 @@ import webfinger
 
 logger = logging.getLogger(__name__)
 
-IFRAMELY_API_KEY_MD5 = util.read('iframely_api_key_md5')
 
 TEMPLATE_VARS = {
     'ActivityPub': ActivityPub,
@@ -90,7 +89,6 @@ TEMPLATE_VARS = {
     'getattr': getattr,
     'hasattr': hasattr,
     'ids': ids,
-    'IFRAMELY_API_KEY_MD5': IFRAMELY_API_KEY_MD5,
     'logs': logs,
     'Nostr': Nostr,
     'PROTOCOLS': PROTOCOLS,
@@ -131,7 +129,7 @@ def load_user(proto, id):
     except (AttributeError, RuntimeError, ValueError) as err:
         error(str(err), status=404)
 
-    if user.enabled_protocols or user.DEFAULT_SERVE_USER_PAGES:
+    if user.enabled_protocols:
         assert not user.use_instead
         return user
 
@@ -262,7 +260,7 @@ def login_to_user_key(login):
             if user := ActivityPub.query(ActivityPub.handle == handle).get():
                 return user.key
             if not (actor_id := webfinger.fetch_actor_url(handle)):
-                for msg in get_flashed_messages:
+                for msg in get_flashed_messages():
                     if 'HTTP 404' in msg:
                         flash('You need to <a href="https://help.instagram.com/169559812696339">turn on fediverse sharing</a> first.', escape=False)
                 return None
@@ -279,16 +277,7 @@ def render(template, **vars):
     Args:
       template (str): file name
     """
-    if user := vars.get('user'):
-        vars['bridged_protos'] = [
-            proto for proto in set(PROTOCOLS.values())
-            if proto and not isinstance(user, proto)
-            and proto.LABEL not in ('ui', 'web')
-            and user.is_enabled(proto)]
-
-    vars = {**TEMPLATE_VARS, **vars}
-
-    return render_template(template, logins=get_logins(), **vars)
+    return render_template(template, logins=get_logins(), **TEMPLATE_VARS, **vars)
 
 
 @app.route('/')
@@ -346,8 +335,19 @@ def settings():
         if user_key := login_to_user_key(login):
             if login.key == logged_in_as:
                 cls = Model._lookup_model(user_key.kind())
-                user = cls.get_or_create(id=user_key.id(), allow_opt_out=True,
-                                         reload=True)
+                try:
+                    user = cls.get_or_create(id=user_key.id(), allow_opt_out=True,
+                                             reload=True, raise_=True)
+                except (requests.RequestException, werkzeug.exceptions.HTTPException,
+                        RuntimeError) as e:
+                    name = login.user_display_name()
+                    if (isinstance(e, BadGateway) and e.requests_response is not None
+                            and e.requests_response.status_code in (401, 403)):
+                        flash(f"Couldn't load {name} from {login.site_name()}; you or your server may be blocking Bridgy Fed.")
+                    else:
+                        flash(f"Couldn't load {name} from {login.site_name()}.")
+                    if not (user := user_key.get()):
+                        continue
                 user.logo = site_logo(login)
                 users.append(user)
             else:
@@ -566,10 +566,16 @@ def migrate_to_activitypub(user=None):
 
     try:
         to_user = models.load_user(handle, ActivityPub, create=True,
-                                   allow_opt_out=True, raise_=True)
+                                   allow_opt_out=True, raise_=True, resolve=True)
     except (AttributeError, RuntimeError, ValueError) as err:
         flash(str(err))
         return redirect('/settings')
+    except BadGateway as err:
+        if (err.requests_response is not None
+                and err.requests_response.status_code in (401, 403)):
+            flash(f"Couldn't load {handle}; you or your server may be blocking Bridgy Fed.")
+            return redirect('/settings')
+        raise
 
     try:
         ActivityPub.check_can_migrate_out(user, to_user.key.id())
@@ -745,7 +751,7 @@ def migrate_to_atproto_create_account(user=None):
     common.create_task(queue='migrate-out', user=user.key.urlsafe(),
                        auth=auth.key.urlsafe(), protocol=ATProto.LABEL)
 
-    flash(f"OK, we've migrated your bridged Bluesky account to {resp['handle']} on {pds_domain}.")
+    flash(f"OK, we've migrated your bridged Atmosphere (Bluesky) account to {resp['handle']} on {pds_domain}.")
     return redirect('/settings')
 
 
@@ -786,7 +792,7 @@ def notifications(protocol, id):
     user = load_user(protocol, id)
 
     query = Object.query(Object.notify == user.key)
-    objects, before, after = fetch_objects(query, by=Object.updated, user=user)
+    objects, before, after = fetch_objects(query, by=Object.created, user=user)
 
     format = request.args.get('format')
     if format:
@@ -831,25 +837,24 @@ def find_user_page():
 @disable_if_read_only
 def update_profile(protocol, id):
     user = load_user(protocol, id)
-    link = f'<a href="{user.web_url()}">{user.handle_or_id()}</a>'
 
     try:
         user.reload_profile(raise_=True)
     except (RuntimeError, requests.RequestException,
             werkzeug.exceptions.HTTPException) as e:
         _, msg = util.interpret_http_exception(e)
-        flash(f"Couldn't update profile for {link}: {msg}", escape=False)
+        flash(f"Couldn't update profile: {msg}")
         return redirect(user.user_page_path())
 
     if not user.obj:
-        flash(f"Couldn't update profile for {link}", escape=False)
+        flash(f"Couldn't update profile")
         return redirect(user.user_page_path())
 
     # enqueue an update, not the bare profile object, so that it gets
     # a unique id and doesn't get de-duped
     update = user.handle_bare_object(user.obj, authed_as=user.key.id(), from_user=user)
     common.create_task(queue='receive', authed_as=user.key.id(), **update.to_request())
-    flash(f'Updating profile from {link}...', escape=False)
+    flash(f'Updating profile...', escape=False)
 
     if user.LABEL == 'web':
         if user.status:
@@ -986,6 +991,57 @@ def serve_feed(*, objects, format, user, title, as_snippets=False, quiet=False):
         return body, {'Content-Type': rss.CONTENT_TYPE}
 
 
+def render_embed(obj):
+    """Renders an object as HTML to embed in a page.
+
+    Loads the object's author and quoted posts if necessary.
+
+    Args:
+      obj (models.Object)
+
+    Returns:
+      str: HTML
+    """
+    if not obj.as1:
+        return ''
+
+    obj_as1 = copy.deepcopy(obj.as1)
+    to_hydrate = [obj_as1]
+
+    # load quoted posts
+    attachments = as1.get_objects(obj_as1, 'attachments')
+    for i, att in enumerate(attachments):
+        if (as1.object_type(att) == 'note' and not att.get('content')
+                and (id := att.get('id'))
+                and (proto := Protocol.for_id(id, remote=False))):
+            logger.info(f'loaded quoted post {id}')
+            quoted = proto.load(id, raise_=False)
+            if quoted and quoted.as1:
+                attachments[i] = copy.deepcopy(quoted.as1)
+                to_hydrate.append(attachments[i])
+
+    if attachments:
+        obj_as1['attachments'] = attachments
+
+    # hydrate authors
+    # (overlaps with models.hydrate some, but it's not a good fit to reuse here)
+    for elem in to_hydrate:
+        as1.convert_html_content_to_text(elem)
+
+        author = as1.get_object(elem, 'author')
+        if (author.keys() == {'id'}
+                and (proto := Protocol.for_id(author['id'], remote=False))):
+            profile_id = ids.profile_id(id=author['id'], proto=proto)
+            profile = proto.load(profile_id, raise_=False)
+            if profile and profile.as1:
+                elem['author'] = author = copy.deepcopy(profile.as1)
+
+        if not author.get('displayName') and author.get('username'):
+            author['displayName'] = author.pop('username')
+
+    return microformats2.object_to_html(obj_as1)
+
+
 @app.get(f'/<any({",".join(PROTOCOLS)}):protocol>/<user_id>/respond')
 @canonicalize_request_domain(PROTOCOL_DOMAINS, PRIMARY_DOMAIN)
 @require_token('respond', ['obj_id'])
@@ -999,10 +1055,7 @@ def respond(user):
     if not (obj := Object.get_by_id(get_required_param('obj_id'))):
         error('Object not found', status=404)
 
-    obj_as1 = copy.deepcopy(obj.as1)
-    as1.convert_html_content_to_text(obj_as1)
-    return render('respond.html', user=user, obj=obj,
-                  obj_html=microformats2.object_to_html(obj_as1),
+    return render('respond.html', user=user, obj=obj, obj_html=render_embed(obj),
                   token=get_required_param('token'))
 
 
@@ -1031,12 +1084,13 @@ def respond_reply(user):
         'objectType': 'comment',
         'id': id,
         'inReplyTo': obj_id,
-        'content': content,
+        'content': content.replace('\r\n', '\n'),
         'author': user.key.id(),
     }
 
     common.create_task(queue='receive', id=id, our_as1=our_as1,
-                       source_protocol='ui', authed_as=user.key.id())
+                       source_protocol='ui', authed_as=user.key.id(),
+                       users=[user.key.urlsafe().decode()])
 
     flash('Sending reply...')
     return render('respond.html', user=user, obj=obj,
@@ -1066,7 +1120,8 @@ def respond_like(user):
     }
 
     common.create_task(queue='receive', id=id, our_as1=our_as1,
-                       source_protocol='ui', authed_as=user.key.id())
+                       source_protocol='ui', authed_as=user.key.id(),
+                       users=[user.key.urlsafe().decode()])
 
     flash('Sending like...')
     return render('respond.html', user=user, obj=obj,
@@ -1096,7 +1151,8 @@ def respond_repost(user):
     }
 
     common.create_task(queue='receive', id=id, our_as1=our_as1,
-                       source_protocol='ui', authed_as=user.key.id())
+                       source_protocol='ui', authed_as=user.key.id(),
+                       users=[user.key.urlsafe().decode()])
 
     flash('Sending repost...')
     return render('respond.html', user=user, obj=obj,
@@ -1131,7 +1187,8 @@ def respond_block(user):
     }
 
     common.create_task(queue='receive', id=id, our_as1=our_as1,
-                       source_protocol='ui', authed_as=user.key.id())
+                       source_protocol='ui', authed_as=user.key.id(),
+                       users=[user.key.urlsafe().decode()])
 
     flash('Blocking...')
     return render('respond.html', user=user, obj=obj,

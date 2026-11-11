@@ -1,0 +1,122 @@
+{% set body_id = 'login' %}
+{% extends "base.html" %}
+
+{#
+Login prompt for our OAuth servers. Vars:
+   authorize_path (str)
+   client_name (str)
+   client_url (str, optional)
+   existing_logins (sequence of User)
+   state (str)
+   permissions (sequence of str; English descriptions of the client's requested scopes
+   hide (sequence of str): login button names to leave out, eg 'bluesky'
+#}
+
+{% block content %}
+
+<p class="row big"><strong>
+  {% if client_url %}<a href="{{ client_url }}">{% endif %}
+    {{ client_name }}
+  {% if client_url %}</a>{% endif %}
+</strong> wants to connect to Bridgy Fed.</p>
+
+{% if permissions %}
+<p class="row big">It will be able to:</p>
+{% for permission in permissions %}
+  {{ permission }}<br>
+{% endfor %}
+{% endif %}
+
+<p class="row big">Choose an account:</p>
+
+{% for user in existing_logins %}
+<div class="row big account-chooser">
+  <form method="post" action="{{ authorize_path }}" style="display: inline">
+    <input name="state" type="hidden" value="{{ state }}">
+    <input name="user_key" type="hidden" value="{{ user.key.urlsafe().decode() }}">
+    <button type="submit" class="btn-link">{{ user.html_link(pictures=True)|safe }}</button>
+  </form>
+</div>
+{% endfor %}
+
+{% if existing_logins %}
+<p class="row big">
+...or log into another account:
+</p>
+{% endif %}
+
+<div class="row big" style="font-size: 14px">
+
+{% if 'atmosphere' not in hide %}
+  <form method="post" action="{{ authorize_path }}/atproto/start">
+    <nobr>
+      <details name="login" class="row big">
+        <summary class="login-button shadow login-button-logotype" title="Atmosphere (Bluesky)">
+          <img src="/oauth_dropins_static/atmosphere.svg" height="60" />
+          <span>Atmosphere (Bluesky)</span>
+        </summary>
+        <label for="login-atmosphere" class="fade-in-element login-label">Handle</label>
+        <input id="login-atmosphere" name="handle" type="text" class="fade-in-element login-input" placeholder="me.bsky.social" required>
+        <input type="image" title="Atmosphere (Bluesky)" class="submit-button fade-in-element shadow"
+              src="/static/material-arrow-icon.svg" />
+      </details>
+      <input name="state" type="hidden" value="{{ state }}">
+    </nobr>
+  </form>
+{% endif %}
+
+{% if 'indieauth' not in hide %}
+  <form method="post" action="{{ authorize_path }}/indieauth/start">
+    <nobr>
+      <details name="login" class="row big">
+        <summary class="login-button shadow login-button-logotype" title="IndieAuth">
+          <img src="/oauth_dropins_static/indieauth_logo.png" height="60" />
+          <span>IndieAuth (web)</span>
+        </summary>
+        <label for="login-indieauth" class="fade-in-element login-label">Web site</label>
+        <input id="login-indieauth" name="me" type="url" class="fade-in-element login-input" placeholder="example.com" required>
+        <input type="image" title="IndieAuth" class="submit-button fade-in-element shadow"
+              src="/static/material-arrow-icon.svg" />
+      </details>
+      <input name="state" type="hidden" value="{{ state }}">
+    </nobr>
+  </form>
+{% endif %}
+
+{% if 'mastodon' not in hide %}
+  <form method="post" action="{{ authorize_path }}/mastodon/start">
+    <nobr>
+      <details name="login" class="row big">
+        <summary class="login-button shadow" title="Mastodon">
+          <img src="/static/mastodon_large.png" height="60" />
+        </summary>
+        <label for="login-mastodon" class="fade-in-element login-label">Instance</label>
+        <input id="login-mastodon" name="instance" type="url" class="fade-in-element login-input" placeholder="mastodon.social" scheme="https" required>
+        <input type="image" title="Mastodon" class="submit-button fade-in-element shadow"
+              src="/static/material-arrow-icon.svg" />
+      </details>
+      <input name="state" type="hidden" value="{{ state }}">
+    </nobr>
+  </form>
+{% endif %}
+
+{% if 'pixelfed' not in hide %}
+  <form method="post" action="{{ authorize_path }}/pixelfed/start">
+    <nobr>
+      <details name="login" class="row big">
+        <summary class="login-button shadow" title="Pixelfed">
+          <img src="/static/pixelfed_large.png" height="60" />
+        </summary>
+        <label for="login-pixelfed" class="fade-in-element login-label">Instance</label>
+        <input id="login-pixelfed" name="instance" type="url" class="fade-in-element login-input" placeholder="pixelfed.social" scheme="https" required>
+        <input type="image" title="Pixelfed" class="submit-button fade-in-element shadow"
+              src="/static/material-arrow-icon.svg" />
+      </details>
+      <input name="state" type="hidden" value="{{ state }}">
+    </nobr>
+  </form>
+{% endif %}
+
+</div>
+
+{% endblock %}

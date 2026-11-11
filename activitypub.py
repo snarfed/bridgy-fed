@@ -1,7 +1,7 @@
 """ActivityPub protocol implementation."""
-from base64 import b64encode
+from base64 import b64encode, urlsafe_b64decode, urlsafe_b64encode
 import copy
-from datetime import timedelta
+from datetime import datetime, timedelta
 from hashlib import sha256
 import itertools
 import logging
@@ -24,7 +24,7 @@ import requests
 from requests import TooManyRedirects
 from requests.models import DEFAULT_REDIRECT_LIMIT
 from webutil import appengine_info, flask_util, util
-from webutil.flask_util import FlashErrors, MovedPermanently
+from webutil.flask_util import bool_param, FlashErrors, MovedPermanently
 from webutil.util import (
     add,
     domain_from_link,
@@ -40,6 +40,7 @@ import common
 from common import (
     CACHE_CONTROL,
     CACHE_CONTROL_VARY_ACCEPT,
+    COLLAPSED_SCHEME_RE,
     CONTENT_TYPE_HTML,
     create_task,
     error,
@@ -60,9 +61,8 @@ from domains import (
 import ids
 import memcache
 import models
-from models import fetch_objects, Follower, Object, PROTOCOLS, User
+from models import filter_for_proto, Follower, Object, PROTOCOLS, User
 from protocol import activity_id_memcache_key, DELETE_TASK_DELAY, Protocol
-from ui import UIProtocol
 import webfinger
 
 logger = logging.getLogger(__name__)
@@ -83,6 +83,33 @@ SECURITY_CONTEXT = 'https://w3id.org/security/v1'
 # https://www.w3.org/ns/activitystreams#did-core
 # https://docs.joinmastodon.org/spec/activitypub/#properties-used-1
 AKA_CONTEXT = {'alsoKnownAs': {'@id': 'as:alsoKnownAs', '@type': '@id'}}
+
+# FEP-044f quote posts. currently we let anyone quote anything.
+# https://codeberg.org/fediverse/fep/src/branch/main/fep/044f/fep-044f.md
+# https://github.com/snarfed/bridgy-fed/issues/1956
+INTERACTION_POLICY = {'canQuote': {'automaticApproval': [as2.PUBLIC_AUDIENCE]}}
+INTERACTION_POLICY_CONTEXT = {
+    'gts': 'https://gotosocial.org/ns#',
+    'interactionPolicy': {'@id': 'gts:interactionPolicy', '@type': '@id'},
+    'canQuote': {'@id': 'gts:canQuote', '@type': '@id'},
+    'automaticApproval': {'@id': 'gts:automaticApproval', '@type': '@id'},
+}
+FEP044F_QUOTE_POST_CONTEXT = {
+    'quoteAuthorization': {
+        '@id': 'https://w3id.org/fep/044f#quoteAuthorization',
+        '@type': '@id',
+    },
+}
+FEP044F_QUOTE_REQUEST_CONTEXT = {
+    'QuoteRequest': 'https://w3id.org/fep/044f#QuoteRequest',
+}
+QUOTE_REQUEST_ID_SUFFIX = '#quote-request'
+FEP044F_QUOTE_AUTH_CONTEXT = {
+    'QuoteAuthorization': 'https://w3id.org/fep/044f#QuoteAuthorization',
+    'gts': 'https://gotosocial.org/ns#',
+    'interactingObject': {'@id': 'gts:interactingObject', '@type': '@id'},
+    'interactionTarget': {'@id': 'gts:interactionTarget', '@type': '@id'},
+}
 
 # https://seb.jambor.dev/posts/understanding-activitypub-part-4-threads/#the-instance-actor
 _INSTANCE_ACTOR = None
@@ -110,7 +137,25 @@ OLD_ACCOUNT_EXEMPT_DOMAINS = (
 #   https://github.com/snarfed/bridgy-fed/issues/566#issuecomment-2130714037
 NO_AUTH_DOMAINS = ()
 
+# all of our Mastodon and Pixelfed OAuth callbacks, for both web UI login and
+# atproto_oauth pass-through login. every flow's client app shares these, since
+# oauth-dropins looks up apps by instance and app_url, which is the same for all.
+OAUTH_REDIRECT_PATHS = (
+    # web UI login; routes at the bottom of this file
+    '/oauth/mastodon/finish',
+    '/oauth/pixelfed/finish',
+    # pass-through for ATProto OAuth; routes in atproto_oauth.py
+    '/oauth/atproto/authorize/mastodon/finish',
+    '/oauth/atproto/authorize/pixelfed/finish',
+)
+# last time OAUTH_REDIRECT_PATHS changed
+OAUTH_EXPIRE_APPS_BEFORE = datetime(2026, 9, 30)
+
 FEDI_URL_RE = re.compile(r'https://(?P<domain>[^/]+)/(@|users/)(?P<handle>[^/@]+)(@[^/@]+)?(?P<post_id>/(?:statuses/)?[0-9]+)?')
+
+OUTBOX_AS1_TYPES = ('article', 'comment', 'event', 'note', 'share')
+REPLIES_AS1_TYPES = as1.POST_TYPES | {'event', 'question'}
+REPLIES_PAGE_SIZE = 50
 
 # dict mapping string keyId to HTTPSignatureAuth. global cache for signing
 # outbound HTTP requests.
@@ -148,6 +193,8 @@ class ActivityPub(User, Protocol):
     ''
     CONTENT_TYPE = as2.CONTENT_TYPE_LD_PROFILE
     ''
+    MIME_TYPES = as2.CONTENT_TYPES
+    'https://w3c.github.io/activitypub/#retrieving-objects'
     REQUIRES_NAME = False
     ''
     DEFAULT_ENABLED_PROTOCOLS = ('web',)
@@ -157,12 +204,15 @@ class ActivityPub(User, Protocol):
         + tuple(as1.POST_TYPES)
         + tuple(as1.CRUD_VERBS)
         + tuple(as1.VERBS_WITH_OBJECT)
-        + ('add', 'audio', 'bookmark', 'image', 'move', 'remove', 'video')
+        + ('add', 'audio', 'bookmark', 'event', 'image', 'move', 'remove', 'video')
+        # TODO
+        # 'question', 'video', 'vote')
     )
     ''
     SUPPORTED_AS2_TYPES = tuple(
         as2.OBJECT_TYPE_TO_TYPE.get(t) or as2.VERB_TO_TYPE.get(t)
-        for t in SUPPORTED_AS1_TYPES)
+        for t in SUPPORTED_AS1_TYPES
+    ) + ('QuoteRequest',)
     ''
     SUPPORTS_DMS = True
     ''
@@ -205,7 +255,7 @@ class ActivityPub(User, Protocol):
         """Returns this user's web URL aka web_url, eg ``https://foo.com/``."""
         if self.obj and self.obj.as1:
             url = as1.get_url(self.obj.as1)
-            if url:
+            if util.is_web(url):
                 return url
 
         return self.key.id()
@@ -330,6 +380,31 @@ class ActivityPub(User, Protocol):
 
         return webfinger.fetch_actor_url(handle)
 
+    @classmethod
+    def resolve_user_id(cls, id):
+        """Fetches ``id`` and returns its AP actor id.
+
+        Notably, resolves profile URLs like ``https://mastodon.example/@alice``
+        to AP actor ids like ``https://mastodon.example/users/123``.
+        """
+        if obj := cls.load(id, remote=True, raise_=False):
+            id = obj.key.id()
+
+        return ids.normalize_user_id(id=id, proto=cls)
+
+    @classmethod
+    def resolve_object_id(cls, id):
+        """Fetches ``id`` and returns its AP object id.
+
+        Notably, resolves user-facing URLs like
+        ``https://mastodon.example/@alice/123`` to AP object ids like
+        ``https://mastodon.example/users/alice/statuses/123``.
+        """
+        if obj := cls.load(id, remote=True, raise_=False):
+            id = obj.key.id()
+
+        return ids.normalize_object_id(id=id, proto=cls)
+
     def user_page_path(self, rest=None, **kwargs):
         """Always prefer handle, since id is a full URL."""
         kwargs['prefer_id'] = False
@@ -337,16 +412,35 @@ class ActivityPub(User, Protocol):
 
     @classmethod
     def target_for(cls, obj, shared=False):
-        """Returns ``obj``'s or its author's/actor's inbox, if available."""
-        if not obj.as1:
+        """Returns ``obj``'s or its author's/actor's inbox, if available.
+
+        TODO: this recurses into the author/actor with no depth limit or visited
+        set. The only cycle guard is the inner id check below, which a cyclic
+        author chain gets past, eg when :meth:`fetch` rewrote an object's key to
+        a different id on the same origin. That blows the stack.
+        """
+        # use as2 first if we have it. converting to AS1 isn't cheap, it can add
+        # up to minutes in inbox delivery for accounts with many followers:
+        # https://github.com/snarfed/bridgy-fed/issues/2154
+        if (obj.as2 and not obj.our_as1 and not obj.extra_as1
+                and util.get_first(obj.as2, 'type') in as2.ACTOR_TYPES):
+            if shared:
+                if inbox := as1.get_object(obj.as2, 'endpoints').get('sharedInbox'):
+                    return unwrap(inbox)
+            inbox = obj.as2.get('publicInbox') or obj.as2.get('inbox')
+            return unwrap(inbox) if inbox else None
+
+        # Object.as1 is expensive and not memoized, so only read it once
+        if not (obj_as1 := obj.as1):
             return None
 
-        if obj.type not in as1.ACTOR_TYPES:
+        type = as1.object_type(obj_as1)
+        if type not in as1.ACTOR_TYPES:
             for field in 'actor', 'author', 'attributedTo':
-                inner_obj = as1.get_object(obj.as1, field)
+                inner_obj = as1.get_object(obj_as1, field)
                 inner_id = inner_obj.get('id') or as1.get_url(inner_obj)
                 if (not inner_id
-                        or inner_id == obj.as1.get('id')
+                        or inner_id == obj_as1.get('id')
                         or (obj.key and inner_id == obj.key.id())):
                     continue
 
@@ -357,9 +451,9 @@ class ActivityPub(User, Protocol):
                         logger.info(f'Target for {obj.key} via {inner_id} is {target}')
                         return target
 
-            logger.info(f'{obj.key} type {obj.type} is not an actor and has no author or actor with inbox')
+            logger.info(f'{obj.key} type {type} is not an actor and has no author or actor with inbox')
 
-        actor = obj.as1
+        actor = obj_as1
         if shared:
             if endpoints := actor.get('endpoints'):
                 if shared_inbox := endpoints.get('sharedInbox'):
@@ -401,16 +495,77 @@ class ActivityPub(User, Protocol):
             logger.info(f'Skipping sending to blocklisted {inbox_url}')
             return False
 
+        # if this is a quote post, the send task has a snapshot of it from when it
+        # was first received. reload it in case we've gotten a FEP-044f
+        # quoteAuthorization for it since then.
+        if obj.type == 'post' and as1.quoted_posts(obj.as1):
+            stored = Object.get_by_id(as1.get_object(obj.as1).get('id'))
+            if stored and stored.extra_as1:
+                obj.our_as1 = {**obj.as1, 'object': stored.as1}
+
         orig_obj = None
         if orig_obj_id:
             orig_obj = to_cls.convert(Object.get_by_id(orig_obj_id),
                                       from_user=from_user)
         activity = to_cls.convert(obj, from_user=from_user, orig_obj=orig_obj)
 
-        log_data = request.values.get('first', '').lower() == 'true'
+        first = bool_param('first')
+        if first and activity.get('type') == 'Create':
+            to_cls.maybe_send_quote_request(activity, from_user=from_user)
+
         resp = signed_post(inbox_url, data=activity, from_user=from_user,
-                           log_data=log_data)
+                           gateway=True, log_data=first)
         return resp.ok
+
+    @classmethod
+    def maybe_send_quote_request(to_cls, create, from_user):
+        """Sends a FEP-044f ``QuoteRequest`` for a quote of a native fediverse post.
+
+        Does nothing if ``create``'s object isn't a quote post, or it already has
+        ``quoteAuthorization``, or the quoted post isn't native ActivityPub.
+
+        The ``Accept`` response is handled by :func:`handle_quote_accept`,
+        in :meth:`ActivityPub.receive`.
+
+        https://codeberg.org/fediverse/fep/src/branch/main/fep/044f/fep-044f.md
+        https://github.com/snarfed/bridgy-fed/issues/1956
+
+        Args:
+          create (dict): AS2 ``Create`` activity
+          from_user (models.User): ``create`` 's actor
+        """
+        post = as1.get_object(create)
+        quoted_id = post.get('quote')
+        if (not quoted_id or not post.get('id') or post.get('quoteAuthorization')
+                or Protocol.for_bridgy_subdomain(quoted_id, fed='web')):
+            return
+
+        if not (quoted := to_cls.load(quoted_id, raise_=False)):
+            return
+
+        if not (inbox := to_cls.target_for(quoted)) or to_cls.is_blocklisted(inbox):
+            return
+
+        quote_request = {
+            '@context': as2.CONTEXT + [FEP044F_QUOTE_REQUEST_CONTEXT],
+            'type': 'QuoteRequest',
+            'id': f'{post["id"]}{QUOTE_REQUEST_ID_SUFFIX}',
+            'actor': create['actor'],
+            'object': quoted_id,
+            'instrument': post,
+        }
+        create_task(queue='send', id=quote_request['id'], as2=quote_request,
+                    url=inbox, protocol=to_cls.LABEL, user=from_user.key.urlsafe())
+
+    @classmethod
+    def receive(from_cls, obj, authed_as=None, **kwargs):
+        """Handles FEP-044f ``Accept``s of our ``QuoteRequest``s separately."""
+        if obj.type == 'accept' and obj.as2 and obj.as2.get('result'):
+            obj_id = as1.get_id(obj.as2, 'object')
+            if obj_id and obj_id.endswith(QUOTE_REQUEST_ID_SUFFIX):
+                return maybe_handle_quote_accept(obj.as2, authed_as)
+
+        return super().receive(obj, authed_as=authed_as, **kwargs)
 
     @classmethod
     def fetch(cls, obj, use_fetched_id=True, **_):
@@ -536,8 +691,8 @@ class ActivityPub(User, Protocol):
         try:
             resp = signed_get(url, headers=headers, gateway=True)
         except BadGateway as e:
-            # ugh, this is ugly, should be something structured
-            if '406 Client Error' in str(e):
+            if (e.requests_response is not None
+                    and e.requests_response.status_code == 406):
                 return resp, None
             raise
 
@@ -562,19 +717,25 @@ class ActivityPub(User, Protocol):
         """Hydrates compacted values in ``obj``, in place.
 
         Very minimal and incomplete! Right now only handles the ``featured``
-        collection in actors.
+        collection (pinned posts) in actors.
 
         Args:
-          obj (dict)
+          obj (dict): AS2 object
         """
-        if util.get_first(obj, 'type') in as2.ACTOR_TYPES:
-            if feat := as1.get_object(obj, 'featured'):
-                if set(feat.keys()) == {'id'}:
-                    # fetch collection
-                    _, obj['featured'] = cls._get(feat['id'])
+        if util.get_first(obj, 'type') not in as2.ACTOR_TYPES:
+            return
+
+        as2.maybe_hydrate_collection(obj, 'featured', get_fn=signed_get)
+
+        # reduce pinned posts to just their ids. including the posts themselves can
+        # push the actor over MAX_ENTITY_SIZE
+        if isinstance(featured := obj.get('featured'), dict):
+            for field in 'items', 'orderedItems':
+                if items := as1.get_objects(featured, field):
+                    featured[field] = [item['id'] for item in items if item.get('id')]
 
     @classmethod
-    def _convert(cls, obj, orig_obj=None, from_user=None, **kwargs):
+    def _convert(cls, obj, orig_obj=None, from_user=None, remote=True, **kwargs):
         """Convert a :class:`models.Object` to AS2.
 
         Args:
@@ -583,6 +744,7 @@ class ActivityPub(User, Protocol):
             ``inReplyTo`` or ``Like``/``Announce``/etc object, if any. Passed
             through to :func:`postprocess_as2`.
           from_user (models.User): user (actor) this activity/object is from
+          remote (bool): passed through to :meth:`Protocol.translate_ids`
           kwargs: unused
 
         Returns:
@@ -591,11 +753,6 @@ class ActivityPub(User, Protocol):
         if not obj or not obj.as1:
             return {}
 
-        # TODO: uncomment
-        # from_proto = PROTOCOLS.get(obj.source_protocol)
-        # if from_proto and not from_user.is_enabled(cls):
-        #     error(f'{cls.LABEL} <=> {from_proto.LABEL} not enabled')
-
         if obj.as2:
             return {
                 # add back @context since we strip it when we store Objects
@@ -603,7 +760,7 @@ class ActivityPub(User, Protocol):
                 **obj.as2,
             }
 
-        translated = cls.translate_ids(obj.as1)
+        translated = cls.translate_ids(obj.as1, remote=remote)
 
         # compact actors to just string id for compatibility, since many other
         # AP implementations choke on objects.
@@ -639,20 +796,51 @@ class ActivityPub(User, Protocol):
 
         # convert!
         converted = postprocess_as2(converted, orig_obj=orig_obj)
+        if (converted.get('interactionPolicy')
+                or as1.get_object(converted).get('interactionPolicy')):
+            add(converted.setdefault('@context', []), INTERACTION_POLICY_CONTEXT)
 
-        # FEP-fffd proxy link
-        # https://codeberg.org/fediverse/fep/src/branch/main/fep/fffd/fep-fffd.md
-        # https://github.com/snarfed/bridgy-fed/issues/543
-        if (obj.source_protocol not in (None, 'activitypub')
-                and obj.type not in as1.CRUD_VERBS and obj.key and obj.key.id()
-                and not cls.is_blocklisted(obj.key.id())):
-            canonical = {
-                'type': 'Link',
-                'rel': 'canonical',
-                'href': obj.key.id(),
-            }
-            converted['url'] = util.get_list(converted, 'url')
-            util.add(converted['url'], canonical)
+        # include FEP-044f quoteAuthorization for quote of bridged posts
+        # https://codeberg.org/fediverse/fep/src/branch/main/fep/044f/fep-044f.md
+        converted_base = converted
+        obj_as1 = obj.as1
+        if obj.type in ('post', 'update'):
+            converted_base = as1.get_object(converted)
+            obj_as1 = as1.get_object(obj_as1)
+
+        id = converted_base.get('id')
+        quote = converted_base.get('quote')
+        if (id and quote
+                and (proto := Protocol.for_bridgy_subdomain(quote, fed='web'))
+                and proto != ActivityPub):
+            _, stamp_id = quote_stamp(quote, id, remote=None if remote else False)
+            if stamp_id:
+                converted_base['quoteAuthorization'] = stamp_id
+                add(converted.setdefault('@context', []), FEP044F_QUOTE_POST_CONTEXT)
+            else:
+                # quoted post isn't bridged into ActivityPub. remove the quote
+                # fields, fall back to just the inline RE: ... link in content, and
+                # make the quote tag a normal link to the quoted post's web URL
+                logger.debug(f"Quoted post {quote} isn't bridged to activitypub, removing quote fields")
+                for field in as2.QUOTE_FIELDS:
+                    converted_base.pop(field, None)
+
+                quoted = [a for a in as1.get_objects(obj_as1, 'attachments')
+                          if a.get('objectType') == 'note']
+                url = as1.get_url(quoted[0]) if quoted else None
+                for tag in util.get_list(converted_base, 'tag'):
+                    if tag.get('type') == 'Link' and tag.get('href') == quote:
+                        tag.pop('mediaType', None)
+                        if url:
+                            tag['href'] = url
+
+        # replies collection
+        # https://github.com/snarfed/bridgy-fed/issues/1739
+        if (as1.object_type(obj_as1) in REPLIES_AS1_TYPES
+                and as1.is_public(obj_as1, unlisted=False)
+                and (native_id := obj_as1.get('id'))):
+            id_b64 = urlsafe_b64encode(native_id.encode()).decode()
+            converted_base['replies'] = urljoin(id, f'/ap/replies/{id_b64}')
 
         return converted
 
@@ -674,10 +862,18 @@ class ActivityPub(User, Protocol):
             raise ValueError(f'No profile object for {user.key.id()}')
 
         logger.info(f"Adding {from_user_id} to {user.key.id()} 's alsoKnownAs")
-        if not user.obj.extra_as1:
-            user.obj.extra_as1 = {}
-        util.add(user.obj.extra_as1.setdefault('alsoKnownAs', []), from_user_id)
-        user.obj.put()
+
+        @ndb.transactional()
+        def add_alias():
+            profile = user.obj_key.get()
+            if not profile.extra_as1:
+                profile.extra_as1 = {}
+            util.add(profile.extra_as1.setdefault('alsoKnownAs', []), from_user_id)
+            profile.put()
+            return profile
+
+        user.obj = add_alias()
+        memcache.evict(user.obj_key)
 
     @classmethod
     def migrate_out(cls, user, to_user_id):
@@ -741,7 +937,7 @@ class ActivityPub(User, Protocol):
 
         # check that the destination actor has an alias to the bridged actor
         if not (to_actor := cls.load(to_user_id, remote=True)):
-            raise ValueError("Couldn't fetch {to_user_id}")
+            raise ValueError(f"Couldn't fetch {to_user_id}")
 
         aka = util.get_list(to_actor.as2, 'alsoKnownAs')
         user_ap_id = user.id_as(cls)
@@ -832,21 +1028,29 @@ class ActivityPub(User, Protocol):
         # can't use request.full_path because it includes a trailing ? even if
         # it wasn't in the request. https://github.com/pallets/flask/issues/2867
         path_query = request.url.removeprefix(request.host_url.rstrip('/'))
-        logger.log(log_level, f'Verifying signature for {path_query} with key {sig_fields["keyid"]}')
-        try:
-            verified = HeaderVerifier(headers, key,
-                                      required_headers=required_headers,
-                                      method=request.method, path=path_query,
-                                      sign_header='signature').verify()
-        except BaseException as e:
-            raise RuntimeError(f'sig verification failed: {e}')
 
-        if verified:
-            logger.log(log_level, 'sig ok')
-        else:
-            raise RuntimeError('sig failed')
+        # the load balancer may have collapsed :// down to :/ after the client
+        # signed, so try the expanded path too. clients that collapsed it
+        # themselves before signing still verify against the path as received.
+        paths = [path_query]
+        if (expanded := COLLAPSED_SCHEME_RE.sub(r'\1/', path_query)) != path_query:
+            paths.append(expanded)
 
-        return key_actor.key.id()
+        for path in paths:
+            logger.log(log_level, f'Verifying signature for {path} with key {sig_fields["keyid"]}')
+            try:
+                verified = HeaderVerifier(headers, key,
+                                          required_headers=required_headers,
+                                          method=request.method, path=path,
+                                          sign_header='signature').verify()
+            except BaseException as e:
+                raise RuntimeError(f'sig verification failed: {e}')
+
+            if verified:
+                logger.log(log_level, 'sig ok')
+                return key_actor.key.id()
+
+        raise RuntimeError('sig failed')
 
     @classmethod
     def _load_key(cls, key_id, follow_owner=True):
@@ -886,8 +1090,11 @@ class ActivityPub(User, Protocol):
         return actor
 
 
-def signed_get(url, from_user=None, **kwargs):
-    return signed_request(util.requests_get, url, from_user=from_user, **kwargs)
+def signed_get(url, from_user=None, headers=as2.CONNEG_HEADERS, gateway=False,
+               **kwargs):
+    # enable request-local cache of HTTP responses
+    return signed_request(util.requests_get, url, cache=True, headers=headers,
+                          gateway=gateway, from_user=from_user, **kwargs)
 
 
 def signed_post(url, from_user, **kwargs):
@@ -954,7 +1161,6 @@ def signed_request(fn, url, data=None, headers=None, from_user=None,
             sign_header='signature', headers=HTTP_SIG_HEADERS)
 
     # make HTTP request
-    kwargs.setdefault('gateway', True)
     resp = fn(url, data=data, auth=auth, headers=headers, allow_redirects=False,
               **kwargs)
 
@@ -1003,21 +1209,21 @@ def postprocess_as2(activity, orig_obj=None, wrap=True):
     type = activity.get('type')
 
     # inReplyTo: singly valued, prefer id over url
-    # TODO: ignore orig_obj, do for all inReplyTo
     orig_id = orig_obj.get('id') if orig_obj else None
-    in_reply_to = util.get_list(activity, 'inReplyTo')
+    in_reply_to = as1.get_object(activity, 'inReplyTo')
     if in_reply_to:
-        if orig_id:  # TODO: and orig_id in in_reply_to ...or get rid of orig_obj
-            activity['inReplyTo'] = orig_id
-        elif len(in_reply_to) > 1:
-            # AS2 inReplyTo can be multiply valued, it's not marked Functional:
-            # https://www.w3.org/TR/activitystreaams-vocabulary/#dfn-inreplyto
-            # ...but most fediverse projects don't support that:
-            # https://funfedi.dev/support_tables/generated/in_reply_to/
-            logger.warning(
-                "AS2 doesn't support multiple inReplyTo URLs! "
-                f'Only using the first: {in_reply_to[0]}')
-            activity['inReplyTo'] = in_reply_to[0]
+        # AS2 inReplyTo can be multiply valued, it's not marked Functional:
+        # https://www.w3.org/TR/activitystreaams-vocabulary/#dfn-inreplyto
+        # ...but many fediverse projects don't support that, and Mastodon,
+        # Misskey, and Mitra drop the activity entirely. always singly valued,
+        # even for a single element list, since Mastodon raises a TypeError on
+        # any list at all. https://github.com/snarfed/bridgy-fed/issues/1257
+        #
+        # prefer orig_obj's id: it's the one this delivery is actually for, which
+        # matters when inReplyTo is multiply valued, eg a web post with multiple
+        # u-in-reply-to links. otherwise fall back to the first.
+        activity['inReplyTo'] = (orig_id or in_reply_to.get('id')
+                                 or util.get_first(in_reply_to, 'url'))
 
         # Mastodon evidently requires a Mention tag for replies to generate a
         # notification to the original post's author. also include the original
@@ -1042,12 +1248,16 @@ def postprocess_as2(activity, orig_obj=None, wrap=True):
 
     # activity objects (for Like, Announce, etc): prefer id over url
     obj = as1.get_object(activity)
-    id = obj.get('id')
-    if orig_id and type in as2.TYPES_WITH_OBJECT and type != 'Undo':
-        # inline most objects as bare string ids, not composite objects, for interop
-        activity['object'] = orig_id
-    elif not id:
+    if not obj.get('id'):
         obj['id'] = util.get_first(obj, 'url')
+
+    # inline most objects as bare string ids, not composite objects, for interop.
+    # not Accept/Reject/Undo though; their objects are themselves activities, which
+    # the receiving server needs in full to match against its own pending state.
+    # https://github.com/snarfed/bridgy-fed/issues/1257
+    if type in as2.TYPES_WITH_OBJECT and type not in ('Accept', 'Reject', 'Undo'):
+        if object_id := orig_id or obj.get('id'):
+            activity['object'] = object_id
 
     # id is required for most things. default to url if it's not set.
     if not activity.get('id'):
@@ -1061,7 +1271,9 @@ def postprocess_as2(activity, orig_obj=None, wrap=True):
         if redirect_domain not in DOMAINS:
             redirect_domain = None
         activity['id'] = redirect_wrap(activity.get('id'), domain=redirect_domain)
-        activity['url'] = [redirect_wrap(u) for u in util.get_list(activity, 'url')]
+        # don't wrap Links, eg FEP-fffd proxy links
+        activity['url'] = [redirect_wrap(u) if isinstance(u, str) else u
+                           for u in util.get_list(activity, 'url')]
         if len(activity['url']) == 1:
             activity['url'] = activity['url'][0]
 
@@ -1070,14 +1282,19 @@ def postprocess_as2(activity, orig_obj=None, wrap=True):
     # https://chrisbeckstrom.com/2018/12/27/32551/
     # assert activity.get('id') or (isinstance(obj, dict) and obj.get('id'))
 
-    obj_or_activity = obj if obj.keys() > set(['id']) else activity
+    # if we inlined the object as a bare id above, it's no longer part of the
+    # activity, so these fields have to go on the activity itself
+    obj_or_activity = (obj if obj.keys() > set(['id'])
+                       and not isinstance(activity.get('object'), str)
+                       else activity)
 
-    # separate out Link attachments; we move them to links in content below,
-    # after render_content, since fediverse instances generate their own link
-    # previews. https://github.com/snarfed/bridgy-fed/issues/958
-    atts = util.pop_list(obj_or_activity, 'attachment')
-    obj_or_activity['attachment'] = [a for a in atts if a.get('type') != 'Link']
-    link_atts = [a for a in atts if a.get('type') == 'Link']
+    # copy Link attachments to links in content below, after render_content,
+    # since many fediverse instances only generate link previews from content.
+    # keep the attachments too for FEP-8967.
+    # https://github.com/snarfed/bridgy-fed/issues/958
+    # https://github.com/snarfed/bridgy-fed/issues/2286
+    obj_or_activity['attachment'] = util.pop_list(obj_or_activity, 'attachment')
+    link_atts = [a for a in obj_or_activity['attachment'] if a.get('type') == 'Link']
 
     # copy image(s) into attachment(s). may be Mastodon-specific.
     # https://github.com/snarfed/bridgy-fed/issues/33#issuecomment-440965618
@@ -1102,6 +1319,8 @@ def postprocess_as2(activity, orig_obj=None, wrap=True):
         add(activity.setdefault('to', []), as2.PUBLIC_AUDIENCE)
         if obj and type in as2.CRUD_VERBS:
             add(obj.setdefault('to', []), as2.PUBLIC_AUDIENCE)
+        if type in ('Article', 'Note', 'Question'):
+            activity['interactionPolicy'] = INTERACTION_POLICY
 
     # cc target's author(s), recipients, mentions
     # https://www.w3.org/TR/activitystreams-vocabulary/#audienceTargeting
@@ -1156,14 +1375,20 @@ def postprocess_as2(activity, orig_obj=None, wrap=True):
 
     as2.render_content(obj_or_activity)
 
-    # move Link attachments to links in content. MUST be after render_content,
+    # copy Link attachments to links in content. MUST be after render_content,
     # which requires plain text content and does the whole plain => HTML
     # conversion; here we just concatenate trusted HTML onto its output.
     # https://github.com/snarfed/bridgy-fed/issues/958
     if link_atts:
         content = obj_or_activity.get('content', '')
+        # we may postprocess the same object more than once, so skip links that
+        # are already in content
+        linked = ({a.get('href') for a in util.parse_html(content).find_all('a')}
+                  if content else set())
         for link in link_atts:
             for url in util.get_list(link, 'href'):
+                if url in linked:
+                    continue
                 if content:
                     content += '<br><br>'
                 content += util.pretty_link(url, text=link.get('name'))
@@ -1189,7 +1414,7 @@ def postprocess_as2(activity, orig_obj=None, wrap=True):
             as2.set_content(obj_or_activity, f'<p>{content}</p>')
 
     activity.pop('content_is_html', None)
-    return util.trim_nulls(activity)
+    return as1.trim_nulls(activity)
 
 
 def postprocess_as2_actor(actor, user):
@@ -1210,13 +1435,24 @@ def postprocess_as2_actor(actor, user):
     assert isinstance(actor, dict)
     assert user
 
-    # remove acct: urls, set default url
-    urls = [u for u in as2.get_urls(actor) if not u.startswith('acct:')]
+    # remove acct: urls, set default url. keep FEP-fffd proxy links as is
+    proxy_links = []
+    other_urls = []
+    for u in util.get_list(actor, 'url'):
+        if (isinstance(u, dict)
+                and set(util.get_list(u, 'rel')) & set(as1.PROXY_LINK_RELS)):
+            if not (u.get('href') or '').startswith('acct:'):
+                proxy_links.append(u)
+        else:
+            other_urls.append(u)
+
+    urls = [u for u in as2.get_urls({'url': other_urls}) if not u.startswith('acct:')]
     url = user.web_url()
     if not urls and url:
         urls = [url]
     if urls:
         urls[0] = redirect_wrap(urls[0])
+    urls += proxy_links
     actor['url'] = urls[0] if len(urls) == 1 else urls
 
     id = actor.get('id')
@@ -1256,10 +1492,10 @@ def postprocess_as2_actor(actor, user):
     for att in util.get_list(actor, 'attachment'):
         if att.get('type') == 'PropertyValue':
             val = att.get('value', '')
-            link = util.parse_html(val).find('a')
-            if url and link and url.rstrip('/') in [val.rstrip('/'),
-                                                    link.get('href').rstrip('/')]:
-                att['name'] = 'Web site'
+            if ((link := util.parse_html(val).find('a'))
+                    and (href := link.get('href'))):
+                if url and url.rstrip('/') in [val.rstrip('/'), href.rstrip('/')]:
+                    att['name'] = 'Web site'
 
     # required by pixelfed
     #
@@ -1291,7 +1527,7 @@ def postprocess_as2_actor(actor, user):
     return actor
 
 
-def load_user(handle_or_id, create=False, allow_opt_out=False):
+def load_user(handle_or_id, allow_opt_out=False):
     if handle_or_id == PRIMARY_DOMAIN or handle_or_id in PROTOCOL_DOMAINS:
         from web import Web
         proto = Web
@@ -1302,8 +1538,7 @@ def load_user(handle_or_id, create=False, allow_opt_out=False):
         error(f"Couldn't determine protocol", status=404)
 
     try:
-        user = models.load_user(handle_or_id, proto, create=create,
-                                allow_opt_out=allow_opt_out)
+        user = models.load_user(handle_or_id, proto, allow_opt_out=allow_opt_out)
     except (AttributeError, RuntimeError, ValueError) as e:
         error(str(e), status=404)
 
@@ -1330,7 +1565,7 @@ def actor(handle_or_id):
             and request.host not in ('fed.brid.gy', 'web.brid.gy', 'localhost')):
         return '', 404
 
-    user = load_user(handle_or_id, create=True, allow_opt_out=True)
+    user = load_user(handle_or_id, allow_opt_out=True)
     proto = user
 
     # allow non-AS2 fetches even for disabled users, just redirect to bsky.app profile
@@ -1339,14 +1574,9 @@ def actor(handle_or_id):
         return redirect(user.web_url(), code=302)
 
     if user.key.id() not in PROTOCOL_DOMAINS + (PRIMARY_DOMAIN,):
-        # *optionally* check HTTP signature. if the request is signed by a user or
-        # domain that this object's owner is blocking, reject the fetch.
+        # check HTTP signature
         try:
-            beta_user = user.key.id() in common.BETA_USER_IDS
-            signer = ActivityPub.authed_user_for_request(
-                log_level=logging.INFO if beta_user else logging.DEBUG)
-            if signer and user.is_blocking(signer):
-                return '', 403
+            ActivityPub.authed_user_for_request()
         except RuntimeError as err:
             error(str(err), status=401)
 
@@ -1389,6 +1619,58 @@ def actor(handle_or_id):
     return actor, {
         'Content-Type': as2_type,
         'Access-Control-Allow-Origin': '*',
+    }
+
+
+@app.get('/ap/<user_id>/stamp/<any(quote):type>/<target_b64>/<interacting_b64>')
+@flask_util.headers(CACHE_CONTROL)
+def stamp(user_id, type, target_b64, interacting_b64):
+    """Serves a FEP-044f ``QuoteAuthorization`` stamp.
+
+    These are stateless. The quote post id, original post id, and original post's
+    user id are all in the URL path. The quote post id and original post id are
+    base64-encoded. The returned ``QuoteAuthorization`` object is generated entirely
+    from those ids, without loading anything from the datastore.
+
+    We currently let anyone quote anything, so we serve a stamp for any quote of any
+    post on this host.
+
+    https://codeberg.org/fediverse/fep/src/branch/main/fep/044f/fep-044f.md
+    https://github.com/snarfed/bridgy-fed/issues/1956
+
+    Args:
+      user_id (str): id of the bridged user who owns the quoted post
+      type (str): interaction type. Currently only ``quote`` is supported.
+      target_b64 (str): base64url-encoded id of the quoted post, with padding
+      interacting_b64 (str): base64url-encoded id of the quote post, with padding
+    """
+    try:
+        target_id = urlsafe_b64decode(target_b64).decode()
+        interacting_id = urlsafe_b64decode(interacting_b64).decode()
+    except ValueError as e:
+        error(f'Invalid base64: {e}', status=404)
+
+    if not util.is_web(target_id) or not util.is_web(interacting_id):
+        error(f'Expected URLs, got {target_id} {interacting_id}', status=404)
+    elif urlparse(target_id).netloc != request.host:
+        error(f'{target_id} is not on {request.host}', status=404)
+
+    # web users' actor ids don't have the /ap/ prefix
+    proto = Protocol.for_request(fed='web')
+    if proto and proto.LABEL == 'web':
+        attributed_to = f'{request.host_url}{user_id}'
+    else:
+        attributed_to = f'{request.host_url}ap/{user_id}'
+
+    return {
+        '@context': as2.CONTEXT + [FEP044F_QUOTE_AUTH_CONTEXT],
+        'type': 'QuoteAuthorization',
+        'id': request.base_url,
+        'attributedTo': attributed_to,
+        'interactingObject': interacting_id,
+        'interactionTarget': target_id,
+    }, {
+        'Content-Type': ActivityPub.CONTENT_TYPE,
     }
 
 
@@ -1490,21 +1772,10 @@ def inbox(protocol=None, id=None):
         activity.setdefault('url', f'{follower_url}#followed-{followee_url}')
 
     elif type in ('Add', 'Remove'):
-        # a user changed their pinned posts
-        # https://github.com/snarfed/bridgy-fed/issues/2102
-        if target := as1.get_id(activity, 'target'):
-            user = ActivityPub.get_by_id(actor_id)
-            if user and user.obj and target == as1.get_id(user.obj.as1, 'featured'):
-                logger.info('Modified pinned posts, reloading profile')
-                user.reload_profile()
-                # enqueue an update, not the bare profile object, so that it gets
-                # a unique id and doesn't get de-duped
-                update = ActivityPub.handle_bare_object(user.obj, authed_as=authed_as,
-                                                        from_user=user)
-                create_task(queue='receive', authed_as=authed_as,
-                            **update.to_request())
-                return 'OK', 202
-        return 'Ignored', 204
+        return handle_pin_change(activity, authed_as)
+
+    elif type == 'QuoteRequest':
+        return handle_quote_request(activity, authed_as)
 
     if not id:
         id = f'{actor_id}#{type}-{obj_id or ""}-{util.now().isoformat()}'
@@ -1530,6 +1801,214 @@ def inbox(protocol=None, id=None):
                        received_at=util.now().isoformat(), delay=delay)
 
 
+def quote_stamp(target_id, quote_id, remote=None):
+    """Generates the FEP-044f stamp id for a quote of a bridged post.
+
+    Args:
+      target_id (str): AP id of the quoted post
+      quote_id (str): AP id of the quote post
+      remote (bool): passed through to :meth:`Protocol.load` for the quoted post
+
+    Returns:
+      (models.User, str) tuple: the quoted post's author and the stamp id
+      served by :func:`stamp`, or ``(None, None)`` if the quoted post isn't a
+      bridged post from another protocol by a user who's bridged to ActivityPub
+    """
+    proto = Protocol.for_bridgy_subdomain(target_id, fed='web')
+    if not proto or proto == ActivityPub:
+        return None, None
+
+    native_id = ids.translate_object_id(id=target_id, from_=ActivityPub, to=proto)
+    target = proto.load(native_id, remote=remote, raise_=False)
+    owner = as1.get_owner(target.as1) if target else None
+    if not owner:
+        return None, None
+
+    user = proto.get_by_id(ids.normalize_user_id(id=owner, proto=proto))
+    if not user or not user.is_enabled(ActivityPub):
+        return None, None
+
+    user_ap_id = user.id_as(ActivityPub)
+    target_b64 = urlsafe_b64encode(target_id.encode()).decode()
+    quote_b64 = urlsafe_b64encode(quote_id.encode()).decode()
+    return user, urljoin(user_ap_id, f'/ap/{user_ap_id.rsplit("/", 1)[1]}/stamp/quote/{target_b64}/{quote_b64}')
+
+
+def handle_pin_change(activity, authed_as):
+    """Handles an incoming ``Add`` or ``Remove`` to a user's pinned posts.
+
+    Applies the change directly to the user's stored ``featured`` collection
+    instead of refetching it. Mastodon serves it with
+    ``Cache-Control: max-age=180``, so we often get a stale copy if we refetch
+    right away.
+
+    https://docs.joinmastodon.org/spec/activitypub/#featured
+    https://github.com/snarfed/bridgy-fed/issues/2102
+    https://github.com/snarfed/bridgy-fed/issues/2761
+
+    Args:
+      activity (dict): AS2 ``Add`` or ``Remove`` activity
+      authed_as (str): AP actor id that signed the request
+
+    Returns:
+      (str, int) tuple: Flask response
+    """
+    type = activity['type']
+    assert type in ('Add', 'Remove')
+
+    target = as1.get_id(activity, 'target')
+    obj_id = as1.get_id(activity, 'object')
+    if not target or not obj_id:
+        return 'Ignored', 204
+
+    user = ActivityPub.get_by_id(as1.get_id(activity, 'actor'))
+    if not (user and user.obj and user.obj.as2
+            and target == as1.get_id(user.obj.as1, 'featured')):
+        return 'Ignored', 204
+
+    logger.info(f'{type} {obj_id} to/from pinned posts {target}')
+    featured = user.obj.as2['featured'] = as1.get_object(user.obj.as2, 'featured')
+    field = 'items' if 'items' in featured else 'orderedItems'
+    items = [item for item in as1.get_ids(featured, field) if item != obj_id]
+    if type == 'Add':
+        items.insert(0, obj_id)
+    featured[field] = items
+    featured['totalItems'] = len(items)
+    user.obj.put()
+
+    # enqueue an update, not the bare profile object, so that it gets a unique
+    # id and doesn't get de-duped
+    update = ActivityPub.handle_bare_object(user.obj, authed_as=authed_as,
+                                            from_user=user)
+    create_task(queue='receive', authed_as=authed_as, **update.to_request())
+    return 'OK', 202
+
+
+def handle_quote_request(activity, authed_as):
+    """Handles an incoming FEP-044f ``QuoteRequest``.
+
+    We currently let anyone quote anything, so we reply to all quote requests
+    by sending an ``Accept``.
+
+    https://codeberg.org/fediverse/fep/src/branch/main/fep/044f/fep-044f.md
+    https://github.com/snarfed/bridgy-fed/issues/1956
+
+    Args:
+      activity (dict): AS2 ``QuoteRequest`` activity
+      authed_as (str): AP actor id that signed the request
+
+    Returns:
+      (str, int) tuple: Flask response
+    """
+    assert activity['type'] == 'QuoteRequest'
+
+    actor_id = as1.get_id(activity, 'actor')
+    if authed_as != actor_id:
+        error(f"QuoteRequest actor {actor_id} doesn't match signer {authed_as}",
+              status=403)
+
+    obj_id = as1.get_id(activity, 'object')
+    quote_id = as1.get_object(activity, 'instrument').get('id')
+    if not obj_id or not quote_id:
+        error('QuoteRequest needs object and instrument', status=400)
+
+    logger.info(f'Got QuoteRequest from {actor_id} for post {quote_id} quoting {obj_id}')
+
+    user, stamp_id = quote_stamp(obj_id, quote_id)
+    if not user:
+        error(f"{obj_id} isn't a bridged post", status=204)
+
+    if not (inbox := ActivityPub.target_for(ActivityPub.load(actor_id))):
+        error(f"Couldn't find inbox for {actor_id}", status=400)
+
+    accept = {
+        'type': 'Accept',
+        'id': f'{stamp_id}#accept',
+        'actor': user.id_as(ActivityPub),
+        'to': [actor_id],
+        'object': activity,
+        'result': stamp_id,
+    }
+    create_task(queue='send', id=accept['id'], as2=accept, url=inbox,
+                protocol=ActivityPub.LABEL, user=user.key.urlsafe())
+    return 'OK', 202
+
+
+def maybe_handle_quote_accept(accept, authed_as):
+    """Handles an incoming FEP-044f ``Accept`` of one of our ``QuoteRequest``s.
+
+    Stores the ``QuoteAuthorization`` stamp in the quote post's
+    :attr:`models.Object.extra_as1`, then sends an ``Update`` of the quote post
+    to ActivityPub so that other instances see the stamp.
+
+    https://codeberg.org/fediverse/fep/src/branch/main/fep/044f/fep-044f.md
+    https://github.com/snarfed/bridgy-fed/issues/1956
+
+    Args:
+      accept (dict): AS2 ``Accept`` activity
+      authed_as (str): AP actor id that signed the request
+
+    Returns:
+      (str, int) tuple: Flask response
+    """
+    actor_id = as1.get_id(accept, 'actor')
+    stamp_id = as1.get_id(accept, 'result')
+    if authed_as != actor_id:
+        error(f"Accept actor {actor_id} doesn't match signer {authed_as}")
+    elif domain_from_link(stamp_id) != domain_from_link(actor_id):
+        error(f"Stamp {stamp_id} isn't on {actor_id} 's domain")
+
+    quote_ap_id = (as1.get_object(accept)['id']
+                   .removesuffix(QUOTE_REQUEST_ID_SUFFIX))
+    proto = Protocol.for_bridgy_subdomain(quote_ap_id, fed='web')
+    if not proto or proto == ActivityPub:
+        error(f"{quote_ap_id} isn't a bridged post", status=204)
+
+    quote_id = ids.translate_object_id(id=quote_ap_id, from_=ActivityPub, to=proto)
+
+    logger.info(f'Adding quoteAuthorization {stamp_id} to {quote_id}')
+
+    @ndb.transactional()
+    def store_stamp():
+        quote = Object.get_by_id(quote_id)
+        if not quote or not quote.as1:
+            error(f"We don't have {quote_id} stored", status=204)
+
+        quoted_ids = as1.quoted_posts(quote.as1)
+        for quoted_id in quoted_ids:
+            quoted = ActivityPub.load(
+                ids.translate_object_id(id=quoted_id, from_=proto, to=ActivityPub),
+                remote=False)
+            if quoted and as1.get_owner(quoted.as1) == actor_id:
+                break
+        else:
+            error(f"{actor_id} isn't the author of any of {quote_id} 's quotes: {quoted_ids}")
+
+        if not quote.extra_as1:
+            quote.extra_as1 = {}
+        if quote.extra_as1.get('quoteAuthorization') == stamp_id:
+            error(f'Already have stamp {stamp_id} for {quote_id}', status=204)
+
+        quote.extra_as1['quoteAuthorization'] = stamp_id
+        add(quote.extra_as1.setdefault('@context', []), FEP044F_QUOTE_POST_CONTEXT)
+        quote.put()
+        return quote
+
+    quote = store_stamp()
+    memcache.evict(quote.key)
+
+    # send Updates for this quote post with the new quoteAuthorization
+    owner = as1.get_owner(quote.as1)
+    author = proto.get_by_id(ids.normalize_user_id(id=owner, proto=proto))
+    if not author:
+        error(f"Couldn't load {quote_id} 's author {owner}", status=204)
+
+    quote.changed = True
+    update = proto.handle_bare_object(quote, authed_as=owner, from_user=author)
+    return proto.deliver(update, from_user=author, crud_obj=quote,
+                         to_proto=ActivityPub)
+
+
 # protocol in subdomain
 @app.get(f'/ap/<id>/<any(followers,following):collection>')
 # special case Web users on fed.brid.gy subdomain without /ap/web/ prefix, for
@@ -1537,7 +2016,7 @@ def inbox(protocol=None, id=None):
 @app.route(f'/<regex("{DOMAIN_RE.pattern}"):id>/<any(followers,following):collection>',
            methods=['GET', 'HEAD'])
 @memcache.memoize(expire=timedelta(hours=1),
-                  key=lambda **kwargs: (request.method, kwargs))
+                  key=lambda **kwargs: (request.method, request.url))
 @flask_util.headers(CACHE_CONTROL)
 def follower_collection(id, collection):
     """ActivityPub Followers and Following collections.
@@ -1606,10 +2085,12 @@ def follower_collection(id, collection):
 # backward compatibility
 @app.route(f'/<regex("{DOMAIN_RE.pattern}"):id>/outbox', methods=['GET', 'HEAD'])
 @memcache.memoize(expire=timedelta(hours=1),
-                  key=lambda **kwargs: (request.method, kwargs))
+                  key=lambda **kwargs: (request.method, request.url))
 @flask_util.headers(CACHE_CONTROL)
 def outbox(id):
-    """Serves a user's AP outbox.
+    """Serves the first page of a user's AP outbox: their most recent bridged posts, replies, and reposts.
+
+    We don't serve any more pages than that yet.
 
     TODO: unify page generation with follower_collection()
     """
@@ -1618,51 +2099,92 @@ def outbox(id):
     if request.method == 'HEAD':
         return '', {'Content-Type': as2.CONTENT_TYPE_LD_PROFILE}
 
-    # TODO: bring this back once we filter it by author status, etc
-    # query = Object.query(Object.users == user.key)
-    # objects, new_before, new_after = fetch_objects(query, by=Object.updated,
-    #                                                user=user)
+    # check HTTP signature
+    if user.key.id() not in PROTOCOL_DOMAINS + (PRIMARY_DOMAIN,):
+        try:
+            signer = ActivityPub.authed_user_for_request()
+        except RuntimeError as err:
+            error(str(err), status=401)
 
-    # page = {
-    #     'type': 'CollectionPage',
-    #     'partOf': request.base_url,
-    #     'items': util.trim_nulls([ActivityPub.convert(obj, from_user=user)
-    #                               for obj in objects]),
-    # }
-    # if new_before:
-    #     page['next'] = f'{request.base_url}?before={new_before}'
-    # if new_after:
-    #     page['prev'] = f'{request.base_url}?after={new_after}'
+    # fetch and filter objects
+    #
+    # filter by type in memory, not in the query with IN, since ndb splits that into
+    # one query per type and doesn't pass the limit down to them, which results in
+    # n much heavier queries
+    query = Object.query(Object.users == user.key).order(-Object.updated)
+    objs = [obj for obj in query.fetch(models.PAGE_SIZE)
+            if obj.type in OUTBOX_AS1_TYPES]
+    items = []
+    for obj in filter_for_proto(objs, to_proto=ActivityPub):
+        # outbox contains activities, not bare objects
+        # https://www.w3.org/TR/activitypub/#outbox
+        if obj.type != 'share':
+            obj = Object(our_as1={
+                'objectType': 'activity',
+                'verb': 'post',
+                'id': f'{obj.key.id()}#bridgy-fed-create',
+                'actor': user.key.id(),
+                'object': obj.as1,
+            })
+        items.append(ActivityPub.convert(obj, from_user=user, remote=False))
 
-    # if 'before' in request.args or 'after' in request.args:
-    #     page.update({
-    #         '@context': 'https://www.w3.org/ns/activitystreams',
-    #         'id': request.url,
-    #     })
-    #     logger.debug(f'Returning {json_dumps(page, indent=2)}')
-    #     return page, {'Content-Type': as2.CONTENT_TYPE_LD_PROFILE}
-
-    ret = {
-        '@context': 'https://www.w3.org/ns/activitystreams',
-        'id': request.url,
+    return {
+        '@context': as2.CONTEXT,
+        'id': request.base_url,
         'type': 'OrderedCollection',
         'summary': f"{id}'s outbox",
-        'totalItems': 0,
-        # 'first': page,
+        'first': {
+            'type': 'OrderedCollectionPage',
+            'partOf': request.base_url,
+            'orderedItems': util.trim_nulls(items),
+        },
+    }, {'Content-Type': as2.CONTENT_TYPE_LD_PROFILE}
+
+
+@app.get('/ap/replies/<id_b64>')
+@memcache.memoize(expire=timedelta(minutes=5), key=lambda **kwargs: request.url)
+@flask_util.headers({'Cache-Control': 'public, max-age=300'})  # 5m
+def replies(id_b64):
+    """Serves the first page of a post's replies collection.
+
+    Only includes the first :const:`REPLIES_PAGE_SIZE` replies, unordered. No paging.
+
+    Only includes ids in the returned collection, not full reply objects. We don't
+    most replies, so receiving fediverse instances re-fetch instead of accepting our
+    objects as authoritative anyway. And we still need to fetch full :class:`Object`s
+    from the datastore so that we can filter out deleted, non-public, etc.
+
+    https://www.w3.org/TR/activitystreams-vocabulary/#dfn-replies
+    https://docs.joinmastodon.org/spec/activitypub/#properties-used
+    https://github.com/snarfed/bridgy-fed/issues/1739
+
+    Args:
+      id_b64 (str): base64url-encoded native id of the parent post, with padding
+    """
+    try:
+        id = urlsafe_b64decode(id_b64).decode()
+    except ValueError as e:
+        error(f'Invalid base64: {e}', status=404)
+
+    try:
+        ActivityPub.authed_user_for_request()
+    except RuntimeError as err:
+        error(str(err), status=401)
+
+    query = Object.query(Object.in_reply_to == ndb.Key(Object, id))
+    objs = filter_for_proto(query.fetch(REPLIES_PAGE_SIZE), to_proto=ActivityPub)
+    logger.info(f'Found {len(objs)} replies to {id}')
+
+    return {
+        '@context': as2.CONTEXT,
+        'id': request.base_url,
+        'type': 'Collection',
         'first': {
             'type': 'CollectionPage',
             'partOf': request.base_url,
-            'items': [],
+            'items': [obj.id_as(ActivityPub) for obj in objs],
         },
-    }
-
-    # # count total if it's small, <= 1k. we should eventually precompute this
-    # # so that we can always return it cheaply.
-    # count = query.count(limit=1001)
-    # if count != 1001:
-    #     ret['totalItems'] = count
-
-    return ret, {'Content-Type': as2.CONTENT_TYPE_LD_PROFILE}
+    }, {'Content-Type': as2.CONTENT_TYPE_LD_PROFILE}
 
 
 # protocol in subdomain
@@ -1675,10 +2197,12 @@ def featured(id):
     We inline the featured collection in users' actors, but Mastodon (and
     Pleroma/Akkoma?) require it to be fetchable separately too. :(
 
-    Also, it's critical that the collection items here are expanded objects!
-    Originally they were compacted string ids, but that triggered a massive flood of
-    requests from Pleroma and Akkoma:
+    Serving this triggered a massive flood of requests from Pleroma and Akkoma,
+    both when the collection items were compacted string ids and when they were
+    expanded objects. The apparent cause was the ``at://`` URI in our actors'
+    ``alsoKnownAs``, which failed Pleroma's actor validation until 2.10.0:
     https://github.com/snarfed/bridgy-fed/issues/1374#issuecomment-2891993190
+    https://git.pleroma.social/pleroma/pleroma/issues/3336
     """
     # TODO: bring back once we figure out how to get Mastodon to support this and
     # Pleroma and Akkoma not to DDoS us
@@ -1753,14 +2277,13 @@ def nodeinfo():
         'version': '2.1',
         'software': {
             'name': 'bridgy-fed',
-            'version': os.getenv('GAE_VERSION'),
+            'version': os.getenv('K_REVISION'),
             'repository': 'https://github.com/snarfed/bridgy-fed',
             'homepage': 'https://fed.brid.gy/',
         },
         'protocols': [
             'activitypub',
             'atprotocol',
-            'nostr',
             'webmention',
         ],
         'services': {
@@ -1795,6 +2318,7 @@ def nodeinfo():
     }
 
 
+# TODO: move to mastodon_api.py, next to /api/v2/instance ?
 @app.get('/api/v1/instance')
 @flask_util.canonicalize_request_domain(PROTOCOL_DOMAINS, PRIMARY_DOMAIN)
 @flask_util.headers(CACHE_CONTROL)
@@ -1853,21 +2377,27 @@ def as2_request_type():
 # OAuth
 #
 class MastodonStart(FlashErrors, oauth_dropins.mastodon.Start):
-  def app_name(self):
-      return 'Bridgy Fed'
+    REDIRECT_PATHS = OAUTH_REDIRECT_PATHS
+    EXPIRE_APPS_BEFORE = OAUTH_EXPIRE_APPS_BEFORE
 
-  def app_url(self):
-      return 'https://fed.brid.gy/'
+    def app_name(self):
+        return 'Bridgy Fed'
+
+    def app_url(self):
+        return 'https://fed.brid.gy/'
 
 class MastodonCallback(FlashErrors, oauth_dropins.mastodon.Callback):
     pass
 
 class PixelfedStart(FlashErrors, oauth_dropins.pixelfed.Start):
-  def app_name(self):
-      return 'Bridgy Fed'
+    REDIRECT_PATHS = OAUTH_REDIRECT_PATHS
+    EXPIRE_APPS_BEFORE = OAUTH_EXPIRE_APPS_BEFORE
 
-  def app_url(self):
-      return 'https://fed.brid.gy/'
+    def app_name(self):
+        return 'Bridgy Fed'
+
+    def app_url(self):
+        return 'https://fed.brid.gy/'
 
 class PixelfedCallback(FlashErrors, oauth_dropins.pixelfed.Callback):
     pass

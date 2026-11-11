@@ -6,6 +6,7 @@ from unittest.mock import patch
 from flask import get_flashed_messages, session
 from granary import as2
 from oauth_dropins import indieauth
+from oauth_dropins.models import PkceCode
 from webutil import util
 from webutil.testutil import requests_response
 from webutil.util import json_dumps, json_loads
@@ -63,12 +64,20 @@ UNDO_FOLLOW = {
 del UNDO_FOLLOW['object']['id']
 
 
+def store_indieauth_state(state):
+    """Stores an in-progress IndieAuth flow for alice.com, returns its state param."""
+    return PkceCode(id='my_state', verifier='my_verifier', challenge='my_challenge',
+                    auth_endpoint='http://auth/endpoint', me='https://alice.com',
+                    state=state).put().id()
+
+
 @patch.object(util.session, 'get')
 class RemoteFollowTest(TestCase):
 
     def setUp(self):
         super().setUp()
-        self.make_user('user.com', cls=Web, has_redirects=True)
+        self.make_user('user.com', cls=Web, has_redirects=True,
+                       enabled_protocols=['activitypub'])
 
     def test_no_id(self, _):
         got = self.client.post('/remote-follow?address=@foo@ba.r&protocol=web')
@@ -163,7 +172,8 @@ class FollowTest(TestCase):
 
     def setUp(self):
         super().setUp()
-        self.user = self.make_user('alice.com', cls=Web)
+        self.user = self.make_user('alice.com', cls=Web,
+                                   enabled_protocols=['activitypub'])
         self.state = {
             'endpoint': 'http://auth/endpoint',
             'me': 'https://alice.com',
@@ -178,7 +188,7 @@ class FollowTest(TestCase):
             'address': '@foo@ba.r',
         })
         self.assertEqual(302, resp.status_code)
-        self.assertTrue(resp.headers['Location'].startswith(indieauth.INDIEAUTH_URL),
+        self.assertTrue(resp.headers['Location'].startswith(indieauth.INDIELOGIN_URL),
                         resp.headers['Location'])
 
     def test_callback_address(self, mock_get, mock_post):
@@ -193,7 +203,7 @@ class FollowTest(TestCase):
             requests_response('OK'),  # AP Follow to inbox
         )
 
-        state = util.encode_oauth_state(self.state)
+        state = store_indieauth_state(self.state['state'])
         resp = self.client.get(f'/follow/callback?code=my_code&state={state}',
                                base_url='https://fed.brid.gy/')
         self.check('@foo@ba.r', resp, FOLLOW_ADDRESS, mock_get, mock_post)
@@ -213,7 +223,7 @@ class FollowTest(TestCase):
         )
 
         self.state['state'] = 'https://ba.r/actor'
-        state = util.encode_oauth_state(self.state)
+        state = store_indieauth_state(self.state['state'])
         resp = self.client.get(f'/follow/callback?code=my_code&state={state}',
                                base_url='https://fed.brid.gy/')
         self.check('https://ba.r/actor', resp, FOLLOW_URL, mock_get, mock_post)
@@ -233,7 +243,7 @@ class FollowTest(TestCase):
         )
 
         self.state['state'] = 'https://ba.r/id'
-        state = util.encode_oauth_state(self.state)
+        state = store_indieauth_state(self.state['state'])
         resp = self.client.get(f'/follow/callback?code=my_code&state={state}',
                                base_url='https://fed.brid.gy/')
 
@@ -264,7 +274,7 @@ class FollowTest(TestCase):
         )
 
         self.state['state'] = 'https://ba.r/actor'
-        state = util.encode_oauth_state(self.state)
+        state = store_indieauth_state(self.state['state'])
         resp = self.client.get(f'/follow/callback?code=my_code&state={state}',
                                base_url='https://fed.brid.gy/')
 
@@ -301,7 +311,7 @@ class FollowTest(TestCase):
         )
 
         self.state['state'] = 'https://ba.r/actor'
-        state = util.encode_oauth_state(self.state)
+        state = store_indieauth_state(self.state['state'])
         resp = self.client.get(f'/follow/callback?code=my_code&state={state}',
                                base_url='https://fed.brid.gy/')
 
@@ -323,7 +333,7 @@ class FollowTest(TestCase):
         ]
 
         self.state['state'] = '@bob.com@web.brid.gy'
-        state = util.encode_oauth_state(self.state)
+        state = store_indieauth_state(self.state['state'])
         resp = self.client.get(f'/follow/callback?code=my_code&state={state}')
 
         self.assertEqual(302, resp.status_code)
@@ -350,7 +360,7 @@ class FollowTest(TestCase):
         bob = self.make_user('bob.com', cls=Web)
 
         self.state['state'] = '@bob.com@bob.com'
-        state = util.encode_oauth_state(self.state)
+        state = store_indieauth_state(self.state['state'])
         resp = self.client.get(f'/follow/callback?code=my_code&state={state}')
 
         self.assertEqual(302, resp.status_code)
@@ -368,7 +378,7 @@ class FollowTest(TestCase):
         ]
 
         self.state['state'] = '@foo@.x'
-        state = util.encode_oauth_state(self.state)
+        state = store_indieauth_state(self.state['state'])
         resp = self.client.get(f'/follow/callback?code=my_code&state={state}',
                                base_url='https://fed.brid.gy/')
 
@@ -376,6 +386,24 @@ class FollowTest(TestCase):
                          get_flashed_messages())
         self.assertEqual(302, resp.status_code)
         self.assertEqual('/web/alice.com/following', resp.headers['Location'])
+
+    def test_callback_followee_fetch_403_blocked(self, mock_get, mock_post):
+        mock_post.return_value = requests_response('me=https://alice.com')
+        mock_get.side_effect = [
+            requests_response(''),  # IndieAuth endpoint discovery
+            WEBFINGER,
+            requests_response('{"error":"Public key not found"}', status=403),
+        ]
+
+        state = store_indieauth_state(self.state['state'])
+        resp = self.client.get(f'/follow/callback?code=my_code&state={state}',
+                               base_url='https://fed.brid.gy/')
+
+        self.assertEqual(302, resp.status_code)
+        self.assertEqual('/web/alice.com/following', resp.headers['Location'])
+        self.assertEqual(["Couldn't load @foo@ba.r; they or their server may be blocking Bridgy Fed."],
+                         get_flashed_messages())
+        self.assertEqual([], Follower.query().fetch())
 
     def check(self, input, resp, expected_follow, mock_get, mock_post,
               fetched_followee=True, expected_follow_as1=None):
@@ -419,7 +447,7 @@ class FollowTest(TestCase):
         self.assert_object(follow_id,
                            users=[self.user.key],
                            notify=[followee],
-                           source_protocol='ui',
+                           source_protocol='web',
                            our_as1=expected_follow_as1,
                            )
 
@@ -428,7 +456,7 @@ class FollowTest(TestCase):
     def test_callback_missing_user(self, mock_get, mock_post):
         self.user.key.delete()
         mock_post.return_value = requests_response('me=https://alice.com')
-        state = util.encode_oauth_state(self.state)
+        state = store_indieauth_state(self.state['state'])
         resp = self.client.get(f'/follow/callback?code=my_code&state={state}')
         self.assertEqual(400, resp.status_code)
 
@@ -448,7 +476,7 @@ class FollowTest(TestCase):
         )
 
         self.state['state'] = 'https://ba.r/actor'
-        state = util.encode_oauth_state(self.state)
+        state = store_indieauth_state(self.state['state'])
         resp = self.client.get(f'/follow/callback?code=my_code&state={state}',
                                base_url='https://fed.brid.gy/')
         self.assertEqual(302, resp.status_code)
@@ -464,7 +492,7 @@ class FollowTest(TestCase):
         followee = ActivityPub(id='https://ba.r/id').key
         follow_obj = self.assert_object(id, users=[user.key],
                                         notify=[followee],
-                                        source_protocol='ui',
+                                        source_protocol='web',
                                         our_as1=expected_follow_as1,
                                         )
 
@@ -493,7 +521,7 @@ class FollowTest(TestCase):
         )
 
         self.state['state'] = 'https://ba.r/actor'
-        state = util.encode_oauth_state(self.state)
+        state = store_indieauth_state(self.state['state'])
         resp = self.client.get(f'/follow/callback?code=my_code&state={state}',
                                base_url='https://fed.brid.gy/')
 
@@ -535,7 +563,7 @@ class FollowTest(TestCase):
             'address': 'https://ba.r/actor',
         })
         self.assertEqual(302, resp.status_code)
-        self.assertTrue(resp.headers['Location'].startswith(indieauth.INDIEAUTH_URL),
+        self.assertTrue(resp.headers['Location'].startswith(indieauth.INDIELOGIN_URL),
                         resp.headers['Location'])
 
     def test_start_homepage_fetch_fails(self, mock_get, mock_post):
@@ -558,7 +586,8 @@ class UnfollowTest(TestCase):
 
     def setUp(self):
         super().setUp()
-        self.user = self.make_user('alice.com', cls=Web)
+        self.user = self.make_user('alice.com', cls=Web,
+                                   enabled_protocols=['activitypub'])
         self.follower = Follower.get_or_create(
             from_=self.user,
             to=self.make_user('https://ba.r/id', cls=ActivityPub, obj_as2=FOLLOWEE),
@@ -566,11 +595,7 @@ class UnfollowTest(TestCase):
             status='active',
         )
 
-        self.state = util.encode_oauth_state({
-            'endpoint': 'http://auth/endpoint',
-            'me': 'https://alice.com',
-            'state': self.follower.key.id(),
-        })
+        self.state = store_indieauth_state(str(self.follower.key.id()))
 
     def test_start(self, mock_get, _):
         mock_get.return_value = requests_response('')  # IndieAuth endpoint discovery
@@ -580,7 +605,7 @@ class UnfollowTest(TestCase):
             'key': self.follower.key.id(),
         })
         self.assertEqual(302, resp.status_code)
-        self.assertTrue(resp.headers['Location'].startswith(indieauth.INDIEAUTH_URL),
+        self.assertTrue(resp.headers['Location'].startswith(indieauth.INDIELOGIN_URL),
                         resp.headers['Location'])
 
     def test_callback(self, mock_get, mock_post):
@@ -622,6 +647,27 @@ class UnfollowTest(TestCase):
                                base_url='https://fed.brid.gy/')
         self.check(resp, undo, mock_get, mock_post)
 
+    def test_callback_followee_fetch_401_blocked(self, mock_get, mock_post):
+        to = self.follower.to.get()
+        to.obj.key.delete()
+        to.obj = None
+        to.put()
+
+        mock_get.side_effect = [
+            requests_response(''),  # IndieAuth endpoint discovery
+            requests_response('', status=401),  # actor fetch
+        ]
+        mock_post.return_value = requests_response('me=https://alice.com')
+
+        resp = self.client.get(f'/unfollow/callback?code=my_code&state={self.state}',
+                               base_url='https://fed.brid.gy/')
+
+        self.assertEqual(302, resp.status_code)
+        self.assertEqual('/web/alice.com/following', resp.headers['Location'])
+        self.assertEqual(["Couldn't load https://ba.r/id; they or their server may be blocking Bridgy Fed."],
+                         get_flashed_messages())
+        self.assertEqual('active', self.follower.key.get().status)
+
     def check(self, resp, expected_undo, mock_get, mock_post):
         self.assertEqual(302, resp.status_code)
         self.assertEqual('/web/alice.com/following', resp.headers['Location'])
@@ -646,7 +692,8 @@ class UnfollowTest(TestCase):
         self.assertEqual('https://alice.com', session['indieauthed-me'])
 
     def test_callback_user_use_instead(self, mock_get, mock_post):
-        user = self.make_user('www.alice.com', cls=Web)
+        user = self.make_user('www.alice.com', cls=Web,
+                              enabled_protocols=['activitypub'])
         self.user.use_instead = user.key
         self.user.put()
 
@@ -662,11 +709,7 @@ class UnfollowTest(TestCase):
             requests_response('OK'),  # AP Undo Follow to inbox
         )
 
-        state = util.encode_oauth_state({
-            'endpoint': 'http://auth/endpoint',
-            'me': 'https://alice.com',
-            'state': self.follower.key.id(),
-        })
+        state = store_indieauth_state(str(self.follower.key.id()))
         resp = self.client.get(f'/unfollow/callback?code=my_code&state={state}',
                                base_url='https://fed.brid.gy/')
         self.assertEqual(302, resp.status_code)
@@ -681,11 +724,12 @@ class UnfollowTest(TestCase):
                 **FOLLOW_ADDRESS,
                 'actor': 'http://localhost/www.alice.com',
             },
-            'url': [{
+            'url': {
                 'type': 'Link',
                 'rel': 'canonical',
                 'href': 'https://www.alice.com/#bridgy-fed-unfollow-2022-01-02T03:04:05-https://ba.r/id',
-            }],
+                'mediaType': 'text/html',
+            },
        }
         del expected_undo['object']['id']
 
@@ -758,7 +802,7 @@ class UnfollowTest(TestCase):
             'key': self.follower.key.id(),
         })
         self.assertEqual(302, resp.status_code)
-        self.assertTrue(resp.headers['Location'].startswith(indieauth.INDIEAUTH_URL),
+        self.assertTrue(resp.headers['Location'].startswith(indieauth.INDIELOGIN_URL),
                         resp.headers['Location'])
 
     def test_start_homepage_fetch_fails(self, mock_get, mock_post):

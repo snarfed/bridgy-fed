@@ -1,0 +1,21 @@
+{
+  "lexicon": 1,
+  "id": "gy.brid.record",
+  "defs": {
+    "main": {
+      "type": "record",
+      "description": "Generic ATProto record container.",
+      "key": "tid",
+      "record": {
+        "type": "object",
+        "required": ["record"],
+        "properties": {
+          "record": {
+            "type": "unknown",
+            "description": "An ATProto record (with a top-level $type field) that *may be invalid*, eg some required fields may not have values, or string field values may not match their string formats."
+          }
+        }
+      }
+    }
+  }
+}

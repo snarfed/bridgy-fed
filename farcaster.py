@@ -12,9 +12,13 @@ from google.cloud import ndb
 from granary import as1
 import granary.farcaster
 from granary.farcaster import (
+    BLAKE3_HASH_LENGTH_BYTES,
     FARCASTER_URI_RE,
     from_as1,
     hash_and_sign,
+    WEB_RESOURCE_URL_RE,
+    WEB_URL_RE,
+    web_url_to_farcaster_uri,
 )
 from granary.generated.farcaster.message_pb2 import (
     CastId,
@@ -25,9 +29,12 @@ from granary.generated.farcaster.request_response_pb2 import (
     FidRequest,
     SubmitBulkMessagesRequest,
 )
+from granary.source import PROTOCOL_URI_PREFIXES
 import grpc
 from webutil import util
 
+import ids
+from ids import IdType
 from models import Target, User
 from protocol import Protocol, STORE_AS1_TYPES
 
@@ -37,22 +44,6 @@ SNAPCHAIN_HOST = os.getenv('SNAPCHAIN_HOST', granary.farcaster.DEFAULT_SNAPCHAIN
 SNAPCHAIN_PORT = int(os.getenv('SNAPCHAIN_PORT', granary.farcaster.DEFAULT_SNAPCHAIN_PORT))
 
 _client = None
-
-
-def client():
-    """Returns the cached :class:`granary.farcaster.Farcaster` client.
-
-    Lazily constructs it on first use. gRPC channels (connections) are heavyweight,
-    and designed for reuse, and the generated client stub is thread-safe, so we reuse
-    it.
-
-    https://grpc.github.io/grpc/python/grpc.html#grpc.Channel
-    """
-    global _client
-    if _client is None:
-        _client = granary.farcaster.Farcaster(
-            host=SNAPCHAIN_HOST, port=SNAPCHAIN_PORT, log_requests_responses=True)
-    return _client
 
 
 class Farcaster(User, Protocol):
@@ -65,6 +56,8 @@ class Farcaster(User, Protocol):
     LOGO_EMOJI = '🏛️'
     LOGO_HTML = '<img src="/static/farcaster_logo.png">'
     CONTENT_TYPE = 'application/octet-stream'
+    URI_PREFIXES = PROTOCOL_URI_PREFIXES['farcaster']
+    'https://github.com/farcasterxyz/protocol/discussions/123'
     DEFAULT_TARGET = f'snapchain://{SNAPCHAIN_HOST}:{SNAPCHAIN_PORT}'
     DEFAULT_ENABLED_PROTOCOLS = ('web',)
     HAS_COPIES = True
@@ -79,6 +72,22 @@ class Farcaster(User, Protocol):
     SUPPORTS_DMS = False
     HTML_PROFILES = False
 
+    @classmethod
+    def client(cls):
+        """Returns the cached :class:`granary.farcaster.Farcaster` client.
+
+        Lazily constructs it on first use. gRPC channels (connections) are
+        heavyweight, and designed for reuse, and the generated client stub is
+        thread-safe, so we reuse it.
+
+        https://grpc.github.io/grpc/python/grpc.html#grpc.Channel
+        """
+        global _client
+        if _client is None:
+            _client = granary.farcaster.Farcaster(
+                host=SNAPCHAIN_HOST, port=SNAPCHAIN_PORT, log_requests_responses=True)
+        return _client
+
     @ndb.ComputedProperty
     def handle(self):
         """Returns the Farcaster username from the user's profile."""
@@ -92,8 +101,27 @@ class Farcaster(User, Protocol):
 
     @classmethod
     def owns_id(cls, id):
-        return bool(id and (id.startswith('farcaster://')
+        return bool(id and (id.startswith(cls.URI_PREFIXES)
+                            or id.startswith('https://farcaster.xyz/')
                             or re.fullmatch(r'farcaster:[0-9]+', id)))
+
+    @classmethod
+    def id_type(cls, id):
+        """``farcaster://[fid or @username]``, plus a ``/0x[hash]`` for casts.
+
+        Also ``https://farcaster.xyz/`` profile and cast URLs.
+        """
+        if not id:
+            return None
+        elif re.fullmatch(r'farcaster:[0-9]+', id):
+            return IdType.USER
+        elif match := WEB_RESOURCE_URL_RE.fullmatch(id):
+            return IdType.USER if match['type'] == 'profiles' else IdType.OBJECT
+        elif match := WEB_URL_RE.fullmatch(id):
+            return IdType.OBJECT if match['hash'] else IdType.USER
+        elif id.startswith('farcaster://'):
+            match = FARCASTER_URI_RE.fullmatch(id)
+            return IdType.OBJECT if not match or match['hash'] else IdType.USER
 
     @classmethod
     def owns_handle(cls, handle, allow_internal=False):
@@ -107,11 +135,59 @@ class Farcaster(User, Protocol):
         return False
 
     @classmethod
+    def resolve_user_id(cls, id):
+        """Resolves ``farcaster.xyz`` profile URLs to ``farcaster://[fid]``.
+
+        Example input URL ids:
+        * ``https://farcaster.xyz/[username]``
+        * ``https://farcaster.xyz/~/profiles/[fid]``
+        """
+        if id.startswith('https://farcaster.xyz/'):
+            try:
+                if uri := web_url_to_farcaster_uri(id):
+                    id = uri
+            except ValueError as e:
+                logger.info(f"Couldn't convert {id} : {e}")
+
+        return ids.normalize_user_id(id=id, proto=cls)
+
+    @classmethod
+    def resolve_object_id(cls, id):
+        """Resolves ``farcaster.xyz`` cast URLs to ``farcaster://[fid]/0x[hash]``.
+
+        Example input URL ids:
+        * ``https://farcaster.xyz/[username]/0x[short hash]``
+        * ``https://farcaster.xyz/[username]/0x[full hash]``
+        * ``https://farcaster.xyz/~/conversations/0x[hash]``
+
+        If the URL id only include a short hash (aka hash prefix), this fetches the
+        full hash from farcaster.xyz's client API.
+        """
+        if not id.startswith('https://farcaster.xyz/'):
+            return ids.normalize_object_id(id=id, proto=cls)
+
+        try:
+            uri = web_url_to_farcaster_uri(id, remote=True)
+        except ValueError as e:
+            logger.info(f"Couldn't convert {id} : {e}")
+            uri = None
+
+        if ((match := FARCASTER_URI_RE.fullmatch(uri or ''))
+                and match['hash']
+                and len(match['hash']) == BLAKE3_HASH_LENGTH_BYTES * 2):
+            if match['fid']:
+                id = uri
+            elif user_id := cls.handle_to_id(match['username']):
+                id = f'{user_id}/0x{match["hash"]}'
+
+        return ids.normalize_object_id(id=id, proto=cls)
+
+    @classmethod
     def handle_to_id(cls, handle):
         if cls.owns_handle(handle) is False:
             return None
 
-        if fid := client().get_fid(handle):
+        if fid := cls.client().get_fid(handle):
             return granary.farcaster.uri(fid)
 
     @property
@@ -181,15 +257,20 @@ class Farcaster(User, Protocol):
             return False
 
         fid = int(match['fid'])
-        hash_hex = match['hash']
+
+        if hash_hex := match['hash']:
+            try:
+                hash_bytes = bytes.fromhex(hash_hex)
+            except ValueError as e:
+                logger.info(f'invalid cast hash in {id} {hash_hex} : {e}')
+                return False
 
         try:
             if hash_hex:
-                msg = client().hub.GetCast(
-                    CastId(fid=fid, hash=bytes.fromhex(hash_hex)))
+                msg = cls.client().hub.GetCast(CastId(fid=fid, hash=hash_bytes))
                 obj.farcaster = [msg.SerializeToString()]
             else:
-                resp = client().hub.GetUserDataByFid(FidRequest(fid=fid))
+                resp = cls.client().hub.GetUserDataByFid(FidRequest(fid=fid))
                 if not resp.messages:
                     return False
                 obj.farcaster = [m.SerializeToString() for m in resp.messages]
@@ -272,7 +353,7 @@ class Farcaster(User, Protocol):
                 hash_and_sign(msg, from_user.farcaster_key())
 
         try:
-            resp = client().hub.SubmitBulkMessages(
+            resp = to_cls.client().hub.SubmitBulkMessages(
                 SubmitBulkMessagesRequest(messages=msgs))
         except grpc.RpcError as e:
             logger.warning(f'hub SubmitBulkMessages failed: {e}')

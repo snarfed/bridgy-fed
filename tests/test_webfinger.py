@@ -190,7 +190,8 @@ class WebfingerTest(TestCase):
     def setUp(self):
         super().setUp()
 
-        self.user = self.make_user('user.com', cls=Web, has_redirects=True, obj_as2={
+        self.user = self.make_user('user.com', cls=Web, has_redirects=True,
+                                   enabled_protocols=['activitypub'], obj_as2={
             '@context': 'https://www.w3.org/ns/activitystreams',
             'type': 'Person',
             'url': 'https://user.com/about-me',
@@ -331,6 +332,35 @@ class WebfingerTest(TestCase):
                     ],
                 }, got.json)
 
+    def test_urls_with_display_names(self):
+        self.user.obj.as2.update({
+            'url': ['https://user.com/about-me', 'https://user.com/blog'],
+            'attachment': [{
+                'type': 'PropertyValue',
+                'name': 'My blog',
+                'value': '<a href="https://user.com/blog">user.com/blog</a>',
+            }],
+        })
+        self.user.obj.put()
+
+        got = self.client.get(
+            '/.well-known/webfinger?resource=acct:user.com@user.com',
+            headers={'Accept': 'application/json'})
+        self.assertEqual(200, got.status_code, got.get_data(as_text=True))
+        self.assert_equals({
+            **WEBFINGER,
+            'aliases': [
+                'https://user.com/about-me',
+                'https://user.com/blog',
+                'https://user.com/',
+            ],
+            'links': WEBFINGER['links'][:1] + [{
+                'rel': 'http://webfinger.net/rel/profile-page',
+                'type': 'text/html',
+                'href': 'https://user.com/blog',
+            }] + WEBFINGER['links'][1:],
+        }, got.json)
+
     def test_missing_user(self):
         for acct in ('nope.com', 'nope.com@nope.com', 'nope.com@web.brid.gy',
                      'nope.com@fed.brid.gy', 'fake-handle-user@fake.brid.gy'):
@@ -432,15 +462,11 @@ class WebfingerTest(TestCase):
         self.assertEqual(200, got.status_code, got.get_data(as_text=True))
         self.assert_equals({
             'subject': 'acct:han.dull@bsky.brid.gy',
-            'aliases': ['https://bsky.app/profile/han.dull', 'https://han.dull/'],
+            'aliases': ['https://bsky.app/profile/han.dull'],
             'links': [{
                 'rel': 'http://webfinger.net/rel/profile-page',
                 'type': 'text/html',
                 'href': 'https://bsky.app/profile/han.dull',
-            }, {
-                'rel': 'http://webfinger.net/rel/profile-page',
-                'type': 'text/html',
-                'href': 'https://han.dull/',
             }, {
                 'rel': 'http://webfinger.net/rel/avatar',
                 'href': 'https://some.pds/xrpc/com.atproto.sync.getBlob?did=did:plc:user&cid=bafkreicqpqncshdd27sgztqgzocd3zhhqnnsv6slvzhs5uz6f57cq6lmtq',
@@ -567,6 +593,12 @@ class WebfingerTest(TestCase):
         self.assertEqual(WEBFINGER, fetch('@foo@bar'))
         self.assert_req(mock_get,
                         'https://bar/.well-known/webfinger?resource=acct:foo@bar')
+
+    @patch.object(util.session, 'get', return_value=requests_response(
+        WEBFINGER, content_type='application/jrd+json'))
+    def test_fetch_idn_domain(self, mock_get):
+        self.assertEqual(WEBFINGER, fetch('@français@aŭtomato.swf.pub'))
+        self.assert_req(mock_get, 'https://xn--atomato-htb.swf.pub/.well-known/webfinger?resource=acct:français@xn--atomato-htb.swf.pub')
 
     @patch.object(util.session, 'get', return_value=requests_response(WEBFINGER))
     def test_fetch_actor_url(self, mock_get):

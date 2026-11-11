@@ -4,6 +4,7 @@ version: 2
 updates:
   - package-ecosystem: "pip"
     directory: "/"
+    versioning-strategy: lockfile-only
     schedule:
       interval: "daily"
     allow:
@@ -12,4 +13,3 @@ updates:
     directory: "/"
     schedule:
       interval: "daily"
-

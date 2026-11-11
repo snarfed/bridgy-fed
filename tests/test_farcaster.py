@@ -22,9 +22,12 @@ from granary.generated.farcaster.request_response_pb2 import (
 )
 from granary.generated.farcaster.username_proof_pb2 import UserNameProof
 from granary.tests.test_farcaster import message, user_data_message
+from webutil import util
+from webutil.testutil import requests_response
 
 import farcaster
 from farcaster import Farcaster
+import ids
 from models import Object, Target
 
 from .testutil import TestCase
@@ -50,9 +53,28 @@ class FarcasterTest(TestCase):
         self.assertTrue(Farcaster.owns_id('farcaster://123'))
         self.assertTrue(Farcaster.owns_id('farcaster:123'))
         self.assertTrue(Farcaster.owns_id('farcaster://123/0x456'))
+        self.assertTrue(Farcaster.owns_id('https://farcaster.xyz/bob'))
+        self.assertTrue(Farcaster.owns_id('https://farcaster.xyz/bob/0x456'))
         self.assertFalse(Farcaster.owns_id(''))
         self.assertFalse(Farcaster.owns_id('789'))
         self.assertFalse(Farcaster.owns_id('http://foo/bar'))
+
+    def test_id_type(self, _):
+        for id in ('farcaster://123', 'farcaster:123', 'farcaster://@bob',
+                   'https://farcaster.xyz/bob',
+                   'https://farcaster.xyz/~/profiles/123'):
+            with self.subTest(id=id):
+                self.assertEqual(ids.IdType.USER, Farcaster.id_type(id))
+
+        for id in ('farcaster://123/0x456', 'farcaster://@bob/0x456',
+                   'https://farcaster.xyz/bob/0x456',
+                   'https://farcaster.xyz/~/conversations/0x456'):
+            with self.subTest(id=id):
+                self.assertEqual(ids.IdType.OBJECT, Farcaster.id_type(id))
+
+        for id in ('', '789', 'http://foo/bar'):
+            with self.subTest(id=id):
+                self.assertIsNone(Farcaster.id_type(id))
 
     def test_owns_handle(self, _):
         self.assertTrue(Farcaster.owns_handle('bob.eth'))
@@ -100,6 +122,46 @@ class FarcasterTest(TestCase):
         mock_stub.return_value.GetUsernameProof.assert_called_once_with(
             UsernameProofRequest(name=b'snarfed'))
 
+    def test_resolve_user_id(self, mock_stub):
+        mock_stub.return_value.GetUsernameProof.return_value = \
+            UserNameProof(fid=123, name=b'snarfed')
+
+        for id in ('https://farcaster.xyz/snarfed',
+                   'https://farcaster.xyz/~/profiles/123',
+                   'farcaster://123'):
+            with self.subTest(id=id):
+                self.assertEqual('farcaster://123', Farcaster.resolve_user_id(id))
+
+    @patch.object(util.session, 'get', return_value=requests_response({
+        'result': {
+            'casts': [{
+                'hash': '0xef70f02104406ae17c7b310bff3137382140bbc7',
+                'author': {'fid': 5818},
+            }],
+        },
+    }))
+    def test_resolve_object_id_short_hash(self, _, __):
+        self.assertEqual(
+            'farcaster://5818/0xef70f02104406ae17c7b310bff3137382140bbc7',
+            Farcaster.resolve_object_id('https://farcaster.xyz/adrienne/0xef70f021'))
+
+    def test_resolve_object_id_full_hash(self, mock_stub):
+        mock_stub.return_value.GetUsernameProof.return_value = \
+            UserNameProof(fid=5818, name=b'adrienne')
+
+        self.assertEqual(
+            'farcaster://5818/0xef70f02104406ae17c7b310bff3137382140bbc7',
+            Farcaster.resolve_object_id('https://farcaster.xyz/adrienne/0xef70f02104406ae17c7b310bff3137382140bbc7'))
+
+    @patch.object(util.session, 'get', return_value=requests_response(status=500))
+    def test_resolve_object_id_short_hash_fails(self, _, __):
+        url = 'https://farcaster.xyz/adrienne/0xef70f021'
+        self.assertEqual(url, Farcaster.resolve_object_id(url))
+
+    def test_resolve_object_id_farcaster_uri(self, _):
+        self.assertEqual('farcaster://123/0x456',
+                         Farcaster.resolve_object_id('farcaster://123/0x456'))
+
     def test_handle_to_id_invalid_handle(self, _):
         self.assertIsNone(Farcaster.handle_to_id('not a valid handle'))
 
@@ -139,6 +201,10 @@ cast_add_body { text: "hello world" }
         self.assertFalse(Farcaster.fetch(Object(id='farcaster://123')))
         mock_stub.return_value.GetUserDataByFid.assert_called_once_with(
             FidRequest(fid=123))
+
+    def test_fetch_cast_invalid_hash(self, mock_stub):
+        self.assertFalse(Farcaster.fetch(Object(id='farcaster://123/0xabc')))
+        mock_stub.return_value.GetCast.assert_not_called()
 
     def test_fetch_unsupported_id(self, _):
         self.assertFalse(Farcaster.fetch(Object(id='https://x.com/y')))
@@ -232,7 +298,8 @@ cast_add_body { text: "hello world" }
         mock_stub.return_value.SubmitBulkMessages.return_value = \
             SubmitBulkMessagesResponse(messages=[BulkMessageResponse(message=resp)])
 
-        obj = Object(id='farcaster://123/0xabcd', source_protocol='ui', our_as1={
+        obj = Object(id='farcaster://123/0xabcd', source_protocol='ui',
+                     users=[self.user.key], our_as1={
             'objectType': 'note',
             'content': 'hello world',
             'author': 'farcaster://123',
@@ -323,7 +390,8 @@ cast_add_body { text: "hello world" }
             'username': 'alice',
         }).put()
 
-        obj = Object(id='farcaster://123', source_protocol='ui', our_as1={
+        obj = Object(id='farcaster://123', source_protocol='ui',
+                     users=[self.user.key], our_as1={
             'objectType': 'person',
             'id': 'farcaster://123',
             'displayName': 'Alice',

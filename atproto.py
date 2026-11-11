@@ -4,7 +4,7 @@ https://atproto.com/
 """
 from collections import defaultdict
 from datetime import timedelta
-import itertools
+from functools import partial
 import logging
 import os
 import re
@@ -41,7 +41,12 @@ from google.cloud import ndb
 import googleapiclient.discovery
 from granary import as1, as2, bluesky
 from granary.bluesky import Bluesky, FROM_AS1_TYPES, to_external_embed
-from granary.source import html_to_text, INCLUDE_LINK, Source
+from granary.source import (
+    html_to_text,
+    INCLUDE_LINK,
+    PROTOCOL_URI_PREFIXES,
+    Source,
+)
 from lexrpc import Client, ValidationError
 from lexrpc.base import AT_URI_RE, DID_RE
 from requests import RequestException
@@ -151,12 +156,29 @@ def init(sequences_cls):
 
 
 def oauth_client_metadata():
+    """Bridgy Fed's ATProto OAuth client, used by web login and mastodon_oauth.
+
+    Always pinned to PRIMARY_DOMAIN in prod, regardless of which
+    subdomain the request came in on, so that we always use the same client id
+    fed.brid.gy. (Required because ATProto OAuth DPoP tokens are bound to their
+    client id.)
+
+    Local dev uses the request's own host instead.
+    """
     return {
         **oauth_dropins.bluesky.CLIENT_METADATA_TEMPLATE,
-        'client_id': domains.host_url('/oauth/bluesky/client-metadata.json'),
+        'client_id': domains.host_url('/oauth/bluesky/client-metadata.json',
+                                      primary_domain_only=True),
         'client_name': 'Bridgy Fed',
-        'client_uri': domains.host_url(),
-        'redirect_uris': [domains.host_url('/oauth/bluesky/finish')],
+        'client_uri': domains.host_url(primary_domain_only=True),
+        'redirect_uris': [
+            # web UI login on fed.brid.gy
+            domains.host_url('/oauth/bluesky/finish',
+                             primary_domain_only=True),
+            # mastodon API OAuth
+            domains.host_url('/oauth/authorize/atproto/finish',
+                             primary_domain_only=True),
+        ],
     }
 
 
@@ -289,10 +311,12 @@ class DatastoreClient(Client):
             # local record in a repo we own
             record = repo.get_record(collection=collection, rkey=rkey)
         else:
-            # remote record that we may have a cached copy of
-            obj = ATProto.load(uri, remote=(None if self.remote else False),
-                               raise_=False)
-            if (not obj or not obj.bsky) and self.remote:
+            # remote record that we may have a cached copy of. we get
+            # webMonetization records over the firehose, so don't fetch them
+            remote = (self.remote
+                      and collection != 'community.lexicon.payments.webMonetization')
+            obj = ATProto.load(uri, remote=(None if remote else False), raise_=False)
+            if (not obj or not obj.bsky) and remote:
                 obj = ATProto.load(uri, local=False, remote=True, raise_=False)
             if obj:
                 record = obj.bsky
@@ -342,7 +366,7 @@ class ATProto(User, Protocol):
     """
     ABBREV = 'bsky'
     ''
-    PHRASE = 'Bluesky'
+    PHRASE = 'the Atmosphere (Bluesky)'
     ''
     LOGO_EMOJI = '🦋'
     ''
@@ -355,6 +379,8 @@ class ATProto(User, Protocol):
     """
     CONTENT_TYPE = 'application/json'
     ''
+    URI_PREFIXES = PROTOCOL_URI_PREFIXES['atproto']
+    'https://atproto.com/specs/at-uri-scheme , https://atproto.com/specs/did'
     HAS_COPIES = True
     ''
     REQUIRES_AVATAR = True
@@ -367,16 +393,36 @@ class ATProto(User, Protocol):
         tuple(as1.ACTOR_TYPES)
         + tuple(as1.POST_TYPES)
         + tuple(as1.CRUD_VERBS)
-        + ('block', 'follow', 'flag', 'like', 'share', 'stop-following')
+        + tuple(as1.RSVP_VERB_TO_COLLECTION)
+        + ('block', 'event', 'follow', 'flag', 'like', 'share', 'stop-following')
+        # TODO: 'question', 'vote')
     )
     ''
-    SUPPORTED_RECORD_TYPES = frozenset(
-        type for type in itertools.chain(*FROM_AS1_TYPES.values())
-        if '#' not in type)
+    SUPPORTED_RECORD_TYPES = (
+        frozenset(type for as1_type in SUPPORTED_AS1_TYPES
+                  for type in FROM_AS1_TYPES.get(as1_type, ())
+                  if '#' not in type)
+        # TODO: handle incoming Spark records. for users with both Bluesky and
+        # Spark profiles, which one wins?
+        - {
+            'so.sprk.feed.post',
+            'so.sprk.actor.profile',
+            # Grain is disabled, at their request:
+            # https://tangled.org/grain.social/grain/issues/11#comment-3myfyydtwek3s
+            'social.grain.actor.profile',
+            'social.grain.comment',
+            'social.grain.favorite',
+            'social.grain.gallery',
+            'social.grain.gallery.item',
+            'social.grain.photo',
+        })
     'Which incoming record lexicons we should accept from the firehose.'
     SUPPORTED_RECORD_TYPES_BETA_USERS = frozenset([])
     'Which incoming record lexicons to accept from the firehose only for beta users.'
-    STORE_RECORD_TYPES = frozenset(['community.lexicon.payments.webMonetization'])
+    STORE_RECORD_TYPES = frozenset([
+        'app.bsky.actor.link',
+        'community.lexicon.payments.webMonetization',
+    ])
     ''
     SUPPORTS_DMS = True
     ''
@@ -403,6 +449,43 @@ class ATProto(User, Protocol):
         """Returns handle if the DID document includes one, otherwise None."""
         return did_to_handle(self.key.id())
 
+    @ndb.ComputedProperty
+    def status(self):
+        if self.manual_opt_out is not None:
+            return super().status
+
+        # other alsoKnownAs ids in the DID doc, eg from multi-protocol servers like
+        # wafrn, mean this account is already bridged elsewhere
+        # https://github.com/snarfed/bridgy-fed/issues/800
+        if (self.key and self.key.id()
+                and (did_doc := self.load(self.key.id(), raw=True, remote=False))):
+            for aka in did_doc.raw.get('alsoKnownAs') or []:
+                if (not aka.startswith('at://')
+                        and not util.domain_or_parent_in(aka, [SUPERDOMAIN])):
+                    logger.debug(f'{self.key.id()} DID doc has external id in alsoKnownAs: {aka}')
+                    return 'external-id'
+
+        return super().status
+
+    def get_external_id(self, to_proto):
+        """Also checks this user's stored DID doc's ``alsoKnownAs``.
+
+        eg from multi-protocol servers like wafrn. Those ids are usually ActivityPub
+        actors.
+        """
+        if external_id := super().get_external_id(to_proto):
+            return external_id
+        elif not self.status:  # not external-id, or an admin override
+            return None
+
+        if did_doc := self.load(self.key.id(), raw=True, remote=False):
+            for aka in did_doc.raw.get('alsoKnownAs') or []:
+                if (not aka.startswith('at://')
+                        and not util.domain_or_parent_in(aka, [SUPERDOMAIN])
+                        and (aka.startswith(to_proto.URI_PREFIXES)
+                             or as2.CONTENT_TYPE in to_proto.MIME_TYPES)):
+                    return ids.normalize_user_id(id=aka, proto=to_proto)
+
     def web_url(self):
         return Bluesky.user_url(self.handle_or_id())
 
@@ -411,6 +494,16 @@ class ATProto(User, Protocol):
         return (bool(AT_URI_RE.match(id))
                 or bool(DID_RE.fullmatch(id))
                 or id.startswith('https://bsky.app/'))
+
+    @classmethod
+    def id_type(cls, id):
+        """DIDs, repo-only ``at://`` URIs, and ``bsky.app`` profile URLs are users."""
+        if DID_RE.fullmatch(id):
+            return ids.IdType.USER
+        elif match := AT_URI_RE.match(id):
+            return ids.IdType.OBJECT if match['collection'] else ids.IdType.USER
+        elif match := bluesky.BSKY_APP_URL_RE.fullmatch(id):
+            return ids.IdType.OBJECT if match['type'] else ids.IdType.USER
 
     @classmethod
     def owns_handle(cls, handle, allow_internal=False):
@@ -426,7 +519,8 @@ class ATProto(User, Protocol):
         if resp := DatastoreClient.resolve_handle(handle):
             return resp['did']
 
-        return did.resolve_handle(handle, get_fn=util.requests_get)
+        return did.resolve_handle(
+            handle, get_fn=partial(util.requests_get, cache=True))
 
     def reload_profile(self, **kwargs):
         """Reloads this user's DID doc along with their profile object."""
@@ -687,7 +781,7 @@ class ATProto(User, Protocol):
     @classmethod
     def set_username(to_cls, user, username):
         if not user.is_enabled(ATProto):
-            raise ValueError("First, you'll need to bridge your account into Bluesky by following this account.")
+            raise ValueError("First, you'll need to bridge your account into the Atmosphere (Bluesky) by following this account.")
         copy_did = user.get_copy(ATProto)
 
         username = username.removeprefix('@')
@@ -695,15 +789,22 @@ class ATProto(User, Protocol):
         repo = arroba.server.storage.load_repo(copy_did)
         assert repo
         if repo.status:
-            logger.info(f'{repo.did} is {repo.status}, giving up')
-            return False
+            raise RuntimeError(f"Couldn't set username, your bridged Atmosphere (Bluesky) account is {repo.status}.")
         elif username == repo.handle:
             logger.info(f'repo {repo.did} already has handle {username}, setting anyway')
 
-        # resolve_handle checks that username is a valid domain
-        resolved = did.resolve_handle(username, get_fn=util.requests_get)
-        if resolved != copy_did:
-            raise RuntimeError(f"""<p>You'll need to connect that domain to your bridged Bluesky account, either <a href="https://bsky.social/about/blog/4-28-2023-domain-handle-tutorial">with DNS</a> <a href="https://atproto.com/specs/handle#handle-resolution">or HTTP</a>. Your DID is: <code>{copy_did}</code><p>Once you're done, <a href="https://bsky-debug.app/handle?handle={username}">check your work here</a>, then try again.""")
+        default = ids.translate_handle(from_=user.__class__, to=to_cls,
+                                       handle=user.handle)
+        # endswith(SUPERDOMAIN) is also needed since some non-*.brid.gy defaults,
+        # eg on ATPROTO_HANDLE_DOMAINS, need real handle resolution, not our DNS
+        if username.endswith(SUPERDOMAIN) and username == default:
+            # user's own default Bridgy-Fed-provided domain handle on *.brid.gy
+            to_cls.set_dns(handle=username, did=copy_did)
+        else:
+            # resolve_handle checks that username is a valid domain
+            resolved = did.resolve_handle(username, get_fn=util.requests_get)
+            if resolved != copy_did:
+                raise RuntimeError(f"""<p>You'll need to connect that domain to your bridged Atmosphere (Bluesky) account, either <a href="https://bsky.social/about/blog/4-28-2023-domain-handle-tutorial">with DNS</a> <a href="https://atproto.com/specs/handle#handle-resolution">or HTTP</a>. Your DID is: <code>{copy_did}</code><p>Once you're done, <a href="https://bsky-debug.app/handle?handle={username}">check your work here</a>, then try again.""")
 
         logger.info(f'Setting ATProto handle for {user.key.id()} to {username}')
         repo.callback = repo_callback
@@ -757,7 +858,11 @@ class ATProto(User, Protocol):
                 if not base_id:
                     logger.info(f'{type} object has no id!')
                     return False
-                base_obj = (from_user or PROTOCOLS[obj.source_protocol]).load(base_id, remote=False)
+                # base_id is from_user's own object, so their protocol is its id
+                # space, and knows how to normalize it. obj.source_protocol is the
+                # outer activity's, which may be ui for ones we synthesize.
+                base_obj = (from_user or PROTOCOLS.get(obj.source_protocol)).load(
+                    base_id, remote=False)
 
             if type not in ('delete', 'undo'):
                 if not base_obj:  # probably a new repo
@@ -780,7 +885,8 @@ class ATProto(User, Protocol):
                 return False
 
         elif type == 'stop-following':
-            assert from_user
+            if not from_user:
+                return False
             to_id = as1.get_object(obj.as1).get('id')
             assert to_id
             to_key = Protocol.key_for(to_id, allow_opt_out=True)
@@ -868,30 +974,29 @@ class ATProto(User, Protocol):
             if not (blockee_proto := Protocol.for_id(blockee)):
                 logger.error(f"can't determine protocol for {blockee}")
                 return False
-            blockee = (
-                ids.translate_user_id(id=blockee, from_=blockee_proto, to=to_cls)
-                or ids.translate_object_id(id=blockee, from_=blockee_proto, to=to_cls))
+            blockee = ids.translate_id(id=blockee, from_=blockee_proto, to=to_cls)
             if not blockee:
                 logger.error('no object.object for undo block')
                 return False
 
             if blockee.startswith('did:'):
-                collection = 'app.bsky.graph.block'
+                collections = ('app.bsky.graph.block', 'so.sprk.graph.block')
             elif parse_at_uri(blockee)[1] == 'app.bsky.graph.list':
-                collection = 'app.bsky.graph.listblock'
+                collections = ('app.bsky.graph.listblock',)
             else:
                 logger.warning(f"unknown block object {blockee}")
                 return
 
-            logger.info(f'Deleting {collection}s for subject {blockee}')
             writes = []
-            resp = xrpc_repo.list_records({}, repo=did, limit=None,
-                                          collection=collection)
-            for record in resp['records']:
-                if record['value']['subject'] == blockee:
-                    _, _, rkey = parse_at_uri(record['uri'])
-                    writes.append(Write(action=Action.DELETE, collection=collection,
-                                        rkey=rkey))
+            for collection in collections:
+                logger.info(f'Deleting {collection}s for subject {blockee}')
+                resp = xrpc_repo.list_records({}, repo=did, limit=None,
+                                              collection=collection)
+                for record in resp['records']:
+                    if record['value']['subject'] == blockee:
+                        _, _, rkey = parse_at_uri(record['uri'])
+                        writes.append(Write(action=Action.DELETE,
+                                            collection=collection, rkey=rkey))
 
             with arroba.memcache.Lease(memcache.memcache, f'arroba-commit-{did}',
                                        retries=250):
@@ -902,31 +1007,36 @@ class ATProto(User, Protocol):
             assert recip.startswith('did:'), recip
             return send_chat(msg=records[0], from_repo=repo, to_did=recip)
 
-        copies = {}  # maps string collection to (DID, collection, rkey) tuple
+        # maps string collection to list of (DID, collection, rkey) tuples, in
+        # the order they were created
+        copies = defaultdict(list)
         for copy in base_obj.get_copies(to_cls):
             copy_did, collection, rkey = parse_at_uri(copy)
-            if existing := copies.get(collection):
-                logger.warning(f'{base_id} has multiple {collection}: {existing[2]} {rkey}')
-                continue
-            copies[collection] = (copy_did, collection, rkey)
+            copies[collection].append((copy_did, collection, rkey))
 
         writes = []
 
         # generate commit
         if verb in ('delete', 'undo'):
             writes = [Write(action=Action.DELETE, collection=collection, rkey=rkey)
-                      for _, collection, rkey in copies.values()]
+                      for coll_copies in copies.values()
+                      for _, collection, rkey in coll_copies]
 
         else:
-            # create or other verb
+            # create or other verb. match each record to the existing copy in
+            # the same collection at the same index, if any
+            num_records = defaultdict(int)  # maps collection to count so far
             for record in records:
                 type = record['$type']
                 lex_type = LEXICONS[type]['type']
                 assert lex_type == 'record', f"Can't store {type} object of type {lex_type}"
-                copy = copies.get(type)
+                index = num_records[type]
+                num_records[type] += 1
+                copy = (copies[type][index] if index < len(copies[type])
+                        else None)
 
-                if verb == 'create' and copy:
-                    logger.info(f'already has ATProto copy {copy}, cowardly refusing to create again')
+                if verb == 'create' and copies[type]:
+                    logger.info(f'already has ATProto copies {copies[type]}, cowardly refusing to create again')
                     continue
 
                 if verb == 'create' or not copy:
@@ -950,40 +1060,44 @@ class ATProto(User, Protocol):
 
         postprocess_writes(writes, from_user)
         logger.info(f'Storing ATProto {writes}')
-        try:
-            # serialize commits per repo. constructing and writing the commits can
-            # take some time, so without serializing, we hit datastore contention,
-            # which makes us drop sequence numbers, since they're allocated before
-            # the commit transaction, and those delay hub from emitting commit events
-            # over the firehose while it waits for the skipped seqs, and sometimes
-            # those delays mean we drop events entirely.
-            # https://github.com/snarfed/arroba/issues/74
-            with arroba.memcache.Lease(memcache.memcache, f'arroba-commit-{did}',
-                                       retries=250):
-                arroba.server.storage.commit(repo, writes)
-
-        except ValueError as e:
-            # if a CREATE conflicts with an existing record, retry as UPDATE.
-            # (this exception and error message comes from arroba.mst.MST.add)
-            msg = str(e)
-            prefix = 'There is already a value at key: '
-            if not msg.startswith(prefix):
-                # probably a DELETE but the record doesn't exist
-                logger.warning(e)
-                return False
-
-            path = msg.removeprefix(prefix)
-            for i, write in enumerate(writes):
-                if (write.action == Action.CREATE
-                        and f'{write.collection}/{write.rkey}' == path):
-                    writes[i] = write._replace(action=Action.UPDATE)
-                    logger.info(f'Retrying with UPDATE for conflict at {path}')
+        # each retry converts one CREATE to UPDATE, so at most len(writes) retries
+        for _ in range(len(writes) + 1):
+            try:
+                # serialize commits per repo. constructing and writing the commits
+                # can take some time, so without serializing, we hit datastore
+                # contention, which makes us drop sequence numbers, since they're
+                # allocated before the commit transaction, and those delay hub from
+                # emitting commit events over the firehose while it waits for the
+                # skipped seqs, and sometimes those delays mean we drop events
+                # entirely. https://github.com/snarfed/arroba/issues/74
+                with arroba.memcache.Lease(memcache.memcache, f'arroba-commit-{did}',
+                                           retries=250):
                     arroba.server.storage.commit(repo, writes)
-                    break
-            else:
-                # ¯\_(ツ)_/¯
-                logger.warning(e)
-                return False
+                break
+
+            except ValueError as e:
+                # if a CREATE conflicts with an existing record, retry as UPDATE.
+                # (this exception and error message comes from arroba.mst.MST.add)
+                msg = str(e)
+                prefix = 'There is already a value at key: '
+                if not msg.startswith(prefix):
+                    # probably a DELETE but the record doesn't exist
+                    logger.warning(e)
+                    return False
+
+                path = msg.removeprefix(prefix)
+                for i, write in enumerate(writes):
+                    if (write.action == Action.CREATE
+                            and f'{write.collection}/{write.rkey}' == path):
+                        writes[i] = write._replace(action=Action.UPDATE)
+                        logger.info(f'Retrying with UPDATE for conflict at {path}')
+                        break
+                else:
+                    # ¯\_(ツ)_/¯
+                    logger.warning(e)
+                    return False
+        else:
+            assert False, f'unreachable: {len(writes) + 1} conflicts for {base_id}'
 
         logger.info(f'  seq {repo.head.seq}')
 
@@ -1048,14 +1162,15 @@ class ATProto(User, Protocol):
         try:
             # did:plc, did:web
             if id.startswith('did:'):
-                obj.raw = did.resolve(id, get_fn=util.requests_get)
+                obj.raw = did.resolve(
+                    id, get_fn=partial(util.requests_get, cache=True))
                 return True
             # at:// URI. if it has a handle, resolve and replace with DID.
             # examples:
             # at://did:plc:s2koow7r6t7tozgd4slc3dsg/app.bsky.feed.post/3jqcpv7bv2c2q
             # https://bsky.social/xrpc/com.atproto.repo.getRecord?repo=did:plc:s2koow7r6t7tozgd4slc3dsg&collection=app.bsky.feed.post&rkey=3jqcpv7bv2c2q
             repo, collection, rkey = parse_at_uri(id)
-            if not repo or not collection or not rkey:
+            if not (repo and collection and rkey and AT_URI_RE.fullmatch(id)):
                 return False
         except (ValueError, RequestException) as e:
             util.interpret_http_exception(e)
@@ -1069,9 +1184,18 @@ class ATProto(User, Protocol):
             assert repo.startswith('did:'), repo
             obj.key = ndb.Key(Object, id.replace(f'at://{handle}', f'at://{repo}'))
 
+        # we only expect the Bluesky AppView to serve app.bsky records; fetch others
+        # from the repo's PDS directly
+        client = appview
+        if not collection.startswith('app.bsky.'):
+            if not (pds := cls.pds_for(obj)):
+                logger.info(f"Couldn't find PDS for {obj.key.id()}")
+                return False
+            client = Client(pds, headers={'User-Agent': USER_AGENT},
+                            requests_session=util.session)
+
         try:
-            appview.address = f'https://{os.environ["APPVIEW_HOST"]}'
-            ret = appview.com.atproto.repo.getRecord(
+            ret = client.com.atproto.repo.getRecord(
                 repo=repo, collection=collection, rkey=rkey)
         except RequestException as e:
             util.interpret_http_exception(e)
@@ -1085,6 +1209,7 @@ class ATProto(User, Protocol):
             **ret['value'],
             'cid': ret.get('cid'),
         }
+        hydrate_record(obj, remote=True)
         return True
 
     @classmethod
@@ -1179,50 +1304,26 @@ class ATProto(User, Protocol):
             logger.info(f"Couldn't convert to ATProto", exc_info=True)
             return [] if multiple else {}
 
-        for rec in recs:
-            # if there are any links, generate an external embed as a preview
-            # for the first non-@-mention link
-            #
-            # not good enough to just look for #link facets, since bluesky.from_as1
-            # generates those for mention tags for non-Bluesky URLs, so we also
-            # need to check against the AS1 mention tags and avoid those
-            if rec.get('$type') == 'app.bsky.feed.post' and not rec.get('embed'):
-                mentions = [
-                    as1.get_url(tag) for tag in as1.get_objects(obj.as1, 'tags')
-                    if tag.get('objectType') == 'mention']
-                for facet in rec.get('facets', []):
-                    if feats := facet.get('features'):
-                        feat = feats[0]
-                        first_char = rec['text'].encode()[facet['index']['byteStart']]
-                        if (feat['$type'] == 'app.bsky.richtext.facet#link'
-                                and feat['uri'] not in mentions
-                                # background discussion:
-                                # https://github.com/snarfed/bridgy-fed/issues/1615#issuecomment-2667191265
-                                and first_char != ord('@')):
-                            try:
-                                link = web.Web.load(feat['uri'], metaformats=True,
-                                                    authorship_fetch_mf2=False,
-                                                    raise_=False)
-                            except AssertionError as e:
-                                # we probably have an Object already stored for this
-                                # URL with source_protocol that's not web
-                                logger.warning(e)
-                                continue
+        # we currently don't bridge to Grain, at their request
+        # https://tangled.org/grain.social/grain/issues/11#comment-3myfyydtwek3s
+        recs = [rec for rec in recs
+                if not rec.get('$type', '').startswith('social.grain.')]
 
-                            if link and link.as1:
-                                if img := util.get_url(link.as1, 'image'):
-                                    props = appview.defs['app.bsky.embed.external#external']['properties']
-                                    fetch_blob(img, props, name='thumb',
-                                               check_size=False, check_type=False)
-                                rec['embed'] = to_external_embed(link.as1, blobs=blobs)
-                                uri = rec['embed']['external']['uri']
-                                # backward compatibility for some Objects with bad urls
-                                if not util.is_url(uri) or not util.is_web(uri):
-                                    rec['embed']['external']['uri'] = feat['uri']
-                                break
+        for rec in recs:
+            if link_preview := _fetch_link_preview(rec, obj):
+                link_url, link = link_preview
+                if img := util.get_url(link.as1, 'image'):
+                    props = appview.defs['app.bsky.embed.external#external']['properties']
+                    fetch_blob(img, props, name='thumb',
+                               check_size=False, check_type=False)
+                rec['embed'] = to_external_embed(link.as1, blobs=blobs)
+                uri = rec['embed']['external']['uri']
+                # backward compatibility for some Objects with bad urls
+                if not util.is_url(uri) or not util.is_web(uri):
+                    rec['embed']['external']['uri'] = link_url
 
             if from_proto != ATProto:
-                if rec['$type'] == 'app.bsky.actor.profile':
+                if rec['$type'] in bluesky.ATP_PROFILE_TYPES:
                     # populated by Protocol.convert
                     if orig_summary := obj.as1.get('bridgyOriginalSummary'):
                         rec['bridgyOriginalDescription'] = orig_summary
@@ -1230,20 +1331,23 @@ class ATProto(User, Protocol):
                         # don't use granary's since it will include source links
                         rec.pop('bridgyOriginalDescription', None)
 
-                    # bridged actors get a self label
-                    label_val = 'bridged-from-bridgy-fed'
-                    if from_proto:
-                        label_val += f'-{from_proto.LABEL}'
-                    rec.setdefault('labels', {
-                        '$type': 'com.atproto.label.defs#selfLabels',
-                    })
-                    rec['labels'].setdefault('values', []).append({'val' : label_val})
+                    # bridged actors get a self label. Grain profiles don't
+                    # support labels
+                    if rec['$type'] != 'social.grain.actor.profile':
+                        label_val = 'bridged-from-bridgy-fed'
+                        if from_proto:
+                            label_val += f'-{from_proto.LABEL}'
+                        rec.setdefault('labels', {
+                            '$type': 'com.atproto.label.defs#selfLabels',
+                        })
+                        rec['labels'].setdefault('values', []).append({'val' : label_val})
 
-                if (rec['$type'] in ('app.bsky.actor.profile', 'app.bsky.feed.post')
+                if (rec['$type'] in (bluesky.ATP_PROFILE_TYPES
+                                     + bluesky.ATP_POST_TYPES)
                         and orig_url):
                     rec['bridgyOriginalUrl'] = orig_url
 
-        return recs if multiple else rec
+        return recs if multiple else recs[0]
 
     @classmethod
     def _migrate_in(cls, user, from_user_id, plc_code, pds_client):
@@ -1316,7 +1420,8 @@ class ATProto(User, Protocol):
 
     @classmethod
     def create_account_for_migrate_out(cls, user, pds, email, password, handle=None,
-                                       invite_code=None, phone_verification_code=None):
+                                       invite_code=None, phone_number=None,
+                                       phone_verification_code=None):
         """Creates an account on a new PDS that we can migrate out to.
 
         https://atproto.com/guides/account-migration
@@ -1330,6 +1435,7 @@ class ATProto(User, Protocol):
           handle (str): optional. defaults to generating one based on the user's
             native handle and the new PDS's first available domain
           invite_code (str): optional
+          phone_number (str): optional
           phone_verification_code (str): optional
 
         Returns:
@@ -1342,6 +1448,7 @@ class ATProto(User, Protocol):
         """
         assert email
         assert password
+        assert bool(phone_number) == bool(phone_verification_code)
 
         did = user.get_copy(ATProto)
         assert did
@@ -1354,7 +1461,7 @@ class ATProto(User, Protocol):
         if not handle:
             handle = repo.handle
             # get new PDS's handle domain via describeServer
-            desc = bs._client.com.atproto.server.describeServer()
+            desc = bs.client.com.atproto.server.describeServer()
             if domains := desc.get('availableUserDomains'):
                 # generate handle on PDS's handle domain. not actually used as the
                 # account's handle, we'll (try to) keep their current handle; this is
@@ -1377,7 +1484,10 @@ class ATProto(User, Protocol):
         if invite_code:
             create_input['inviteCode'] = invite_code
         if phone_verification_code:
-            create_input['verificationPhone'] = phone_verification_code
+            create_input.update({
+                'verificationPhone': phone_number,
+                'verificationCode': phone_verification_code,
+            })
 
         # createAccount auth is service token (JWT) signed with DID's signing key
         # https://atproto.com/guides/account-migration#creating-new-account
@@ -1385,7 +1495,7 @@ class ATProto(User, Protocol):
                                     privkey=repo.signing_key,
                                     lxm='com.atproto.server.createAccount')
 
-        resp = bs._client.com.atproto.server.createAccount(
+        resp = bs.client.com.atproto.server.createAccount(
             create_input, headers={'Authorization': f'Bearer {service_token}'})
         logger.info(f'Created account for {did} on {pds} : {resp}')
         assert resp['did'] == did
@@ -1438,20 +1548,20 @@ class ATProto(User, Protocol):
                      access_token=access_token, refresh_token=refresh_token)
 
         # 1: check account status on new PDS
-        status = bs._client.com.atproto.server.checkAccountStatus()
+        status = bs.client.com.atproto.server.checkAccountStatus()
         logger.info(f'Account status for {to_user_id} on {to_pds} : {status}')
 
         # 2: export repo as CAR and import to new PDS
         logger.info('Exporting our repo')
         car_bytes = xrpc_sync.get_repo(None, did=to_user_id, internal=True)
         logger.info('Importing repo')
-        bs._client.com.atproto.repo.importRepo(car_bytes)
+        bs.client.com.atproto.repo.importRepo(car_bytes)
 
         # 3: get recommended DID credentials from new PDS
         #
         # example getRecommendedDidCredentials output:
         # https://blog.smokesignal.events/posts/3lwopvsmtx22a-creating-a-did-method-web-identity-for-atprotocol
-        recs = bs._client.com.atproto.identity.getRecommendedDidCredentials()
+        recs = bs.client.com.atproto.identity.getRecommendedDidCredentials()
         logger.info(f'Recommended DID updates from {to_pds} : {recs}')
 
         # 4: update DID doc to point to new PDS
@@ -1473,7 +1583,7 @@ class ATProto(User, Protocol):
                        get_fn=util.requests_get, post_fn=util.requests_post)
 
         # 5: activate account on new PDS
-        bs._client.com.atproto.server.activateAccount()
+        bs.client.com.atproto.server.activateAccount()
 
         # 6: disable user's bridging, deactivate repo
         user.remove('copies', Target(uri=to_user_id, protocol=cls.LABEL))
@@ -1507,7 +1617,7 @@ class ATProto(User, Protocol):
                 logger.warning(f'Got {resp.status_code} fetching {url}, skipping')
                 continue
             resp.raise_for_status()
-            client._client.com.atproto.repo.uploadBlob(
+            client.client.com.atproto.repo.uploadBlob(
                 input=resp.content, headers={'Content-Type': blob.mime_type})
 
     @classmethod
@@ -1571,6 +1681,152 @@ def generate_rkey(type):
         logger.error(f'unsupported key type for {type}: {key_type}')
 
 
+def _fetch_link_preview(rec, obj):
+    """Fetches the link preview for a post, if any, for an external embed.
+
+    If there's a bare link attachment, eg a FEP-8967 Link with no preview, uses
+    that. Otherwise, uses the first non-@-mention link.
+    https://github.com/snarfed/bridgy-fed/issues/2286
+
+    Args:
+      rec (dict): converted ATProto record
+      obj (models.Object): original object that ``rec`` was converted from
+
+    Returns:
+      (str, models.Object) tuple or None: link URL and its fetched Object, or
+      None if ``rec`` isn't a post, already has a non-bare embed, has no links,
+      or we couldn't fetch any of them
+    """
+    if rec.get('$type') != 'app.bsky.feed.post':
+        return None
+
+    embed = rec.get('embed') or {}
+    external = embed.get('external') or {}
+    link_urls = []
+    if (embed.get('$type') == 'app.bsky.embed.external'
+            and not external.get('title') and not external.get('thumb')):
+        logger.info(f'fetching link preview for bare link attachment {external["uri"]}')
+        link_urls = [external['uri']]
+    elif not embed:
+        # not good enough to just look for #link facets, since bluesky.from_as1
+        # generates those for mention tags for non-Bluesky URLs, so we also
+        # need to check against the AS1 mention tags and avoid those
+        mentions = [as1.get_url(tag) for tag in as1.get_objects(obj.as1, 'tags')
+                    if tag.get('objectType') == 'mention']
+        for facet in rec.get('facets', []):
+            if feats := facet.get('features'):
+                feat = feats[0]
+                first_char = rec['text'].encode()[facet['index']['byteStart']]
+                if (feat['$type'] == 'app.bsky.richtext.facet#link'
+                        and feat['uri'] not in mentions
+                        # background discussion:
+                        # https://github.com/snarfed/bridgy-fed/issues/1615#issuecomment-2667191265
+                        and first_char != ord('@')):
+                    link_urls.append(feat['uri'])
+
+    for link_url in link_urls:
+        try:
+            link = web.Web.load(link_url, metaformats=True,
+                                authorship_fetch_mf2=False, raise_=False)
+        except AssertionError as e:
+            # we probably have an Object already stored for this
+            # URL with source_protocol that's not web
+            logger.warning(e)
+            continue
+
+        if link and link.as1:
+            return link_url, link
+
+    return None
+
+
+def hydrate_record(obj, remote=None):
+    """Hydrates an incoming ATProto record with data from related records.
+
+    Updates ``obj`` in place, and also stores the changes to it, and to any other
+    affected :class:`models.Object`\\s, in the datastore.
+
+    * ``app.bsky.actor.profile``: resolves the profile's ``links`` and stores
+      them in ``extra_as1``.
+    * ``community.lexicon.payments.webMonetization``: stores its address in the
+      profile's ``extra_as1``.
+    * ``site.standard.document``: stores its ``bskyPostRef`` post as its
+      ``preview`` in ``extra_as1``. If its ``site`` is a
+      ``site.standard.publication`` record, also stores its ``url``.
+    * ``community.blacksky.assembly.conversation``: stores the stored statements
+      that point to it as poll ``options`` in ``extra_as1``.
+
+    Args:
+      obj (models.Object): with ``bsky`` populated
+      remote (bool): passed to :class:`DatastoreClient` to load related records
+    """
+    repo, collection, _ = parse_at_uri(obj.key.id())
+    record = obj.bsky
+    client = DatastoreClient(remote=remote)
+
+    # the Object and extra_as1 fields to update, and the new values. None removes
+    id = obj.key.id()
+
+    if collection == 'app.bsky.actor.profile':
+        # TODO: if a link is edited and the profile op comes before the link op in
+        # the same commit, we'll find the old version of the link. compare the
+        # stored link's CID to the strongRef's to detect that.
+        converted = bluesky.to_as1(record, uri=id, repo_did=repo,
+                                   pds=ATProto.pds_for(obj), client=client)
+        values = {
+            'urls': [url for url in util.get_list(converted, 'urls')
+                     if isinstance(url, dict) and url.get('objectType') == 'link'],
+        }
+
+    elif collection == 'community.lexicon.payments.webMonetization':
+        id = at_uri(repo, 'app.bsky.actor.profile', 'self')
+        values = {'monetization': record.get('address')}
+
+    elif collection == 'site.standard.document':
+        # load the bskyPostRef post as a preview, and the publication's URL
+        converted = bluesky.to_as1(record, uri=id, repo_did=repo,
+                                   pds=ATProto.pds_for(obj), client=client)
+        values = {'preview': converted.get('preview')}
+        if record.get('site', '').startswith('at://'):
+            values['url'] = converted.get('url')
+
+    elif collection == 'community.blacksky.assembly.conversation':
+        # poll options are the stored statements that point to this
+        # conversation, ie in reply to it
+        # TODO: update options when statements arrive after their conversation
+        statements = sorted(Object.query(Object.in_reply_to == obj.key),
+                            key=lambda o: o.created)
+        values = {
+            'options': [s.as1 for s in statements
+                        if s.type == 'note' and not s.deleted],
+        }
+
+    else:
+        return
+
+    logger.info(f'Setting {id} extra_as1 {list(values)}')
+
+    def set_fields(o):
+        o.extra_as1 = o.extra_as1 or {}
+        for field, value in values.items():
+            if value:
+                o.extra_as1[field] = value
+            else:
+                o.extra_as1.pop(field, None)
+
+    # update in memory...
+    if id == obj.key.id():
+        set_fields(obj)
+
+    # ...and in the datastore
+    @ndb.transactional()
+    def store():
+        stored = Object.get_or_insert(id)
+        set_fields(stored)
+        stored.put()
+
+    store()
+
 def postprocess_writes(writes, user):
     """Applies custom logic to writes before we commit them.
 
@@ -1578,6 +1834,7 @@ def postprocess_writes(writes, user):
       * Populate the ``bskyPostRef`` property, if we also have an
         ``app.bsky.feed.post``.
       * Create a ``site.standard.publication`` if we don't already have one.
+    * Populate references between records with :func:`populate_references`.
 
     Args:
       writes (sequence of arroba.repo.Write)
@@ -1603,6 +1860,9 @@ def postprocess_writes(writes, user):
                 }
             break
 
+    # TODO: similarly, populate so.sprk.feed.posts' crossposts property with a
+    # strong ref to the app.bsky.feed.post, if we also have one
+
     # create site.standard.publication for user if it doesn't exist
     if docs and user and user.verified_domain:
         has_publication = any(parse_at_uri(uri)[1] == 'site.standard.publication'
@@ -1618,6 +1878,82 @@ def postprocess_writes(writes, user):
                 user.obj.add('copies', Target(uri=uri, protocol='atproto'))
                 user.obj.put()
                 logger.info(f'creating {uri} for {user.obj_key.id()}')
+
+    # last, since strong refs include the CIDs of records' final contents
+    populate_references(writes, did)
+
+
+def populate_references(writes, did):
+    """Populates at-URIs and strong refs between records in the same commit.
+
+    * ``app.bsky.actor.profile``: populate the ``links`` strongRefs with the
+      ``app.bsky.actor.link`` records, in order.
+    * ``social.grain.gallery.item``: populate the ``gallery`` and ``item``
+      at-URIs with the ``social.grain.gallery`` and the ``social.grain.photo``
+      at index ``position``.
+    * ``community.blacksky.assembly.statement``: populate the
+      ``conversation`` strongRef with ``community.blacksky.assembly.conversation``.
+
+    Only populates fields that are empty, or strongRefs without a ``cid``, ie
+    that ``from_as1`` couldn't populate itself because the record they point to
+    is in this same commit.
+
+    Args:
+      writes (sequence of arroba.repo.Write)
+      did (str): repo DID
+    """
+    by_collection = defaultdict(list)
+    for write in writes:
+        if write.action in (Action.CREATE, Action.UPDATE):
+            by_collection[write.collection].append(write)
+
+    # Grain gallery items point to their gallery and photo
+    #
+    # CURRENTLY UNUSED: we currently don't bridge to/from Grain, at their request
+    # https://tangled.org/grain.social/grain/issues/11#comment-3myfyydtwek3s
+    #
+    # WARNING: expects that the social.grain.photo writes are ordered by
+    # their social.grain.gallery.item position!
+    if ((galleries := by_collection['social.grain.gallery'])
+            and (photos := by_collection['social.grain.photo'])):
+        assert len(galleries) == 1, galleries
+        for item in by_collection['social.grain.gallery.item']:
+            if not item.record.get('gallery'):
+                item.record['gallery'] = at_uri(did, galleries[0].collection,
+                                                galleries[0].rkey)
+            if not item.record.get('item'):
+                position = item.record.get('position', 0)
+                assert position < len(photos), (item, len(photos))
+                photo = photos[position]
+                item.record['item'] = at_uri(did, photo.collection, photo.rkey)
+
+    # strong refs go last, after all other changes to the records they point to,
+    # since they include the CID of the record's final contents
+    #
+    # blacksky poll statements point to their conversation
+    if convs := by_collection['community.blacksky.assembly.conversation']:
+        assert len(convs) == 1, convs
+        conv = convs[0]
+        for statement in by_collection['community.blacksky.assembly.statement']:
+            if not statement.record.get('conversation', {}).get('cid'):
+                statement.record['conversation'] = {
+                    'uri': at_uri(did, conv.collection, conv.rkey),
+                    'cid': dag_cbor_cid(conv.record).encode('base32'),
+                }
+
+    # profiles point to their links. if some link records were skipped, drop
+    # their blank refs
+    links = by_collection['app.bsky.actor.link']
+    for profile in by_collection['app.bsky.actor.profile']:
+        if refs := profile.record.pop('links', []):
+            profile.record['links'] = []
+            for ref, link in zip(refs, links):
+                if not ref.get('cid') or not ref.get('uri'):
+                    ref = {
+                        'uri': at_uri(did, link.collection, link.rkey),
+                        'cid': dag_cbor_cid(link.record).encode('base32'),
+                    }
+                profile.record['links'].append(ref)
 
 
 def create_report(*, input, from_user):
@@ -1706,8 +2042,8 @@ def poll_chat_task():
     proto = PROTOCOLS[get_required_param('proto')]
     logger.info(f'Polling incoming chat messages for {proto.LABEL}')
 
-    from web import Web
-    bot = Web.get_by_id(proto.bot_user_id())
+    bot = proto.bot_user()
+    assert bot, proto.LABEL
     assert bot.atproto_last_chat_log_cursor
     repo = arroba.server.storage.load_repo(bot.get_copy(ATProto))
     client = chat_client(repo=repo, method='chat.bsky.convo.getLog')
@@ -1839,10 +2175,17 @@ def site_standard_publication():
 #
 # OAuth
 #
-@app.get('/.well-known/oauth-protected-resource')
-@flask_util.headers(CACHE_CONTROL)
-def no_oauth():
-    return "Sorry, Bridgy Fed doesn't serve OAuth. https://fed.brid.gy/docs#use-like-normal", 404
+def is_pds_host():
+    """Returns True if this request is for the host that serves our PDS.
+
+    That's ``atproto.brid.gy`` in prod. On the local dev server it's whatever
+    host we're running on, since :meth:`ATProto.create_for` puts
+    :func:`domains.host_url` in new DID docs when ``DEBUG``. Not ``LOCAL_SERVER``
+    under tests, so that they can exercise both branches with ``base_url``.
+    """
+    return (util.domain_from_link(request.host_url)
+            == util.domain_from_link(ATProto.DEFAULT_TARGET)
+            or (LOCAL_SERVER and request.host in domains.LOCAL_DOMAINS))
 
 
 class BlueskyOAuthStart(FlashErrors, oauth_dropins.bluesky.OAuthStart):

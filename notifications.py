@@ -138,7 +138,7 @@ def notify_task():
 
     objs = ndb.get_multi(Object(id=id).key for id in notifs)
 
-    message = f"<p>Hi! Here are your recent interactions from people who aren't bridged into {user.PHRASE}. Click the <em>respond</em> links to reply, like, repost, or block them.\n<ul>\n"
+    message = f"<p>Hi! Here are your recent interactions from people who aren't bridged into {user.PHRASE}. Each <em>respond</em> link shows the full post and lets you reply, like, repost, or block it.\n<ul>\n"
 
     lines = ''
     attachments = []
@@ -153,9 +153,10 @@ def notify_task():
 
         author_prefix = ''
         if author_id := as1.get_owner(obj_as1):
-            author_proto = PROTOCOLS[obj.source_protocol]
-            if author := author_proto.get_or_create(author_id, allow_opt_out=True):
-                author_prefix = author.html_link() + ': '
+            if author_proto := obj.owner_protocol():
+                if author := author_proto.get_or_create(author_id,
+                                                        allow_opt_out=True):
+                    author_prefix = author.html_link() + ': '
 
         content = obj_as1.get('content')
         text = source.html_to_text(content, ignore_links=True)

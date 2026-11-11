@@ -57,6 +57,7 @@ DOMAINS = (PRIMARY_DOMAIN,) + PROTOCOL_DOMAINS + OTHER_DOMAINS + LOCAL_DOMAINS
 # TODO: unify with manual_opt_out
 # TODO: unify with Bridgy's
 DOMAIN_BLOCKLIST = (
+    'bsky.app',
     'bsky.social',
     'facebook.com',
     'fb.com',
@@ -227,15 +228,19 @@ def unwrap(val, field=None):
             elif fc := re.fullmatch(r'farcaster:([0-9]+)', unwrapped):
                 # external farcaster:FID form back to internal farcaster://FID
                 return f'farcaster://{fc.group(1)}'
+            elif (not match.group('redirect') and not match.group('abbrev')
+                  and not DOMAIN_RE.fullmatch(unwrapped)):
+                # not actually wrapped, eg https://fed.brid.gy/docs
+                return val
             return unwrapped
 
     return val
 
 
-def host_url(path_query=None):
+def host_url(path_query=None, primary_domain_only=False):
     if DEBUG or LOCAL_SERVER:
         base = request.host_url
-    elif request.host.endswith(SUPERDOMAIN):
+    elif request.host.endswith(SUPERDOMAIN) and not primary_domain_only:
         base = request.host_url
     else:
         base = f'https://{PRIMARY_DOMAIN}/'

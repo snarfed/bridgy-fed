@@ -1,11 +1,8 @@
-// Handles state of login buttons and input fields on the settings page.
-var openedId;
-
 // Grabs existing object of disabled checkboxes or creates a new one
 var disabledCheckboxes = getDisabledCheckboxes();
 
  // Clear the auth_entity query param on /settings.
-window.onload = function () {
+window.addEventListener('load', () => {
   url = new URL(window.document.documentURI)
   if (url.pathname == '/settings' && url.searchParams.has('auth_entity')) {
     window.history.replaceState(null, '', '/settings')
@@ -31,47 +28,41 @@ window.onload = function () {
   }
 
   localStorage.setItem('disabledCheckboxes', JSON.stringify(disabledCheckboxes));
-}
 
-// Handles login buttons and input fields on the settings page.
-function toggleInput(button_id) {
-  var button = document.getElementById(button_id);
-  var input = document.getElementById(button_id + "-input");
-  var submit = document.getElementById(button_id + "-submit");
-  
-  if (openedId && openedId != button_id) {
-    document.getElementById(openedId).classList.remove("slide-up");
+  // Localizes embedded posts' published times
+  for (const time of document.querySelectorAll('.post-embed time.dt-published[datetime]')) {
+    time.textContent = new Date(time.getAttribute('datetime')).toLocaleString(
+      undefined, {dateStyle: 'medium', timeStyle: 'short'});
+  }
+});
 
-    document.getElementById(openedId + "-submit").classList.remove("visible");
-    document.getElementById(openedId + "-input").classList.remove("visible");
+// Focuses a login button's input when its <details> opens. toggle doesn't
+// bubble, so this listens in the capture phase.
+document.addEventListener('toggle', (event) => {
+  if (event.target.name == 'login' && event.target.open) {
+    event.target.querySelector('input')?.focus();
+  }
+}, true);
 
-    openedId = null;
+// Submits a settings page switch's form when it's toggled. If the form has
+// data-confirm, asks first, and flips the switch back if the user cancels.
+document.addEventListener('change', (event) => {
+  const checkbox = event.target;
+  if (!checkbox.matches('.switch input')) {
+    return;
   }
 
-  if(input.classList.contains("visible")){
-    submit.classList.remove("visible");
-    input.classList.remove("visible");
-
-    button.classList.remove("slide-up");
-
-    openedId = null;
-  } else {
-    openedId = button_id;
-
-    button.classList.add("slide-up");
-
-    submit.classList.add("visible");
-    input.classList.add("visible");
-    input.focus();
+  const form = checkbox.closest('form');
+  if (form.dataset.confirm && !window.confirm(form.dataset.confirm)) {
+    checkbox.checked = !checkbox.checked;
+    return;
   }
-}
 
-// Used on setting page to change an account's bridging state.
-function bridgingSwitch(event) {
-  const checkbox = event.currentTarget;
-  disableCheckbox(checkbox);
-  event.currentTarget.closest('form').submit()
-}
+  if (checkbox.classList.contains('bridging-switch')) {
+    disableCheckbox(checkbox);
+  }
+  form.submit();
+});
 
 // Temporarily disable the bridging switch to avoid double submission
 function disableCheckbox(checkbox) {
@@ -97,8 +88,14 @@ function getDisabledCheckboxes() {
   return disabledCheckboxes;
 }
 
-// Copies a string to the clipboard and flashes a message saying so.
-function copy(val) {
-  navigator.clipboard.writeText(val)
-  document.getElementById('messages').innerHTML = `<div class="message shadow">Copied <em>${val}</em> to the clipboard.</div>`
-}
+// Copies an element's data-copy attribute to the clipboard when it's clicked.
+document.addEventListener('click', (event) => {
+  const elem = event.target.closest('[data-copy]');
+  if (elem) {
+    navigator.clipboard.writeText(elem.dataset.copy)
+    const messages = document.getElementById('messages')
+    // render copied string with textContent to preserve HTML escaping
+    messages.innerHTML = '<div class="message shadow">Copied <em></em> to the clipboard.</div>'
+    messages.querySelector('em').textContent = elem.dataset.copy
+  }
+});

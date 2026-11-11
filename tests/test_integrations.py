@@ -1,6 +1,6 @@
 """Integration tests."""
 import copy
-from datetime import datetime
+from datetime import datetime, timezone
 from unittest import skip
 from unittest.mock import ANY, patch
 
@@ -67,7 +67,7 @@ from webutil.testutil import NOW, NOW_SECONDS, requests_response
 from webutil import util
 from webutil.util import json_dumps, json_loads
 
-from activitypub import ActivityPub
+from activitypub import ActivityPub, FEP044F_QUOTE_POST_CONTEXT, INTERACTION_POLICY
 import app
 from atproto import ATProto
 import atproto_firehose
@@ -309,14 +309,14 @@ class IntegrationTests(TestCase):
             msg.ClearField('signature_scheme')
         self.assertEqual(list(expected), list(actual.messages))
 
-    def firehose(self, limit=1, **op):
+    def firehose(self, limit=1, **event):
         setup_firehose()
-        FakeWebsocketClient.setup_receive(atproto_firehose.Op(**op))
+        FakeWebsocketClient.setup_receive(atproto_firehose.Event(**event))
         atproto_firehose.load_dids()
         atproto_firehose.subscribe()
         if limit:
             atproto_firehose.handle(limit=limit)
-        assert atproto_firehose.commits.empty()
+        assert atproto_firehose.events.empty()
 
     @patch.object(util.session, 'post')
     def test_atproto_post_to_activitypub(self, mock_post):
@@ -361,12 +361,218 @@ class IntegrationTests(TestCase):
             'object': {
                 'type': 'Note',
                 'id': 'https://bsky.brid.gy/convert/ap/at://did:plc:alice/app.bsky.feed.post/123',
-                'url': 'http://localhost/r/https://bsky.app/profile/did:plc:alice/post/123',
+                'url': ['http://localhost/r/https://bsky.app/profile/did:plc:alice/post/123', {
+                    'type': 'Link',
+                    'rel': 'canonical',
+                    'href': 'at://did:plc:alice/app.bsky.feed.post/123',
+                }],
                 'attributedTo': 'https://bsky.brid.gy/ap/did:plc:alice',
                 'content': '<p>I hereby post</p>',
                 'contentMap': {'en': '<p>I hereby post</p>'},
                 'published': '2022-01-02T03:04:05.000Z',
                 'to': ['https://www.w3.org/ns/activitystreams#Public'],
+                'interactionPolicy': INTERACTION_POLICY,
+                'replies': 'https://bsky.brid.gy/ap/replies/YXQ6Ly9kaWQ6cGxjOmFsaWNlL2FwcC5ic2t5LmZlZWQucG9zdC8xMjM=',
+            },
+            'to': ['https://www.w3.org/ns/activitystreams#Public'],
+        })
+
+    @patch.object(util.session, 'post')
+    def test_atproto_post_link_preview_to_activitypub(self, mock_post):
+        """ATProto post with external embed, from firehose to ActivityPub.
+
+        https://github.com/snarfed/bridgy-fed/issues/2286
+
+        ATProto original post at://did:plc:alice/app.bsky.feed.post/123
+        ActivityPub follower http://inst/bob
+        """
+        self.store_object(id='did:plc:alice', raw=DID_DOC)
+        alice = self.make_user(id='did:plc:alice', cls=ATProto,
+                               enabled_protocols=['activitypub'],
+                               obj_bsky=test_atproto.ACTOR_PROFILE_BSKY)
+
+        bob = self.make_ap_user('http://inst/bob')
+        Follower.get_or_create(to=alice, from_=bob)
+
+        # need at least one repo for firehose subscriber to load DIDs and run
+        Repo.create(self.storage, 'did:unused', signing_key=ATPROTO_KEY)
+
+        post = {
+            '$type': 'app.bsky.feed.post',
+            'text': 'check this out',
+            'createdAt': '2022-01-02T03:04:05.000Z',
+            'embed': {
+                '$type': 'app.bsky.embed.external',
+                'external': {
+                    '$type': 'app.bsky.embed.external#external',
+                    'uri': 'https://example.com/article',
+                    'title': 'An Article',
+                    'description': 'All about it',
+                    'thumb': {
+                        '$type': 'blob',
+                        'ref': test_atproto.BLOB_CID,
+                        'mimeType': 'image/jpeg',
+                        'size': 13,
+                    },
+                },
+            },
+        }
+        self.firehose(repo='did:plc:alice', action='create', seq=123,
+                      path='app.bsky.feed.post/123', record=post)
+
+        thumb = {
+            'type': 'Image',
+            'url': f'https://some.pds/xrpc/com.atproto.sync.getBlob?did=did:plc:alice&cid={test_atproto.BLOB_CID.encode("base32")}',
+        }
+        self.assert_ap_deliveries(mock_post, ['http://inst/bob/inbox'],
+                                  from_user=alice, data={
+            '@context': 'https://www.w3.org/ns/activitystreams',
+            'type': 'Create',
+            'id': 'https://bsky.brid.gy/convert/ap/at://did:plc:alice/app.bsky.feed.post/123#bridgy-fed-create-2022-01-02T03:04:05+00:00',
+            'actor': 'https://bsky.brid.gy/ap/did:plc:alice',
+            'published': '2022-01-02T03:04:05+00:00',
+            'object': {
+                'type': 'Note',
+                'id': 'https://bsky.brid.gy/convert/ap/at://did:plc:alice/app.bsky.feed.post/123',
+                'url': ['http://localhost/r/https://bsky.app/profile/did:plc:alice/post/123', {
+                    'type': 'Link',
+                    'rel': 'canonical',
+                    'href': 'at://did:plc:alice/app.bsky.feed.post/123',
+                }],
+                'attributedTo': 'https://bsky.brid.gy/ap/did:plc:alice',
+                'content': '<p>check this out<br><br><a href="https://example.com/article">An Article</a></p>',
+                'contentMap': {'en': '<p>check this out<br><br><a href="https://example.com/article">An Article</a></p>'},
+                'published': '2022-01-02T03:04:05.000Z',
+                'to': ['https://www.w3.org/ns/activitystreams#Public'],
+                'interactionPolicy': INTERACTION_POLICY,
+                'replies': 'https://bsky.brid.gy/ap/replies/YXQ6Ly9kaWQ6cGxjOmFsaWNlL2FwcC5ic2t5LmZlZWQucG9zdC8xMjM=',
+                'attachment': [{
+                    'type': 'Link',
+                    'href': 'https://example.com/article',
+                    'name': 'An Article',
+                    'preview': {
+                        'type': 'Article',
+                        'name': 'An Article',
+                        'summary': 'All about it',
+                        'image': thumb,
+                    },
+                }],
+            },
+            'to': ['https://www.w3.org/ns/activitystreams#Public'],
+        })
+
+    @patch.object(util.session, 'post')
+    def test_atproto_event_to_activitypub(self, mock_post):
+        """ATProto event, from firehose to ActivityPub.
+
+        ATProto original event at://did:plc:alice/community.lexicon.calendar.event/123
+        ActivityPub follower http://inst/bob
+        """
+        self.store_object(id='did:plc:alice', raw=DID_DOC)
+        alice = self.make_user(id='did:plc:alice', cls=ATProto,
+                               enabled_protocols=['activitypub'],
+                               obj_bsky=test_atproto.ACTOR_PROFILE_BSKY)
+
+        bob = self.make_ap_user('http://inst/bob')
+        Follower.get_or_create(to=alice, from_=bob)
+
+        # need at least one repo for firehose subscriber to load DIDs and run
+        Repo.create(self.storage, 'did:unused', signing_key=ATPROTO_KEY)
+
+        event = {
+            '$type': 'community.lexicon.calendar.event',
+            'name': 'My party',
+            'description': 'Come on down',
+            'createdAt': '2022-01-02T03:04:05.000Z',
+            'startsAt': '2022-02-03T18:00:00.000Z',
+            'endsAt': '2022-02-03T20:00:00.000Z',
+            'uris': [{'uri': 'http://my/party'}],
+        }
+        self.firehose(repo='did:plc:alice', action='create', seq=123,
+                      path='community.lexicon.calendar.event/123', record=event)
+
+        self.assert_ap_deliveries(mock_post, ['http://inst/bob/inbox'],
+                                  from_user=alice, data={
+            '@context': 'https://www.w3.org/ns/activitystreams',
+            'type': 'Create',
+            'id': 'https://bsky.brid.gy/convert/ap/at://did:plc:alice/community.lexicon.calendar.event/123#bridgy-fed-create-2022-01-02T03:04:05+00:00',
+            'actor': 'https://bsky.brid.gy/ap/did:plc:alice',
+            'published': '2022-01-02T03:04:05+00:00',
+            'object': {
+                'type': 'Event',
+                'id': 'https://bsky.brid.gy/convert/ap/at://did:plc:alice/community.lexicon.calendar.event/123',
+                'url': ['http://localhost/r/http://my/party', {
+                    'type': 'Link',
+                    'rel': 'canonical',
+                    'href': 'at://did:plc:alice/community.lexicon.calendar.event/123',
+                }],
+                'attributedTo': 'https://bsky.brid.gy/ap/did:plc:alice',
+                'replies': 'https://bsky.brid.gy/ap/replies/YXQ6Ly9kaWQ6cGxjOmFsaWNlL2NvbW11bml0eS5sZXhpY29uLmNhbGVuZGFyLmV2ZW50LzEyMw==',
+                'name': 'My party',
+                'content': '<p>Come on down</p>',
+                'contentMap': {'en': '<p>Come on down</p>'},
+                'published': '2022-01-02T03:04:05.000Z',
+                'startTime': '2022-02-03T18:00:00.000Z',
+                'endTime': '2022-02-03T20:00:00.000Z',
+                'to': ['https://www.w3.org/ns/activitystreams#Public'],
+            },
+            'to': ['https://www.w3.org/ns/activitystreams#Public'],
+        })
+
+    @patch.object(util.session, 'post')
+    def test_atproto_standard_site_document_to_activitypub(self, mock_post):
+        """ATProto site.standard.document, from firehose to ActivityPub Article.
+
+        ATProto original doc at://did:plc:alice/site.standard.document/123
+        ActivityPub follower http://inst/bob
+        """
+        self.store_object(id='did:plc:alice', raw=DID_DOC)
+        alice = self.make_user(id='did:plc:alice', cls=ATProto,
+                               enabled_protocols=['activitypub'],
+                               obj_bsky=test_atproto.ACTOR_PROFILE_BSKY)
+
+        bob = self.make_ap_user('http://inst/bob')
+        Follower.get_or_create(to=alice, from_=bob)
+
+        # need at least one repo for firehose subscriber to load DIDs and run
+        Repo.create(self.storage, 'did:unused', signing_key=ATPROTO_KEY)
+
+        doc = {
+            '$type': 'site.standard.document',
+            'site': 'https://alice.com',
+            'path': '/my-article',
+            'title': 'My Great Article',
+            'description': 'All about it',
+            'textContent': 'Lots of words',
+            'publishedAt': '2022-01-02T03:04:05.000Z',
+        }
+        self.firehose(repo='did:plc:alice', action='create', seq=123,
+                      path='site.standard.document/123', record=doc)
+
+        self.assert_ap_deliveries(mock_post, ['http://inst/bob/inbox'],
+                                  from_user=alice, data={
+            '@context': 'https://www.w3.org/ns/activitystreams',
+            'type': 'Create',
+            'id': 'https://bsky.brid.gy/convert/ap/at://did:plc:alice/site.standard.document/123#bridgy-fed-create-2022-01-02T03:04:05+00:00',
+            'actor': 'https://bsky.brid.gy/ap/did:plc:alice',
+            'published': '2022-01-02T03:04:05+00:00',
+            'object': {
+                'type': 'Article',
+                'id': 'https://bsky.brid.gy/convert/ap/at://did:plc:alice/site.standard.document/123',
+                'url': ['http://localhost/r/https://alice.com/my-article', {
+                    'type': 'Link',
+                    'rel': 'canonical',
+                    'href': 'at://did:plc:alice/site.standard.document/123',
+                }],
+                'attributedTo': 'https://bsky.brid.gy/ap/did:plc:alice',
+                'replies': 'https://bsky.brid.gy/ap/replies/YXQ6Ly9kaWQ6cGxjOmFsaWNlL3NpdGUuc3RhbmRhcmQuZG9jdW1lbnQvMTIz',
+                'name': 'My Great Article',
+                'summary': 'All about it',
+                'content': '<p>Lots of words</p>',
+                'contentMap': {'en': '<p>Lots of words</p>'},
+                'published': '2022-01-02T03:04:05.000Z',
+                'to': ['https://www.w3.org/ns/activitystreams#Public'],
+                'interactionPolicy': INTERACTION_POLICY,
             },
             'to': ['https://www.w3.org/ns/activitystreams#Public'],
         })
@@ -422,12 +628,18 @@ class IntegrationTests(TestCase):
             'object': {
                 'type': 'Note',
                 'id': 'https://bsky.brid.gy/convert/ap/at://did:plc:alice/app.bsky.feed.post/123',
-                'url': 'http://localhost/r/https://bsky.app/profile/did:plc:alice/post/123',
+                'url': ['http://localhost/r/https://bsky.app/profile/did:plc:alice/post/123', {
+                    'type': 'Link',
+                    'rel': 'canonical',
+                    'href': 'at://did:plc:alice/app.bsky.feed.post/123',
+                }],
                 'attributedTo': 'https://bsky.brid.gy/ap/did:plc:alice',
                 'content': f'<p>Ok{re_link}</p>',
                 'contentMap': {'en': f'<p>Ok{re_link}</p>'},
                 'published': '2022-01-02T03:04:05.000Z',
                 'quoteUrl': 'https://bsky.brid.gy/convert/ap/at://did:plc:eve/app.bsky.feed.post/456',
+                'quote': 'https://bsky.brid.gy/convert/ap/at://did:plc:eve/app.bsky.feed.post/456',
+                'quoteAuthorization': 'https://bsky.brid.gy/ap/did:plc:eve/stamp/quote/aHR0cHM6Ly9ic2t5LmJyaWQuZ3kvY29udmVydC9hcC9hdDovL2RpZDpwbGM6ZXZlL2FwcC5ic2t5LmZlZWQucG9zdC80NTY=/aHR0cHM6Ly9ic2t5LmJyaWQuZ3kvY29udmVydC9hcC9hdDovL2RpZDpwbGM6YWxpY2UvYXBwLmJza3kuZmVlZC5wb3N0LzEyMw==',
                 '_misskey_quote': 'https://bsky.brid.gy/convert/ap/at://did:plc:eve/app.bsky.feed.post/456',
                 'tag': [{
                     'type': 'Link',
@@ -435,8 +647,131 @@ class IntegrationTests(TestCase):
                     'href': 'https://bsky.brid.gy/convert/ap/at://did:plc:eve/app.bsky.feed.post/456',
                     'name': 'RE: https://bsky.app/profile/did:plc:eve/post/456',
                 }],
+                'interactionPolicy': INTERACTION_POLICY,
+                'replies': 'https://bsky.brid.gy/ap/replies/YXQ6Ly9kaWQ6cGxjOmFsaWNlL2FwcC5ic2t5LmZlZWQucG9zdC8xMjM=',
             },
         })
+
+    @patch.object(util.session, 'post', return_value=requests_response(''))
+    def test_atproto_quote_of_activitypub_post_quote_request_and_accept(
+            self, mock_post):
+        """ATProto quote of a native fediverse post, FEP-044f request and approval.
+
+        ATProto user alice (did:plc:alice)
+        ActivityPub user https://inst/eve , bridged to did:plc:eve
+        ActivityPub follower http://inst/bob
+        """
+        alice = self.make_atproto_user('did:plc:alice')
+        eve = self.make_ap_user('https://inst/eve', did='did:plc:eve')
+        bob = self.make_ap_user('http://inst/bob')
+        Follower.get_or_create(to=alice, from_=bob)
+
+        self.store_object(
+            id='https://inst/post', source_protocol='activitypub',
+            copies=[Target(uri='at://did:plc:eve/app.bsky.feed.post/456',
+                           protocol='atproto')],
+            as2={
+                'type': 'Note',
+                'id': 'https://inst/post',
+                'attributedTo': 'https://inst/eve',
+                'content': 'quoted',
+            })
+
+        post = {
+            '$type': 'app.bsky.feed.post',
+            'text': 'Ok',
+            'createdAt': '2022-01-02T03:04:05.000Z',
+            'embed': {
+                '$type': 'app.bsky.embed.record',
+                'record': {
+                    'cid': 'bafyreiam6fisrctmj7uv6is5wkk4fqw6bxzlooepaapxntuv45j3mu34p4',
+                    'uri': 'at://did:plc:eve/app.bsky.feed.post/456',
+                },
+            },
+        }
+        self.firehose(repo='did:plc:alice', action='create', seq=123,
+                      path='app.bsky.feed.post/123', record=post)
+
+        quote_id = 'https://bsky.brid.gy/convert/ap/at://did:plc:alice/app.bsky.feed.post/123'
+        content = '<p>Ok<span class="quote-inline"><br><br>RE: <a href="https://bsky.app/profile/did:plc:eve/post/456">https://bsky.app/profile/did:plc:eve/post/456</a></span></p>'
+        note = {
+            'type': 'Note',
+            'id': quote_id,
+            'url': ['http://localhost/r/https://bsky.app/profile/did:plc:alice/post/123', {
+                'type': 'Link',
+                'rel': 'canonical',
+                'href': 'at://did:plc:alice/app.bsky.feed.post/123',
+            }],
+            'attributedTo': 'https://bsky.brid.gy/ap/did:plc:alice',
+            'content': content,
+            'contentMap': {'en': content},
+            'published': '2022-01-02T03:04:05.000Z',
+            'quote': 'https://inst/post',
+            'quoteUrl': 'https://inst/post',
+            '_misskey_quote': 'https://inst/post',
+            'tag': [{
+                'type': 'Link',
+                'mediaType': as2.CONTENT_TYPE_LD_PROFILE,
+                'href': 'https://inst/post',
+                'name': 'RE: https://bsky.app/profile/did:plc:eve/post/456',
+            }],
+            'interactionPolicy': INTERACTION_POLICY,
+            'replies': 'https://bsky.brid.gy/ap/replies/YXQ6Ly9kaWQ6cGxjOmFsaWNlL2FwcC5ic2t5LmZlZWQucG9zdC8xMjM=',
+        }
+
+        self.assertEqual(
+            ['https://inst/eve/inbox', 'http://inst/bob/inbox', 'https://inst/eve/inbox'],
+            [call.args[0] for call in mock_post.call_args_list])
+        quote_request, create, _ = [json_loads(call.kwargs['data'])
+                                    for call in mock_post.call_args_list]
+        self.assert_equals({
+            'type': 'QuoteRequest',
+            'id': f'{quote_id}#quote-request',
+            'actor': 'https://bsky.brid.gy/ap/did:plc:alice',
+            'object': 'https://inst/post',
+            'instrument': note,
+        }, quote_request, ignore=['to'])
+        self.assert_equals({
+            'type': 'Create',
+            'id': f'{quote_id}#bridgy-fed-create-2022-01-02T03:04:05+00:00',
+            'actor': 'https://bsky.brid.gy/ap/did:plc:alice',
+            'published': '2022-01-02T03:04:05+00:00',
+            'object': note,
+        }, create, ignore=['to'])
+
+        # eve's instance accepts
+        mock_post.reset_mock()
+        body = json_dumps({
+            'type': 'Accept',
+            'id': 'https://inst/accept',
+            'actor': 'https://inst/eve',
+            'object': quote_request,
+            'result': 'https://inst/stamp',
+        })
+        headers = sign('/ap/atproto/did:plc:alice/inbox', body,
+                       key_id='https://inst/eve')
+        resp = self.client.post('/ap/atproto/did:plc:alice/inbox', data=body,
+                                headers=headers)
+        self.assertEqual(202, resp.status_code)
+
+        quote = Object.get_by_id('at://did:plc:alice/app.bsky.feed.post/123')
+        self.assertEqual({
+            '@context': [FEP044F_QUOTE_POST_CONTEXT],
+            'quoteAuthorization': 'https://inst/stamp',
+        }, quote.extra_as1)
+
+        self.assert_ap_deliveries(
+            mock_post, ['http://inst/bob/inbox', 'https://inst/eve/inbox'],
+            from_user=alice, ignore=['to'], data={
+                'type': 'Update',
+                'id': f'{quote_id}#bridgy-fed-update-2022-01-02T03:04:05+00:00',
+                'actor': 'https://bsky.brid.gy/ap/did:plc:alice',
+                'object': {
+                    **note,
+                    'quoteAuthorization': 'https://inst/stamp',
+                    'updated': '2022-01-02T03:04:05+00:00',
+                },
+            })
 
     @patch.object(util.session, 'post')
     def test_atproto_profile_update_to_activitypub(self, mock_post):
@@ -453,9 +788,22 @@ class IntegrationTests(TestCase):
         # need at least one repo for firehose subscriber to load DIDs and run
         Repo.create(self.storage, 'did:unused', signing_key=ATPROTO_KEY)
 
+        link = {
+            '$type': 'app.bsky.actor.link',
+            'url': 'https://alice.blog/',
+            'title': 'My blog',
+            'createdAt': '2022-01-02T03:04:05.000Z',
+        }
+        self.firehose(repo='did:plc:alice', action='create', seq=122,
+                      path='app.bsky.actor.link/123', record=link)
+
         new_profile = {
             **ACTOR_PROFILE_BSKY,
             'displayName': 'Ms New Alice',
+            'links': [{
+                'uri': 'at://did:plc:alice/app.bsky.actor.link/123',
+                'cid': arroba.util.dag_cbor_cid(link).encode('base32'),
+            }],
         }
         self.firehose(repo='did:plc:alice', action='update', seq=123,
                       path='app.bsky.actor.profile/self', record=new_profile)
@@ -474,10 +822,80 @@ class IntegrationTests(TestCase):
             'object': {
                 **expected_actor,
                 'updated': '2022-01-02T03:04:05+00:00',
-                'url': ['http://localhost/r/https://bsky.app/profile/alice.com',
-                        'http://localhost/r/https://alice.com/'],
+                'url': [
+                    'http://localhost/r/https://bsky.app/profile/alice.com',
+                    'http://localhost/r/https://alice.blog/',
+                    {'type': 'Link', 'rel': 'canonical', 'href': 'did:plc:alice'},
+                ],
+                'attachment': [{
+                    'type': 'PropertyValue',
+                    'name': 'Web site',
+                    'value': '<a rel="me" href="https://bsky.app/profile/alice.com"><span class="invisible">https://</span>bsky.app/profile/alice.com</a>',
+                }, {
+                    'type': 'PropertyValue',
+                    'name': 'My blog',
+                    'value': '<a rel="me" href="https://alice.blog"><span class="invisible">https://</span>alice.blog</a>',
+                }, {
+                    'type': 'Image',
+                    'url': 'https://some.pds/xrpc/com.atproto.sync.getBlob?did=did:plc:alice&cid=bafyjrot',
+                }, {
+                    'type': 'Image',
+                    'url': 'https://some.pds/xrpc/com.atproto.sync.getBlob?did=did:plc:alice&cid=bafkreicqpqncshdd27sgztqgzocd3zhhqnnsv6slvzhs5uz6f57cq6lmtq',
+                }],
             },
-        }, ignore=('attachment', 'publicKey', 'to'))
+        }, ignore=('publicKey', 'to'))
+
+    @patch.object(util.session, 'post')
+    def test_atproto_profile_update_twice_to_activitypub(self, mock_post):
+        """ATProto profile updated twice, from firehose to ActivityPub.
+
+        ATProto user did:plc:alice
+        ActivityPub follower http://inst/bob
+
+        https://github.com/snarfed/bridgy-fed/issues/2686
+        """
+        alice = self.make_atproto_user('did:plc:alice')
+
+        bob = self.make_ap_user('http://inst/bob')
+        Follower.get_or_create(to=alice, from_=bob)
+
+        # need at least one repo for firehose subscriber to load DIDs and run
+        Repo.create(self.storage, 'did:unused', signing_key=ATPROTO_KEY)
+
+        for seq, name in (123, 'Ms New Alice'), (124, 'Ms Newer Alice'):
+            with self.subTest(name=name):
+                mock_post.reset_mock()
+
+                new_profile = {
+                    **ACTOR_PROFILE_BSKY,
+                    'displayName': name,
+                }
+                self.firehose(repo='did:plc:alice', action='update', seq=seq,
+                              path='app.bsky.actor.profile/self',
+                              record=new_profile)
+
+                expected_actor = ActivityPub.convert(
+                    Object(id='at://did:plc:alice/app.bsky.actor.profile/self',
+                           bsky=new_profile, source_protocol='atproto'),
+                    from_user=alice)
+
+                self.assert_ap_deliveries(mock_post, ['http://inst/bob/inbox'],
+                                          from_user=alice, data={
+                    '@context': 'https://www.w3.org/ns/activitystreams',
+                    'type': 'Update',
+                    'id': 'https://bsky.brid.gy/convert/ap/at://did:plc:alice/app.bsky.actor.profile/self#bridgy-fed-update-2022-01-02T03:04:05+00:00',
+                    'actor': 'https://bsky.brid.gy/ap/did:plc:alice',
+                    'object': {
+                        **expected_actor,
+                        'name': name,
+                        'updated': '2022-01-02T03:04:05+00:00',
+                        'url': ['http://localhost/r/https://bsky.app/profile/alice.com', {
+                            'type': 'Link',
+                            'rel': 'canonical',
+                            'href': 'did:plc:alice',
+                        }],
+                    },
+                }, ignore=('attachment', 'publicKey', 'to'))
 
     @patch.object(util.session, 'post')
     def test_atproto_reply_to_activitypub(self, mock_post):
@@ -524,7 +942,11 @@ class IntegrationTests(TestCase):
             'object': {
                 'type': 'Note',
                 'id': 'https://bsky.brid.gy/convert/ap/at://did:plc:alice/app.bsky.feed.post/456',
-                'url': 'http://localhost/r/https://bsky.app/profile/did:plc:alice/post/456',
+                'url': ['http://localhost/r/https://bsky.app/profile/did:plc:alice/post/456', {
+                    'type': 'Link',
+                    'rel': 'canonical',
+                    'href': 'at://did:plc:alice/app.bsky.feed.post/456',
+                }],
                 'attributedTo': 'https://bsky.brid.gy/ap/did:plc:alice',
                 'content': '<p>I hereby reply</p>',
                 'contentMap': {'en': '<p>I hereby reply</p>'},
@@ -532,6 +954,63 @@ class IntegrationTests(TestCase):
                 'inReplyTo': 'http://inst/post',
                 'tag': [{'type': 'Mention', 'href': 'http://inst/bob'}],
                 'cc': ['http://inst/bob'],
+                'interactionPolicy': INTERACTION_POLICY,
+                'replies': 'https://bsky.brid.gy/ap/replies/YXQ6Ly9kaWQ6cGxjOmFsaWNlL2FwcC5ic2t5LmZlZWQucG9zdC80NTY=',
+            },
+            'cc': ['http://inst/bob'],
+        }, ignore=['@context', 'to'])
+
+    @patch.object(util.session, 'post')
+    def test_atproto_spark_reply_to_activitypub(self, mock_post):
+        """ATProto Spark reply, from firehose to ActivityPub.
+
+        ActivityPub original post http://inst/post by bob, bridged to Spark
+        ATProto Spark reply 456 by alice.com (did:plc:alice)
+        """
+        alice = self.make_atproto_user('did:plc:alice')
+        bob = self.make_ap_user('http://inst/bob', 'did:plc:bob')
+
+        self.store_object(
+            id='http://inst/post', source_protocol='activitypub',
+            our_as1={'objectType': 'note', 'author': 'http://inst/bob',},
+            copies=[Target(uri='at://did:plc:bob/so.sprk.feed.post/123',
+                           protocol='atproto')])
+
+        ref = {
+            'cid': A_CID.encode(),
+            'uri': 'at://did:plc:bob/so.sprk.feed.post/123',
+        }
+        self.firehose(repo='did:plc:alice', action='create', seq=456,
+                      path='so.sprk.feed.reply/456', record={
+            '$type': 'so.sprk.feed.reply',
+            'text': 'I hereby reply',
+            'createdAt': '2022-01-02T03:04:05.000Z',
+            'reply': {'root': ref, 'parent': ref},
+        })
+
+        self.assert_ap_deliveries(mock_post, ['http://inst/bob/inbox'],
+                                  from_user=alice, data={
+            'type': 'Create',
+            'id': 'https://bsky.brid.gy/convert/ap/at://did:plc:alice/so.sprk.feed.reply/456#bridgy-fed-create-2022-01-02T03:04:05+00:00',
+            'actor': 'https://bsky.brid.gy/ap/did:plc:alice',
+            'published': '2022-01-02T03:04:05+00:00',
+            'object': {
+                'type': 'Note',
+                'id': 'https://bsky.brid.gy/convert/ap/at://did:plc:alice/so.sprk.feed.reply/456',
+                'attributedTo': 'https://bsky.brid.gy/ap/did:plc:alice',
+                'content': '<p>I hereby reply</p>',
+                'contentMap': {'en': '<p>I hereby reply</p>'},
+                'published': '2022-01-02T03:04:05.000Z',
+                'inReplyTo': 'http://inst/post',
+                'tag': [{'type': 'Mention', 'href': 'http://inst/bob'}],
+                'cc': ['http://inst/bob'],
+                'interactionPolicy': INTERACTION_POLICY,
+                'replies': 'https://bsky.brid.gy/ap/replies/YXQ6Ly9kaWQ6cGxjOmFsaWNlL3NvLnNwcmsuZmVlZC5yZXBseS80NTY=',
+                'url': {
+                    'type': 'Link',
+                    'rel': 'canonical',
+                    'href': 'at://did:plc:alice/so.sprk.feed.reply/456',
+                },
             },
             'cc': ['http://inst/bob'],
         }, ignore=['@context', 'to'])
@@ -584,13 +1063,13 @@ class IntegrationTests(TestCase):
         self.assertEqual(('http://inst/bob/inbox',), args)
         content = json_loads(kwargs['data'])['object']['content']
         self.assertTrue(content.startswith("""\
-<p>Hi! Here are your recent interactions from people who aren't bridged into the fediverse. Click the <em>respond</em> links to reply, like, repost, or block them.
+<p>Hi! Here are your recent interactions from people who aren't bridged into the fediverse. Each <em>respond</em> link shows the full post and lets you reply, like, repost, or block it.
 <ul>
 <li><a class="h-card u-author mention" rel="me" href="https://bsky.app/profile/alice.com" title="Alice &middot; alice.com"><span style="unicode-bidi: isolate">Alice</span> &middot; alice.com</a>: <a href="https://bsky.app/profile/did:plc:alice/post/456">I hereby reply</a>"""), content)
 
         # "you replied to a bridged user" DM to alice
         args, kwargs = mock_post.call_args_list[1]
-        self.assertEqual(('https://chat.local/xrpc/chat.bsky.convo.sendMessage',), args)
+        self.assertEqual(('https://chat.invalid/xrpc/chat.bsky.convo.sendMessage',), args)
         text = kwargs['json']['message']['text']
         self.assertTrue(text.startswith("""Hi! You recently replied to My Name · @bob@inst, who's bridged here from the fediverse."""), text)
 
@@ -675,6 +1154,50 @@ class IntegrationTests(TestCase):
             'target': 'https://bob.com/post',
         }, allow_redirects=False, headers={'Accept': '*/*'})
 
+    @patch.object(util.session, 'post', return_value=requests_response(''))
+    @patch.object(util.session, 'get', return_value=test_web.WEBMENTION_REL_LINK)
+    def test_atproto_rsvp_to_web(self, mock_get, mock_post):
+        """ATProto RSVP to Web.
+
+        ATProto user alice.com (did:plc:alice)
+        ATProto RSVP at://did:plc:alice/community.lexicon.calendar.rsvp/456
+        Web user bob.com's event https://bob.com/event
+        """
+        self.make_atproto_user('did:plc:alice')
+
+        Repo.create(self.storage, 'did:plc:bob', signing_key=ATPROTO_KEY)
+        self.make_user(id='bob.com', cls=Web,
+                       copies=[Target(uri='did:plc:bob', protocol='atproto')],
+                       enabled_protocols=['atproto'])
+
+        self.store_object(id='https://bob.com/event', source_protocol='web',
+                          our_as1={
+                              'objectType': 'event',
+                              'author': 'https://bob.com/',
+                              'displayName': 'My party',
+                          },
+                          copies=[
+            Target(uri='at://did:plc:bob/community.lexicon.calendar.event/123',
+                   protocol='atproto'),
+        ])
+
+        rsvp = {
+            '$type': 'community.lexicon.calendar.rsvp',
+            'subject': {
+                'uri': 'at://did:plc:bob/community.lexicon.calendar.event/123',
+                'cid': A_CID.encode(),
+            },
+            'status': 'community.lexicon.calendar.rsvp#going',
+        }
+        self.firehose(repo='did:plc:alice', action='create', seq=456,
+                      path='community.lexicon.calendar.rsvp/456', record=rsvp)
+
+        self.assert_req(mock_get, 'https://bob.com/event')
+        self.assert_req(mock_post, 'https://bob.com/webmention', data={
+            'source': 'https://bsky.brid.gy/convert/web/at://did:plc:alice/community.lexicon.calendar.rsvp/456',
+            'target': 'https://bob.com/event',
+        }, allow_redirects=False, headers={'Accept': '*/*'})
+
     @patch('dns.resolver.resolve', side_effect=NXDOMAIN())
     @patch('webutil.appengine_config.tasks_client.create_task')
     @patch.object(util.session, 'post', side_effect=[
@@ -751,6 +1274,55 @@ class IntegrationTests(TestCase):
             'subject': 'did:plc:alice',
             'createdAt': '2022-01-02T03:04:05.000Z',
         }], list(repo.get_contents()['app.bsky.graph.follow'].values()))
+
+    @patch('webutil.appengine_config.tasks_client.create_task')
+    @patch.object(util.session, 'get', return_value=requests_response("""\
+<html>
+<body class="h-entry">
+<a class="u-url" href="https://bob.com/rsvp"></a>
+<data class="p-rsvp" value="yes">I'm going!</data>
+<a class="u-author h-card" href="https://bob.com/">Bob</a>
+<a class="u-in-reply-to" href="https://bsky.brid.gy/convert/web/at://did:plc:alice/community.lexicon.calendar.event/123"></a>
+<a href="http://localhost/"></a>
+</body>
+</html>
+""", url='https://bob.com/rsvp'))
+    def test_web_rsvp_to_atproto(self, mock_get, _):
+        """Web RSVP to an ATProto event.
+
+        Web user bob.com (did:plc:bob)
+        ATProto user alice.com (did:plc:alice)
+        ATProto event at://did:plc:alice/community.lexicon.calendar.event/123
+        """
+        self.make_atproto_user('did:plc:alice')
+        self.make_web_user('bob.com', enabled_protocols=['atproto'],
+                           did='did:plc:bob')
+
+        event = {
+            '$type': 'community.lexicon.calendar.event',
+            'name': 'My party',
+            'createdAt': '2022-01-02T03:04:05.000Z',
+            'startsAt': '2022-02-03T18:00:00.000Z',
+        }
+        self.store_object(id='at://did:plc:alice/community.lexicon.calendar.event/123',
+                          bsky=event)
+
+        resp = self.post('/queue/webmention', data={
+            'source': 'https://bob.com/rsvp',
+            'target': 'https://fed.brid.gy/',
+        })
+        self.assertEqual(202, resp.status_code)
+
+        repo = self.storage.load_repo('did:plc:bob')
+        tid = arroba.util.int_to_tid(arroba.util._tid_ts_last)
+        self.assert_equals({tid: {
+            '$type': 'community.lexicon.calendar.rsvp',
+            'subject': {
+                'uri': 'at://did:plc:alice/community.lexicon.calendar.event/123',
+                'cid': arroba.util.dag_cbor_cid(event).encode('base32'),
+            },
+            'status': 'community.lexicon.calendar.rsvp#going',
+        }}, repo.get_contents()['community.lexicon.calendar.rsvp'])
 
     @patch('webutil.appengine_config.tasks_client.create_task')
     @patch.object(util.session, 'get', side_effect=[
@@ -845,7 +1417,7 @@ class IntegrationTests(TestCase):
         self.assertEqual('did:plc:ap', repos[0].did)
 
         self.assertEqual(2, mock_post.call_count)
-        self.assertEqual(('https://chat.local/xrpc/chat.bsky.convo.sendMessage',),
+        self.assertEqual(('https://chat.invalid/xrpc/chat.bsky.convo.sendMessage',),
                          mock_post.call_args_list[0][0])
 
         # unbridged reply notif
@@ -856,12 +1428,12 @@ class IntegrationTests(TestCase):
         self.assertNotEqual(respond_uri.removeprefix(expected_prefix), '')
         self.assert_equals({
             '$type': 'chat.bsky.convo.defs#messageInput',
-            'text': "Hi! Here are your recent interactions from people who aren't bridged into Bluesky. Click the _respond_ links to reply, like, repost, or block them.\n\n  * My Name · @alice@inst: I hereby reply (respond)\n\n\n\nTo disable these messages, reply with the text 'mute'.",
+            'text': "Hi! Here are your recent interactions from people who aren't bridged into the Atmosphere (Bluesky). Each _respond_ link shows the full post and lets you reply, like, repost, or block it.\n\n  * My Name · @alice@inst: I hereby reply (respond)\n\n\n\nTo disable these messages, reply with the text 'mute'.",
             'createdAt': '2022-01-02T03:04:05.000Z',
             'facets': [
                 {
                     '$type': 'app.bsky.richtext.facet',
-                    'index': {'byteStart': 153, 'byteEnd': 175},
+                    'index': {'byteStart': 192, 'byteEnd': 214},
                     'features': [{
                         '$type': 'app.bsky.richtext.facet#link',
                         'uri': 'https://inst/bob',
@@ -869,7 +1441,7 @@ class IntegrationTests(TestCase):
                 },
                 {
                     '$type': 'app.bsky.richtext.facet',
-                    'index': {'byteStart': 177, 'byteEnd': 191},
+                    'index': {'byteStart': 216, 'byteEnd': 230},
                     'features': [{
                         '$type': 'app.bsky.richtext.facet#link',
                         'uri': 'http://inst/reply',
@@ -877,50 +1449,20 @@ class IntegrationTests(TestCase):
                 },
                 {
                     '$type': 'app.bsky.richtext.facet',
-                    'index': {'byteStart': 193, 'byteEnd': 200},
+                    'index': {'byteStart': 232, 'byteEnd': 239},
                     'features': [{
                         '$type': 'app.bsky.richtext.facet#link',
                         # 'uri': ..., # checked above
                     }]
                 }
             ],
-        }, message, ignore=['bridgyOriginalText', 'bridgyOriginalUrl'])
+        }, message, ignore=['bridgyOriginalText', 'bridgyOriginalUrl',
+                            'community.lexicon.meta.links'])
 
         self.assertEqual(('https://inst/bob/inbox',), mock_post.call_args_list[1][0])
-        self.assertEqual("""<p>Hi! You <a href="http://inst/reply">recently replied to</a> <a class="h-card u-author mention" rel="me" href="https://bsky.app/profile/alice.com" title="Alice &middot; alice.com"><span style="unicode-bidi: isolate">Alice</span> &middot; alice.com</a>, who's bridged here from Bluesky. To make sure they see your replies, you can bridge your account into Bluesky by following this account. <a href="https://fed.brid.gy/docs">See the docs</a> for more information.</p>""",
+        self.assertEqual("""<p>Hi! You <a href="http://inst/reply">recently replied to</a> <a class="h-card u-author mention" rel="me" href="https://bsky.app/profile/alice.com" title="Alice &middot; alice.com"><span style="unicode-bidi: isolate">Alice</span> &middot; alice.com</a>, who's bridged here from the Atmosphere (Bluesky). To make sure they see your replies, you can bridge your account into the Atmosphere (Bluesky) by following this account. <a href="https://fed.brid.gy/docs">See the docs</a> for more information.</p>""",
             json_loads(mock_post.call_args_list[1][1]['data'])['object']['content'])
 
-    @patch.object(util.session, 'post')
-    def test_activitypub_follow_to_atproto_not_bridged(self, mock_post):
-        """AP inbox delivery of a follow to an ATProto user without bridge enabled.
-
-        Should reject with 299, not store follow, not send Accept.
-
-        ActivityPub user @bob@inst , https://inst/bob
-        ATProto user alice.com (did:plc:alice) without activitypub in enabled_protocols
-        Follow is https://inst/follow
-        """
-        self.make_atproto_user('did:plc:alice', enabled_protocols=[])
-        self.make_ap_user('https://inst/bob')
-
-        follow = {
-            'type': 'Follow',
-            'id': 'http://inst/follow',
-            'actor': 'https://inst/bob',
-            'object': 'https://bsky.brid.gy/ap/did:plc:alice',
-        }
-        body = json_dumps(follow)
-        headers = sign('/ap/atproto/did:plc:alice/inbox', body,
-                       key_id='https://inst/bob')
-        resp = self.client.post('/ap/atproto/did:plc:alice/inbox', data=body,
-                                headers=headers)
-
-        self.assertEqual(299, resp.status_code)
-        self.assertEqual(0, Follower.query().count())
-        self.assertEqual(0, mock_post.call_count)
-
-        # no atproto write, didn't create repo
-        self.assertIsNone(self.storage.load_repo('did:plc:alice'))
 
     @patch.object(util.session, 'post', return_value=requests_response('OK'))  # create DID
     @patch.object(util.session, 'get')
@@ -940,13 +1482,14 @@ class IntegrationTests(TestCase):
             'image': 'http://pic',
         }))
         mock_get.side_effect = [
+            # twice: once with the AS2 + HTML conneg headers, once AS2 only, so
+            # they're separate request-local HTTP cache entries
             actor,
-            # actor + webfingers
             actor,
+            # webfingers
             requests_response({'subject': 'alice@wf.com'}),
             requests_response({'subject': 'alice@wf.com'}),
-            # actor + webfingers
-            actor,
+            # webfingers
             requests_response({'subject': 'alice@wf.com'}),
             requests_response({'subject': 'alice@wf.com'}),
             requests_response('blob', headers={'Content-Type': 'image/jpeg'}),
@@ -978,7 +1521,8 @@ class IntegrationTests(TestCase):
         self.assertEqual(did, repo.did)
 
         records = repo.get_contents()
-        self.assertEqual(['app.bsky.actor.profile', 'chat.bsky.actor.declaration'],
+        self.assertEqual(['app.bsky.actor.profile', 'chat.bsky.actor.declaration',
+                          'so.sprk.actor.profile'],
                          list(records.keys()))
         self.assertEqual(['self'], list(records['app.bsky.actor.profile'].keys()))
 
@@ -986,7 +1530,7 @@ class IntegrationTests(TestCase):
         args, kwargs = mock_post.call_args_list[1]
         self.assert_equals(('http://inst/inbox',), args)
         message = """\
-<p>Welcome to Bridgy Fed! Your account will soon be bridged to Bluesky at <a class="h-card u-author mention" rel="me" href="https://bsky.app/profile/alice.wf.com.ap.brid.gy" title="alice.wf.com.ap.brid.gy">alice.wf.com.ap.brid.gy</a>. <a href="https://fed.brid.gy/docs">See the docs</a> and <a href="https://fed.brid.gy/ap/@alice@wf.com">your user page</a> for more information. To disable this and delete your bridged profile, block this account.</p>"""
+<p>Welcome to Bridgy Fed! Your account will soon be bridged to the Atmosphere (Bluesky) at <a class="h-card u-author mention" rel="me" href="https://bsky.app/profile/alice.wf.com.ap.brid.gy" title="alice.wf.com.ap.brid.gy">alice.wf.com.ap.brid.gy</a>. <a href="https://fed.brid.gy/docs">See the docs</a> and <a href="https://fed.brid.gy/ap/@alice@wf.com">your user page</a> for more information. To disable this and delete your bridged profile, block this account.</p>"""
         self.assert_equals({
             'type': 'Create',
             'id': 'https://bsky.brid.gy/#bridgy-fed-dm-welcome-https://inst/alice-2022-01-02T03:04:05+00:00-create',
@@ -1114,6 +1658,202 @@ class IntegrationTests(TestCase):
         self.assertFalse(user.is_enabled(ATProto))
         self.assertEqual(0, len(user.copies))
 
+    @patch.object(util.session, 'post')  # for Reject, DM explaining why not
+    @patch.object(util.session, 'get')
+    def test_activitypub_follow_bsky_bot_external_id_declines(self, mock_get, mock_post):
+        """AP follow of the Bluesky bot from an account that's already on Bluesky.
+
+        https://github.com/snarfed/bridgy-fed/issues/800
+
+        ActivityPub user @alice@inst , https://inst/alice , on a multi-protocol
+          server that's also on Bluesky as did:plc:native
+        ATProto bot user bsky.brid.gy (did:plc:bsky)
+        Follow is https://inst/follow
+        """
+        mock_get.return_value = self.as2_resp(add_key({
+            'type': 'Person',
+            'id': 'https://inst/alice',
+            'name': 'Mrs. ☕ Alice',
+            'preferredUsername': 'alice',
+            'image': 'http://pic',
+            'inbox': 'http://inst/inbox',
+            'url': [
+                'https://inst/@alice',
+                {'type': 'Link', 'rel': 'alternate', 'href': 'at://did:plc:native'},
+            ],
+        }))
+        self.make_user(id='bsky.brid.gy', cls=Web, ap_subdomain='bsky')
+
+        # deliver follow
+        body = json_dumps({
+            'type': 'Follow',
+            'id': 'http://inst/follow',
+            'actor': 'https://inst/alice',
+            'object': 'https://bsky.brid.gy/bsky.brid.gy',
+        })
+        headers = sign('/bsky.brid.gy/inbox', body, key_id='https://inst/alice')
+        resp = self.client.post('/bsky.brid.gy/inbox', data=body, headers=headers)
+        self.assertEqual(299, resp.status_code)
+
+        # check results
+        user = ActivityPub.get_by_id('https://inst/alice', allow_opt_out=True)
+        self.assertFalse(user.is_enabled(ATProto))
+        self.assertEqual([], user.copies)
+        self.assertEqual([DM(protocol='atproto', type='external-id')], user.sent_dms)
+        self.assertIsNone(self.storage.load_repo('alice.inst.ap.brid.gy'))
+
+        sent = [json_loads(kwargs['data']) for _, kwargs in mock_post.call_args_list]
+        self.assertEqual(['Create', 'Reject'], [a['type'] for a in sent])
+        self.assertIn('did:plc:native', sent[0]['object']['content'])
+        self.assertEqual('http://inst/follow', sent[1]['object']['id'])
+
+    def _setup_post_with_atproto_proxy_link(self, proxy_link):
+        """Shared setup for the AP proxy link tests.
+
+        ActivityPub user @alice@inst , https://inst/alice , bridged to did:plc:alice
+        ActivityPub user @charlie@inst , https://inst/charlie , not bridged, also
+          on Bluesky as did:plc:charlie
+        Charlie's post is https://inst/charlie/post , with proxy link proxy_link
+        """
+        self.make_ap_user('https://inst/alice', 'did:plc:alice')
+        for did in 'did:plc:charlie', 'did:plc:eve':
+            self.store_object(id=did, raw={
+                **DID_DOC,
+                'id': did,
+                'alsoKnownAs': [f'at://{did.split(":")[-1]}.com'],
+            })
+        self.make_user('https://inst/charlie', cls=ActivityPub, obj_as2=add_key({
+            'type': 'Person',
+            'id': 'https://inst/charlie',
+            'preferredUsername': 'charlie',
+            'inbox': 'https://inst/charlie/inbox',
+            'url': {'type': 'Link', 'rel': 'alternate', 'href': 'at://did:plc:charlie'},
+        }))
+        self.store_object(id='https://inst/charlie/post', source_protocol='activitypub',
+                          as2={
+            'type': 'Note',
+            'id': 'https://inst/charlie/post',
+            'attributedTo': 'https://inst/charlie',
+            'content': 'hello world',
+            'to': ['https://www.w3.org/ns/activitystreams#Public'],
+            'url': {'type': 'Link', 'rel': 'alternate', 'href': proxy_link},
+        })
+
+    def _deliver(self, activity):
+        body = json_dumps({
+            '@context': 'https://www.w3.org/ns/activitystreams',
+            **activity,
+        })
+        headers = sign('/ap/sharedInbox', body, key_id='https://inst/alice')
+        return self.client.post('/ap/sharedInbox', data=body, headers=headers)
+
+    @patch.object(util.session, 'get', side_effect=[
+        requests_response({  # getRecord, for Charlie's Bluesky post
+            'uri': 'at://did:plc:charlie/app.bsky.feed.post/123',
+            'cid': A_CID.encode('base32'),
+            'value': {
+                '$type': 'app.bsky.feed.post',
+                'text': 'hello world',
+                'createdAt': '2022-01-01T00:00:00.000Z',
+            },
+        }),
+    ])
+    def test_activitypub_reply_to_post_with_atproto_proxy_link(self, mock_get):
+        """AP reply to a post that's also on Bluesky, by a user we don't bridge.
+
+        We should reply to the Bluesky post as is, not bridge Charlie or their post.
+        https://github.com/snarfed/bridgy-fed/issues/800
+
+        Reply is https://inst/alice/reply
+        """
+        self._setup_post_with_atproto_proxy_link(
+            'at://did:plc:charlie/app.bsky.feed.post/123')
+
+        resp = self._deliver({
+            'type': 'Create',
+            'id': 'https://inst/alice/reply#create',
+            'actor': 'https://inst/alice',
+            'object': {
+                'type': 'Note',
+                'id': 'https://inst/alice/reply',
+                'attributedTo': 'https://inst/alice',
+                'inReplyTo': 'https://inst/charlie/post',
+                'content': 'nice post',
+                'to': ['https://www.w3.org/ns/activitystreams#Public'],
+            },
+            'to': ['https://www.w3.org/ns/activitystreams#Public'],
+        })
+        self.assertEqual(202, resp.status_code)
+
+        repo = self.storage.load_repo('did:plc:alice')
+        tid = arroba.util.int_to_tid(arroba.util._tid_ts_last)
+        charlies_post = {
+            'uri': 'at://did:plc:charlie/app.bsky.feed.post/123',
+            'cid': A_CID.encode('base32'),
+        }
+        self.assert_equals({tid: {
+            '$type': 'app.bsky.feed.post',
+            'text': 'nice post',
+            'reply': {
+                '$type': 'app.bsky.feed.post#replyRef',
+                'root': charlies_post,
+                'parent': charlies_post,
+            },
+            'createdAt': '2022-01-02T03:04:05.000Z',
+            'bridgyOriginalText': 'nice post',
+            'bridgyOriginalUrl': 'https://inst/alice/reply',
+            'community.lexicon.meta.links': {
+                '$type': 'community.lexicon.meta.links',
+                'links': [{
+                    'href': 'https://inst/alice/reply',
+                    'rel': 'canonical',
+                    'mediaType': 'application/activity+json',
+                }],
+            },
+        }}, repo.get_contents()['app.bsky.feed.post'])
+
+        # we didn't bridge Charlie or their post
+        charlie = ActivityPub.get_by_id('https://inst/charlie', allow_opt_out=True)
+        self.assertEqual([], charlie.copies)
+        self.assertEqual([], charlie.enabled_protocols)
+        self.assertEqual([], Object.get_by_id('https://inst/charlie/post').copies)
+
+    @patch.object(util.session, 'get', side_effect=[
+        requests_response({  # getRecord, for Eve's Bluesky post
+            'uri': 'at://did:plc:eve/app.bsky.feed.post/123',
+            'cid': A_CID.encode('base32'),
+            'value': {
+                '$type': 'app.bsky.feed.post',
+                'text': 'something else',
+                'createdAt': '2022-01-01T00:00:00.000Z',
+            },
+        }),
+    ])
+    def test_activitypub_repost_of_post_with_spoofed_atproto_proxy_link(self, mock_get):
+        """AP repost of a post whose proxy link points to someone else's post.
+
+        Charlie is on Bluesky as did:plc:charlie, but their post's proxy link
+        points to Eve's post, so we don't trust it.
+        https://github.com/snarfed/bridgy-fed/issues/800
+        """
+        self._setup_post_with_atproto_proxy_link(
+            'at://did:plc:eve/app.bsky.feed.post/123')
+
+        self._deliver({
+            'type': 'Announce',
+            'id': 'https://inst/alice/repost',
+            'actor': 'https://inst/alice',
+            'object': 'https://inst/charlie/post',
+            'to': ['https://www.w3.org/ns/activitystreams#Public'],
+        })
+
+        repo = self.storage.load_repo('did:plc:alice')
+        self.assertNotIn('app.bsky.feed.repost', repo.get_contents())
+
+        charlie = ActivityPub.get_by_id('https://inst/charlie', allow_opt_out=True)
+        self.assertEqual([], charlie.copies)
+        self.assertEqual([], Object.get_by_id('https://inst/charlie/post').copies)
+
     @patch.object(util.session, 'post', return_value=BSKY_SEND_MESSAGE_RESP)
     @patch.object(util.session, 'get', side_effect=[
         requests_response(DID_DOC),  # alice DID
@@ -1152,10 +1892,10 @@ class IntegrationTests(TestCase):
             'Authorization': ANY,
         }
         mock_get.assert_any_call(
-            'https://chat.local/xrpc/chat.bsky.convo.getConvoForMembers?members=did%3Aplc%3Aalice',
+            'https://chat.invalid/xrpc/chat.bsky.convo.getConvoForMembers?members=did%3Aplc%3Aalice',
             json=None, data=None, headers=headers)
         mock_post.assert_called_with(
-            'https://chat.local/xrpc/chat.bsky.convo.sendMessage',
+            'https://chat.invalid/xrpc/chat.bsky.convo.sendMessage',
             json={
                 'convoId': 'convo123',
                 'message': {
@@ -1224,6 +1964,60 @@ class IntegrationTests(TestCase):
                 'object': 'https://bsky.brid.gy/ap/did:plc:alice',
                 'to': ['https://www.w3.org/ns/activitystreams#Public'],
             }, json_loads(kwargs['data']))
+
+    @patch.object(util.session, 'post')
+    @patch.object(util.session, 'get', return_value=requests_response(DID_DOC))
+    def test_atproto_account_deleted_deletes_bridged_actors(self, mock_get, mock_post):
+        """Bluesky account is deleted: delete its bridged actors, disable protocols.
+
+        ATProto user alice.com, did:plc:alice (Farcaster fid 123)
+        ActivityPub follower http://x/bob
+        Farcaster follower eve (fid 456)
+        Nostr follower bob@nos.tr (NPUB_URI)
+        """
+        alice = self.make_atproto_user(
+            'did:plc:alice', enabled_protocols=['activitypub', 'nostr'])
+        self.make_farcaster_copy(alice, 123)
+
+        Follower.get_or_create(to=alice, from_=self.make_ap_user('http://x/bob'))
+        Follower.get_or_create(to=alice, from_=self.make_farcaster_user(456, 'eve'))
+        Follower.get_or_create(to=alice, from_=self.make_nostr_user())
+
+        Repo.create(self.storage, 'did:unused', signing_key=ATPROTO_KEY)
+
+        setup_firehose()
+        FakeWebsocketClient.to_receive = [({
+            'op': 1,
+            't': '#account',
+        }, {
+            'seq': 123,
+            'did': 'did:plc:alice',
+            'time': NOW.isoformat(),
+            'active': False,
+            'status': 'deleted',
+        })]
+        atproto_firehose.load_dids()
+        atproto_firehose.subscribe()
+        atproto_firehose.handle(limit=1)
+
+        # ActivityPub
+        self.assertEqual([('http://x/bob/inbox',)],
+                         [args for args, _ in mock_post.call_args_list])
+        self.assert_equals({
+            '@context': 'https://www.w3.org/ns/activitystreams',
+            'type': 'Delete',
+            'id': 'https://bsky.brid.gy/convert/ap/at://did:plc:alice#delete-123',
+            'actor': 'https://bsky.brid.gy/ap/did:plc:alice',
+            'object': 'https://bsky.brid.gy/ap/did:plc:alice',
+            'to': ['https://www.w3.org/ns/activitystreams#Public'],
+        }, json_loads(mock_post.call_args[1]['data']))
+
+        # TODO: check Farcaster and Nostr once they support deleting actors
+
+        alice = alice.key.get()
+        self.assertEqual([], alice.enabled_protocols)
+        self.assertEqual(['inactive'] * 3,
+                         [f.status for f in Follower.query().fetch()])
 
     @patch.object(util.session, 'get', side_effect=[
         # alice profile picture
@@ -1319,7 +2113,7 @@ class IntegrationTests(TestCase):
         }}, repo.get_contents())
 
         # check reply DM was sent
-        message = """<p>OK, you're now blocking <a href="https://bsky.app/profile/did:plc:bob/lists/abc">My stuff</a> on Bluesky.</p>"""
+        message = """<p>OK, you're now blocking <a href="https://bsky.app/profile/did:plc:bob/lists/abc">My stuff</a> on the Atmosphere (Bluesky).</p>"""
         self.assert_ap_deliveries(mock_post, ['https://inst/alice/inbox'],
                                   from_user=bsky_bot, data={
             'type': 'Create',
@@ -1482,7 +2276,7 @@ class IntegrationTests(TestCase):
         reply = mock_post.call_args_list[-1]
         self.assertEqual(('https://inst/alice/inbox',), reply.args)
         self.assertEqual(
-            "<p>OK, we've migrated your bridged Bluesky account to <code>myhandle.new.pds.com</code> on new.pds.com.</p>",
+            "<p>OK, we've migrated your bridged Atmosphere (Bluesky) account to <code>myhandle.new.pds.com</code> on new.pds.com.</p>",
             json_loads(reply.kwargs['data'])['object']['content'])
 
     @patch.object(util.session, 'post')
@@ -1533,8 +2327,9 @@ class IntegrationTests(TestCase):
                     },
                 }],
             }),
-            self.as2_resp(new_actor),  # load dest actor
-            self.as2_resp(new_actor),  # check_can_migrate_out reloads dest actor
+            # resolve dest actor id. the later load and check_can_migrate_out
+            # reload hit the request-local HTTP cache instead of refetching.
+            self.as2_resp(new_actor),
             BSKY_GET_CONVO_RESP,       # reply DM: getConvoForMembers
             requests_response({'cursor': 'cursor-1', 'logs': []}),  # getLog: caught up
         ]
@@ -1564,11 +2359,10 @@ class IntegrationTests(TestCase):
 
         # confirmation reply DM sent to alice over Bluesky chat
         sends = [c for c in mock_post.call_args_list
-                 if c.args == ('https://chat.local/xrpc/chat.bsky.convo.sendMessage',)]
+                 if c.args == ('https://chat.invalid/xrpc/chat.bsky.convo.sendMessage',)]
         self.assertEqual(1, len(sends), mock_post.call_args_list)
         self.assertEqual(
-            "OK, we'll migrate your bridged account on the fediverse to "
-            'alice-new · @alice-new@inst.',
+            "OK, we'll migrate your bridged account on the fediverse to alice-new · @alice-new@inst.",
             sends[0].kwargs['json']['message']['text'])
 
     @patch.object(util.session, 'get', side_effect=[
@@ -1682,6 +2476,10 @@ class IntegrationTests(TestCase):
         ATProto follower bob.com , did:plc:bob
         Web follower bob.com
         """
+        self.make_web_user('bsky.brid.gy')
+        self.make_web_user('web.brid.gy')
+        self.make_web_user('fa.brid.gy')
+        self.make_web_user('other.brid.gy')
         alice = self.make_ap_user('https://inst/alice', 'did:plc:alice')
         new_alice = self.make_ap_user('https://inst2/new-alice')
 
@@ -1715,6 +2513,10 @@ class IntegrationTests(TestCase):
         AP @alice@inst, https://inst/alice (bridged to ATProto did:plc:alice)
         AP @new-alice@inst2, https://inst2/new-alice (not bridged)
         """
+        self.make_web_user('bsky.brid.gy')
+        self.make_web_user('web.brid.gy')
+        self.make_web_user('fa.brid.gy')
+        self.make_web_user('other.brid.gy')
         alice = self.make_ap_user('https://inst/alice', 'did:plc:alice')
         self.assertEqual([Target(uri='did:plc:alice', protocol='atproto')],
                          alice.copies)
@@ -1741,6 +2543,55 @@ class IntegrationTests(TestCase):
                          new_alice.copies)
         self.assertEqual(['atproto'], new_alice.enabled_protocols)
         self.assertIs(False, new_alice.manual_opt_out)
+
+    @patch('webutil.appengine_config.tasks_client.create_task')
+    @patch.object(util.session, 'post')
+    @patch.object(util.session, 'get', side_effect=[
+        requests_response(test_web.ACTOR_HTML_HFEED, url='https://alice.com/'),
+        requests_response(status=404),  # webfinger
+        requests_response(test_web.ACTOR_HTML_HFEED, url='https://alice.com/'),
+        test_web.WEBMENTION_NO_REL_LINK,  # fetch post to look for image
+    ])
+    def test_web_enable_site_with_hfeed(self, mock_get, _, mock_create_task):
+        """Web site with an h-feed on its home page enables the bridge.
+
+        Web user alice.com
+        """
+        common.RUN_TASKS_INLINE = False
+
+        resp = self.post('/web-site', data={
+            'url': 'https://alice.com/',
+            'confirm': 'true',
+        })
+        self.assertEqual(302, resp.status_code)
+        self.assertEqual('/web/alice.com', resp.headers['Location'])
+
+        alice = Web.get_by_id('alice.com')
+        self.assertIsNone(alice.status)
+        self.assertIs(True, alice.obj.mf2['has-h-feed'])
+        self.assertEqual(('https://alice.com/', 'html'), alice.feed_url())
+        self.assert_task(mock_create_task, 'poll-feed', domain='alice.com')
+
+        resp = self.post('/queue/poll-feed', data={'domain': 'alice.com'})
+        self.assertEqual(200, resp.status_code)
+        self.assertIsNone(alice.key.get().feed_last_item)
+
+        self.assert_task(mock_create_task, 'receive', id='https://alice.com/post',
+                         source_protocol='web', authed_as='alice.com',
+                         received_at='2022-01-02T03:04:05+00:00', our_as1={
+            'objectType': 'activity',
+            'verb': 'post',
+            'id': 'https://alice.com/post',
+            'actor': {'id': 'https://alice.com/'},
+            'object':{
+                'objectType': 'note',
+                'id': 'https://alice.com/post',
+                'url': 'https://alice.com/post',
+                'author': {'id': 'https://alice.com/'},
+                'content': 'I hereby ☕ post',
+                'content_is_html': True,
+            },
+        })
 
     @patch.object(util.session, 'get')
     def test_web_delete_of_post_bridged_to_atproto(self, mock_get):
@@ -1855,6 +2706,182 @@ class IntegrationTests(TestCase):
         self.assertEqual('fooey', alice.username())
         self.assertEqual('@fooey@alice.com', alice.handle_as(ActivityPub))
 
+    # TODO: native ATProto user with both Bluesky and Spark profiles => ActivityPub.
+    # the actor should come from the Bluesky profile, and a Spark profile commit
+    # shouldn't clobber it.
+    @patch.object(util.session, 'get', return_value=requests_response(status=404))
+    def test_activitypub_profile_update_to_atproto_bluesky_and_spark(self, _):
+        """ActivityPub user with only a Bluesky profile updates their profile twice.
+
+        The first update creates their Spark profile, the second updates both.
+
+        ActivityPub user https://inst/alice , did:plc:alice
+        """
+        alice = self.make_ap_user('https://inst/alice', did='did:plc:alice')
+        repo = self.storage.load_repo('did:plc:alice')
+        self.storage.commit(repo, arroba.repo.Write(
+            action=arroba.storage.Action.CREATE,
+            collection='app.bsky.actor.profile',
+            rkey='self',
+            record={'$type': 'app.bsky.actor.profile', 'displayName': 'My Name'}))
+
+        profile = {
+            'description': 'New bio\n\n🌉 bridged from ⁂ https://inst/@alice by https://fed.brid.gy/',
+            'bridgyOriginalDescription': 'New bio',
+            'bridgyOriginalUrl': 'https://inst/@alice',
+            'community.lexicon.meta.links': {
+                '$type': 'community.lexicon.meta.links',
+                'links': [{
+                    'href': 'https://inst/alice',
+                    'rel': 'canonical',
+                    'mediaType': 'application/activity+json',
+                }],
+            },
+            'labels': {
+                '$type': 'com.atproto.label.defs#selfLabels',
+                'values': [{'val': 'bridged-from-bridgy-fed-activitypub'}],
+            },
+        }
+
+        link_rkeys = None
+        for name in 'One', 'Two':
+            blog = f'https://{name.lower()}.blog/'
+            body = json_dumps({
+                '@context': 'https://www.w3.org/ns/activitystreams',
+                'type': 'Update',
+                'id': f'https://inst/alice#{name}',
+                'actor': 'https://inst/alice',
+                'object': add_key({
+                    'type': 'Person',
+                    'id': 'https://inst/alice',
+                    'name': name,
+                    'summary': 'New bio',
+                    'icon': {'type': 'Image', 'url': 'http://new-pic'},
+                    'url': 'https://inst/@alice',
+                    'attachment': [{
+                        'type': 'PropertyValue',
+                        'name': f'Blog {name}',
+                        'value': f'<a href="{blog}" target="_blank" rel="nofollow noopener me" translate="no"><span class="invisible">https://</span><span class="">{name.lower()}.blog/</span><span class="invisible"></span></a>',
+                    }],
+                }),
+            })
+            headers = sign('/ap/sharedInbox', body, key_id='https://inst/alice')
+            resp = self.client.post('/ap/sharedInbox', data=body, headers=headers)
+            self.assertEqual(202, resp.status_code)
+
+            # the second update updates the same link records in place
+            contents = self.storage.load_repo('did:plc:alice').get_contents()
+            links = contents['app.bsky.actor.link']
+            if link_rkeys:
+                self.assertEqual(link_rkeys, list(links.keys()))
+            link_rkeys = list(links.keys())
+            self.assertEqual(2, len(link_rkeys))
+
+            link_records = [{
+                '$type': 'app.bsky.actor.link',
+                'url': 'https://inst/@alice',
+                'createdAt': '1970-01-01T00:00:00.000Z',
+            }, {
+                '$type': 'app.bsky.actor.link',
+                'url': blog,
+                'title': f'Blog {name}',
+                'createdAt': '1970-01-01T00:00:00.000Z',
+            }]
+            self.assert_equals({
+                'app.bsky.actor.profile': {'self': {
+                    **profile,
+                    '$type': 'app.bsky.actor.profile',
+                    'displayName': name,
+                    'website': 'https://inst/@alice',
+                    'links': [{
+                        'uri': f'at://did:plc:alice/app.bsky.actor.link/{rkey}',
+                        'cid': arroba.util.dag_cbor_cid(record).encode('base32'),
+                    } for rkey, record in zip(link_rkeys, link_records)],
+                }},
+                'so.sprk.actor.profile': {'self': {
+                    **profile,
+                    '$type': 'so.sprk.actor.profile',
+                    'displayName': name,
+                    'website': 'https://inst/@alice',
+                }},
+                'app.bsky.actor.link': dict(zip(link_rkeys, link_records)),
+            }, contents)
+
+            self.assertEqual([
+                'at://did:plc:alice/app.bsky.actor.profile/self',
+                'at://did:plc:alice/so.sprk.actor.profile/self',
+            ] + [f'at://did:plc:alice/app.bsky.actor.link/{rkey}'
+                 for rkey in link_rkeys],
+                alice.obj_key.get().get_copies(ATProto))
+
+    @patch.object(util.session, 'get', return_value=requests_response("""\
+<html><body class="h-card">
+  <a class="u-url p-name" href="/">Alice Updated</a>
+  <p class="p-summary">New bio</p>
+</body></html>""", url='https://alice.com/'))
+    def test_web_profile_update_to_atproto_bluesky_and_spark(self, _):
+        """Web user with only a Bluesky profile updates their profile via /web-site.
+
+        Web user alice.com , did:plc:alice
+        """
+        alice = self.make_web_user('alice.com', did='did:plc:alice')
+        repo = self.storage.load_repo('did:plc:alice')
+        self.storage.commit(repo, arroba.repo.Write(
+            action=arroba.storage.Action.CREATE,
+            collection='app.bsky.actor.profile',
+            rkey='self',
+            record={'$type': 'app.bsky.actor.profile'}))
+
+        resp = self.client.post('/web/alice.com/update-profile')
+        self.assertEqual(302, resp.status_code)
+
+        profile = {
+            'displayName': 'Alice Updated',
+            'description': 'New bio',
+            'website': 'https://alice.com/',
+            'bridgyOriginalUrl': 'https://alice.com/',
+            'community.lexicon.meta.links': {
+                '$type': 'community.lexicon.meta.links',
+                'links': [{
+                    'href': 'https://alice.com/',
+                    'rel': 'canonical',
+                    'mediaType': 'text/html',
+                }],
+            },
+            'labels': {
+                '$type': 'com.atproto.label.defs#selfLabels',
+                'values': [{'val': 'bridged-from-bridgy-fed-web'}],
+            },
+        }
+        contents = self.storage.load_repo('did:plc:alice').get_contents()
+        [(link_rkey, link)] = contents['app.bsky.actor.link'].items()
+        link_uri = f'at://did:plc:alice/app.bsky.actor.link/{link_rkey}'
+        self.assert_equals({
+            'app.bsky.actor.profile': {'self': {
+                **profile,
+                '$type': 'app.bsky.actor.profile',
+                'links': [{
+                    'uri': link_uri,
+                    'cid': arroba.util.dag_cbor_cid(link).encode('base32'),
+                }],
+            }},
+            'so.sprk.actor.profile': {'self': {
+                **profile,
+                '$type': 'so.sprk.actor.profile',
+            }},
+            'app.bsky.actor.link': {link_rkey: {
+                '$type': 'app.bsky.actor.link',
+                'url': 'https://alice.com/',
+                'createdAt': '1970-01-01T00:00:00.000Z',
+            }},
+        }, contents)
+
+        self.assertEqual([
+            'at://did:plc:alice/app.bsky.actor.profile/self',
+            'at://did:plc:alice/so.sprk.actor.profile/self',
+            link_uri,
+        ], alice.obj_key.get().get_copies(ATProto))
+
     @patch.object(util.session, 'post')
     @patch.object(util.session, 'get')
     def test_atproto_mention_activitypub(self, mock_get, mock_post):
@@ -1894,8 +2921,13 @@ class IntegrationTests(TestCase):
             'object': {
                 'type': 'Note',
                 'id': 'https://bsky.brid.gy/convert/ap/at://did:plc:alice/app.bsky.feed.post/123',
-                'url': 'http://localhost/r/https://bsky.app/profile/did:plc:alice/post/123',
+                'url': ['http://localhost/r/https://bsky.app/profile/did:plc:alice/post/123', {
+                    'type': 'Link',
+                    'rel': 'canonical',
+                    'href': 'at://did:plc:alice/app.bsky.feed.post/123',
+                }],
                 'attributedTo': 'https://bsky.brid.gy/ap/did:plc:alice',
+                'replies': 'https://bsky.brid.gy/ap/replies/YXQ6Ly9kaWQ6cGxjOmFsaWNlL2FwcC5ic2t5LmZlZWQucG9zdC8xMjM=',
                 'content': '<p>maybe if <a class="mention h-card" href="https://inst/bob">@bob@inst</a> and Alf meet up</p>',
                 'published': '2022-01-02T03:04:05.000Z',
                 'tag': [{
@@ -1904,7 +2936,7 @@ class IntegrationTests(TestCase):
                     'href': 'https://inst/bob',
                 }],
             },
-        }, ignore=['@context', 'contentMap', 'to', 'cc'])
+        }, ignore=['@context', 'contentMap', 'to', 'cc', 'interactionPolicy'])
 
     @patch.object(util.session, 'post')
     @patch.object(util.session, 'get')
@@ -2078,7 +3110,7 @@ class IntegrationTests(TestCase):
         self.assertTrue(user.is_enabled(ATProto))
 
         mock_post.assert_called_with(
-            'https://mod.service.local/xrpc/com.atproto.moderation.createReport',
+            'https://mod.service.invalid/xrpc/com.atproto.moderation.createReport',
             json={
                 '$type': 'com.atproto.moderation.createReport#input',
                 'reasonType': 'com.atproto.moderation.defs#reasonOther',
@@ -2112,6 +3144,7 @@ class IntegrationTests(TestCase):
         self.assert_equals({
             'type': 'Note',
             'id': 'https://bsky.brid.gy/convert/ap/at://did:plc:alice/post/123',
+            'replies': 'https://bsky.brid.gy/ap/replies/YXQ6Ly9kaWQ6cGxjOmFsaWNlL3Bvc3QvMTIz',
             'content': '<p>My <a class="hashtag" rel="tag" href="https://bsky.app/search?q=%23original">#original</a> post</p>',
             'contentMap': {
                 'en': '<p>My <a class="hashtag" rel="tag" href="https://bsky.app/search?q=%23original">#original</a> post</p>',
@@ -2121,7 +3154,8 @@ class IntegrationTests(TestCase):
                 'name': '#original',
                 'href': 'https://bsky.app/search?q=%23original',
             }],
-        }, ActivityPub.convert(obj), ignore=['@context', 'attributedTo', 'to'])
+        }, ActivityPub.convert(obj),
+           ignore=['@context', 'attributedTo', 'to', 'interactionPolicy'])
 
     @patch.object(util.session, 'get', side_effect=[
         requests_response({**DID_DOC, 'alsoKnownAs': ['at://b.az']}),
@@ -2189,11 +3223,13 @@ class IntegrationTests(TestCase):
                 'name': '@b.ob@bsky.brid.gy',
                 'href': 'https://bsky.brid.gy/ap/https://bsky.app/profile/did:plc:bob',
             }],
-            'url': [{
+            'url': {
                 'type': 'Link',
                 'rel': 'canonical',
                 'href': 'at://did:plc:alice/post/123',
-            }],
+            },
+            'interactionPolicy': INTERACTION_POLICY,
+            'replies': 'https://bsky.brid.gy/ap/replies/YXQ6Ly9kaWQ6cGxjOmFsaWNlL3Bvc3QvMTIz',
         }
         self.assert_equals(expected, ActivityPub.convert(obj),
                            ignore=['@context', 'to'])
@@ -2202,6 +3238,11 @@ class IntegrationTests(TestCase):
         self.make_atproto_user('did:plc:alice', handle='alice.com')
         self.make_atproto_user('did:plc:bob', handle='b.ob')
         self.make_atproto_user('did:plc:eve', handle='e.ve')
+        self.store_object(id='at://did:plc:bob/app.bsky.feed.post/123',
+                          source_protocol='atproto', bsky={
+            '$type': 'app.bsky.feed.post',
+            'text': 'quoted',
+        })
 
         obj = Object(id='at://did:plc:alice/post/123', source_protocol='atproto',
                      bsky={
@@ -2237,7 +3278,9 @@ class IntegrationTests(TestCase):
             'content': expected_content,
             'contentMap': {'en': expected_content},
             'quoteUrl': 'https://bsky.brid.gy/convert/ap/at://did:plc:bob/app.bsky.feed.post/123',
+            'quote': 'https://bsky.brid.gy/convert/ap/at://did:plc:bob/app.bsky.feed.post/123',
             '_misskey_quote': 'https://bsky.brid.gy/convert/ap/at://did:plc:bob/app.bsky.feed.post/123',
+            'quoteAuthorization': 'https://bsky.brid.gy/ap/did:plc:bob/stamp/quote/aHR0cHM6Ly9ic2t5LmJyaWQuZ3kvY29udmVydC9hcC9hdDovL2RpZDpwbGM6Ym9iL2FwcC5ic2t5LmZlZWQucG9zdC8xMjM=/aHR0cHM6Ly9ic2t5LmJyaWQuZ3kvY29udmVydC9hcC9hdDovL2RpZDpwbGM6YWxpY2UvcG9zdC8xMjM=',
             'tag': [{
                 'type': 'Mention',
                 'name': '@e.ve@bsky.brid.gy',
@@ -2248,11 +3291,13 @@ class IntegrationTests(TestCase):
                 'name': 'RE: https://bsky.app/profile/did:plc:bob/post/123',
                 'mediaType': 'application/ld+json; profile="https://www.w3.org/ns/activitystreams"',
             }],
-            'url': [{
+            'url': {
                 'type': 'Link',
                 'rel': 'canonical',
                 'href': 'at://did:plc:alice/post/123',
-            }],
+            },
+            'interactionPolicy': INTERACTION_POLICY,
+            'replies': 'https://bsky.brid.gy/ap/replies/YXQ6Ly9kaWQ6cGxjOmFsaWNlL3Bvc3QvMTIz',
         }
         self.assert_equals(expected, ActivityPub.convert(obj),
                            ignore=['@context', 'to'])
@@ -2297,7 +3342,13 @@ class IntegrationTests(TestCase):
                 'content': '<p>Hello from Nostr!</p>',
                 'contentMap': {'en': '<p>Hello from Nostr!</p>'},
                 'published': '2022-01-02T03:04:05+00:00',
-                'url': f'http://localhost/r/https://njump.me/{bech32_encode("note", post_event["id"])}',
+                'url': [f'http://localhost/r/https://njump.me/{bech32_encode("note", post_event["id"])}', {
+                    'type': 'Link',
+                    'rel': 'canonical',
+                    'href': f'nostr:{post_event["id"]}',
+                }],
+                'interactionPolicy': INTERACTION_POLICY,
+                'replies': 'https://nostr.brid.gy/ap/replies/bm9zdHI6ZjhmMTk3YjVkZTg0NWVhMDQ4YTFlMDEwODAxYmQxNGQ5YTk0ZmY1ZDkyZWFlMjUwNDhiZDhmMTI1YjRhOTE4Yw==',
             },
             'published': '2022-01-02T03:04:05+00:00',
         }, ignore=['@context', 'to'])
@@ -2335,6 +3386,13 @@ class IntegrationTests(TestCase):
             'text': 'Hello from Nostr!',
             'bridgyOriginalText': 'Hello from Nostr!',
             'bridgyOriginalUrl': f'https://njump.me/{bech32_encode("note", post_event["id"])}',
+            'community.lexicon.meta.links': {
+                '$type': 'community.lexicon.meta.links',
+                'links': [{
+                    'href': f'nostr:{post_event["id"]}',
+                    'rel': 'canonical',
+                }],
+            },
             'createdAt': '2022-01-02T03:04:05.000Z',
         }}}, repo.get_contents())
 
@@ -2403,8 +3461,14 @@ class IntegrationTests(TestCase):
                     'name': '@charl.ie@bsky.brid.gy',
                 }],
                 'published': '2022-01-02T03:04:05+00:00',
-                'url': f'http://localhost/r/https://njump.me/{bech32_encode("note", post_event["id"])}',
+                'url': [f'http://localhost/r/https://njump.me/{bech32_encode("note", post_event["id"])}', {
+                    'type': 'Link',
+                    'rel': 'canonical',
+                    'href': f'nostr:{post_event["id"]}',
+                }],
                 'cc': ['https://inst/alice'],
+                'interactionPolicy': INTERACTION_POLICY,
+                'replies': 'https://nostr.brid.gy/ap/replies/bm9zdHI6MGQxMjAxNGZjNWY4ZWYwODJjOTUzNGIzNzI1MTE3MDI5N2FiNWMyNjY4NTE3OGNjMjZhNGM0ZDQ0YTliMzIwZA==',
             },
             'published': '2022-01-02T03:04:05+00:00',
             'cc': ['https://inst/alice'],
@@ -2419,6 +3483,13 @@ class IntegrationTests(TestCase):
             'text': text,
             'bridgyOriginalText': text,
             'bridgyOriginalUrl': f'https://njump.me/{bech32_encode("note", post_event["id"])}',
+            'community.lexicon.meta.links': {
+                '$type': 'community.lexicon.meta.links',
+                'links': [{
+                    'href': f'nostr:{post_event["id"]}',
+                    'rel': 'canonical',
+                }],
+            },
             'createdAt': '2022-01-02T03:04:05.000Z',
             'facets': [{
                 '$type': 'app.bsky.richtext.facet',
@@ -2581,6 +3652,14 @@ class IntegrationTests(TestCase):
             'createdAt': '2022-01-02T03:04:05.000Z',
             'bridgyOriginalText': 'Hello from ActivityPub!',
             'bridgyOriginalUrl': 'https://inst/post',
+            'community.lexicon.meta.links': {
+                '$type': 'community.lexicon.meta.links',
+                'links': [{
+                    'href': 'https://inst/post',
+                    'rel': 'canonical',
+                    'mediaType': 'application/activity+json',
+                }],
+            },
         }}}, repo.get_contents())
 
         # check that we set Object.copies
@@ -2666,6 +3745,14 @@ class IntegrationTests(TestCase):
             'text': 'hi @alice @bob.com @charlie.nos.tr!',
             'bridgyOriginalText': html_content,
             'bridgyOriginalUrl': 'https://inst/post',
+            'community.lexicon.meta.links': {
+                '$type': 'community.lexicon.meta.links',
+                'links': [{
+                    'href': 'https://inst/post',
+                    'rel': 'canonical',
+                    'mediaType': 'application/activity+json',
+                }],
+            },
             'createdAt': '2022-01-02T03:04:05.000Z',
             'facets': [{
                 '$type': 'app.bsky.richtext.facet',
@@ -2759,6 +3846,163 @@ class IntegrationTests(TestCase):
         ], Object.get_by_id('https://inst/post').copies)
 
     @patch.object(util.session, 'get', return_value=requests_response(
+        'thumb contents', content_type='image/jpeg'))
+    def test_activitypub_post_link_preview_to_atproto(self, mock_get):
+        """ActivityPub post with FEP-8967 Link attachment, delivered to ATProto.
+
+        https://github.com/snarfed/bridgy-fed/issues/2286
+
+        ActivityPub user https://inst/alice
+        """
+        alice = self.make_ap_user('https://inst/alice', did='did:plc:alice',
+                                  enabled_protocols=['atproto'])
+
+        create = {
+            '@context': 'https://www.w3.org/ns/activitystreams',
+            'type': 'Create',
+            'id': 'https://inst/post#create',
+            'actor': 'https://inst/alice',
+            'object': {
+                'type': 'Note',
+                'id': 'https://inst/post',
+                'attributedTo': 'https://inst/alice',
+                'content': 'check this out',
+                'published': '2022-01-02T03:04:05.000Z',
+                'to': [as2.PUBLIC_AUDIENCE],
+                'attachment': {
+                    'type': 'Link',
+                    'href': 'https://example.com/article',
+                    'preview': {
+                        'type': 'Article',
+                        'name': 'An Article',
+                        'summary': 'All about it',
+                        'image': {
+                            'url': {
+                                'href': 'https://example.com/thumb.jpg',
+                                'mediaType': 'image/jpeg',
+                            },
+                        },
+                    },
+                },
+            },
+        }
+        body = json_dumps(create)
+        headers = sign('/ap/sharedInbox', body, key_id='https://inst/alice')
+        resp = self.client.post('/ap/sharedInbox', data=body, headers=headers)
+        self.assertEqual(202, resp.status_code)
+
+        repo = self.storage.load_repo('did:plc:alice')
+        records = repo.get_contents()['app.bsky.feed.post']
+        tid = list(records.keys())[0]
+        self.assert_equals({tid: {
+            '$type': 'app.bsky.feed.post',
+            'text': 'check this out',
+            'createdAt': '2022-01-02T03:04:05.000Z',
+            'embed': {
+                '$type': 'app.bsky.embed.external',
+                'external': {
+                    '$type': 'app.bsky.embed.external#external',
+                    'uri': 'https://example.com/article',
+                    'title': 'An Article',
+                    'description': 'All about it',
+                    'thumb': {
+                        '$type': 'blob',
+                        'ref': CID.decode('bafkreihq3u4bvn2aek2i7f5wnhomwemfa5ia4vyflhmmqptpnks4xipv3e'),
+                        'mimeType': 'image/jpeg',
+                        'size': 14,
+                    },
+                },
+            },
+            'bridgyOriginalText': 'check this out',
+            'bridgyOriginalUrl': 'https://inst/post',
+            'community.lexicon.meta.links': {
+                '$type': 'community.lexicon.meta.links',
+                'links': [{
+                    'href': 'https://inst/post',
+                    'rel': 'canonical',
+                    'mediaType': 'application/activity+json',
+                }],
+            },
+        }}, records)
+
+    @patch.object(util.session, 'get', side_effect=[
+        requests_response(test_atproto.METAFORMATS_HTML, url='http://orig.co/post'),
+        requests_response('blob contents', content_type='image/png'),
+    ])
+    def test_activitypub_post_bare_link_attachment_to_atproto(self, mock_get):
+        """ActivityPub post with bare FEP-8967 Link attachment, eg from Mastodon.
+
+        We should fetch the link preview for the attached link, not the first
+        link in content.
+
+        https://github.com/snarfed/bridgy-fed/issues/2286
+
+        ActivityPub user https://inst/alice
+        """
+        alice = self.make_ap_user('https://inst/alice', did='did:plc:alice',
+                                  enabled_protocols=['atproto'])
+
+        content = 'see <a href="http://other/link">this</a> and <a href="http://orig.co/post">that</a>'
+        create = {
+            '@context': 'https://www.w3.org/ns/activitystreams',
+            'type': 'Create',
+            'id': 'https://inst/post#create',
+            'actor': 'https://inst/alice',
+            'object': {
+                'type': 'Note',
+                'id': 'https://inst/post',
+                'attributedTo': 'https://inst/alice',
+                'content': content,
+                'published': '2022-01-02T03:04:05.000Z',
+                'to': [as2.PUBLIC_AUDIENCE],
+                'attachment': {
+                    'type': 'Link',
+                    'href': 'http://orig.co/post',
+                },
+            },
+        }
+        body = json_dumps(create)
+        headers = sign('/ap/sharedInbox', body, key_id='https://inst/alice')
+        resp = self.client.post('/ap/sharedInbox', data=body, headers=headers)
+        self.assertEqual(202, resp.status_code)
+
+        self.assert_req(mock_get, 'http://orig.co/post')
+
+        repo = self.storage.load_repo('did:plc:alice')
+        records = repo.get_contents()['app.bsky.feed.post']
+        tid = list(records.keys())[0]
+        self.assert_equals({tid: {
+            '$type': 'app.bsky.feed.post',
+            'text': 'see this and that',
+            'createdAt': '2022-01-02T03:04:05.000Z',
+            'embed': {
+                '$type': 'app.bsky.embed.external',
+                'external': {
+                    '$type': 'app.bsky.embed.external#external',
+                    'uri': 'http://orig.co/post',
+                    'title': 'Titull',
+                    'description': 'Descrypshun',
+                    'thumb': {
+                        '$type': 'blob',
+                        'ref': test_atproto.BLOB_CID,
+                        'mimeType': 'image/png',
+                        'size': 13,
+                    },
+                },
+            },
+            'bridgyOriginalText': content,
+            'bridgyOriginalUrl': 'https://inst/post',
+            'community.lexicon.meta.links': {
+                '$type': 'community.lexicon.meta.links',
+                'links': [{
+                    'href': 'https://inst/post',
+                    'rel': 'canonical',
+                    'mediaType': 'application/activity+json',
+                }],
+            },
+        }}, records, ignore=['facets'])
+
+    @patch.object(util.session, 'get', return_value=requests_response(
         'cover image contents', content_type='image/jpeg'))
     def test_activitypub_create_article_to_atproto(self, mock_get):
         """ActivityPub user creates article, delivered to ATProto.
@@ -2795,29 +4039,38 @@ class IntegrationTests(TestCase):
         contents = repo.get_contents()
         post_tid = list(contents['app.bsky.feed.post'].keys())[0]
         doc_tid = list(contents['site.standard.document'].keys())[0]
-        self.assert_equals({
-            'app.bsky.feed.post': {post_tid: {
-                '$type': 'app.bsky.feed.post',
-                'text': 'This is a summary of the article',
-                'createdAt': '2022-01-02T03:04:05.000Z',
-                'embed': {
-                    '$type': 'app.bsky.embed.external',
-                    'external': {
-                        '$type': 'app.bsky.embed.external#external',
-                        'uri': 'https://inst/article',
-                        'title': 'My Great Article',
-                        'description': 'This is the full content of the article with much more detail.',
-                        'thumb': {
-                            '$type': 'blob',
-                            'ref': CID.decode('bafkreienspp4shecijw6syyhcabwei4bquias7zx6hlldbr5ckz55r2evq'),
-                            'mimeType': 'image/jpeg',
-                            'size': 20,
-                        },
+        post = {
+            '$type': 'app.bsky.feed.post',
+            'text': 'This is a summary of the article',
+            'createdAt': '2022-01-02T03:04:05.000Z',
+            'embed': {
+                '$type': 'app.bsky.embed.external',
+                'external': {
+                    '$type': 'app.bsky.embed.external#external',
+                    'uri': 'https://inst/article',
+                    'title': 'My Great Article',
+                    'description': 'This is the full content of the article with much more detail.',
+                    'thumb': {
+                        '$type': 'blob',
+                        'ref': CID.decode('bafkreienspp4shecijw6syyhcabwei4bquias7zx6hlldbr5ckz55r2evq'),
+                        'mimeType': 'image/jpeg',
+                        'size': 20,
                     },
                 },
-                'bridgyOriginalText': 'This is the full content of the article with much more detail.',
-                'bridgyOriginalUrl': 'https://inst/article',
-            }},
+            },
+            'bridgyOriginalText': 'This is the full content of the article with much more detail.',
+            'bridgyOriginalUrl': 'https://inst/article',
+            'community.lexicon.meta.links': {
+                '$type': 'community.lexicon.meta.links',
+                'links': [{
+                    'href': 'https://inst/article',
+                    'rel': 'canonical',
+                    'mediaType': 'application/activity+json',
+                }],
+            },
+        }
+        self.assert_equals({
+            'app.bsky.feed.post': {post_tid: post},
             'site.standard.document': {doc_tid: {
                 '$type': 'site.standard.document',
                 'site': 'https://inst',
@@ -2831,9 +4084,17 @@ class IntegrationTests(TestCase):
                     'mimeType': 'image/jpeg',
                     'size': 20,
                 },
+                'community.lexicon.meta.links': {
+                    '$type': 'community.lexicon.meta.links',
+                    'links': [{
+                        'href': 'https://inst/article',
+                        'rel': 'canonical',
+                        'mediaType': 'application/activity+json',
+                    }],
+                },
                 'bskyPostRef': {
                     'uri': f'at://did:plc:alice/app.bsky.feed.post/{post_tid}',
-                    'cid': 'bafyreidgrqtmgovqopahpaj3fpcrqohyiwvgl5w4borco6qbg55w4ihq5m',
+                    'cid': arroba.util.dag_cbor_cid(post).encode('base32'),
                 },
                 'publishedAt': '2022-01-02T03:04:05.000Z',
                 'updatedAt': '2022-01-03T04:05:06.000Z',
@@ -2847,6 +4108,318 @@ class IntegrationTests(TestCase):
             Target(protocol='atproto', uri=expected_post_uri),
             Target(protocol='atproto', uri=expected_doc_uri),
         ], Object.get_by_id('https://inst/article').copies)
+
+    @patch.object(util.session, 'get', return_value=requests_response(
+        'image contents', content_type='image/jpeg'))
+    def test_activitypub_create_post_with_image_to_atproto_bluesky_and_spark(self, _):
+        """ActivityPub user creates post with image, delivered to ATProto.
+
+        ActivityPub user https://inst/alice , did:plc:alice
+        """
+        alice = self.make_ap_user('https://inst/alice', did='did:plc:alice',
+                                  enabled_protocols=['atproto'])
+
+        body = json_dumps({
+            '@context': 'https://www.w3.org/ns/activitystreams',
+            'type': 'Create',
+            'id': 'https://inst/post#create',
+            'actor': 'https://inst/alice',
+            'object': {
+                'type': 'Note',
+                'id': 'https://inst/post',
+                'attributedTo': 'https://inst/alice',
+                'content': 'My post',
+                'published': '2022-01-02T03:04:05.000Z',
+                'attachment': [{
+                    'type': 'Image',
+                    'url': 'https://inst/pic.jpg',
+                    'name': 'my alt text',
+                }],
+            },
+        })
+        headers = sign('/ap/sharedInbox', body, key_id='https://inst/alice')
+        resp = self.client.post('/ap/sharedInbox', data=body, headers=headers)
+        self.assertEqual(202, resp.status_code)
+
+        contents = self.storage.load_repo('did:plc:alice').get_contents()
+        bsky_tid = list(contents['app.bsky.feed.post'].keys())[0]
+        spark_tid = list(contents['so.sprk.feed.post'].keys())[0]
+        blob = {
+            '$type': 'blob',
+            'ref': CID.decode('bafkreiewmu2zbbhkvp3qjevgxvjyqcvymmiy7jsmitxz4frd57g2n2a47u'),
+            'mimeType': 'image/jpeg',
+            'size': 14,
+        }
+        self.assertEqual({
+            'app.bsky.feed.post': {bsky_tid: {
+                '$type': 'app.bsky.feed.post',
+                'text': 'My post',
+                'createdAt': '2022-01-02T03:04:05.000Z',
+                'embed': {
+                    '$type': 'app.bsky.embed.images',
+                    'images': [{
+                        '$type': 'app.bsky.embed.images#image',
+                        'image': blob,
+                        'alt': 'my alt text',
+                    }],
+                },
+                'bridgyOriginalText': 'My post',
+                'bridgyOriginalUrl': 'https://inst/post',
+                'community.lexicon.meta.links': {
+                    '$type': 'community.lexicon.meta.links',
+                    'links': [{
+                        'href': 'https://inst/post',
+                        'rel': 'canonical',
+                        'mediaType': 'application/activity+json',
+                    }],
+                },
+            }},
+            'so.sprk.feed.post': {spark_tid: {
+                '$type': 'so.sprk.feed.post',
+                'caption': {'text': 'My post'},
+                'createdAt': '2022-01-02T03:04:05.000Z',
+                'media': {
+                    '$type': 'so.sprk.media.images',
+                    'images': [{
+                        'image': blob,
+                        'alt': 'my alt text',
+                    }],
+                },
+                'bridgyOriginalText': 'My post',
+                'bridgyOriginalUrl': 'https://inst/post',
+                'community.lexicon.meta.links': {
+                    '$type': 'community.lexicon.meta.links',
+                    'links': [{
+                        'href': 'https://inst/post',
+                        'rel': 'canonical',
+                        'mediaType': 'application/activity+json',
+                    }],
+                },
+            }},
+        }, contents)
+
+        self.assert_equals([
+            Target(protocol='atproto',
+                   uri=f'at://did:plc:alice/app.bsky.feed.post/{bsky_tid}'),
+            Target(protocol='atproto',
+                   uri=f'at://did:plc:alice/so.sprk.feed.post/{spark_tid}'),
+        ], Object.get_by_id('https://inst/post').copies)
+
+    @patch.object(util.session, 'get', side_effect=[
+        requests_response("""\
+<html>
+<body class="h-entry">
+<a class="u-url" href="https://alice.com/post"></a>
+<time class="dt-published" datetime="2022-01-02T03:04:05+00:00"></time>
+<div class="e-content">My post</div>
+<video class="u-video" src="https://alice.com/vid.mp4"></video>
+<a class="u-author h-card" href="https://alice.com/">Alice</a>
+<a href="http://localhost/"></a>
+</body>
+</html>
+"""),
+        requests_response('video contents', content_type='video/mp4'),
+    ])
+    def test_web_post_with_video_to_atproto_bluesky_and_spark(self, _):
+        """Web user creates post with video, delivered to ATProto.
+
+        Web user alice.com , did:plc:alice
+        """
+        alice = self.make_web_user('alice.com', did='did:plc:alice')
+
+        resp = self.post('/queue/webmention', data={
+            'source': 'https://alice.com/post',
+            'target': 'http://localhost/',
+        })
+        self.assertEqual(202, resp.status_code)
+
+        contents = self.storage.load_repo('did:plc:alice').get_contents()
+        bsky_tid = list(contents['app.bsky.feed.post'].keys())[0]
+        spark_tid = list(contents['so.sprk.feed.post'].keys())[0]
+        video = {
+            'video': {
+                '$type': 'blob',
+                'ref': CID.decode('bafkreihlbhhpabcpjwmr7v2xcvet27fqd7pg3s2ys35d436attrfutuedi'),
+                'mimeType': 'video/mp4',
+                'size': 14,
+            },
+            'alt': '',
+        }
+        self.assertEqual({
+            'app.bsky.feed.post': {bsky_tid: {
+                '$type': 'app.bsky.feed.post',
+                'text': 'My post',
+                'createdAt': '2022-01-02T03:04:05.000Z',
+                'embed': {**video, '$type': 'app.bsky.embed.video'},
+                'bridgyOriginalText': 'My post',
+                'bridgyOriginalUrl': 'https://alice.com/post',
+                'community.lexicon.meta.links': {
+                    '$type': 'community.lexicon.meta.links',
+                    'links': [{
+                        'href': 'https://alice.com/post',
+                        'rel': 'canonical',
+                        'mediaType': 'text/html',
+                    }],
+                },
+            }},
+            'so.sprk.feed.post': {spark_tid: {
+                '$type': 'so.sprk.feed.post',
+                'caption': {'text': 'My post'},
+                'createdAt': '2022-01-02T03:04:05.000Z',
+                'media': {**video, '$type': 'so.sprk.media.video'},
+                'bridgyOriginalText': 'My post',
+                'bridgyOriginalUrl': 'https://alice.com/post',
+                'community.lexicon.meta.links': {
+                    '$type': 'community.lexicon.meta.links',
+                    'links': [{
+                        'href': 'https://alice.com/post',
+                        'rel': 'canonical',
+                        'mediaType': 'text/html',
+                    }],
+                },
+            }},
+        }, contents)
+
+        self.assert_equals([
+            Target(protocol='atproto',
+                   uri=f'at://did:plc:alice/app.bsky.feed.post/{bsky_tid}'),
+            Target(protocol='atproto',
+                   uri=f'at://did:plc:alice/so.sprk.feed.post/{spark_tid}'),
+        ], Object.get_by_id('https://alice.com/post').copies)
+
+    @patch.object(util.session, 'get', return_value=requests_response(
+        'image contents', content_type='image/jpeg'))
+    def test_activitypub_update_post_with_image_to_atproto_bluesky_and_spark(self, _):
+        """ActivityPub user creates and then updates post with image.
+
+        ActivityPub user https://inst/alice , did:plc:alice
+        """
+        alice = self.make_ap_user('https://inst/alice', did='did:plc:alice',
+                                  enabled_protocols=['atproto'])
+
+        note = {
+            'type': 'Note',
+            'id': 'https://inst/post',
+            'attributedTo': 'https://inst/alice',
+            'content': 'My post',
+            'published': '2022-01-02T03:04:05.000Z',
+            'attachment': [{
+                'type': 'Image',
+                'url': 'https://inst/pic.jpg',
+                'name': 'my alt text',
+            }],
+        }
+        for type, obj in (
+                ('Create', note),
+                ('Update', {
+                    **note,
+                    'content': 'My updated post',
+                    'updated': '2022-01-03T04:05:06.000Z',
+                }),
+        ):
+            body = json_dumps({
+                '@context': 'https://www.w3.org/ns/activitystreams',
+                'type': type,
+                'id': f'https://inst/post#{type}',
+                'actor': 'https://inst/alice',
+                'object': obj,
+            })
+            headers = sign('/ap/sharedInbox', body, key_id='https://inst/alice')
+            resp = self.client.post('/ap/sharedInbox', data=body, headers=headers)
+            self.assertEqual(202, resp.status_code)
+
+        copies = Object.get_by_id('https://inst/post').get_copies(ATProto)
+        self.assertEqual(['app.bsky.feed.post', 'so.sprk.feed.post'],
+                         [arroba.util.parse_at_uri(copy)[1] for copy in copies])
+        bsky_tid, spark_tid = [
+            arroba.util.parse_at_uri(copy)[2] for copy in copies]
+
+        blob = {
+            '$type': 'blob',
+            'ref': CID.decode('bafkreiewmu2zbbhkvp3qjevgxvjyqcvymmiy7jsmitxz4frd57g2n2a47u'),
+            'mimeType': 'image/jpeg',
+            'size': 14,
+        }
+        self.assertEqual({
+            'app.bsky.feed.post': {bsky_tid: {
+                '$type': 'app.bsky.feed.post',
+                'text': 'My updated post',
+                'createdAt': '2022-01-02T03:04:05.000Z',
+                'embed': {
+                    '$type': 'app.bsky.embed.images',
+                    'images': [{
+                        '$type': 'app.bsky.embed.images#image',
+                        'image': blob,
+                        'alt': 'my alt text',
+                    }],
+                },
+                'bridgyOriginalText': 'My updated post',
+                'bridgyOriginalUrl': 'https://inst/post',
+                'community.lexicon.meta.links': {
+                    '$type': 'community.lexicon.meta.links',
+                    'links': [{
+                        'href': 'https://inst/post',
+                        'rel': 'canonical',
+                        'mediaType': 'application/activity+json',
+                    }],
+                },
+            }},
+            'so.sprk.feed.post': {spark_tid: {
+                '$type': 'so.sprk.feed.post',
+                'caption': {'text': 'My updated post'},
+                'createdAt': '2022-01-02T03:04:05.000Z',
+                'media': {
+                    '$type': 'so.sprk.media.images',
+                    'images': [{
+                        'image': blob,
+                        'alt': 'my alt text',
+                    }],
+                },
+                'bridgyOriginalText': 'My updated post',
+                'bridgyOriginalUrl': 'https://inst/post',
+                'community.lexicon.meta.links': {
+                    '$type': 'community.lexicon.meta.links',
+                    'links': [{
+                        'href': 'https://inst/post',
+                        'rel': 'canonical',
+                        'mediaType': 'application/activity+json',
+                    }],
+                },
+            }},
+        }, self.storage.load_repo('did:plc:alice').get_contents())
+
+    @patch.object(util.session, 'get', side_effect=[
+        requests_response("""\
+<html>
+<body class="h-entry">
+<a class="u-url" href="https://alice.com/post"></a>
+<div class="e-content">My post</div>
+<video class="u-video" src="https://alice.com/vid.mp4"></video>
+<a class="u-author h-card" href="https://alice.com/">Alice</a>
+<a href="http://localhost/"></a>
+</body>
+</html>
+"""),
+        requests_response('video contents', content_type='video/mp4'),
+        requests_response('', status=410),
+    ])
+    def test_web_delete_post_with_video_from_atproto_bluesky_and_spark(self, _):
+        """Web user creates and then deletes (410) post with video.
+
+        Web user alice.com , did:plc:alice
+        """
+        alice = self.make_web_user('alice.com', did='did:plc:alice')
+
+        for expected in ['app.bsky.feed.post', 'so.sprk.feed.post'], []:
+            resp = self.post('/queue/webmention', data={
+                'source': 'https://alice.com/post',
+                'target': 'http://localhost/',
+            })
+            self.assertEqual(202, resp.status_code)
+
+            contents = self.storage.load_repo('did:plc:alice').get_contents()
+            self.assertEqual(expected, [type for type, records in contents.items()
+                                        if records])
 
     def test_activitypub_delete_post_to_nostr(self):
         """ActivityPub user deletes already-bridged post, delivered to Nostr follower.
@@ -2962,7 +4535,8 @@ class IntegrationTests(TestCase):
 
         resp = self.post('/queue/webmention', data={
             'source': 'https://bsky.brid.gy/internal/snarfed.org/post',
-        }, headers={'Authorization': common.config.SECRET_KEY})
+            'internal': 'true',
+        })
         self.assertEqual(202, resp.status_code)
 
         self.assert_ap_deliveries(mock_post, ['https://inst/alice/inbox'],
@@ -2974,12 +4548,14 @@ class IntegrationTests(TestCase):
             'object': {
                 'type': 'Note',
                 'id': 'https://bsky.brid.gy/internal/snarfed.org/post',
+                'replies': 'https://bsky.brid.gy/ap/replies/aHR0cHM6Ly9ic2t5LmJyaWQuZ3kvaW50ZXJuYWwvc25hcmZlZC5vcmcvcG9zdA==',
                 'url': 'https://bsky.brid.gy/internal/snarfed.org/post',
                 'attributedTo': 'https://bsky.brid.gy/bsky.brid.gy',
                 'name': 'Hello from my blog!',
                 'content': '<p>Hello from my blog!</p>',
                 'contentMap': {'en': '<p>Hello from my blog!</p>'},
                 'to': ['https://www.w3.org/ns/activitystreams#Public'],
+                'interactionPolicy': INTERACTION_POLICY,
             },
             'to': ['https://www.w3.org/ns/activitystreams#Public'],
         }, ignore=['@context'])
@@ -3108,7 +4684,7 @@ class IntegrationTests(TestCase):
             'kind': KIND_PROFILE,
             'pubkey': bsky_bot.hex_pubkey(),
             'content': json_dumps({
-                'name': 'Bluesky',
+                'name': 'Bluesky    ',
                 'nip05': '_@bsky.brid.gy',
             }),
             'created_at': NOW_SECONDS,
@@ -3247,7 +4823,7 @@ class IntegrationTests(TestCase):
             'actor': f'https://nostr.brid.gy/ap/{bob.key.id()}',
             'object': 'https://inst/alice',
             'published': NOW.isoformat(),
-            'url': [{'type': 'Link', 'rel': 'canonical', 'href': follow_id}],
+            'url': {'type': 'Link', 'rel': 'canonical', 'href': follow_id},
         }, ignore=['@context', 'to'])
 
     # TODO: https://github.com/snarfed/bridgy-fed/issues/2203
@@ -3364,10 +4940,16 @@ class IntegrationTests(TestCase):
                 'content': '<p>Replying to Alice!</p>',
                 'contentMap': {'en': '<p>Replying to Alice!</p>'},
                 'inReplyTo': 'https://inst/post',
-                'url': f'http://localhost/r/https://njump.me/{bech32_encode("note", reply["id"])}',
+                'url': [f'http://localhost/r/https://njump.me/{bech32_encode("note", reply["id"])}', {
+                    'type': 'Link',
+                    'rel': 'canonical',
+                    'href': f'nostr:{reply["id"]}',
+                }],
                 'tag': [{'type': 'Mention', 'href': 'https://inst/alice'}],
                 'published': '2022-01-02T03:04:05+00:00',
                 'cc': ['https://inst/alice'],
+                'interactionPolicy': INTERACTION_POLICY,
+                'replies': 'https://nostr.brid.gy/ap/replies/bm9zdHI6ZWE4MjhmZjE4ODI1ZTRiM2U3ZGI4YjVmYWRjZWJjZGVjOTliYWQ5OTA3ZDNlYjE2OTAxN2FiYzY3NDhhNjRjYQ==',
             },
         }, ignore=['@context', 'to'])
 
@@ -3566,7 +5148,8 @@ class IntegrationTests(TestCase):
                     'cid': 'bafyreih25jnzwc5izsjs4h5djjbw6k66vy3xerjksl34nmmrdg4ziq4v4m',
                 },
             },
-        }}}, repo.get_contents(), ignore=['bridgyOriginalText', 'bridgyOriginalUrl'])
+        }}}, repo.get_contents(), ignore=['bridgyOriginalText', 'bridgyOriginalUrl',
+                                          'community.lexicon.meta.links'])
 
     def test_atproto_reply_to_nostr(self):
         """ATProto reply to Nostr user's post.
@@ -3669,7 +5252,11 @@ class IntegrationTests(TestCase):
                 'name': 'Bob Updated',
                 'preferredUsername': 'bob.new.example.com',
                 'summary': f'New bio<br><br>🌉 <a href="https://fed.brid.gy/nostr/bob@new.example.com">bridged</a> from 𓅦 <a href="https://njump.me/{NPUB}">bob@new.example.com</a> by <a href="https://fed.brid.gy/">Bridgy Fed</a>',
-                'url': 'http://localhost/r/https://njump.me/bob@new.example.com',
+                'url': ['http://localhost/r/https://njump.me/bob@new.example.com', {
+                    'type': 'Link',
+                    'rel': 'canonical',
+                    'href': NPUB_URI,
+                }],
                 'attachment': [{
                     'name': 'Link',
                     'type': 'PropertyValue',
@@ -3860,7 +5447,8 @@ class IntegrationTests(TestCase):
         """
         alice = self.make_ap_user('https://inst.com/alice', did='did:plc:alice',
                                   enabled_protocols=['atproto'])
-        self.make_atproto_user('did:plc:bob', handle='bob.com')
+        self.make_atproto_user('did:plc:bob', handle='bob.com',
+                               enabled_protocols=[])
 
         self.store_object(
             id='at://did:plc:bob/app.bsky.feed.post/123',
@@ -3897,7 +5485,73 @@ class IntegrationTests(TestCase):
                     'cid': 'bafyreie5cvv4h5typfvqef2wf7nwytgdaaimzbk2cl7pza7lkxmjbmhmk4',
                 },
             },
-        }, record, ignore=['bridgyOriginalText', 'bridgyOriginalUrl', 'createdAt'])
+        }, record, ignore=['bridgyOriginalText', 'bridgyOriginalUrl',
+                           'community.lexicon.meta.links', 'createdAt'])
+
+    @patch('webutil.util.now', return_value=datetime.now(timezone.utc))
+    @patch.object(util.session, 'post')
+    def test_atproto_reply_to_respond_reply_notifies(self, mock_post, mock_now):
+        """Unbridged ATProto user replies to a reply an AP user made in our web UI.
+
+        ActivityPub user alice@inst.com (did:plc:alice), bridged to ATProto
+        ATProto user did:plc:bob, not bridged
+        Bob's post is at://did:plc:bob/app.bsky.feed.post/123
+
+        https://github.com/snarfed/bridgy-fed/issues/2481
+        """
+        self.make_web_user('bsky.brid.gy')
+        alice = self.make_ap_user('https://inst.com/alice', did='did:plc:alice',
+                                  enabled_protocols=['atproto'])
+        self.make_atproto_user('did:plc:bob', handle='bob.com',
+                               enabled_protocols=[])
+
+        self.store_object(
+            id='at://did:plc:bob/app.bsky.feed.post/123',
+            source_protocol='atproto',
+            bsky={
+                **POST_BSKY,
+                'uri': 'at://did:plc:bob/app.bsky.feed.post/123',
+                'cid': 'bafyreie5cvv4h5typfvqef2wf7nwytgdaaimzbk2cl7pza7lkxmjbmhmk4',
+            })
+
+        # alice replies via respond/reply endpoint
+        resp = self.client.post('/ap/@alice@inst.com/respond/reply', data={
+            'obj_id': 'at://did:plc:bob/app.bsky.feed.post/123',
+            'content': 'ok then',
+            'token': common.make_jwt(user=alice, scope='respond',
+                                     obj_id='at://did:plc:bob/app.bsky.feed.post/123'),
+        })
+        self.assertEqual(200, resp.status_code)
+
+        repo = self.storage.load_repo('did:plc:alice')
+        rkey = list(repo.get_contents()['app.bsky.feed.post'].keys())[0]
+
+        # bob replies to alice's reply
+        self.firehose(repo='did:plc:bob', action='create', seq=456,
+                      path='app.bsky.feed.post/456', record={
+                          '$type': 'app.bsky.feed.post',
+                          'text': 'and you',
+                          'createdAt': mock_now.return_value.isoformat(),
+                          'reply': {
+                              '$type': 'app.bsky.feed.post#replyRef',
+                              'parent': {
+                                  'uri': f'at://did:plc:alice/app.bsky.feed.post/{rkey}',
+                                  'cid': A_CID.encode(),
+                              },
+                              'root': {
+                                  'uri': f'at://did:plc:alice/app.bsky.feed.post/{rkey}',
+                                  'cid': A_CID.encode(),
+                              },
+                          },
+                      })
+
+        # alice gets a DM notification about bob's reply
+        self.assertEqual(1, len(mock_post.call_args_list), mock_post.call_args_list)
+        args, kwargs = mock_post.call_args_list[0]
+        self.assertEqual('https://inst.com/alice/inbox', args[0])
+        self.assertIn(
+            '<a href="https://bsky.app/profile/did:plc:bob/post/456">and you</a>',
+            json_loads(kwargs['data'])['object']['content'])
 
     @patch('webutil.util.now', return_value=datetime.now())
     @patch.object(util.session, 'post')
@@ -3934,6 +5588,7 @@ class IntegrationTests(TestCase):
             'id': f'https://bsky.brid.gy/convert/ap/ui:repost-did:plc:bob-http://inst.com/post-{mock_now.return_value.isoformat()}',
             'actor': 'https://bsky.brid.gy/ap/did:plc:bob',
             'object': 'http://inst.com/post',
+            'cc': ['https://inst.com/alice'],
         }, ignore=['@context', 'to', 'url'])
 
     @patch.object(util.session, 'post')
@@ -3967,10 +5622,16 @@ cast_add_body { text: "Hello from Farcaster!" }
             'object': {
                 'type': 'Note',
                 'id': f'https://fc.brid.gy/convert/ap/{post_id}',
+                'replies': 'https://fc.brid.gy/ap/replies/ZmFyY2FzdGVyOi8vMTIzLzB4N2RjZGVjOGJjOTEwNmRkMjdkNmM4M2M3ZGZkYzkzNDQxNWYyMmQ2Nw==',
                 'attributedTo': 'https://fc.brid.gy/ap/farcaster:123',
                 'content': '<p>Hello from Farcaster!</p>',
                 'published': '2022-01-02T03:04:05+00:00',
-                'url': f'http://localhost/r/https://farcaster.xyz/~/conversations/0x{post_msg.hash.hex()}',
+                'url': [f'http://localhost/r/https://farcaster.xyz/~/conversations/0x{post_msg.hash.hex()}', {
+                    'type': 'Link',
+                    'rel': 'canonical',
+                    'href': f'farcaster://123/0x{post_msg.hash.hex()}',
+                }],
+                'interactionPolicy': INTERACTION_POLICY,
             },
             'published': '2022-01-02T03:04:05+00:00',
         }, ignore=['@context', 'to', 'contentMap'])
@@ -4006,6 +5667,13 @@ cast_add_body { text: "Hello from Farcaster!" }
             'text': 'Hello from Farcaster!',
             'bridgyOriginalText': 'Hello from Farcaster!',
             'bridgyOriginalUrl': f'https://farcaster.xyz/~/conversations/0x{post_msg.hash.hex()}',
+            'community.lexicon.meta.links': {
+                '$type': 'community.lexicon.meta.links',
+                'links': [{
+                    'href': f'farcaster://123/0x{post_msg.hash.hex()}',
+                    'rel': 'canonical',
+                }],
+            },
             'createdAt': '2022-01-02T03:04:05.000Z',
         }}}, repo.get_contents())
 
@@ -4036,6 +5704,10 @@ cast_add_body {
   mentions_positions: 9
 }
 """, fid=123)
+        self.mock_fc_stub.return_value.GetUserDataByFid.side_effect = \
+            lambda req: MessagesResponse(messages=[
+                user_data_message(req.fid, 'USER_DATA_TYPE_USERNAME',
+                                  {456: 'alice', 789: 'charlie'}[req.fid])])
         self.mock_fc_stub.return_value.Subscribe.return_value = [
             self.fc_merge_event(post_msg),
         ]
@@ -4050,19 +5722,25 @@ cast_add_body {
             'object': {
                 'type': 'Note',
                 'id': f'https://fc.brid.gy/convert/ap/{post_id}',
+                'replies': 'https://fc.brid.gy/ap/replies/ZmFyY2FzdGVyOi8vMTIzLzB4N2ZmZDkxZWQyMDU4NmQwYWYzZDk0NTY5ZjI3M2Q2MTdiOWUyODA2Zg==',
                 'attributedTo': 'https://fc.brid.gy/ap/farcaster:123',
-                'content': '<p>Hi  and !</p>',
+                'content': '<p>Hi <a class="mention h-card" href="https://inst/alice">@alice@inst</a> and !<a class="mention h-card" href="https://bsky.brid.gy/ap/did:plc:charlie">@charl.ie@bsky.brid.gy</a></p>',
                 'tag': [{
                     'type': 'Mention',
                     'href': 'https://inst/alice',
-                    'startIndex': 3,
+                    'name': '@alice@inst',
                 }, {
                     'type': 'Mention',
                     'href': 'https://bsky.brid.gy/ap/did:plc:charlie',
-                    'startIndex': 9,
+                    'name': '@charl.ie@bsky.brid.gy',
                 }],
                 'published': '2022-01-02T03:04:05+00:00',
-                'url': f'http://localhost/r/https://farcaster.xyz/~/conversations/0x{post_msg.hash.hex()}',
+                'url': [f'http://localhost/r/https://farcaster.xyz/~/conversations/0x{post_msg.hash.hex()}', {
+                    'type': 'Link',
+                    'rel': 'canonical',
+                    'href': f'farcaster://123/0x{post_msg.hash.hex()}',
+                }],
+                'interactionPolicy': INTERACTION_POLICY,
             },
             'published': '2022-01-02T03:04:05+00:00',
         }, ignore=['@context', 'to', 'cc', 'contentMap'])
@@ -4159,7 +5837,7 @@ link_body { type: "follow" target_fid: 456 }
             'id': f'https://fc.brid.gy/convert/ap/{follow_id}',
             'actor': 'https://fc.brid.gy/ap/farcaster:123',
             'object': 'https://inst/alice',
-            'url': [{'type': 'Link', 'rel': 'canonical', 'href': follow_id}],
+            'url': {'type': 'Link', 'rel': 'canonical', 'href': follow_id},
         }, ignore=['@context', 'to', 'published'])
 
     @patch.object(util.session, 'post')
@@ -4210,11 +5888,13 @@ cast_add_body {{
             'object': {
                 'type': 'Note',
                 'id': f'https://fc.brid.gy/convert/ap/{reply_id}',
+                'replies': 'https://fc.brid.gy/ap/replies/ZmFyY2FzdGVyOi8vMTIzLzB4OWY5N2VkODAxNTU2MWQ4MTNiM2I1MDJjYWEwZjY5N2JjMWFlNzE5Mw==',
                 'attributedTo': 'https://fc.brid.gy/ap/farcaster:123',
                 'content': '<p>Replying to Alice!</p>',
                 'inReplyTo': 'https://inst/post',
                 'tag': [{'type': 'Mention', 'href': 'https://inst/alice'}],
                 'published': '2022-01-02T03:04:05+00:00',
+                'interactionPolicy': INTERACTION_POLICY,
             },
             'published': '2022-01-02T03:04:05+00:00',
         }, ignore=['@context', 'to', 'cc', 'contentMap', 'url'])
@@ -4275,7 +5955,8 @@ cast_add_body {{
                 },
             },
         }}}, repo.get_contents(),
-            ignore=['bridgyOriginalText', 'bridgyOriginalUrl'])
+            ignore=['bridgyOriginalText', 'bridgyOriginalUrl',
+                    'community.lexicon.meta.links'])
 
     @patch.object(util.session, 'get')
     @patch.object(util.session, 'post')
@@ -4365,7 +6046,8 @@ reaction_body {{
             'id': f'https://fc.brid.gy/convert/ap/{like_id}',
             'actor': 'https://fc.brid.gy/ap/farcaster:123',
             'object': 'https://inst/post',
-            'url': [{'type': 'Link', 'rel': 'canonical', 'href': like_id}],
+            'cc': ['https://inst/alice'],
+            'url': {'type': 'Link', 'rel': 'canonical', 'href': like_id},
         }, ignore=['@context', 'to', 'published'])
 
     def test_activitypub_post_to_farcaster_follower(self):
@@ -4873,6 +6555,62 @@ cast_add_body { text: "Hi from Bob" }
 type: MESSAGE_TYPE_REACTION_ADD
 reaction_body {{
   type: REACTION_TYPE_RECAST
+  target_cast_id {{
+    fid: 456
+    hash: "{CEscape(bob_post.hash, as_utf8=False)}"
+  }}
+}}
+""", fid=123)])
+
+    @patch.object(util.session, 'get')
+    def test_web_like_of_farcaster_web_url(self, mock_get):
+        """Web like of a Farcaster user's post via its farcaster.xyz URL.
+
+        farcaster.xyz URLs only have a short hash prefix, so we resolve it.
+
+        Web user alice.com (Farcaster fid 123)
+        Farcaster user bob (fid 456)
+        """
+        alice = self.make_web_user('alice.com')
+        self.make_farcaster_copy(alice, 123)
+        bob = self.make_farcaster_user(456)
+
+        bob_post = fc_message("""
+fid: 456
+type: MESSAGE_TYPE_CAST_ADD
+cast_add_body { text: "Hi from Bob" }
+""", fid=123)
+        bob_uri = granary.farcaster.uri(456, hash=bob_post.hash)
+        self.store_object(id=bob_uri, source_protocol='farcaster',
+                          farcaster=[bob_post.SerializeToString()])
+
+        mock_get.side_effect = [
+            requests_response(f"""\
+<html>
+<body class="h-entry">
+<a class="u-url" href="https://alice.com/like"></a>
+<a class="u-like-of" href="https://farcaster.xyz/bob/0x{bob_post.hash[:4].hex()}"></a>
+<a class="u-author h-card" href="https://alice.com/">Alice</a>
+<a href="http://localhost/"></a>
+</body>
+</html>
+"""),
+            requests_response({'result': {'casts': [{
+                'hash': f'0x{bob_post.hash.hex()}',
+                'author': {'fid': 456},
+            }]}}),
+        ]
+
+        resp = self.post('/queue/webmention', data={
+            'source': 'https://alice.com/like',
+            'target': 'http://localhost/',
+        })
+        self.assertEqual(202, resp.status_code)
+
+        self.assert_farcaster_sent([fc_message(f"""
+type: MESSAGE_TYPE_REACTION_ADD
+reaction_body {{
+  type: REACTION_TYPE_LIKE
   target_cast_id {{
     fid: 456
     hash: "{CEscape(bob_post.hash, as_utf8=False)}"

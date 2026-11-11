@@ -9,7 +9,7 @@
 </div>
 
 <div class="row">
-  <p>First, you'll need to <a href="https://docs.joinmastodon.org/user/moving/#summary" target="_blank">add an alias</a> to that account. In the account settings for <code>{{ to_user.handle_or_id()|safe }}</code>, add an alias to <code>{{ user.handle_as(ActivityPub)|safe }}</code>. Then come back here and click Done.
+  <p>First, you'll need to <a href="https://docs.joinmastodon.org/user/moving/#summary" target="_blank">add an alias</a> to that account. In the account settings for <code>{{ to_user.handle_or_id() }}</code>, add an alias to <code>{{ user.handle_as(ActivityPub) }}</code>. Then come back here and click Done.
 </div>
 
 <form action="/settings/migrate-to-activitypub" method="post">

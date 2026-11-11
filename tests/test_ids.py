@@ -5,7 +5,7 @@ from unittest.mock import patch
 from granary.generated.farcaster.username_proof_pb2 import UserNameProof
 from granary.nostr import KIND_PROFILE
 from granary.tests.test_farcaster import user_data_message
-from granary.tests.test_nostr import ID, NPUB, NPUB_URI, PUBKEY, PUBKEY_URI
+from granary.tests.test_nostr import ID, NPUB, NPUB_URI, PUBKEY, PUBKEY_URI, URI
 from webutil import util
 from webutil.util import json_dumps
 
@@ -19,7 +19,9 @@ import ids
 from ids import translate_handle, translate_object_id, translate_user_id
 from models import Object, Target
 from nostr import Nostr
-from .testutil import Fake, TestCase
+from ui import UIProtocol
+from .test_atproto import DID_DOC
+from .testutil import ExplicitFake, Fake, TestCase
 from web import Web
 
 NOSTR_ID_0 = 'nostr:0' + 'a' * 63
@@ -27,6 +29,33 @@ NOSTR_ID_1 = 'nostr:1' + 'a' * 63
 NOSTR_ID_2 = 'nostr:2' + 'a' * 63
 NOSTR_ID_3 = 'nostr:3' + 'a' * 63
 ID_URI = 'nostr:' + ID
+
+EXTERNAL_ACTOR = {
+    'objectType': 'person',
+    'urls': [
+        {'value': 'at://did:plc:ext', 'rel': 'alternate'},
+        {'value': NPUB_URI, 'rel': 'alternate'},
+        {
+            'value': 'http://in.st/alice',
+            'rel': 'alternate',
+            'mimeType': 'application/activity+json',
+        },
+    ],
+}
+EXTERNAL_POST = {
+    'objectType': 'note',
+    'id': 'fake:post',
+    'author': 'fake:user',
+    'urls': [
+        {'value': 'at://did:plc:ext/app.bsky.feed.post/123', 'rel': 'alternate'},
+        {'value': URI, 'rel': 'alternate'},
+        {
+            'value': 'http://in.st/post',
+            'rel': 'alternate',
+            'mimeType': 'application/activity+json',
+        },
+    ],
+}
 
 
 class IdsTest(TestCase):
@@ -206,6 +235,42 @@ class IdsTest(TestCase):
             with self.subTest(id=id, proto=proto.LABEL):
                 got = ids.translate_user_id(id=id, from_=proto, to=proto)
                 self.assertEqual(id, got)
+
+    def test_translate_user_id_external(self):
+        self.make_user('fake:user', cls=Fake, obj_as1=EXTERNAL_ACTOR)
+
+        for proto, expected in [
+            (ATProto, 'did:plc:ext'),
+            (Nostr, PUBKEY_URI),
+            (ActivityPub, 'http://in.st/alice'),
+        ]:
+            with self.subTest(proto=proto.LABEL):
+                self.assertEqual(expected, translate_user_id(
+                    id='fake:user', from_=Fake, to=proto, external=True))
+
+    def test_translate_user_id_external_false(self):
+        self.make_user('fake:user', cls=Fake, obj_as1=EXTERNAL_ACTOR)
+
+        self.assertIsNone(translate_user_id(id='fake:user', from_=Fake, to=ATProto))
+        self.assertEqual('https://fa.brid.gy/ap/fake:user', translate_user_id(
+            id='fake:user', from_=Fake, to=ActivityPub))
+
+    def test_translate_user_id_external_enabled(self):
+        self.make_user('fake:user', cls=Fake, obj_as1=EXTERNAL_ACTOR,
+                       enabled_protocols=['atproto', 'activitypub'],
+                       copies=[Target(uri='did:plc:ours', protocol='atproto')])
+
+        for proto, expected in [
+            (ATProto, 'did:plc:ours'),
+            (ActivityPub, 'https://fa.brid.gy/ap/fake:user'),
+        ]:
+            with self.subTest(proto=proto.LABEL):
+                self.assertEqual(expected, translate_user_id(
+                    id='fake:user', from_=Fake, to=proto, external=True))
+
+    def test_translate_user_id_external_no_user(self):
+        self.assertIsNone(translate_user_id(
+            id='fake:user', from_=Fake, to=ATProto, external=True))
 
     def test_normalize_user_id(self):
         for proto, id, expected in [
@@ -486,7 +551,8 @@ class IdsTest(TestCase):
         """Web users always translate via their domain, not a custom username."""
         user = Web(id='user.com', obj=Object(
             id='a', as2={'url': ['acct:baz@user.com']}))
-        self.assertEqual('baz', user.handle)
+        self.assertEqual('baz', user.username())
+        self.assertEqual('user.com', user.handle)
 
         self.assertEqual('fake:handle:user.com',
                          translate_handle(from_=user, to=Fake))
@@ -563,6 +629,10 @@ class IdsTest(TestCase):
             (ATProto, 'https://bsky.app/profile/did:plc:123/post/456',
              ATProto, 'at://did:plc:123/app.bsky.feed.post/456'),
             (ATProto, 'did:plc:x', Nostr, 'did:plc:x'),
+            # ui: ids aren't owned by the author's protocol, but we still
+            # translate them, always from fed.brid.gy
+            (ATProto, 'ui:my-note',
+             ActivityPub, 'https://fed.brid.gy/convert/ap/ui:my-note'),
             (Fake, 'fake:post',
              ActivityPub, 'https://fa.brid.gy/convert/ap/fake:post'),
             (Fake, 'fake:post', ATProto, 'at://did:plc:abc/fa/post'),
@@ -588,10 +658,79 @@ class IdsTest(TestCase):
              'https://nostr.brid.gy/convert/ap/nostr:456'),
             (Nostr, 'nostr:456', ATProto, 'nostr:456'),
             (Nostr, 'nostr:456', Web, 'https://nostr.brid.gy/convert/web/nostr:456'),
+
+            # bridged AP ids back to native ids
+            (ActivityPub, 'https://fa.brid.gy/convert/ap/fake:post', Fake, 'fake:post'),
+            (ActivityPub, 'https://bsky.brid.gy/convert/ap/at://did:plc:abc/atp/post',
+             ATProto, 'at://did:plc:abc/atp/post'),
+            (ActivityPub, 'https://nostr.brid.gy/convert/ap/nostr:456',
+             Nostr, 'nostr:456'),
+            (ActivityPub, 'https://web.brid.gy/r/http://po.st', Web, 'http://po.st'),
+            (ActivityPub, 'https://fed.brid.gy/r/http://po.st', Web, 'http://po.st'),
+            # ...and on to other protocols
+            (ActivityPub, 'https://fa.brid.gy/convert/ap/fake:post',
+             ATProto, 'at://did:plc:abc/fa/post'),
+            (ActivityPub, 'https://fa.brid.gy/convert/ap/fake:post', Nostr, NOSTR_ID_2),
+            (ActivityPub, 'https://web.brid.gy/r/http://po.st', Nostr, NOSTR_ID_0),
+            (ActivityPub, 'https://web.brid.gy/r/http://po.st',
+             Fake, 'fake:o:web:http://po.st'),
+            (ActivityPub, 'https://fa.brid.gy/convert/ap/fake:post',
+             ActivityPub, 'https://fa.brid.gy/convert/ap/fake:post'),
+            (Web, 'https://fa.brid.gy/convert/web/fake:post', Fake, 'fake:post'),
+            (Web, 'https://fa.brid.gy/convert/web/fake:post', Nostr, NOSTR_ID_2),
+            (Web, 'https://bsky.brid.gy/convert/web/did:plc:x', ATProto, 'did:plc:x'),
+            (Web, 'https://fa.brid.gy/convert/web/fake:post',
+             ActivityPub, 'https://fa.brid.gy/convert/ap/fake:post'),
+            # wrong format or not an object URL, left alone
+            (ActivityPub, 'https://fa.brid.gy/convert/web/fake:post',
+             Fake, 'https://fa.brid.gy/convert/web/fake:post'),
+            (ActivityPub, 'https://fa.brid.gy/ap/fake:user',
+             Fake, 'https://fa.brid.gy/ap/fake:user'),
         ]:
             with self.subTest(id=id, from_=from_.LABEL, to=to.LABEL):
                 self.assertEqual(expected, translate_object_id(
                     id=id, from_=from_, to=to))
+
+    def test_translate_object_id_ui_uses_authors_subdomain(self):
+        # ui: ids have to be on the same domain as their author's actor id, or
+        # Mastodon rejects Creates for them:
+        # https://github.com/mastodon/mastodon/blob/main/app/lib/activitypub/activity/create.rb
+        self.store_object(id='did:plc:user', raw=DID_DOC)
+        user = self.make_user('did:plc:user', cls=ATProto)
+        self.store_object(id='ui:my-note', source_protocol='ui', users=[user.key],
+                          our_as1={'objectType': 'note', 'author': 'did:plc:user'})
+
+        for from_ in UIProtocol, ATProto:
+            with self.subTest(from_=from_.LABEL):
+                self.assertEqual(
+                    'https://bsky.brid.gy/convert/ap/ui:my-note',
+                    translate_object_id(id='ui:my-note', from_=from_, to=ActivityPub))
+
+    def test_translate_object_id_ui_uses_authors_ap_subdomain(self):
+        # legacy Web users' actors are on fed.brid.gy, not web.brid.gy, so their
+        # internal objects have to be too
+        for sub in 'web', 'fed':
+            domain = f'{sub}alice.com'
+            user = self.make_user(domain, cls=Web, ap_subdomain=sub)
+            id = f'ui:note-{sub}'
+            self.store_object(id=id, source_protocol='ui', users=[user.key],
+                              our_as1={'objectType': 'note', 'author': domain})
+
+            # depends on the author, not on which of our domains we're serving
+            for base_url in 'https://web.brid.gy/', 'https://fed.brid.gy/':
+                with self.subTest(ap_subdomain=sub, base_url=base_url):
+                    with app.test_request_context('/', base_url=base_url):
+                        self.assertEqual(
+                            f'https://{sub}.brid.gy/convert/ap/{id}',
+                            translate_object_id(id=id, from_=UIProtocol,
+                                                to=ActivityPub))
+
+    def test_translate_object_id_ui_unknown_author_falls_back_to_fed(self):
+        for from_ in UIProtocol, ATProto:
+            with self.subTest(from_=from_.LABEL):
+                self.assertEqual(
+                    'https://fed.brid.gy/convert/ap/ui:nope',
+                    translate_object_id(id='ui:nope', from_=from_, to=ActivityPub))
 
     def test_translate_object_id_web_ap_subdomain_fed(self):
         self.make_user('on-fed.com', cls=Web, ap_subdomain='fed')
@@ -605,6 +744,134 @@ class IdsTest(TestCase):
                 got = translate_object_id(id='http://on-web.com/post', from_=Web,
                                           to=ActivityPub)
                 self.assertEqual('https://web.brid.gy/r/http://on-web.com/post', got)
+
+    def test_translate_object_id_external(self):
+        self.make_user('fake:user', cls=Fake, obj_as1=EXTERNAL_ACTOR)
+        self.store_object(id='at://did:plc:ext/app.bsky.feed.post/123',
+                          source_protocol='atproto',
+                          our_as1={'objectType': 'note', 'author': 'did:plc:ext'})
+        self.store_object(id=ID_URI, source_protocol='nostr',
+                          our_as1={'objectType': 'note', 'author': NPUB_URI})
+        self.store_object(id='http://in.st/post', source_protocol='activitypub',
+                          our_as1={'objectType': 'note',
+                                   'author': 'http://in.st/alice'})
+        self.store_object(id='fake:post', source_protocol='fake',
+                          our_as1=EXTERNAL_POST)
+
+        for proto, expected in [
+            (ATProto, 'at://did:plc:ext/app.bsky.feed.post/123'),
+            (Nostr, ID_URI),
+            (ActivityPub, 'http://in.st/post'),
+        ]:
+            with self.subTest(proto=proto.LABEL):
+                self.assertEqual(expected, translate_object_id(
+                    id='fake:post', from_=Fake, to=proto, external=True))
+
+    def test_translate_object_id_external_false(self):
+        self.make_user('fake:user', cls=Fake)
+        self.store_object(id='fake:post', source_protocol='fake',
+                          our_as1=EXTERNAL_POST)
+
+        self.assertEqual('fake:post', translate_object_id(
+            id='fake:post', from_=Fake, to=ATProto))
+        self.assertEqual('https://fa.brid.gy/convert/ap/fake:post',
+                         translate_object_id(id='fake:post', from_=Fake,
+                                             to=ActivityPub))
+
+    def test_translate_object_id_external_owner_enabled(self):
+        self.make_user('fake:user', cls=Fake,
+                       enabled_protocols=['atproto', 'activitypub'],
+                       copies=[Target(uri='did:plc:ours', protocol='atproto')])
+        self.store_object(id='fake:post', source_protocol='fake',
+                          our_as1=EXTERNAL_POST, copies=[
+            Target(uri='at://did:plc:ours/app.bsky.feed.post/456',
+                   protocol='atproto'),
+        ])
+
+        for proto, expected in [
+            (ATProto, 'at://did:plc:ours/app.bsky.feed.post/456'),
+            (ActivityPub, 'https://fa.brid.gy/convert/ap/fake:post'),
+        ]:
+            with self.subTest(proto=proto.LABEL):
+                self.assertEqual(expected, translate_object_id(
+                    id='fake:post', from_=Fake, to=proto, external=True))
+
+    def test_translate_object_id_external_no_owner(self):
+        """We can't verify the proxy link without its author, so we don't use it."""
+        self.store_object(id='fake:post', source_protocol='fake',
+                          our_as1=EXTERNAL_POST)
+
+        self.assertEqual('https://fa.brid.gy/convert/ap/fake:post',
+                         translate_object_id(id='fake:post', from_=Fake,
+                                             to=ActivityPub, external=True))
+
+    def test_translate_object_id_external_doesnt_fetch(self):
+        """We only use external objects that we've already fetched and verified."""
+        self.make_user('fake:user', cls=Fake, obj_as1={
+            'objectType': 'person',
+            'urls': [{'value': 'efake:user-ext', 'rel': 'alternate'}],
+        })
+        self.store_object(id='fake:post', source_protocol='fake', our_as1={
+            'objectType': 'note',
+            'author': 'fake:user',
+            'urls': [{'value': 'efake:post-ext', 'rel': 'alternate'}],
+        })
+        ExplicitFake.fetchable = {
+            'efake:post-ext': {'objectType': 'note', 'author': 'efake:user-ext'},
+        }
+
+        self.assertEqual('efake:o:fa:fake:post', translate_object_id(
+            id='fake:post', from_=Fake, to=ExplicitFake, external=True))
+        self.assertEqual([], ExplicitFake.fetched)
+
+    def test_translate_object_id_external_no_object(self):
+        self.assertEqual('fake:post', translate_object_id(
+            id='fake:post', from_=Fake, to=ATProto, external=True))
+
+    def test_translate_id(self):
+        for id, from_, expected in [
+                # id_type says user
+                ('did:plc:123', ATProto, 'fake:u:did:plc:123'),
+                ('farcaster://456', Farcaster, 'fake:u:farcaster://456'),
+                ('user.com', Web, 'fake:u:user.com'),
+                # id_type says object
+                ('at://did:plc:123/app.bsky.feed.post/abc', ATProto,
+                 'fake:o:bsky:at://did:plc:123/app.bsky.feed.post/abc'),
+                ('farcaster://456/0xabc', Farcaster,
+                 'fake:o:fc:farcaster://456/0xabc'),
+                ('https://user.com/post', Web, 'fake:o:web:https://user.com/post'),
+                # id_type can't tell, so we fall back to the default, ie user
+                ('https://inst/alice', ActivityPub, 'fake:u:https://inst/alice'),
+        ]:
+            with self.subTest(id=id, from_=from_.LABEL):
+                self.assertEqual(expected, ids.translate_id(
+                    id=id, from_=from_, to=Fake))
+
+    def test_translate_id_ui(self):
+        # internal objects are always objects, never users
+        alice = self.make_user('fake:alice', cls=Fake)
+        self.store_object(id='ui:reply', source_protocol='ui', users=[alice.key])
+        self.assertEqual('fake:o:fa:ui:reply', ids.translate_id(
+            id='ui:reply', from_=UIProtocol, to=Fake))
+
+    def test_translate_id_default_object(self):
+        self.assertEqual('fake:o:ap:https://inst/alice', ids.translate_id(
+            id='https://inst/alice', from_=ActivityPub, to=Fake,
+            default=ids.IdType.OBJECT))
+
+    def test_translate_id_external(self):
+        self.make_user('fake:user', cls=Fake, obj_as1=EXTERNAL_ACTOR)
+        self.store_object(id='at://did:plc:ext/app.bsky.feed.post/123',
+                          source_protocol='atproto',
+                          our_as1={'objectType': 'note', 'author': 'did:plc:ext'})
+        self.store_object(id='fake:post', source_protocol='fake',
+                          our_as1=EXTERNAL_POST)
+
+        self.assertEqual('did:plc:ext', ids.translate_id(
+            id='fake:user', from_=Fake, to=ATProto, external=True))
+        self.assertEqual('at://did:plc:ext/app.bsky.feed.post/123', ids.translate_id(
+            id='fake:post', from_=Fake, to=ATProto, external=True,
+            default=ids.IdType.OBJECT))
 
     def test_handle_as_domain(self):
         for handle, expected in [

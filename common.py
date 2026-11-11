@@ -5,6 +5,7 @@ import logging
 import os
 from pathlib import Path
 import re
+import string
 import threading
 import urllib.parse
 from urllib.parse import urljoin, urlparse
@@ -53,6 +54,10 @@ CACHE_CONTROL_VARY_ACCEPT = {**CACHE_CONTROL, 'Vary': 'Accept'}
 USER_AGENT = 'Bridgy Fed (https://fed.brid.gy/)'
 util.set_user_agent(USER_AGENT)
 
+# the GCP load balancer collapses :// down to :/ anywhere in a URL path, so we
+# expand it back, for ids, for URIs embedded in query params, and for full paths
+COLLAPSED_SCHEME_RE = re.compile(r'([a-z][a-z0-9+.-]*:/)(?=[^/])', re.IGNORECASE)
+
 # https://cloud.google.com/appengine/docs/locations
 TASKS_LOCATION = 'us-central1'
 RUN_TASKS_INLINE = False  # overridden by unit tests
@@ -83,18 +88,34 @@ werkzeug.exceptions.default_exceptions.setdefault(299, ErrorButDoNotRetryTask)
 werkzeug.exceptions._aborter.mapping.setdefault(299, ErrorButDoNotRetryTask)
 
 
+
+class classproperty:
+    """@classmethod + @property.
+
+    Python 3.13 disabled combining classmethod with other decorators like
+    property, so we use this now.
+
+    https://docs.python.org/3.13/whatsnew/3.13.html#builtins
+    """
+    def __init__(self, method):
+        self.method = method
+
+    def __get__(self, obj, cls=None):
+        if cls is None:
+            cls = type(obj)
+        return self.method(cls)
+
+
 @functools.cache
 def bot_user_ids():
     """Returns all copy ids for protocol bot users."""
     from models import PROTOCOLS
-    from web import Web
 
     bot_ids = set(PROTOCOL_DOMAINS)
-    protocols = set(p for p in PROTOCOLS.values() if p and p.LABEL != 'ui')
+    protocols = set(p for p in PROTOCOLS.values() if p and p.bot_user_id())
 
     for bot_proto in protocols:
-        subdomain = f'{bot_proto.ABBREV}{SUPERDOMAIN}'
-        if not (bot := Web.get_by_id(subdomain)):
+        if not (bot := bot_proto.bot_user()):
             continue
 
         bot_ids.update(copy.uri for copy in bot.copies)
@@ -176,11 +197,10 @@ def create_task(queue, app_id=GCP_PROJECT_ID, delay=None, app=None, **params):
     }
 
     try:
-        authorization = request.headers.get('Authorization') or ''
         traceparent = request.headers.get('traceparent') or ''
         cloud_trace = request.headers.get('X-Cloud-Trace-Context') or ''
     except RuntimeError:  # not currently in a request context
-        authorization = traceparent = cloud_trace = ''
+        traceparent = cloud_trace = ''
 
     if RUN_TASKS_INLINE or LOCAL_SERVER:
         logger.info(f'Running task inline: {queue} {params}')
@@ -188,7 +208,6 @@ def create_task(queue, app_id=GCP_PROJECT_ID, delay=None, app=None, **params):
             from router import app
         return app.test_client().post(path, data=params, headers={
               flask_util.CLOUD_TASKS_TASK_HEADER: 'inline',
-              'Authorization': authorization,
         })
 
         # # alternative: run inline in this request context
@@ -226,7 +245,6 @@ def create_task(queue, app_id=GCP_PROJECT_ID, delay=None, app=None, **params):
             'body': body,
             'headers': {
                 'Content-Type': 'application/x-www-form-urlencoded',
-                'Authorization': authorization,
                 # propagate trace id. these two headers use different formats, so
                 # pass each through under its own name instead of crossing them.
                 # https://cloud.google.com/trace/docs/trace-context#http-requests
@@ -259,15 +277,25 @@ def report_exception(**kwargs):
     return report_error(msg=None, exception=True, **kwargs)
 
 
-def report_error(msg, *, exception=False, **kwargs):
+def report_error(msg, *, user=None, exception=False, **kwargs):
     """Reports an error to StackDriver Error Reporting.
 
-    https://cloud.google.com/python/docs/reference/clouderrorreporting/latest/google.cloud.error_reporting.client.Client
+    Thin wrapper around :class:`google.cloud.error_reporting.client.Client`.
 
     If ``DEBUG`` and ``exception`` are ``True``, re-raises the exception instead.
 
     Duplicated in ``bridgy.util``.
+
+    Args:
+      msg (str)
+      user (str): optional; passed through to
+        :class:`google.cloud.error_reporting_client.client.Client.report`
+      exception (bool): whether to include exception info
     """
+    log_msg = msg
+    if user:
+      log_msg += ' ' + user
+
     if DEBUG or LOCAL_SERVER:
         if DEBUG and exception:
             raise
@@ -281,11 +309,13 @@ def report_error(msg, *, exception=False, **kwargs):
 
     try:
         if exception:
-            logger.warning(msg, exc_info=True)
-            error_reporting_client.report_exception(http_context=http_context, **kwargs)
+            logger.warning(log_msg, exc_info=True)
+            error_reporting_client.report_exception(http_context=http_context,
+                                                    user=user, **kwargs)
         else:
-            logger.error(msg)
-            error_reporting_client.report(msg, http_context=http_context, **kwargs)
+            logger.error(log_msg)
+            error_reporting_client.report(msg, user=user, http_context=http_context,
+                                          **kwargs)
     except BaseException:
         kwargs['exception'] = exception
         logger.warning(f'Failed to report error! {kwargs}', exc_info=exception)
@@ -400,6 +430,7 @@ def render_template(template, **kwargs):
         READ_ONLY=READ_ONLY,
         request=request,
         set=set,
+        string=string,
         util=util,
         **kwargs)
 

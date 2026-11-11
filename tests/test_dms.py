@@ -19,6 +19,7 @@ import dms
 from dms import maybe_send, receive
 import ids
 from models import DM, Follower, Object, PROTOCOLS, Target
+from ui import UIProtocol
 from web import Web
 
 from .testutil import ExplicitFake, Fake, OtherFake, TestCase
@@ -76,6 +77,12 @@ class DmsTest(TestCase):
     def assert_replied(self, *args, **kwargs):
         kwargs.setdefault('in_reply_to', 'efake:dm')
         self.assert_sent(*args, **kwargs)
+
+    def test_maybe_send_from_protocol_without_bot_user(self):
+        user = self.make_user(id='other:user', cls=OtherFake, obj_as1={'x': 'y'})
+
+        maybe_send(from_=UIProtocol, to_user=user, text='hi hi hi')
+        self.assertEqual([], OtherFake.sent)
 
     def test_maybe_send_from_protocol(self):
         self.make_user(id='fa.brid.gy', cls=Web)
@@ -180,6 +187,34 @@ class DmsTest(TestCase):
         self.assertEqual(('¯\\_(ツ)_/¯', 204), receive(from_user=alice, obj=obj))
         self.assertEqual([], OtherFake.sent)
         self.assertEqual([], Fake.sent)
+
+    def test_receive_yes_reloads_profile(self):
+        self.make_user('fa.brid.gy', cls=Web)
+        user = self.make_user('efake:user', cls=ExplicitFake, obj_as1={
+            'objectType': 'person',
+            'summary': '#nobridge',
+        })
+        self.assertEqual('nobridge', user.status)
+
+        ExplicitFake.fetchable = {
+            'efake:user': {
+                'objectType': 'person',
+                'id': 'efake:user',
+                'summary': 'hi there',
+            },
+        }
+        dm = Object(our_as1={
+            'objectType': 'note',
+            'id': 'efake:dm',
+            'actor': 'efake:user',
+            'to': ['fa.brid.gy'],
+            'content': 'yes',
+        })
+        self.assertEqual(('OK', 200), receive(from_user=user, obj=dm))
+
+        user = user.key.get()
+        self.assertEqual('hi there', user.obj.as1['summary'])
+        self.assertEqual(['fake'], user.enabled_protocols)
 
     def test_receive_no_yes_sets_enabled_protocols(self):
         alice = self.make_user('fake:alice', cls=Fake, obj_id='fake:alice')
@@ -613,7 +648,7 @@ class DmsTest(TestCase):
         alice = self.make_user(id='http://in.st/alice', cls=ActivityPub)
                              # obj_as1={'inbox': 'http://in.st/alice/inbox'})
         self.assertEqual("""\
-<p>Hi! I'm a friendly bot that can help you bridge your account into Bluesky. Here are some commands I respond to:</p>
+<p>Hi! I'm a friendly bot that can help you bridge your account into the Atmosphere (Bluesky). Here are some commands I respond to:</p>
 <ul>
 <li><em>start</em>: enable bridging for your account
 <li><em>start</em>: enable bridging for your account
@@ -622,7 +657,7 @@ class DmsTest(TestCase):
 <li><em>stop</em>: disable bridging for your account
 <li><em>notify</em>: enable notifications when someone who's not bridged replies to you, quotes you, or @-mentions you
 <li><em>mute</em>: disable notifications
-<li><em>did</em>: get your bridged Bluesky account's <a href="https://atproto.com/guides/identity#identifiers">DID</a>
+<li><em>did</em>: get your bridged Atmosphere account's <a href="https://atproto.com/guides/identity#identifiers">DID</a>
 <li><em>username [domain]</em>: set a custom domain username (handle)
 <li><em>username [domain]</em>: set a custom domain username (handle)
 <li><em>block [handle or ID or list URL]...</em>: block one or more users who aren't bridged here, and/or lists, on {to_proto.PHRASE}
@@ -816,7 +851,7 @@ Hi! I'm a friendly bot that can help you bridge your account into the fediverse.
         })
         self.assertEqual(('OK', 200), receive(from_user=alice, obj=obj))
 
-        self.assert_replied(OtherFake, alice, '?', """OK, you're now blocking <a href="other:web:list">Myy Listt</a> on other-phrase.""")
+        self.assert_replied(OtherFake, alice, '?', """OK, you're now blocking Myy Listt on other-phrase.""")
         self.assertEqual([('other:list:target', {
             'objectType': 'activity',
             'verb': 'block',
@@ -903,7 +938,7 @@ Hi! I'm a friendly bot that can help you bridge your account into the fediverse.
         })
         self.assertEqual(('OK', 200), receive(from_user=alice, obj=obj))
 
-        self.assert_replied(OtherFake, alice, '?', """OK, you're now blocking <a class="h-card u-author mention" rel="me" href="web:other:bob" title="other:handle:bob">other:handle:bob</a>, <a href="other:web:list">Myy Listt</a> on other-phrase.""")
+        self.assert_replied(OtherFake, alice, '?', """OK, you're now blocking <a class="h-card u-author mention" rel="me" href="web:other:bob" title="other:handle:bob">other:handle:bob</a>, Myy Listt on other-phrase.""")
         self.assertEqual([
             ('other:bob:target', {
                 'objectType': 'activity',
@@ -984,7 +1019,7 @@ Hi! I'm a friendly bot that can help you bridge your account into the fediverse.
         })
         self.assertEqual(('OK', 200), receive(from_user=alice, obj=obj))
 
-        self.assert_replied(OtherFake, alice, '?', """OK, you're not blocking <a href="other:web:list">Myy Listt</a> on other-phrase.""")
+        self.assert_replied(OtherFake, alice, '?', """OK, you're not blocking Myy Listt on other-phrase.""")
         self.assertEqual([('other:list:target', {
             'objectType': 'activity',
             'verb': 'undo',
@@ -1102,7 +1137,7 @@ Hi! I'm a friendly bot that can help you bridge your account into the fediverse.
         })
         self.assertEqual(('OK', 200), receive(from_user=alice, obj=obj))
 
-        self.assert_replied(OtherFake, alice, '?', """OK, you're not blocking <a class="h-card u-author mention" rel="me" href="web:other:bob" title="other:handle:bob">other:handle:bob</a>, <a href="other:web:list">Myy Listt</a> on other-phrase.""")
+        self.assert_replied(OtherFake, alice, '?', """OK, you're not blocking <a class="h-card u-author mention" rel="me" href="web:other:bob" title="other:handle:bob">other:handle:bob</a>, Myy Listt on other-phrase.""")
         self.assertEqual([
             ('other:bob:target', {
                 'objectType': 'activity',
@@ -1188,6 +1223,20 @@ Hi! I'm a friendly bot that can help you bridge your account into the fediverse.
         self.assert_replied(
             ActivityPub, alice, '?',
             "First, you'll need to <a href='https://docs.joinmastodon.org/user/moving/#summary'>add an alias</a> to that account.")
+
+    @patch.object(util.session, 'get', return_value=requests_response(status=403))
+    def test_receive_migrate_to_activitypub_blocked(self, _):
+        alice, bob = self.make_alice_bob(alice_enabled=ActivityPub)
+
+        obj = Object(our_as1={
+            **DM_BASE,
+            'to': ['ap.brid.gy'],
+            'content': 'migrate-to http://in.st/carol',
+        })
+        self.assertEqual(('OK', 200), receive(from_user=alice, obj=obj))
+        self.assert_replied(
+            ActivityPub, alice, '?',
+            "Couldn't load http://in.st/carol; they or their server may be blocking Bridgy Fed.")
 
     @patch.object(tasks_client, 'create_task')
     @patch.object(ATProto, 'migrate_out')

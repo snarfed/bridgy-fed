@@ -329,4 +329,4 @@ def handle(event):
     except ContextError:
         raise  # handled in subscriber()
     except BaseException:
-        report_exception(obj_id)
+        report_error(obj_id, exception=True)

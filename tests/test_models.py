@@ -1,10 +1,11 @@
 """Unit tests for models.py."""
 from datetime import timedelta
+import itertools
 from unittest.mock import patch
 
 from arroba.datastore_storage import AtpRemoteBlob, AtpRepo
 import arroba.server
-from arroba.util import at_uri
+from arroba.util import at_uri, dag_cbor_cid, parse_at_uri
 from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
 from cryptography.hazmat.primitives.serialization import (
   Encoding,
@@ -17,6 +18,7 @@ from google.cloud.ndb import tasklets
 from google.cloud.tasks_v2.types import Task
 from google.protobuf import text_format
 from granary.bluesky import NO_UNAUTHENTICATED_LABEL
+from granary.generated.farcaster.request_response_pb2 import MessagesResponse
 from granary.tests.test_farcaster import message, user_data_message
 from granary.tests.test_bluesky import ACTOR_AS, ACTOR_PROFILE_BSKY
 import granary.nostr
@@ -24,7 +26,7 @@ from granary.nostr import KIND_NOTE, KIND_PROFILE
 from webutil.appengine_config import tasks_client
 from webutil.testutil import NOW, requests_response
 from webutil import util
-from werkzeug.exceptions import BadRequest, Forbidden
+from werkzeug.exceptions import BadRequest, Forbidden, Gone, NotFound
 
 # import first so that Fake is defined before URL routes are registered
 from .testutil import ExplicitFake, Fake, OtherFake, TestCase
@@ -32,11 +34,13 @@ from .testutil import ExplicitFake, Fake, OtherFake, TestCase
 from activitypub import ActivityPub
 from atproto import ATProto
 import common
+import farcaster
 from farcaster import Farcaster
 from flask_app import app
 import memcache
 import models
 from models import (
+    DM,
     Follower,
     maybe_truncate_key_id,
     Object,
@@ -70,12 +74,36 @@ from .test_activitypub import ACTOR
 from .test_atproto import DID_DOC
 from . import testutil
 
+EXTERNAL_ID_ACTOR = {
+    'objectType': 'person',
+    'urls': [{'value': 'efake:alice', 'rel': 'alternate'}],
+}
+CANONICAL_ID_ACTOR = {
+    'objectType': 'person',
+    'urls': [{'value': 'unknown:alice', 'rel': 'canonical'}],
+}
+ALICE_EXTERNAL_IDS_ACTOR = {
+    'objectType': 'person',
+    'urls': [
+        {'value': 'at://did:plc:alice', 'rel': 'alternate'},
+        {'value': NPUB_URI, 'rel': 'alternate'},
+        {
+            'value': 'http://ot.her/alice',
+            'rel': 'alternate',
+            'mimeType': 'application/activity+json',
+        },
+        {'value': 'farcaster://123', 'rel': 'alternate'},
+        {'value': 'efake:alice-ext', 'rel': 'alternate'},
+    ],
+}
+
 
 class UserTest(TestCase):
 
     def setUp(self):
         super().setUp()
-        self.user = self.make_user('y.za', cls=Web)
+        self.user = self.make_user('y.za', cls=Web,
+                                   enabled_protocols=['activitypub'])
 
     def test_get_by_id_opted_out(self):
         self.assert_entities_equal(self.user, Web.get_by_id('y.za'))
@@ -151,25 +179,49 @@ class UserTest(TestCase):
         did = user.get_copy(ATProto)
         repo = arroba.server.storage.load_repo(did)
 
-        # check profile record
-        profile = repo.get_record('app.bsky.actor.profile', 'self')
-        self.assertEqual({
-            '$type': 'app.bsky.actor.profile',
+        # check profile records
+        profile = {
             'displayName': 'Alice',
             'description': 'hi there\n\n🌉 bridged from 🤡 web:fake:user by https://fed.brid.gy/',
             'website': 'https://alice.com/',
             'bridgyOriginalDescription': 'hi there',
             'bridgyOriginalUrl': 'https://alice.com/',
+            'community.lexicon.meta.links': {
+                '$type': 'community.lexicon.meta.links',
+                'links': [{'href': 'uri:fake:user', 'rel': 'canonical'}],
+            },
             'labels': {
                 '$type': 'com.atproto.label.defs#selfLabels',
                 'values': [{'val' : 'bridged-from-bridgy-fed-fake'}],
             },
-        }, profile)
+        }
+        bsky_profile = repo.get_record('app.bsky.actor.profile', 'self')
+        _, _, link_rkey = parse_at_uri(bsky_profile['links'][0]['uri'])
+        link = repo.get_record('app.bsky.actor.link', link_rkey)
+        self.assertEqual({
+            '$type': 'app.bsky.actor.link',
+            'url': 'https://alice.com/',
+            'createdAt': '1970-01-01T00:00:00.000Z',
+        }, link)
+        self.assertEqual({
+            **profile,
+            '$type': 'app.bsky.actor.profile',
+            'links': [{
+                'uri': at_uri(did, 'app.bsky.actor.link', link_rkey),
+                'cid': dag_cbor_cid(link).encode('base32'),
+            }],
+        }, bsky_profile)
+        self.assertEqual({**profile, '$type': 'so.sprk.actor.profile'},
+                         repo.get_record('so.sprk.actor.profile', 'self'))
 
         obj = Object.get_by_id('fake:profile:user')
         self.assertEqual([
             Target(protocol='atproto',
                    uri=at_uri(did, 'app.bsky.actor.profile', 'self')),
+            Target(protocol='atproto',
+                   uri=at_uri(did, 'so.sprk.actor.profile', 'self')),
+            Target(protocol='atproto',
+                   uri=at_uri(did, 'app.bsky.actor.link', link_rkey)),
             Target(protocol='other', uri='other:o:fa:fake:profile:user'),
         ], obj.copies)
 
@@ -197,6 +249,80 @@ class UserTest(TestCase):
         user = Fake.get_or_create('fake:a', enabled_protocols=['efake'],
                                   propagate=True)
         self.assertEqual([], user.enabled_protocols)
+
+    def test_get_or_create_propagate_external_id(self):
+        self.make_user('fake:a', cls=Fake, obj_as1=EXTERNAL_ID_ACTOR)
+        user = Fake.get_or_create('fake:a', enabled_protocols=['efake'],
+                                  propagate=True)
+        self.assertEqual([], user.enabled_protocols)
+        self.assertEqual([], ExplicitFake.created_for)
+
+    def test_get_or_create_propagate_external_id_not_has_copies(self):
+        self.make_user('fake:a', cls=Fake, obj_as1={
+            'objectType': 'person',
+            'urls': [{
+                'value': 'http://in.st/alice',
+                'rel': 'alternate',
+                'mimeType': 'application/activity+json',
+            }],
+        })
+        user = Fake.get_or_create('fake:a', enabled_protocols=['activitypub'],
+                                  propagate=True)
+        self.assertEqual([], user.enabled_protocols)
+
+    def test_get_or_create_propagate_external_id_and_our_copy(self):
+        self.make_user('fake:a', cls=Fake, obj_as1=EXTERNAL_ID_ACTOR,
+                       enabled_protocols=['efake'],
+                       copies=[Target(uri='efake:ours', protocol='efake')])
+        user = Fake.get_or_create('fake:a', enabled_protocols=['efake'],
+                                  propagate=True)
+        self.assertEqual(['efake'], user.enabled_protocols)
+
+    def test_get_or_create_external_id_and_our_copy_not_enabled(self):
+        self.make_user('fake:a', cls=Fake, obj_as1=EXTERNAL_ID_ACTOR,
+                       copies=[Target(uri='efake:ours', protocol='efake')])
+        user = Fake.get_or_create('fake:a', enabled_protocols=['efake'])
+        self.assertEqual([], user.enabled_protocols)
+
+    def test_get_or_create_existing_canonical_external_id(self):
+        self.make_user('fake:a', cls=Fake, obj_as1=CANONICAL_ID_ACTOR)
+
+        user = Fake.get_or_create('fake:a', enabled_protocols=['efake', 'other'])
+
+        self.assertEqual([], user.enabled_protocols)
+        self.assertEqual([], user.key.get().enabled_protocols)
+
+    def test_get_or_create_already_enabled_canonical_external_id(self):
+        self.make_user('fake:a', cls=Fake, obj_as1=CANONICAL_ID_ACTOR,
+                       enabled_protocols=['efake'])
+
+        user = Fake.get_or_create('fake:a', enabled_protocols=['efake'])
+
+        self.assertEqual(['efake'], user.enabled_protocols)
+
+    def test_get_or_create_new_canonical_external_id(self):
+        Fake.fetchable = {'fake:profile:a': CANONICAL_ID_ACTOR}
+
+        user = Fake.get_or_create('fake:a', enabled_protocols=['efake'])
+
+        self.assertEqual([], user.enabled_protocols)
+        self.assertEqual([], user.key.get().enabled_protocols)
+
+    def test_get_or_create_existing_external_id(self):
+        self.make_user('fake:a', cls=Fake, obj_as1=EXTERNAL_ID_ACTOR)
+
+        user = Fake.get_or_create('fake:a', enabled_protocols=['efake', 'other'])
+
+        self.assertEqual(['other'], user.enabled_protocols)
+        self.assertEqual(['other'], user.key.get().enabled_protocols)
+
+    def test_get_or_create_new_external_id(self):
+        Fake.fetchable = {'fake:profile:a': EXTERNAL_ID_ACTOR}
+
+        user = Fake.get_or_create('fake:a', enabled_protocols=['efake', 'other'])
+
+        self.assertEqual(['other'], user.enabled_protocols)
+        self.assertEqual(['other'], user.key.get().enabled_protocols)
 
     def test_get_or_create_use_instead(self):
         user = Fake.get_or_create('fake:a')
@@ -241,6 +367,12 @@ class UserTest(TestCase):
                                            obj_key=Object(id='efake:profile').put())
             with self.assertRaises(BadRequest):
                 ExplicitFake.get_or_create('efake:a', propagate=True)
+
+    def test_put_own_protocol_in_enabled_protocols_fails(self):
+        with self.assertRaises(AssertionError):
+            Fake(id='fake:a', enabled_protocols=['fake']).put()
+
+        Fake(id='fake:a', enabled_protocols=['other']).put()
 
     def test_public_pem(self):
         user = Fake(id='fake:a')
@@ -390,6 +522,23 @@ class UserTest(TestCase):
             '<a class="h-card u-author mention" rel="me" href="http://localhost/y.za" title="Mrs. ☕ Foo &middot; @y.za@web.brid.gy"><span style="unicode-bidi: isolate">Mrs. ☕ Foo</span> &middot; @y.za@web.brid.gy</a>',
             self.user.html_link(proto=ActivityPub, proto_fallback=True, handle=True))
 
+    def test_html_link_escapes(self):
+        user = self.make_user('fake:"><b>x', cls=Fake, obj_as1={
+            'displayName': '<script>alert(1)</script>',
+            'image': 'http://pic/"onerror="alert(1)',
+        })
+        self.assert_multiline_equals(
+            '<span class="logo" title="Fake"><img src="fake-logo"></span> <a class="h-card u-author mention" rel="me" href="web:fake:&quot;&gt;&lt;b&gt;x" title="&lt;script&gt;alert(1)&lt;/script&gt; &middot; fake:handle:&quot;&gt;&lt;b&gt;x"><img src="http://pic/&quot;onerror=&quot;alert(1)" class="profile"> <span style="unicode-bidi: isolate">&lt;script&gt;alert(1)&lt;/script&gt;</span> &middot; fake:handle:"&gt;&lt;b&gt;x</a>',
+            user.html_link(pictures=True))
+
+    def test_html_link_non_web_picture(self):
+        user = self.make_user('fake:x', cls=Fake, obj_as1={
+            'image': 'javascript:alert(1)',
+        })
+        self.assert_multiline_equals(
+            '<span class="logo" title="Fake"><img src="fake-logo"></span> <a class="h-card u-author mention" rel="me" href="web:fake:x" title="fake:handle:x">fake:handle:x</a>',
+            user.html_link(pictures=True))
+
     def test_html_link_proto_not_enabled(self):
         with self.assertRaises(AssertionError):
             self.user.html_link(proto=ExplicitFake)
@@ -401,6 +550,12 @@ class UserTest(TestCase):
         for url in (None, '', 'user', 'com', 'com.user', 'ftp://y.za',
                     'https://user', '://y.za'):
             self.assertFalse(self.user.is_web_url(url), url)
+
+    def test_is_web_url_ignore_www(self):
+        user = ActivityPub(id='https://mas.to/users/foo')
+        self.assertFalse(user.is_web_url('https://www.mas.to/users/foo'))
+        self.assertTrue(user.is_web_url('https://www.mas.to/users/foo',
+                                        ignore_www=True))
 
     def test_name(self):
         self.assertEqual('y.za', self.user.name())
@@ -542,6 +697,351 @@ class UserTest(TestCase):
         with self.assertRaises(common.ErrorButDoNotRetryTask):
             user.enable_protocol(ExplicitFake)
 
+    def test_enable_protocol_external_id(self):
+        self.make_user('efake.brid.gy', cls=Web)
+        user = self.make_user('other:user', cls=OtherFake,
+                              obj_as1=EXTERNAL_ID_ACTOR)
+
+        with self.assertRaises(common.ErrorButDoNotRetryTask):
+            user.enable_protocol(ExplicitFake)
+
+        user = user.key.get()
+        self.assertEqual([], user.enabled_protocols)
+        self.assertEqual([], ExplicitFake.created_for)
+        self.assertEqual([DM(protocol='efake', type='external-id')], user.sent_dms)
+        self.assert_sent(ExplicitFake, user, 'external-id', "Hi! Your account can't be bridged to efake-phrase because it's already there as efake:alice.")
+
+    def test_enable_protocol_external_id_and_our_copy(self):
+        self.make_user('efake.brid.gy', cls=Web)
+        user = self.make_user('other:user', cls=OtherFake,
+                              obj_as1=EXTERNAL_ID_ACTOR,
+                              enabled_protocols=['efake'],
+                              copies=[Target(uri='efake:ours', protocol='efake')])
+
+        user.enable_protocol(ExplicitFake)
+
+        self.assertEqual(['efake'], user.key.get().enabled_protocols)
+        self.assertEqual([DM(protocol='efake', type='welcome')],
+                         user.key.get().sent_dms)
+
+    def test_enable_protocol_canonical_external_id(self):
+        self.make_user('efake.brid.gy', cls=Web)
+        user = self.make_user('other:user', cls=OtherFake,
+                              obj_as1=CANONICAL_ID_ACTOR)
+
+        with self.assertRaises(common.ErrorButDoNotRetryTask):
+            user.enable_protocol(ExplicitFake)
+
+        user = user.key.get()
+        self.assertEqual([], user.enabled_protocols)
+        self.assertEqual([], ExplicitFake.created_for)
+        self.assertEqual([DM(protocol='efake', type='canonical-external-id')],
+                         user.sent_dms)
+        self.assert_sent(ExplicitFake, user, 'canonical-external-id', "Hi! Your account can't be bridged to efake-phrase because it's a copy of unknown:alice. Bridge that account instead!")
+
+    def test_enable_protocol_canonical_external_id_already_enabled(self):
+        self.make_user('efake.brid.gy', cls=Web)
+        user = self.make_user('other:user', cls=OtherFake,
+                              obj_as1=CANONICAL_ID_ACTOR,
+                              enabled_protocols=['efake'],
+                              copies=[Target(uri='efake:ours', protocol='efake')])
+
+        user.enable_protocol(ExplicitFake)
+
+        self.assertEqual(['efake'], user.key.get().enabled_protocols)
+
+    def test_enable_protocol_external_id_escapes_uri(self):
+        self.make_user('efake.brid.gy', cls=Web)
+        user = self.make_user('other:user', cls=OtherFake, obj_as1={
+            'objectType': 'person',
+            'urls': [{'value': 'efake:<b>alice', 'rel': 'alternate'}],
+        })
+
+        with self.assertRaises(common.ErrorButDoNotRetryTask):
+            user.enable_protocol(ExplicitFake)
+
+        self.assert_sent(ExplicitFake, user, 'external-id', "Hi! Your account can't be bridged to efake-phrase because it's already there as efake:&lt;b&gt;alice.")
+
+    def test_get_external_id(self):
+        user = self.make_user('fake:user', cls=Fake, obj_as1={
+            'objectType': 'person',
+            'url': 'http://in.st/alice',
+            'urls': [
+                'http://in.st/alice',
+                {'value': 'at://did:plc:alice', 'rel': 'alternate'},
+                {'value': NPUB_URI, 'rel': 'alternate'},
+                {
+                    'value': 'http://ot.her/alice',
+                    'rel': 'canonical',
+                    'mimeType': 'application/activity+json',
+                },
+            ],
+        })
+        self.assertEqual('did:plc:alice', user.get_external_id(ATProto))
+        self.assertEqual(PUBKEY_URI, user.get_external_id(Nostr))
+        self.assertEqual('http://ot.her/alice', user.get_external_id(ActivityPub))
+        self.assertIsNone(user.get_external_id(Farcaster))
+
+    def test_get_external_id_in_url(self):
+        user = self.make_user('fake:user', cls=Fake, obj_as1={
+            'objectType': 'person',
+            'url': {'value': 'did:plc:alice', 'rel': 'canonical'},
+        })
+        self.assertEqual('did:plc:alice', user.get_external_id(ATProto))
+
+    def test_get_external_id_self(self):
+        user = self.make_user('efake:alice', cls=ExplicitFake, obj_as1={
+            'objectType': 'person',
+            'id': 'efake:alice',
+            'url': {'value': 'efake:alice', 'rel': 'canonical'},
+        })
+        self.assertIsNone(user.get_external_id(ExplicitFake))
+
+    def test_get_external_id_no_profile(self):
+        user = self.make_user('fake:user', cls=Fake)
+        self.assertIsNone(user.get_external_id(ATProto))
+
+    def test_get_external_id_not_proxy_link(self):
+        user = self.make_user('fake:user', cls=Fake, obj_as1={
+            'objectType': 'person',
+            'urls': ['at://did:plc:alice', {'value': 'at://did:plc:bob'}],
+        })
+        self.assertIsNone(user.get_external_id(ATProto))
+
+    def test_get_external_id_other_did_method(self):
+        user = self.make_user('fake:user', cls=Fake, obj_as1={
+            'objectType': 'person',
+            'urls': [{'value': 'did:key:alice', 'rel': 'alternate'}],
+        })
+        self.assertIsNone(user.get_external_id(ATProto))
+
+    def test_get_external_id_our_copy(self):
+        user = self.make_user(
+            'fake:user', cls=Fake,
+            copies=[Target(uri='did:plc:alice', protocol='atproto')],
+            obj_as1={
+                'objectType': 'person',
+                'urls': [
+                    {'value': 'did:plc:alice', 'rel': 'alternate'},
+                    {'value': 'at://did:plc:alice', 'rel': 'alternate'},
+                ],
+            })
+        self.assertIsNone(user.get_external_id(ATProto))
+
+    def test_get_external_id_our_copy_enabled(self):
+        user = self.make_user(
+            'fake:user', cls=Fake, enabled_protocols=['efake'],
+            copies=[Target(uri='efake:ours', protocol='efake')],
+            obj_as1=EXTERNAL_ID_ACTOR)
+        self.assertIsNone(user.get_external_id(ExplicitFake))
+
+    def test_get_external_id_our_copy_not_enabled(self):
+        user = self.make_user(
+            'fake:user', cls=Fake,
+            copies=[Target(uri='efake:ours', protocol='efake')],
+            obj_as1=EXTERNAL_ID_ACTOR)
+        self.assertEqual('efake:alice', user.get_external_id(ExplicitFake))
+
+    def test_get_external_id_enabled_no_copy(self):
+        user = self.make_user('fake:user', cls=Fake, enabled_protocols=['efake'],
+                              copies=[], obj_as1=EXTERNAL_ID_ACTOR)
+        self.assertEqual('efake:alice', user.get_external_id(ExplicitFake))
+
+    def test_get_external_id_protocol_without_copies(self):
+        actor = {
+            'objectType': 'person',
+            'urls': [{
+                'value': 'http://in.st/alice',
+                'rel': 'alternate',
+                'mimeType': 'application/activity+json',
+            }],
+        }
+        user = self.make_user('fake:user', cls=Fake, obj_as1=actor)
+        self.assertEqual('http://in.st/alice', user.get_external_id(ActivityPub))
+
+        user = self.make_user('fake:enabled', cls=Fake, obj_as1=actor,
+                              enabled_protocols=['activitypub'])
+        self.assertIsNone(user.get_external_id(ActivityPub))
+
+    def test_get_external_id_enabled_but_has_status(self):
+        """eg external-id or opted out, so we're not actually bridging them."""
+        actor = {
+            'objectType': 'person',
+            'summary': '#nobridge',
+            'urls': [{
+                'value': 'http://in.st/alice',
+                'rel': 'alternate',
+                'mimeType': 'application/activity+json',
+            }, {
+                'value': 'efake:alice',
+                'rel': 'alternate',
+            }],
+        }
+        user = self.make_user(
+            'fake:user', cls=Fake, obj_as1=actor,
+            enabled_protocols=['activitypub', 'efake'],
+            copies=[Target(uri='efake:ours', protocol='efake')])
+        self.assertEqual('nobridge', user.status)
+        self.assertEqual('http://in.st/alice', user.get_external_id(ActivityPub))
+        self.assertEqual('efake:alice', user.get_external_id(ExplicitFake))
+
+    def test_get_external_id_our_domain(self):
+        user = self.make_user('fake:user', cls=Fake, obj_as1={
+            'objectType': 'person',
+            'urls': [{
+                'value': 'https://fa.brid.gy/ap/fake:user',
+                'rel': 'alternate',
+                'mimeType': 'application/activity+json',
+            }, {
+                'value': 'at://user.fake.brid.gy',
+                'rel': 'alternate',
+            }],
+        })
+        self.assertIsNone(user.get_external_id(ActivityPub))
+        self.assertIsNone(user.get_external_id(ATProto))
+
+    def test_get_external_id_our_copy_other_form(self):
+        for proto, copy, link in (
+            (ATProto, 'did:plc:alice', 'at://did:plc:alice/app.bsky.actor.profile/self'),
+            (Nostr, PUBKEY_URI, NPUB_URI),
+        ):
+            with self.subTest(link=link):
+                user = self.make_user(
+                    f'fake:{proto.LABEL}', cls=Fake,
+                    copies=[Target(uri=copy, protocol=proto.LABEL)],
+                    obj_as1={
+                        'objectType': 'person',
+                        'urls': [{'value': link, 'rel': 'alternate'}],
+                    })
+                self.assertIsNone(user.get_external_id(proto))
+
+    def test_get_external_id_similar_to_our_copy(self):
+        user = self.make_user(
+            'fake:user', cls=Fake,
+            copies=[Target(uri='did:web:foo.com', protocol='atproto')],
+            obj_as1={
+                'objectType': 'person',
+                'urls': [{'value': 'did:web:foo.com.evil.net', 'rel': 'alternate'}],
+            })
+        self.assertEqual('did:web:foo.com.evil.net', user.get_external_id(ATProto))
+
+    def test_get_canonical_external_id(self):
+        for i, uri in enumerate(('at://did:plc:other', 'nostr:npub1other',
+                                 'unknown:other', 'https://twitter.com/alice')):
+            with self.subTest(uri=uri):
+                user = self.make_user(f'fake:user-{i}', cls=Fake, obj_as1={
+                    'objectType': 'person',
+                    'urls': [
+                        'http://in.st/alice',
+                        {'value': 'efake:alt', 'rel': 'alternate'},
+                        {'value': uri, 'rel': 'canonical'},
+                    ],
+                })
+                self.assertEqual(uri, user.get_canonical_external_id())
+
+    def test_get_canonical_external_id_in_url(self):
+        user = self.make_user('fake:user', cls=Fake, obj_as1={
+            'objectType': 'person',
+            'url': {'value': 'did:plc:other', 'rel': 'canonical'},
+        })
+        self.assertEqual('did:plc:other', user.get_canonical_external_id())
+
+    def test_get_canonical_external_id_no_profile(self):
+        user = self.make_user('fake:user', cls=Fake)
+        self.assertIsNone(user.get_canonical_external_id())
+
+    def test_get_canonical_external_id_alternate(self):
+        user = self.make_user('fake:user', cls=Fake, obj_as1=EXTERNAL_ID_ACTOR)
+        self.assertIsNone(user.get_canonical_external_id())
+
+    def test_get_canonical_external_id_self(self):
+        user = self.make_user('fake:user', cls=Fake, obj_as1={
+            'objectType': 'person',
+            'url': {'value': 'fake:user', 'rel': 'canonical'},
+        })
+        self.assertIsNone(user.get_canonical_external_id())
+
+    def test_get_canonical_external_id_our_copy_on_other_protocol(self):
+        user = self.make_user(
+            'fake:user', cls=Fake,
+            copies=[Target(uri='did:plc:alice', protocol='atproto')],
+            obj_as1={
+                'objectType': 'person',
+                'url': {'value': 'at://did:plc:alice', 'rel': 'canonical'},
+            })
+        self.assertIsNone(user.get_canonical_external_id())
+
+    def test_get_canonical_external_id_same_host(self):
+        user = self.make_user('https://in.st/users/alice', cls=ActivityPub, obj_as1={
+            'objectType': 'person',
+            'url': {'value': 'https://in.st/@alice', 'rel': 'canonical'},
+        })
+        self.assertEqual('https://in.st/@alice', user.get_canonical_external_id())
+
+    def test_get_canonical_external_id_other_host(self):
+        user = self.make_user('https://in.st/users/alice', cls=ActivityPub, obj_as1={
+            'objectType': 'person',
+            'url': {'value': 'https://ot.her/alice', 'rel': 'canonical'},
+        })
+        self.assertEqual('https://ot.her/alice', user.get_canonical_external_id())
+
+    def test_get_canonical_external_id_self_other_form(self):
+        self.store_object(id='did:plc:alice', raw={**DID_DOC, 'id': 'did:plc:alice'})
+        user = self.make_user('did:plc:alice', cls=ATProto, obj_as1={
+            'objectType': 'person',
+            'url': {'value': 'at://did:plc:alice', 'rel': 'canonical'},
+        })
+        self.assertIsNone(user.get_canonical_external_id())
+
+    def test_get_canonical_external_id_web_same_domain(self):
+        user = self.make_user('foo.com', cls=Web, obj_as1={
+            'objectType': 'person',
+            'id': 'https://foo.com/',
+            'urls': [{'value': 'https://foo.com/about', 'rel': 'canonical'}],
+        })
+        self.assertIsNone(user.get_canonical_external_id())
+
+    def test_get_canonical_external_id_web_similar_domain(self):
+        for uri in 'https://notfoo.com/', 'https://ot.her/foo.com':
+            with self.subTest(uri=uri):
+                user = self.make_user('foo.com', cls=Web, obj_as1={
+                    'objectType': 'person',
+                    'id': 'https://foo.com/',
+                    'urls': [{'value': uri, 'rel': 'canonical'}],
+                })
+                self.assertEqual(uri, user.get_canonical_external_id())
+
+    def test_get_canonical_external_id_our_copy_other_form(self):
+        user = self.make_user(
+            'fake:user', cls=Fake,
+            copies=[Target(uri=PUBKEY_URI, protocol='nostr')],
+            obj_as1={
+                'objectType': 'person',
+                'url': {'value': NPUB_URI, 'rel': 'canonical'},
+            })
+        self.assertIsNone(user.get_canonical_external_id())
+
+    def test_get_canonical_external_id_similar_to_our_copy(self):
+        user = self.make_user(
+            'fake:user', cls=Fake,
+            copies=[Target(uri='did:web:foo.com', protocol='atproto')],
+            obj_as1={
+                'objectType': 'person',
+                'url': {'value': 'did:web:foo.com.evil.net', 'rel': 'canonical'},
+            })
+        self.assertEqual('did:web:foo.com.evil.net',
+                         user.get_canonical_external_id())
+
+    def test_get_canonical_external_id_our_domain(self):
+        for i, uri in enumerate(('https://bsky.brid.gy/ap/did:plc:other',
+                                 'https://fed.brid.gy/other.com')):
+            with self.subTest(uri=uri):
+                user = self.make_user(f'fake:user{i}', cls=Fake, obj_as1={
+                    'objectType': 'person',
+                    'url': {'value': uri, 'rel': 'canonical'},
+                })
+                self.assertIsNone(user.get_canonical_external_id())
+
     def test_load_multi(self):
         # obj_key is None
         alice = Fake(id='alice.com')
@@ -591,6 +1091,7 @@ class UserTest(TestCase):
         self.assertEqual('opt-out', user.status)
 
     def test_status_private(self):
+        self.user.enabled_protocols = []
         self.user.obj.our_as1 = {
             'to': [{'objectType': 'group', 'alias': '@unlisted'}],
         }
@@ -652,6 +1153,13 @@ class UserTest(TestCase):
         user.enabled_protocols = ['efake']
         self.assertEqual('requires-old-account', user.status)
 
+        # no time zone, assume UTC
+        user.obj.our_as1['published'] = too_young.replace(tzinfo=None).isoformat()
+        self.assertEqual('requires-old-account', user.status)
+
+        user.obj.our_as1['published'] = 'not a date'
+        self.assertIsNone(user.status)
+
         user.obj.our_as1['published'] = (too_young - timedelta(minutes=2)).isoformat()
         self.assertIsNone(user.status)
 
@@ -709,7 +1217,6 @@ class UserTest(TestCase):
     def test_is_enabled_default_enabled_protocols(self):
         web = self.make_user('a.com', cls=Web)
 
-        self.assertTrue(web.is_enabled(ActivityPub))
         self.assertTrue(ActivityPub(id='').is_enabled(Web))
         self.assertTrue(ActivityPub(id='').is_enabled(ActivityPub))
         self.assertTrue(Fake(id='').is_enabled(OtherFake))
@@ -717,6 +1224,7 @@ class UserTest(TestCase):
 
         self.assertFalse(ActivityPub(id='').is_enabled(ATProto))
         self.assertFalse(ATProto(id='').is_enabled(ActivityPub))
+        self.assertFalse(web.is_enabled(ActivityPub))
         self.assertFalse(web.is_enabled(ATProto))
         self.assertFalse(ExplicitFake(id='').is_enabled(Fake))
         self.assertFalse(ExplicitFake(id='').is_enabled(OtherFake))
@@ -728,8 +1236,8 @@ class UserTest(TestCase):
         self.user.enabled_protocols = ['atproto']
         self.assertTrue(self.user.is_enabled(ATProto, explicit=True))
 
-        assert 'activitypub' in Web.DEFAULT_ENABLED_PROTOCOLS
-        self.assertFalse(self.user.is_enabled(ActivityPub, explicit=True))
+        assert 'other' in Web.DEFAULT_ENABLED_PROTOCOLS
+        self.assertFalse(self.user.is_enabled(OtherFake, explicit=True))
 
     def test_is_enabled_enabled_protocols_overrides_nobot(self):
         user = self.make_user('efake:user', cls=ExplicitFake,
@@ -764,7 +1272,8 @@ class UserTest(TestCase):
         self.assertIsNone(user.status)
 
     def test_is_enabled_manual_opt_out(self):
-        user = self.make_user('user.com', cls=Web)
+        user = self.make_user('user.com', cls=Web,
+                              enabled_protocols=['activitypub'])
         self.assertTrue(user.is_enabled(ActivityPub))
 
         user.manual_opt_out = True
@@ -1027,6 +1536,41 @@ class UserTest(TestCase):
         with self.assertRaises(RuntimeError):
             models.load_user('https://y.za/not/homepage')
 
+    def test_load_user_object_id(self):
+        # an object id isn't a user id, even though owns_id says it's ours, so
+        # we shouldn't try to create a user for it
+        # https://github.com/snarfed/bridgy-fed/issues/2281
+        for create in False, True:
+            with self.subTest(create=create):
+                with self.assertRaises(RuntimeError):
+                    models.load_user('at://did:plc:abc/app.bsky.feed.post/123',
+                                     create=create)
+
+    def test_load_user_atproto_profile_id(self):
+        # ...but a profile object id normalizes to its user id
+        self.store_object(id='did:plc:user', raw=DID_DOC)
+        user = self.make_user('did:plc:user', cls=ATProto)
+        self.assertEqual(user, models.load_user(
+            'at://did:plc:user/app.bsky.actor.profile/self'))
+
+    @patch.object(util.session, 'get', return_value=TestCase.as2_resp(ACTOR))
+    def test_load_user_activitypub_resolve_url_to_actor_id(self, _):
+        user = models.load_user('https://mas.to/@foo', proto=ActivityPub,
+                                create=True, resolve=True)
+        self.assertEqual('https://mas.to/users/foo', user.key.id())
+        self.assertEqual(['https://mas.to/users/foo'],
+                         [u.key.id() for u in ActivityPub.query()])
+
+    @patch.object(util.session, 'get', return_value=TestCase.as2_resp(ACTOR))
+    def test_load_user_activitypub_resolve_url_to_existing_user(self, _):
+        user = self.make_user('https://mas.to/users/foo', cls=ActivityPub,
+                              obj_as2=ACTOR)
+        stored = models.load_user('https://mas.to/@foo', proto=ActivityPub,
+                                  create=True, resolve=True)
+        self.assert_entities_equal(user, stored)
+        self.assertEqual(['https://mas.to/users/foo'],
+                         [u.key.id() for u in ActivityPub.query()])
+
 
 class ObjectTest(TestCase):
 
@@ -1186,12 +1730,24 @@ class ObjectTest(TestCase):
         self.assertTrue(obj.activity_changed({}))
         self.assertTrue(obj.activity_changed({'content': 'x'}))
 
+    def test_id_as(self):
+        obj = Object(id='fake:post', source_protocol='fake')
+        self.assertEqual('fake:post', obj.id_as(Fake))
+        self.assertEqual('https://fa.brid.gy/convert/ap/fake:post',
+                         obj.id_as(ActivityPub))
+
+    def test_id_as_passes_owner_protocol_to_translate_object_id(self):
+        alice = self.make_user('fake:alice', cls=Fake)
+        obj = Object(id='ui:reply', source_protocol='ui', users=[alice.key])
+        self.assertEqual('https://fa.brid.gy/convert/ap/ui:reply',
+                         obj.id_as(ActivityPub))
+
     def test_actor_link(self):
         for expected, as2 in (
                 ('', {}),
                 ('href="http://foo">foo', {'actor': 'http://foo'}),
                 ('href="http://foo">foo', {'actor': {'id': 'http://foo'}}),
-                ('href="">Alice', {'actor': {'name': 'Alice'}}),
+                ('Alice', {'actor': {'name': 'Alice'}}),
                 ('href="http://foo/">Alice', {'actor': {
                     'name': 'Alice',
                     'url': 'http://foo',
@@ -1238,21 +1794,49 @@ class ObjectTest(TestCase):
             },
         })
         self.assert_multiline_equals(
-            '<a class="h-card u-author" href="">Alice</a>',
+            'Alice',
             obj.actor_link(image=False))
 
     def test_actor_link_sized(self):
         obj = Object(id='x', our_as1={
             'actor': {
                 'displayName': 'Alice',
-                'image': 'foo.jpg',
+                'image': 'http://foo.jpg',
             },
         })
         self.assert_multiline_equals("""\
 <a class="h-card u-author" href="" title="Alice">
-  <img class="profile" src="foo.jpg" width="32"/>
+  <img class="profile" src="http://foo.jpg" width="32"/>
   <span style="unicode-bidi: isolate">Alice</span>
 </a>""", obj.actor_link(sized=True), ignore_blanks=True)
+
+    def test_actor_link_escapes(self):
+        obj = Object(id='x', our_as1={
+            'actor': {
+                'displayName': '<script>alert(1)</script>',
+                'url': 'http://foo/"onmouseover="alert(1)',
+                'image': 'http://pic/"onerror="alert(1)',
+            },
+        })
+        self.assert_multiline_in("""\
+<a class="h-card u-author" href="http://foo/&quot;onmouseover=&quot;alert(1)" title="&lt;script&gt;alert(1)&lt;/script&gt;">
+  <img class="profile" src="http://pic/&quot;onerror=&quot;alert(1)" />
+  <span style="unicode-bidi: isolate">&lt;script&gt;alert(1)&lt;/script&gt;</span>
+</a>""", obj.actor_link(), ignore_blanks=True)
+
+    def test_actor_link_non_web_urls(self):
+        obj = Object(id='x', our_as1={
+            'actor': {
+                'displayName': 'Alice',
+                'url': 'javascript:alert(1)',
+                'image': 'javascript:alert(2)',
+            },
+        })
+        self.assert_multiline_equals(
+            'Alice', obj.actor_link())
+
+        obj = Object(id='x', our_as1={'actor': {'id': 'javascript:alert(1)'}})
+        self.assertEqual('javascript:alert(1)', obj.actor_link())
 
     def test_actor_link_composite_url(self):
         obj = Object(id='x', source_protocol='activitypub', our_as1={
@@ -1268,6 +1852,22 @@ class ObjectTest(TestCase):
 
     def test_computed_properties_without_as1(self):
         Object(id='a').put()
+
+    def test_in_reply_to(self):
+        self.assertEqual([], Object(id='a').in_reply_to)
+        self.assertEqual([], Object(id='a', our_as1={'objectType': 'note'}
+                                    ).in_reply_to)
+
+        self.assertEqual([ndb.Key(Object, 'fake:post')], Object(id='a', our_as1={
+            'objectType': 'note',
+            'inReplyTo': 'fake:post',
+        }).in_reply_to)
+
+        self.assertEqual([ndb.Key(Object, 'fake:a'), ndb.Key(Object, 'fake:b')],
+                         Object(id='a', our_as1={
+                             'objectType': 'note',
+                             'inReplyTo': ['fake:b', {'id': 'fake:a'}],
+                         }).in_reply_to)
 
     def test_expire(self):
         obj = Object(id='a', our_as1={'objectType': 'activity', 'verb': 'update'})
@@ -1316,6 +1916,24 @@ class ObjectTest(TestCase):
     def test_as1_from_our_as1_extra_as1(self):
         obj = Object(our_as1={'foo': 'bar'}, extra_as1={'x': 'y'})
         self.assertEqual({'foo': 'bar', 'x': 'y'}, obj.as1)
+
+    def test_as1_extra_as1_merges_context(self):
+        obj = Object(our_as1={'foo': 'bar', '@context': ['a', {'b': 'c'}]},
+                     extra_as1={'x': 'y', '@context': [{'b': 'c'}, {'d': 'e'}]})
+        self.assertEqual({
+            'foo': 'bar',
+            'x': 'y',
+            '@context': ['a', {'b': 'c'}, {'d': 'e'}],
+        }, obj.as1)
+
+    def test_as1_extra_as1_merges_context_non_list(self):
+        obj = Object(our_as1={'foo': 'bar', '@context': 'a'},
+                     extra_as1={'@context': {'d': 'e'}})
+        self.assertEqual({'foo': 'bar', '@context': ['a', {'d': 'e'}]}, obj.as1)
+
+    def test_as1_extra_as1_context_only_in_extra(self):
+        obj = Object(our_as1={'foo': 'bar'}, extra_as1={'@context': [{'d': 'e'}]})
+        self.assertEqual({'foo': 'bar', '@context': [{'d': 'e'}]}, obj.as1)
 
     def test_as1_from_as2_extra_as1(self):
         obj = Object(as2={'foo': 'bar'}, extra_as1={'x': 'y'})
@@ -1414,6 +2032,131 @@ class ObjectTest(TestCase):
         })
         self.assertIsNone(obj.as1)
 
+    def test_as1_from_bsky_blacksky_conversation(self):
+        for did in 'did:plc:user', 'did:plc:alice', 'did:plc:bob', 'did:plc:eve':
+            self.store_object(id=did, raw={**DID_DOC, 'id': did})
+        conv_uri = 'at://did:plc:user/community.blacksky.assembly.conversation/c'
+
+        self.store_object(
+            id='at://did:plc:alice/community.blacksky.assembly.statement/a',
+            bsky={
+                '$type': 'community.blacksky.assembly.statement',
+                'conversation': {'uri': conv_uri, 'cid': 'abc'},
+                'text': 'a',
+            })
+        self.store_object(
+            id='at://did:plc:bob/community.blacksky.assembly.statement/b',
+            bsky={
+                '$type': 'community.blacksky.assembly.statement',
+                'conversation': {'uri': conv_uri, 'cid': 'abc'},
+                'text': 'b',
+            })
+        # deleted
+        self.store_object(
+            id='at://did:plc:eve/community.blacksky.assembly.statement/e',
+            bsky={
+                '$type': 'community.blacksky.assembly.statement',
+                'conversation': {'uri': conv_uri, 'cid': 'abc'},
+                'text': 'deleted',
+            }, deleted=True)
+
+        # Object.as1 is high volume, so it shouldn't query statements.
+        # atproto.hydrate_record populates options in extra_as1 instead.
+        obj = Object(id=conv_uri, bsky={
+            '$type': 'community.blacksky.assembly.conversation',
+            'topic': 'which is best?',
+            'createdAt': '2022-01-02T03:04:05.000Z',
+        })
+        self.assert_equals({
+            'objectType': 'question',
+            'id': conv_uri,
+            'author': 'did:plc:user',
+            'content': 'which is best?',
+            'published': '2022-01-02T03:04:05.000Z',
+        }, obj.as1)
+
+    def test_as1_from_bsky_blacksky_vote(self):
+        for did in 'did:plc:user', 'did:plc:bob':
+            self.store_object(id=did, raw={**DID_DOC, 'id': did})
+        conv_uri = 'at://did:plc:user/community.blacksky.assembly.conversation/c'
+        statement_uri = 'at://did:plc:user/community.blacksky.assembly.statement/a'
+        self.store_object(id=statement_uri, bsky={
+            '$type': 'community.blacksky.assembly.statement',
+            'conversation': {'uri': conv_uri, 'cid': 'abc'},
+            'text': 'foo is best',
+            'createdAt': '2022-01-02T04:00:00.000Z',
+        })
+
+        vote = {
+            '$type': 'community.blacksky.assembly.vote',
+            'subject': {'uri': statement_uri, 'cid': 'def'},
+            'value': -1,
+            'createdAt': '2022-01-02T05:00:00.000Z',
+        }
+        # we don't load the vote's statement, even though it's stored, so we can't
+        # convert the vote
+        vote_uri = 'at://did:plc:bob/community.blacksky.assembly.vote/v'
+        self.assertIsNone(Object(id=vote_uri, bsky=vote).as1)
+
+    @patch.object(util.session, 'get')
+    def test_as1_from_bsky_profile_doesnt_load_links(self, mock_get):
+        self.store_object(id='did:plc:user', raw=DID_DOC)  # uses https://some.pds
+        self.store_object(id='at://did:plc:user/app.bsky.actor.link/a', bsky={
+            '$type': 'app.bsky.actor.link',
+            'url': 'https://a.com/',
+            'title': 'A',
+            'createdAt': '2022-01-02T03:04:05.000Z',
+        })
+
+        # Object.as1 is high volume, so it shouldn't load link records, stored
+        # (a) or not (b)
+        profile_uri = 'at://did:plc:user/app.bsky.actor.profile/self'
+        self.assert_equals({
+            'objectType': 'person',
+            'id': profile_uri,
+            'username': 'han.dull.fa.brid.gy',
+            'url': 'https://bsky.app/profile/han.dull.fa.brid.gy',
+        }, Object(id=profile_uri, bsky={
+            '$type': 'app.bsky.actor.profile',
+            'links': [{
+                'uri': 'at://did:plc:user/app.bsky.actor.link/a',
+                'cid': 'bafyreie5737gdxlw5i64vzichcalba3z2v5n6icifvx5xytvske7mr3hpm',
+            }, {
+                'uri': 'at://did:plc:user/app.bsky.actor.link/b',
+                'cid': 'bafyreie5737gdxlw5i64vzichcalba3z2v5n6icifvx5xytvske7mr3hpm',
+            }],
+        }).as1, ignore=['image'])
+
+        mock_get.assert_not_called()
+
+    def test_as1_from_bsky_profile_merges_extra_as1_urls(self):
+        self.store_object(id='did:plc:user', raw=DID_DOC)  # uses https://some.pds
+
+        home = {
+            'objectType': 'link',
+            'id': 'at://did:plc:user/app.bsky.actor.link/a',
+            'value': 'https://han.dull.fa.brid.gy',
+            'displayName': 'Home',
+        }
+        blog = {
+            'objectType': 'link',
+            'id': 'at://did:plc:user/app.bsky.actor.link/b',
+            'value': 'https://alice.blog/',
+            'displayName': 'Blog',
+        }
+
+        # home matches an existing URL, so it replaces it. blog is new, so it's
+        # appended
+        profile_uri = 'at://did:plc:user/app.bsky.actor.profile/self'
+        self.assert_equals({
+            'objectType': 'person',
+            'id': profile_uri,
+            'username': 'han.dull.fa.brid.gy',
+            'url': 'https://bsky.app/profile/han.dull.fa.brid.gy',
+            'urls': ['https://bsky.app/profile/han.dull.fa.brid.gy', home, blog],
+        }, Object(id=profile_uri, bsky={'$type': 'app.bsky.actor.profile'},
+                  extra_as1={'urls': [home, blog]}).as1, ignore=['image'])
+
     def test_as1_from_mf2_uses_url_as_id(self):
         mf2 = {
             'properties': {
@@ -1502,6 +2245,38 @@ cast_add_body {
             'content_is_html': False,
             'published': '2022-01-02T03:04:05+00:00',
             'url': f'https://farcaster.xyz/~/conversations/0x{msg.hash.hex()}',
+        }, obj.as1)
+
+    @patch('granary.farcaster.rpc_pb2_grpc.HubServiceStub')
+    def test_as1_from_farcaster_cast_with_mention(self, mock_stub):
+        farcaster._client = None
+        mock_stub.return_value.GetUserDataByFid.return_value = MessagesResponse(
+            messages=[user_data_message(456, 'USER_DATA_TYPE_USERNAME', 'alice')])
+
+        msg = message("""
+type: MESSAGE_TYPE_CAST_ADD
+cast_add_body {
+  text: "hi !"
+  mentions: 456
+  mentions_positions: 3
+}
+""")
+        obj = Object(id=f'farcaster://123/0x{msg.hash.hex()}',
+                     farcaster=[msg.SerializeToString()])
+        self.assert_equals({
+            'objectType': 'note',
+            'id': f'farcaster://123/0x{msg.hash.hex()}',
+            'author': 'farcaster://123',
+            'content': 'hi @alice!',
+            'content_is_html': False,
+            'published': '2022-01-02T03:04:05+00:00',
+            'url': f'https://farcaster.xyz/~/conversations/0x{msg.hash.hex()}',
+            'tags': [{
+                'objectType': 'mention',
+                'url': 'farcaster://456',
+                'startIndex': 3,
+                'length': 6,
+            }],
         }, obj.as1)
 
     def test_as1_from_farcaster_user_data(self):
@@ -1695,6 +2470,24 @@ cast_add_body { text: "hi" }
             'object': 'other:bob',
         }, obj.our_as1)
 
+    def test_resolve_ids_copies_block_of_object(self):
+        # a block's object may be a user or an object, eg a blocklist. the id
+        # format tells us which. https://github.com/snarfed/bridgy-fed/issues/2281
+        list_uri = 'at://did:plc:abc/app.bsky.graph.list/123'
+        block = {
+            'id': 'at://did:plc:abc/app.bsky.graph.listblock/456',
+            'objectType': 'activity',
+            'verb': 'block',
+            'actor': 'did:plc:abc',
+            'object': list_uri,
+        }
+        obj = Object(id=block['id'], our_as1=block, source_protocol='atproto')
+
+        self.store_object(id='fake:list', source_protocol='fake',
+                          copies=[Target(uri=list_uri, protocol='atproto')])
+        obj.resolve_ids()
+        self.assert_equals({**block, 'object': 'fake:list'}, obj.our_as1)
+
     def test_resolve_ids_copies_reply(self):
         reply = {
             'objectType': 'activity',
@@ -1749,6 +2542,33 @@ cast_add_body { text: "hi" }
             },
         }, obj.our_as1)
 
+    def test_resolve_ids_keeps_empty_contentMap(self):
+        self.store_object(id='other:post',
+                          copies=[Target(uri='fake:post', protocol='fake')])
+
+        obj = Object(id='fake:reply', source_protocol='fake', our_as1={
+            'objectType': 'activity',
+            'verb': 'post',
+            'object': {
+                'id': 'fake:reply',
+                'objectType': 'note',
+                'inReplyTo': 'fake:post',
+                'contentMap': {'da': ''},
+            },
+        })
+        obj.resolve_ids()
+        self.assert_equals({
+            'objectType': 'activity',
+            'verb': 'post',
+            'id': 'fake:reply',
+            'object': {
+                'id': 'fake:reply',
+                'objectType': 'note',
+                'inReplyTo': 'other:post',
+                'contentMap': {'da': ''},
+            },
+        }, obj.our_as1)
+
     def test_resolve_ids_multiple_in_reply_to(self):
         note = {
             'id': 'fake:note',
@@ -1775,6 +2595,208 @@ cast_add_body { text: "hi" }
             'id': 'fake:note',
             'objectType': 'note',
             'inReplyTo': ['other:a', 'other:b'],
+        }, obj.our_as1)
+
+    @patch.object(util.session, 'get', return_value=TestCase.as2_resp({
+        'type': 'Note',
+        'id': 'https://mas.to/users/foo/statuses/123',
+        'content': 'foo',
+    }))
+    def test_resolve_ids_remote_in_reply_to(self, _):
+        reply = {
+            'id': 'https://user.com/reply',
+            'objectType': 'comment',
+            'inReplyTo': 'https://mas.to/@foo/123',
+        }
+        obj = Object(id='https://user.com/reply', our_as1=reply,
+                     source_protocol='web')
+
+        # remote is False, so we don't fetch
+        obj.resolve_ids()
+        self.assert_equals(reply, obj.our_as1)
+
+        obj.resolve_ids(remote=True)
+        self.assert_equals({
+            **reply,
+            'inReplyTo': 'https://mas.to/users/foo/statuses/123',
+        }, obj.our_as1)
+
+    @patch.object(util.session, 'get', return_value=TestCase.as2_resp({
+        'type': 'Note',
+        'id': 'https://mas.to/users/foo/statuses/123',
+        'content': 'foo',
+    }))
+    def test_resolve_ids_remote_object(self, _):
+        repost = {
+            'id': 'https://user.com/repost',
+            'objectType': 'activity',
+            'verb': 'share',
+            'object': 'https://mas.to/@foo/123',
+        }
+        obj = Object(id='https://user.com/repost', our_as1=repost,
+                     source_protocol='web')
+
+        obj.resolve_ids(remote=True)
+        self.assert_equals({
+            **repost,
+            'object': 'https://mas.to/users/foo/statuses/123',
+        }, obj.our_as1)
+
+    @patch.object(util.session, 'get', return_value=TestCase.as2_resp({
+        'type': 'Note',
+        'id': 'https://mas.to/users/foo/statuses/123',
+        'content': 'foo',
+    }))
+    def test_resolve_ids_remote_quote_post_in_attachments(self, _):
+        quote = {
+            'id': 'https://user.com/quote',
+            'objectType': 'note',
+            'attachments': [{
+                'objectType': 'note',
+                'id': 'https://mas.to/@foo/123',
+            }],
+        }
+        obj = Object(id='https://user.com/quote', our_as1=quote,
+                     source_protocol='web')
+
+        obj.resolve_ids(remote=True)
+        self.assert_equals({
+            **quote,
+            'attachments': [{
+                'objectType': 'note',
+                'id': 'https://mas.to/users/foo/statuses/123',
+            }],
+        }, obj.our_as1)
+
+    @patch.object(util.session, 'get', return_value=TestCase.as2_resp({
+        'type': 'Person',
+        'id': 'https://mas.to/users/foo',
+        'preferredUsername': 'foo',
+    }))
+    def test_resolve_ids_remote_mention(self, _):
+        note = {
+            'id': 'https://user.com/post',
+            'objectType': 'note',
+            'tags': [{
+                'objectType': 'mention',
+                'url': 'https://mas.to/@foo',
+            }],
+        }
+        obj = Object(id='https://user.com/post', our_as1=note,
+                     source_protocol='web')
+
+        obj.resolve_ids(remote=True)
+        self.assert_equals({
+            **note,
+            'tags': [{
+                'objectType': 'mention',
+                'url': 'https://mas.to/users/foo',
+            }],
+        }, obj.our_as1)
+
+    @patch.object(util.session, 'get')
+    def test_resolve_ids_remote_skips_actor_and_author(self, mock_get):
+        # receive authenticates the owner before we run, so leave it alone
+        share = {
+            'id': 'https://user.com/repost',
+            'objectType': 'activity',
+            'verb': 'share',
+            'actor': 'https://mas.to/@foo',
+            'author': 'https://mas.to/@bar',
+        }
+        obj = Object(id='https://user.com/repost', our_as1=share,
+                     source_protocol='web')
+
+        obj.resolve_ids(remote=True)
+        self.assert_equals(share, obj.our_as1)
+        mock_get.assert_not_called()
+
+    @patch.object(util.session, 'get')
+    def test_resolve_ids_remote_skips_crud_object(self, mock_get):
+        # a create's object is our own content, not a reference to someone else's
+        create = {
+            'id': 'https://user.com/post#bridgy-fed-create',
+            'objectType': 'activity',
+            'verb': 'post',
+            'object': {
+                'id': 'https://user.com/post',
+                'objectType': 'note',
+                'content': 'foo',
+            },
+        }
+        obj = Object(id='https://user.com/post#bridgy-fed-create',
+                     our_as1=create, source_protocol='web')
+
+        obj.resolve_ids(remote=True)
+        self.assert_equals(create, obj.our_as1)
+        mock_get.assert_not_called()
+
+    def test_resolve_ids_multiple_objects(self):
+        share = {
+            'id': 'fake:share',
+            'objectType': 'activity',
+            'verb': 'share',
+            'object': ['fake:a', 'fake:b'],
+        }
+        obj = Object(id='fake:share', our_as1=share, source_protocol='fake')
+
+        # no matching copies
+        obj.resolve_ids()
+        self.assert_equals(share, obj.our_as1)
+
+        models.get_original_user_key.cache_clear()
+        models.get_original_object_key.cache_clear()
+        memcache.pickle_memcache.clear()
+
+        # matching copies
+        self.store_object(id='other:a',
+                          copies=[Target(uri='fake:a', protocol='fa')])
+        self.store_object(id='other:b',
+                          copies=[Target(uri='fake:b', protocol='fake')])
+        obj.resolve_ids()
+        self.assert_equals({
+            **share,
+            'object': ['other:a', 'other:b'],
+        }, obj.our_as1)
+
+    def test_resolve_ids_no_copies_keeps_dict_values(self):
+        # ActivityPub doesn't have copies, so we don't resolve anything, but we
+        # still unwrap subdomain URLs, and we shouldn't flatten dicts to bare ids
+        obj = Object(id='https://mas.to/reply', source_protocol='ap', our_as1={
+            'objectType': 'activity',
+            'verb': 'post',
+            'id': 'https://mas.to/reply',
+            'object': {
+                'id': 'https://ap.brid.gy/fa/fake:reply',
+                'objectType': 'comment',
+                'author': {
+                    'id': 'https://mas.to/users/alice',
+                    'displayName': 'Alice',
+                },
+                'inReplyTo': {
+                    'id': 'https://mas.to/post',
+                    'objectType': 'note',
+                },
+            },
+        })
+
+        obj.resolve_ids()
+        self.assert_equals({
+            'objectType': 'activity',
+            'verb': 'post',
+            'id': 'https://mas.to/reply',
+            'object': {
+                'id': 'fake:reply',
+                'objectType': 'comment',
+                'author': {
+                    'id': 'https://mas.to/users/alice',
+                    'displayName': 'Alice',
+                },
+                'inReplyTo': {
+                    'id': 'https://mas.to/post',
+                    'objectType': 'note',
+                },
+            },
         }, obj.our_as1)
 
     def test_resolve_ids_subdomain_urls(self):
@@ -1925,6 +2947,28 @@ cast_add_body { text: "hi" }
             },
         }, obj.our_as1)
 
+    def test_normalize_ids_keeps_empty_contentMap(self):
+        obj = Object(id='fake:note', our_as1={
+            'objectType': 'activity',
+            'verb': 'post',
+            'object': {
+                'id': 'https://bsky.app/profile/did:plc:user/post/456',
+                'objectType': 'note',
+                'contentMap': {'da': ''},
+            },
+        })
+        obj.normalize_ids()
+        self.assert_equals({
+            'objectType': 'activity',
+            'verb': 'post',
+            'id': 'fake:note',
+            'object': {
+                'id': 'at://did:plc:user/app.bsky.feed.post/456',
+                'objectType': 'note',
+                'contentMap': {'da': ''},
+            },
+        }, obj.our_as1)
+
     def test_normalize_ids_reply(self):
         # for ATProto handle resolution
         self.store_object(id='did:plc:user', raw={
@@ -2010,13 +3054,337 @@ cast_add_body { text: "hi" }
         obj.copies.append(Target(uri='fake:foo', protocol='fake'))
         self.assertEqual('fake:foo', obj.get_copy(Fake))
 
-    def test_get_copy_atproto_article_prefers_document(self):
+    def test_get_external_id(self):
+        self.make_user('fake:alice', cls=Fake, obj_as1=ALICE_EXTERNAL_IDS_ACTOR)
+        self.store_object(id='at://did:plc:alice/app.bsky.feed.post/123',
+                          source_protocol='atproto',
+                          our_as1={'objectType': 'note', 'author': 'did:plc:alice'})
+        self.store_object(id=f'nostr:{ID}', source_protocol='nostr',
+                          our_as1={'objectType': 'note', 'author': NPUB_URI})
+        self.store_object(id='http://ot.her/post', source_protocol='activitypub',
+                          our_as1={'objectType': 'note',
+                                   'author': 'http://ot.her/alice'})
+        obj = Object(id='fake:post', source_protocol='fake', our_as1={
+            'objectType': 'note',
+            'author': 'fake:alice',
+            'url': 'http://in.st/post',
+            'urls': [
+                'http://in.st/post',
+                {'value': 'at://did:plc:alice/app.bsky.feed.post/123',
+                 'rel': 'alternate'},
+                {'value': URI, 'rel': 'alternate'},
+                {
+                    'value': 'http://ot.her/post',
+                    'rel': 'canonical',
+                    'mimeType': 'application/activity+json',
+                },
+            ],
+        })
+        self.assertEqual('at://did:plc:alice/app.bsky.feed.post/123',
+                         obj.get_external_id(ATProto))
+        self.assertEqual(f'nostr:{ID}', obj.get_external_id(Nostr))
+        self.assertEqual('http://ot.her/post', obj.get_external_id(ActivityPub))
+        self.assertIsNone(obj.get_external_id(Farcaster))
+
+    def test_get_external_id_in_url(self):
+        self.make_user('fake:alice', cls=Fake, obj_as1=ALICE_EXTERNAL_IDS_ACTOR)
+        self.store_object(id=f'nostr:{ID}', source_protocol='nostr',
+                          our_as1={'objectType': 'note', 'author': NPUB_URI})
+        obj = Object(id='fake:post', source_protocol='fake', our_as1={
+            'objectType': 'note',
+            'author': 'fake:alice',
+            'url': {'value': URI, 'rel': 'canonical'},
+        })
+        self.assertEqual(f'nostr:{ID}', obj.get_external_id(Nostr))
+
+    def test_get_external_id_no_author(self):
+        obj = Object(id='fake:post', source_protocol='fake', our_as1={
+            'objectType': 'note',
+            'urls': [{'value': URI, 'rel': 'alternate'}],
+        })
+        self.assertIsNone(obj.get_external_id(Nostr))
+
+    def test_get_external_id_author_not_stored(self):
+        obj = Object(id='fake:post', source_protocol='fake', our_as1={
+            'objectType': 'note',
+            'author': 'fake:alice',
+            'urls': [{'value': URI, 'rel': 'alternate'}],
+        })
+        self.assertIsNone(obj.get_external_id(Nostr))
+
+    def test_get_external_id_author_not_stored_loads_profile(self):
+        Fake.fetchable = {
+            'fake:profile:alice': ALICE_EXTERNAL_IDS_ACTOR,
+        }
+        ExplicitFake.fetchable = {
+            'efake:alices': {'objectType': 'note', 'author': 'efake:alice-ext'},
+        }
+        obj = Object(id='fake:post', source_protocol='fake', our_as1={
+            'objectType': 'note',
+            'author': 'fake:alice',
+            'urls': [{'value': 'efake:alices', 'rel': 'alternate'}],
+        })
+        self.assertEqual('efake:alices', obj.get_external_id(ExplicitFake))
+        self.assertIsNone(Fake.get_by_id('fake:alice'))
+
+    def test_get_external_id_author_has_no_external_id(self):
+        self.make_user('fake:alice', cls=Fake, obj_as1={
+            'objectType': 'person',
+            'urls': [{'value': 'at://did:plc:alice', 'rel': 'alternate'}],
+        })
+        obj = Object(id='fake:post', source_protocol='fake', our_as1={
+            'objectType': 'note',
+            'author': 'fake:alice',
+            'urls': [{'value': URI, 'rel': 'alternate'}],
+        })
+        self.assertIsNone(obj.get_external_id(Nostr))
+
+    def test_get_external_id_owned_by_author(self):
+        self.make_user('fake:alice', cls=Fake, obj_as1=ALICE_EXTERNAL_IDS_ACTOR)
+        ExplicitFake.fetchable = {
+            'efake:alices': {'objectType': 'note', 'author': 'efake:alice-ext'},
+            'efake:eves': {'objectType': 'note', 'author': 'efake:eve'},
+            'efake:no-author': {'objectType': 'note'},
+        }
+
+        for uri, expected in [
+            ('efake:alices', 'efake:alices'),
+            ('efake:eves', None),
+            ('efake:no-author', None),
+            ('efake:not-fetchable', None),
+        ]:
+            with self.subTest(uri=uri):
+                obj = Object(id='fake:post', source_protocol='fake', our_as1={
+                    'objectType': 'note',
+                    'author': 'fake:alice',
+                    'urls': [{'value': uri, 'rel': 'alternate'}],
+                })
+                self.assertEqual(expected, obj.get_external_id(ExplicitFake))
+
+    def test_get_external_id_owner_links_back_to_author(self):
+        """eg wafrn, where the AP actor may not link to its ATProto DID, but the
+        DID doc's alsoKnownAs links back to the AP actor."""
+        self.make_user('https://in.st.example/users/alice', cls=ActivityPub,
+                       obj_as2={
+                           'type': 'Person',
+                           'id': 'https://in.st.example/users/alice',
+                       })
+        self.store_object(id='at://did:plc:alice/app.bsky.feed.post/123',
+                          source_protocol='atproto',
+                          our_as1={'objectType': 'note', 'author': 'did:plc:alice'})
+        post = Object(id='https://in.st.example/post', source_protocol='activitypub',
+                      our_as1={
+                          'objectType': 'note',
+                          'author': 'https://in.st.example/users/alice',
+                          'urls': [{
+                              'value': 'at://did:plc:alice/app.bsky.feed.post/123',
+                              'rel': 'alternate',
+                          }],
+                      })
+
+        for aka, expected in [
+            ('https://in.st.example/users/alice',
+             'at://did:plc:alice/app.bsky.feed.post/123'),
+            ('https://in.st.example/users/eve', None),
+        ]:
+            with self.subTest(aka=aka):
+                self.store_object(id='did:plc:alice', raw={
+                    'id': 'did:plc:alice',
+                    'alsoKnownAs': ['at://alice.example', aka],
+                })
+                self.make_user('did:plc:alice', cls=ATProto)
+                self.assertEqual(expected, post.get_external_id(ATProto))
+
+    def test_get_external_id_actor(self):
+        self.make_user('fake:alice', cls=Fake, obj_as1=ALICE_EXTERNAL_IDS_ACTOR)
+
+        actor = Object(id='fake:alice', source_protocol='fake', our_as1={
+            'objectType': 'person',
+            'id': 'fake:alice',
+            'urls': [{'value': 'efake:alice-ext', 'rel': 'alternate'}],
+        })
+        self.assertEqual('efake:alice-ext', actor.get_external_id(ExplicitFake))
+
+        actor.our_as1['urls'] = [{'value': 'at://did:plc:alice', 'rel': 'alternate'}]
+        self.assertEqual('did:plc:alice', actor.get_external_id(ATProto))
+
+        actor.our_as1['urls'] = [{'value': 'efake:eve', 'rel': 'alternate'}]
+        self.assertIsNone(actor.get_external_id(ExplicitFake))
+
+        post = Object(id='fake:post', source_protocol='fake', our_as1={
+            'objectType': 'note',
+            'author': 'fake:alice',
+            'urls': [{'value': 'efake:alice-ext', 'rel': 'alternate'}],
+        })
+        self.assertIsNone(post.get_external_id(ExplicitFake))
+
+    def test_get_external_id_actor_type_not_authors_profile(self):
+        """eg Bluesky feed generators, which are services with authors."""
+        self.make_user('fake:alice', cls=Fake, obj_as1=ALICE_EXTERNAL_IDS_ACTOR)
+        ExplicitFake.fetchable = {
+            'efake:feed': {'objectType': 'service', 'author': 'efake:alice-ext'},
+        }
+
+        for uri, expected in [
+            ('efake:alice-ext', None),
+            ('efake:feed', 'efake:feed'),
+        ]:
+            with self.subTest(uri=uri):
+                feed = Object(id='fake:feed', source_protocol='fake', our_as1={
+                    'objectType': 'service',
+                    'id': 'fake:feed',
+                    'author': 'fake:alice',
+                    'urls': [{'value': uri, 'rel': 'alternate'}],
+                })
+                self.assertEqual(expected, feed.get_external_id(ExplicitFake))
+
+    def test_get_external_id_author_opted_out(self):
+        """We don't bridge the author, but we can still use their native posts."""
+        self.make_user('fake:alice', cls=Fake, obj_as1={
+            **ALICE_EXTERNAL_IDS_ACTOR,
+            'summary': '#nobridge',
+        })
+        ExplicitFake.fetchable = {
+            'efake:alices': {'objectType': 'note', 'author': 'efake:alice-ext'},
+        }
+        obj = Object(id='fake:post', source_protocol='fake', our_as1={
+            'objectType': 'note',
+            'author': 'fake:alice',
+            'urls': [{'value': 'efake:alices', 'rel': 'alternate'}],
+        })
+        self.assertEqual('efake:alices', obj.get_external_id(ExplicitFake))
+
+    def test_get_external_id_tries_next_link(self):
+        self.make_user('fake:alice', cls=Fake, obj_as1=ALICE_EXTERNAL_IDS_ACTOR)
+        ExplicitFake.fetchable = {
+            'efake:eves': {'objectType': 'note', 'author': 'efake:eve'},
+            'efake:alices': {'objectType': 'note', 'author': 'efake:alice-ext'},
+        }
+        obj = Object(id='fake:post', source_protocol='fake', our_as1={
+            'objectType': 'note',
+            'author': 'fake:alice',
+            'urls': [
+                {'value': 'efake:eves', 'rel': 'alternate'},
+                {'value': 'efake:alices', 'rel': 'alternate'},
+            ],
+        })
+        self.assertEqual('efake:alices', obj.get_external_id(ExplicitFake))
+
+    def test_get_external_id_remote_false(self):
+        self.make_user('fake:alice', cls=Fake, obj_as1=ALICE_EXTERNAL_IDS_ACTOR)
+        ExplicitFake.fetchable = {
+            'efake:alices': {'objectType': 'note', 'author': 'efake:alice-ext'},
+        }
+        obj = Object(id='fake:post', source_protocol='fake', our_as1={
+            'objectType': 'note',
+            'author': 'fake:alice',
+            'urls': [{'value': 'efake:alices', 'rel': 'alternate'}],
+        })
+        self.assertIsNone(obj.get_external_id(ExplicitFake, remote=False))
+
+        self.store_object(id='efake:alices', source_protocol='efake',
+                          our_as1={'objectType': 'note', 'author': 'efake:alice-ext'})
+        self.assertEqual('efake:alices',
+                         obj.get_external_id(ExplicitFake, remote=False))
+
+    def test_get_external_id_web_author_same_domain(self):
+        """eg WordPress ActivityPub plugin, Mastodon post pages."""
+        self.make_user('user.com', cls=Web)
+
+        for uri, expected in [
+            ('https://user.com/?p=123', 'https://user.com/?p=123'),
+            ('https://www.user.com/?p=123', 'https://www.user.com/?p=123'),
+            ('https://blog.user.com/?p=123', None),
+            ('https://ot.her/?p=123', None),
+        ]:
+            with self.subTest(uri=uri):
+                obj = Object(id='https://user.com/post', source_protocol='web',
+                             our_as1={
+                    'objectType': 'note',
+                    'author': 'https://user.com/',
+                    'urls': [{
+                        'value': uri,
+                        'rel': 'alternate',
+                        'mimeType': 'application/activity+json',
+                    }],
+                })
+                self.assertEqual(expected,
+                                 obj.get_external_id(ActivityPub, remote=False))
+
+    def test_get_external_id_object_internal_on_our_domain(self):
+        """eg blog redirects, https://bsky.brid.gy/internal/..."""
+        self.make_user('fake:alice', cls=Fake, obj_as1=ALICE_EXTERNAL_IDS_ACTOR)
+        ExplicitFake.fetchable = {
+            'efake:alices': {'objectType': 'note', 'author': 'efake:alice-ext'},
+        }
+        obj = Object(id='https://bsky.brid.gy/internal/user.com/post', our_as1={
+            'objectType': 'note',
+            'author': 'fake:alice',
+            'urls': [{'value': 'efake:alices', 'rel': 'alternate'}],
+        })
+        self.assertIsNone(obj.get_external_id(ExplicitFake))
+
+    def test_get_external_id_no_as1(self):
+        self.assertIsNone(Object(id='fake:post').get_external_id(ATProto))
+
+    def test_get_external_id_not_proxy_link(self):
+        obj = Object(id='fake:post', source_protocol='fake', our_as1={
+            'objectType': 'note',
+            'urls': ['nostr:note1a', {'value': 'nostr:note1b'}],
+        })
+        self.assertIsNone(obj.get_external_id(Nostr))
+
+    def test_get_external_id_our_copy(self):
+        obj = Object(id='fake:post', source_protocol='fake', our_as1={
+            'objectType': 'note',
+            'urls': [{'value': 'nostr:note1post', 'rel': 'alternate'}],
+        }, copies=[Target(uri='nostr:note1ours', protocol='nostr')])
+        self.assertIsNone(obj.get_external_id(Nostr))
+
+    def test_get_external_id_source_protocol(self):
+        obj = Object(id='nostr:note1post', source_protocol='nostr', our_as1={
+            'objectType': 'note',
+            'urls': [{'value': 'nostr:note1other', 'rel': 'alternate'}],
+        })
+        self.assertIsNone(obj.get_external_id(Nostr))
+
+    def test_get_external_id_self(self):
+        obj = Object(id='nostr:note1post', source_protocol='nostr', our_as1={
+            'objectType': 'note',
+            'id': 'nostr:note1post',
+            'author': 'nostr:npub1alice',
+            'url': {'value': 'nostr:note1post', 'rel': 'canonical'},
+        })
+        self.assertIsNone(obj.get_external_id(Nostr))
+
+    def test_get_external_id_our_domain(self):
+        obj = Object(id='at://did:plc:alice/app.bsky.feed.post/123',
+                     source_protocol='atproto', our_as1={
+            'objectType': 'note',
+            'urls': [{
+                'value': 'https://bsky.brid.gy/convert/ap/at://did:plc:alice/app.bsky.feed.post/123',
+                'rel': 'alternate',
+                'mimeType': 'application/activity+json',
+            }],
+        })
+        self.assertIsNone(obj.get_external_id(ActivityPub))
+
+    def test_get_copy_atproto_article_prefers_post(self):
         obj = Object(id='x', source_protocol='web', our_as1={'objectType': 'article'})
         obj.copies = [
-            Target(uri='at://did:plc:foo/app.bsky.feed.post/123', protocol='atproto'),
             Target(uri='at://did:plc:foo/site.standard.document/123', protocol='atproto'),
+            Target(uri='at://did:plc:foo/app.bsky.feed.post/123', protocol='atproto'),
         ]
-        self.assertEqual('at://did:plc:foo/site.standard.document/123',
+        self.assertEqual('at://did:plc:foo/app.bsky.feed.post/123',
+                         obj.get_copy(ATProto))
+
+    def test_get_copy_atproto_person_prefers_profile(self):
+        obj = Object(id='x', source_protocol='web', our_as1={'objectType': 'person'})
+        obj.copies = [
+            Target(uri='at://did:plc:foo/site.standard.publication/123', protocol='atproto'),
+            Target(uri='at://did:plc:foo/app.bsky.actor.profile/self', protocol='atproto'),
+        ]
+        self.assertEqual('at://did:plc:foo/app.bsky.actor.profile/self',
                          obj.get_copy(ATProto))
 
     def test_get_copy_atproto_note_prefers_post(self):
@@ -2203,10 +3571,10 @@ bar.org
 
         obj = Object(id='a', our_as1={'url': 'http://x', 'displayName': 'My obj'})
         self.assertEqual('<a href="http://x">My obj</a>', obj.html_link())
-        self.assertEqual('<a href="a">a</a>', Object(id='a').html_link())
+        self.assertEqual('a', Object(id='a').html_link())
 
         obj = Object(id='a', extra_as1={'displayName': 'b', 'url': 'c'})
-        self.assertEqual('<a href="c">b</a>', obj.html_link())
+        self.assertEqual('b', obj.html_link())
 
     def test_owner_protocol(self):
         for our_as1 in (
@@ -2222,6 +3590,19 @@ bar.org
 
         obj.source_protocol = 'ui'
         self.assertEqual(Fake, obj.owner_protocol())
+
+    def test_owner_protocol_uses_users(self):
+        # author id alone is ambiguous between Web and ActivityPub
+        obj = Object(source_protocol='ui', our_as1={'actor': 'https://inst.com/alice'},
+                     users=[ActivityPub(id='https://inst.com/alice').key])
+        self.assertEqual(ActivityPub, obj.owner_protocol())
+
+        obj.source_protocol = None
+        self.assertEqual(ActivityPub, obj.owner_protocol())
+
+        # source_protocol wins over users
+        obj.source_protocol = 'web'
+        self.assertEqual(Web, obj.owner_protocol())
 
 
 class FollowerTest(TestCase):
@@ -2308,3 +3689,121 @@ class ModelsTest(TestCase):
         self.assertLessEqual(len(encoded), 1500)
         # must decode cleanly
         encoded.decode('utf-8')
+
+    def store_bridged_to_objects(self):
+        self.make_user('efake:alice', cls=ExplicitFake,
+                       enabled_protocols=['activitypub'])
+        self.make_user('efake:bob', cls=ExplicitFake,
+                       enabled_protocols=['activitypub'])
+        self.make_user('efake:eve', cls=ExplicitFake)
+        self.make_user('efake:old', cls=ExplicitFake,
+                       use_instead=ExplicitFake(id='efake:alice').key)
+        self.make_user('efake:out', cls=ExplicitFake, manual_opt_out=True,
+                       enabled_protocols=['activitypub'])
+
+        self.bridged_to_object('efake:bob-post', objectType='note',
+                               author='efake:bob')
+        self.bridged_to_object('efake:bob-deleted', objectType='note',
+                               author='efake:bob', deleted=True)
+        self.bridged_to_object('efake:eve-post', objectType='note',
+                               author='efake:eve')
+
+        self.store_object(id='https://inst/unlisted', source_protocol='activitypub',
+                          our_as1={
+                              'objectType': 'note',
+                              'author': 'https://inst/carol',
+                              'to': [{'objectType': 'group', 'alias': '@unlisted'}],
+                          })
+
+    def bridged_to_object(self, id, deleted=False, **our_as1):
+        return self.store_object(id=id, source_protocol='efake', deleted=deleted,
+                                 our_as1={'author': 'efake:alice', **our_as1})
+
+    def test_filter_for_proto(self):
+        self.store_bridged_to_objects()
+
+        bridged = [
+            self.bridged_to_object('efake:note', objectType='note'),
+            self.bridged_to_object('efake:reply-bob', objectType='comment',
+                                   inReplyTo='efake:bob-post'),
+            self.bridged_to_object('efake:reply-native', objectType='comment',
+                                   inReplyTo='https://inst/unlisted'),
+            self.bridged_to_object('efake:reply-missing', objectType='comment',
+                                   inReplyTo='efake:missing'),
+            self.bridged_to_object('efake:share-bob', objectType='activity',
+                                   verb='share', object='efake:bob-post'),
+            self.bridged_to_object('efake:old-note', objectType='note',
+                                   author='efake:old'),
+        ]
+        not_bridged = [
+            self.bridged_to_object('efake:deleted', objectType='note', deleted=True),
+            self.bridged_to_object('efake:private', objectType='note',
+                                   to=[{'objectType': 'group', 'alias': '@private'}]),
+            self.bridged_to_object('efake:unlisted', objectType='note',
+                                   to=[{'objectType': 'group', 'alias': '@unlisted'}]),
+            self.bridged_to_object('efake:dm', objectType='note', to=['efake:bob']),
+            self.bridged_to_object('efake:eve-note', objectType='note',
+                                   author='efake:eve'),
+            self.bridged_to_object('efake:out-note', objectType='note',
+                                   author='efake:out'),
+            self.bridged_to_object('efake:nobody-note', objectType='note',
+                                   author='efake:nobody'),
+            self.bridged_to_object('efake:reply-eve', objectType='comment',
+                                   inReplyTo='efake:eve-post'),
+            self.bridged_to_object('efake:reply-deleted', objectType='comment',
+                                   inReplyTo='efake:bob-deleted'),
+            self.bridged_to_object('efake:share-eve', objectType='activity',
+                                   verb='share', object='efake:eve-post'),
+        ]
+
+        # interleave so that we check that order is preserved
+        objs = [obj for pair in itertools.zip_longest(not_bridged, bridged)
+                for obj in pair if obj]
+        self.assertEqual([obj.key for obj in bridged],
+                         [obj.key for obj in models.filter_for_proto(
+                             objs, to_proto=ActivityPub)])
+
+    def test_filter_for_proto_empty(self):
+        self.assertEqual([], models.filter_for_proto([], to_proto=ActivityPub))
+
+    def test_filter_for_proto_has_copies(self):
+        self.make_user('efake:alice', cls=ExplicitFake, enabled_protocols=['other'])
+        objs = [
+            self.bridged_to_object('efake:copy', objectType='note'),
+            self.bridged_to_object('efake:no-copy', objectType='note'),
+            self.bridged_to_object('efake:reply-copy', objectType='comment',
+                                   inReplyTo='efake:copy'),
+            self.bridged_to_object('efake:reply-no-copy', objectType='comment',
+                                   inReplyTo='efake:no-copy'),
+        ]
+        for obj in objs[0], objs[2], objs[3]:
+            obj.copies = [Target(protocol='other', uri=f'other:{obj.key.id()}')]
+            obj.put()
+
+        self.assertEqual(['efake:copy', 'efake:reply-copy'],
+                         [obj.key.id() for obj in models.filter_for_proto(
+                             objs, to_proto=OtherFake)])
+
+    def test_filter_for_proto_raise(self):
+        self.store_bridged_to_objects()
+
+        note = self.bridged_to_object('efake:note', objectType='note')
+        self.assertEqual([note], models.filter_for_proto(
+            [note], to_proto=ActivityPub, raise_=True))
+
+        for exc, obj in (
+            (Gone, self.bridged_to_object('efake:deleted', objectType='note',
+                                          deleted=True)),
+            (Gone, self.bridged_to_object('efake:reply-deleted', objectType='comment',
+                                          inReplyTo='efake:bob-deleted')),
+            (NotFound, self.bridged_to_object('efake:dm', objectType='note',
+                                              to=['efake:bob'])),
+            (NotFound, self.bridged_to_object('efake:eve-note', objectType='note',
+                                              author='efake:eve')),
+            (NotFound, self.bridged_to_object('efake:share-eve',
+                                              objectType='activity', verb='share',
+                                              object='efake:eve-post')),
+        ):
+            with self.subTest(obj=obj.key.id()), self.assertRaises(exc):
+                models.filter_for_proto([note, obj], to_proto=ActivityPub,
+                                        raise_=True)

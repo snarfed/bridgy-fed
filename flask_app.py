@@ -1,4 +1,8 @@
-"""Flask application for frontend ("default") service."""
+"""Flask application for frontend.
+
+app.py has the full app with all modules imported. This is separate so that
+we can import it in those modules without causing a circular import.
+"""
 import json
 import logging
 from pathlib import Path
@@ -6,11 +10,10 @@ import sys
 from urllib.parse import urljoin
 
 import arroba.server
-from arroba import xrpc_repo, xrpc_server, xrpc_sync
+from arroba import xrpc_identity, xrpc_actor, xrpc_repo, xrpc_server, xrpc_sync
 from flask import Blueprint, Flask, g, request
 from werkzeug.middleware.proxy_fix import ProxyFix
 from google.api_core.exceptions import PermissionDenied
-import lexrpc.flask_server
 from lexrpc.server import Redirect, Server
 import oauth_dropins
 from webutil import (
@@ -32,6 +35,7 @@ app.json.compact = False
 app.config.from_pyfile(app_dir / 'config.py')
 app.url_map.converters['regex'] = flask_util.RegexConverter
 app.after_request(flask_util.default_modern_headers)
+app.post(flask_util.CSP_REPORT_PATH)(flask_util.csp_report)
 
 # quick and dirty WAF, so that we don't incur the complexity and cost of using
 # a GCP LB and Cloud Armor
@@ -40,6 +44,7 @@ app.after_request(flask_util.default_modern_headers)
 # the App Engine firewall before this service moved to Cloud Run.
 #
 # TODO: move to datastore with webutil.models.Reloader?
+# TODO: move to GCP ALB
 BLOCKED_CIDRS = (
     # '2a03:2880::/32',     # Meta/Facebook
     # '57.141.0.0/16',      # Meta/Facebook
@@ -88,31 +93,23 @@ app.wsgi_app = flask_util.ndb_context_middleware(
 # https://werkzeug.palletsprojects.com/en/stable/middleware/proxy_fix/
 app.wsgi_app = ProxyFix(app.wsgi_app, x_proto=1, x_for=1)
 
-# deregister XRPC methods we don't support
+# we don't support password login. atproto_oauth implements getSession on OAuth.
 for nsid in (
-    'com.atproto.repo.applyWrites',
-    'com.atproto.repo.createRecord',
-    'com.atproto.repo.deleteRecord',
-    'com.atproto.repo.putRecord',
-    'com.atproto.repo.uploadBlob',
     'com.atproto.server.createSession',
-    'com.atproto.server.getAccountInviteCodes',
-    'com.atproto.server.getSession',
-    'com.atproto.server.listAppPasswords',
     'com.atproto.server.refreshSession',
-    'com.atproto.sync.getRepo',
 ):
     del arroba.server.server._methods[nsid]
 
 
-@arroba.server.server.method('com.atproto.sync.getRepo')
+@arroba.server.server.method('com.atproto.sync.getRepo', override=True)
 def get_repo(input, **kwargs):
+    """Redirects to Hubble, since getRepo is too expensive for us to serve.
+
+    https://github.com/snarfed/arroba/issues/93
+    """
     if request.headers.get('Authorization'):
         return xrpc_sync.get_repo(input, **kwargs)
 
     raise Redirect(
         urljoin('https://bridgy-hubble.microcosm.blue/', request.full_path),
         status=302)
-
-
-lexrpc.flask_server.init_flask(arroba.server.server, app)

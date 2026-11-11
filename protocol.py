@@ -1,6 +1,7 @@
 """Base protocol class and common code."""
 import copy
 from datetime import datetime, timedelta, timezone
+import itertools
 import logging
 import os
 import re
@@ -8,6 +9,7 @@ from threading import Lock
 from urllib.parse import urljoin, urlparse
 
 from cachetools import cached, LRUCache
+from cachetools.keys import hashkey
 from flask import request
 from google.cloud import ndb
 from google.cloud.ndb import OR
@@ -22,7 +24,7 @@ from pymemcache.exceptions import (
 from requests import RequestException
 from websockets.exceptions import InvalidStatus
 from webutil.appengine_info import DEBUG, LOCAL_SERVER
-from webutil.flask_util import cloud_tasks_only
+from webutil.flask_util import bool_param, cloud_tasks_only
 from webutil.models import MAX_ENTITY_SIZE
 from webutil import util
 from webutil.util import json_dumps, json_loads
@@ -31,6 +33,7 @@ from werkzeug.exceptions import BadGateway, BadRequest, HTTPException
 
 import common
 from common import (
+    classproperty,
     ErrorButDoNotRetryTask,
     report_error,
 )
@@ -57,6 +60,12 @@ from models import (
     User,
 )
 import notifications
+
+# how many followers to load users and profile objects for at a time. keep this a
+# multiple of 1000, ndb's max keys per datastore lookup, so that each chunk still
+# fans out into parallel lookups.
+# https://github.com/snarfed/bridgy-fed/issues/2154
+TARGETS_CHUNK_SIZE = 5000
 
 OBJECT_REFRESH_AGE = timedelta(days=30)
 DELETE_TASK_DELAY = timedelta(minutes=1)
@@ -90,8 +99,9 @@ DONT_STORE_AS1_TYPES = as1.CRUD_VERBS | set((
     'stop-following',
     'undo',
 ))
-STORE_AS1_TYPES = (as1.ACTOR_TYPES | as1.POST_TYPES | as1.VERBS_WITH_OBJECT
-                   - DONT_STORE_AS1_TYPES)
+STORE_AS1_TYPES = (
+    (as1.ACTOR_TYPES | as1.POST_TYPES | as1.VERBS_WITH_OBJECT | {'event'})
+    - DONT_STORE_AS1_TYPES)
 
 DONT_NOTIFY_TYPES = (
     'block',
@@ -123,6 +133,10 @@ class Protocol:
     'str: logo ``<img>`` tag, if any'
     CONTENT_TYPE = None
     "str: MIME type of this protocol's native data format, appropriate for the ``Content-Type`` HTTP header."
+    URI_PREFIXES = ()
+    'sequence of str: prefixes of URIs that identify this protocol in proxy links, eg `FEP-fffd <https://codeberg.org/fediverse/fep/src/branch/main/fep/fffd/fep-fffd.md>`_. Empty if no URI prefix is unique to this protocol.'
+    MIME_TYPES = ()
+    'sequence of str: MIME types, without ``charset``, that identify this protocol in proxy links, eg `FEP-fffd <https://codeberg.org/fediverse/fep/src/branch/main/fep/fffd/fep-fffd.md>`_. Empty if no MIME type is unique to this protocol.'
     HAS_COPIES = False
     'bool: whether this protocol is push and needs us to proactively create "copy" users and objects, as opposed to pulling converted objects on demand'
     DEFAULT_TARGET = None
@@ -135,8 +149,6 @@ class Protocol:
     "bool: whether accounts on this protocol are required to be at least :const:`common.OLD_ACCOUNT_AGE` old. If their profile includes creation date and it's not old enough, their ``User.status`` will be ``blocked``."
     DEFAULT_ENABLED_PROTOCOLS = ()
     'sequence of str: labels of other protocols that are automatically enabled for this protocol to bridge into'
-    DEFAULT_SERVE_USER_PAGES = False
-    "bool: whether to serve user pages for all of this protocol's users on the fed.brid.gy. If ``False``, user pages will only be served for users who have explictly opted in."
     SUPPORTED_AS1_TYPES = ()
     'sequence of str: AS1 objectTypes and verbs that this protocol supports receiving and sending'
     SUPPORTS_DMS = False
@@ -156,8 +168,7 @@ class Protocol:
     RATE_LIMIT_TYPE = memcache.RateLimitType.LINEAR
     'Whether receive and send task rate limiting increases linearly or exponential.'
 
-    @classmethod
-    @property
+    @classproperty
     def LABEL(cls):
         """str: human-readable lower case name of this protocol, eg ``'activitypub``"""
         return cls.__name__.lower()
@@ -225,6 +236,9 @@ class Protocol:
 
         Returns False if the id's domain is in :const:`domains.DOMAIN_BLOCKLIST`.
 
+        Callers that know the id is ours, and want to know whether it's a user
+        id or an object id, should use :meth:`id_type` instead.
+
         Args:
           id (str): user id or object id
 
@@ -232,6 +246,29 @@ class Protocol:
           bool or None:
         """
         return False
+
+    @classmethod
+    def id_type(cls, id):
+        """Returns whether ``id`` identifies a user or an object.
+
+        To be implemented by subclasses.
+
+        Assumes that ``id`` is this protocol's. Returns None if we can't tell from
+        the id alone, eg :class:`activitypub.ActivityPub` actor ids and object ids
+        are both http(s) URLs, and :class:`nostr.Nostr` uses hex ids for both pubkeys
+        and events. Callers should fall back to eg looking the id up as a user.
+
+        Accepts any recognized format, not just the canonical format, eg
+        :class:`atproto.ATProto` accepts ``https://bsky.app/profile/...`` URLs as
+        well as DIDs.
+
+        Args:
+          id (str)
+
+        Returns:
+          ids.IdType or None:
+        """
+        return None
 
     @classmethod
     def owns_handle(cls, handle, allow_internal=False):
@@ -278,6 +315,48 @@ class Protocol:
           str: corresponding id, or None if the handle can't be found
         """
         raise NotImplementedError()
+
+    @classmethod
+    def resolve_user_id(cls, id):
+        """Resolves and normalizes a user id to its canonical form.
+
+        For example, resolves an :class:`ActivityPub` profile URL like
+        ``https://mastodon.example/@alice`` to an actor id like
+        ``https://mastodon.example/users/123``.
+
+        May incur network requests, and may store the objects it fetches.
+
+        Subclasses should override this, resolve ``id``, normalize it
+        with :func:`ids.normalize_user_id`, and then return the result.
+
+        Args:
+          id (str)
+
+        Returns:
+          str: the canonical id, or ``id``, normalized, if it can't be resolved
+        """
+        return ids.normalize_user_id(id=id, proto=cls)
+
+    @classmethod
+    def resolve_object_id(cls, id):
+        """Resolves and normalizes an object id to its canonical form.
+
+        For example, resolves an :class:`ActivityPub` user-facing URL like
+        ``https://mastodon.example/@alice/123`` to an object id like
+        ``https://mastodon.example/users/alice/statuses/123``.
+
+        May incur network requests, and may store the objects it fetches.
+
+        Subclasses should override this, resolve ``id``, normalize it
+        with :func:`ids.normalize_object_id`, and then return the result.
+
+        Args:
+          id (str)
+
+        Returns:
+          str: the canonical id, or ``id``, normalized, if it can't be resolved
+        """
+        return ids.normalize_object_id(id=id, proto=cls)
 
     @classmethod
     def authed_user_for_request(cls):
@@ -341,7 +420,8 @@ class Protocol:
         elif remote and util.is_web(id):
             return domain
 
-    @cached(LRUCache(20000), lock=Lock())
+    # normalize so that for_id(id) and for_id(id, remote=True) share a cache key
+    @cached(LRUCache(20000), lock=Lock(), key=lambda id, remote=True: (id, remote))
     @memcache.memoize(key=_for_id_memcache_key, write=lambda id, remote=True: remote,
                       version=3)
     @staticmethod
@@ -570,6 +650,18 @@ class Protocol:
         return f'{cls.ABBREV}{SUPERDOMAIN}'
 
     @classmethod
+    def bot_user(cls):
+        """Returns the :class:`web.Web` user for this protocol's bot user.
+
+        Returns:
+          web.Web: or None if this protocol has no bot user, or it doesn't exist
+        """
+        from web import Web
+
+        if bot_id := cls.bot_user_id():
+            return Web.get_by_id(bot_id)
+
+    @classmethod
     def create_for(cls, user):
         """Creates or re-activate a copy user in this protocol.
 
@@ -667,16 +759,64 @@ class Protocol:
         base_obj = as1.get_object(obj.as1) if is_crud else obj.as1
         orig_our_as1 = obj.our_as1
 
+        # FEP-fffd canonical proxy link to the original object in its source
+        # protocol. each protocol's granary from_as1 renders it.
+        # https://codeberg.org/fediverse/fep/src/branch/main/fep/fffd/fep-fffd.md
+        # https://github.com/snarfed/bridgy-fed/issues/543
+        #
+        # TODO: Nostr object links use our internal nostr:[hex] ids, which aren't
+        # valid NIP-21; they should be nostr:note1... or nostr:nevent1... WIP fix
+        # is in git stash 4d7c0db0, "WIP Object.id_uri: NIP-21 nostr: URIs...". it
+        # adds Object.id_uri, but inner objects of create/update activities are
+        # stored without the raw nostr event, so we don't know their kind. see the
+        # TODO in Object.id_uri there.
+        from_proto = PROTOCOLS.get(obj.source_protocol)
+        if is_crud:
+            orig_id = base_obj.get('id')
+        else:
+            orig_id = obj.key.id() if obj.key else None
+        if from_user and (orig_id in (from_user.key.id(), from_user.profile_id())
+                          or (not is_crud and from_user.is_profile(obj))):
+            orig_id = from_user.id_uri()
+        if (from_proto and from_proto != cls and orig_id
+                and set(base_obj) != {'id'}
+                and as1.object_type(base_obj) not in as1.CRUD_VERBS
+                and not as1.get_rel_links(base_obj, rels=('canonical',))
+                and not PROTOCOLS['ui'].owns_id(orig_id)
+                and not cls.is_blocklisted(orig_id)):
+            obj.our_as1 = copy.deepcopy(obj.as1)
+            base_obj = as1.get_object(obj.our_as1) if is_crud else obj.our_as1
+            base_obj['urls'] = (util.get_list(base_obj, 'urls')
+                                or util.get_list(base_obj, 'url'))
+            base_obj['urls'].append(util.trim_nulls({
+                'value': orig_id,
+                'rel': 'canonical',
+                'mimeType': next(iter(from_proto.MIME_TYPES), None),
+            }))
+
         # post-processing for user profiles
         if (from_user and from_user.is_profile(obj)
                 and PROTOCOLS.get(obj.source_protocol) != cls
                 and Protocol.for_bridgy_subdomain(id) not in DOMAINS):
+            if obj.our_as1 is orig_our_as1:
+                obj.our_as1 = copy.deepcopy(obj.as1)
+            actor = as1.get_object(obj.our_as1) if is_crud else obj.our_as1
+
+            # render profile bio to HTML. MUST be before add_source_links,
+            # which appends HTML to summary.
+            # https://github.com/snarfed/bridgy-fed/issues/2675
+            if (cls.HTML_PROFILES
+                   and actor.get('summary')
+                   and not as1.is_html(actor, 'summary')):
+                actor['summary'] = source.whitespace_to_html(actor['summary'])
+
             # TODO: more systematic way to get this that covers all protocols,
             # eg Nostr NIP-05
-            web_opted_in = (from_user.LABEL == 'web' and
-                            (from_user.last_webmention_in
-                             or from_user.has_redirects
-                             or from_user.handle_as('atproto') == from_user.key.id()))
+            handle = from_user.handle_as('atproto') or ''
+            web_opted_in = (from_user.LABEL == 'web'
+                            and (from_user.last_webmention_in
+                                 or from_user.has_redirects
+                                 or not handle.endswith(SUPERDOMAIN)))
             if not web_opted_in:
                 # mark bridged actors as bots and add "bridged by Bridgy Fed" to
                 # their bios. (web users are special cased, they don't get the label
@@ -687,9 +827,6 @@ class Protocol:
                 # web is currently opt out, so add [Unofficial] to their display name
                 # to be explicit that they may not have enabled this themselves
                 if from_user.LABEL == 'web':
-                    if obj.our_as1 is orig_our_as1:
-                        obj.our_as1 = copy.deepcopy(obj.as1)
-                    actor = as1.get_object(obj.our_as1) if is_crud else obj.our_as1
                     if ((name := actor.get('displayName'))
                             and not name.endswith(' [Unofficial]')):
                         actor['displayName'] = f'{name} [Unofficial]'
@@ -731,7 +868,9 @@ class Protocol:
         assert obj and obj.as1
         assert from_user
 
-        obj.our_as1 = copy.deepcopy(obj.as1)
+        if obj.as1 is not obj.our_as1:
+            obj.our_as1 = copy.deepcopy(obj.as1)
+
         actor = (as1.get_object(obj.as1) if obj.type in as1.CRUD_VERBS
                  else obj.as1)
         actor.setdefault('objectType', 'person')
@@ -749,8 +888,7 @@ class Protocol:
                or (from_user.web_url() if from_user.profile_id() == actor_id
                    else actor_id))
 
-        from web import Web
-        bot_user = Web.get_by_id(from_user.bot_user_id())
+        bot_user = from_user.bot_user()
 
         if cls.HTML_PROFILES:
             if bot_user and from_user.LABEL not in cls.DEFAULT_ENABLED_PROTOCOLS:
@@ -934,6 +1072,9 @@ class Protocol:
         * If obj is an ``activitypub`` object, returns it's author's or actor's
           inbox.
 
+        TODO: materialize this onto a new ``User.target`` computed property? could
+        drastically speed up :meth:`targets` and lower its memory footprint.
+
         Args:
           obj (models.Object):
           shared (bool): optional. If True, returns a common/shared
@@ -964,7 +1105,7 @@ class Protocol:
         return util.domain_or_parent_in(url, blocklist)
 
     @classmethod
-    def translate_ids(to_cls, obj):
+    def translate_ids(to_cls, obj, remote=True):
         """Translates all ids in an AS1 object to a specific protocol.
 
         Infers source protocol for each id value separately.
@@ -1001,6 +1142,7 @@ class Protocol:
         Args:
           to_proto (Protocol subclass)
           obj (dict): AS1 object or activity (not :class:`models.Object`!)
+          remote (bool): passed through to :meth:`Protocol.for_id`
 
         Returns:
           dict: translated AS1 version of ``obj``
@@ -1014,25 +1156,39 @@ class Protocol:
         outer_obj = to_cls.translate_mention_handles(copy.deepcopy(obj))
         inner_objs = outer_obj['object'] = as1.get_objects(outer_obj)
 
-        def translate(elem, field, fn, uri=False):
+        # external copies are only used for users and objects whose author we
+        # don't bridge to to_cls, so this is safe for every field except our own
+        # outer activity id
+        def translate(elem, field, fn, uri=False, external=True):
             owner_id = as1.get_owner(elem)
-            owner_proto = Protocol.for_id(owner_id)
+            owner_proto = Protocol.for_id(owner_id, remote=remote)
 
             elem[field] = as1.get_objects(elem, field)
             for obj in elem[field]:
                 if id := obj.get('id'):
-                    if field in ('to', 'cc', 'bcc', 'bto') and as1.is_audience(id):
+                    audience = field in ('to', 'cc', 'bcc', 'bto')
+                    if audience and as1.is_audience(id):
                         continue
 
-                    from_cls = Protocol.for_id(id)
+                    # don't fetch to identify recipients; the ones that need
+                    # translating can all be done locally
+                    from_cls = Protocol.for_id(id, remote=remote and not audience)
+                    kwargs = {'external': external}
+
                     if field == 'id' and from_cls == UIProtocol and owner_proto:
-                        logger.info(f'owner of {id} {owner_id} is {owner_proto.LABEL}, translating id from that protocol')
-                        from_cls = owner_proto
+                        if not UIProtocol.owns_id(id):
+                            # eg follow.py's ids, which are in their author's id
+                            # space even though their source_protocol is ui
+                            from_cls = owner_proto
+                        elif fn is ids.translate_object_id:
+                            # for activity wrappers, which we don't store, the
+                            # activity's actor is the author
+                            kwargs['owner'] = owner_proto
 
                     # TODO: what if from_cls is None? relax translate_object_id,
                     # make it a noop if we don't know enough about from/to?
                     if from_cls and from_cls != to_cls:
-                        obj['id'] = fn(id=id, from_=from_cls, to=to_cls)
+                        obj['id'] = fn(id=id, from_=from_cls, to=to_cls, **kwargs)
                     if uri:
                         obj['id'] = to_cls(id=obj['id']).id_uri() if obj['id'] else id
 
@@ -1045,19 +1201,28 @@ class Protocol:
         type = as1.object_type(outer_obj)
         translate(outer_obj, 'id',
                   ids.translate_user_id if type in as1.ACTOR_TYPES
-                  else ids.translate_object_id)
+                  else ids.translate_object_id, external=False)
 
         for o in inner_objs:
-            is_actor = (as1.object_type(o) in as1.ACTOR_TYPES
-                        or as1.get_owner(outer_obj) == o.get('id')
-                        or type in ('follow', 'stop-following', 'block'))
-            translate(o, 'id', (ids.translate_user_id if is_actor
-                                else ids.translate_object_id))
-            # TODO: need to handle both user and object ids here
-            # https://github.com/snarfed/bridgy-fed/issues/2281
-            obj_is_actor = o.get('verb') in as1.VERBS_WITH_ACTOR_OBJECT
-            translate(o, 'object', (ids.translate_user_id if obj_is_actor
-                                    else ids.translate_object_id))
+            if (as1.object_type(o) in as1.ACTOR_TYPES
+                    or as1.get_owner(outer_obj) == o.get('id')
+                    or type in ('follow', 'stop-following')):
+                fn = ids.translate_user_id
+            elif type == 'block':
+                # a block's object may be a user or an object, eg a blocklist
+                fn = ids.translate_id
+            else:
+                fn = ids.translate_object_id
+            translate(o, 'id', fn)
+
+            verb = o.get('verb')
+            if verb == 'block':
+                fn = ids.translate_id
+            elif verb in as1.VERBS_WITH_ACTOR_OBJECT:
+                fn = ids.translate_user_id
+            else:
+                fn = ids.translate_object_id
+            translate(o, 'object', fn)
 
         for o in [outer_obj] + inner_objs:
             translate(o, 'inReplyTo', ids.translate_object_id)
@@ -1069,15 +1234,16 @@ class Protocol:
             for att in as1.get_objects(o, 'attachments'):
                 translate(att, 'id', ids.translate_object_id)
                 url = att.get('url')
-                if url and not att.get('id'):
-                    if from_cls := Protocol.for_id(url):
+                # links are eg link previews, they're never bridged objects
+                if url and not att.get('id') and att.get('objectType') != 'link':
+                    if from_cls := Protocol.for_id(url, remote=remote):
                         att['id'] = ids.translate_object_id(from_=from_cls, to=to_cls,
-                                                            id=url)
+                                                            id=url, external=True)
             if feat := as1.get_object(o, 'featured'):
                 translate(feat, 'orderedItems', ids.translate_object_id)
                 translate(feat, 'items', ids.translate_object_id)
 
-        outer_obj = util.trim_nulls(outer_obj)
+        outer_obj = as1.trim_nulls(outer_obj)
 
         if objs := util.get_list(outer_obj ,'object'):
             outer_obj['object'] = [o['id'] if o.keys() == {'id'} else o for o in objs]
@@ -1115,8 +1281,8 @@ class Protocol:
 
         content = obj.get('content')
         tags = obj.get('tags')
-        if not content or not tags or as1.is_content_html(obj):
-            return util.trim_nulls(obj)
+        if not content or not tags or as1.is_html(obj, 'content'):
+            return as1.trim_nulls(obj)
 
         indexed = [tag for tag in tags if tag.get('startIndex') and tag.get('length')]
 
@@ -1143,7 +1309,12 @@ class Protocol:
                     if user:
                         start = tag['startIndex']
                         end = start + tag['length']
-                        if handle := user.handle_as(cls):
+                        try:
+                            handle = user.handle_as(cls)
+                        except ValueError as e:
+                            logger.info(f"Couldn't translate mention of {id} : {e}")
+                            handle = None
+                        if handle:
                             content = content[:start] + handle + content[end:]
                             offset += len(handle) - tag['length']
                             tag.update({
@@ -1153,7 +1324,7 @@ class Protocol:
 
         obj['tags'] = tags
         as2.set_content(obj, content)  # sets content *and* contentMap; obj is still AS1 here
-        return util.trim_nulls(obj)
+        return as1.trim_nulls(obj)
 
     @classmethod
     def receive(from_cls, obj, authed_as=None, internal=False, received_at=None):
@@ -1176,6 +1347,8 @@ class Protocol:
         Raises:
           werkzeug.HTTPException: if the request is invalid
         """
+        from ui import UIProtocol
+
         # check some invariants
         assert from_cls != Protocol
         assert isinstance(obj, Object), obj
@@ -1261,7 +1434,7 @@ class Protocol:
 
         # update copy ids to originals
         obj.normalize_ids()
-        obj.resolve_ids()
+        obj.resolve_ids(remote=True)
 
         if (obj.type == 'follow'
                 and Protocol.for_bridgy_subdomain(as1.get_object(obj.as1).get('id'))):
@@ -1419,12 +1592,16 @@ class Protocol:
         if (actor and actor.keys() == set(['id'])
                 and not is_user and obj.type not in ('delete', 'undo')):
             logger.debug('Fetching actor so we have name, profile photo, etc')
-            actor_obj = from_user_cls.load(
-                ids.profile_id(id=actor['id'], proto=from_cls), raise_=False)
-            if actor_obj and actor_obj.as1:
+            if not from_user.obj and from_user.existing:
+                # (if from_user is new, get_or_create just tried to load their
+                # profile, so don't retry)
+                from_user.reload_profile()
+
+            if from_user.obj and from_user.obj.as1:
                 obj.our_as1 = {
-                    **obj.as1, 'actor': {
-                        **actor_obj.as1,
+                    **obj.as1,
+                    'actor': {
+                        **from_user.obj.as1,
                         # override profile id with actor id
                         # https://github.com/snarfed/bridgy-fed/issues/1720
                         'id': actor['id'],
@@ -1432,12 +1609,17 @@ class Protocol:
                 }
 
         # fetch object if necessary
+        inner_cls = None
         if (obj.type in ('post', 'update', 'share')
-                and inner_obj_as1.keys() == set(['id'])
-                and from_cls.owns_id(inner_obj_id) is not False):
+                and inner_obj_as1.keys() == set(['id'])):
+            # internal objects' inner objects are on their own protocol, not ui
+            inner_cls = (Protocol.for_id(inner_obj_id) if from_cls == UIProtocol
+                         else from_cls)
+
+        if inner_cls and inner_cls.owns_id(inner_obj_id) is not False:
             logger.debug('Fetching inner object')
-            inner_obj = from_cls.load(inner_obj_id, raise_=False,
-                                      remote=(obj.type in ('post', 'update')))
+            inner_obj = inner_cls.load(inner_obj_id, raise_=False,
+                                       remote=(obj.type in ('post', 'update')))
             if obj.type in ('post', 'update'):
                 crud_obj = inner_obj
             if inner_obj and inner_obj.as1:
@@ -1448,8 +1630,11 @@ class Protocol:
                         **inner_obj.as1,
                     }
                 }
-            elif obj.type in ('post', 'update'):
-                error(f"Need object {inner_obj_id} but couldn't fetch, giving up")
+
+        # creates and updates need their inner object, whether we fetched it above
+        # or already had it
+        if obj.type in ('post', 'update') and not (crud_obj and crud_obj.as1):
+            error(f"Need object {inner_obj_id} but couldn't fetch, giving up")
 
         if obj.type == 'follow':
             if proto := Protocol.for_bridgy_subdomain(inner_obj_id):
@@ -1458,8 +1643,7 @@ class Protocol:
                 try:
                     from_user.enable_protocol(proto)
                 except ErrorButDoNotRetryTask:
-                    from web import Web
-                    bot = Web.get_by_id(proto.bot_user_id())
+                    bot = proto.bot_user()
                     from_cls.respond_to_follow('reject', follower=from_user,
                                                followee=bot, follow=obj)
                     raise
@@ -1486,7 +1670,7 @@ class Protocol:
         # do this *after* delivering because delivery finds targets based on
         # stored Followers
         if is_user and obj.type == 'delete':
-            for proto in from_user.enabled_protocols:
+            for proto in list(from_user.enabled_protocols):
                 from_user.disable_protocol(PROTOCOLS[proto])
 
             logger.info(f'Deactivating Followers from or to {from_user.key.id()}')
@@ -1512,6 +1696,9 @@ class Protocol:
         """
         logger.debug('Got follow. storing Follow(s), sending accept(s)')
         from_id = from_user.key.id()
+        # for follows we generated ourselves, from_cls is UIProtocol, but here we
+        # want the follower's own protocol
+        from_proto = from_user.__class__
 
         # Prepare followee (to) users' data
         to_as1s = as1.get_objects(obj.as1)
@@ -1529,7 +1716,7 @@ class Protocol:
             to_cls = Protocol.for_id(to_id)
             if not to_cls:
                 error(f"Couldn't determine protocol for {to_id}")
-            elif from_cls == to_cls:
+            elif from_proto == to_cls:
                 logger.info(f'Skipping same-protocol Follower {from_id} => {to_id}')
                 continue
 
@@ -1539,19 +1726,20 @@ class Protocol:
                 continue
 
             to_user = to_cls.get_or_create(id=to_key.id())
-            if not to_user or not to_user.is_enabled(from_cls):
+            if not to_user:
                 error(f'{to_id} not found')
 
             follower_obj = Follower.get_or_create(to=to_user, from_=from_user,
                                                   follow=obj.key, status='active')
-            if (from_cls.USES_OBJECT_FEED
-                    and from_cls.LABEL not in to_user.has_object_feed_followers_on):
-                to_user.has_object_feed_followers_on.append(from_cls.LABEL)
+            if (from_proto.USES_OBJECT_FEED
+                    and from_proto.LABEL not in to_user.has_object_feed_followers_on):
+                to_user.has_object_feed_followers_on.append(from_proto.LABEL)
                 to_user.put()
 
             obj.add('notify', to_key)
-            from_cls.respond_to_follow('accept', follower=from_user,
-                                       followee=to_user, follow=obj)
+            if to_user.is_enabled(from_proto):
+                from_cls.respond_to_follow('accept', follower=from_user,
+                                           followee=to_user, follow=obj)
 
     @classmethod
     def respond_to_follow(_, verb, follower, followee, follow):
@@ -1599,8 +1787,10 @@ class Protocol:
         if not user.BOTS_FOLLOW_BACK:
             return
 
-        from web import Web
-        bot = Web.get_by_id(bot_cls.bot_user_id())
+        if not (bot := bot_cls.bot_user()):
+            logger.info(f"Can't follow {user.key.id()}, {bot_cls.LABEL} has no bot user")
+            return
+
         now = util.now().isoformat()
         logger.info(f'Following {user.key.id()} back from bot user {bot.key.id()}')
 
@@ -1648,9 +1838,9 @@ class Protocol:
         if not to_cls:
             error(f"Couldn't determine protocol for target {target_id}")
 
-        to_user = to_cls.get_or_create(
-            target_id, manual_opt_out=False, allow_opt_out=True,
-            enabled_protocols=from_user.enabled_protocols)
+        # enabled_protocols are set below
+        to_user = to_cls.get_or_create(target_id, manual_opt_out=False,
+                                       allow_opt_out=True)
         if not to_user:
             error(f"Couldn't create {to_cls.LABEL} user {target_id}", status=299)
 
@@ -1659,12 +1849,40 @@ class Protocol:
             for label in from_user.enabled_protocols:
                 proto = PROTOCOLS[label]
                 if copy_id := from_user.get_copy(proto):
+                    logger.info(f'Transferring {label} copy id {copy_id} to {target_id}')
                     from_user.remove_copies_on(proto)
                     to_user.add('copies', Target(uri=copy_id, protocol=label))
+                    to_user.add('enabled_protocols', label)
 
             to_user.put()
+            # after transferring copies so that get_or_create doesn't think
+            # they're external copies and reject them
+            to_user = to_cls.get_or_create(
+                target_id, allow_opt_out=True,
+                enabled_protocols=from_user.enabled_protocols)
             from_user.enabled_protocols = []
             from_user.put()
+
+        for proto in set(p for p in PROTOCOLS.values() if p):
+            if to_user.is_enabled(proto) and not isinstance(to_user, proto):
+                # follow the new account from the protocol bots that need to
+                proto.bot_maybe_follow_back(to_user)
+
+                # update its bridged handle, but only if it's still the default
+                # handle we generated for the old account, ie not custom
+                old_default = ids.translate_handle(
+                    from_=from_user.__class__, to=proto, handle=from_user.handle)
+                new_default = ids.translate_handle(
+                    from_=to_user.__class__, to=proto, handle=to_user.handle)
+                if (old_default and new_default
+                        and to_user.handle_as(proto) == old_default):
+                    try:
+                        proto.set_username(to_user, new_default)
+                    except NotImplementedError:
+                        pass
+                    except Exception as e:
+                        util.interpret_http_exception(e)
+                        logger.warning(f"Couldn't update {to_user.key.id()}'s bridged {proto.LABEL} handle to {new_default}", exc_info=True)
 
         # query for all active followers of the source account
         followers = Follower.query(
@@ -1688,7 +1906,7 @@ class Protocol:
             ndb.put_multi(updated_followers)
 
     @classmethod
-    def handle_bare_object(cls, obj, *, authed_as, from_user):
+    def handle_bare_object(from_cls, obj, *, authed_as, from_user):
         """If obj is a bare object, wraps it in a create or update activity.
 
         Checks if we've seen it before.
@@ -1702,10 +1920,10 @@ class Protocol:
           models.Object: ``obj`` if it's an activity, otherwise a new object
         """
         is_actor = obj.type in as1.ACTOR_TYPES
-        if not is_actor and obj.type not in ('note', 'article', 'comment'):
+        if not is_actor and obj.type not in ('note', 'article', 'comment', 'event'):
             return obj
 
-        obj_actor = ids.normalize_user_id(id=as1.get_owner(obj.as1), proto=cls)
+        obj_actor = ids.normalize_user_id(id=as1.get_owner(obj.as1), proto=from_cls)
         now = util.now().isoformat()
 
         # this is a raw post; wrap it in a create or update activity
@@ -1776,7 +1994,8 @@ class Protocol:
         #
         # ...then write the relevant object, since targets() has a side effect of
         # setting the notify and feed properties (and dirty attribute)
-        targets = from_cls.targets(obj, from_user=from_user, crud_obj=crud_obj)
+        targets = from_cls.targets(obj, from_user=from_user, crud_obj=crud_obj,
+                                   to_proto=to_proto)
         if to_proto:
             targets = {t: obj for t, obj in targets.items()
                        if t.protocol == to_proto.LABEL}
@@ -1815,7 +2034,8 @@ class Protocol:
         return 'OK', 202
 
     @classmethod
-    def targets(from_cls, obj, from_user, crud_obj=None, internal=False):
+    def targets(from_cls, obj, from_user, crud_obj=None, internal=False,
+                to_proto=None):
         """Collects the targets to send a :class:`models.Object` to.
 
         Targets are both objects - original posts, events, etc - and actors.
@@ -1827,11 +2047,15 @@ class Protocol:
             activity, the inner object that's being written, otherwise None.
             (This object's ``notify`` and ``feed`` properties may be updated.)
           internal (bool): whether this is a recursive internal call
+          to_proto (protocol.Protocol subclass): optional; if provided, only consider
+            targets on this protocol
 
         Returns:
           dict: maps :class:`models.Target` to original (in response to)
           :class:`models.Object`
         """
+        from ui import UIProtocol
+
         logger.debug('Finding recipients and their targets')
 
         # we should only have crud_obj iff this is a create or update
@@ -1839,14 +2063,25 @@ class Protocol:
         write_obj = crud_obj or obj
         write_obj.dirty = False
 
+        inner_obj_as1 = as1.get_object(obj.as1)
+        inner_obj_id = inner_obj_as1.get('id')
         target_uris = as1.targets(obj.as1)
+
+        if obj.type == 'delete' and set(inner_obj_as1.keys()) == {'id'}:
+            deleted = from_cls.load(inner_obj_id, remote=False)
+            if deleted and deleted.as1:
+                logger.info(f'Object is a delete; adding targets for deleted {inner_obj_id}')
+                inner_obj_as1 = deleted.as1
+                target_uris.extend(as1.targets(inner_obj_as1))
+
         orig_obj = None
         targets = {}  # maps Target (with *normalized* uri) to Object or None
         owner = as1.get_owner(obj.as1)
-        allow_opt_out = (obj.type == 'delete')
-        inner_obj_as1 = as1.get_object(obj.as1)
-        inner_obj_id = inner_obj_as1.get('id')
+        # allow opted out users deleting their own actor/profile
+        allow_opt_out = (obj.type == 'delete' and from_user.is_profile(obj))
         in_reply_tos = as1.get_ids(inner_obj_as1, 'inReplyTo')
+        if len(in_reply_tos) > 1:
+            logger.warning(f'Multiple inReplyTos! Only the first will be delivered to ActivityPub: {in_reply_tos}')
         quoted_posts = as1.quoted_posts(inner_obj_as1)
         mentioned_urls = as1.mentions(inner_obj_as1)
         is_reply = obj.type == 'comment' or in_reply_tos
@@ -1872,7 +2107,8 @@ class Protocol:
         orig_post_mentions = {}  # maps mentioned id to original post Object
         for id in in_reply_tos:
             if ((in_reply_to_obj := original_objs.get(id))
-                    and (proto := PROTOCOLS.get(in_reply_to_obj.source_protocol))
+                    and in_reply_to_obj.as1
+                    and (proto := in_reply_to_obj.owner_protocol())
                     and proto.SEND_REPLIES_TO_ORIG_POSTS_MENTIONS
                     and (mentions := as1.mentions(in_reply_to_obj.as1))):
                 logger.info(f"Adding in-reply-to {id} 's mentions to targets: {mentions}")
@@ -1890,10 +2126,11 @@ class Protocol:
             if not (proto := PROTOCOLS.get(label)):
                 report_error(f'unknown enabled protocol {label} for {from_user.key.id()}')
                 continue
+            elif to_proto and proto != to_proto:
+                continue
 
-            if (obj.type == 'post' and (orig := original_objs.get(inner_obj_id))
-                    and orig.get_copy(proto)):
-                logger.info(f'Already created {id} on {label}, cowardly refusing to create there again')
+            if obj.type == 'post' and crud_obj.key and crud_obj.get_copy(proto):
+                logger.info(f'Already created {crud_obj.key.id()} on {label}, cowardly refusing to create there again')
                 continue
 
             if proto.HAS_COPIES and (obj.type in ('update', 'delete', 'share', 'undo')
@@ -1910,10 +2147,19 @@ class Protocol:
                         logger.info(f"Allowing {label}, this is the user's profile")
                         break
 
-                    if (origs_could_bridge is not False
+                    external_id = orig.get_external_id(proto)
+                    orig_author = None
+                    if ((external_id or origs_could_bridge is not False)
                             and (orig_author_id := as1.get_owner(orig.as1))
-                            and (orig_proto := orig.owner_protocol())
-                            and (orig_author := orig_proto.get_by_id(orig_author_id))):
+                            and (orig_proto := orig.owner_protocol())):
+                        orig_author = orig_proto.get_by_id(orig_author_id)
+
+                    if external_id and not (orig_author
+                                            and orig_author.is_enabled(proto)):
+                        logger.info(f'Allowing {label}, original {id} is already there as external id {external_id}')
+                        break
+
+                    if origs_could_bridge is not False and orig_author:
                         origs_could_bridge = orig_author.is_enabled(proto)
 
                 else:
@@ -1961,8 +2207,19 @@ class Protocol:
                 logger.info(f"Couldn't load {target_obj_id}")
                 continue
 
+            if target_proto == UIProtocol:
+                if orig_proto := orig_obj.owner_protocol():
+                    # objects we created in our own UI are owned by a user on another
+                    # protocol https://github.com/snarfed/bridgy-fed/issues/2481
+                    target_proto = orig_proto
+
             target_author_key = (target_proto(id=target_id).key if target_is_actor
                                  else target_proto.actor_key(orig_obj))
+            if (target_author_key
+                    and target_author_key != from_user.key
+                    and obj.type not in DONT_NOTIFY_TYPES):
+                if write_obj.add('notify', target_author_key):
+                    write_obj.dirty = True
 
             if not from_user.is_enabled(target_proto):
                 # if author isn't bridged and target user is, DM a prompt and
@@ -1998,6 +2255,20 @@ Hi! You <a href="{inner_obj_as1.get('url') or inner_obj_id}">recently {verb}</a>
                         logger.debug(f'Adding target {target} for copy {copy.uri} of original {target_id}')
                         targets[Target(protocol=copy.protocol, uri=target)] = orig_obj
 
+            # and external targets, eg proxy links, if we're not bridging their author
+            for proto in to_protocols:
+                if not (external_id := orig_obj.get_external_id(proto)):
+                    continue
+                target_author = target_author_key.get() if target_author_key else None
+                if target_author and target_author.is_enabled(proto):
+                    continue
+
+                external_obj = proto.load(external_id, raise_=False)
+                if external_obj and (target := proto.target_for(external_obj)):
+                    target = util.normalize_url(target, trailing_slash=False)
+                    logger.info(f'Adding target {target} for external id {external_id} of original {target_id}')
+                    targets[Target(protocol=proto.LABEL, uri=target)] = orig_obj
+
             if target_proto == from_cls:
                 logger.debug(f'Skipping same-protocol target {target_id}')
                 continue
@@ -2021,11 +2292,7 @@ Hi! You <a href="{inner_obj_as1.get('url') or inner_obj_id}">recently {verb}</a>
                 target_obj = orig_post_mentions[target_id]
             targets[Target(protocol=target_proto.LABEL, uri=target)] = target_obj
 
-            if target_author_key:
-                logger.debug(f'Recipient is {target_author_key}')
-                if obj.type not in DONT_NOTIFY_TYPES:
-                    if write_obj.add('notify', target_author_key):
-                        write_obj.dirty = True
+        # done processing direct targets
 
         if obj.type == 'undo':
             logger.info('Object is an undo; adding targets for inner object')
@@ -2035,7 +2302,8 @@ Hi! You <a href="{inner_obj_as1.get('url') or inner_obj_id}">recently {verb}</a>
                 inner_obj = Object(id=inner_obj_id, our_as1=inner_obj_as1)
             if inner_obj:
                 for target, target_obj in from_cls.targets(
-                        inner_obj, from_user=from_user, internal=True).items():
+                        inner_obj, from_user=from_user, internal=True,
+                        to_proto=to_proto).items():
                     targets[target] = target_obj
                     util.add(to_protocols, PROTOCOLS[target.protocol])
 
@@ -2045,7 +2313,7 @@ Hi! You <a href="{inner_obj_as1.get('url') or inner_obj_id}">recently {verb}</a>
         logger.info(f'Direct targets: {[t.uri for t in targets.keys()]}')
 
         # deliver to followers, if appropriate
-        user_key = from_cls.actor_key(obj, allow_opt_out=allow_opt_out)
+        user_key = from_user.actor_key(obj, allow_opt_out=allow_opt_out)
         if not user_key:
             logger.info("Can't tell who this is from! Skipping followers.")
             return targets
@@ -2056,66 +2324,74 @@ Hi! You <a href="{inner_obj_as1.get('url') or inner_obj_id}">recently {verb}</a>
             p for p in to_protocols
             if not (p.HAS_COPIES and p.DEFAULT_TARGET)
             and not (p.USES_OBJECT_FEED and p.LABEL not in from_user.has_object_feed_followers_on)]
-        followers = []
+        num_followers = 0
         is_undo_block = obj.type == 'undo' and inner_obj_as1.get('verb') == 'block'
         if (obj.type in ('post', 'update', 'delete', 'move', 'share', 'undo')
                 and (not is_reply or is_self_reply) and not is_undo_block
                 and to_followers_protos):
             logger.info(f'Delivering to followers of {user_key.id()} on {[p.LABEL for p in to_followers_protos]}')
+
+            target_obj = (original_objs.get(inner_obj_id)
+                          if obj.type == 'share' else None)
+            add_to_feed = (not internal and obj.type in ('post', 'update', 'share')
+                           and write_obj.type not in as1.ACTOR_TYPES)
+            feed = []
+
             # query each protocol individually
             for proto in to_followers_protos:
                 kind = proto._get_kind()
-                for f in Follower.query(
-                        Follower.to == user_key,
-                        Follower.status == 'active',
-                        Follower.from_ >= ndb.Key(kind, '\x00'),
-                        Follower.from_ < ndb.Key(kind + '\x00', '\x00')):
+                query = Follower.query(
+                    Follower.to == user_key,
+                    Follower.status == 'active',
+                    Follower.from_ >= ndb.Key(kind, '\x00'),
+                    Follower.from_ < ndb.Key(kind + '\x00', '\x00'))
+
+                # load and collect targets in chunks so that we never hold all of
+                # the followers' users and profile objects in memory at once.
+                # accounts with tens of thousands of followers otherwise use >1GB
+                # and can OOM.
+                # https://github.com/snarfed/bridgy-fed/issues/2154
+                for followers in itertools.batched(query, TARGETS_CHUNK_SIZE):
                     # skip protocol bot users
-                    if not Protocol.for_bridgy_subdomain(f.from_.id()):
-                        followers.append(f)
+                    keys = [f.from_ for f in followers
+                            if not Protocol.for_bridgy_subdomain(f.from_.id())]
+                    num_followers += len(keys)
 
-            logger.debug(f'  loaded {len(followers)} followers')
+                    users = [u for u in ndb.get_multi(keys) if u]
+                    User.load_multi(users)
+                    logger.info(f'  loaded {num_followers} followers, {len(targets)} targets so far')
 
-            user_keys = [f.from_ for f in followers]
-            users = [u for u in ndb.get_multi(user_keys) if u]
-            logger.debug(f'  loaded {len(users)} users')
+                    # add to followers' feeds, if any
+                    if add_to_feed:
+                        feed.extend(u.key for u in users
+                                    if u.USES_OBJECT_FEED
+                                    or u.key.id() in common.BETA_USER_IDS)
 
-            User.load_multi(users)
-            logger.debug(f'  loaded user objects')
+                    for user in users:
+                        if user.is_blocking(from_user):
+                            logger.info(f'  {user.key.id()} blocks {from_user.key.id()}')
+                            continue
 
-            if (not followers and
-                (util.domain_or_parent_in(from_user.key.id(), LIMITED_DOMAINS)
-                 or util.domain_or_parent_in(obj.key.id(), LIMITED_DOMAINS))):
+                        # TODO: should we pass remote=False through here to Protocol.load?
+                        target = user.target_for(user.obj, shared=True) if user.obj else None
+                        if not target:
+                            continue
+
+                        target = util.normalize_url(target, trailing_slash=False)
+                        targets[Target(protocol=user.LABEL, uri=target)] = target_obj
+
+            if (num_followers == 0
+                and (util.domain_or_parent_in(from_user.key.id(), LIMITED_DOMAINS)
+                     or util.domain_or_parent_in(obj.key.id(), LIMITED_DOMAINS))):
                 logger.info(f'skipping, {from_user.key.id()} is on a limited domain and has no followers')
                 return {}
 
-            # add to followers' feeds, if any
-            if not internal and obj.type in ('post', 'update', 'share'):
-                if write_obj.type not in as1.ACTOR_TYPES:
-                    write_obj.feed = [
-                        u.key for u in users
-                        if u.USES_OBJECT_FEED or u.key.id() in common.BETA_USER_IDS
-                    ]
-                    if write_obj.feed:
-                        write_obj.dirty = True
+            if add_to_feed:
+                write_obj.feed = feed
+                if feed:
+                    write_obj.dirty = True
 
-            # collect targets for followers
-            target_obj = (original_objs.get(inner_obj_id)
-                          if obj.type == 'share' else None)
-            for user in users:
-                if user.is_blocking(from_user):
-                    logger.debug(f'  {user.key.id()} blocks {from_user.key.id()}')
-                    continue
-
-                # TODO: should we pass remote=False through here to Protocol.load?
-                target = user.target_for(user.obj, shared=True) if user.obj else None
-                if not target:
-                    continue
-
-                target = util.normalize_url(target, trailing_slash=False)
-                targets[Target(protocol=user.LABEL, uri=target)] = target_obj
-
-            logger.debug(f'  collected {len(targets)} targets')
+            logger.info(f'  collected {len(targets)} targets')
 
         # deliver to enabled HAS_COPIES protocols proactively
         if obj.type in ('post', 'update', 'delete', 'share'):
@@ -2194,7 +2470,7 @@ Hi! You <a href="{inner_obj_as1.get('url') or inner_obj_id}">recently {verb}</a>
         if not raw:
             id = ids.normalize_object_id(id=id, proto=cls)
 
-        obj = orig_as1 = None
+        obj = orig_as1 = orig_our_as1 = None
         if local:
             if obj := Object.get_by_id(id):
                 if csv and not obj.is_csv:
@@ -2214,6 +2490,7 @@ Hi! You <a href="{inner_obj_as1.get('url') or inner_obj_id}">recently {verb}</a>
 
         if obj:
             orig_as1 = obj.as1
+            orig_our_as1 = obj.our_as1
             obj.our_as1 = None
             obj.new = False
         else:
@@ -2234,6 +2511,7 @@ Hi! You <a href="{inner_obj_as1.get('url') or inner_obj_id}">recently {verb}</a>
             return None
 
         if not fetched:
+            obj.our_as1 = orig_our_as1
             return None
         elif csv and not obj.is_csv:
             return None
@@ -2287,15 +2565,21 @@ Hi! You <a href="{inner_obj_as1.get('url') or inner_obj_id}">recently {verb}</a>
                 and inner_type not in cls.SUPPORTED_AS1_TYPES)):
             error(f"Bridgy Fed for {cls.LABEL} doesn't support {obj.type} {inner_type} yet", status=204)
 
-        # don't allow posts with blank content and no image/video/audio
+        # don't allow posts with blank content and no image/video/audio/link
         crud_obj = (as1.get_object(obj.as1) if obj.type in ('post', 'update')
                     else obj.as1)
+        links = [att for att in as1.get_objects(crud_obj, 'attachments')
+                 if att.get('objectType') == 'link']
         if (crud_obj.get('objectType') in as1.POST_TYPES
                 and not util.get_url(crud_obj, key='image')
-                and not any(util.get_urls(crud_obj, 'attachments', inner_key='stream'))
+                and not util.get_urls(crud_obj, 'attachments', inner_key='stream')
+                # link attachments get moved into content, eg in
+                # activitypub.postprocess_as2
+                # https://github.com/snarfed/bridgy-fed/issues/2658
+                and not any(util.get_url(l) for l in links)
                 # TODO: handle articles with displayName but not content
                 and not source.html_to_text(crud_obj.get('content')).strip()):
-            error('Blank content and no image or video or audio', status=204)
+            error('Blank content and no image or video or audio or link', status=204)
 
         # receiving DMs is only allowed to protocol bot accounts
         if direction == 'receive':
@@ -2321,8 +2605,11 @@ Hi! You <a href="{inner_obj_as1.get('url') or inner_obj_id}">recently {verb}</a>
 
             # check that this activity is public. only do this for some activities,
             # not eg likes or follows, since Mastodon doesn't currently mark those
-            # as explicitly public.
-            elif (obj.type in set(('post', 'update')) | as1.POST_TYPES | as1.ACTOR_TYPES
+            # as explicitly public, or actors, since Bluesky's "only show to logged
+            # in users" converts as non-public, but we still want those profile
+            # updates for opted in users.
+            elif (obj.type in set(('post', 'update')) | as1.POST_TYPES
+                  and crud_obj.get('objectType') not in as1.ACTOR_TYPES
                   and not util.domain_or_parent_in(crud_obj.get('id'), NON_PUBLIC_DOMAINS)
                   and not as1.is_public(obj.as1, unlisted=False)):
                 error('Bridgy Fed only supports public activities', status=204)
@@ -2350,7 +2637,8 @@ Hi! You <a href="{inner_obj_as1.get('url') or inner_obj_id}">recently {verb}</a>
         blockee = None
         try:
             # first, try interpreting as a user handle or id
-            blockee = load_user(arg, proto=cls, create=True, allow_opt_out=True)
+            blockee = load_user(arg, proto=cls, create=True, allow_opt_out=True,
+                                resolve=True)
         except (AssertionError, AttributeError, BadRequest, RuntimeError, ValueError) as err:
             logger.info(err)
 
@@ -2406,7 +2694,8 @@ Hi! You <a href="{inner_obj_as1.get('url') or inner_obj_id}">recently {verb}</a>
         blockee = None
         try:
             # first, try interpreting as a user handle or id
-            blockee = load_user(arg, cls, create=True, allow_opt_out=True)
+            blockee = load_user(arg, cls, create=True, allow_opt_out=True,
+                                resolve=True)
         except (AssertionError, AttributeError, BadRequest, RuntimeError, ValueError) as err:
             logger.info(err)
 
@@ -2457,6 +2746,10 @@ def receive_task():
       obj_id (str): key id of :class:`models.Object` to handle
       received_at (str, ISO 8601 timestamp): when we first saw (received)
         this activity
+      new (str, ``True`` or ``False``): optional, populated into
+        :attr:`models.Object.new`. Defaults to ``True``.
+      changed (str, ``True`` or ``False``): optional, populated into
+        :attr:`models.Object.changed`. Defaults to ``None``.
       *: If ``obj_id`` is unset, all other parameters are properties for a new
         :class:`models.Object` to handle
 
@@ -2475,7 +2768,12 @@ def receive_task():
     obj = Object.from_request()
     assert obj
     assert obj.source_protocol
+
     obj.new = True
+    if 'new' in request.values:
+        obj.new = bool_param('new')
+    if 'changed' in request.values:
+        obj.changed = bool_param('changed')
 
     if received_at := form.pop('received_at', None):
         received_at = datetime.fromisoformat(received_at)
@@ -2503,7 +2801,9 @@ def send_task():
       obj_id (str): key id of :class:`models.Object` to send
       orig_obj_id (str): optional, :class:`models.Object` key id of the
         "original object" that this object refers to, eg replies to or reposts
-        or likes
+        or likes. Usually identifies the specific delivery target of this send task.
+        Lots of background on whether/why this is necessary (it is):
+        https://github.com/snarfed/bridgy-fed/issues/1257
       user (url-safe google.cloud.ndb.key.Key): :class:`models.User` (actor)
         this activity is from
       *: If ``obj_id`` is unset, all other parameters are properties for a new
@@ -2527,14 +2827,17 @@ def send_task():
     assert obj and obj.key and obj.key.id()
 
     PROTOCOLS[protocol].check_supported(obj, 'send')
-    allow_opt_out = (obj.type == 'delete')
 
     user = None
     if user_key := form.get('user'):
         key = ndb.Key(urlsafe=user_key)
         # use get_by_id so that we follow use_instead
-        user = PROTOCOLS_BY_KIND[key.kind()].get_by_id(
-            key.id(), allow_opt_out=allow_opt_out)
+        user = PROTOCOLS_BY_KIND[key.kind()].get_by_id(key.id(), allow_opt_out=True)
+        if (user and user.status
+                # allow opted out users deleting their own actor/profile
+                and not (obj.type == 'delete' and user.is_profile(obj))):
+            logger.info(f'{user.key} is {user.status}')
+            user = None
 
     # send
     delay = ''
@@ -2595,7 +2898,7 @@ def user_enabled_task():
 
     for follower, from_user in zip(followers, from_users):
         if from_user and not from_user.status:
-            logger.info('Updating and DMing Follower from {from_user.key.id()}')
+            logger.info(f'Updating and DMing Follower from {from_user.key.id()}')
             follower.status = 'inactive'
             follower.put()
 
@@ -2603,7 +2906,7 @@ def user_enabled_task():
                 'bounce': ', who you originally followed before you Bounced,',
                 'requested': ', who you asked to bridge,',
             }.get(follower.reason, '')
-            dms.maybe_send(from_=proto, to_user=from_user, text=f'<p>Hi! {user.html_link(proto=proto, proto_fallback=True)}{relationship} has bridged their account into {proto.PHRASE}. You can follow them now if you want.')
+            dms.maybe_send(from_=user.__class__, to_user=from_user, text=f'<p>Hi! {user.html_link(proto=proto, proto_fallback=True)}{relationship} has bridged their account into {proto.PHRASE}. You can follow them now if you want.')
 
     return '', 200
 

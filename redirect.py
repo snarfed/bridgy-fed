@@ -16,7 +16,6 @@ https://github.com/snarfed/bridgy-fed/issues/352
 """
 from datetime import timedelta
 import logging
-import re
 import urllib.parse
 
 from flask import redirect, request
@@ -28,6 +27,7 @@ from webutil.util import json_dumps, json_loads
 from activitypub import ActivityPub, as2_request_type
 from common import (
     CACHE_CONTROL_VARY_ACCEPT,
+    COLLAPSED_SCHEME_RE,
     CONTENT_TYPE_HTML,
     SUPERDOMAIN,
 )
@@ -58,9 +58,7 @@ def redir(to):
     to = to.strip()
     if request.args:
         to += '?' + urllib.parse.urlencode(request.args)
-    # some browsers collapse repeated /s in the path down to a single slash.
-    # if that happened to this URL, expand it back to two /s.
-    to = re.sub(r'^(https?:/)([^/])', r'\1/\2', to)
+    to = COLLAPSED_SCHEME_RE.sub(r'\1/', to)
 
     if not util.is_web(to):
         error(f'Expected fully qualified URL; got {to}')

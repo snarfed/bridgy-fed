@@ -64,6 +64,8 @@ FEED_TYPES = {
     # https://stackoverflow.com/questions/4832357/whats-the-difference-between-text-xml-vs-application-xml-for-webservice-respons
     'application/xml': 'xml',
     'text/xml': 'xml',
+    # https://indieweb.org/h-feed#Discovery
+    'text/mf2+html': 'html',
 }
 MIN_FEED_POLL_PERIOD = timedelta(hours=2)
 MAX_FEED_POLL_PERIOD = timedelta(days=1)
@@ -80,11 +82,6 @@ HOST_META_CONTENT_TYPES = {
     'application/json',
     'application/jrd+json',
 }
-
-# in addition to domains.DOMAIN_BLOCKLIST
-FETCH_BLOCKLIST = (
-    'bsky.app',
-)
 
 
 def is_valid_domain(domain, allow_internal=True):
@@ -128,16 +125,17 @@ class Web(User, Protocol):
     ''
     CONTENT_TYPE = common.CONTENT_TYPE_HTML
     ''
-    DEFAULT_ENABLED_PROTOCOLS = ('activitypub',)
+    MIME_TYPES = (common.CONTENT_TYPE_HTML.split(';')[0], *FEED_TYPES)
     ''
-    DEFAULT_SERVE_USER_PAGES = True
+    DEFAULT_ENABLED_PROTOCOLS = ()
     ''
     SUPPORTED_AS1_TYPES = (
         tuple(as1.ACTOR_TYPES)
         + tuple(as1.POST_TYPES)
         + tuple(as1.CRUD_VERBS)
-        + ('audio', 'bookmark', 'event', 'image', 'video')
-        + ('follow', 'like', 'share', 'stop-following')
+        + tuple(as1.RSVP_VERB_TO_COLLECTION)
+        + ('audio', 'bookmark', 'event', 'follow', 'image', 'like', 'share',
+           'stop-following', 'video')
     )
     ''
     USES_OBJECT_FEED = True
@@ -166,7 +164,8 @@ class Web(User, Protocol):
     """
 
     ap_subdomain = ndb.StringProperty(
-        choices=['ap', 'bsky', 'efake', 'fa', 'fc', 'fed', 'nostr', 'other', 'web'],
+        choices=[domain.removesuffix('.brid.gy')
+                 for domain in PROTOCOL_DOMAINS + (PRIMARY_DOMAIN,)],
         default='web')
     """Originally, BF served Web users' AP actor ids on fed.brid.gy, eg
     https://fed.brid.gy/snarfed.org . When we started adding new protocols, we
@@ -225,19 +224,19 @@ class Web(User, Protocol):
         if not allow_opt_out and user.status:
             return None
 
-        if not user.existing and not is_bot:
+        # don't poll a new user's feed until they've opted into bridging
+        if not user.existing and not is_bot and user.enabled_protocols:
             create_task(queue='poll-feed', domain=user.key.id())
 
         return user
 
     @ndb.ComputedProperty
     def handle(self):
-        """Returns this user's chosen username or domain, eg ``user.com``."""
-        # prettify if domain, noop if username
-        username = self.username()
-        if username != self.key.id():
-            return domain_from_link(username, minimize=False)
-        return username
+        """Returns this user's domain, eg ``user.com``.
+
+        Ignores any custom username; use :meth:`username` for that.
+        """
+        return self.key.id()
 
     @ndb.ComputedProperty
     def verified_domain(self):
@@ -391,12 +390,12 @@ class Web(User, Protocol):
                         self.redirects_error = OWNS_WEBFINGER
                     else:
                         diff = '\n'.join(difflib.Differ().compare([got], [expected[0]]))
-                        self.redirects_error = f'Current vs expected:<pre>{diff}</pre>'
+                        self.redirects_error = f'Current vs expected:\n{diff}'
             else:
                 lines = [url, f'  returned HTTP {resp.status_code}']
                 if resp.url and resp.url != url:
                     lines[1:1] = ['  redirected to:', resp.url]
-                self.redirects_error = '<pre>' + '\n'.join(lines) + '</pre>'
+                self.redirects_error = '\n'.join(lines)
         except RequestException:
             pass
 
@@ -463,6 +462,18 @@ class Web(User, Protocol):
         return False
 
     @classmethod
+    def id_type(cls, id):
+        """Bare domains are users, other URLs are web pages.
+
+        A home page URL is unclear: it identifies the user, but it's also that
+        user's profile object id.
+        """
+        if is_valid_domain(id, allow_internal=True):
+            return ids.IdType.USER
+        elif cls.owns_id(id) is not False and not util.is_homepage(id):
+            return ids.IdType.OBJECT
+
+    @classmethod
     def owns_handle(cls, handle, allow_internal=False):
         if handle == PRIMARY_DOMAIN or handle in PROTOCOL_DOMAINS:
             return True
@@ -488,16 +499,34 @@ class Web(User, Protocol):
         return obj.key.id()
 
     def feed_url(self):
-        """Returns this web site's RSS or Atom feed URL and type, if any.
+        """Returns this web site's RSS, Atom, or HTML h-feed URL and type, if any.
+
+        Prefers RSS and Atom, then ``rel="alternate"`` links with type
+        ``text/mf2+html``, then an h-feed on the home page itself.
+
+        Uses a ``has-h-feed`` top level boolean field in ``self.obj.mf2``,
+        set in :meth:`Web.fetch``.
 
         Returns:
-          (str, type) or (None, None):
+          (str, type) or (None, None): type is ``atom``, ``rss``, ``xml``, or
+          ``html``
         """
-        if self.obj and self.obj.mf2:
-            for url, info in self.obj.mf2.get('rel-urls', {}).items():
-                type = FEED_TYPES.get(info.get('type', '').split(';')[0])
-                if 'alternate' in info.get('rels', []) and type:
-                    return url, type
+        if not self.obj or not self.obj.mf2:
+            return None, None
+
+        feeds = []
+        for url, info in self.obj.mf2.get('rel-urls', {}).items():
+            type = FEED_TYPES.get(info.get('type', '').split(';')[0])
+            if 'alternate' in info.get('rels', []) and type:
+                feeds.append((url, type))
+
+        # sort is stable, so this keeps page order otherwise
+        feeds.sort(key=lambda feed: feed[1] == 'html')
+        if feeds:
+            return feeds[0]
+
+        if self.obj.mf2.get('has-h-feed'):
+            return self.profile_id(), 'html'
 
         return None, None
 
@@ -535,7 +564,7 @@ class Web(User, Protocol):
             return False
 
         source_id = ids.translate_object_id(
-            id=obj.key.id(), from_=PROTOCOLS[obj.source_protocol], to=Web)
+            id=obj.key.id(), from_=PROTOCOLS.get(obj.source_protocol), to=Web)
         source_url = quote(source_id, safe=':/%+')
         logger.info(f'Sending webmention from {source_url} to {target}')
 
@@ -558,7 +587,7 @@ class Web(User, Protocol):
         return super().load(id, **kwargs)
 
     @classmethod
-    def fetch(cls, obj, gateway=False, check_backlink=False,
+    def fetch(cls, obj, gateway=False, check_backlink=False, internal=False,
               authorship_fetch_mf2=True, metaformats=None, csv=False, **kwargs):
         """Fetches a URL over HTTP and extracts its microformats2.
 
@@ -578,6 +607,7 @@ class Web(User, Protocol):
           authorship_fetch_mf2 (bool): optional, when running the authorship
             algorithm, fetch author URL if necessary
           csv (bool): if True, fetch CSV instead of microformatted HTML
+          internal (bool): whether to allow internal domains like bsky.brid.gy
           kwargs: ignored
         """
         url = obj.key.id()
@@ -587,10 +617,6 @@ class Web(User, Protocol):
 
         if not util.is_web(url) or not util.is_url(url):
             logger.info(f'{url} is not a URL')
-            return False
-
-        if (cls.is_blocklisted(url, allow_internal=True)
-                or util.domain_or_parent_in(url, FETCH_BLOCKLIST)):
             return False
 
         if csv:
@@ -606,6 +632,9 @@ class Web(User, Protocol):
                     return True
                 return False
 
+        if not internal and util.domain_or_parent_in(url, DOMAINS):
+            return False
+
         require_backlink = (domains.host_url().rstrip('/')
                             if check_backlink and not is_homepage
                             else None)
@@ -615,7 +644,7 @@ class Web(User, Protocol):
 
         try:
             parsed = util.fetch_mf2(url, gateway=gateway, metaformats=metaformats,
-                                    require_backlink=require_backlink)
+                                    require_backlink=require_backlink, cache=True)
         except ValueError as e:
             error(str(e))
 
@@ -658,9 +687,21 @@ class Web(User, Protocol):
             props.pop('uid')
 
         # store final URL in mf2 object
+        # also store `has-h-feed` boolean if there's an h-feed on the page.
+        # used in feed_url, poll_feed
         if is_homepage:
             entry.setdefault('rel-urls', {}).update(parsed.get('rel-urls', {}))
             entry.setdefault('type', ['h-card'])
+            if mf2util.find_first_entry(parsed, ['h-feed']):
+                logger.info('Found h-feed')
+                entry['has-h-feed'] = True
+        else:
+            # only keep rel alternate and canonical, ie potential
+            # FEP-fffd proxy links
+            if rel_urls := {
+                    url: info for url, info in parsed.get('rel-urls', {}).items()
+                    if set(info.get('rels', [])) & set(as1.PROXY_LINK_RELS)}:
+                entry['rel-urls'] = rel_urls
         if parsed['url']:
             entry['url'] = parsed['url']
         logger.info(f'Extracted microformats2 entry: {json_dumps(entry)[:500]}')
@@ -803,9 +844,16 @@ def check_web_site():
         flash('Only top-level web sites and domains are supported.')
         return render_template('enter_web_site.html'), 400
 
+    # only actually bridge once the user has confirmed on confirm_web_site.html
+    kwargs = {}
+    if confirm := request.values.get('confirm'):
+        kwargs = {
+            'enabled_protocols': ['activitypub', 'atproto'],
+            'propagate': True,
+        }
     try:
-        user = Web.get_or_create(domain, enabled_protocols=['atproto'],
-                                 propagate=True, reload=True, verify=True)
+        user = Web.get_or_create(domain, allow_opt_out=True, reload=True,
+                                 verify=True, **kwargs)
     except BaseException as e:
         code, body = util.interpret_http_exception(e)
         if code:
@@ -813,7 +861,7 @@ def check_web_site():
             return render_template('enter_web_site.html')
         raise
 
-    if not user:  # opted out
+    if not user:
         flash(invalid_msg, escape=False)
         return render_template('enter_web_site.html'), 400
 
@@ -822,6 +870,18 @@ def check_web_site():
     if user.redirects_error == OWNS_WEBFINGER:
         flash(f'{url} looks like a fediverse server! Try a normal web site.')
         return render_template('enter_web_site.html'), 400
+
+    if user.status:
+        desc = user.status_description() or user.status
+        flash(f'Sorry, we can\'t bridge {domain}: {desc}. <a href="/docs#web-get-started">More details.</a>', escape=False)
+        return render_template('enter_web_site.html'), 400
+
+    if not confirm:
+        if user.enabled_protocols:
+            flash(f'{domain} is already bridged!')
+            return redirect(user.user_page_path())
+
+        return render_template('confirm_web_site.html', user=user)
 
     create_task(queue='poll-feed', domain=domain)
     return redirect(user.user_page_path())
@@ -850,7 +910,12 @@ def webmention_external():
         user.last_webmention_in = util.now()
         user.put()
 
-    return create_task('webmention', **request.form)
+    form = request.form.to_dict()
+    form.pop('internal', None)  # don't let external clients set internal
+    if request.headers.get('Authorization') == app.config['SECRET_KEY']:
+        form['internal'] = 'true'
+
+    return create_task('webmention', **form)
 
 
 def poll_feed(user, feed_url, rel_type):
@@ -859,11 +924,13 @@ def poll_feed(user, feed_url, rel_type):
     Args:
       user (Web)
       feed_url (str)
-      rel_type (str): feed link's top-level rel type in home page HTML, usually
-        either ``atom`` or ``rss``
+      rel_type (str): feed type from :meth:`Web.feed_url`, usually ``atom``,
+        ``rss``, or ``html``
 
     Returns:
-      list of dict AS1 activities:
+      list of dict AS1 activities: the first :const:`MAX_FEED_ITEMS_PER_POLL`
+      items in the feed, including ones we've already seen, for estimating
+      posting frequency
     """
     user.last_polled_feed = util.now()
 
@@ -886,6 +953,14 @@ def poll_feed(user, feed_url, rel_type):
         logger.info('Feed is unchanged since last poll')
         user.put()
         return []
+    elif rel_type == 'html':
+        activities = microformats2.html_hfeed_to_as1(resp, implied=False)
+        if not activities:
+            # has-h-feed is set in Web.fetch
+            if user.obj.mf2.pop('has-h-feed', None):
+                logger.info('Home page no longer has an h-feed with entries')
+                user.obj.put()
+            raise ValueError(f'No h-feed with entries in {feed_url}')
     elif type == 'atom' or (type == 'xml' and rel_type == 'atom'):
         activities = atom.atom_to_activities(resp.text)
     elif type == 'rss' or (type == 'xml' and rel_type == 'rss'):
@@ -893,12 +968,8 @@ def poll_feed(user, feed_url, rel_type):
     else:
         raise ValueError(f'Unknown feed type {content_type}')
 
-    if len(activities) > MAX_FEED_ITEMS_PER_POLL:
-        logger.info(f'Got {len(activities)} feed items, only processing the first {MAX_FEED_ITEMS_PER_POLL}')
-        activities = activities[:MAX_FEED_ITEMS_PER_POLL]
-
-    # create receive tasks
-    for i, activity in enumerate(activities):
+    items = []  # (id, activity) tuples
+    for activity in activities:
         # default actor and author to user
         activity.setdefault('actor', {}).setdefault('id', user.profile_id())
         obj = activity.setdefault('object', {})
@@ -908,31 +979,50 @@ def poll_feed(user, feed_url, rel_type):
         for elem in obj, activity:
             if url := elem.get('url'):
                 elem['id'] = elem['url']
+        activity.setdefault('id', obj.get('id'))
 
         logger.debug(f'Converted to AS1: {json_dumps(activity, indent=2)}')
 
         id = Object(our_as1=activity).as1.get('id')
         if not id:
             logger.warning('No id or URL!')
-            continue
-
-        if i == 0:
-            logger.info(f'Setting feed_last_item to {id}')
-            user.feed_last_item = id
-        elif id == user.feed_last_item:
-            logger.info(f'Already seen {id}, skipping rest of feed')
-            break
-
-        if Web.owns_id(id) is False:
+        elif Web.owns_id(id) is False:
             logger.warning(f'Skipping bad id {id}')
-            continue
+        else:
+            items.append((id, activity))
 
+    if rel_type == 'html':
+        # h-feeds aren't always reverse chronological, eg h-events are often sorted
+        # by start time (eg events.indieweb.org), so we can't use feed_last_item.
+        # skip items we've already seen instead.
+        keys = [Object(id=id).key for id, _ in items]
+        seen = [obj.key.id() for obj in ndb.get_multi(keys) if obj]
+        if seen:
+            logger.info(f'Already seen {len(seen)} h-feed items, skipping them')
+        items = [(id, activity) for id, activity in items if id not in seen]
+
+    if len(items) > MAX_FEED_ITEMS_PER_POLL:
+        logger.info(f'Got {len(items)} feed items, only processing the first {MAX_FEED_ITEMS_PER_POLL}')
+        items = items[:MAX_FEED_ITEMS_PER_POLL]
+
+    # create receive tasks
+    for i, (id, activity) in enumerate(items):
+        if rel_type != 'html':
+            if id == user.feed_last_item:
+                logger.info(f'Already seen {id}, skipping rest of feed')
+                break
+            elif i == 0:
+                logger.info(f'Setting feed_last_item to {id}')
+                user.feed_last_item = id
+
+        obj = activity['object']
         if not obj.get('image'):
             # fetch and check the post itself
             logger.info(f'No image in {id} , trying metaformats')
             post = Object(id=id)
             try:
-                fetched = Web.fetch(post, metaformats=True, authorship_fetch_mf2=False)
+                fetched = Web.fetch(post, metaformats=True,
+                                    authorship_fetch_mf2=False)
             except (RequestException, HTTPException):
                 fetched = False
             if fetched and post.as1:
@@ -945,7 +1035,7 @@ def poll_feed(user, feed_url, rel_type):
                     source_protocol=Web.ABBREV, authed_as=user.key.id(),
                     received_at=util.now().isoformat())
 
-    return activities
+    return activities[:MAX_FEED_ITEMS_PER_POLL]
 
 
 @app.post(f'/queue/poll-feed')
@@ -1001,6 +1091,10 @@ def poll_feed_task():
 
     user.put()
 
+    if not user.feed_url()[0]:
+        logger.info('No feed URL any more, not polling again')
+        return 'OK', status
+
     # determine posting frequency
     published_last = None
     published_deltas = []  # timedeltas between entry published times
@@ -1038,11 +1132,10 @@ def poll_feed_task():
 def webmention_task():
     """Handles inbound webmention task.
 
-    Allows source URLs on brid.gy subdomains if the ``Authorization`` header matches
-    the Flask secret key.
-
     Params:
       ``source`` (str): URL
+      ``internal`` (bool): whether this webmention came from us, in which case we
+        allow source URLs on brid.gy subdomains
     """
     common.log_request()
 
@@ -1051,7 +1144,7 @@ def webmention_task():
     domain = domain_from_link(source, minimize=False)
     logger.info(f'webmention from {domain}')
 
-    internal = request.headers.get('Authorization') == app.config['SECRET_KEY']
+    internal = flask_util.bool_param('internal')
     if domain in DOMAINS and not internal:
         error(f'URL not supported: {source}')
 
@@ -1062,7 +1155,7 @@ def webmention_task():
 
     # fetch source page
     try:
-        obj = Web.load(source, remote=True,  # ...to force fetch
+        obj = Web.load(source, internal=internal, remote=True,  # ...to force fetch
                        check_backlink=not appengine_info.LOCAL_SERVER)
     except BadRequest as e:
         error(str(e.description), status=304)
