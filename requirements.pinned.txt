@@ -75,7 +75,6 @@ pyjwt==2.15.0
 pymediainfo==7.0.1
 pyparsing==3.3.3
 python-dateutil==2.9.0.post0
-pytz==2026.3.post1
 redis==8.1.0
 pytz==2026.4
 redis==7.4.1
