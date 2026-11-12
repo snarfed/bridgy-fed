@@ -135,6 +135,10 @@ jobs:
             echo $GETREPO_TOKEN > getrepo_token
             echo $THREADS_APP_ID > threads_app_id
             echo $THREADS_APP_SECRET > threads_app_secret
+            echo $PATREON_CLIENT_ID > patreon_client_id
+            echo $PATREON_CLIENT_SECRET > patreon_client_secret
+            echo $PATREON_ACCESS_TOKEN > patreon_access_token
+            echo $PATREON_REFRESH_TOKEN > patreon_refresh_token
 
             # oauth-dropins static assets
             git clone --depth=1 https://github.com/snarfed/oauth-dropins.git ../oauth-dropins
@@ -154,6 +158,10 @@ jobs:
           command: |
             echo $ENCRYPTED_PROPERTY_KEY > encrypted_property_key
             echo $FLASK_SECRET_KEY > flask_secret_key
+            echo $PATREON_CLIENT_ID > patreon_client_id
+            echo $PATREON_CLIENT_SECRET > patreon_client_secret
+            echo $PATREON_ACCESS_TOKEN > patreon_access_token
+            echo $PATREON_REFRESH_TOKEN > patreon_refresh_token
 
             # oauth-dropins static assets
             git clone --depth=1 https://github.com/snarfed/oauth-dropins.git ../oauth-dropins
