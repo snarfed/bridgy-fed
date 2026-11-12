@@ -4,6 +4,19 @@
 {% block content %}
 <p class="row big" style="text-align: left">Accounts</p>
 
+{% if patreon %}
+<div id="patreon" class="profile-row">
+  <span class="big">
+    <nobr>
+    <img class="logo" title="Patreon" src="/oauth_dropins_static/patreon_2x.png" />
+    <a class="h-card u-author mention" rel="me" href="{{ patreon.user_url() }}" title="{{ patreon.user_display_name() }}"><img src="{{ patreon.image_url() }}" class="profile"> <span style="unicode-bidi: isolate">{{ patreon.user_display_name() }}</span></a>
+    </nobr>
+    ·
+    <a href="https://www.patreon.com/c/ANewSocial/membership">[membership status]</a>
+  </span>
+</div>
+{% endif %}
+
 {% for user in users %}
 {% set logo = user.logo %}
 {% set key = user.key.urlsafe().decode() %}

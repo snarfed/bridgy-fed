@@ -21,6 +21,8 @@ import jwt
 import lexrpc
 import oauth_dropins
 from oauth_dropins.bluesky import BlueskyAuth
+import oauth_dropins.patreon
+from oauth_dropins.patreon import PatreonAuth
 import requests
 from webutil import flask_util, logs, util
 from webutil.util import json_dumps
@@ -45,6 +47,7 @@ from common import (
     CACHE_CONTROL,
     disable_if_read_only,
     ErrorButDoNotRetryTask,
+    FlashErrors,
     render_template,
     secret_key_auth,
     verify_jwt,
@@ -267,6 +270,8 @@ def login_to_user_key(login):
             return ActivityPub(id=actor_id).key
         case 'IndieAuth':
             return Web(id=util.domain_from_link(login.key.id())).key
+        case 'Patreon':
+            return None
         case _:
             assert False, repr(login)
 
@@ -313,6 +318,20 @@ def logout():
     return redirect('/')
 
 
+class PatreonStart(FlashErrors, oauth_dropins.patreon.Start):
+    pass
+
+class PatreonCallback(FlashErrors, oauth_dropins.patreon.Callback):
+    pass
+
+
+app.add_url_rule('/oauth/patreon/start', view_func=PatreonStart.as_view(
+                     '/oauth/patreon/start', '/oauth/patreon/finish'),
+                 methods=['POST'])
+app.add_url_rule('/oauth/patreon/finish', view_func=PatreonCallback.as_view(
+                     '/oauth/patreon/finish', '/settings'))
+
+
 @app.route('/settings')
 @canonicalize_request_domain(PROTOCOL_DOMAINS, PRIMARY_DOMAIN)
 @disable_if_read_only
@@ -331,8 +350,11 @@ def settings():
 
     users = []
     logins_and_user_keys = []
+    patreon = None
     for login in get_logins():
-        if user_key := login_to_user_key(login):
+        if isinstance(login, PatreonAuth):
+            patreon = login
+        elif user_key := login_to_user_key(login):
             if login.key == logged_in_as:
                 cls = Model._lookup_model(user_key.kind())
                 try:

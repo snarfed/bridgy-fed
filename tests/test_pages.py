@@ -13,12 +13,15 @@ from granary import atom, microformats2, rss
 from oauth_dropins.bluesky import BlueskyAuth
 from oauth_dropins.indieauth import IndieAuth
 from oauth_dropins.mastodon import MastodonAuth
+import oauth_dropins.patreon
+from oauth_dropins.patreon import PatreonAuth
 from oauth_dropins.threads import ThreadsAuth
 from oauth_dropins.views import LOGINS_SESSION_KEY
 from webutil import appengine_info
 from webutil import util
 from webutil.appengine_config import tasks_client
 from webutil.testutil import requests_response
+from webutil.util import json_dumps
 from requests import ConnectionError, HTTPError
 from werkzeug.exceptions import ServiceUnavailable
 
@@ -140,6 +143,28 @@ class PagesTest(TestCase):
         user = self.make_user('alice.com', cls=Web, **props)
         return user, auth
 
+    def make_logged_in_patreon_user(self):
+        """
+        Returns:
+          :class:`PatreonAuth`
+        """
+        auth = PatreonAuth(id='123', token_json='{}', user_json=json_dumps({
+            'data': {
+                'id': '123',
+                'attributes': {
+                    'full_name': 'Alice Patron',
+                    'image_url': 'http://patreon/pic',
+                    'url': 'https://www.patreon.com/alice',
+                },
+            },
+        })).put()
+
+        with self.client.session_transaction() as sess:
+            sess[LOGINS_SESSION_KEY] = (sess.get(LOGINS_SESSION_KEY, [])
+                                        + [('PatreonAuth', '123')])
+
+        return auth
+
     def test_settings_web_user(self):
         self.make_logged_in_web_user()
 
@@ -160,6 +185,10 @@ class PagesTest(TestCase):
             self.assertEqual(
                 [('message', 'You need to <a href="https://help.instagram.com/169559812696339">turn on fediverse sharing</a> first.')],
                 session['_flashes'])
+
+    def test_login_to_user_key_patreon(self):
+        login = self.make_logged_in_patreon_user().get()
+        self.assertIsNone(login_to_user_key(login))
 
     def test_user(self):
         got = self.client.get('/web/user.com', base_url='https://fed.brid.gy/')
@@ -998,6 +1027,25 @@ class PagesTest(TestCase):
         self.assertIn('data-confirm="Are you sure you want to disable bridging?', body)
         self.assertIn('<summary class="panel-heading">Domain blocklists</summary>', body)
 
+    def test_settings_patreon(self):
+        self.make_logged_in_mastodon_user()
+        self.make_logged_in_patreon_user()
+
+        resp = self.client.get('/settings')
+        self.assertEqual(200, resp.status_code)
+        body = resp.get_data(as_text=True)
+
+        self.assertIn('title="Patreon: Alice Patron"', body)
+        self.assertIn('href="https://www.patreon.com/c/ANewSocial/membership"', body)
+        self.assertIn('src="http://patreon/pic"', body)
+
+    def test_settings_only_patreon(self):
+        self.make_logged_in_patreon_user()
+
+        resp = self.client.get('/settings')
+        self.assertEqual(302, resp.status_code)
+        self.assertEqual('/login', resp.headers['Location'])
+
     def test_settings_private_status(self):
         # the enable switch should be enabled even if the user is status=private
         user, _ = self.make_logged_in_mastodon_user()
@@ -1149,6 +1197,14 @@ class PagesTest(TestCase):
 
         self.assertLess(body.index('/oauth/indieauth/start'),
                         body.index('/oauth/mastodon/start'))
+        self.assertIn('<form method="post" action="/oauth/patreon/start"', body)
+
+    @patch.multiple(oauth_dropins.patreon, CLIENT_ID='abc', CLIENT_SECRET='xyz')
+    def test_patreon_start(self):
+        resp = self.client.post('/oauth/patreon/start')
+        self.assertEqual(302, resp.status_code)
+        self.assertTrue(resp.headers['Location'].startswith(
+            'https://www.patreon.com/oauth2/authorize?'), resp.headers['Location'])
 
     def test_login_read_only(self):
         appengine_info.READ_ONLY = True
