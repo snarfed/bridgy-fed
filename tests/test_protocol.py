@@ -422,6 +422,16 @@ class ProtocolTest(TestCase):
         self.assertEqual(['fake:foo'], Fake.fetched)
         self.assertEqual({'id': 'fake:foo', 'x': 'y'}, obj.as1)
 
+    @patch.object(util.session, 'get', return_value=requests_response(status=410))
+    def test_load_remote_true_fetch_raises_keeps_our_as1(self, _):
+        obj = self.store_object(id='https://f.ooo', our_as1={'x': 'y'},
+                                source_protocol='web')
+
+        with self.assertRaises(requests.HTTPError):
+            Web.load('https://f.ooo', remote=True)
+
+        self.assertEqual({'id': 'https://f.ooo', 'x': 'y'}, obj.as1)
+
     def test_load_remote_false(self):
         self.assertIsNone(Fake.load('fake:nope', remote=False))
         self.assertEqual([], Fake.fetched)

@@ -6348,6 +6348,74 @@ cast_add_body {{
 }}
 """, fid=123)])
 
+    @patch.object(util.session, 'get')
+    def test_web_reply_to_farcaster_web_url_and_then_delete(self, mock_get):
+        """Web reply to a Farcaster post via its farcaster.xyz URL, then delete (410).
+
+        Web user alice.com (Farcaster fid 123)
+        Farcaster user bob (fid 456)
+        """
+        alice = self.make_web_user('alice.com')
+        self.make_farcaster_copy(alice, 123)
+        bob = self.make_farcaster_user(456)
+
+        bob_post = fc_message("""
+fid: 456
+type: MESSAGE_TYPE_CAST_ADD
+cast_add_body { text: "Hi from Bob" }
+""", fid=123)
+        bob_uri = granary.farcaster.uri(456, hash=bob_post.hash)
+        self.store_object(id=bob_uri, source_protocol='farcaster',
+                          farcaster=[bob_post.SerializeToString()])
+
+        mock_get.side_effect = [
+            requests_response(f"""\
+<html>
+<body class="h-entry">
+<a class="u-url" href="https://alice.com/reply"></a>
+<div class="e-content">Replying to Bob!</div>
+<a class="u-author h-card" href="https://alice.com/">Alice</a>
+<a class="u-in-reply-to" href="https://farcaster.xyz/bob/0x{bob_post.hash[:4].hex()}"></a>
+<a href="http://localhost/"></a>
+</body>
+</html>
+"""),
+            requests_response({'result': {'casts': [{
+                'hash': f'0x{bob_post.hash.hex()}',
+                'author': {'fid': 456},
+            }]}}),
+            requests_response('', status=410),
+        ]
+
+        resp = self.post('/queue/webmention', data={
+            'source': 'https://alice.com/reply',
+            'target': 'http://localhost/',
+        })
+        self.assertEqual(202, resp.status_code)
+
+        self.assert_farcaster_sent([fc_message(f"""
+type: MESSAGE_TYPE_CAST_ADD
+cast_add_body {{
+  text: "Replying to Bob!"
+  parent_cast_id {{
+    fid: 456
+    hash: "{CEscape(bob_post.hash, as_utf8=False)}"
+  }}
+}}
+""", fid=123)])
+        reply_hash = self.mock_fc_stub.return_value.SubmitBulkMessages.call_args[0][0].messages[0].hash
+
+        resp = self.post('/queue/webmention', data={
+            'source': 'https://alice.com/reply',
+            'target': 'http://localhost/',
+        })
+        self.assertEqual(202, resp.status_code)
+
+        self.assert_farcaster_sent([fc_message(f"""
+type: MESSAGE_TYPE_CAST_REMOVE
+cast_remove_body {{ target_hash: "{CEscape(reply_hash, as_utf8=False)}" }}
+""", fid=123)])
+
     def test_atproto_reply_to_farcaster(self):
         """ATProto reply to a Farcaster user's post.
 

@@ -2505,6 +2505,7 @@ Hi! You <a href="{inner_obj_as1.get('url') or inner_obj_id}">recently {verb}</a>
         try:
             fetched = cls.fetch(obj, csv=csv, **kwargs)
         except (RequestException, HTTPException, InvalidStatus) as e:
+            obj.our_as1 = orig_our_as1
             if raise_:
                 raise
             util.interpret_http_exception(e)
