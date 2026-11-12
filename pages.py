@@ -322,7 +322,15 @@ class PatreonStart(FlashErrors, oauth_dropins.patreon.Start):
     pass
 
 class PatreonCallback(FlashErrors, oauth_dropins.patreon.Callback):
-    pass
+    def finish(self, auth_entity, state=None):
+        """Drops any existing Patreon login so that there's only one at a time."""
+        if auth_entity:
+            for login in get_logins():
+                if isinstance(login, PatreonAuth) and login.key != auth_entity.key:
+                    logger.info(f'Replacing Patreon login {login.key.id()} with {auth_entity.key.id()}')
+                    oauth_dropins.logout(login)
+
+        return super().finish(auth_entity, state=state)
 
 
 app.add_url_rule('/oauth/patreon/start', view_func=PatreonStart.as_view(

@@ -1206,6 +1206,30 @@ class PagesTest(TestCase):
         self.assertTrue(resp.headers['Location'].startswith(
             'https://www.patreon.com/oauth2/authorize?'), resp.headers['Location'])
 
+    @patch.multiple(oauth_dropins.patreon, CLIENT_ID='abc', CLIENT_SECRET='xyz')
+    @patch.object(util.session, 'request', return_value=requests_response({
+        'access_token': 'towkin',
+        'token_type': 'Bearer',
+    }))
+    @patch.object(util.session, 'get', return_value=requests_response({
+        'data': {
+            'id': '456',
+            'attributes': {'full_name': 'Bob Patron'},
+        },
+    }))
+    def test_patreon_finish_drops_existing_patreon_login(self, _, __):
+        self.make_logged_in_mastodon_user()
+        self.make_logged_in_patreon_user()
+
+        resp = self.client.get('/oauth/patreon/finish?code=my_code')
+        self.assertEqual(302, resp.status_code, resp.get_data(as_text=True))
+
+        with self.client.session_transaction() as sess:
+            self.assertEqual([
+                ('MastodonAuth', '@a@b.c'),
+                ('PatreonAuth', '456'),
+            ], sess[LOGINS_SESSION_KEY])
+
     def test_login_read_only(self):
         appengine_info.READ_ONLY = True
         resp = self.client.get('/login')
