@@ -15,10 +15,10 @@ td {
 <li>ATProto firehose consumer:
   <ul>
     {% set cursor = atproto_firehose.cursor %}
-    <li>cursor: {{ cursor.cursor if cursor }}, {{ cursor.key.id() if cursor }}
-    <li>cursor stored: {{ cursor.updated if cursor }}
     <li>last event seen: {{ atproto_firehose.last_event_at }}
     <li>last event enqueued: {{ atproto_firehose.last_enqueued_at }}
+    <li>cursor: {{ cursor.cursor if cursor }}, {{ cursor.key.id() if cursor }}
+    <li>cursor stored: {{ cursor.updated if cursor }}
     <li>queue size: {{ atproto_firehose.events.qsize() }}
     <li>ATProto DIDs: {{ len(atproto_firehose.atproto_dids or []) }}, loaded {{ atproto_firehose.atproto_loaded_at }}
     <li>bridged DIDs: {{ len(atproto_firehose.bridged_dids or []) }}, loaded {{ atproto_firehose.bridged_loaded_at }}
@@ -53,13 +53,22 @@ td {
 </table>
 {% endfor %}
 
-<li>Nostr relays ({{ len(nostr_hub.subscribed_relays) }}):
+<li>Nostr hub:
   <ul>
-    {% for uri, relay in nostr_hub.subscribed_relays.items() %}
-    <li>{{ uri }} since {{ relay.since }}
-        {% if relay.since %} {{ datetime.fromtimestamp(relay.since) }} {% endif %}
-    {% endfor %}
+    <li>last event enqueued: {{ nostr_hub.last_enqueued_at }}
+    <li>seen event ids: {{ len(nostr_hub.seen_ids) }}
+    <li>relays ({{ len(nostr_hub.subscribed_relays) }}):
+      <ul>
+        {% for uri, relay in nostr_hub.subscribed_relays.items() %}
+        <li>{{ uri }} since {{ relay.since }}
+            {% if relay.since %} {{ datetime.fromtimestamp(relay.since) }}{% endif %},
+            stored {{ relay.updated }}
+        {% endfor %}
+      </ul>
   </ul>
+  <li>native pubkeys: {{ len(nostr_hub.nostr_pubkeys) }}
+  <li>bridged pubkeys: {{ len(nostr_hub.bridged_pubkeys) }}
+  <li>pubkeys loaded: {{ nostr_hub.pubkeys_loaded_at }}
 
 <li>Farcaster hub:
   <ul>

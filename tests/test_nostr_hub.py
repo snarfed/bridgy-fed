@@ -1,5 +1,5 @@
 """Unit tests for nostr_hub.py."""
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from threading import Barrier
 import time
 from unittest import skip
@@ -295,6 +295,8 @@ class NostrHubTest(TestCase):
                          source_protocol='nostr',
                          authed_as=f'nostr:{BOB_PUBKEY}',
                          nostr=event)
+        self.assertEqual(datetime.fromtimestamp(NOW_TS, timezone.utc),
+                         nostr_hub.last_enqueued_at)
 
     def test_subscribe_mention_protocol_bot(self, mock_create_task, _):
         # Create a protocol bot with a valid hex pubkey

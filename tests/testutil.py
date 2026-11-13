@@ -462,6 +462,7 @@ class TestCase(unittest.TestCase, testutil.Asserts):
         nostr_hub.pubkeys_initialized.clear()
         nostr_hub.subscribed_relays = {}
         nostr_hub.seen_ids = cachetools.TTLCache(maxsize=1000, ttl=1000)
+        nostr_hub.last_enqueued_at = None
 
         # farcaster gRPC client
         farcaster._client = _FakeFarcasterClient()

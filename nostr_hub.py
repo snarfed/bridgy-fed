@@ -1,5 +1,5 @@
 """Nostr backfeed, via long-lived websocket connection(s) to relay(s)."""
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 import logging
 import secrets
 from threading import Event, Lock, Thread, Timer
@@ -53,6 +53,9 @@ seen_ids_lock = Lock()
 # maps string relay websocket address URI to NostrRelay
 subscribed_relays = {}
 subscribed_relays_lock = Lock()
+
+# for /admin/hub. event created_at, not wall clock time
+last_enqueued_at = None
 
 
 def ndb_context():
@@ -287,6 +290,8 @@ def handle(event):
     Args:
       event (dict): Nostr event
     """
+    global last_enqueued_at
+
     if not (isinstance(event, dict) and event.get('kind') is not None
             and event.get('pubkey') and event.get('id') and event.get('sig')):
         logger.info(f'ignoring bad event: {event}')
@@ -326,6 +331,8 @@ def handle(event):
                     authed_as=authed_as, nostr=event, delay=delay)
         # when running locally, comment out above and uncomment this
         # logger.info(f'enqueuing receive task for {obj_id}')
+        if created_at := event.get('created_at'):
+            last_enqueued_at = datetime.fromtimestamp(int(created_at), timezone.utc)
     except ContextError:
         raise  # handled in subscriber()
     except BaseException:
