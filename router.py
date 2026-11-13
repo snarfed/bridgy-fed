@@ -59,6 +59,7 @@ app.add_url_rule('/queue/webmention', view_func=web.webmention_task, methods=['P
 app.add_url_rule('/cron/atproto-poll-chat', view_func=atproto.poll_chat_task,
                  methods=['GET'])
 app.add_url_rule('/cron/reload-csvs', view_func=web.reload_csvs, methods=['GET'])
+app.add_url_rule('/cron/patreon-sync', view_func=patreon.sync, methods=['GET'])
 
 
 @app.get('/liveness_check')

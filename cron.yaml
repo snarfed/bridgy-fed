@@ -9,3 +9,7 @@ cron:
 - description: reload CSV objects, eg domain blocklists
   url: /cron/reload-csvs
   schedule: every 24 hours
+
+- description: sync donor status with our Patreon campaign's members
+  url: /cron/patreon-sync
+  schedule: every 24 hours
