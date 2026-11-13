@@ -1,4 +1,5 @@
 """Unit tests for patreon.py."""
+import hmac
 from unittest.mock import patch
 
 import oauth_dropins.patreon
@@ -15,6 +16,7 @@ import patreon
 
 
 @patch.multiple(oauth_dropins.patreon, CLIENT_ID='abc', CLIENT_SECRET='xyz')
+@patch.object(patreon, 'WEBHOOK_SECRET', 'sekret')
 class PatreonTest(TestCase):
 
     def test_start(self):
@@ -155,3 +157,73 @@ class PatreonTest(TestCase):
             'refresh_token': 'new-refresh',
             'token_type': 'Bearer',
         }, json_loads(PatreonAuth.get_by_id('creator').token_json))
+
+    def post_webhook(self, event, member, secret='sekret'):
+        body = json_dumps({
+            'data': {
+                'type': 'member',
+                'id': 'abc-def',
+                'attributes': member,
+                'relationships': {'user': {'data': {'id': '111', 'type': 'user'}}},
+            },
+        }).encode()
+        return self.client.post('/patreon/webhook', data=body, headers={
+            'Content-Type': 'application/json',
+            'X-Patreon-Event': event,
+            'X-Patreon-Signature': hmac.new(secret.encode(), body, 'md5').hexdigest(),
+        })
+
+    def test_webhook(self):
+        patron = PatreonAuth(id='111', token_json='{}', user_json='{}')
+        patron.put()
+        other = PatreonAuth(id='222', token_json='{}', user_json='{}')
+        other.put()
+
+        alice = self.make_user('fake:alice', cls=Fake, donor_key=patron.key)
+        bob = self.make_user('other:bob', cls=OtherFake, donor_key=patron.key,
+                             is_donor=False)
+        carol = self.make_user('fake:carol', cls=Fake, donor_key=other.key,
+                               is_donor=True)
+
+        for event, member, expected in (
+            ('members:pledge:create', {'patron_status': 'active_patron',
+                                       'currently_entitled_amount_cents': 500},
+             True),
+            ('members:update', {'patron_status': 'active_patron',
+                                'currently_entitled_amount_cents': 0},
+             False),
+            ('members:pledge:update', {'patron_status': 'active_patron',
+                                       'currently_entitled_amount_cents': 300},
+             True),
+            ('members:pledge:update', {'patron_status': 'declined_patron',
+                                       'currently_entitled_amount_cents': 300},
+             False),
+            ('members:update', {'patron_status': 'active_patron',
+                                'currently_entitled_amount_cents': 300},
+             True),
+            ('members:pledge:delete', {'patron_status': 'active_patron',
+                                       'currently_entitled_amount_cents': 300},
+             False),
+        ):
+            with self.subTest(event=event, member=member):
+                resp = self.post_webhook(event, member)
+                self.assertEqual(200, resp.status_code)
+                self.assertEqual(expected, alice.key.get().is_donor)
+                self.assertEqual(expected, bob.key.get().is_donor)
+                self.assertTrue(carol.key.get().is_donor)
+
+    def test_webhook_bad_signature(self):
+        patron = PatreonAuth(id='111', token_json='{}', user_json='{}')
+        patron.put()
+        alice = self.make_user('fake:alice', cls=Fake, donor_key=patron.key)
+
+        resp = self.post_webhook('members:pledge:create', {
+            'patron_status': 'active_patron',
+            'currently_entitled_amount_cents': 500,
+        }, secret='wrong')
+        self.assertEqual(401, resp.status_code)
+        self.assertIsNone(alice.key.get().is_donor)
+
+    def test_webhook_no_signature(self):
+        resp = self.client.post('/patreon/webhook', json={'data': {}})
+        self.assertEqual(401, resp.status_code)

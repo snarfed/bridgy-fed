@@ -2,15 +2,17 @@
 
 https://github.com/snarfed/bridgy-fed/issues/2760
 """
+import hmac
 import logging
 
+from flask import request
 from google.cloud import ndb
 import oauth_dropins
 import oauth_dropins.patreon
 from oauth_dropins.patreon import Membership, parse_membership, PatreonAuth
 from requests_oauth2client import BearerToken, OAuth2Client
 from webutil import util
-from webutil.flask_util import flash
+from webutil.flask_util import error, flash
 from webutil.util import json_dumps
 
 from common import FlashErrors
@@ -27,6 +29,9 @@ API_MEMBERS_URL = f'https://www.patreon.com/api/oauth2/v2/campaigns/{CAMPAIGN_ID
 # Datastore key id of PatreonAuth with our creator tokens. Patreon user ids are
 # numeric, so this can't collide with a real user's PatreonAuth.
 CREATOR_AUTH_ID = 'creator'
+
+# https://docs.patreon.com/#webhooks
+WEBHOOK_SECRET = util.read('patreon_webhook_secret')
 
 
 def link(auth, users, overwrite=False):
@@ -80,7 +85,7 @@ def sync():
     creator = PatreonAuth.get_by_id(CREATOR_AUTH_ID)
     assert creator
 
-    logger.info('fetch A New Social members from Patreon API')
+    logger.info('fetching A New Social Patreon members from API')
     paid_user_ids = set()  # strings
     url = API_MEMBERS_URL
     refreshed = False
@@ -112,26 +117,65 @@ def sync():
     logger.info(f'Paid Patreon members ({len(paid_user_ids)}): {paid_user_ids}')
     paid_keys = set(ndb.Key(PatreonAuth, id) for id in paid_user_ids)
 
-    user_keys = set()
+    paid_user_keys = set()
+    donor_user_keys = set()
     for cls in set(PROTOCOLS_BY_KIND.values()):
-        user_keys.update(cls.query(cls.is_donor == True).iter(keys_only=True))
+        donor_user_keys.update(cls.query(cls.is_donor == True).iter(keys_only=True))
         if paid_keys:
-            user_keys.update(
+            paid_user_keys.update(
                 cls.query(cls.donor_key.IN(paid_keys)).iter(keys_only=True))
 
-    @ndb.transactional()
-    def update(user_key):
-        user = user_key.get()
-        is_donor = user.donor_key in paid_keys
-        if user.is_donor != is_donor:
-            logger.info(f'Setting {user_key.id()} is_donor={is_donor}')
-            user.is_donor = is_donor
-            user.put()
-
-    for user_key in user_keys:
-        update(user_key)
+    for user_key in paid_user_keys:
+        update_is_donor(user_key, True)
+    for user_key in donor_user_keys - paid_user_keys:
+        update_is_donor(user_key, False)
 
     return 'OK'
+
+
+@app.post('/patreon/webhook')
+def webhook():
+    """Handles a Patreon webhook for a member update.
+
+    Verifies the signature, then updates ``is_donor`` on the member's linked users.
+
+    https://docs.patreon.com/#webhooks
+    """
+    assert WEBHOOK_SECRET, 'No patreon_webhook_secret'
+    signature = request.headers.get('X-Patreon-Signature', '')
+    expected = hmac.new(WEBHOOK_SECRET.encode(), request.get_data(), 'md5'
+                        ).hexdigest()
+    if not hmac.compare_digest(expected, signature):
+        error('Invalid X-Patreon-Signature', status=401)
+
+    event = request.headers.get('X-Patreon-Event', '')
+    member = request.json['data']
+    user_id = member['relationships']['user']['data']['id']
+    is_donor = (not event.endswith(':delete')
+                and parse_membership(member.get('attributes')) == Membership.PAID)
+    logger.info(f'Patreon {event} for user {user_id}, is_donor={is_donor}')
+
+    auth_key = ndb.Key(PatreonAuth, user_id)
+    for cls in set(PROTOCOLS_BY_KIND.values()):
+        for user_key in cls.query(cls.donor_key == auth_key).iter(keys_only=True):
+            update_is_donor(user_key, is_donor)
+
+    return 'OK'
+
+
+@ndb.transactional()
+def update_is_donor(user_key, is_donor):
+    """Sets a user's ``is_donor``, if it's changed.
+
+    Args:
+      user_key (google.cloud.ndb.Key): :class:`models.User` key
+      is_donor (bool)
+    """
+    user = user_key.get()
+    if user.is_donor != is_donor:
+        logger.info(f'Setting {user_key.id()} is_donor={is_donor}')
+        user.is_donor = is_donor
+        user.put()
 
 
 class PatreonStart(FlashErrors, oauth_dropins.patreon.Start):

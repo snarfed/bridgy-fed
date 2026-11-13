@@ -137,8 +137,7 @@ jobs:
             echo $THREADS_APP_SECRET > threads_app_secret
             echo $PATREON_CLIENT_ID > patreon_client_id
             echo $PATREON_CLIENT_SECRET > patreon_client_secret
-            echo $PATREON_ACCESS_TOKEN > patreon_access_token
-            echo $PATREON_REFRESH_TOKEN > patreon_refresh_token
+            echo $PATREON_WEBHOOK_SECRET > patreon_webhook_secret
 
             # oauth-dropins static assets
             git clone --depth=1 https://github.com/snarfed/oauth-dropins.git ../oauth-dropins
@@ -160,8 +159,6 @@ jobs:
             echo $FLASK_SECRET_KEY > flask_secret_key
             echo $PATREON_CLIENT_ID > patreon_client_id
             echo $PATREON_CLIENT_SECRET > patreon_client_secret
-            echo $PATREON_ACCESS_TOKEN > patreon_access_token
-            echo $PATREON_REFRESH_TOKEN > patreon_refresh_token
 
             # oauth-dropins static assets
             git clone --depth=1 https://github.com/snarfed/oauth-dropins.git ../oauth-dropins
