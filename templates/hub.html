@@ -5,6 +5,13 @@
 
 {% block content %}
 
+{# naive datetimes are UTC #}
+{% macro pt(dt) -%}
+  {%- if dt -%}
+    {{ (dt if dt.tzinfo else dt.replace(tzinfo=pytz.utc)).astimezone(pytz.timezone('US/Pacific')) }}
+  {%- endif -%}
+{%- endmacro %}
+
 <style type="text/css">
 td {
   padding-left: .5em;
@@ -15,21 +22,21 @@ td {
 <li>ATProto firehose consumer:
   <ul>
     {% set cursor = atproto_firehose.cursor %}
-    <li>last event seen: {{ atproto_firehose.last_event_at }}
-    <li>last event enqueued: {{ atproto_firehose.last_enqueued_at }}
+    <li>last event seen: {{ pt(atproto_firehose.last_event_at) }}
+    <li>last event enqueued: {{ pt(atproto_firehose.last_enqueued_at) }}
     <li>cursor: {{ cursor.cursor if cursor }}, {{ cursor.key.id() if cursor }}
-    <li>cursor stored: {{ cursor.updated if cursor }}
+    <li>cursor stored: {{ pt(cursor.updated) if cursor }}
     <li>queue size: {{ atproto_firehose.events.qsize() }}
-    <li>ATProto DIDs: {{ len(atproto_firehose.atproto_dids or []) }}, loaded {{ atproto_firehose.atproto_loaded_at }}
-    <li>bridged DIDs: {{ len(atproto_firehose.bridged_dids or []) }}, loaded {{ atproto_firehose.bridged_loaded_at }}
+    <li>ATProto DIDs: {{ len(atproto_firehose.atproto_dids or []) }}, loaded {{ pt(atproto_firehose.atproto_loaded_at) }}
+    <li>bridged DIDs: {{ len(atproto_firehose.bridged_dids or []) }}, loaded {{ pt(atproto_firehose.bridged_loaded_at) }}
   </ul>
 
 <li>ATProto firehose server:
   {% if firehose.rollback %}
   <ul>
     <li>size: {{ len(firehose.rollback) }}
-    <li>start: {{ firehose.rollback[0][1]['seq'] }} {{ firehose.rollback[0][1]['time'] }}
-    <li>end: {{ firehose.rollback[-1][1]['seq'] }} {{ firehose.rollback[-1][1]['time'] }}
+    <li>start: {{ firehose.rollback[0][1]['seq'] }} {{ pt(util.parse_iso8601(firehose.rollback[0][1]['time'])) }}
+    <li>end: {{ firehose.rollback[-1][1]['seq'] }} {{ pt(util.parse_iso8601(firehose.rollback[-1][1]['time'])) }}
   </ul>
   {% endif %}
 
@@ -40,13 +47,12 @@ td {
     {% set subs = sorted(subs, key=operator.attrgetter('start')) %}
     {% for s in subs %}
       {% set host = gethostbyaddr(s.ip) %}
-      {% set pt = pytz.timezone('US/Pacific') %}
       <tr {% if host and (host == 'bsky' or host.endswith('.zayo.com')) %}style="background-color: lightgreen"{% endif %}>
         <td>{{ host }}</td>
         <td>{{ s.ip }}</td>
         <td>{{ s.user_agent }}</td>
         <td>{{ s.args['cursor'] }}</td>
-        <td>{{ s.start.astimezone(pt) }}</td>
+        <td>{{ pt(s.start) }}</td>
       </tr>
     {% endfor %}
   </tbody>
@@ -55,28 +61,28 @@ td {
 
 <li>Nostr hub:
   <ul>
-    <li>last event enqueued: {{ nostr_hub.last_enqueued_at }}
+    <li>last event enqueued: {{ pt(nostr_hub.last_enqueued_at) }}
     <li>seen event ids: {{ len(nostr_hub.seen_ids) }}
     <li>relays ({{ len(nostr_hub.subscribed_relays) }}):
       <ul>
         {% for uri, relay in nostr_hub.subscribed_relays.items() %}
         <li>{{ uri }} since {{ relay.since }}
-            {% if relay.since %} {{ datetime.fromtimestamp(relay.since) }}{% endif %},
-            stored {{ relay.updated }}
+            {% if relay.since %} {{ pt(datetime.fromtimestamp(relay.since, pytz.utc)) }}{% endif %},
+            stored {{ pt(relay.updated) }}
         {% endfor %}
       </ul>
+    <li>native pubkeys: {{ len(nostr_hub.nostr_pubkeys) }}
+    <li>bridged pubkeys: {{ len(nostr_hub.bridged_pubkeys) }}
+    <li>pubkeys loaded: {{ pt(nostr_hub.pubkeys_loaded_at) }}
   </ul>
-  <li>native pubkeys: {{ len(nostr_hub.nostr_pubkeys) }}
-  <li>bridged pubkeys: {{ len(nostr_hub.bridged_pubkeys) }}
-  <li>pubkeys loaded: {{ nostr_hub.pubkeys_loaded_at }}
 
 <li>Farcaster hub:
   <ul>
     <li>native FIDs: {{ len(farcaster_hub.fids) }}
     <li>bridged FIDs: {{ len(farcaster_hub.bridged_fids) }}
     <li>cursor: {{ farcaster_hub.cursor.cursor if farcaster_hub.cursor }}
-    <li>last event seen: {{ farcaster_hub.last_event_at }}
-    <li>last event enqueued: {{ farcaster_hub.last_enqueued_at }}
+    <li>last event seen: {{ pt(farcaster_hub.last_event_at) }}
+    <li>last event enqueued: {{ pt(farcaster_hub.last_enqueued_at) }}
   </ul>
 </ul>
 
