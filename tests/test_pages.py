@@ -1154,7 +1154,7 @@ class PagesTest(TestCase):
             self.assertEqual(patreon, user.donor_key)
 
         self.assertEqual([
-            'Logged in as Alice Patron.',
+            'Logged into Patreon as Alice Patron.',
             'Linked ab.c, @a@b.c to Patreon.',
         ], get_flashed_messages())
 
@@ -1193,7 +1193,7 @@ class PagesTest(TestCase):
         self.assertIsNone(bluesky_user.donor_key)
 
         self.assertEqual([
-            'Logged in as @a@b.c.',
+            'Logged into Mastodon as @a@b.c.',
             'Linked @user.com@b.c to Patreon.',
         ], get_flashed_messages())
 
@@ -1216,7 +1216,7 @@ class PagesTest(TestCase):
         self.assertFalse(mastodon_user.is_donor)
         self.assertEqual(other, mastodon_user.donor_key)
 
-        self.assertEqual(['Logged in as @a@b.c.'], get_flashed_messages())
+        self.assertEqual(['Logged into Mastodon as @a@b.c.'], get_flashed_messages())
 
     def test_settings_no_login_doesnt_set_is_donor(self):
         mastodon_user, _ = self.make_logged_in_mastodon_user()

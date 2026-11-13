@@ -342,14 +342,14 @@ def settings():
         if isinstance(login, PatreonAuth):
             patreon_auth = login
             if login.key == logged_in_as:
-                flash(f'Logged in as {login.user_display_name()}.')
+                flash(f'Logged into {login.site_name()} as {login.user_display_name()}.')
         elif user_key := login_to_user_key(login):
             if login.key == logged_in_as:
                 cls = Model._lookup_model(user_key.kind())
                 try:
                     user = cls.get_or_create(id=user_key.id(), allow_opt_out=True,
                                              reload=True, raise_=True)
-                    flash(f'Logged in as {login.user_display_name()}.')
+                    flash(f'Logged into {login.site_name()} as {login.user_display_name()}.')
                 except (requests.RequestException, werkzeug.exceptions.HTTPException,
                         RuntimeError) as e:
                     name = login.user_display_name()
