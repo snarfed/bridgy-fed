@@ -2,6 +2,7 @@
 
 https://github.com/snarfed/bridgy-fed/issues/2760
 """
+from collections import defaultdict
 import hmac
 import logging
 
@@ -9,7 +10,7 @@ from flask import request
 from google.cloud import ndb
 import oauth_dropins
 import oauth_dropins.patreon
-from oauth_dropins.patreon import Membership, parse_membership, PatreonAuth
+from oauth_dropins.patreon import Membership, PatreonAuth
 from requests_oauth2client import BearerToken, OAuth2Client
 from webutil import util
 from webutil.flask_util import error, flash
@@ -86,7 +87,7 @@ def sync():
     assert creator
 
     logger.info('fetching A New Social Patreon members from API')
-    paid_user_ids = set()  # strings
+    members = {}  # Patreon string user id => member attributes dict
     url = API_MEMBERS_URL
     refreshed = False
     while url:
@@ -106,29 +107,22 @@ def sync():
             continue
 
         resp.raise_for_status()
-        members = resp.json()
-        for member in members.get('data', []):
+        page = resp.json()
+        for member in page.get('data', []):
             user_id = member['relationships']['user']['data']['id']
-            if parse_membership(member.get('attributes')) == Membership.PAID:
-                paid_user_ids.add(user_id)
+            members[user_id] = member.get('attributes') or {}
 
-        url = members.get('links', {}).get('next')
+        url = page.get('links', {}).get('next')
 
-    logger.info(f'Paid Patreon members ({len(paid_user_ids)}): {paid_user_ids}')
-    paid_keys = set(ndb.Key(PatreonAuth, id) for id in paid_user_ids)
+    logger.info(f'Got {len(members)} Patreon members')
 
-    paid_user_keys = set()
-    donor_user_keys = set()
+    user_keys_by_auth = defaultdict(list)
     for cls in set(PROTOCOLS_BY_KIND.values()):
-        donor_user_keys.update(cls.query(cls.is_donor == True).iter(keys_only=True))
-        if paid_keys:
-            paid_user_keys.update(
-                cls.query(cls.donor_key.IN(paid_keys)).iter(keys_only=True))
+        for user in cls.query(cls.donor_key != None):
+            user_keys_by_auth[user.donor_key].append(user.key)
 
-    for user_key in paid_user_keys:
-        update_is_donor(user_key, True)
-    for user_key in donor_user_keys - paid_user_keys:
-        update_is_donor(user_key, False)
+    for auth_key, user_keys in user_keys_by_auth.items():
+        update_donor(auth_key, user_keys, members.get(auth_key.id()))
 
     return 'OK'
 
@@ -151,33 +145,58 @@ def webhook():
     event = request.headers.get('X-Patreon-Event', '')
     member = request.json['data']
     user_id = member['relationships']['user']['data']['id']
-    is_donor = (not event.endswith(':delete')
-                and parse_membership(member.get('attributes')) == Membership.PAID)
-    logger.info(f'Patreon {event} for user {user_id}, is_donor={is_donor}')
+    logger.info(f'Patreon {event} for user {user_id}')
+
+    attrs = member.get('attributes') or {}
+    if event == 'members:delete':
+        attrs = None
+    elif event == 'members:pledge:delete':
+        # attributes may be from before the pledge was deleted
+        attrs = {**attrs, 'patron_status': 'former_patron'}
 
     auth_key = ndb.Key(PatreonAuth, user_id)
+    user_keys = []
     for cls in set(PROTOCOLS_BY_KIND.values()):
-        for user_key in cls.query(cls.donor_key == auth_key).iter(keys_only=True):
-            update_is_donor(user_key, is_donor)
+        user_keys.extend(cls.query(cls.donor_key == auth_key).iter(keys_only=True))
 
+    update_donor(auth_key, user_keys, attrs)
     return 'OK'
 
 
 @ndb.transactional()
-def update_is_donor(user_key, is_donor):
-    """Sets a user's ``is_donor``, if it's changed.
+def update_donor(auth_key, user_keys, attrs):
+    """Updates a Patreon account's membership and its linked users' ``is_donor``.
 
     Args:
-      user_key (google.cloud.ndb.Key): :class:`models.User` key
-      is_donor (bool)
+      auth_key (google.cloud.ndb.Key): :class:`PatreonAuth` key
+      user_keys (sequence of google.cloud.ndb.Key): :class:`models.User` keys
+        linked to this Patreon account
+      attrs (dict): JSON:API member attributes, or None if they're not a member
     """
-    user = user_key.get()
-    if user.is_donor != is_donor:
-        logger.info(f'Setting {user_key.id()} is_donor={is_donor}')
-        user.is_donor = is_donor
-        user.put()
+    auth = auth_key.get()
+    if not auth:
+        logger.warning(f'No PatreonAuth for {auth_key.id()}')
+        return
+
+    user_json = auth.user_json
+    auth.set_membership(attrs)
+    if auth.user_json != user_json:
+        auth.put()
+
+    membership = auth.get_membership()
+    is_donor = membership == Membership.PAID
+    logger.info(f'Patreon user {auth_key.id()} membership: {membership}')
+
+    for user in ndb.get_multi(user_keys):
+        if user and user.is_donor != is_donor:
+            logger.info(f'Setting {user.key.id()} is_donor={is_donor}')
+            user.is_donor = is_donor
+            user.put()
 
 
+#
+# OAuth
+#
 class PatreonStart(FlashErrors, oauth_dropins.patreon.Start):
     pass
 

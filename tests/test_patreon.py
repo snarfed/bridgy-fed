@@ -3,7 +3,7 @@ import hmac
 from unittest.mock import patch
 
 import oauth_dropins.patreon
-from oauth_dropins.patreon import PatreonAuth
+from oauth_dropins.patreon import Membership, PatreonAuth
 from oauth_dropins.views import LOGINS_SESSION_KEY
 from requests_oauth2client import BearerToken
 from webutil import util
@@ -123,6 +123,10 @@ class PatreonTest(TestCase):
         self.assertFalse(eve.key.get().is_donor)
         self.assertIsNone(frank.key.get().is_donor)
 
+        self.assertEqual(Membership.PAID, paid.key.get().get_membership())
+        self.assertEqual(Membership.FREE, free.key.get().get_membership())
+        self.assertIsNone(gone.key.get().get_membership())
+
     @patch.object(util.session, 'request', return_value=requests_response({
         'access_token': 'new',
         'refresh_token': 'new-refresh',
@@ -185,32 +189,41 @@ class PatreonTest(TestCase):
         carol = self.make_user('fake:carol', cls=Fake, donor_key=other.key,
                                is_donor=True)
 
+        paid = {
+            'patron_status': 'active_patron',
+            'currently_entitled_amount_cents': 300,
+        }
         for event, member, expected in (
-            ('members:pledge:create', {'patron_status': 'active_patron',
-                                       'currently_entitled_amount_cents': 500},
-             True),
+            ('members:pledge:create', paid, Membership.PAID),
             ('members:update', {'patron_status': 'active_patron',
                                 'currently_entitled_amount_cents': 0},
-             False),
-            ('members:pledge:update', {'patron_status': 'active_patron',
-                                       'currently_entitled_amount_cents': 300},
-             True),
+             Membership.FREE),
+            ('members:pledge:update', paid, Membership.PAID),
             ('members:pledge:update', {'patron_status': 'declined_patron',
                                        'currently_entitled_amount_cents': 300},
-             False),
-            ('members:update', {'patron_status': 'active_patron',
-                                'currently_entitled_amount_cents': 300},
-             True),
-            ('members:pledge:delete', {'patron_status': 'active_patron',
-                                       'currently_entitled_amount_cents': 300},
-             False),
+             Membership.FORMER),
+            ('members:update', paid, Membership.PAID),
+            ('members:pledge:delete', paid, Membership.FORMER),
+            ('members:update', paid, Membership.PAID),
+            ('members:delete', paid, None),
         ):
             with self.subTest(event=event, member=member):
                 resp = self.post_webhook(event, member)
                 self.assertEqual(200, resp.status_code)
-                self.assertEqual(expected, alice.key.get().is_donor)
-                self.assertEqual(expected, bob.key.get().is_donor)
+                self.assertEqual(expected, patron.key.get().get_membership())
+                is_donor = expected == Membership.PAID
+                self.assertEqual(is_donor, alice.key.get().is_donor)
+                self.assertEqual(is_donor, bob.key.get().is_donor)
                 self.assertTrue(carol.key.get().is_donor)
+                self.assertEqual('{}', other.key.get().user_json)
+
+    def test_webhook_no_patreon_auth(self):
+        resp = self.post_webhook('members:pledge:create', {
+            'patron_status': 'active_patron',
+            'currently_entitled_amount_cents': 500,
+        })
+        self.assertEqual(200, resp.status_code)
+        self.assertIsNone(PatreonAuth.get_by_id('111'))
 
     def test_webhook_bad_signature(self):
         patron = PatreonAuth(id='111', token_json='{}', user_json='{}')
