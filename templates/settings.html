@@ -4,7 +4,7 @@
 {% block content %}
 <p class="row big" style="text-align: left">Accounts</p>
 
-{% if patreon %}
+{% if patreon_auth %}
 {% set status = patreon_member.patron_status if patreon_member else None %}
 {% set cents = patreon_member.currently_entitled_amount_cents if patreon_member else 0 %}
 {% set member_class = ('paid-member' if cents else 'free-member') if status == 'active_patron' else '' %}
@@ -12,7 +12,7 @@
   <span class="big">
     <nobr>
     <img class="logo" title="Patreon" src="/oauth_dropins_static/patreon_2x.png" />
-    <a class="h-card u-author mention" rel="me" href="{{ patreon.user_url() }}" title="{{ patreon.user_display_name() }}"><img src="{{ patreon.image_url() }}" class="profile"> <span style="unicode-bidi: isolate">{{ patreon.user_display_name() }}</span></a>
+    <a class="h-card u-author mention" rel="me" href="{{ patreon_auth.user_url() }}" title="{{ patreon_auth.user_display_name() }}"><img src="{{ patreon_auth.image_url() }}" class="profile"> <span style="unicode-bidi: isolate">{{ patreon_auth.user_display_name() }}</span></a>
     </nobr>
     ·
     <a href="https://www.patreon.com/c/ANewSocial/membership">

@@ -16,7 +16,7 @@ from webutil import (
 )
 
 # all protocols
-import activitypub, atproto, farcaster, nostr, ui, web
+import activitypub, atproto, farcaster, nostr, patreon, ui, web
 import common
 import dms
 import models

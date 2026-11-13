@@ -21,11 +21,10 @@ import jwt
 import lexrpc
 import oauth_dropins
 from oauth_dropins.bluesky import BlueskyAuth
-import oauth_dropins.patreon
 from oauth_dropins.patreon import PatreonAuth
 import requests
 from webutil import flask_util, logs, util
-from webutil.util import json_dumps, json_loads
+from webutil.util import json_dumps
 from webutil.flask_util import (
     canonicalize_request_domain,
     error,
@@ -47,7 +46,6 @@ from common import (
     CACHE_CONTROL,
     disable_if_read_only,
     ErrorButDoNotRetryTask,
-    FlashErrors,
     render_template,
     secret_key_auth,
     verify_jwt,
@@ -76,6 +74,7 @@ from models import (
     USER_STATUS_DESCRIPTIONS,
 )
 from nostr import Nostr
+import patreon
 from protocol import Protocol
 from web import Web
 import webfinger
@@ -318,28 +317,6 @@ def logout():
     return redirect('/')
 
 
-class PatreonStart(FlashErrors, oauth_dropins.patreon.Start):
-    pass
-
-class PatreonCallback(FlashErrors, oauth_dropins.patreon.Callback):
-    def finish(self, auth_entity, state=None):
-        """Drops any existing Patreon login so that there's only one at a time."""
-        if auth_entity:
-            for login in get_logins():
-                if isinstance(login, PatreonAuth) and login.key != auth_entity.key:
-                    logger.info(f'Replacing Patreon login {login.key.id()} with {auth_entity.key.id()}')
-                    oauth_dropins.logout(login)
-
-        return super().finish(auth_entity, state=state)
-
-
-app.add_url_rule('/oauth/patreon/start', view_func=PatreonStart.as_view(
-                     '/oauth/patreon/start', '/oauth/patreon/finish'),
-                 methods=['POST'])
-app.add_url_rule('/oauth/patreon/finish', view_func=PatreonCallback.as_view(
-                     '/oauth/patreon/finish', '/settings'))
-
-
 @app.route('/settings')
 @canonicalize_request_domain(PROTOCOL_DOMAINS, PRIMARY_DOMAIN)
 @disable_if_read_only
@@ -359,11 +336,11 @@ def settings():
     # load logged in users
     users = []
     logins_and_user_keys = []
-    patreon = None
+    patreon_auth = None
     logged_in_user = None
     for login in get_logins():
         if isinstance(login, PatreonAuth):
-            patreon = login
+            patreon_auth = login
             if login.key == logged_in_as:
                 flash(f'Logged in as {login.user_display_name()}.')
         elif user_key := login_to_user_key(login):
@@ -411,36 +388,12 @@ def settings():
 
     # if the user logged in just now, link their Patreon if available
     patreon_member = None
-    if patreon:
-        for included in json_loads(patreon.user_json).get('included', []):
-            if included.get('type') == 'member':
-                patreon_member = included.get('attributes') or {}
-        logger.info(f'Patreon user {patreon.key.id()} membership: {patreon_member}')
-
-        update_users = []
-        if logged_in_as == patreon.key:
-            update_users = users
+    if patreon_auth:
+        patreon_member = patreon.get_membership(patreon_auth)
+        if logged_in_as == patreon_auth.key:
+            patreon.link(patreon_auth, users, overwrite=True)
         elif logged_in_user:
-            if logged_in_user.donor_key in (None, patreon.key):
-                update_users = [logged_in_user]
-            else:
-                logger.info(f'{logged_in_user.key.id()} is already linked to Patreon user {logged_in_user.donor_key.id()}')
-
-        is_donor = bool(patreon_member
-                        and patreon_member.get('patron_status') == 'active_patron'
-                        and patreon_member.get('currently_entitled_amount_cents'))
-        linked = []
-        for user in update_users:
-            if user.donor_key != patreon.key or user.is_donor != is_donor:
-                logger.info(f'Linking {user.key.id()} to Patreon user {patreon.key.id()}, is_donor={is_donor}')
-                if user.donor_key != patreon.key:
-                    linked.append(user.handle_or_id())
-                user.donor_key = patreon.key
-                user.is_donor = is_donor
-                user.put()
-
-        if linked:
-            flash(f'Linked {", ".join(linked)} to Patreon.')
+            patreon.link(patreon_auth, [logged_in_user])
 
     return render(
         'settings.html',

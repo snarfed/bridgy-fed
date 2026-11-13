@@ -13,7 +13,6 @@ from granary import atom, microformats2, rss
 from oauth_dropins.bluesky import BlueskyAuth
 from oauth_dropins.indieauth import IndieAuth
 from oauth_dropins.mastodon import MastodonAuth
-import oauth_dropins.patreon
 from oauth_dropins.patreon import PatreonAuth
 from oauth_dropins.threads import ThreadsAuth
 from oauth_dropins.views import LOGINS_SESSION_KEY
@@ -1342,37 +1341,6 @@ class PagesTest(TestCase):
         self.assertLess(body.index('/oauth/indieauth/start'),
                         body.index('/oauth/mastodon/start'))
         self.assertIn('<form method="post" action="/oauth/patreon/start"', body)
-
-    @patch.multiple(oauth_dropins.patreon, CLIENT_ID='abc', CLIENT_SECRET='xyz')
-    def test_patreon_start(self):
-        resp = self.client.post('/oauth/patreon/start')
-        self.assertEqual(302, resp.status_code)
-        self.assertTrue(resp.headers['Location'].startswith(
-            'https://www.patreon.com/oauth2/authorize?'), resp.headers['Location'])
-
-    @patch.multiple(oauth_dropins.patreon, CLIENT_ID='abc', CLIENT_SECRET='xyz')
-    @patch.object(util.session, 'request', return_value=requests_response({
-        'access_token': 'towkin',
-        'token_type': 'Bearer',
-    }))
-    @patch.object(util.session, 'get', return_value=requests_response({
-        'data': {
-            'id': '456',
-            'attributes': {'full_name': 'Bob Patron'},
-        },
-    }))
-    def test_patreon_finish_drops_existing_patreon_login(self, _, __):
-        self.make_logged_in_mastodon_user()
-        self.make_logged_in_patreon_user()
-
-        resp = self.client.get('/oauth/patreon/finish?code=my_code')
-        self.assertEqual(302, resp.status_code, resp.get_data(as_text=True))
-
-        with self.client.session_transaction() as sess:
-            self.assertEqual([
-                ('MastodonAuth', '@a@b.c'),
-                ('PatreonAuth', '456'),
-            ], sess[LOGINS_SESSION_KEY])
 
     def test_login_read_only(self):
         appengine_info.READ_ONLY = True
