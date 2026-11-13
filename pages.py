@@ -364,12 +364,15 @@ def settings():
     for login in get_logins():
         if isinstance(login, PatreonAuth):
             patreon = login
+            if login.key == logged_in_as:
+                flash(f'Logged in as {login.user_display_name()}.')
         elif user_key := login_to_user_key(login):
             if login.key == logged_in_as:
                 cls = Model._lookup_model(user_key.kind())
                 try:
                     user = cls.get_or_create(id=user_key.id(), allow_opt_out=True,
                                              reload=True, raise_=True)
+                    flash(f'Logged in as {login.user_display_name()}.')
                 except (requests.RequestException, werkzeug.exceptions.HTTPException,
                         RuntimeError) as e:
                     name = login.user_display_name()
@@ -426,12 +429,18 @@ def settings():
         is_donor = bool(patreon_member
                         and patreon_member.get('patron_status') == 'active_patron'
                         and patreon_member.get('currently_entitled_amount_cents'))
+        linked = []
         for user in update_users:
             if user.donor_key != patreon.key or user.is_donor != is_donor:
                 logger.info(f'Linking {user.key.id()} to Patreon user {patreon.key.id()}, is_donor={is_donor}')
+                if user.donor_key != patreon.key:
+                    linked.append(user.handle_or_id())
                 user.donor_key = patreon.key
                 user.is_donor = is_donor
                 user.put()
+
+        if linked:
+            flash(f'Linked {", ".join(linked)} to Patreon.')
 
     return render(
         'settings.html',

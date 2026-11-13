@@ -1154,6 +1154,11 @@ class PagesTest(TestCase):
             self.assertTrue(user.is_donor)
             self.assertEqual(patreon, user.donor_key)
 
+        self.assertEqual([
+            'Logged in as Alice Patron.',
+            'Linked ab.c, @a@b.c to Patreon.',
+        ], get_flashed_messages())
+
     def test_settings_on_patreon_login_free_member_not_donor(self):
         mastodon_user, _ = self.make_logged_in_mastodon_user(is_donor=True)
         patreon = self.make_logged_in_patreon_user(member={
@@ -1188,6 +1193,11 @@ class PagesTest(TestCase):
         self.assertIsNone(bluesky_user.is_donor)
         self.assertIsNone(bluesky_user.donor_key)
 
+        self.assertEqual([
+            'Logged in as @a@b.c.',
+            'Linked @user.com@b.c to Patreon.',
+        ], get_flashed_messages())
+
     @patch.object(util.session, 'get')
     def test_settings_on_user_login_linked_to_other_patreon(self, mock_get):
         mock_get.return_value = self.as2_resp({**ACTOR_AS2, 'id': 'http://b.c/a'})
@@ -1207,6 +1217,8 @@ class PagesTest(TestCase):
         self.assertFalse(mastodon_user.is_donor)
         self.assertEqual(other, mastodon_user.donor_key)
 
+        self.assertEqual(['Logged in as @a@b.c.'], get_flashed_messages())
+
     def test_settings_no_login_doesnt_set_is_donor(self):
         mastodon_user, _ = self.make_logged_in_mastodon_user()
         self.make_logged_in_patreon_user(member={
@@ -1217,6 +1229,7 @@ class PagesTest(TestCase):
         resp = self.client.get('/settings')
         self.assertEqual(200, resp.status_code)
         self.assertIsNone(mastodon_user.key.get().is_donor)
+        self.assertEqual([], get_flashed_messages())
 
     @patch.object(util.session, 'get', side_effect=[
         requests_response({
