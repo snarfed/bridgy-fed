@@ -356,9 +356,11 @@ def settings():
     def site_logo(login):
         return f'/oauth_dropins_static/{login.site_name().lower()}_icon.png'
 
+    # load logged in users
     users = []
     logins_and_user_keys = []
     patreon = None
+    logged_in_user = None
     for login in get_logins():
         if isinstance(login, PatreonAuth):
             patreon = login
@@ -380,6 +382,7 @@ def settings():
                         continue
                 user.logo = site_logo(login)
                 users.append(user)
+                logged_in_user = user
             else:
                 logins_and_user_keys.append((login, user_key))
 
@@ -389,6 +392,7 @@ def settings():
             user.logo = site_logo(login)
             user.domain_blocklists = []
 
+            # load user's blocklists
             for obj in ndb.get_multi(user.blocks[:PAGE_SIZE]):
                 if getattr(obj, 'is_csv', None):
                     url = obj.key.id()
@@ -402,12 +406,32 @@ def settings():
     if not users:
         return redirect('/login')
 
+    # if the user logged in just now, link their Patreon if available
     patreon_member = None
     if patreon:
         for included in json_loads(patreon.user_json).get('included', []):
             if included.get('type') == 'member':
                 patreon_member = included.get('attributes') or {}
         logger.info(f'Patreon user {patreon.key.id()} membership: {patreon_member}')
+
+        update_users = []
+        if logged_in_as == patreon.key:
+            update_users = users
+        elif logged_in_user:
+            if logged_in_user.donor_key in (None, patreon.key):
+                update_users = [logged_in_user]
+            else:
+                logger.info(f'{logged_in_user.key.id()} is already linked to Patreon user {logged_in_user.donor_key.id()}')
+
+        is_donor = bool(patreon_member
+                        and patreon_member.get('patron_status') == 'active_patron'
+                        and patreon_member.get('currently_entitled_amount_cents'))
+        for user in update_users:
+            if user.donor_key != patreon.key or user.is_donor != is_donor:
+                logger.info(f'Linking {user.key.id()} to Patreon user {patreon.key.id()}, is_donor={is_donor}')
+                user.donor_key = patreon.key
+                user.is_donor = is_donor
+                user.put()
 
     return render(
         'settings.html',

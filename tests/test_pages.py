@@ -1137,6 +1137,87 @@ class PagesTest(TestCase):
         self.assert_multiline_in('Not bridging', body)
         self.assert_multiline_in('because your account doesn&#39;t have a profile picture', body)
 
+    def test_settings_on_patreon_login_sets_is_donor(self):
+        mastodon_user, _ = self.make_logged_in_mastodon_user(
+            donor_key=ndb.Key('PatreonAuth', '999'))
+        bluesky_user, _ = self.make_logged_in_bluesky_user()
+        patreon = self.make_logged_in_patreon_user(member={
+            'patron_status': 'active_patron',
+            'currently_entitled_amount_cents': 500,
+        })
+
+        resp = self.client.get(f'/settings?auth_entity={patreon.urlsafe().decode()}')
+        self.assertEqual(200, resp.status_code)
+
+        for user in mastodon_user, bluesky_user:
+            user = user.key.get()
+            self.assertTrue(user.is_donor)
+            self.assertEqual(patreon, user.donor_key)
+
+    def test_settings_on_patreon_login_free_member_not_donor(self):
+        mastodon_user, _ = self.make_logged_in_mastodon_user(is_donor=True)
+        patreon = self.make_logged_in_patreon_user(member={
+            'patron_status': 'active_patron',
+            'currently_entitled_amount_cents': 0,
+        })
+
+        resp = self.client.get(f'/settings?auth_entity={patreon.urlsafe().decode()}')
+        self.assertEqual(200, resp.status_code)
+
+        self.assertFalse(mastodon_user.key.get().is_donor)
+
+    @patch.object(util.session, 'get')
+    def test_settings_on_user_login_with_patreon_sets_is_donor(self, mock_get):
+        mock_get.return_value = self.as2_resp({**ACTOR_AS2, 'id': 'http://b.c/a'})
+
+        bluesky_user, _ = self.make_logged_in_bluesky_user()
+        self.make_logged_in_patreon_user(member={
+            'patron_status': 'active_patron',
+            'currently_entitled_amount_cents': 500,
+        })
+        mastodon_user, auth = self.make_logged_in_mastodon_user()
+
+        resp = self.client.get(f'/settings?auth_entity={auth.urlsafe().decode()}')
+        self.assertEqual(200, resp.status_code)
+
+        mastodon_user = mastodon_user.key.get()
+        self.assertTrue(mastodon_user.is_donor)
+        self.assertEqual(ndb.Key('PatreonAuth', '123'), mastodon_user.donor_key)
+
+        bluesky_user = bluesky_user.key.get()
+        self.assertIsNone(bluesky_user.is_donor)
+        self.assertIsNone(bluesky_user.donor_key)
+
+    @patch.object(util.session, 'get')
+    def test_settings_on_user_login_linked_to_other_patreon(self, mock_get):
+        mock_get.return_value = self.as2_resp({**ACTOR_AS2, 'id': 'http://b.c/a'})
+
+        self.make_logged_in_patreon_user(member={
+            'patron_status': 'active_patron',
+            'currently_entitled_amount_cents': 500,
+        })
+        other = ndb.Key('PatreonAuth', '999')
+        mastodon_user, auth = self.make_logged_in_mastodon_user(
+            donor_key=other, is_donor=False)
+
+        resp = self.client.get(f'/settings?auth_entity={auth.urlsafe().decode()}')
+        self.assertEqual(200, resp.status_code)
+
+        mastodon_user = mastodon_user.key.get()
+        self.assertFalse(mastodon_user.is_donor)
+        self.assertEqual(other, mastodon_user.donor_key)
+
+    def test_settings_no_login_doesnt_set_is_donor(self):
+        mastodon_user, _ = self.make_logged_in_mastodon_user()
+        self.make_logged_in_patreon_user(member={
+            'patron_status': 'active_patron',
+            'currently_entitled_amount_cents': 500,
+        })
+
+        resp = self.client.get('/settings')
+        self.assertEqual(200, resp.status_code)
+        self.assertIsNone(mastodon_user.key.get().is_donor)
+
     @patch.object(util.session, 'get', side_effect=[
         requests_response({
             **DID_DOC,

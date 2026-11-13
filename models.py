@@ -450,6 +450,12 @@ class User(AddRemoveMixin, StringIdModel, metaclass=ProtocolUserMeta):
     verified_domain = ndb.StringProperty()
     """Domain that we've verified this user owns, eg web site top-level NIP-05, etc."""
 
+    donor_key = ndb.KeyProperty(kind='PatreonAuth')
+    """The Patreon account linked to this user, if any."""
+
+    is_donor = ndb.BooleanProperty()
+    """Whether this user is a paid member of our Patreon campaign. Set when they log in with Patreon."""
+
     created = ndb.DateTimeProperty(auto_now_add=True)
     ''
     updated = ndb.DateTimeProperty(auto_now=True)
