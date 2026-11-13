@@ -454,7 +454,11 @@ class User(AddRemoveMixin, StringIdModel, metaclass=ProtocolUserMeta):
     """The Patreon account linked to this user, if any."""
 
     is_donor = ndb.BooleanProperty()
-    """Whether this user is a paid member of our Patreon campaign. Set when they log in with Patreon."""
+    """Whether this user's linked Patreon account is a paid member of our campaign.
+
+    Set when they link with Patreon, and updated by :func:`patreon.webhook` and
+    :func:`patreon.sync`.
+    """
 
     created = ndb.DateTimeProperty(auto_now_add=True)
     ''

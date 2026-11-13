@@ -127,6 +127,31 @@ class PatreonTest(TestCase):
         self.assertEqual(Membership.FREE, free.key.get().get_membership())
         self.assertIsNone(gone.key.get().get_membership())
 
+    @patch.object(util.session, 'get', return_value=requests_response({
+        'data': [{
+            'type': 'member',
+            'attributes': {
+                'patron_status': 'active_patron',
+                'currently_entitled_amount_cents': 0,
+            },
+            'relationships': {'user': {'data': {'id': '111', 'type': 'user'}}},
+        }],
+    }))
+    def test_sync_no_paid_members_skips_updates(self, _):
+        PatreonAuth(id='creator', token_json=json_dumps({
+            'access_token': 'stored',
+        }), user_json='{}').put()
+
+        patron = PatreonAuth(id='111', token_json='{}', user_json='{}')
+        patron.put()
+        alice = self.make_user('fake:alice', cls=Fake, donor_key=patron.key,
+                               is_donor=True)
+
+        resp = self.get('/cron/patreon-sync')
+        self.assertEqual(304, resp.status_code)
+        self.assertTrue(alice.key.get().is_donor)
+        self.assertEqual('{}', patron.key.get().user_json)
+
     @patch.object(util.session, 'request', return_value=requests_response({
         'access_token': 'new',
         'refresh_token': 'new-refresh',
@@ -143,7 +168,7 @@ class PatreonTest(TestCase):
         }), user_json='{}').put()
 
         resp = self.get('/cron/patreon-sync')
-        self.assertEqual(200, resp.status_code)
+        self.assertEqual(304, resp.status_code)
 
         self.assertEqual([
             self.req(patreon.API_MEMBERS_URL, auth=BearerToken('old')),

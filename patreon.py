@@ -10,7 +10,7 @@ from flask import request
 from google.cloud import ndb
 import oauth_dropins
 import oauth_dropins.patreon
-from oauth_dropins.patreon import Membership, PatreonAuth
+from oauth_dropins.patreon import Membership, parse_membership, PatreonAuth
 from requests_oauth2client import BearerToken, OAuth2Client
 from webutil import util
 from webutil.flask_util import error, flash
@@ -70,21 +70,21 @@ def link(auth, users, overwrite=False):
 
 
 def sync():
-    """Syncs all users' ``is_donor`` with our Patreon campaign's members.
+    """Syncs Patreon members' memberships and their users' ``is_donor``.
 
-    Uses our creator tokens, which we store in a :class:`PatreonAuth` with id
-    ``CREATOR_AUTH_ID``. Refreshes them if they've expired.
-
-    Uses a :class:`oauth_dropins.patreon.PatreonAuth` with key id ``creator``
-    with our access and refresh tokens, created with eg:
+    Uses our creator tokens, stored in a :class:`PatreonAuth` with key id
+    ``CREATOR_AUTH_ID``, and refreshes them if they've expired. Create it with eg:
 
     PatreonAuth(id='creator', token_json=json.dumps({
         'access_token': '...',
         'refresh_token': '...',
     }), user_json='{}').put()
+
+    If there are no paid members at all, assumes something went wrong and skips
+    updating, so that we don't clear everyone's ``is_donor``.
     """
     creator = PatreonAuth.get_by_id(CREATOR_AUTH_ID)
-    assert creator
+    assert creator, f'No PatreonAuth {CREATOR_AUTH_ID} with our creator tokens'
 
     logger.info('fetching A New Social Patreon members from API')
     members = {}  # Patreon string user id => member attributes dict
@@ -115,6 +115,9 @@ def sync():
         url = page.get('links', {}).get('next')
 
     logger.info(f'Got {len(members)} Patreon members')
+    if not any(parse_membership(attrs) == Membership.PAID
+               for attrs in members.values()):
+        error('No paid Patreon members! Skipping updates', status=304)
 
     user_keys_by_auth = defaultdict(list)
     for cls in set(PROTOCOLS_BY_KIND.values()):
