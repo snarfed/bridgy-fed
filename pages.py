@@ -387,9 +387,9 @@ def settings():
         return redirect('/login')
 
     # if the user logged in just now, link their Patreon if available
-    patreon_member = None
+    patreon_membership = None
     if patreon_auth:
-        patreon_member = patreon.get_membership(patreon_auth)
+        patreon_membership = patreon_auth.get_membership()
         if logged_in_as == patreon_auth.key:
             patreon.link(patreon_auth, users, overwrite=True)
         elif logged_in_user:

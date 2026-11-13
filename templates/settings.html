@@ -5,9 +5,9 @@
 <p class="row big" style="text-align: left">Accounts</p>
 
 {% if patreon_auth %}
-{% set status = patreon_member.patron_status if patreon_member else None %}
-{% set cents = patreon_member.currently_entitled_amount_cents if patreon_member else 0 %}
-{% set member_class = ('paid-member' if cents else 'free-member') if status == 'active_patron' else '' %}
+{% set member_class = 'paid-member' if patreon_membership == 'paid'
+                      else 'free-member' if patreon_membership == 'free'
+                      else '' %}
 <div id="patreon" class="profile-row {{ member_class }}">
   <span class="big">
     <nobr>
@@ -16,11 +16,11 @@
     </nobr>
     ·
     <a href="https://www.patreon.com/c/ANewSocial/membership">
-    {% if status == 'active_patron' and cents %}
+    {% if patreon_membership == 'paid' %}
       Paid member
-    {% elif status == 'active_patron' %}
+    {% elif patreon_membership == 'free' %}
       Free member
-    {% elif status in ('declined_patron', 'former_patron') %}
+    {% elif patreon_membership == 'former' %}
       Former member
     {% else %}
       Not a member

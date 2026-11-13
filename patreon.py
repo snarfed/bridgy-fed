@@ -6,29 +6,14 @@ import logging
 
 import oauth_dropins
 import oauth_dropins.patreon
-from oauth_dropins.patreon import PatreonAuth
+from oauth_dropins.patreon import Membership, PatreonAuth
 from webutil.flask_util import flash
-from webutil.util import json_loads
 
 from common import FlashErrors
 from flask_app import app
 import pages
 
 logger = logging.getLogger(__name__)
-
-
-def get_membership(auth):
-    """Returns a Patreon user's membership in our campaign, if any.
-
-    Args:
-      auth (oauth_dropins.patreon.PatreonAuth)
-
-    Returns:
-      dict: Patreon member attributes, or None if they're not a member
-    """
-    for included in json_loads(auth.user_json).get('included', []):
-        if included.get('type') == 'member':
-            return included.get('attributes') or {}
 
 
 def link(auth, users, overwrite=False):
@@ -43,11 +28,9 @@ def link(auth, users, overwrite=False):
       overwrite (bool): whether to relink users that are already linked to a
         different Patreon account
     """
-    member = get_membership(auth)
-    logger.info(f'Patreon user {auth.key.id()} membership: {member}')
-    is_donor = bool(member
-                    and member.get('patron_status') == 'active_patron'
-                    and member.get('currently_entitled_amount_cents'))
+    membership = auth.get_membership()
+    logger.info(f'Patreon user {auth.key.id()} membership: {membership}')
+    is_donor = membership == Membership.PAID
 
     linked = []
     for user in users:
