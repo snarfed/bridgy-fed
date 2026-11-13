@@ -105,6 +105,10 @@ events = Queue(maxsize=1000)
 # global so that subscribe can reuse it across calls
 cursor = None
 
+# for /admin/hub. event times, not wall clock times
+last_event_at = None
+last_enqueued_at = None
+
 # global: _load_dids populates them, subscribe and handle use them
 atproto_dids = set()  # native ATProto accounts that are bridged
 atproto_loaded_at = datetime(1900, 1, 1)
@@ -188,7 +192,7 @@ def subscribe():
 
     Relay hostname comes from the ``BGS_HOST`` environment variable.
     """
-    global cursor
+    global cursor, last_event_at
     if not cursor:
         cursor = Cursor.get_or_insert(
             f'{os.environ["BGS_HOST"]} com.atproto.sync.subscribeRepos')
@@ -239,6 +243,8 @@ def subscribe():
         if outlier:
             # don't pass it through as received_at, it would skew our latency metric
             cur_timestamp = None
+        else:
+            last_event_at = cur_dt
 
         # if we fail processing this commit and raise an exception up to subscriber,
         # skip it and start with the next commit when we're restarted
@@ -424,6 +430,8 @@ def _handle_commit_op(event):
     Args:
       event (Event)
     """
+    global last_enqueued_at
+
     at_uri = f'at://{event.repo}/{event.path}'
     type, _ = event.path.strip('/').split('/', maxsplit=1)
 
@@ -500,6 +508,8 @@ def _handle_commit_op(event):
                     **record_kwarg)
         # when running locally, comment out above and uncomment this
         # logger.info(f'enqueuing receive task for {at_uri}')
+        if event.time:
+            last_enqueued_at = util.parse_iso8601(event.time)
     except ContextError:
         raise  # handled in handle()
     except BaseException:

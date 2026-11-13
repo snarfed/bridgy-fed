@@ -50,6 +50,8 @@ def setup_firehose():
     assert events.empty()
 
     atproto_firehose.cursor = None
+    atproto_firehose.last_event_at = None
+    atproto_firehose.last_enqueued_at = None
     atproto_firehose.atproto_dids = set()
     atproto_firehose.atproto_loaded_at = datetime(1900, 1, 1)
     atproto_firehose.bridged_dids = set()
@@ -839,6 +841,7 @@ class ATProtoFirehoseSubscribeTest(ATProtoTestCase):
             None,
         ], [events.get().time for _ in range(7)])
         self.assertTrue(events.empty())
+        self.assertEqual(NOW + timedelta(seconds=10), atproto_firehose.last_event_at)
 
 
 @patch('webutil.appengine_config.tasks_client.create_task')
@@ -869,6 +872,7 @@ class ATProtoFirehoseHandleTest(ATProtoTestCase):
                          id='at://did:plc:user/app.bsky.feed.post/123',
                          bsky=reply, source_protocol='atproto',
                          authed_as='did:plc:user', received_at='1900-02-04')
+        self.assertEqual(datetime(1900, 2, 4), atproto_firehose.last_enqueued_at)
 
     def test_update_profile(self, mock_create_task):
         # https://github.com/snarfed/bridgy-fed/issues/2686

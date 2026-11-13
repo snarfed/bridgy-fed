@@ -161,6 +161,7 @@ def gethostbyaddr(addr):
 def hub_admin():
     return render_template(
         'hub.html',
+        atproto_firehose=atproto_firehose,
         datetime=datetime,
         farcaster_hub=farcaster_hub,
         firehose=firehose,
