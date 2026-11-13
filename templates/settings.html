@@ -5,14 +5,27 @@
 <p class="row big" style="text-align: left">Accounts</p>
 
 {% if patreon %}
-<div id="patreon" class="profile-row">
+{% set status = patreon_member.patron_status if patreon_member else None %}
+{% set cents = patreon_member.currently_entitled_amount_cents if patreon_member else 0 %}
+{% set member_class = ('paid-member' if cents else 'free-member') if status == 'active_patron' else '' %}
+<div id="patreon" class="profile-row {{ member_class }}">
   <span class="big">
     <nobr>
     <img class="logo" title="Patreon" src="/oauth_dropins_static/patreon_2x.png" />
     <a class="h-card u-author mention" rel="me" href="{{ patreon.user_url() }}" title="{{ patreon.user_display_name() }}"><img src="{{ patreon.image_url() }}" class="profile"> <span style="unicode-bidi: isolate">{{ patreon.user_display_name() }}</span></a>
     </nobr>
     ·
-    <a href="https://www.patreon.com/c/ANewSocial/membership">[membership status]</a>
+    <a href="https://www.patreon.com/c/ANewSocial/membership">
+    {% if status == 'active_patron' and cents %}
+      Paid member
+    {% elif status == 'active_patron' %}
+      Free member
+    {% elif status in ('declined_patron', 'former_patron') %}
+      Former member
+    {% else %}
+      Not a member
+    {% endif %}
+    </a>
   </span>
 </div>
 {% endif %}

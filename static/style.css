@@ -1141,6 +1141,14 @@ input:checked + .slider:before {
   margin: 20px;
 }
 
+.profile-row.paid-member {
+  border-color: green;
+}
+
+.profile-row.free-member {
+  border-color: chocolate;
+}
+
 #login p.row {
   margin-top: 35px;
 }

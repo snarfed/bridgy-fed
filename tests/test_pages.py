@@ -143,12 +143,15 @@ class PagesTest(TestCase):
         user = self.make_user('alice.com', cls=Web, **props)
         return user, auth
 
-    def make_logged_in_patreon_user(self):
+    def make_logged_in_patreon_user(self, member=None):
         """
+        Args:
+          member (dict): optional Patreon member attributes for our campaign
+
         Returns:
           :class:`PatreonAuth`
         """
-        auth = PatreonAuth(id='123', token_json='{}', user_json=json_dumps({
+        user_json = {
             'data': {
                 'id': '123',
                 'attributes': {
@@ -157,7 +160,16 @@ class PagesTest(TestCase):
                     'url': 'https://www.patreon.com/alice',
                 },
             },
-        })).put()
+        }
+        if member:
+            user_json['included'] = [{
+                'id': 'abc-def',
+                'type': 'member',
+                'attributes': member,
+            }]
+
+        auth = PatreonAuth(id='123', token_json='{}',
+                           user_json=json_dumps(user_json)).put()
 
         with self.client.session_transaction() as sess:
             sess[LOGINS_SESSION_KEY] = (sess.get(LOGINS_SESSION_KEY, [])
@@ -1038,6 +1050,44 @@ class PagesTest(TestCase):
         self.assertIn('title="Patreon: Alice Patron"', body)
         self.assertIn('href="https://www.patreon.com/c/ANewSocial/membership"', body)
         self.assertIn('src="http://patreon/pic"', body)
+        self.assertIn('Not a member', body)
+
+    def test_settings_patreon_active_patron(self):
+        self.make_logged_in_mastodon_user()
+        self.make_logged_in_patreon_user(member={
+            'patron_status': 'active_patron',
+            'currently_entitled_amount_cents': 500,
+        })
+
+        resp = self.client.get('/settings')
+        self.assertEqual(200, resp.status_code)
+        body = resp.get_data(as_text=True)
+        self.assertIn('Paid member', body)
+        self.assertIn('class="profile-row paid-member"', body)
+
+    def test_settings_patreon_free_member(self):
+        self.make_logged_in_mastodon_user()
+        self.make_logged_in_patreon_user(member={
+            'patron_status': 'active_patron',
+            'currently_entitled_amount_cents': 0,
+        })
+
+        resp = self.client.get('/settings')
+        self.assertEqual(200, resp.status_code)
+        body = resp.get_data(as_text=True)
+        self.assertIn('Free member', body)
+        self.assertIn('class="profile-row free-member"', body)
+
+    def test_settings_patreon_declined_patron(self):
+        self.make_logged_in_mastodon_user()
+        self.make_logged_in_patreon_user(member={
+            'patron_status': 'declined_patron',
+            'currently_entitled_amount_cents': 500,
+        })
+
+        resp = self.client.get('/settings')
+        self.assertEqual(200, resp.status_code)
+        self.assertIn('Former member', resp.get_data(as_text=True))
 
     def test_settings_only_patreon(self):
         self.make_logged_in_patreon_user()

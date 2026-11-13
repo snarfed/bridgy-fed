@@ -25,7 +25,7 @@ import oauth_dropins.patreon
 from oauth_dropins.patreon import PatreonAuth
 import requests
 from webutil import flask_util, logs, util
-from webutil.util import json_dumps
+from webutil.util import json_dumps, json_loads
 from webutil.flask_util import (
     canonicalize_request_domain,
     error,
@@ -401,6 +401,13 @@ def settings():
 
     if not users:
         return redirect('/login')
+
+    patreon_member = None
+    if patreon:
+        for included in json_loads(patreon.user_json).get('included', []):
+            if included.get('type') == 'member':
+                patreon_member = included.get('attributes') or {}
+        logger.info(f'Patreon user {patreon.key.id()} membership: {patreon_member}')
 
     return render(
         'settings.html',
