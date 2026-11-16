@@ -5670,7 +5670,7 @@ Sed tortor neque, aliquet quis posuere aliquam, imperdiet sitamet […]
                 'https://fed.brid.gy/oauth/authorize/atproto/finish',
             ],
             'response_types': ['code'],
-            'scope': 'atproto transition:generic',
+            'scope': 'atproto identity rpc:app.bsky.actor.getProfile?aud=did:web:api.bsky.app%23bsky_appview',
             'token_endpoint_auth_method': 'none',
         }, resp.json)
 

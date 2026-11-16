@@ -158,10 +158,9 @@ def init(sequences_cls):
 def oauth_client_metadata():
     """Bridgy Fed's ATProto OAuth client, used by web login and mastodon_oauth.
 
-    Always pinned to PRIMARY_DOMAIN in prod, regardless of which
-    subdomain the request came in on, so that we always use the same client id
-    fed.brid.gy. (Required because ATProto OAuth DPoP tokens are bound to their
-    client id.)
+    Always pinned to PRIMARY_DOMAIN in prod, regardless of which subdomain the
+    request came in on, so that we always use the same client id fed.brid.gy.
+    (Required because ATProto OAuth DPoP tokens are bound to their client id.)
 
     Local dev uses the request's own host instead.
     """
