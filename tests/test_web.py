@@ -3375,7 +3375,7 @@ Current vs expected:
         self.assertNotIn('user.com', body)
 
     @patch('webutil.appengine_config.tasks_client.create_task')
-    def test_check_web_site_confirm(self, mock_create_task, mock_get, _):
+    def test_enable_web_site_confirm(self, mock_create_task, mock_get, _):
         common.RUN_TASKS_INLINE = False
 
         redir = 'http://localhost/.well-known/webfinger?resource=acct:user.com@user.com'
@@ -3399,7 +3399,7 @@ Current vs expected:
         self.assert_task(mock_create_task, 'poll-feed', domain='user.com')
 
     @patch('webutil.appengine_config.tasks_client.create_task')
-    def test_check_web_site_confirm_feed(self, mock_create_task, mock_get, _):
+    def test_enable_web_site_confirm_feed(self, mock_create_task, mock_get, _):
         common.RUN_TASKS_INLINE = False
         mock_get.side_effect = [
             requests_response(ACTOR_HTML_REL_FEED_URL, url='https://new.com/'),
@@ -3421,7 +3421,7 @@ Current vs expected:
         mock_create_task.assert_not_called()
 
     @patch('webutil.appengine_config.tasks_client.create_task')
-    def test_check_web_site_confirm_hfeed(self, mock_create_task, mock_get, _):
+    def test_enable_web_site_confirm_hfeed(self, mock_create_task, mock_get, _):
         common.RUN_TASKS_INLINE = False
         mock_get.side_effect = [
             requests_response(ACTOR_HTML_HFEED, url='https://new.com/'),
@@ -3437,7 +3437,7 @@ Current vs expected:
         mock_create_task.assert_not_called()
 
     @patch('webutil.appengine_config.tasks_client.create_task')
-    def test_check_web_site_confirm_webmention(self, mock_create_task, mock_get, _):
+    def test_enable_web_site_confirm_webmention(self, mock_create_task, mock_get, _):
         common.RUN_TASKS_INLINE = False
         mock_get.side_effect = web_user_gets('new.com')
 
@@ -3453,7 +3453,7 @@ Current vs expected:
         self.assertEqual([], user.copies)
         mock_create_task.assert_not_called()
 
-    def test_check_web_site_already_bridged(self, mock_get, _):
+    def test_enable_web_site_already_bridged(self, mock_get, _):
         mock_get.side_effect = (
             ACTOR_HTML_RESP,
             requests_response(status=404),  # webfinger
@@ -3465,7 +3465,7 @@ Current vs expected:
         self.assert_equals('/web/user.com', got.headers['Location'])
         self.assertEqual(['user.com is already bridged!'], get_flashed_messages())
 
-    def test_check_web_site_no_feed_or_webmention(self, mock_get, _):
+    def test_enable_web_site_no_feed_or_webmention(self, mock_get, _):
         mock_get.side_effect = [
             requests_response(ACTOR_HTML_METAFORMATS, url='https://new.com/'),
             requests_response(status=404),  # webfinger
@@ -3478,7 +3478,25 @@ Current vs expected:
             ["Sorry, we can't bridge new.com: web site doesn't have a feed (RSS, Atom, or h-feed) or webmention endpoint. <a href=\"/docs#web-get-started\">More details.</a>"],
             get_flashed_messages())
 
-    def test_check_web_site_unicode_domain(self, mock_get, _):
+    def test_enable_web_site_confirm_no_feed_or_webmention(self, mock_get, _):
+        mock_get.side_effect = [
+            requests_response(ACTOR_HTML_METAFORMATS, url='https://new.com/'),
+            requests_response(status=404),  # webfinger
+            requests_response(ACTOR_HTML_METAFORMATS, url='https://new.com/'),
+        ]
+
+        got = self.post('/web-site', data={'url': 'https://new.com/',
+                                           'confirm': 'true'})
+        self.assert_equals(400, got.status_code)
+        self.assertEqual(
+            ["Sorry, we can't bridge new.com: web site doesn't have a feed (RSS, Atom, or h-feed) or webmention endpoint. <a href=\"/docs#web-get-started\">More details.</a>"],
+            get_flashed_messages())
+
+        user = Web.get_by_id('new.com', allow_opt_out=True)
+        self.assertEqual([], user.enabled_protocols)
+        self.assertEqual([], user.copies)
+
+    def test_enable_web_site_unicode_domain(self, mock_get, _):
         mock_get.side_effect = web_user_gets('☃.net')
 
         got = self.post('/web-site', data={'url': 'https://☃.net/',
@@ -3491,7 +3509,7 @@ Current vs expected:
         # ☃.net isn't a valid Bluesky handle
         self.assertIsNone(user.get_copy(ATProto))
 
-    def test_check_web_site_lower_cases_domain(self, mock_get, _):
+    def test_enable_web_site_lower_cases_domain(self, mock_get, _):
         gets = [
             requests_response(ACTOR_HTML, url='https://abc.org/'),
             requests_response(status=404),  # webfinger
@@ -3504,7 +3522,7 @@ Current vs expected:
         self.assertIsNotNone(Web.get_by_id('abc.org'))
         self.assertIsNone(Web.get_by_id('AbC.oRg'))
 
-    def test_check_web_site_bad_url(self, _, __):
+    def test_enable_web_site_bad_url(self, _, __):
         got = self.post('/web-site', data={'url': '!!!'})
         self.assert_equals(400, got.status_code)
         self.assertEqual(
@@ -3512,7 +3530,7 @@ Current vs expected:
             get_flashed_messages())
         self.assertEqual(1, Web.query().count())
 
-    def test_check_web_site_sanitize_url(self, _, __):
+    def test_enable_web_site_sanitize_url(self, _, __):
         got = self.post('/web-site', data={'url': '"><script>alert()</script>'})
         self.assert_equals(400, got.status_code)
         self.assertEqual(
@@ -3520,14 +3538,14 @@ Current vs expected:
             get_flashed_messages())
         self.assertEqual(1, Web.query().count())
 
-    def test_check_web_site_url_with_path(self, _, __):
+    def test_enable_web_site_url_with_path(self, _, __):
         got = self.post('/web-site', data={'url': 'https://a.site/foo/bar'})
         self.assert_equals(400, got.status_code)
         self.assertEqual(['Only top-level web sites and domains are supported.'],
                          get_flashed_messages())
         self.assertEqual(1, Web.query().count())
 
-    def test_check_web_site_bridgy_fed_domain(self, _, __):
+    def test_enable_web_site_bridgy_fed_domain(self, _, __):
         got = self.post('/web-site', data={'url': 'https://web.brid.gy/foo'})
         self.assert_equals(400, got.status_code)
         self.assertEqual(
@@ -3535,7 +3553,7 @@ Current vs expected:
             get_flashed_messages())
         self.assertEqual(1, Web.query().count())
 
-    def test_check_web_site_blocklisted(self, _, __):
+    def test_enable_web_site_blocklisted(self, _, __):
         got = self.post('/web-site', data={'url': 'https://t.co/'})
         self.assert_equals(400, got.status_code)
         self.assertEqual(
@@ -3543,7 +3561,7 @@ Current vs expected:
             get_flashed_messages())
         self.assertEqual(1, Web.query().count())
 
-    def test_check_web_site_opted_out(self, _, __):
+    def test_enable_web_site_opted_out(self, _, __):
         self.user.manual_opt_out = True
         self.user.put()
 
@@ -3554,7 +3572,7 @@ Current vs expected:
             get_flashed_messages())
         self.assertEqual(1, Web.query().count())
 
-    def test_check_web_site_opted_out_reloads_ok(self, mock_get, __):
+    def test_enable_web_site_opted_out_reloads_ok(self, mock_get, __):
         self.user.has_redirects = False
         self.user.put()
         self.assertIsNotNone(self.user.status)
@@ -3591,7 +3609,7 @@ Current vs expected:
         self.assert_equals(302, got.status_code, got.headers)
         self.assert_equals('/web/orig.co', got.headers['Location'])
 
-    def test_check_web_site_fetch_fails(self, mock_get, _):
+    def test_enable_web_site_fetch_fails(self, mock_get, _):
         mock_get.return_value = requests_response('', status=503)
 
         got = self.post('/web-site', data={'url': 'https://orig.co/'})

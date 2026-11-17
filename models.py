@@ -612,6 +612,12 @@ class User(AddRemoveMixin, StringIdModel, metaclass=ProtocolUserMeta):
                 user.add('enabled_protocols', label)
                 changed = True
 
+        # check status after adding enabled_protocols since they can override it
+        if propagate and new_protocols and user.status not in (None, 'private'):
+            logger.info(f'{id} is {user.status}, not enabling {new_protocols}')
+            for label in new_protocols:
+                user.remove('enabled_protocols', label)
+
         if user.existing and not propagate:
             if changed:
                 try:

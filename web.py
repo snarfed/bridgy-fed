@@ -824,7 +824,7 @@ def enter_web_site():
 
 @app.post('/web-site')
 @disable_if_read_only
-def check_web_site():
+def enable_web_site():
     common.log_request()
     url = request.values['url']
 

@@ -250,6 +250,26 @@ class UserTest(TestCase):
                                   propagate=True)
         self.assertEqual([], user.enabled_protocols)
 
+    def test_get_or_create_existing_propagate_status_doesnt_enable(self):
+        self.make_user('fake:a', cls=Fake, obj_as1={'movedTo': 'fake:b'})
+
+        user = Fake.get_or_create('fake:a', enabled_protocols=['efake', 'other'],
+                                  propagate=True, allow_opt_out=True)
+        self.assertEqual('moved', user.status)
+        self.assertEqual([], user.enabled_protocols)
+        self.assertEqual([], user.key.get().enabled_protocols)
+        self.assertEqual([], ExplicitFake.created_for)
+
+    def test_get_or_create_new_propagate_status_doesnt_enable(self):
+        Fake.fetchable = {'fake:profile:a': {'movedTo': 'fake:b'}}
+
+        user = Fake.get_or_create('fake:a', enabled_protocols=['efake', 'other'],
+                                  propagate=True, allow_opt_out=True)
+        self.assertEqual('moved', user.status)
+        self.assertEqual([], user.enabled_protocols)
+        self.assertEqual([], user.key.get().enabled_protocols)
+        self.assertEqual([], ExplicitFake.created_for)
+
     def test_get_or_create_propagate_external_id(self):
         self.make_user('fake:a', cls=Fake, obj_as1=EXTERNAL_ID_ACTOR)
         user = Fake.get_or_create('fake:a', enabled_protocols=['efake'],
