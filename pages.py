@@ -285,7 +285,7 @@ def render(template, **vars):
 
 
 @app.route('/')
-@canonicalize_request_domain(PROTOCOL_DOMAINS, PRIMARY_DOMAIN)
+@canonicalize_request_domain(PRIMARY_DOMAIN)
 @flask_util.headers(CACHE_CONTROL)
 def front_page():
     """View for the front page."""
@@ -293,7 +293,7 @@ def front_page():
 
 
 @app.route('/docs')
-@canonicalize_request_domain(PROTOCOL_DOMAINS, PRIMARY_DOMAIN)
+@canonicalize_request_domain(PRIMARY_DOMAIN)
 @flask_util.headers(CACHE_CONTROL)
 def docs():
     """View for the docs page."""
@@ -301,7 +301,7 @@ def docs():
 
 
 @app.route('/login')
-@canonicalize_request_domain(PROTOCOL_DOMAINS, PRIMARY_DOMAIN)
+@canonicalize_request_domain(PRIMARY_DOMAIN)
 @flask_util.headers(CACHE_CONTROL)
 @disable_if_read_only
 def login():
@@ -318,7 +318,7 @@ def logout():
 
 
 @app.route('/settings')
-@canonicalize_request_domain(PROTOCOL_DOMAINS, PRIMARY_DOMAIN)
+@canonicalize_request_domain(PRIMARY_DOMAIN)
 @disable_if_read_only
 def settings():
     """User settings page. Requires logged in session."""
@@ -782,7 +782,7 @@ def migrate_to_atproto_create_account(user=None):
 # WARNING: this overrides the /ap/... actor URL route in activitypub.py, *only*
 # for handles with leading @ character. be careful when changing this route!
 @app.get(f'/ap/@<id>', defaults={'protocol': 'ap'})
-@canonicalize_request_domain(PROTOCOL_DOMAINS, PRIMARY_DOMAIN)
+@canonicalize_request_domain(PRIMARY_DOMAIN)
 @no_paging
 def profile(protocol, id):
     if protocol == 'ap':
@@ -796,7 +796,7 @@ def profile(protocol, id):
 
 
 @app.get(f'/<any({",".join(PROTOCOLS)}):protocol>/<id>/home')
-@canonicalize_request_domain(PROTOCOL_DOMAINS, PRIMARY_DOMAIN)
+@canonicalize_request_domain(PRIMARY_DOMAIN)
 @no_paging
 def home(protocol, id):
     user = load_user(protocol, id)
@@ -809,7 +809,7 @@ def home(protocol, id):
 
 
 @app.get(f'/<any({",".join(PROTOCOLS)}):protocol>/<id>/notifications')
-@canonicalize_request_domain(PROTOCOL_DOMAINS, PRIMARY_DOMAIN)
+@canonicalize_request_domain(PRIMARY_DOMAIN)
 @no_paging
 def notifications(protocol, id):
     user = load_user(protocol, id)
@@ -856,7 +856,7 @@ def find_user_page():
 
 
 @app.post(f'/<any({",".join(PROTOCOLS)}):protocol>/<id>/update-profile')
-@canonicalize_request_domain(PROTOCOL_DOMAINS, PRIMARY_DOMAIN)
+@canonicalize_request_domain(PRIMARY_DOMAIN)
 @disable_if_read_only
 def update_profile(protocol, id):
     user = load_user(protocol, id)
@@ -894,7 +894,7 @@ def update_profile(protocol, id):
 
 
 @app.get(f'/<any({",".join(PROTOCOLS)}):protocol>/<id>/<any(followers,following):collection>')
-@canonicalize_request_domain(PROTOCOL_DOMAINS, PRIMARY_DOMAIN)
+@canonicalize_request_domain(PRIMARY_DOMAIN)
 @memcache.memoize(expire=timedelta(hours=1),
                   key=lambda *args, **kwargs: (args, kwargs, request.args.to_dict()))
 @flask_util.headers(CACHE_CONTROL)
@@ -926,7 +926,7 @@ def followers_or_following(protocol, id, collection):
 
 
 @app.get(f'/<any({",".join(PROTOCOLS)}):protocol>/<id>/feed')
-@canonicalize_request_domain(PROTOCOL_DOMAINS, PRIMARY_DOMAIN)
+@canonicalize_request_domain(PRIMARY_DOMAIN)
 @memcache.memoize(expire=timedelta(hours=1),
                   key=lambda **kwargs: (kwargs, request.args.to_dict()))
 @flask_util.headers(CACHE_CONTROL)
@@ -1066,7 +1066,7 @@ def render_embed(obj):
 
 
 @app.get(f'/<any({",".join(PROTOCOLS)}):protocol>/<user_id>/respond')
-@canonicalize_request_domain(PROTOCOL_DOMAINS, PRIMARY_DOMAIN)
+@canonicalize_request_domain(PRIMARY_DOMAIN)
 @require_token('respond', ['obj_id'])
 def respond(user):
     """Lets a user reply to, like, or repost an unbridged post.
@@ -1083,7 +1083,7 @@ def respond(user):
 
 
 @app.post(f'/<any({",".join(PROTOCOLS)}):protocol>/<user_id>/respond/reply')
-@canonicalize_request_domain(PROTOCOL_DOMAINS, PRIMARY_DOMAIN)
+@canonicalize_request_domain(PRIMARY_DOMAIN)
 @require_token('respond', ['obj_id'])
 def respond_reply(user):
     """Creates a reply activity.
@@ -1121,7 +1121,7 @@ def respond_reply(user):
 
 
 @app.post(f'/<any({",".join(PROTOCOLS)}):protocol>/<user_id>/respond/like')
-@canonicalize_request_domain(PROTOCOL_DOMAINS, PRIMARY_DOMAIN)
+@canonicalize_request_domain(PRIMARY_DOMAIN)
 @require_token('respond', ['obj_id'])
 def respond_like(user):
     """Creates a like activity.
@@ -1152,7 +1152,7 @@ def respond_like(user):
 
 
 @app.post(f'/<any({",".join(PROTOCOLS)}):protocol>/<user_id>/respond/repost')
-@canonicalize_request_domain(PROTOCOL_DOMAINS, PRIMARY_DOMAIN)
+@canonicalize_request_domain(PRIMARY_DOMAIN)
 @require_token('respond', ['obj_id'])
 def respond_repost(user):
     """Creates a repost/share activity.
@@ -1183,7 +1183,7 @@ def respond_repost(user):
 
 
 @app.post(f'/<any({",".join(PROTOCOLS)}):protocol>/<user_id>/respond/block')
-@canonicalize_request_domain(PROTOCOL_DOMAINS, PRIMARY_DOMAIN)
+@canonicalize_request_domain(PRIMARY_DOMAIN)
 @require_token('respond', ['obj_id'])
 def respond_block(user):
     """Creates a block activity.
@@ -1219,7 +1219,7 @@ def respond_block(user):
 
 
 @app.get('/log')
-@canonicalize_request_domain(PROTOCOL_DOMAINS, PRIMARY_DOMAIN)
+@canonicalize_request_domain(PRIMARY_DOMAIN)
 @flask_util.headers(CACHE_CONTROL)
 def log():
     return logs.log()

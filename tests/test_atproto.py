@@ -5638,7 +5638,12 @@ Sed tortor neque, aliquet quis posuere aliquam, imperdiet sitamet […]
         self._test_oauth_client_metadata()
 
     def test_oauth_client_metadata_forged_host(self):
-        self._test_oauth_client_metadata(headers={'Host': 'evil.example'})
+        resp = self.get('/oauth/bluesky/client-metadata.json',
+                        headers={'Host': 'evil.example'})
+        self.assertEqual(301, resp.status_code)
+        self.assertEqual(
+            'http://fed.brid.gy/oauth/bluesky/client-metadata.json',
+            resp.headers['Location'])
 
     def test_oauth_client_metadata_pinned_to_primary_domain(self):
         """Always uses PRIMARY_DOMAIN, even on other prod subdomains, so that

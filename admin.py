@@ -15,7 +15,6 @@ from common import (
 )
 from domains import (
     PRIMARY_DOMAIN,
-    PROTOCOL_DOMAINS,
 )
 from flask import redirect, request
 from flask_app import app
@@ -77,7 +76,7 @@ def format_properties(entity):
 
 
 @app.get('/admin/')
-@canonicalize_request_domain(PROTOCOL_DOMAINS, PRIMARY_DOMAIN)
+@canonicalize_request_domain(PRIMARY_DOMAIN)
 def admin_home():
     for reloader in BLOCKLISTS.values():
         reloader.reload()
@@ -85,7 +84,7 @@ def admin_home():
 
 
 @app.post('/admin/blocklist')
-@canonicalize_request_domain(PROTOCOL_DOMAINS, PRIMARY_DOMAIN)
+@canonicalize_request_domain(PRIMARY_DOMAIN)
 def save_blocklist():
     """
     Form values:
@@ -101,7 +100,7 @@ def save_blocklist():
 
 
 @app.get('/admin/user')
-@canonicalize_request_domain(PROTOCOL_DOMAINS, PRIMARY_DOMAIN)
+@canonicalize_request_domain(PRIMARY_DOMAIN)
 def admin_user_search():
     """
     Query params:
@@ -156,7 +155,7 @@ def admin_user_search():
 
 
 @app.get('/admin/user/<key>')
-@canonicalize_request_domain(PROTOCOL_DOMAINS, PRIMARY_DOMAIN)
+@canonicalize_request_domain(PRIMARY_DOMAIN)
 def admin_user(key):
     try:
         user = Key(urlsafe=key).get()
@@ -172,7 +171,7 @@ def admin_user(key):
 
 
 @app.post('/admin/object')
-@canonicalize_request_domain(PROTOCOL_DOMAINS, PRIMARY_DOMAIN)
+@canonicalize_request_domain(PRIMARY_DOMAIN)
 def admin_object_lookup():
     """
     Form values:
@@ -190,7 +189,7 @@ def admin_object_lookup():
 
 
 @app.get('/admin/object/<path:id>')
-@canonicalize_request_domain(PROTOCOL_DOMAINS, PRIMARY_DOMAIN)
+@canonicalize_request_domain(PRIMARY_DOMAIN)
 def admin_object(id):
     id = COLLAPSED_SCHEME_RE.sub(r'\1/', id)
 
@@ -233,7 +232,7 @@ def admin_object(id):
 
 
 @app.post('/admin/receive')
-@canonicalize_request_domain(PROTOCOL_DOMAINS, PRIMARY_DOMAIN)
+@canonicalize_request_domain(PRIMARY_DOMAIN)
 def admin_receive():
     obj_key = Key(urlsafe=request.values['obj_key'])
     user_key = Key(urlsafe=request.values['user_key'])
@@ -243,7 +242,7 @@ def admin_receive():
 
 
 @app.post('/admin/enable')
-@canonicalize_request_domain(PROTOCOL_DOMAINS, PRIMARY_DOMAIN)
+@canonicalize_request_domain(PRIMARY_DOMAIN)
 def admin_enable():
     """
     Form values:
@@ -259,7 +258,7 @@ def admin_enable():
 
 
 @app.post('/admin/disable')
-@canonicalize_request_domain(PROTOCOL_DOMAINS, PRIMARY_DOMAIN)
+@canonicalize_request_domain(PRIMARY_DOMAIN)
 def admin_disable():
     """
     Form values:

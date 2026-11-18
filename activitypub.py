@@ -2231,7 +2231,7 @@ def featured(id):
 
 
 @app.get('/.well-known/nodeinfo')
-@flask_util.canonicalize_request_domain(PROTOCOL_DOMAINS, PRIMARY_DOMAIN)
+@flask_util.canonicalize_request_domain(PRIMARY_DOMAIN)
 @flask_util.headers(CACHE_CONTROL)
 def nodeinfo_jrd():
     """
@@ -2251,7 +2251,7 @@ def nodeinfo_jrd():
 
 
 @app.get('/nodeinfo.json')
-@flask_util.canonicalize_request_domain(PROTOCOL_DOMAINS, PRIMARY_DOMAIN)
+@flask_util.canonicalize_request_domain(PRIMARY_DOMAIN)
 @memcache.memoize(expire=timedelta(hours=1))
 @flask_util.headers(CACHE_CONTROL)
 def nodeinfo():
@@ -2320,7 +2320,7 @@ def nodeinfo():
 
 # TODO: move to mastodon_api.py, next to /api/v2/instance ?
 @app.get('/api/v1/instance')
-@flask_util.canonicalize_request_domain(PROTOCOL_DOMAINS, PRIMARY_DOMAIN)
+@flask_util.canonicalize_request_domain(PRIMARY_DOMAIN)
 @flask_util.headers(CACHE_CONTROL)
 def instance_info():
     """

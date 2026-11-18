@@ -944,9 +944,11 @@ class PagesTest(TestCase):
         self.assertIn('<author>_@_._ (Dr. Eve)</author>', got.text, got.text)
 
     def test_canonicalize_domain(self):
-        got = self.client.get('/', base_url='https://ap.brid.gy/')
-        self.assert_equals(301, got.status_code)
-        self.assert_equals('https://fed.brid.gy/', got.headers['Location'])
+        for base_url in 'https://ap.brid.gy/', 'https://other.example/':
+            with self.subTest(base_url=base_url):
+                got = self.client.get('/', base_url=base_url)
+                self.assert_equals(301, got.status_code)
+                self.assert_equals('https://fed.brid.gy/', got.headers['Location'])
 
     def test_find_user_page_web_domain(self):
         got = self.client.post('/user-page', data={'id': 'user.com'})

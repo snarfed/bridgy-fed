@@ -78,7 +78,6 @@ from domains import (
     DOMAIN_RE,
     DOMAINS,
     PRIMARY_DOMAIN,
-    PROTOCOL_DOMAINS,
     SUPERDOMAIN,
 )
 from flask_app import app
@@ -2199,7 +2198,7 @@ class BlueskyOAuthCallback(FlashErrors, oauth_dropins.bluesky.OAuthCallback):
 
 
 @app.get('/oauth/bluesky/client-metadata.json')
-@canonicalize_request_domain(PROTOCOL_DOMAINS, PRIMARY_DOMAIN)
+@canonicalize_request_domain(PRIMARY_DOMAIN)
 @flask_util.headers(CACHE_CONTROL)
 def bluesky_oauth_client_metadata():
     """https://docs.bsky.app/docs/advanced-guides/oauth-client#client-and-server-metadata"""
