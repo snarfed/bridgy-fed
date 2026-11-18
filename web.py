@@ -664,7 +664,17 @@ class Web(User, Protocol):
             entry = (mf2util.representative_hcard(parsed, parsed_url)
                      or mf2util.representative_hcard(parsed, parsed_url + '/'))
             if not entry:
-                error(f"Couldn't find a representative h-card (http://microformats.org/wiki/representative-h-card-parsing) on {parsed['url']}")
+                if parsed.get('rel-urls'):
+                    # No h-card, but the page may still have feed/webmention
+                    # links. Fall back to a minimal profile so that we still
+                    # pick up rel=alternate feeds in feed_url() instead of
+                    # falsely reporting no-feed-or-webmention.
+                    logger.info(f"No representative h-card on {parsed['url']}, "
+                                "falling back to minimal profile")
+                    entry = {'type': ['h-card'],
+                             'properties': {'url': [url]}}
+                else:
+                    error(f"Couldn't find a representative h-card (http://microformats.org/wiki/representative-h-card-parsing) on {parsed['url']}")
             logger.info(f'Found representative h-card')
             # handle when eg https://user.com/ redirects to https://www.user.com/
             # we need to store this as https://user.com/
