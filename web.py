@@ -844,16 +844,9 @@ def enable_web_site():
         flash('Only top-level web sites and domains are supported.')
         return render_template('enter_web_site.html'), 400
 
-    # only actually bridge once the user has confirmed on confirm_web_site.html
-    kwargs = {}
-    if confirm := request.values.get('confirm'):
-        kwargs = {
-            'enabled_protocols': ['activitypub', 'atproto'],
-            'propagate': True,
-        }
     try:
         user = Web.get_or_create(domain, allow_opt_out=True, reload=True,
-                                 verify=True, **kwargs)
+                                 verify=True)
     except BaseException as e:
         code, body = util.interpret_http_exception(e)
         if code:
@@ -876,12 +869,28 @@ def enable_web_site():
         flash(f'Sorry, we can\'t bridge {domain}: {desc}. <a href="/docs#web-get-started">More details.</a>', escape=False)
         return render_template('enter_web_site.html'), 400
 
-    if not confirm:
+    # only actually bridge once the user has confirmed on confirm_web_site.html
+    if not request.values.get('confirm'):
         if user.enabled_protocols:
             flash(f'{domain} is already bridged!')
             return redirect(user.user_page_path())
 
         return render_template('confirm_web_site.html', user=user)
+
+    for label in 'activitypub', 'atproto':
+        proto = PROTOCOLS[label]
+        try:
+            user.enable_protocol(proto)
+        except BaseException as e:
+            code, _ = util.interpret_http_exception(e)
+            if not code:
+                raise
+            msg = str(e)
+            if (isinstance(e, common.ErrorButDoNotRetryTask)
+                    and (resp := e.get_response()) and resp.is_json):
+                msg = resp.json['error']
+            logger.info(f"Couldn't enable {label} for {domain}: {msg}")
+            flash(f"Couldn't enable bridging to {proto.PHRASE}: {msg}")
 
     create_task(queue='poll-feed', domain=domain)
     return redirect(user.user_page_path())

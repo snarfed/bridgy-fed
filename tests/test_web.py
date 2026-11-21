@@ -3395,8 +3395,12 @@ Current vs expected:
         user = Web.get_by_id('user.com')
         self.assertEqual('person', user.obj.as1['objectType'])
         self.assertEqual(['activitypub', 'atproto'], sorted(user.enabled_protocols))
+        self.assertIsNotNone(user.get_copy(ATProto))
 
         self.assert_task(mock_create_task, 'poll-feed', domain='user.com')
+        for proto in 'activitypub', 'atproto':
+            self.assert_task(mock_create_task, 'user-enabled', protocol=proto,
+                             user=user.key.urlsafe())
 
     @patch('webutil.appengine_config.tasks_client.create_task')
     def test_enable_web_site_confirm_feed(self, mock_create_task, mock_get, _):
@@ -3496,6 +3500,21 @@ Current vs expected:
         self.assertEqual([], user.enabled_protocols)
         self.assertEqual([], user.copies)
 
+    @patch.object(ATProto, 'create_for', side_effect=requests.ConnectionError('foo'))
+    def test_enable_web_site_confirm_new_user_create_for_fails(self, _, mock_get, __):
+        mock_get.side_effect = web_user_gets('new.com')
+
+        got = self.post('/web-site', data={'url': 'https://new.com/',
+                                           'confirm': 'true'})
+        self.assert_equals(302, got.status_code)
+        self.assert_equals('/web/new.com', got.headers['Location'])
+        self.assertEqual(["Couldn't enable bridging to the Atmosphere (Bluesky): foo"],
+                         get_flashed_messages())
+
+        user = Web.get_by_id('new.com')
+        self.assertEqual(['activitypub'], user.enabled_protocols)
+        self.assertEqual([], user.copies)
+
     def test_enable_web_site_unicode_domain(self, mock_get, _):
         mock_get.side_effect = web_user_gets('☃.net')
 
@@ -3503,10 +3522,11 @@ Current vs expected:
                                            'confirm': 'true'})
         self.assert_equals(302, got.status_code)
         self.assert_equals('/web/%E2%98%83.net', got.headers['Location'])
-        user = Web.get_by_id('☃.net')
-        self.assertIsNotNone(user)
+        self.assertEqual(["Couldn't enable bridging to the Atmosphere (Bluesky): handle ☃.net translated to the Atmosphere (Bluesky) is ☃.net.web.brid.gy, which isn't supported there"],
+                         get_flashed_messages())
 
-        # ☃.net isn't a valid Bluesky handle
+        user = Web.get_by_id('☃.net')
+        self.assertEqual(['activitypub'], user.enabled_protocols)
         self.assertIsNone(user.get_copy(ATProto))
 
     def test_enable_web_site_lower_cases_domain(self, mock_get, _):
