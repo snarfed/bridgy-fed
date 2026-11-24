@@ -563,7 +563,7 @@ class ActivityPub(User, Protocol):
         if obj.type == 'accept' and obj.as2 and obj.as2.get('result'):
             obj_id = as1.get_id(obj.as2, 'object')
             if obj_id and obj_id.endswith(QUOTE_REQUEST_ID_SUFFIX):
-                return maybe_handle_quote_accept(obj.as2, authed_as)
+                return maybe_handle_quote_accept(obj.as2)
 
         return super().receive(obj, authed_as=authed_as, **kwargs)
 
@@ -1754,8 +1754,11 @@ def inbox(protocol=None, id=None):
 
     # if we need the LD Sig to authorize this activity, bail out, we don't do
     # those yet
-    if authed_as != actor_id and activity.get('signature'):
-        error(f"Ignoring LD Signature, sorry, we can't verify those yet. https://github.com/snarfed/bridgy-fed/issues/566", status=202)
+    if authed_as != actor_id:
+        if activity.get('signature'):
+            error(f"Ignoring LD Signature, sorry, we can't verify those yet. https://github.com/snarfed/bridgy-fed/issues/566", status=202)
+        else:
+            error(f"actor {actor_id} doesn't match signer {authed_as}", status=403)
 
     logger.info(f'Got {type} {id} from {actor_id}')
 
@@ -1775,7 +1778,7 @@ def inbox(protocol=None, id=None):
         return handle_pin_change(activity, authed_as)
 
     elif type == 'QuoteRequest':
-        return handle_quote_request(activity, authed_as)
+        return handle_quote_request(activity)
 
     if not id:
         id = f'{actor_id}#{type}-{obj_id or ""}-{util.now().isoformat()}'
@@ -1856,17 +1859,12 @@ def handle_pin_change(activity, authed_as):
     type = activity['type']
     assert type in ('Add', 'Remove')
 
-    actor_id = as1.get_id(activity, 'actor')
-    if authed_as != actor_id:
-        error(f"{type} actor {actor_id} doesn't match signer {authed_as}",
-              status=403)
-
     target = as1.get_id(activity, 'target')
     obj_id = as1.get_id(activity, 'object')
     if not target or not obj_id:
         return 'Ignored', 204
 
-    user = ActivityPub.get_by_id(actor_id)
+    user = ActivityPub.get_by_id(as1.get_id(activity, 'actor'))
     if not (user and user.obj and user.obj.as2
             and target == as1.get_id(user.obj.as1, 'featured')):
         return 'Ignored', 204
@@ -1889,7 +1887,7 @@ def handle_pin_change(activity, authed_as):
     return 'OK', 202
 
 
-def handle_quote_request(activity, authed_as):
+def handle_quote_request(activity):
     """Handles an incoming FEP-044f ``QuoteRequest``.
 
     We currently let anyone quote anything, so we reply to all quote requests
@@ -1900,7 +1898,6 @@ def handle_quote_request(activity, authed_as):
 
     Args:
       activity (dict): AS2 ``QuoteRequest`` activity
-      authed_as (str): AP actor id that signed the request
 
     Returns:
       (str, int) tuple: Flask response
@@ -1908,10 +1905,6 @@ def handle_quote_request(activity, authed_as):
     assert activity['type'] == 'QuoteRequest'
 
     actor_id = as1.get_id(activity, 'actor')
-    if authed_as != actor_id:
-        error(f"QuoteRequest actor {actor_id} doesn't match signer {authed_as}",
-              status=403)
-
     obj_id = as1.get_id(activity, 'object')
     quote_id = as1.get_object(activity, 'instrument').get('id')
     if not obj_id or not quote_id:
@@ -1939,7 +1932,7 @@ def handle_quote_request(activity, authed_as):
     return 'OK', 202
 
 
-def maybe_handle_quote_accept(accept, authed_as):
+def maybe_handle_quote_accept(accept):
     """Handles an incoming FEP-044f ``Accept`` of one of our ``QuoteRequest``s.
 
     Stores the ``QuoteAuthorization`` stamp in the quote post's
@@ -1951,16 +1944,13 @@ def maybe_handle_quote_accept(accept, authed_as):
 
     Args:
       accept (dict): AS2 ``Accept`` activity
-      authed_as (str): AP actor id that signed the request
 
     Returns:
       (str, int) tuple: Flask response
     """
     actor_id = as1.get_id(accept, 'actor')
     stamp_id = as1.get_id(accept, 'result')
-    if authed_as != actor_id:
-        error(f"Accept actor {actor_id} doesn't match signer {authed_as}")
-    elif domain_from_link(stamp_id) != domain_from_link(actor_id):
+    if domain_from_link(stamp_id) != domain_from_link(actor_id):
         error(f"Stamp {stamp_id} isn't on {actor_id} 's domain")
 
     quote_ap_id = (as1.get_object(accept)['id']

@@ -1198,7 +1198,7 @@ class ActivityPubTest(TestCase):
         body = json_dumps(QUOTE_ACCEPT)
         headers = sign('/ap/sharedInbox', body, key_id='https://mas.to/eve')
         got = self.client.post('/ap/sharedInbox', data=body, headers=headers)
-        self.assertEqual(400, got.status_code, got.get_data(as_text=True))
+        self.assertEqual(403, got.status_code, got.get_data(as_text=True))
         mock_post.assert_not_called()
         self.assertIsNone(Object.get_by_id('fake:quote').extra_as1)
 
@@ -2164,7 +2164,15 @@ class ActivityPubTest(TestCase):
         })
         self.make_user(cls=ActivityPub, id='https://mas.to/users/foo',
                        obj_as2=orig_actor_as2)
-        self.key_id_obj.put()
+        Object(id='http://mas.to/key/id', as2={
+            'id': 'https://mas.to/users/foo',
+            'type': 'Person',
+            'publicKey': {
+                'id': 'http://mas.to/key/id',
+                'owner': 'https://mas.to/users/foo',
+                'publicKeyPem': self.user.public_pem().decode(),
+            },
+        }).put()
 
         # valid signature
         body = json_dumps({**NOTE, 'actor': 'https://mas.to/users/foo'})
@@ -2300,7 +2308,7 @@ class ActivityPubTest(TestCase):
         })
         headers = sign('/ap/sharedInbox', body, key_id=ACTOR['id'])
         got = self.client.post('/ap/sharedInbox', data=body, headers=headers)
-        self.assertEqual(299, got.status_code, got.get_data(as_text=True))
+        self.assertEqual(403, got.status_code, got.get_data(as_text=True))
 
     @patch('activitypub.NO_AUTH_DOMAINS', ('no.auth',))
     def test_inbox_NO_AUTH_DOMAINS(self, *_):
