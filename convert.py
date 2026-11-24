@@ -102,9 +102,11 @@ def convert(to, _, from_=None):
 
     # convert and serve
     to_id = ids.translate_object_id(id=id, from_=from_proto, to=to_proto)
+    # de-dupe, preserving order
+    to_ids = dict.fromkeys([to_id] + obj.get_copies(to_proto))
     return to_proto.convert(obj, strict_json=True), {
         'Content-Type': to_proto.CONTENT_TYPE,
-        'Link': f'<{to_id}>; rel="self"'
+        'Link': ', '.join(f'<{to_id}>; rel="self"' for to_id in to_ids),
     }
 
 

@@ -123,6 +123,19 @@ class ConvertTest(testutil.TestCase):
         }, json_loads(resp.get_data()))
         self.assertEqual('<other:post>; rel="self"', resp.headers['Link'])
 
+    def test_fake_to_other_multiple_copies(self):
+        """https://github.com/snarfed/bridgy-fed/issues/2782"""
+        self.store_object(id='fake:post', our_as1={'foo': 'bar'}, copies=[
+            Target(protocol='other', uri='other:post'),
+            Target(protocol='atproto', uri='at://did:plc:abc/app.bsky.feed.post/123'),
+            Target(protocol='other', uri='other:document'),
+        ])
+        resp = self.client.get('/convert/other/fake:post',
+                               base_url='https://fa.brid.gy/')
+        self.assertEqual(200, resp.status_code)
+        self.assertEqual('<other:post>; rel="self", <other:document>; rel="self"',
+                         resp.headers['Link'])
+
     def test_fake_to_other_no_copy(self):
         """https://github.com/snarfed/bridgy-fed/issues/1248"""
         self.make_user('fake:user', cls=Fake, enabled_protocols=['other'])

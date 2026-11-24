@@ -813,7 +813,7 @@ RewriteRule ^.well-known/(host-meta|webfinger).* https://fed.brid.gy/$0  [redire
 <li class="answer">
 <p>Yes! Beyond <a href="#standard-site-well-known">verifying web sites</a>, standard.site also has a mechanism to <a href="https://standard.site/#verification">link individual web pages to their standard.site documents</a>. You can do this by including a <code>&lt;link&gt;</code> element in your web page's HTML that points to its bridged <code>at://</code> URI.
 <p>First, to get a bridged web page's <code>at://</code> URI, <a href="#identify-bridged-to-post">construct a Bridgy Fed URL to convert it to the Atmosphere</a>. For example, for an ActivityPub <code>Article</code> with id <code>http://instan.ce/article</code>, the Bridgy Fed Atmosphere (Bluesky) URL would be <code>https://ap.brid.gy/convert/bsky/http://instan.ce/article</code>.
-<p>Then, fetch that URL and look at the response's <code>Link</code> header. It will be the bridged <code>at://</code> URI of the <code>site.standard.document</code> record, eg <code>at://did:plc:abc123/site.standard.document/xyz</code>. <a href="https://standard.site/#verification">Add that URI to your web page's HTML in a <code>&lt;link&gt;</code> element like this</a>:
+<p>Then, fetch that URL and look at the response's <code>Link</code> header. It will include the bridged <code>at://</code> URI of the <code>site.standard.document</code> record, eg <code>at://did:plc:abc123/site.standard.document/xyz</code>, along with the URI of its <code>app.bsky.feed.post</code> record. <a href="https://standard.site/#verification">Add that URI to your web page's HTML in a <code>&lt;link&gt;</code> element like this</a>:
 <pre>
 &lt;link rel="<span class='keyword'>site.standard.document</span>" href="<span class='value'>at://did:plc:abc123/site.standard.document/xyz</span>" /&gt;
 </pre>
@@ -1258,7 +1258,7 @@ https://<span class="keyword">[FROM]</span>.brid.gy/convert/<span class="keyword
 https://<span class="value">ap</span>.brid.gy/convert/<span class="value">bsky</span>/<span class="value">https://indieweb.social/users/snarfed/statuses/116024251702608666</span>
 </pre>
 
-<p>If it was bridged, the response will be HTTP 200 with the converted object in the destination network's format, and the id of the bridged object in the <a href="https://developer.mozilla.org/en-US/docs/Web/HTTP/Reference/Headers/Link"><code>Link</code> HTTP header</a>. In this example, the response body is the ATProto <code>app.bsky.feed.post</code> record, and the <code>Link</code> header contains its <a href="https://atproto.com/specs/at-uri-scheme"><code>at://</code> URI</a>, eg:
+<p>If it was bridged, the response will be HTTP 200 with the converted object in the destination network's format, and the id(s) of the bridged object in the <a href="https://developer.mozilla.org/en-US/docs/Web/HTTP/Reference/Headers/Link"><code>Link</code> HTTP header</a>. If it was bridged to multiple records, eg an article bridged to both <code>app.bsky.feed.post</code> and <code>site.standard.document</code>, the header will include all of their ids, primary first. In this example, the response body is the ATProto <code>app.bsky.feed.post</code> record, and the <code>Link</code> header contains its <a href="https://atproto.com/specs/at-uri-scheme"><code>at://</code> URI</a>, eg:
 
 <pre>
 Link: <<span class='value'>at://did:plc:bg5udl25mvzg3rt7l5n2hzet/app.bsky.feed.post/3me75t7irum22</span>>; rel="self"
