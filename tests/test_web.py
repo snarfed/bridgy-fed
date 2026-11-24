@@ -1709,6 +1709,48 @@ class WebTest(TestCase):
         self.assertEqual(to.key, followers[0].to)
         self.assert_equals(obj.key, followers[0].follow)
 
+    def test_follow_profile_url_resolves_to_actor_id(self, mock_get, mock_post):
+        """u-follow-of is a Mastodon-style /@user profile URL, not the actor id.
+
+        https://github.com/snarfed/bridgy-fed/issues/1172
+        """
+        html = FOLLOW_HTML.replace('https://mas.to/mrs-foo', 'https://mas.to/@mrs-foo')
+        follow = requests_response(html, url='https://user.com/follow')
+
+        def get(url, **kwargs):
+            if url == 'https://user.com/follow':
+                return follow
+            elif url in ('https://mas.to/@mrs-foo', 'https://mas.to/mrs-foo'):
+                # profile URL serves the actor, whose id is the canonical actor id
+                return ACTOR
+            return WEBMENTION_REL_LINK
+
+        mock_get.side_effect = get
+        mock_post.return_value = requests_response('abc xyz')
+
+        got = self.post('/queue/webmention', data={
+            'source': 'https://user.com/follow',
+            'target': 'https://fed.brid.gy/',
+        })
+        self.assertEqual(202, got.status_code)
+
+        # Follow is delivered with the actor id, not the profile URL
+        self.assert_ap_deliveries(mock_post, ['https://mas.to/inbox'], FOLLOW_AS2)
+
+        self.assert_object('https://user.com/follow',
+                           users=[self.user.key],
+                           notify=[self.mrs_foo],
+                           source_protocol='web',
+                           type='follow',
+                           ignore=['our_as1', 'mf2'])
+
+        # Follower is stored with the actor id, so the followee's posts route
+        followers = Follower.query().fetch()
+        self.assertEqual(1, len(followers))
+        self.assertEqual(self.user.key, followers[0].from_)
+        self.assertEqual(self.mrs_foo, followers[0].to)
+        self.assertIsNone(ActivityPub.get_by_id('https://mas.to/@mrs-foo'))
+
     def test_follow_no_actor(self, mock_get, mock_post):
         self.user.obj_key = Object(id='a', as2=ACTOR_AS2).put()
         self.user.put()
