@@ -1856,12 +1856,17 @@ def handle_pin_change(activity, authed_as):
     type = activity['type']
     assert type in ('Add', 'Remove')
 
+    actor_id = as1.get_id(activity, 'actor')
+    if authed_as != actor_id:
+        error(f"{type} actor {actor_id} doesn't match signer {authed_as}",
+              status=403)
+
     target = as1.get_id(activity, 'target')
     obj_id = as1.get_id(activity, 'object')
     if not target or not obj_id:
         return 'Ignored', 204
 
-    user = ActivityPub.get_by_id(as1.get_id(activity, 'actor'))
+    user = ActivityPub.get_by_id(actor_id)
     if not (user and user.obj and user.obj.as2
             and target == as1.get_id(user.obj.as1, 'featured')):
         return 'Ignored', 204

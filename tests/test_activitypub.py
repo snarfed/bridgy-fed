@@ -1237,6 +1237,31 @@ class ActivityPubTest(TestCase):
         self.assertEqual(503, resp.status_code)
         self.assertIn('planned maintenance', resp.get_data(as_text=True))
 
+    def test_inbox_add_to_featured_actor_not_signer(self, _, mock_get, __):
+        featured = {
+            'id': 'https://mas.to/users/foo/collections/featured',
+            'type': 'OrderedCollection',
+            'totalItems': 0,
+            'orderedItems': [],
+        }
+        user = self.make_user(ACTOR['id'], cls=ActivityPub,
+                              obj_as2={**ACTOR, 'featured': featured})
+        self.make_user('https://mas.to/users/other', cls=ActivityPub,
+                       obj_as2=add_key({**ACTOR, 'id': 'https://mas.to/users/other'}))
+
+        body = json_dumps({
+            'type': 'Add',
+            'id': 'https://mas.to/users/foo/add-1',
+            'actor': ACTOR['id'],
+            'object': 'https://mas.to/users/other/statuses/1',
+            'target': 'https://mas.to/users/foo/collections/featured',
+        })
+        headers = sign('/ap/sharedInbox', body,
+                       key_id='https://mas.to/users/other')
+        got = self.client.post('/ap/sharedInbox', data=body, headers=headers)
+        self.assertEqual(403, got.status_code, got.get_data(as_text=True))
+        self.assertEqual(featured, user.key.get().obj.as2['featured'])
+
     @patch('activitypub.PROTOCOLS', new={'fake': Fake, 'other': OtherFake})
     def test_inbox_server_actor_read_only(self, _, mock_get, __):
         appengine_info.READ_ONLY = True
