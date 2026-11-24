@@ -1709,6 +1709,33 @@ class WebTest(TestCase):
         self.assertEqual(to.key, followers[0].to)
         self.assert_equals(obj.key, followers[0].follow)
 
+    def test_follow_profile_url_resolves_to_actor_id(self, mock_get, mock_post):
+        # https://github.com/snarfed/bridgy-fed/issues/1172
+        html = FOLLOW_HTML.replace('https://mas.to/mrs-foo',
+                                   'https://mas.to/@mrs-foo')
+        follow = requests_response(html, url='https://user.com/follow')
+        mock_get.side_effect = [follow, ACTOR, ACTOR]
+        mock_post.return_value = requests_response('abc xyz')
+
+        got = self.post('/queue/webmention', data={
+            'source': 'https://user.com/follow',
+            'target': 'https://fed.brid.gy/',
+        })
+        self.assertEqual(202, got.status_code)
+
+        mock_get.assert_has_calls((
+            self.req('https://user.com/follow'),
+            self.as2_req('https://mas.to/@mrs-foo'),
+        ))
+
+        self.assert_ap_deliveries(mock_post, ['https://mas.to/inbox'], FOLLOW_AS2)
+
+        followers = Follower.query().fetch()
+        self.assertEqual(1, len(followers))
+        self.assertEqual(self.user.key, followers[0].from_)
+        self.assertEqual(ActivityPub(id='https://mas.to/mrs-foo').key,
+                         followers[0].to)
+
     def test_follow_no_actor(self, mock_get, mock_post):
         self.user.obj_key = Object(id='a', as2=ACTOR_AS2).put()
         self.user.put()
