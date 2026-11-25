@@ -2098,6 +2098,9 @@ class Protocol:
             original_ids = [inner_obj_id]
 
         # maps id to Object
+        # TODO: for follows, inner_obj_id is a user id, which wastes a fetch on
+        # Nostr, which queries relays for a pubkey as an event id. original_objs is
+        # only used for replies and update/delete/share/undo, so skip otherwise?
         original_objs = {}
         for id in original_ids:
             if proto := Protocol.for_id(id):

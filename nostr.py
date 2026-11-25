@@ -478,6 +478,8 @@ class Nostr(User, Protocol):
         remote_relay = ''
         if remote_obj := granary.nostr.Nostr().base_object(obj_as1):
             if id := remote_obj.get('id'):
+                # TODO: for follows, id is a pubkey, so this queries relays for it
+                # as an event id, which always fails. use the user's relays instead
                 base_obj = Nostr.load(id)
                 remote_relay = to_cls.target_for(base_obj) or ''
 
