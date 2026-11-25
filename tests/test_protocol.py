@@ -540,6 +540,10 @@ class ProtocolTest(TestCase):
         # no stored user
         self.assertEqual(ndb.Key('Fake', 'fake:foo'), Protocol.key_for('fake:foo'))
 
+        # not normalized
+        self.assertIsNone(Fake.key_for('fake:profile:foo'))
+        self.assertIsNone(ATProto.key_for('at://did:plc:foo/app.bsky.actor.profile/self'))
+
         self.user.obj.our_as1 = {'summary': '#nobridge'}
         self.user.obj.put()
         self.assertIsNone(Protocol.key_for(self.user.key.id()))

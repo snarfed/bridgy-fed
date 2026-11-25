@@ -337,32 +337,10 @@ class Web(User, Protocol):
         """Fetches site a couple ways to check for redirects and h-card.
 
         Returns:
-          web.Web: user that was verified. May be different than self! eg if
-          self's domain started with www and we switch to the root domain.
+          web.Web: self
         """
         domain = self.key.id()
         logger.info(f'Verifying {domain}')
-
-        if (domain.startswith('www.')
-                and domain.removeprefix('www.') not in ids.WWW_DOMAINS):
-            # if root domain serves ok, use it instead
-            # https://github.com/snarfed/bridgy-fed/issues/314
-            root = domain.removeprefix('www.')
-            root_site = f'https://{root}/'
-            try:
-                resp = util.requests_get(root_site, gateway=False)
-                if resp.ok and self.is_web_url(resp.url):
-                    logger.info(f'{root_site} serves ok ; using {root} instead')
-                    root_user = Web.get_or_create(
-                        root, enabled_protocols=self.enabled_protocols,
-                        allow_opt_out=True)
-                    self.use_instead = root_user.key
-                    self.put()
-                    return root_user.verify()
-            except RequestException as e:
-                logger.info(f"Couldn't fetch {root_site} : {e}")
-                logger.info(f"Continuing with {domain}")
-                pass
 
         # check webfinger redirect
         path = f'/.well-known/webfinger?resource=acct:{domain}@{domain}'
@@ -411,7 +389,8 @@ class Web(User, Protocol):
         """Returns the :class:`ndb.Key` for a given id.
 
         If id is a domain, uses it as is. If it's a home page URL or fed.brid.gy
-        or web.brid.gy AP actor URL, extracts the domain and uses that.
+        or web.brid.gy AP actor URL, extracts the domain and uses that. Strips
+        leading ``www.`` unless the domain is in :const:`ids.WWW_DOMAINS`.
         Otherwise, returns None.
 
         Args:
@@ -431,6 +410,7 @@ class Web(User, Protocol):
                 id = parsed.netloc
 
         if is_valid_domain(id, allow_internal=True):
+            id = ids.normalize_user_id(id=id, proto=cls)
             return super().key_for(id, allow_opt_out=allow_opt_out)
 
         return None

@@ -735,35 +735,11 @@ class WebTest(TestCase):
         actor = ActivityPub.convert(user.obj, from_user=user)
         self.assertEqual('Ms. ☕ Baz [Unofficial]', actor['name'])
 
-    def test_verify_www_redirect(self, mock_get, _):
-        www_user = self.make_user('www.user.com', cls=Web)
-
-        mock_get.side_effect = [
-            requests_response(status=302, redirected_url='https://www.user.com/'),
-            requests_response(status=404),  # webfinger
-            requests_response(ACTOR_HTML, url='https://www.user.com/')
-        ]
-
-        got = www_user.verify()
-        self.assertEqual('user.com', got.key.id())
-
-        root_user = Web.get_by_id('user.com')
-        self.assertEqual(root_user.key, www_user.key.get().use_instead)
-        self.assertEqual(root_user.key, Web.get_or_create('www.user.com').key)
-
-    def test_get_or_create_www_new_use_instead(self, mock_get, _):
-        mock_get.side_effect = [
-            requests_response(status=302, redirected_url='https://www.user.com/'),
-            ACTOR_HTML_RESP,
-            requests_response(status=404),  # webfinger for @user.com@user.com
-            ACTOR_HTML_RESP,
-        ]
-
+    def test_get_or_create_www_uses_root_domain(self, mock_get, _):
         got = Web.get_or_create('www.user.com')
-        self.assertEqual('user.com', got.key.id())
-
-        www_user = ndb.Key(Web, 'www.user.com').get()
-        self.assertEqual(got.key, www_user.use_instead)
+        self.assertEqual(self.user.key, got.key)
+        self.assertIsNone(Web.get_by_id('www.user.com'))
+        mock_get.assert_not_called()
 
     def test_bad_source_url(self, *mocks):
         self.user = self.make_user('fed.brid.gy', cls=Web)
@@ -3299,19 +3275,6 @@ Current vs expected:
         postprocessed = ActivityPub.convert(self.user.obj, from_user=self.user)
         self.assertEqual('user.com', postprocessed['preferredUsername'])
 
-    def test_verify_www_root_user_is_blocked(self, mock_get, _):
-        self.user.has_redirects = False
-        self.user.put()
-
-        mock_get.side_effect = [
-            requests_response(ACTOR_HTML_METAFORMATS, url='https://user.com/'),
-            requests_response(status=404),  # webfinger for @user.com@user.com
-            requests_response(ACTOR_HTML_METAFORMATS, url='https://user.com/'),
-        ]
-
-        www = Web(id='www.user.com')
-        www.verify()
-
     def test_web_url(self, _, __):
         self.assertEqual('https://user.com/', self.user.web_url())
 
@@ -3679,8 +3642,13 @@ class WebUtilTest(TestCase):
         self.assertEqual('https://user.com/', self.user.id_uri())
 
     def test_key_for(self, *_):
-        for id in 'user.com', 'http://user.com', 'https://user.com/', 'uSeR.cOm':
-            self.assertEqual(Web(id='user.com').key, Web.key_for(id))
+        for id in ('user.com', 'http://user.com', 'https://user.com/', 'uSeR.cOm',
+                   'www.user.com', 'https://www.user.com/'):
+            with self.subTest(id=id):
+                self.assertEqual(Web(id='user.com').key, Web.key_for(id))
+
+        # in WWW_DOMAINS
+        self.assertEqual(Web(id='www.jvt.me').key, Web.key_for('www.jvt.me'))
 
         for bad in '', 'foo', 'https://foo/', 'foo bar', 'user.json':
             with self.subTest(bad=bad):

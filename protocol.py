@@ -393,6 +393,10 @@ class Protocol:
             proto = Protocol.for_id(id)
             return proto.key_for(id, allow_opt_out=allow_opt_out) if proto else None
 
+        if ids.normalize_user_id(id=id, proto=cls) != id:
+            logger.info(f'{id} is not a normalized {cls.LABEL} user id')
+            return None
+
         # load user so that we follow use_instead
         existing = cls.get_by_id(id, allow_opt_out=True)
         if existing:
