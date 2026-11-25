@@ -312,6 +312,9 @@ class IdsTest(TestCase):
             (Nostr, NPUB, PUBKEY_URI),
             (Nostr, NPUB_URI, PUBKEY_URI),
             (Nostr, f'https://primal.net/p/{NPUB}', PUBKEY_URI),
+            (Nostr, f'https://primal.net/p/{NPUB}?foo=bar', PUBKEY_URI),
+            # NIP-05 URLs need resolve_user_id
+            (Nostr, 'https://njump.me/alice@foo.com', 'https://njump.me/alice@foo.com'),
             (Nostr, f'https://snort.social/{URI_NPROFILE.removeprefix("nostr:")}',
              f'nostr:{ID}'),
         ]:
@@ -358,6 +361,7 @@ class IdsTest(TestCase):
             (Nostr, NPUB, PUBKEY_URI),
             (Nostr, NPUB_URI, PUBKEY_URI),
             (Nostr, f'https://njump.me/{NEVENT}', f'nostr:{ID}'),
+            (Nostr, f'https://njump.me/{NEVENT}#foo', f'nostr:{ID}'),
         ]:
             with self.subTest(id=id, proto=proto.LABEL):
                 self.assertEqual(expected, ids.normalize_object_id(id=id, proto=proto))

@@ -1592,6 +1592,13 @@ class UserTest(TestCase):
         self.assertEqual(['https://mas.to/users/foo'],
                          [u.key.id() for u in ActivityPub.query()])
 
+    @patch.object(util.session, 'get', return_value=requests_response('', status=404))
+    def test_load_user_nostr_nip05_url_not_found(self, _):
+        with self.assertRaises(RuntimeError):
+            models.load_user('https://njump.me/alice@foo.com', create=True,
+                             resolve=True)
+        self.assertEqual([], Nostr.query().fetch())
+
     def test_load_user_handle_not_found(self):
         with self.assertRaisesRegex(
                 RuntimeError, "^fake:handle:nope doesn't look like a handle on fake-phrase$"):
@@ -2518,10 +2525,14 @@ cast_add_body { text: "hi" }
             'object': 'other:bob',
         }, obj.our_as1)
 
-    def test_resolve_ids_remote_follow_other_protocol_profile_urls(self):
+    @patch.object(util.session, 'get', return_value=requests_response({
+        'names': {'alice': PUBKEY},
+    }))
+    def test_resolve_ids_remote_follow_other_protocol_profile_urls(self, _):
         for url, expected in (
                 ('https://farcaster.xyz/~/profiles/123', 'farcaster://123'),
                 (f'https://coracle.social/people/{NPUB}', PUBKEY_URI),
+                ('https://njump.me/alice@foo.com', PUBKEY_URI),
         ):
             with self.subTest(url=url):
                 follow = {

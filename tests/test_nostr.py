@@ -194,7 +194,10 @@ class NostrTest(TestCase):
         self.assertIsNone(Nostr.owns_id(NPUB))
 
         for id in (f'https://njump.me/{NPUB}', f'https://primal.net/p/{NPUB}',
-                   f'https://coracle.social/notes/{NEVENT}'):
+                   f'https://coracle.social/notes/{NEVENT}',
+                   f'https://primal.net/p/{NPUB}?foo=bar',
+                   'https://njump.me/alice@foo.com', 'https://njump.me/foo.com',
+                   'https://njump.me/alice@foo.com#bar'):
             with self.subTest(id=id):
                 self.assertTrue(Nostr.owns_id(id))
 
@@ -204,7 +207,10 @@ class NostrTest(TestCase):
                 self.assertEqual(False, Nostr.owns_id(id))
 
     def test_id_type(self):
-        for id in (NPUB, NPUB_URI, f'https://primal.net/p/{NPUB}'):
+        for id in (NPUB, NPUB_URI, f'https://primal.net/p/{NPUB}',
+                   f'https://primal.net/p/{NPUB}?foo=bar',
+                   'https://njump.me/alice@foo.com', 'https://njump.me/foo.com',
+                   'https://njump.me/alice@foo.com#bar'):
             with self.subTest(id=id):
                 self.assertEqual(ids.IdType.USER, Nostr.id_type(id))
 
@@ -248,6 +254,22 @@ class NostrTest(TestCase):
         self.assertEqual(PUBKEY_URI, Nostr.handle_to_id('alice@foo.com'))
         self.assertIsNone(Nostr.handle_to_id('unknown@foo.com'))
         self.assertIsNone(Nostr.handle_to_id('unknown@unknown.com'))
+
+    @patch.object(util.session, 'get', side_effect=[
+        requests_response({'names': {'alice': PUBKEY}}),
+        requests_response({'names': {'alice': PUBKEY}}),
+        requests.ConnectionError('foo'),
+    ])
+    def test_resolve_user_id(self, _):
+        for id in (PUBKEY_URI, NPUB, f'https://primal.net/p/{NPUB}',
+                   f'https://primal.net/p/{NPUB}?foo=bar',
+                   'https://njump.me/alice@foo.com',
+                   'https://njump.me/alice@foo.com?foo=bar'):
+            with self.subTest(id=id):
+                self.assertEqual(PUBKEY_URI, Nostr.resolve_user_id(id))
+
+        # couldn't resolve
+        self.assertIsNone(Nostr.resolve_user_id('https://njump.me/bob@foo.com'))
 
     def test_handle_as_domain(self):
         self.assertEqual(NPUB, Nostr(id=PUBKEY_URI).handle_as_domain)

@@ -300,7 +300,10 @@ def normalize_user_id(*, id, proto):
                 return repo
 
     elif proto.LABEL == 'nostr':
-        if match := granary.nostr.CLIENT_URL_RE.fullmatch(id):
+        if granary.nostr.CLIENT_NIP05_URL_RE.fullmatch(id):
+            # NIP-05 address; use Nostr.resolve_user_id
+            return id
+        elif match := granary.nostr.CLIENT_URL_RE.fullmatch(id):
             id = match['bech32']
         if granary.nostr.is_bech32(id):
             id = granary.nostr.uri_to_id(id)

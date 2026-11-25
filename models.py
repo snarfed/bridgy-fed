@@ -3152,7 +3152,8 @@ def load_user(handle_or_id, proto=None, create=False, allow_opt_out=False,
 
         if proto.id_type(id) is not ids.IdType.OBJECT:
             if create and resolve:
-                id = proto.resolve_user_id(id)
+                if not (id := proto.resolve_user_id(id)):
+                    raise RuntimeError(f"Couldn't resolve {handle_or_id} on {proto.PHRASE}")
             user = (proto.get_or_create(id, allow_opt_out=allow_opt_out, raise_=raise_)
                     if create else proto.get_by_id(id, allow_opt_out=allow_opt_out))
             if not user:
