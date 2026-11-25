@@ -244,6 +244,10 @@ def normalize_user_id(*, id, proto):
     * Farcaster:
       * 123 => farcaster://123
       * farcaster://@user => farcaster://123
+      * https://farcaster.xyz/user => farcaster://123
+    * Nostr:
+      * https://njump.me/npub123 => nostr:[hex pubkey]
+      * https://njump.me/alice@example.com => nostr:[hex pubkey], via NIP-05
 
     Note that :func:`profile_id` is a narrower inverse of this; it converts
     user ids to profile ids.
@@ -260,6 +264,10 @@ def normalize_user_id(*, id, proto):
     if proto.LABEL == 'farcaster':
         if match := re.fullmatch(r'(farcaster:)?([0-9]+)', id):
             return granary.farcaster.uri(match.group(2))
+
+        if (id.startswith('https://farcaster.xyz/')
+                and proto.id_type(id) == IdType.USER):
+            id = granary.farcaster.web_url_to_farcaster_uri(id)
 
         if ((match := granary.farcaster.FARCASTER_URI_RE.fullmatch(id))
                 and not match['hash']):
@@ -300,9 +308,8 @@ def normalize_user_id(*, id, proto):
                 return repo
 
     elif proto.LABEL == 'nostr':
-        if granary.nostr.CLIENT_NIP05_URL_RE.fullmatch(id):
-            # NIP-05 address; use Nostr.resolve_user_id
-            return id
+        if match := granary.nostr.CLIENT_NIP05_URL_RE.fullmatch(id):
+            return proto.handle_to_id(match['nip05'])
         elif match := granary.nostr.CLIENT_URL_RE.fullmatch(id):
             id = match['bech32']
         if granary.nostr.is_bech32(id):

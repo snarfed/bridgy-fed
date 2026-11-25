@@ -271,6 +271,15 @@ class NostrTest(TestCase):
         # couldn't resolve
         self.assertIsNone(Nostr.resolve_user_id('https://njump.me/bob@foo.com'))
 
+    @patch.object(util.session, 'get', side_effect=[
+        requests_response({'names': {'alice': PUBKEY}}),
+        requests_response('', status=404),
+    ])
+    def test_key_for_nip05_url(self, _):
+        for id in 'https://njump.me/alice@foo.com', 'https://njump.me/bob@foo.com':
+            with self.subTest(id=id):
+                self.assertIsNone(Nostr.key_for(id))
+
     def test_handle_as_domain(self):
         self.assertEqual(NPUB, Nostr(id=PUBKEY_URI).handle_as_domain)
 

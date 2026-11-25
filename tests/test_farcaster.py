@@ -132,6 +132,15 @@ class FarcasterTest(TestCase):
             with self.subTest(id=id):
                 self.assertEqual('farcaster://123', Farcaster.resolve_user_id(id))
 
+    def test_key_for_web_urls(self, mock_stub):
+        mock_stub.return_value.GetUsernameProof.return_value = \
+            UserNameProof(fid=123, name=b'snarfed')
+
+        for id in ('https://farcaster.xyz/snarfed',
+                   'https://farcaster.xyz/~/profiles/123'):
+            with self.subTest(id=id):
+                self.assertIsNone(Farcaster.key_for(id))
+
     @patch.object(util.session, 'get', return_value=requests_response({
         'result': {
             'casts': [{

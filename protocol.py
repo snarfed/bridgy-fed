@@ -330,8 +330,8 @@ class Protocol:
 
         Returns:
           str: the canonical id, or ``id``, normalized, if it can't be resolved,
-          or None if ``id`` isn't a valid user id without resolving, eg a
-          :class:`nostr.Nostr` NIP-05 URL, and resolving fails
+          or None if normalizing fails, eg a handle URL whose handle can't be
+          resolved
         """
         return ids.normalize_user_id(id=id, proto=cls)
 

@@ -36,7 +36,6 @@ from granary.nostr import (
     ID_RE,
     nip05_to_npub,
     uri_to_id,
-    web_url_to_uri,
 )
 from granary.source import PROTOCOL_URI_PREFIXES
 from requests import RequestException
@@ -275,18 +274,6 @@ class Nostr(User, Protocol):
             return ids.IdType.USER
         elif bare.startswith(OBJECT_BECH32_PREFIXES):
             return ids.IdType.OBJECT
-
-    @classmethod
-    def resolve_user_id(cls, id):
-        """Resolves NIP-05 web client URLs, eg ``https://njump.me/alice@foo.com``.
-
-        Returns None if a NIP-05 URL can't be resolved.
-        """
-        if CLIENT_NIP05_URL_RE.fullmatch(id):
-            if not (id := web_url_to_uri(id, remote=True)):
-                return None
-
-        return ids.normalize_user_id(id=id, proto=cls)
 
     @classmethod
     def owns_handle(cls, handle, allow_internal=False):

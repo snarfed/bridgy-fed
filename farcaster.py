@@ -135,23 +135,6 @@ class Farcaster(User, Protocol):
         return False
 
     @classmethod
-    def resolve_user_id(cls, id):
-        """Resolves ``farcaster.xyz`` profile URLs to ``farcaster://[fid]``.
-
-        Example input URL ids:
-        * ``https://farcaster.xyz/[username]``
-        * ``https://farcaster.xyz/~/profiles/[fid]``
-        """
-        if id.startswith('https://farcaster.xyz/'):
-            try:
-                if uri := web_url_to_farcaster_uri(id):
-                    id = uri
-            except ValueError as e:
-                logger.info(f"Couldn't convert {id} : {e}")
-
-        return ids.normalize_user_id(id=id, proto=cls)
-
-    @classmethod
     def resolve_object_id(cls, id):
         """Resolves ``farcaster.xyz`` cast URLs to ``farcaster://[fid]/0x[hash]``.
 

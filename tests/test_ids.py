@@ -16,6 +16,7 @@ from granary.tests.test_nostr import (
     URI_NPROFILE,
 )
 from webutil import util
+from webutil.testutil import requests_response
 from webutil.util import json_dumps
 
 from activitypub import ActivityPub
@@ -303,6 +304,7 @@ class IdsTest(TestCase):
             (Farcaster, '123', 'farcaster://123'),
             (Farcaster, 'farcaster://123', 'farcaster://123'),
             (Farcaster, 'farcaster:123', 'farcaster://123'),
+            (Farcaster, 'https://farcaster.xyz/~/profiles/123', 'farcaster://123'),
             (Web, 'user.com', 'user.com'),
             (Web, 'https://user.com/', 'user.com'),
             (Web, 'https://www.user.com/', 'user.com'),
@@ -313,8 +315,6 @@ class IdsTest(TestCase):
             (Nostr, NPUB_URI, PUBKEY_URI),
             (Nostr, f'https://primal.net/p/{NPUB}', PUBKEY_URI),
             (Nostr, f'https://primal.net/p/{NPUB}?foo=bar', PUBKEY_URI),
-            # NIP-05 URLs need resolve_user_id
-            (Nostr, 'https://njump.me/alice@foo.com', 'https://njump.me/alice@foo.com'),
             (Nostr, f'https://snort.social/{URI_NPROFILE.removeprefix("nostr:")}',
              f'nostr:{ID}'),
         ]:
@@ -326,15 +326,29 @@ class IdsTest(TestCase):
         farcaster._client = None
         mock_stub.return_value.GetUsernameProof.return_value = \
             UserNameProof(fid=123, name=b'user')
-        self.assertEqual('farcaster://123', ids.normalize_user_id(
-            id='farcaster://@user', proto=Farcaster))
+        for id in 'farcaster://@user', 'https://farcaster.xyz/user':
+            with self.subTest(id=id):
+                self.assertEqual('farcaster://123', ids.normalize_user_id(
+                    id=id, proto=Farcaster))
+
+    @patch.object(util.session, 'get', side_effect=[
+        requests_response({'names': {'alice': PUBKEY}}),
+        requests_response('', status=404),
+    ])
+    def test_normalize_user_id_nostr_nip05_url(self, _):
+        self.assertEqual(PUBKEY_URI, ids.normalize_user_id(
+            id='https://njump.me/alice@foo.com', proto=Nostr))
+        self.assertIsNone(ids.normalize_user_id(
+            id='https://njump.me/bob@foo.com', proto=Nostr))
 
     def test_normalize_user_id_not_user_id(self):
         for proto, id in [
             (ATProto, 'at://did:plc:123/app.bsky.feed.post/456'),
             (ATProto, 'https://bsky.app/profile/han.dull/post/456'),
             (ATProto, 'https://bsky.app/profile/han.dull/lists/abc'),
-            (Farcaster, 'farcaster://123/0x456')
+            (Farcaster, 'farcaster://123/0x456'),
+            (Farcaster, 'https://farcaster.xyz/user/0x456'),
+            (Farcaster, 'https://farcaster.xyz/~/conversations/0x456'),
         ]:
             with self.subTest(id=id, proto=proto.LABEL):
                 self.assertEqual(id, ids.normalize_user_id(id=id, proto=proto))
