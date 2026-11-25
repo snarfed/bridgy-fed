@@ -3124,7 +3124,8 @@ def load_user(handle_or_id, proto=None, create=False, allow_opt_out=False,
 
     logger.debug(f'loading {handle_or_id}')
 
-    if not proto or proto is protocol.Protocol:
+    guessed_proto = proto in (None, protocol.Protocol)
+    if guessed_proto:
         if not (proto := protocol.Protocol.for_id(handle_or_id)):
             proto, id = protocol.Protocol.for_handle(handle_or_id)
             if id:
@@ -3181,7 +3182,9 @@ def load_user(handle_or_id, proto=None, create=False, allow_opt_out=False,
     if create:
         id = proto.handle_to_id(handle_or_id)
         if not id:
-            raise RuntimeError(f"{handle_or_id} doesn't look like a handle on {proto.PHRASE}")
+            raise RuntimeError(
+                f"Couldn't find {handle_or_id}" if guessed_proto
+                else f"{handle_or_id} doesn't look like a handle on {proto.PHRASE}")
         if resolve:
             id = proto.resolve_user_id(id)
         user = proto.get_or_create(id, allow_opt_out=allow_opt_out, raise_=raise_)

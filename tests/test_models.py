@@ -1591,6 +1591,15 @@ class UserTest(TestCase):
         self.assertEqual(['https://mas.to/users/foo'],
                          [u.key.id() for u in ActivityPub.query()])
 
+    def test_load_user_handle_not_found(self):
+        with self.assertRaisesRegex(
+                RuntimeError, "^fake:handle:nope doesn't look like a handle on fake-phrase$"):
+            models.load_user('fake:handle:nope', proto=Fake, create=True)
+
+        # don't name the protocol if we guessed it
+        with self.assertRaisesRegex(RuntimeError, "^Couldn't find fake:handle:nope$"):
+            models.load_user('fake:handle:nope', create=True)
+
     @patch.object(util.session, 'get', side_effect=[
         requests_response({
             'subject': 'acct:foo@mas.to',

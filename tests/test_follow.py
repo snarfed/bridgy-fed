@@ -367,7 +367,7 @@ class FollowTest(TestCase):
 
         self.assertEqual([
             "Couldn't fetch foo@.x: URL has an invalid label.",
-            "@foo@.x doesn't look like a handle on the fediverse",
+            "Couldn't find @foo@.x",
         ], get_flashed_messages())
         self.assertEqual(302, resp.status_code)
         self.assertEqual('/web/alice.com/following', resp.headers['Location'])
@@ -498,8 +498,7 @@ class FollowTest(TestCase):
         resp = self.client.get(f'/follow/callback?code=my_code&state={state}')
         self.assertEqual(302, resp.status_code)
         self.assertEqual('/web/alice.com/following', resp.headers['Location'])
-        self.assertEqual(["asdf doesn't look like a handle on Farcaster"],
-                         get_flashed_messages())
+        self.assertEqual(["Couldn't find asdf"], get_flashed_messages())
         self.assertEqual([], Follower.query().fetch())
 
     def test_callback_bridged_bluesky_handle_error(self, mock_get, mock_post):
