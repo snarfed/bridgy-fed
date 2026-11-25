@@ -1,6 +1,6 @@
 """Integration tests."""
 import copy
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from unittest import skip
 from unittest.mock import ANY, patch
 
@@ -80,6 +80,7 @@ import models
 from models import Cursor, DM, Follower, Object, Target
 from nostr import Nostr, NostrRelay
 import nostr_hub
+import protocol
 from web import Web
 
 from .testutil import ATPROTO_KEY, TestCase
@@ -4558,6 +4559,84 @@ class IntegrationTests(TestCase):
 
         self.assert_equals([['EVENT', expected_event]],
                            [msg for msg in FakeConnection.sent if msg[0] == 'EVENT'])
+
+        follower = Follower.query().get()
+        self.assertEqual(bob.key, follower.from_)
+        self.assertEqual(alice.key, follower.to)
+        self.assertEqual('active', follower.status)
+
+    @patch('secrets.token_urlsafe', return_value='towkin')
+    @patch.object(util.session, 'get', side_effect=[
+        # webmention source page, follow HTML
+        requests_response(f"""\
+<html>
+<body class="h-entry">
+<a class="u-url" href="https://bob.com/follow"></a>
+<a class="u-follow-of" href="https://primal.net/p/{NPUB}"></a>
+<a href="http://localhost/"></a>
+</body>
+</html>
+"""),
+        # https://bob.com/ , for authorship
+        requests_response("""\
+<html>
+<body class="h-card">
+<a class="p-name u-url" rel="me" href="https://bob.com/">Bob</a>
+</body>
+</html>
+"""),
+    ])
+    def test_web_follow_of_nostr_user_stale_profile(self, mock_get, _):
+        """Web follow of a Nostr user whose stored profile event is stale.
+
+        Kind 0 profiles are replaceable, so relays drop old profile event ids, and
+        we can't refresh a stale profile by fetching its event id. Instead, we use
+        the stored profile as is.
+
+        Web user bob.com
+        Nostr user alice@nos.tr (NPUB_URI)
+        Follow is HTML with mf2 u-follow-of of https://primal.net/p/[npub]
+        """
+        bob = self.make_web_user('bob.com', enabled_protocols=['nostr'])
+
+        too_old = (NOW.replace(tzinfo=None)
+                   - protocol.OBJECT_REFRESH_AGE
+                   - timedelta(days=1))
+        with patch('models.Object.updated._now', return_value=too_old):
+            alice = self.make_nostr_user(nip05='alice@nos.tr')
+
+        expected_event = id_and_sign({
+            'kind': KIND_CONTACTS,
+            'pubkey': bob.hex_pubkey(),
+            'content': '',
+            'tags': [
+                ['proxy', 'https://bob.com/follow', 'web'],
+                ['p', PUBKEY, '', ''],
+            ],
+            'created_at': NOW_SECONDS,
+        }, privkey=bob.nsec())
+
+        FakeConnection.to_receive = [
+            # targets loading original_ids, ie the followee's pubkey
+            ['EOSE', 'towkin'],
+            # Nostr.send looking for the followee's relay
+            ['EOSE', 'towkin'],
+            ['OK', expected_event['id'], True, ''],
+        ]
+
+        resp = self.post('/webmention', data={
+            'source': 'https://bob.com/follow',
+            'target': 'http://localhost',
+        })
+        self.assertEqual(202, resp.status_code)
+
+        self.assert_equals([
+            ['REQ', 'towkin', {'ids': [PUBKEY], 'limit': 20}],
+            ['CLOSE', 'towkin'],
+            ['REQ', 'towkin', {'ids': [PUBKEY], 'limit': 20}],
+            ['CLOSE', 'towkin'],
+            ['EVENT', expected_event],
+        ], FakeConnection.sent)
 
         follower = Follower.query().get()
         self.assertEqual(bob.key, follower.from_)

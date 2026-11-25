@@ -2204,7 +2204,11 @@ class Protocol:
                              # returns its input id unchanged if it doesn't look like
                              # a user id, but that's brittle.
                              else target_id)
-            orig_obj = target_proto.load(target_obj_id, raise_=False)
+
+            # don't refresh the existing id since some profile ids aren't stable, eg
+            # Nostr kind 0 events are replaceable, so relays drop old ones
+            orig_obj = target_proto.load(target_obj_id, raise_=False, refresh=False)
+
             if not orig_obj or not orig_obj.as1:
                 logger.info(f"Couldn't load {target_obj_id}")
                 continue
@@ -2431,7 +2435,7 @@ Hi! You <a href="{inner_obj_as1.get('url') or inner_obj_id}">recently {verb}</a>
 
     @classmethod
     def load(cls, id, remote=None, local=True, raise_=True, raw=False, csv=False,
-             **kwargs):
+             refresh=True, **kwargs):
         """Loads and returns an Object from datastore or HTTP fetch.
 
         Sets the :attr:`new` and :attr:`changed` attributes if we know either
@@ -2443,7 +2447,8 @@ Hi! You <a href="{inner_obj_as1.get('url') or inner_obj_id}">recently {verb}</a>
             fetches even if we already have the object stored, and updates our
             stored copy. If False and we don't have the object stored, returns
             None. Default (None) means to fetch over the network only if we
-            don't already have it stored.
+            don't already have it stored, or our stored copy is older than
+            ``OBJECT_REFRESH_AGE`` and ``refresh`` is True.
           local (bool): whether to load from the datastore before
             fetching over the network. If False, still stores back to the
             datastore after a successful remote fetch.
@@ -2454,6 +2459,8 @@ Hi! You <a href="{inner_obj_as1.get('url') or inner_obj_id}">recently {verb}</a>
             normalizing to an on-protocol object id. Exact meaning varies by subclass.
           csv (bool): whether to specifically load a CSV object
             TODO: merge this into raw, using returned Content-Type?
+          refresh (bool): if ``remote`` is None, whether to refetch our stored
+            copy if it's older than ``OBJECT_REFRESH_AGE``. Ignored otherwise.
           kwargs: passed through to :meth:`fetch()`
 
         Returns:
@@ -2484,7 +2491,8 @@ Hi! You <a href="{inner_obj_as1.get('url') or inner_obj_id}">recently {verb}</a>
         if remote is False:
             return obj
         elif remote is None and obj:
-            if obj.updated < util.as_utc(util.now() - OBJECT_REFRESH_AGE):
+            if (refresh
+                    and obj.updated < util.as_utc(util.now() - OBJECT_REFRESH_AGE)):
                 # logger.debug(f'  last updated {obj.updated}, refreshing')
                 pass
             else:

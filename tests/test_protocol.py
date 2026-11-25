@@ -499,6 +499,20 @@ class ProtocolTest(TestCase):
         loaded = Fake.load('fake:foo')
         self.assertEqual({'fetched': 'x', 'id': 'fake:foo'}, loaded.our_as1)
 
+    def test_load_refresh_false(self):
+        Fake.fetchable['fake:foo'] = {'fetched': 'x'}
+
+        too_old = (NOW.replace(tzinfo=None)
+                   - protocol.OBJECT_REFRESH_AGE
+                   - timedelta(days=1))
+        with patch('models.Object.updated._now', return_value=too_old):
+            stored = Object(id='fake:foo', our_as1={'orig': 'y'})
+            stored.put()
+
+        loaded = Fake.load('fake:foo', refresh=False)
+        self.assert_entities_equal(stored, loaded)
+        self.assertEqual([], Fake.fetched)
+
     @patch('protocol.MAX_ENTITY_SIZE', new=50)
     def test_load_too_big(self):
         Fake.fetchable['fake:foo'] = {
