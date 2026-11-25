@@ -18,6 +18,7 @@ from granary import as1
 import granary.nostr
 from granary.nostr import (
     bech32_prefix_for,
+    CLIENT_URL_RE,
     id_and_sign,
     id_for,
     id_to_uri,
@@ -242,7 +243,7 @@ class Nostr(User, Protocol):
 
     @classmethod
     def owns_id(cls, id):
-        if id.startswith(cls.URI_PREFIXES):
+        if id.startswith(cls.URI_PREFIXES) or CLIENT_URL_RE.fullmatch(id):
             return True
         elif is_bech32(id) or ID_RE.match(id):
             return None
@@ -259,7 +260,11 @@ class Nostr(User, Protocol):
         if not id:
             return None
 
-        bare = id.removeprefix('nostr:')
+        if match := CLIENT_URL_RE.fullmatch(id):
+            bare = match['bech32']
+        else:
+            bare = id.removeprefix('nostr:')
+
         if bare.startswith(USER_BECH32_PREFIXES):
             return ids.IdType.USER
         elif bare.startswith(OBJECT_BECH32_PREFIXES):

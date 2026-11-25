@@ -5,7 +5,16 @@ from unittest.mock import patch
 from granary.generated.farcaster.username_proof_pb2 import UserNameProof
 from granary.nostr import KIND_PROFILE
 from granary.tests.test_farcaster import user_data_message
-from granary.tests.test_nostr import ID, NPUB, NPUB_URI, PUBKEY, PUBKEY_URI, URI
+from granary.tests.test_nostr import (
+    ID,
+    NEVENT,
+    NPUB,
+    NPUB_URI,
+    PUBKEY,
+    PUBKEY_URI,
+    URI,
+    URI_NPROFILE,
+)
 from webutil import util
 from webutil.util import json_dumps
 
@@ -302,6 +311,9 @@ class IdsTest(TestCase):
             (Nostr, PUBKEY_URI, PUBKEY_URI),
             (Nostr, NPUB, PUBKEY_URI),
             (Nostr, NPUB_URI, PUBKEY_URI),
+            (Nostr, f'https://primal.net/p/{NPUB}', PUBKEY_URI),
+            (Nostr, f'https://snort.social/{URI_NPROFILE.removeprefix("nostr:")}',
+             f'nostr:{ID}'),
         ]:
             with self.subTest(id=id, proto=proto.LABEL):
                 self.assertEqual(expected, ids.normalize_user_id(id=id, proto=proto))
@@ -345,6 +357,7 @@ class IdsTest(TestCase):
             (Nostr, PUBKEY_URI, PUBKEY_URI),
             (Nostr, NPUB, PUBKEY_URI),
             (Nostr, NPUB_URI, PUBKEY_URI),
+            (Nostr, f'https://njump.me/{NEVENT}', f'nostr:{ID}'),
         ]:
             with self.subTest(id=id, proto=proto.LABEL):
                 self.assertEqual(expected, ids.normalize_object_id(id=id, proto=proto))

@@ -193,17 +193,22 @@ class NostrTest(TestCase):
         self.assertIsNone(Nostr.owns_id(PUBKEY))
         self.assertIsNone(Nostr.owns_id(NPUB))
 
+        for id in (f'https://njump.me/{NPUB}', f'https://primal.net/p/{NPUB}',
+                   f'https://coracle.social/notes/{NEVENT}'):
+            with self.subTest(id=id):
+                self.assertTrue(Nostr.owns_id(id))
+
         for id in ('abc', 'did:abc', 'foo.com', 'https://foo.com/',
                    'https://foo.com/bar', 'at://did:abc/x.y.z/123'):
             with self.subTest(id=id):
                 self.assertEqual(False, Nostr.owns_id(id))
 
     def test_id_type(self):
-        for id in (NPUB, NPUB_URI):
+        for id in (NPUB, NPUB_URI, f'https://primal.net/p/{NPUB}'):
             with self.subTest(id=id):
                 self.assertEqual(ids.IdType.USER, Nostr.id_type(id))
 
-        for id in (NEVENT, 'nostr:' + NEVENT):
+        for id in (NEVENT, 'nostr:' + NEVENT, f'https://njump.me/{NEVENT}'):
             with self.subTest(id=id):
                 self.assertEqual(ids.IdType.OBJECT, Nostr.id_type(id))
 

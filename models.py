@@ -2438,10 +2438,11 @@ class Object(AddRemoveMixin, StringIdModel):
 
         objects = []
         for inner_obj in inner_objs:
-            inner_id = inner_obj.get('id')
-            kind = self_proto.id_type(inner_id) if self_proto and inner_id else None
-            objects.append(replace(inner_obj, kind or default_kind,
-                                   remote=object_remote))
+            kind = default_kind
+            if inner_id := inner_obj.get('id'):
+                if inner_proto := Protocol.for_id(inner_id, remote=False):
+                    kind = inner_proto.id_type(inner_id) or default_kind
+            objects.append(replace(inner_obj, kind, remote=object_remote))
 
         outer_obj['object'] = objects[0] if len(objects) == 1 else objects
 

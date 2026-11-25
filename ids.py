@@ -300,6 +300,8 @@ def normalize_user_id(*, id, proto):
                 return repo
 
     elif proto.LABEL == 'nostr':
+        if match := granary.nostr.CLIENT_URL_RE.fullmatch(id):
+            id = match['bech32']
         if granary.nostr.is_bech32(id):
             id = granary.nostr.uri_to_id(id)
         if not id.startswith('nostr:'):
@@ -343,6 +345,8 @@ def normalize_object_id(*, id, proto):
             return profile_id(id=id, proto=proto)
 
     elif proto.LABEL == 'nostr':
+        if match := granary.nostr.CLIENT_URL_RE.fullmatch(id):
+            id = match['bech32']
         if granary.nostr.is_bech32(id):
             id = granary.nostr.uri_to_id(id)
         if granary.nostr.ID_RE.match(id):

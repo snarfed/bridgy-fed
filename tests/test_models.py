@@ -58,6 +58,7 @@ from web import Web
 from granary.nostr import bech32_prefix_for, is_bech32
 from granary.tests.test_nostr import (
     ID,
+    NPUB,
     NPUB_2,
     NPUB_URI,
     NPUB_URI_2,
@@ -2516,6 +2517,24 @@ cast_add_body { text: "hi" }
             'actor': 'other:alice',
             'object': 'other:bob',
         }, obj.our_as1)
+
+    def test_resolve_ids_remote_follow_other_protocol_profile_urls(self):
+        for url, expected in (
+                ('https://farcaster.xyz/~/profiles/123', 'farcaster://123'),
+                (f'https://coracle.social/people/{NPUB}', PUBKEY_URI),
+        ):
+            with self.subTest(url=url):
+                follow = {
+                    'id': 'https://user.com/follow',
+                    'objectType': 'activity',
+                    'verb': 'follow',
+                    'actor': 'user.com',
+                    'object': url,
+                }
+                obj = Object(id='https://user.com/follow', our_as1=follow,
+                             source_protocol='web')
+                obj.resolve_ids(remote=True)
+                self.assert_equals({**follow, 'object': expected}, obj.our_as1)
 
     def test_resolve_ids_copies_block_of_object(self):
         # a block's object may be a user or an object, eg a blocklist. the id
