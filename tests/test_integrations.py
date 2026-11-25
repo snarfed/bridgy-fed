@@ -40,6 +40,7 @@ from granary.generated.farcaster.request_response_pb2 import (
     MessagesResponse,
     SubmitBulkMessagesResponse,
 )
+from granary.generated.farcaster.username_proof_pb2 import UserNameProof
 from granary.tests.test_farcaster import message as fc_message, user_data_message
 from granary.tests.test_bluesky import ACTOR_PROFILE_BSKY, POST_BSKY
 from granary.tests.test_nostr import (
@@ -4505,6 +4506,64 @@ class IntegrationTests(TestCase):
             Target(protocol='nostr', uri='nostr:' + expected_event['id']),
         ], Object.get_by_id('https://alice.com/post').copies)
 
+    @patch.object(util.session, 'get', side_effect=[
+        # webmention source page, follow HTML
+        requests_response("""\
+<html>
+<body class="h-entry">
+<a class="u-url" href="https://bob.com/follow"></a>
+<a class="u-follow-of" href="https://njump.me/alice@nos.tr"></a>
+<a href="http://localhost/"></a>
+</body>
+</html>
+"""),
+        # https://bob.com/ , for authorship
+        requests_response("""\
+<html>
+<body class="h-card">
+<a class="p-name u-url" rel="me" href="https://bob.com/">Bob</a>
+</body>
+</html>
+"""),
+        # alice@nos.tr NIP-05
+        requests_response({'names': {'alice': PUBKEY}}),
+    ])
+    def test_web_follow_of_nostr_nip05_url(self, mock_get):
+        """Incoming webmention for a web follow of a Nostr NIP-05 web client URL.
+
+        Web user bob.com
+        Nostr user alice@nos.tr (NPUB_URI)
+        Follow is HTML with mf2 u-follow-of of https://njump.me/alice@nos.tr
+        """
+        bob = self.make_web_user('bob.com', enabled_protocols=['nostr'])
+        alice = self.make_nostr_user(nip05='alice@nos.tr')
+
+        expected_event = id_and_sign({
+            'kind': KIND_CONTACTS,
+            'pubkey': bob.hex_pubkey(),
+            'content': '',
+            'tags': [
+                ['proxy', 'https://bob.com/follow', 'web'],
+                ['p', PUBKEY, '', ''],
+            ],
+            'created_at': NOW_SECONDS,
+        }, privkey=bob.nsec())
+        FakeConnection.to_receive = [['OK', expected_event['id'], True, '']]
+
+        resp = self.post('/webmention', data={
+            'source': 'https://bob.com/follow',
+            'target': 'http://localhost',
+        })
+        self.assertEqual(202, resp.status_code)
+
+        self.assert_equals([['EVENT', expected_event]],
+                           [msg for msg in FakeConnection.sent if msg[0] == 'EVENT'])
+
+        follower = Follower.query().get()
+        self.assertEqual(bob.key, follower.from_)
+        self.assertEqual(alice.key, follower.to)
+        self.assertEqual('active', follower.status)
+
     @patch.object(util.session, 'post')
     @patch.object(util.session, 'get')
     def test_web_blog_redirect_post_to_activitypub_follower(self, mock_get, mock_post):
@@ -6118,6 +6177,59 @@ cast_add_body { text: "Hello from ActivityPub!" }
 type: MESSAGE_TYPE_CAST_ADD
 cast_add_body { text: "Hello from Web!" }
 """, fid=123)])
+
+    @patch.object(util.session, 'get', side_effect=[
+        # webmention source page, follow HTML
+        requests_response("""\
+<html>
+<body class="h-entry">
+<a class="u-url" href="https://bob.com/follow"></a>
+<a class="u-follow-of" href="https://farcaster.xyz/alice"></a>
+<a href="http://localhost/"></a>
+</body>
+</html>
+"""),
+        # https://bob.com/ , for authorship
+        requests_response("""\
+<html>
+<body class="h-card">
+<a class="p-name u-url" rel="me" href="https://bob.com/">Bob</a>
+</body>
+</html>
+"""),
+    ])
+    def test_web_follow_of_farcaster_username_url(self, mock_get):
+        """Incoming webmention for a web follow of a farcaster.xyz profile URL.
+
+        Web user bob.com (Farcaster fid 456)
+        Farcaster user alice (fid 123)
+        Follow is HTML with mf2 u-follow-of of https://farcaster.xyz/alice
+        """
+        bob = self.make_web_user('bob.com')
+        self.make_farcaster_copy(bob, 456)
+        alice = self.make_farcaster_user(123, username='alice')
+        self.mock_fc_stub.return_value.GetUsernameProof.return_value = \
+            UserNameProof(fid=123, name=b'alice')
+
+        resp = self.post('/webmention', data={
+            'source': 'https://bob.com/follow',
+            'target': 'http://localhost',
+        })
+        self.assertEqual(202, resp.status_code)
+
+        self.assert_farcaster_sent([fc_message("""
+type: MESSAGE_TYPE_LINK_ADD
+link_body {
+  type: "follow"
+  target_fid: 123
+  displayTimestamp: 31633445
+}
+""", fid=456)])
+
+        follower = Follower.query().get()
+        self.assertEqual(bob.key, follower.from_)
+        self.assertEqual(alice.key, follower.to)
+        self.assertEqual('active', follower.status)
 
     def test_atproto_post_to_farcaster_follower(self):
         """ATProto post delivered to a Farcaster follower.
