@@ -1591,6 +1591,24 @@ class UserTest(TestCase):
         self.assertEqual(['https://mas.to/users/foo'],
                          [u.key.id() for u in ActivityPub.query()])
 
+    @patch.object(util.session, 'get', side_effect=[
+        requests_response({
+            'subject': 'acct:foo@mas.to',
+            'links': [{
+                'rel': 'self',
+                'type': 'application/activity+json',
+                'href': 'https://mas.to/@foo',
+            }],
+        }),
+        TestCase.as2_resp(ACTOR),
+        TestCase.as2_resp(ACTOR),
+    ])
+    def test_load_user_activitypub_resolve_handle_to_actor_id(self, _):
+        user = models.load_user('@foo@mas.to', create=True, resolve=True)
+        self.assertEqual('https://mas.to/users/foo', user.key.id())
+        self.assertEqual(['https://mas.to/users/foo'],
+                         [u.key.id() for u in ActivityPub.query()])
+
 
 class ObjectTest(TestCase):
 

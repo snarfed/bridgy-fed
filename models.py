@@ -3182,6 +3182,8 @@ def load_user(handle_or_id, proto=None, create=False, allow_opt_out=False,
         id = proto.handle_to_id(handle_or_id)
         if not id:
             raise RuntimeError(f"{handle_or_id} doesn't look like a handle on {proto.PHRASE}")
+        if resolve:
+            id = proto.resolve_user_id(id)
         user = proto.get_or_create(id, allow_opt_out=allow_opt_out, raise_=raise_)
         if user and user.obj and user.obj.as1:
             return user

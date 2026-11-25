@@ -13,7 +13,7 @@ from webutil.util import json_dumps, json_loads
 import requests
 
 # import first so that Fake is defined before URL routes are registered
-from .testutil import Fake, TestCase
+from .testutil import ExplicitFake, Fake, TestCase
 
 from activitypub import ActivityPub
 from domains import unwrap
@@ -44,22 +44,20 @@ FOLLOWEE = {
     'outbox': 'http://ba.r/outbox',
     'image': 'http://pic',
 }
-FOLLOW_ADDRESS = {
+FOLLOW = {
     '@context': 'https://www.w3.org/ns/activitystreams',
     'type': 'Follow',
-    'id': f'http://localhost/r/https://alice.com/#follow-2022-01-02T03:04:05-@foo@ba.r',
+    'id': 'http://localhost/r/https://alice.com/#follow-2022-01-02T03:04:05-https://ba.r/id',
     'actor': 'http://localhost/alice.com',
     'object': FOLLOWEE['id'],
     'to': [as2.PUBLIC_AUDIENCE],
 }
-FOLLOW_URL = copy.deepcopy(FOLLOW_ADDRESS)
-FOLLOW_URL['id'] = f'http://localhost/r/https://alice.com/#follow-2022-01-02T03:04:05-https://ba.r/actor'
 UNDO_FOLLOW = {
     '@context': 'https://www.w3.org/ns/activitystreams',
     'type': 'Undo',
     'id': 'http://localhost/r/https://alice.com/#bridgy-fed-unfollow-2022-01-02T03:04:05-https://ba.r/id',
     'actor': 'http://localhost/alice.com',
-    'object': copy.deepcopy(FOLLOW_ADDRESS),
+    'object': copy.deepcopy(FOLLOW),
 }
 del UNDO_FOLLOW['object']['id']
 
@@ -206,7 +204,7 @@ class FollowTest(TestCase):
         state = store_indieauth_state(self.state['state'])
         resp = self.client.get(f'/follow/callback?code=my_code&state={state}',
                                base_url='https://fed.brid.gy/')
-        self.check('@foo@ba.r', resp, FOLLOW_ADDRESS, mock_get, mock_post)
+        self.check('@foo@ba.r', resp, FOLLOW, mock_get, mock_post)
         mock_get.assert_has_calls((
             self.req('https://ba.r/.well-known/webfinger?resource=acct:foo@ba.r'),
         ))
@@ -226,7 +224,7 @@ class FollowTest(TestCase):
         state = store_indieauth_state(self.state['state'])
         resp = self.client.get(f'/follow/callback?code=my_code&state={state}',
                                base_url='https://fed.brid.gy/')
-        self.check('https://ba.r/actor', resp, FOLLOW_URL, mock_get, mock_post)
+        self.check('https://ba.r/actor', resp, FOLLOW, mock_get, mock_post)
 
     def test_callback_stored_followee_with_our_as1(self, mock_get, mock_post):
         self.store_object(id='https://ba.r/id', our_as1=as2.to_as1(FOLLOWEE),
@@ -247,13 +245,8 @@ class FollowTest(TestCase):
         resp = self.client.get(f'/follow/callback?code=my_code&state={state}',
                                base_url='https://fed.brid.gy/')
 
-        follow_with_profile_link = {
-            **FOLLOW_URL,
-            'id': f'http://localhost/r/https://alice.com/#follow-2022-01-02T03:04:05-https://ba.r/id',
-            'object': 'https://ba.r/id',
-        }
-        self.check('https://ba.r/id', resp, follow_with_profile_link, mock_get,
-                   mock_post, fetched_followee=False)
+        self.check('https://ba.r/id', resp, FOLLOW, mock_get, mock_post,
+                   fetched_followee=False)
 
     def test_callback_user_with_custom_username(self, mock_get, mock_post):
         self.user.obj.our_as1 = None
@@ -278,9 +271,9 @@ class FollowTest(TestCase):
         resp = self.client.get(f'/follow/callback?code=my_code&state={state}',
                                base_url='https://fed.brid.gy/')
 
-        self.check('https://ba.r/actor', resp, FOLLOW_URL, mock_get, mock_post,
+        self.check('https://ba.r/actor', resp, FOLLOW, mock_get, mock_post,
                    expected_follow_as1={
-            **as2.to_as1(unwrap(FOLLOW_URL)),
+            **as2.to_as1(unwrap(FOLLOW)),
             'actor': {
                 'objectType': 'person',
                 'id': 'alice.com',
@@ -315,22 +308,11 @@ class FollowTest(TestCase):
         resp = self.client.get(f'/follow/callback?code=my_code&state={state}',
                                base_url='https://fed.brid.gy/')
 
-        self.check('https://ba.r/actor', resp, FOLLOW_URL, mock_get, mock_post)
+        self.check('https://ba.r/actor', resp, FOLLOW, mock_get, mock_post)
 
     def test_callback_bridged_account_error(self, mock_get, mock_post):
         mock_post.return_value = requests_response('me=https://alice.com')
-        mock_get.side_effect = [
-            requests_response(''),  # indieauth https://alice.com fetch for user json
-            requests_response({     # webfinger
-                'subject': 'acct:bob.com@web.brid.gy',
-                'aliases': ['https://bob.com/'],
-                'links': [{
-                    'rel': 'self',
-                    'type': as2.CONTENT_TYPE,
-                    'href': 'https://web.brid.gy/bob.com',
-                }],
-            }),
-        ]
+        mock_get.return_value = requests_response('')  # indieauth
 
         self.state['state'] = '@bob.com@web.brid.gy'
         state = store_indieauth_state(self.state['state'])
@@ -339,8 +321,9 @@ class FollowTest(TestCase):
         self.assertEqual(302, resp.status_code)
         self.assertEqual('/web/alice.com/following', resp.headers['Location'])
         self.assertEqual(
-            ["@bob.com@web.brid.gy is a bridged account. Try following them on the web!"],
+            ['@bob.com@web.brid.gy is a bridged account. Try following them with their native handle on the web!'],
             get_flashed_messages())
+        self.assertEqual(1, mock_get.call_count)
 
     def test_callback_upgraded_bridged_account_error(self, mock_get, mock_post):
         mock_post.return_value = requests_response('me=https://alice.com')
@@ -366,7 +349,7 @@ class FollowTest(TestCase):
         self.assertEqual(302, resp.status_code)
         self.assertEqual('/web/alice.com/following', resp.headers['Location'])
         self.assertEqual(
-            ["@bob.com@bob.com is a bridged account. Try following them on the web!"],
+            ["Couldn't find bridged activitypub account @bob.com@bob.com"],
             get_flashed_messages())
 
     def test_callback_bad_addr(self, mock_get, mock_post):
@@ -382,8 +365,10 @@ class FollowTest(TestCase):
         resp = self.client.get(f'/follow/callback?code=my_code&state={state}',
                                base_url='https://fed.brid.gy/')
 
-        self.assertEqual(["Couldn't fetch foo@.x: URL has an invalid label."],
-                         get_flashed_messages())
+        self.assertEqual([
+            "Couldn't fetch foo@.x: URL has an invalid label.",
+            "@foo@.x doesn't look like a handle on the fediverse",
+        ], get_flashed_messages())
         self.assertEqual(302, resp.status_code)
         self.assertEqual('/web/alice.com/following', resp.headers['Location'])
 
@@ -392,6 +377,7 @@ class FollowTest(TestCase):
         mock_get.side_effect = [
             requests_response(''),  # IndieAuth endpoint discovery
             WEBFINGER,
+            requests_response('{"error":"Public key not found"}', status=403),
             requests_response('{"error":"Public key not found"}', status=403),
         ]
 
@@ -404,6 +390,145 @@ class FollowTest(TestCase):
         self.assertEqual(["Couldn't load @foo@ba.r; they or their server may be blocking Bridgy Fed."],
                          get_flashed_messages())
         self.assertEqual([], Follower.query().fetch())
+
+    def test_callback_profile_url_resolves_to_actor_id(self, mock_get, mock_post):
+        # https://github.com/snarfed/bridgy-fed/issues/1172
+        mock_get.side_effect = (
+            requests_response(''),  # indieauth https://alice.com fetch for user json
+            self.as2_resp(FOLLOWEE),
+            self.as2_resp(FOLLOWEE),
+        )
+        mock_post.side_effect = (
+            requests_response('me=https://alice.com'),
+            requests_response('OK'),  # AP Follow to inbox
+        )
+
+        state = store_indieauth_state('https://ba.r/@foo')
+        resp = self.client.get(f'/follow/callback?code=my_code&state={state}',
+                               base_url='https://fed.brid.gy/')
+        self.check('https://ba.r/@foo', resp, FOLLOW, mock_get, mock_post,
+                   fetched_followee=False)
+        mock_get.assert_has_calls((
+            self.as2_req('https://ba.r/@foo'),
+        ))
+
+    def test_callback_other_protocol(self, mock_get, mock_post):
+        bob = self.make_user('fake:bob', cls=Fake, enabled_protocols=['web'],
+                             obj_as1={'id': 'fake:bob', 'objectType': 'person',
+                                      'url': 'https://fa.ke/bob'})
+        mock_get.return_value = requests_response('')
+        mock_post.return_value = requests_response('me=https://alice.com')
+
+        state = store_indieauth_state('fake:handle:bob')
+        resp = self.client.get(f'/follow/callback?code=my_code&state={state}',
+                               base_url='https://fed.brid.gy/')
+        self.assertEqual(302, resp.status_code)
+        self.assertEqual('/web/alice.com/following', resp.headers['Location'])
+        self.assertEqual(
+            ['Followed fake:handle:bob.'],
+            get_flashed_messages())
+
+        follow_id = 'https://alice.com/#follow-2022-01-02T03:04:05-fake:bob'
+        self.assertEqual([('fake:bob:target', {
+            'objectType': 'activity',
+            'verb': 'follow',
+            'id': follow_id,
+            'actor': 'alice.com',
+            'object': 'fake:bob',
+        })], Fake.sent)
+
+        self.assert_entities_equal(
+            Follower(from_=self.user.key, to=bob.key,
+                     follow=Object(id=follow_id).key, status='active'),
+            Follower.query().fetch(),
+            ignore=['created', 'updated'])
+
+    def test_callback_follower_not_bridged_into_followee_protocol(
+            self, mock_get, mock_post):
+        self.make_user('efake:bob', cls=ExplicitFake, enabled_protocols=['web'],
+                       obj_as1={'id': 'efake:bob', 'objectType': 'person'})
+        mock_get.return_value = requests_response('')
+        mock_post.return_value = requests_response('me=https://alice.com')
+
+        state = store_indieauth_state('efake:bob')
+        resp = self.client.get(f'/follow/callback?code=my_code&state={state}')
+        self.assertEqual(302, resp.status_code)
+        self.assertEqual('/web/alice.com/following', resp.headers['Location'])
+        self.assertEqual(
+            ['Bridge your site into efake-phrase first, then try following efake:bob again.'],
+            get_flashed_messages())
+        self.assertEqual([], ExplicitFake.sent)
+        self.assertEqual([], Follower.query().fetch())
+
+    def test_callback_followee_not_bridged_into_web(self, mock_get, mock_post):
+        self.make_user('fake:bob', cls=Fake, manual_opt_out=True,
+                       obj_as1={'id': 'fake:bob', 'objectType': 'person'})
+        mock_get.return_value = requests_response('')
+        mock_post.return_value = requests_response('me=https://alice.com')
+
+        state = store_indieauth_state('fake:bob')
+        resp = self.client.get(f'/follow/callback?code=my_code&state={state}')
+        self.assertEqual(302, resp.status_code)
+        self.assertEqual('/web/alice.com/following', resp.headers['Location'])
+        self.assertEqual(
+            ["fake:bob isn't bridged into the web: account or instance has requested to be opted out"],
+            get_flashed_messages())
+        self.assertEqual([], Fake.sent)
+        self.assertEqual([], Follower.query().fetch())
+
+    def test_callback_web_followee(self, mock_get, mock_post):
+        self.make_user('bob.com', cls=Web)
+        mock_get.return_value = requests_response('')
+        mock_post.return_value = requests_response('me=https://alice.com')
+
+        state = store_indieauth_state('bob.com')
+        resp = self.client.get(f'/follow/callback?code=my_code&state={state}')
+        self.assertEqual(302, resp.status_code)
+        self.assertEqual('/web/alice.com/following', resp.headers['Location'])
+        self.assertEqual(
+            ['bob.com is on the web too! Try following them in a feed reader.'],
+            get_flashed_messages())
+        self.assertEqual([], Follower.query().fetch())
+
+    def test_callback_unknown_network(self, mock_get, mock_post):
+        mock_get.return_value = requests_response('')
+        mock_post.return_value = requests_response('me=https://alice.com')
+
+        state = store_indieauth_state('asdf')
+        resp = self.client.get(f'/follow/callback?code=my_code&state={state}')
+        self.assertEqual(302, resp.status_code)
+        self.assertEqual('/web/alice.com/following', resp.headers['Location'])
+        self.assertEqual(["asdf doesn't look like a handle on Farcaster"],
+                         get_flashed_messages())
+        self.assertEqual([], Follower.query().fetch())
+
+    def test_callback_bridged_bluesky_handle_error(self, mock_get, mock_post):
+        mock_get.return_value = requests_response('')
+        mock_post.return_value = requests_response('me=https://alice.com')
+
+        state = store_indieauth_state('@alice.bsky.social@bsky.brid.gy')
+        resp = self.client.get(f'/follow/callback?code=my_code&state={state}')
+        self.assertEqual(302, resp.status_code)
+        self.assertEqual('/web/alice.com/following', resp.headers['Location'])
+        self.assertEqual(
+            ['@alice.bsky.social@bsky.brid.gy is a bridged account. Try following them with their native handle on the Atmosphere (Bluesky)!'],
+            get_flashed_messages())
+
+        # just the IndieAuth fetch
+        self.assertEqual(1, mock_get.call_count)
+
+    def test_callback_bridged_bluesky_url_error(self, mock_get, mock_post):
+        mock_get.return_value = requests_response('')
+        mock_post.return_value = requests_response('me=https://alice.com')
+
+        state = store_indieauth_state('https://bsky.brid.gy/ap/did:plc:alice')
+        resp = self.client.get(f'/follow/callback?code=my_code&state={state}')
+        self.assertEqual(302, resp.status_code)
+        self.assertEqual('/web/alice.com/following', resp.headers['Location'])
+        self.assertEqual(
+            ['https://bsky.brid.gy/ap/did:plc:alice is a bridged account. Try following them with their native handle on the Atmosphere (Bluesky)!'],
+            get_flashed_messages())
+        self.assertEqual(1, mock_get.call_count)
 
     def check(self, input, resp, expected_follow, mock_get, mock_post,
               fetched_followee=True, expected_follow_as1=None):
@@ -428,7 +553,7 @@ class FollowTest(TestCase):
             sig_template.startswith('keyId="http://localhost/alice.com#key"'),
             sig_template)
 
-        follow_id = f'https://alice.com/#follow-2022-01-02T03:04:05-{input}'
+        follow_id = 'https://alice.com/#follow-2022-01-02T03:04:05-https://ba.r/id'
 
         followers = Follower.query().fetch()
         followee = ActivityPub(id='https://ba.r/id').key
@@ -461,7 +586,8 @@ class FollowTest(TestCase):
         self.assertEqual(400, resp.status_code)
 
     def test_callback_user_use_instead(self, mock_get, mock_post):
-        user = self.make_user('www.alice.com', cls=Web)
+        user = self.make_user('www.alice.com', cls=Web,
+                              enabled_protocols=['activitypub'])
         self.user.use_instead = user.key
         self.user.put()
 
@@ -482,9 +608,9 @@ class FollowTest(TestCase):
         self.assertEqual(302, resp.status_code)
         self.assertEqual('/web/www.alice.com/following', resp.headers['Location'])
 
-        id = 'https://www.alice.com/#follow-2022-01-02T03:04:05-https://ba.r/actor'
+        id = 'https://www.alice.com/#follow-2022-01-02T03:04:05-https://ba.r/id'
         expected_follow_as1 = as2.to_as1({
-            **FOLLOW_URL,
+            **FOLLOW,
             'id': id,
             'actor': 'alice.com',
         })
@@ -525,7 +651,7 @@ class FollowTest(TestCase):
         resp = self.client.get(f'/follow/callback?code=my_code&state={state}',
                                base_url='https://fed.brid.gy/')
 
-        self.check('https://ba.r/actor', resp, FOLLOW_URL, mock_get, mock_post)
+        self.check('https://ba.r/actor', resp, FOLLOW, mock_get, mock_post)
         self.assertEqual(
             [f'Followed <a href="https://ba.r/url">https://ba.r/actor</a>.'],
             get_flashed_messages())
@@ -547,7 +673,7 @@ class FollowTest(TestCase):
             'me': 'https://alice.com',
             'address': 'https://ba.r/actor',
         }, base_url='https://fed.brid.gy/')
-        self.check('https://ba.r/actor', resp, FOLLOW_URL, mock_get, mock_post)
+        self.check('https://ba.r/actor', resp, FOLLOW, mock_get, mock_post)
 
     def test_indieauthed_session_wrong_me(self, mock_get, mock_post):
         mock_get.side_effect = (
@@ -591,7 +717,7 @@ class UnfollowTest(TestCase):
         self.follower = Follower.get_or_create(
             from_=self.user,
             to=self.make_user('https://ba.r/id', cls=ActivityPub, obj_as2=FOLLOWEE),
-            follow=Object(id=FOLLOW_ADDRESS['id'], as2=FOLLOW_ADDRESS).put(),
+            follow=Object(id=FOLLOW['id'], as2=FOLLOW).put(),
             status='active',
         )
 
@@ -645,7 +771,8 @@ class UnfollowTest(TestCase):
 
         resp = self.client.get(f'/unfollow/callback?code=my_code&state={self.state}',
                                base_url='https://fed.brid.gy/')
-        self.check(resp, undo, mock_get, mock_post)
+        self.check(resp, undo, mock_get, mock_post,
+                   flash='Unfollowed <a href="https://ba.r/id">ba.r/id</a>.')
 
     def test_callback_followee_fetch_401_blocked(self, mock_get, mock_post):
         to = self.follower.to.get()
@@ -655,8 +782,7 @@ class UnfollowTest(TestCase):
 
         mock_get.side_effect = [
             requests_response(''),  # IndieAuth endpoint discovery
-            requests_response('', status=401),  # actor fetch
-        ]
+        ] + [requests_response('', status=401)] * 3  # actor fetches
         mock_post.return_value = requests_response('me=https://alice.com')
 
         resp = self.client.get(f'/unfollow/callback?code=my_code&state={self.state}',
@@ -664,15 +790,17 @@ class UnfollowTest(TestCase):
 
         self.assertEqual(302, resp.status_code)
         self.assertEqual('/web/alice.com/following', resp.headers['Location'])
-        self.assertEqual(["Couldn't load https://ba.r/id; they or their server may be blocking Bridgy Fed."],
+        self.assertEqual(['Unfollowed <a href="https://ba.r/id">ba.r/id</a>.'],
                          get_flashed_messages())
-        self.assertEqual('active', self.follower.key.get().status)
+        self.assertEqual('inactive', self.follower.key.get().status)
+        # just the IndieAuth token exchange, no Undo delivered
+        self.assertEqual(1, mock_post.call_count)
 
-    def check(self, resp, expected_undo, mock_get, mock_post):
+    def check(self, resp, expected_undo, mock_get, mock_post,
+              flash='Unfollowed <a href="https://ba.r/url">ba.r/url</a>.'):
         self.assertEqual(302, resp.status_code)
         self.assertEqual('/web/alice.com/following', resp.headers['Location'])
-        self.assertEqual([f'Unfollowed <a href="https://ba.r/url">ba.r/url</a>.'],
-                         get_flashed_messages())
+        self.assertEqual([flash], get_flashed_messages())
 
         inbox_args, inbox_kwargs = mock_post.call_args
         self.assertEqual(('http://ba.r/inbox',), inbox_args)
@@ -700,7 +828,7 @@ class UnfollowTest(TestCase):
         Follower.get_or_create(
             from_=self.user,
             to=self.make_user('https://ba.r/id', cls=ActivityPub, obj_as2=FOLLOWEE),
-            follow=Object(id=FOLLOW_ADDRESS['id'], as2=FOLLOW_ADDRESS).put(),
+            follow=Object(id=FOLLOW['id'], as2=FOLLOW).put(),
             status='active')
 
         mock_get.return_value = requests_response('')
@@ -721,7 +849,7 @@ class UnfollowTest(TestCase):
             'id': 'http://localhost/r/https://www.alice.com/#bridgy-fed-unfollow-2022-01-02T03:04:05-https://ba.r/id',
             'actor': 'http://localhost/www.alice.com',
             'object': {
-                **FOLLOW_ADDRESS,
+                **FOLLOW,
                 'actor': 'http://localhost/www.alice.com',
             },
             'url': {

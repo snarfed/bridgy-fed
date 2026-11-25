@@ -7,17 +7,17 @@
 import logging
 
 from flask import redirect, request, session
-from granary import as1
 from oauth_dropins import indieauth
+import requests
 from webutil import util
 from webutil.flask_util import error, flash
-from werkzeug.exceptions import BadGateway
+from werkzeug.exceptions import BadGateway, HTTPException
 
 from activitypub import ActivityPub
 from flask_app import app
 import common
 from domains import DOMAINS
-from models import Follower, Object, PROTOCOLS
+from models import Follower, load_user, Object, PROTOCOLS
 from protocol import Protocol
 from web import Web
 import webfinger
@@ -99,44 +99,47 @@ class FollowCallback(indieauth.Callback):
             error('Missing state')
 
         addr = state
-        if util.is_web(addr):
-            as2_url = addr
-        else:  # it's an @-@ handle
-            # if ActivityPub.owns_handle(addr) is False:
-            #     flash(f"{addr} isn't a native fediverse account")
-            #     return redirect(user.user_page_path('following'))
-            as2_url = webfinger.fetch_actor_url(addr)
-
-        if not as2_url:
-            # fetch_actor_url flashed an error message
+        addr_domain = (util.domain_from_link(addr) if util.is_web(addr)
+                       else addr.split('@')[-1])
+        if util.domain_or_parent_in(addr_domain, DOMAINS):
+            proto = Protocol.for_bridgy_subdomain(addr_domain)
+            on = f' on {proto.PHRASE}' if proto else ''
+            flash(f'{addr} is a bridged account. Try following them with their native handle{on}!')
             return redirect(user.user_page_path('following'))
 
-        if util.domain_or_parent_in(as2_url, DOMAINS):
-            proto = Protocol.for_id(as2_url)
-            flash(f"{addr} is a bridged account. Try following them on {proto.PHRASE}!")
-            return redirect(user.user_page_path('following'))
-        elif ActivityPub.owns_id(as2_url) is False:
-            flash(f"{addr} isn't a native fediverse account")
-            return redirect(user.user_page_path('following'))
-
-        # TODO(#512): follower will always be Web here, but we should generalize
-        # followee support in UI and here across protocols
         try:
-            followee = ActivityPub.load(as2_url)
+            followee = load_user(addr, create=True, allow_opt_out=True, raise_=True,
+                                 resolve=True)
         except BadGateway as e:
             if (e.requests_response is not None
                     and e.requests_response.status_code in (401, 403)):
                 flash(f"Couldn't load {addr}; they or their server may be blocking Bridgy Fed.")
-                return redirect(user.user_page_path('following'))
-            raise
-
-        if not followee:
-            flash(f"Couldn't load {as2_url} as AS2")
+            else:
+                flash(f"Couldn't load {addr}: {e.description}")
+            return redirect(user.user_page_path('following'))
+        except (RuntimeError, ValueError, requests.RequestException,
+                HTTPException) as e:
+            _, msg = util.interpret_http_exception(e)
+            flash(msg or str(e))
             return redirect(user.user_page_path('following'))
 
-        followee_id = followee.as1.get('id')
+        logger.info(f'{addr} resolved to {followee.key}')
+        if type(followee) == type(user):
+            flash(f'{addr} is on {user.PHRASE} too! Try following them in a feed reader.')
+            return redirect(user.user_page_path('following'))
+        elif not user.is_enabled(type(followee)):
+            flash(f'Bridge your site into {followee.PHRASE} first, then try following {addr} again.')
+            return redirect(user.user_page_path('following'))
+        elif not followee.is_enabled(Web):
+            msg = f"{addr} isn't bridged into {Web.PHRASE}"
+            if desc := followee.status_description():
+                msg += f': {desc}'
+            flash(msg)
+            return redirect(user.user_page_path('following'))
+
+        followee_id = followee.key.id()
         timestamp = util.now().replace(microsecond=0, tzinfo=None).isoformat()
-        follow_id = f'{user.web_url()}#follow-{timestamp}-{addr}'
+        follow_id = f'{user.web_url()}#follow-{timestamp}-{followee_id}'
         follow_as1 = {
             'objectType': 'activity',
             'verb': 'follow',
@@ -144,15 +147,13 @@ class FollowCallback(indieauth.Callback):
             'actor': user.key.id(),
             'object': followee_id,
         }
-        followee_user = ActivityPub.get_or_create(followee_id, obj=followee)
         follow_obj = Object(id=follow_id, users=[user.key], our_as1=follow_as1,
                             source_protocol='web')
 
         resp = Web.receive(follow_obj, authed_as=domain, internal=True)
         logger.info(f'Web.receive returned {resp}')
 
-        url = as1.get_url(followee.as1) or followee_id
-        link = common.pretty_link(url, text=addr)
+        link = common.pretty_link(followee.web_url(), text=addr)
         flash(f'Followed {link}.', escape=False)
         return redirect(user.user_page_path('following'))
 
@@ -205,22 +206,6 @@ class UnfollowCallback(indieauth.Callback):
         followee_id = follower.to.id()
         followee = follower.to.get()
 
-        if not followee.obj or not followee.obj.as1:
-            # fetch to get full followee so we can find its target to deliver to
-            try:
-                followee.obj = ActivityPub.load(followee_id)
-            except BadGateway as e:
-                if (e.requests_response is not None
-                        and e.requests_response.status_code in (401, 403)):
-                    flash(f"Couldn't load {followee_id}; they or their server may be blocking Bridgy Fed.")
-                    return redirect(user.user_page_path('following'))
-                raise
-
-            if not followee.obj:
-                error(f"Couldn't load {followee_id} as AS2")
-            followee.put()
-
-        # TODO(#529): generalize
         timestamp = util.now().replace(microsecond=0, tzinfo=None).isoformat()
         unfollow_id = f'{user.web_url()}#bridgy-fed-unfollow-{timestamp}-{followee_id}'
         unfollow_as1 = {
@@ -241,7 +226,7 @@ class UnfollowCallback(indieauth.Callback):
         follower.status = 'inactive'
         follower.put()
 
-        link = common.pretty_link(as1.get_url(followee.obj.as1) or followee_id)
+        link = common.pretty_link(followee.web_url())
         flash(f'Unfollowed {link}.', escape=False)
         return redirect(user.user_page_path('following'))
 
