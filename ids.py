@@ -173,10 +173,8 @@ def translate_user_id(*, id, from_, to, external=False):
         id = parsed.netloc
 
     if from_.LABEL == 'nostr':
-        if granary.nostr.is_bech32(id):
-            id = granary.nostr.uri_to_id(id)
-        if not id.startswith('nostr:'):
-            id = 'nostr:' + id
+        if not (id := normalize_user_id(id=id, proto=from_)):
+            return None
 
     if from_ == to:
         # same protocol: return the fully canonicalized id

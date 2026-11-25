@@ -121,6 +121,7 @@ class IdsTest(TestCase):
             (Nostr, PUBKEY_URI, Nostr, PUBKEY_URI),
             (Nostr, NPUB, Nostr, PUBKEY_URI),
             (Nostr, NPUB_URI, Nostr, PUBKEY_URI),
+            (Nostr, f'https://primal.net/p/{NPUB}', Nostr, PUBKEY_URI),
 
             # copies
             (ATProto, 'did:plc:123', Web, 'user.com'),
@@ -197,6 +198,13 @@ class IdsTest(TestCase):
         self.assertEqual(
             'https://fa.brid.gy/web/fake:user',
             translate_user_id(id='fake:user', from_=Fake, to=Web))
+
+    @patch.object(util.session, 'get', return_value=requests_response({
+        'names': {'alice': PUBKEY},
+    }))
+    def test_translate_user_id_nostr_nip05_url(self, _):
+        self.assertEqual(PUBKEY_URI, translate_user_id(
+            id='https://njump.me/alice@foo.com', from_=Nostr, to=Nostr))
 
     def test_translate_user_id_no_copy_did_stored(self):
         for proto, id in [
