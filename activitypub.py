@@ -2,6 +2,7 @@
 from base64 import b64encode, urlsafe_b64decode, urlsafe_b64encode
 import copy
 from datetime import datetime, timedelta
+from functools import partial
 from hashlib import sha256
 import itertools
 import logging
@@ -713,7 +714,7 @@ class ActivityPub(User, Protocol):
         return resp, None
 
     @classmethod
-    def _hydrate(cls, obj):
+    def _hydrate(cls, obj, get_fn=None):
         """Hydrates compacted values in ``obj``, in place.
 
         Very minimal and incomplete! Right now only handles the ``featured``
@@ -721,11 +722,14 @@ class ActivityPub(User, Protocol):
 
         Args:
           obj (dict): AS2 object
+          get_fn (callable): passed through to
+            :func:`granary.as2.maybe_hydrate_collection`. Defaults to
+            :func:`signed_get`.
         """
         if util.get_first(obj, 'type') not in as2.ACTOR_TYPES:
             return
 
-        as2.maybe_hydrate_collection(obj, 'featured', get_fn=signed_get)
+        as2.maybe_hydrate_collection(obj, 'featured', get_fn=get_fn or signed_get)
 
         # reduce pinned posts to just their ids. including the posts themselves can
         # push the actor over MAX_ENTITY_SIZE
@@ -1779,6 +1783,13 @@ def inbox(protocol=None, id=None):
 
     elif type == 'QuoteRequest':
         return handle_quote_request(activity)
+
+    elif type in ('Create', 'Update'):
+        # eg actor updates usually have the featured collection as just an id. fetch
+        # it here so we don't drop the pinned post. if the fetch fails, fail with
+        # HTTP 502 so the sender retries. (as2._fetch returns {} for a 200 with a
+        # non-AS2 Content-Type, though, so we'll still drop the pinned post then.)
+        ActivityPub._hydrate(obj, get_fn=partial(signed_get, gateway=True))
 
     if not id:
         id = f'{actor_id}#{type}-{obj_id or ""}-{util.now().isoformat()}'

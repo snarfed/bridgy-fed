@@ -910,6 +910,65 @@ class ActivityPubTest(TestCase):
             'https://mas.to/users/foo/statuses/1',
         ], [])
 
+    @patch('webutil.appengine_config.tasks_client.create_task')
+    def test_inbox_update_actor_hydrates_featured(self, mock_create_task, _,
+                                                   mock_get, __):
+        common.RUN_TASKS_INLINE = False
+        self.make_user(ACTOR['id'], cls=ActivityPub, obj_as2=ACTOR)
+        mock_get.return_value = self.as2_resp({
+            'id': 'https://mas.to/users/foo/collections/featured',
+            'type': 'OrderedCollection',
+            'orderedItems': [{
+                'id': 'https://mas.to/users/foo/statuses/1',
+                'type': 'Note',
+            }],
+        })
+
+        update = {
+            **UPDATE_PERSON,
+            'object': {
+                **ACTOR,
+                'featured': 'https://mas.to/users/foo/collections/featured',
+            },
+        }
+        resp = self.post('/ap/sharedInbox', json=update)
+        self.assertEqual(202, resp.status_code)
+
+        mock_get.assert_has_calls([
+            self.as2_req('https://mas.to/users/foo/collections/featured',
+                         headers=as2.CONNEG_HEADERS),
+        ])
+        self.assert_task(mock_create_task, 'receive', id=UPDATE_PERSON['id'],
+                         source_protocol='activitypub', authed_as=ACTOR['id'],
+                         received_at='2022-01-02T03:04:05+00:00', as2={
+            **update,
+            'object': {
+                **ACTOR,
+                'featured': {
+                    'id': 'https://mas.to/users/foo/collections/featured',
+                    'type': 'OrderedCollection',
+                    'orderedItems': ['https://mas.to/users/foo/statuses/1'],
+                },
+            },
+        })
+
+    @patch('webutil.appengine_config.tasks_client.create_task')
+    def test_inbox_update_actor_featured_fetch_fails(self, mock_create_task, _,
+                                                     mock_get, __):
+        common.RUN_TASKS_INLINE = False
+        self.make_user(ACTOR['id'], cls=ActivityPub, obj_as2=ACTOR)
+        mock_get.return_value = requests_response(status=503)
+
+        resp = self.post('/ap/sharedInbox', json={
+            **UPDATE_PERSON,
+            'object': {
+                **ACTOR,
+                'featured': 'https://mas.to/users/foo/collections/featured',
+            },
+        })
+        self.assertEqual(502, resp.status_code)
+        mock_create_task.assert_not_called()
+
     def _test_inbox_modify_featured(self, mock_create_task, mock_get, verb,
                                     orig_items, expected_items):
         common.RUN_TASKS_INLINE = False
