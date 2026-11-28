@@ -322,13 +322,26 @@ class Nostr(User, Protocol):
     @classmethod
     def target_for(cls, obj, shared=False):
         """Returns the first NIP-65 relay for the given object's author."""
-        if obj and (id := as1.get_owner(obj.as1)) and id.startswith('nostr:'):
-            if user := Nostr.get_or_create(id, allow_opt_out=True):
-                if user.relays and (relays := user.relays.get()):
-                    if relays.nostr:
-                        for tag in relays.nostr.get('tags', []):
-                            if tag[0] == 'r' and (len(tag) == 2 or tag[2] == 'write'):
-                                return normalize_relay_uri(tag[1])
+        if not obj:
+            return None
+
+        if not ((id := as1.get_owner(obj.as1)) and id.startswith('nostr:')):
+            logger.info(f"{obj.key} has no Nostr owner")
+            return None
+
+        if not (user := Nostr.get_or_create(id, allow_opt_out=True)):
+            logger.info(f"Couldn't load Nostr user {id}")
+            return None
+
+        if not user.relays or not (relays := user.relays.get()) or not relays.nostr:
+            logger.info(f'{id} has no stored NIP-65 relays: {user.relays}')
+            return None
+
+        for tag in relays.nostr.get('tags', []):
+            if tag[0] == 'r' and (len(tag) == 2 or tag[2] == 'write'):
+                return normalize_relay_uri(tag[1])
+
+        logger.info(f'{id} has no NIP-65 write relays in {user.relays}')
 
     @classmethod
     def check_supported(cls, obj, direction):
