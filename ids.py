@@ -388,7 +388,8 @@ def profile_id(*, id, proto):
       proto (protocol.Protocol)
 
     Returns:
-      str: the profile id
+      str or None: the profile id, or None if it can't be determined, eg for a
+      Nostr user we don't have stored
     """
     import nostr
 

@@ -3204,6 +3204,14 @@ cast_add_body { text: "hi" }
         self.assertEqual('efake:alices', obj.get_external_id(ExplicitFake))
         self.assertIsNone(Fake.get_by_id('fake:alice'))
 
+    def test_get_external_id_nostr_author_not_stored(self):
+        obj = Object(id=URI, source_protocol='nostr', our_as1={
+            'objectType': 'note',
+            'author': PUBKEY_URI,
+            'urls': [{'value': 'efake:post', 'rel': 'alternate'}],
+        })
+        self.assertIsNone(obj.get_external_id(ExplicitFake))
+
     def test_get_external_id_author_has_no_external_id(self):
         self.make_user('fake:alice', cls=Fake, obj_as1={
             'objectType': 'person',

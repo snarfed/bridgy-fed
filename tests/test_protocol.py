@@ -877,6 +877,19 @@ class ProtocolTest(TestCase):
             {Target(protocol='fake', uri='fake:linked-post:target'): None},
             OtherFake.targets(create, crud_obj=note, from_user=self.user))
 
+    def test_targets_mention_unknown_nostr_user(self):
+        note = Object(our_as1={
+            'objectType': 'note',
+            'id': 'fake:post',
+            'tags': [{'objectType': 'mention', 'url': PUBKEY_URI}],
+        })
+        create = Object(our_as1={
+            'objectType': 'activity',
+            'verb': 'post',
+            'object': note.as1,
+        })
+        self.assertEqual({}, Fake.targets(create, crud_obj=note, from_user=self.user))
+
     @patch.object(Fake, 'fetch')
     def test_targets_continues_on_fetch_error(self, mock_fetch):
         def fetch(obj, **_):

@@ -2159,9 +2159,10 @@ class Object(AddRemoveMixin, StringIdModel):
             # proxy links
             if user := proto.get_by_id(id, allow_opt_out=True):
                 return user
-            profile_id = ids.profile_id(id=id, proto=proto)
-            profile = proto.load(profile_id, remote=remote, raise_=False)
-            return proto(id=id, obj=profile) if profile else proto(id=id)
+            if profile_id := ids.profile_id(id=id, proto=proto):
+                if profile := proto.load(profile_id, remote=remote, raise_=False):
+                    return proto(id=id, obj=profile)
+            return proto(id=id)
 
         author_id = author_proto = is_profile = None
         author_external_id = False  # not loaded yet

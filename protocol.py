@@ -2207,6 +2207,9 @@ class Protocol:
                              # returns its input id unchanged if it doesn't look like
                              # a user id, but that's brittle.
                              else target_id)
+            if not target_obj_id:
+                logger.info(f"Couldn't determine profile id for {target_id}")
+                continue
 
             # don't refresh the existing id since some profile ids aren't stable, eg
             # Nostr kind 0 events are replaceable, so relays drop old ones
